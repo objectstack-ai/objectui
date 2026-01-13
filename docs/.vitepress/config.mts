@@ -4,7 +4,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Object UI",
   description: "The Modular Interface Engine for the Enterprise",
-  base: '/object-ui/',
+  base: '/',
   ignoreDeadLinks: true,
   
   themeConfig: {

@@ -5,6 +5,7 @@ A drag-and-drop visual editor to generate Object UI schemas.
 ## Features
 
 - **Visual Schema Editor**: Edit Object UI schemas visually with a live preview
+- **Drag-and-Drop**: Drag components from the palette to the canvas and reorder them within the canvas
 - **Component Palette**: Browse and add components from a categorized list
 - **Property Editor**: Configure component properties with a dynamic form
 - **JSON Import/Export**: Import and export schemas as JSON
@@ -207,8 +208,8 @@ module.exports = {
 
 ## Features Roadmap
 
-- [ ] Drag and drop components from palette
-- [ ] Drag to reorder components in canvas
+- [x] Drag and drop components from palette
+- [x] Drag to reorder components in canvas
 - [ ] Undo/redo functionality
 - [ ] Schema validation
 - [ ] Component tree view

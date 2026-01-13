@@ -4,7 +4,7 @@ A live, interactive playground to showcase Object UI's schema-driven rendering c
 
 ## Features
 
-- **Split View Editor**: Monaco Editor (VS Code style) on the left, live preview on the right
+- **Split View Editor**: JSON editor with syntax validation on the left, live preview on the right
 - **Real-time Rendering**: See your changes instantly as you edit JSON schemas
 - **Example Gallery**: Curated examples organized by category (Primitives, Layouts, Forms)
 - **Responsive Preview**: Toggle between desktop, tablet, and mobile viewports

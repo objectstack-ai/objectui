@@ -207,5 +207,3 @@ Licensed under the [MIT License](https://www.google.com/search?q=LICENSE).
 <div align="center">
 <sub>Built with ❤️ by the Object Ecosystem Team.</sub>
 </div>
-
-```

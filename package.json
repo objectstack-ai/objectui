@@ -1,13 +1,18 @@
 {
   "name": "object-ui-monorepo",
   "private": true,
+  "homepage": "https://www.objectui.org",
   "workspaces": [
     "packages/*",
-    "examples/*"
+    "examples/*",
+    "docs"
   ],
   "scripts": {
     "build": "pnpm -r build",
-    "test": "vitest run",
+    "test": "pnpm -r test",
+    "docs:dev": "pnpm --filter object-ui-docs dev",
+    "docs:build": "pnpm --filter object-ui-docs build",
+    "docs:preview": "pnpm --filter object-ui-docs preview",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",

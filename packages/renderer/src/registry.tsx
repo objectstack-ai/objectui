@@ -11,7 +11,7 @@ export type ComponentRenderer = React.FC<ComponentRendererProps>;
 
 export type ComponentInput = {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'object' | 'color' | 'date' | 'code' | 'file';
+  type: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'object' | 'color' | 'date' | 'code' | 'file' | 'slot';
   label?: string;
   defaultValue?: any;
   required?: boolean;

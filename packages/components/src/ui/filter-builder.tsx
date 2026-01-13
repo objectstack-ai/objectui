@@ -77,7 +77,7 @@ function FilterBuilder({
     if (value && JSON.stringify(value) !== JSON.stringify(filterGroup)) {
       setFilterGroup(value)
     }
-  }, [value, filterGroup])
+  }, [value])
 
   const handleChange = (newGroup: FilterGroup) => {
     setFilterGroup(newGroup)

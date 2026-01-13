@@ -242,7 +242,7 @@ One schema, truly everywhere:
 ## ❓ Frequently Asked Questions
 
 ### When will Object UI be production-ready?
-**March 2026** for the core features. Many teams are already using our preview in production.
+**March 2026** for the core features. We have a preview available now that you can evaluate.
 
 ### Will it always be open source?
 Yes! The core will always be MIT licensed. We may offer paid enterprise features, but the community edition will be powerful on its own.

@@ -11,4 +11,5 @@ export { ComponentPalette } from './components/ComponentPalette';
 export { PropertyPanel } from './components/PropertyPanel';
 export { Toolbar } from './components/Toolbar';
 
+export const name = '@object-ui/designer';
 export const version = '0.1.0';

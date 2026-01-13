@@ -16,6 +16,13 @@ export interface DesignerContextValue {
   updateNode: (id: string, updates: Partial<SchemaNode>) => void;
   removeNode: (id: string) => void;
   moveNode: (nodeId: string, targetParentId: string | null, targetIndex: number) => void;
+  copyNode: (id: string) => void;
+  pasteNode: (parentId: string | null) => void;
+  canPaste: boolean;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const DesignerContext = createContext<DesignerContextValue | undefined>(undefined);
@@ -189,6 +196,13 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [draggingType, setDraggingType] = useState<string | null>(null);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  
+  // Undo/Redo state
+  const [history, setHistory] = useState<SchemaNode[]>([ensureNodeIds(initialSchema || defaultSchema)]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  
+  // Copy/Paste state
+  const [clipboard, setClipboard] = useState<SchemaNode | null>(null);
 
   // Notify parent on change
   const isFirstRender = useRef(true);
@@ -200,53 +214,112 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
     onSchemaChange?.(schema);
   }, [schema, onSchemaChange]);
 
+  // Add to history when schema changes (debounced)
+  const addToHistory = useCallback((newSchema: SchemaNode) => {
+    setHistory(prev => {
+      // Remove any history after current index
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Add new state
+      newHistory.push(newSchema);
+      // Limit history to 50 items
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        setHistoryIndex(prev => prev); // Keep same index since we removed from start
+      } else {
+        setHistoryIndex(newHistory.length - 1);
+      }
+      return newHistory;
+    });
+  }, [historyIndex]);
+
   const setSchema = useCallback((newSchema: SchemaNode) => {
-    setSchemaState(ensureNodeIds(newSchema));
-  }, []);
+    const withIds = ensureNodeIds(newSchema);
+    setSchemaState(withIds);
+    addToHistory(withIds);
+  }, [addToHistory]);
+
+  const updateSchemaWithHistory = useCallback((newSchema: SchemaNode) => {
+    setSchemaState(newSchema);
+    addToHistory(newSchema);
+  }, [addToHistory]);
 
   const addNode = useCallback((parentId: string | null, node: SchemaNode, index?: number) => {
     const nodeWithId = ensureNodeIds(node);
     
     setSchemaState(prev => {
-        // If parentId is null, we assume adding to root if root exists? 
-        // Or if root is container.
-        // For simplicty, try to add to root if parentId matches root.id or is null
         const targetId = parentId || prev.id;
-        return addNodeToParent(prev, targetId, nodeWithId, index);
+        const newSchema = addNodeToParent(prev, targetId, nodeWithId, index);
+        addToHistory(newSchema);
+        return newSchema;
     });
     
     // Select the new node
     setTimeout(() => setSelectedNodeId(nodeWithId.id || null), 50);
-  }, []);
+  }, [addToHistory]);
 
   const updateNode = useCallback((id: string, updates: Partial<SchemaNode>) => {
-    setSchemaState(prev => updateNodeById(prev, id, updates));
-  }, []);
+    setSchemaState(prev => {
+      const newSchema = updateNodeById(prev, id, updates);
+      addToHistory(newSchema);
+      return newSchema;
+    });
+  }, [addToHistory]);
   
   const removeNode = useCallback((id: string) => {
     setSchemaState(prev => {
         const res = removeNodeById(prev, id);
-        return res || prev; // If root removed, fallback to prev (prevent empty)? Or allow clearing?
-        // Usually we don't allow removing root.
+        const newSchema = res || prev;
+        addToHistory(newSchema);
+        return newSchema;
     });
     setSelectedNodeId(null);
-  }, []);
+  }, [addToHistory]);
 
-  /**
-   * Move a node to a different location in the schema tree.
-   * 
-   * @param nodeId - ID of the node to move
-   * @param targetParentId - ID of the target parent container (or null for root)
-   * @param targetIndex - Index position within the target parent's children
-   * 
-   * @remarks
-   * - Prevents moving a node into itself or its descendants
-   * - Removes the node from its current location before adding to new location
-   * - If the node is not found, the schema remains unchanged
-   */
   const moveNode = useCallback((nodeId: string, targetParentId: string | null, targetIndex: number) => {
-    setSchemaState(prev => moveNodeInTree(prev, nodeId, targetParentId, targetIndex));
-  }, []);
+    setSchemaState(prev => {
+      const newSchema = moveNodeInTree(prev, nodeId, targetParentId, targetIndex);
+      addToHistory(newSchema);
+      return newSchema;
+    });
+  }, [addToHistory]);
+
+  // Undo/Redo functions
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setSchemaState(history[newIndex]);
+    }
+  }, [historyIndex, history]);
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setSchemaState(history[newIndex]);
+    }
+  }, [historyIndex, history]);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  // Copy/Paste functions
+  const copyNode = useCallback((id: string) => {
+    const node = findNodeById(schema, id);
+    if (node) {
+      // Create a deep copy without the ID so it gets a new one when pasted
+      const { id: _, ...nodeWithoutId } = node;
+      setClipboard(nodeWithoutId as SchemaNode);
+    }
+  }, [schema]);
+
+  const pasteNode = useCallback((parentId: string | null) => {
+    if (clipboard) {
+      addNode(parentId, clipboard);
+    }
+  }, [clipboard, addNode]);
+
+  const canPaste = clipboard !== null;
 
   return (
     <DesignerContext.Provider value={{
@@ -263,7 +336,14 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
       addNode,
       updateNode,
       removeNode,
-      moveNode
+      moveNode,
+      copyNode,
+      pasteNode,
+      canPaste,
+      undo,
+      redo,
+      canUndo,
+      canRedo
     }}>
       {children}
     </DesignerContext.Provider>

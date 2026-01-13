@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@object-ui/components';
 import { 
     Monitor, 
@@ -7,48 +7,287 @@ import {
     Undo, 
     Redo, 
     Play, 
-    Share2, 
+    Share2,
+    Download,
+    Upload,
+    Copy,
+    FileJson,
 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@object-ui/components";
+import { Textarea } from '@object-ui/components';
+import { useDesigner } from '../context/DesignerContext';
+import { cn } from '@object-ui/components';
+
+type ViewportMode = 'desktop' | 'tablet' | 'mobile';
 
 export const Toolbar: React.FC = () => {
+    const { schema, setSchema, undo, redo, canUndo, canRedo } = useDesigner();
+    const [viewportMode, setViewportMode] = useState<ViewportMode>('desktop');
+    const [showExportDialog, setShowExportDialog] = useState(false);
+    const [showImportDialog, setShowImportDialog] = useState(false);
+    const [importJson, setImportJson] = useState('');
+    const [importError, setImportError] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleExport = () => {
+        const json = JSON.stringify(schema, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'schema.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleCopyJson = async () => {
+        const json = JSON.stringify(schema, null, 2);
+        await navigator.clipboard.writeText(json);
+        // Could add a toast notification here
+    };
+
+    const handleImport = () => {
+        try {
+            setImportError('');
+            const parsed = JSON.parse(importJson);
+            setSchema(parsed);
+            setShowImportDialog(false);
+            setImportJson('');
+        } catch (error) {
+            setImportError(error instanceof Error ? error.message : 'Invalid JSON');
+        }
+    };
+
+    const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = event.target?.result as string;
+                const parsed = JSON.parse(json);
+                setSchema(parsed);
+            } catch (error) {
+                console.error('Failed to import file:', error);
+            }
+        };
+        reader.readAsText(file);
+    };
+
     return (
         <div className="h-14 border-b bg-white flex items-center px-4 justify-between shadow-sm z-10 shrink-0">
             <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
                     O
                 </div>
-                <h1 className="font-semibold text-gray-800 tracking-tight hidden sm:block">Object UI</h1>
-                <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full border hidden sm:block">Beta</span>
+                <h1 className="font-semibold text-gray-800 tracking-tight hidden sm:block">Object UI Designer</h1>
+                <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-200 hidden sm:block font-medium">Beta</span>
             </div>
 
-            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-md border mx-auto">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white hover:text-blue-600 hover:shadow-sm transition-all">
-                    <Monitor size={16} />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white hover:text-blue-600 hover:shadow-sm transition-all">
-                    <Tablet size={16} />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white hover:text-blue-600 hover:shadow-sm transition-all">
-                    <Smartphone size={16} />
-                </Button>
-            </div>
-
+            {/* Center Controls */}
             <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 mr-2 border-r pr-2 hidden sm:flex">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900">
+                {/* Viewport Toggle */}
+                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-md border">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className={cn(
+                            "h-8 w-8 p-0 transition-all",
+                            viewportMode === 'desktop' ? "bg-white text-blue-600 shadow-sm" : "hover:bg-white hover:text-blue-600"
+                        )}
+                        onClick={() => setViewportMode('desktop')}
+                        title="Desktop view"
+                    >
+                        <Monitor size={16} />
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className={cn(
+                            "h-8 w-8 p-0 transition-all",
+                            viewportMode === 'tablet' ? "bg-white text-blue-600 shadow-sm" : "hover:bg-white hover:text-blue-600"
+                        )}
+                        onClick={() => setViewportMode('tablet')}
+                        title="Tablet view"
+                    >
+                        <Tablet size={16} />
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className={cn(
+                            "h-8 w-8 p-0 transition-all",
+                            viewportMode === 'mobile' ? "bg-white text-blue-600 shadow-sm" : "hover:bg-white hover:text-blue-600"
+                        )}
+                        onClick={() => setViewportMode('mobile')}
+                        title="Mobile view"
+                    >
+                        <Smartphone size={16} />
+                    </Button>
+                </div>
+            </div>
+
+            {/* Right Actions */}
+            <div className="flex items-center gap-2">
+                {/* Undo/Redo */}
+                <div className="flex items-center gap-1 mr-2 border-r pr-2">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900 disabled:opacity-30"
+                        onClick={undo}
+                        disabled={!canUndo}
+                        title="Undo (Ctrl+Z)"
+                    >
                         <Undo size={16} />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900 disabled:opacity-30"
+                        onClick={redo}
+                        disabled={!canRedo}
+                        title="Redo (Ctrl+Y)"
+                    >
                         <Redo size={16} />
                     </Button>
                 </div>
+
+                {/* Import/Export */}
+                <div className="flex items-center gap-1 mr-2 border-r pr-2">
+                    <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+                        <DialogTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900"
+                                title="Import JSON"
+                            >
+                                <Upload size={16} />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                                <DialogTitle>Import Schema</DialogTitle>
+                                <DialogDescription>
+                                    Paste your JSON schema below or upload a file.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                                <div>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".json"
+                                        onChange={handleFileImport}
+                                        className="hidden"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-full"
+                                    >
+                                        <Upload size={16} className="mr-2" />
+                                        Upload JSON File
+                                    </Button>
+                                </div>
+                                <div className="relative">
+                                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex items-center">
+                                        <div className="flex-1 border-t"></div>
+                                        <div className="px-2 text-xs text-gray-500">or paste JSON</div>
+                                        <div className="flex-1 border-t"></div>
+                                    </div>
+                                </div>
+                                <Textarea
+                                    value={importJson}
+                                    onChange={(e) => setImportJson(e.target.value)}
+                                    placeholder='{"type": "div", "body": []}'
+                                    className="font-mono text-xs h-64"
+                                />
+                                {importError && (
+                                    <p className="text-sm text-red-600">{importError}</p>
+                                )}
+                                <div className="flex gap-2 justify-end">
+                                    <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+                                        Cancel
+                                    </Button>
+                                    <Button onClick={handleImport}>
+                                        Import
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+                        <DialogTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900"
+                                title="Export JSON"
+                            >
+                                <Download size={16} />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                                <DialogTitle>Export Schema</DialogTitle>
+                                <DialogDescription>
+                                    Copy the JSON schema or download it as a file.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                                <Textarea
+                                    value={JSON.stringify(schema, null, 2)}
+                                    readOnly
+                                    className="font-mono text-xs h-64"
+                                />
+                                <div className="flex gap-2 justify-end">
+                                    <Button variant="outline" onClick={handleCopyJson}>
+                                        <Copy size={16} className="mr-2" />
+                                        Copy to Clipboard
+                                    </Button>
+                                    <Button onClick={handleExport}>
+                                        <Download size={16} className="mr-2" />
+                                        Download File
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </div>
                 
-                <Button variant="outline" size="sm" className="h-8 gap-2 hidden md:flex border-gray-200 text-gray-600 hover:bg-gray-50">
-                    <Share2 size={14} />
-                    <span className="text-xs">Share</span>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 gap-2 hidden md:flex border-gray-200 text-gray-600 hover:bg-gray-50"
+                    onClick={() => {
+                        const json = JSON.stringify(schema, null, 2);
+                        navigator.clipboard.writeText(json);
+                    }}
+                    title="Copy schema JSON to clipboard"
+                >
+                    <FileJson size={14} />
+                    <span className="text-xs">Copy JSON</span>
                 </Button>
 
-                <Button variant="default" size="sm" className="h-8 gap-2 bg-blue-600 hover:bg-blue-700 shadow-sm text-white border-none">
+                <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="h-8 gap-2 bg-blue-600 hover:bg-blue-700 shadow-sm text-white border-none"
+                    onClick={() => window.open('about:blank')}
+                    title="Preview in new window"
+                >
                     <Play size={12} fill="currentColor" />
                     <span className="text-xs font-medium">Preview</span>
                 </Button>

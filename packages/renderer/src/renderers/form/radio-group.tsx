@@ -26,7 +26,7 @@ ComponentRegistry.register('radio-group',
       { name: 'className', type: 'string', label: 'CSS Class' }
     ],
     defaultProps: {
-      id: 'radio-' + Math.random().toString(36).substr(2, 9),
+      id: 'radio-group', // Will be made unique by designer's ensureNodeIds
       items: [
         { label: 'Option 1', value: 'option1' },
         { label: 'Option 2', value: 'option2' },

@@ -19,7 +19,7 @@ ComponentRegistry.register('checkbox',
     ],
     defaultProps: {
       label: 'Checkbox label',
-      id: 'checkbox-' + Math.random().toString(36).substr(2, 9)
+      id: 'checkbox-field' // Will be made unique by designer's ensureNodeIds
     }
   }
 );

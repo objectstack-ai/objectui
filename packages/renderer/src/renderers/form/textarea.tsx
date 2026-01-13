@@ -23,7 +23,7 @@ ComponentRegistry.register('textarea',
     defaultProps: {
       label: 'Textarea label',
       placeholder: 'Enter text here...',
-      id: 'textarea-' + Math.random().toString(36).substr(2, 9)
+      id: 'textarea-field' // Will be made unique by designer's ensureNodeIds
     }
   }
 );

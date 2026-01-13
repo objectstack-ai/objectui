@@ -17,7 +17,7 @@ ComponentRegistry.register('switch',
     ],
     defaultProps: {
       label: 'Switch label',
-      id: 'switch-' + Math.random().toString(36).substr(2, 9)
+      id: 'switch-field' // Will be made unique by designer's ensureNodeIds
     }
   }
 );

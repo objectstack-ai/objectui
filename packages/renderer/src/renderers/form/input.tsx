@@ -32,7 +32,7 @@ ComponentRegistry.register('input',
       label: 'Label',
       placeholder: 'Enter text...',
       inputType: 'text',
-      id: 'input-' + Math.random().toString(36).substr(2, 9)
+      id: 'input-field' // Will be made unique by designer's ensureNodeIds
     }
   }
 );

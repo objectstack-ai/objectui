@@ -26,6 +26,7 @@ export * from './input-group';
 export * from './input-otp';
 export * from './input';
 export * from './item';
+export * from './kanban';
 export * from './kbd';
 export * from './label';
 export * from './menubar';

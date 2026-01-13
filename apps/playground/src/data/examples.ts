@@ -638,6 +638,261 @@ export const examples = {
       ]
     }
   ]
+}`,
+
+  // Enterprise Data Table - Airtable-like functionality
+  'enterprise-table': `{
+  "type": "div",
+  "className": "space-y-6",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-2",
+      "body": [
+        {
+          "type": "text",
+          "content": "Enterprise Data Table",
+          "className": "text-2xl font-bold"
+        },
+        {
+          "type": "text",
+          "content": "Full-featured data table with sorting, filtering, pagination, row selection, and export capabilities - similar to Airtable",
+          "className": "text-muted-foreground"
+        }
+      ]
+    },
+    {
+      "type": "data-table",
+      "caption": "User Management Table",
+      "pagination": true,
+      "pageSize": 10,
+      "searchable": true,
+      "selectable": true,
+      "sortable": true,
+      "exportable": true,
+      "rowActions": true,
+      "columns": [
+        { 
+          "header": "ID", 
+          "accessorKey": "id", 
+          "width": "80px",
+          "sortable": true
+        },
+        { 
+          "header": "Name", 
+          "accessorKey": "name",
+          "sortable": true
+        },
+        { 
+          "header": "Email", 
+          "accessorKey": "email",
+          "sortable": true
+        },
+        { 
+          "header": "Department", 
+          "accessorKey": "department",
+          "sortable": true
+        },
+        { 
+          "header": "Status", 
+          "accessorKey": "status",
+          "sortable": true
+        },
+        { 
+          "header": "Role", 
+          "accessorKey": "role",
+          "sortable": true
+        },
+        { 
+          "header": "Join Date", 
+          "accessorKey": "joinDate",
+          "sortable": true
+        }
+      ],
+      "data": [
+        { 
+          "id": 1, 
+          "name": "John Doe", 
+          "email": "john.doe@company.com", 
+          "department": "Engineering",
+          "status": "Active", 
+          "role": "Senior Engineer",
+          "joinDate": "2020-03-15"
+        },
+        { 
+          "id": 2, 
+          "name": "Jane Smith", 
+          "email": "jane.smith@company.com", 
+          "department": "Product",
+          "status": "Active", 
+          "role": "Product Manager",
+          "joinDate": "2019-07-22"
+        },
+        { 
+          "id": 3, 
+          "name": "Bob Johnson", 
+          "email": "bob.johnson@company.com", 
+          "department": "Sales",
+          "status": "Inactive", 
+          "role": "Sales Rep",
+          "joinDate": "2021-01-10"
+        },
+        { 
+          "id": 4, 
+          "name": "Alice Williams", 
+          "email": "alice.williams@company.com", 
+          "department": "Engineering",
+          "status": "Active", 
+          "role": "Engineering Manager",
+          "joinDate": "2018-11-05"
+        },
+        { 
+          "id": 5, 
+          "name": "Charlie Brown", 
+          "email": "charlie.brown@company.com", 
+          "department": "Marketing",
+          "status": "Active", 
+          "role": "Marketing Specialist",
+          "joinDate": "2022-02-28"
+        },
+        { 
+          "id": 6, 
+          "name": "Diana Prince", 
+          "email": "diana.prince@company.com", 
+          "department": "HR",
+          "status": "Active", 
+          "role": "HR Director",
+          "joinDate": "2017-06-12"
+        },
+        { 
+          "id": 7, 
+          "name": "Ethan Hunt", 
+          "email": "ethan.hunt@company.com", 
+          "department": "Operations",
+          "status": "Inactive", 
+          "role": "Operations Lead",
+          "joinDate": "2020-09-01"
+        },
+        { 
+          "id": 8, 
+          "name": "Fiona Gallagher", 
+          "email": "fiona.gallagher@company.com", 
+          "department": "Finance",
+          "status": "Active", 
+          "role": "Financial Analyst",
+          "joinDate": "2021-04-18"
+        },
+        { 
+          "id": 9, 
+          "name": "George Wilson", 
+          "email": "george.wilson@company.com", 
+          "department": "Product",
+          "status": "Active", 
+          "role": "Product Designer",
+          "joinDate": "2019-12-03"
+        },
+        { 
+          "id": 10, 
+          "name": "Hannah Montana", 
+          "email": "hannah.montana@company.com", 
+          "department": "Marketing",
+          "status": "Active", 
+          "role": "Content Creator",
+          "joinDate": "2022-05-20"
+        },
+        { 
+          "id": 11, 
+          "name": "Ivan Drago", 
+          "email": "ivan.drago@company.com", 
+          "department": "Engineering",
+          "status": "Inactive", 
+          "role": "Junior Engineer",
+          "joinDate": "2023-01-15"
+        },
+        { 
+          "id": 12, 
+          "name": "Julia Roberts", 
+          "email": "julia.roberts@company.com", 
+          "department": "Legal",
+          "status": "Active", 
+          "role": "Legal Counsel",
+          "joinDate": "2018-08-25"
+        },
+        { 
+          "id": 13, 
+          "name": "Kevin Hart", 
+          "email": "kevin.hart@company.com", 
+          "department": "Sales",
+          "status": "Active", 
+          "role": "Sales Director",
+          "joinDate": "2019-03-10"
+        },
+        { 
+          "id": 14, 
+          "name": "Laura Palmer", 
+          "email": "laura.palmer@company.com", 
+          "department": "Customer Support",
+          "status": "Active", 
+          "role": "Support Lead",
+          "joinDate": "2020-11-22"
+        },
+        { 
+          "id": 15, 
+          "name": "Mike Tyson", 
+          "email": "mike.tyson@company.com", 
+          "department": "Operations",
+          "status": "Active", 
+          "role": "Operations Manager",
+          "joinDate": "2021-07-05"
+        }
+      ]
+    }
+  ]
+}`,
+
+  'data-table-simple': `{
+  "type": "div",
+  "className": "space-y-6",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-2",
+      "body": [
+        {
+          "type": "text",
+          "content": "Simple Data Table",
+          "className": "text-2xl font-bold"
+        },
+        {
+          "type": "text",
+          "content": "Minimal configuration with essential features only",
+          "className": "text-muted-foreground"
+        }
+      ]
+    },
+    {
+      "type": "data-table",
+      "pagination": false,
+      "searchable": false,
+      "selectable": false,
+      "sortable": true,
+      "exportable": false,
+      "rowActions": false,
+      "columns": [
+        { "header": "Product", "accessorKey": "product" },
+        { "header": "Price", "accessorKey": "price" },
+        { "header": "Stock", "accessorKey": "stock" },
+        { "header": "Category", "accessorKey": "category" }
+      ],
+      "data": [
+        { "product": "Laptop", "price": "$999", "stock": "45", "category": "Electronics" },
+        { "product": "Mouse", "price": "$29", "stock": "150", "category": "Accessories" },
+        { "product": "Keyboard", "price": "$79", "stock": "89", "category": "Accessories" },
+        { "product": "Monitor", "price": "$299", "stock": "32", "category": "Electronics" },
+        { "product": "Desk Chair", "price": "$199", "stock": "18", "category": "Furniture" }
+      ]
+    }
+  ]
 }`
 };
 
@@ -646,5 +901,6 @@ export type ExampleKey = keyof typeof examples;
 export const exampleCategories = {
   'Primitives': ['simple-page', 'input-states', 'button-variants'],
   'Layouts': ['grid-layout', 'dashboard', 'tabs-demo'],
-  'Forms': ['form-demo']
+  'Forms': ['form-demo'],
+  'Data Display': ['enterprise-table', 'data-table-simple']
 };

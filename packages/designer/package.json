@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "peerDependencies": {
     "react": "^19.2.3",
@@ -15,6 +16,7 @@
   "dependencies": {
     "@object-ui/protocol": "workspace:*",
     "@object-ui/renderer": "workspace:*",
-    "@object-ui/ui": "workspace:*"
+    "@object-ui/ui": "workspace:*",
+    "lucide-react": "^0.562.0"
   }
 }

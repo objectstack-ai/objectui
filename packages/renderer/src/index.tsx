@@ -1,4 +1,3 @@
-import React from 'react';
 import type { SchemaNode } from '@object-ui/protocol';
 import { ComponentRegistry } from './registry';
 import './renderers'; // Import all renderers to register them
@@ -22,6 +21,6 @@ export const SchemaRenderer: React.FC<{ schema: SchemaNode }> = ({ schema }) => 
     );
   }
 
-  return <Component schema={schema} {...(schema.props || {})} className={schema.className} />;
+  return <Component schema={schema} {...(schema.props || {})} className={schema.className} data-obj-id={schema.id} />;
 };
 

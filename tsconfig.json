@@ -15,17 +15,22 @@
 
     /* Linting */
     "strict": true,
-    "noUnusedLocals": true,
+    "noUnusedLocals": false,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
     "baseUrl": ".",
     "paths": {
       "@object-ui/protocol": ["packages/protocol/src"],
+      "@object-ui/protocol/*": ["packages/protocol/src/*"],
       "@object-ui/engine": ["packages/engine/src"],
+      "@object-ui/engine/*": ["packages/engine/src/*"],
       "@object-ui/ui": ["packages/ui/src"],
+      "@object-ui/ui/*": ["packages/ui/src/*"],
       "@object-ui/renderer": ["packages/renderer/src"],
-      "@object-ui/designer": ["packages/designer/src"]
+      "@object-ui/renderer/*": ["packages/renderer/src/*"],
+      "@object-ui/designer": ["packages/designer/src"],
+      "@object-ui/designer/*": ["packages/designer/src/*"]
     }
   },
   "include": ["packages", "examples"]

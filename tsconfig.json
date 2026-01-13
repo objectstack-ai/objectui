@@ -21,9 +21,10 @@
 
     "baseUrl": ".",
     "paths": {
-      "@object-ui/core": ["packages/core/src"],
-      "@object-ui/react": ["packages/react/src"],
-      "@object-ui/components": ["packages/components/src"],
+      "@object-ui/protocol": ["packages/protocol/src"],
+      "@object-ui/engine": ["packages/engine/src"],
+      "@object-ui/ui": ["packages/ui/src"],
+      "@object-ui/renderer": ["packages/renderer/src"],
       "@object-ui/designer": ["packages/designer/src"]
     }
   },

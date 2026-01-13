@@ -26,9 +26,8 @@ interface PageConfig {
   icon?: string;                   // Icon identifier
   
   // Layout
-  layout: PageLayoutType;          // Layout type
-  sections?: PageSection[];        // Page sections (for structured layouts)
-  components?: PageComponent[];    // Components (for simple layouts)
+  body: SchemaNode | SchemaNode[]; // The schema body, following the JSON Schema Rendering spec.
+
   
   // Data & Logic
   data_sources?: Record<string, ComponentDataSource>;
@@ -465,3 +464,13 @@ The ObjectQL Studio provides a visual interface for:
 - [Form Specification](./form.md)
 - [View Specification](./view.md)
 - [Component Library](../guide/components.md)
+
+### 1.5 JSON Logic & Expressions
+
+The schema supports expression evaluation for dynamic behavior, using a syntax similar to template strings.
+
+- **Variables**: `${data.username}`
+- **Ternary**: `${isAdmin ? 'Show' : 'Hide'}`
+- **Filters**: `${value | date: 'YYYY-MM-DD'}`
+
+See [Schema Rendering Specification](../spec/schema-rendering.md) for deeper details on the rendering engine.

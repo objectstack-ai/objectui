@@ -1,7 +1,7 @@
 {
-  "name": "@object-ui/react",
+  "name": "@object-ui/renderer",
   "version": "0.1.0",
-  "description": "The Glue. React context, hooks, and the main SchemaRenderer component.",
+  "description": "The Compiler. Turns Metadata into UI components.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,6 +13,8 @@
     "react-dom": "^18.0.0"
   },
   "dependencies": {
-    "@object-ui/core": "workspace:*"
+    "@object-ui/protocol": "workspace:*",
+    "@object-ui/engine": "workspace:*",
+    "@object-ui/ui": "workspace:*"
   }
 }

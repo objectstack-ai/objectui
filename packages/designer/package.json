@@ -13,8 +13,8 @@
     "react-dom": "^18.0.0"
   },
   "dependencies": {
-    "@object-ui/core": "workspace:*",
-    "@object-ui/react": "workspace:*",
-    "@object-ui/components": "workspace:*"
+    "@object-ui/protocol": "workspace:*",
+    "@object-ui/renderer": "workspace:*",
+    "@object-ui/ui": "workspace:*"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@object-ui/components",
+  "name": "@object-ui/ui",
   "version": "0.1.0",
   "description": "The Look. A set of high-quality UI renderers built with Tailwind CSS & Shadcn.",
   "main": "dist/index.js",
@@ -13,8 +13,7 @@
     "react-dom": "^18.0.0"
   },
   "dependencies": {
-    "@object-ui/core": "workspace:*",
-    "@object-ui/react": "workspace:*",
+    "@object-ui/protocol": "workspace:*",
     "tailwindcss": "^3.0.0",
     "clsx": "^2.0.0",
     "tailwind-merge": "^2.0.0"

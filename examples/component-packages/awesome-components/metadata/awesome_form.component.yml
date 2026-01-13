@@ -1,0 +1,65 @@
+name: awesome_form
+label: Awesome Form
+description: Flexible form builder with validation
+category: data_entry
+version: 1.0.0
+author: MyCompany
+
+# UMD package configuration
+umd:
+  bundle: dist/index.umd.js
+  global_name: AwesomeComponents
+  export_name: AwesomeForm
+  styles: dist/style.css
+
+implementation: AwesomeForm
+framework: react
+render_mode: client
+
+props:
+  - name: object
+    type: string
+    required: true
+    description: ObjectQL object name
+  
+  - name: recordId
+    type: string
+    required: false
+    description: Record ID for edit mode
+  
+  - name: mode
+    type: string
+    default: create
+    description: Form mode
+    validation:
+      enum: [create, edit, view]
+  
+  - name: onSubmit
+    type: function
+    description: Form submit handler
+    required: false
+
+events:
+  - name: onSubmit
+    description: Fired when form is submitted
+    payload: "{ values: Record }"
+  
+  - name: onChange
+    description: Fired when field value changes
+    payload: "{ field: string, value: any }"
+
+features:
+  i18n: true
+  themeable: true
+  responsive: true
+
+platforms:
+  web: true
+  mobile: true
+
+ai_context:
+  purpose: "Create and edit ObjectQL records with validation"
+  use_cases:
+    - "Creating new records"
+    - "Editing existing records"
+    - "Viewing record details"

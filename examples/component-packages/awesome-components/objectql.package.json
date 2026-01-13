@@ -1,0 +1,59 @@
+{
+  "name": "@mycompany/awesome-components",
+  "version": "1.0.0",
+  "objectql_version": "^1.7.0",
+  "type": "component_library",
+  
+  "metadata": {
+    "displayName": "Awesome Components",
+    "description": "A collection of beautiful, production-ready UI components for ObjectQL applications",
+    "author": "MyCompany",
+    "homepage": "https://github.com/mycompany/awesome-components",
+    "repository": "https://github.com/mycompany/awesome-components",
+    "license": "MIT",
+    "category": "ui-components",
+    "tags": ["table", "form", "chart", "data-visualization", "tailwind"],
+    "icon": "https://cdn.mycompany.com/awesome-components/icon.png",
+    "screenshots": [
+      "https://cdn.mycompany.com/awesome-components/screenshot-table.png",
+      "https://cdn.mycompany.com/awesome-components/screenshot-form.png"
+    ]
+  },
+
+  "components": {
+    "awesome_table": {
+      "name": "awesome_table",
+      "label": "Awesome Table",
+      "category": "data_display",
+      "metadata": "./metadata/awesome_table.component.yml",
+      "implementation": "./dist/index.umd.js",
+      "componentName": "AwesomeTable",
+      "exports": "AwesomeTable"
+    },
+    "awesome_form": {
+      "name": "awesome_form",
+      "label": "Awesome Form",
+      "category": "data_entry",
+      "metadata": "./metadata/awesome_form.component.yml",
+      "implementation": "./dist/index.umd.js",
+      "componentName": "AwesomeForm",
+      "exports": "AwesomeForm"
+    }
+  },
+
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+
+  "peerDependencies": {
+    "@objectql/types": "^1.7.0",
+    "tailwindcss": "^3.0.0"
+  },
+
+  "marketplace": {
+    "price": "free",
+    "support_email": "support@mycompany.com",
+    "documentation_url": "https://docs.mycompany.com/awesome-components"
+  }
+}

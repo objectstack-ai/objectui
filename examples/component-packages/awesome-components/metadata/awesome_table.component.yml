@@ -1,0 +1,149 @@
+name: awesome_table
+label: Awesome Table
+description: Advanced data table component with sorting, filtering, and pagination
+category: data_display
+version: 1.0.0
+author: MyCompany
+
+# UMD package configuration
+umd:
+  bundle: dist/index.umd.js
+  global_name: AwesomeComponents
+  export_name: AwesomeTable
+  styles: dist/style.css
+
+implementation: AwesomeTable
+framework: react
+render_mode: client
+
+props:
+  - name: object
+    type: string
+    required: true
+    description: ObjectQL object name to display
+    examples:
+      - projects
+      - tasks
+      - customers
+  
+  - name: columns
+    type: array
+    description: Column definitions
+    required: false
+    examples:
+      - [{ field: 'name', label: 'Name', width: 200 }]
+  
+  - name: sortable
+    type: boolean
+    default: true
+    description: Enable column sorting
+  
+  - name: filterable
+    type: boolean
+    default: true
+    description: Enable filtering UI
+  
+  - name: paginated
+    type: boolean
+    default: true
+    description: Enable pagination
+  
+  - name: pageSize
+    type: number
+    default: 25
+    description: Number of records per page
+    validation:
+      min: 10
+      max: 100
+  
+  - name: onRowClick
+    type: function
+    description: Handler for row click events
+    required: false
+
+events:
+  - name: onRowClick
+    description: Fired when a row is clicked
+    payload: "{ row: Record, index: number }"
+    examples:
+      - scenario: User clicks on a row
+        payload:
+          row: { id: 1, name: "Project A" }
+          index: 0
+
+dependencies:
+  - name: react
+    version: "^18.0.0"
+    type: library
+  
+  - name: react-dom
+    version: "^18.0.0"
+    type: library
+  
+  - name: "@objectql/types"
+    version: "^1.7.0"
+    type: library
+
+features:
+  realtime: true
+  exportable: true
+  responsive: true
+  themeable: true
+  i18n: true
+
+platforms:
+  web: true
+  mobile: true
+  ssr: true
+
+styling:
+  framework: tailwind
+  customizable:
+    - name: headerBg
+      description: Table header background
+      type: color
+      default: bg-gray-100
+    
+    - name: rowHeight
+      description: Table row height
+      type: size
+      default: h-12
+
+accessibility:
+  role: grid
+  keyboard_navigation: true
+  screen_reader: true
+  aria_attributes:
+    - aria-label
+    - aria-sort
+    - aria-rowcount
+
+performance:
+  lazy_loadable: true
+  bundle_size: 45
+  complexity: medium
+  virtual_scroll: true
+
+ai_context:
+  purpose: "Display and interact with tabular data from ObjectQL objects"
+  use_cases:
+    - "Browse and search through lists of records"
+    - "Perform bulk operations on multiple records"
+    - "Export data for reporting"
+  best_practices:
+    - "Use virtual scrolling for large datasets"
+    - "Provide clear column headers"
+    - "Include search/filter for tables with >20 rows"
+
+examples:
+  - title: Basic Usage
+    description: Simple table with sorting
+    code: |
+      <AwesomeTable
+        object="projects"
+        columns={[
+          { field: 'name', label: 'Project Name' },
+          { field: 'status', label: 'Status' }
+        ]}
+        sortable={true}
+      />

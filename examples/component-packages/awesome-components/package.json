@@ -1,0 +1,55 @@
+{
+  "name": "@mycompany/awesome-components",
+  "version": "1.0.0",
+  "description": "A collection of beautiful UI components for ObjectQL",
+  "main": "dist/index.umd.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "metadata",
+    "objectql.package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "prepublishOnly": "npm run build",
+    "test": "jest",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@objectql/types": "^1.7.0"
+  },
+
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "rollup": "^3.0.0",
+    "rollup-plugin-postcss": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+
+  "keywords": [
+    "objectql",
+    "components",
+    "react",
+    "ui",
+    "tailwind"
+  ],
+
+  "author": "MyCompany",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mycompany/awesome-components"
+  }
+}

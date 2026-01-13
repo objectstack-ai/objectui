@@ -3,7 +3,7 @@
 
 Welcome! This roadmap shows what we're building for Object UI and when you can expect it. We're committed to transparency, so you can plan your projects around our releases.
 
-**Last Updated**: January 2026
+**Last Updated**: January 2026 · **Updated Monthly**
 
 ---
 
@@ -197,8 +197,7 @@ We have an early preview available! Check out our [Playground](https://objectui.
 
 ### Join the Community
 - ⭐ **Star us on GitHub**: [objectql/object-ui](https://github.com/objectql/object-ui)
-- 💬 **Join Discord**: Share ideas and get help (link coming soon)
-- 🐦 **Follow on Twitter**: Get updates (link coming soon)
+- 📧 **Email us**: hello@objectui.org
 
 ### Shape the Future
 Your feedback matters! Tell us:
@@ -268,12 +267,12 @@ Yes. We're committed to backward compatibility. Your schemas will keep working a
 
 ## 📬 Stay Updated
 
-We'll update this roadmap monthly with progress. Want to be notified?
+Want to know when new features launch? Here's how to stay in the loop:
 
-- 📧 **Email**: Sign up at [objectui.org](https://objectui.org) (coming soon)
-- 🐦 **Twitter**: Follow for real-time updates (coming soon)
-- 📰 **Blog**: Monthly progress reports (coming soon)
-- 💬 **Discord**: Join the conversation (coming soon)
+- ⭐ **Star on GitHub**: Watch releases at [objectql/object-ui](https://github.com/objectql/object-ui)
+- 📧 **Email**: Contact us at hello@objectui.org for announcements
+
+We update this roadmap monthly with our progress.
 
 ---
 
@@ -283,7 +282,7 @@ Object UI is built by developers, for developers. Thank you for your interest an
 
 **Questions?** Email us at hello@objectui.org
 
-**Want to contribute?** Check out our [Contributing Guide](../CONTRIBUTING.md)
+**Want to contribute?** Open an issue or pull request on [GitHub](https://github.com/objectql/object-ui)
 
 ---
 

@@ -17,5 +17,5 @@ export const SchemaRenderer: React.FC<{ schema: SchemaNode }> = ({ schema }) => 
     );
   }
 
-  return <Component schema={schema} {...(schema.props || {})} className={schema.className} data-obj-id={schema.id} />;
+  return <Component schema={schema} {...(schema.props || {})} className={schema.className} data-obj-id={schema.id} data-obj-type={schema.type} />;
 };

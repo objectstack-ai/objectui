@@ -14,7 +14,20 @@ import {
     MousePointer2,
     Box,
     Grid,
-    AlignJustify
+    AlignJustify,
+    PanelLeft,
+    FileText,
+    Circle,
+    User,
+    MessageSquare,
+    Bell,
+    Zap,
+    BarChart3,
+    Menu,
+    ChevronRight,
+    Layers,
+    Columns3,
+    Minus
 } from 'lucide-react';
 import { cn } from '@object-ui/components';
 import { ScrollArea } from '@object-ui/components';
@@ -26,20 +39,50 @@ interface ComponentPaletteProps {
 // Map component types to Lucide icons
 const getIconForType = (type: string) => {
     switch (type) {
+        // Layout
         case 'div':
         case 'container': return Box;
         case 'card': return CreditCard;
-        case 'text': 
-        case 'span': return Type;
-        case 'image': return Image;
+        case 'grid': return Grid;
+        case 'stack': return AlignJustify;
+        case 'separator': return Minus;
+        
+        // Form
         case 'button': return MousePointer2;
         case 'input': return Type;
+        case 'textarea': return FileText;
         case 'checkbox': return CheckSquare;
         case 'switch': return ToggleLeft;
         case 'select': return List;
+        case 'label': return Type;
+        
+        // Data Display
+        case 'text': 
+        case 'span': return Type;
+        case 'image': return Image;
+        case 'badge': return Circle;
+        case 'avatar': return User;
         case 'table': return Table;
-        case 'grid': return Grid;
-        case 'stack': return AlignJustify;
+        
+        // Feedback
+        case 'alert': return Bell;
+        case 'progress': return BarChart3;
+        case 'skeleton': return Layers;
+        case 'toast': return MessageSquare;
+        
+        // Overlay
+        case 'dialog': 
+        case 'drawer': 
+        case 'popover': 
+        case 'tooltip': 
+        case 'sheet': return PanelLeft;
+        
+        // Navigation
+        case 'tabs': return Columns3;
+        case 'breadcrumb': return ChevronRight;
+        case 'pagination': return Menu;
+        case 'menubar': return Menu;
+        
         default: return Square;
     }
 };

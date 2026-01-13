@@ -70,13 +70,24 @@ export const Canvas: React.FC<CanvasProps> = ({ className }) => {
         if (targetId) {
             e.stopPropagation();
             
+            // Calculate insertion index based on drop position
+            const targetRect = target?.getBoundingClientRect();
+            let insertIndex = 0;
+            
+            if (targetRect) {
+                // Calculate relative position within the target
+                const relativeY = e.clientY - targetRect.top;
+                const relativePosition = relativeY / targetRect.height;
+                
+                // If dropping in the bottom half, insert after; otherwise insert at beginning
+                insertIndex = relativePosition > 0.5 ? -1 : 0; // -1 means append to end
+            }
+            
             // Handle moving existing component
             if (draggingNodeId) {
                 // Don't allow dropping on itself
                 if (draggingNodeId !== targetId) {
-                    // TODO: Calculate proper insertion index based on drop position
-                    // For now, always insert at the beginning (index 0)
-                    moveNode(draggingNodeId, targetId, 0);
+                    moveNode(draggingNodeId, targetId, insertIndex === -1 ? 999 : insertIndex);
                 }
                 setDraggingNodeId(null);
             }
@@ -89,7 +100,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className }) => {
                         ...(config.defaultProps || {}),
                         body: config.defaultChildren || undefined
                     };
-                    addNode(targetId, newNode);
+                    addNode(targetId, newNode, insertIndex === -1 ? undefined : insertIndex);
                 }
             }
         }
@@ -143,11 +154,11 @@ export const Canvas: React.FC<CanvasProps> = ({ className }) => {
     }, [schema, setDraggingNodeId]);
     
     // Inject styles for selection/hover using dynamic CSS
-    // Using a more refined outline style
+    // Using a more refined outline style with enhanced visual feedback
     const highlightStyles = `
         [data-obj-id] {
             position: relative; 
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
         [data-obj-id]:not([data-obj-id="${schema.id}"]) {
@@ -158,40 +169,70 @@ export const Canvas: React.FC<CanvasProps> = ({ className }) => {
             cursor: grabbing;
         }
         
-        [data-obj-id="${selectedNodeId}"] {
-            outline: 2px solid #3b82f6 !important;
-            outline-offset: -1px;
-            z-index: 10;
+        [data-obj-id]:not([data-obj-id="${schema.id}"]):hover {
+            outline: 1px solid #93c5fd;
+            outline-offset: 1px;
         }
         
-        [data-obj-id="${selectedNodeId}"]::before {
-            content: '';
+        [data-obj-id="${selectedNodeId}"] {
+            outline: 2px solid #3b82f6 !important;
+            outline-offset: 0px;
+            z-index: 10;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        [data-obj-id="${selectedNodeId}"]::after {
+            content: attr(data-obj-type);
             position: absolute;
-            top: -24px;
+            top: -22px;
             left: -2px;
-            height: 24px;
+            height: 20px;
             padding: 0 8px;
-            background: #3b82f6;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             color: white;
             font-size: 10px;
-            font-family: inherit;
+            font-family: ui-monospace, monospace;
             display: flex;
             align-items: center;
-            border-radius: 4px 4px 0 0;
+            border-radius: 3px 3px 0 0;
             pointer-events: none;
             white-space: nowrap;
             font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         [data-obj-id="${hoveredNodeId}"] {
             outline: 2px dashed #60a5fa !important;
-            outline-offset: -2px;
-            background-color: rgba(59, 130, 246, 0.05);
+            outline-offset: 2px;
+            background-color: rgba(59, 130, 246, 0.03);
             cursor: ${draggingNodeId ? 'move' : 'copy'};
         }
         
+        [data-obj-id="${hoveredNodeId}"]::before {
+            content: ${draggingNodeId ? '"Drop to move here"' : '"Drop to add here"'};
+            position: absolute;
+            bottom: -20px;
+            right: 0px;
+            height: 18px;
+            padding: 0 6px;
+            background: #60a5fa;
+            color: white;
+            font-size: 9px;
+            font-family: ui-sans-serif, system-ui;
+            display: flex;
+            align-items: center;
+            border-radius: 3px;
+            pointer-events: none;
+            white-space: nowrap;
+            font-weight: 500;
+            z-index: 20;
+        }
+        
         [data-obj-id="${draggingNodeId}"] {
-            opacity: 0.5;
+            opacity: 0.4;
+            filter: grayscale(50%);
         }
     `;
 
@@ -243,15 +284,29 @@ export const Canvas: React.FC<CanvasProps> = ({ className }) => {
                     </div>
                 </div>
 
-                {/* Empty State Overlay if schema is empty/invalid? */}
+                {/* Empty State Overlay if schema is empty/invalid */}
                 {(!schema || !schema.body || (Array.isArray(schema.body) && schema.body.length === 0 && !schema.props)) && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="text-center p-8 text-gray-400">
-                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <MousePointer2 size={32} />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                        <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-xl max-w-md">
+                             <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-5 border-2 border-blue-200">
+                                <MousePointer2 size={36} className="text-blue-600" />
                              </div>
-                             <h3 className="text-lg font-medium text-gray-500">Start Building</h3>
-                             <p className="max-w-xs mx-auto mt-2">Drag components from the left sidebar to start creating your UI.</p>
+                             <h3 className="text-xl font-semibold text-gray-900 mb-2">Start Building Your UI</h3>
+                             <p className="text-sm text-gray-600 mb-4">Drag components from the left panel to begin designing.</p>
+                             <div className="flex flex-col gap-2 text-xs text-left text-gray-500 bg-gray-50 p-4 rounded-lg border">
+                                <div className="flex items-start gap-2">
+                                    <span className="text-blue-600 font-bold mt-0.5">→</span>
+                                    <span><strong>Drag & Drop:</strong> Add components from the palette</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-blue-600 font-bold mt-0.5">→</span>
+                                    <span><strong>Click to Select:</strong> Edit properties in the right panel</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-blue-600 font-bold mt-0.5">→</span>
+                                    <span><strong>Keyboard Shortcuts:</strong> Ctrl+Z/Y for undo/redo</span>
+                                </div>
+                             </div>
                         </div>
                     </div>
                 )}

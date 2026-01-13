@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/ui/button"
 import {
@@ -11,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/select"
+
+const DEFAULT_EVENT_COLOR = "bg-blue-500 text-white"
 
 export interface CalendarEvent {
   id: string | number
@@ -232,10 +234,20 @@ function isSameDay(date1: Date, date2: Date): boolean {
 function getEventsForDate(date: Date, events: CalendarEvent[]): CalendarEvent[] {
   return events.filter((event) => {
     const eventStart = new Date(event.start)
-    const eventEnd = event.end ? new Date(event.end) : eventStart
+    const eventEnd = event.end ? new Date(event.end) : new Date(eventStart)
 
-    return date >= new Date(eventStart.setHours(0, 0, 0, 0)) &&
-           date <= new Date(eventEnd.setHours(23, 59, 59, 999))
+    // Create new date objects for comparison to avoid mutation
+    const dateStart = new Date(date)
+    dateStart.setHours(0, 0, 0, 0)
+    const dateEnd = new Date(date)
+    dateEnd.setHours(23, 59, 59, 999)
+
+    const eventStartTime = new Date(eventStart)
+    eventStartTime.setHours(0, 0, 0, 0)
+    const eventEndTime = new Date(eventEnd)
+    eventEndTime.setHours(23, 59, 59, 999)
+
+    return dateStart <= eventEndTime && dateEnd >= eventStartTime
   })
 }
 
@@ -296,7 +308,7 @@ function MonthView({ date, events, onEventClick, onDateClick }: MonthViewProps) 
                     key={event.id}
                     className={cn(
                       "text-xs px-2 py-1 rounded truncate cursor-pointer hover:opacity-80",
-                      event.color || "bg-blue-500 text-white"
+                      event.color || DEFAULT_EVENT_COLOR
                     )}
                     style={
                       event.color && event.color.startsWith("#")
@@ -385,7 +397,7 @@ function WeekView({ date, events, onEventClick, onDateClick }: WeekViewProps) {
                     key={event.id}
                     className={cn(
                       "text-sm px-3 py-2 rounded cursor-pointer hover:opacity-80",
-                      event.color || "bg-blue-500 text-white"
+                      event.color || DEFAULT_EVENT_COLOR
                     )}
                     style={
                       event.color && event.color.startsWith("#")
@@ -454,7 +466,7 @@ function DayView({ date, events, onEventClick }: DayViewProps) {
                     key={event.id}
                     className={cn(
                       "px-3 py-2 rounded cursor-pointer hover:opacity-80",
-                      event.color || "bg-blue-500 text-white"
+                      event.color || DEFAULT_EVENT_COLOR
                     )}
                     style={
                       event.color && event.color.startsWith("#")

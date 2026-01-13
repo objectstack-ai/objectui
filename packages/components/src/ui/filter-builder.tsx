@@ -77,7 +77,7 @@ function FilterBuilder({
     if (value && JSON.stringify(value) !== JSON.stringify(filterGroup)) {
       setFilterGroup(value)
     }
-  }, [value])
+  }, [value, filterGroup])
 
   const handleChange = (newGroup: FilterGroup) => {
     setFilterGroup(newGroup)
@@ -86,7 +86,7 @@ function FilterBuilder({
 
   const addCondition = () => {
     const newCondition: FilterCondition = {
-      id: `condition-${crypto.randomUUID()}`,
+      id: crypto.randomUUID(),
       field: fields[0]?.value || "",
       operator: "equals",
       value: "",

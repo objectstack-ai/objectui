@@ -14,7 +14,21 @@ import {
     MousePointer2,
     Box,
     Grid,
-    AlignJustify
+    AlignJustify,
+    PanelLeft,
+    FileText,
+    Circle,
+    User,
+    MessageSquare,
+    Bell,
+    Zap,
+    BarChart3,
+    Menu,
+    ChevronRight,
+    Layers,
+    Columns3,
+    Minus,
+    X
 } from 'lucide-react';
 import { cn } from '@object-ui/components';
 import { ScrollArea } from '@object-ui/components';
@@ -26,20 +40,50 @@ interface ComponentPaletteProps {
 // Map component types to Lucide icons
 const getIconForType = (type: string) => {
     switch (type) {
+        // Layout
         case 'div':
         case 'container': return Box;
         case 'card': return CreditCard;
-        case 'text': 
-        case 'span': return Type;
-        case 'image': return Image;
+        case 'grid': return Grid;
+        case 'stack': return AlignJustify;
+        case 'separator': return Minus;
+        
+        // Form
         case 'button': return MousePointer2;
         case 'input': return Type;
+        case 'textarea': return FileText;
         case 'checkbox': return CheckSquare;
         case 'switch': return ToggleLeft;
         case 'select': return List;
+        case 'label': return Type;
+        
+        // Data Display
+        case 'text': 
+        case 'span': return Type;
+        case 'image': return Image;
+        case 'badge': return Circle;
+        case 'avatar': return User;
         case 'table': return Table;
-        case 'grid': return Grid;
-        case 'stack': return AlignJustify;
+        
+        // Feedback
+        case 'alert': return Bell;
+        case 'progress': return BarChart3;
+        case 'skeleton': return Layers;
+        case 'toast': return MessageSquare;
+        
+        // Overlay
+        case 'dialog': 
+        case 'drawer': 
+        case 'popover': 
+        case 'tooltip': 
+        case 'sheet': return PanelLeft;
+        
+        // Navigation
+        case 'tabs': return Columns3;
+        case 'breadcrumb': return ChevronRight;
+        case 'pagination': return Menu;
+        case 'menubar': return Menu;
+        
         default: return Square;
     }
 };
@@ -57,6 +101,7 @@ const CATEGORIES = {
 export const ComponentPalette: React.FC<ComponentPaletteProps> = ({ className }) => {
   const { setDraggingType } = useDesigner();
   const allConfigs = ComponentRegistry.getAllConfigs();
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const handleDragStart = (e: React.DragEvent, type: string) => {
     e.dataTransfer.setData('componentType', type);
@@ -103,6 +148,18 @@ export const ComponentPalette: React.FC<ComponentPaletteProps> = ({ className })
       );
   };
 
+  // Filter components by search query
+  const filterBySearch = (types: string[]) => {
+    if (!searchQuery.trim()) return types;
+    
+    const query = searchQuery.toLowerCase();
+    return types.filter(type => {
+      const config = ComponentRegistry.getConfig(type);
+      return type.toLowerCase().includes(query) || 
+             config?.label?.toLowerCase().includes(query);
+    });
+  };
+
   // Filter available components based on category
   const getComponentscategory = (categoryComponents: string[]) => {
       return categoryComponents.filter(type => ComponentRegistry.getConfig(type));
@@ -110,15 +167,35 @@ export const ComponentPalette: React.FC<ComponentPaletteProps> = ({ className })
 
   return (
     <div className={cn("flex flex-col h-full bg-gray-50/50 border-r w-72 overflow-hidden", className)}>
-        <div className="px-4 py-3 border-b bg-white shrink-0">
-            <h2 className="text-sm font-semibold text-gray-900">Components</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Drag to add to canvas</p>
+        <div className="px-4 py-3 border-b bg-white shrink-0 space-y-3">
+            <div>
+                <h2 className="text-sm font-semibold text-gray-900">Components</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Drag to add to canvas</p>
+            </div>
+            <div className="relative">
+                <input
+                    type="text"
+                    placeholder="Search components..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-8 px-3 text-xs border rounded-md bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {searchQuery && (
+                    <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        aria-label="Clear search"
+                    >
+                        <X size={14} />
+                    </button>
+                )}
+            </div>
         </div>
         
         <ScrollArea className="flex-1 w-full">
             <div className="p-4 space-y-6 pb-20">
                 {Object.entries(CATEGORIES).map(([category, types]) => {
-                    const availableTypes = getComponentscategory(types);
+                    const availableTypes = filterBySearch(getComponentscategory(types));
                     if (availableTypes.length === 0) return null;
                     
                     return (
@@ -134,7 +211,7 @@ export const ComponentPalette: React.FC<ComponentPaletteProps> = ({ className })
                 {/* Fallback for uncategorized */}
                 {(() => {
                     const categorized = new Set(Object.values(CATEGORIES).flat());
-                    const uncategorized = Object.keys(allConfigs).filter(t => !categorized.has(t));
+                    const uncategorized = filterBySearch(Object.keys(allConfigs).filter(t => !categorized.has(t)));
                     
                     if (uncategorized.length === 0) return null;
 

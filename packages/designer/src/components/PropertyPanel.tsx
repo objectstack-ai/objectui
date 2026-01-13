@@ -14,7 +14,7 @@ import {
 } from "@object-ui/components"
 import { Textarea } from '@object-ui/components';
 import { ScrollArea } from '@object-ui/components';
-import { Settings2, Trash2, Layers, Type } from 'lucide-react';
+import { Settings2, Trash2, Layers, Copy, ClipboardPaste } from 'lucide-react';
 import { cn } from '@object-ui/components';
 import type { ComponentInput } from '@object-ui/core';
 
@@ -23,7 +23,7 @@ interface PropertyPanelProps {
 }
 
 export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
-    const { schema, selectedNodeId, updateNode, removeNode } = useDesigner();
+    const { schema, selectedNodeId, updateNode, removeNode, copyNode, pasteNode, canPaste } = useDesigner();
     
     // Recursive finder
     const findNode = (node: any, id: string): any => {
@@ -155,22 +155,43 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
     return (
         <div className={cn("flex flex-col h-full bg-white border-l w-80 shadow-xl shadow-gray-200/50 z-10 overflow-hidden", className)}>
             <div className="px-5 py-4 border-b flex items-center justify-between bg-gray-50/50">
-                <div>
+                <div className="flex-1 min-w-0">
                      <div className="flex items-center gap-2">
                         <span className="font-semibold text-gray-900 text-sm tracking-tight">{config?.label || selectedNode.type}</span>
                         <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-1.5 py-0.5 rounded border uppercase">{selectedNode.type}</span>
                      </div>
                      <p className="text-[10px] text-gray-500 mt-0.5 truncate max-w-[180px] font-mono opacity-60">ID: {selectedNode.id}</p>
                 </div>
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => removeNode?.(selectedNode.id)}
-                    title="Remove Component"
-                >
-                    <Trash2 size={16} />
-                </Button>
+                <div className="flex items-center gap-1">
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                        onClick={() => copyNode(selectedNode.id)}
+                        title="Copy Component (Ctrl+C)"
+                    >
+                        <Copy size={16} />
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-gray-400 hover:text-green-600 hover:bg-green-50 disabled:opacity-30"
+                        onClick={() => pasteNode(selectedNodeId)}
+                        disabled={!canPaste}
+                        title="Paste Component (Ctrl+V)"
+                    >
+                        <ClipboardPaste size={16} />
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => removeNode?.(selectedNode.id)}
+                        title="Delete Component (Delete)"
+                    >
+                        <Trash2 size={16} />
+                    </Button>
+                </div>
             </div>
             
             <ScrollArea className="flex-1 w-full">

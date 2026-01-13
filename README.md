@@ -1,7 +1,5 @@
 # Object UI
 
-<div align="center">
-
   **The Universal, Headless, Schema-Driven Rendering Engine.**
   
   Build complex Enterprise UIs with JSON. Styled with Tailwind CSS & Shadcn UI.
@@ -10,7 +8,6 @@
   [![TypeScript](https://img.shields.io/badge/written%20in-TypeScript-3178C6.svg)](https://www.typescriptlang.org/)
   [![NPM](https://img.shields.io/npm/v/@object-ui/react.svg)](https://www.npmjs.com/package/@object-ui/react)
 
-</div>
 
 ---
 

@@ -482,6 +482,9 @@ importers:
       '@object-ui/react':
         specifier: workspace:*
         version: link:../react
+      '@object-ui/types':
+        specifier: workspace:*
+        version: link:../types
       react:
         specifier: 18.3.1
         version: 18.3.1
@@ -525,6 +528,9 @@ importers:
       '@object-ui/react':
         specifier: workspace:*
         version: link:../react
+      '@object-ui/types':
+        specifier: workspace:*
+        version: link:../types
       react:
         specifier: 18.3.1
         version: 18.3.1

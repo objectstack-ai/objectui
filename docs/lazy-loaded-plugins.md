@@ -80,7 +80,32 @@ export const editorComponents = {
 };
 ```
 
-### 3. Build Configuration (`vite.config.ts`)
+### 3. Type Definitions (`types.ts`)
+```typescript
+// packages/plugin-editor/src/types.ts
+import type { BaseSchema } from '@object-ui/types';
+
+/**
+ * Code Editor component schema.
+ * These types are self-contained within the plugin package.
+ */
+export interface CodeEditorSchema extends BaseSchema {
+  type: 'code-editor';
+  value?: string;
+  language?: string;
+  theme?: 'vs-dark' | 'light';
+  height?: string;
+  readOnly?: boolean;
+  onChange?: (value: string | undefined) => void;
+}
+```
+
+**Key Points:**
+- Plugin types are defined in the plugin package, not in `@object-ui/types`
+- This allows third-party developers to create plugins without modifying core packages
+- Types are exported from the plugin's main entry point for consumers to use
+
+### 4. Build Configuration (`vite.config.ts`)
 ```typescript
 export default defineConfig({
   build: {
@@ -95,6 +120,52 @@ export default defineConfig({
   },
 });
 ```
+
+## Type System Design
+
+### Plugin-Owned Types (✅ Recommended)
+
+Each plugin package owns its type definitions:
+
+```typescript
+// In @object-ui/plugin-editor
+export interface CodeEditorSchema extends BaseSchema {
+  type: 'code-editor';
+  // ... plugin-specific properties
+}
+```
+
+**Benefits:**
+- **Decoupling**: Third-party developers don't need to modify core packages
+- **Independent Versioning**: Plugins can evolve their schemas independently
+- **Self-Contained**: Each plugin is a complete, standalone package
+
+**Usage:**
+```typescript
+// Application code
+import type { CodeEditorSchema } from '@object-ui/plugin-editor';
+import type { BarChartSchema } from '@object-ui/plugin-charts';
+
+const editor: CodeEditorSchema = { type: 'code-editor', value: '...' };
+const chart: BarChartSchema = { type: 'chart-bar', data: [...] };
+```
+
+### Platform-Owned Types (❌ Not Recommended for Plugins)
+
+Defining plugin types in `@object-ui/types` creates tight coupling:
+
+```typescript
+// In @object-ui/types (DON'T DO THIS for plugins)
+export interface CodeEditorSchema extends BaseSchema {
+  type: 'code-editor';
+  // ...
+}
+```
+
+**Problems:**
+- Third-party developers must submit PRs to core package
+- Creates version coupling between plugins and platform
+- Violates the plugin architecture principle
 
 ## Bundle Analysis
 

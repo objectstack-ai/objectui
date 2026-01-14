@@ -2,6 +2,9 @@ import React, { Suspense } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { Skeleton } from '@object-ui/components';
 
+// Export types for external use
+export type { CodeEditorSchema } from './types';
+
 // 🚀 Lazy load the implementation file
 // This ensures Monaco Editor is only loaded when the component is actually rendered
 const LazyMonacoEditor = React.lazy(() => import('./MonacoImpl'));

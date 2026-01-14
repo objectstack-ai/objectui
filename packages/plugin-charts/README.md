@@ -49,6 +49,25 @@ Object.entries(chartComponents).forEach(([type, component]) => {
 });
 ```
 
+### TypeScript Support
+
+The plugin exports TypeScript types for full type safety:
+
+```typescript
+import type { BarChartSchema } from '@object-ui/plugin-charts';
+
+const schema: BarChartSchema = {
+  type: 'chart-bar',
+  data: [
+    { name: 'Jan', value: 400 },
+    { name: 'Feb', value: 300 }
+  ],
+  dataKey: 'value',
+  xAxisKey: 'name',
+  height: 400
+};
+```
+
 ## Schema API
 
 ```typescript

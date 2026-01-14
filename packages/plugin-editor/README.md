@@ -45,6 +45,22 @@ Object.entries(editorComponents).forEach(([type, component]) => {
 });
 ```
 
+### TypeScript Support
+
+The plugin exports TypeScript types for full type safety:
+
+```typescript
+import type { CodeEditorSchema } from '@object-ui/plugin-editor';
+
+const schema: CodeEditorSchema = {
+  type: 'code-editor',
+  value: 'console.log("Hello, World!");',
+  language: 'javascript',
+  theme: 'vs-dark',
+  height: '400px'
+};
+```
+
 ## Schema API
 
 ```typescript

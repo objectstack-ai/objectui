@@ -1,6 +1,7 @@
 import * as React from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import rehypeSanitize from "rehype-sanitize"
 import { cn } from "@/lib/utils"
 
 export interface MarkdownProps {
@@ -8,7 +9,7 @@ export interface MarkdownProps {
   className?: string
 }
 
-function Markdown({ content, className, ...props }: MarkdownProps & React.ComponentProps<"div">) {
+function Markdown({ content, className }: MarkdownProps) {
   return (
     <div
       data-slot="markdown"
@@ -28,9 +29,11 @@ function Markdown({ content, className, ...props }: MarkdownProps & React.Compon
         "prose-img:rounded-md prose-img:border",
         className
       )}
-      {...props}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+      <ReactMarkdown 
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeSanitize]}
+      >
         {content}
       </ReactMarkdown>
     </div>

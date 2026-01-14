@@ -1,22 +1,48 @@
+import React, { Suspense } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import type { KanbanSchema } from '@object-ui/types';
-import { KanbanBoard, type KanbanColumn, type KanbanCard } from '@/ui';
-import React from 'react';
+import { Skeleton } from '@object-ui/components';
 
-ComponentRegistry.register('kanban', 
-  ({ schema, className, ...props }: { schema: KanbanSchema; className?: string; [key: string]: any }) => {
-    return (
-      <KanbanBoard 
+// Export types for external use
+export type { KanbanSchema, KanbanCard, KanbanColumn } from './types';
+
+// 🚀 Lazy load the implementation file
+// This ensures @dnd-kit is only loaded when the component is actually rendered
+const LazyKanban = React.lazy(() => import('./KanbanImpl'));
+
+export interface KanbanRendererProps {
+  schema: {
+    type: string;
+    id?: string;
+    className?: string;
+    columns?: Array<any>;
+    onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void;
+  };
+}
+
+/**
+ * KanbanRenderer - The public API for the kanban board component
+ * This wrapper handles lazy loading internally using React.Suspense
+ */
+export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema }) => {
+  return (
+    <Suspense fallback={<Skeleton className="w-full h-[600px]" />}>
+      <LazyKanban
         columns={schema.columns || []}
         onCardMove={schema.onCardMove}
-        className={className}
-        {...props}
+        className={schema.className}
       />
-    );
-  },
+    </Suspense>
+  );
+};
+
+// Register the component with the ComponentRegistry
+ComponentRegistry.register(
+  'kanban',
+  KanbanRenderer,
   {
     label: 'Kanban Board',
     icon: 'LayoutDashboard',
+    category: 'plugin',
     inputs: [
       { 
         name: 'columns', 
@@ -105,3 +131,8 @@ ComponentRegistry.register('kanban',
     }
   }
 );
+
+// Standard Export Protocol - for manual integration
+export const kanbanComponents = {
+  'kanban': KanbanRenderer,
+};

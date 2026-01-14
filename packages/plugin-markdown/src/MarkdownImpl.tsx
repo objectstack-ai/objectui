@@ -2,35 +2,33 @@ import * as React from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeSanitize from "rehype-sanitize"
-import { cn } from "@/lib/utils"
 
 /**
- * Props for the Markdown component.
+ * Props for the Markdown component implementation.
  * 
  * This component renders markdown content using react-markdown with GitHub Flavored Markdown support.
  * All content is sanitized to prevent XSS attacks.
  */
-export interface MarkdownProps {
+export interface MarkdownImplProps {
   /**
-   * The markdown content to render. Supports GitHub Flavored Markdown including:
-   * - Headers (H1-H6)
-   * - Bold, italic, and inline code
-   * - Links and images
-   * - Lists (ordered, unordered, and nested)
-   * - Tables
-   * - Blockquotes
-   * - Code blocks
+   * The markdown content to render.
    */
   content: string
   
   /**
    * Optional CSS class name to apply custom styling to the markdown container.
-   * The component uses Tailwind CSS prose classes for typography by default.
    */
   className?: string
 }
 
-function Markdown({ content, className }: MarkdownProps) {
+/**
+ * Internal Markdown implementation component.
+ * This contains the actual react-markdown import (heavy ~100-200 KB).
+ */
+export default function MarkdownImpl({ content, className }: MarkdownImplProps) {
+  // Utility function to merge class names (inline to avoid external dependency)
+  const cn = (...classes: (string | undefined)[]) => classes.filter(Boolean).join(' ')
+  
   return (
     <div
       data-slot="markdown"
@@ -54,11 +52,13 @@ function Markdown({ content, className }: MarkdownProps) {
       <ReactMarkdown 
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}
+        // Additional security: only allow safe elements
+        // This provides defense-in-depth beyond rehype-sanitize
+        disallowedElements={['script', 'style', 'iframe', 'object', 'embed']}
+        unwrapDisallowed={true}
       >
         {content}
       </ReactMarkdown>
     </div>
   )
 }
-
-export { Markdown }

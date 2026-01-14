@@ -3,7 +3,8 @@
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
-import { cn } from "@/lib/utils"
+// Utility function to merge class names (inline to avoid external dependency)
+const cn = (...classes: (string | undefined)[]) => classes.filter(Boolean).join(' ')
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const

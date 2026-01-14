@@ -16,10 +16,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { cn } from "@/lib/utils"
-import { Badge } from "./badge"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./card"
-import { ScrollArea } from "./scroll-area"
+import { Badge, Card, CardHeader, CardTitle, CardDescription, CardContent, ScrollArea } from "@object-ui/components"
+
+// Utility function to merge class names (inline to avoid external dependency)
+const cn = (...classes: (string | undefined)[]) => classes.filter(Boolean).join(' ')
 
 export interface KanbanCard {
   id: string
@@ -142,7 +142,7 @@ function KanbanColumn({
   )
 }
 
-export function KanbanBoard({ columns, onCardMove, className }: KanbanBoardProps) {
+export default function KanbanBoard({ columns, onCardMove, className }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = React.useState<KanbanCard | null>(null)
   const [boardColumns, setBoardColumns] = React.useState<KanbanColumn[]>(columns)
 
@@ -197,7 +197,12 @@ export function KanbanBoard({ columns, onCardMove, className }: KanbanBoardProps
       const activeCards = [...activeColumn.cards]
       const overCards = [...overColumn.cards]
       const activeIndex = activeCards.findIndex((c) => c.id === activeId)
-      const overIndex = overId === overColumn.id ? overCards.length : overCards.findIndex((c) => c.id === overId)
+      
+      // Calculate target index: if dropping on column itself, append to end; otherwise insert at card position
+      const isDroppingOnColumn = overId === overColumn.id
+      const overIndex = isDroppingOnColumn 
+        ? overCards.length 
+        : overCards.findIndex((c) => c.id === overId)
 
       const [movedCard] = activeCards.splice(activeIndex, 1)
       overCards.splice(overIndex, 0, movedCard)

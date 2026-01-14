@@ -1,5 +1,5 @@
 // Enterprise-level DataTable Component (Airtable-like)
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { 
   Table, 
@@ -33,6 +33,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  GripVertical,
 } from 'lucide-react';
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -56,6 +57,8 @@ interface Column {
   sortable?: boolean;
   /** Whether filtering is enabled for this column (default: true) */
   filterable?: boolean;
+  /** Whether column resizing is enabled (default: true) */
+  resizable?: boolean;
 }
 
 /**
@@ -84,12 +87,18 @@ interface DataTableSchema {
   exportable?: boolean;
   /** Show/hide edit and delete action buttons for each row (default: false) */
   rowActions?: boolean;
+  /** Enable/disable column resizing by dragging (default: true) */
+  resizableColumns?: boolean;
+  /** Enable/disable column reordering by dragging (default: true) */
+  reorderableColumns?: boolean;
   /** Callback function triggered when the edit button is clicked */
   onRowEdit?: (row: any) => void;
   /** Callback function triggered when the delete button is clicked */
   onRowDelete?: (row: any) => void;
   /** Callback function triggered when row selection changes, receives array of selected rows */
   onSelectionChange?: (selectedRows: any[]) => void;
+  /** Callback function triggered when columns are reordered */
+  onColumnsReorder?: (columns: Column[]) => void;
   /** Optional CSS classes for the table container */
   className?: string;
 }
@@ -132,7 +141,7 @@ interface DataTableSchema {
 const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const {
     caption,
-    columns = [],
+    columns: initialColumns = [],
     data = [],
     pagination = true,
     pageSize: initialPageSize = 10,
@@ -141,6 +150,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     sortable = true,
     exportable = false,
     rowActions = false,
+    resizableColumns = true,
+    reorderableColumns = true,
     className,
   } = schema;
 
@@ -151,6 +162,20 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const [selectedRowIds, setSelectedRowIds] = useState<Set<any>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
+  const [columns, setColumns] = useState(initialColumns);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [draggedColumn, setDraggedColumn] = useState<number | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
+  
+  // Refs for column resizing
+  const resizingColumn = useRef<string | null>(null);
+  const startX = useRef<number>(0);
+  const startWidth = useRef<number>(0);
+
+  // Update columns when schema changes
+  useEffect(() => {
+    setColumns(initialColumns);
+  }, [initialColumns]);
 
   // Filtering
   const filteredData = useMemo(() => {
@@ -282,6 +307,93 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     return <ChevronDown className="h-4 w-4 ml-1" />;
   };
 
+  // Column resizing handlers
+  const handleResizeStart = (e: React.MouseEvent, columnKey: string) => {
+    if (!resizableColumns) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    resizingColumn.current = columnKey;
+    startX.current = e.clientX;
+    
+    const headerCell = (e.target as HTMLElement).closest('th');
+    if (headerCell) {
+      startWidth.current = headerCell.offsetWidth;
+    }
+    
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!resizingColumn.current) return;
+    
+    const diff = e.clientX - startX.current;
+    const newWidth = Math.max(50, startWidth.current + diff); // Min width 50px
+    
+    setColumnWidths(prev => ({
+      ...prev,
+      [resizingColumn.current!]: newWidth
+    }));
+  };
+
+  const handleResizeEnd = () => {
+    resizingColumn.current = null;
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+  };
+
+  // Column reordering handlers
+  const handleColumnDragStart = (e: React.DragEvent, index: number) => {
+    if (!reorderableColumns) return;
+    setDraggedColumn(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleColumnDragOver = (e: React.DragEvent, index: number) => {
+    if (!reorderableColumns) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverColumn(index);
+  };
+
+  const handleColumnDrop = (e: React.DragEvent, dropIndex: number) => {
+    if (!reorderableColumns || draggedColumn === null) return;
+    e.preventDefault();
+    
+    if (draggedColumn === dropIndex) {
+      setDraggedColumn(null);
+      setDragOverColumn(null);
+      return;
+    }
+
+    const newColumns = [...columns];
+    const [removed] = newColumns.splice(draggedColumn, 1);
+    newColumns.splice(dropIndex, 0, removed);
+    
+    setColumns(newColumns);
+    setDraggedColumn(null);
+    setDragOverColumn(null);
+    
+    // Call callback if provided
+    if (schema.onColumnsReorder) {
+      schema.onColumnsReorder(newColumns);
+    }
+  };
+
+  const handleColumnDragEnd = () => {
+    setDraggedColumn(null);
+    setDragOverColumn(null);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+    };
+  }, []);
+
   // Check if all rows on current page are selected
   const allPageRowsSelected = paginatedData.length > 0 && paginatedData.every((row, idx) => {
     const globalIndex = (currentPage - 1) * pageSize + idx;
@@ -351,19 +463,45 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   />
                 </TableHead>
               )}
-              {columns.map((col, index) => (
-                <TableHead
-                  key={index}
-                  className={`${col.className || ''} ${sortable && col.sortable !== false ? 'cursor-pointer select-none' : ''}`}
-                  style={{ width: col.width }}
-                  onClick={() => sortable && col.sortable !== false && handleSort(col.accessorKey)}
-                >
-                  <div className="flex items-center">
-                    {col.header}
-                    {sortable && col.sortable !== false && getSortIcon(col.accessorKey)}
-                  </div>
-                </TableHead>
-              ))}
+              {columns.map((col, index) => {
+                const columnWidth = columnWidths[col.accessorKey] || col.width;
+                const isDragging = draggedColumn === index;
+                const isDragOver = dragOverColumn === index;
+                
+                return (
+                  <TableHead
+                    key={col.accessorKey}
+                    className={`${col.className || ''} ${sortable && col.sortable !== false ? 'cursor-pointer select-none' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-l-2 border-primary' : ''} relative group`}
+                    style={{ 
+                      width: columnWidth,
+                      minWidth: columnWidth 
+                    }}
+                    draggable={reorderableColumns}
+                    onDragStart={(e) => handleColumnDragStart(e, index)}
+                    onDragOver={(e) => handleColumnDragOver(e, index)}
+                    onDrop={(e) => handleColumnDrop(e, index)}
+                    onDragEnd={handleColumnDragEnd}
+                    onClick={() => sortable && col.sortable !== false && handleSort(col.accessorKey)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        {reorderableColumns && (
+                          <GripVertical className="h-4 w-4 opacity-0 group-hover:opacity-50 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                        )}
+                        <span>{col.header}</span>
+                        {sortable && col.sortable !== false && getSortIcon(col.accessorKey)}
+                      </div>
+                      {resizableColumns && col.resizable !== false && (
+                        <div
+                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary opacity-0 hover:opacity-100 transition-opacity"
+                          onMouseDown={(e) => handleResizeStart(e, col.accessorKey)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                    </div>
+                  </TableHead>
+                );
+              })}
               {rowActions && (
                 <TableHead className="w-24 text-right">Actions</TableHead>
               )}
@@ -395,11 +533,22 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         />
                       </TableCell>
                     )}
-                    {columns.map((col, colIndex) => (
-                      <TableCell key={colIndex} className={col.cellClassName}>
-                        {row[col.accessorKey]}
-                      </TableCell>
-                    ))}
+                    {columns.map((col, colIndex) => {
+                      const columnWidth = columnWidths[col.accessorKey] || col.width;
+                      return (
+                        <TableCell 
+                          key={colIndex} 
+                          className={col.cellClassName}
+                          style={{
+                            width: columnWidth,
+                            minWidth: columnWidth,
+                            maxWidth: columnWidth
+                          }}
+                        >
+                          {row[col.accessorKey]}
+                        </TableCell>
+                      );
+                    })}
                     {rowActions && (
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -508,7 +657,7 @@ ComponentRegistry.register('data-table', DataTableRenderer, {
       name: 'columns',
       type: 'array',
       label: 'Columns',
-      description: 'Array of { header, accessorKey, className, width, sortable, filterable }',
+      description: 'Array of { header, accessorKey, className, width, sortable, filterable, resizable }',
       required: true,
     },
     {
@@ -525,6 +674,8 @@ ComponentRegistry.register('data-table', DataTableRenderer, {
     { name: 'sortable', type: 'boolean', label: 'Enable Sorting', defaultValue: true },
     { name: 'exportable', type: 'boolean', label: 'Enable Export', defaultValue: false },
     { name: 'rowActions', type: 'boolean', label: 'Show Row Actions', defaultValue: false },
+    { name: 'resizableColumns', type: 'boolean', label: 'Enable Column Resizing', defaultValue: true },
+    { name: 'reorderableColumns', type: 'boolean', label: 'Enable Column Reordering', defaultValue: true },
     { name: 'className', type: 'string', label: 'CSS Class' },
   ],
   defaultProps: {
@@ -536,6 +687,8 @@ ComponentRegistry.register('data-table', DataTableRenderer, {
     sortable: true,
     exportable: true,
     rowActions: true,
+    resizableColumns: true,
+    reorderableColumns: true,
     columns: [
       { header: 'ID', accessorKey: 'id', width: '80px' },
       { header: 'Name', accessorKey: 'name' },

@@ -9,7 +9,7 @@ type ViewportSize = 'desktop' | 'tablet' | 'mobile';
 export default function Playground() {
   const [selectedExample, setSelectedExample] = useState<ExampleKey>('dashboard');
   const [code, setCode] = useState(examples['dashboard']);
-  const [schema, setSchema] = useState<Record<string, unknown> | null>(null);
+  const [schema, setSchema] = useState<any>(null);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState<ViewportSize>('desktop');
   const [copied, setCopied] = useState(false);

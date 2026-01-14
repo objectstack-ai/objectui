@@ -656,7 +656,7 @@ export const examples = {
         },
         {
           "type": "text",
-          "content": "Full-featured data table with sorting, filtering, pagination, row selection, and export capabilities - similar to Airtable",
+          "content": "Full-featured data table with sorting, filtering, pagination, row selection, export, column resizing, and column reordering - similar to Airtable",
           "className": "text-muted-foreground"
         }
       ]
@@ -671,6 +671,8 @@ export const examples = {
       "sortable": true,
       "exportable": true,
       "rowActions": true,
+      "resizableColumns": true,
+      "reorderableColumns": true,
       "columns": [
         { 
           "header": "ID", 

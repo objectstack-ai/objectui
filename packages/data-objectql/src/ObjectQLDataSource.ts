@@ -156,10 +156,47 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
       if (Array.isArray(params.$filter)) {
         objectqlParams.filter = params.$filter as FilterExpression;
       } else {
-        // Convert object format to FilterExpression format
-        objectqlParams.filter = Object.entries(params.$filter).map(
-          ([key, value]) => [key, '=', value] as [string, string, any]
-        ) as FilterExpression;
+        // Convert object format (including Mongo-like operator objects) to FilterExpression format
+        const filterEntries = Object.entries(params.$filter);
+        const filters: any[] = [];
+
+        const operatorMap: Record<string, string> = {
+          $eq: '=',
+          $ne: '!=',
+          $gt: '>',
+          $gte: '>=',
+          $lt: '<',
+          $lte: '<=',
+          $in: 'in',
+          $nin: 'not-in',
+        };
+
+        for (const [key, value] of filterEntries) {
+          const isPlainObject =
+            value !== null &&
+            typeof value === 'object' &&
+            !Array.isArray(value);
+
+          if (isPlainObject) {
+            const opEntries = Object.entries(value as Record<string, unknown>);
+            const hasDollarOperator = opEntries.some(([op]) => op.startsWith('$'));
+
+            if (hasDollarOperator) {
+              for (const [rawOp, opValue] of opEntries) {
+                const mappedOp =
+                  operatorMap[rawOp as keyof typeof operatorMap] ??
+                  rawOp.replace(/^\$/, '');
+                filters.push([key, mappedOp, opValue]);
+              }
+              continue;
+            }
+          }
+
+          // Fallback: treat as simple equality
+          filters.push([key, '=', value]);
+        }
+
+        objectqlParams.filter = filters as FilterExpression;
       }
     }
     
@@ -243,7 +280,7 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
         return filtered as T;
       }
       
-      return response as T || null;
+      return response ? (response as T) : null;
     } catch (err: any) {
       // Return null for not found errors
       if (err.code === 'NOT_FOUND' || err.status === 404) {
@@ -333,7 +370,7 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
    * 
    * @param resource - Object name
    * @param operation - Operation type
-   * @param data - Bulk data or filters for update/delete
+   * @param data - Bulk data (array of records for create/update/delete)
    * @returns Promise resolving to operation results
    */
   async bulk(
@@ -346,38 +383,49 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
         const response = await this.client.createMany<T>(resource, data);
         return response.items || [];
       } else if (operation === 'update') {
-        // For bulk updates with SDK, we need filters and update data
-        // This is a limitation - the old API accepted array of records
-        // The new SDK requires filters + data
-        if (Array.isArray(data)) {
-          // If array of records is provided, we need to update them individually
-          // This is less efficient but maintains compatibility
-          const results: T[] = [];
-          for (const item of data) {
-            if ('_id' in item && item._id) {
-              const updated = await this.client.update<T>(resource, item._id, item);
-              results.push(updated as T);
-            }
-          }
-          return results;
-        } else {
-          throw new Error('Bulk update requires array of records with _id field');
+        // Fallback implementation: iterate and call single-record update
+        if (!Array.isArray(data)) {
+          throw new Error('Bulk update requires array of records');
         }
+        
+        const results: T[] = [];
+        for (const item of data) {
+          const record: any = item as any;
+          const id = record?.id ?? record?._id;
+          if (id === undefined || id === null) {
+            throw new Error(
+              'Bulk update requires each item to include an `id` or `_id` field.'
+            );
+          }
+          // Do not send id as part of the update payload
+          const { id: _omitId, _id: _omitUnderscore, ...updateData } = record;
+          const updated = await this.client.update<T>(resource, id, updateData);
+          if (updated !== undefined && updated !== null) {
+            results.push(updated as T);
+          }
+        }
+        return results;
       } else if (operation === 'delete') {
-        // For bulk deletes with SDK, similar approach
-        if (Array.isArray(data)) {
-          // Delete each record individually
-          const results: T[] = [];
-          for (const item of data) {
-            if ('_id' in item && item._id) {
-              await this.client.delete(resource, item._id);
-              results.push(item as T);
-            }
-          }
-          return results;
-        } else {
-          throw new Error('Bulk delete requires array of records with _id field');
+        // Fallback implementation: iterate and call single-record delete
+        if (!Array.isArray(data)) {
+          throw new Error('Bulk delete requires array of records or IDs');
         }
+        
+        for (const item of data) {
+          const record: any = item as any;
+          // Support both direct ID values and objects with id/_id field
+          const id = typeof record === 'object' 
+            ? (record?.id ?? record?._id) 
+            : record;
+          if (id === undefined || id === null) {
+            throw new Error(
+              'Bulk delete requires each item to include an `id` or `_id` field or be an id value.'
+            );
+          }
+          await this.client.delete(resource, id);
+        }
+        // For delete operations, we return an empty array by convention
+        return [];
       }
       
       throw new Error(`Unknown bulk operation: ${operation}`);

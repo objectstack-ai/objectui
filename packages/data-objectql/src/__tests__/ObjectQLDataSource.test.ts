@@ -66,6 +66,40 @@ describe('ObjectQLDataSource', () => {
       expect(url).toContain('limit=20');
     });
     
+    it('should convert MongoDB-like operators in filters', async () => {
+      const mockData = { items: [], meta: { total: 0 } };
+      
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockData,
+      });
+      
+      await dataSource.find('contacts', {
+        $filter: { 
+          age: { $gte: 18, $lte: 65 },
+          status: { $in: ['active', 'pending'] }
+        }
+      });
+      
+      const fetchCall = (global.fetch as any).mock.calls[0];
+      const url = fetchCall[0];
+      
+      // Verify the filter parameter is present
+      expect(url).toContain('filter=');
+      
+      // The filter should be encoded as a JSON array with operators
+      const urlObj = new URL(url, 'http://localhost');
+      const filterParam = urlObj.searchParams.get('filter');
+      if (filterParam) {
+        const filter = JSON.parse(filterParam);
+        // Should have converted to FilterExpression format
+        expect(Array.isArray(filter)).toBe(true);
+        // Should have converted $gte to '>=' and $lte to '<='
+        expect(filter.some((f: any) => f[1] === '>=')).toBe(true);
+        expect(filter.some((f: any) => f[1] === '<=')).toBe(true);
+      }
+    });
+    
     it('should include authentication token in headers', async () => {
       const mockData = { items: [] };
       

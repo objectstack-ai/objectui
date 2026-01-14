@@ -79,7 +79,6 @@ export function useObjectQL(options: UseObjectQLOptions): ObjectQLDataSource {
   return useMemo(
     () => new ObjectQLDataSource(options.config),
     [options.config]
-    [JSON.stringify(options.config)]
   );
 }
 

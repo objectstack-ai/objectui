@@ -422,7 +422,7 @@ If you're upgrading from a previous version that used custom fetch logic:
    $filter: { status: 'active', age: 18 }
    
    // Array format (FilterExpression - native ObjectQL format)
-   $filter: [['status', '=', 'active'], ['age', '>=', 18]]
+   $filter: [['status', '=', 'active'], ['age', '=', 18]]
    ```
 
 ## License

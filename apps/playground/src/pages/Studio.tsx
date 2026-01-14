@@ -89,26 +89,28 @@ const StudioToolbarContext = ({
   };
 
   return (
-      <header className="h-16 border-b bg-white flex items-center px-4 justify-between flex-shrink-0 z-50 relative shadow-sm">
+      <header className="h-16 border-b bg-white/80 backdrop-blur-md flex items-center px-4 justify-between flex-shrink-0 z-50 relative shadow-md">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <button 
               onClick={() => navigate('/')}
-              className="p-2 -ml-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all"
+              className="p-2 -ml-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
               title="Back to Gallery"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="h-6 w-px bg-gray-200 mx-1"></div>
+            <div className="h-6 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent mx-1"></div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-gray-900 tracking-tight">Object Studio</span>
-                <span className="text-gray-300">/</span>
-                <span className="text-gray-600 font-medium">{exampleTitle}</span>
+                <span className="font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                  <span className="bg-gradient-to-br from-indigo-600 to-purple-600 text-transparent bg-clip-text">Object Studio</span>
+                  <span className="text-gray-300">/</span>
+                  <span className="text-gray-700 font-semibold">{exampleTitle}</span>
+                </span>
               </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${jsonError ? 'bg-red-500' : 'bg-green-500'} ring-2 ring-opacity-20 ${jsonError ? 'ring-red-500' : 'ring-green-500'}`}></span>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${jsonError ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'} ring-2 ring-opacity-30 ${jsonError ? 'ring-red-500' : 'ring-emerald-500'}`}></span>
+                <span className="text-[10px] uppercase tracking-wider font-bold ${jsonError ? 'text-red-600' : 'text-emerald-600'}">
                   {jsonError ? 'Error' : 'Ready'}
                 </span>
               </div>
@@ -118,13 +120,13 @@ const StudioToolbarContext = ({
 
         {/* Center: View Mode Switcher */}
         <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <div className="flex p-1 bg-gray-100/80 backdrop-blur-sm rounded-lg border border-gray-200/50">
+          <div className="flex p-1 bg-gradient-to-r from-gray-100 to-slate-100 backdrop-blur-sm rounded-xl border border-gray-300 shadow-lg">
              <button
                 onClick={() => setViewMode('design')}
-                className={`flex items-center gap-2 px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
                   viewMode === 'design' 
-                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5' 
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-300/50' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/70'
                 }`}
               >
                 <PenTool className="w-3.5 h-3.5" />
@@ -132,10 +134,10 @@ const StudioToolbarContext = ({
               </button>
               <button
                 onClick={() => setViewMode('preview')}
-                className={`flex items-center gap-2 px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
                   viewMode === 'preview' 
-                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5' 
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-300/50' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/70'
                 }`}
               >
                 <Monitor className="w-3.5 h-3.5" />
@@ -143,10 +145,10 @@ const StudioToolbarContext = ({
               </button>
               <button
                 onClick={() => setViewMode('code')}
-                className={`flex items-center gap-2 px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
                   viewMode === 'code' 
-                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5' 
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-300/50' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/70'
                 }`}
               >
                 <Code2 className="w-3.5 h-3.5" />
@@ -158,11 +160,11 @@ const StudioToolbarContext = ({
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
            {viewMode === 'design' && (
-             <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-0.5 mr-2">
+             <div className="flex items-center bg-white rounded-xl border-2 border-gray-200 p-0.5 mr-2 shadow-sm">
                <button 
                  onClick={undo} 
                  disabled={!canUndo}
-                 className={`p-1.5 rounded-md transition-all ${!canUndo ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm'}`}
+                 className={`p-2 rounded-lg transition-all ${!canUndo ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
                  title="Undo (Cmd+Z)"
                >
                  <Undo className="w-4 h-4" />
@@ -170,7 +172,7 @@ const StudioToolbarContext = ({
                <button 
                  onClick={redo} 
                  disabled={!canRedo}
-                 className={`p-1.5 rounded-md transition-all ${!canRedo ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm'}`}
+                 className={`p-2 rounded-lg transition-all ${!canRedo ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
                  title="Redo (Cmd+Y)"
                >
                  <Redo className="w-4 h-4" />
@@ -178,11 +180,11 @@ const StudioToolbarContext = ({
              </div>
            )}
            
-           <div className="h-6 w-px bg-gray-200 mx-2"></div>
+           <div className="h-6 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent mx-2"></div>
 
            <button 
              onClick={handleExport}
-             className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+             className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-all shadow-sm hover:shadow"
              title="Download JSON"
            >
               <Download className="w-4 h-4" />
@@ -191,14 +193,14 @@ const StudioToolbarContext = ({
 
            <button
                 onClick={handleCopy}
-                className={`flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg transition-all shadow-sm ${
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-lg ${
                   copied 
-                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:from-emerald-700 hover:to-green-700 shadow-emerald-300/50' 
+                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-indigo-300/50'
                 }`}
               >
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? 'Copied' : 'Copy'}
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? 'Copied!' : 'Copy JSON'}
             </button>
         </div>
       </header>
@@ -286,14 +288,14 @@ const StudioEditor = ({ exampleId, initialJson }: { exampleId: ExampleKey, initi
           </DesignerErrorBoundary>
         </div>
       ) : viewMode === 'preview' ? (
-        <div className="h-full flex flex-col bg-gray-50 overflow-hidden absolute inset-0">
-          <div className="border-b px-4 py-2 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 sticky top-0">
+        <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-indigo-50 overflow-hidden absolute inset-0">
+          <div className="border-b px-4 py-3 bg-white/90 backdrop-blur-md flex items-center justify-center z-10 sticky top-0 shadow-sm">
             {/* Viewport Size Toggles */}
-            <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-1.5 bg-gradient-to-r from-gray-100 to-slate-100 p-1 rounded-xl border-2 border-gray-300 shadow-lg">
               <button
                 onClick={() => setViewportSize('desktop')}
-                className={`p-1.5 rounded-md transition-all duration-200 ${
-                  viewportSize === 'desktop' ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-700'
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewportSize === 'desktop' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg shadow-indigo-300/50 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-white/70'
                 }`}
                 title="Desktop View"
               >
@@ -301,8 +303,8 @@ const StudioEditor = ({ exampleId, initialJson }: { exampleId: ExampleKey, initi
               </button>
               <button
                 onClick={() => setViewportSize('tablet')}
-                className={`p-1.5 rounded-md transition-all duration-200 ${
-                  viewportSize === 'tablet' ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-700'
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewportSize === 'tablet' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg shadow-indigo-300/50 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-white/70'
                 }`}
                 title="Tablet View"
               >
@@ -310,8 +312,8 @@ const StudioEditor = ({ exampleId, initialJson }: { exampleId: ExampleKey, initi
               </button>
               <button
                 onClick={() => setViewportSize('mobile')}
-                className={`p-1.5 rounded-md transition-all duration-200 ${
-                  viewportSize === 'mobile' ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-700'
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewportSize === 'mobile' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg shadow-indigo-300/50 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-white/70'
                 }`}
                 title="Mobile View"
               >
@@ -321,10 +323,10 @@ const StudioEditor = ({ exampleId, initialJson }: { exampleId: ExampleKey, initi
           </div>
           
           <div 
-            className="flex-1 overflow-auto p-8 flex justify-center bg-slate-50 relative"
+            className="flex-1 overflow-auto p-8 flex justify-center bg-gradient-to-br from-slate-100 via-gray-50 to-indigo-100 relative"
             style={{ 
-              backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', 
-              backgroundSize: '24px 24px' 
+              backgroundImage: 'radial-gradient(circle, #cbd5e1 1.5px, transparent 1.5px)', 
+              backgroundSize: '32px 32px' 
             }}
           >
             <div className={`${viewportStyles[viewportSize]} transition-all duration-300 ease-in-out`}>
@@ -332,19 +334,18 @@ const StudioEditor = ({ exampleId, initialJson }: { exampleId: ExampleKey, initi
                 className={`
                   bg-background h-full min-h-[500px] 
                   ${viewportSize === 'mobile' 
-                    ? 'rounded-[3rem] border-[8px] border-slate-800 shadow-2xl' 
+                    ? 'rounded-[3rem] border-[10px] border-gray-800 shadow-2xl shadow-gray-900/50' 
                     : viewportSize === 'tablet' 
-                      ? 'rounded-[2rem] border-[8px] border-slate-800 shadow-2xl' 
-                      : 'rounded-xl border border-gray-200 shadow-xl'
-                  }
+                      ? 'rounded-[2rem] border-[10px] border-gray-800 shadow-2xl shadow-gray-900/50' 
+                      : 'rounded-2xl border-2 border-gray-300 shadow-2xl'}
                   ${viewportSize !== 'desktop' ? 'overflow-hidden' : 'p-6'} 
                   transition-all duration-300
                 `}
               >
                 {/* Mobile/Tablet Bar */}
                 {viewportSize !== 'desktop' && (
-                  <div className="h-6 bg-slate-800 w-full absolute top-0 left-0 z-50 flex justify-center items-center">
-                    <div className="w-16 h-1 bg-slate-700 rounded-full"></div>
+                  <div className="h-6 bg-gray-900 w-full absolute top-0 left-0 z-50 flex justify-center items-center rounded-t-[2.5rem]">
+                    <div className="w-20 h-1.5 bg-gray-700 rounded-full"></div>
                   </div>
                 )}
 
@@ -357,17 +358,20 @@ const StudioEditor = ({ exampleId, initialJson }: { exampleId: ExampleKey, initi
                   ) : (
                     <div className="text-center py-12 text-muted-foreground flex flex-col items-center justify-center h-full">
                       {jsonError ? (
-                        <div className="space-y-2 p-4 bg-red-50 rounded-lg border border-red-100">
-                          <p className="text-red-600 font-semibold flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                        <div className="space-y-3 p-6 bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl border-2 border-red-200 shadow-lg max-w-md">
+                          <p className="text-red-700 font-bold text-lg flex items-center gap-2 justify-center">
+                            <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
                             Invalid JSON
                           </p>
-                          <p className="text-xs text-red-500 font-mono text-left">{jsonError}</p>
+                          <p className="text-xs text-red-600 font-mono text-left bg-white/80 p-3 rounded-lg border border-red-200">{jsonError}</p>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center gap-3">
-                           <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                           <p className="text-sm text-gray-400">Rendering...</p>
+                        <div className="flex flex-col items-center gap-4">
+                           <div className="relative">
+                             <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                             <div className="absolute inset-0 w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1s' }}></div>
+                           </div>
+                           <p className="text-sm font-semibold text-gray-600">Rendering your UI...</p>
                         </div>
                       )}
                     </div>
@@ -410,18 +414,18 @@ const StudioEditor = ({ exampleId, initialJson }: { exampleId: ExampleKey, initi
           </div>
 
           {/* Side Preview */}
-          <div className="w-1/2 h-full flex flex-col bg-slate-50 relative" 
+          <div className="w-1/2 h-full flex flex-col bg-gradient-to-br from-slate-100 via-gray-50 to-indigo-100 relative" 
             style={{ 
-              backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', 
-              backgroundSize: '24px 24px' 
+              backgroundImage: 'radial-gradient(circle, #cbd5e1 1.5px, transparent 1.5px)', 
+              backgroundSize: '32px 32px' 
             }}
           >
              <div className="flex-1 overflow-auto p-8 flex items-center justify-center">
-                <div className="w-full max-w-xl mx-auto rounded-xl shadow-xl bg-background border ring-1 ring-black/5 overflow-hidden">
-                  <div className="h-9 bg-white border-b flex items-center px-3 gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-400/80"></div>
-                    <div className="w-3 h-3 rounded-full bg-amber-400/80"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-400/80"></div>
+                <div className="w-full max-w-xl mx-auto rounded-2xl shadow-2xl bg-background border-2 border-gray-300 overflow-hidden">
+                  <div className="h-9 bg-gradient-to-b from-gray-100 to-gray-50 border-b-2 border-gray-300 flex items-center px-3 gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500 shadow-sm"></div>
                   </div>
                   <div className="p-6">
                     {schema && !jsonError ? (

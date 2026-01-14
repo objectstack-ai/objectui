@@ -1,45 +1,46 @@
 {
   "type": "div",
-  "className": "min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6",
+  "className": "min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6 md:p-8",
   "body": [
     {
       "type": "div",
-      "className": "max-w-7xl mx-auto space-y-6",
+      "className": "max-w-7xl mx-auto space-y-8",
       "body": [
         {
           "type": "div",
-          "className": "flex justify-between items-center",
+          "className": "flex flex-col md:flex-row justify-between items-start md:items-center gap-4 backdrop-blur-sm bg-white/40 p-6 rounded-2xl border border-white/60 shadow-lg",
           "body": [
             {
               "type": "div",
-              "className": "space-y-1",
+              "className": "space-y-2",
               "body": [
                 {
                   "type": "text",
-                  "content": "Analytics Dashboard",
-                  "className": "text-3xl font-bold text-gray-900"
+                  "content": "📊 Analytics Dashboard",
+                  "className": "text-4xl font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"
                 },
                 {
                   "type": "text",
                   "content": "Real-time performance metrics and insights",
-                  "className": "text-gray-500"
+                  "className": "text-gray-600 font-medium"
                 }
               ]
             },
             {
               "type": "flex",
               "direction": "row",
-              "gap": 2,
+              "gap": 3,
               "children": [
                 {
                   "type": "button",
-                  "label": "Export",
-                  "variant": "outline"
+                  "label": "📥 Export",
+                  "variant": "outline",
+                  "className": "shadow-sm hover:shadow-md transition-all"
                 },
                 {
                   "type": "button",
-                  "label": "Refresh",
-                  "className": "bg-blue-600 hover:bg-blue-700 text-white"
+                  "label": "🔄 Refresh",
+                  "className": "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all"
                 }
               ]
             }
@@ -52,10 +53,10 @@
           "children": [
             {
               "type": "card",
-              "className": "bg-white p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow",
+              "className": "bg-gradient-to-br from-green-50 to-emerald-100 p-6 border-0 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 duration-300 relative overflow-hidden",
               "body": {
                 "type": "div",
-                "className": "space-y-2",
+                "className": "space-y-3 relative z-10",
                 "body": [
                   {
                     "type": "flex",
@@ -66,19 +67,25 @@
                       {
                         "type": "text",
                         "content": "Total Revenue",
-                        "className": "text-sm font-medium text-gray-600"
+                        "className": "text-sm font-semibold text-green-900 uppercase tracking-wide"
                       },
                       {
-                        "type": "icon",
-                        "name": "DollarSign",
-                        "className": "w-4 h-4 text-green-600"
+                        "type": "div",
+                        "className": "p-2 bg-green-200/50 rounded-full backdrop-blur",
+                        "body": [
+                          {
+                            "type": "icon",
+                            "name": "DollarSign",
+                            "className": "w-5 h-5 text-green-700"
+                          }
+                        ]
                       }
                     ]
                   },
                   {
                     "type": "text",
                     "content": "$45,231.89",
-                    "className": "text-3xl font-bold text-gray-900"
+                    "className": "text-4xl font-black text-green-900 tracking-tight"
                   },
                   {
                     "type": "flex",
@@ -87,14 +94,20 @@
                     "align": "center",
                     "children": [
                       {
-                        "type": "text",
-                        "content": "↗ 20.1%",
-                        "className": "text-sm font-medium text-green-600"
+                        "type": "div",
+                        "className": "px-2 py-1 bg-green-600 text-white rounded-full text-xs font-bold",
+                        "body": [
+                          {
+                            "type": "text",
+                            "content": "↗ 20.1%",
+                            "className": "text-xs"
+                          }
+                        ]
                       },
                       {
                         "type": "text",
                         "content": "from last month",
-                        "className": "text-sm text-gray-500"
+                        "className": "text-sm text-green-700 font-medium"
                       }
                     ]
                   }
@@ -103,10 +116,10 @@
             },
             {
               "type": "card",
-              "className": "bg-white p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow",
+              "className": "bg-gradient-to-br from-blue-50 to-cyan-100 p-6 border-0 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 duration-300 relative overflow-hidden",
               "body": {
                 "type": "div",
-                "className": "space-y-2",
+                "className": "space-y-3 relative z-10",
                 "body": [
                   {
                     "type": "flex",
@@ -117,19 +130,25 @@
                       {
                         "type": "text",
                         "content": "Active Users",
-                        "className": "text-sm font-medium text-gray-600"
+                        "className": "text-sm font-semibold text-blue-900 uppercase tracking-wide"
                       },
                       {
-                        "type": "icon",
-                        "name": "Users",
-                        "className": "w-4 h-4 text-blue-600"
+                        "type": "div",
+                        "className": "p-2 bg-blue-200/50 rounded-full backdrop-blur",
+                        "body": [
+                          {
+                            "type": "icon",
+                            "name": "Users",
+                            "className": "w-5 h-5 text-blue-700"
+                          }
+                        ]
                       }
                     ]
                   },
                   {
                     "type": "text",
                     "content": "+2,350",
-                    "className": "text-3xl font-bold text-gray-900"
+                    "className": "text-4xl font-black text-blue-900 tracking-tight"
                   },
                   {
                     "type": "flex",
@@ -138,14 +157,20 @@
                     "align": "center",
                     "children": [
                       {
-                        "type": "text",
-                        "content": "↗ 180.1%",
-                        "className": "text-sm font-medium text-green-600"
+                        "type": "div",
+                        "className": "px-2 py-1 bg-blue-600 text-white rounded-full text-xs font-bold",
+                        "body": [
+                          {
+                            "type": "text",
+                            "content": "↗ 180.1%",
+                            "className": "text-xs"
+                          }
+                        ]
                       },
                       {
                         "type": "text",
                         "content": "from last month",
-                        "className": "text-sm text-gray-500"
+                        "className": "text-sm text-blue-700 font-medium"
                       }
                     ]
                   }
@@ -154,10 +179,10 @@
             },
             {
               "type": "card",
-              "className": "bg-white p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow",
+              "className": "bg-gradient-to-br from-purple-50 to-fuchsia-100 p-6 border-0 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 duration-300 relative overflow-hidden",
               "body": {
                 "type": "div",
-                "className": "space-y-2",
+                "className": "space-y-3 relative z-10",
                 "body": [
                   {
                     "type": "flex",
@@ -168,19 +193,25 @@
                       {
                         "type": "text",
                         "content": "Total Orders",
-                        "className": "text-sm font-medium text-gray-600"
+                        "className": "text-sm font-semibold text-purple-900 uppercase tracking-wide"
                       },
                       {
-                        "type": "icon",
-                        "name": "ShoppingCart",
-                        "className": "w-4 h-4 text-purple-600"
+                        "type": "div",
+                        "className": "p-2 bg-purple-200/50 rounded-full backdrop-blur",
+                        "body": [
+                          {
+                            "type": "icon",
+                            "name": "ShoppingCart",
+                            "className": "w-5 h-5 text-purple-700"
+                          }
+                        ]
                       }
                     ]
                   },
                   {
                     "type": "text",
                     "content": "+12,234",
-                    "className": "text-3xl font-bold text-gray-900"
+                    "className": "text-4xl font-black text-purple-900 tracking-tight"
                   },
                   {
                     "type": "flex",
@@ -189,14 +220,20 @@
                     "align": "center",
                     "children": [
                       {
-                        "type": "text",
-                        "content": "↗ 19%",
-                        "className": "text-sm font-medium text-green-600"
+                        "type": "div",
+                        "className": "px-2 py-1 bg-purple-600 text-white rounded-full text-xs font-bold",
+                        "body": [
+                          {
+                            "type": "text",
+                            "content": "↗ 19%",
+                            "className": "text-xs"
+                          }
+                        ]
                       },
                       {
                         "type": "text",
                         "content": "from last month",
-                        "className": "text-sm text-gray-500"
+                        "className": "text-sm text-purple-700 font-medium"
                       }
                     ]
                   }
@@ -205,10 +242,10 @@
             },
             {
               "type": "card",
-              "className": "bg-white p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow",
+              "className": "bg-gradient-to-br from-amber-50 to-orange-100 p-6 border-0 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 duration-300 relative overflow-hidden",
               "body": {
                 "type": "div",
-                "className": "space-y-2",
+                "className": "space-y-3 relative z-10",
                 "body": [
                   {
                     "type": "flex",
@@ -219,19 +256,25 @@
                       {
                         "type": "text",
                         "content": "Conversion Rate",
-                        "className": "text-sm font-medium text-gray-600"
+                        "className": "text-sm font-semibold text-orange-900 uppercase tracking-wide"
                       },
                       {
-                        "type": "icon",
-                        "name": "TrendingUp",
-                        "className": "w-4 h-4 text-orange-600"
+                        "type": "div",
+                        "className": "p-2 bg-orange-200/50 rounded-full backdrop-blur",
+                        "body": [
+                          {
+                            "type": "icon",
+                            "name": "TrendingUp",
+                            "className": "w-5 h-5 text-orange-700"
+                          }
+                        ]
                       }
                     ]
                   },
                   {
                     "type": "text",
                     "content": "3.24%",
-                    "className": "text-3xl font-bold text-gray-900"
+                    "className": "text-4xl font-black text-orange-900 tracking-tight"
                   },
                   {
                     "type": "flex",
@@ -240,14 +283,20 @@
                     "align": "center",
                     "children": [
                       {
-                        "type": "text",
-                        "content": "↘ 4.3%",
-                        "className": "text-sm font-medium text-red-600"
+                        "type": "div",
+                        "className": "px-2 py-1 bg-red-600 text-white rounded-full text-xs font-bold",
+                        "body": [
+                          {
+                            "type": "text",
+                            "content": "↘ 4.3%",
+                            "className": "text-xs"
+                          }
+                        ]
                       },
                       {
                         "type": "text",
                         "content": "from last month",
-                        "className": "text-sm text-gray-500"
+                        "className": "text-sm text-orange-700 font-medium"
                       }
                     ]
                   }
@@ -263,10 +312,10 @@
           "children": [
             {
               "type": "card",
-              "className": "col-span-2 bg-white p-6 border border-gray-200 shadow-sm",
+              "className": "col-span-2 bg-white/80 backdrop-blur-lg p-6 border-0 shadow-xl rounded-2xl",
               "body": {
                 "type": "div",
-                "className": "space-y-4",
+                "className": "space-y-6",
                 "body": [
                   {
                     "type": "div",
@@ -274,8 +323,8 @@
                     "body": [
                       {
                         "type": "text",
-                        "content": "Revenue Overview",
-                        "className": "text-lg font-semibold text-gray-900"
+                        "content": "📈 Revenue Overview",
+                        "className": "text-xl font-bold text-gray-900"
                       },
                       {
                         "type": "select",
@@ -292,12 +341,12 @@
                   },
                   {
                     "type": "div",
-                    "className": "h-80 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center",
+                    "className": "h-80 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-xl flex items-center justify-center border-2 border-dashed border-indigo-200",
                     "body": [
                       {
                         "type": "text",
                         "content": "📊 Chart Visualization Area",
-                        "className": "text-gray-400 text-lg"
+                        "className": "text-indigo-400 text-xl font-semibold"
                       }
                     ]
                   }
@@ -306,15 +355,15 @@
             },
             {
               "type": "card",
-              "className": "bg-white p-6 border border-gray-200 shadow-sm",
+              "className": "bg-white/80 backdrop-blur-lg p-6 border-0 shadow-xl rounded-2xl",
               "body": {
                 "type": "div",
-                "className": "space-y-4",
+                "className": "space-y-6",
                 "body": [
                   {
                     "type": "text",
-                    "content": "Recent Activity",
-                    "className": "text-lg font-semibold text-gray-900"
+                    "content": "⚡ Recent Activity",
+                    "className": "text-xl font-bold text-gray-900"
                   },
                   {
                     "type": "div",
@@ -325,11 +374,12 @@
                         "direction": "row",
                         "gap": 3,
                         "align": "center",
+                        "className": "p-3 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100/50 hover:shadow-md transition-shadow",
                         "children": [
                           {
                             "type": "avatar",
                             "fallback": "JD",
-                            "className": "w-10 h-10 bg-blue-100 text-blue-600"
+                            "className": "w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold shadow-md"
                           },
                           {
                             "type": "div",
@@ -338,30 +388,28 @@
                               {
                                 "type": "text",
                                 "content": "New order placed",
-                                "className": "text-sm font-medium text-gray-900"
+                                "className": "text-sm font-bold text-gray-900"
                               },
                               {
                                 "type": "text",
                                 "content": "2 minutes ago",
-                                "className": "text-xs text-gray-500"
+                                "className": "text-xs text-blue-600 font-medium"
                               }
                             ]
                           }
                         ]
                       },
                       {
-                        "type": "separator"
-                      },
-                      {
                         "type": "flex",
                         "direction": "row",
                         "gap": 3,
                         "align": "center",
+                        "className": "p-3 rounded-xl bg-gradient-to-r from-green-50 to-green-100/50 hover:shadow-md transition-shadow",
                         "children": [
                           {
                             "type": "avatar",
                             "fallback": "AB",
-                            "className": "w-10 h-10 bg-green-100 text-green-600"
+                            "className": "w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 text-white font-bold shadow-md"
                           },
                           {
                             "type": "div",
@@ -370,30 +418,28 @@
                               {
                                 "type": "text",
                                 "content": "Payment received",
-                                "className": "text-sm font-medium text-gray-900"
+                                "className": "text-sm font-bold text-gray-900"
                               },
                               {
                                 "type": "text",
                                 "content": "15 minutes ago",
-                                "className": "text-xs text-gray-500"
+                                "className": "text-xs text-green-600 font-medium"
                               }
                             ]
                           }
                         ]
                       },
                       {
-                        "type": "separator"
-                      },
-                      {
                         "type": "flex",
                         "direction": "row",
                         "gap": 3,
                         "align": "center",
+                        "className": "p-3 rounded-xl bg-gradient-to-r from-purple-50 to-purple-100/50 hover:shadow-md transition-shadow",
                         "children": [
                           {
                             "type": "avatar",
                             "fallback": "MK",
-                            "className": "w-10 h-10 bg-purple-100 text-purple-600"
+                            "className": "w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 text-white font-bold shadow-md"
                           },
                           {
                             "type": "div",
@@ -402,30 +448,28 @@
                               {
                                 "type": "text",
                                 "content": "New user signed up",
-                                "className": "text-sm font-medium text-gray-900"
+                                "className": "text-sm font-bold text-gray-900"
                               },
                               {
                                 "type": "text",
                                 "content": "1 hour ago",
-                                "className": "text-xs text-gray-500"
+                                "className": "text-xs text-purple-600 font-medium"
                               }
                             ]
                           }
                         ]
                       },
                       {
-                        "type": "separator"
-                      },
-                      {
                         "type": "flex",
                         "direction": "row",
                         "gap": 3,
                         "align": "center",
+                        "className": "p-3 rounded-xl bg-gradient-to-r from-orange-50 to-orange-100/50 hover:shadow-md transition-shadow",
                         "children": [
                           {
                             "type": "avatar",
                             "fallback": "SW",
-                            "className": "w-10 h-10 bg-orange-100 text-orange-600"
+                            "className": "w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 text-white font-bold shadow-md"
                           },
                           {
                             "type": "div",
@@ -434,12 +478,12 @@
                               {
                                 "type": "text",
                                 "content": "Product review posted",
-                                "className": "text-sm font-medium text-gray-900"
+                                "className": "text-sm font-bold text-gray-900"
                               },
                               {
                                 "type": "text",
                                 "content": "3 hours ago",
-                                "className": "text-xs text-gray-500"
+                                "className": "text-xs text-orange-600 font-medium"
                               }
                             ]
                           }
@@ -454,15 +498,15 @@
         },
         {
           "type": "card",
-          "className": "bg-white p-6 border border-gray-200 shadow-sm",
+          "className": "bg-white/80 backdrop-blur-lg p-6 border-0 shadow-xl rounded-2xl",
           "body": {
             "type": "div",
-            "className": "space-y-4",
+            "className": "space-y-6",
             "body": [
               {
                 "type": "text",
-                "content": "Top Performing Products",
-                "className": "text-lg font-semibold text-gray-900"
+                "content": "🏆 Top Performing Products",
+                "className": "text-xl font-bold text-gray-900"
               },
               {
                 "type": "table",

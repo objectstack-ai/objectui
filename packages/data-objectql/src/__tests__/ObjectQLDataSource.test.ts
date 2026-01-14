@@ -189,6 +189,8 @@ describe('ObjectQLDataSource', () => {
       const fetchCall = (global.fetch as any).mock.calls[0];
       const options = fetchCall[1];
       
+      // The SDK uses PUT method for updates (not PATCH)
+      // This is the standard behavior of @objectql/sdk's DataApiClient
       expect(options.method).toBe('PUT');
       expect(options.body).toBe(JSON.stringify(updates));
     });

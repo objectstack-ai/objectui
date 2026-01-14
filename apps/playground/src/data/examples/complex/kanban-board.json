@@ -1,0 +1,82 @@
+{
+  "type": "div",
+  "className": "space-y-4",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-2",
+      "body": [
+        {
+          "type": "text",
+          "content": "Kanban Board",
+          "className": "text-2xl font-bold"
+        },
+        {
+          "type": "text",
+          "content": "Drag and drop kanban board for project management - similar to Trello",
+          "className": "text-muted-foreground"
+        }
+      ]
+    },
+    {
+      "type": "kanban",
+      "className": "h-[600px]",
+      "columns": [
+        { "id": "todo", "title": "To Do", "color": "bg-slate-100" },
+        { "id": "in-progress", "title": "In Progress", "color": "bg-blue-50" },
+        { "id": "review", "title": "Review", "color": "bg-orange-50" },
+        { "id": "done", "title": "Done", "color": "bg-green-50" }
+      ],
+      "data": [
+        { 
+          "id": 1, 
+          "title": "Research Competitors", 
+          "description": "Analyze top 3 competitors features and pricing",
+          "status": "todo",
+          "priority": "high",
+          "assignee": "John Doe"
+        },
+        { 
+          "id": 2, 
+          "title": "Design System Draft", 
+          "description": "Create initial tokens and core components",
+          "status": "in-progress",
+          "priority": "critical",
+          "assignee": "Jane Smith"
+        },
+        { 
+          "id": 3, 
+          "title": "Setup CI/CD Pipeline", 
+          "description": "Configure GitHub Actions for automated testing",
+          "status": "review",
+          "priority": "medium",
+          "assignee": "Bob Johnson"
+        },
+        { 
+          "id": 4, 
+          "title": "User Interview Script", 
+          "description": "Prepare questions for user research phase",
+          "status": "todo",
+          "priority": "low",
+          "assignee": "Alice Williams"
+        },
+        { 
+          "id": 5, 
+          "title": "Database Schema", 
+          "description": "Finalize database relationships and indexing strategy",
+          "status": "done",
+          "priority": "critical",
+          "assignee": "Charlie Brown"
+        },
+        { 
+          "id": 6, 
+          "title": "API Documentation", 
+          "description": "Document all endpoints using OpenAPI spec",
+          "status": "in-progress",
+          "priority": "high",
+          "assignee": "Diana Prince"
+        }
+      ]
+    }
+  ]
+}

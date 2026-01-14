@@ -1,0 +1,83 @@
+{
+  "type": "div",
+  "className": "max-w-2xl space-y-6",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-2",
+      "body": [
+        {
+          "type": "text",
+          "content": "User Registration Form",
+          "className": "text-2xl font-bold"
+        },
+        {
+          "type": "text",
+          "content": "A comprehensive form demonstrating various input types",
+          "className": "text-muted-foreground"
+        }
+      ]
+    },
+    {
+      "type": "card",
+      "className": "shadow-sm",
+      "body": {
+        "type": "div",
+        "className": "p-6 space-y-6",
+        "body": [
+          {
+            "type": "div",
+            "className": "grid gap-4 md:grid-cols-2",
+            "body": [
+              {
+                "type": "input",
+                "label": "First Name",
+                "id": "firstName",
+                "required": true,
+                "placeholder": "John"
+              },
+              {
+                "type": "input",
+                "label": "Last Name",
+                "id": "lastName",
+                "required": true,
+                "placeholder": "Doe"
+              }
+            ]
+          },
+          {
+            "type": "input",
+            "label": "Email Address",
+            "id": "email",
+            "inputType": "email",
+            "required": true,
+            "placeholder": "john.doe@example.com"
+          },
+          {
+            "type": "input",
+            "label": "Password",
+            "id": "password",
+            "inputType": "password",
+            "required": true,
+            "placeholder": "••••••••"
+          },
+          {
+            "type": "div",
+            "className": "flex items-center justify-end gap-2",
+            "body": [
+              {
+                "type": "button",
+                "label": "Cancel",
+                "variant": "outline"
+              },
+              {
+                "type": "button",
+                "label": "Create Account"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

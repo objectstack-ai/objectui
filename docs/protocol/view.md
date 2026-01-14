@@ -34,18 +34,20 @@ ObjectQL supports multiple view types for different use cases:
 | `detail` | ✅ Implemented | Single record detail view | Record inspection |
 | `form` | ✅ Implemented | Editable form layout | Data entry/editing |
 
-### View Component Implementation
+### View Rendering Components
 
-| Component | Status | Package | Notes |
-|:----------|:-------|:--------|:------|
-| List | ✅ Implemented | @object-ui/components | Ordered/unordered lists |
-| Table | ✅ Implemented | @object-ui/components | Basic HTML table |
-| Data Table | ✅ Implemented | @object-ui/components | Advanced table with sorting, filtering, pagination |
-| Kanban | ✅ Implemented | @object-ui/components | Drag-and-drop kanban board |
-| Calendar View | ✅ Implemented | @object-ui/components | Full calendar with events |
-| Timeline | ✅ Implemented | @object-ui/components | Timeline/Gantt chart |
-| Card | ✅ Implemented | @object-ui/components | Card layout component |
-| Grid | ✅ Implemented | @object-ui/components | CSS Grid layout |
+These are the UI components used to render the view types above:
+
+| Component | Status | Package | Used By View Types | Notes |
+|:----------|:-------|:--------|:-------------------|:------|
+| List | ✅ Implemented | @object-ui/components | `list` | Ordered/unordered lists |
+| Table | ✅ Implemented | @object-ui/components | `list`, `grid` | Basic HTML table |
+| Data Table | ✅ Implemented | @object-ui/components | `list`, `grid` | Advanced table with sorting, filtering, pagination |
+| Kanban | ✅ Implemented | @object-ui/components | `kanban` | Drag-and-drop kanban board |
+| Calendar View | ✅ Implemented | @object-ui/components | `calendar` | Full calendar with events |
+| Timeline | ✅ Implemented | @object-ui/components | `timeline` | Timeline/Gantt chart |
+| Card | ✅ Implemented | @object-ui/components | `card` | Card layout component |
+| Grid | ✅ Implemented | @object-ui/components | `grid` | CSS Grid layout |
 
 ## 3. Root Properties
 

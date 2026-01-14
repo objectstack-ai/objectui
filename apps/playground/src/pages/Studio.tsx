@@ -64,8 +64,7 @@ const StudioToolbarContext = ({
   setViewMode, 
   onCopyJson,
   onSave,
-  onShare,
-  currentDesignId
+  onShare
 }: { 
   exampleTitle: string, 
   jsonError: string | null, 
@@ -73,8 +72,7 @@ const StudioToolbarContext = ({
   setViewMode: (m: ViewMode) => void,
   onCopyJson: () => void,
   onSave: () => void,
-  onShare: () => void,
-  currentDesignId?: string
+  onShare: () => void
 }) => {
   const navigate = useNavigate();
   const { canUndo, undo, canRedo, redo, schema } = useDesigner();
@@ -370,11 +368,6 @@ const StudioEditor = ({ exampleId, initialJson, isUserDesign, currentDesignId }:
            onCopyJson={handleCopySchema}
            onSave={handleSave}
            onShare={handleShare}
-           currentDesignId={currentDesignId}
-        />
-           viewMode={viewMode}
-           setViewMode={setViewMode}
-           onCopyJson={handleCopySchema}
         />
       
       {/* Main Content Area */}

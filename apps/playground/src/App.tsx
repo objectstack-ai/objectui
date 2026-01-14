@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { Home } from './pages/Home';
 import { Studio } from './pages/Studio';
 import { MyDesigns } from './pages/MyDesigns';
@@ -16,6 +17,7 @@ import './index.css';
 export default function App() {
   return (
     <Router>
+      <Toaster position="top-right" richColors />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/my-designs" element={<MyDesigns />} />

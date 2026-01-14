@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { designStorage, Design } from '../services/designStorage';
 import { 
   Plus, 
@@ -25,15 +26,28 @@ export const MyDesigns = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importJson, setImportJson] = useState('');
   const [importName, setImportName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteTargetName, setDeleteTargetName] = useState<string>('');
 
   const loadDesigns = () => {
     setDesigns(designStorage.getAllDesigns());
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this design?')) {
-      designStorage.deleteDesign(id);
+  const handleDelete = (id: string, name: string) => {
+    setDeleteTargetId(id);
+    setDeleteTargetName(name);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTargetId) {
+      designStorage.deleteDesign(deleteTargetId);
       loadDesigns();
+      toast.success('Design deleted successfully');
+      setShowDeleteConfirm(false);
+      setDeleteTargetId(null);
+      setDeleteTargetName('');
     }
   };
 
@@ -41,9 +55,11 @@ export const MyDesigns = () => {
     try {
       const cloned = designStorage.cloneDesign(id);
       loadDesigns();
+      toast.success('Design cloned successfully');
       navigate(`/studio/${cloned.id}`);
     } catch (error) {
-      alert('Error cloning design: ' + (error as Error).message);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to clone design: ${message}`);
     }
   };
 
@@ -51,24 +67,27 @@ export const MyDesigns = () => {
     try {
       const shareUrl = designStorage.shareDesign(id);
       navigator.clipboard.writeText(shareUrl);
-      alert('Share link copied to clipboard!');
+      toast.success('Share link copied to clipboard!');
     } catch (error) {
-      alert('Error sharing design: ' + (error as Error).message);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to share design: ${message}`);
     }
   };
 
   const handleExport = (id: string) => {
     try {
-      const json = designStorage.exportDesign(id);
+      const { json, filename } = designStorage.exportDesign(id);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `design-${id}.json`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success('Design exported successfully');
     } catch (error) {
-      alert('Error exporting design: ' + (error as Error).message);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to export design: ${message}`);
     }
   };
 
@@ -79,9 +98,11 @@ export const MyDesigns = () => {
       setImportJson('');
       setImportName('');
       loadDesigns();
+      toast.success('Design imported successfully');
       navigate(`/studio/${imported.id}`);
     } catch (error) {
-      alert('Error importing design: ' + (error as Error).message);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to import design: ${message}`);
     }
   };
 
@@ -258,7 +279,7 @@ export const MyDesigns = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(design.id);
+                      handleDelete(design.id, design.name);
                     }}
                     className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Delete"
@@ -331,7 +352,7 @@ export const MyDesigns = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(design.id);
+                      handleDelete(design.id, design.name);
                     }}
                     className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Delete"
@@ -395,6 +416,41 @@ export const MyDesigns = () => {
                 className="px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl shadow-lg shadow-indigo-300/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Delete Design</h2>
+              <p className="text-sm text-gray-600 mt-1">This action cannot be undone</p>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700">
+                Are you sure you want to delete <strong className="text-gray-900">"{deleteTargetName}"</strong>? This will permanently remove the design and cannot be recovered.
+              </p>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteTargetId(null);
+                  setDeleteTargetName('');
+                }}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border-2 border-gray-200 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 rounded-xl shadow-lg shadow-red-300/50 transition-all"
+              >
+                Delete Design
               </button>
             </div>
           </div>

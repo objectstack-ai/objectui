@@ -10,6 +10,16 @@
 import type { BaseSchema, SchemaNode } from './base';
 
 /**
+ * Position type for overlays
+ */
+export type OverlayPosition = 'top' | 'right' | 'bottom' | 'left';
+
+/**
+ * Alignment type for overlays
+ */
+export type OverlayAlignment = 'start' | 'center' | 'end';
+
+/**
  * Dialog component
  */
 export interface DialogSchema extends BaseSchema {
@@ -143,7 +153,7 @@ export interface SheetSchema extends BaseSchema {
    * Sheet side
    * @default 'right'
    */
-  side?: 'top' | 'right' | 'bottom' | 'left';
+  side?: OverlayPosition;
   /**
    * Sheet footer content
    */
@@ -188,7 +198,7 @@ export interface DrawerSchema extends BaseSchema {
    * Drawer direction
    * @default 'right'
    */
-  direction?: 'top' | 'right' | 'bottom' | 'left';
+  direction?: OverlayPosition;
   /**
    * Open state change handler
    */
@@ -221,12 +231,12 @@ export interface PopoverSchema extends BaseSchema {
    * Popover side
    * @default 'bottom'
    */
-  side?: 'top' | 'right' | 'bottom' | 'left';
+  side?: OverlayPosition;
   /**
    * Popover alignment
    * @default 'center'
    */
-  align?: 'start' | 'center' | 'end';
+  align?: OverlayAlignment;
   /**
    * Open state change handler
    */
@@ -250,12 +260,12 @@ export interface TooltipSchema extends BaseSchema {
    * Tooltip side
    * @default 'top'
    */
-  side?: 'top' | 'right' | 'bottom' | 'left';
+  side?: OverlayPosition;
   /**
    * Tooltip alignment
    * @default 'center'
    */
-  align?: 'start' | 'center' | 'end';
+  align?: OverlayAlignment;
   /**
    * Delay before showing (ms)
    * @default 200
@@ -289,7 +299,7 @@ export interface HoverCardSchema extends BaseSchema {
    * Hover card side
    * @default 'bottom'
    */
-  side?: 'top' | 'right' | 'bottom' | 'left';
+  side?: OverlayPosition;
   /**
    * Open delay (ms)
    * @default 200
@@ -366,12 +376,12 @@ export interface DropdownMenuSchema extends BaseSchema {
    * Menu side
    * @default 'bottom'
    */
-  side?: 'top' | 'right' | 'bottom' | 'left';
+  side?: OverlayPosition;
   /**
    * Menu alignment
    * @default 'start'
    */
-  align?: 'start' | 'center' | 'end';
+  align?: OverlayAlignment;
   /**
    * Open state change handler
    */

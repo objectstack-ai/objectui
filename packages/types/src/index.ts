@@ -151,6 +151,8 @@ export type {
 // Overlay Components - Modals & Popovers
 // ============================================================================
 export type {
+  OverlayPosition,
+  OverlayAlignment,
   DialogSchema,
   AlertDialogSchema,
   SheetSchema,

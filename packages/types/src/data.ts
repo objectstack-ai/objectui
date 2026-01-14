@@ -184,7 +184,7 @@ export interface DataSource<T = any> {
    * @param data - Bulk data
    * @returns Promise resolving to operation result
    */
-  bulk?(resource: string, operation: 'create' | 'update' | 'delete', data: any[]): Promise<any>;
+  bulk?(resource: string, operation: 'create' | 'update' | 'delete', data: Partial<T>[]): Promise<T[]>;
 }
 
 /**

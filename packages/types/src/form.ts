@@ -726,8 +726,10 @@ export interface ValidationRule {
   pattern?: { value: string | RegExp; message: string };
   /**
    * Custom validation function
+   * @param value - The field value to validate
+   * @returns true if valid, false or error message if invalid
    */
-  validate?: (value: any) => boolean | string | Promise<boolean | string>;
+  validate?: (value: string | number | boolean | null | undefined) => boolean | string | Promise<boolean | string>;
 }
 
 /**

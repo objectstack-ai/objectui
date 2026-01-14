@@ -1,5 +1,5 @@
 // Main Designer Component
-export { Designer } from './components/Designer';
+export { Designer, DesignerContent } from './components/Designer';
 
 // Context and Hooks
 export { DesignerProvider, useDesigner } from './context/DesignerContext';

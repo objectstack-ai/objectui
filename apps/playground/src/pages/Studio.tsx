@@ -110,7 +110,7 @@ const StudioToolbarContext = ({
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Design exported successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to export design');
     }
   };

@@ -364,6 +364,7 @@ const StudioEditor = ({ exampleId, initialJson }: { exampleId: ExampleKey, initi
                       ) : (
                         <div className="flex flex-col items-center gap-4">
                            <div className="relative">
+                             {/* Dual spinner: outer uses animate-spin and inner uses animate-spin-reverse for a counter-rotating loading effect */}
                              <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
                              <div className="absolute inset-0 w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin-reverse"></div>
                            </div>

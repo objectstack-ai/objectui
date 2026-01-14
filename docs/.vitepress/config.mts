@@ -43,7 +43,9 @@ export default defineConfig({
           text: 'Core Concepts',
           items: [
             { text: 'Schema Rendering', link: '/guide/schema-rendering' },
+            { text: 'Components', link: '/guide/components' },
             { text: 'Component Registry', link: '/guide/component-registry' },
+            { text: 'Plugins', link: '/guide/plugins' },
             { text: 'Expression System', link: '/guide/expressions' }
           ]
         },

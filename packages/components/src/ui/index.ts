@@ -12,6 +12,7 @@ export * from './calendar-view';
 export * from './card';
 export * from './carousel';
 export * from './chart';
+export * from './chatbot';
 export * from './checkbox';
 export * from './collapsible';
 export * from './command';

@@ -4,11 +4,21 @@
  * Currently uses localStorage, can be extended to use cloud storage
  */
 
+/**
+ * Sanitize a filename by removing invalid characters
+ */
+function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9-_\s]/g, '') // Remove invalid characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .substring(0, 100); // Limit length
+}
+
 export interface Design {
   id: string;
   name: string;
   description?: string;
-  schema: Record<string, unknown>;
+  schema: unknown;
   createdAt: string;
   updatedAt: string;
   isTemplate?: boolean;
@@ -131,12 +141,14 @@ class DesignStorageService {
   }
 
   /**
-   * Export a design as JSON
+   * Export a design as JSON with user-friendly filename
    */
-  exportDesign(id: string): string {
+  exportDesign(id: string): { json: string; filename: string } {
     const design = this.getDesign(id);
     if (!design) throw new Error('Design not found');
-    return JSON.stringify(design.schema, null, 2);
+    const json = JSON.stringify(design.schema, null, 2);
+    const filename = `${sanitizeFilename(design.name) || 'design'}.json`;
+    return { json, filename };
   }
 
   /**
@@ -155,12 +167,46 @@ class DesignStorageService {
   }
 
   // Private helper methods
+  private generateUUID(): string {
+    // Prefer native crypto.randomUUID when available
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+
+    // Fallback: generate RFC4122 v4 UUID using crypto.getRandomValues
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+
+      // Per RFC4122 section 4.4
+      bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+      bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+
+      const toHex = (n: number) => n.toString(16).padStart(2, '0');
+      const segments = [
+        Array.from(bytes.slice(0, 4)).map(toHex).join(''),
+        Array.from(bytes.slice(4, 6)).map(toHex).join(''),
+        Array.from(bytes.slice(6, 8)).map(toHex).join(''),
+        Array.from(bytes.slice(8, 10)).map(toHex).join(''),
+        Array.from(bytes.slice(10, 16)).map(toHex).join(''),
+      ];
+
+      return segments.join('-');
+    }
+
+    // Last-resort fallback for environments without Web Crypto
+    return `fallback_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  }
+
   private generateId(): string {
-    return `design_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    return `design_${this.generateUUID()}`;
   }
 
   private generateShareId(): string {
-    return Math.random().toString(36).substring(2, 14);
+    // Generate a compact share ID derived from a UUID for security
+    const uuid = this.generateUUID();
+    // Remove hyphens and take first 12 characters for a shorter share link
+    return uuid.replace(/-/g, '').substring(0, 12);
   }
 
   private getSharedDesigns(): Record<string, Design> {

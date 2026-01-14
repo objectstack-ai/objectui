@@ -18,9 +18,17 @@ import {
     Save,
     Share2
 } from 'lucide-react';
+import { toast } from 'sonner';
 import '@object-ui/components';
 import { examples, ExampleKey } from '../data/examples';
 import { designStorage } from '../services/designStorage';
+
+// Helper function to format design titles
+function formatDesignTitle(exampleId: string): string {
+  if (exampleId === 'new') return 'New Design';
+  if (typeof exampleId !== 'string') return 'Untitled';
+  return exampleId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
 
 type ViewportSize = 'desktop' | 'tablet' | 'mobile';
 type ViewMode = 'code' | 'design' | 'preview';
@@ -92,14 +100,19 @@ const StudioToolbarContext = ({
   };
 
   const handleExport = () => {
-    const json = JSON.stringify(schema, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'schema.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const { json, filename } = designStorage.exportDesign(schema.id || 'temp');
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Design exported successfully');
+    } catch (error) {
+      toast.error('Failed to export design');
+    }
   };
 
   return (
@@ -310,8 +323,10 @@ const StudioEditor = ({ exampleId, initialJson, isUserDesign, currentDesignId }:
         designStorage.updateDesign(currentDesignId, {
           schema: JSON.parse(code)
         });
+        toast.success('Design saved successfully');
       } catch (error) {
-        alert('Error saving design: ' + (error as Error).message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        toast.error(`Failed to save design: ${message}`);
       }
     } else {
       // Show save modal for new design
@@ -330,9 +345,11 @@ const StudioEditor = ({ exampleId, initialJson, isUserDesign, currentDesignId }:
       setShowSaveModal(false);
       setSaveName('');
       setSaveDescription('');
+      toast.success('Design saved successfully');
       navigate(`/studio/${saved.id}`);
     } catch (error) {
-      alert('Error saving design: ' + (error as Error).message);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to save design: ${message}`);
     }
   };
 
@@ -341,12 +358,15 @@ const StudioEditor = ({ exampleId, initialJson, isUserDesign, currentDesignId }:
       try {
         const shareUrl = designStorage.shareDesign(currentDesignId);
         navigator.clipboard.writeText(shareUrl);
-        alert('Share link copied to clipboard!');
+        toast.success('Share link copied to clipboard!');
       } catch (error) {
-        alert('Error sharing design: ' + (error as Error).message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        toast.error(`Failed to share design: ${message}`);
       }
     } else {
-      alert('Please save the design first before sharing.');
+      // Automatically trigger save modal instead of showing alert
+      setShowSaveModal(true);
+      toast.info('Please save the design first before sharing');
     }
   };
 
@@ -361,7 +381,7 @@ const StudioEditor = ({ exampleId, initialJson, isUserDesign, currentDesignId }:
       <div className="flex h-screen w-screen bg-background text-foreground flex-col">
         {/* Top Header injected into Designer Context */}
         <StudioToolbarContext 
-           exampleTitle={exampleId === 'new' ? 'New Design' : (typeof exampleId === 'string' ? exampleId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Untitled')}
+           exampleTitle={formatDesignTitle(exampleId)}
            jsonError={jsonError}
            viewMode={viewMode}
            setViewMode={setViewMode}

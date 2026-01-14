@@ -1,29 +1,32 @@
 # @object-ui/data-objectql
 
-ObjectQL Data Source Adapter for Object UI - Seamlessly connect your Object UI components with ObjectQL API backends.
+ObjectQL Data Source Adapter for Object UI - Seamlessly connect your Object UI components with ObjectQL API backends using the official **@objectql/sdk**.
 
 ## Features
 
+- ✅ **Official SDK Integration** - Built on top of @objectql/sdk for reliable API communication
 - ✅ **Universal DataSource Interface** - Implements the standard Object UI data source protocol
 - ✅ **Full TypeScript Support** - Complete type definitions and IntelliSense
 - ✅ **React Hooks** - Easy-to-use hooks for data fetching and mutations
 - ✅ **Automatic Query Conversion** - Converts universal query params to ObjectQL format
 - ✅ **Error Handling** - Robust error handling with typed error responses
 - ✅ **Authentication** - Built-in support for token-based authentication
-- ✅ **Multi-tenant** - Space ID support for multi-tenant environments
+- ✅ **Universal Runtime** - Works in browsers, Node.js, and edge runtimes
 
 ## Installation
 
 ```bash
 # Using npm
-npm install @object-ui/data-objectql
+npm install @object-ui/data-objectql @objectql/sdk
 
 # Using yarn
-yarn add @object-ui/data-objectql
+yarn add @object-ui/data-objectql @objectql/sdk
 
 # Using pnpm
-pnpm add @object-ui/data-objectql
+pnpm add @object-ui/data-objectql @objectql/sdk
 ```
+
+**Note**: The package now depends on `@objectql/sdk` and `@objectql/types`, which provide the underlying HTTP client and type definitions.
 
 ## Quick Start
 
@@ -144,14 +147,13 @@ new ObjectQLDataSource(config: ObjectQLConfig)
 ```typescript
 interface ObjectQLConfig {
   baseUrl: string;           // ObjectQL API base URL
-  version?: string;          // API version (default: 'v1')
   token?: string;            // Authentication token
-  spaceId?: string;          // Space ID for multi-tenant
   headers?: Record<string, string>;  // Additional headers
   timeout?: number;          // Request timeout (default: 30000ms)
-  withCredentials?: boolean; // Include credentials (default: true)
 }
 ```
+
+**Note**: This configuration is compatible with `@objectql/sdk`'s `DataApiClientConfig`. Additional options supported by the SDK can also be passed.
 
 #### Methods
 
@@ -378,6 +380,51 @@ const result = await dataSource.find('contacts');
 const contact: Contact = result.data[0]; // Typed!
 ```
 
+## Architecture
+
+This adapter is built on top of the official ObjectQL SDK:
+
+```
+Object UI Components
+        ↓
+@object-ui/data-objectql (this package)
+        ↓
+@objectql/sdk (DataApiClient)
+        ↓
+ObjectQL Server API
+```
+
+### Benefits of Using the Official SDK
+
+- **Reliability**: Uses the official, well-tested ObjectQL HTTP client
+- **Compatibility**: Always compatible with the latest ObjectQL server versions
+- **Type Safety**: Leverages @objectql/types for consistent type definitions
+- **Universal Runtime**: Works in browsers, Node.js, Deno, and edge runtimes
+- **Automatic Updates**: SDK improvements automatically benefit this adapter
+
+## Migration from Previous Versions
+
+If you're upgrading from a previous version that used custom fetch logic:
+
+1. Update your dependencies to include `@objectql/sdk`:
+   ```bash
+   pnpm add @objectql/sdk @objectql/types
+   ```
+
+2. The configuration interface has been simplified. Remove deprecated options:
+   - `version` - The SDK handles API versioning internally
+   - `spaceId` - Use custom headers if needed
+   - `withCredentials` - The SDK manages this automatically
+
+3. Filter formats now support both object and array notation:
+   ```typescript
+   // Object format (converted to array internally)
+   $filter: { status: 'active', age: 18 }
+   
+   // Array format (FilterExpression - native ObjectQL format)
+   $filter: [['status', '=', 'active'], ['age', '>=', 18]]
+   ```
+
 ## License
 
 MIT
@@ -387,3 +434,4 @@ MIT
 - [Object UI Documentation](https://www.objectui.org)
 - [GitHub Repository](https://github.com/objectstack-ai/objectui)
 - [ObjectQL Documentation](https://www.objectql.com)
+- [ObjectQL SDK](https://github.com/objectstack-ai/objectql)

@@ -9,8 +9,8 @@ describe('touchDragPolyfill', () => {
     });
 
     it('should return true if ontouchstart exists', () => {
-      // @ts-ignore - Testing browser API
-      global.window = { ontouchstart: {} } as any;
+      // Testing browser API
+      (global as any).window = { ontouchstart: {} };
       expect(isTouchDevice()).toBe(true);
     });
   });

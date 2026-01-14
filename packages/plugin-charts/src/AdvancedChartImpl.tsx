@@ -19,6 +19,9 @@ import {
   ChartConfig
 } from './ChartContainerImpl';
 
+// Default color fallback for chart series
+const DEFAULT_CHART_COLOR = 'hsl(var(--chart-1))';
+
 export interface AdvancedChartImplProps {
   chartType?: 'bar' | 'line' | 'area';
   data?: Array<Record<string, any>>;
@@ -60,7 +63,7 @@ export default function AdvancedChartImpl({
         <ChartTooltip content={<ChartTooltipContent />} />
         <ChartLegend content={<ChartLegendContent />} />
         {series.map((s: any) => {
-          const color = config[s.dataKey]?.color || 'hsl(var(--chart-1))';
+          const color = config[s.dataKey]?.color || DEFAULT_CHART_COLOR;
           
           if (chartType === 'bar') {
             return <Bar key={s.dataKey} dataKey={s.dataKey} fill={color} radius={4} />;

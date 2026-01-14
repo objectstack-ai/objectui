@@ -197,7 +197,12 @@ export default function KanbanBoard({ columns, onCardMove, className }: KanbanBo
       const activeCards = [...activeColumn.cards]
       const overCards = [...overColumn.cards]
       const activeIndex = activeCards.findIndex((c) => c.id === activeId)
-      const overIndex = overId === overColumn.id ? overCards.length : overCards.findIndex((c) => c.id === overId)
+      
+      // Calculate target index: if dropping on column itself, append to end; otherwise insert at card position
+      const isDroppingOnColumn = overId === overColumn.id
+      const overIndex = isDroppingOnColumn 
+        ? overCards.length 
+        : overCards.findIndex((c) => c.id === overId)
 
       const [movedCard] = activeCards.splice(activeIndex, 1)
       overCards.splice(overIndex, 0, movedCard)

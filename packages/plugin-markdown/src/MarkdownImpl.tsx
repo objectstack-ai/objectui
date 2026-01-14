@@ -52,6 +52,10 @@ export default function MarkdownImpl({ content, className }: MarkdownImplProps) 
       <ReactMarkdown 
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}
+        // Additional security: only allow safe elements
+        // This provides defense-in-depth beyond rehype-sanitize
+        disallowedElements={['script', 'style', 'iframe', 'object', 'embed']}
+        unwrapDisallowed={true}
       >
         {content}
       </ReactMarkdown>

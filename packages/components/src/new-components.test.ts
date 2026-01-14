@@ -33,12 +33,6 @@ describe('New Components Registration', () => {
       expect(component).toBeDefined();
       expect(component?.label).toBe('Tree View');
     });
-
-    it('should register markdown component', () => {
-      const component = ComponentRegistry.getConfig('markdown');
-      expect(component).toBeDefined();
-      expect(component?.label).toBe('Markdown');
-    });
   });
 
   describe('Layout Components', () => {

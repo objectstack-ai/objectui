@@ -1,0 +1,514 @@
+{
+  "type": "div",
+  "className": "min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6",
+  "body": [
+    {
+      "type": "div",
+      "className": "max-w-7xl mx-auto space-y-6",
+      "body": [
+        {
+          "type": "div",
+          "className": "flex justify-between items-center",
+          "body": [
+            {
+              "type": "div",
+              "className": "space-y-1",
+              "body": [
+                {
+                  "type": "text",
+                  "content": "Project Management",
+                  "className": "text-3xl font-bold text-white"
+                },
+                {
+                  "type": "text",
+                  "content": "Track your team's progress and deliverables",
+                  "className": "text-gray-400"
+                }
+              ]
+            },
+            {
+              "type": "flex",
+              "direction": "row",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "button",
+                  "label": "New Project",
+                  "className": "bg-indigo-600 hover:bg-indigo-700 text-white"
+                },
+                {
+                  "type": "button",
+                  "label": "Settings",
+                  "variant": "outline",
+                  "className": "border-gray-600 text-gray-300 hover:bg-gray-800"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "columns": 4,
+          "gap": 6,
+          "children": [
+            {
+              "type": "card",
+              "className": "bg-gray-800 border border-gray-700 p-6 shadow-xl",
+              "body": {
+                "type": "div",
+                "className": "space-y-3",
+                "body": [
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "justify": "between",
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Active Projects",
+                        "className": "text-sm font-medium text-gray-400"
+                      },
+                      {
+                        "type": "icon",
+                        "name": "FolderOpen",
+                        "className": "w-5 h-5 text-indigo-400"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "content": "24",
+                    "className": "text-4xl font-bold text-white"
+                  },
+                  {
+                    "type": "progress",
+                    "value": 75,
+                    "className": "bg-gray-700"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "card",
+              "className": "bg-gray-800 border border-gray-700 p-6 shadow-xl",
+              "body": {
+                "type": "div",
+                "className": "space-y-3",
+                "body": [
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "justify": "between",
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Team Members",
+                        "className": "text-sm font-medium text-gray-400"
+                      },
+                      {
+                        "type": "icon",
+                        "name": "Users",
+                        "className": "w-5 h-5 text-green-400"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "content": "142",
+                    "className": "text-4xl font-bold text-white"
+                  },
+                  {
+                    "type": "text",
+                    "content": "↗ 12 new this month",
+                    "className": "text-sm text-green-400"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "card",
+              "className": "bg-gray-800 border border-gray-700 p-6 shadow-xl",
+              "body": {
+                "type": "div",
+                "className": "space-y-3",
+                "body": [
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "justify": "between",
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Tasks Completed",
+                        "className": "text-sm font-medium text-gray-400"
+                      },
+                      {
+                        "type": "icon",
+                        "name": "CheckCircle",
+                        "className": "w-5 h-5 text-cyan-400"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "content": "389",
+                    "className": "text-4xl font-bold text-white"
+                  },
+                  {
+                    "type": "text",
+                    "content": "85% completion rate",
+                    "className": "text-sm text-cyan-400"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "card",
+              "className": "bg-gray-800 border border-gray-700 p-6 shadow-xl",
+              "body": {
+                "type": "div",
+                "className": "space-y-3",
+                "body": [
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "justify": "between",
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Overdue Tasks",
+                        "className": "text-sm font-medium text-gray-400"
+                      },
+                      {
+                        "type": "icon",
+                        "name": "AlertCircle",
+                        "className": "w-5 h-5 text-red-400"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "content": "15",
+                    "className": "text-4xl font-bold text-white"
+                  },
+                  {
+                    "type": "text",
+                    "content": "Needs attention",
+                    "className": "text-sm text-red-400"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "columns": 3,
+          "gap": 6,
+          "children": [
+            {
+              "type": "card",
+              "className": "col-span-2 bg-gray-800 border border-gray-700 p-6 shadow-xl",
+              "body": {
+                "type": "div",
+                "className": "space-y-4",
+                "body": [
+                  {
+                    "type": "text",
+                    "content": "Project Timeline",
+                    "className": "text-xl font-bold text-white"
+                  },
+                  {
+                    "type": "timeline",
+                    "items": [
+                      {
+                        "title": "Project Kickoff",
+                        "description": "Team meeting and requirement gathering",
+                        "timestamp": "Completed",
+                        "status": "completed"
+                      },
+                      {
+                        "title": "Design Phase",
+                        "description": "UI/UX design and prototyping",
+                        "timestamp": "In Progress",
+                        "status": "in-progress"
+                      },
+                      {
+                        "title": "Development Sprint 1",
+                        "description": "Core feature implementation",
+                        "timestamp": "Starts in 3 days",
+                        "status": "pending"
+                      },
+                      {
+                        "title": "Testing & QA",
+                        "description": "Quality assurance and bug fixes",
+                        "timestamp": "Scheduled",
+                        "status": "pending"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "card",
+              "className": "bg-gray-800 border border-gray-700 p-6 shadow-xl",
+              "body": {
+                "type": "div",
+                "className": "space-y-4",
+                "body": [
+                  {
+                    "type": "text",
+                    "content": "Team Activity",
+                    "className": "text-xl font-bold text-white"
+                  },
+                  {
+                    "type": "div",
+                    "className": "space-y-4",
+                    "body": [
+                      {
+                        "type": "flex",
+                        "direction": "row",
+                        "gap": 3,
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "avatar",
+                            "fallback": "JD",
+                            "className": "w-10 h-10 bg-indigo-600 text-white"
+                          },
+                          {
+                            "type": "div",
+                            "className": "flex-1 space-y-1",
+                            "body": [
+                              {
+                                "type": "text",
+                                "content": "Task completed",
+                                "className": "text-sm font-medium text-white"
+                              },
+                              {
+                                "type": "text",
+                                "content": "Just now",
+                                "className": "text-xs text-gray-400"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "separator",
+                        "className": "bg-gray-700"
+                      },
+                      {
+                        "type": "flex",
+                        "direction": "row",
+                        "gap": 3,
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "avatar",
+                            "fallback": "AB",
+                            "className": "w-10 h-10 bg-green-600 text-white"
+                          },
+                          {
+                            "type": "div",
+                            "className": "flex-1 space-y-1",
+                            "body": [
+                              {
+                                "type": "text",
+                                "content": "New comment",
+                                "className": "text-sm font-medium text-white"
+                              },
+                              {
+                                "type": "text",
+                                "content": "5m ago",
+                                "className": "text-xs text-gray-400"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "separator",
+                        "className": "bg-gray-700"
+                      },
+                      {
+                        "type": "flex",
+                        "direction": "row",
+                        "gap": 3,
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "avatar",
+                            "fallback": "MK",
+                            "className": "w-10 h-10 bg-cyan-600 text-white"
+                          },
+                          {
+                            "type": "div",
+                            "className": "flex-1 space-y-1",
+                            "body": [
+                              {
+                                "type": "text",
+                                "content": "File uploaded",
+                                "className": "text-sm font-medium text-white"
+                              },
+                              {
+                                "type": "text",
+                                "content": "1h ago",
+                                "className": "text-xs text-gray-400"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "card",
+          "className": "bg-gray-800 border border-gray-700 p-6 shadow-xl",
+          "body": {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Active Projects Overview",
+                "className": "text-xl font-bold text-white"
+              },
+              {
+                "type": "grid",
+                "columns": 3,
+                "gap": 4,
+                "children": [
+                  {
+                    "type": "card",
+                    "className": "bg-gray-700 border border-gray-600 p-4 hover:bg-gray-650 transition-colors",
+                    "body": {
+                      "type": "div",
+                      "className": "space-y-3",
+                      "body": [
+                        {
+                          "type": "flex",
+                          "direction": "row",
+                          "justify": "between",
+                          "align": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "content": "Website Redesign",
+                              "className": "font-semibold text-white"
+                            },
+                            {
+                              "type": "badge",
+                              "text": "On Track",
+                              "className": "bg-green-900 text-green-300"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "content": "Updated design system and components",
+                          "className": "text-sm text-gray-400"
+                        },
+                        {
+                          "type": "progress",
+                          "value": 68,
+                          "className": "bg-gray-600"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "type": "card",
+                    "className": "bg-gray-700 border border-gray-600 p-4 hover:bg-gray-650 transition-colors",
+                    "body": {
+                      "type": "div",
+                      "className": "space-y-3",
+                      "body": [
+                        {
+                          "type": "flex",
+                          "direction": "row",
+                          "justify": "between",
+                          "align": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "content": "Mobile App",
+                              "className": "font-semibold text-white"
+                            },
+                            {
+                              "type": "badge",
+                              "text": "At Risk",
+                              "className": "bg-red-900 text-red-300"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "content": "iOS and Android native development",
+                          "className": "text-sm text-gray-400"
+                        },
+                        {
+                          "type": "progress",
+                          "value": 42,
+                          "className": "bg-gray-600"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "type": "card",
+                    "className": "bg-gray-700 border border-gray-600 p-4 hover:bg-gray-650 transition-colors",
+                    "body": {
+                      "type": "div",
+                      "className": "space-y-3",
+                      "body": [
+                        {
+                          "type": "flex",
+                          "direction": "row",
+                          "justify": "between",
+                          "align": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "content": "API Integration",
+                              "className": "font-semibold text-white"
+                            },
+                            {
+                              "type": "badge",
+                              "text": "On Track",
+                              "className": "bg-green-900 text-green-300"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "content": "Third-party service connections",
+                          "className": "text-sm text-gray-400"
+                        },
+                        {
+                          "type": "progress",
+                          "value": 85,
+                          "className": "bg-gray-600"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

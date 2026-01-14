@@ -4,8 +4,29 @@ import remarkGfm from "remark-gfm"
 import rehypeSanitize from "rehype-sanitize"
 import { cn } from "@/lib/utils"
 
+/**
+ * Props for the Markdown component.
+ * 
+ * This component renders markdown content using react-markdown with GitHub Flavored Markdown support.
+ * All content is sanitized to prevent XSS attacks.
+ */
 export interface MarkdownProps {
+  /**
+   * The markdown content to render. Supports GitHub Flavored Markdown including:
+   * - Headers (H1-H6)
+   * - Bold, italic, and inline code
+   * - Links and images
+   * - Lists (ordered, unordered, and nested)
+   * - Tables
+   * - Blockquotes
+   * - Code blocks
+   */
   content: string
+  
+  /**
+   * Optional CSS class name to apply custom styling to the markdown container.
+   * The component uses Tailwind CSS prose classes for typography by default.
+   */
   className?: string
 }
 

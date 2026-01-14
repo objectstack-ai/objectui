@@ -11,14 +11,17 @@ export type ComponentInput = {
   enum?: string[] | { label: string; value: any }[];
   description?: string;
   advanced?: boolean;
+  inputType?: string;
 };
 
 export type ComponentMeta = {
   label?: string; // Display name in designer
   icon?: string; // Icon name or svg string
+  category?: string; // Grouping category
   inputs?: ComponentInput[];
   defaultProps?: Record<string, any>; // Default props when dropped
   defaultChildren?: SchemaNode[]; // Default children when dropped
+  examples?: Record<string, any>; // Example configurations
 };
 
 export type ComponentConfig<T = any> = ComponentMeta & {

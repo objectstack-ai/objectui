@@ -20,12 +20,12 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "erasableSyntaxOnly": false,
+
     "noFallthroughCasesInSwitch": true,
 
     "baseUrl": ".",
     "paths": {
-       "@object-ui/protocol": ["../../packages/protocol/src"],
+       "@object-ui/protocol": ["../../packages/core/src"],
        "@object-ui/renderer": ["../../packages/renderer/src"],
        "@object-ui/renderer/*": ["../../packages/renderer/src/*"],
        "@object-ui/ui": ["../../packages/ui/src"],

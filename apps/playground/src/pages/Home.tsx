@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { exampleCategories } from '../data/examples';
-import { LayoutTemplate, ArrowRight, Component, Layers, Database, Shield, Box, FolderOpen } from 'lucide-react';
+import { LayoutTemplate, ArrowRight, Component, Layers, Database, Shield, Box, FolderOpen, Plus } from 'lucide-react';
 
 const CategoryIcon = ({ name }: { name: string }) => {
   switch (name) {
@@ -30,6 +30,13 @@ export const Home = () => {
             <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">Object UI Studio</span>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/studio/new')}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-all shadow-sm hover:shadow"
+            >
+              <Plus className="w-4 h-4" />
+              New Design
+            </button>
             <button
               onClick={() => navigate('/my-designs')}
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 hover:text-gray-900 bg-white/50 hover:bg-white border border-gray-200 rounded-lg transition-all shadow-sm hover:shadow"
@@ -71,11 +78,28 @@ export const Home = () => {
             Build Stunning Interfaces,<br />
             <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Purely from JSON.</span>
           </h1>
-          <p className="max-w-2xl mx-auto text-xl text-gray-600 leading-relaxed">
+          <p className="max-w-2xl mx-auto text-xl text-gray-600 leading-relaxed mb-8">
             Object UI transforms JSON schemas into fully functional, accessible, and responsive React applications. 
             <br className="hidden sm:block" />
-            <span className="font-semibold text-gray-700">Select a template below to start building.</span>
+            <span className="font-semibold text-gray-700">Select a template below or start from scratch.</span>
           </p>
+
+          <div className="flex justify-center gap-4">
+             <button
+              onClick={() => navigate('/studio/new')}
+              className="flex items-center gap-2 px-6 py-3 text-lg font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl shadow-lg shadow-indigo-300/50 transition-all transform hover:scale-105"
+            >
+              <Plus className="w-5 h-5" />
+              Start New Design
+            </button>
+             <button
+              onClick={() => navigate('/my-designs')}
+              className="flex items-center gap-2 px-6 py-3 text-lg font-bold text-gray-700 bg-white hover:bg-gray-50 border-2 border-gray-200 rounded-xl shadow-lg transition-all transform hover:scale-105"
+            >
+              <FolderOpen className="w-5 h-5" />
+              Open Saved
+            </button>
+          </div>
         </div>
 
         {/* Category Filter */}

@@ -437,6 +437,225 @@ function hello() {
                   }
                 },
                 {
+                  value: 'timeline',
+                  label: 'Timeline',
+                  body: [
+                    {
+                      type: 'div',
+                      className: 'space-y-8',
+                      body: [
+                        {
+                          type: 'div',
+                          body: [
+                            { type: 'div', className: 'text-xl font-semibold mb-2', body: { type: 'text', content: 'Vertical Timeline' } },
+                            { type: 'div', className: 'text-sm text-muted-foreground mb-4', body: { type: 'text', content: 'A classic vertical timeline showing project milestones.' } },
+                            {
+                              type: 'card',
+                              className: 'shadow-sm',
+                              body: {
+                                type: 'div',
+                                className: 'p-6',
+                                body: {
+                                  type: 'timeline',
+                                  variant: 'vertical',
+                                  dateFormat: 'long',
+                                  items: [
+                                    {
+                                      time: '2024-01-15',
+                                      title: 'Project Kickoff',
+                                      description: 'Initial meeting with stakeholders and project planning',
+                                      variant: 'success',
+                                      icon: '🚀'
+                                    },
+                                    {
+                                      time: '2024-02-01',
+                                      title: 'Design Phase Complete',
+                                      description: 'UI/UX designs approved and ready for development',
+                                      variant: 'info',
+                                      icon: '🎨'
+                                    },
+                                    {
+                                      time: '2024-03-15',
+                                      title: 'Beta Release',
+                                      description: 'Internal testing phase begins with selected users',
+                                      variant: 'warning',
+                                      icon: '⚡'
+                                    },
+                                    {
+                                      time: '2024-04-01',
+                                      title: 'Official Launch',
+                                      description: 'Product goes live to all users',
+                                      variant: 'success',
+                                      icon: '🎉'
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          type: 'div',
+                          body: [
+                            { type: 'div', className: 'text-xl font-semibold mb-2', body: { type: 'text', content: 'Horizontal Timeline' } },
+                            { type: 'div', className: 'text-sm text-muted-foreground mb-4', body: { type: 'text', content: 'Quarterly roadmap display.' } },
+                            {
+                              type: 'card',
+                              className: 'shadow-sm',
+                              body: {
+                                type: 'div',
+                                className: 'p-6',
+                                body: {
+                                  type: 'timeline',
+                                  variant: 'horizontal',
+                                  dateFormat: 'short',
+                                  items: [
+                                    {
+                                      time: '2024-01-01',
+                                      title: 'Q1 2024',
+                                      description: 'Planning & Design',
+                                      variant: 'success'
+                                    },
+                                    {
+                                      time: '2024-04-01',
+                                      title: 'Q2 2024',
+                                      description: 'Development',
+                                      variant: 'info'
+                                    },
+                                    {
+                                      time: '2024-07-01',
+                                      title: 'Q3 2024',
+                                      description: 'Testing & QA',
+                                      variant: 'warning'
+                                    },
+                                    {
+                                      time: '2024-10-01',
+                                      title: 'Q4 2024',
+                                      description: 'Launch & Scale',
+                                      variant: 'success'
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          type: 'div',
+                          body: [
+                            { type: 'div', className: 'text-xl font-semibold mb-2', body: { type: 'text', content: 'Gantt Timeline (Airtable Style)' } },
+                            { type: 'div', className: 'text-sm text-muted-foreground mb-4', body: { type: 'text', content: 'Project timeline with date ranges and multiple tracks.' } },
+                            {
+                              type: 'card',
+                              className: 'shadow-sm',
+                              body: {
+                                type: 'div',
+                                className: 'p-6',
+                                body: {
+                                  type: 'timeline',
+                                  variant: 'gantt',
+                                  dateFormat: 'short',
+                                  timeScale: 'month',
+                                  rowLabel: 'Project Tasks',
+                                  items: [
+                                    {
+                                      label: 'Backend Development',
+                                      items: [
+                                        {
+                                          title: 'API Design',
+                                          startDate: '2024-01-01',
+                                          endDate: '2024-01-31',
+                                          variant: 'success'
+                                        },
+                                        {
+                                          title: 'Database Schema',
+                                          startDate: '2024-01-15',
+                                          endDate: '2024-02-15',
+                                          variant: 'info'
+                                        },
+                                        {
+                                          title: 'API Implementation',
+                                          startDate: '2024-02-01',
+                                          endDate: '2024-03-31',
+                                          variant: 'default'
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      label: 'Frontend Development',
+                                      items: [
+                                        {
+                                          title: 'UI Design',
+                                          startDate: '2024-01-15',
+                                          endDate: '2024-02-15',
+                                          variant: 'warning'
+                                        },
+                                        {
+                                          title: 'Component Library',
+                                          startDate: '2024-02-01',
+                                          endDate: '2024-03-15',
+                                          variant: 'info'
+                                        },
+                                        {
+                                          title: 'Integration',
+                                          startDate: '2024-03-01',
+                                          endDate: '2024-04-15',
+                                          variant: 'default'
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      label: 'Testing & QA',
+                                      items: [
+                                        {
+                                          title: 'Unit Tests',
+                                          startDate: '2024-02-15',
+                                          endDate: '2024-03-15',
+                                          variant: 'success'
+                                        },
+                                        {
+                                          title: 'Integration Tests',
+                                          startDate: '2024-03-01',
+                                          endDate: '2024-04-01',
+                                          variant: 'info'
+                                        },
+                                        {
+                                          title: 'User Acceptance Testing',
+                                          startDate: '2024-04-01',
+                                          endDate: '2024-04-30',
+                                          variant: 'danger'
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      label: 'Deployment',
+                                      items: [
+                                        {
+                                          title: 'Staging Deploy',
+                                          startDate: '2024-04-15',
+                                          endDate: '2024-04-20',
+                                          variant: 'warning'
+                                        },
+                                        {
+                                          title: 'Production Launch',
+                                          startDate: '2024-04-25',
+                                          endDate: '2024-05-01',
+                                          variant: 'success'
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                },
+                {
                   value: 'reports',
                   label: 'Reports',
                   body: { type: 'text', content: 'Reports Content' }

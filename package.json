@@ -10,11 +10,11 @@
     "docs"
   ],
   "scripts": {
-    "dev": "pnpm --filter prototype dev",
-    "start": "pnpm --filter prototype preview",
-    "playground:dev": "pnpm --filter @apps/playground dev",
-    "playground:build": "pnpm --filter @apps/playground build",
-    "playground:preview": "pnpm --filter @apps/playground preview",
+    "dev": "pnpm --filter @apps/playground dev",
+    "start": "pnpm --filter prototype dev",
+    "designer": "pnpm --filter @examples/designer-demo dev",
+    "prototype": "pnpm --filter prototype dev",
+    "playground": "pnpm --filter @apps/playground dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "docs:dev": "pnpm --filter object-ui-docs dev",
@@ -26,13 +26,15 @@
     "lint": "pnpm -r lint"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.10.8",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
-    "@vitest/coverage-v8": "^4.0.17",
-    "@vitest/ui": "^4.0.17",
+    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/ui": "^2.1.8",
     "eslint": "^8.0.0",
     "happy-dom": "^20.1.0",
     "jsdom": "^27.4.0",
@@ -43,7 +45,7 @@
     "tslib": "^2.6.0",
     "turbo": "^2.6.3",
     "typescript": "^5.0.0",
-    "vitest": "^4.0.17"
+    "vitest": "^2.1.8"
   },
   "pnpm": {
     "overrides": {
@@ -52,5 +54,8 @@
       "@types/react": "18.3.12",
       "@types/react-dom": "18.3.1"
     }
+  },
+  "dependencies": {
+    "coverage-v8": "0.0.1-security"
   }
 }

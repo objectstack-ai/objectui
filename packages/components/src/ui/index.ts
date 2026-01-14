@@ -52,6 +52,7 @@ export * from './switch';
 export * from './table';
 export * from './tabs';
 export * from './textarea';
+export * from './timeline';
 export * from './toggle-group';
 export * from './toggle';
 export * from './tooltip';

@@ -654,7 +654,6 @@ function hello() {
                     }
                   ]
                 },
-                },
                 {
                   value: 'reports',
                   label: 'Reports',

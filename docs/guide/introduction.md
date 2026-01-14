@@ -149,7 +149,6 @@ Ready to get started?
 - [Quick Start](/guide/quick-start) - Build your first Object UI app
 - [Installation](/guide/installation) - Setup instructions
 - [Schema Rendering](/guide/schema-rendering) - Learn the core concepts
-- [Roadmap](/roadmap) - See what's coming next
 
 ## Getting Help
 

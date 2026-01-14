@@ -16,9 +16,6 @@ hero:
       text: Get Started
       link: /guide/introduction
     - theme: alt
-      text: View Roadmap
-      link: /ROADMAP
-    - theme: alt
       text: GitHub
       link: https://github.com/objectql/objectui
 

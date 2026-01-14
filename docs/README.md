@@ -56,7 +56,6 @@ docs/
 │   ├── components.md
 │   └── designer.md
 ├── index.md            # Homepage
-├── roadmap.md          # Public roadmap
 └── package.json        # Docs workspace config
 ```
 

@@ -62,6 +62,7 @@ ComponentRegistry.register('chart',
   },
   {
     label: 'Chart',
+    category: 'data-display',
     inputs: [
       { 
         name: 'chartType', 

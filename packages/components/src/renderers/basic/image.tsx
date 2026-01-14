@@ -11,6 +11,8 @@ ComponentRegistry.register('image',
   ),
   {
     label: 'Image',
+    icon: 'image',
+    category: 'basic',
     inputs: [
       { name: 'src', type: 'string', label: 'Source URL' },
       { name: 'alt', type: 'string', label: 'Alt Text' },

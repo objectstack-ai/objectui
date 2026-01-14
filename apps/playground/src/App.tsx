@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { SchemaRenderer } from '@object-ui/react';
+import { SchemaNode } from '@object-ui/core';
 import '@object-ui/components';
 import { examples, exampleCategories, ExampleKey } from './data/examples';
 import { Monitor, Tablet, Smartphone, Copy, Check, Code2 } from 'lucide-react';
@@ -8,16 +9,27 @@ type ViewportSize = 'desktop' | 'tablet' | 'mobile';
 
 export default function Playground() {
   const [selectedExample, setSelectedExample] = useState<ExampleKey>('dashboard');
-  const [code, setCode] = useState(examples['dashboard']);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [schema, setSchema] = useState<any>(null);
+  
+  // Initialize state based on default example
+  const initialCode = examples['dashboard'];
+  const [code, setCode] = useState(initialCode);
+  
+  const [schema, setSchema] = useState<SchemaNode | null>(() => {
+    try {
+      return JSON.parse(initialCode) as SchemaNode;
+    } catch {
+      return null;
+    }
+  });
+  
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState<ViewportSize>('desktop');
   const [copied, setCopied] = useState(false);
 
-  const updateSchema = (newCode: string) => {
+  const updateCode = (newCode: string) => {
+    setCode(newCode);
     try {
-      const parsed = JSON.parse(newCode);
+      const parsed = JSON.parse(newCode) as SchemaNode;
       setSchema(parsed);
       setJsonError(null);
     } catch (e) {
@@ -26,17 +38,9 @@ export default function Playground() {
     }
   };
 
-  // Initial parse usage
-  useEffect(() => {
-    updateSchema(code);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount
-
   const handleExampleChange = (key: ExampleKey) => {
     setSelectedExample(key);
-    const newCode = examples[key];
-    setCode(newCode);
-    updateSchema(newCode);
+    updateCode(examples[key]);
   };
 
   const handleCopySchema = async () => {
@@ -126,11 +130,7 @@ export default function Playground() {
         <div className="flex-1 overflow-hidden">
           <textarea
             value={code}
-            onChange={(e) => {
-              const val = e.target.value;
-              setCode(val);
-              updateSchema(val);
-            }}
+            onChange={(e) => updateCode(e.target.value)}
             className="w-full h-full p-4 font-mono text-sm resize-none focus:outline-none border-0 bg-background"
             spellCheck={false}
             style={{ 

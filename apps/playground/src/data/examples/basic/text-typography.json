@@ -1,0 +1,150 @@
+{
+  "type": "div",
+  "className": "space-y-8 max-w-4xl",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-2",
+      "body": [
+        {
+          "type": "text",
+          "content": "Typography Showcase",
+          "className": "text-3xl font-bold"
+        },
+        {
+          "type": "text",
+          "content": "Demonstrating text component with various styles using Tailwind classes",
+          "className": "text-muted-foreground"
+        }
+      ]
+    },
+    {
+      "type": "card",
+      "className": "p-6",
+      "body": {
+        "type": "div",
+        "className": "space-y-6",
+        "body": [
+          {
+            "type": "div",
+            "className": "space-y-3",
+            "body": [
+              {
+                "type": "text",
+                "content": "Headings",
+                "className": "text-sm font-semibold text-muted-foreground uppercase tracking-wide"
+              },
+              {
+                "type": "text",
+                "content": "Heading 1 - Extra Large",
+                "className": "text-4xl font-extrabold tracking-tight"
+              },
+              {
+                "type": "text",
+                "content": "Heading 2 - Large",
+                "className": "text-3xl font-bold"
+              },
+              {
+                "type": "text",
+                "content": "Heading 3 - Medium",
+                "className": "text-2xl font-semibold"
+              },
+              {
+                "type": "text",
+                "content": "Heading 4 - Small",
+                "className": "text-xl font-medium"
+              }
+            ]
+          },
+          {
+            "type": "separator"
+          },
+          {
+            "type": "div",
+            "className": "space-y-3",
+            "body": [
+              {
+                "type": "text",
+                "content": "Body Text",
+                "className": "text-sm font-semibold text-muted-foreground uppercase tracking-wide"
+              },
+              {
+                "type": "text",
+                "content": "This is a regular paragraph with default styling. Perfect for body content and general text.",
+                "className": "text-base"
+              },
+              {
+                "type": "text",
+                "content": "This is emphasized text with bold styling for important information.",
+                "className": "text-base font-semibold"
+              },
+              {
+                "type": "text",
+                "content": "This is muted text, typically used for secondary information or captions.",
+                "className": "text-sm text-muted-foreground"
+              }
+            ]
+          },
+          {
+            "type": "separator"
+          },
+          {
+            "type": "div",
+            "className": "space-y-3",
+            "body": [
+              {
+                "type": "text",
+                "content": "Specialized Styles",
+                "className": "text-sm font-semibold text-muted-foreground uppercase tracking-wide"
+              },
+              {
+                "type": "text",
+                "content": "Success message in green",
+                "className": "text-green-600 font-medium"
+              },
+              {
+                "type": "text",
+                "content": "Warning message in amber",
+                "className": "text-amber-600 font-medium"
+              },
+              {
+                "type": "text",
+                "content": "Error message in red",
+                "className": "text-red-600 font-medium"
+              },
+              {
+                "type": "text",
+                "content": "Information message in blue",
+                "className": "text-blue-600 font-medium"
+              }
+            ]
+          },
+          {
+            "type": "separator"
+          },
+          {
+            "type": "div",
+            "className": "space-y-3",
+            "body": [
+              {
+                "type": "text",
+                "content": "Code & Technical",
+                "className": "text-sm font-semibold text-muted-foreground uppercase tracking-wide"
+              },
+              {
+                "type": "text",
+                "content": "const greeting = 'Hello, Object UI!';",
+                "className": "font-mono text-sm bg-slate-100 p-2 rounded"
+              },
+              {
+                "type": "text",
+                "content": "API Endpoint: /api/v1/users",
+                "className": "font-mono text-xs text-slate-600"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

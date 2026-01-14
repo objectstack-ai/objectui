@@ -1,0 +1,130 @@
+{
+  "type": "div",
+  "className": "space-y-6 max-w-6xl",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-2",
+      "body": [
+        {
+          "type": "text",
+          "content": "Image Component Gallery",
+          "className": "text-3xl font-bold"
+        },
+        {
+          "type": "text",
+          "content": "Various image layouts and styles using Tailwind classes",
+          "className": "text-muted-foreground"
+        }
+      ]
+    },
+    {
+      "type": "div",
+      "className": "space-y-6",
+      "body": [
+        {
+          "type": "card",
+          "className": "p-6",
+          "body": {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Standard Image",
+                "className": "text-lg font-semibold"
+              },
+              {
+                "type": "image",
+                "src": "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba",
+                "alt": "Mountain landscape",
+                "className": "w-full h-64 object-cover rounded-lg"
+              }
+            ]
+          }
+        },
+        {
+          "type": "card",
+          "className": "p-6",
+          "body": {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Image Grid",
+                "className": "text-lg font-semibold"
+              },
+              {
+                "type": "grid",
+                "columns": 3,
+                "gap": 4,
+                "children": [
+                  {
+                    "type": "image",
+                    "src": "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba",
+                    "alt": "Image 1",
+                    "className": "w-full h-40 object-cover rounded-md"
+                  },
+                  {
+                    "type": "image",
+                    "src": "https://images.unsplash.com/photo-1682687221038-404cb8830901",
+                    "alt": "Image 2",
+                    "className": "w-full h-40 object-cover rounded-md"
+                  },
+                  {
+                    "type": "image",
+                    "src": "https://images.unsplash.com/photo-1682687220063-4742bd7fd538",
+                    "alt": "Image 3",
+                    "className": "w-full h-40 object-cover rounded-md"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "type": "card",
+          "className": "p-6",
+          "body": {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Rounded & Styled Images",
+                "className": "text-lg font-semibold"
+              },
+              {
+                "type": "flex",
+                "direction": "row",
+                "gap": 4,
+                "className": "flex-wrap",
+                "children": [
+                  {
+                    "type": "image",
+                    "src": "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba",
+                    "alt": "Rounded",
+                    "className": "w-32 h-32 object-cover rounded-full border-4 border-blue-200"
+                  },
+                  {
+                    "type": "image",
+                    "src": "https://images.unsplash.com/photo-1682687221038-404cb8830901",
+                    "alt": "Square",
+                    "className": "w-32 h-32 object-cover rounded-xl shadow-lg"
+                  },
+                  {
+                    "type": "image",
+                    "src": "https://images.unsplash.com/photo-1682687220063-4742bd7fd538",
+                    "alt": "Styled",
+                    "className": "w-32 h-32 object-cover rounded-lg ring-2 ring-purple-500 ring-offset-2"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

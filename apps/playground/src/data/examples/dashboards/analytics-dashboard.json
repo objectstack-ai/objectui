@@ -1,0 +1,508 @@
+{
+  "type": "div",
+  "className": "min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6",
+  "body": [
+    {
+      "type": "div",
+      "className": "max-w-7xl mx-auto space-y-6",
+      "body": [
+        {
+          "type": "div",
+          "className": "flex justify-between items-center",
+          "body": [
+            {
+              "type": "div",
+              "className": "space-y-1",
+              "body": [
+                {
+                  "type": "text",
+                  "content": "Analytics Dashboard",
+                  "className": "text-3xl font-bold text-gray-900"
+                },
+                {
+                  "type": "text",
+                  "content": "Real-time performance metrics and insights",
+                  "className": "text-gray-500"
+                }
+              ]
+            },
+            {
+              "type": "flex",
+              "direction": "row",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "button",
+                  "label": "Export",
+                  "variant": "outline"
+                },
+                {
+                  "type": "button",
+                  "label": "Refresh",
+                  "className": "bg-blue-600 hover:bg-blue-700 text-white"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "columns": 4,
+          "gap": 6,
+          "children": [
+            {
+              "type": "card",
+              "className": "bg-white p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow",
+              "body": {
+                "type": "div",
+                "className": "space-y-2",
+                "body": [
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "justify": "between",
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Total Revenue",
+                        "className": "text-sm font-medium text-gray-600"
+                      },
+                      {
+                        "type": "icon",
+                        "name": "DollarSign",
+                        "className": "w-4 h-4 text-green-600"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "content": "$45,231.89",
+                    "className": "text-3xl font-bold text-gray-900"
+                  },
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "gap": 2,
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "↗ 20.1%",
+                        "className": "text-sm font-medium text-green-600"
+                      },
+                      {
+                        "type": "text",
+                        "content": "from last month",
+                        "className": "text-sm text-gray-500"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "card",
+              "className": "bg-white p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow",
+              "body": {
+                "type": "div",
+                "className": "space-y-2",
+                "body": [
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "justify": "between",
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Active Users",
+                        "className": "text-sm font-medium text-gray-600"
+                      },
+                      {
+                        "type": "icon",
+                        "name": "Users",
+                        "className": "w-4 h-4 text-blue-600"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "content": "+2,350",
+                    "className": "text-3xl font-bold text-gray-900"
+                  },
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "gap": 2,
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "↗ 180.1%",
+                        "className": "text-sm font-medium text-green-600"
+                      },
+                      {
+                        "type": "text",
+                        "content": "from last month",
+                        "className": "text-sm text-gray-500"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "card",
+              "className": "bg-white p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow",
+              "body": {
+                "type": "div",
+                "className": "space-y-2",
+                "body": [
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "justify": "between",
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Total Orders",
+                        "className": "text-sm font-medium text-gray-600"
+                      },
+                      {
+                        "type": "icon",
+                        "name": "ShoppingCart",
+                        "className": "w-4 h-4 text-purple-600"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "content": "+12,234",
+                    "className": "text-3xl font-bold text-gray-900"
+                  },
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "gap": 2,
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "↗ 19%",
+                        "className": "text-sm font-medium text-green-600"
+                      },
+                      {
+                        "type": "text",
+                        "content": "from last month",
+                        "className": "text-sm text-gray-500"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "card",
+              "className": "bg-white p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow",
+              "body": {
+                "type": "div",
+                "className": "space-y-2",
+                "body": [
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "justify": "between",
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Conversion Rate",
+                        "className": "text-sm font-medium text-gray-600"
+                      },
+                      {
+                        "type": "icon",
+                        "name": "TrendingUp",
+                        "className": "w-4 h-4 text-orange-600"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "content": "3.24%",
+                    "className": "text-3xl font-bold text-gray-900"
+                  },
+                  {
+                    "type": "flex",
+                    "direction": "row",
+                    "gap": 2,
+                    "align": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "↘ 4.3%",
+                        "className": "text-sm font-medium text-red-600"
+                      },
+                      {
+                        "type": "text",
+                        "content": "from last month",
+                        "className": "text-sm text-gray-500"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "columns": 3,
+          "gap": 6,
+          "children": [
+            {
+              "type": "card",
+              "className": "col-span-2 bg-white p-6 border border-gray-200 shadow-sm",
+              "body": {
+                "type": "div",
+                "className": "space-y-4",
+                "body": [
+                  {
+                    "type": "div",
+                    "className": "flex justify-between items-center",
+                    "body": [
+                      {
+                        "type": "text",
+                        "content": "Revenue Overview",
+                        "className": "text-lg font-semibold text-gray-900"
+                      },
+                      {
+                        "type": "select",
+                        "id": "time-range",
+                        "defaultValue": "month",
+                        "options": [
+                          {"value": "week", "label": "This Week"},
+                          {"value": "month", "label": "This Month"},
+                          {"value": "year", "label": "This Year"}
+                        ],
+                        "className": "w-40"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "div",
+                    "className": "h-80 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center",
+                    "body": [
+                      {
+                        "type": "text",
+                        "content": "📊 Chart Visualization Area",
+                        "className": "text-gray-400 text-lg"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "card",
+              "className": "bg-white p-6 border border-gray-200 shadow-sm",
+              "body": {
+                "type": "div",
+                "className": "space-y-4",
+                "body": [
+                  {
+                    "type": "text",
+                    "content": "Recent Activity",
+                    "className": "text-lg font-semibold text-gray-900"
+                  },
+                  {
+                    "type": "div",
+                    "className": "space-y-4",
+                    "body": [
+                      {
+                        "type": "flex",
+                        "direction": "row",
+                        "gap": 3,
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "avatar",
+                            "fallback": "JD",
+                            "className": "w-10 h-10 bg-blue-100 text-blue-600"
+                          },
+                          {
+                            "type": "div",
+                            "className": "flex-1 space-y-1",
+                            "body": [
+                              {
+                                "type": "text",
+                                "content": "New order placed",
+                                "className": "text-sm font-medium text-gray-900"
+                              },
+                              {
+                                "type": "text",
+                                "content": "2 minutes ago",
+                                "className": "text-xs text-gray-500"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "separator"
+                      },
+                      {
+                        "type": "flex",
+                        "direction": "row",
+                        "gap": 3,
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "avatar",
+                            "fallback": "AB",
+                            "className": "w-10 h-10 bg-green-100 text-green-600"
+                          },
+                          {
+                            "type": "div",
+                            "className": "flex-1 space-y-1",
+                            "body": [
+                              {
+                                "type": "text",
+                                "content": "Payment received",
+                                "className": "text-sm font-medium text-gray-900"
+                              },
+                              {
+                                "type": "text",
+                                "content": "15 minutes ago",
+                                "className": "text-xs text-gray-500"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "separator"
+                      },
+                      {
+                        "type": "flex",
+                        "direction": "row",
+                        "gap": 3,
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "avatar",
+                            "fallback": "MK",
+                            "className": "w-10 h-10 bg-purple-100 text-purple-600"
+                          },
+                          {
+                            "type": "div",
+                            "className": "flex-1 space-y-1",
+                            "body": [
+                              {
+                                "type": "text",
+                                "content": "New user signed up",
+                                "className": "text-sm font-medium text-gray-900"
+                              },
+                              {
+                                "type": "text",
+                                "content": "1 hour ago",
+                                "className": "text-xs text-gray-500"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "separator"
+                      },
+                      {
+                        "type": "flex",
+                        "direction": "row",
+                        "gap": 3,
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "avatar",
+                            "fallback": "SW",
+                            "className": "w-10 h-10 bg-orange-100 text-orange-600"
+                          },
+                          {
+                            "type": "div",
+                            "className": "flex-1 space-y-1",
+                            "body": [
+                              {
+                                "type": "text",
+                                "content": "Product review posted",
+                                "className": "text-sm font-medium text-gray-900"
+                              },
+                              {
+                                "type": "text",
+                                "content": "3 hours ago",
+                                "className": "text-xs text-gray-500"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "card",
+          "className": "bg-white p-6 border border-gray-200 shadow-sm",
+          "body": {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Top Performing Products",
+                "className": "text-lg font-semibold text-gray-900"
+              },
+              {
+                "type": "table",
+                "columns": [
+                  {"key": "product", "header": "Product"},
+                  {"key": "sales", "header": "Sales"},
+                  {"key": "revenue", "header": "Revenue"},
+                  {"key": "trend", "header": "Trend"}
+                ],
+                "data": [
+                  {
+                    "product": "Premium Subscription",
+                    "sales": "1,234",
+                    "revenue": "$45,678",
+                    "trend": "↗ 12.5%"
+                  },
+                  {
+                    "product": "Professional Plan",
+                    "sales": "892",
+                    "revenue": "$32,450",
+                    "trend": "↗ 8.3%"
+                  },
+                  {
+                    "product": "Starter Package",
+                    "sales": "2,156",
+                    "revenue": "$28,900",
+                    "trend": "↗ 15.2%"
+                  },
+                  {
+                    "product": "Enterprise Solution",
+                    "sales": "145",
+                    "revenue": "$89,234",
+                    "trend": "↘ 3.1%"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

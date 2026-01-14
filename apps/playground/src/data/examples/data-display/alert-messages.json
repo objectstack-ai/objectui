@@ -1,0 +1,184 @@
+{
+  "type": "div",
+  "className": "space-y-6 max-w-4xl",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-2",
+      "body": [
+        {
+          "type": "text",
+          "content": "Alert Messages",
+          "className": "text-3xl font-bold"
+        },
+        {
+          "type": "text",
+          "content": "Display important information with contextual styling",
+          "className": "text-muted-foreground"
+        }
+      ]
+    },
+    {
+      "type": "card",
+      "className": "p-6",
+      "body": {
+        "type": "div",
+        "className": "space-y-6",
+        "body": [
+          {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Alert Variants",
+                "className": "text-lg font-semibold"
+              },
+              {
+                "type": "alert",
+                "variant": "default",
+                "title": "Default Alert",
+                "description": "This is a default alert message with standard styling."
+              },
+              {
+                "type": "alert",
+                "variant": "destructive",
+                "title": "Error Alert",
+                "description": "Something went wrong. Please check your input and try again."
+              }
+            ]
+          },
+          {
+            "type": "separator"
+          },
+          {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Success Messages",
+                "className": "text-lg font-semibold"
+              },
+              {
+                "type": "alert",
+                "variant": "default",
+                "title": "✓ Success",
+                "description": "Your changes have been saved successfully.",
+                "className": "border-green-200 bg-green-50 text-green-800"
+              },
+              {
+                "type": "alert",
+                "variant": "default",
+                "title": "✓ Profile Updated",
+                "description": "Your profile information has been updated.",
+                "className": "border-green-200 bg-green-50 text-green-800"
+              }
+            ]
+          },
+          {
+            "type": "separator"
+          },
+          {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Warning Messages",
+                "className": "text-lg font-semibold"
+              },
+              {
+                "type": "alert",
+                "variant": "default",
+                "title": "⚠ Warning",
+                "description": "Your session will expire in 5 minutes. Please save your work.",
+                "className": "border-amber-200 bg-amber-50 text-amber-800"
+              },
+              {
+                "type": "alert",
+                "variant": "default",
+                "title": "⚠ Storage Almost Full",
+                "description": "You've used 90% of your storage quota. Consider upgrading your plan.",
+                "className": "border-amber-200 bg-amber-50 text-amber-800"
+              }
+            ]
+          },
+          {
+            "type": "separator"
+          },
+          {
+            "type": "div",
+            "className": "space-y-4",
+            "body": [
+              {
+                "type": "text",
+                "content": "Info Messages",
+                "className": "text-lg font-semibold"
+              },
+              {
+                "type": "alert",
+                "variant": "default",
+                "title": "ℹ Information",
+                "description": "New features are now available. Check out the changelog for details.",
+                "className": "border-blue-200 bg-blue-50 text-blue-800"
+              },
+              {
+                "type": "alert",
+                "variant": "default",
+                "title": "ℹ System Maintenance",
+                "description": "Scheduled maintenance on Sunday, 2:00 AM - 4:00 AM UTC.",
+                "className": "border-blue-200 bg-blue-50 text-blue-800"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "card",
+      "className": "p-6",
+      "body": {
+        "type": "div",
+        "className": "space-y-4",
+        "body": [
+          {
+            "type": "text",
+            "content": "Title Only",
+            "className": "text-lg font-semibold"
+          },
+          {
+            "type": "alert",
+            "variant": "default",
+            "title": "Quick notification without description"
+          },
+          {
+            "type": "alert",
+            "variant": "destructive",
+            "title": "Action required"
+          }
+        ]
+      }
+    },
+    {
+      "type": "card",
+      "className": "p-6",
+      "body": {
+        "type": "div",
+        "className": "space-y-4",
+        "body": [
+          {
+            "type": "text",
+            "content": "Description Only",
+            "className": "text-lg font-semibold"
+          },
+          {
+            "type": "alert",
+            "variant": "default",
+            "description": "A simple message without a title."
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -20,6 +20,24 @@ import {
 } from '@/ui';
 import { renderChildren } from '../../lib/utils';
 
+// Constants
+const MILLISECONDS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+// Helper function to calculate date range from items
+function calculateDateRange(items: any[]): { minDate: string; maxDate: string } {
+  const allDates = items.flatMap((row: any) =>
+    (row.items || []).flatMap((item: any) => [item.startDate, item.endDate])
+  );
+  
+  const minTimestamp = Math.min(...allDates.map((d: string) => new Date(d).getTime()));
+  const maxTimestamp = Math.max(...allDates.map((d: string) => new Date(d).getTime()));
+  
+  return {
+    minDate: new Date(minTimestamp).toISOString().split('T')[0],
+    maxDate: new Date(maxTimestamp).toISOString().split('T')[0],
+  };
+}
+
 // Helper function to calculate bar position and width based on dates
 function calculateBarDimensions(
   startDate: string,
@@ -132,19 +150,9 @@ ComponentRegistry.register(
     // Gantt/Airtable-style Timeline
     if (variant === 'gantt') {
       // Calculate date range from all items
-      const allDates = items.flatMap((row: any) =>
-        (row.items || []).flatMap((item: any) => [item.startDate, item.endDate])
-      );
-      const minDate =
-        schema.minDate ||
-        new Date(Math.min(...allDates.map((d: string) => new Date(d).getTime())))
-          .toISOString()
-          .split('T')[0];
-      const maxDate =
-        schema.maxDate ||
-        new Date(Math.max(...allDates.map((d: string) => new Date(d).getTime())))
-          .toISOString()
-          .split('T')[0];
+      const dateRange = calculateDateRange(items);
+      const minDate = schema.minDate || dateRange.minDate;
+      const maxDate = schema.maxDate || dateRange.maxDate;
 
       // Generate time scale headers (months, weeks, etc.)
       const timeScale = schema.timeScale || 'month';
@@ -169,7 +177,7 @@ ComponentRegistry.register(
           while (current <= end) {
             headers.push(
               `Week ${Math.ceil(
-                (current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)
+                (current.getTime() - start.getTime()) / MILLISECONDS_PER_WEEK
               ) + 1}`
             );
             current.setDate(current.getDate() + 7);

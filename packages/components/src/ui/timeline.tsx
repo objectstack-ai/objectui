@@ -59,7 +59,7 @@ const TimelineContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("", className)}
+    className={className}
     {...props}
   />
 ))

@@ -1,11 +1,12 @@
 import { ComponentRegistry } from '@object-ui/core';
+import type { FileUploadSchema } from '@object-ui/types';
 import { Label, Button } from '@/ui';
 import { Upload, X } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 ComponentRegistry.register('file-upload', 
-  ({ schema, className, value, onChange, ...props }) => {
+  ({ schema, className, value, onChange, ...props }: { schema: FileUploadSchema; className?: string; value?: File[]; onChange?: (files: File[]) => void; [key: string]: any }) => {
     const [files, setFiles] = useState<File[]>(value || []);
     const inputRef = useRef<HTMLInputElement>(null);
 

@@ -25,6 +25,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@object-ui/core": "workspace:*",
     "@object-ui/react": "workspace:*",
+    "@object-ui/types": "workspace:*",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",

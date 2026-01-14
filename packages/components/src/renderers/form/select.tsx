@@ -1,4 +1,5 @@
 import { ComponentRegistry } from '@object-ui/core';
+import type { SelectSchema } from '@object-ui/types';
 import {
   Select,
   SelectTrigger,
@@ -9,7 +10,7 @@ import {
 } from '@/ui';
 
 ComponentRegistry.register('select', 
-  ({ schema, className, ...props }) => (
+  ({ schema, className, ...props }: { schema: SelectSchema; className?: string; [key: string]: any }) => (
     <div className={`grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}`}>
       {schema.label && <Label>{schema.label}</Label>}
       <Select defaultValue={schema.defaultValue} {...props}>
@@ -17,7 +18,7 @@ ComponentRegistry.register('select',
           <SelectValue placeholder={schema.placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {schema.options?.map((opt: any) => (
+          {schema.options?.map((opt) => (
              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
           ))}
         </SelectContent>

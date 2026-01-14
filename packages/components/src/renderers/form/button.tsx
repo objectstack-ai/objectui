@@ -1,9 +1,10 @@
 import { ComponentRegistry } from '@object-ui/core';
+import type { ButtonSchema } from '@object-ui/types';
 import { Button } from '@/ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('button', 
-  ({ schema, ...props }) => (
+  ({ schema, ...props }: { schema: ButtonSchema; [key: string]: any }) => (
     <Button variant={schema.variant} size={schema.size} className={schema.className} {...props}>
       {schema.label || renderChildren(schema.body)}
     </Button>

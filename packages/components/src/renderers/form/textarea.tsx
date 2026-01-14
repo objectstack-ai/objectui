@@ -1,8 +1,9 @@
 import { ComponentRegistry } from '@object-ui/core';
+import type { TextareaSchema } from '@object-ui/types';
 import { Textarea, Label } from '@/ui';
 
 ComponentRegistry.register('textarea', 
-  ({ schema, className, ...props }) => (
+  ({ schema, className, ...props }: { schema: TextareaSchema; className?: string; [key: string]: any }) => (
     <div className={`grid w-full gap-1.5 ${schema.wrapperClass || ''}`}>
       {schema.label && <Label htmlFor={schema.id}>{schema.label}</Label>}
       <Textarea 

@@ -1,8 +1,9 @@
 import { ComponentRegistry } from '@object-ui/core';
+import type { InputSchema } from '@object-ui/types';
 import { Input, Label } from '@/ui';
 
 ComponentRegistry.register('input', 
-  ({ schema, className, ...props }) => (
+  ({ schema, className, ...props }: { schema: InputSchema; className?: string; [key: string]: any }) => (
     <div className={`grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}`}>
       {schema.label && <Label htmlFor={schema.id}>{schema.label}</Label>}
       <Input 

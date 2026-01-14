@@ -1,9 +1,10 @@
 import { ComponentRegistry } from '@object-ui/core';
+import type { ToggleSchema } from '@object-ui/types';
 import { Toggle, ToggleGroup, ToggleGroupItem } from '@/ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('toggle', 
-  ({ schema, ...props }) => (
+  ({ schema, ...props }: { schema: ToggleSchema; [key: string]: any }) => (
     <Toggle 
       variant={schema.variant} 
       size={schema.size} 
@@ -11,7 +12,7 @@ ComponentRegistry.register('toggle',
       aria-label={schema.ariaLabel}
       {...props}
     >
-      {schema.label || renderChildren(schema.body)}
+      {schema.label || renderChildren(schema.body || schema.children)}
     </Toggle>
   ),
   {

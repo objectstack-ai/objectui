@@ -242,6 +242,9 @@ importers:
       '@object-ui/react':
         specifier: workspace:*
         version: link:../react
+      '@object-ui/types':
+        specifier: workspace:*
+        version: link:../types
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@18.3.1)(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -429,7 +432,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.0.0
-        version: 1.6.1(@types/node@24.10.8)(@vitest/ui@2.1.9(vitest@2.1.9))(happy-dom@20.1.0)(jsdom@27.4.0)
+        version: 1.6.1(@types/node@24.10.8)(@vitest/ui@2.1.9)(happy-dom@20.1.0)(jsdom@27.4.0)
 
   packages/designer:
     dependencies:
@@ -9174,7 +9177,7 @@ snapshots:
       - typescript
       - universal-cookie
 
-  vitest@1.6.1(@types/node@24.10.8)(@vitest/ui@2.1.9(vitest@2.1.9))(happy-dom@20.1.0)(jsdom@27.4.0):
+  vitest@1.6.1(@types/node@24.10.8)(@vitest/ui@2.1.9)(happy-dom@20.1.0)(jsdom@27.4.0):
     dependencies:
       '@vitest/expect': 1.6.1
       '@vitest/runner': 1.6.1

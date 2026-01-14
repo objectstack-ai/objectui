@@ -1,4 +1,5 @@
 import { ComponentRegistry } from '@object-ui/core';
+import type { FormSchema, FormField as FormFieldConfig, ValidationRule, FieldCondition, SelectOption } from '@object-ui/types';
 import { useForm } from 'react-hook-form';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/ui/form';
 import { Button } from '@/ui/button';
@@ -18,48 +19,9 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import React from 'react';
 
-// TypeScript interfaces for type safety
-interface SelectOption {
-  label: string;
-  value: string;
-}
-
-interface FieldValidation {
-  required?: string | boolean;
-  minLength?: { value: number; message: string };
-  maxLength?: { value: number; message: string };
-  min?: { value: number; message: string };
-  max?: { value: number; message: string };
-  pattern?: { value: string | RegExp; message: string };
-  validate?: (value: any) => boolean | string;
-}
-
-interface FieldCondition {
-  field: string;
-  equals?: any;
-  notEquals?: any;
-  in?: any[];
-}
-
-interface FormFieldConfig {
-  id?: string;
-  name: string;
-  label?: string;
-  description?: string;
-  type?: string;
-  inputType?: string;
-  required?: boolean;
-  disabled?: boolean;
-  placeholder?: string;
-  options?: SelectOption[];
-  validation?: FieldValidation;
-  condition?: FieldCondition;
-  [key: string]: any;
-}
-
 // Form renderer component - Airtable-style feature-complete form
 ComponentRegistry.register('form',
-  ({ schema, className, onAction, ...props }) => {
+  ({ schema, className, onAction, ...props }: { schema: FormSchema; className?: string; onAction?: (action: any) => void; [key: string]: any }) => {
     const {
       defaultValues = {},
       fields = [],

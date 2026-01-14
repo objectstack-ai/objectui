@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { designStorage, Design } from '../services/designStorage';
 import { 
@@ -18,16 +18,13 @@ import {
 
 export const MyDesigns = () => {
   const navigate = useNavigate();
-  const [designs, setDesigns] = useState<Design[]>([]);
+  // Load initial designs from storage to avoid useEffect cascading render
+  const [designs, setDesigns] = useState<Design[]>(() => designStorage.getAllDesigns());
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importJson, setImportJson] = useState('');
   const [importName, setImportName] = useState('');
-
-  useEffect(() => {
-    loadDesigns();
-  }, []);
 
   const loadDesigns = () => {
     setDesigns(designStorage.getAllDesigns());

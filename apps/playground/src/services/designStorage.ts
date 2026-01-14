@@ -8,7 +8,7 @@ export interface Design {
   id: string;
   name: string;
   description?: string;
-  schema: any;
+  schema: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   isTemplate?: boolean;

@@ -4,13 +4,20 @@ import { SchemaRenderer } from '@object-ui/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { cn } from '../../lib/utils'; // Keep internal import for utils
 
-export const PageRenderer: React.FC<{ schema: PageSchema }> = ({ schema }) => {
+export const PageRenderer: React.FC<{ schema: PageSchema; className?: string; [key: string]: any }> = ({ 
+  schema, 
+  className,
+  ...props 
+}) => {
   // Support both body (legacy/playground) and children
   const content = schema.body || schema.children;
   const nodes = Array.isArray(content) ? content : (content ? [content] : []);
 
   return (
-    <div className={cn("min-h-full w-full bg-background p-6 md:p-8", schema.className)}>
+    <div 
+      className={cn("min-h-full w-full bg-background p-6 md:p-8", className)}
+      {...props}
+    >
       <div className="mx-auto max-w-7xl space-y-8">
         {(schema.title || schema.description) && (
           <div className="space-y-2">

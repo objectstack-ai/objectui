@@ -244,7 +244,7 @@ const StudioToolbarContext = ({
 
 // Inner Component handles state for a specific example
 const StudioEditor = ({ exampleId, initialJson, isUserDesign, currentDesignId }: { 
-  exampleId: ExampleKey | 'new', 
+  exampleId: ExampleKey | 'new' | string, 
   initialJson: string,
   isUserDesign?: boolean,
   currentDesignId?: string
@@ -608,7 +608,7 @@ export const Studio = () => {
     return (
       <StudioEditor 
         key={userDesign.id} 
-        exampleId={userDesign.id as any} 
+        exampleId={userDesign.id} 
         initialJson={initialCode}
         isUserDesign={true}
         currentDesignId={userDesign.id}
@@ -622,7 +622,7 @@ export const Studio = () => {
     const sharedDesign = designStorage.getSharedDesign(shareId);
     if (sharedDesign) {
       const initialCode = JSON.stringify(sharedDesign.schema, null, 2);
-      return <StudioEditor key={shareId} exampleId={sharedDesign.name as any} initialJson={initialCode} />;
+      return <StudioEditor key={shareId} exampleId={sharedDesign.name} initialJson={initialCode} />;
     }
   }
   

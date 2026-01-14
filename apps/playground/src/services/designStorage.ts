@@ -156,11 +156,11 @@ class DesignStorageService {
 
   // Private helper methods
   private generateId(): string {
-    return `design_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `design_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private generateShareId(): string {
-    return Math.random().toString(36).substr(2, 12);
+    return Math.random().toString(36).substring(2, 14);
   }
 
   private getSharedDesigns(): Record<string, Design> {

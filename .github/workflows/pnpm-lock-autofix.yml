@@ -1,0 +1,182 @@
+name: Auto-fix pnpm-lock.yaml Conflicts
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '**/package.json'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  autofix-lockfile:
+    name: Auto-fix pnpm-lock.yaml
+    runs-on: ubuntu-latest
+    
+    # Only run on PRs from the same repository (not forks) for security
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Check for merge conflicts
+        id: check_conflicts
+        run: |
+          # Fetch the base branch
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          
+          # Try to merge base into current branch
+          if git merge --no-commit --no-ff origin/${{ github.event.pull_request.base.ref }} 2>&1 | tee merge_output.txt; then
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+            git merge --abort 2>/dev/null || true
+          else
+            # Check if conflicts exist
+            if grep -q "CONFLICT" merge_output.txt; then
+              echo "has_conflicts=true" >> $GITHUB_OUTPUT
+              
+              # Check if pnpm-lock.yaml has conflicts
+              if git status | grep -q "pnpm-lock.yaml"; then
+                echo "lockfile_conflict=true" >> $GITHUB_OUTPUT
+              else
+                echo "lockfile_conflict=false" >> $GITHUB_OUTPUT
+              fi
+              
+              git merge --abort 2>/dev/null || true
+            else
+              echo "has_conflicts=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+      
+      - name: Setup pnpm
+        if: steps.check_conflicts.outputs.lockfile_conflict == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Setup Node.js
+        if: steps.check_conflicts.outputs.lockfile_conflict == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'pnpm'
+      
+      - name: Resolve lockfile conflicts
+        if: steps.check_conflicts.outputs.lockfile_conflict == 'true'
+        id: resolve
+        run: |
+          echo "🔧 Attempting to resolve pnpm-lock.yaml conflicts..."
+          
+          # Merge the base branch
+          git merge origin/${{ github.event.pull_request.base.ref }} || true
+          
+          # Check if only pnpm-lock.yaml has conflicts
+          CONFLICT_FILES=$(git diff --name-only --diff-filter=U)
+          echo "Conflicted files: $CONFLICT_FILES"
+          
+          if [ "$CONFLICT_FILES" = "pnpm-lock.yaml" ] || [ -z "$CONFLICT_FILES" ]; then
+            echo "Only pnpm-lock.yaml has conflicts or no conflicts. Regenerating lockfile..."
+            
+            # Remove the conflicted lockfile
+            git checkout --theirs pnpm-lock.yaml || git checkout --ours pnpm-lock.yaml || rm -f pnpm-lock.yaml
+            
+            # Regenerate the lockfile
+            pnpm install --no-frozen-lockfile
+            
+            # Check if lockfile was modified
+            if git diff --quiet pnpm-lock.yaml; then
+              echo "resolved=false" >> $GITHUB_OUTPUT
+              echo "reason=no_changes" >> $GITHUB_OUTPUT
+            else
+              # Stage and commit the resolved lockfile
+              git add pnpm-lock.yaml
+              git commit -m "chore: auto-resolve pnpm-lock.yaml conflicts" \
+                         -m "" \
+                         -m "Automatically regenerated pnpm-lock.yaml to resolve merge conflicts." \
+                         -m "" \
+                         -m "Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+              
+              git push origin ${{ github.event.pull_request.head.ref }}
+              
+              echo "resolved=true" >> $GITHUB_OUTPUT
+              echo "✅ Successfully resolved and pushed pnpm-lock.yaml"
+            fi
+          else
+            echo "⚠️ Multiple files have conflicts. Manual resolution required."
+            echo "Conflicted files:"
+            echo "$CONFLICT_FILES"
+            echo "resolved=false" >> $GITHUB_OUTPUT
+            echo "reason=multiple_conflicts" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Comment on PR - Success
+        if: steps.resolve.outputs.resolved == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const message = `🤖 **Auto-fix Applied**
+
+            ✅ Successfully resolved \`pnpm-lock.yaml\` merge conflicts!
+
+            The lockfile has been automatically regenerated and committed to this PR. 
+            Please review the changes and re-run any necessary checks.
+
+            <details>
+            <summary>What happened?</summary>
+
+            When merging branches, \`pnpm-lock.yaml\` conflicts are common because multiple branches may have updated dependencies independently. This automation detected the conflict and regenerated the lockfile by running \`pnpm install\`, which merges the dependency changes from both branches.
+
+            </details>`;
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+      
+      - name: Comment on PR - Multiple Conflicts
+        if: steps.resolve.outputs.reason == 'multiple_conflicts'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const message = `🤖 **Auto-fix Skipped**
+
+            ⚠️ This PR has merge conflicts in multiple files, not just \`pnpm-lock.yaml\`.
+
+            **Action Required**: Please resolve the conflicts manually:
+
+            \`\`\`bash
+            # Merge the base branch into your branch
+            git fetch origin
+            git merge origin/${{ github.event.pull_request.base.ref }}
+
+            # Resolve conflicts in other files first
+            # Then regenerate pnpm-lock.yaml
+            pnpm install --no-frozen-lockfile
+
+            # Commit and push
+            git add .
+            git commit -m "chore: resolve merge conflicts"
+            git push
+            \`\`\``;
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });

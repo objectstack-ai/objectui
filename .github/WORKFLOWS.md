@@ -240,6 +240,51 @@ Generates and updates CHANGELOG.md from git history.
 
 **Note**: Requires `cliff.toml` configuration file for customization.
 
+### 13. Auto-fix pnpm-lock.yaml Conflicts
+
+**File**: `pnpm-lock-autofix.yml`  
+**Triggers**: Pull Requests (when pnpm-lock.yaml or package.json files change)
+
+Automatically detects and resolves `pnpm-lock.yaml` merge conflicts.
+
+**What It Does**:
+1. Detects when a PR has merge conflicts with the base branch
+2. Checks if the conflict is only in `pnpm-lock.yaml`
+3. Automatically regenerates the lockfile by running `pnpm install`
+4. Commits and pushes the resolved lockfile back to the PR
+5. Notifies the PR author with a comment
+
+**When It Runs**:
+- When a PR is opened, synchronized, or reopened
+- Only if `pnpm-lock.yaml` or any `package.json` files are modified
+- Only for PRs from the same repository (not forks, for security)
+
+**Behavior**:
+
+```mermaid
+graph TD
+    A[PR Updated] --> B{Has merge conflicts?}
+    B -->|No| C[Skip - No action needed]
+    B -->|Yes| D{Only pnpm-lock.yaml?}
+    D -->|Yes| E[Regenerate lockfile]
+    E --> F[Commit & Push]
+    F --> G[Comment: Success]
+    D -->|No| H[Comment: Manual resolution needed]
+```
+
+**Benefits**:
+- Eliminates manual resolution of lockfile conflicts
+- Reduces merge friction in monorepo environments
+- Saves developer time on routine lockfile conflicts
+- Ensures lockfile consistency across branches
+
+**When Manual Resolution Is Needed**:
+- If conflicts exist in files other than `pnpm-lock.yaml`
+- If the PR is from a fork (security restriction)
+- If `pnpm install` fails for any reason
+
+**Security**: Only runs on PRs from the same repository to prevent malicious code execution from forks.
+
 ## Security Features
 
 ### CodeQL Analysis
@@ -316,6 +361,10 @@ Add these badges to show workflow status:
 **Problem**: CodeQL analysis fails
 - **Solution**: Check for syntax errors, review CodeQL logs
 
+**Problem**: pnpm-lock.yaml merge conflicts
+- **Solution**: The `pnpm-lock-autofix.yml` workflow automatically resolves these conflicts
+- **Manual Fix**: Run `pnpm install --no-frozen-lockfile` and commit the updated lockfile
+
 ### Getting Help
 
 - Check [GitHub Actions documentation](https://docs.github.com/en/actions)
@@ -347,6 +396,7 @@ Potential workflow additions:
 - [ ] Integration tests with examples
 - [ ] Automated component documentation generation
 - [ ] npm package publishing automation
+- [x] Automatic pnpm-lock.yaml conflict resolution (implemented)
 
 ## Resources
 

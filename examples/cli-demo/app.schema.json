@@ -1,0 +1,273 @@
+{
+  "type": "div",
+  "className": "min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50",
+  "body": {
+    "type": "div",
+    "className": "container mx-auto px-4 py-16",
+    "body": [
+      {
+        "type": "div",
+        "className": "text-center mb-12",
+        "body": [
+          {
+            "type": "div",
+            "className": "text-5xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent",
+            "body": {
+              "type": "text",
+              "content": "Object UI CLI Demo"
+            }
+          },
+          {
+            "type": "div",
+            "className": "text-xl text-muted-foreground",
+            "body": {
+              "type": "text",
+              "content": "Build beautiful UIs with JSON - No coding required! 🎨"
+            }
+          }
+        ]
+      },
+      {
+        "type": "div",
+        "className": "grid md:grid-cols-2 gap-8 max-w-6xl mx-auto",
+        "body": [
+          {
+            "type": "card",
+            "className": "shadow-xl",
+            "title": "用户注册 / User Registration",
+            "description": "填写以下信息创建账户 / Fill in the information to create an account",
+            "body": {
+              "type": "div",
+              "className": "p-6 space-y-4",
+              "body": [
+                {
+                  "type": "div",
+                  "className": "grid grid-cols-2 gap-4",
+                  "body": [
+                    {
+                      "type": "input",
+                      "label": "名字 / First Name",
+                      "placeholder": "张三 / John",
+                      "required": true
+                    },
+                    {
+                      "type": "input",
+                      "label": "姓氏 / Last Name",
+                      "placeholder": "李 / Doe",
+                      "required": true
+                    }
+                  ]
+                },
+                {
+                  "type": "input",
+                  "label": "电子邮箱 / Email",
+                  "inputType": "email",
+                  "placeholder": "your@email.com",
+                  "required": true
+                },
+                {
+                  "type": "input",
+                  "label": "密码 / Password",
+                  "inputType": "password",
+                  "placeholder": "请输入密码 / Enter password",
+                  "required": true
+                },
+                {
+                  "type": "textarea",
+                  "label": "个人简介 / Bio",
+                  "placeholder": "介绍一下自己... / Tell us about yourself...",
+                  "rows": 3
+                },
+                {
+                  "type": "div",
+                  "className": "flex gap-3 pt-4",
+                  "body": [
+                    {
+                      "type": "button",
+                      "label": "注册 / Register",
+                      "className": "flex-1"
+                    },
+                    {
+                      "type": "button",
+                      "label": "重置 / Reset",
+                      "variant": "outline",
+                      "className": "flex-1"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "card",
+            "className": "shadow-xl",
+            "title": "功能特性 / Features",
+            "description": "Object UI CLI 的强大功能 / Powerful features of Object UI CLI",
+            "body": {
+              "type": "div",
+              "className": "p-6 space-y-6",
+              "body": [
+                {
+                  "type": "div",
+                  "className": "space-y-4",
+                  "body": [
+                    {
+                      "type": "div",
+                      "className": "flex items-start gap-3",
+                      "body": [
+                        {
+                          "type": "div",
+                          "className": "text-2xl",
+                          "body": { "type": "text", "content": "🚀" }
+                        },
+                        {
+                          "type": "div",
+                          "className": "flex-1",
+                          "body": [
+                            {
+                              "type": "div",
+                              "className": "font-semibold",
+                              "body": { "type": "text", "content": "极速启动 / Instant Start" }
+                            },
+                            {
+                              "type": "div",
+                              "className": "text-sm text-muted-foreground",
+                              "body": { "type": "text", "content": "一条命令启动开发服务器 / One command to start dev server" }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "className": "flex items-start gap-3",
+                      "body": [
+                        {
+                          "type": "div",
+                          "className": "text-2xl",
+                          "body": { "type": "text", "content": "📝" }
+                        },
+                        {
+                          "type": "div",
+                          "className": "flex-1",
+                          "body": [
+                            {
+                              "type": "div",
+                              "className": "font-semibold",
+                              "body": { "type": "text", "content": "JSON 驱动 / JSON Driven" }
+                            },
+                            {
+                              "type": "div",
+                              "className": "text-sm text-muted-foreground",
+                              "body": { "type": "text", "content": "纯 JSON 配置，无需写代码 / Pure JSON config, no coding needed" }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "className": "flex items-start gap-3",
+                      "body": [
+                        {
+                          "type": "div",
+                          "className": "text-2xl",
+                          "body": { "type": "text", "content": "🎨" }
+                        },
+                        {
+                          "type": "div",
+                          "className": "flex-1",
+                          "body": [
+                            {
+                              "type": "div",
+                              "className": "font-semibold",
+                              "body": { "type": "text", "content": "精美界面 / Beautiful UI" }
+                            },
+                            {
+                              "type": "div",
+                              "className": "text-sm text-muted-foreground",
+                              "body": { "type": "text", "content": "基于 Tailwind + Shadcn / Built with Tailwind + Shadcn" }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "className": "flex items-start gap-3",
+                      "body": [
+                        {
+                          "type": "div",
+                          "className": "text-2xl",
+                          "body": { "type": "text", "content": "🌏" }
+                        },
+                        {
+                          "type": "div",
+                          "className": "flex-1",
+                          "body": [
+                            {
+                              "type": "div",
+                              "className": "font-semibold",
+                              "body": { "type": "text", "content": "国际化 / i18n Support" }
+                            },
+                            {
+                              "type": "div",
+                              "className": "text-sm text-muted-foreground",
+                              "body": { "type": "text", "content": "支持中英文双语 / Chinese & English support" }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "div",
+                  "className": "border-t pt-4",
+                  "body": {
+                    "type": "div",
+                    "className": "bg-muted/50 rounded-lg p-4",
+                    "body": [
+                      {
+                        "type": "div",
+                        "className": "text-sm font-mono text-muted-foreground mb-2",
+                        "body": { "type": "text", "content": "# 快速开始 / Quick Start" }
+                      },
+                      {
+                        "type": "div",
+                        "className": "text-sm font-mono",
+                        "body": { "type": "text", "content": "$ objectui init my-app" }
+                      },
+                      {
+                        "type": "div",
+                        "className": "text-sm font-mono",
+                        "body": { "type": "text", "content": "$ cd my-app" }
+                      },
+                      {
+                        "type": "div",
+                        "className": "text-sm font-mono",
+                        "body": { "type": "text", "content": "$ objectui serve" }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "div",
+        "className": "text-center mt-12",
+        "body": {
+          "type": "div",
+          "className": "text-sm text-muted-foreground",
+          "body": {
+            "type": "text",
+            "content": "Built with ❤️ using Object UI CLI | 使用 Object UI CLI 构建"
+          }
+        }
+      }
+    ]
+  }
+}

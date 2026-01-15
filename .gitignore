@@ -40,3 +40,6 @@ Thumbs.db
 # VitePress build output
 docs/.vitepress/dist
 docs/.vitepress/cache
+
+# Object UI CLI temporary files
+.objectui-tmp

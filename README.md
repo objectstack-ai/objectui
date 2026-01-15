@@ -13,7 +13,7 @@
 [![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.0+-38bdf8.svg)](https://tailwindcss.com/)
 
-[**Documentation**](https://www.objectui.org) | [**Quick Start**](#quick-start) | [**Examples**](#examples) | [**Studio**](https://play.objectstack.ai)
+[**Documentation**](https://www.objectui.org) | [**Quick Start**](#quick-start) | [**Examples**](#examples)
 
 </div>
 
@@ -181,11 +181,9 @@ function App() {
 export default App
 ```
 
-### Try the Visual Studio
+### Visual Designer
 
-Explore our interactive drag-and-drop designer:
-
-🚀 [**Launch Object UI Studio**](https://play.objectstack.ai) - Design visually, export JSON instantly.
+Object UI includes a visual designer package that allows you to build UIs with a drag-and-drop interface. See the `@object-ui/designer` package for more information.
 
 ## 📦 Packages
 
@@ -326,11 +324,11 @@ cd objectui
 # Install dependencies
 pnpm install
 
-# Run the interactive playground
-pnpm playground
-
 # Run the prototype example
 pnpm prototype
+
+# Run the visual designer demo
+pnpm designer
 ```
 
 ## 🛣️ Roadmap

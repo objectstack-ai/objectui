@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import chalk from 'chalk';
@@ -36,6 +37,18 @@ export async function start(options: StartOptions) {
   const app = express();
   const port = parseInt(options.port);
   const host = options.host;
+
+  // Configure rate limiting to prevent abuse
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // Limit each IP to 1000 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.',
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  });
+
+  // Apply rate limiting to all routes
+  app.use(limiter);
 
   // Serve static files from dist directory
   app.use(express.static(distPath));

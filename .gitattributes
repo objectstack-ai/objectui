@@ -1,0 +1,5 @@
+# Git Attributes Configuration
+
+# Use custom merge driver for pnpm-lock.yaml
+# This prevents manual merge conflicts in the lockfile by regenerating it
+pnpm-lock.yaml merge=pnpm-merge

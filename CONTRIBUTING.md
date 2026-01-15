@@ -50,6 +50,20 @@ npm install -g pnpm
 pnpm install
 ```
 
+### Configure Git Merge Driver for pnpm-lock.yaml
+
+To prevent merge conflicts in `pnpm-lock.yaml`, configure the custom merge driver:
+
+```bash
+# Set the merge driver name
+git config merge.pnpm-merge.name "pnpm-lock.yaml merge driver"
+
+# Set the merge driver command
+git config merge.pnpm-merge.driver "pnpm install"
+```
+
+This configuration allows Git to automatically resolve conflicts in `pnpm-lock.yaml` by regenerating the lockfile using `pnpm install` instead of attempting a manual merge.
+
 ### Create a Branch
 
 ```bash

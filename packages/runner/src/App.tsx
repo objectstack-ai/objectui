@@ -4,67 +4,9 @@ export {};
 import { SchemaRenderer } from '@object-ui/react';
 import '@object-ui/components';
 import { PageSchema, AppSchema } from '@object-ui/types';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { LayoutRenderer } from './LayoutRenderer';
-
-// --- Router Logic ---
-
-/**
- * Matches a URL path to a list of file paths (glob keys).
- * Supports exact match, index match, and dynamic [param] match.
- */
-function matchRoute(urlPath: string, filePaths: string[]) {
-  // Normalize URL: /customers/123 -> customers/123
-  const normalizedUrl = urlPath.replace(/^\//, '').replace(/\/$/, '') || 'index';
-
-  // 1. Exact Match (e.g. customers.json)
-  const exactMatch = filePaths.find(p => {
-    const name = p.replace(/^\.\/app-data\/pages\//, '').replace(/\.json$/, '');
-    return name === normalizedUrl;
-  });
-  if (exactMatch) return { file: exactMatch, params: {} };
-
-  // 2. Index Match (e.g. customers/index.json)
-  const indexMatch = filePaths.find(p => {
-    const name = p.replace(/^\.\/app-data\/pages\//, '').replace(/\/index\.json$/, '');
-    return name === normalizedUrl;
-  });
-  if (indexMatch) return { file: indexMatch, params: {} };
-
-  // 3. Dynamic Match (e.g. customers/[id].json)
-  for (const filePath of filePaths) {
-    // customers/[id].json -> customers/[id]
-    const routePattern = filePath
-      .replace(/^\.\/app-data\/pages\//, '')
-      .replace(/\/index\.json$/, '') // Handle [id]/index.json as [id]
-      .replace(/\.json$/, '');
-
-    // If it doesn't have dynamic params, we already checked it in exact/index match
-    if (!routePattern.includes('[')) continue;
-
-    // Convert [id] -> ([^/]+)
-    const paramNames: string[] = [];
-    const regexSource = routePattern
-      .replace(/\//g, '\\/') // Escape slashes
-      .replace(/\[([^\]]+)\]/g, (_, name) => {
-        paramNames.push(name);
-        return '([^\\/]+)';
-      });
-    
-    const regex = new RegExp(`^${regexSource}$`);
-    const match = normalizedUrl.match(regex);
-
-    if (match) {
-      const params: Record<string, string> = {};
-      match.slice(1).forEach((val, i) => {
-        params[paramNames[i]] = decodeURIComponent(val);
-      });
-      return { file: filePath, params };
-    }
-  }
-
-  return null;
-}
+import { LocalBundleLoader, NetworkLoader, MetadataLoader } from './lib/MetadataLoader';
 
 export default function App() {
   const [appConfig, setAppConfig] = useState<AppSchema | null>(null);
@@ -73,27 +15,36 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // --- 1. Load Global Config (once) ---
-  useEffect(() => {
-    const loadAppConfig = async () => {
-      try {
-        const appFiles = import.meta.glob('./app-data/app.json');
-        if (appFiles['./app-data/app.json']) {
-          const mod: any = await appFiles['./app-data/app.json']();
-          const loaded = mod.default || mod;
-          if (loaded.type === 'app') {
-            setAppConfig(loaded);
-          }
-        }
-      } catch (e) {
-        console.error("Error loading app.json", e);
-      }
-    };
-    loadAppConfig();
+  // Initialize Loader Strategy
+  const loader = useMemo<MetadataLoader>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const apiUrl = params.get('api');
+    
+    // IF ?api=... is present, use Network Loader
+    if (apiUrl) {
+      console.log('🔌 Using Network Loader:', apiUrl);
+      return new NetworkLoader(apiUrl);
+    }
+    
+    // ELSE use bundled files (Local Development)
+    console.log('📦 Using Local Bundle Loader');
+    return new LocalBundleLoader();
   }, []);
 
-  // --- 2. Route Handling ---
+  // --- 1. Load Global Config (once) ---
+  useEffect(() => {
+    const loadApp = async () => {
+      try {
+        const config = await loader.loadAppConfig();
+        if (config) setAppConfig(config);
+      } catch (e) {
+        console.error("Error loading app config", e);
+      }
+    };
+    loadApp();
+  }, [loader]);
 
+  // --- 2. Route Handling ---
   const handleNavigate = useCallback((to: string) => {
     window.history.pushState({}, '', to);
     setCurrentPath(to);
@@ -112,42 +63,22 @@ export default function App() {
       setLoading(true);
       setError(null);
       try {
-        const pagesGlob = import.meta.glob('./app-data/pages/**/*.json');
-        const filePaths = Object.keys(pagesGlob);
-        
-        // A. Match Route
-        const match = matchRoute(currentPath, filePaths);
-
-        if (match) {
-          const mod: any = await pagesGlob[match.file]();
-          const loaded = mod.default || mod;
-          // Inject params into schema if needed? 
-          // For now, we assume title/data might rely on context, but here we just render.
-          setPageSchema(loaded);
+        const schema = await loader.loadPage(currentPath);
+        if (schema) {
+          setPageSchema(schema);
         } else {
-           // B. Fallback: No pages folder? Try root
-          const rootGlob = import.meta.glob('./app-data/*.json');
-          const rootKeys = Object.keys(rootGlob).filter(k => !k.endsWith('app.json') && !k.endsWith('package.json'));
-          
-          if (rootKeys.length > 0 && currentPath === '/') {
-             // If root has index.json or similar, load it for '/'
-             const mod: any = await rootGlob[rootKeys[0]]();
-             setPageSchema(mod.default || mod);
+          // If 404
+          setError(`Page not found: ${currentPath}`);
+          if (currentPath === '/') {
+             setPageSchema({
+               type: 'page',
+               title: 'Welcome to Object UI',
+               body: [{ type: 'div', className: "p-10 text-center text-muted-foreground", body: 'No index page found.' }]
+             } as any);
           } else {
-             // 404
-             if (filePaths.length > 0 || rootKeys.length > 0) {
-                setError(`Page not found: ${currentPath}`);
-                setPageSchema(null);
-             } else {
-                 setPageSchema({
-                    type: 'page',
-                    title: 'Welcome',
-                    body: [{ type: 'div', className: "p-10 text-center", body: 'No JSON files found in src/app-data.' }]
-                 } as any);
-             }
+             setPageSchema(null);
           }
         }
-
       } catch (err) {
         console.error(err);
         setError("Failed to load page.");
@@ -157,15 +88,14 @@ export default function App() {
     };
 
     loadPage();
-  }, [currentPath]);
+  }, [currentPath, loader]);
 
   // --- Render ---
 
-  if (error) {
-    // Show error inside layout if possible
+  if (error && !pageSchema) {
     const errorContent = (
       <div className="flex flex-col items-center justify-center h-full p-12 text-red-600">
-        <h1 className="text-2xl font-bold">404 / Error</h1>
+        <h1 className="text-2xl font-bold">404</h1>
         <p className="mt-2 text-slate-600">{error}</p>
         <button onClick={() => handleNavigate('/')} className="mt-4 text-blue-600 hover:underline">
           Go Home

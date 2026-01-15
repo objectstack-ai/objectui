@@ -327,3 +327,11 @@ export const VERSION = '0.1.0';
  * Schema version for compatibility checking
  */
 export const SCHEMA_VERSION = '1.0.0';
+
+// ============================================================================
+// Schema Registry - The Type Map
+// ============================================================================
+export type {
+  SchemaRegistry,
+  ComponentType,
+} from './registry';

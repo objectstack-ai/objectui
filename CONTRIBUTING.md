@@ -14,6 +14,7 @@ Thank you for your interest in contributing to Object UI! This document provides
 - [Pull Request Process](#pull-request-process)
 - [Documentation](#documentation)
 - [Adding Components](#adding-components)
+- [Troubleshooting](#troubleshooting)
 - [Questions & Support](#questions--support)
 
 ## Getting Started
@@ -368,6 +369,24 @@ Our repository includes several automated GitHub workflows that will run when yo
 - **Auto-labeling**: Automatically labels PRs based on changed files
 - **Bundle Size**: Reports bundle size changes in PR comments
 - **PR Checks**: Validates PR requirements and posts status
+- **Lockfile Auto-fix**: Automatically resolves `pnpm-lock.yaml` merge conflicts
+
+#### Lockfile Conflict Resolution
+
+When you create a PR that has merge conflicts in `pnpm-lock.yaml`, our automation will:
+
+1. **Detect the conflict** automatically
+2. **Regenerate the lockfile** by running `pnpm install`
+3. **Commit the fix** back to your PR branch
+4. **Notify you** with a comment explaining what happened
+
+**What this means for you:**
+- No need to manually resolve `pnpm-lock.yaml` conflicts
+- Your PR will be automatically updated with the resolved lockfile
+- You can focus on code changes, not dependency conflicts
+
+**When manual resolution is needed:**
+If your PR has conflicts in files **other than** `pnpm-lock.yaml`, the automation will notify you with instructions for manual resolution.
 
 #### What to Expect
 1. All checks must pass before merging
@@ -568,6 +587,62 @@ git push origin feat/add-date-picker
    ```
 
 5. **Add documentation** in `docs/components/my-component.md`
+
+## Troubleshooting
+
+### pnpm-lock.yaml Conflicts
+
+**Problem**: You have merge conflicts in `pnpm-lock.yaml`
+
+**Solution**: Our automated workflow will resolve this for you! Just wait for the bot to regenerate and commit the lockfile.
+
+**Manual Resolution** (if needed):
+```bash
+# Update your branch with the latest changes from main
+git fetch origin
+git merge origin/main
+
+# If only pnpm-lock.yaml has conflicts, regenerate it
+pnpm install --no-frozen-lockfile
+
+# Commit and push
+git add pnpm-lock.yaml
+git commit -m "chore: resolve pnpm-lock.yaml conflicts"
+git push
+```
+
+### Dependency Issues
+
+**Problem**: `pnpm install` fails or dependencies are missing
+
+**Solution**:
+```bash
+# Clear cache and reinstall
+rm -rf node_modules
+rm -rf .pnpm-store
+pnpm store prune
+pnpm install
+```
+
+### Build Failures
+
+**Problem**: `pnpm build` fails with errors
+
+**Solution**:
+1. Check TypeScript errors: Run `pnpm build` in the specific package
+2. Ensure dependencies are installed: `pnpm install`
+3. Clear build artifacts: `rm -rf dist` in the package directory
+4. Rebuild: `pnpm build`
+
+### Test Failures
+
+**Problem**: Tests are failing locally but pass in CI
+
+**Solution**:
+1. Ensure you're on the correct Node.js version (18.x or 20.x)
+2. Clear test cache: `pnpm test --clearCache` (if using Jest)
+3. Update snapshots if needed: `pnpm test -u`
+4. Ensure all dependencies are installed: `pnpm install`
 
 ## Questions & Support
 

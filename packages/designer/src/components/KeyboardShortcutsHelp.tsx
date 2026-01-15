@@ -8,7 +8,6 @@ import {
 } from "@object-ui/components";
 import { Button } from '@object-ui/components';
 import { Keyboard, Command } from 'lucide-react';
-import { cn } from '@object-ui/components';
 
 interface ShortcutItem {
     keys: string[];

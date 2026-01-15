@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { DesignerProvider, useDesigner } from '../context/DesignerContext';
 import { SchemaNode } from '@object-ui/core';
 import React from 'react';
@@ -31,6 +31,9 @@ const TestComponent = () => {
       <button onClick={() => pasteNode('root')} data-testid="paste">Paste</button>
       <button onClick={() => moveNodeUp('child-2')} data-testid="move-up">Move Up</button>
       <button onClick={() => moveNodeDown('child-1')} data-testid="move-down">Move Down</button>
+      <button onClick={() => moveNodeUp('child-1')} data-testid="move-up-first">Move Up First</button>
+      <button onClick={() => moveNodeDown('child-3')} data-testid="move-down-last">Move Down Last</button>
+      <button onClick={() => cutNode('nonexistent-id')} data-testid="cut-nonexistent">Cut Nonexistent</button>
     </div>
   );
 };
@@ -98,6 +101,64 @@ describe('Keyboard Shortcuts and Navigation', () => {
     // Schema should have an extra node
     const schema = JSON.parse(getByTestId('schema').textContent || '{}');
     expect(schema.body.length).toBe(initialLength + 1);
+    
+    // The duplicated node should have the same type as the original
+    expect(schema.body[1].type).toBe('text');
+    expect(schema.body[1].content).toBe('First');
+    
+    // The duplicated node should be positioned right after the original (at index 1)
+    expect(schema.body[1].id).not.toBe('child-1'); // Should have a new ID
+  });
+
+  it('should handle moving a node up when already at top', () => {
+    const { getByTestId } = render(
+      <DesignerProvider initialSchema={initialSchema}>
+        <TestComponent />
+      </DesignerProvider>
+    );
+
+    const schemaBeforeMove = JSON.parse(getByTestId('schema').textContent || '{}');
+    
+    // Try to move the first node up (should do nothing)
+    fireEvent.click(getByTestId('move-up-first'));
+    
+    const schemaAfterMove = JSON.parse(getByTestId('schema').textContent || '{}');
+    // Schema should remain unchanged
+    expect(schemaAfterMove.body[0].id).toBe(schemaBeforeMove.body[0].id);
+  });
+
+  it('should handle moving a node down when already at bottom', () => {
+    const { getByTestId } = render(
+      <DesignerProvider initialSchema={initialSchema}>
+        <TestComponent />
+      </DesignerProvider>
+    );
+
+    const schemaBeforeMove = JSON.parse(getByTestId('schema').textContent || '{}');
+    
+    // Try to move the last node down (should do nothing)
+    fireEvent.click(getByTestId('move-down-last'));
+    
+    const schemaAfterMove = JSON.parse(getByTestId('schema').textContent || '{}');
+    // Schema should remain unchanged
+    expect(schemaAfterMove.body[2].id).toBe(schemaBeforeMove.body[2].id);
+  });
+
+  it('should handle cutting a non-existent node gracefully', () => {
+    const { getByTestId } = render(
+      <DesignerProvider initialSchema={initialSchema}>
+        <TestComponent />
+      </DesignerProvider>
+    );
+
+    const initialLength = JSON.parse(getByTestId('schema').textContent || '{}').body.length;
+    
+    // Try to cut a node that doesn't exist
+    fireEvent.click(getByTestId('cut-nonexistent'));
+    
+    const schema = JSON.parse(getByTestId('schema').textContent || '{}');
+    // Schema should remain unchanged
+    expect(schema.body.length).toBe(initialLength);
   });
 
   it('should paste a copied node', () => {

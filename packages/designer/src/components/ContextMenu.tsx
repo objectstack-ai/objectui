@@ -38,8 +38,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetNodeId
         removeNode, 
         moveNodeUp,
         moveNodeDown,
-        canPaste, 
-        selectedNodeId 
+        canPaste
     } = useDesigner();
     
     const handleCopy = useCallback(() => {

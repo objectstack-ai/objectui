@@ -222,10 +222,16 @@ export const ComponentTree: React.FC<ComponentTreeProps> = React.memo(({ classNa
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedNodeId, moveNodeUp, moveNodeDown]);
     
-    const expansionContextValue = useMemo(() => ({
-        expandAll: expandTrigger > 0,
-        collapseAll: collapseTrigger > 0
-    }), [expandTrigger, collapseTrigger]);
+    const expansionContextValue = useMemo(() => {
+        if (expandTrigger > collapseTrigger) {
+            return { expandAll: true, collapseAll: false };
+        }
+        if (collapseTrigger > expandTrigger) {
+            return { expandAll: false, collapseAll: true };
+        }
+        // Initial or neutral state: no global expand/collapse action
+        return { expandAll: false, collapseAll: false };
+    }, [expandTrigger, collapseTrigger]);
     
     return (
         <TreeExpansionContext.Provider value={expansionContextValue}>

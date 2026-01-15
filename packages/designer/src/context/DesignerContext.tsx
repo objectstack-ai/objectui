@@ -163,7 +163,39 @@ const findNodeById = (node: SchemaNode, id: string): SchemaNode | null => {
     return null;
 };
 
-// Find Parent and Index of a node
+/**
+ * Deep clone a SchemaNode, creating new objects for all nested properties.
+ * This ensures that modifications to the cloned node don't affect the original.
+ * 
+ * @param node - The node to clone
+ * @returns A deep copy of the node with all nested children cloned
+ */
+const deepCloneNode = (node: SchemaNode): SchemaNode => {
+    const cloned: SchemaNode = { ...node };
+    
+    // Deep clone the body if it exists
+    if (node.body) {
+        if (Array.isArray(node.body)) {
+            cloned.body = node.body.map(child => deepCloneNode(child));
+        } else if (typeof node.body === 'object') {
+            cloned.body = deepCloneNode(node.body as SchemaNode);
+        }
+    }
+    
+    return cloned;
+};
+
+/**
+ * Find the parent node and index of a target node in the schema tree.
+ * This is used for operations that need to know a node's position within its parent,
+ * such as moving nodes up/down or duplicating nodes as siblings.
+ * 
+ * @param root - The root node to search from
+ * @param targetId - The ID of the node to find
+ * @param parent - Internal parameter for recursion, tracks the parent during traversal
+ * @returns An object with the parent node and the index of the target within the parent's body,
+ *          or null if the target is not found or is the root node
+ */
 const findParentAndIndex = (
     root: SchemaNode, 
     targetId: string, 
@@ -390,8 +422,9 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
   const cutNode = useCallback((id: string) => {
     const node = findNodeById(schema, id);
     if (node) {
-      // Copy the node to clipboard
-      const { id: originalId, ...nodeWithoutId } = node;
+      // Deep clone the node to clipboard to avoid reference issues
+      const clonedNode = deepCloneNode(node);
+      const { id: originalId, ...nodeWithoutId } = clonedNode;
       setClipboard(nodeWithoutId as SchemaNode);
       // Then remove it from the tree
       removeNode(id);
@@ -401,9 +434,9 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
   const duplicateNode = useCallback((id: string) => {
     const node = findNodeById(schema, id);
     if (node) {
-      // Create a deep copy without the ID
-      const { id: originalId, ...nodeWithoutId } = node;
-      setClipboard(nodeWithoutId as SchemaNode);
+      // Deep clone the node without modifying clipboard
+      const clonedNode = deepCloneNode(node);
+      const { id: originalId, ...nodeWithoutId } = clonedNode;
       
       // Find the parent to paste into
       const parentInfo = findParentAndIndex(schema, id);

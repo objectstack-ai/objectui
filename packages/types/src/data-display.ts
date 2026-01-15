@@ -46,6 +46,33 @@ export interface AlertSchema extends BaseSchema {
 }
 
 /**
+ * Statistic component for dashboards
+ */
+export interface StatisticSchema extends BaseSchema {
+  type: 'statistic';
+  /**
+   * The label/title of the statistic (e.g. "Total Revenue")
+   */
+  label?: string;
+  /**
+   * The main value (e.g. "$45,231.89")
+   */
+  value: string | number;
+  /**
+   * Optional trend indicator
+   */
+  trend?: 'up' | 'down' | 'neutral';
+  /**
+   * Additional description (e.g. "+20.1% from last month")
+   */
+  description?: string;
+  /**
+    * Optional icon name
+    */
+  icon?: string;
+}
+
+/**
  * Badge component
  */
 export interface BadgeSchema extends BaseSchema {
@@ -588,7 +615,8 @@ export type DataDisplaySchema =
   | TreeViewSchema
   | ChartSchema
   | TimelineSchema
-  | HtmlSchema;
+  | HtmlSchema
+  | StatisticSchema;
 
 /**
  * Raw HTML component

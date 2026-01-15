@@ -22,6 +22,8 @@ export default defineConfig({
       "@object-ui/core": path.resolve(__dirname, "../../packages/core/src"),
       "@object-ui/types": path.resolve(__dirname, "../../packages/types/src"),
       "@object-ui/data-objectql": path.resolve(__dirname, "../../packages/data-objectql/src"),
+      "@object-ui/plugin-kanban": path.resolve(__dirname, "../../packages/plugin-kanban/src"),
+      "@object-ui/plugin-charts": path.resolve(__dirname, "../../packages/plugin-charts/src"),
     },
   },
 })

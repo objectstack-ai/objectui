@@ -44,6 +44,7 @@ import type {
   ChartSchema,
   TimelineSchema,
   HtmlSchema,
+  StatisticSchema,
 } from './data-display';
 
 import type {
@@ -136,6 +137,7 @@ export interface SchemaRegistry {
   'chart': ChartSchema;
   'timeline': TimelineSchema;
   'html': HtmlSchema;
+  'statistic': StatisticSchema;
 
   // Feedback
   'loading': LoadingSchema;

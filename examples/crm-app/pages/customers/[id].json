@@ -1,28 +1,104 @@
 {
   "type": "page",
   "title": "Customer Detail",
-  "className": "p-8 max-w-4xl mx-auto",
   "body": [
     {
-      "type": "button",
-      "label": "← Back to List",
-      "variant": "link",
-      "className": "mb-4 pl-0",
-      "onClick": "navigate('/customers')"
-    },
-    {
-      "type": "header",
-      "title": "Customer Profile: ${params.id}",
-      "className": "mb-6 pb-4 border-b"
-    },
-    {
-      "type": "form",
-      "objectApiName": "customers",
-      "recordId": "${params.id}", 
-      "className": "space-y-6",
-      "fields": [
-        { "type": "input", "name": "name", "label": "Company Name", "readOnly": true },
-        { "type": "input", "name": "email", "label": "Contact Email", "readOnly": true }
+      "type": "tabs",
+      "defaultValue": "overview",
+      "items": [
+        {
+          "label": "Overview",
+          "value": "overview",
+          "content": {
+            "type": "grid",
+            "columns": 12,
+            "gap": 6,
+            "children": [
+              {
+                "type": "card",
+                "title": "Company Profile",
+                "className": "col-span-12 md:col-span-4",
+                "children": [
+                  {
+                    "type": "flex",
+                    "direction": "col",
+                    "align": "center",
+                    "className": "pb-6 border-b mb-6",
+                    "children": [
+                       { "type": "avatar", "fallback": "AC", "size": "xl", "className": "mb-4" },
+                       { "type": "text", "value": "Acme Corp", "variant": "h3" },
+                       { "type": "text", "value": "Technology • San Francisco", "variant": "muted" }
+                    ]
+                  },
+                  {
+                    "type": "flex",
+                    "direction": "col",
+                    "gap": 4,
+                    "children": [
+                       { "type": "button", "label": "Edit Profile", "variant": "outline", "className": "w-full" },
+                       { "type": "button", "label": "Contact", "className": "w-full" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "card",
+                "title": "Details",
+                "className": "col-span-12 md:col-span-8",
+                 "children": [
+                    {
+                      "type": "form",
+                      "mode": "read",
+                      "layout": "vertical",
+                      "defaultValues": {
+                        "name": "Acme Corp",
+                        "industry": "technology",
+                        "employees": "500-1000",
+                        "revenue": "10M+",
+                        "website": "https://acme.com",
+                        "phone": "+1 (555) 0123",
+                        "description": "Leading provider of road runner catching equipment."
+                      },
+                      "body": [
+                        {
+                          "type": "grid",
+                          "columns": 2,
+                          "gap": 6,
+                          "children": [
+                            { "type": "input", "name": "name", "label": "Company Name" },
+                            { "type": "select", "name": "industry", "label": "Industry", "options": [{"label":"Tech","value":"technology"}] },
+                            { "type": "select", "name": "employees", "label": "Employees", "options": [{"label":"500-1000","value":"500-1000"}] },
+                            { "type": "input", "name": "revenue", "label": "Annual Revenue" },
+                            { "type": "input", "name": "website", "label": "Website" },
+                            { "type": "input", "name": "phone", "label": "Phone" },
+                            { "type": "textarea", "name": "description", "label": "Description", "colSpan": 2, "rows": 3 }
+                          ]
+                        }
+                      ]
+                    }
+                 ]
+              }
+            ]
+          }
+        },
+        {
+          "label": "Activity",
+          "value": "activity",
+          "content": {
+            "type": "card",
+            "title": "Timeline",
+            "children": [
+              {
+                "type": "timeline",
+                "items": [
+                  { "title": "Contract Signed", "time": "2 hours ago", "description": "Annual enterprise license agreement signed." },
+                  { "title": "Meeting with CEO", "time": "Yesterday", "description": "Discussed Q4 roadmap." },
+                  { "title": "Ticket Resolved", "time": "3 days ago", "description": "Support ticket #10234 fixed." }
+                ]
+              }
+            ]
+          }
+        }
       ]
     }
   ]

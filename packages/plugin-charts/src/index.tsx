@@ -91,15 +91,57 @@ export interface ChartRendererProps {
  * Supports multiple chart types (bar, line, area) with full configuration
  */
 export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema }) => {
+  // ⚡️ Adapter: Normalize JSON schema to Recharts Props
+  const props = React.useMemo(() => {
+    // 1. Defaults
+    let series = schema.series;
+    let xAxisKey = schema.xAxisKey;
+    let config = schema.config;
+
+    // 2. Adapt Tremor/Simple format (categories -> series, index -> xAxisKey)
+    if (!xAxisKey) {
+       if ((schema as any).index) xAxisKey = (schema as any).index;
+       else if ((schema as any).category) xAxisKey = (schema as any).category; // Support Pie/Donut category
+    }
+
+    if (!series) {
+       if ((schema as any).categories) {
+          series = (schema as any).categories.map((cat: string) => ({ dataKey: cat }));
+       } else if ((schema as any).value) {
+          // Single value adapter (for Pie/Simple charts)
+          series = [{ dataKey: (schema as any).value }];
+       }
+    }
+    
+    // 3. Auto-generate config/colors if missing
+    if (!config && series) {
+       const colors = (schema as any).colors || ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))']; 
+       config = {};
+       series.forEach((s: any, idx: number) => {
+         config[s.dataKey] = { label: s.dataKey, color: colors[idx % colors.length] };
+       });
+    }
+
+    return {
+      chartType: schema.chartType,
+      data: schema.data,
+      config,
+      xAxisKey,
+      series,
+      className: schema.className
+    };
+  }, [schema]);
+
   return (
     <Suspense fallback={<Skeleton className="w-full h-[400px]" />}>
       <LazyAdvancedChart
-        chartType={schema.chartType}
-        data={schema.data}
-        config={schema.config}
-        xAxisKey={schema.xAxisKey}
-        series={schema.series}
-        className={schema.className}
+        // Pass adapted props
+        chartType={props.chartType}
+        data={props.data}
+        config={props.config}
+        xAxisKey={props.xAxisKey}
+        series={props.series}
+        className={props.className}
       />
     </Suspense>
   );

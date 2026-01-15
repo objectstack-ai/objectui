@@ -14,6 +14,8 @@
     "@object-ui/core": "workspace:*",
     "@object-ui/react": "workspace:*",
     "@object-ui/types": "workspace:*",
+    "@object-ui/plugin-kanban": "workspace:*",
+    "@object-ui/plugin-charts": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
     "lucide-react": "^0.562.0",

@@ -3,6 +3,8 @@ export {};
 
 import { SchemaRenderer } from '@object-ui/react';
 import '@object-ui/components';
+import '@object-ui/plugin-kanban';
+import '@object-ui/plugin-charts';
 import { PageSchema, AppSchema } from '@object-ui/types';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { LayoutRenderer } from './LayoutRenderer';
@@ -92,49 +94,56 @@ export default function App() {
 
   // --- Render ---
 
-  if (error && !pageSchema) {
-    const errorContent = (
+  // 1. Initial App Boot: Show Full Loader (only if app config isn't ready)
+  if (!appConfig && loading) {
+    return (
+      <div className="flex h-screen items-center justify-center text-slate-400">
+         <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-slate-600 mr-2" />
+         Loading App...
+      </div>
+    );
+  }
+
+  // 2. Prepare Main Content (Page)
+  let mainContent;
+
+  if (loading) {
+     // Page transition loading - shows INSIDE layout
+     mainContent = (
+      <div className="flex flex-col items-center justify-center h-full text-slate-400 min-h-[50vh]">
+         <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-slate-600 mr-2" />
+         Loading Page...
+      </div>
+     );
+  } else if (error || !pageSchema) {
+     // Error State
+     mainContent = (
       <div className="flex flex-col items-center justify-center h-full p-12 text-red-600">
         <h1 className="text-2xl font-bold">404</h1>
-        <p className="mt-2 text-slate-600">{error}</p>
+        <p className="mt-2 text-slate-600">{error || 'Page not found'}</p>
         <button onClick={() => handleNavigate('/')} className="mt-4 text-blue-600 hover:underline">
           Go Home
         </button>
       </div>
-    );
-
-    if (appConfig) {
-      return (
-        <LayoutRenderer app={appConfig} currentPath={currentPath} onNavigate={handleNavigate}>
-          {errorContent}
-        </LayoutRenderer>
-      );
-    }
-    return errorContent;
+     );
+  } else {
+     // Success State
+     mainContent = <SchemaRenderer schema={pageSchema} />;
   }
 
-  if (loading || !pageSchema) {
-    return (
-      <div className="flex h-screen items-center justify-center text-slate-400">
-         <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-slate-600 mr-2" />
-         Loading...
-      </div>
-    );
-  }
-
-  const content = <SchemaRenderer schema={pageSchema} />;
-
+  // 3. Render Wrapper
   if (appConfig) {
     return (
       <LayoutRenderer app={appConfig} currentPath={currentPath} onNavigate={handleNavigate}>
-        {content}
+        {mainContent}
       </LayoutRenderer>
     );
   }
 
+  // Fallback if no appConfig but somehow done loading (e.g. error loading app.json)
   return (
     <div className="object-ui-app">
-      {content}
+      {mainContent}
     </div>
   );
 }

@@ -15,6 +15,8 @@ export interface KanbanRendererProps {
     id?: string;
     className?: string;
     columns?: Array<any>;
+    data?: Array<any>;
+    groupBy?: string;
     onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void;
   };
 }
@@ -24,10 +26,38 @@ export interface KanbanRendererProps {
  * This wrapper handles lazy loading internally using React.Suspense
  */
 export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema }) => {
+  // ⚡️ Adapter: Map flat 'data' + 'groupBy' to nested 'cards' structure
+  const processedColumns = React.useMemo(() => {
+    const { columns = [], data, groupBy } = schema;
+    
+    // If we have flat data and a grouping key, distribute items into columns
+    if (data && groupBy && Array.isArray(data)) {
+      // 1. Group data by key
+      const groups = data.reduce((acc, item) => {
+        const key = item[groupBy];
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(item);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      // 2. Inject into columns
+      return columns.map((col: any) => ({
+        ...col,
+        cards: [
+           ...(col.cards || []),     // Preserve static cards
+           ...(groups[col.id] || []) // Add dynamic cards
+        ]
+      }));
+    }
+    
+    // Default: Return columns as-is (assuming they have 'cards' inside)
+    return columns;
+  }, [schema.columns, schema.data, schema.groupBy]);
+
   return (
     <Suspense fallback={<Skeleton className="w-full h-[600px]" />}>
       <LazyKanban
-        columns={schema.columns || []}
+        columns={processedColumns}
         onCardMove={schema.onCardMove}
         className={schema.className}
       />

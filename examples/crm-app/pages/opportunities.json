@@ -1,89 +1,52 @@
 {
   "type": "page",
-  "title": "Opportunities",
+  "title": "Opportunities Pipeline",
   "body": [
     {
-      "type": "div",
-      "className": "flex flex-col gap-6 h-[calc(100vh-140px)]",
-      "children": [
-        {
-          "type": "div",
-          "className": "flex justify-between items-center",
-          "children": [
-            { "type": "html", "html": "<h2 class='text-3xl font-bold'>Pipeline</h2>" },
-            { "type": "button", "label": "New Deal" }
-          ]
-        },
-        {
-          "type": "grid",
-          "className": "grid-cols-1 md:grid-cols-3 gap-6 h-full overflow-hidden",
-          "children": [
+      "type": "kanban",
+      "columns": [
+        { "id": "new", "title": "New Lead", "color": "bg-gray-100" },
+        { "id": "contacted", "title": "Contacted", "color": "bg-blue-50" },
+        { "id": "proposal", "title": "Proposal Sent", "color": "bg-yellow-50" },
+        { "id": "won", "title": "Closed Won", "color": "bg-green-50" }
+      ],
+      "data": [
+        { "id": "1", "title": "Big Tech Deal", "description": "$50,000 - Acme Corp", "status": "proposal", "priority": "high", "assignees": ["JD"] },
+        { "id": "2", "title": "Small Startup", "description": "$5,000 - StartX", "status": "new", "priority": "low", "assignees": ["AS"] },
+        { "id": "3", "title": "Gov Contract", "description": "$120,000 - State Dept", "status": "contacted", "priority": "critical", "assignees": ["JD", "AS"] },
+        { "id": "4", "title": "Enterprise License", "description": "$85,000 - Globex", "status": "won", "priority": "medium", "assignees": ["AS"] }
+      ],
+      "groupBy": "status",
+      "cardTemplate": {
+        "type": "card",
+        "className": "mb-2 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing",
+        "children": [
             {
-              "type": "div",
-              "className": "flex flex-col gap-4 bg-slate-100/50 p-4 rounded-xl border border-dashed",
-              "children": [
-                { "type": "html", "html": "<div class='font-semibold text-slate-500 mb-2 flex justify-between'><span>Leads</span><span class='bg-slate-200 text-xs px-2 py-0.5 rounded-full'>3</span></div>" },
-                {
-                   "type": "card",
-                   "className": "p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-white",
-                   "children": [
-                     { "type": "html", "html": "<div class='text-sm text-slate-500 mb-1'>Acme Corp</div><div class='font-semibold'>Enterprise License</div><div class='mt-3 flex justify-between items-center text-xs text-slate-400'><span>$12,000</span><span>2d ago</span></div>" }
-                   ]
-                },
-                {
-                   "type": "card",
-                   "className": "p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-white",
-                   "children": [
-                     { "type": "html", "html": "<div class='text-sm text-slate-500 mb-1'>Stark Ind</div><div class='font-semibold'>Consulting Project</div><div class='mt-3 flex justify-between items-center text-xs text-slate-400'><span>$5,000</span><span>4h ago</span></div>" }
-                   ]
-                },
-                {
-                   "type": "card",
-                   "className": "p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-white",
-                   "children": [
-                     { "type": "html", "html": "<div class='text-sm text-slate-500 mb-1'>Globex</div><div class='font-semibold'>Q4 Renewal</div><div class='mt-3 flex justify-between items-center text-xs text-slate-400'><span>$34,000</span><span>1w ago</span></div>" }
-                   ]
-                }
-              ]
+                "type": "flex",
+                "justify": "between",
+                "align": "start",
+                "className": "mb-2",
+                "children": [
+                    { "type": "text", "value": "${title}", "className": "font-medium leading-none" },
+                    { 
+                        "type": "badge", 
+                        "label": "${priority}", 
+                        "variant": "outline",
+                        "className": "text-xs px-1 py-0 h-5" 
+                    }
+                ]
             },
+            { "type": "text", "value": "${description}", "className": "text-sm text-muted-foreground mb-3" },
             {
-              "type": "div",
-              "className": "flex flex-col gap-4 bg-slate-100/50 p-4 rounded-xl border border-dashed",
-              "children": [
-                { "type": "html", "html": "<div class='font-semibold text-blue-500 mb-2 flex justify-between'><span>In Negotiation</span><span class='bg-blue-100 text-xs px-2 py-0.5 rounded-full'>2</span></div>" },
-                {
-                   "type": "card",
-                   "className": "p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-white border-l-4 border-l-blue-400",
-                   "children": [
-                     { "type": "html", "html": "<div class='text-sm text-slate-500 mb-1'>Massive Dynamic</div><div class='font-semibold'>Global Rollout</div><div class='mt-3 flex justify-between items-center text-xs text-slate-400'><span>$150,000</span><span>Today</span></div>" }
-                   ]
-                },
-                {
-                   "type": "card",
-                   "className": "p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-white",
-                   "children": [
-                     { "type": "html", "html": "<div class='text-sm text-slate-500 mb-1'>Cyberdyne</div><div class='font-semibold'>Security Audit</div><div class='mt-3 flex justify-between items-center text-xs text-slate-400'><span>$2,500</span><span>5d ago</span></div>" }
-                   ]
-                }
-              ]
-            },
-            {
-              "type": "div",
-              "className": "flex flex-col gap-4 bg-slate-100/50 p-4 rounded-xl border border-dashed",
-              "children": [
-                { "type": "html", "html": "<div class='font-semibold text-green-600 mb-2 flex justify-between'><span>Closed Won</span><span class='bg-green-100 text-xs px-2 py-0.5 rounded-full'>1</span></div>" },
-                {
-                   "type": "card",
-                   "className": "p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-white opacity-80",
-                   "children": [
-                     { "type": "html", "html": "<div class='text-sm text-slate-500 mb-1'>Wayne Ent</div><div class='font-semibold'>Private Cloud</div><div class='mt-3 flex justify-between items-center text-xs text-green-600 font-bold'><span>$500,000</span><span>Done</span></div>" }
-                   ]
-                }
-              ]
+                "type": "flex",
+                "justify": "end",
+                "gap": 1,
+                "children": [
+                     { "type": "avatar", "fallback": "JD", "size": "sm", "className": "h-6 w-6 text-[10px]" }
+                ]
             }
-          ]
-        }
-      ]
+        ]
+      }
     }
   ]
 }

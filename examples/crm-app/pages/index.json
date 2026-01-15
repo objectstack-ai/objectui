@@ -1,123 +1,127 @@
 {
   "type": "page",
   "title": "Dashboard",
-  "className": "bg-slate-50/50",
   "body": [
     {
-      "type": "div",
-      "className": "flex flex-col gap-6",
+      "type": "grid",
+      "columns": { "xs": 1, "sm": 2, "lg": 4 },
+      "gap": 4,
+      "className": "mb-6",
       "children": [
         {
-          "type": "div",
-          "className": "flex justify-between items-center",
+          "type": "card",
           "children": [
             {
-              "type": "html",
-              "html": "<h2 class='text-3xl font-bold tracking-tight'>Dashboard</h2>"
-            },
-            {
-              "type": "button",
-              "label": "Download Report",
-              "variant": "outline",
-              "className": "h-9"
+              "type": "statistic",
+              "label": "Total Revenue",
+              "value": "$45,231.89",
+              "trend": "up",
+              "description": "+20.1% from last month"
             }
           ]
         },
         {
-          "type": "grid",
-          "className": "grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4",
+          "type": "card",
           "children": [
             {
-              "type": "card",
-              "className": "p-6 shadow-sm",
-              "children": [
-                {
-                  "type": "html",
-                  "html": "<div class='text-sm font-medium text-muted-foreground'>Total Revenue</div><div class='text-2xl font-bold mt-2'>$45,231.89</div><div class='text-xs text-green-600 mt-1'>+20.1% from last month</div>"
-                }
-              ]
-            },
-            {
-              "type": "card",
-              "className": "p-6 shadow-sm",
-              "children": [
-                {
-                  "type": "html",
-                  "html": "<div class='text-sm font-medium text-muted-foreground'>Subscriptions</div><div class='text-2xl font-bold mt-2'>+2350</div><div class='text-xs text-green-600 mt-1'>+180.1% from last month</div>"
-                }
-              ]
-            },
-            {
-              "type": "card",
-              "className": "p-6 shadow-sm",
-              "children": [
-                {
-                  "type": "html",
-                  "html": "<div class='text-sm font-medium text-muted-foreground'>Sales</div><div class='text-2xl font-bold mt-2'>+12,234</div><div class='text-xs text-green-600 mt-1'>+19% from last month</div>"
-                }
-              ]
-            },
-            {
-              "type": "card",
-              "className": "p-6 shadow-sm",
-              "children": [
-                {
-                  "type": "html",
-                  "html": "<div class='text-sm font-medium text-muted-foreground'>Active Now</div><div class='text-2xl font-bold mt-2'>+573</div><div class='text-xs text-blue-600 mt-1'>+201 since last hour</div>"
-                }
-              ]
+              "type": "statistic",
+              "label": "Active Customers",
+              "value": "2,350",
+              "trend": "up",
+              "description": "+180 new customers"
             }
           ]
         },
         {
-          "type": "grid",
-          "className": "grid-cols-1 lg:grid-cols-7 gap-4",
+          "type": "card",
           "children": [
             {
-              "type": "card",
-              "className": "lg:col-span-4 p-6 shadow-sm border rounded-xl bg-white text-card-foreground",
-              "children": [
-                {
-                   "type": "html",
-                   "html": "<div class='flex flex-col space-y-1.5 p-6'><h3 class='font-semibold leading-none tracking-tight'>Overview</h3><p class='text-sm text-muted-foreground'>Monthly View</p></div><div class='p-6 pt-0 pl-2'><div class='h-[250px] w-full bg-slate-100 flex items-center justify-center text-slate-400 border border-dashed rounded'>Chart Placeholder</div></div>"
-                }
-              ]
-            },
+              "type": "statistic",
+              "label": "Sales Pipeline",
+              "value": "12",
+              "trend": "neutral",
+              "description": "Opportunities in progress"
+            }
+          ]
+        },
+        {
+          "type": "card",
+          "children": [
             {
-              "type": "card",
-              "className": "lg:col-span-3 p-0 shadow-sm overflow-hidden",
-              "children": [
-                {
-                  "type": "html",
-                  "html": "<div class='p-6 pb-2'><h3 class='font-semibold text-lg'>Recent Sales</h3><p class='text-sm text-muted-foreground'>You made 265 sales this month.</p></div>"
-                },
-                {
-                  "type": "div",
-                  "className": "p-6 pt-0 space-y-6",
-                  "children": [
-                     { 
-                       "type": "html", 
-                       "html": "<div class='flex items-center'><span class='relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full mr-4 bg-slate-200'></span><div class='space-y-1'><p class='text-sm font-medium leading-none'>Olivia Martin</p><p class='text-sm text-muted-foreground'>olivia.martin@email.com</p></div><div class='ml-auto font-medium'>+$1,999.00</div></div>" 
-                     },
-                     { 
-                       "type": "html", 
-                       "html": "<div class='flex items-center'><span class='relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full mr-4 bg-slate-200'></span><div class='space-y-1'><p class='text-sm font-medium leading-none'>Jackson Lee</p><p class='text-sm text-muted-foreground'>jackson.lee@email.com</p></div><div class='ml-auto font-medium'>+$39.00</div></div>" 
-                     },
-                     { 
-                       "type": "html", 
-                       "html": "<div class='flex items-center'><span class='relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full mr-4 bg-slate-200'></span><div class='space-y-1'><p class='text-sm font-medium leading-none'>Isabella Nguyen</p><p class='text-sm text-muted-foreground'>isabella.nguyen@email.com</p></div><div class='ml-auto font-medium'>+$299.00</div></div>" 
-                     },
-                     { 
-                       "type": "html", 
-                       "html": "<div class='flex items-center'><span class='relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full mr-4 bg-slate-200'></span><div class='space-y-1'><p class='text-sm font-medium leading-none'>William Kim</p><p class='text-sm text-muted-foreground'>will@email.com</p></div><div class='ml-auto font-medium'>+$99.00</div></div>" 
-                     },
-                     { 
-                       "type": "html", 
-                       "html": "<div class='flex items-center'><span class='relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full mr-4 bg-slate-200'></span><div class='space-y-1'><p class='text-sm font-medium leading-none'>Sofia Davis</p><p class='text-sm text-muted-foreground'>sofia.davis@email.com</p></div><div class='ml-auto font-medium'>+$39.00</div></div>" 
-                     }
-                  ]
-                }
-              ]
+              "type": "statistic",
+              "label": "Win Rate",
+              "value": "48%",
+              "trend": "down",
+              "description": "-2% from last month"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grid",
+      "columns": { "xs": 1, "lg": 7 },
+      "gap": 4,
+      "children": [
+        {
+          "type": "card",
+          "title": "Revenue Overview",
+          "className": "col-span-1 lg:col-span-4",
+          "children": [
+            {
+              "type": "chart",
+              "chartType": "bar",
+              "height": 350,
+              "data": [
+                 { "name": "Jan", "total": 1200 },
+                 { "name": "Feb", "total": 2100 },
+                 { "name": "Mar", "total": 1800 },
+                 { "name": "Apr", "total": 2400 },
+                 { "name": "May", "total": 3100 },
+                 { "name": "Jun", "total": 4200 }
+              ],
+              "categories": ["total"],
+              "index": "name",
+              "colors": ["blue"]
+            }
+          ]
+        },
+        {
+          "type": "card",
+          "title": "Recent Sales",
+          "className": "col-span-1 lg:col-span-3",
+          "children": [
+            {
+              "type": "list",
+              "items": [
+                { "name": "Alice Smith", "amount": "$1,999.00", "email": "alice@example.com" },
+                { "name": "Bob Jones", "amount": "$39.00", "email": "bob@example.com" },
+                { "name": "Charlie Brown", "amount": "$299.00", "email": "charlie@example.com" },
+                { "name": "Diana Prince", "amount": "$99.00", "email": "diana@example.com" },
+                { "name": "Evan Wright", "amount": "$150.00", "email": "evan@example.com" }
+              ],
+              "renderItem": {
+                "type": "flex",
+                "justify": "between",
+                "className": "py-4 border-b last:border-0",
+                "children": [
+                  {
+                    "type": "flex",
+                    "className": "gap-4",
+                    "children": [
+                      { "type": "avatar", "fallback": "U", "className": "h-9 w-9" },
+                      {
+                        "type": "div",
+                        "children": [
+                          { "type": "text", "value": "${name}", "className": "text-sm font-medium" },
+                          { "type": "text", "value": "${email}", "className": "text-xs text-muted-foreground" }
+                        ]
+                      }
+                    ]
+                  },
+                  { "type": "text", "value": "${amount}", "className": "text-sm font-medium" }
+                ]
+              }
             }
           ]
         }

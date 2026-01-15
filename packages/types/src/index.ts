@@ -133,6 +133,7 @@ export type {
   TimelineEvent,
   TimelineSchema,
   HtmlSchema,
+  StatisticSchema,
   DataDisplaySchema,
 } from './data-display';
 

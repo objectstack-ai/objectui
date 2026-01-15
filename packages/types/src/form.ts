@@ -814,6 +814,11 @@ export interface FormField {
    * Additional field-specific props
    */
   [key: string]: any;
+  /**
+   * Column span for grid layouts
+   * @default 1
+   */
+  colSpan?: number;
 }
 
 /**
@@ -868,6 +873,15 @@ export interface FormSchema extends BaseSchema {
    * Whether form is disabled
    */
   disabled?: boolean;
+  /**
+   * Form mode
+   * @default 'edit'
+   */
+  mode?: 'edit' | 'read' | 'disabled';
+  /**
+   * Custom action buttons (replaces default submit/cancel)
+   */
+  actions?: SchemaNode[];
   /**
    * Submit handler
    */

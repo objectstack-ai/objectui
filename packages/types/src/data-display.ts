@@ -187,6 +187,23 @@ export interface TableColumn {
    */
   width?: string | number;
   /**
+   * Column minimum width
+   */
+  minWidth?: string | number;
+  /**
+   * Text alignment
+   * @default 'left'
+   */
+  align?: 'left' | 'center' | 'right';
+  /**
+   * Pin column to side
+   */
+  fixed?: 'left' | 'right';
+  /**
+   * Data type for formatting
+   */
+  type?: 'text' | 'number' | 'date' | 'datetime' | 'currency' | 'percent' | 'boolean' | 'action';
+  /**
    * Whether column is sortable
    * @default true
    */
@@ -249,6 +266,10 @@ export interface DataTableSchema extends BaseSchema {
    * Table caption
    */
   caption?: string;
+  /**
+   * Table toolbar actions/content
+   */
+  toolbar?: SchemaNode[];
   /**
    * Table columns
    */

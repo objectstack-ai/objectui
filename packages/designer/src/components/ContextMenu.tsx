@@ -30,7 +30,16 @@ interface MenuAction {
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetNodeId, onClose }) => {
-    const { copyNode, pasteNode, removeNode, canPaste, selectedNodeId } = useDesigner();
+    const { 
+        copyNode, 
+        cutNode, 
+        duplicateNode, 
+        pasteNode, 
+        removeNode, 
+        moveNodeUp,
+        moveNodeDown,
+        canPaste
+    } = useDesigner();
     
     const handleCopy = useCallback(() => {
         if (targetNodeId) {
@@ -41,11 +50,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetNodeId
     
     const handleCut = useCallback(() => {
         if (targetNodeId) {
-            copyNode(targetNodeId);
-            removeNode(targetNodeId);
+            cutNode(targetNodeId);
             onClose();
         }
-    }, [targetNodeId, copyNode, removeNode, onClose]);
+    }, [targetNodeId, cutNode, onClose]);
     
     const handlePaste = useCallback(() => {
         if (targetNodeId && canPaste) {
@@ -63,11 +71,24 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetNodeId
     
     const handleDuplicate = useCallback(() => {
         if (targetNodeId) {
-            copyNode(targetNodeId);
-            pasteNode(targetNodeId);
+            duplicateNode(targetNodeId);
             onClose();
         }
-    }, [targetNodeId, copyNode, pasteNode, onClose]);
+    }, [targetNodeId, duplicateNode, onClose]);
+
+    const handleMoveUp = useCallback(() => {
+        if (targetNodeId) {
+            moveNodeUp(targetNodeId);
+            onClose();
+        }
+    }, [targetNodeId, moveNodeUp, onClose]);
+
+    const handleMoveDown = useCallback(() => {
+        if (targetNodeId) {
+            moveNodeDown(targetNodeId);
+            onClose();
+        }
+    }, [targetNodeId, moveNodeDown, onClose]);
     
     // Close on click outside or Escape key
     useEffect(() => {
@@ -113,14 +134,27 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetNodeId
             label: 'Duplicate',
             icon: Copy,
             action: handleDuplicate,
-            shortcut: '⌘D'
+            shortcut: '⌘D',
+            divider: true
+        },
+        {
+            label: 'Move Up',
+            icon: MoveUp,
+            action: handleMoveUp,
+            shortcut: '↑'
+        },
+        {
+            label: 'Move Down',
+            icon: MoveDown,
+            action: handleMoveDown,
+            shortcut: '↓',
+            divider: true
         },
         {
             label: 'Delete',
             icon: Trash2,
             action: handleDelete,
-            shortcut: 'Del',
-            divider: true
+            shortcut: 'Del'
         }
     ];
     

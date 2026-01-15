@@ -16,7 +16,9 @@ export const DesignerContent: React.FC = () => {
   const { 
     undo, 
     redo, 
-    copyNode, 
+    copyNode,
+    cutNode,
+    duplicateNode,
     pasteNode, 
     removeNode, 
     selectedNodeId, 
@@ -52,10 +54,20 @@ export const DesignerContent: React.FC = () => {
         e.preventDefault();
         copyNode(selectedNodeId);
       }
+      // Cut: Ctrl+X / Cmd+X (only when not editing)
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'x' && !isEditing && selectedNodeId) {
+        e.preventDefault();
+        cutNode(selectedNodeId);
+      }
       // Paste: Ctrl+V / Cmd+V (only when not editing)
       else if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isEditing) {
         e.preventDefault();
         pasteNode(selectedNodeId);
+      }
+      // Duplicate: Ctrl+D / Cmd+D (only when not editing)
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'd' && !isEditing && selectedNodeId) {
+        e.preventDefault();
+        duplicateNode(selectedNodeId);
       }
       // Delete: Delete / Backspace (only when not editing)
       else if ((e.key === 'Delete' || e.key === 'Backspace') && !isEditing && selectedNodeId) {
@@ -66,7 +78,7 @@ export const DesignerContent: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, copyNode, pasteNode, removeNode, selectedNodeId, canUndo, canRedo]);
+  }, [undo, redo, copyNode, cutNode, duplicateNode, pasteNode, removeNode, selectedNodeId, canUndo, canRedo]);
 
   return (
     <div className="h-full flex flex-col bg-white text-gray-900 font-sans">

@@ -12,7 +12,10 @@ A professional drag-and-drop visual editor to generate Object UI schemas with ad
 - **Component Search**: Quickly find components with the built-in search functionality
 - **JSON Import/Export**: Import and export schemas as JSON files or clipboard
 - **Undo/Redo**: Full history management with keyboard shortcuts (works with resize!)
-- **Copy/Paste**: Duplicate components easily with Ctrl+C/V
+- **Copy/Cut/Paste**: 🆕 Duplicate and move components easily with Ctrl+C/X/V
+- **Duplicate**: 🆕 Quickly duplicate components with Ctrl+D
+- **Component Tree**: 🆕 Hierarchical tree view with expand/collapse all functionality
+- **Move Up/Down**: 🆕 Reorder components within their parent container
 
 ### Visual Design
 - **Premium Gradient Effects**: 🆕 Smooth gradient borders and backgrounds for enhanced visual feedback
@@ -29,9 +32,15 @@ A professional drag-and-drop visual editor to generate Object UI schemas with ad
   - `Ctrl+Z` / `Cmd+Z`: Undo (including resize operations)
   - `Ctrl+Y` / `Cmd+Y` / `Cmd+Shift+Z`: Redo (including resize operations)
   - `Ctrl+C` / `Cmd+C`: Copy component
+  - `Ctrl+X` / `Cmd+X`: Cut component 🆕
   - `Ctrl+V` / `Cmd+V`: Paste component
+  - `Ctrl+D` / `Cmd+D`: Duplicate component 🆕
+  - `Ctrl+↑` / `Cmd+↑`: Move component up in tree 🆕
+  - `Ctrl+↓` / `Cmd+↓`: Move component down in tree 🆕
   - `Delete` / `Backspace`: Delete component
   - `Click`: Select component (shows resize handles if resizable)
+- **Keyboard Shortcuts Help**: 🆕 Click the keyboard icon in toolbar to view all shortcuts
+- **Context Menu**: 🆕 Right-click components for quick actions (Copy, Cut, Paste, Duplicate, Move Up/Down, Delete)
 - **Resize Handles**: 🆕 8-directional handles appear on selected container components
 - **Visual Constraints**: 🆕 Min/max width and height constraints prevent invalid sizing
 - **Tooltips**: Contextual help throughout the interface
@@ -146,10 +155,16 @@ The designer supports the following keyboard shortcuts for efficient workflow:
 | `Ctrl+Y` / `Cmd+Y` | Redo | Redo the last undone change |
 | `Cmd+Shift+Z` | Redo (Mac) | Alternative redo on macOS |
 | `Ctrl+C` / `Cmd+C` | Copy | Copy the selected component |
+| `Ctrl+X` / `Cmd+X` | Cut | Cut the selected component 🆕 |
 | `Ctrl+V` / `Cmd+V` | Paste | Paste the copied component |
+| `Ctrl+D` / `Cmd+D` | Duplicate | Duplicate the selected component 🆕 |
+| `Ctrl+↑` / `Cmd+↑` | Move Up | Move component up in parent container 🆕 |
+| `Ctrl+↓` / `Cmd+↓` | Move Down | Move component down in parent container 🆕 |
 | `Delete` / `Backspace` | Delete | Delete the selected component |
 
-**Note**: Copy, paste, and delete shortcuts only work when not editing text in input fields.
+**Note**: Copy, cut, paste, duplicate, and delete shortcuts only work when not editing text in input fields.
+
+**Tip**: Click the keyboard icon (⌨️) in the toolbar to view the interactive keyboard shortcuts reference anytime!
 
 ## Components
 
@@ -269,7 +284,13 @@ module.exports = {
 - [x] **Resizable component indicators** 🆕
 - [x] Undo/redo functionality with history (works with resize)
 - [x] Copy/paste components
-- [x] Keyboard shortcuts (Ctrl+Z/Y, Ctrl+C/V, Delete)
+- [x] **Cut functionality (Ctrl+X/Cmd+X)** 🆕
+- [x] **Duplicate functionality (Ctrl+D/Cmd+D)** 🆕
+- [x] **Component tree with expand/collapse all** 🆕
+- [x] **Context menu with move up/down** 🆕
+- [x] **Keyboard navigation (Ctrl+↑/↓ for reordering)** 🆕
+- [x] **Keyboard shortcuts help dialog** 🆕
+- [x] Keyboard shortcuts (Ctrl+Z/Y, Ctrl+C/X/V/D, Delete)
 - [x] Component search in palette
 - [x] JSON import/export with file and clipboard support
 - [x] Responsive viewport modes (Desktop/Tablet/Mobile)
@@ -282,8 +303,10 @@ module.exports = {
 - [ ] Keyboard resize controls (Shift+Arrow keys)
 - [ ] Resize preview overlay showing dimensions
 - [ ] Schema validation with error indicators
-- [ ] Component tree view for better navigation
+- [ ] Component visibility toggle (hide/show components)
 - [ ] Copy/duplicate entire schema branches
+- [ ] Multi-select components with Shift+Click
+- [ ] Component grouping and ungrouping
 - [ ] Custom component templates library
 - [ ] Export to React/TypeScript code
 - [ ] Collaborative editing features

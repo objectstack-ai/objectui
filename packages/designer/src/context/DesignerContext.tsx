@@ -30,7 +30,11 @@ export interface DesignerContextValue {
   updateNode: (id: string, updates: Partial<SchemaNode>) => void;
   removeNode: (id: string) => void;
   moveNode: (nodeId: string, targetParentId: string | null, targetIndex: number) => void;
+  moveNodeUp: (id: string) => void;
+  moveNodeDown: (id: string) => void;
   copyNode: (id: string) => void;
+  cutNode: (id: string) => void;
+  duplicateNode: (id: string) => void;
   pasteNode: (parentId: string | null) => void;
   canPaste: boolean;
   undo: () => void;
@@ -154,6 +158,67 @@ const findNodeById = (node: SchemaNode, id: string): SchemaNode | null => {
         }
     } else if (node.body && typeof node.body === 'object') {
         return findNodeById(node.body as SchemaNode, id);
+    }
+    
+    return null;
+};
+
+/**
+ * Deep clone a SchemaNode, creating new objects for all nested properties.
+ * This ensures that modifications to the cloned node don't affect the original.
+ * 
+ * @param node - The node to clone
+ * @returns A deep copy of the node with all nested children cloned
+ */
+const deepCloneNode = (node: SchemaNode): SchemaNode => {
+    const cloned: SchemaNode = { ...node };
+    
+    // Deep clone the body if it exists
+    if (node.body) {
+        if (Array.isArray(node.body)) {
+            cloned.body = node.body.map(child => deepCloneNode(child));
+        } else if (typeof node.body === 'object') {
+            cloned.body = deepCloneNode(node.body as SchemaNode);
+        }
+    }
+    
+    return cloned;
+};
+
+/**
+ * Find the parent node and index of a target node in the schema tree.
+ * This is used for operations that need to know a node's position within its parent,
+ * such as moving nodes up/down or duplicating nodes as siblings.
+ * 
+ * @param root - The root node to search from
+ * @param targetId - The ID of the node to find
+ * @param parent - Internal parameter for recursion, tracks the parent during traversal
+ * @returns An object with the parent node and the index of the target within the parent's body,
+ *          or null if the target is not found or is the root node
+ */
+const findParentAndIndex = (
+    root: SchemaNode, 
+    targetId: string, 
+    parent: SchemaNode | null = null
+): { parent: SchemaNode | null; index: number } | null => {
+    if (root.id === targetId) {
+        return parent ? { parent, index: -1 } : null;
+    }
+    
+    if (Array.isArray(root.body)) {
+        for (let i = 0; i < root.body.length; i++) {
+            const child = root.body[i];
+            if (child.id === targetId) {
+                return { parent: root, index: i };
+            }
+            const found = findParentAndIndex(child, targetId, root);
+            if (found) return found;
+        }
+    } else if (root.body && typeof root.body === 'object') {
+        if ((root.body as SchemaNode).id === targetId) {
+            return { parent: root, index: 0 };
+        }
+        return findParentAndIndex(root.body as SchemaNode, targetId, root);
     }
     
     return null;
@@ -295,6 +360,29 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
     });
   }, [addToHistory]);
 
+  // Move Node Up/Down within same parent
+  const moveNodeUp = useCallback((id: string) => {
+    const parentInfo = findParentAndIndex(schema, id);
+    if (!parentInfo || !parentInfo.parent || parentInfo.index <= 0) return;
+    
+    // Move to index - 1 (up)
+    moveNode(id, parentInfo.parent.id || null, parentInfo.index - 1);
+  }, [schema, moveNode]);
+
+  const moveNodeDown = useCallback((id: string) => {
+    const parentInfo = findParentAndIndex(schema, id);
+    if (!parentInfo || !parentInfo.parent) return;
+    
+    const siblings = Array.isArray(parentInfo.parent.body) 
+      ? parentInfo.parent.body 
+      : parentInfo.parent.body ? [parentInfo.parent.body] : [];
+    
+    if (parentInfo.index >= siblings.length - 1) return;
+    
+    // Move to index + 1 (down)
+    moveNode(id, parentInfo.parent.id || null, parentInfo.index + 1);
+  }, [schema, moveNode]);
+
   // Undo/Redo functions
   const undo = useCallback(() => {
     if (historyIndex > 0) {
@@ -315,7 +403,7 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
-  // Copy/Paste functions
+  // Copy/Paste/Cut/Duplicate functions
   const copyNode = useCallback((id: string) => {
     const node = findNodeById(schema, id);
     if (node) {
@@ -330,6 +418,37 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
       addNode(parentId, clipboard);
     }
   }, [clipboard, addNode]);
+
+  const cutNode = useCallback((id: string) => {
+    const node = findNodeById(schema, id);
+    if (node) {
+      // Deep clone the node to clipboard to avoid reference issues
+      const clonedNode = deepCloneNode(node);
+      const { id: originalId, ...nodeWithoutId } = clonedNode;
+      setClipboard(nodeWithoutId as SchemaNode);
+      // Then remove it from the tree
+      removeNode(id);
+    }
+  }, [schema, removeNode]);
+
+  const duplicateNode = useCallback((id: string) => {
+    const node = findNodeById(schema, id);
+    if (node) {
+      // Deep clone the node without modifying clipboard
+      const clonedNode = deepCloneNode(node);
+      const { id: originalId, ...nodeWithoutId } = clonedNode;
+      
+      // Find the parent to paste into
+      const parentInfo = findParentAndIndex(schema, id);
+      if (parentInfo && parentInfo.parent) {
+        // Paste to the same parent at the next index
+        addNode(parentInfo.parent.id || null, nodeWithoutId as SchemaNode, parentInfo.index + 1);
+      } else {
+        // If no parent found, paste to root
+        addNode(schema.id || null, nodeWithoutId as SchemaNode);
+      }
+    }
+  }, [schema, addNode]);
 
   const canPaste = clipboard !== null;
 
@@ -353,7 +472,11 @@ export const DesignerProvider: React.FC<DesignerProviderProps> = ({
       updateNode,
       removeNode,
       moveNode,
+      moveNodeUp,
+      moveNodeDown,
       copyNode,
+      cutNode,
+      duplicateNode,
       pasteNode,
       canPaste,
       undo,

@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const design = serverStorage.getDesign(id);
+    const design = await serverStorage.getDesign(id);
 
     if (!design) {
       return NextResponse.json(
@@ -40,7 +40,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     
-    const updatedDesign = serverStorage.updateDesign(id, body);
+    const updatedDesign = await serverStorage.updateDesign(id, body);
 
     if (!updatedDesign) {
       return NextResponse.json(
@@ -68,7 +68,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const deleted = serverStorage.deleteDesign(id);
+    const deleted = await serverStorage.deleteDesign(id);
 
     if (!deleted) {
       return NextResponse.json(

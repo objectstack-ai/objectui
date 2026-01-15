@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { shareId } = await params;
-    const design = serverStorage.getSharedDesign(shareId);
+    const design = await serverStorage.getSharedDesign(shareId);
 
     if (!design) {
       return NextResponse.json(

@@ -10,7 +10,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const design = serverStorage.getDesign(id);
+    const design = await serverStorage.getDesign(id);
 
     if (!design) {
       return NextResponse.json(
@@ -23,7 +23,7 @@ export async function POST(
     const shareId = crypto.randomUUID().replace(/-/g, '').substring(0, 12);
     
     // Store the shared design
-    serverStorage.shareDesign(id, shareId);
+    await serverStorage.shareDesign(id, shareId);
 
     // Generate the share URL
     const baseUrl = request.nextUrl.origin;

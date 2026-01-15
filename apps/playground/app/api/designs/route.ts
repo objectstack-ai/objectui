@@ -7,7 +7,7 @@ import { serverStorage } from '@/lib/serverStorage';
  */
 export async function GET() {
   try {
-    const allDesigns = serverStorage.getAllDesigns();
+    const allDesigns = await serverStorage.getAllDesigns();
     return NextResponse.json(allDesigns);
   } catch (error) {
     console.error('Error fetching designs:', error);
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     };
 
-    serverStorage.createDesign(newDesign);
+    await serverStorage.createDesign(newDesign);
 
     return NextResponse.json(newDesign, { status: 201 });
   } catch (error) {

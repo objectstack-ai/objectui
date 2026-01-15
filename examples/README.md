@@ -222,8 +222,8 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
 
 ## ❓ Need Help?
 
-- [Open an Issue](https://github.com/objectstack-ai/objectui/issues)
-- [Join Discussions](https://github.com/objectstack-ai/objectui/discussions)
+- [Open an Issue](https://github.com/objectql/objectui/issues)
+- [Join Discussions](https://github.com/objectql/objectui/discussions)
 - [Read the Docs](https://www.objectui.org)
 
 ## 📝 License

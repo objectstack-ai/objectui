@@ -4,7 +4,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { join, resolve, relative } from 'path';
 import chalk from 'chalk';
 import { execSync } from 'child_process';
-import { scanPagesDirectory, createTempAppWithRouting, createTempApp, parseSchemaFile } from '../utils/app-generator.js';
+import { scanPagesDirectory, createTempAppWithRouting, createTempApp, parseSchemaFile, type RouteInfo } from '../utils/app-generator.js';
 
 interface ServeOptions {
   port: string;
@@ -18,8 +18,8 @@ export async function serve(schemaPath: string, options: ServeOptions) {
   const pagesDir = join(cwd, 'pages');
   const hasPagesDir = existsSync(pagesDir);
   
-  let routes: any[] = [];
-  let schema: any = null;
+  let routes: RouteInfo[] = [];
+  let schema: unknown = null;
   let useFileSystemRouting = false;
 
   if (hasPagesDir) {
@@ -75,7 +75,7 @@ export async function serve(schemaPath: string, options: ServeOptions) {
       stdio: 'inherit',
     });
     console.log(chalk.green('✓ Dependencies installed'));
-  } catch (error) {
+  } catch {
     throw new Error('Failed to install dependencies. Please check your internet connection and try again.');
   }
 
@@ -83,7 +83,7 @@ export async function serve(schemaPath: string, options: ServeOptions) {
   console.log(chalk.blue('🚀 Starting development server...\n'));
 
   // Create Vite config
-  const viteConfig: any = {
+  const viteConfig = {
     root: tmpDir,
     server: {
       port: parseInt(options.port),

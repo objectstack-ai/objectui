@@ -1,12 +1,12 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'fs';
-import { join, basename, relative } from 'path';
+import { join } from 'path';
 import chalk from 'chalk';
 import * as yaml from 'js-yaml';
 
 export interface RouteInfo {
   path: string;
   filePath: string;
-  schema: any;
+  schema: unknown;
   isDynamic: boolean;
   paramName?: string;
 }
@@ -26,7 +26,7 @@ export function getBaseFileName(filename: string): string {
 }
 
 // Helper function to parse schema file (JSON or YAML)
-export function parseSchemaFile(filePath: string): any {
+export function parseSchemaFile(filePath: string): unknown {
   const content = readFileSync(filePath, 'utf-8');
   
   if (filePath.endsWith('.json')) {
@@ -102,7 +102,7 @@ export function scanPagesDirectory(pagesDir: string): RouteInfo[] {
   return routes;
 }
 
-export function createTempApp(tmpDir: string, schema: any) {
+export function createTempApp(tmpDir: string, schema: unknown) {
   // Create index.html
   const html = `<!DOCTYPE html>
 <html lang="en">

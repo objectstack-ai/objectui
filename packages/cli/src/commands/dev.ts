@@ -1,10 +1,9 @@
 import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import chalk from 'chalk';
-import * as yaml from 'js-yaml';
-import { scanPagesDirectory, createTempAppWithRouting, createTempApp, parseSchemaFile } from '../utils/app-generator.js';
+import { scanPagesDirectory, createTempAppWithRouting, createTempApp, parseSchemaFile, type RouteInfo } from '../utils/app-generator.js';
 
 interface DevOptions {
   port: string;
@@ -19,8 +18,8 @@ export async function dev(schemaPath: string, options: DevOptions) {
   const pagesDir = join(cwd, 'pages');
   const hasPagesDir = existsSync(pagesDir);
   
-  let routes: any[] = [];
-  let schema: any = null;
+  let routes: RouteInfo[] = [];
+  let schema: unknown = null;
   let useFileSystemRouting = false;
 
   if (hasPagesDir) {
@@ -77,7 +76,7 @@ export async function dev(schemaPath: string, options: DevOptions) {
       stdio: 'inherit',
     });
     console.log(chalk.green('✓ Dependencies installed'));
-  } catch (error) {
+  } catch {
     throw new Error('Failed to install dependencies. Please check your internet connection and try again.');
   }
 
@@ -85,7 +84,7 @@ export async function dev(schemaPath: string, options: DevOptions) {
   console.log(chalk.blue('🚀 Starting development server...\n'));
 
   // Create Vite config
-  const viteConfig: any = {
+  const viteConfig = {
     root: tmpDir,
     server: {
       port: parseInt(options.port),

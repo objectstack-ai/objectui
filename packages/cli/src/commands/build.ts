@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { existsSync, mkdirSync, cpSync, rmSync } from 'fs';
 import { join, resolve } from 'path';
 import chalk from 'chalk';
-import { scanPagesDirectory, createTempAppWithRouting, createTempApp, parseSchemaFile } from '../utils/app-generator.js';
+import { scanPagesDirectory, createTempAppWithRouting, createTempApp, parseSchemaFile, type RouteInfo } from '../utils/app-generator.js';
 
 interface BuildOptions {
   outDir?: string;
@@ -22,8 +22,8 @@ export async function buildApp(schemaPath: string, options: BuildOptions) {
   const pagesDir = join(cwd, 'pages');
   const hasPagesDir = existsSync(pagesDir);
   
-  let routes: any[] = [];
-  let schema: any = null;
+  let routes: RouteInfo[] = [];
+  let schema: unknown = null;
   let useFileSystemRouting = false;
 
   if (hasPagesDir) {
@@ -76,7 +76,7 @@ export async function buildApp(schemaPath: string, options: BuildOptions) {
       stdio: 'pipe',
     });
     console.log(chalk.green('✓ Dependencies installed'));
-  } catch (error) {
+  } catch {
     throw new Error('Failed to install dependencies. Please check your internet connection and try again.');
   }
 

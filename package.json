@@ -30,9 +30,13 @@
     "test:coverage": "vitest run --coverage",
     "lint": "pnpm -r lint",
     "cli": "node packages/cli/dist/cli.js",
-    "objectui": "node packages/cli/dist/cli.js"
+    "objectui": "node packages/cli/dist/cli.js",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:publish": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@eslint/js": "^9.39.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

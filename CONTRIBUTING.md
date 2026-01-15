@@ -303,19 +303,31 @@ refactor: simplify expression evaluator
    git rebase upstream/main
    ```
 
-2. **Ensure tests pass**:
+2. **Create a changeset** (for package changes):
+   ```bash
+   pnpm changeset
+   ```
+   
+   This will prompt you to:
+   - Select which packages have changed
+   - Choose the version bump type (major, minor, patch)
+   - Write a summary of the changes
+   
+   Learn more about changesets in the [Versioning and Releases](#versioning-and-releases) section.
+
+3. **Ensure tests pass**:
    ```bash
    pnpm test
    ```
 
-3. **Ensure build succeeds**:
+4. **Ensure build succeeds**:
    ```bash
    pnpm build
    ```
 
-4. **Update documentation** if needed
+5. **Update documentation** if needed
 
-5. **Add tests** for new features
+6. **Add tests** for new features
 
 ### Creating the PR
 
@@ -397,6 +409,121 @@ pnpm docs:build
 - Link to related documentation
 
 See [Documentation Guide](./docs/README.md) for details.
+
+## Versioning and Releases
+
+We use [Changesets](https://github.com/changesets/changesets) for version management and automated releases.
+
+### Understanding Changesets
+
+Changesets is a tool that helps us:
+- **Track changes**: Each PR includes a changeset file describing what changed
+- **Automate versioning**: Automatically determine version bumps based on changesets
+- **Generate changelogs**: Create comprehensive changelogs from changeset descriptions
+- **Coordinate releases**: Release multiple packages together in our monorepo
+
+### When to Create a Changeset
+
+Create a changeset when your PR makes changes to any package in `packages/`:
+
+- ✅ **DO create a changeset for**:
+  - New features
+  - Bug fixes
+  - Breaking changes
+  - Performance improvements
+  - API changes
+
+- ❌ **DON'T create a changeset for**:
+  - Documentation updates only
+  - Changes to examples or apps
+  - Internal refactoring with no user-facing changes
+  - Test updates without code changes
+
+### How to Create a Changeset
+
+1. **Run the changeset command**:
+   ```bash
+   pnpm changeset
+   ```
+
+2. **Select packages**: Use arrow keys and spacebar to select which packages changed
+   ```
+   🦋  Which packages would you like to include?
+   ◯ @object-ui/core
+   ◉ @object-ui/react
+   ◯ @object-ui/components
+   ```
+
+3. **Choose version bump type**:
+   - **Major** (x.0.0): Breaking changes
+   - **Minor** (0.x.0): New features (backwards compatible)
+   - **Patch** (0.0.x): Bug fixes and minor updates
+
+4. **Write a summary**: Describe what changed
+   ```
+   Summary: Add support for custom validation rules in forms
+   ```
+
+5. **Commit the changeset file**:
+   ```bash
+   git add .changeset/*.md
+   git commit -m "chore: add changeset"
+   ```
+
+### Changeset Message Guidelines
+
+Write clear, user-facing descriptions:
+
+```markdown
+✅ Good:
+- Add support for custom date formats in DatePicker
+- Fix validation error in nested form fields
+- Improve performance of large data grids by 50%
+
+❌ Bad:
+- Updated code
+- Fixed bug
+- Changes to validation
+```
+
+### Release Process
+
+The release process is automated:
+
+1. **Create PR with changes** → Include a changeset file
+2. **PR is merged** → Changeset bot creates/updates a "Version Packages" PR
+3. **Version PR is merged** → Packages are automatically published to npm
+
+You don't need to manually:
+- Update version numbers
+- Update CHANGELOGs
+- Create Git tags
+- Publish to npm
+
+Everything is handled by the changeset automation!
+
+### Example Workflow
+
+```bash
+# 1. Create a feature branch
+git checkout -b feat/add-date-picker
+
+# 2. Make your changes
+# ... edit files ...
+
+# 3. Create a changeset
+pnpm changeset
+# Select @object-ui/components
+# Choose "minor" (new feature)
+# Summary: "Add DatePicker component with calendar popup"
+
+# 4. Commit everything
+git add .
+git commit -m "feat: add DatePicker component"
+
+# 5. Push and create PR
+git push origin feat/add-date-picker
+```
 
 ## Adding Components
 

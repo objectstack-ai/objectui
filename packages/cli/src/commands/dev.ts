@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { existsSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import chalk from 'chalk';
+import { execSync } from 'child_process';
 import { scanPagesDirectory, createTempAppWithRouting, createTempApp, parseSchemaFile, type RouteInfo } from '../utils/app-generator.js';
 
 interface DevOptions {
@@ -69,7 +70,6 @@ export async function dev(schemaPath: string, options: DevOptions) {
   // Install dependencies
   console.log(chalk.blue('📦 Installing dependencies...'));
   console.log(chalk.dim('  This may take a moment on first run...'));
-  const { execSync } = await import('child_process');
   try {
     execSync('npm install --silent --prefer-offline', { 
       cwd: tmpDir, 

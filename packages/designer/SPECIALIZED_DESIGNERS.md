@@ -1,6 +1,6 @@
 # Specialized Designers
 
-Object UI Designer now supports three specialized designer modes, each optimized for specific use cases:
+Object UI Designer now supports **four** specialized designer modes, each optimized for specific use cases:
 
 ## 🎯 Designer Modes
 
@@ -132,6 +132,65 @@ function App() {
 All components from the component registry, including:
 - Layout, Form, Data Display, Feedback, Overlay, Navigation categories
 
+### 4. Canvas Designer (`mode="canvas"`) 🆕
+
+A free-form canvas designer with absolute positioning, similar to design tools like Figma.
+
+**Features:**
+- Free-form positioning - drag components anywhere
+- Absolute coordinate system (x, y positioning)
+- Resize components freely
+- Grid snapping for alignment (configurable)
+- Visual grid background
+- Works like a traditional design canvas
+
+**Usage:**
+```tsx
+import { Designer } from '@object-ui/designer';
+
+function App() {
+  return (
+    <Designer 
+      mode="canvas"
+      initialSchema={{
+        type: 'div',
+        className: 'relative',
+        style: { width: '100%', height: '100%', minHeight: '600px' },
+        body: []
+      }}
+    />
+  );
+}
+```
+
+Or use the dedicated component:
+```tsx
+import { CanvasDesigner } from '@object-ui/designer';
+
+function App() {
+  return (
+    <CanvasDesigner 
+      config={{
+        showGrid: true,
+        gridSize: 20,
+        canvasBackground: '#ffffff'
+      }}
+    />
+  );
+}
+```
+
+**Available Components:**
+- **Basic**: div, card, text, button, image
+- **Form**: input, textarea, select, checkbox, switch
+- **Layout**: stack, grid
+- **Display**: badge, avatar, separator
+
+**Configuration Options:**
+- `showGrid`: Show/hide alignment grid (default: true)
+- `gridSize`: Grid snap size in pixels (default: 20)
+- `canvasBackground`: Canvas background color (default: '#ffffff')
+
 ## 🔄 Migration Guide
 
 ### From Previous Version
@@ -149,6 +208,7 @@ import { Designer } from '@object-ui/designer';
 // New - specialized modes
 <Designer mode="form" initialSchema={schema} />
 <Designer mode="layout" initialSchema={schema} />
+<Designer mode="canvas" initialSchema={schema} />  // 🆕 NEW!
 ```
 
 All existing code will continue to work without changes. The default mode is `'general'`, which provides the same functionality as before.
@@ -189,31 +249,37 @@ function CustomDesigner() {
 
 ## 📋 Component Comparison
 
-| Feature | Form Designer | Layout Designer | General Designer |
-|---------|--------------|----------------|------------------|
-| Form Components | ✅ Primary | ⚠️ Limited | ✅ Full |
-| Layout Components | ⚠️ Limited | ✅ Primary | ✅ Full |
-| Navigation | ❌ None | ✅ Full | ✅ Full |
-| Data Display | ⚠️ Basic | ⚠️ Basic | ✅ Full |
-| Feedback/Overlay | ❌ None | ❌ None | ✅ Full |
-| Component Count | ~15 | ~15 | ~30+ |
-| Complexity | Low | Medium | High |
-| Use Case | Forms Only | Page Layouts | Everything |
+| Feature | Form Designer | Layout Designer | Canvas Designer 🆕 | General Designer |
+|---------|--------------|-----------------|-------------------|------------------|
+| Form Components | ✅ Primary | ⚠️ Limited | ✅ Full | ✅ Full |
+| Layout Components | ⚠️ Limited | ✅ Primary | ⚠️ Limited | ✅ Full |
+| Navigation | ❌ None | ✅ Full | ❌ None | ✅ Full |
+| Data Display | ⚠️ Basic | ⚠️ Basic | ⚠️ Basic | ✅ Full |
+| Feedback/Overlay | ❌ None | ❌ None | ❌ None | ✅ Full |
+| **Positioning** | **Tree** | **Tree** | **Absolute (x,y)** | **Tree** |
+| **Grid Snap** | **❌** | **❌** | **✅ Yes** | **❌** |
+| Component Count | ~15 | ~15 | ~15 | ~30+ |
+| Complexity | Low | Medium | Medium | High |
+| Use Case | Forms Only | Page Layouts | Free-form Design | Everything |
 
 ## 🚀 Best Practices
 
 1. **Choose the Right Mode**: Use specialized designers when you know your use case:
    - Building a form? Use `mode="form"`
    - Designing a page structure? Use `mode="layout"`
+   - Creating mockups or free-form designs? Use `mode="canvas"` 🆕
    - Need everything? Use `mode="general"` or omit the prop
 
 2. **Start Specialized, Upgrade Later**: Begin with a specialized designer for focused work, then export the schema and open it in the general designer if you need additional components.
 
 3. **Component Filtering**: The specialized designers limit available components to reduce cognitive load and improve the design experience for specific tasks.
 
+4. **Canvas Mode for Prototyping**: Use canvas mode when you need pixel-perfect positioning or are creating mockups that don't follow typical web layout patterns. 🆕
+
 ## 📝 Examples
 
 See the `examples/` directory for complete working examples:
+- `examples/designer-modes/` - Interactive demo with all 4 modes 🆕
 - `examples/form-designer/` - Form builder example
 - `examples/layout-designer/` - Page layout example
 - `examples/general-designer/` - General purpose example

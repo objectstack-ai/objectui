@@ -3,17 +3,32 @@ import type { TextareaSchema } from '@object-ui/types';
 import { Textarea, Label } from '@/ui';
 
 ComponentRegistry.register('textarea', 
-  ({ schema, className, ...props }: { schema: TextareaSchema; className?: string; [key: string]: any }) => (
-    <div className={`grid w-full gap-1.5 ${schema.wrapperClass || ''}`}>
-      {schema.label && <Label htmlFor={schema.id}>{schema.label}</Label>}
-      <Textarea 
-        id={schema.id} 
-        placeholder={schema.placeholder} 
-        className={className} 
-        {...props} 
-      />
-    </div>
-  ),
+  ({ schema, className, ...props }: { schema: TextareaSchema; className?: string; [key: string]: any }) => {
+    // Extract designer-related props
+    const { 
+      'data-obj-id': dataObjId, 
+      'data-obj-type': dataObjType,
+      style, 
+      ...inputProps 
+    } = props;
+
+    return (
+      <div 
+        className={`grid w-full gap-1.5 ${schema.wrapperClass || ''}`}
+        data-obj-id={dataObjId}
+        data-obj-type={dataObjType}
+        style={style}
+      >
+        {schema.label && <Label htmlFor={schema.id}>{schema.label}</Label>}
+        <Textarea 
+          id={schema.id} 
+          placeholder={schema.placeholder} 
+          className={className} 
+          {...inputProps} 
+        />
+      </div>
+    );
+  },
   {
     label: 'Textarea',
     inputs: [

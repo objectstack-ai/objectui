@@ -109,6 +109,7 @@ export type {
   FieldCondition,
   FormField,
   FormSchema,
+  LabelSchema,
   FormComponentSchema,
 } from './form';
 

@@ -910,6 +910,29 @@ export interface FormSchema extends BaseSchema {
 }
 
 /**
+ * Label component
+ */
+export interface LabelSchema extends BaseSchema {
+  type: 'label';
+  /**
+   * Label text content
+   */
+  text?: string;
+  /**
+    * Legacy label property
+    */
+  label?: string;
+  /**
+   * Legacy content property
+   */
+  content?: string;
+  /**
+   * HTML for attribute
+   */
+  htmlFor?: string;
+}
+
+/**
  * Union type of all form schemas
  */
 export type FormComponentSchema =
@@ -926,4 +949,6 @@ export type FormComponentSchema =
   | DatePickerSchema
   | CalendarSchema
   | InputOTPSchema
-  | FormSchema;
+  | FormSchema
+  | LabelSchema;
+

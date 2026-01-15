@@ -4,11 +4,28 @@ import { Button } from '@/ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('button', 
-  ({ schema, ...props }: { schema: ButtonSchema; [key: string]: any }) => (
-    <Button variant={schema.variant} size={schema.size} className={schema.className} {...props}>
+  ({ schema, ...props }: { schema: ButtonSchema; [key: string]: any }) => {
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...buttonProps 
+    } = props;
+
+    return (
+    <Button 
+        variant={schema.variant} 
+        size={schema.size} 
+        className={schema.className} 
+        {...buttonProps}
+        // Apply designer props
+        {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
+    >
       {schema.label || renderChildren(schema.body)}
     </Button>
-  ),
+  );
+  },
   {
     label: 'Button',
     inputs: [

@@ -31,8 +31,21 @@ ComponentRegistry.register('file-upload',
       inputRef.current?.click();
     };
 
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...inputProps 
+    } = props;
+
     return (
-      <div className={`grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}`}>
+      <div 
+        className={`grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}`}
+        data-obj-id={dataObjId}
+        data-obj-type={dataObjType}
+        style={style}
+      >
         {schema.label && <Label htmlFor={schema.id}>{schema.label}</Label>}
         <div className={cn('flex flex-col gap-2', className)}>
           <input
@@ -43,7 +56,7 @@ ComponentRegistry.register('file-upload',
             accept={schema.accept}
             multiple={schema.multiple}
             onChange={handleFileChange}
-            {...props}
+            {...inputProps}
           />
           <Button
             type="button"

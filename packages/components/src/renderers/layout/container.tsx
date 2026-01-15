@@ -43,8 +43,23 @@ ComponentRegistry.register('container',
       className
     );
 
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...containerProps 
+    } = props;
+
     return (
-      <div className={containerClass} {...props}>
+      <div 
+        className={containerClass} 
+        {...containerProps}
+        // Apply designer props
+        data-obj-id={dataObjId}
+        data-obj-type={dataObjType}
+        style={style}
+      >
         {schema.children && renderChildren(schema.children)}
       </div>
     );

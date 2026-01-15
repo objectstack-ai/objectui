@@ -13,8 +13,21 @@ ComponentRegistry.register('date-picker',
       }
     };
 
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...triggerProps 
+    } = props;
+
     return (
-      <div className={`grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}`}>
+      <div 
+        className={`grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}`}
+        data-obj-id={dataObjId}
+        data-obj-type={dataObjType}
+        style={style}
+      >
         {schema.label && <Label htmlFor={schema.id}>{schema.label}</Label>}
         <Popover>
           <PopoverTrigger asChild>
@@ -26,7 +39,7 @@ ComponentRegistry.register('date-picker',
                 !value && 'text-muted-foreground',
                 className
               )}
-              {...props}
+              {...triggerProps}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {value ? format(value, schema.format || 'PPP') : <span>{schema.placeholder || 'Pick a date'}</span>}

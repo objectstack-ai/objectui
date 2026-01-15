@@ -11,8 +11,22 @@ import {
 } from '@/ui';
 
 ComponentRegistry.register('card', 
-  ({ schema, className, ...props }: { schema: CardSchema; className?: string; [key: string]: any }) => (
-    <Card className={className} {...props}>
+  ({ schema, className, ...props }: { schema: CardSchema; className?: string; [key: string]: any }) => {
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...cardProps 
+    } = props;
+
+    return (
+    <Card 
+        className={className} 
+        {...cardProps}
+        // Apply designer props
+        {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
+    >
       {(schema.title || schema.description) && (
         <CardHeader>
           {schema.title && <CardTitle>{schema.title}</CardTitle>}
@@ -22,7 +36,8 @@ ComponentRegistry.register('card',
       {(schema.children || schema.body) && <CardContent>{renderChildren(schema.children || schema.body)}</CardContent>}
       {schema.footer && <CardFooter>{renderChildren(schema.footer)}</CardFooter>}
     </Card>
-  ),
+    );
+  },
   {
     label: 'Card',
     inputs: [

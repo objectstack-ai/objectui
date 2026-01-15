@@ -13,10 +13,22 @@ export const PageRenderer: React.FC<{ schema: PageSchema; className?: string; [k
   const content = schema.body || schema.children;
   const nodes = Array.isArray(content) ? content : (content ? [content] : []);
 
+  // Extract designer-related props
+  const { 
+      'data-obj-id': dataObjId, 
+      'data-obj-type': dataObjType,
+      style, 
+      ...pageProps 
+  } = props;
+
   return (
     <div 
       className={cn("min-h-full w-full bg-background p-6 md:p-8", className)}
-      {...props}
+      {...pageProps}
+      // Apply designer props
+      data-obj-id={dataObjId}
+      data-obj-type={dataObjType}
+      style={style}
     >
       <div className="mx-auto max-w-7xl space-y-8">
         {(schema.title || schema.description) && (

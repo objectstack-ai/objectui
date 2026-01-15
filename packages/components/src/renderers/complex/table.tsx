@@ -1,6 +1,7 @@
 // table.tsx implementation
 import { ComponentRegistry } from '@object-ui/core';
 import type { TableSchema } from '@object-ui/types';
+import { renderChildren } from '../../lib/utils';
 import { 
   Table, 
   TableHeader, 
@@ -40,7 +41,10 @@ ComponentRegistry.register('table',
       {schema.footer && (
           <TableFooter>
               <TableRow>
-                   <TableCell colSpan={schema.columns?.length}>{schema.footer}</TableCell>
+                   <TableCell colSpan={schema.columns?.length}>
+                     {/* Use renderChildren to handle SchemaNode potentially being an object */}
+                     {typeof schema.footer === 'string' ? schema.footer : renderChildren(schema.footer)}
+                   </TableCell>
               </TableRow>
           </TableFooter>
       )}

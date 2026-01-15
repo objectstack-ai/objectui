@@ -40,8 +40,23 @@ ComponentRegistry.register('grid',
       className
     );
 
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...gridProps 
+    } = props;
+
     return (
-      <div className={gridClass} {...props}>
+      <div 
+        className={gridClass} 
+        {...gridProps}
+        // Apply designer props
+        data-obj-id={dataObjId}
+        data-obj-type={dataObjType}
+        style={style}
+      >
         {schema.children && renderChildren(schema.children)}
       </div>
     );

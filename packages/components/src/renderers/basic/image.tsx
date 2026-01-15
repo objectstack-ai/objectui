@@ -2,14 +2,28 @@ import { ComponentRegistry } from '@object-ui/core';
 import type { ImageSchema } from '@object-ui/types';
 
 ComponentRegistry.register('image',
-  ({ schema, className, ...props }: { schema: ImageSchema; className?: string; [key: string]: any }) => (
+  ({ schema, className, ...props }: { schema: ImageSchema; className?: string; [key: string]: any }) => {
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...imgProps 
+    } = props;
+
+    return (
     <img
       src={schema.src}
       alt={schema.alt || ''}
       className={className}
-      {...props}
+      {...imgProps}
+      // Apply designer props
+      data-obj-id={dataObjId}
+      data-obj-type={dataObjType}
+      style={style}
     />
-  ),
+  );
+  },
   {
     label: 'Image',
     icon: 'image',

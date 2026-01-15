@@ -1,17 +1,19 @@
 import { ComponentRegistry } from '@object-ui/core';
-import type { FlexSchema } from '@object-ui/types';
+import type { FlexSchema } from '@object-ui/types'; // TODO: Create StackSchema if needed, but FlexSchema is usually compatible
 import { renderChildren } from '../../lib/utils';
 import { cn } from '@/lib/utils';
 
-ComponentRegistry.register('flex', 
+// Stack is essentially a Flex container that defaults to column direction
+ComponentRegistry.register('stack', 
   ({ schema, className, ...props }: { schema: FlexSchema; className?: string; [key: string]: any }) => {
-    const direction = schema.direction || 'row';
+    // Default to column for Stack
+    const direction = schema.direction || 'col';
     const justify = schema.justify || 'start';
-    const align = schema.align || 'start';
+    const align = schema.align || 'stretch'; // Stack items usually stretch
     const gap = schema.gap || 2;
     const wrap = schema.wrap || false;
     
-    const flexClass = cn(
+    const stackClass = cn(
       'flex',
       // Direction
       direction === 'row' && 'flex-row',
@@ -39,8 +41,8 @@ ComponentRegistry.register('flex',
       gap === 4 && 'gap-4',
       gap === 5 && 'gap-5',
       gap === 6 && 'gap-6',
-      gap === 7 && 'gap-7',
       gap === 8 && 'gap-8',
+      gap === 10 && 'gap-10',
       // Wrap
       wrap && 'flex-wrap',
       className
@@ -51,13 +53,13 @@ ComponentRegistry.register('flex',
         'data-obj-id': dataObjId, 
         'data-obj-type': dataObjType,
         style, 
-        ...flexProps 
+        ...stackProps 
     } = props;
 
     return (
       <div 
-        className={flexClass} 
-        {...flexProps}
+        className={stackClass} 
+        {...stackProps}
         // Apply designer props
         data-obj-id={dataObjId}
         data-obj-type={dataObjType}
@@ -68,56 +70,50 @@ ComponentRegistry.register('flex',
     );
   },
   {
-    label: 'Flex Layout',
+    label: 'Stack',
     inputs: [
       { 
         name: 'direction', 
         type: 'enum', 
-        enum: ['row', 'col', 'row-reverse', 'col-reverse'],
-        label: 'Direction',
-        defaultValue: 'row'
-      },
-      { 
-        name: 'justify', 
-        type: 'enum', 
-        enum: ['start', 'end', 'center', 'between', 'around', 'evenly'],
-        label: 'Justify Content',
-        defaultValue: 'start'
-      },
-      { 
-        name: 'align', 
-        type: 'enum', 
-        enum: ['start', 'end', 'center', 'baseline', 'stretch'],
-        label: 'Align Items',
-        defaultValue: 'start'
+        label: 'Direction', 
+        enum: ['col', 'row', 'col-reverse', 'row-reverse'], 
+        defaultValue: 'col' 
       },
       { 
         name: 'gap', 
         type: 'number', 
         label: 'Gap', 
-        defaultValue: 2,
-        description: 'Gap between items (0-8)'
+        defaultValue: 2 
       },
       { 
-        name: 'wrap', 
-        type: 'boolean', 
-        label: 'Wrap', 
-        defaultValue: false,
-        description: 'Allow flex items to wrap'
+        name: 'align', 
+        type: 'enum', 
+        label: 'Align Items',
+        enum: ['start', 'end', 'center', 'stretch', 'baseline'],
+        defaultValue: 'stretch'
+      },
+      { 
+        name: 'justify', 
+        type: 'enum', 
+        label: 'Justify Content',
+        enum: ['start', 'end', 'center', 'between', 'around', 'evenly'],
+        defaultValue: 'start'
       },
       { name: 'className', type: 'string', label: 'CSS Class' }
     ],
     defaultProps: {
-      direction: 'row',
-      justify: 'start',
-      align: 'center',
+      direction: 'col',
       gap: 2,
-      wrap: false,
-      children: [
-        { type: 'button', label: 'Button 1' },
-        { type: 'button', label: 'Button 2' },
-        { type: 'button', label: 'Button 3' }
-      ]
+      align: 'stretch',
+      children: []
+    },
+    isContainer: true,
+    resizable: true,
+    resizeConstraints: {
+        width: true,
+        height: true,
+        minWidth: 100,
+        minHeight: 50
     }
   }
 );

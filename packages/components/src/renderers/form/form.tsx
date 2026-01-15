@@ -128,9 +128,25 @@ ComponentRegistry.register('form',
       ? cn('grid gap-4', gridColsClass)
       : 'space-y-4';
 
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...formProps 
+    } = props;
+
     return (
       <Form {...form}>
-        <form onSubmit={handleSubmit} className={className} {...props}>
+        <form 
+            onSubmit={handleSubmit} 
+            className={className} 
+            {...formProps}
+            // Apply designer props
+            data-obj-id={dataObjId}
+            data-obj-type={dataObjType}
+            style={style}
+        >
           {/* Form Error Alert */}
           {submitError && (
             <Alert variant="destructive" className="mb-4">

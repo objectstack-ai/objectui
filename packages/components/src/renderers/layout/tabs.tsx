@@ -9,8 +9,23 @@ import {
 } from '@/ui';
 
 ComponentRegistry.register('tabs', 
-  ({ schema, className, ...props }: { schema: TabsSchema; className?: string; [key: string]: any }) => (
-    <Tabs defaultValue={schema.defaultValue} className={className} {...props}>
+  ({ schema, className, ...props }: { schema: TabsSchema; className?: string; [key: string]: any }) => {
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...tabsProps 
+    } = props;
+
+    return (
+    <Tabs 
+        defaultValue={schema.defaultValue} 
+        className={className} 
+        {...tabsProps}
+        // Apply designer props
+        {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
+    >
       <TabsList>
         {schema.items?.map((item) => (
           <TabsTrigger key={item.value} value={item.value}>{item.label}</TabsTrigger>
@@ -22,7 +37,8 @@ ComponentRegistry.register('tabs',
         </TabsContent>
       ))}
     </Tabs>
-  ),
+  );
+  },
   {
     label: 'Tabs',
     inputs: [

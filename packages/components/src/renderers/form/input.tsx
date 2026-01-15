@@ -14,8 +14,22 @@ ComponentRegistry.register('input',
       }
     };
 
+    // Extract designer-related props to apply to the wrapper
+    // These props are injected by SchemaRenderer for designer interaction
+    const { 
+      'data-obj-id': dataObjId, 
+      'data-obj-type': dataObjType,
+      style, 
+      ...inputProps 
+    } = props;
+
     return (
-      <div className={cn("grid w-full items-center gap-1.5", schema.wrapperClass)}>
+      <div 
+        className={cn("grid w-full items-center gap-1.5", schema.wrapperClass)}
+        data-obj-id={dataObjId}
+        data-obj-type={dataObjType}
+        style={style}
+      >
         {schema.label && <Label htmlFor={schema.id} className={cn(schema.required && "text-destructive after:content-['*'] after:ml-0.5")}>{schema.label}</Label>}
         <Input 
           type={schema.inputType || 'text'} 
@@ -34,7 +48,7 @@ ComponentRegistry.register('input',
           step={schema.step}
           maxLength={schema.maxLength}
           pattern={schema.pattern}
-          {...props} 
+          {...inputProps} 
         />
         {schema.description && <p className="text-sm text-muted-foreground">{schema.description}</p>}
         {schema.error && <p className="text-sm font-medium text-destructive">{schema.error}</p>}

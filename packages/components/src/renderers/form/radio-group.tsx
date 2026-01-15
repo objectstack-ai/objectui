@@ -3,8 +3,23 @@ import type { RadioGroupSchema } from '@object-ui/types';
 import { RadioGroup, RadioGroupItem, Label } from '@/ui';
 
 ComponentRegistry.register('radio-group', 
-  ({ schema, className, ...props }: { schema: RadioGroupSchema; className?: string; [key: string]: any }) => (
-    <RadioGroup defaultValue={schema.defaultValue} className={className} {...props}>
+  ({ schema, className, ...props }: { schema: RadioGroupSchema; className?: string; [key: string]: any }) => {
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...radioProps 
+    } = props;
+
+    return (
+    <RadioGroup 
+        defaultValue={schema.defaultValue} 
+        className={className} 
+        {...radioProps}
+        // Apply designer props to the root element
+        {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
+    >
       {schema.options?.map((item) => (
         <div key={item.value} className="flex items-center space-x-2">
           <RadioGroupItem value={item.value} id={`${schema.id}-${item.value}`} />
@@ -12,7 +27,8 @@ ComponentRegistry.register('radio-group',
         </div>
       ))}
     </RadioGroup>
-  ),
+  );
+  },
   {
     label: 'Radio Group',
     inputs: [

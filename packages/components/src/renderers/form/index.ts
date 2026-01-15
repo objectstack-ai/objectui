@@ -1,7 +1,9 @@
 import './form';
 import './button';
+import './label';
 import './input';
 import './textarea';
+
 import './checkbox';
 import './switch';
 import './select';

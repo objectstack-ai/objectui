@@ -4,11 +4,27 @@ import { Badge } from '@/ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('badge', 
-  ({ schema, ...props }: { schema: BadgeSchema; [key: string]: any }) => (
-    <Badge variant={schema.variant} className={schema.className} {...props}>
+  ({ schema, ...props }: { schema: BadgeSchema; [key: string]: any }) => {
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style,
+        ...badgeProps
+    } = props;
+    
+    return (
+    <Badge 
+        variant={schema.variant} 
+        className={schema.className} 
+        {...badgeProps}
+        // Apply designer props
+        {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
+    >
       {schema.label || renderChildren(schema.body)}
     </Badge>
-  ),
+  );
+  },
   {
     label: 'Badge',
     inputs: [

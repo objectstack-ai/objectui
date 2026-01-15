@@ -3,16 +3,28 @@ import type { SliderSchema } from '@object-ui/types';
 import { Slider } from '@/ui';
 
 ComponentRegistry.register('slider', 
-  ({ schema, className, ...props }: { schema: SliderSchema; className?: string; [key: string]: any }) => (
+  ({ schema, className, ...props }: { schema: SliderSchema; className?: string; [key: string]: any }) => {
+    // Extract designer-related props
+    const { 
+        'data-obj-id': dataObjId, 
+        'data-obj-type': dataObjType,
+        style, 
+        ...sliderProps 
+    } = props;
+
+    return (
     <Slider 
       defaultValue={schema.defaultValue} 
       max={schema.max} 
       min={schema.min}
       step={schema.step}
       className={className} 
-      {...props} 
+      {...sliderProps} 
+      // Apply designer props
+      {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
     />
-  ),
+  );
+  },
   {
     label: 'Slider',
     inputs: [

@@ -18,7 +18,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import type { SchemaNode } from '@object-ui/core';
 import type { CanvasDesignerConfig } from '../types/designer-modes';
 import { SchemaRenderer } from '@object-ui/react';
-import { ResizeHandles } from './ResizeHandle';
+import { ResizeHandles, type ResizeDirection } from './ResizeHandle';
 import { ComponentRegistry } from '@object-ui/core';
 import { cn } from '@object-ui/components';
 
@@ -158,7 +158,22 @@ const FreeFormCanvas: React.FC<{ showGrid?: boolean; gridSize?: number }> = ({
 
     return nodes.map((node) => {
       const isSelected = node.id === selectedNodeId;
-      const isResizable = ComponentRegistry.getConfig(node.type)?.resizable || false;
+      const config = ComponentRegistry.getConfig(node.type);
+      const isResizable = config?.resizable || false;
+
+      // Determine which directions to show based on constraints
+      const constraints = config?.resizeConstraints || {};
+      const directions: ResizeDirection[] = [];
+      
+      if (constraints.width !== false) {
+        directions.push('e', 'w');
+      }
+      if (constraints.height !== false) {
+        directions.push('n', 's');
+      }
+      if (constraints.width !== false && constraints.height !== false) {
+        directions.push('ne', 'nw', 'se', 'sw');
+      }
 
       return (
         <div
@@ -186,8 +201,8 @@ const FreeFormCanvas: React.FC<{ showGrid?: boolean; gridSize?: number }> = ({
           {/* Resize handles for selected node */}
           {isSelected && isResizable && (
             <ResizeHandles
-              nodeId={node.id || ''}
-              onResizeStart={(direction) => {
+              directions={directions}
+              onResizeStart={(direction, e) => {
                 const element = document.querySelector(`[data-obj-id="${node.id}"]`) as HTMLElement;
                 if (element) {
                   setResizingNode({

@@ -13,6 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure Git merge driver for pnpm-lock.yaml
+        run: |
+          # Configure custom merge driver for pnpm-lock.yaml
+          # This allows Git to automatically resolve lockfile conflicts by regenerating it
+          git config merge.pnpm-merge.name "pnpm-lock.yaml merge driver"
+          git config merge.pnpm-merge.driver "pnpm install --no-frozen-lockfile"
+
       - name: Dependabot metadata
         id: metadata
         uses: dependabot/fetch-metadata@v2

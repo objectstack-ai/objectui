@@ -39,6 +39,29 @@ const getIcon = (name?: string) => {
 export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: LayoutRendererProps) => {
   const layout = app.layout || 'sidebar';
   const [isSidbarOpen, setSidebarOpen] = React.useState(true);
+  
+  // Theme management
+  const [theme, setTheme] = React.useState<"light" | "dark">("light");
+
+  React.useEffect(() => {
+      const isDark = localStorage.getItem('theme') === 'dark' || 
+          (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setTheme(isDark ? 'dark' : 'light');
+  }, []);
+
+  React.useEffect(() => {
+      if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+          localStorage.setItem('theme', 'dark');
+      } else {
+          document.documentElement.classList.remove('dark');
+          localStorage.setItem('theme', 'light');
+      }
+  }, [theme]);
+
+  const toggleTheme = () => {
+      setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
     e.preventDefault();
@@ -56,7 +79,7 @@ export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: Layou
   const LogoIcon = app.logo && !app.logo.includes('/') && !app.logo.includes('.') ? getIcon(app.logo) : null;
 
   return (
-    <div className={`flex min-h-screen w-full bg-slate-50/50 ${app.className || ''}`}>
+    <div className={`flex min-h-screen w-full bg-slate-50/50 dark:bg-zinc-950 ${app.className || ''}`}>
       {/* Sidebar - Only if configured */}
       {layout === 'sidebar' && (
         <aside 
@@ -131,12 +154,50 @@ export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: Layou
                 />
              </div>
            </div>
-           <div className="flex items-center gap-4">
-             {/* Global Actions */}
-             <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
-               <LucideIcons.Bell className="h-5 w-5" />
-               <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-600 rounded-full border-2 border-background"></span>
+           <div className="flex items-center gap-2">
+             {/* Theme Toggle */}
+             <button 
+               onClick={toggleTheme}
+               className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted"
+               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+             >
+               {theme === 'dark' ? <LucideIcons.Sun className="h-5 w-5" /> : <LucideIcons.Moon className="h-5 w-5" />}
              </button>
+
+             {/* Global Actions */}
+             {app.actions?.filter(a => a.type === 'button').map((action, i) => {
+                 const Icon = action.icon ? getIcon(action.icon) : null;
+                 return (
+                    <button 
+                        key={i}
+                        className={action.variant === 'ghost' ? "relative p-2 text-muted-foreground hover:text-foreground transition-colors hover:bg-muted rounded-md" : "p-2"}
+                        title={action.label}
+                    >
+                        {Icon && <Icon className="h-5 w-5" />}
+                        {action.label && !action.icon && <span>{action.label}</span>}
+                    </button>
+                 );
+             })}
+
+             {/* Fallback Bell if no actions defined, or keep it as specific logic? 
+                 The original code hardcoded a Bell button. 
+                 The app.json defines a 'Bell' button action. 
+                 So I should iterate app.actions for buttons as well. 
+             */}
+             
+             {/* Original Bell Logic (Hardcoded in user request? No, it was hardcoded in my previous edit, but app.json has it too) 
+                 Let's check app.json. It has:
+                 { "type": "button", "variant": "ghost", "size": "icon", "icon": "Bell" }
+                 
+                 If I render actions generically, I don't need the hardcoded Bell.
+             */}
+
+             {(!app.actions || !app.actions.some(a => a.type === 'button')) && (
+                 <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
+                    <LucideIcons.Bell className="h-5 w-5" />
+                    <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-600 rounded-full border-2 border-background"></span>
+                 </button>
+             )}
              
              {app.actions?.filter(a => a.type === 'user').map((userAction, i) => (
                  <DropdownMenu key={i}>

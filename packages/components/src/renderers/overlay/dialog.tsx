@@ -8,7 +8,7 @@ import {
   DialogFooter, 
   DialogTitle, 
   DialogDescription
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('dialog', 

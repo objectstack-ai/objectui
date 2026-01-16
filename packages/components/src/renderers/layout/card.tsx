@@ -8,7 +8,7 @@ import {
   CardDescription,
   CardContent,
   CardFooter
-} from '@/ui';
+} from '../../ui';
 
 ComponentRegistry.register('card', 
   ({ schema, className, ...props }: { schema: CardSchema; className?: string; [key: string]: any }) => {

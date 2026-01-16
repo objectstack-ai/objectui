@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { SeparatorSchema } from '@object-ui/types';
-import { Separator } from '@/ui';
+import { Separator } from '../../ui';
 
 ComponentRegistry.register('separator', 
   ({ schema, className, ...props }: { schema: SeparatorSchema; className?: string; [key: string]: any }) => {

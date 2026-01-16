@@ -6,7 +6,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent
-} from '@/ui';
+} from '../../ui';
 
 ComponentRegistry.register('tabs', 
   ({ schema, className, ...props }: { schema: TabsSchema; className?: string; [key: string]: any }) => {

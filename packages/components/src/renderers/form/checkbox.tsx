@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { CheckboxSchema } from '@object-ui/types';
-import { Checkbox, Label } from '@/ui';
+import { Checkbox, Label } from '../../ui';
 
 ComponentRegistry.register('checkbox', 
   ({ schema, className, ...props }: { schema: CheckboxSchema; className?: string; [key: string]: any }) => {

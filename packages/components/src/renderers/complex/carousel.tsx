@@ -6,7 +6,7 @@ import {
   CarouselItem, 
   CarouselPrevious, 
   CarouselNext 
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('carousel', 

@@ -4,7 +4,7 @@ import {
   Popover, 
   PopoverTrigger, 
   PopoverContent 
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('popover', 

@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { ScrollAreaSchema } from '@object-ui/types';
-import { ScrollArea, ScrollBar } from '@/ui';
+import { ScrollArea, ScrollBar } from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('scroll-area', 

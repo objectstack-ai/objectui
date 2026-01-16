@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { ProgressSchema } from '@object-ui/types';
-import { Progress } from '@/ui';
+import { Progress } from '../../ui';
 
 ComponentRegistry.register('progress', 
   ({ schema, className, ...props }: { schema: ProgressSchema; className?: string; [key: string]: any }) => (

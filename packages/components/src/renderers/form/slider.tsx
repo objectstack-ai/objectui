@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { SliderSchema } from '@object-ui/types';
-import { Slider } from '@/ui';
+import { Slider } from '../../ui';
 
 ComponentRegistry.register('slider', 
   ({ schema, className, ...props }: { schema: SliderSchema; className?: string; [key: string]: any }) => {

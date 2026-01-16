@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { SkeletonSchema } from '@object-ui/types';
-import { Skeleton } from '@/ui';
+import { Skeleton } from '../../ui';
 
 ComponentRegistry.register('skeleton', 
   ({ schema, className, ...props }: { schema: SkeletonSchema; className?: string; [key: string]: any }) => (

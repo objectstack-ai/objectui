@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { RadioGroupSchema } from '@object-ui/types';
-import { RadioGroup, RadioGroupItem, Label } from '@/ui';
+import { RadioGroup, RadioGroupItem, Label } from '../../ui';
 
 ComponentRegistry.register('radio-group', 
   ({ schema, className, ...props }: { schema: RadioGroupSchema; className?: string; [key: string]: any }) => {

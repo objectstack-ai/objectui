@@ -1,7 +1,7 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { ListSchema } from '@object-ui/types';
 import { renderChildren } from '../../lib/utils';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 
 ComponentRegistry.register('list', 
   ({ schema, className, ...props }: { schema: ListSchema; className?: string; [key: string]: any }) => {

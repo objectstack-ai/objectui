@@ -8,7 +8,7 @@ import {
   SheetFooter, 
   SheetTitle, 
   SheetDescription
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('sheet', 

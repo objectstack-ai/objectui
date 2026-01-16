@@ -1,7 +1,7 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { GridSchema } from '@object-ui/types';
 import { renderChildren } from '../../lib/utils';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 
 ComponentRegistry.register('grid', 
   ({ schema, className, ...props }: { schema: GridSchema; className?: string; [key: string]: any }) => {

@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { SwitchSchema } from '@object-ui/types';
-import { Switch, Label } from '@/ui';
+import { Switch, Label } from '../../ui';
 
 ComponentRegistry.register('switch', 
   ({ schema, className, ...props }: { schema: SwitchSchema; className?: string; [key: string]: any }) => {

@@ -5,7 +5,7 @@ import {
   Tooltip, 
   TooltipTrigger, 
   TooltipContent 
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 // Helper to ensure provider exists if not already present at app root

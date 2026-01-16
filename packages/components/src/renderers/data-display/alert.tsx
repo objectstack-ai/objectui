@@ -5,7 +5,7 @@ import {
   Alert,
   AlertTitle,
   AlertDescription
-} from '@/ui';
+} from '../../ui';
 
 ComponentRegistry.register('alert', 
   ({ schema, className, ...props }: { schema: AlertSchema; className?: string; [key: string]: any }) => (

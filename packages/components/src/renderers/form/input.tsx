@@ -1,8 +1,8 @@
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { InputSchema } from '@object-ui/types';
-import { Input, Label } from '@/ui';
-import { cn } from '@/lib/utils';
+import { Input, Label } from '../../ui';
+import { cn } from '../../lib/utils';
 
 ComponentRegistry.register('input', 
   ({ schema, className, onChange, value, ...props }: { schema: InputSchema; className?: string; onChange?: (val: any) => void; value?: any; [key: string]: any }) => {

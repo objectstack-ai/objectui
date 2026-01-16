@@ -7,7 +7,7 @@ import {
   SelectContent,
   SelectItem,
   Label
-} from '@/ui';
+} from '../../ui';
 
 ComponentRegistry.register('select', 
   ({ schema, className, ...props }: { schema: SelectSchema; className?: string; [key: string]: any }) => {

@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { LabelSchema } from '@object-ui/types';
-import { Label } from '@/ui';
+import { Label } from '../../ui';
 
 ComponentRegistry.register('label', 
   ({ schema, className, ...props }: { schema: LabelSchema; className?: string; [key: string]: any }) => {

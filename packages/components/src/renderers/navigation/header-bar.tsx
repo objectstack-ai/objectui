@@ -10,7 +10,7 @@ import {
   BreadcrumbLink,
   BreadcrumbSeparator,
   BreadcrumbPage
-} from '@/ui';
+} from '../../ui';
 
 ComponentRegistry.register('header-bar', 
   ({ schema }: { schema: HeaderBarSchema }) => (

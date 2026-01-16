@@ -4,7 +4,7 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback
-} from '@/ui';
+} from '../../ui';
 
 ComponentRegistry.register('avatar', 
   ({ schema, className, ...props }: { schema: AvatarSchema; className?: string; [key: string]: any }) => (

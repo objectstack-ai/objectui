@@ -10,7 +10,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 // Helper for recursive menu items

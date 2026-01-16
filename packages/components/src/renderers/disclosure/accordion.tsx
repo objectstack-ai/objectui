@@ -5,7 +5,7 @@ import {
   AccordionItem, 
   AccordionTrigger, 
   AccordionContent 
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('accordion', 

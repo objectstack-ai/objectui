@@ -1,9 +1,9 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { DatePickerSchema } from '@object-ui/types';
-import { Calendar, Button, Popover, PopoverTrigger, PopoverContent, Label } from '@/ui';
+import { Calendar, Button, Popover, PopoverTrigger, PopoverContent, Label } from '../../ui';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 
 ComponentRegistry.register('date-picker', 
   ({ schema, className, value, onChange, ...props }: { schema: DatePickerSchema; className?: string; value?: Date; onChange?: (date: Date | undefined) => void; [key: string]: any }) => {

@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { ToggleSchema } from '@object-ui/types';
-import { Toggle, ToggleGroup, ToggleGroupItem } from '@/ui';
+import { Toggle, ToggleGroup, ToggleGroupItem } from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('toggle', 

@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { ButtonSchema } from '@object-ui/types';
-import { Button } from '@/ui';
+import { Button } from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('button', 

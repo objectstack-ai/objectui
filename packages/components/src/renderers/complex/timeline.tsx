@@ -18,7 +18,7 @@ import {
   TimelineGanttLabel,
   TimelineGanttBar,
   TimelineGanttBarContent,
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 // Constants

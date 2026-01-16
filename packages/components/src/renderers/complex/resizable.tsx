@@ -5,7 +5,7 @@ import {
   ResizablePanelGroup, 
   ResizablePanel, 
   ResizableHandle 
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('resizable', 

@@ -5,8 +5,9 @@ import type { SchemaNode } from '@object-ui/core';
 function App() {
   const [mode, setMode] = useState<DesignerMode>('general');
   const [schema, setSchema] = useState<SchemaNode>({
+    id: 'root',
     type: 'div',
-    className: 'p-8',
+    className: 'p-8 min-h-[400px] border-2 border-dashed border-gray-200 rounded-lg',
     body: []
   });
 
@@ -14,7 +15,7 @@ function App() {
     <div className="h-screen flex flex-col">
       {/* Mode Selector */}
       <div className="h-16 bg-gray-900 text-white flex items-center px-6 gap-4 shadow-lg z-50">
-        <h1 className="text-xl font-bold">Object UI Designer Modes</h1>
+        <h1 className="text-xl font-bold">Object UI Designer</h1>
         <div className="flex-1" />
         <div className="flex gap-2">
           <button

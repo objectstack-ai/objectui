@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { StatisticSchema } from '@object-ui/types';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const StatisticRenderer = ({ schema }: { schema: StatisticSchema }) => {

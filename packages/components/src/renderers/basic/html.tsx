@@ -1,7 +1,7 @@
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { HtmlSchema } from '@object-ui/types';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 
 ComponentRegistry.register('html', 
   ({ schema, className, ...props }: { schema: HtmlSchema; className?: string; [key: string]: any }) => {

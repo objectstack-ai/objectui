@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { InputOTPSchema } from '@object-ui/types';
-import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/ui';
+import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '../../ui';
 
 ComponentRegistry.register('input-otp', 
   ({ schema, className, ...props }: { schema: InputOTPSchema; className?: string; [key: string]: any }) => (

@@ -11,17 +11,17 @@ import {
   TableRow, 
   TableCell, 
   TableCaption 
-} from '@/ui/table';
-import { Button } from '@/ui/button';
-import { Input } from '@/ui/input';
-import { Checkbox } from '@/ui/checkbox';
+} from '../../ui/table';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Checkbox } from '../../ui/checkbox';
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/ui/select';
+} from '../../ui/select';
 import { 
   ChevronUp, 
   ChevronDown, 

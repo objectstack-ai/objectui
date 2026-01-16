@@ -11,7 +11,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuSubContent,
   ContextMenuShortcut
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 // Reuse helper for recursive menu items if I could share it, but for now duplicate concise logic

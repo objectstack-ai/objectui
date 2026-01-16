@@ -1,6 +1,6 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { CalendarSchema } from '@object-ui/types';
-import { Calendar } from '@/ui';
+import { Calendar } from '../../ui';
 
 ComponentRegistry.register('calendar', 
   ({ schema, className, ...props }: { schema: CalendarSchema; className?: string; [key: string]: any }) => (

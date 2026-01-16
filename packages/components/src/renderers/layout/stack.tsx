@@ -1,7 +1,7 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { FlexSchema } from '@object-ui/types'; // TODO: Create StackSchema if needed, but FlexSchema is usually compatible
 import { renderChildren } from '../../lib/utils';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 
 // Stack is essentially a Flex container that defaults to column direction
 ComponentRegistry.register('stack', 

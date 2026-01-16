@@ -4,7 +4,7 @@ import {
   Collapsible, 
   CollapsibleTrigger, 
   CollapsibleContent 
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('collapsible', 

@@ -1,22 +1,22 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { FormSchema, FormField as FormFieldConfig, ValidationRule, FieldCondition, SelectOption } from '@object-ui/types';
 import { useForm } from 'react-hook-form';
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/ui/form';
-import { Button } from '@/ui/button';
-import { Input } from '@/ui/input';
-import { Textarea } from '@/ui/textarea';
-import { Checkbox } from '@/ui/checkbox';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '../../ui/form';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Textarea } from '../../ui/textarea';
+import { Checkbox } from '../../ui/checkbox';
 import { 
   Select, 
   SelectTrigger, 
   SelectValue, 
   SelectContent, 
   SelectItem 
-} from '@/ui/select';
+} from '../../ui/select';
 import { renderChildren } from '../../lib/utils';
-import { Alert, AlertDescription } from '@/ui/alert';
+import { Alert, AlertDescription } from '../../ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 import React from 'react';
 
 // Form renderer component - Airtable-style feature-complete form

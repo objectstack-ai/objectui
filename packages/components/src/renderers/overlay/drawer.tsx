@@ -9,7 +9,7 @@ import {
   DrawerTitle, 
   DrawerDescription,
   DrawerClose
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('drawer', 

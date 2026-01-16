@@ -4,7 +4,7 @@ import {
   HoverCard, 
   HoverCardTrigger, 
   HoverCardContent 
-} from '@/ui';
+} from '../../ui';
 import { renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('hover-card', 

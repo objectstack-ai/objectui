@@ -15,7 +15,7 @@ import {
   SidebarFooter,
   SidebarTrigger,
   SidebarInset
-} from '@/ui';
+} from '../../ui';
 
 ComponentRegistry.register('sidebar-provider', 
   ({ schema, ...props }) => (

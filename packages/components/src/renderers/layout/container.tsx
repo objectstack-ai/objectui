@@ -1,7 +1,7 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { ContainerSchema } from '@object-ui/types';
 import { renderChildren } from '../../lib/utils';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 
 ComponentRegistry.register('container', 
   ({ schema, className, ...props }: { schema: ContainerSchema; className?: string; [key: string]: any }) => {

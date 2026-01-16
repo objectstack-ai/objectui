@@ -11,34 +11,105 @@
       "icon": "LayoutDashboard"
     },
     {
-      "label": "Basic & Layout",
-      "path": "/basic",
-      "icon": "Box"
+      "label": "Basic",
+      "icon": "Box",
+      "children": [
+        { "label": "Div", "path": "/basic/div" },
+        { "label": "Text", "path": "/basic/text" },
+        { "label": "Icon", "path": "/basic/icon" },
+        { "label": "Image", "path": "/basic/image" },
+        { "label": "Separator", "path": "/basic/separator" }
+      ]
     },
     {
-      "label": "Forms",
-      "path": "/forms",
-      "icon": "FormInput"
+      "label": "Layout",
+      "icon": "Layout",
+      "children": [
+        { "label": "Flex", "path": "/layout/flex" },
+        { "label": "Grid", "path": "/layout/grid" },
+        { "label": "Stack", "path": "/layout/stack" },
+        { "label": "Card", "path": "/layout/card" },
+        { "label": "Container", "path": "/layout/container" },
+        { "label": "Tabs", "path": "/layout/tabs" }
+      ]
+    },
+    {
+      "label": "Form",
+      "icon": "FormInput",
+      "children": [
+        { "label": "Button", "path": "/form/button" },
+        { "label": "Input", "path": "/form/input" },
+        { "label": "Textarea", "path": "/form/textarea" },
+        { "label": "Select", "path": "/form/select" },
+        { "label": "Checkbox", "path": "/form/checkbox" },
+        { "label": "Radio Group", "path": "/form/radio-group" },
+        { "label": "Switch", "path": "/form/switch" },
+        { "label": "Slider", "path": "/form/slider" },
+        { "label": "Date Picker", "path": "/form/date-picker" },
+        { "label": "Calendar", "path": "/form/calendar" },
+        { "label": "Input OTP", "path": "/form/input-otp" },
+        { "label": "Toggle", "path": "/form/toggle" },
+        { "label": "File Upload", "path": "/form/file-upload" }
+      ]
     },
     {
       "label": "Data Display",
-      "path": "/data",
-      "icon": "Table"
+      "icon": "Table",
+      "children": [
+        { "label": "List", "path": "/data-display/list" },
+        { "label": "Avatar", "path": "/data-display/avatar" },
+        { "label": "Badge", "path": "/data-display/badge" },
+        { "label": "Alert", "path": "/data-display/alert" },
+        { "label": "Statistic", "path": "/data-display/statistic" },
+        { "label": "Tree View", "path": "/data-display/tree-view" }
+      ]
     },
     {
       "label": "Feedback",
-      "path": "/feedback",
-      "icon": "Bell"
+      "icon": "Bell",
+      "children": [
+        { "label": "Toaster", "path": "/feedback/toaster" },
+        { "label": "Progress", "path": "/feedback/progress" },
+        { "label": "Skeleton", "path": "/feedback/skeleton" }
+      ]
     },
     {
-      "label": "Overlays",
-      "path": "/overlays",
-      "icon": "Layers"
+      "label": "Overlay",
+      "icon": "Layers",
+      "children": [
+        { "label": "Dialog", "path": "/overlay/dialog" },
+        { "label": "Sheet", "path": "/overlay/sheet" },
+        { "label": "Drawer", "path": "/overlay/drawer" },
+        { "label": "Popover", "path": "/overlay/popover" },
+        { "label": "Tooltip", "path": "/overlay/tooltip" },
+        { "label": "Hover Card", "path": "/overlay/hover-card" },
+        { "label": "Alert Dialog", "path": "/overlay/alert-dialog" },
+        { "label": "Dropdown Menu", "path": "/overlay/dropdown-menu" },
+        { "label": "Context Menu", "path": "/overlay/context-menu" }
+      ]
+    },
+    {
+      "label": "Disclosure",
+      "icon": "ChevronRight",
+      "children": [
+        { "label": "Accordion", "path": "/disclosure/accordion" },
+        { "label": "Collapsible", "path": "/disclosure/collapsible" }
+      ]
     },
     {
       "label": "Complex",
-      "path": "/complex",
-      "icon": "Cpu"
+      "icon": "Cpu",
+      "children": [
+        { "label": "Data Table", "path": "/complex/data-table" },
+        { "label": "Kanban", "path": "/complex/kanban" },
+        { "label": "Calendar View", "path": "/complex/calendar-view" },
+        { "label": "Timeline", "path": "/complex/timeline" },
+        { "label": "Charts", "path": "/complex/charts" },
+        { "label": "Carousel", "path": "/complex/carousel" },
+        { "label": "Resizable", "path": "/complex/resizable" },
+        { "label": "Scroll Area", "path": "/complex/scroll-area" },
+        { "label": "Chatbot", "path": "/complex/chatbot" }
+      ]
     }
   ],
   "actions": [

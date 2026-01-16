@@ -1,0 +1,47 @@
+{
+  "type": "page",
+  "title": "Input Component",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-6",
+      "children": [
+        {
+          "type": "text",
+          "value": "Input",
+          "className": "text-3xl font-bold tracking-tight"
+        },
+        {
+          "type": "text",
+          "value": "Examples of the Input component.",
+          "className": "text-muted-foreground"
+        },
+        {
+          "type": "card",
+          "className": "p-6",
+          "children": [
+            {
+              "type": "div",
+              "className": "space-y-4 max-w-sm",
+              "children": [
+                {
+                  "type": "email",
+                  "placeholder": "Email"
+                },
+                {
+                  "type": "password",
+                  "placeholder": "Password"
+                },
+                {
+                  "type": "input",
+                  "placeholder": "Disabled",
+                  "disabled": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

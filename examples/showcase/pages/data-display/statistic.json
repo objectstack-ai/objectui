@@ -1,6 +1,6 @@
 {
   "type": "page",
-  "title": "Dashboard Component",
+  "title": "Statistic Component",
   "body": [
     {
       "type": "div",
@@ -8,12 +8,12 @@
       "children": [
         {
           "type": "text",
-          "value": "Dashboard",
+          "value": "Statistic",
           "className": "text-3xl font-bold tracking-tight"
         },
         {
           "type": "text",
-          "value": "Examples of the Dashboard component.",
+          "value": "Examples of the Statistic component.",
           "className": "text-muted-foreground"
         },
         {
@@ -22,7 +22,7 @@
           "children": [
             {
               "type": "text",
-              "value": "TODO: detailed examples for dashboard"
+              "value": "TODO: detailed examples for statistic"
             }
           ]
         }

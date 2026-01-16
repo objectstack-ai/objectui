@@ -1,0 +1,63 @@
+{
+  "type": "page",
+  "title": "Button Component",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-6",
+      "children": [
+        {
+          "type": "text",
+          "value": "Button",
+          "className": "text-3xl font-bold tracking-tight"
+        },
+        {
+          "type": "text",
+          "value": "Examples of the Button component.",
+          "className": "text-muted-foreground"
+        },
+        {
+          "type": "card",
+          "className": "p-6",
+          "children": [
+            {
+              "type": "div",
+              "className": "flex gap-4 flex-wrap",
+              "children": [
+                {
+                  "type": "button",
+                  "label": "Default"
+                },
+                {
+                  "type": "button",
+                  "label": "Secondary",
+                  "variant": "secondary"
+                },
+                {
+                  "type": "button",
+                  "label": "Destructive",
+                  "variant": "destructive"
+                },
+                {
+                  "type": "button",
+                  "label": "Outline",
+                  "variant": "outline"
+                },
+                {
+                  "type": "button",
+                  "label": "Ghost",
+                  "variant": "ghost"
+                },
+                {
+                  "type": "button",
+                  "label": "Link",
+                  "variant": "link"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

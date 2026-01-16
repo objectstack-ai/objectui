@@ -12,7 +12,10 @@ import {
   DropdownMenuShortcut,
   Avatar,
   AvatarImage,
-  AvatarFallback
+  AvatarFallback,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
 } from '@object-ui/components';
 
 interface LayoutRendererProps {
@@ -34,6 +37,66 @@ const getIcon = (name?: string) => {
   if ((LucideIcons as any)[pascalName]) return (LucideIcons as any)[pascalName];
 
   return LucideIcons.Circle; // Fallback
+};
+
+const NavItem = ({ item, currentPath, isSidebarOpen, onNavigate, level = 0 }: any) => {
+  const isActive = currentPath === item.path;
+  const hasActiveChild = item.children?.some((child: any) => child.path === currentPath);
+  const [isOpen, setIsOpen] = React.useState(hasActiveChild);
+  const Icon = getIcon(item.icon);
+
+  // Auto-expand if child is active
+  React.useEffect(() => {
+    if (hasActiveChild) setIsOpen(true);
+  }, [hasActiveChild]);
+
+  if (item.children && item.children.length > 0) {
+     return (
+        <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
+            <CollapsibleTrigger className={`flex w-full items-center justify-between py-2 text-sm font-medium rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground ${isSidebarOpen ? 'px-3' : 'justify-center px-2 cursor-pointer'}`}>
+                 <div className="flex items-center overflow-hidden">
+                    {Icon && <Icon className={`h-4 w-4 flex-shrink-0 ${isSidebarOpen ? 'mr-3' : ''}`} />}
+                    <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'opacity-100 w-auto' : 'opacity-0 w-0 hidden'}`}>
+                        {item.label}
+                    </span>
+                 </div>
+                 {isSidebarOpen && (
+                     <LucideIcons.ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                 )}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                 {isSidebarOpen && item.children.map((child: any, idx: number) => (
+                     <NavItem 
+                        key={idx} 
+                        item={child} 
+                        currentPath={currentPath}
+                        isSidebarOpen={isSidebarOpen}
+                        onNavigate={onNavigate}
+                        level={level + 1}
+                     />
+                 ))}
+            </CollapsibleContent>
+        </Collapsible>
+     );
+  }
+
+  return (
+    <a 
+      href={item.path || '#'}
+      onClick={(e) => item.path && onNavigate(e, item.path)}
+      title={!isSidebarOpen ? item.label : undefined}
+      className={`flex items-center py-2 text-sm font-medium rounded-md transition-colors ${
+        isActive 
+          ? 'bg-primary text-primary-foreground' 
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+      } ${isSidebarOpen ? 'px-3' : 'justify-center px-2'} ${level > 0 && isSidebarOpen ? 'pl-10' : ''}`}
+    >
+      {Icon && <Icon className={`h-4 w-4 flex-shrink-0 ${isSidebarOpen ? 'mr-3' : ''} ${isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'}`} />}
+      <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'opacity-100 w-auto' : 'opacity-0 w-0 hidden'}`}>
+        {item.label}
+      </span>
+    </a>
+  );
 };
 
 export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: LayoutRendererProps) => {
@@ -100,28 +163,15 @@ export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: Layou
             </span>
           </div>
           <nav className="flex-1 p-2 space-y-1 overflow-y-auto overflow-x-hidden">
-            {app.menu?.map((item, index) => {
-              const isActive = currentPath === item.path;
-              const Icon = getIcon(item.icon);
-              return (
-                <a 
-                  key={index}
-                  href={item.path || '#'}
-                  onClick={(e) => item.path && handleNavClick(e, item.path)}
-                  title={!isSidbarOpen ? item.label : undefined}
-                  className={`flex items-center py-2 text-sm font-medium rounded-md transition-colors ${
-                    isActive 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  } ${isSidbarOpen ? 'px-3' : 'justify-center px-2'}`}
-                >
-                  {Icon && <Icon className={`h-4 w-4 flex-shrink-0 ${isSidbarOpen ? 'mr-3' : ''} ${isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'}`} />}
-                  <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${isSidbarOpen ? 'opacity-100 w-auto' : 'opacity-0 w-0 hidden'}`}>
-                    {item.label}
-                  </span>
-                </a>
-              );
-            })}
+            {app.menu?.map((item, index) => (
+              <NavItem 
+                key={index} 
+                item={item} 
+                currentPath={currentPath}
+                isSidebarOpen={isSidbarOpen} 
+                onNavigate={handleNavClick} 
+              />
+            ))}
           </nav>
           {app.version && isSidbarOpen && (
             <div className="p-4 border-t text-xs text-muted-foreground">

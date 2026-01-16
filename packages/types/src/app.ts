@@ -111,4 +111,28 @@ export interface AppAction {
   label?: string;
   icon?: string;
   onClick?: string;
+  /**
+   * User Avatar URL (for type='user')
+   */
+  avatar?: string;
+  /**
+   * Additional description (e.g. email for user)
+   */
+  description?: string;
+  /**
+   * Dropdown Menu Items (for type='dropdown' or 'user')
+   */
+  items?: MenuItem[];
+  /**
+   * Keyboard shortcut
+   */
+  shortcut?: string;
+  /**
+   * Button variant
+   */
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  /**
+   * Button size
+   */
+  size?: 'default' | 'sm' | 'lg' | 'icon';
 }

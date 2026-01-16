@@ -59,7 +59,8 @@ The architecture prioritizes **Standalone Usage**. The Core must never know abou
 
 **Your competitive advantage is "It looks hand-coded".**
 
-* **Instruction:** The generated UI must be indistinguishable from a meticulously crafted Shadcn dashboard.
+* **Identity:** This project is the **JSON version of ui.shadcn**.
+* **Instruction:** Basic components must strictly follow Shadcn's basic specifications. The generated UI must be indistinguishable from a meticulously crafted Shadcn dashboard.
 * **Constraint:** ALWAYS expose `className` in the schema and merge it using `cn()`. This allows users to override styles (e.g., `className: "bg-red-500"`) without fighting the library.
 
 ### 🧩 Rule #3: The "Schema First" Mindset

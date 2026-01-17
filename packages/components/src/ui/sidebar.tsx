@@ -280,11 +280,15 @@ const SidebarTrigger = React.forwardRef<
 })
 SidebarTrigger.displayName = "SidebarTrigger"
 
-function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
+const SidebarRail = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<"button">
+>(({ className, ...props }, ref) => {
   const { toggleSidebar } = useSidebar()
 
   return (
     <button
+      ref={ref}
       data-sidebar="rail"
       data-slot="sidebar-rail"
       aria-label="Toggle Sidebar"
@@ -303,7 +307,8 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
       {...props}
     />
   )
-}
+})
+SidebarRail.displayName = "SidebarRail"
 
 function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
   return (

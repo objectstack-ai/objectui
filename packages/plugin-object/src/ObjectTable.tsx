@@ -96,6 +96,46 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
           accessorKey: fieldName,
         };
         
+        // Add field type-specific formatting hints
+        if (field.type === 'date' || field.type === 'datetime') {
+          column.type = 'date';
+        } else if (field.type === 'boolean') {
+          column.type = 'boolean';
+        } else if (field.type === 'number' || field.type === 'currency' || field.type === 'percent') {
+          column.type = 'number';
+        } else if (field.type === 'image' || field.type === 'file') {
+          // For file/image fields, display the name or count
+          column.cell = (value: any) => {
+            if (!value) return '-';
+            if (Array.isArray(value)) {
+              const count = value.length;
+              const fileType = field.type === 'image' ? 'image' : 'file';
+              return count === 1 ? `1 ${fileType}` : `${count} ${fileType}s`;
+            }
+            return value.name || value.original_name || 'File';
+          };
+        } else if (field.type === 'lookup' || field.type === 'master_detail') {
+          // For relationship fields, display the name property if available
+          column.cell = (value: any) => {
+            if (!value) return '-';
+            if (typeof value === 'object' && value !== null) {
+              // Try common display properties first
+              if (value.name) return value.name;
+              if (value.label) return value.label;
+              if (value._id) return value._id;
+              // Fallback to object type indicator
+              return '[Object]';
+            }
+            return String(value);
+          };
+        } else if (field.type === 'url') {
+          // For URL fields, make them clickable
+          column.cell = (value: any) => {
+            if (!value) return '-';
+            return value; // The table renderer should handle URL formatting
+          };
+        }
+        
         generatedColumns.push(column);
       }
     });

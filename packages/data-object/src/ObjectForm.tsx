@@ -6,9 +6,9 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import type { ObjectFormSchema, FormField } from '@object-ui/types';
+import type { ObjectFormSchema, FormField, FormSchema } from '@object-ui/types';
 import type { ObjectQLDataSource } from '@object-ui/data-objectql';
-import { Form } from '@object-ui/components';
+import { SchemaRenderer } from '@object-ui/react';
 
 export interface ObjectFormProps {
   /**
@@ -48,7 +48,6 @@ export interface ObjectFormProps {
 export const ObjectForm: React.FC<ObjectFormProps> = ({
   schema,
   dataSource,
-  className,
 }) => {
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
@@ -60,7 +59,6 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
   useEffect(() => {
     const fetchObjectSchema = async () => {
       try {
-        // TODO: Implement actual schema fetching from ObjectQL
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
         setObjectSchema(schemaData);
       } catch (err) {
@@ -144,24 +142,6 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
           formField.maxLength = field.maxLength;
         }
 
-        // Add validation rules
-        if (field.required) {
-          formField.validation = formField.validation || [];
-          formField.validation.push({
-            type: 'required',
-            message: `${field.label || fieldName} is required`,
-          });
-        }
-
-        if (field.pattern) {
-          formField.validation = formField.validation || [];
-          formField.validation.push({
-            type: 'pattern',
-            pattern: field.pattern,
-            message: field.patternErrorMessage || `Invalid ${field.label || fieldName} format`,
-          });
-        }
-
         generatedFields.push(formField);
       }
     });
@@ -228,37 +208,35 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
     );
   }
 
-  // Convert to Form schema and render
-  const formSchema = {
-    type: 'form' as const,
-    title: schema.title,
-    description: schema.description,
+  // Convert to FormSchema
+  const formSchema: FormSchema = {
+    type: 'form',
     fields: formFields,
-    layout: schema.layout || 'vertical',
+    layout: schema.layout === 'grid' || schema.layout === 'inline' ? 'vertical' : schema.layout || 'vertical',
     columns: schema.columns,
-    submitText: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
-    cancelText: schema.cancelText,
+    submitLabel: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+    cancelLabel: schema.cancelText,
     showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
     showCancel: schema.showCancel !== false,
-    showReset: schema.showReset,
+    resetOnSubmit: schema.showReset,
+    defaultValues: initialData,
+    onSubmit: handleSubmit,
+    onCancel: handleCancel,
     className: schema.className,
   };
 
   return (
-    <Form 
-      schema={formSchema} 
-      initialValues={initialData}
-      onSubmit={handleSubmit}
-      onCancel={handleCancel}
-    />
+    <div className="w-full">
+      <SchemaRenderer schema={formSchema} />
+    </div>
   );
 };
 
 /**
  * Map ObjectQL field type to form field type
  */
-function mapFieldTypeToFormType(fieldType: string): FormField['type'] {
-  const typeMap: Record<string, FormField['type']> = {
+function mapFieldTypeToFormType(fieldType: string): string {
+  const typeMap: Record<string, string> = {
     text: 'input',
     textarea: 'textarea',
     number: 'input',

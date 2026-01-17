@@ -18,7 +18,7 @@ import type {
   APIError 
 } from '@object-ui/types';
 
-import { DataApiClient } from '@objectql/sdk';
+import { DataApiClient, MetadataApiClient } from '@objectql/sdk';
 import type { 
   DataApiClientConfig,
   DataApiListParams,
@@ -131,10 +131,12 @@ export interface ObjectQLConfig extends DataApiClientConfig {
  */
 export class ObjectQLDataSource<T = any> implements DataSource<T> {
   private client: DataApiClient;
+  private metadataClient: MetadataApiClient;
   
   constructor(config: ObjectQLConfig) {
     // Initialize the official ObjectQL SDK client
     this.client = new DataApiClient(config);
+    this.metadataClient = new MetadataApiClient(config);
   }
   
   /**
@@ -373,8 +375,8 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
    */
   async getObjectSchema(objectName: string): Promise<any> {
     try {
-      // Use the ObjectQL SDK to fetch object metadata
-      const response = await this.client.getObjectMetadata(objectName);
+      // Use the Metadata API client to fetch object metadata
+      const response = await this.metadataClient.getObject(objectName);
       return response;
     } catch (err: any) {
       throw {

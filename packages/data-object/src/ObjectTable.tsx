@@ -6,10 +6,9 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import type { ObjectTableSchema } from '@object-ui/types';
+import type { ObjectTableSchema, TableColumn, TableSchema } from '@object-ui/types';
 import type { ObjectQLDataSource } from '@object-ui/data-objectql';
-import { Table } from '@object-ui/components';
-import type { TableColumn } from '@object-ui/types';
+import { SchemaRenderer } from '@object-ui/react';
 
 export interface ObjectTableProps {
   /**
@@ -48,7 +47,6 @@ export interface ObjectTableProps {
 export const ObjectTable: React.FC<ObjectTableProps> = ({
   schema,
   dataSource,
-  className,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +58,6 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
   useEffect(() => {
     const fetchObjectSchema = async () => {
       try {
-        // TODO: Implement actual schema fetching from ObjectQL
-        // For now, we'll use a placeholder
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
         setObjectSchema(schemaData);
       } catch (err) {
@@ -89,18 +85,15 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
       if (!field) return;
 
       // Check if there's a custom column configuration
-      const customColumn = schema.columns?.find(col => col.name === fieldName);
+      const customColumn = schema.columns?.find(col => col.accessorKey === fieldName);
       
       if (customColumn) {
         generatedColumns.push(customColumn);
       } else {
         // Auto-generate column from field schema
         const column: TableColumn = {
-          name: fieldName,
-          label: field.label || fieldName,
-          type: mapFieldTypeToColumnType(field.type),
-          sortable: field.sortable !== false,
-          filterable: field.filterable !== false,
+          header: field.label || fieldName,
+          accessorKey: fieldName,
         };
         
         generatedColumns.push(column);
@@ -134,7 +127,7 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
       }
 
       const result = await dataSource.find(schema.objectName, params);
-      setData(Array.isArray(result) ? result : result.value || []);
+      setData(result.data || []);
     } catch (err) {
       console.error('Failed to fetch data:', err);
       setError(err as Error);
@@ -174,44 +167,18 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
     );
   }
 
-  // Convert to Table schema and render
-  const tableSchema = {
-    type: 'table' as const,
-    title: schema.title,
-    description: schema.description,
+  // Convert to TableSchema
+  const tableSchema: TableSchema = {
+    type: 'table',
+    caption: schema.title,
     columns,
     data,
-    pagination: schema.showPagination !== false ? {
-      pageSize: schema.pageSize || 10,
-    } : undefined,
-    searchable: schema.showSearch !== false,
-    filterable: schema.showFilters !== false,
-    selectable: schema.selectable || false,
     className: schema.className,
   };
 
-  return <Table schema={tableSchema} onRefresh={handleRefresh} />;
+  return (
+    <div className="w-full">
+      <SchemaRenderer schema={tableSchema} onAction={handleRefresh} />
+    </div>
+  );
 };
-
-/**
- * Map ObjectQL field type to table column type
- */
-function mapFieldTypeToColumnType(fieldType: string): TableColumn['type'] {
-  const typeMap: Record<string, TableColumn['type']> = {
-    text: 'text',
-    number: 'number',
-    currency: 'currency',
-    percent: 'percent',
-    date: 'date',
-    datetime: 'datetime',
-    boolean: 'boolean',
-    email: 'link',
-    url: 'link',
-    image: 'image',
-    select: 'badge',
-    lookup: 'link',
-    master_detail: 'link',
-  };
-
-  return typeMap[fieldType] || 'text';
-}

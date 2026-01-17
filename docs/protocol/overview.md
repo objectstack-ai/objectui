@@ -1,7 +1,5 @@
 # Protocol Specifications
 
-> **📊 [View Implementation Status](./implementation-status.md)** - Track the current status of all protocol features.
-
 The Object UI Protocol defines the standard schemas and conventions for describing user interfaces in JSON. This protocol is the foundation of Object UI and ensures consistency across all implementations.
 
 ## Overview

@@ -386,8 +386,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg">
-        <Table>
+      <Table>
           {caption && <TableCaption>{caption}</TableCaption>}
           <TableHeader>
             <TableRow>
@@ -511,7 +510,6 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
             )}
           </TableBody>
         </Table>
-      </div>
 
       {/* Pagination */}
       {pagination && sortedData.length > 0 && (

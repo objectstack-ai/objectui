@@ -52,7 +52,7 @@ export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema }) => {
     
     // Default: Return columns as-is (assuming they have 'cards' inside)
     return columns;
-  }, [schema.columns, schema.data, schema.groupBy]);
+  }, [schema]);
 
   return (
     <Suspense fallback={<Skeleton className="w-full h-[600px]" />}>

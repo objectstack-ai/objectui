@@ -250,9 +250,9 @@ import {
 
 Help us improve the protocol:
 
-1. [Report issues](https://github.com/objectql/objectui/issues)
-2. [Propose changes](https://github.com/objectql/objectui/pulls)
-3. [Join discussions](https://github.com/objectql/objectui/discussions)
+1. [Report issues](https://github.com/objectstack-ai/objectui/issues)
+2. [Propose changes](https://github.com/objectstack-ai/objectui/pulls)
+3. [Join discussions](https://github.com/objectstack-ai/objectui/discussions)
 
 ## Next Steps
 

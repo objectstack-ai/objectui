@@ -77,7 +77,7 @@ type SortDirection = 'asc' | 'desc' | null;
 const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const {
     caption,
-    columns: initialColumns = [],
+    columns: rawColumns = [],
     data = [],
     pagination = true,
     pageSize: initialPageSize = 10,
@@ -90,6 +90,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     reorderableColumns = true,
     className,
   } = schema;
+
+  // Normalize columns to support legacy keys (label/name) from existing JSONs
+  const initialColumns = useMemo(() => {
+    return rawColumns.map((col: any) => ({
+      ...col,
+      header: col.header || col.label,
+      accessorKey: col.accessorKey || col.name
+    }));
+  }, [rawColumns]);
 
   // State management
   const [searchQuery, setSearchQuery] = useState('');

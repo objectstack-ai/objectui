@@ -22,7 +22,7 @@ ComponentRegistry.register('table',
         <TableRow>
           {schema.columns?.map((col: any, index: number) => (
             <TableHead key={index} className={col.className} style={{ width: col.width }}>
-                {col.header}
+                {col.header || col.label}
             </TableHead>
           ))}
         </TableRow>
@@ -32,7 +32,7 @@ ComponentRegistry.register('table',
           <TableRow key={rowIndex}>
             {schema.columns?.map((col: any, colIndex: number) => (
                 <TableCell key={colIndex} className={col.cellClassName}>
-                    {row[col.accessorKey]}
+                    {row[col.accessorKey || col.name]}
                 </TableCell>
             ))}
           </TableRow>

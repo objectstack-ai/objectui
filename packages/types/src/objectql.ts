@@ -204,13 +204,31 @@ export interface ObjectFormSchema extends BaseSchema {
   }>;
   
   /**
-   * Form layout
+   * Form layout.
+   *
+   * Supported layouts:
+   * - `vertical`   – label above field (default)
+   * - `horizontal` – label and field in a row
+   * - `inline`     – compact inline layout, typically used in toolbars
+   * - `grid`       – **experimental** grid layout
+   *
+   * Note: As of the current implementation, the underlying form renderer does not yet
+   * support a native `grid` layout and will internally treat `layout: "grid"` as
+   * `layout: "vertical"`. This value is exposed in the schema for forward compatibility,
+   * and behavior may change once grid support is implemented.
+   *
    * @default 'vertical'
    */
   layout?: 'vertical' | 'horizontal' | 'inline' | 'grid';
   
   /**
-   * Grid columns (for grid layout)
+   * Grid columns (for grid layout).
+   *
+   * Intended number of columns when using a `grid` layout. Current renderers that do
+   * not implement true grid support may ignore this value and fall back to a vertical
+   * layout. When grid layout is supported, this value should control how many form
+   * fields are placed per row.
+   *
    * @default 2
    */
   columns?: number;

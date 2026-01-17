@@ -237,7 +237,18 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
 };
 
 /**
- * Map ObjectQL field type to form field type
+ * Maps an ObjectQL field type to the corresponding form field component type.
+ *
+ * This helper provides the translation layer between backend/ObjectQL field
+ * definitions (e.g. `text`, `date`, `lookup`) and the generic form field
+ * types understood by the schema renderer (e.g. `input`, `date-picker`,
+ * `select`). If a field type is not explicitly mapped, the function falls
+ * back to the generic `"input"` type.
+ *
+ * @param fieldType - The ObjectQL field type identifier to convert
+ * (for example: `"text"`, `"number"`, `"date"`, `"lookup"`).
+ * @returns The normalized form field type string used in the form schema
+ * (for example: `"input"`, `"textarea"`, `"date-picker"`, `"select"`).
  */
 function mapFieldTypeToFormType(fieldType: string): string {
   const typeMap: Record<string, string> = {

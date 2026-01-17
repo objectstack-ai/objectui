@@ -18,7 +18,7 @@ npm install @object-ui/plugin-object @object-ui/data-objectql
 ### ObjectTable
 
 ```tsx
-import { ObjectTable } from '@object-ui/data-object';
+import { ObjectTable } from '@object-ui/plugin-object';
 import { ObjectQLDataSource } from '@object-ui/data-objectql';
 
 const dataSource = new ObjectQLDataSource({
@@ -42,7 +42,7 @@ function UsersTable() {
 ### ObjectForm
 
 ```tsx
-import { ObjectForm } from '@object-ui/data-object';
+import { ObjectForm } from '@object-ui/plugin-object';
 import { ObjectQLDataSource } from '@object-ui/data-objectql';
 
 const dataSource = new ObjectQLDataSource({

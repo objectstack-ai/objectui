@@ -146,7 +146,7 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
 
         if (field.type === 'file' || field.type === 'image') {
           formField.multiple = field.multiple;
-          formField.accept = field.accept?.join(',');
+          formField.accept = field.accept ? field.accept.join(',') : undefined;
           // Add validation hints for file size and dimensions
           if (field.max_size) {
             const sizeHint = `Max size: ${formatFileSize(field.max_size)}`;

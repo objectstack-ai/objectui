@@ -119,7 +119,12 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
           column.cell = (value: any) => {
             if (!value) return '-';
             if (typeof value === 'object' && value !== null) {
-              return value.name || value.label || value._id || JSON.stringify(value);
+              // Try common display properties first
+              if (value.name) return value.name;
+              if (value.label) return value.label;
+              if (value._id) return value._id;
+              // Fallback to object type indicator
+              return '[Object]';
             }
             return String(value);
           };

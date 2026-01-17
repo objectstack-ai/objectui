@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] - 2026-01-17
+
 ### Added
 
 - **New Plugin**: `@object-ui/plugin-object` - ObjectQL plugin for automatic table and form generation
@@ -65,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Example applications in the examples directory
 - Complete documentation site with VitePress
 
+[0.3.0]: https://github.com/objectstack-ai/objectui/releases/tag/v0.3.0
 [0.2.1]: https://github.com/objectstack-ai/objectui/releases/tag/v0.2.1
 [0.2.0]: https://github.com/objectstack-ai/objectui/releases/tag/v0.2.0
 [0.1.0]: https://github.com/objectstack-ai/objectui/releases/tag/v0.1.0

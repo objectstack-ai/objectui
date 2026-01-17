@@ -1,8 +1,14 @@
-# @object-ui/data-objectql
+# @object-ui/runner
 
 ## 0.3.0
 
 ### Minor Changes
+
+- Unified version across all packages to 0.3.0 for consistent versioning
+
+## 0.1.1
+
+### Patch Changes
 
 - New plugin-object and ObjectQL SDK updates
 
@@ -18,21 +24,10 @@
   - Updated @objectql/sdk from ^1.8.3 to ^1.9.1
   - Updated @objectql/types from ^1.8.3 to ^1.9.1
 
-### Patch Changes
-
 - Updated dependencies
   - @object-ui/types@0.3.0
-
-## 0.2.1
-
-### Patch Changes
-
-- Patch release: Add automated changeset workflow and CI/CD improvements
-
-  This release includes infrastructure improvements:
-  - Added changeset-based version management
-  - Enhanced CI/CD workflows with GitHub Actions
-  - Improved documentation for contributing and releasing
-
-- Updated dependencies
-  - @object-ui/types@0.2.1
+  - @object-ui/core@0.2.2
+  - @object-ui/react@0.2.2
+  - @object-ui/components@0.2.2
+  - @object-ui/plugin-charts@0.2.2
+  - @object-ui/plugin-kanban@0.2.2

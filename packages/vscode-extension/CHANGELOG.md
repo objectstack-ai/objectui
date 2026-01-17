@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- Unified version across all packages to 0.3.0 for consistent versioning
+
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @object-ui/types@0.3.0
+  - @object-ui/core@0.2.2
+
 ## 0.1.1
 
 ### Patch Changes

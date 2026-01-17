@@ -3,21 +3,32 @@ import type { InputOTPSchema } from '@object-ui/types';
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '../../ui';
 
 ComponentRegistry.register('input-otp', 
-  ({ schema, className, ...props }: { schema: InputOTPSchema; className?: string; [key: string]: any }) => (
-    <InputOTP maxLength={schema.length || 6} className={className} {...props}>
-      <InputOTPGroup>
-        <InputOTPSlot index={0} />
-        <InputOTPSlot index={1} />
-        <InputOTPSlot index={2} />
-      </InputOTPGroup>
-      <InputOTPSeparator />
-      <InputOTPGroup>
-        <InputOTPSlot index={3} />
-        <InputOTPSlot index={4} />
-        <InputOTPSlot index={5} />
-      </InputOTPGroup>
-    </InputOTP>
-  ),
+  ({ schema, className, onChange, value, ...props }: { schema: InputOTPSchema; className?: string; [key: string]: any }) => {
+    const length = schema.maxLength || 6;
+    const slots = Array.from({ length });
+
+    const handleChange = (val: string) => {
+      if (onChange) {
+        onChange(val);
+      }
+    };
+
+    return (
+      <InputOTP 
+        maxLength={length} 
+        className={className} 
+        value={value ?? schema.value}
+        onChange={handleChange}
+        {...props}
+      >
+        <InputOTPGroup>
+          {slots.map((_, i) => (
+             <InputOTPSlot key={i} index={i} />
+          ))}
+        </InputOTPGroup>
+      </InputOTP>
+    );
+  },
   {
     label: 'Input OTP',
     inputs: [

@@ -1,8 +1,27 @@
 # Quick Start
 
-Let's build your first schema-driven interface in 5 minutes.
+You can use Object UI in two ways: via the **CLI** (for rapid schema-driven apps) or as a **React Library** (for valid existing projects).
 
-## The Hello World
+## Method A: The CLI Way (Fastest)
+
+Perfect for building dashboards, admin panels, and prototypes without writing React code.
+
+```bash
+# 1. Scaffolding a new project
+npx @object-ui/cli init my-admin --template dashboard
+
+# 2. Start the engine
+cd my-admin
+npx @object-ui/cli dev
+```
+
+That's it! Open `app.json` to start editing your UI.
+
+## Method B: The React Library Way
+
+Let's integrate Object UI into an existing React project.
+
+### The Hello World
 
 Create a new file `src/App.tsx`. We will define a simple login form using JSON.
 

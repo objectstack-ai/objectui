@@ -6,12 +6,10 @@ import { cn } from '../../lib/utils';
 
 const TreeNodeComponent = ({ 
   node, 
-  onNodeClick,
-  isChild = false
+  onNodeClick
 }: { 
   node: TreeNode; 
   onNodeClick?: (node: TreeNode) => void;
-  isChild?: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const hasChildren = node.children && node.children.length > 0;
@@ -85,7 +83,6 @@ const TreeNodeComponent = ({
               key={child.id}
               node={child}
               onNodeClick={onNodeClick}
-              isChild={true}
             />
           ))}
           

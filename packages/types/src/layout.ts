@@ -428,6 +428,7 @@ export type LayoutSchema =
   | SeparatorSchema
   | ContainerSchema
   | FlexSchema
+  | StackSchema
   | GridSchema
   | CardSchema
   | TabsSchema

@@ -75,6 +75,7 @@ export type {
   SeparatorSchema,
   ContainerSchema,
   FlexSchema,
+  StackSchema,
   GridSchema,
   CardSchema,
   TabsSchema,

@@ -4,12 +4,20 @@ This directory contains the VitePress documentation site for Object UI.
 
 ## Quick Links
 
+### For Users
 - 🏠 [Homepage](./index.md)
 - 📖 [Getting Started Guide](./guide/introduction.md)
 - 🚀 [Quick Start](./guide/quick-start.md)
 - 📦 [Installation](./guide/installation.md)
 - 🎨 [Visual Studio](./guide/studio.md)
 - 🗺️ [Roadmap](./ROADMAP.md)
+
+### For Developers
+- ⚡ [Quick Start for Developers](./QUICK_START_DEV.md) - Get started in 5 minutes
+- 📋 [Development Plan](./DEVELOPMENT_PLAN.md) - Q1-Q2 2026 priorities and roadmap
+- 🌏 [开发计划 (中文)](./DEVELOPMENT_PLAN_CN.md) - 中文开发计划
+- 🤝 [Contributing Guide](../CONTRIBUTING.md) - How to contribute
+- 📚 [Best Practices](./BEST_PRACTICES.md) - Code quality guidelines
 
 ## Documentation Structure
 

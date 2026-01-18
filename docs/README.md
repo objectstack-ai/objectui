@@ -15,7 +15,6 @@ This directory contains the VitePress documentation site for Object UI.
 ### For Developers
 - ⚡ [Quick Start for Developers](./QUICK_START_DEV.md) - Get started in 5 minutes
 - 📋 [Development Plan](./DEVELOPMENT_PLAN.md) - Q1-Q2 2026 priorities and roadmap
-- 🌏 [开发计划 (中文)](./DEVELOPMENT_PLAN_CN.md) - 中文开发计划
 - 🤝 [Contributing Guide](../CONTRIBUTING.md) - How to contribute
 - 📚 [Best Practices](./BEST_PRACTICES.md) - Code quality guidelines
 

@@ -426,7 +426,6 @@ We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md
 
 - 📖 [Quick Start for Developers](./docs/QUICK_START_DEV.md) - Get started in 5 minutes
 - 📋 [Development Plan](./docs/DEVELOPMENT_PLAN.md) - Current priorities and roadmap
-- 🌏 [开发计划 (中文)](./docs/DEVELOPMENT_PLAN_CN.md) - Chinese version
 
 ### Development Setup
 

@@ -99,7 +99,7 @@ plugins/* (depends: components, react)
 - ✅ Protocol specifications
 - ✅ Architecture documentation
 - ✅ Contributing guide
-- ✅ Development plans (EN/CN)
+- ✅ Development plan
 - ✅ Roadmap
 
 ---
@@ -140,7 +140,7 @@ plugins/* (depends: components, react)
 
 6. **Internationalization** (Week 4)
    - i18n framework
-   - Chinese/English support
+   - Multi-language support
    - RTL support
    - Date/number formatting
 
@@ -173,7 +173,7 @@ plugins/* (depends: components, react)
 - **Focus**: Theme system & internationalization
 - **Deliverables**:
   - Theme switching system
-  - Chinese/English support
+  - Multi-language support
   - Component theme support
 - **Success Metrics**:
   - Smooth theme switching

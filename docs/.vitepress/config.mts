@@ -47,6 +47,14 @@ export default defineConfig({
           ]
         },
         {
+          text: 'Development',
+          items: [
+            { text: 'Quick Start for Developers', link: '/quick-start-dev' },
+            { text: 'Development Plan', link: '/development-plan' },
+            { text: 'Contributing Guide', link: '/CONTRIBUTING' }
+          ]
+        },
+        {
           text: 'Core Concepts',
           items: [
             { text: 'Schema Rendering', link: '/guide/schema-rendering' },

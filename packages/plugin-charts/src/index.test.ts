@@ -7,14 +7,14 @@ describe('Plugin Charts', () => {
     await import('./index');
   });
 
-  describe('chart-bar component', () => {
+  describe('bar-chart component', () => {
     it('should be registered in ComponentRegistry', () => {
-      const chartBarRenderer = ComponentRegistry.get('chart-bar');
+      const chartBarRenderer = ComponentRegistry.get('bar-chart');
       expect(chartBarRenderer).toBeDefined();
     });
 
     it('should have proper metadata', () => {
-      const config = ComponentRegistry.getConfig('chart-bar');
+      const config = ComponentRegistry.getConfig('bar-chart');
       expect(config).toBeDefined();
       expect(config?.label).toBe('Bar Chart');
       expect(config?.category).toBe('plugin');
@@ -23,7 +23,7 @@ describe('Plugin Charts', () => {
     });
 
     it('should have expected inputs', () => {
-      const config = ComponentRegistry.getConfig('chart-bar');
+      const config = ComponentRegistry.getConfig('bar-chart');
       const inputNames = config?.inputs?.map((input: any) => input.name) || [];
       
       expect(inputNames).toContain('data');
@@ -34,7 +34,7 @@ describe('Plugin Charts', () => {
     });
 
     it('should have data as required input', () => {
-      const config = ComponentRegistry.getConfig('chart-bar');
+      const config = ComponentRegistry.getConfig('bar-chart');
       const dataInput = config?.inputs?.find((input: any) => input.name === 'data');
       
       expect(dataInput).toBeDefined();
@@ -43,7 +43,7 @@ describe('Plugin Charts', () => {
     });
 
     it('should have sensible default props', () => {
-      const config = ComponentRegistry.getConfig('chart-bar');
+      const config = ComponentRegistry.getConfig('bar-chart');
       const defaults = config?.defaultProps;
       
       expect(defaults).toBeDefined();

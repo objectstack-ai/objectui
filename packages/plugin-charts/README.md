@@ -5,7 +5,7 @@ A lazy-loaded charting component for Object UI based on Recharts.
 ## Features
 
 - **Internal Lazy Loading**: Recharts is loaded on-demand using `React.lazy()` and `Suspense`
-- **Zero Configuration**: Just import the package and use `type: 'chart-bar'` in your schema
+- **Zero Configuration**: Just import the package and use `type: 'bar-chart'` in your schema
 - **Automatic Registration**: Components auto-register with the ComponentRegistry
 - **Skeleton Loading**: Shows a skeleton while Recharts loads
 
@@ -25,7 +25,7 @@ import '@object-ui/plugin-charts';
 
 // Now you can use chart-bar type in your schemas
 const schema = {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data: [
     { name: 'Jan', value: 400 },
     { name: 'Feb', value: 300 },
@@ -57,7 +57,7 @@ The plugin exports TypeScript types for full type safety:
 import type { BarChartSchema } from '@object-ui/plugin-charts';
 
 const schema: BarChartSchema = {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data: [
     { name: 'Jan', value: 400 },
     { name: 'Feb', value: 300 }
@@ -72,7 +72,7 @@ const schema: BarChartSchema = {
 
 ```typescript
 {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data?: Array<Record<string, any>>,  // Chart data
   dataKey?: string,                    // Y-axis data key (default: 'value')
   xAxisKey?: string,                   // X-axis label key (default: 'name')

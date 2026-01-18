@@ -18,7 +18,7 @@ import '@object-ui/plugin-charts'
 
 // Use in schemas
 const schema = {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data: [
     { name: 'Jan', value: 400 },
     { name: 'Feb', value: 300 },
@@ -41,7 +41,7 @@ const schema = {
 
 ```typescript
 {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data?: Array<Record<string, any>>,  // Chart data
   dataKey?: string,                    // Y-axis data key
   xAxisKey?: string,                   // X-axis label key
@@ -68,7 +68,7 @@ const schema = {
 
 ```tsx
 const schema = {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data: [
     { month: 'Jan', sales: 400 },
     { month: 'Feb', sales: 300 },
@@ -134,7 +134,7 @@ const schema = {
 
 ```tsx
 const revenueChart = {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data: [
     { quarter: 'Q1 2024', revenue: 45000, target: 50000 },
     { quarter: 'Q2 2024', revenue: 52000, target: 50000 },
@@ -182,7 +182,7 @@ Without lazy loading, this would add 541 KB to your main bundle. With lazy loadi
 
 ```tsx
 const schema = {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data: salesData,
   color: '#f59e0b', // Amber color
   className: 'bg-white p-4 rounded-lg'
@@ -206,7 +206,7 @@ const schema = {
 import type { BarChartSchema } from '@object-ui/plugin-charts'
 
 const chartSchema: BarChartSchema = {
-  type: 'chart-bar',
+  type: 'bar-chart',
   data: [
     { name: 'Product A', value: 400 },
     { name: 'Product B', value: 300 }

@@ -44,7 +44,7 @@ export const ChartBarRenderer: React.FC<ChartBarRendererProps> = ({ schema }) =>
 
 // Register the component with the ComponentRegistry
 ComponentRegistry.register(
-  'chart-bar',
+  'bar-chart',
   ChartBarRenderer,
   {
     label: 'Bar Chart',
@@ -196,6 +196,6 @@ ComponentRegistry.register(
 
 // Standard Export Protocol - for manual integration
 export const chartComponents = {
-  'chart-bar': ChartBarRenderer,
+  'bar-chart': ChartBarRenderer,
   'chart': ChartRenderer,
 };

@@ -16,7 +16,7 @@ import type { BaseSchema } from '@object-ui/types';
  * import type { BarChartSchema } from '@object-ui/plugin-charts';
  * 
  * const chartSchema: BarChartSchema = {
- *   type: 'chart-bar',
+ *   type: 'bar-chart',
  *   data: [
  *     { name: 'Jan', value: 400 },
  *     { name: 'Feb', value: 300 }
@@ -27,7 +27,7 @@ import type { BaseSchema } from '@object-ui/types';
  * ```
  */
 export interface BarChartSchema extends BaseSchema {
-  type: 'chart-bar';
+  type: 'bar-chart';
   
   /**
    * Array of data points to display in the chart.

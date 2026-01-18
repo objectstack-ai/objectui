@@ -5,7 +5,8 @@ Pure TypeScript type definitions for Object UI - **The Protocol Layer**.
 ## Features
 
 - 🎯 **Complete Type Coverage** - Every component has full TypeScript definitions
-- 📦 **Zero Dependencies** - Pure types with no runtime dependencies
+- 🏛️ **Built on @objectstack/spec** - Extends the universal UI component specification
+- 📦 **Minimal Dependencies** - Only depends on @objectstack/spec (pure types)
 - 🔌 **Framework Agnostic** - Use with React, Vue, or any framework
 - 🌍 **Backend Agnostic** - Works with REST, GraphQL, ObjectQL, or local data
 - 🎨 **Tailwind Native** - Designed for Tailwind CSS styling
@@ -21,20 +22,26 @@ yarn add @object-ui/types
 pnpm add @object-ui/types
 ```
 
-**Important:** This package has **ZERO runtime dependencies**. It's pure TypeScript types.
+**Important:** This package depends on `@objectstack/spec` which provides the foundational protocol.
 
-## Philosophy
+## Architecture: The Inheritance Chain
 
-Object UI follows a **"Protocol First"** approach:
+Object UI follows a strict **"Protocol First"** approach with a clear inheritance hierarchy:
 
 ```
-@object-ui/types (Protocol)
-     ↓
-@object-ui/core (Engine)
-     ↓
-@object-ui/react (Framework)
-     ↓
-@object-ui/components (UI Implementation)
+@objectstack/spec (v0.1.1)          ← The "Highest Law" - Universal protocol
+    ↓
+UIComponent                         ← Base interface for all UI components
+    ↓
+BaseSchema (@object-ui/types)       ← ObjectUI extensions (visibleOn, hiddenOn, etc.)
+    ↓
+Specific Schemas                    ← Component implementations (ChartSchema, etc.)
+    ↓
+@object-ui/core (Engine)            ← Schema validation and expression evaluation
+    ↓
+@object-ui/react (Framework)        ← React renderer
+    ↓
+@object-ui/components (UI)          ← Shadcn/Tailwind implementation
 ```
 
 This separation allows:
@@ -42,6 +49,7 @@ This separation allows:
 - ✅ Multiple framework bindings (React, Vue, Svelte)
 - ✅ Multiple backend adapters (REST, GraphQL, ObjectQL)
 - ✅ Static analysis and validation without runtime dependencies
+- ✅ Compliance with the ObjectStack ecosystem standards
 
 ## Usage
 

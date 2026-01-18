@@ -16,9 +16,16 @@
  * @packageDocumentation
  */
 
+import type { UIComponent, SchemaNode as SpecSchemaNode } from '@objectstack/spec';
+
 /**
  * Base schema interface that all component schemas extend.
- * This is the fundamental building block of the Object UI protocol.
+ * 
+ * This extends UIComponent from @objectstack/spec (the "highest law")
+ * and adds ObjectUI-specific rendering extensions like visibleOn, hiddenOn, etc.
+ * 
+ * Inheritance Chain:
+ * UIComponent (@objectstack/spec) → BaseSchema → Specific Schemas (ChartSchema, etc.)
  * 
  * @example
  * ```typescript
@@ -30,9 +37,10 @@
  * }
  * ```
  */
-export interface BaseSchema {
+export interface BaseSchema extends UIComponent {
   /**
    * Component type identifier. Determines which renderer to use.
+   * Inherited from UIComponent but documented here for clarity.
    * @example 'input', 'button', 'form', 'grid'
    */
   type: string;
@@ -161,6 +169,8 @@ export interface BaseSchema {
 /**
  * A schema node can be a full schema object or a primitive value.
  * This union type supports both structured components and simple content.
+ * 
+ * Re-exported from @objectstack/spec for convenience.
  * 
  * @example
  * ```typescript

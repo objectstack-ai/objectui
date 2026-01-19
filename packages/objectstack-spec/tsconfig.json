@@ -6,7 +6,8 @@
     "declaration": true,
     "declarationMap": true,
     "composite": true,
-    "noEmit": false
+    "noEmit": false,
+    "moduleResolution": "node"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]

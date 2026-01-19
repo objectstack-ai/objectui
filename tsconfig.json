@@ -21,6 +21,8 @@
 
     "baseUrl": ".",
     "paths": {
+      "@objectstack/spec": ["packages/objectstack-spec/src"],
+      "@objectstack/spec/*": ["packages/objectstack-spec/src/*"],
       "@object-ui/types": ["packages/types/src"],
       "@object-ui/types/*": ["packages/types/src/*"],
       "@object-ui/core": ["packages/core/src"],

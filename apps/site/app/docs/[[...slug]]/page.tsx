@@ -17,6 +17,7 @@ export default async function Page({
   const page = source.getPage(slug);
   if (!page) notFound();
 
+  // Type assertion needed due to custom data mapping
   const MDX = (page.data as any).body;
 
   return (

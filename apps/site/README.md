@@ -1,6 +1,23 @@
-# Object UI Documentation Site
+# Object UI Documentation Site (Fumadocs Migration - In Progress)
 
-This is the official documentation site for Object UI, built with [Fumadocs](https://fumadocs.vercel.app/).
+This is the official documentation site for Object UI, being migrated to [Fumadocs](https://fumadocs.vercel.app/).
+
+## Status
+
+🚧 **Work in Progress** - The site structure is complete but there are issues with the fumadocs source API integration that need to be resolved.
+
+### Completed
+- ✅ Next.js 15 + TypeScript setup
+- ✅ Tailwind CSS configuration  
+- ✅ Fumadocs UI integration
+- ✅ MDX content processing
+- ✅ Basic documentation pages created
+- ✅ Homepage and layout structure
+
+### Known Issues
+- ⚠️ Route generation not working - investigating fumadocs 15.x API changes
+- The `.source` output from fumadocs-mdx needs proper integration with loader
+- `createMDXSource` API compatibility issue with runtime-processed docs/meta
 
 ## Development
 
@@ -8,14 +25,11 @@ This is the official documentation site for Object UI, built with [Fumadocs](htt
 # Install dependencies
 pnpm install
 
-# Start development server
+# Start development server (NOTE: routes currently return 404)
 pnpm dev
 
 # Build for production
 pnpm build
-
-# Start production server
-pnpm start
 ```
 
 ## Project Structure
@@ -36,28 +50,17 @@ apps/site/
 └── source.config.ts     # Fumadocs MDX configuration
 ```
 
-## Features
+## Technical Notes
 
-- 📝 MDX-based documentation
-- 🎨 Built with Tailwind CSS
-- 🌗 Dark mode support
-- 🔍 Full-text search (coming soon)
-- 📱 Responsive design
-- ⚡ Fast page loads with Next.js
+The fumadocs-mdx compiler generates a `.source` directory with processed docs and meta exports. These are wrapped by `_runtime.doc()` and `_runtime.meta()` functions. The correct integration with fumadocs-core's `loader` and `createMDXSource` needs investigation based on fumadocs 15.x API.
 
-## Adding Documentation
+## Next Steps
 
-1. Create a new `.mdx` file in `content/docs/`
-2. Add frontmatter with title and description:
-   ```mdx
-   ---
-   title: Your Page Title
-   description: Page description
-   ---
-   
-   # Your Content Here
-   ```
-3. Update `content/docs/meta.json` to add the page to navigation
+1. Investigate correct fumadocs 15.x API for integrating `.source` exports
+2. Fix route generation to resolve 404 errors
+3. Add search functionality
+4. Migrate remaining documentation content
+5. Set up deployment
 
 ## Tech Stack
 
@@ -65,3 +68,4 @@ apps/site/
 - [Fumadocs](https://fumadocs.vercel.app/) - Documentation framework
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
+

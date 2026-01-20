@@ -6,6 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import tailwindcssAnimate from "tailwindcss-animate";
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
@@ -66,6 +68,6 @@ export default {
     },
   },
   plugins: [
-    require("tailwindcss-animate"),
+    tailwindcssAnimate,
   ],
 }

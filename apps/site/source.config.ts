@@ -12,7 +12,7 @@ export const blog = defineCollections({
   schema: z.object({
     title: z.string(),
     description: z.string().optional(),
-    date: z.string().date().or(z.date()).map((d) => new Date(d).toISOString()),
+    date: z.string().or(z.date()).transform((d) => new Date(d).toISOString()),
     author: z.string().optional(),
   }),
   type: 'doc',

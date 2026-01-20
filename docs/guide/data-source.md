@@ -1,4 +1,6 @@
-# Data Connectivity
+---
+title: "Data Connectivity"
+---
 
 Object UI follows the **Universal Adapter Pattern**. We never hardcode `fetch` or `axios` calls inside UI components.
 

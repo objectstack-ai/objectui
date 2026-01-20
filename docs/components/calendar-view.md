@@ -1,4 +1,6 @@
-# Calendar View Component
+---
+title: "Calendar View Component"
+---
 
 The `calendar-view` component is an Airtable-style calendar for displaying records as events. It provides three view modes: Month, Week, and Day.
 

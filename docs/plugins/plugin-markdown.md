@@ -1,4 +1,6 @@
-# Plugin Markdown
+---
+title: "Plugin Markdown"
+---
 
 Markdown renderer with GitHub Flavored Markdown support.
 

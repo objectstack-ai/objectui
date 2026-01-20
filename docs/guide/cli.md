@@ -1,4 +1,6 @@
-# Object UI CLI
+---
+title: "Object UI CLI"
+---
 
 The Object UI CLI allows you to rapidly prototype, develop, and build applications completely from JSON/YAML schemas, without manually setting up a React project.
 

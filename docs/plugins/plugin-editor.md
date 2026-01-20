@@ -1,4 +1,6 @@
-# Plugin Editor
+---
+title: "Plugin Editor"
+---
 
 Code editor component powered by Monaco Editor (VS Code's editor).
 

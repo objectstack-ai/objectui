@@ -1,4 +1,6 @@
-# Menu & Navigation Metadata
+---
+title: "Menu & Navigation Metadata"
+---
 
 > **Implementation Status**: 🚧 **40% Complete** - Basic navigation components implemented, advanced features planned.
 > 

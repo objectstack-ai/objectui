@@ -1,4 +1,6 @@
-# Object Definition
+---
+title: "Object Definition"
+---
 
 > **Implementation Status**: 📝 **Planned** - Object protocol specification is complete but implementation is planned for Q2 2026.
 > 

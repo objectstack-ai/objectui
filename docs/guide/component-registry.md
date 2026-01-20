@@ -1,4 +1,6 @@
-# Component Registry
+---
+title: "Component Registry"
+---
 
 The Component Registry is Object UI's system for mapping schema types to React components. Understanding the registry is key to extending Object UI with custom components.
 

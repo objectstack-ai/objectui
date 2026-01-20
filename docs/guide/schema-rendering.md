@@ -1,4 +1,6 @@
-# Schema Rendering
+---
+title: "Schema Rendering"
+---
 
 Object UI's schema rendering system is the core mechanism that transforms JSON configurations into live React components. This guide explains how it works and how to use it effectively.
 

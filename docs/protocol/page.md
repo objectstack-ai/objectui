@@ -1,4 +1,6 @@
-# Page Specification
+---
+title: "Page Specification"
+---
 
 > **Implementation Status**: 🚧 **75% Complete** - Core page features implemented, advanced features in progress.
 > 

@@ -1,4 +1,6 @@
-# Report & Dashboard Metadata
+---
+title: "Report & Dashboard Metadata"
+---
 
 > **Implementation Status**: 📝 **Planned** - Report and dashboard features planned for Q3-Q4 2026.
 > 

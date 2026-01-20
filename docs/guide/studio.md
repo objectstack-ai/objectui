@@ -1,4 +1,6 @@
-# Object UI Designer
+---
+title: "Object UI Designer"
+---
 
 The **Object UI Designer** is a powerful, interactive visual editor that allows you to design and prototype user interfaces without writing code. It combines a drag-and-drop designer, live preview, and instant JSON export capabilities.
 

@@ -1,4 +1,6 @@
-# Object UI Documentation
+---
+title: "Object UI Documentation"
+---
 
 This directory contains the VitePress documentation site for Object UI.
 

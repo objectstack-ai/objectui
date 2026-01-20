@@ -1,4 +1,6 @@
-# Expression System
+---
+title: "Expression System"
+---
 
 Object UI includes a powerful expression system that enables dynamic, data-driven UIs. Expressions allow you to reference data, compute values, and create conditional logic directly in your JSON schemas.
 

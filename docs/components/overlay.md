@@ -1,4 +1,6 @@
-# Overlay Components
+---
+title: "Overlay Components"
+---
 
 Content displayed above the main layer.
 

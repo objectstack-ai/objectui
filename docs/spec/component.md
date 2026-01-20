@@ -1,4 +1,6 @@
-# Component Metadata Specification
+---
+title: "Component Metadata Specification"
+---
 
 Components are the reusable building blocks of ObjectQL's user interface. This specification defines how to create, configure, and customize frontend components in a metadata-driven way.
 

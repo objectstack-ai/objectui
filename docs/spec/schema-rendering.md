@@ -1,4 +1,6 @@
-# JSON Schema Rendering Specification
+---
+title: "JSON Schema Rendering Specification"
+---
 
 This document defines the Object UI rendering architecture, inspired by [Amis](https://github.com/baidu/amis). It allows building dynamic, data-driven user interfaces strictly through JSON configuration, decoupling the UI definition from the implementation.
 

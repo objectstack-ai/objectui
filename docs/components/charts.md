@@ -1,4 +1,6 @@
-# Chart Components
+---
+title: "Chart Components"
+---
 
 Visualizations for data analytics.
 

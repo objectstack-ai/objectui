@@ -1,4 +1,6 @@
-# Architecture: ObjectStack Spec Integration
+---
+title: "Architecture: ObjectStack Spec Integration"
+---
 
 ## Overview
 

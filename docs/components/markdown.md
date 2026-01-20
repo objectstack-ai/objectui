@@ -1,4 +1,6 @@
-# Markdown Component
+---
+title: "Markdown Component"
+---
 
 Renders Markdown content with support for GFM (GitHub Flavored Markdown).
 

@@ -1,4 +1,6 @@
-# Quick Start
+---
+title: "Quick Start"
+---
 
 You can use Object UI in two ways: via the **CLI** (for rapid schema-driven apps) or as a **React Library** (for valid existing projects).
 

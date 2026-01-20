@@ -1,4 +1,6 @@
-# Basic Components
+---
+title: "Basic Components"
+---
 
 Fundamental UI elements for displaying simple content.
 

@@ -1,4 +1,6 @@
-# AI Generation Guide: Object UI
+---
+title: "AI Generation Guide: Object UI"
+---
 
 **This document is optimized for LLMs.** Use this context to generate high-quality, bug-free Object UI JSON schemas.
 

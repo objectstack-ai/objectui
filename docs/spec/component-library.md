@@ -1,4 +1,6 @@
-# Component Library Reference
+---
+title: "Component Library Reference"
+---
 
 This document provides a reference for all the low-level UI components available in the **Object-UI Renderer**.
 These components are registered in the `ComponentRegistry` and can be used directly in your JSON Schema definitions.

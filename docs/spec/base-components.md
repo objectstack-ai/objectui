@@ -1,4 +1,6 @@
-# Platform Base Components Metadata Specification
+---
+title: "Platform Base Components Metadata Specification"
+---
 
 ## 1. Overview
 

@@ -1,4 +1,6 @@
-# Plugins
+---
+title: "Plugins"
+---
 
 Object UI supports a powerful plugin system that allows you to extend the framework with additional components. Plugins are separate packages that load on-demand, keeping your main application bundle small while providing rich functionality.
 

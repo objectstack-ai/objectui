@@ -1,4 +1,6 @@
-# Showcase Documentation and Deployment Solution
+---
+title: "Showcase Documentation and Deployment Solution"
+---
 
 ## 📋 Executive Summary
 

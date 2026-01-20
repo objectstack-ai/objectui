@@ -1,4 +1,6 @@
-# Quick Start for Developers
+---
+title: "Quick Start for Developers"
+---
 
 > 🚀 Get up and running with ObjectUI development in 5 minutes!
 

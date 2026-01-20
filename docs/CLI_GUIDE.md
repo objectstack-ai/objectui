@@ -1,4 +1,6 @@
-# Object UI CLI User Guide
+---
+title: "Object UI CLI User Guide"
+---
 
 ## Introduction
 

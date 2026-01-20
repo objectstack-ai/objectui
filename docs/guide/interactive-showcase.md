@@ -1,4 +1,6 @@
-# Interactive Component Documentation
+---
+title: "Interactive Component Documentation"
+---
 
 This guide explains how to create an interactive component documentation experience similar to Shadcn UI, where users can see live previews, read descriptions, and edit code to see results.
 

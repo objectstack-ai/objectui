@@ -1,4 +1,6 @@
-# Components
+---
+title: "Components"
+---
 
 Object UI provides a comprehensive set of pre-built components that implement common UI patterns. All components are built with **Shadcn UI** and **Tailwind CSS** for maximum flexibility and customization.
 

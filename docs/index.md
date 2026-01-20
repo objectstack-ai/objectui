@@ -1,4 +1,6 @@
 ---
+title: "You Define the Intent. We Render the Reality."
+
 layout: home
 
 hero:
@@ -21,8 +23,6 @@ features:
   - title: 🏢 Enterprise Ready-Made
     details: Built-in support for complex patterns like Kanbans, Gantt charts, multi-step forms, and data tables with sorting/filtering. Stop rebuilding the same components from scratch.
 ---
-
-# You Define the Intent. We Render the Reality.
 
 Frontend development for enterprise apps is repetitive. You spend 80% of your time gluing together form libraries, data tables, and validation logic—writing the same boilerplate over and over.
 

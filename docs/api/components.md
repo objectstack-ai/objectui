@@ -1,4 +1,6 @@
-# Components API
+---
+title: "Components API"
+---
 
 The `@object-ui/components` package provides pre-built UI components that implement the Object UI protocol.
 

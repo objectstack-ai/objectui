@@ -1,4 +1,6 @@
-# Feedback Components
+---
+title: "Feedback Components"
+---
 
 Components for user feedback and interaction states.
 

@@ -1,4 +1,6 @@
-# ObjectUI Development Plan (2026 Q1-Q2)
+---
+title: "ObjectUI Development Plan (2026 Q1-Q2)"
+---
 
 > 📅 **Last Updated**: January 2026  
 > 🎯 **Target Version**: v1.0.0 (Production Ready)  

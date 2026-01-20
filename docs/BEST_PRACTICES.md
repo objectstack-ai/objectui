@@ -1,4 +1,6 @@
-# Object UI Best Practices
+---
+title: "Object UI Best Practices"
+---
 
 This guide covers best practices for building applications with Object UI's JSON-driven approach.
 

@@ -1,4 +1,6 @@
-# React API
+---
+title: "React API"
+---
 
 The `@object-ui/react` package provides React components and hooks for rendering Object UI schemas.
 

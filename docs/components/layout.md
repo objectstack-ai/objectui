@@ -1,4 +1,6 @@
-# Layout Components
+---
+title: "Layout Components"
+---
 
 Layout components are the structural building blocks of an Object UI application. They define how other components are arranged and positioned.
 

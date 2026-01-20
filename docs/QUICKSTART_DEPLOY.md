@@ -1,4 +1,6 @@
-# Quick Start: Deploying the Showcase
+---
+title: "Quick Start: Deploying the Showcase"
+---
 
 ## 🚀 Fastest Path to Production (15 minutes)
 

@@ -1,4 +1,6 @@
-# Data Display Components
+---
+title: "Data Display Components"
+---
 
 Components for presenting data in various formats.
 

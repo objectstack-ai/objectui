@@ -1,4 +1,6 @@
-# Project Structure
+---
+title: "Project Structure"
+---
 
 This document defines the current directory structure of Object UI, designed for clarity and AI-driven development.
 

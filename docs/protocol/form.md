@@ -1,4 +1,6 @@
-# Form Metadata
+---
+title: "Form Metadata"
+---
 
 > **Implementation Status**: ✅ **100% Complete** - All form components are fully implemented and production-ready.
 > 

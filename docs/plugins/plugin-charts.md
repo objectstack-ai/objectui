@@ -1,4 +1,6 @@
-# Plugin Charts
+---
+title: "Plugin Charts"
+---
 
 Data visualization components powered by Recharts.
 

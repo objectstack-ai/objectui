@@ -1,4 +1,6 @@
-# Lazy-Loaded Plugins Architecture
+---
+title: "Lazy-Loaded Plugins Architecture"
+---
 
 This document details the architecture for lazy-loading heavy components (like code editors or charts) in Object UI to optimize the application bundle size.
 

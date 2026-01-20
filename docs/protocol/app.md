@@ -1,4 +1,6 @@
-# Application Metadata
+---
+title: "Application Metadata"
+---
 
 > **Implementation Status**: 📝 **Planned** - App protocol planned for Q4 2026.
 > 

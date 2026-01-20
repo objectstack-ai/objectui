@@ -1,4 +1,6 @@
-# Designer API
+---
+title: "Designer API"
+---
 
 The `@object-ui/designer` package provides a visual drag-and-drop editor for creating Object UI schemas.
 

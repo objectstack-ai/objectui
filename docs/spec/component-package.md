@@ -1,4 +1,6 @@
-# Component Package Specification
+---
+title: "Component Package Specification"
+---
 
 ## Overview
 

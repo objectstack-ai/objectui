@@ -1,4 +1,6 @@
-# CRUD Protocol Specification
+---
+title: "CRUD Protocol Specification"
+---
 
 The CRUD (Create, Read, Update, Delete) protocol provides a complete data management interface through JSON schema.
 

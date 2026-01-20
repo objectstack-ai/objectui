@@ -1,4 +1,6 @@
-# Navigation Components
+---
+title: "Navigation Components"
+---
 
 Components for user navigation and flow control.
 

@@ -1,4 +1,6 @@
-# Showcase Deployment Guide
+---
+title: "Showcase Deployment Guide"
+---
 
 This guide shows you how to deploy the Object UI Showcase to various hosting platforms, making it accessible to your users online.
 
@@ -369,7 +371,7 @@ Or use the AWS Console:
 
 Create `.env.production` for your deployment:
 
-```env
+```bash
 # API Configuration
 VITE_API_BASE_URL=https://api.yourdomain.com
 VITE_API_KEY=your-api-key

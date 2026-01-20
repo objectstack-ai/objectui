@@ -1,4 +1,6 @@
-# Core API
+---
+title: "Core API"
+---
 
 The `@object-ui/core` package provides the foundational type definitions, schemas, and core logic for Object UI.
 

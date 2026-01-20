@@ -1,4 +1,6 @@
-# Component Overview
+---
+title: "Component Overview"
+---
 
 The `@object-ui/components` package provides pre-built UI components that implement the Object UI protocol.
 

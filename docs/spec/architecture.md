@@ -1,4 +1,6 @@
-# Next-Gen Low-Code Engine Architecture Blueprint
+---
+title: "Next-Gen Low-Code Engine Architecture Blueprint"
+---
 
 This document outlines the technical architecture for Steedos Object UI, designed as a modern, lightweight, and extensible low-code engine. It reimagines the concepts from established frameworks (like Amis) using the latest frontend standards.
 

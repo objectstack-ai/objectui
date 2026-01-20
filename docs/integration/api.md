@@ -1,4 +1,6 @@
-# API Integration Guide
+---
+title: "API Integration Guide"
+---
 
 Object UI provides powerful API integration capabilities, allowing components to fetch data, submit forms, and trigger actions through REST APIs.
 

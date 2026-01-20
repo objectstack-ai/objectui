@@ -1,4 +1,6 @@
-# Try It Online - Interactive Playground
+---
+title: "Try It Online - Interactive Playground"
+---
 
 Experience Object UI without installing anything! This guide shows you different ways to try Object UI online and experiment with schemas in real-time.
 

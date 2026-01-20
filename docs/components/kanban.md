@@ -1,4 +1,6 @@
-# Kanban Component
+---
+title: "Kanban Component"
+---
 
 Board view for managing items in columns.
 

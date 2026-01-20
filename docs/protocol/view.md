@@ -1,4 +1,6 @@
-# View & Layout Metadata
+---
+title: "View & Layout Metadata"
+---
 
 > **Implementation Status**: ✅ **100% Complete** - All view types are fully implemented and production-ready.
 > 

@@ -1,4 +1,6 @@
-# Showcase - Explore All Components
+---
+title: "Showcase - Explore All Components"
+---
 
 The Object UI Showcase is a comprehensive, interactive demo that demonstrates all available components, layouts, and features. It's the best way to explore what Object UI can do and see real examples you can copy into your own projects.
 

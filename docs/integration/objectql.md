@@ -1,4 +1,6 @@
-# ObjectQL Integration Guide
+---
+title: "ObjectQL Integration Guide"
+---
 
 This guide explains how to integrate Object UI with ObjectQL API backends to create data-driven applications.
 

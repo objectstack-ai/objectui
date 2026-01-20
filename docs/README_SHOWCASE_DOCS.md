@@ -1,4 +1,6 @@
-# Showcase Documentation Index
+---
+title: "Showcase Documentation Index"
+---
 
 ## 📚 Complete Documentation Suite for Object UI Showcase
 

@@ -1,4 +1,6 @@
-# ObjectUI Project Status Summary (January 2026)
+---
+title: "ObjectUI Project Status Summary (January 2026)"
+---
 
 > 📊 Current state of the ObjectUI project and next steps
 

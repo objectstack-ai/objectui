@@ -1,4 +1,6 @@
-# Plugin Kanban
+---
+title: "Plugin Kanban"
+---
 
 Kanban board component with drag-and-drop powered by @dnd-kit.
 

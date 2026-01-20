@@ -1,4 +1,6 @@
-# Installation
+---
+title: "Installation"
+---
 
 Object UI is designed to be dropped into an existing React + Tailwind project.
 

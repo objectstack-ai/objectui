@@ -10,7 +10,7 @@ export default async function BlogPost({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = blog.find((post: any) => post.slug === slug);
+  const post = blog.find((post: any) => post.slug === slug) as any;
 
   if (!post) notFound();
 

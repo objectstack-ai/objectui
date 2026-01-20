@@ -9,6 +9,7 @@ export const { docs, meta } = defineDocs({
 
 export const blog = defineCollections({
   dir: 'content/blog',
+  files: ['**/*.{md,mdx}', '!**/node_modules/**'],
   schema: z.object({
     title: z.string(),
     description: z.string().optional(),

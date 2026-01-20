@@ -486,7 +486,7 @@ The ObjectQL Studio provides a visual interface for:
 - [Application Configuration](./application.md)
 - [Form Specification](./form.md)
 - [View Specification](./view.md)
-- [Component Library](/getting-started/components.md)
+- [Component Library](/guide/components.md)
 
 ### 1.5 JSON Logic & Expressions
 

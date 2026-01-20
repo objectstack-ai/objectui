@@ -183,8 +183,8 @@ Object UI is perfect for:
 
 Ready to get started?
 
-- [Quick Start](/getting-started/quick-start) - Build your first Object UI app
-- [Installation](/getting-started/installation) - Setup instructions
+- [Quick Start](/guide/quick-start) - Build your first Object UI app
+- [Installation](/guide/installation) - Setup instructions
 - [Schema Rendering](/concepts/schema-rendering) - Learn the core concepts
 
 ## Getting Help

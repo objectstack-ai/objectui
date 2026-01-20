@@ -8,10 +8,10 @@ This directory contains the VitePress documentation site for Object UI.
 
 ### For Users
 - 🏠 [Homepage](./index.md)
-- 📖 [Getting Started Guide](./getting-started/introduction.md)
-- 🚀 [Quick Start](./getting-started/quick-start.md)
-- 📦 [Installation](./getting-started/installation.md)
-- 🎨 [Visual Studio](./getting-started/studio.md)
+- 📖 [Getting Started Guide](./guide/introduction.md)
+- 🚀 [Quick Start](./guide/quick-start.md)
+- 📦 [Installation](./guide/installation.md)
+- 🎨 [Visual Studio](./guide/studio.md)
 - 🗺️ [Roadmap](./ROADMAP.md)
 
 ### For Developers
@@ -121,7 +121,7 @@ pnpm preview
   text: 'Getting Started',
   items: [
     // ... existing items
-    { text: 'Your New Guide', link: '/getting-started/your-new-guide' }
+    { text: 'Your New Guide', link: '/guide/your-new-guide' }
   ]
 }
 ```

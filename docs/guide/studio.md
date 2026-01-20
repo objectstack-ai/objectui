@@ -189,7 +189,7 @@ It is **not** designed for:
 
 ## What's Next?
 
-- [Read the full guide](/getting-started/introduction)
+- [Read the full guide](/guide/introduction)
 - [Explore the API reference](/api/react)
 - [Check out component specifications](/protocol/overview)
 - [View the project roadmap](/ROADMAP)

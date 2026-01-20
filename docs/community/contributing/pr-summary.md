@@ -16,14 +16,14 @@ This PR provides a complete solution for enabling website visitors to try the Ob
 
 ### 📚 Documentation (4 new files, ~30KB)
 
-1. **Showcase Guide** (`docs/getting-started/showcase.md` - 9KB)
+1. **Showcase Guide** (`docs/guide/showcase.md` - 9KB)
    - Complete component catalog (60+ components, 8 categories)
    - Local setup instructions (3 methods)
    - Learning paths (beginner to advanced)
    - Customization examples
    - Best practices and tips
 
-2. **Try It Online Guide** (`docs/getting-started/try-it-online.md` - 9KB)
+2. **Try It Online Guide** (`docs/guide/try-it-online.md` - 9KB)
    - Online playground options (CodeSandbox, StackBlitz)
    - Interactive examples (forms, dashboards, tables)
    - Browser-based workflows

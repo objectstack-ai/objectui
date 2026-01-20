@@ -1,0 +1,14 @@
+{
+  "title": "Guide",
+  "pages": [
+    "index",
+    "installation",
+    "quick-start",
+    "studio",
+    "cli",
+    "try-it-online",
+    "components",
+    "interactive-showcase",
+    "showcase"
+  ]
+}

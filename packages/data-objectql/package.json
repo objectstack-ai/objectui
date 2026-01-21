@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@object-ui/types": "workspace:*",
+    "@objectstack/client": "^0.1.1",
     "@objectql/sdk": "^3.0.1",
     "@objectql/types": "^3.0.1"
   },

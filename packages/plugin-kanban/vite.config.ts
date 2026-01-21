@@ -17,6 +17,8 @@ export default defineConfig({
     dts({
       insertTypesEntry: true,
       include: ['src'],
+      exclude: ['**/*.test.ts', '**/*.test.tsx', 'node_modules'],
+      skipDiagnostics: true,
     }),
   ],
   resolve: {

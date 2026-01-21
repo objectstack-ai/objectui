@@ -22,6 +22,9 @@ function toPascalCase(str: string): string {
 }
 
 // Map of renamed icons in lucide-react (from old name to new name)
+// As of lucide-react v0.468.0, some icons were renamed in the icons object
+// This mapping maintains backward compatibility with older icon names
+// To add new mappings: add entry as 'OldName': 'NewName'
 const iconNameMap: Record<string, string> = {
   'Home': 'House', // "Home" was renamed to "House" in lucide-react's icons object
 };

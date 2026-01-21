@@ -21,6 +21,7 @@ ComponentRegistry.register('slider',
     } = props;
 
     // Ensure defaultValue is an array for backward compatibility
+    // SliderSchema.defaultValue should be number[], but we handle number for legacy schemas
     const defaultValue = Array.isArray(schema.defaultValue) 
       ? schema.defaultValue 
       : schema.defaultValue !== undefined 

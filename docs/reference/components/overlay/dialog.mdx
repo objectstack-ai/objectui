@@ -1,0 +1,44 @@
+---
+title: "Dialog"
+description: "Modal dialog overlay for focused interactions"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Dialog
+
+Modal dialog overlay for focused interactions
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "dialog",
+      trigger: {
+            type: "button",
+            label: "Open Dialog"
+      },
+      title: "Dialog Title",
+      description: "Dialog description",
+      children: [
+            {
+                  type: "text",
+                  content: "Dialog content goes here"
+            }
+      ]
+}}
+    title="Dialog Trigger"
+  />
+
+## Schema
+
+```typescript
+interface DialogSchema {
+  type: 'dialog';
+  trigger: SchemaNode;
+  title?: string;
+  description?: string;
+  children: SchemaNode[];
+  footer?: SchemaNode[];
+}
+```

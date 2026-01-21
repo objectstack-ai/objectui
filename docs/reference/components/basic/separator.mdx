@@ -1,0 +1,65 @@
+---
+title: "Separator"
+description: "Visual divider between content sections"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Separator
+
+Visual divider between content sections
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "stack",
+      gap: 4,
+      children: [
+            {
+                  type: "text",
+                  content: "Content Above"
+            },
+            {
+                  type: "separator"
+            },
+            {
+                  type: "text",
+                  content: "Content Below"
+            }
+      ]
+}}
+    title="Horizontal"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "flex",
+      gap: 4,
+      children: [
+            {
+                  type: "text",
+                  content: "Left"
+            },
+            {
+                  type: "separator",
+                  orientation: "vertical"
+            },
+            {
+                  type: "text",
+                  content: "Right"
+            }
+      ]
+}}
+    title="Vertical"
+  />
+
+## Schema
+
+```typescript
+interface SeparatorSchema {
+  type: 'separator';
+  orientation?: 'horizontal' | 'vertical';
+  className?: string;
+}
+```

@@ -1,0 +1,74 @@
+---
+title: "Input"
+description: "Basic text input field for user data entry"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Input
+
+Basic text input field for user data entry
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "input",
+      placeholder: "Enter text..."
+}}
+    title="Basic Input"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "input",
+      name: "email",
+      label: "Email",
+      placeholder: "you@example.com"
+}}
+    title="With Label"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "stack",
+      gap: 3,
+      children: [
+            {
+                  type: "input",
+                  label: "Email",
+                  inputType: "email",
+                  placeholder: "email@example.com"
+            },
+            {
+                  type: "input",
+                  label: "Password",
+                  inputType: "password",
+                  placeholder: "••••••••"
+            },
+            {
+                  type: "input",
+                  label: "Number",
+                  inputType: "number",
+                  placeholder: "123"
+            }
+      ]
+}}
+    title="Input Types"
+  />
+
+## Schema
+
+```typescript
+interface InputSchema {
+  type: 'input';
+  name?: string;
+  label?: string;
+  inputType?: 'text' | 'password' | 'email' | 'number' | 'tel' | 'url';
+  placeholder?: string;
+  defaultValue?: string | number;
+  required?: boolean;
+  disabled?: boolean;
+  readonly?: boolean;
+}
+```

@@ -1,0 +1,9 @@
+{
+  "title": "Data Display",
+  "pages": [
+    "badge",
+    "avatar",
+    "alert",
+    "list"
+  ]
+}

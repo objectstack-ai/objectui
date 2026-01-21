@@ -1,0 +1,55 @@
+---
+title: "Checkbox"
+description: "Toggle selection with checkboxes"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Checkbox
+
+Toggle selection with checkboxes
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "checkbox",
+      label: "Accept terms and conditions"
+}}
+    title="Basic Checkbox"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "stack",
+      gap: 2,
+      children: [
+            {
+                  type: "checkbox",
+                  label: "Option 1"
+            },
+            {
+                  type: "checkbox",
+                  label: "Option 2"
+            },
+            {
+                  type: "checkbox",
+                  label: "Option 3"
+            }
+      ]
+}}
+    title="Multiple Checkboxes"
+  />
+
+## Schema
+
+```typescript
+interface CheckboxSchema {
+  type: 'checkbox';
+  name?: string;
+  label?: string;
+  defaultChecked?: boolean;
+  required?: boolean;
+  disabled?: boolean;
+}
+```

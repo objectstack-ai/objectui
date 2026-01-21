@@ -1,0 +1,52 @@
+---
+title: "Badge"
+description: "Small status or label indicator"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Badge
+
+Small status or label indicator
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "flex",
+      gap: 2,
+      children: [
+            {
+                  type: "badge",
+                  label: "Default"
+            },
+            {
+                  type: "badge",
+                  label: "Secondary",
+                  variant: "secondary"
+            },
+            {
+                  type: "badge",
+                  label: "Outline",
+                  variant: "outline"
+            },
+            {
+                  type: "badge",
+                  label: "Destructive",
+                  variant: "destructive"
+            }
+      ]
+}}
+    title="Badge Variants"
+  />
+
+## Schema
+
+```typescript
+interface BadgeSchema {
+  type: 'badge';
+  label: string;
+  variant?: 'default' | 'secondary' | 'outline' | 'destructive';
+  className?: string;
+}
+```

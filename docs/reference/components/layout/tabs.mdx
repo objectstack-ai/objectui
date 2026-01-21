@@ -1,0 +1,61 @@
+---
+title: "Tabs"
+description: "Organize content into switchable tabs"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Tabs
+
+Organize content into switchable tabs
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "tabs",
+      items: [
+            {
+                  label: "Tab 1",
+                  content: [
+                        {
+                              type: "text",
+                              content: "Content 1"
+                        }
+                  ]
+            },
+            {
+                  label: "Tab 2",
+                  content: [
+                        {
+                              type: "text",
+                              content: "Content 2"
+                        }
+                  ]
+            },
+            {
+                  label: "Tab 3",
+                  content: [
+                        {
+                              type: "text",
+                              content: "Content 3"
+                        }
+                  ]
+            }
+      ]
+}}
+    title="Basic Tabs"
+  />
+
+## Schema
+
+```typescript
+interface TabsSchema {
+  type: 'tabs';
+  items: Array<{
+    label: string;
+    content: SchemaNode[];
+  }>;
+  defaultValue?: number;
+}
+```

@@ -1,0 +1,55 @@
+---
+title: "Grid"
+description: "Responsive grid layout container"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Grid
+
+Responsive grid layout container
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "grid",
+      columns: 2,
+      gap: 4,
+      children: [
+            {
+                  type: "card",
+                  title: "Card 1",
+                  children: [
+                        {
+                              type: "text",
+                              content: "Content 1"
+                        }
+                  ]
+            },
+            {
+                  type: "card",
+                  title: "Card 2",
+                  children: [
+                        {
+                              type: "text",
+                              content: "Content 2"
+                        }
+                  ]
+            }
+      ]
+}}
+    title="2 Column Grid"
+  />
+
+## Schema
+
+```typescript
+interface GridSchema {
+  type: 'grid';
+  columns?: number;
+  gap?: number;
+  children: SchemaNode[];
+  className?: string;
+}
+```

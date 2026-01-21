@@ -1,0 +1,70 @@
+---
+title: "Select"
+description: "Dropdown selection from a list of options"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Select
+
+Dropdown selection from a list of options
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "select",
+      label: "Choose an option",
+      options: [
+            {
+                  label: "Option 1",
+                  value: "1"
+            },
+            {
+                  label: "Option 2",
+                  value: "2"
+            },
+            {
+                  type: "Option 3",
+                  value: "3"
+            }
+      ]
+}}
+    title="Basic Select"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "select",
+      placeholder: "Select...",
+      options: [
+            {
+                  label: "Red",
+                  value: "red"
+            },
+            {
+                  label: "Green",
+                  value: "green"
+            },
+            {
+                  label: "Blue",
+                  value: "blue"
+            }
+      ]
+}}
+    title="With Placeholder"
+  />
+
+## Schema
+
+```typescript
+interface SelectSchema {
+  type: 'select';
+  name?: string;
+  label?: string;
+  options: { label: string; value: string | number }[];
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+}
+```

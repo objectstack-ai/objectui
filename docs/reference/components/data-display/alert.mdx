@@ -1,0 +1,44 @@
+---
+title: "Alert"
+description: "Display important messages and notifications"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Alert
+
+Display important messages and notifications
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "alert",
+      title: "Info",
+      description: "This is an informational message"
+}}
+    title="Info Alert"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "alert",
+      title: "Error",
+      description: "Something went wrong",
+      variant: "destructive"
+}}
+    title="Destructive Alert"
+  />
+
+## Schema
+
+```typescript
+interface AlertSchema {
+  type: 'alert';
+  title?: string;
+  description?: string;
+  variant?: 'default' | 'destructive';
+  icon?: string;
+  className?: string;
+}
+```

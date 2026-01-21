@@ -1,0 +1,36 @@
+---
+title: "Container"
+description: "Centered content container with max-width"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Container
+
+Centered content container with max-width
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "container",
+      children: [
+            {
+                  type: "text",
+                  content: "Content inside container",
+                  variant: "h3"
+            }
+      ]
+}}
+    title="Basic Container"
+  />
+
+## Schema
+
+```typescript
+interface ContainerSchema {
+  type: 'container';
+  children: SchemaNode[];
+  className?: string;
+}
+```

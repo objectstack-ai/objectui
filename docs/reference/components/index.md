@@ -20,20 +20,55 @@ import { registerDefaultRenderers } from '@object-ui/components'
 registerDefaultRenderers()
 ```
 
-## Component Reference
+## Component Categories
 
-Detailed documentation for each component category:
+Browse components organized by category:
 
-*   [Basic Components](./basic.md) (Text, Image, Icon, HTML)
-*   [Layout Components](./layout.md) (Grid, Card, Container, etc.)
-*   [Form Components](./form.md) (Input, Select, Checkbox, Form, etc.)
-*   [Data Display](./data-display.md) (Table, List, Tag, Tree, etc.)
-*   [Navigation](./navigation.md) (Button, Link, Menu, etc.)
-*   [Feedback](./feedback.md) (Alert, Progress, Toast, etc.)
-*   [Overlay](./overlay.md) (Dialog, Drawer, Tooltip, etc.)
+### [Basic Components](./basic)
+
+Fundamental UI elements for displaying simple content.
+- Text, Icon, Image, HTML, Separator
+
+### [Form Components](./form)
+
+Components for user input and data collection.
+- Button, Input, Select, Checkbox, Switch, Textarea, Slider
+
+### [Layout Components](./layout)
+
+Organize and structure your interface.
+- Container, Card, Grid, Flex, Stack, Tabs
+
+### [Data Display](./data-display)
+
+Present information and data to users.
+- Badge, Avatar, Alert, List
+
+### [Feedback](./feedback)
+
+Provide visual feedback to user actions.
+- Loading, Progress, Skeleton
+
+### [Overlay](./overlay)
+
+Floating UI elements and modals.
+- Dialog, Drawer, Tooltip, Popover
+
+### [Disclosure](./disclosure)
+
+Show and hide content progressively.
+- Accordion, Collapsible
+
+### [Complex](./complex)
+
+Advanced components for complex UIs.
+- Table
 
 ## Plugins
 
-*   [Charts](./charts.md) (Bar, Line, Pie, etc.)
-*   [Kanban](./kanban.md) (Board View)
-*   [Markdown](./markdown.md) (Rich Text)
+Additional specialized components are available as plugins:
+
+*   [Charts](./charts) - Visualization components (Bar, Line, Pie, etc.)
+*   [Kanban](./kanban) - Board view for task management
+*   [Markdown](./markdown) - Rich text rendering
+*   [Calendar View](./calendar-view) - Full-featured calendar

@@ -1,0 +1,10 @@
+{
+  "title": "Basic",
+  "pages": [
+    "text",
+    "icon",
+    "image",
+    "separator",
+    "html"
+  ]
+}

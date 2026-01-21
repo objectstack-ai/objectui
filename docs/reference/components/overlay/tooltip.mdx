@@ -1,0 +1,37 @@
+---
+title: "Tooltip"
+description: "Contextual information on hover"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Tooltip
+
+Contextual information on hover
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "tooltip",
+      content: "Helpful information",
+      children: [
+            {
+                  type: "button",
+                  label: "Hover me"
+            }
+      ]
+}}
+    title="Basic Tooltip"
+  />
+
+## Schema
+
+```typescript
+interface TooltipSchema {
+  type: 'tooltip';
+  content: string;
+  children: SchemaNode;
+  side?: 'top' | 'right' | 'bottom' | 'left';
+}
+```

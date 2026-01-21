@@ -1,0 +1,52 @@
+---
+title: "Progress"
+description: "Progress bar to show completion status"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Progress
+
+Progress bar to show completion status
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "progress",
+      value: 60
+}}
+    title="Progress Bar"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "stack",
+      gap: 3,
+      children: [
+            {
+                  type: "progress",
+                  value: 25
+            },
+            {
+                  type: "progress",
+                  value: 50
+            },
+            {
+                  type: "progress",
+                  value: 75
+            }
+      ]
+}}
+    title="Different Values"
+  />
+
+## Schema
+
+```typescript
+interface ProgressSchema {
+  type: 'progress';
+  value: number;           // 0-100
+  className?: string;
+}
+```

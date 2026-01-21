@@ -1,0 +1,44 @@
+---
+title: "Textarea"
+description: "Multi-line text input for longer content"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Textarea
+
+Multi-line text input for longer content
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "textarea",
+      placeholder: "Enter your message..."
+}}
+    title="Basic Textarea"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "textarea",
+      label: "Description",
+      placeholder: "Describe your issue...",
+      rows: 5
+}}
+    title="With Label"
+  />
+
+## Schema
+
+```typescript
+interface TextareaSchema {
+  type: 'textarea';
+  name?: string;
+  label?: string;
+  placeholder?: string;
+  rows?: number;
+  required?: boolean;
+  disabled?: boolean;
+}
+```

@@ -1,0 +1,42 @@
+---
+title: "Avatar"
+description: "User profile image or fallback initials"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Avatar
+
+User profile image or fallback initials
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "avatar",
+      src: "https://github.com/shadcn.png",
+      alt: "User"
+}}
+    title="Avatar with Image"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "avatar",
+      fallback: "JD"
+}}
+    title="Avatar with Fallback"
+  />
+
+## Schema
+
+```typescript
+interface AvatarSchema {
+  type: 'avatar';
+  src?: string;
+  alt?: string;
+  fallback?: string;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+```

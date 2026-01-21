@@ -1,0 +1,40 @@
+---
+title: "Popover"
+description: "Floating content panel"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Popover
+
+Floating content panel
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "popover",
+      trigger: {
+            type: "button",
+            label: "Open Popover"
+      },
+      children: [
+            {
+                  type: "text",
+                  content: "Popover content"
+            }
+      ]
+}}
+    title="Basic Popover"
+  />
+
+## Schema
+
+```typescript
+interface PopoverSchema {
+  type: 'popover';
+  trigger: SchemaNode;
+  children: SchemaNode[];
+  side?: 'top' | 'right' | 'bottom' | 'left';
+}
+```

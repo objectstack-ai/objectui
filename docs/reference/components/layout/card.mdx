@@ -1,0 +1,74 @@
+---
+title: "Card"
+description: "Container with header, content, and footer sections"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Card
+
+Container with header, content, and footer sections
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "card",
+      title: "Card Title",
+      description: "Card description",
+      children: [
+            {
+                  type: "text",
+                  content: "Card content goes here"
+            }
+      ]
+}}
+    title="Basic Card"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "card",
+      title: "Settings",
+      children: [
+            {
+                  type: "text",
+                  content: "Configure your preferences"
+            }
+      ],
+      footer: [
+            {
+                  type: "flex",
+                  gap: 2,
+                  justify: "end",
+                  children: [
+                        {
+                              type: "button",
+                              label: "Cancel",
+                              variant: "outline"
+                        },
+                        {
+                              type: "button",
+                              label: "Save",
+                              variant: "default"
+                        }
+                  ]
+            }
+      ]
+}}
+    title="With Footer"
+  />
+
+## Schema
+
+```typescript
+interface CardSchema {
+  type: 'card';
+  title?: string;
+  description?: string;
+  children?: SchemaNode[];
+  header?: SchemaNode[];
+  footer?: SchemaNode[];
+  className?: string;
+}
+```

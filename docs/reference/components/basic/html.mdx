@@ -1,0 +1,29 @@
+---
+title: "HTML"
+description: "Render raw HTML content safely"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# HTML
+
+Render raw HTML content safely
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "html",
+      html: "<p>This is <strong>HTML</strong> content</p>"
+}}
+    title="Basic HTML"
+  />
+
+## Schema
+
+```typescript
+interface HtmlSchema {
+  type: 'html';
+  html: string;
+}
+```

@@ -1,0 +1,40 @@
+---
+title: "Collapsible"
+description: "Toggle visibility of content"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Collapsible
+
+Toggle visibility of content
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "collapsible",
+      trigger: {
+            type: "button",
+            label: "Toggle"
+      },
+      children: [
+            {
+                  type: "text",
+                  content: "Hidden content"
+            }
+      ]
+}}
+    title="Basic Collapsible"
+  />
+
+## Schema
+
+```typescript
+interface CollapsibleSchema {
+  type: 'collapsible';
+  trigger: SchemaNode;
+  children: SchemaNode[];
+  defaultOpen?: boolean;
+}
+```

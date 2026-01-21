@@ -1,0 +1,88 @@
+---
+title: "Icon"
+description: "Display icons from the Lucide icon library"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Icon
+
+Display icons from the Lucide icon library
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "icon",
+      name: "home"
+}}
+    title="Basic Icon"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "flex",
+      gap: 4,
+      align: "center",
+      children: [
+            {
+                  type: "icon",
+                  name: "star",
+                  size: "sm"
+            },
+            {
+                  type: "icon",
+                  name: "star",
+                  size: "md"
+            },
+            {
+                  type: "icon",
+                  name: "star",
+                  size: "lg"
+            },
+            {
+                  type: "icon",
+                  name: "star",
+                  size: "xl"
+            }
+      ]
+}}
+    title="Icon Sizes"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "flex",
+      gap: 4,
+      children: [
+            {
+                  type: "icon",
+                  name: "heart",
+                  color: "text-red-500"
+            },
+            {
+                  type: "icon",
+                  name: "star",
+                  color: "text-yellow-500"
+            },
+            {
+                  type: "icon",
+                  name: "check",
+                  color: "text-green-500"
+            }
+      ]
+}}
+    title="Colored Icons"
+  />
+
+## Schema
+
+```typescript
+interface IconSchema {
+  type: 'icon';
+  name: string;              // Lucide icon name (kebab-case)
+  size?: number | 'sm' | 'md' | 'lg' | 'xl';
+  color?: string;            // Tailwind color class
+  className?: string;
+}
+```

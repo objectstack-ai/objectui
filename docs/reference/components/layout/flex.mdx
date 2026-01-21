@@ -1,0 +1,49 @@
+---
+title: "Flex"
+description: "Flexible box layout container"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Flex
+
+Flexible box layout container
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "flex",
+      gap: 3,
+      children: [
+            {
+                  type: "button",
+                  label: "Button 1"
+            },
+            {
+                  type: "button",
+                  label: "Button 2"
+            },
+            {
+                  type: "button",
+                  label: "Button 3"
+            }
+      ]
+}}
+    title="Horizontal Layout"
+  />
+
+## Schema
+
+```typescript
+interface FlexSchema {
+  type: 'flex';
+  direction?: 'row' | 'column';
+  gap?: number;
+  align?: 'start' | 'center' | 'end';
+  justify?: 'start' | 'center' | 'end' | 'between';
+  wrap?: boolean;
+  children: SchemaNode[];
+  className?: string;
+}
+```

@@ -1,0 +1,48 @@
+---
+title: "Loading"
+description: "Loading spinner to indicate processing"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Loading
+
+Loading spinner to indicate processing
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "loading"
+}}
+    title="Basic Loading"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "stack",
+      gap: 2,
+      align: "center",
+      children: [
+            {
+                  type: "loading"
+            },
+            {
+                  type: "text",
+                  content: "Loading...",
+                  variant: "muted"
+            }
+      ]
+}}
+    title="With Text"
+  />
+
+## Schema
+
+```typescript
+interface LoadingSchema {
+  type: 'loading';
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+```

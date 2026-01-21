@@ -1,0 +1,46 @@
+---
+title: "Stack"
+description: "Vertical stack layout for organizing content"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Stack
+
+Vertical stack layout for organizing content
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "stack",
+      gap: 3,
+      children: [
+            {
+                  type: "text",
+                  content: "Item 1",
+                  variant: "h3"
+            },
+            {
+                  type: "text",
+                  content: "Item 2"
+            },
+            {
+                  type: "text",
+                  content: "Item 3"
+            }
+      ]
+}}
+    title="Basic Stack"
+  />
+
+## Schema
+
+```typescript
+interface StackSchema {
+  type: 'stack';
+  gap?: number;
+  children: SchemaNode[];
+  className?: string;
+}
+```

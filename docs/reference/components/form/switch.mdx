@@ -1,0 +1,54 @@
+---
+title: "Switch"
+description: "Toggle switch for binary options"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Switch
+
+Toggle switch for binary options
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "switch",
+      label: "Enable notifications"
+}}
+    title="Basic Switch"
+  />
+
+  <ComponentDemo
+    schema={{
+      type: "stack",
+      gap: 3,
+      children: [
+            {
+                  type: "switch",
+                  label: "Email notifications"
+            },
+            {
+                  type: "switch",
+                  label: "Push notifications"
+            },
+            {
+                  type: "switch",
+                  label: "SMS notifications"
+            }
+      ]
+}}
+    title="Multiple Switches"
+  />
+
+## Schema
+
+```typescript
+interface SwitchSchema {
+  type: 'switch';
+  name?: string;
+  label?: string;
+  defaultChecked?: boolean;
+  disabled?: boolean;
+}
+```

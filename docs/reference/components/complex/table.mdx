@@ -1,0 +1,49 @@
+---
+title: "Table"
+description: "Display data in tabular format"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Table
+
+Display data in tabular format
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "table",
+      columns: [
+            {
+                  key: "name",
+                  title: "Name"
+            },
+            {
+                  key: "email",
+                  title: "Email"
+            }
+      ],
+      data: [
+            {
+                  name: "John Doe",
+                  email: "john@example.com"
+            },
+            {
+                  name: "Jane Smith",
+                  email: "jane@example.com"
+            }
+      ]
+}}
+    title="Basic Table"
+  />
+
+## Schema
+
+```typescript
+interface TableSchema {
+  type: 'table';
+  columns: Array<{ key: string; title: string }>;
+  data: Record<string, any>[];
+}
+```

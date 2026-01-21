@@ -1,0 +1,42 @@
+---
+title: "Drawer"
+description: "Sliding panel from edge of screen"
+---
+
+import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';
+
+# Drawer
+
+Sliding panel from edge of screen
+
+## Examples
+
+  <ComponentDemo
+    schema={{
+      type: "drawer",
+      trigger: {
+            type: "button",
+            label: "Open Drawer"
+      },
+      title: "Drawer Title",
+      children: [
+            {
+                  type: "text",
+                  content: "Drawer content"
+            }
+      ]
+}}
+    title="Basic Drawer"
+  />
+
+## Schema
+
+```typescript
+interface DrawerSchema {
+  type: 'drawer';
+  trigger: SchemaNode;
+  title?: string;
+  children: SchemaNode[];
+  side?: 'left' | 'right' | 'top' | 'bottom';
+}
+```

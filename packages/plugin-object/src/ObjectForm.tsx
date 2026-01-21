@@ -118,6 +118,10 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
       const field = objectSchema.fields?.[fieldName];
       if (!field) return;
 
+      // Check field-level permissions for create/edit modes
+      const hasWritePermission = !field.permissions || field.permissions.write !== false;
+      if (schema.mode !== 'view' && !hasWritePermission) return; // Skip fields without write permission
+
       // Check if there's a custom field configuration
       const customField = schema.customFields?.find(f => f.name === fieldName);
       
@@ -133,6 +137,7 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
           disabled: schema.readOnly || schema.mode === 'view' || field.readonly,
           placeholder: field.placeholder,
           description: field.help || field.description,
+          validation: buildValidationRules(field),
         };
 
         // Add field-specific properties
@@ -187,6 +192,13 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
         // Read-only fields for computed types
         if (field.type === 'formula' || field.type === 'summary' || field.type === 'auto_number') {
           formField.disabled = true;
+        }
+
+        // Add conditional visibility based on field dependencies
+        if (field.visible_on) {
+          formField.visible = (formData: any) => {
+            return evaluateCondition(field.visible_on, formData);
+          };
         }
 
         generatedFields.push(formField);
@@ -380,4 +392,123 @@ function formatFileSize(bytes: number): string {
   }
   
   return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
+}
+
+/**
+ * Build validation rules from field metadata
+ * @param field - Field metadata from ObjectStack
+ * @returns Validation rule object compatible with react-hook-form
+ */
+function buildValidationRules(field: any): any {
+  const rules: any = {};
+
+  // Required validation
+  if (field.required) {
+    rules.required = typeof field.required_message === 'string' 
+      ? field.required_message 
+      : `${field.label || field.name} is required`;
+  }
+
+  // Length validation for text fields
+  if (field.min_length) {
+    rules.minLength = {
+      value: field.min_length,
+      message: field.min_length_message || `Minimum length is ${field.min_length} characters`,
+    };
+  }
+
+  if (field.max_length) {
+    rules.maxLength = {
+      value: field.max_length,
+      message: field.max_length_message || `Maximum length is ${field.max_length} characters`,
+    };
+  }
+
+  // Number range validation
+  if (field.min !== undefined) {
+    rules.min = {
+      value: field.min,
+      message: field.min_message || `Minimum value is ${field.min}`,
+    };
+  }
+
+  if (field.max !== undefined) {
+    rules.max = {
+      value: field.max,
+      message: field.max_message || `Maximum value is ${field.max}`,
+    };
+  }
+
+  // Pattern validation
+  if (field.pattern) {
+    rules.pattern = {
+      value: typeof field.pattern === 'string' ? new RegExp(field.pattern) : field.pattern,
+      message: field.pattern_message || 'Invalid format',
+    };
+  }
+
+  // Email validation
+  if (field.type === 'email') {
+    rules.pattern = {
+      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      message: 'Please enter a valid email address',
+    };
+  }
+
+  // URL validation
+  if (field.type === 'url') {
+    rules.pattern = {
+      value: /^https?:\/\/.+/,
+      message: 'Please enter a valid URL',
+    };
+  }
+
+  // Custom validation function
+  if (field.validate) {
+    rules.validate = field.validate;
+  }
+
+  return Object.keys(rules).length > 0 ? rules : undefined;
+}
+
+/**
+ * Evaluate a conditional expression for field visibility
+ * @param condition - Condition object from field metadata
+ * @param formData - Current form values
+ * @returns Whether the condition is met
+ */
+function evaluateCondition(condition: any, formData: any): boolean {
+  if (!condition) return true;
+
+  // Simple field equality check
+  if (condition.field && condition.value !== undefined) {
+    const fieldValue = formData[condition.field];
+    if (condition.operator === '=' || condition.operator === '==') {
+      return fieldValue === condition.value;
+    } else if (condition.operator === '!=') {
+      return fieldValue !== condition.value;
+    } else if (condition.operator === '>') {
+      return fieldValue > condition.value;
+    } else if (condition.operator === '>=') {
+      return fieldValue >= condition.value;
+    } else if (condition.operator === '<') {
+      return fieldValue < condition.value;
+    } else if (condition.operator === '<=') {
+      return fieldValue <= condition.value;
+    } else if (condition.operator === 'in') {
+      return Array.isArray(condition.value) && condition.value.includes(fieldValue);
+    }
+  }
+
+  // AND/OR logic
+  if (condition.and && Array.isArray(condition.and)) {
+    return condition.and.every((c: any) => evaluateCondition(c, formData));
+  }
+
+  if (condition.or && Array.isArray(condition.or)) {
+    return condition.or.some((c: any) => evaluateCondition(c, formData));
+  }
+
+  // Default to true if condition format is unknown
+  return true;
 }

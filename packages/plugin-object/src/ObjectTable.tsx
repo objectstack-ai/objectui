@@ -13,7 +13,7 @@
  * It integrates with ObjectQL's schema system to generate columns and handle CRUD operations.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectTableSchema, TableColumn, TableSchema } from '@object-ui/types';
 import type { ObjectQLDataSource } from '@object-ui/data-objectql';
 import { SchemaRenderer } from '@object-ui/react';
@@ -33,6 +33,26 @@ export interface ObjectTableProps {
    * Additional CSS class
    */
   className?: string;
+  
+  /**
+   * Callback when a row is clicked
+   */
+  onRowClick?: (record: any) => void;
+  
+  /**
+   * Callback when a row is edited
+   */
+  onEdit?: (record: any) => void;
+  
+  /**
+   * Callback when a row is deleted
+   */
+  onDelete?: (record: any) => void;
+  
+  /**
+   * Callback when records are bulk deleted
+   */
+  onBulkDelete?: (records: any[]) => void;
 }
 
 /**
@@ -46,21 +66,29 @@ export interface ObjectTableProps {
  *   schema={{
  *     type: 'object-table',
  *     objectName: 'users',
- *     fields: ['name', 'email', 'status']
+ *     fields: ['name', 'email', 'status'],
+ *     operations: { create: true, update: true, delete: true }
  *   }}
  *   dataSource={objectQLDataSource}
+ *   onEdit={(record) => console.log('Edit', record)}
+ *   onDelete={(record) => console.log('Delete', record)}
  * />
  * ```
  */
 export const ObjectTable: React.FC<ObjectTableProps> = ({
   schema,
   dataSource,
+  onRowClick,
+  onEdit,
+  onDelete,
+  onBulkDelete,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [columns, setColumns] = useState<TableColumn[]>([]);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   // Fetch object schema from ObjectQL
   useEffect(() => {
@@ -91,6 +119,10 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
     fieldsToShow.forEach((fieldName) => {
       const field = objectSchema.fields?.[fieldName];
       if (!field) return;
+
+      // Check field-level permissions
+      const hasReadPermission = !field.permissions || field.permissions.read !== false;
+      if (!hasReadPermission) return; // Skip fields without read permission
 
       // Check if there's a custom column configuration
       const customColumn = schema.columns?.find(col => col.accessorKey === fieldName);
@@ -144,12 +176,46 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
           };
         }
         
+        // Add sorting if field is sortable
+        if (field.sortable !== false) {
+          column.sortable = true;
+        }
+        
         generatedColumns.push(column);
       }
     });
 
+    // Add actions column if operations are enabled
+    const operations = schema.operations || { read: true, update: true, delete: true };
+    if ((operations.update || operations.delete) && (onEdit || onDelete)) {
+      generatedColumns.push({
+        header: 'Actions',
+        accessorKey: '_actions',
+        cell: (_value: any, row: any) => {
+          return {
+            type: 'button-group',
+            buttons: [
+              ...(operations.update && onEdit ? [{
+                label: 'Edit',
+                variant: 'ghost' as const,
+                size: 'sm' as const,
+                onClick: () => handleEdit(row),
+              }] : []),
+              ...(operations.delete && onDelete ? [{
+                label: 'Delete',
+                variant: 'ghost' as const,
+                size: 'sm' as const,
+                onClick: () => handleDelete(row),
+              }] : []),
+            ],
+          };
+        },
+        sortable: false,
+      });
+    }
+
     setColumns(generatedColumns);
-  }, [objectSchema, schema.fields, schema.columns]);
+  }, [objectSchema, schema.fields, schema.columns, schema.operations, onEdit, onDelete]);
 
   // Fetch data from ObjectQL
   const fetchData = useCallback(async () => {
@@ -195,6 +261,85 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
     fetchData();
   }, [fetchData]);
 
+  // Handle edit action
+  const handleEdit = useCallback((record: any) => {
+    if (onEdit) {
+      onEdit(record);
+    }
+  }, [onEdit]);
+
+  // Handle delete action with confirmation
+  const handleDelete = useCallback(async (record: any) => {
+    if (!onDelete) return;
+
+    // Show confirmation dialog
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm(
+        `Are you sure you want to delete this ${schema.objectName}?`
+      );
+      if (!confirmed) return;
+    }
+
+    try {
+      // Optimistic update: remove from UI immediately
+      const recordId = record._id || record.id;
+      setData(prevData => prevData.filter(item => 
+        (item._id || item.id) !== recordId
+      ));
+
+      // Call backend delete
+      await dataSource.delete(schema.objectName, recordId);
+
+      // Notify parent
+      onDelete(record);
+    } catch (err) {
+      console.error('Failed to delete record:', err);
+      // Revert optimistic update on error
+      await fetchData();
+      alert('Failed to delete record. Please try again.');
+    }
+  }, [schema.objectName, dataSource, onDelete, fetchData]);
+
+  // Handle bulk delete action
+  const handleBulkDelete = useCallback(async (records: any[]) => {
+    if (!onBulkDelete || records.length === 0) return;
+
+    // Show confirmation dialog
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm(
+        `Are you sure you want to delete ${records.length} ${schema.objectName}(s)?`
+      );
+      if (!confirmed) return;
+    }
+
+    try {
+      // Optimistic update: remove from UI immediately
+      const recordIds = records.map(r => r._id || r.id);
+      setData(prevData => prevData.filter(item => 
+        !recordIds.includes(item._id || item.id)
+      ));
+
+      // Call backend bulk delete
+      await dataSource.bulk(schema.objectName, 'delete', records);
+
+      // Notify parent
+      onBulkDelete(records);
+      
+      // Clear selection
+      setSelectedRows([]);
+    } catch (err) {
+      console.error('Failed to delete records:', err);
+      // Revert optimistic update on error
+      await fetchData();
+      alert('Failed to delete records. Please try again.');
+    }
+  }, [schema.objectName, dataSource, onBulkDelete, fetchData]);
+
+  // Handle row selection
+  const handleRowSelect = useCallback((rows: any[]) => {
+    setSelectedRows(rows);
+  }, []);
+
   // Render error state
   if (error) {
     return (
@@ -222,10 +367,29 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
     columns,
     data,
     className: schema.className,
+    selectable: schema.selectable || (onBulkDelete ? 'multiple' : undefined),
+    onRowSelect: handleRowSelect,
+    onRowClick: onRowClick,
   };
+
+  // Add toolbar with bulk actions if selection is enabled
+  const hasToolbar = selectedRows.length > 0 && onBulkDelete;
 
   return (
     <div className="w-full">
+      {hasToolbar && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
+          <span className="text-sm text-blue-800">
+            {selectedRows.length} {schema.objectName}(s) selected
+          </span>
+          <button
+            onClick={() => handleBulkDelete(selectedRows)}
+            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Delete Selected
+          </button>
+        </div>
+      )}
       <SchemaRenderer schema={tableSchema} onAction={handleRefresh} />
     </div>
   );

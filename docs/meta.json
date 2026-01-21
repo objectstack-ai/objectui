@@ -9,6 +9,10 @@
       "url": "/concepts"
     },
     {
+      "title": "Components",
+      "url": "/components"
+    },
+    {
       "title": "Reference",
       "url": "/reference"
     },
@@ -20,6 +24,7 @@
   "pages": [
     "guide",
     "concepts",
+    "components",
     "reference",
     "ecosystem",
     "community"

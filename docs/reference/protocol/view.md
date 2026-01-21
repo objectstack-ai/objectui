@@ -399,7 +399,7 @@ permissions:
 
 ```typescript
 // src/views/task_list.view.yml
-import { ViewDefinition } from '@objectql/types';
+import { ViewDefinition } from '@objectstack/spec';
 
 export const task_list: ViewDefinition = {
   name: 'task_list',

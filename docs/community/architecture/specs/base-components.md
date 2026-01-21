@@ -367,11 +367,11 @@ dependencies:
     version: "^18.0.0"
     type: peer
   
-  - name: "@objectql/core"
+  - name: "@objectstack/client"
     version: "^1.7.0"
     type: library
   
-  - name: "@objectql/types"
+  - name: "@objectstack/spec"
     version: "^1.7.0"
     type: library
 

@@ -292,7 +292,7 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
  * `select`). If a field type is not explicitly mapped, the function falls
  * back to the generic `"input"` type.
  *
- * Updated to support all field types from @objectql/types v3.0.1:
+ * Updated to support all field types from ObjectStack Protocol:
  * text, textarea, markdown, html, select, date, datetime, time, number,
  * currency, percent, boolean, email, phone, url, image, file, location,
  * lookup, master_detail, password, formula, summary, auto_number, object,

@@ -48,8 +48,6 @@
     "@object-ui/react": "workspace:*",
     "@object-ui/components": "workspace:*",
     "@object-ui/data-objectql": "workspace:*",
-    "@objectql/sdk": "^3.0.1",
-    "@objectql/types": "^3.0.1",
     "lucide-react": "^0.562.0",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.4.0"

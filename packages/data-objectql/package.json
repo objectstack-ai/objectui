@@ -44,16 +44,9 @@
   ],
   "author": "Object UI Team",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/objectstack-ai/objectui.git",
-    "directory": "packages/data-objectql"
-  },
   "dependencies": {
     "@object-ui/types": "workspace:*",
-    "@objectstack/client": "^0.1.1",
-    "@objectql/sdk": "^3.0.1",
-    "@objectql/types": "^3.0.1"
+    "@objectstack/client": "^0.1.1"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

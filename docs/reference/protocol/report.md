@@ -751,7 +751,7 @@ permissions:
 
 ```typescript
 // src/reports/sales_summary.report.yml
-import { ReportDefinition } from '@objectql/types';
+import { ReportDefinition } from '@objectstack/spec';
 
 export const sales_summary: ReportDefinition = {
   name: 'sales_summary',

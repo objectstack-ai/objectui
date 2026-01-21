@@ -1028,7 +1028,7 @@ modes:
 
 ```typescript
 // src/forms/project.form.yml
-import { FormDefinition } from '@objectql/types';
+import { FormDefinition } from '@objectstack/spec';
 
 export const project_form: FormDefinition = {
   name: 'project_form',

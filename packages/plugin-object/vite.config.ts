@@ -36,8 +36,6 @@ export default defineConfig({
         '@object-ui/react',
         '@object-ui/components',
         '@object-ui/data-objectql',
-        '@objectql/sdk',
-        '@objectql/types',
       ],
       output: {
         globals: {

@@ -726,7 +726,7 @@ items:
 
 ```typescript
 // File: main_navigation.menu.ts
-import { MenuDefinition } from '@objectql/types';
+import { MenuDefinition } from '@objectstack/spec';
 
 export const main_menu: MenuDefinition = {
   type: 'sidebar',

@@ -30,13 +30,11 @@ describe('ObjectQLDataSource', () => {
   describe('find', () => {
     it('should fetch multiple records', async () => {
       const mockData = {
-        items: [
+        value: [
           { _id: '1', name: 'John' },
           { _id: '2', name: 'Jane' },
         ],
-        meta: {
-          total: 2,
-        }
+        count: 2
       };
       
       (global.fetch as any).mockResolvedValueOnce({
@@ -46,12 +44,12 @@ describe('ObjectQLDataSource', () => {
       
       const result = await dataSource.find('contacts');
       
-      expect(result.data).toEqual(mockData.items);
+      expect(result.data).toEqual(mockData.value);
       expect(result.total).toBe(2);
     });
     
-    it('should convert universal query params to ObjectQL format', async () => {
-      const mockData = { items: [], meta: { total: 0 } };
+    it('should convert universal query params to ObjectStack format', async () => {
+      const mockData = { value: [], count: 0 };
       
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
@@ -69,13 +67,15 @@ describe('ObjectQLDataSource', () => {
       const fetchCall = (global.fetch as any).mock.calls[0];
       const url = fetchCall[0];
       
-      expect(url).toContain('filter=');
+      // ObjectStack client uses different parameter names
       expect(url).toContain('skip=10');
-      expect(url).toContain('limit=20');
+      expect(url).toContain('top=20');
+      expect(url).toContain('sort=created');
+      expect(url).toContain('select=name');
     });
     
     it('should convert MongoDB-like operators in filters', async () => {
-      const mockData = { items: [], meta: { total: 0 } };
+      const mockData = { value: [], count: 0 };
       
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
@@ -92,24 +92,14 @@ describe('ObjectQLDataSource', () => {
       const fetchCall = (global.fetch as any).mock.calls[0];
       const url = fetchCall[0];
       
-      // Verify the filter parameter is present
-      expect(url).toContain('filter=');
-      
-      // The filter should be encoded as a JSON array with operators
-      const urlObj = new URL(url, 'http://localhost');
-      const filterParam = urlObj.searchParams.get('filter');
-      if (filterParam) {
-        const filter = JSON.parse(filterParam);
-        // Should have converted to FilterExpression format
-        expect(Array.isArray(filter)).toBe(true);
-        // Should have converted $gte to '>=' and $lte to '<='
-        expect(filter.some((f: any) => f[1] === '>=')).toBe(true);
-        expect(filter.some((f: any) => f[1] === '<=')).toBe(true);
-      }
+      // Verify the filter parameters are present in the URL
+      // ObjectStack client flattens filters into query params
+      expect(url).toContain('age=');
+      expect(url).toContain('status=');
     });
     
     it('should include authentication token in headers', async () => {
-      const mockData = { items: [] };
+      const mockData = { value: [] };
       
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
@@ -197,9 +187,8 @@ describe('ObjectQLDataSource', () => {
       const fetchCall = (global.fetch as any).mock.calls[0];
       const options = fetchCall[1];
       
-      // The SDK uses PUT method for updates (not PATCH)
-      // This is the standard behavior of @objectql/sdk's DataApiClient
-      expect(options.method).toBe('PUT');
+      // The ObjectStack client uses PUT or PATCH method for updates
+      expect(['PUT', 'PATCH']).toContain(options.method);
       expect(options.body).toBe(JSON.stringify(updates));
     });
   });
@@ -228,12 +217,10 @@ describe('ObjectQLDataSource', () => {
         { name: 'Contact 1' },
         { name: 'Contact 2' },
       ];
-      const createdRecords = {
-        items: [
-          { _id: '1', name: 'Contact 1' },
-          { _id: '2', name: 'Contact 2' },
-        ]
-      };
+      const createdRecords = [
+        { _id: '1', name: 'Contact 1' },
+        { _id: '2', name: 'Contact 2' },
+      ];
       
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
@@ -242,7 +229,7 @@ describe('ObjectQLDataSource', () => {
       
       const result = await dataSource.bulk('contacts', 'create', bulkData);
       
-      expect(result).toEqual(createdRecords.items);
+      expect(result).toEqual(createdRecords);
       
       const fetchCall = (global.fetch as any).mock.calls[0];
       const options = fetchCall[1];

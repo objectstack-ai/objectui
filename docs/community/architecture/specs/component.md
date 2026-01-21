@@ -504,7 +504,7 @@ license: MIT
 Components are automatically registered when ObjectQL scans your directories:
 
 ```typescript
-import { ObjectQL } from '@objectql/core';
+import { ObjectQL } from '@objectstack/client';
 
 const app = new ObjectQL({
   source: './src',
@@ -529,7 +529,7 @@ const tableComponent = app.registry.get('component', 'ObjectTable');
 Register components programmatically:
 
 ```typescript
-import { ComponentConfig } from '@objectql/types';
+import { ComponentConfig } from '@objectstack/spec';
 
 const customTable: ComponentConfig = {
   name: 'custom_table',
@@ -578,7 +578,7 @@ Generate TypeScript types from component metadata:
 
 ```typescript
 // Auto-generated types from component metadata
-import type { ObjectTableProps } from '@objectql/types/components';
+import type { ObjectTableProps } from '@objectstack/spec/components';
 
 const props: ObjectTableProps = {
   object: 'projects',
@@ -595,7 +595,7 @@ const props: ObjectTableProps = {
 Test components using ObjectQL's testing utilities:
 
 ```typescript
-import { renderComponent } from '@objectql/test-utils';
+import { renderComponent } from '@objectstack/spec';
 
 describe('CustomTable', () => {
   it('renders with data', async () => {

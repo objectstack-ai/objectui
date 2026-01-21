@@ -13,7 +13,7 @@
  * with ObjectQL API backends. It implements the universal DataSource interface
  * from @object-ui/types to provide seamless data access.
  * 
- * This adapter uses the official @objectql/sdk package for all API communication.
+ * This adapter uses the official @objectstack/client package for all API communication.
  * 
  * @module data-objectql
  * @packageDocumentation
@@ -26,12 +26,11 @@ import type {
   APIError 
 } from '@object-ui/types';
 
-import { DataApiClient, MetadataApiClient } from '@objectql/sdk';
+import { ObjectStackClient } from '@objectstack/client';
 import type { 
-  DataApiClientConfig,
-  DataApiListParams,
-  FilterExpression
-} from '@objectql/types';
+  ClientConfig,
+  QueryOptions
+} from '@objectstack/client';
 
 /**
  * ObjectQL-specific query parameters.
@@ -50,7 +49,7 @@ export interface ObjectQLQueryParams extends QueryParams {
    * @example { name: 'John', age: { $gte: 18 } }
    * @example [['name', '=', 'John'], ['age', '>=', 18]]
    */
-  filters?: FilterExpression;
+  filters?: Record<string, any>;
   
   /**
    * Sort configuration
@@ -76,9 +75,9 @@ export interface ObjectQLQueryParams extends QueryParams {
 
 /**
  * ObjectQL connection configuration
- * Compatible with @objectql/sdk DataApiClientConfig
+ * Compatible with @objectstack/client ClientConfig
  */
-export interface ObjectQLConfig extends DataApiClientConfig {
+export interface ObjectQLConfig extends ClientConfig {
   /**
    * Base URL of the ObjectQL server
    * @example 'https://api.example.com' or '/api'
@@ -92,22 +91,16 @@ export interface ObjectQLConfig extends DataApiClientConfig {
   token?: string;
   
   /**
-   * Additional headers to include in requests
+   * Custom fetch implementation (optional)
    */
-  headers?: Record<string, string>;
-  
-  /**
-   * Request timeout in milliseconds
-   * @default 30000
-   */
-  timeout?: number;
+  fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
 
 /**
  * ObjectQL Data Source Adapter
  * 
  * Implements the universal DataSource interface to connect Object UI
- * components with ObjectQL API backends using the official @objectql/sdk.
+ * components with ObjectQL API backends using the official @objectstack/client.
  * 
  * @template T - The data type
  * 
@@ -138,95 +131,52 @@ export interface ObjectQLConfig extends DataApiClientConfig {
  * ```
  */
 export class ObjectQLDataSource<T = any> implements DataSource<T> {
-  private client: DataApiClient;
-  private metadataClient: MetadataApiClient;
+  private client: ObjectStackClient;
   
   constructor(config: ObjectQLConfig) {
-    // Initialize the official ObjectQL SDK client
-    this.client = new DataApiClient(config);
-    this.metadataClient = new MetadataApiClient(config);
+    // Initialize the official ObjectStack client
+    this.client = new ObjectStackClient(config);
   }
   
   /**
-   * Convert universal QueryParams to ObjectQL DataApiListParams format
+   * Convert universal QueryParams to ObjectStack QueryOptions format
    */
-  private convertParams(params?: QueryParams): DataApiListParams {
+  private convertParams(params?: QueryParams): QueryOptions {
     if (!params) return {};
     
-    const objectqlParams: DataApiListParams = {};
+    const queryOptions: QueryOptions = {};
     
-    // Convert $select to fields
+    // Convert $select to select (field list)
     if (params.$select) {
-      objectqlParams.fields = params.$select;
+      queryOptions.select = params.$select;
     }
     
-    // Convert $filter to filters (FilterExpression format)
+    // Convert $filter to filters
     if (params.$filter) {
-      // If it's already an array (FilterExpression), use it directly
-      if (Array.isArray(params.$filter)) {
-        objectqlParams.filter = params.$filter as FilterExpression;
-      } else {
-        // Convert object format (including Mongo-like operator objects) to FilterExpression format
-        const filterEntries = Object.entries(params.$filter);
-        const filters: any[] = [];
-
-        const operatorMap: Record<string, string> = {
-          $eq: '=',
-          $ne: '!=',
-          $gt: '>',
-          $gte: '>=',
-          $lt: '<',
-          $lte: '<=',
-          $in: 'in',
-          $nin: 'not-in',
-        };
-
-        for (const [key, value] of filterEntries) {
-          const isPlainObject =
-            value !== null &&
-            typeof value === 'object' &&
-            !Array.isArray(value);
-
-          if (isPlainObject) {
-            const opEntries = Object.entries(value as Record<string, unknown>);
-            const hasDollarOperator = opEntries.some(([op]) => op.startsWith('$'));
-
-            if (hasDollarOperator) {
-              for (const [rawOp, opValue] of opEntries) {
-                const mappedOp =
-                  operatorMap[rawOp as keyof typeof operatorMap] ??
-                  rawOp.replace(/^\$/, '');
-                filters.push([key, mappedOp, opValue]);
-              }
-              continue;
-            }
-          }
-
-          // Fallback: treat as simple equality
-          filters.push([key, '=', value]);
-        }
-
-        objectqlParams.filter = filters as FilterExpression;
-      }
+      queryOptions.filters = params.$filter;
     }
     
     // Convert $orderby to sort
     if (params.$orderby) {
-      objectqlParams.sort = Object.entries(params.$orderby).map(
-        ([key, dir]) => [key, dir] as [string, 'asc' | 'desc']
-      );
+      const sortEntries = Object.entries(params.$orderby);
+      if (sortEntries.length > 0) {
+        // Convert to array format expected by ObjectStack
+        queryOptions.sort = sortEntries.map(([field, direction]) => 
+          `${field}:${direction}`
+        );
+      }
     }
     
     // Convert pagination
     if (params.$skip !== undefined) {
-      objectqlParams.skip = params.$skip;
+      queryOptions.skip = params.$skip;
     }
     
     if (params.$top !== undefined) {
-      objectqlParams.limit = params.$top;
+      queryOptions.top = params.$top;
     }
     
-    return objectqlParams;
+    return queryOptions;
   }
   
   /**
@@ -237,20 +187,22 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
    * @returns Promise resolving to query result with data and metadata
    */
   async find(resource: string, params?: QueryParams): Promise<QueryResult<T>> {
-    const objectqlParams = this.convertParams(params);
+    const queryOptions = this.convertParams(params);
     
     try {
-      const response = await this.client.list<T>(resource, objectqlParams);
+      const response = await this.client.data.find<T>(resource, queryOptions);
       
-      const data = response.items || [];
-      const total = response.meta?.total;
+      const data = response.value || [];
+      const total = response.count;
       
       return {
         data,
         total,
-        page: response.meta?.page,
-        pageSize: objectqlParams.limit,
-        hasMore: response.meta?.has_next,
+        page: params?.$skip && params?.$top 
+          ? Math.floor(params.$skip / params.$top) + 1 
+          : undefined,
+        pageSize: queryOptions.top,
+        hasMore: total !== undefined && data.length < total,
       };
     } catch (err: any) {
       // Convert SDK errors to APIError format
@@ -277,13 +229,13 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
     params?: QueryParams
   ): Promise<T | null> {
     try {
-      const response = await this.client.get<T>(resource, id);
+      const response = await this.client.data.get<T>(resource, String(id));
       
       // Return the item data, filtering fields if requested
       if (params?.$select && response) {
         const filtered: any = {};
         for (const field of params.$select) {
-          if (field in response) {
+          if (response && typeof response === 'object' && field in response) {
             filtered[field] = (response as any)[field];
           }
         }
@@ -293,7 +245,8 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
       return response ? (response as T) : null;
     } catch (err: any) {
       // Return null for not found errors
-      if (err.code === 'NOT_FOUND' || err.status === 404) {
+      // ObjectStack client throws with different error format
+      if (err.message?.includes('404') || err.status === 404) {
         return null;
       }
       
@@ -316,7 +269,7 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
    */
   async create(resource: string, data: Partial<T>): Promise<T> {
     try {
-      const response = await this.client.create<T>(resource, data);
+      const response = await this.client.data.create<T>(resource, data);
       return response as T;
     } catch (err: any) {
       throw {
@@ -342,7 +295,7 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
     data: Partial<T>
   ): Promise<T> {
     try {
-      const response = await this.client.update<T>(resource, id, data);
+      const response = await this.client.data.update<T>(resource, String(id), data);
       return response as T;
     } catch (err: any) {
       throw {
@@ -363,7 +316,7 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
    */
   async delete(resource: string, id: string | number): Promise<boolean> {
     try {
-      const response = await this.client.delete(resource, id);
+      const response = await this.client.data.delete(resource, String(id));
       return response.success ?? true;
     } catch (err: any) {
       throw {
@@ -384,7 +337,7 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
   async getObjectSchema(objectName: string): Promise<any> {
     try {
       // Use the Metadata API client to fetch object metadata
-      const response = await this.metadataClient.getObject(objectName);
+      const response = await this.client.meta.getObject(objectName);
       return response;
     } catch (err: any) {
       throw {
@@ -411,15 +364,17 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
   ): Promise<T[]> {
     try {
       if (operation === 'create') {
-        const response = await this.client.createMany<T>(resource, data);
-        return response.items || [];
+        const response = await this.client.data.createMany<T>(resource, data);
+        return response || [];
       } else if (operation === 'update') {
-        // Fallback implementation: iterate and call single-record update
+        // For update: extract IDs and update data
         if (!Array.isArray(data)) {
           throw new Error('Bulk update requires array of records');
         }
         
-        const results: T[] = [];
+        const ids: string[] = [];
+        let updateData: Partial<T> = {};
+        
         for (const item of data) {
           const record: any = item as any;
           const id = record?.id ?? record?._id;
@@ -428,20 +383,30 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
               'Bulk update requires each item to include an `id` or `_id` field.'
             );
           }
-          // Do not send id as part of the update payload
-          const { id: _omitId, _id: _omitUnderscore, ...updateData } = record;
-          const updated = await this.client.update<T>(resource, id, updateData);
+          ids.push(String(id));
+          // Use the first record's data for the update (excluding id fields)
+          const { id: _omitId, _id: _omitUnderscore, ...rest } = record;
+          updateData = rest;
+        }
+        
+        await this.client.data.updateMany<T>(resource, ids, updateData);
+        
+        // Return updated records by fetching them
+        const results: T[] = [];
+        for (const id of ids) {
+          const updated = await this.client.data.get<T>(resource, id);
           if (updated !== undefined && updated !== null) {
             results.push(updated as T);
           }
         }
         return results;
       } else if (operation === 'delete') {
-        // Fallback implementation: iterate and call single-record delete
+        // For delete: extract IDs
         if (!Array.isArray(data)) {
           throw new Error('Bulk delete requires array of records or IDs');
         }
         
+        const ids: string[] = [];
         for (const item of data) {
           const record: any = item as any;
           // Support both direct ID values and objects with id/_id field
@@ -453,8 +418,10 @@ export class ObjectQLDataSource<T = any> implements DataSource<T> {
               'Bulk delete requires each item to include an `id` or `_id` field or be an id value.'
             );
           }
-          await this.client.delete(resource, id);
+          ids.push(String(id));
         }
+        
+        await this.client.data.deleteMany(resource, ids);
         // For delete operations, we return an empty array by convention
         return [];
       }

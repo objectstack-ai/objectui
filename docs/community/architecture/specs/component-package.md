@@ -102,7 +102,7 @@ Every component package must include an `objectql.package.json` file:
   },
 
   "peerDependencies": {
-    "@objectql/types": "^1.7.0",
+    "@objectstack/spec": "^1.7.0",
     "tailwindcss": "^3.0.0"
   },
 
@@ -149,7 +149,7 @@ Standard npm package.json with UMD build configuration:
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "@objectql/types": "^1.7.0"
+    "@objectstack/spec": "^1.7.0"
   },
 
   "devDependencies": {
@@ -191,7 +191,7 @@ export default {
       globals: {
         'react': 'React',
         'react-dom': 'ReactDOM',
-        '@objectql/types': 'ObjectQLTypes'
+        '@objectstack/spec': 'ObjectQLTypes'
       },
       sourcemap: true
     },
@@ -202,7 +202,7 @@ export default {
     }
   ],
 
-  external: ['react', 'react-dom', '@objectql/types'],
+  external: ['react', 'react-dom', '@objectstack/spec'],
 
   plugins: [
     resolve(),
@@ -246,7 +246,7 @@ export const OBJECTQL_VERSION = '^1.7.0';
 
 ```typescript
 import React from 'react';
-import type { ComponentProps } from '@objectql/types';
+import type { ComponentProps } from '@objectstack/spec';
 
 export interface MyTableProps extends ComponentProps {
   object: string;
@@ -327,7 +327,7 @@ dependencies:
     version: "^18.0.0"
     type: library
   
-  - name: "@objectql/types"
+  - name: "@objectstack/spec"
     version: "^1.7.0"
     type: library
 

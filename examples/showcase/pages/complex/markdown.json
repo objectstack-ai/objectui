@@ -1,0 +1,133 @@
+{
+  "type": "page",
+  "title": "Markdown - Object UI",
+  "body": [
+    {
+      "type": "div",
+      "className": "space-y-6 container mx-auto py-6 max-w-4xl",
+      "children": [
+        {
+          "type": "div",
+          "className": "space-y-2",
+          "children": [
+            {
+              "type": "text",
+              "value": "Markdown",
+              "className": "text-3xl font-bold tracking-tight"
+            },
+            {
+              "type": "text",
+              "value": "GitHub Flavored Markdown rendering with XSS protection.",
+              "className": "text-lg text-muted-foreground"
+            }
+          ]
+        },
+        {
+          "type": "separator",
+          "className": "my-6"
+        },
+        {
+          "type": "div",
+          "className": "grid gap-4",
+          "children": [
+            {
+              "type": "text",
+              "value": "Basic Markdown",
+              "className": "text-sm font-medium leading-none"
+            },
+            {
+              "type": "card",
+              "className": "p-6 border shadow-sm",
+              "children": {
+                "type": "markdown",
+                "className": "prose dark:prose-invert max-w-none",
+                "content": "# Welcome to ObjectUI\n\nObjectUI is a **Universal Schema-Driven UI Engine** that transforms JSON into pixel-perfect interfaces.\n\n## Features\n\n- 🚀 **Server-Driven UI**: Update UI without deployments\n- 🎨 **Tailwind + Shadcn**: Beautiful, accessible components\n- 📱 **Responsive**: Mobile-first design\n- ⚡ **Fast**: Lazy-loaded plugins\n- 🔒 **Type-Safe**: Full TypeScript support\n\n## Quick Start\n\n```bash\nnpm install @object-ui/react\n```\n\nThen create your first app:\n\n```json\n{\n  \"type\": \"app\",\n  \"name\": \"MyApp\",\n  \"title\": \"Hello World\"\n}\n```"
+              }
+            }
+          ]
+        },
+        {
+          "type": "div",
+          "className": "grid gap-4",
+          "children": [
+            {
+              "type": "text",
+              "value": "Lists and Links",
+              "className": "text-sm font-medium leading-none"
+            },
+            {
+              "type": "card",
+              "className": "p-6 border shadow-sm",
+              "children": {
+                "type": "markdown",
+                "className": "prose dark:prose-invert max-w-none",
+                "content": "### Documentation Links\n\nLearn more about ObjectUI:\n\n- [Installation Guide](https://objectui.org/guide/installation)\n- [Component Reference](https://objectui.org/components)\n- [Plugin System](https://objectui.org/concepts/plugins)\n- [API Documentation](https://objectui.org/ecosystem/api)\n\n### Ordered Lists\n\n1. Clone the repository\n2. Install dependencies with `pnpm install`\n3. Build the project with `pnpm build`\n4. Run the showcase with `pnpm showcase`"
+              }
+            }
+          ]
+        },
+        {
+          "type": "div",
+          "className": "grid gap-4",
+          "children": [
+            {
+              "type": "text",
+              "value": "Tables",
+              "className": "text-sm font-medium leading-none"
+            },
+            {
+              "type": "card",
+              "className": "p-6 border shadow-sm",
+              "children": {
+                "type": "markdown",
+                "className": "prose dark:prose-invert max-w-none",
+                "content": "### Component Comparison\n\n| Feature | ObjectUI | Traditional React | Low-Code Platforms |\n|---------|----------|-------------------|--------------------|\n| Server-Driven | ✅ Yes | ❌ No | ✅ Yes |\n| Design Quality | ✅ High | ✅ High | ⚠️ Medium |\n| Type Safety | ✅ TypeScript | ✅ TypeScript | ❌ Limited |\n| Bundle Size | ✅ Small | ⚠️ Large | ⚠️ Large |\n| Developer Control | ✅ Full | ✅ Full | ❌ Limited |\n| Learning Curve | ✅ Easy | ⚠️ Medium | ✅ Easy |"
+              }
+            }
+          ]
+        },
+        {
+          "type": "div",
+          "className": "grid gap-4",
+          "children": [
+            {
+              "type": "text",
+              "value": "Code Blocks and Emphasis",
+              "className": "text-sm font-medium leading-none"
+            },
+            {
+              "type": "card",
+              "className": "p-6 border shadow-sm",
+              "children": {
+                "type": "markdown",
+                "className": "prose dark:prose-invert max-w-none",
+                "content": "### Working with Components\n\nEvery component in ObjectUI follows a simple pattern:\n\n```typescript\ninterface ComponentSchema {\n  type: string;        // Component type (e.g., 'button', 'card')\n  id?: string;         // Optional unique identifier\n  className?: string;  // Tailwind CSS classes\n  children?: any;      // Child components\n}\n```\n\nYou can use **bold text** for emphasis, *italic text* for subtle emphasis, or `inline code` for technical terms.\n\n> **Note**: All components are lazy-loaded by default for optimal performance.\n\n---\n\n#### Blockquotes\n\n> \"ObjectUI bridges the gap between Low-Code speed and High-Code quality.\"\n> \n> — ObjectStack Team"
+              }
+            }
+          ]
+        },
+        {
+          "type": "div",
+          "className": "grid gap-4",
+          "children": [
+            {
+              "type": "text",
+              "value": "Task Lists",
+              "className": "text-sm font-medium leading-none"
+            },
+            {
+              "type": "card",
+              "className": "p-6 border shadow-sm",
+              "children": {
+                "type": "markdown",
+                "className": "prose dark:prose-invert max-w-none",
+                "content": "### Project Checklist\n\n- [x] Set up monorepo structure\n- [x] Implement core component registry\n- [x] Add Shadcn UI components\n- [x] Create plugin system\n- [x] Build showcase application\n- [ ] Publish to NPM\n- [ ] Add more examples\n- [ ] Create video tutorials"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "icon": "FileText"
+}

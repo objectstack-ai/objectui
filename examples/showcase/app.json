@@ -111,6 +111,8 @@
         { "label": "Calendar View", "path": "/complex/calendar-view", "icon": "Calendar" },
         { "label": "Timeline", "path": "/complex/timeline", "icon": "GitCommit" },
         { "label": "Charts", "path": "/complex/charts", "icon": "BarChart" },
+        { "label": "Code Editor", "path": "/complex/code-editor", "icon": "Code" },
+        { "label": "Markdown", "path": "/complex/markdown", "icon": "FileText" },
         { "label": "Carousel", "path": "/complex/carousel", "icon": "GalleryHorizontal" },
         { "label": "Resizable", "path": "/complex/resizable", "icon": "MoveHorizontal" },
         { "label": "Scroll Area", "path": "/complex/scroll-area", "icon": "Scroll" },

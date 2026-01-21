@@ -1,0 +1,446 @@
+---
+title: "Plugin Object"
+---
+
+ObjectQL integration plugin providing smart components for CRUD operations.
+
+## Installation
+
+```bash
+npm install @object-ui/plugin-object @object-ui/data-objectql
+```
+
+## Overview
+
+The Object plugin provides seamless integration with ObjectQL backends through smart components that automatically generate UI from ObjectQL object schemas. It's the official plugin for building data-driven applications with ObjectUI.
+
+## Features
+
+- **ObjectTable**: Auto-generated tables with sorting, filtering, pagination
+- **ObjectForm**: Smart forms with validation and schema integration
+- **ObjectView**: Complete CRUD views with list, detail, and edit modes
+- **Schema-driven**: Automatically adapts to ObjectQL metadata
+- **Type-safe**: Full TypeScript support
+- **Lazy-loaded**: Only loads when used
+
+## Components
+
+### ObjectTable
+
+A specialized table component that automatically fetches and displays data from ObjectQL objects.
+
+#### Basic Usage
+
+```tsx
+import { ObjectTable } from '@object-ui/plugin-object';
+import { ObjectQLDataSource } from '@object-ui/data-objectql';
+
+const dataSource = new ObjectQLDataSource({
+  baseUrl: 'https://api.example.com',
+  token: 'your-auth-token'
+});
+
+function UsersTable() {
+  return (
+    <ObjectTable 
+      schema={{
+        type: 'object-table',
+        objectName: 'users',
+        columns: ['name', 'email', 'status', 'created_at']
+      }}
+      dataSource={dataSource}
+    />
+  );
+}
+```
+
+#### JSON Schema
+
+```json
+{
+  "type": "object-table",
+  "objectName": "users",
+  "columns": ["name", "email", "status"],
+  "filters": {
+    "status": "active"
+  },
+  "pageSize": 20,
+  "sortBy": "created_at",
+  "sortOrder": "desc"
+}
+```
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `objectName` | string | Required | Name of the ObjectQL object |
+| `columns` | string[] | All fields | Columns to display |
+| `filters` | object | `{}` | Default filters to apply |
+| `pageSize` | number | `10` | Rows per page |
+| `sortBy` | string | `'id'` | Default sort field |
+| `sortOrder` | 'asc' \| 'desc' | `'asc'` | Default sort order |
+| `selectable` | boolean | `false` | Enable row selection |
+| `searchable` | boolean | `true` | Enable search bar |
+
+### ObjectForm
+
+A smart form component that generates forms from ObjectQL object schemas with automatic field generation and validation.
+
+#### Basic Usage
+
+```tsx
+import { ObjectForm } from '@object-ui/plugin-object';
+import { ObjectQLDataSource } from '@object-ui/data-objectql';
+
+const dataSource = new ObjectQLDataSource({
+  baseUrl: 'https://api.example.com',
+  token: 'your-auth-token'
+});
+
+function UserForm() {
+  return (
+    <ObjectForm 
+      schema={{
+        type: 'object-form',
+        objectName: 'users',
+        mode: 'create',
+        fields: ['name', 'email', 'role', 'status'],
+        onSuccess: { type: 'toast', message: 'User created!' }
+      }}
+      dataSource={dataSource}
+    />
+  );
+}
+```
+
+#### JSON Schema (Create Mode)
+
+```json
+{
+  "type": "object-form",
+  "objectName": "contacts",
+  "mode": "create",
+  "fields": ["first_name", "last_name", "email", "phone", "company"],
+  "defaultValues": {
+    "status": "active"
+  },
+  "onSuccess": {
+    "type": "toast",
+    "message": "Contact created successfully!"
+  }
+}
+```
+
+#### JSON Schema (Edit Mode)
+
+```json
+{
+  "type": "object-form",
+  "objectName": "contacts",
+  "mode": "edit",
+  "recordId": "${params.id}",
+  "fields": ["first_name", "last_name", "email", "phone", "company", "status"],
+  "onSuccess": {
+    "type": "navigate",
+    "path": "/contacts"
+  }
+}
+```
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `objectName` | string | Required | Name of the ObjectQL object |
+| `mode` | 'create' \| 'edit' | Required | Form mode |
+| `recordId` | string | - | Record ID for edit mode |
+| `fields` | string[] | All fields | Fields to display |
+| `defaultValues` | object | `{}` | Default field values |
+| `layout` | 'vertical' \| 'horizontal' | `'vertical'` | Form layout |
+| `onSuccess` | Action | - | Action on successful submit |
+| `onCancel` | Action | - | Action on cancel |
+
+### ObjectView
+
+Complete CRUD view with integrated list, detail, and edit modes.
+
+#### Basic Usage
+
+```tsx
+import { ObjectView } from '@object-ui/plugin-object';
+import { ObjectQLDataSource } from '@object-ui/data-objectql';
+
+const dataSource = new ObjectQLDataSource({
+  baseUrl: 'https://api.example.com',
+  token: 'your-auth-token'
+});
+
+function UsersView() {
+  return (
+    <ObjectView 
+      schema={{
+        type: 'object-view',
+        objectName: 'users',
+        view: 'list',
+        listColumns: ['name', 'email', 'role', 'status'],
+        detailFields: ['name', 'email', 'role', 'status', 'created_at', 'updated_at'],
+        editFields: ['name', 'email', 'role', 'status']
+      }}
+      dataSource={dataSource}
+    />
+  );
+}
+```
+
+#### JSON Schema
+
+```json
+{
+  "type": "object-view",
+  "objectName": "products",
+  "view": "list",
+  "listColumns": ["name", "category", "price", "stock", "status"],
+  "detailFields": ["name", "description", "category", "price", "stock", "status"],
+  "editFields": ["name", "description", "category", "price", "stock", "status"],
+  "actions": [
+    {
+      "type": "button",
+      "label": "New Product",
+      "action": {
+        "type": "navigate",
+        "path": "/products/new"
+      }
+    }
+  ]
+}
+```
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `objectName` | string | Required | Name of the ObjectQL object |
+| `view` | 'list' \| 'detail' \| 'edit' | `'list'` | Current view mode |
+| `listColumns` | string[] | All fields | Columns for list view |
+| `detailFields` | string[] | All fields | Fields for detail view |
+| `editFields` | string[] | All fields | Fields for edit view |
+| `actions` | Action[] | `[]` | Custom actions |
+
+## Schema Integration
+
+All Object components automatically integrate with ObjectQL's schema system to:
+
+- **Field Types**: Display appropriate UI components based on field types (text, number, date, boolean, etc.)
+- **Permissions**: Apply field-level and object-level permissions
+- **Validation**: Validate data according to schema rules (required, format, range, etc.)
+- **Relationships**: Handle relationships between objects (lookup, master-detail, etc.)
+- **Computed Fields**: Display computed/formula fields
+
+## Examples
+
+### User Management Dashboard
+
+```json
+{
+  "type": "page",
+  "title": "User Management",
+  "body": [
+    {
+      "type": "card",
+      "title": "Users",
+      "className": "p-6",
+      "children": {
+        "type": "object-table",
+        "objectName": "users",
+        "columns": ["name", "email", "role", "status", "last_login"],
+        "searchable": true,
+        "selectable": true,
+        "actions": [
+          {
+            "type": "button",
+            "label": "New User",
+            "variant": "default",
+            "action": {
+              "type": "navigate",
+              "path": "/users/new"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+### Contact Form
+
+```json
+{
+  "type": "page",
+  "title": "New Contact",
+  "body": [
+    {
+      "type": "card",
+      "title": "Create Contact",
+      "className": "max-w-2xl mx-auto p-6",
+      "children": {
+        "type": "object-form",
+        "objectName": "contacts",
+        "mode": "create",
+        "fields": [
+          "first_name",
+          "last_name",
+          "email",
+          "phone",
+          "company",
+          "title",
+          "status"
+        ],
+        "defaultValues": {
+          "status": "active",
+          "source": "web"
+        },
+        "layout": "vertical",
+        "onSuccess": {
+          "type": "navigate",
+          "path": "/contacts"
+        },
+        "onCancel": {
+          "type": "navigate",
+          "path": "/contacts"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Product Catalog with CRUD
+
+```json
+{
+  "type": "page",
+  "title": "Products",
+  "body": [
+    {
+      "type": "object-view",
+      "objectName": "products",
+      "view": "list",
+      "listColumns": ["image", "name", "category", "price", "stock", "status"],
+      "detailFields": [
+        "image",
+        "name",
+        "description",
+        "category",
+        "price",
+        "cost",
+        "stock",
+        "sku",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "editFields": [
+        "image",
+        "name",
+        "description",
+        "category",
+        "price",
+        "cost",
+        "stock",
+        "sku",
+        "status"
+      ],
+      "filters": {
+        "status": "active"
+      },
+      "actions": [
+        {
+          "type": "button",
+          "label": "Add Product",
+          "icon": "Plus",
+          "action": {
+            "type": "navigate",
+            "path": "/products/new"
+          }
+        },
+        {
+          "type": "button",
+          "label": "Import",
+          "icon": "Upload",
+          "variant": "outline",
+          "action": {
+            "type": "dialog",
+            "title": "Import Products",
+            "content": "Import dialog content..."
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+## TypeScript Support
+
+```typescript
+import type { 
+  ObjectTableSchema, 
+  ObjectFormSchema,
+  ObjectViewSchema 
+} from '@object-ui/plugin-object';
+
+// Object Table
+const tableSchema: ObjectTableSchema = {
+  type: 'object-table',
+  objectName: 'users',
+  columns: ['name', 'email', 'role'],
+  pageSize: 20
+};
+
+// Object Form
+const formSchema: ObjectFormSchema = {
+  type: 'object-form',
+  objectName: 'contacts',
+  mode: 'create',
+  fields: ['first_name', 'last_name', 'email'],
+  onSuccess: {
+    type: 'toast',
+    message: 'Contact created!'
+  }
+};
+
+// Object View
+const viewSchema: ObjectViewSchema = {
+  type: 'object-view',
+  objectName: 'products',
+  view: 'list',
+  listColumns: ['name', 'price', 'stock']
+};
+```
+
+## Data Source Configuration
+
+The Object plugin requires an ObjectQL data source to be configured:
+
+```tsx
+import { ObjectQLDataSource } from '@object-ui/data-objectql';
+
+const dataSource = new ObjectQLDataSource({
+  baseUrl: 'https://api.example.com',
+  token: 'your-auth-token',
+  // Optional configurations
+  timeout: 30000,
+  headers: {
+    'X-Custom-Header': 'value'
+  }
+});
+```
+
+## Related Documentation
+
+- [ObjectQL Integration](/ecosystem/objectql.md)
+- [Data Sources](/concepts/data-source.md)
+- [Plugin System Overview](/concepts/plugins.md)
+- [Package README](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-object)

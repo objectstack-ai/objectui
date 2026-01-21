@@ -23,7 +23,7 @@
 ObjectUI has successfully integrated the **ObjectStack Client** (`@objectstack/client@^0.1.1`) and **ObjectStack Spec** (`@objectstack/spec@^0.1.2`), establishing a solid foundation for universal, protocol-driven UI components.
 
 ### Current Status
-- **Total Components**: 75+ components across 14 packages (9 core categories + 5 plugins)
+- **Total Components**: 72+ components across 14 packages (9 core categories + 5 plugins)
 - **Core Packages**: 13+ packages (stable architecture)
 - **Plugin System**: 5 plugin packages (charts, editor, kanban, markdown, object)
 - **ObjectStack Integration**: ✅ Completed (DataSource adapter fully functional)
@@ -41,7 +41,7 @@ The **ObjectStackAdapter** is now fully operational, providing:
 
 ## Current Component Inventory
 
-### 1. Basic Components (8 components)
+### 1. Basic Components (7 components)
 **Package**: `@object-ui/components/renderers/basic`
 
 | Component | Type | Status | Description |
@@ -56,7 +56,7 @@ The **ObjectStackAdapter** is now fully operational, providing:
 
 **ObjectStack Compatibility**: ✅ All components extend `UIComponent` from `@objectstack/spec`
 
-### 2. Form Components (16 components)
+### 2. Form Components (15 components)
 **Package**: `@object-ui/components/renderers/form`
 
 | Component | Type | Status | ObjectStack Integration | Notes |
@@ -97,7 +97,7 @@ The **ObjectStackAdapter** is now fully operational, providing:
 
 **ObjectStack Priority**: All layout components are ready for ObjectStack integration.
 
-### 4. Data Display Components (7 components)
+### 4. Data Display Components (6 components)
 **Package**: `@object-ui/components/renderers/data-display`
 
 | Component | Type | Status | ObjectStack Integration | Notes |
@@ -611,10 +611,10 @@ interface ObjectStackClient {
 ### Component Completion
 | Category | Total | Completed | In Progress | Planned |
 |----------|-------|-----------|-------------|---------|
-| Basic | 8 | 8 | 0 | 0 |
-| Form | 16 | 15 | 1 | 0 |
+| Basic | 7 | 7 | 0 | 0 |
+| Form | 15 | 14 | 1 | 0 |
 | Layout | 9 | 9 | 0 | 0 |
-| Data Display | 7 | 6 | 1 | 0 |
+| Data Display | 6 | 5 | 1 | 0 |
 | Complex | 10 | 7 | 3 | 0 |
 | Navigation | 2 | 1 | 1 | 0 |
 | Overlay | 9 | 9 | 0 | 0 |
@@ -626,7 +626,7 @@ interface ObjectStackClient {
 | Kanban | 1 | 0 | 1 | 0 |
 | Markdown | 1 | 0 | 1 | 0 |
 | Object | 2 | 0 | 2 | 0 |
-| **TOTAL** | **75** | **61** | **14** | **0** |
+| **TOTAL** | **72** | **58** | **14** | **0** |
 
 ---
 

@@ -3,6 +3,10 @@
   "pages": [
     "loading",
     "progress",
-    "skeleton"
+    "skeleton",
+    "spinner",
+    "empty",
+    "toast",
+    "sonner"
   ]
 }

@@ -4,6 +4,11 @@
     "badge",
     "avatar",
     "alert",
-    "list"
+    "list",
+    "breadcrumb",
+    "calendar",
+    "carousel",
+    "kbd",
+    "timeline"
   ]
 }

@@ -3,10 +3,17 @@
   "pages": [
     "button",
     "input",
-    "select",
-    "checkbox",
-    "switch",
     "textarea",
-    "slider"
+    "select",
+    "combobox",
+    "checkbox",
+    "radio-group",
+    "switch",
+    "slider",
+    "label",
+    "date-picker",
+    "input-otp",
+    "command",
+    "form"
   ]
 }

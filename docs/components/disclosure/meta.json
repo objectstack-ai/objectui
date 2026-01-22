@@ -2,6 +2,8 @@
   "title": "Disclosure",
   "pages": [
     "accordion",
-    "collapsible"
+    "collapsible",
+    "toggle",
+    "toggle-group"
   ]
 }

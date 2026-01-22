@@ -5,6 +5,10 @@
     "icon",
     "image",
     "separator",
-    "html"
+    "html",
+    "button-group",
+    "pagination",
+    "navigation-menu",
+    "sidebar"
   ]
 }

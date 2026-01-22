@@ -6,6 +6,9 @@
     "grid",
     "flex",
     "stack",
-    "tabs"
+    "tabs",
+    "aspect-ratio",
+    "scroll-area",
+    "resizable"
   ]
 }

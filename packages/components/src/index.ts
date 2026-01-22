@@ -14,6 +14,9 @@ import './renderers';
 // Export utils
 export * from './lib/utils';
 
+// Export hooks
+export * from './hooks/use-toast';
+
 // Export raw Shadcn UI components
 export * from './ui';
 

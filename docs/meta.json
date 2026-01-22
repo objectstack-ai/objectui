@@ -9,29 +9,30 @@
       "url": "/components"
     },
     {
-      "title": "Plugins",
-      "url": "/plugins"
-    },
-    {
       "title": "Concepts",
       "url": "/concepts"
     },
     {
-      "title": "Advanced",
+      "title": "Reference",
       "url": "/reference"
     },
     {
-      "title": "Community",
-      "url": "/community"
+      "title": "Resources",
+      "url": "/ecosystem"
     }
   ],
   "pages": [
     "guide",
     "components",
-    "plugins",
     "concepts",
+    "plugins",
     "reference",
+    "architecture",
     "ecosystem",
+    "migration",
+    "troubleshooting",
+    "security",
+    "faq",
     "community"
   ]
 }

@@ -1,12 +1,12 @@
 {
-  "title": "Advanced",
+  "title": "Reference",
   "pages": [
     "---API Reference",
     "api/core",
     "api/react",
     "api/components",
     "api/designer",
-    "---Protocol",
+    "---Protocol Specifications",
     "protocol/overview",
     "protocol/page",
     "protocol/form",
@@ -15,8 +15,6 @@
     "protocol/menu",
     "protocol/app",
     "protocol/report",
-    "protocol/object",
-    "---Ecosystem",
-    "ecosystem"
+    "protocol/object"
   ]
 }

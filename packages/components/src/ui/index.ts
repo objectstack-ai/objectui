@@ -62,6 +62,7 @@ export * from './tabs';
 export * from './textarea';
 export * from './timeline';
 export * from './toast';
+export { Toaster as ToastNotifier } from './toaster';
 export * from './toggle-group';
 export * from './toggle';
 export * from './tooltip';

@@ -8,8 +8,8 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import type { ToasterSchema } from '@object-ui/types';
-import { Toaster as SonnerToaster } from '../../ui';
-import { Toaster as DefaultToaster } from '../../ui'; 
+import { Toaster as SonnerToaster } from '../../ui/sonner';
+import { ToastNotifier as DefaultToaster } from '../../ui'; 
 // Note: In shadcn/ui typical setup, Toaster is exported from 'components/ui/toaster' and 'components/ui/sonner'.
 // But in @object-ui/ui index.tsx, we need to check if they are exported.
 // Assuming they are exported as Toaster and Sonner (or similar).

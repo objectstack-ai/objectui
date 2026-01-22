@@ -18,6 +18,7 @@
     "@object-ui/plugin-charts": "workspace:*",
     "@object-ui/plugin-kanban": "workspace:*",
     "@object-ui/plugin-markdown": "workspace:*",
+    "@object-ui/plugin-object": "workspace:*",
     "fumadocs-core": "^16.4.7",
     "fumadocs-mdx": "^14.2.6",
     "fumadocs-ui": "^16.4.7",

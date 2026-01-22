@@ -123,6 +123,9 @@ importers:
       '@object-ui/plugin-markdown':
         specifier: workspace:*
         version: link:../../packages/plugin-markdown
+      '@object-ui/plugin-object':
+        specifier: workspace:*
+        version: link:../../packages/plugin-object
       '@object-ui/react':
         specifier: workspace:*
         version: link:../../packages/react

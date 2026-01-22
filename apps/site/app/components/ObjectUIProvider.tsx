@@ -11,6 +11,7 @@ if (typeof window !== 'undefined') {
   import('@object-ui/plugin-charts');
   import('@object-ui/plugin-kanban');
   import('@object-ui/plugin-markdown');
+  import('@object-ui/plugin-object');
 }
 
 export function ObjectUIProvider({ children }: { children: React.ReactNode }) {

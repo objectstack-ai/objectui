@@ -426,30 +426,30 @@ pnpm site:build
 #### ✅ Correct Link Patterns
 
 ```markdown
-<!-- Correct - links start with / but do NOT include /docs/ -->
-[Quick Start](/guide/quick-start)
-[Components](/components)
-[API Reference](/reference/api/core)
-[Protocol Specs](/reference/protocol/overview)
-[Architecture](/architecture/component)
+<!-- Correct - internal documentation links MUST include /docs/ prefix -->
+[Quick Start](/docs/guide/quick-start)
+[Components](/docs/components)
+[API Reference](/docs/reference/api/core)
+[Protocol Specs](/docs/reference/protocol/overview)
+[Architecture](/docs/architecture/component)
 ```
 
 #### ❌ Incorrect Link Patterns
 
 ```markdown
-<!-- Wrong - includes /docs/ prefix -->
-[Quick Start](/docs/guide/quick-start)  <!-- ❌ -->
-[Components](/docs/components)          <!-- ❌ -->
+<!-- Wrong - missing /docs/ prefix -->
+[Quick Start](/guide/quick-start)       <!-- ❌ Should be /docs/guide/quick-start -->
+[Components](/components)               <!-- ❌ Should be /docs/components -->
 
 <!-- Wrong - incorrect paths -->
-[API Reference](/api/core)              <!-- ❌ Should be /reference/api/core -->
-[Spec](/spec/component)                 <!-- ❌ Should be /architecture/component -->
-[Protocol](/protocol/form)              <!-- ❌ Should be /reference/protocol/form -->
+[API Reference](/api/core)              <!-- ❌ Should be /docs/reference/api/core -->
+[Spec](/spec/component)                 <!-- ❌ Should be /docs/architecture/component -->
+[Protocol](/protocol/form)              <!-- ❌ Should be /docs/reference/protocol/form -->
 ```
 
 #### Why?
 
-Fumadocs already configures the base URL as `/docs` in the routing system. Adding `/docs/` to your links creates invalid paths like `/docs/docs/guide/quick-start`.
+Fumadocs is configured with `baseUrl: '/docs'`, which means all documentation pages are served under the `/docs` route. Internal links must include the `/docs/` prefix to match the actual URL structure where the pages are accessible.
 
 #### Validating Links
 
@@ -461,8 +461,8 @@ pnpm validate:links
 ```
 
 This will check:
-- Links don't contain `/docs/` prefix
 - Links point to existing files and routes
+- Links use correct path structure
 - Suggestions for fixing common issues
 
 The validation runs automatically on PRs that modify documentation files.

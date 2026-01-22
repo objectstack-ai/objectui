@@ -18,8 +18,8 @@ node scripts/validate-docs-links.mjs
 ```
 
 **What it checks**:
-- ✅ Links don't contain incorrect `/docs/` prefix
 - ✅ Links point to existing files and routes
+- ✅ Links use correct path structure with `/docs/` prefix
 - ✅ Provides suggestions for fixing common issues
 
 **Exit codes**:
@@ -28,23 +28,6 @@ node scripts/validate-docs-links.mjs
 
 **CI/CD Integration**: This script runs automatically on PRs that modify documentation files via the `.github/workflows/validate-docs-links.yml` workflow.
 
-### fix-links.sh
-
-**Purpose**: Bulk fix common broken link patterns in documentation.
-
-**Usage**:
-```bash
-# Run the fix script
-bash scripts/fix-links.sh
-```
-
-**What it fixes**:
-- Removes `/docs/` prefix from internal links
-- Corrects path references (`/spec/` → `/architecture/`, `/api/` → `/reference/api/`)
-- Updates protocol paths to include `/reference/` prefix
-
-**Note**: This is a one-time fix script. After fixing links, you should rely on the validation script to prevent future issues.
-
 ## Link Conventions
 
 When adding internal links in documentation, follow these patterns:
@@ -52,24 +35,24 @@ When adding internal links in documentation, follow these patterns:
 ### ✅ Correct
 
 ```markdown
-[Quick Start](/guide/quick-start)
-[Components](/components)
-[API Reference](/reference/api/core)
-[Protocol](/reference/protocol/overview)
-[Architecture](/architecture/component)
+[Quick Start](/docs/guide/quick-start)
+[Components](/docs/components)
+[API Reference](/docs/reference/api/core)
+[Protocol](/docs/reference/protocol/overview)
+[Architecture](/docs/architecture/component)
 ```
 
 ### ❌ Incorrect
 
 ```markdown
-[Quick Start](/docs/guide/quick-start)  <!-- ❌ Don't include /docs/ -->
-[API](/api/core)                        <!-- ❌ Should be /reference/api/core -->
-[Spec](/spec/component)                 <!-- ❌ Should be /architecture/component -->
+[Quick Start](/guide/quick-start)       <!-- ❌ Missing /docs/ prefix -->
+[API](/api/core)                        <!-- ❌ Should be /docs/reference/api/core -->
+[Spec](/spec/component)                 <!-- ❌ Should be /docs/architecture/component -->
 ```
 
 ## Why These Conventions?
 
-Fumadocs configures the base URL as `/docs` in the site routing. When you add `/docs/` to links, it creates invalid paths like `/docs/docs/guide/quick-start`.
+Fumadocs is configured with `baseUrl: '/docs'`, which means all documentation pages are served under the `/docs` route. Internal links must include the `/docs/` prefix to match the actual URL structure where the pages are accessible.
 
 ## See Also
 

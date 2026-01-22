@@ -636,10 +636,10 @@ const data: UserData = { /* ... */ }
 
 - [Schema Rendering](./schema-rendering.md) - Learn the rendering engine
 - [Component Registry](./component-registry.md) - Understand components
-- [Protocol Overview](/reference/protocol/overview) - Explore schema specifications
+- [Protocol Overview](/protocol/overview) - Explore schema specifications
 
 ## Related Documentation
 
-- [Core API](/reference/api/core) - Expression evaluator API
-- [Form Protocol](/reference/protocol/form) - Form-specific expressions
-- [View Protocol](/reference/protocol/view) - Data view expressions
+- [Core API](/api/core) - Expression evaluator API
+- [Form Protocol](/protocol/form) - Form-specific expressions
+- [View Protocol](/protocol/view) - Data view expressions

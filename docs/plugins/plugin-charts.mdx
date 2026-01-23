@@ -36,7 +36,8 @@ npm install @object-ui/plugin-charts
 
 <InteractiveDemo
   schema={{
-    type: "line-chart",
+    type: "chart",
+    chartType: "line",
     data: [
       { month: "Jan", revenue: 4000, expenses: 2400 },
       { month: "Feb", revenue: 3000, expenses: 1398 },
@@ -45,12 +46,15 @@ npm install @object-ui/plugin-charts
       { month: "May", revenue: 5000, expenses: 4800 },
       { month: "Jun", revenue: 7000, expenses: 3800 }
     ],
-    lines: [
-      { dataKey: "revenue", stroke: "#8884d8", name: "Revenue" },
-      { dataKey: "expenses", stroke: "#82ca9d", name: "Expenses" }
-    ],
     xAxisKey: "month",
-    height: 300
+    series: [
+      { dataKey: "revenue" },
+      { dataKey: "expenses" }
+    ],
+    config: {
+      revenue: { label: "Revenue", color: "#8884d8" },
+      expenses: { label: "Expenses", color: "#82ca9d" }
+    }
   }}
   title="Multi-Line Chart"
   description="Compare multiple metrics over time"
@@ -58,18 +62,26 @@ npm install @object-ui/plugin-charts
 
 <InteractiveDemo
   schema={{
-    type: "pie-chart",
+    type: "chart",
+    chartType: "area",
     data: [
-      { name: "Desktop", value: 45, fill: "#8884d8" },
-      { name: "Mobile", value: 35, fill: "#82ca9d" },
-      { name: "Tablet", value: 20, fill: "#ffc658" }
+      { month: "Jan", users: 1200 },
+      { month: "Feb", users: 1450 },
+      { month: "Mar", users: 1680 },
+      { month: "Apr", users: 1920 },
+      { month: "May", users: 2100 },
+      { month: "Jun", users: 2350 }
     ],
-    dataKey: "value",
-    nameKey: "name",
-    height: 300
+    xAxisKey: "month",
+    series: [
+      { dataKey: "users" }
+    ],
+    config: {
+      users: { label: "Users", color: "#8884d8" }
+    }
   }}
-  title="Pie Chart"
-  description="Show proportional data distribution"
+  title="Area Chart"
+  description="Show data trends with filled areas"
 />
 
 ## Usage
@@ -96,7 +108,7 @@ const schema = {
 
 ## Features
 
-- **Bar, line, area, and pie charts**
+- **Bar, line, and area charts**
 - **Responsive design**
 - **Customizable colors and styles**
 - **Lazy-loaded** (~540 KB loads only when rendered)
@@ -149,15 +161,20 @@ const schema = {
 
 ```tsx
 const schema = {
-  type: 'chart-line',
+  type: 'chart',
+  chartType: 'line',
   data: [
     { date: '2024-01', users: 120 },
     { date: '2024-02', users: 180 },
     { date: '2024-03', users: 250 }
   ],
-  dataKey: 'users',
   xAxisKey: 'date',
-  height: 350
+  series: [
+    { dataKey: 'users' }
+  ],
+  config: {
+    users: { label: 'Users', color: '#8884d8' }
+  }
 }
 ```
 
@@ -165,30 +182,20 @@ const schema = {
 
 ```tsx
 const schema = {
-  type: 'chart-area',
+  type: 'chart',
+  chartType: 'area',
   data: [
     { time: '9:00', value: 20 },
     { time: '10:00', value: 35 },
     { time: '11:00', value: 45 }
   ],
-  dataKey: 'value',
   xAxisKey: 'time',
-  color: '#10b981'
-}
-```
-
-### Pie Chart
-
-```tsx
-const schema = {
-  type: 'chart-pie',
-  data: [
-    { name: 'Desktop', value: 400 },
-    { name: 'Mobile', value: 300 },
-    { name: 'Tablet', value: 200 }
+  series: [
+    { dataKey: 'value' }
   ],
-  dataKey: 'value',
-  nameKey: 'name'
+  config: {
+    value: { label: 'Value', color: '#10b981' }
+  }
 }
 ```
 
@@ -217,16 +224,23 @@ const revenueChart = {
 
 ```tsx
 const growthChart = {
-  type: 'chart-line',
+  type: 'chart',
+  chartType: 'line',
   data: [
     { month: 'Jan', users: 1200, active: 980 },
     { month: 'Feb', users: 1450, active: 1150 },
     { month: 'Mar', users: 1680, active: 1380 },
     { month: 'Apr', users: 1920, active: 1620 }
   ],
-  dataKey: 'users',
   xAxisKey: 'month',
-  height: 350
+  series: [
+    { dataKey: 'users' },
+    { dataKey: 'active' }
+  ],
+  config: {
+    users: { label: 'Total Users', color: '#8884d8' },
+    active: { label: 'Active Users', color: '#82ca9d' }
+  }
 }
 ```
 
@@ -257,9 +271,14 @@ const schema = {
 
 ```tsx
 const schema = {
-  type: 'chart-line',
+  type: 'chart',
+  chartType: 'line',
   data: metricsData,
-  height: 500,
+  xAxisKey: 'date',
+  series: [{ dataKey: 'value' }],
+  config: {
+    value: { label: 'Metrics', color: '#8884d8' }
+  },
   className: 'h-64 sm:h-96 lg:h-[500px]'
 }
 ```

@@ -230,15 +230,19 @@ export default function PlaygroundPage() {
 
   // Load collapsed state from localStorage
   useEffect(() => {
-    const savedState = localStorage.getItem('playground-editor-collapsed');
-    if (savedState) {
-      setIsEditorCollapsed(savedState === 'true');
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem('playground-editor-collapsed');
+      if (savedState) {
+        setIsEditorCollapsed(savedState === 'true');
+      }
     }
   }, []);
 
   // Save collapsed state to localStorage
   useEffect(() => {
-    localStorage.setItem('playground-editor-collapsed', String(isEditorCollapsed));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('playground-editor-collapsed', String(isEditorCollapsed));
+    }
   }, [isEditorCollapsed]);
 
   // Detect system theme
@@ -359,10 +363,9 @@ export default function PlaygroundPage() {
           {/* Collapse/Expand Button */}
           <button
             onClick={() => setIsEditorCollapsed(!isEditorCollapsed)}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-r-lg p-2 shadow-lg hover:shadow-xl transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-700 group"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-r-lg p-2 shadow-lg hover:shadow-xl hover:bg-slate-50 dark:hover:bg-slate-700 group transition-all duration-300"
             style={{ 
               left: isEditorCollapsed ? '0' : 'calc(50% - 16px)',
-              transition: 'left 0.3s ease-in-out'
             }}
             aria-label={isEditorCollapsed ? 'Expand editor' : 'Collapse editor'}
           >

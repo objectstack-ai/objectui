@@ -8,9 +8,9 @@ This guide helps you migrate to the new ObjectStack-integrated version of Object
 
 The following packages now have ObjectStack dependencies:
 
-- `@object-ui/types` → depends on `@objectstack/spec@^0.1.2`
-- `@object-ui/core` → depends on `@objectstack/client@^0.1.1` and `@objectstack/spec@^0.1.2`
-- `@object-ui/data-objectql` → depends on `@objectstack/client@^0.1.1`
+- `@object-ui/types` → depends on `@objectstack/spec@^0.3.0`
+- `@object-ui/core` → depends on `@objectstack/client@^0.3.0` and `@objectstack/spec@^0.3.0`
+- `@object-ui/data-objectql` → depends on `@objectstack/client@^0.3.0`
 
 ### 2. New Data Source Adapter
 
@@ -151,9 +151,9 @@ If you encounter any issues:
 
 | Package | Version | ObjectStack Spec | ObjectStack Client |
 |---------|---------|------------------|-------------------|
-| @object-ui/types | 0.3.0+ | ^0.1.2 | - |
-| @object-ui/core | 0.3.0+ | ^0.1.2 | ^0.1.1 |
-| @object-ui/data-objectql | 0.3.0+ | - | ^0.1.1 |
+| @object-ui/types | 0.3.0+ | ^0.3.0 | - |
+| @object-ui/core | 0.3.0+ | ^0.3.0 | ^0.3.0 |
+| @object-ui/data-objectql | 0.3.0+ | - | ^0.3.0 |
 
 ## Next Steps
 

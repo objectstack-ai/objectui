@@ -22,8 +22,8 @@
   },
   "dependencies": {
     "@object-ui/types": "workspace:*",
-    "@objectstack/client": "^0.1.1",
-    "@objectstack/spec": "^0.1.2",
+    "@objectstack/client": "^0.3.0",
+    "@objectstack/spec": "^0.3.0",
     "lodash": "^4.17.21",
     "zod": "^3.22.4"
   },

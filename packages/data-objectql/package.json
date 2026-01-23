@@ -46,7 +46,7 @@
   "license": "MIT",
   "dependencies": {
     "@object-ui/types": "workspace:*",
-    "@objectstack/client": "^0.1.1"
+    "@objectstack/client": "^0.3.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

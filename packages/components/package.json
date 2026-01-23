@@ -23,9 +23,7 @@
       "import": "./dist/index.js",
       "require": "./dist/index.umd.cjs"
     },
-    "./index.css": "./dist/index.css",
-    "./dist/index.css": "./dist/index.css",
-    "./dist/style.css": "./dist/index.css"
+    "./dist/style.css": "./dist/style.css"
   },
   "scripts": {
     "build": "vite build",

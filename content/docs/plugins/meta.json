@@ -1,7 +1,6 @@
 {
   "title": "Plugins",
   "pages": [
-    "index",
     "plugin-charts",
     "plugin-editor",
     "plugin-kanban",

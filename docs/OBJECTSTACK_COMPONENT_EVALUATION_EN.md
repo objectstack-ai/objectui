@@ -78,12 +78,13 @@ This document provides a comprehensive evaluation of ObjectUI's frontend compone
 |----------|--------|-----------|-----------------|-------|
 | **View** | ✅ Implemented | 100% | list, table, data-table, kanban, calendar, timeline | All 8 view types supported |
 | **Form** | ✅ Implemented | 100% | form + 17 form controls | Complete validation engine |
-| **CRUD** | 🚧 Partial | 80% | data-table, form, dialog | Missing bulk operations |
 | **Page** | 🚧 Partial | 70% | page, container, grid, tabs | Missing routing integration |
 | **Menu** | 🚧 Partial | 60% | navigation-menu, sidebar, breadcrumb | Missing permission control |
-| **Object** | 📝 Planned | 0% | - | Q2 2026 target |
+| **Object** | 📝 Planned | 0% | - | Q2 2026 target (includes CRUD operations) |
 | **App** | 📝 Planned | 0% | - | Q2 2026 target |
 | **Report** | 📝 Planned | 0% | - | Q3 2026 target |
+
+**Note**: The "CRUD" component in ObjectUI is a convenience wrapper (not an official ObjectStack protocol type) that combines View and Form protocols to simplify data management interfaces.
 
 ---
 

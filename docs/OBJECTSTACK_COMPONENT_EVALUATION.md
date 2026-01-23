@@ -238,16 +238,25 @@ toggle-group, tooltip
 
 ### 3.1 协议类型实现状态
 
+**注意**: CRUD不是独立的ObjectStack协议类型，而是ObjectUI提供的便捷组件，组合了View和Form协议的功能来简化数据管理界面的构建。
+
 | 协议类型 | 状态 | 完成度 | 核心组件 | 说明 |
 |----------|------|--------|----------|------|
 | **View** | ✅ 已实现 | 100% | list, table, data-table, kanban, calendar, timeline, card, grid | 全部8种视图类型已实现 |
 | **Form** | ✅ 已实现 | 100% | form + 17个表单控件 | 完整验证引擎 |
-| **CRUD** | 🚧 部分实现 | 80% | data-table, form, dialog | 缺少批量操作 |
 | **Page** | 🚧 部分实现 | 70% | page, container, grid, tabs | 缺少路由集成 |
 | **Menu** | 🚧 部分实现 | 60% | navigation-menu, sidebar, breadcrumb | 缺少权限控制 |
-| **Object** | 📝 已规划 | 0% | - | Q2 2026规划 |
+| **Object** | 📝 已规划 | 0% | - | Q2 2026规划（包含CRUD操作） |
 | **App** | 📝 已规划 | 0% | - | Q2 2026规划 |
 | **Report** | 📝 已规划 | 0% | - | Q3 2026规划 |
+
+### 3.1.1 ObjectUI扩展组件
+
+ObjectUI在标准协议之外提供了额外的便捷组件：
+
+| 组件类型 | 状态 | 完成度 | 核心组件 | 说明 |
+|----------|------|--------|----------|------|
+| **CRUD组件** | 🚧 部分实现 | 80% | data-table, form, dialog | 组合View+Form的便捷组件，缺少批量操作 |
 
 ### 3.2 View协议详细支持
 
@@ -262,14 +271,16 @@ toggle-group, tooltip
 | **detail** | `page` + `form` | ✅ | 只读详情页 |
 | **form** | `form` | ✅ | 多步骤、条件字段、动态验证 |
 
-### 3.3 CRUD协议详细支持
+### 3.3 CRUD组件功能支持
+
+**说明**: CRUD组件是ObjectUI提供的扩展组件（非标准ObjectStack协议），用于简化数据管理界面开发。它组合了View协议（data-table）和Form协议（form）的功能。
 
 | 功能 | 状态 | 实现组件 | 说明 |
 |------|------|----------|------|
-| **列表查询** | ✅ | data-table | 支持分页、排序、过滤 |
-| **详情查看** | ✅ | dialog + form (readOnly) | 弹窗或页面模式 |
-| **新建记录** | ✅ | dialog + form | 表单验证 |
-| **编辑记录** | ✅ | dialog + form | 字段级权限 |
+| **列表查询** | ✅ | data-table (View协议) | 支持分页、排序、过滤 |
+| **详情查看** | ✅ | dialog + form (Form协议) | 弹窗或页面模式 |
+| **新建记录** | ✅ | dialog + form (Form协议) | 表单验证 |
+| **编辑记录** | ✅ | dialog + form (Form协议) | 字段级权限 |
 | **删除记录** | ✅ | alert-dialog | 确认对话框 |
 | **批量操作** | ⚠️ 部分 | data-table | 仅支持批量选择，缺批量编辑/删除 |
 | **导出数据** | ❌ | - | 规划中 |
@@ -418,6 +429,8 @@ export function InputRenderer({ schema }: RendererProps<InputSchema>) {
 
 #### CRUD操作增强
 
+**注意**: 以下组件用于增强ObjectUI的CRUD便捷组件功能。真正的CRUD操作支持将在Q2 2026通过Object协议实现。
+
 | 组件 | 优先级 | 用途 | 工作量 |
 |------|--------|------|--------|
 | **Bulk Edit Dialog** | 🔴 高 | 批量编辑多条记录 | 3天 |
@@ -487,7 +500,7 @@ export function InputRenderer({ schema }: RendererProps<InputSchema>) {
 
 ### 6.1 Q1 2026 (1-3月) - 完善核心 ✅ 部分完成
 
-**目标**: 完善CRUD和Form协议支持
+**目标**: 完善View和Form协议支持，增强CRUD便捷组件
 
 | 任务 | 时间 | 责任人 | 状态 |
 |------|------|--------|------|
@@ -499,7 +512,7 @@ export function InputRenderer({ schema }: RendererProps<InputSchema>) {
 | 组件文档完善 | 2周 | TBD | 🚧 进行中 |
 
 **交付物**:
-- ✅ CRUD协议支持达到100%
+- ✅ CRUD便捷组件功能达到100%
 - ✅ 表单组件覆盖常见业务场景
 - ✅ Storybook文档覆盖所有组件
 

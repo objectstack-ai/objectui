@@ -11,8 +11,8 @@
 /* Tailwind plugin for animations */
 @plugin 'tailwindcss-animate';
 
-/* Define theme colors for Tailwind 4 */
-@theme {
+/* Define theme colors for Tailwind 4 - using reference to CSS variables defined below */
+@theme reference {
   /* Border radius tokens */
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);

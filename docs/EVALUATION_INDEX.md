@@ -54,6 +54,19 @@
 
 ---
 
+### 5. [组件命名规范](./COMPONENT_NAMING_CONVENTIONS.md)
+**命名约定和规则**，包含：
+- 三层架构命名规则
+- Shadcn UI组件命名
+- ObjectUI渲染器命名
+- 插件组件命名
+- 命名冲突处理
+- 未来组件命名规划
+
+**适合**: 组件开发者、架构师
+
+---
+
 ## 🎯 快速导航
 
 ### 我想了解...
@@ -75,6 +88,9 @@
 
 #### 如何选择使用Shadcn还是ObjectUI？
 👉 阅读 [组件对照表 - 选择指南](./COMPONENT_MAPPING_GUIDE.md#选择指南)
+
+#### 组件命名规则是什么？
+👉 阅读 [组件命名规范](./COMPONENT_NAMING_CONVENTIONS.md)
 
 ---
 

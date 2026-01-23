@@ -440,24 +440,51 @@ importers:
         specifier: ^4.0.17
         version: 4.0.17(@types/node@25.0.10)(@vitest/ui@4.0.17)(happy-dom@20.3.3)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)
 
-  packages/data-objectql:
+  packages/plugin-aggrid:
     dependencies:
+      '@object-ui/components':
+        specifier: workspace:*
+        version: link:../components
+      '@object-ui/core':
+        specifier: workspace:*
+        version: link:../core
+      '@object-ui/react':
+        specifier: workspace:*
+        version: link:../react
       '@object-ui/types':
         specifier: workspace:*
         version: link:../types
-      '@objectstack/client':
-        specifier: ^0.3.0
-        version: 0.3.0
+      ag-grid-community:
+        specifier: ^32.3.4
+        version: 32.3.9
+      ag-grid-react:
+        specifier: ^32.3.4
+        version: 32.3.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react:
         specifier: 19.2.3
         version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
     devDependencies:
+      '@types/react':
+        specifier: 19.0.6
+        version: 19.0.6
+      '@types/react-dom':
+        specifier: 19.0.3
+        version: 19.0.3(@types/react@19.0.6)
+      '@vitejs/plugin-react':
+        specifier: ^4.2.1
+        version: 4.7.0(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
-      vitest:
-        specifier: ^4.0.17
-        version: 4.0.17(@types/node@25.0.10)(@vitest/ui@4.0.17)(happy-dom@20.3.3)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)
+      vite-plugin-dts:
+        specifier: ^4.5.4
+        version: 4.5.4(@types/node@25.0.10)(rollup@4.55.1)(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2))
 
   packages/plugin-charts:
     dependencies:
@@ -3156,6 +3183,18 @@ packages:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  ag-charts-types@10.3.9:
+    resolution: {integrity: sha512-drcRiJVencliC8LnRwk4MmeQDNNBg5GzmOoLFihO3/k0CUK0VF/N+2nc7iFozwaNG0btSB9vAhYuJLjqHMtRrQ==}
+
+  ag-grid-community@32.3.9:
+    resolution: {integrity: sha512-l07SB0mCbGPkC1R8rQQFgBtI5+1FoXBi3RUk1+dHKV/UPeorMEFAzCokcsOhz0qwcWCPrHauUsbRa1SIxfVEJQ==}
+
+  ag-grid-react@32.3.9:
+    resolution: {integrity: sha512-moC64CHbTOf+OSG2xCHYJdWh3MtYaVNvi5n7ro+ImS5gSFn7c5a42pjcfTmDh2sPsKD7qmBXXQ5Vr+Zwg9DhNA==}
+    peerDependencies:
+      react: 19.2.3
+      react-dom: 19.2.3
 
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
@@ -8822,6 +8861,19 @@ snapshots:
       acorn: 8.15.0
 
   acorn@8.15.0: {}
+
+  ag-charts-types@10.3.9: {}
+
+  ag-grid-community@32.3.9:
+    dependencies:
+      ag-charts-types: 10.3.9
+
+  ag-grid-react@32.3.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+    dependencies:
+      ag-grid-community: 32.3.9
+      prop-types: 15.8.1
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   agent-base@7.1.4: {}
 

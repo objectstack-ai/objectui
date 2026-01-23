@@ -180,14 +180,14 @@ ComponentRegistry.register(
           headerName: 'Price', 
           sortable: true, 
           filter: 'number',
-          valueFormatter: (params: any) => '$' + params.value.toLocaleString()
+          valueFormatter: (params: any) => params.value != null ? '$' + params.value.toLocaleString() : ''
         },
         { 
           field: 'electric', 
           headerName: 'Electric', 
           sortable: true, 
           filter: true,
-          cellRenderer: (params: any) => params.value ? '⚡ Yes' : 'No'
+          cellRenderer: (params: any) => params.value === true ? '⚡ Yes' : 'No'
         }
       ],
       pagination: true,

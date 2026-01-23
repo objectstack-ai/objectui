@@ -68,12 +68,21 @@ export default function AgGridImpl({
     width: '100%',
   }), [height]);
 
-  // Determine theme class
+  // Determine theme class and build complete class list
   const themeClass = `ag-theme-${theme}`;
+  const classList = [
+    themeClass,
+    'rounded-xl',
+    'border',
+    'border-border',
+    'overflow-hidden',
+    'shadow-lg',
+    className
+  ].filter(Boolean).join(' ');
 
   return (
     <div 
-      className={`${themeClass} rounded-xl border border-border overflow-hidden shadow-lg ${className}`}
+      className={classList}
       style={containerStyle}
     >
       <AgGridReact

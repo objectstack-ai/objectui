@@ -1,39 +1,9 @@
 import Link from 'next/link';
-import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { Logo } from './components/Logo';
+
 
 export default function HomePage() {
   return (
-    <HomeLayout
-      nav={{
-        title: <Logo />,
-        url: '/',
-      }}
-      githubUrl="https://github.com/objectstack-ai/objectui"
-      links={[
-        {
-          text: 'Guide',
-          url: '/docs/guide',
-          active: 'nested-url',
-        },
-        {
-          text: 'Components',
-          url: '/docs/components',
-          active: 'nested-url',
-        },
-        {
-          text: 'Ecosystem',
-          url: '/docs/ecosystem',
-          active: 'nested-url',
-        },
-        {
-          text: 'Blog',
-          url: '/blog',
-          active: 'nested-url',
-        },
-      ]}
-    >
-      {/* Hero Section */}
+    <>
       <section className="relative overflow-hidden bg-gradient-to-br from-fd-background via-fd-background to-fd-muted/20 px-6 py-24 sm:py-32 lg:px-8">
         <div className="relative mx-auto max-w-7xl">
           <div className="mx-auto max-w-3xl text-center">
@@ -328,6 +298,6 @@ export default function HomePage() {
           </p>
         </div>
       </footer>
-    </HomeLayout>
-  );
+    </>
+  )
 }

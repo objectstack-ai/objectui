@@ -1,35 +1,22 @@
-import { defineConfig, defineDocs, defineCollections } from 'fumadocs-mdx/config';
-import { z } from 'zod';
+import { defineConfig, defineDocs, frontmatterSchema, metaSchema } from 'fumadocs-mdx/config';
 
-export const { docs, meta } = defineDocs({
+// You can customise Zod schemas for frontmatter and `meta.json` here
+// see https://fumadocs.dev/docs/mdx/collections
+export const docs = defineDocs({
   dir: '../../docs',
   docs: {
-    files: [
-      '**/*.{md,mdx}', 
-      '!**/node_modules/**', 
-      '!**/.vitepress/**',
-      '!**/dist/**',
-      '!**/.*/**',
-      '!**/COMPONENT_MAPPING_GUIDE.md',
-      '!**/COMPONENT_NAMING_CONVENTIONS.md',
-      '!**/DEVELOPMENT_ROADMAP_2026.md',
-      '!**/EVALUATION_INDEX.md',
-      '!**/OBJECTSTACK_COMPONENT_EVALUATION.md',
-      '!**/OBJECTSTACK_COMPONENT_EVALUATION_EN.md',
-    ],
+    schema: frontmatterSchema,
+    postprocess: {
+      includeProcessedMarkdown: true,
+    },
+  },
+  meta: {
+    schema: metaSchema,
   },
 });
 
-export const blog = defineCollections({
-  dir: 'content/blog',
-  files: ['**/*.{md,mdx}', '!**/node_modules/**'],
-  schema: z.object({
-    title: z.string(),
-    description: z.string().optional(),
-    date: z.string().or(z.date()).transform((d) => new Date(d).toISOString()),
-    author: z.string().optional(),
-  }),
-  type: 'doc',
+export default defineConfig({
+  mdxOptions: {
+    // MDX options
+  },
 });
-
-export default defineConfig();

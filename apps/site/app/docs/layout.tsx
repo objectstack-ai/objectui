@@ -1,14 +1,10 @@
 import { source } from '@/lib/source';
-import type { ReactNode } from 'react';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
-import { Logo } from '../components/Logo';
+import { baseOptions } from '@/lib/layout.shared';
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout({ children }: LayoutProps<'/docs'>) {
   return (
-    <DocsLayout 
-      tree={source.pageTree} 
-      nav={{ title: <Logo />, url: '/' }}
-    >
+    <DocsLayout tree={source.getPageTree()} {...baseOptions()}>
       {children}
     </DocsLayout>
   );

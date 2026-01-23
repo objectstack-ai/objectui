@@ -22,7 +22,7 @@ ComponentRegistry.register('kbd',
     const keys = Array.isArray(schema.keys) ? schema.keys : [schema.keys || schema.label || 'K'];
     
     return (
-      <div className={cn('inline-flex gap-1', schema.className)}>
+      <div className={cn('inline-flex flex-wrap gap-1', schema.className)}>
         {keys.map((key, idx) => (
           <kbd
             key={idx}

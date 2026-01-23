@@ -31,7 +31,7 @@ export const PageRenderer: React.FC<{ schema: PageSchema; className?: string; [k
 
   return (
     <div 
-      className={cn("min-h-full w-full bg-background p-6 md:p-8", className)}
+      className={cn("min-h-full w-full bg-background p-4 md:p-6 lg:p-8", className)}
       {...pageProps}
       // Apply designer props
       data-obj-id={dataObjId}

@@ -36,19 +36,19 @@ const ContainerRenderer = forwardRef<HTMLDivElement, { schema: ContainerSchema; 
       maxWidth === 'screen' && 'max-w-screen-2xl',
       // Centering
       centered && 'mx-auto',
-      // Padding
+      // Padding - Mobile-first responsive
       padding === 0 && 'p-0',
-      padding === 1 && 'p-1',
-      padding === 2 && 'p-2',
-      padding === 3 && 'p-3',
-      padding === 4 && 'p-4',
-      padding === 5 && 'p-5',
-      padding === 6 && 'p-6',
-      padding === 7 && 'p-7',
-      padding === 8 && 'p-8',
-      padding === 10 && 'p-10',
-      padding === 12 && 'p-12',
-      padding === 16 && 'p-16',
+      padding === 1 && 'p-0.5 sm:p-1',
+      padding === 2 && 'p-1 sm:p-2',
+      padding === 3 && 'p-2 sm:p-3',
+      padding === 4 && 'p-2 sm:p-3 md:p-4',
+      padding === 5 && 'p-3 sm:p-4 md:p-5',
+      padding === 6 && 'p-3 sm:p-4 md:p-6',
+      padding === 7 && 'p-4 sm:p-5 md:p-7',
+      padding === 8 && 'p-4 sm:p-6 md:p-8',
+      padding === 10 && 'p-5 sm:p-7 md:p-10',
+      padding === 12 && 'p-6 sm:p-8 md:p-12',
+      padding === 16 && 'p-8 sm:p-10 md:p-16',
       className
     );
 

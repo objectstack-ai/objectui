@@ -58,9 +58,9 @@ ComponentRegistry.register('carousel',
       orientation: 'horizontal',
       showArrows: true,
       items: [
-        [{ type: 'div', className: 'p-8 border rounded bg-slate-50', body: [{ type: 'text', content: 'Slide 1' }] }],
-        [{ type: 'div', className: 'p-8 border rounded bg-slate-50', body: [{ type: 'text', content: 'Slide 2' }] }],
-        [{ type: 'div', className: 'p-8 border rounded bg-slate-50', body: [{ type: 'text', content: 'Slide 3' }] }]
+        [{ type: 'div', className: 'p-4 sm:p-6 md:p-8 border rounded bg-slate-50', body: [{ type: 'text', content: 'Slide 1' }] }],
+        [{ type: 'div', className: 'p-4 sm:p-6 md:p-8 border rounded bg-slate-50', body: [{ type: 'text', content: 'Slide 2' }] }],
+        [{ type: 'div', className: 'p-4 sm:p-6 md:p-8 border rounded bg-slate-50', body: [{ type: 'text', content: 'Slide 3' }] }]
       ],
       className: 'w-full max-w-xs'
     }

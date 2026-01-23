@@ -22,7 +22,7 @@ import {
 
 ComponentRegistry.register('header-bar', 
   ({ schema }: { schema: HeaderBarSchema }) => (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+    <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 border-b px-3 sm:px-4">
       <SidebarTrigger />
       <Separator orientation="vertical" className="mr-2 h-4" />
       <Breadcrumb>

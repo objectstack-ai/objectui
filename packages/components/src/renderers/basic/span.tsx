@@ -43,7 +43,7 @@ ComponentRegistry.register('span',
       { name: 'className', type: 'string', label: 'CSS Class' }
     ],
     defaultProps: {
-      className: 'px-2 py-1'
+      className: 'px-1.5 py-0.5 sm:px-2 sm:py-1'
     },
     defaultChildren: [
       { type: 'text', content: 'Inline text' }

@@ -95,7 +95,7 @@ ComponentRegistry.register('file-upload',
           <div 
             onClick={handleClick}
             className={cn(
-                "relative overflow-hidden cursor-pointer rounded-lg border-2 border-dashed transition-all duration-300 min-h-[120px] flex flex-col items-center justify-center p-6 gap-3",
+                "relative overflow-hidden cursor-pointer rounded-lg border-2 border-dashed transition-all duration-300 min-h-[120px] flex flex-col items-center justify-center p-4 sm:p-6 gap-3",
                 isUploading 
                     ? "border-cyan-400 bg-cyan-950/30" 
                     : "border-slate-700 bg-slate-900/50 hover:bg-slate-900 hover:border-cyan-500/50 hover:shadow-[0_0_20px_-5px_rgba(6,182,212,0.3)]"
@@ -141,7 +141,7 @@ ComponentRegistry.register('file-upload',
                   
                   <div className="flex items-center gap-3 z-10">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 rounded-full" />
-                    <span className="truncate max-w-[200px] text-muted-foreground group-hover/file:text-foreground font-mono text-xs transition-colors">{file.name}</span>
+                    <span className="truncate max-w-[150px] sm:max-w-[200px] md:max-w-[300px] text-muted-foreground group-hover/file:text-foreground font-mono text-xs transition-colors">{file.name}</span>
                   </div>
                   
                   <Button

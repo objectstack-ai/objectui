@@ -40,6 +40,9 @@ ComponentRegistry.register('image',
       { name: 'src', type: 'string', label: 'Source URL' },
       { name: 'alt', type: 'string', label: 'Alt Text' },
       { name: 'className', type: 'string', label: 'Classes' }
-    ]
+    ],
+    defaultProps: {
+      className: 'max-w-full h-auto'
+    }
   }
 );

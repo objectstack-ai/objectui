@@ -126,11 +126,12 @@ ComponentRegistry.register('form',
     };
 
     // Determine grid classes based on columns (explicit classes for Tailwind JIT)
+    // Mobile-first: 1 column on mobile, 2 on sm, then md/lg for larger values
     const gridColsClass = 
       columns === 1 ? '' :
-      columns === 2 ? 'md:grid-cols-2' :
-      columns === 3 ? 'md:grid-cols-3' :
-      'md:grid-cols-4';
+      columns === 2 ? 'sm:grid-cols-2' :
+      columns === 3 ? 'sm:grid-cols-2 md:grid-cols-3' :
+      'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
     
     const gridClass = columns > 1 
       ? cn('grid gap-4', gridColsClass)

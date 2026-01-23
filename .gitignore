@@ -48,3 +48,6 @@ docs/.vitepress/cache
 apps/site/.next
 apps/site/.map.ts
 apps/site/.source
+
+# Test artifacts
+test-screenshots

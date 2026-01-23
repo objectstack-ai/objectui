@@ -14,7 +14,7 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 const StatisticRenderer = ({ schema }: { schema: StatisticSchema }) => {
   return (
     <div className={cn(
-        "group relative flex flex-col p-6 rounded-xl border bg-card text-card-foreground shadow-sm",
+        "group relative flex flex-col p-4 sm:p-5 md:p-6 rounded-xl border bg-card text-card-foreground shadow-sm",
         schema.className
     )}>
       {/* Label */}

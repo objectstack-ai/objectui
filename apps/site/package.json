@@ -12,13 +12,13 @@
   "dependencies": {
     "@object-ui/components": "workspace:*",
     "@object-ui/core": "workspace:*",
-    "@object-ui/react": "workspace:*",
-    "@object-ui/types": "workspace:*",
-    "@object-ui/plugin-editor": "workspace:*",
     "@object-ui/plugin-charts": "workspace:*",
+    "@object-ui/plugin-editor": "workspace:*",
     "@object-ui/plugin-kanban": "workspace:*",
     "@object-ui/plugin-markdown": "workspace:*",
     "@object-ui/plugin-object": "workspace:*",
+    "@object-ui/react": "workspace:*",
+    "@object-ui/types": "workspace:*",
     "fumadocs-core": "^16.4.7",
     "fumadocs-mdx": "^14.2.6",
     "fumadocs-ui": "^16.4.7",
@@ -36,6 +36,7 @@
     "autoprefixer": "^10.4.23",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.1.18",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.3"
   }
 }

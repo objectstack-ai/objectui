@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* Scan sources for Tailwind classes */
+@source './src/**/*.{js,ts,jsx,tsx}';
+@source '../../packages/designer/src/**/*.{js,ts,jsx,tsx}';
+@source '../../packages/components/src/**/*.{js,ts,jsx,tsx}';
 
 body {
   margin: 0;

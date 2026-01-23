@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* Scan sources for Tailwind classes */
+@source './src/**/*.{js,ts,jsx,tsx}';
+@source '../../packages/designer/src/**/*.{js,ts,jsx,tsx}';
+@source '../../packages/components/src/**/*.{js,ts,jsx,tsx}';
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;

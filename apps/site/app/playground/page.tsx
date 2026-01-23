@@ -292,7 +292,7 @@ export default function PlaygroundPage() {
           <div className="bg-fd-muted px-4 py-2 border-b border-fd-border">
             <h2 className="text-sm font-semibold text-fd-foreground">JSON Schema</h2>
             {error && (
-              <div className="mt-2 text-xs text-red-500 bg-red-50 dark:bg-red-950 p-2 rounded">
+              <div className="mt-2 text-xs text-fd-destructive bg-fd-destructive/10 p-2 rounded border border-fd-destructive/20">
                 {error}
               </div>
             )}

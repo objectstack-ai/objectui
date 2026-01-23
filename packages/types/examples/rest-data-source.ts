@@ -171,7 +171,16 @@ export class RestDataSource<T = any> implements DataSource<T> {
    * Get object schema/metadata
    */
   async getObjectSchema(objectName: string): Promise<any> {
-    const url = `${this.baseUrl}/_schema/${objectName}`;
+    if (!objectName || typeof objectName !== 'string') {
+      throw new Error('Invalid object name');
+    }
+    
+    // Validate object name to prevent path traversal
+    if (objectName.includes('/') || objectName.includes('\\') || objectName.includes('..')) {
+      throw new Error('Invalid object name: must not contain path separators');
+    }
+    
+    const url = `${this.baseUrl}/_schema/${encodeURIComponent(objectName)}`;
     
     const response = await fetch(url);
     

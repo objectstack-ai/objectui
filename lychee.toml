@@ -35,11 +35,12 @@ exclude = [
 
 # Path remapping for fumadocs internal links
 # Maps Next.js routes to actual file paths
-# Note: Lychee remap is a simple key-value mapping
-[remap]
-# Map /docs/* links to docs/ filesystem paths
-# The file:// prefix tells lychee to check local files
-"/docs/" = "file://./docs/"
+# Format: ["pattern to match", "replacement"]
+remap = [
+    # Map /docs/* links to docs/ filesystem paths
+    # The file:// prefix tells lychee to check local files
+    "^/docs/(.*)$ file://./docs/$1"
+]
 
 # Cache configuration
 [cache]

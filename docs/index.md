@@ -145,7 +145,7 @@ cd my-admin
 objectui dev
 ```
 
-[**📖 CLI Guide →**](/guide/cli/getting-started)
+[**📖 CLI Guide →**](/docs/guide/cli/getting-started)
 
 ### Option B: React Library
 
@@ -173,7 +173,7 @@ function App() {
 }
 ```
 
-[**📖 Installation Guide →**](/guide/installation)
+[**📖 Installation Guide →**](/docs/guide/installation)
 
 ---
 
@@ -181,58 +181,58 @@ function App() {
 
 ### 📘 Getting Started
 Start here if you're new to ObjectUI
-- [Quick Start](/guide/quick-start)
-- [Installation](/guide/installation)
-- [Showcase](/guide/showcase)
+- [Quick Start](/docs/guide/quick-start)
+- [Installation](/docs/guide/installation)
+- [Showcase](/docs/guide/showcase)
 
 ### 🧩 Components
 Browse all available components
-- [Component Gallery](/components/)
-- [Form Components](/components/form/)
-- [Layout Components](/components/layout/)
+- [Component Gallery](/docs/components/)
+- [Form Components](/docs/components/form/)
+- [Layout Components](/docs/components/layout/)
 
 ### 💡 Core Concepts
 Understand how ObjectUI works
-- [Schema Rendering](/concepts/schema-rendering)
-- [Expressions](/concepts/expressions)
-- [Data Sources](/concepts/data-source)
+- [Schema Rendering](/docs/concepts/schema-rendering)
+- [Expressions](/docs/concepts/expressions)
+- [Data Sources](/docs/concepts/data-source)
 
 ### 🔌 Plugins
 Extend ObjectUI with plugins
-- [Plugin System](/concepts/plugins)
-- [Charts Plugin](/plugins/plugin-charts)
-- [Kanban Plugin](/plugins/plugin-kanban)
+- [Plugin System](/docs/concepts/plugins)
+- [Charts Plugin](/docs/plugins/plugin-charts)
+- [Kanban Plugin](/docs/plugins/plugin-kanban)
 
 ### 📚 Reference
 Detailed API documentation
-- [Core API](/reference/api/core)
-- [React API](/reference/api/react)
-- [Protocol Specifications](/reference/protocol/overview)
+- [Core API](/docs/reference/api/core)
+- [React API](/docs/reference/api/react)
+- [Protocol Specifications](/docs/reference/protocol/overview)
 
 ### 🏗️ Architecture
 For contributors and advanced users
-- [System Architecture](/architecture/architecture)
-- [Project Structure](/architecture/project-structure)
-- [Component Specs](/architecture/component)
+- [System Architecture](/docs/architecture/architecture)
+- [Project Structure](/docs/architecture/project-structure)
+- [Component Specs](/docs/architecture/component)
 
 ### 🌐 Ecosystem
 Integration and deployment
-- [ObjectQL Integration](/ecosystem/objectql)
-- [API Integration](/ecosystem/api)
-- [Deployment Guide](/ecosystem/deployment/showcase-deployment)
+- [ObjectQL Integration](/docs/ecosystem/objectql)
+- [API Integration](/docs/ecosystem/api)
+- [Deployment Guide](/docs/ecosystem/deployment/showcase-deployment)
 
 ### 🆘 Support
 Get help when you need it
-- [FAQ](/faq) - Common questions
-- [Troubleshooting](/troubleshooting) - Problem solving
-- [Security](/security) - Security best practices
-- [Migration](/migration/from-objectstack) - Migration guides
+- [FAQ](/docs/faq) - Common questions
+- [Troubleshooting](/docs/troubleshooting) - Problem solving
+- [Security](/docs/security) - Security best practices
+- [Migration](/docs/migration/from-objectstack) - Migration guides
 
 ### 🤝 Community
 Contribute and collaborate
-- [Contributing](/community/contributing)
-- [Roadmap](/community/roadmap)
-- [Best Practices](/community/best-practices)
+- [Contributing](/docs/community/contributing)
+- [Roadmap](/docs/community/roadmap)
+- [Best Practices](/docs/community/best-practices)
 
 ---
 
@@ -241,8 +241,8 @@ Contribute and collaborate
 Stop writing repetitive UI code. Start building with ObjectUI.
 
 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-  <a href="/guide/quick-start" style="padding: 0.75rem 1.5rem; background: #3b82f6; color: white; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Get Started →</a>
-  <a href="/components/" style="padding: 0.75rem 1.5rem; border: 1px solid #3b82f6; color: #3b82f6; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">View Components</a>
-  <a href="/guide/showcase" style="padding: 0.75rem 1.5rem; border: 1px solid #6b7280; color: #6b7280; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Try Showcase</a>
+  <a href="/docs/guide/quick-start" style="padding: 0.75rem 1.5rem; background: #3b82f6; color: white; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Get Started →</a>
+  <a href="/docs/components/" style="padding: 0.75rem 1.5rem; border: 1px solid #3b82f6; color: #3b82f6; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">View Components</a>
+  <a href="/docs/guide/showcase" style="padding: 0.75rem 1.5rem; border: 1px solid #6b7280; color: #6b7280; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Try Showcase</a>
 </div>
 

@@ -16,14 +16,11 @@ jobs:
       - name: Check links with Lychee
         uses: lycheeverse/lychee-action@v1
         with:
-          # Scan all markdown files in content directories and README
+          # Scan all markdown files in docs directory and README
           args: |
             --verbose
             --no-progress
-            --exclude-path .git
-            --exclude-path node_modules
-            'content/**/*.md'
-            'content/**/*.mdx'
+            --config lychee.toml
             'docs/**/*.md'
             'docs/**/*.mdx'
             'README.md'

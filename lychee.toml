@@ -1,0 +1,56 @@
+# Lychee configuration file for ObjectUI documentation link checking
+# This configuration enables checking internal fumadocs links by mapping
+# Next.js routes (e.g., /docs/guide) to filesystem paths (e.g., docs/guide.mdx)
+
+# Maximum number of concurrent requests
+max_concurrency = 10
+
+# Timeout for each request (in seconds)
+timeout = 20
+
+# Number of retries per request
+max_retries = 3
+
+# Accept any valid status code (2xx, 3xx)
+accept = [200, 204, 206, 301, 302, 303, 307, 308]
+
+# Exclude patterns - files and URLs to skip
+exclude = [
+    # Local development URLs
+    "http://localhost*",
+    "https://localhost*",
+    
+    # Example and placeholder URLs
+    "https://example.com",
+    "http://example.com",
+    
+    # Social media (anti-scraping)
+    "https://twitter.com*",
+    "https://x.com*",
+    
+    # GitHub specific patterns that may cause false positives
+    "https://github.com/.*/compare/*",
+    "https://github.com/.*/commit/*",
+]
+
+# Path remapping for fumadocs internal links
+# Maps Next.js routes to actual file paths
+[[remap]]
+# Map /docs/* links to docs/*.mdx or docs/*.md files
+pattern = "^/docs/(.*)$"
+replace = "file://./docs/$1.mdx"
+
+[[remap]]
+# Also try .md extension if .mdx doesn't exist
+pattern = "^/docs/(.*)$"
+replace = "file://./docs/$1.md"
+
+[[remap]]
+# Handle index files (e.g., /docs/components/ -> docs/components/index.mdx)
+pattern = "^/docs/(.*)/+$"
+replace = "file://./docs/$1/index.mdx"
+
+# Cache configuration
+[cache]
+# Don't use cache to ensure fresh results
+max_age = "0s"

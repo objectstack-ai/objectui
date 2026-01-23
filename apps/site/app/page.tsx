@@ -12,8 +12,18 @@ export default function HomePage() {
       githubUrl="https://github.com/objectstack-ai/objectui"
       links={[
         {
-          text: 'Documentation',
-          url: '/docs',
+          text: 'Guide',
+          url: '/docs/guide',
+          active: 'nested-url',
+        },
+        {
+          text: 'Components',
+          url: '/docs/components',
+          active: 'nested-url',
+        },
+        {
+          text: 'Ecosystem',
+          url: '/docs/ecosystem',
           active: 'nested-url',
         },
         {

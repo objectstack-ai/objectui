@@ -1,0 +1,11 @@
+{
+  "title": "Plugins",
+  "pages": [
+    "index",
+    "plugin-charts",
+    "plugin-editor",
+    "plugin-kanban",
+    "plugin-markdown",
+    "plugin-object"
+  ]
+}

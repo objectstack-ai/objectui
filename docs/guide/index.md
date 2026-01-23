@@ -1,196 +1,124 @@
 ---
-title: "Introduction"
+title: "Guide"
+description: "Complete guide to using ObjectUI - from getting started to advanced concepts"
 ---
 
-Object UI is a **Universal, Schema-Driven UI Engine** designed for modern enterprise applications.
+# ObjectUI Guide
 
-Unlike other low-code renderers (Amis, Formily), Object UI is built specifically for the **React + Tailwind + Shadcn** ecosystem.
+Welcome to the ObjectUI Guide! This comprehensive guide covers everything you need to know to build powerful server-driven UIs with ObjectUI.
 
-## Core Philosophy
+## Navigation
 
-### 1. Protocol Agnostic (The Universal Adapter)
-We do not assume you are using any specific backend. 
-*   **The Input:** Pure JSON Schema (`@object-ui/types`).
-*   **The Data:** Abstract `DataSource` interface.
-*   **The Output:** Standard React Components.
+### 📚 Getting Started
+Learn the basics and set up your first ObjectUI project
+- **[Overview](/docs/guide/getting-started)** - Introduction to ObjectUI
+- **[Quick Start](/docs/guide/getting-started/quick-start)** - Build your first app in 5 minutes
+- **[Installation](/docs/guide/getting-started/installation)** - Detailed setup instructions
+- **[CLI Tools](/docs/guide/getting-started/cli)** - Command-line tools reference
+- **[ObjectUI Studio](/docs/guide/getting-started/studio)** - Visual editor for schemas
+- **[Showcase](/docs/guide/getting-started/showcase)** - See all components in action
 
-### 2. Separation of Concerns (The 5-Layer Model)
+### 💡 Core Concepts
+Understand the fundamental concepts behind ObjectUI
+- **[Schema Rendering](/docs/guide/concepts/schema-rendering)** - How JSON becomes UI
+- **[Component Registry](/docs/guide/concepts/component-registry)** - Component registration system
+- **[Data Sources](/docs/guide/concepts/data-source)** - Connect to your backend
+- **[Expressions](/docs/guide/concepts/expressions)** - Dynamic values and logic
+- **[Plugins](/docs/guide/concepts/plugins)** - Extend ObjectUI functionality
+- **[Lazy Loading](/docs/guide/concepts/lazy-loading)** - Optimize bundle size
 
-Our monorepo structure ensures strict decoupling:
+### 🏗️ Architecture
+Deep dive into ObjectUI's architecture
+- **[System Overview](/docs/guide/architecture/architecture)** - High-level architecture
+- **[Project Structure](/docs/guide/architecture/project-structure)** - Monorepo organization
+- **[Component System](/docs/guide/architecture/component)** - How components work
+- **[Base Components](/docs/guide/architecture/base-components)** - Foundation layer
+- **[Component Library](/docs/guide/architecture/component-library)** - UI component layer
+- **[Rendering Spec](/docs/guide/architecture/rendering-specification)** - Rendering protocol
 
-| Layer | Package | Description |
-| :--- | :--- | :--- |
-| **1. Protocol** | `@object-ui/types` | **Pure JSON Types.** No logic. Zero dependencies. Defines `interface InputSchema`. |
-| **2. Engine** | `@object-ui/core` | **Logic Kernel.** State management, Validation, Registry, and Events. |
-| **3. Framework** | `@object-ui/react` | **React Bridge.** Hooks like `useRenderer` and Context Providers. |
-| **4. Components** | `@object-ui/components` | **Visual Layer.** Impementations using Shadcn UI & Tailwind. |
-| **5. Adapters** | `@object-ui/data-*` | **Connectivity.** Connectors for REST, GraphQL, etc. |
+### 📖 API Reference
+Complete API documentation for ObjectUI packages
+- **[Core API](/docs/guide/reference/api/core)** - @object-ui/core package
+- **[React API](/docs/guide/reference/api/react)** - @object-ui/react package
+- **[Protocol Specs](/docs/guide/reference/protocol/overview)** - Schema specifications
 
-### 3. Tailwind First
-We believe "Low Code" shouldn't mean "Ugly Code" or "Hard to Style". 
-Every component in the schema accepts a standard `className` prop, which is merged using `cn()` (tailwind-merge). You have full control over margins, padding, colors, and layouts directly from the JSON.
+### ✨ Best Practices
+Guidelines for building production-ready applications
+- **[Security](/docs/guide/best-practices/security)** - Security best practices
+- **[Best Practices](/docs/guide/best-practices/best-practices)** - General recommendations
 
-## Comparison
+### 🔧 Maintenance
+Keep your ObjectUI projects up to date
+- **[Versioning](/docs/guide/maintenance/versioning)** - Release management
+- **[Migration from ObjectStack](/docs/guide/maintenance/from-objectstack)** - Upgrade guide
 
-| Feature | Object UI | Amis | Formily |
-| :--- | :--- | :--- | :--- |
-| **Tech Stack** | React + Tailwind | React + Custom CSS | React + Reactive |
-| **Styling** | Utility Classes | CSS Classes / Themes | CSS Modules |
-| **Bundle Size** | Light (Modular) | Heavy (All-in-one) | Medium |
-| **Data Source** | Universal Interface | Built-in Fetcher | Observable State |
+### 🆘 Support
+Get help when you need it
+- **[Troubleshooting](/docs/guide/support)** - Common issues and solutions
+- **[FAQ](/docs/guide/support/faq)** - Frequently asked questions
+- **[Contributing](/docs/guide/support/contributing)** - How to contribute
+- **[Roadmap](/docs/guide/support/roadmap)** - Upcoming features
 
-## What is Object UI?
+## What You'll Learn
 
-Object UI is a schema-driven UI system that transforms JSON descriptions into beautiful, performant React interfaces. Instead of writing component code, you write JSON that describes what you want, and Object UI handles the rendering, styling, and behavior.
+This guide will teach you:
 
-### The Core Idea
+1. **How to build UIs from JSON schemas** - Transform declarative specifications into interactive interfaces
+2. **How to integrate with your backend** - Connect to REST APIs, GraphQL, or any data source
+3. **How to customize and extend ObjectUI** - Create custom components and plugins
+4. **How to optimize for production** - Lazy loading, code splitting, and performance
+5. **How to maintain ObjectUI projects** - Versioning, migration, and troubleshooting
 
-```json
-// You write this
-{
-  "type": "form",
-  "title": "Sign Up",
-  "body": [
-    { "type": "input", "name": "email", "label": "Email" },
-    { "type": "input-password", "name": "password", "label": "Password" }
-  ]
-}
+## Prerequisites
 
-// Object UI renders a complete, functional form
-```
+Before you begin, you should have:
 
-## Why Object UI?
+- Basic knowledge of React and JavaScript/TypeScript
+- Familiarity with npm or pnpm package managers
+- Understanding of JSON syntax
+- (Optional) Experience with Tailwind CSS
 
-### 1. Build Faster
+## Quick Example
 
-Stop writing repetitive UI code. A complete CRUD interface that would take days to code can be created in minutes with Object UI.
-
-**Traditional React:**
-```tsx
-// 200+ lines of code for forms, tables, validation, etc.
-```
-
-**Object UI:**
-```json
-// 20 lines of JSON
-{
-  "type": "crud",
-  "api": "/api/users",
-  "columns": [...]
-}
-```
-
-### 2. Better Performance
-
-Object UI is built on modern technologies with performance in mind:
-
-- **3x faster** page loads than traditional low-code platforms
-- **6x smaller** bundle sizes (< 50KB vs 300KB+)
-- Automatic code splitting and lazy loading
-- Zero runtime CSS overhead with Tailwind
-
-### 3. Easy to Learn
-
-If you know React and JSON, you already know most of Object UI:
-
-- Uses standard React patterns (no custom lifecycle)
-- Full TypeScript support with autocomplete
-- Works with your existing tools and workflows
-- Progressive adoption - use as much or as little as you need
-
-### 4. Full Control
-
-Unlike other low-code platforms, you're never locked in:
-
-- Extend or customize any component
-- Export to standard React code anytime
-- Mix Object UI with your existing React code
-- Override styles with Tailwind classes
-
-## How It Works
-
-Object UI follows a simple three-step process:
-
-### 1. Define Your Schema
-
-Write JSON that describes your UI:
+Here's a taste of what you can build with ObjectUI:
 
 ```json
 {
   "type": "page",
-  "title": "Dashboard",
+  "title": "User Dashboard",
   "body": {
-    "type": "grid",
-    "columns": 3,
-    "items": [
-      { "type": "card", "title": "Users", "value": "${stats.users}" },
-      { "type": "card", "title": "Revenue", "value": "${stats.revenue}" }
+    "type": "container",
+    "className": "p-6 space-y-6",
+    "children": [
+      {
+        "type": "card",
+        "title": "Welcome Back!",
+        "description": "Here's what's happening today"
+      },
+      {
+        "type": "data-table",
+        "dataSource": {
+          "api": "/api/users",
+          "method": "GET"
+        },
+        "columns": [
+          { "key": "name", "title": "Name", "sortable": true },
+          { "key": "email", "title": "Email" },
+          { "key": "role", "title": "Role" }
+        ]
+      }
     ]
   }
 }
 ```
 
-### 2. Render with Object UI
-
-Pass your schema to the renderer:
-
-```tsx
-import { SchemaRenderer } from '@object-ui/react'
-
-function App() {
-  return <SchemaRenderer schema={mySchema} data={myData} />
-}
-```
-
-### 3. Get Beautiful UI
-
-Object UI automatically:
-- Renders the components
-- Applies professional styling
-- Handles validation and state
-- Manages accessibility
-- Optimizes performance
-
-## Architecture
-
-Object UI is built as a modular ecosystem:
-
-```
-@object-ui/core       → Core logic, types, and validation (Zero React)
-@object-ui/react      → React bindings and SchemaRenderer
-@object-ui/components → UI components (Tailwind + Shadcn)
-@object-ui/designer   → Visual schema editor
-```
-
-This modular design means:
-- Use only what you need
-- Smaller bundle sizes (tree-shakable)
-- Framework-agnostic core (Vue/Svelte adapters possible)
-- Independent versioning per package
-
-## What Can You Build?
-
-Object UI is perfect for:
-
-- **Admin Panels**: Complete CRUD interfaces in minutes
-- **Dashboards**: Data visualization and analytics
-- **Forms**: Complex multi-step forms with validation
-- **CMS**: Content management systems
-- **Internal Tools**: Business applications
-- **Prototypes**: Rapid UI prototyping
+This simple schema creates a complete page with a card and a data table—no React code needed!
 
 ## Next Steps
 
-Ready to get started?
+Ready to get started? Choose your path:
 
-- [Quick Start](/docs/guide/quick-start) - Build your first Object UI app
-- [Installation](/docs/guide/installation) - Setup instructions
-- [Schema Rendering](/docs/concepts/schema-rendering) - Learn the core concepts
-
-## Getting Help
-
-- 📖 [Documentation](/) - You're reading it!
-- ⭐ [GitHub](https://github.com/objectstack-ai/objectui) - Star us and report issues
-- 📧 [Email](mailto:hello@objectui.org) - Get in touch
-
-Let's build something amazing! 🚀
+- 🚀 **New to ObjectUI?** Start with the [Quick Start](/docs/guide/getting-started/quick-start)
+- 📦 **Installing ObjectUI?** Check the [Installation Guide](/docs/guide/getting-started/installation)
+- 🎨 **Want to explore?** Visit the [Showcase](/docs/guide/getting-started/showcase)
+- 🧩 **Looking for components?** Browse the [Component Library](/docs/components)

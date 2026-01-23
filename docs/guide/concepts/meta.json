@@ -1,0 +1,11 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "schema-rendering",
+    "expressions",
+    "data-source",
+    "component-registry",
+    "plugins",
+    "lazy-loading"
+  ]
+}

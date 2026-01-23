@@ -1,0 +1,13 @@
+{
+  "title": "Getting Started",
+  "pages": [
+    "index",
+    "quick-start",
+    "installation",
+    "---",
+    "cli",
+    "studio",
+    "---",
+    "showcase"
+  ]
+}

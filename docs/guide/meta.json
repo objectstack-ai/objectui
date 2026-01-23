@@ -1,13 +1,12 @@
 {
-  "title": "Getting Started",
+  "title": "Guide",
   "pages": [
-    "index",
-    "quick-start",
-    "installation",
-    "---",
-    "cli",
-    "studio",
-    "---",
-    "showcase"
+    "getting-started",
+    "concepts",
+    "architecture",
+    "reference",
+    "best-practices",
+    "maintenance",
+    "support"
   ]
 }

@@ -35,20 +35,11 @@ exclude = [
 
 # Path remapping for fumadocs internal links
 # Maps Next.js routes to actual file paths
-[[remap]]
-# Map /docs/* links to docs/*.mdx or docs/*.md files
-pattern = "^/docs/(.*)$"
-replace = "file://./docs/$1.mdx"
-
-[[remap]]
-# Also try .md extension if .mdx doesn't exist
-pattern = "^/docs/(.*)$"
-replace = "file://./docs/$1.md"
-
-[[remap]]
-# Handle index files (e.g., /docs/components/ -> docs/components/index.mdx)
-pattern = "^/docs/(.*)/+$"
-replace = "file://./docs/$1/index.mdx"
+# Note: Lychee remap is a simple key-value mapping
+[remap]
+# Map /docs/* links to docs/ filesystem paths
+# The file:// prefix tells lychee to check local files
+"/docs/" = "file://./docs/"
 
 # Cache configuration
 [cache]

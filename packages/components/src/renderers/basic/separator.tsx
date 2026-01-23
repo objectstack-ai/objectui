@@ -50,7 +50,7 @@ ComponentRegistry.register('separator',
     ],
     defaultProps: {
       orientation: 'horizontal',
-      className: 'my-4'
+      className: 'my-2 sm:my-4'
     }
   }
 );

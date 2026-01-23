@@ -22,7 +22,7 @@ ComponentRegistry.register('button-group',
     
     return (
       <div 
-        className={cn('inline-flex rounded-md shadow-sm', schema.className)} 
+        className={cn('flex flex-wrap sm:inline-flex rounded-md shadow-sm', schema.className)} 
         role="group"
         {...buttonGroupProps}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}

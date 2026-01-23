@@ -10,13 +10,13 @@ hero:
   actions:
     - theme: brand
       text: Get Started
-      link: /guide/quick-start
+      link: /docs/guide/quick-start
     - theme: alt
       text: View Components
-      link: /components/
+      link: /docs/components/
     - theme: alt
       text: Read Docs
-      link: /guide/
+      link: /docs/guide/
 
 features:
   - title: 🎨 The Stack You Love
@@ -30,21 +30,21 @@ features:
 ## Quick Links
 
 ### For Users
-- 📖 [**Quick Start**](/guide/quick-start) - Get started in 5 minutes
-- 🎨 [**Showcase**](/guide/showcase) - See all 60+ components in action
-- 📦 [**Installation**](/guide/installation) - Setup instructions
-- 🧩 [**Components**](/components/) - Component library reference
+- 📖 [**Quick Start**](/docs/guide/quick-start) - Get started in 5 minutes
+- 🎨 [**Showcase**](/docs/guide/showcase) - See all 60+ components in action
+- 📦 [**Installation**](/docs/guide/installation) - Setup instructions
+- 🧩 [**Components**](/docs/components/) - Component library reference
 
 ### For Developers
-- 🤝 [**Contributing Guide**](/community/contributing) - How to contribute
-- 📚 [**Architecture**](/architecture/architecture) - Technical architecture
-- 🔧 [**API Reference**](/reference/api/core) - Complete API docs
-- 🗺️ [**Roadmap**](/community/roadmap) - Upcoming features
+- 🤝 [**Contributing Guide**](/docs/community/contributing) - How to contribute
+- 📚 [**Architecture**](/docs/architecture/architecture) - Technical architecture
+- 🔧 [**API Reference**](/docs/reference/api/core) - Complete API docs
+- 🗺️ [**Roadmap**](/docs/community/roadmap) - Upcoming features
 
 ### Need Help?
-- ❓ [**FAQ**](/faq) - Frequently asked questions
-- 🔧 [**Troubleshooting**](/troubleshooting) - Common issues and solutions
-- 🔒 [**Security**](/security) - Security best practices
+- ❓ [**FAQ**](/docs/faq) - Frequently asked questions
+- 🔧 [**Troubleshooting**](/docs/troubleshooting) - Common issues and solutions
+- 🔒 [**Security**](/docs/security) - Security best practices
 - 💬 [**Discussions**](https://github.com/objectstack-ai/objectui/discussions) - Ask questions
 
 ---

@@ -112,25 +112,27 @@ function validateLink(link) {
     linkPath = '/' + linkPath;
   }
   
-  // IMPORTANT: In fumadocs, internal links should NOT include the baseUrl prefix
-  // The baseUrl ('/docs') is automatically prepended by fumadocs at runtime
-  // So links should be like: /guide/quick-start (not /docs/guide/quick-start)
+  // In fumadocs, internal links SHOULD include the /docs/ prefix
+  // The baseUrl: '/docs' defines where docs are served in Next.js routing
+  // Links must use the full path: /docs/guide/quick-start
   
-  // Check if link incorrectly includes /docs/ prefix
+  let routePath = linkPath;
+  
+  // If link starts with /docs/, strip it to check against available routes
   if (linkPath.startsWith('/docs/')) {
-    ERRORS.push({
+    routePath = linkPath.substring(5) || '/';
+  } else if (linkPath !== '/' && !linkPath.startsWith('http')) {
+    // Warn about links that don't start with /docs/ (they might be broken)
+    WARNINGS.push({
       file: filePath,
       line,
       link: url,
-      text,
-      error: 'Link incorrectly includes /docs/ prefix. Fumadocs automatically adds the baseUrl, so links should not include it.',
-      suggestion: url.replace('/docs/', '/')
+      message: `Link might be missing /docs/ prefix. Internal documentation links should use /docs/... path.`
     });
-    return;
   }
   
   // Remove trailing slash for comparison
-  const normalizedPath = linkPath.replace(/\/$/, '') || '/';
+  const normalizedPath = routePath.replace(/\/$/, '') || '/';
   
   // Check if route exists
   if (!VALID_ROUTES.has(normalizedPath) && normalizedPath !== '' && normalizedPath !== '/') {
@@ -161,20 +163,20 @@ function findSimilarRoute(route) {
       const validLastPart = validParts[validParts.length - 1];
       
       if (lastPart === validLastPart) {
-        return `Did you mean: ${validRoute}?`;
+        return `Did you mean: /docs${validRoute}?`;
       }
     }
   }
   
   // Check for common patterns
   if (route.startsWith('/api/')) {
-    return 'API docs are under /reference/api/';
+    return 'API docs are under /docs/reference/api/';
   }
   if (route.startsWith('/spec/')) {
-    return 'Spec docs are under /architecture/';
+    return 'Spec docs are under /docs/architecture/';
   }
   if (route.startsWith('/protocol/')) {
-    return 'Protocol docs are under /reference/protocol/';
+    return 'Protocol docs are under /docs/reference/protocol/';
   }
   
   return null;

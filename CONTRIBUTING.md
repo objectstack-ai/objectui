@@ -426,30 +426,30 @@ pnpm site:build
 #### ✅ Correct Link Patterns
 
 ```markdown
-<!-- Correct - internal links should NOT include /docs/ prefix -->
-[Quick Start](/guide/quick-start)
-[Components](/components)
-[API Reference](/reference/api/core)
-[Protocol Specs](/reference/protocol/overview)
-[Architecture](/architecture/component)
+<!-- Correct - internal documentation links MUST include /docs/ prefix -->
+[Quick Start](/docs/guide/quick-start)
+[Components](/docs/components)
+[API Reference](/docs/reference/api/core)
+[Protocol Specs](/docs/reference/protocol/overview)
+[Architecture](/docs/architecture/component)
 ```
 
 #### ❌ Incorrect Link Patterns
 
 ```markdown
-<!-- Wrong - includes /docs/ prefix (fumadocs adds this automatically) -->
-[Quick Start](/docs/guide/quick-start)  <!-- ❌ Should be /guide/quick-start -->
-[Components](/docs/components)          <!-- ❌ Should be /components -->
+<!-- Wrong - missing /docs/ prefix -->
+[Quick Start](/guide/quick-start)       <!-- ❌ Should be /docs/guide/quick-start -->
+[Components](/components)               <!-- ❌ Should be /docs/components -->
 
 <!-- Wrong - incorrect paths -->
-[API Reference](/api/core)              <!-- ❌ Should be /reference/api/core -->
-[Spec](/spec/component)                 <!-- ❌ Should be /architecture/component -->
-[Protocol](/protocol/form)              <!-- ❌ Should be /reference/protocol/form -->
+[API Reference](/api/core)              <!-- ❌ Should be /docs/reference/api/core -->
+[Spec](/spec/component)                 <!-- ❌ Should be /docs/architecture/component -->
+[Protocol](/protocol/form)              <!-- ❌ Should be /docs/reference/protocol/form -->
 ```
 
 #### Why?
 
-Fumadocs is configured with `baseUrl: '/docs'`, which automatically prepends `/docs` to all internal links at runtime. If you include `/docs/` in your markdown links, the final URL will be `/docs/docs/...` (double prefix), causing 404 errors.
+Fumadocs is configured with `baseUrl: '/docs'`, which means all documentation pages are served under the `/docs` route in Next.js. Internal links must include the `/docs/` prefix to match the actual URL structure where the pages are accessible.
 
 #### Validating Links
 
@@ -462,7 +462,7 @@ pnpm validate:links
 
 This will check:
 - Links point to existing files and routes
-- Links do NOT incorrectly include /docs/ prefix
+- Links use correct path structure with /docs/ prefix
 - Suggestions for fixing common issues
 
 The validation runs automatically on PRs that modify documentation files.

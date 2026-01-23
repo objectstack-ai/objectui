@@ -1,40 +1,7 @@
 {
-  "nav": [
-    {
-      "title": "Getting Started",
-      "url": "/guide"
-    },
-    {
-      "title": "Components",
-      "url": "/components"
-    },
-    {
-      "title": "Concepts",
-      "url": "/concepts"
-    },
-    {
-      "title": "Reference",
-      "url": "/reference"
-    },
-    {
-      "title": "Resources",
-      "url": "/ecosystem"
-    }
-  ],
   "pages": [
     "guide",
     "components",
-    "concepts",
-    "plugins",
-    "reference",
-    "architecture",
-    "ecosystem",
-    "migration",
-    "troubleshooting",
-    "security",
-    "versioning",
-    "faq",
-    "examples",
-    "community"
+    "ecosystem"
   ]
 }

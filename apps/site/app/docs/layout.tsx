@@ -10,8 +10,18 @@ export default function Layout({ children }: { children: ReactNode }) {
       nav={{ title: <Logo />, url: '/' }}
       links={[
         {
-          text: 'Documentation',
-          url: '/docs',
+          text: 'Guide',
+          url: '/docs/guide',
+          active: 'nested-url',
+        },
+        {
+          text: 'Components',
+          url: '/docs/components',
+          active: 'nested-url',
+        },
+        {
+          text: 'Ecosystem',
+          url: '/docs/ecosystem',
           active: 'nested-url',
         },
         {

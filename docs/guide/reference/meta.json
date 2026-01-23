@@ -1,0 +1,20 @@
+{
+  "title": "Reference",
+  "pages": [
+    "---API Reference",
+    "api/core",
+    "api/react",
+    "api/components",
+    "api/designer",
+    "---Protocol Specifications",
+    "protocol/overview",
+    "protocol/page",
+    "protocol/form",
+    "protocol/view",
+    "protocol/crud",
+    "protocol/menu",
+    "protocol/app",
+    "protocol/report",
+    "protocol/object"
+  ]
+}

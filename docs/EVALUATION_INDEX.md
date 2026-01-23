@@ -106,8 +106,6 @@ This directory contains the complete component evaluation and development planni
 | **Test Coverage** | 60% |
 | **Bundle Size** | 50KB (gzip) |
 
-**Note**: CRUD are ObjectUI's Convenience Components, not part of the ObjectStack standard protocol. True CRUD operations will be implemented through the Object protocol.
-
 ### 2026 Targets
 
 | Metric | Q2 Target | Q4 Target |
@@ -123,7 +121,7 @@ This directory contains the complete component evaluation and development planni
 ## 🚀 Priority Roadmap
 
 ### Q1 2026 (Jan-Mar) - ✅ Core Refinement
-**Focus**: View and Form protocol refinement, CRUD Convenience Components enhancement
+**Focus**: View and Form protocol refinement, data management component enhancement
 
 **New Components**:
 - BulkEditDialog (Bulk editing)

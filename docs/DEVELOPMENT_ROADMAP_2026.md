@@ -22,11 +22,9 @@ This roadmap details ObjectUI's development plan for 2026, with a focus on impro
 
 ## Q1 2026: Core Feature Enhancement (Jan-Mar)
 
-### Theme: View & Form Protocol Enhancement, CRUD Convenience Components Strengthening
+### Theme: View & Form Protocol Enhancement, Data Management Features
 
-**Milestone**: CRUD Convenience Components reach enterprise-grade standards
-
-**Note**: CRUD components are ObjectUI extension components (not part of ObjectStack standard protocol), designed to simplify data management interface development.
+**Milestone**: Data management components reach enterprise-grade standards
 
 ### New Components (8)
 
@@ -212,7 +210,7 @@ This roadmap details ObjectUI's development plan for 2026, with a focus on impro
 
 ### Theme: ObjectStack Protocol Core
 
-**Milestone**: Support automatic generation of complete CRUD interfaces from Object definitions
+**Milestone**: Support automatic generation of complete data management interfaces from Object definitions
 
 ### Core Components (6)
 
@@ -721,7 +719,7 @@ Upload UI screenshot → Visual recognition → Generate Schema → Manual refin
 ### Q2 2026 Checkpoint
 
 - ✅ Component count: 90+
-- ✅ CRUD Convenience Components: 100%
+- ✅ Data Management Components: 100%
 - ✅ Object Protocol: 80%
 - ✅ Test coverage: 75%
 - ✅ Weekly NPM downloads: 1000+
@@ -743,7 +741,7 @@ Upload UI screenshot → Visual recognition → Generate Schema → Manual refin
 
 2026 is a critical year for ObjectUI to evolve from "usable" to "excellent":
 
-**Q1**: Fill gaps, enhance CRUD
+**Q1**: Fill gaps, enhance data management
 **Q2**: Core breakthrough, Object Protocol
 **Q3**: Mobile-first, user experience
 **Q4**: Ecosystem prosperity, developer happiness

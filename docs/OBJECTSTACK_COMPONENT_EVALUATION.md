@@ -33,7 +33,7 @@ ObjectUI adopts **two independent but complementary component systems**:
 #### 2. Object Components
 - **Positioning**: Automatically generate UI from ObjectStack Object definitions
 - **Data Source**: Driven by Object definitions (.object.yml files)
-- **Advantages**: Zero-config CRUD, automatic relationship handling, type safety, strong maintainability
+- **Advantages**: Zero-config data management, automatic relationship handling, type safety, strong maintainability
 - **Examples**: `object-table`, `object-form`, `object-list`
 - **Current Status**: 0 components, Q2 2026 planned 📝
 
@@ -52,7 +52,7 @@ ObjectUI adopts a clear three-layer component architecture:
 │  - Business logic wrapper, supports expressions,   │
 │    data binding, validation                        │
 │  - Examples: InputRenderer, FormRenderer,          │
-│    CRUDRenderer                                    │
+│    DataTableRenderer                               │
 └─────────────────────────────────────────────────────┘
                         ↓ uses
 ┌─────────────────────────────────────────────────────┐
@@ -113,7 +113,7 @@ ObjectUI adopts a clear three-layer component architecture:
 
 **Characteristics**:
 - Automatically generate UI from ObjectStack Object definitions
-- Zero-config CRUD (automatically generated from Object.fields)
+- Zero-config data management (automatically generated from Object.fields)
 - Intelligently handle relationship fields (lookup/master-detail)
 - Data source: Object definitions + ObjectQL
 
@@ -140,7 +140,7 @@ ObjectUI adopts a clear three-layer component architecture:
 | **Flexibility** | High (fully customizable) | Medium (constrained by Object) |
 | **Development Speed** | Medium (requires manual config) | Fast (zero-config) |
 | **Maintainability** | Schema needs sync maintenance | UI auto-updates when Object changes |
-| **Use Cases** | Custom dashboards, complex interactions | Standard CRUD, rapid prototyping |
+| **Use Cases** | Custom dashboards, complex interactions | Standard data management, rapid prototyping |
 
 ---
 
@@ -322,25 +322,15 @@ toggle-group, tooltip
 
 ### 3.1 Protocol Type Implementation Status
 
-**Note**: CRUD is not an independent ObjectStack Protocol type, but a Convenience Component provided by ObjectUI that combines View and Form Protocol functionality to simplify data management interface construction.
-
 | Protocol Type | Status | Completion | Core Components | Description |
 |----------|------|--------|----------|------|
 | **View** | ✅ Implemented | 100% | list, table, data-table, kanban, calendar, timeline, card, grid | All 8 view types implemented |
 | **Form** | ✅ Implemented | 100% | form + 17 form controls | Complete validation engine |
 | **Page** | 🚧 Partially implemented | 70% | page, container, grid, tabs | Missing routing integration |
 | **Menu** | 🚧 Partially implemented | 60% | navigation-menu, sidebar, breadcrumb | Missing permission control |
-| **Object** | 📝 Planned | 0% | - | Q2 2026 planned (includes CRUD operations) |
+| **Object** | 📝 Planned | 0% | - | Q2 2026 planned |
 | **App** | 📝 Planned | 0% | - | Q2 2026 planned |
 | **Report** | 📝 Planned | 0% | - | Q3 2026 planned |
-
-### 3.1.1 ObjectUI Extension Components
-
-ObjectUI provides additional Convenience Components beyond standard Protocol:
-
-| Component Type | Status | Completion | Core Components | Description |
-|----------|------|--------|----------|------|
-| **CRUD Components** | 🚧 Partially implemented | 80% | data-table, form, dialog | Convenience Components combining View+Form, missing batch operations |
 
 ### 3.2 View Protocol Detailed Support
 
@@ -355,9 +345,7 @@ ObjectUI provides additional Convenience Components beyond standard Protocol:
 | **detail** | `page` + `form` | ✅ | Read-only detail page |
 | **form** | `form` | ✅ | Multi-step, conditional fields, dynamic validation |
 
-### 3.3 CRUD Component Feature Support
-
-**Note**: CRUD Components are extension components provided by ObjectUI (not standard ObjectStack Protocol), used to simplify data management interface development. They combine View Protocol (data-table) and Form Protocol (form) functionality.
+### 3.3 Data Management Feature Support
 
 | Feature | Status | Implementation Component | Description |
 |------|------|----------|------|
@@ -511,9 +499,7 @@ export function InputRenderer({ schema }: RendererProps<InputSchema>) {
 
 ### 5.1 High Priority Missing Components
 
-#### CRUD Operation Enhancement
-
-**Note**: The following components enhance ObjectUI's CRUD Convenience Components. True CRUD operation support will be implemented in Q2 2026 through the Object Protocol.
+#### Data Management Enhancement
 
 | Component | Priority | Purpose | Effort |
 |------|--------|------|--------|
@@ -633,7 +619,7 @@ All components are currently responsive, but require specialized mobile optimiza
 
 ### 6.1 Q1 2026 (Jan-Mar) - Core Enhancement ✅ Partially Complete
 
-**Goal**: Enhance View and Form Protocol support, strengthen CRUD Convenience Components
+**Goal**: Enhance View and Form Protocol support, strengthen data management components
 
 | Task | Time | Owner | Status |
 |------|------|--------|------|
@@ -645,7 +631,7 @@ All components are currently responsive, but require specialized mobile optimiza
 | Component documentation | 2 weeks | TBD | 🚧 In progress |
 
 **Deliverables**:
-- ✅ CRUD Convenience Components functionality at 100%
+- ✅ Data management components functionality at 100%
 - ✅ Form components cover common business scenarios
 - ✅ Storybook documentation covers all components
 
@@ -670,7 +656,7 @@ All components are currently responsive, but require specialized mobile optimiza
 
 **Milestones**:
 - ✅ Object Component System: 10 core components
-- ✅ Support auto-generating UI from Object definitions (zero-config CRUD)
+- ✅ Support auto-generating UI from Object definitions (zero-config data management)
 - ✅ Support lookup and master-detail relationship fields
 - ✅ Support all ObjectQL field types
 - ✅ Platform Basic Components: 84 components (+8 additions)
@@ -790,7 +776,7 @@ All components are currently responsive, but require specialized mobile optimiza
 | Dimension | ObjectUI | Formily |
 |------|----------|---------|
 | Positioning | Full-stack UI | Form-focused |
-| Protocol Scope | Wide (Page/View/CRUD) | Narrow (Form) |
+| Protocol Scope | Wide (Page/View/Form) | Narrow (Form) |
 | Backend Integration | ObjectStack | Any |
 | Complexity | Simple | Complex |
 

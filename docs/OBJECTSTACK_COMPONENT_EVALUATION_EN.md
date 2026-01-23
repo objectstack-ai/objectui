@@ -14,7 +14,7 @@ This document provides a comprehensive evaluation of ObjectUI's frontend compone
 
 - ✅ **76 renderer components** implemented across 8 categories
 - ✅ **60 Shadcn UI base components** integrated as design system foundation
-- 🚧 **Protocol Support**: View (100%), Form (100%), CRUD (80%), Object (planned)
+- 🚧 **Protocol Support**: View (100%), Form (100%), Object (planned)
 - 📊 **Component Coverage**: Basic features 100%, Advanced features 85%
 - 🎯 **Code Quality**: Average 80-150 lines per renderer, maintaining clean architecture
 
@@ -80,11 +80,9 @@ This document provides a comprehensive evaluation of ObjectUI's frontend compone
 | **Form** | ✅ Implemented | 100% | form + 17 form controls | Complete validation engine |
 | **Page** | 🚧 Partial | 70% | page, container, grid, tabs | Missing routing integration |
 | **Menu** | 🚧 Partial | 60% | navigation-menu, sidebar, breadcrumb | Missing permission control |
-| **Object** | 📝 Planned | 0% | - | Q2 2026 target (includes CRUD operations) |
+| **Object** | 📝 Planned | 0% | - | Q2 2026 target |
 | **App** | 📝 Planned | 0% | - | Q2 2026 target |
 | **Report** | 📝 Planned | 0% | - | Q3 2026 target |
-
-**Note**: The "CRUD" component in ObjectUI is a convenience wrapper (not an official ObjectStack protocol type) that combines View and Form protocols to simplify data management interfaces.
 
 ---
 
@@ -92,7 +90,7 @@ This document provides a comprehensive evaluation of ObjectUI's frontend compone
 
 ### High Priority Missing Components
 
-#### CRUD Enhancements
+#### Data Management Enhancements
 - **BulkEditDialog**: Edit multiple records at once (3 days)
 - **ExportWizard**: Export data to CSV/Excel/JSON (2 days)
 - **InlineEditCell**: Direct table cell editing (2 days)
@@ -113,7 +111,7 @@ This document provides a comprehensive evaluation of ObjectUI's frontend compone
 ## 2026 Development Roadmap
 
 ### Q1 2026 (Jan-Mar): Core Feature Completion
-**Focus**: Perfect CRUD & Form protocols
+**Focus**: Perfect Form protocols and data management features
 
 **Deliverables**:
 - ✅ 8 new components (BulkEdit, TagsInput, Stepper, Export, etc.)
@@ -196,7 +194,7 @@ This document provides a comprehensive evaluation of ObjectUI's frontend compone
 | Dimension | ObjectUI | Formily |
 |-----------|----------|---------|
 | Scope | Full-stack UI | Form-focused |
-| Protocol Range | Broad (Page/View/CRUD) | Narrow (Form) |
+| Protocol Range | Broad (Page/View/Form) | Narrow (Form) |
 | Backend Integration | ObjectStack | Any |
 | Complexity | Simple | Complex |
 

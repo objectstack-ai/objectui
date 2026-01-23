@@ -14,16 +14,10 @@
     "docs"
   ],
   "scripts": {
-    "dev": "pnpm dev:showcase",
-    "dev:dashboard": "node packages/cli/dist/cli.js dev examples/dashboard/index.json",
-    "dev:crm": "node packages/cli/dist/cli.js dev examples/crm-app/app.json",
-    "dev:showcase": "node packages/cli/dist/cli.js dev examples/showcase/app.json",
-    "showcase": "node packages/cli/dist/cli.js showcase",
-    "start": "pnpm dev",
     "build": "pnpm --filter './packages/*' -r build && pnpm --filter './examples/*' -r build && pnpm --filter './apps/*' -r build",
     "pretest": "pnpm --filter @object-ui/types build && pnpm --filter @object-ui/core build && pnpm --filter @object-ui/react build && pnpm --filter @object-ui/components build && pnpm --filter @object-ui/plugin-kanban build && pnpm --filter @object-ui/plugin-charts build",
     "test": "vitest run",
-    "site:dev": "pnpm --filter @objectui/site dev",
+    "dev": "pnpm --filter @objectui/site dev",
     "site:build": "pnpm --filter @objectui/site build",
     "site:start": "pnpm --filter @objectui/site start",
     "test:watch": "vitest",

@@ -206,21 +206,5 @@ program
     }
   });
 
-program
-  .command('showcase')
-  .description('Start the built-in showcase example')
-  .option('-p, --port <port>', 'Port to run the server on', '3000')
-  .option('-h, --host <host>', 'Host to bind the server to', 'localhost')
-  .option('--no-open', 'Do not open browser automatically')
-  .action(async (options) => {
-    try {
-      // Locate repository root relative to this file and point to examples/showcase/app.json
-      const showcaseSchema = join(__dirname, '../../..', 'examples', 'showcase', 'app.json');
-      await dev(showcaseSchema, options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
 
 program.parse();

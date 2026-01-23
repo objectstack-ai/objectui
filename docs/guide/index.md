@@ -15,8 +15,6 @@ Learn the basics and set up your first ObjectUI project
 - **[Quick Start](/docs/guide/getting-started/quick-start)** - Build your first app in 5 minutes
 - **[Installation](/docs/guide/getting-started/installation)** - Detailed setup instructions
 - **[CLI Tools](/docs/guide/getting-started/cli)** - Command-line tools reference
-- **[ObjectUI Studio](/docs/guide/getting-started/studio)** - Visual editor for schemas
-- **[Showcase](/docs/guide/getting-started/showcase)** - See all components in action
 
 ### 💡 Core Concepts
 Understand the fundamental concepts behind ObjectUI
@@ -120,5 +118,4 @@ Ready to get started? Choose your path:
 
 - 🚀 **New to ObjectUI?** Start with the [Quick Start](/docs/guide/getting-started/quick-start)
 - 📦 **Installing ObjectUI?** Check the [Installation Guide](/docs/guide/getting-started/installation)
-- 🎨 **Want to explore?** Visit the [Showcase](/docs/guide/getting-started/showcase)
 - 🧩 **Looking for components?** Browse the [Component Library](/docs/components)

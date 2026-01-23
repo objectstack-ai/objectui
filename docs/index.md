@@ -31,7 +31,6 @@ features:
 
 ### For Users
 - 📖 [**Quick Start**](/docs/guide/quick-start) - Get started in 5 minutes
-- 🎨 [**Showcase**](/docs/guide/showcase) - See all 60+ components in action
 - 📦 [**Installation**](/docs/guide/installation) - Setup instructions
 - 🧩 [**Components**](/docs/components/) - Component library reference
 
@@ -183,7 +182,6 @@ function App() {
 Start here if you're new to ObjectUI
 - [Quick Start](/docs/guide/quick-start)
 - [Installation](/docs/guide/installation)
-- [Showcase](/docs/guide/showcase)
 
 ### 🧩 Components
 Browse all available components
@@ -219,7 +217,6 @@ For contributors and advanced users
 Integration and deployment
 - [ObjectQL Integration](/docs/ecosystem/objectql)
 - [API Integration](/docs/ecosystem/api)
-- [Deployment Guide](/docs/ecosystem/deployment/showcase-deployment)
 
 ### 🆘 Support
 Get help when you need it
@@ -243,6 +240,5 @@ Stop writing repetitive UI code. Start building with ObjectUI.
 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
   <a href="/docs/guide/quick-start" style="padding: 0.75rem 1.5rem; background: #3b82f6; color: white; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Get Started →</a>
   <a href="/docs/components/" style="padding: 0.75rem 1.5rem; border: 1px solid #3b82f6; color: #3b82f6; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">View Components</a>
-  <a href="/docs/guide/showcase" style="padding: 0.75rem 1.5rem; border: 1px solid #6b7280; color: #6b7280; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Try Showcase</a>
 </div>
 

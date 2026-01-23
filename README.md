@@ -13,7 +13,7 @@
 [![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.0+-38bdf8.svg)](https://tailwindcss.com/)
 
-[**Documentation**](https://www.objectui.org) | [**Quick Start**](#quick-start) | [**🎨 Showcase**](#-try-the-showcase) | [**Examples**](#examples)
+[**Documentation**](https://www.objectui.org) | [**Quick Start**](#quick-start) 
 
 </div>
 

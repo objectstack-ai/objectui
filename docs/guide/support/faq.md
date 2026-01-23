@@ -287,8 +287,6 @@ Yes! See our [Roadmap](/community/roadmap) for:
 
 ### Where can I find examples?
 
-- **Showcase**: Run `pnpm showcase` to see all components
-- **Examples folder**: `/examples` in the repository
 - **Documentation**: Component examples throughout the docs
 - **Storybook**: (coming soon)
 

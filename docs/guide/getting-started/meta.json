@@ -3,11 +3,6 @@
   "pages": [
     "index",
     "quick-start",
-    "installation",
-    "---",
-    "cli",
-    "studio",
-    "---",
-    "showcase"
+    "installation"
   ]
 }

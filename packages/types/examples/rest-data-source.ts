@@ -166,6 +166,21 @@ export class RestDataSource<T = any> implements DataSource<T> {
     
     return true;
   }
+
+  /**
+   * Get object schema/metadata
+   */
+  async getObjectSchema(objectName: string): Promise<any> {
+    const url = `${this.baseUrl}/_schema/${objectName}`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  }
 }
 
 // Usage example:

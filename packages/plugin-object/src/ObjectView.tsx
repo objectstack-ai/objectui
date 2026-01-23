@@ -88,11 +88,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   useEffect(() => {
     const fetchObjectSchema = async () => {
       try {
-        // Check if the data source supports schema fetching
-        if (dataSource.getObjectSchema) {
-          const schemaData = await dataSource.getObjectSchema(schema.objectName);
-          setObjectSchema(schemaData);
-        }
+        const schemaData = await dataSource.getObjectSchema(schema.objectName);
+        setObjectSchema(schemaData);
       } catch (err) {
         console.error('Failed to fetch object schema:', err);
       }

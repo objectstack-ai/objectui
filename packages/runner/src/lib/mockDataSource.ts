@@ -39,4 +39,14 @@ export class MockDataSource implements DataSource {
   async delete(resource: string, id: string): Promise<any> {
     return true;
   }
+
+  async getObjectSchema(objectName: string): Promise<any> {
+    console.log(`[DataSource] Getting schema for ${objectName}`);
+    // Return a minimal schema for mock purposes
+    return {
+      name: objectName,
+      label: objectName,
+      fields: {}
+    };
+  }
 }

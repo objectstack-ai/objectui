@@ -81,17 +81,8 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
         if (!dataSource) {
           throw new Error('DataSource is required when using ObjectQL schema fetching (inline fields not provided)');
         }
-        // Check if the data source supports schema fetching
-        if (dataSource.getObjectSchema) {
-          const schemaData = await dataSource.getObjectSchema(schema.objectName);
-          setObjectSchema(schemaData);
-        } else {
-          // If schema fetching is not supported, use a minimal schema
-          setObjectSchema({
-            name: schema.objectName,
-            fields: {} as Record<string, any>,
-          });
-        }
+        const schemaData = await dataSource.getObjectSchema(schema.objectName);
+        setObjectSchema(schemaData);
       } catch (err) {
         console.error('Failed to fetch object schema:', err);
         setError(err as Error);

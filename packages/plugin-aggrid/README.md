@@ -15,8 +15,10 @@ A lazy-loaded data grid component for Object UI based on AG Grid Community Editi
 ## Installation
 
 ```bash
-pnpm add @object-ui/plugin-aggrid
+pnpm add @object-ui/plugin-aggrid ag-grid-community ag-grid-react
 ```
+
+Note: `ag-grid-community` and `ag-grid-react` are peer dependencies and must be installed separately.
 
 ## Usage
 

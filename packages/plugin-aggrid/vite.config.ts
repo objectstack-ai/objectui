@@ -33,7 +33,7 @@ export default defineConfig({
       fileName: 'index',
     },
     rollupOptions: {
-      external: ['react', 'react-dom', '@object-ui/components', '@object-ui/core', '@object-ui/react'],
+      external: ['react', 'react-dom', '@object-ui/components', '@object-ui/core', '@object-ui/react', 'ag-grid-community', 'ag-grid-react'],
       output: {
         globals: {
           react: 'React',
@@ -41,6 +41,8 @@ export default defineConfig({
           '@object-ui/components': 'ObjectUIComponents',
           '@object-ui/core': 'ObjectUICore',
           '@object-ui/react': 'ObjectUIReact',
+          'ag-grid-community': 'AgGridCommunity',
+          'ag-grid-react': 'AgGridReact',
         },
       },
     },

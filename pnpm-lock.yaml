@@ -454,12 +454,6 @@ importers:
       '@object-ui/types':
         specifier: workspace:*
         version: link:../types
-      ag-grid-community:
-        specifier: ^32.3.4
-        version: 32.3.9
-      ag-grid-react:
-        specifier: ^32.3.4
-        version: 32.3.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -476,6 +470,12 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.2.1
         version: 4.7.0(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2))
+      ag-grid-community:
+        specifier: ^32.3.4
+        version: 32.3.9
+      ag-grid-react:
+        specifier: ^32.3.4
+        version: 32.3.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

@@ -2,11 +2,6 @@
   "title": "Guide",
   "pages": [
     "getting-started",
-    "concepts",
-    "architecture",
-    "reference",
-    "best-practices",
-    "maintenance",
-    "support"
+    "concepts"
   ]
 }

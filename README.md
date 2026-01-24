@@ -479,7 +479,6 @@ Object UI is [MIT licensed](./LICENSE).
 
 - ⭐ [Star on GitHub](https://github.com/objectstack-ai/objectui) - Show your support!
 - 📖 [Documentation](https://www.objectui.org) - Comprehensive guides and API reference
-- 💬 [GitHub Discussions](https://github.com/objectstack-ai/objectui/discussions) - Ask questions and share ideas
 - 🐛 [Report Issues](https://github.com/objectstack-ai/objectui/issues) - Found a bug? Let us know
 - 📧 [Email Us](mailto:hello@objectui.org) - Get in touch
 

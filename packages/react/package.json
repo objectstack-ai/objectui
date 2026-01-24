@@ -21,7 +21,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@object-ui/core": "workspace:*"
+    "@object-ui/core": "workspace:*",
+    "@objectstack/spec": "^0.3.2",
+    "react-hook-form": "^7.71.1"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",

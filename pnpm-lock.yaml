@@ -730,12 +730,18 @@ importers:
       '@object-ui/core':
         specifier: workspace:*
         version: link:../core
+      '@objectstack/spec':
+        specifier: ^0.3.2
+        version: 0.3.2
       react:
         specifier: 19.2.3
         version: 19.2.3
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
+      react-hook-form:
+        specifier: ^7.71.1
+        version: 7.71.1(react@19.2.3)
     devDependencies:
       '@types/react':
         specifier: 19.0.6

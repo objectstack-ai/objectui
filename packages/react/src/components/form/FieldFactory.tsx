@@ -59,6 +59,14 @@ export const FieldFactory: React.FC<FieldFactoryProps> = ({
   const fieldName = field.field;
   const error = errors[fieldName];
 
+  // Helper function to handle multiple select value conversion
+  const handleMultipleSelectValue = (value: any) => {
+    if (extendedField.multiple && value instanceof HTMLCollection) {
+      return Array.from(value as HTMLCollectionOf<HTMLOptionElement>).map((opt) => opt.value);
+    }
+    return value;
+  };
+
   // Handle conditional visibility
   // Note: visibleOn expression evaluation is not yet implemented
   // Fields are always visible unless explicitly hidden
@@ -177,13 +185,7 @@ export const FieldFactory: React.FC<FieldFactoryProps> = ({
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           {...register(fieldName, {
             required: field.required ? `${field.label || fieldName} is required` : false,
-            setValueAs: (value) => {
-              // Handle multiple select: convert HTMLCollection to array
-              if (extendedField.multiple && value instanceof HTMLCollection) {
-                return Array.from(value).map((opt: any) => opt.value);
-              }
-              return value;
-            },
+            setValueAs: handleMultipleSelectValue,
           })}
         >
           {!extendedField.multiple && <option value="">{field.placeholder || 'Select an option'}</option>}
@@ -390,13 +392,7 @@ export const FieldFactory: React.FC<FieldFactoryProps> = ({
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           {...register(fieldName, {
             required: field.required ? `${field.label || fieldName} is required` : false,
-            setValueAs: (value) => {
-              // Handle multiple select: convert HTMLCollection to array
-              if (extendedField.multiple && value instanceof HTMLCollection) {
-                return Array.from(value).map((opt: any) => opt.value);
-              }
-              return value;
-            },
+            setValueAs: handleMultipleSelectValue,
           })}
         >
           {!extendedField.multiple && <option value="">{field.placeholder || 'Select an option'}</option>}
@@ -418,13 +414,7 @@ export const FieldFactory: React.FC<FieldFactoryProps> = ({
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           {...register(fieldName, {
             required: field.required ? `${field.label || fieldName} is required` : false,
-            setValueAs: (value) => {
-              // Handle multiple select: convert HTMLCollection to array
-              if (extendedField.multiple && value instanceof HTMLCollection) {
-                return Array.from(value).map((opt: any) => opt.value);
-              }
-              return value;
-            },
+            setValueAs: handleMultipleSelectValue,
           })}
         >
           {!extendedField.multiple && <option value="">{field.placeholder || 'Select user'}</option>}

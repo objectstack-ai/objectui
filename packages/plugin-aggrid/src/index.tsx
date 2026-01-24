@@ -10,6 +10,14 @@ import React, { Suspense } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { Skeleton } from '@object-ui/components';
 
+// Import AG Grid CSS - These must be imported at the entry point for Next.js
+// Importing them in the lazy-loaded component doesn't work properly
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-quartz.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+import 'ag-grid-community/styles/ag-theme-balham.css';
+import 'ag-grid-community/styles/ag-theme-material.css';
+
 // Export types for external use
 export type { AgGridSchema, SimpleColumnDef } from './types';
 

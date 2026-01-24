@@ -10,13 +10,6 @@ import React, { useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, GridOptions } from 'ag-grid-community';
 
-// Import AG Grid CSS - These are required for AG Grid to render properly
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-quartz.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
-import 'ag-grid-community/styles/ag-theme-balham.css';
-import 'ag-grid-community/styles/ag-theme-material.css';
-
 export interface AgGridImplProps {
   rowData?: any[];
   columnDefs?: ColDef[];

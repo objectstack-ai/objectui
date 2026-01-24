@@ -16,7 +16,8 @@ export interface AgGridCallbacks {
   onRowClicked?: (event: RowClickedEvent) => void;
   onSelectionChanged?: (event: SelectionChangedEvent) => void;
   onCellValueChanged?: (event: CellValueChangedEvent) => void;
-  onExport?: (data: any[], format: 'csv' | 'excel') => void;
+  onExport?: (data: any[], format: 'csv') => void;
+  onContextMenuAction?: (action: string, rowData: any) => void;
 }
 
 /**
@@ -42,11 +43,9 @@ export interface StatusBarConfig {
  * Column configuration enhancements
  */
 export interface ColumnConfig {
-  autoSize?: boolean;
   resizable?: boolean;
   sortable?: boolean;
   filterable?: boolean;
-  groupable?: boolean;
 }
 
 /**
@@ -58,7 +57,6 @@ export interface ContextMenuConfig {
   customItems?: Array<{
     name: string;
     action: string;
-    icon?: string;
     disabled?: boolean;
   }>;
 }

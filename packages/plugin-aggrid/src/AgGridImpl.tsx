@@ -94,7 +94,7 @@ export default function AgGridImpl({
 
   // CSV Export handler
   const handleExportCSV = useCallback(() => {
-    if (!gridRef.current) return;
+    if (!gridRef.current?.api) return;
     
     const params = {
       fileName: exportConfig?.fileName || 'export.csv',
@@ -158,17 +158,11 @@ export default function AgGridImpl({
       contextMenu.customItems.forEach(customItem => {
         items.push({
           name: customItem.name,
-          icon: customItem.icon,
           disabled: customItem.disabled,
           action: () => {
-            // Trigger callback if defined
-            if (callbacks?.onCellClicked) {
-              // Invoke with the menu item action and row data
-              const syntheticEvent = {
-                ...params,
-                customAction: customItem.action,
-              } as any;
-              callbacks.onCellClicked(syntheticEvent);
+            // Trigger dedicated context menu action callback
+            if (callbacks?.onContextMenuAction) {
+              callbacks.onContextMenuAction(customItem.action, params.node?.data);
             }
           },
         });

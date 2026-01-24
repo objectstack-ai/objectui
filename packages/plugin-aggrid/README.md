@@ -9,7 +9,7 @@ A lazy-loaded data grid component for Object UI based on AG Grid Community Editi
 - **Automatic Registration**: Components auto-register with the ComponentRegistry
 - **Skeleton Loading**: Shows a skeleton while AG Grid loads
 - **Full AG Grid Features**: Sorting, filtering, pagination, cell rendering, and more
-- **Cell & Row Editing**: Inline editing with validation support
+- **Cell & Row Editing**: Inline editing using AG Grid's built-in editors
 - **CSV Export**: Built-in data export functionality
 - **Event Callbacks**: Handle cell clicks, selection changes, and value updates
 - **Status Bar**: Display aggregations (count, sum, avg, min, max)
@@ -18,6 +18,10 @@ A lazy-loaded data grid component for Object UI based on AG Grid Community Editi
 - **Range Selection**: Excel-like range selection support
 - **Multiple Themes**: Support for Quartz, Alpine, Balham, and Material themes
 - **Customizable**: Full access to AG Grid's GridOptions for advanced configuration
+
+## AG Grid Community vs Enterprise
+
+This plugin uses **AG Grid Community Edition** which is free and open source. Most features (sorting, filtering, editing, CSV export, basic context menu) work with the Community edition. Some advanced features like integrated charting may require AG Grid Enterprise (commercial license). See [AG Grid Pricing](https://www.ag-grid.com/license-pricing/) for details.
 
 ## Installation
 
@@ -160,7 +164,8 @@ const schema: AgGridSchema = {
     onRowClicked?: (event) => void,             // Row click handler
     onSelectionChanged?: (event) => void,       // Selection change handler
     onCellValueChanged?: (event) => void,       // Cell value change handler
-    onExport?: (data, format) => void           // Export handler
+    onExport?: (data, format) => void,          // Export handler (CSV only)
+    onContextMenuAction?: (action, rowData) => void  // Context menu action handler
   },
   
   // Column Configuration
@@ -363,15 +368,24 @@ const schema = {
       {
         name: 'Delete Row',
         action: 'delete',
-        icon: '🗑️',
         disabled: false
       },
       {
         name: 'View Details',
-        action: 'view',
-        icon: '👁️'
+        action: 'view'
       }
     ]
+  },
+  callbacks: {
+    onContextMenuAction: (action, rowData) => {
+      console.log(`Action: ${action}`, rowData);
+      // Handle custom menu actions
+      if (action === 'delete') {
+        deleteRow(rowData);
+      } else if (action === 'view') {
+        viewDetails(rowData);
+      }
+    }
   }
 };
 ```

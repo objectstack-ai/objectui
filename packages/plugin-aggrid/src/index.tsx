@@ -21,6 +21,8 @@ import 'ag-grid-community/styles/ag-theme-material.css';
 // Export types for external use
 export type { AgGridSchema, SimpleColumnDef, AgGridCallbacks, ExportConfig, StatusBarConfig, ColumnConfig, ContextMenuConfig } from './types';
 
+import type { AgGridCallbacks, ExportConfig, StatusBarConfig, ColumnConfig, ContextMenuConfig } from './types';
+
 // 🚀 Lazy load the implementation file
 // This ensures AG Grid is only loaded when the component is actually rendered
 const LazyAgGrid = React.lazy(() => import('./AgGridImpl'));
@@ -44,13 +46,13 @@ export interface AgGridRendererProps {
     editType?: 'fullRow';
     singleClickEdit?: boolean;
     stopEditingWhenCellsLoseFocus?: boolean;
-    exportConfig?: any;
-    statusBar?: any;
-    callbacks?: any;
-    columnConfig?: any;
+    exportConfig?: ExportConfig;
+    statusBar?: StatusBarConfig;
+    callbacks?: AgGridCallbacks;
+    columnConfig?: ColumnConfig;
     enableRangeSelection?: boolean;
     enableCharts?: boolean;
-    contextMenu?: any;
+    contextMenu?: ContextMenuConfig;
   };
 }
 
@@ -194,7 +196,7 @@ ComponentRegistry.register(
         name: 'exportConfig', 
         type: 'code', 
         label: 'Export Config (JSON)',
-        description: 'Configure CSV/Excel export: { enabled: true, fileName: "data.csv" }',
+        description: 'Configure CSV export: { enabled: true, fileName: "data.csv" }',
         advanced: true
       },
       { 

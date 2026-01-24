@@ -114,6 +114,9 @@ importers:
       '@object-ui/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@object-ui/plugin-aggrid':
+        specifier: workspace:*
+        version: link:../../packages/plugin-aggrid
       '@object-ui/plugin-charts':
         specifier: workspace:*
         version: link:../../packages/plugin-charts

@@ -654,15 +654,13 @@ const registrationFormSchema = {
     }
   ],
   
-  validation: {
-    confirmPassword: {
-      match: 'password',
-      message: 'Passwords must match'
-    }
-  },
+  // Note: Field-level validation should be defined within customFields
+  // using the validate property on each FormField
   
   layout: 'vertical',
   submitText: 'Sign Up',
+  // Note: In JSON schemas, onSuccess uses action objects
+  // In TypeScript, use a callback function: onSuccess: (data) => { ... }
   onSuccess: {
     type: 'navigate',
     path: '/welcome'
@@ -805,8 +803,27 @@ const productFormSchema = {
       type: 'grid',
       label: 'Product Variants',
       columns: [
-        { name: 'size', type: 'select', label: 'Size', options: ['S', 'M', 'L', 'XL'] },
-        { name: 'color', type: 'select', label: 'Color', options: ['Red', 'Blue', 'Green'] },
+        { 
+          name: 'size', 
+          type: 'select', 
+          label: 'Size', 
+          options: [
+            { label: 'S', value: 'S' },
+            { label: 'M', value: 'M' },
+            { label: 'L', value: 'L' },
+            { label: 'XL', value: 'XL' }
+          ]
+        },
+        { 
+          name: 'color', 
+          type: 'select', 
+          label: 'Color', 
+          options: [
+            { label: 'Red', value: 'Red' },
+            { label: 'Blue', value: 'Blue' },
+            { label: 'Green', value: 'Green' }
+          ]
+        },
         { name: 'sku', type: 'text', label: 'SKU' },
         { name: 'stock', type: 'number', label: 'Stock', min: 0 },
         { name: 'price', type: 'currency', label: 'Price', currency: 'USD' }

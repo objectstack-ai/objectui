@@ -120,8 +120,34 @@ function UserForm() {
 | `fields` | string[] | All fields | Fields to display |
 | `defaultValues` | object | `{}` | Default field values |
 | `layout` | 'vertical' \| 'horizontal' | `'vertical'` | Form layout |
-| `onSuccess` | Action | - | Action on successful submit |
-| `onCancel` | Action | - | Action on cancel |
+| `onSuccess` | Action \| Function | - | Action on successful submit (see below) |
+| `onCancel` | Action \| Function | - | Action on cancel |
+
+### Action Callbacks
+
+The `onSuccess` and `onCancel` properties support two formats:
+
+**JSON Schema (Action Objects):**
+```json
+{
+  "onSuccess": {
+    "type": "navigate",
+    "path": "/success-page"
+  }
+}
+```
+
+**TypeScript (Functions):**
+```tsx
+{
+  onSuccess: (data) => {
+    console.log('Form submitted:', data);
+    router.push('/success-page');
+  }
+}
+```
+
+Common action types: `navigate`, `toast`, `reload`, `close`.
 
 ## Features
 
@@ -629,7 +655,88 @@ ObjectForm supports all field types defined in ObjectUI. Below are comprehensive
 
 ## Complete Form Example with All Field Types
 
-Here's a comprehensive example showing multiple field types in a single form:
+Here's a comprehensive product form with multiple field types, grouping, and validation:
+
+<InteractiveDemo
+  schema={{
+    type: "object-form",
+    objectName: "products",
+    mode: "create",
+    title: "New Product",
+    customFields: [
+      {
+        name: "productName",
+        type: "text",
+        label: "Product Name",
+        required: true,
+        max_length: 100
+      },
+      {
+        name: "description",
+        type: "textarea",
+        label: "Description",
+        rows: 3,
+        max_length: 500
+      },
+      {
+        name: "category",
+        type: "select",
+        label: "Category",
+        required: true,
+        options: [
+          { value: "electronics", label: "Electronics", color: "blue" },
+          { value: "clothing", label: "Clothing", color: "purple" },
+          { value: "food", label: "Food & Beverage", color: "green" }
+        ]
+      },
+      {
+        name: "price",
+        type: "currency",
+        label: "Price",
+        currency: "USD",
+        precision: 2,
+        required: true,
+        min: 0
+      },
+      {
+        name: "stock",
+        type: "number",
+        label: "Stock Quantity",
+        min: 0,
+        step: 1
+      },
+      {
+        name: "isActive",
+        type: "boolean",
+        label: "Active",
+        defaultValue: true
+      },
+      {
+        name: "releaseDate",
+        type: "date",
+        label: "Release Date"
+      },
+      {
+        name: "tags",
+        type: "select",
+        label: "Tags",
+        multiple: true,
+        searchable: true,
+        options: [
+          { value: "bestseller", label: "Best Seller", color: "red" },
+          { value: "new", label: "New Arrival", color: "green" },
+          { value: "sale", label: "On Sale", color: "orange" }
+        ]
+      }
+    ],
+    submitText: "Create Product",
+    showCancel: true
+  }}
+  title="Product Form Example"
+  description="Comprehensive form with multiple field types"
+/>
+
+Here's the complete JSON schema for the form above:
 
 ```json
 {

@@ -35,6 +35,7 @@ describe('Plugin AgGrid', () => {
       const config = ComponentRegistry.getConfig('aggrid');
       const inputNames = config?.inputs?.map((input: any) => input.name) || [];
       
+      // Original inputs
       expect(inputNames).toContain('rowData');
       expect(inputNames).toContain('columnDefs');
       expect(inputNames).toContain('pagination');
@@ -46,6 +47,17 @@ describe('Plugin AgGrid', () => {
       expect(inputNames).toContain('animateRows');
       expect(inputNames).toContain('gridOptions');
       expect(inputNames).toContain('className');
+      
+      // New inputs for enterprise features
+      expect(inputNames).toContain('editable');
+      expect(inputNames).toContain('singleClickEdit');
+      expect(inputNames).toContain('exportConfig');
+      expect(inputNames).toContain('statusBar');
+      expect(inputNames).toContain('callbacks');
+      expect(inputNames).toContain('columnConfig');
+      expect(inputNames).toContain('enableRangeSelection');
+      expect(inputNames).toContain('enableCharts');
+      expect(inputNames).toContain('contextMenu');
     });
 
     it('should have rowData and columnDefs as required inputs', () => {

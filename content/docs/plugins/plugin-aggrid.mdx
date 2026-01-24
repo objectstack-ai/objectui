@@ -176,7 +176,152 @@ Note: `ag-grid-community` and `ag-grid-react` are peer dependencies and must be 
   description="Enable checkbox selection for multiple rows"
 />
 
-### Advanced Features
+### Inline Editing
+
+<InteractiveDemo
+  schema={{
+    type: "aggrid",
+    rowData: [
+      { id: 1, product: "Laptop", price: 1299, quantity: 5, inStock: true },
+      { id: 2, product: "Mouse", price: 49, quantity: 15, inStock: true },
+      { id: 3, product: "Keyboard", price: 89, quantity: 8, inStock: true },
+      { id: 4, product: "Monitor", price: 499, quantity: 3, inStock: false },
+      { id: 5, product: "Webcam", price: 129, quantity: 12, inStock: true }
+    ],
+    columnDefs: [
+      { field: "id", headerName: "ID", sortable: true },
+      { field: "product", headerName: "Product", sortable: true, filter: true, editable: true },
+      { field: "price", headerName: "Price ($)", sortable: true, filter: "number", editable: true },
+      { field: "quantity", headerName: "Quantity", sortable: true, filter: "number", editable: true },
+      { field: "inStock", headerName: "In Stock", sortable: true, editable: true }
+    ],
+    editable: true,
+    singleClickEdit: false,
+    height: 350
+  }}
+  title="Inline Editing"
+  description="Double-click any cell to edit. Changes are reflected immediately."
+/>
+
+### CSV Export
+
+<InteractiveDemo
+  schema={{
+    type: "aggrid",
+    rowData: [
+      { orderID: "ORD-001", customer: "Acme Corp", amount: 15750, date: "2024-01-15", status: "Delivered" },
+      { orderID: "ORD-002", customer: "TechStart Inc", amount: 8500, date: "2024-01-18", status: "Shipped" },
+      { orderID: "ORD-003", customer: "Global Solutions", amount: 22300, date: "2024-01-20", status: "Processing" },
+      { orderID: "ORD-004", customer: "Innovation Labs", amount: 12100, date: "2024-01-22", status: "Delivered" },
+      { orderID: "ORD-005", customer: "Future Systems", amount: 9800, date: "2024-01-25", status: "Shipped" }
+    ],
+    columnDefs: [
+      { field: "orderID", headerName: "Order ID", sortable: true, filter: true },
+      { field: "customer", headerName: "Customer", sortable: true, filter: true },
+      { field: "amount", headerName: "Amount", sortable: true, filter: "number" },
+      { field: "date", headerName: "Date", sortable: true, filter: "date" },
+      { field: "status", headerName: "Status", sortable: true, filter: true }
+    ],
+    exportConfig: {
+      enabled: true,
+      fileName: "orders.csv"
+    },
+    height: 350
+  }}
+  title="CSV Export"
+  description="Click the Export CSV button to download the grid data"
+/>
+
+### Status Bar with Aggregations
+
+<InteractiveDemo
+  schema={{
+    type: "aggrid",
+    rowData: [
+      { item: "Laptop", category: "Electronics", price: 1299, quantity: 5 },
+      { item: "Desk", category: "Furniture", price: 599, quantity: 3 },
+      { item: "Chair", category: "Furniture", price: 299, quantity: 8 },
+      { item: "Monitor", category: "Electronics", price: 499, quantity: 6 },
+      { item: "Keyboard", category: "Electronics", price: 89, quantity: 12 },
+      { item: "Mouse", category: "Electronics", price: 49, quantity: 15 }
+    ],
+    columnDefs: [
+      { field: "item", headerName: "Item", sortable: true, filter: true },
+      { field: "category", headerName: "Category", sortable: true, filter: true },
+      { field: "price", headerName: "Price ($)", sortable: true, filter: "number", aggFunc: "sum" },
+      { field: "quantity", headerName: "Quantity", sortable: true, filter: "number", aggFunc: "sum" }
+    ],
+    statusBar: {
+      enabled: true,
+      aggregations: ["count", "sum", "avg"]
+    },
+    rowSelection: "multiple",
+    height: 400
+  }}
+  title="Status Bar"
+  description="Status bar shows aggregations at the bottom. Select rows to see aggregate values."
+/>
+
+### Context Menu
+
+<InteractiveDemo
+  schema={{
+    type: "aggrid",
+    rowData: [
+      { id: 1, name: "Alice Johnson", role: "Engineer", salary: 95000 },
+      { id: 2, name: "Bob Smith", role: "Designer", salary: 72000 },
+      { id: 3, name: "Carol Davis", role: "Manager", salary: 88000 },
+      { id: 4, name: "David Wilson", role: "Engineer", salary: 102000 },
+      { id: 5, name: "Eve Brown", role: "Designer", salary: 75000 }
+    ],
+    columnDefs: [
+      { field: "id", headerName: "ID", sortable: true },
+      { field: "name", headerName: "Name", sortable: true, filter: true },
+      { field: "role", headerName: "Role", sortable: true, filter: true },
+      { field: "salary", headerName: "Salary", sortable: true, filter: "number" }
+    ],
+    contextMenu: {
+      enabled: true,
+      items: ["copy", "copyWithHeaders", "separator", "export", "autoSizeAll"]
+    },
+    height: 350
+  }}
+  title="Context Menu"
+  description="Right-click on the grid to access context menu options"
+/>
+
+### Column Configuration
+
+<InteractiveDemo
+  schema={{
+    type: "aggrid",
+    rowData: [
+      { code: "AAPL", company: "Apple Inc.", price: 178.25, change: 2.45, volume: 45678900 },
+      { code: "GOOGL", company: "Alphabet Inc.", price: 142.18, change: -1.23, volume: 23456700 },
+      { code: "MSFT", company: "Microsoft Corp.", price: 415.63, change: 5.89, volume: 34567800 },
+      { code: "AMZN", company: "Amazon.com Inc.", price: 175.32, change: -0.87, volume: 56789000 },
+      { code: "TSLA", company: "Tesla Inc.", price: 238.45, change: 12.67, volume: 78901200 }
+    ],
+    columnDefs: [
+      { field: "code", headerName: "Code" },
+      { field: "company", headerName: "Company" },
+      { field: "price", headerName: "Price ($)", filter: "number" },
+      { field: "change", headerName: "Change", filter: "number" },
+      { field: "volume", headerName: "Volume", filter: "number" }
+    ],
+    columnConfig: {
+      resizable: true,
+      sortable: true,
+      filterable: true
+    },
+    enableRangeSelection: true,
+    height: 350
+  }}
+  title="Column Configuration"
+  description="All columns are resizable, sortable, and filterable. Drag column borders to resize."
+/>
+
+### Complete Example with All Features
 
 <InteractiveDemo
   schema={{
@@ -192,20 +337,41 @@ Note: `ag-grid-community` and `ag-grid-react` are peer dependencies and must be 
       { orderID: "ORD-008", customer: "Digital Ventures", amount: 14200, date: "2024-02-01", status: "Shipped" }
     ],
     columnDefs: [
-      { field: "orderID", headerName: "Order ID", sortable: true, filter: true, pinned: "left" },
-      { field: "customer", headerName: "Customer", sortable: true, filter: true },
-      { field: "amount", headerName: "Amount", sortable: true, filter: "number" },
+      { field: "orderID", headerName: "Order ID", sortable: true, filter: true, pinned: "left", checkboxSelection: true },
+      { field: "customer", headerName: "Customer", sortable: true, filter: true, editable: true },
+      { field: "amount", headerName: "Amount", sortable: true, filter: "number", editable: true, aggFunc: "sum" },
       { field: "date", headerName: "Date", sortable: true, filter: "date" },
-      { field: "status", headerName: "Status", sortable: true, filter: true }
+      { field: "status", headerName: "Status", sortable: true, filter: true, editable: true }
     ],
     pagination: true,
     paginationPageSize: 5,
     animateRows: true,
-    height: 400
+    rowSelection: "multiple",
+    editable: true,
+    exportConfig: {
+      enabled: true,
+      fileName: "orders.csv"
+    },
+    statusBar: {
+      enabled: true,
+      aggregations: ["count", "sum", "avg"]
+    },
+    contextMenu: {
+      enabled: true,
+      items: ["copy", "export", "autoSizeAll"]
+    },
+    columnConfig: {
+      resizable: true
+    },
+    height: 450
   }}
-  title="Complete Example"
-  description="Grid with pagination, sorting, filtering, and animated rows"
+  title="Advanced Features"
+  description="Full-featured grid with editing, export, status bar, context menu, and more (AG Grid Community)"
 />
+
+## AG Grid Community vs Enterprise
+
+This plugin uses **AG Grid Community Edition** which is free and open source. All features shown in the examples above work with the Community edition. Some advanced features like integrated charting (`enableCharts`) may require AG Grid Enterprise (commercial license). See [AG Grid Pricing](https://www.ag-grid.com/license-pricing/) for details.
 
 ## Features
 
@@ -213,6 +379,13 @@ Note: `ag-grid-community` and `ag-grid-react` are peer dependencies and must be 
 - **Zero Configuration**: Just import the package and use `type: 'aggrid'` in your schema
 - **Automatic Registration**: Components auto-register with the ComponentRegistry
 - **Full AG Grid Features**: Sorting, filtering, pagination, row selection, and more
+- **Inline Editing**: Edit cells directly with single or double-click modes
+- **CSV Export**: Built-in export functionality with customizable options
+- **Status Bar**: Display aggregations (count, sum, avg, min, max) at the bottom
+- **Context Menu**: Right-click menu with copy, export, and custom actions
+- **Column Configuration**: Global settings for resizable, sortable, and filterable columns
+- **Event Callbacks**: Handle cell clicks, selection changes, value edits, and exports
+- **Range Selection**: Excel-like range selection support
 - **Multiple Themes**: Quartz (default), Alpine, Balham, and Material
 - **Customizable**: Full access to AG Grid's GridOptions for advanced configuration
 
@@ -221,8 +394,12 @@ Note: `ag-grid-community` and `ag-grid-react` are peer dependencies and must be 
 ```typescript
 {
   type: 'aggrid',
+  
+  // Data
   rowData?: any[],                              // Grid data (required)
   columnDefs?: ColDef[],                        // Column definitions (required)
+  
+  // Display
   pagination?: boolean,                         // Enable pagination (default: false)
   paginationPageSize?: number,                  // Rows per page (default: 10)
   theme?: 'quartz' | 'alpine' | 'balham' | 'material',  // Grid theme (default: 'quartz')
@@ -230,6 +407,59 @@ Note: `ag-grid-community` and `ag-grid-react` are peer dependencies and must be 
   rowSelection?: 'single' | 'multiple',         // Row selection mode
   domLayout?: 'normal' | 'autoHeight' | 'print', // Layout mode
   animateRows?: boolean,                        // Animate row changes (default: true)
+  
+  // Editing
+  editable?: boolean,                           // Enable cell editing (default: false)
+  editType?: 'fullRow',                         // Row editing mode
+  singleClickEdit?: boolean,                    // Start edit on single click (default: false)
+  stopEditingWhenCellsLoseFocus?: boolean,      // Stop editing on blur (default: true)
+  
+  // Export
+  exportConfig?: {
+    enabled?: boolean,                          // Show export button (default: false)
+    fileName?: string,                          // Export filename (default: 'export.csv')
+    skipColumnHeaders?: boolean,                // Skip column headers (default: false)
+    onlySelected?: boolean,                     // Export only selected rows (default: false)
+    allColumns?: boolean                        // Export all columns (default: false)
+  },
+  
+  // Status Bar
+  statusBar?: {
+    enabled?: boolean,                          // Show status bar (default: false)
+    aggregations?: ('sum' | 'avg' | 'count' | 'min' | 'max')[] // Aggregations to show
+  },
+  
+  // Context Menu
+  contextMenu?: {
+    enabled?: boolean,                          // Enable context menu (default: false)
+    items?: string[],                           // Menu items: 'copy', 'export', 'autoSizeAll', etc.
+    customItems?: Array<{                       // Custom menu items
+      name: string,
+      action: string,
+      icon?: string,
+      disabled?: boolean
+    }>
+  },
+  
+  // Column Configuration
+  columnConfig?: {
+    resizable?: boolean,                        // Make all columns resizable
+    sortable?: boolean,                         // Make all columns sortable
+    filterable?: boolean,                       // Make all columns filterable
+  },
+  enableRangeSelection?: boolean,               // Enable Excel-like range selection (default: false)
+  enableCharts?: boolean,                       // Enable integrated charts (requires Enterprise, default: false)
+  
+  // Event Callbacks
+  callbacks?: {
+    onCellClicked?: (event) => void,            // Cell click handler
+    onRowClicked?: (event) => void,             // Row click handler
+    onSelectionChanged?: (event) => void,       // Selection change handler
+    onCellValueChanged?: (event) => void,       // Cell value change handler
+    onExport?: (data, format) => void           // Export handler
+  },
+  
+  // Advanced
   gridOptions?: GridOptions,                    // Advanced AG Grid options
   className?: string                            // Tailwind classes
 }
@@ -288,6 +518,95 @@ const schema: AgGridSchema = {
   columnDefs: [...],
   pagination: true,
   theme: 'quartz'
+};
+```
+
+### Editing with Callbacks
+
+```typescript
+const schema = {
+  type: 'aggrid',
+  rowData: [...],
+  columnDefs: [
+    { field: 'name', headerName: 'Name', editable: true },
+    { field: 'email', headerName: 'Email', editable: true },
+    { field: 'role', headerName: 'Role', editable: false }
+  ],
+  editable: true,
+  singleClickEdit: false,  // Double-click to edit
+  callbacks: {
+    onCellValueChanged: (event) => {
+      console.log('Updated:', event.data);
+      // Save to backend
+      saveToBackend(event.data);
+    }
+  }
+};
+```
+
+### Export with Selection
+
+```typescript
+const schema = {
+  type: 'aggrid',
+  rowData: [...],
+  columnDefs: [...],
+  rowSelection: 'multiple',
+  exportConfig: {
+    enabled: true,
+    fileName: 'selected-data.csv',
+    onlySelected: true  // Export only selected rows
+  },
+  callbacks: {
+    onExport: (data, format) => {
+      console.log(`Exported ${data.length} rows as ${format}`);
+    }
+  }
+};
+```
+
+### Status Bar and Aggregations
+
+```typescript
+const schema = {
+  type: 'aggrid',
+  rowData: [...],
+  columnDefs: [
+    { field: 'product', headerName: 'Product' },
+    { field: 'price', headerName: 'Price', aggFunc: 'sum' },
+    { field: 'quantity', headerName: 'Quantity', aggFunc: 'avg' }
+  ],
+  statusBar: {
+    enabled: true,
+    aggregations: ['count', 'sum', 'avg', 'min', 'max']
+  },
+  rowSelection: 'multiple'  // Select rows to see aggregations
+};
+```
+
+### Context Menu with Custom Actions
+
+```typescript
+const schema = {
+  type: 'aggrid',
+  rowData: [...],
+  columnDefs: [...],
+  contextMenu: {
+    enabled: true,
+    items: ['copy', 'copyWithHeaders', 'separator', 'export', 'autoSizeAll'],
+    customItems: [
+      {
+        name: 'Delete Row',
+        action: 'delete',
+        icon: '🗑️'
+      },
+      {
+        name: 'View Details',
+        action: 'view',
+        icon: '👁️'
+      }
+    ]
+  }
 };
 ```
 

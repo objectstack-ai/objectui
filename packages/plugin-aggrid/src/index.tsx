@@ -19,7 +19,9 @@ import 'ag-grid-community/styles/ag-theme-balham.css';
 import 'ag-grid-community/styles/ag-theme-material.css';
 
 // Export types for external use
-export type { AgGridSchema, SimpleColumnDef } from './types';
+export type { AgGridSchema, SimpleColumnDef, AgGridCallbacks, ExportConfig, StatusBarConfig, ColumnConfig, ContextMenuConfig } from './types';
+
+import type { AgGridCallbacks, ExportConfig, StatusBarConfig, ColumnConfig, ContextMenuConfig } from './types';
 
 // 🚀 Lazy load the implementation file
 // This ensures AG Grid is only loaded when the component is actually rendered
@@ -40,6 +42,17 @@ export interface AgGridRendererProps {
     rowSelection?: 'single' | 'multiple';
     theme?: 'alpine' | 'balham' | 'material' | 'quartz';
     height?: number | string;
+    editable?: boolean;
+    editType?: 'fullRow';
+    singleClickEdit?: boolean;
+    stopEditingWhenCellsLoseFocus?: boolean;
+    exportConfig?: ExportConfig;
+    statusBar?: StatusBarConfig;
+    callbacks?: AgGridCallbacks;
+    columnConfig?: ColumnConfig;
+    enableRangeSelection?: boolean;
+    enableCharts?: boolean;
+    contextMenu?: ContextMenuConfig;
   };
 }
 
@@ -62,6 +75,17 @@ export const AgGridRenderer: React.FC<AgGridRendererProps> = ({ schema }) => {
         theme={schema.theme}
         height={schema.height}
         className={schema.className}
+        editable={schema.editable}
+        editType={schema.editType}
+        singleClickEdit={schema.singleClickEdit}
+        stopEditingWhenCellsLoseFocus={schema.stopEditingWhenCellsLoseFocus}
+        exportConfig={schema.exportConfig}
+        statusBar={schema.statusBar}
+        callbacks={schema.callbacks}
+        columnConfig={schema.columnConfig}
+        enableRangeSelection={schema.enableRangeSelection}
+        enableCharts={schema.enableCharts}
+        contextMenu={schema.contextMenu}
       />
     </Suspense>
   );
@@ -151,6 +175,73 @@ ComponentRegistry.register(
         type: 'number', 
         label: 'Height (px)',
         defaultValue: 500
+      },
+      { 
+        name: 'editable', 
+        type: 'boolean', 
+        label: 'Enable Editing',
+        defaultValue: false,
+        description: 'Allow cells to be edited inline',
+        advanced: true
+      },
+      { 
+        name: 'singleClickEdit', 
+        type: 'boolean', 
+        label: 'Single Click Edit',
+        defaultValue: false,
+        description: 'Start editing on single click instead of double click',
+        advanced: true
+      },
+      { 
+        name: 'exportConfig', 
+        type: 'code', 
+        label: 'Export Config (JSON)',
+        description: 'Configure CSV export: { enabled: true, fileName: "data.csv" }',
+        advanced: true
+      },
+      { 
+        name: 'statusBar', 
+        type: 'code', 
+        label: 'Status Bar Config (JSON)',
+        description: 'Configure status bar: { enabled: true, aggregations: ["count", "sum", "avg"] }',
+        advanced: true
+      },
+      { 
+        name: 'callbacks', 
+        type: 'code', 
+        label: 'Event Callbacks (JSON)',
+        description: 'Event handlers for cell clicks, selection changes, etc.',
+        advanced: true
+      },
+      { 
+        name: 'columnConfig', 
+        type: 'code', 
+        label: 'Column Config (JSON)',
+        description: 'Global column settings: { resizable: true, sortable: true, filterable: true }',
+        advanced: true
+      },
+      { 
+        name: 'enableRangeSelection', 
+        type: 'boolean', 
+        label: 'Enable Range Selection',
+        defaultValue: false,
+        description: 'Allow selecting ranges of cells (like Excel)',
+        advanced: true
+      },
+      { 
+        name: 'enableCharts', 
+        type: 'boolean', 
+        label: 'Enable Charts',
+        defaultValue: false,
+        description: 'Enable integrated charting (requires AG Grid Enterprise)',
+        advanced: true
+      },
+      { 
+        name: 'contextMenu', 
+        type: 'code', 
+        label: 'Context Menu Config (JSON)',
+        description: 'Configure right-click menu: { enabled: true, items: ["copy", "export"] }',
+        advanced: true
       },
       { 
         name: 'gridOptions', 

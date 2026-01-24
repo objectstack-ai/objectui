@@ -169,20 +169,29 @@ export const FieldFactory: React.FC<FieldFactoryProps> = ({
 
     case 'select':
     case 'dropdown':
-      // Note: This is a basic implementation without options support
-      // To properly support select fields, options would need to be passed
-      // via an extended FormField schema or external configuration
       return renderField(
         <select
           id={fieldName}
           disabled={disabled}
+          multiple={extendedField.multiple}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           {...register(fieldName, {
             required: field.required ? `${field.label || fieldName} is required` : false,
+            setValueAs: (value) => {
+              // Handle multiple select: convert HTMLCollection to array
+              if (extendedField.multiple && value instanceof HTMLCollection) {
+                return Array.from(value).map((opt: any) => opt.value);
+              }
+              return value;
+            },
           })}
         >
-          <option value="">{field.placeholder || 'Select an option'}</option>
-          {/* TODO: Add options support - requires extending FormField schema or external options provider */}
+          {!extendedField.multiple && <option value="">{field.placeholder || 'Select an option'}</option>}
+          {extendedField.options?.map((option) => (
+            <option key={option.value} value={option.value} disabled={option.disabled}>
+              {option.label}
+            </option>
+          ))}
         </select>
       );
 
@@ -381,9 +390,16 @@ export const FieldFactory: React.FC<FieldFactoryProps> = ({
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           {...register(fieldName, {
             required: field.required ? `${field.label || fieldName} is required` : false,
+            setValueAs: (value) => {
+              // Handle multiple select: convert HTMLCollection to array
+              if (extendedField.multiple && value instanceof HTMLCollection) {
+                return Array.from(value).map((opt: any) => opt.value);
+              }
+              return value;
+            },
           })}
         >
-          <option value="">{field.placeholder || 'Select an option'}</option>
+          {!extendedField.multiple && <option value="">{field.placeholder || 'Select an option'}</option>}
           {extendedField.options?.map((option) => (
             <option key={option.value} value={option.value} disabled={option.disabled}>
               {option.label}
@@ -402,9 +418,16 @@ export const FieldFactory: React.FC<FieldFactoryProps> = ({
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           {...register(fieldName, {
             required: field.required ? `${field.label || fieldName} is required` : false,
+            setValueAs: (value) => {
+              // Handle multiple select: convert HTMLCollection to array
+              if (extendedField.multiple && value instanceof HTMLCollection) {
+                return Array.from(value).map((opt: any) => opt.value);
+              }
+              return value;
+            },
           })}
         >
-          <option value="">{field.placeholder || 'Select user'}</option>
+          {!extendedField.multiple && <option value="">{field.placeholder || 'Select user'}</option>}
           {extendedField.options?.map((option) => (
             <option key={option.value} value={option.value} disabled={option.disabled}>
               {option.label}

@@ -12,6 +12,7 @@ export type { SchemaNode } from '@object-ui/core';
 // Load plugins promise that we can await
 const pluginsLoading = typeof window !== 'undefined' 
   ? Promise.all([
+      import('@object-ui/plugin-aggrid'),
       import('@object-ui/plugin-editor'),
       import('@object-ui/plugin-charts'),
       import('@object-ui/plugin-kanban'),

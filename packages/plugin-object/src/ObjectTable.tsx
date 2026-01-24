@@ -11,11 +11,17 @@
  * 
  * A specialized table component built on top of data-table.
  * Auto-generates columns from ObjectQL schema with type-aware rendering.
- * Supports traditional table mode and grid mode (with editable: true).
+ * Now fully aligned with @objectstack/spec view.zod ListView schema.
+ * 
+ * Supports multiple view types:
+ * - grid: Traditional table with CRUD operations (default)
+ * - kanban: Card-based view grouped by a field
+ * - calendar: Calendar view with events
+ * - gantt: Project timeline view
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import type { ObjectTableSchema, DataSource } from '@object-ui/types';
+import type { ObjectTableSchema, DataSource, ListColumn, ViewData } from '@object-ui/types';
 import { SchemaRenderer } from '@object-ui/react';
 import { getCellRenderer } from './field-renderers';
 
@@ -31,6 +37,53 @@ export interface ObjectTableProps {
   onRowSelect?: (selectedRows: any[]) => void;
 }
 
+/**
+ * Helper to get data configuration from schema
+ * Handles both new ViewData format and legacy inline data
+ */
+function getDataConfig(schema: ObjectTableSchema): ViewData | null {
+  // New format: explicit data configuration
+  if (schema.data) {
+    return schema.data;
+  }
+  
+  // Legacy format: staticData field
+  if (schema.staticData) {
+    return {
+      provider: 'value',
+      items: schema.staticData,
+    };
+  }
+  
+  // Default: use object provider with objectName
+  if (schema.objectName) {
+    return {
+      provider: 'object',
+      object: schema.objectName,
+    };
+  }
+  
+  return null;
+}
+
+/**
+ * Helper to normalize columns configuration
+ * Handles both string[] and ListColumn[] formats
+ */
+function normalizeColumns(
+  columns: string[] | ListColumn[] | undefined
+): ListColumn[] | string[] | undefined {
+  if (!columns) return undefined;
+  
+  // Already in ListColumn format
+  if (columns.length > 0 && typeof columns[0] === 'object') {
+    return columns as ListColumn[];
+  }
+  
+  // String array format
+  return columns as string[];
+}
+
 export const ObjectTable: React.FC<ObjectTableProps> = ({
   schema,
   dataSource,
@@ -43,14 +96,16 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
   const [error, setError] = useState<Error | null>(null);
   const [objectSchema, setObjectSchema] = useState<any>(null);
 
-  const hasInlineData = Boolean(schema.data);
+  // Get data configuration (supports both new and legacy formats)
+  const dataConfig = getDataConfig(schema);
+  const hasInlineData = dataConfig?.provider === 'value';
 
   useEffect(() => {
-    if (hasInlineData && schema.data) {
-      setData(schema.data);
+    if (hasInlineData && dataConfig?.provider === 'value') {
+      setData(dataConfig.items as any[]);
       setLoading(false);
     }
-  }, [hasInlineData, schema.data]);
+  }, [hasInlineData, dataConfig]);
 
   useEffect(() => {
     const fetchObjectSchema = async () => {
@@ -58,29 +113,66 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
         if (!dataSource) {
           throw new Error('DataSource required');
         }
-        const schemaData = await dataSource.getObjectSchema(schema.objectName);
+        
+        // For object provider, get the object name
+        const objectName = dataConfig?.provider === 'object' 
+          ? dataConfig.object 
+          : schema.objectName;
+          
+        if (!objectName) {
+          throw new Error('Object name required for object provider');
+        }
+        
+        const schemaData = await dataSource.getObjectSchema(objectName);
         setObjectSchema(schemaData);
       } catch (err) {
         setError(err as Error);
       }
     };
 
-    if (hasInlineData && schema.columns) {
+    // Normalize columns (support both legacy 'fields' and new 'columns')
+    const cols = normalizeColumns(schema.columns) || schema.fields;
+    
+    if (hasInlineData && cols) {
       setObjectSchema({ name: schema.objectName, fields: {} });
     } else if (schema.objectName && !hasInlineData && dataSource) {
       fetchObjectSchema();
     }
-  }, [schema.objectName, schema.columns, dataSource, hasInlineData]);
+  }, [schema.objectName, schema.columns, schema.fields, dataSource, hasInlineData, dataConfig]);
 
   const generateColumns = useCallback(() => {
-    if (schema.columns) return schema.columns;
-
-    if (hasInlineData && schema.data && schema.data.length > 0) {
-      const fieldsToShow = schema.fields || Object.keys(schema.data[0]);
-      return fieldsToShow.map((fieldName) => ({
+    // Use normalized columns (support both new and legacy)
+    const cols = normalizeColumns(schema.columns);
+    
+    if (cols) {
+      // If columns are already ListColumn objects, convert them to data-table format
+      if (cols.length > 0 && typeof cols[0] === 'object') {
+        return (cols as ListColumn[]).map((col) => ({
+          header: col.label || col.field.charAt(0).toUpperCase() + col.field.slice(1).replace(/_/g, ' '),
+          accessorKey: col.field,
+          ...(col.width && { width: col.width }),
+          ...(col.align && { align: col.align }),
+          sortable: col.sortable !== false,
+        }));
+      }
+      
+      // String array format - return as-is for now
+      return (cols as string[]).map((fieldName) => ({
         header: fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' '),
         accessorKey: fieldName,
       }));
+    }
+
+    // Legacy support: use 'fields' if columns not provided
+    if (hasInlineData) {
+      const inlineData = dataConfig?.provider === 'value' ? dataConfig.items as any[] : [];
+      if (inlineData.length > 0) {
+        const fieldsToShow = schema.fields || Object.keys(inlineData[0]);
+        return fieldsToShow.map((fieldName) => ({
+          header: fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' '),
+          accessorKey: fieldName,
+        }));
+      }
     }
 
     if (!objectSchema) return [];
@@ -104,27 +196,54 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
     });
 
     return generatedColumns;
-  }, [objectSchema, schema.fields, schema.columns, schema.data, hasInlineData]);
+  }, [objectSchema, schema.fields, schema.columns, dataConfig, hasInlineData]);
 
   const fetchData = useCallback(async () => {
     if (hasInlineData || !dataSource) return;
 
     setLoading(true);
     try {
+      // Get object name from data config or schema
+      const objectName = dataConfig?.provider === 'object' 
+        ? dataConfig.object 
+        : schema.objectName;
+        
+      if (!objectName) {
+        throw new Error('Object name required for data fetching');
+      }
+      
       const params: any = {
-        $select: schema.fields,
-        $top: schema.pageSize || 50,
+        $select: schema.fields || (schema.columns && Array.isArray(schema.columns) 
+          ? schema.columns.map(c => typeof c === 'string' ? c : c.field) 
+          : undefined),
+        $top: schema.pagination?.pageSize || schema.pageSize || 50,
       };
 
-      if ('defaultFilters' in schema && schema.defaultFilters) {
+      // Support new filter format
+      if (schema.filter && Array.isArray(schema.filter)) {
+        params.$filter = schema.filter;
+      } else if ('defaultFilters' in schema && schema.defaultFilters) {
+        // Legacy support
         params.$filter = schema.defaultFilters;
       }
 
-      if ('defaultSort' in schema && schema.defaultSort) {
+      // Support new sort format
+      if (schema.sort) {
+        if (typeof schema.sort === 'string') {
+          // Legacy string format
+          params.$orderby = schema.sort;
+        } else if (Array.isArray(schema.sort)) {
+          // New array format
+          params.$orderby = schema.sort
+            .map(s => `${s.field} ${s.order}`)
+            .join(', ');
+        }
+      } else if ('defaultSort' in schema && schema.defaultSort) {
+        // Legacy support
         params.$orderby = `${schema.defaultSort.field} ${schema.defaultSort.order}`;
       }
 
-      const result = await dataSource.find(schema.objectName, params);
+      const result = await dataSource.find(objectName, params);
       setData(result.data || []);
     } catch (err) {
       setError(err as Error);
@@ -184,19 +303,42 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
     },
   ] : columns;
 
+  // Determine selection mode (support both new and legacy formats)
+  let selectionMode: 'none' | 'single' | 'multiple' | boolean = false;
+  if (schema.selection?.type) {
+    selectionMode = schema.selection.type === 'none' ? false : schema.selection.type;
+  } else if (schema.selectable !== undefined) {
+    // Legacy support
+    selectionMode = schema.selectable;
+  }
+
+  // Determine pagination settings (support both new and legacy formats)
+  const paginationEnabled = schema.pagination !== undefined 
+    ? true 
+    : (schema.showPagination !== undefined ? schema.showPagination : true);
+  
+  const pageSize = schema.pagination?.pageSize 
+    || schema.pageSize 
+    || 10;
+
+  // Determine search settings
+  const searchEnabled = schema.searchableFields !== undefined
+    ? schema.searchableFields.length > 0
+    : (schema.showSearch !== undefined ? schema.showSearch : true);
+
   const dataTableSchema: any = {
     type: 'data-table',
-    caption: schema.title,
+    caption: schema.label || schema.title,
     columns: columnsWithActions,
     data,
-    pagination: 'showPagination' in schema ? schema.showPagination : true,
-    pageSize: schema.pageSize || 10,
-    searchable: 'showSearch' in schema ? schema.showSearch : true,
-    selectable: schema.selectable,
+    pagination: paginationEnabled,
+    pageSize: pageSize,
+    searchable: searchEnabled,
+    selectable: selectionMode,
     sortable: true,
     exportable: operations?.export,
     rowActions: hasActions,
-    resizableColumns: schema.resizableColumns !== undefined ? schema.resizableColumns : true,
+    resizableColumns: schema.resizable ?? schema.resizableColumns ?? true,
     className: schema.className,
     onSelectionChange: onRowSelect,
   };

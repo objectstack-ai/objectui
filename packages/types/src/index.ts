@@ -256,6 +256,18 @@ export type {
 // ObjectQL Components - ObjectQL-specific components
 // ============================================================================
 export type {
+  // Schema types aligned with @objectstack/spec
+  HttpMethod,
+  HttpRequest,
+  ViewData,
+  ListColumn,
+  SelectionConfig,
+  PaginationConfig,
+  KanbanConfig,
+  CalendarConfig,
+  GanttConfig,
+  SortConfig,
+  // Component schemas
   ObjectTableSchema,
   ObjectFormSchema,
   ObjectViewSchema,

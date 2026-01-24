@@ -31,34 +31,6 @@ exclude = [
     # GitHub specific patterns that may cause false positives
     "https://github.com/.*/compare/*",
     "https://github.com/.*/commit/*",
-    
-    # Planned documentation files (not yet created)
-    "file://.*/docs/guide/.*",
-    "file://.*/docs/concepts/.*",
-    "file://.*/docs/reference/.*",
-    "file://.*/docs/architecture/.*",
-    "file://.*/docs/ecosystem/.*",
-    "file://.*/docs/community/.*",
-    "file://.*/docs/troubleshooting/.*",
-    "file://.*/docs/migration/.*",
-    "file://.*/docs/plugins/.*",
-    "file://.*/docs/components.*",
-    "file://.*/docs/CLI_GUIDE.md",
-    "file://.*/docs/faq.md",
-    "file://.*/docs/security.md",
-    "file://.*/docs/examples.md",
-    
-    # Planned example directories (not yet created)
-    "file://.*/examples/basic-form",
-    "file://.*/examples/dashboard",
-    "file://.*/examples/data-display",
-    "file://.*/examples/landing-page",
-    "file://.*/examples/cli-demo",
-    "file://.*/examples/framework-react",
-    "file://.*/examples$",
-    
-    # Planned package directories (not yet created)
-    "file://.*/packages/designer",
 ]
 
 # Path remapping for fumadocs internal links

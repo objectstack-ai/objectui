@@ -9,6 +9,10 @@ A lazy-loaded data grid component for Object UI based on AG Grid Community Editi
 - **Automatic Registration**: Components auto-register with the ComponentRegistry
 - **Skeleton Loading**: Shows a skeleton while AG Grid loads
 - **Full AG Grid Features**: Sorting, filtering, pagination, cell rendering, and more
+- **Cell & Row Editing**: Inline editing with validation support
+- **CSV Export**: Built-in data export functionality
+- **Event Callbacks**: Handle cell clicks, selection changes, and value updates
+- **Status Bar**: Display aggregations (count, sum, avg, min, max)
 - **Multiple Themes**: Support for Quartz, Alpine, Balham, and Material themes
 - **Customizable**: Full access to AG Grid's GridOptions for advanced configuration
 
@@ -65,7 +69,13 @@ Object.entries(aggridComponents).forEach(([type, component]) => {
 The plugin exports TypeScript types for full type safety:
 
 ```typescript
-import type { AgGridSchema, SimpleColumnDef } from '@object-ui/plugin-aggrid';
+import type { 
+  AgGridSchema, 
+  SimpleColumnDef, 
+  AgGridCallbacks,
+  ExportConfig,
+  StatusBarConfig
+} from '@object-ui/plugin-aggrid';
 
 const schema: AgGridSchema = {
   type: 'aggrid',
@@ -76,7 +86,17 @@ const schema: AgGridSchema = {
     { field: 'make', headerName: 'Make', sortable: true, filter: true }
   ],
   pagination: true,
-  theme: 'quartz'
+  theme: 'quartz',
+  editable: true,
+  exportConfig: {
+    enabled: true,
+    fileName: 'cars.csv'
+  },
+  callbacks: {
+    onCellValueChanged: (event) => {
+      console.log('Changed:', event);
+    }
+  }
 };
 ```
 
@@ -85,8 +105,12 @@ const schema: AgGridSchema = {
 ```typescript
 {
   type: 'aggrid',
+  
+  // Data
   rowData?: any[],                              // Grid data (required)
   columnDefs?: ColDef[],                        // Column definitions (required)
+  
+  // Display
   pagination?: boolean,                         // Enable pagination (default: false)
   paginationPageSize?: number,                  // Rows per page (default: 10)
   theme?: 'quartz' | 'alpine' | 'balham' | 'material',  // Grid theme (default: 'quartz')
@@ -94,6 +118,38 @@ const schema: AgGridSchema = {
   rowSelection?: 'single' | 'multiple',         // Row selection mode
   domLayout?: 'normal' | 'autoHeight' | 'print', // Layout mode
   animateRows?: boolean,                        // Animate row changes (default: true)
+  
+  // Editing
+  editable?: boolean,                           // Enable cell editing (default: false)
+  editType?: 'fullRow',                         // Row editing mode
+  singleClickEdit?: boolean,                    // Start edit on single click (default: false)
+  stopEditingWhenCellsLoseFocus?: boolean,      // Stop editing on blur (default: true)
+  
+  // Export
+  exportConfig?: {
+    enabled?: boolean,                          // Show export button (default: false)
+    fileName?: string,                          // Export filename (default: 'export.csv')
+    includeHeaders?: boolean,                   // Include column headers (default: true)
+    onlySelected?: boolean,                     // Export only selected rows (default: false)
+    allColumns?: boolean                        // Export all columns (default: false)
+  },
+  
+  // Status Bar
+  statusBar?: {
+    enabled?: boolean,                          // Show status bar (default: false)
+    aggregations?: ('sum' | 'avg' | 'count' | 'min' | 'max')[] // Aggregations to show
+  },
+  
+  // Event Callbacks
+  callbacks?: {
+    onCellClicked?: (event) => void,            // Cell click handler
+    onRowClicked?: (event) => void,             // Row click handler
+    onSelectionChanged?: (event) => void,       // Selection change handler
+    onCellValueChanged?: (event) => void,       // Cell value change handler
+    onExport?: (data, format) => void           // Export handler
+  },
+  
+  // Advanced
   gridOptions?: GridOptions,                    // Advanced AG Grid options
   className?: string                            // Tailwind classes
 }
@@ -152,6 +208,100 @@ const schema = {
   type: 'aggrid',
   theme: 'alpine', // or 'quartz', 'balham', 'material'
   // ... other props
+};
+```
+
+## Cell & Row Editing
+
+Enable inline editing of cells:
+
+```typescript
+const schema = {
+  type: 'aggrid',
+  rowData: [...],
+  columnDefs: [
+    { field: 'name', headerName: 'Name', editable: true },
+    { field: 'price', headerName: 'Price', editable: true },
+    { field: 'status', headerName: 'Status', editable: false }
+  ],
+  editable: true,              // Enable editing globally
+  singleClickEdit: false,      // Double-click to edit (default)
+  callbacks: {
+    onCellValueChanged: (event) => {
+      console.log('Cell changed:', event.data, event.colDef.field, event.newValue);
+      // Save to backend here
+    }
+  }
+};
+```
+
+## CSV Export
+
+Enable data export with a built-in button:
+
+```typescript
+const schema = {
+  type: 'aggrid',
+  rowData: [...],
+  columnDefs: [...],
+  exportConfig: {
+    enabled: true,              // Show export button
+    fileName: 'my-data.csv',    // Custom filename
+    onlySelected: false,        // Export all rows (or only selected)
+    allColumns: true            // Export all columns
+  },
+  callbacks: {
+    onExport: (data, format) => {
+      console.log(`Exporting ${data.length} rows as ${format}`);
+      // Track export event or custom processing
+    }
+  }
+};
+```
+
+## Status Bar & Aggregations
+
+Display summary statistics at the bottom of the grid:
+
+```typescript
+const schema = {
+  type: 'aggrid',
+  rowData: [...],
+  columnDefs: [...],
+  statusBar: {
+    enabled: true,
+    aggregations: ['count', 'sum', 'avg', 'min', 'max']
+  }
+};
+```
+
+## Event Callbacks
+
+Handle user interactions with the grid:
+
+```typescript
+const schema = {
+  type: 'aggrid',
+  rowData: [...],
+  columnDefs: [...],
+  rowSelection: 'multiple',
+  callbacks: {
+    onRowClicked: (event) => {
+      console.log('Row clicked:', event.data);
+    },
+    onCellClicked: (event) => {
+      console.log('Cell clicked:', event.colDef.field, event.value);
+    },
+    onSelectionChanged: (event) => {
+      const selectedRows = event.api.getSelectedRows();
+      console.log('Selected rows:', selectedRows);
+    },
+    onCellValueChanged: (event) => {
+      console.log('Value changed from', event.oldValue, 'to', event.newValue);
+      // Save changes to backend
+      saveToBackend(event.data);
+    }
+  }
 };
 ```
 

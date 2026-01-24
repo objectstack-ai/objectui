@@ -42,7 +42,5 @@ remap = [
     "^/docs/(.*)$ file://./docs/$1"
 ]
 
-# Cache configuration
-[cache]
-# Don't use cache to ensure fresh results
-max_age = "0s"
+# Cache configuration - disable caching for fresh results
+cache = false

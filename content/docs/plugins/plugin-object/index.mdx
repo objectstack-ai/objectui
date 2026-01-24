@@ -20,18 +20,18 @@ The plugin provides three main components for building CRUD interfaces:
 
 ### ObjectTable
 
-Enterprise-grade table component with dual modes: traditional CRUD operations and spreadsheet-like inline editing. Built on data-table foundation with automatic field type rendering.
+Enterprise-grade table component with unified schema supporting both traditional CRUD and spreadsheet-like inline editing. Built on data-table foundation with automatic field type rendering.
 
 **Features:**
 - Auto-generated columns from ObjectQL schema
 - 20+ specialized field renderers (currency, percent, date, select badges, etc.)
 - Multi-column sorting, search, pagination, row selection
 - CSV export, column resizing, column reordering
-- Grid mode: inline editing, keyboard navigation, frozen columns
+- Optional grid mode: inline editing, keyboard navigation, frozen columns (set `editable: true`)
 
-**Modes:**
-- `object-table`: Traditional table with CRUD operations
-- `object-grid`: Spreadsheet-like inline editing
+**Single unified schema:**
+- `type: 'object-table'` - Supports both traditional and grid modes
+- `type: 'object-grid'` - Deprecated, use `object-table` with `editable: true`
 
 [Learn more about ObjectTable →](/docs/plugins/plugin-object/object-table)
 
@@ -89,7 +89,6 @@ const dataSource = new ObjectQLDataSource({
 ```typescript
 import type { 
   ObjectTableSchema,
-  ObjectGridSchema,
   ObjectFormSchema,
   ObjectViewSchema 
 } from '@object-ui/plugin-object';
@@ -108,12 +107,12 @@ const tableSchema: ObjectTableSchema = {
   pageSize: 20
 };
 
-// Object Grid (Inline Editing)
-const gridSchema: ObjectGridSchema = {
-  type: 'object-grid',
+// Object Table (Grid Mode with inline editing)
+const gridSchema: ObjectTableSchema = {
+  type: 'object-table',
   objectName: 'inventory',
   fields: ['sku', 'name', 'quantity', 'price'],
-  editable: true,
+  editable: true,              // Enable grid mode
   keyboardNavigation: true,
   frozenColumns: 1
 };

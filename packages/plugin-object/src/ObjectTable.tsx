@@ -15,14 +15,12 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import type { ObjectTableSchema, ObjectGridSchema, DataSource } from '@object-ui/types';
+import type { ObjectTableSchema, DataSource } from '@object-ui/types';
 import { SchemaRenderer } from '@object-ui/react';
 import { getCellRenderer } from './field-renderers';
 
-export type ObjectTableOrGridSchema = ObjectTableSchema | ObjectGridSchema;
-
 export interface ObjectTableProps {
-  schema: ObjectTableOrGridSchema;
+  schema: ObjectTableSchema;
   dataSource?: DataSource;
   className?: string;
   onRowClick?: (record: any) => void;
@@ -198,7 +196,7 @@ export const ObjectTable: React.FC<ObjectTableProps> = ({
     sortable: true,
     exportable: operations?.export,
     rowActions: hasActions,
-    resizableColumns: schema.type === 'object-grid' && 'resizableColumns' in schema ? schema.resizableColumns : true,
+    resizableColumns: schema.resizableColumns !== undefined ? schema.resizableColumns : true,
     className: schema.className,
     onSelectionChange: onRowSelect,
   };

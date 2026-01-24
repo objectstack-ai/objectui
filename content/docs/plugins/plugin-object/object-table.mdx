@@ -10,11 +10,11 @@ A specialized table component that automatically fetches and displays data from 
 
 ## Overview
 
-ObjectTable supports two modes:
-- **Table Mode** (`type: 'object-table'`): Traditional CRUD operations with auto-generated columns
-- **Grid Mode** (`type: 'object-grid'`): Spreadsheet-like inline editing with keyboard navigation
+ObjectTable is a single unified component that supports:
+- **Traditional Table Mode**: CRUD operations with search, filters, and pagination (default)
+- **Grid Mode**: Spreadsheet-like inline editing with keyboard navigation (set `editable: true`)
 
-Both modes inherit all data-table features: sorting, filtering, pagination, row selection, CSV export, column resizing, and reordering.
+Both modes use the same `object-table` schema type and inherit all data-table features: sorting, filtering, pagination, row selection, CSV export, column resizing, and reordering.
 
 ## Interactive Demo
 
@@ -39,11 +39,11 @@ Both modes inherit all data-table features: sorting, filtering, pagination, row 
       export: true
     }
   }}
-  title="ObjectTable - Table Mode"
+  title="ObjectTable - Traditional Mode"
   description="Auto-generated columns with type-aware rendering and CRUD operations"
 />
 
-## Table Mode - Basic Usage
+## Traditional Mode - Basic Usage
 
 ```tsx
 import { ObjectTable } from '@object-ui/plugin-object';
@@ -74,17 +74,20 @@ function UsersTable() {
 
 ## Grid Mode - Inline Editing
 
+Enable spreadsheet-like editing by setting `editable: true`:
+
 ```tsx
 function InventoryGrid() {
   return (
     <ObjectTable 
       schema={{
-        type: 'object-grid',
+        type: 'object-table',
         objectName: 'inventory',
         fields: ['sku', 'name', 'quantity', 'price', 'status'],
-        editable: true,
-        keyboardNavigation: true,
-        frozenColumns: 2,
+        // Grid mode features
+        editable: true,              // Enable inline editing
+        keyboardNavigation: true,    // Arrow keys, Tab, Enter
+        frozenColumns: 2,            // Freeze first 2 columns
         resizableColumns: true
       }}
       dataSource={dataSource}
@@ -129,14 +132,16 @@ ObjectTable automatically uses specialized renderers based on field types:
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `type` | `'object-table'` \| `'object-grid'` | Required | Component mode |
+| `type` | `'object-table'` \| `'object-grid'`* | Required | Component type |
 | `objectName` | string | Required | Name of the ObjectQL object |
 | `fields` | string[] | All fields | Fields to display as columns |
 | `data` | any[] | - | Inline data (optional) |
 | `pageSize` | number | `10` | Rows per page |
 | `selectable` | boolean \| `'single'` \| `'multiple'` | `false` | Row selection mode |
 
-### Table Mode Properties
+*Note: Both `object-table` and `object-grid` types are supported for backward compatibility, but they now use the same unified implementation.
+
+### Traditional Table Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -147,14 +152,18 @@ ObjectTable automatically uses specialized renderers based on field types:
 
 ### Grid Mode Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `editable` | boolean | Enable inline cell editing |
-| `keyboardNavigation` | boolean | Arrow keys, Tab, Enter navigation |
-| `frozenColumns` | number | Number of left-pinned columns |
-| `resizableColumns` | boolean | Enable column resizing |
+Add these properties to enable spreadsheet-like behavior:
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `editable` | boolean | `false` | Enable inline cell editing |
+| `keyboardNavigation` | boolean | `true` | Arrow keys, Tab, Enter navigation |
+| `frozenColumns` | number | `0` | Number of left-pinned columns |
+| `resizableColumns` | boolean | `false` | Enable column resizing |
 
 ## Keyboard Shortcuts (Grid Mode)
+
+When `editable` and `keyboardNavigation` are enabled:
 
 | Shortcut | Action |
 |----------|--------|
@@ -164,20 +173,70 @@ ObjectTable automatically uses specialized renderers based on field types:
 | `Enter` | Start editing selected cell |
 | `Escape` | Cancel editing |
 
-## Migration from ObjectGrid
+## Examples
 
-ObjectGrid has been merged into ObjectTable:
+### CRM Contact Table
+
+```tsx
+<ObjectTable
+  schema={{
+    type: 'object-table',
+    objectName: 'contacts',
+    title: 'Contact Management',
+    fields: ['fullName', 'email', 'phone', 'company', 'status', 'owner'],
+    operations: {
+      create: true,
+      update: true,
+      delete: true,
+      export: true
+    },
+    showSearch: true,
+    selectable: 'multiple',
+    pageSize: 25,
+    defaultSort: {
+      field: 'fullName',
+      order: 'asc'
+    }
+  }}
+  dataSource={dataSource}
+/>
+```
+
+### Editable Product Grid
+
+```tsx
+<ObjectTable
+  schema={{
+    type: 'object-table',
+    objectName: 'products',
+    fields: ['sku', 'name', 'category', 'price', 'stock', 'status'],
+    editable: true,
+    keyboardNavigation: true,
+    frozenColumns: 2,
+    resizableColumns: true,
+    pageSize: 50
+  }}
+  dataSource={dataSource}
+  onCellChange={(rowIndex, columnKey, newValue) => {
+    updateProduct(rowIndex, columnKey, newValue);
+  }}
+/>
+```
+
+## Migration
+
+### From ObjectGrid (deprecated type)
+
+The `object-grid` type is still supported but deprecated. For new code, use `object-table` with `editable: true`:
 
 **Before:**
 ```tsx
-import { ObjectGrid } from '@object-ui/plugin-object';
-<ObjectGrid schema={{ type: 'object-grid', ... }} />
+<ObjectTable schema={{ type: 'object-grid', editable: true, ... }} />
 ```
 
-**After:**
+**After (recommended):**
 ```tsx
-import { ObjectTable } from '@object-ui/plugin-object';
-<ObjectTable schema={{ type: 'object-grid', ... }} />
+<ObjectTable schema={{ type: 'object-table', editable: true, ... }} />
 ```
 
 ## Related Components

@@ -24,9 +24,13 @@ import type { FormField } from './form';
  * ObjectTable Schema
  * A specialized table component that automatically fetches and displays data from ObjectQL objects.
  * It reads the object schema from ObjectQL and generates columns automatically.
+ * 
+ * Supports two modes:
+ * - Traditional table mode: CRUD operations with search, filters, pagination
+ * - Grid mode: Spreadsheet-like inline editing with keyboard navigation (set editable: true)
  */
 export interface ObjectTableSchema extends BaseSchema {
-  type: 'object-table';
+  type: 'object-table' | 'object-grid';
   
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
@@ -157,6 +161,34 @@ export interface ObjectTableSchema extends BaseSchema {
   batchActions?: string[];
   
   /**
+   * Enable inline cell editing (Grid mode)
+   * When true, cells become editable on double-click or Enter key
+   * @default false
+   */
+  editable?: boolean;
+  
+  /**
+   * Enable keyboard navigation (Grid mode)
+   * Arrow keys, Tab, Enter for cell navigation
+   * @default true when editable is true
+   */
+  keyboardNavigation?: boolean;
+  
+  /**
+   * Enable column resizing
+   * Allows users to drag column borders to resize
+   * @default false
+   */
+  resizableColumns?: boolean;
+  
+  /**
+   * Number of columns to freeze (left-pin)
+   * Useful for keeping certain columns visible while scrolling
+   * @default 0
+   */
+  frozenColumns?: number;
+  
+  /**
    * Custom CSS class
    */
   className?: string;
@@ -164,78 +196,22 @@ export interface ObjectTableSchema extends BaseSchema {
 
 /**
  * ObjectGrid Schema
- * Enhanced table component with Airtable-like features:
- * - Inline cell editing
- * - Keyboard navigation  
- * - Column resizing
- * - Column freezing
- * - Advanced row selection
+ * @deprecated Use ObjectTableSchema with editable: true instead
+ * This type is kept for backward compatibility
  */
 export interface ObjectGridSchema extends BaseSchema {
   type: 'object-grid';
-  
-  /**
-   * ObjectQL object name
-   */
   objectName: string;
-  
-  /**
-   * Optional title
-   */
   title?: string;
-  
-  /**
-   * Fields to display
-   */
   fields?: string[];
-  
-  /**
-   * Custom column configurations
-   */
   columns?: TableColumn[];
-  
-  /**
-   * Inline data
-   */
   data?: any[];
-  
-  /**
-   * Enable inline editing
-   * @default false
-   */
   editable?: boolean;
-  
-  /**
-   * Enable keyboard navigation (arrow keys, Tab, Enter)
-   * @default true
-   */
   keyboardNavigation?: boolean;
-  
-  /**
-   * Enable column resizing
-   * @default false
-   */
   resizableColumns?: boolean;
-  
-  /**
-   * Number of columns to freeze (left-pin)
-   * @default 0
-   */
   frozenColumns?: number;
-  
-  /**
-   * Enable row selection
-   */
   selectable?: boolean | 'single' | 'multiple';
-  
-  /**
-   * Page size
-   */
   pageSize?: number;
-  
-  /**
-   * Custom CSS class
-   */
   className?: string;
 }
 

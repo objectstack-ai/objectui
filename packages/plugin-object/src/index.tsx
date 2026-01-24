@@ -20,7 +20,7 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 
 export { ObjectTable } from './ObjectTable';
-export type { ObjectTableProps, ObjectTableOrGridSchema } from './ObjectTable';
+export type { ObjectTableProps } from './ObjectTable';
 
 export { ObjectForm } from './ObjectForm';
 export type { ObjectFormProps } from './ObjectForm';

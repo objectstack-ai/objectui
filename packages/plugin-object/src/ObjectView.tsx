@@ -9,13 +9,13 @@
 /**
  * ObjectView Component
  * 
- * A complete object management interface that combines ObjectTable and ObjectForm.
+ * A complete object management interface that combines ObjectGrid and ObjectForm.
  * Provides list view with integrated search, filters, and create/edit operations.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import type { ObjectViewSchema, ObjectTableSchema, ObjectFormSchema, DataSource } from '@object-ui/types';
-import { ObjectTable } from './ObjectTable';
+import type { ObjectViewSchema, ObjectGridSchema, ObjectFormSchema, DataSource } from '@object-ui/types';
+import { ObjectGrid } from './ObjectGrid';
 import { ObjectForm } from './ObjectForm';
 import {
   Dialog,
@@ -186,9 +186,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     setRefreshKey(prev => prev + 1);
   }, []);
 
-  // Build table schema
-  const tableSchema: ObjectTableSchema = {
-    type: 'object-table',
+  // Build grid schema
+  const gridSchema: ObjectGridSchema = {
+    type: 'object-grid',
     objectName: schema.objectName,
     title: schema.table?.title,
     description: schema.table?.description,
@@ -390,10 +390,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       {/* Toolbar */}
       {renderToolbar()}
       
-      {/* Table */}
-      <ObjectTable
+      {/* Grid */}
+      <ObjectGrid
         key={refreshKey}
-        schema={tableSchema}
+        schema={gridSchema}
         dataSource={dataSource}
         onRowClick={handleRowClick}
         onEdit={operations.update !== false ? handleEdit : undefined}

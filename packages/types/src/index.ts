@@ -268,7 +268,7 @@ export type {
   GanttConfig,
   SortConfig,
   // Component schemas
-  ObjectTableSchema,
+  ObjectGridSchema,
   ObjectFormSchema,
   ObjectViewSchema,
   ObjectQLComponentSchema,

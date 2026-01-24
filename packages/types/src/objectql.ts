@@ -173,19 +173,19 @@ export interface SortConfig {
 }
 
 /**
- * ObjectTable Schema
- * A specialized table component that automatically fetches and displays data from ObjectQL objects.
- * Now fully aligned with @objectstack/spec view.zod ListView schema for maximum interoperability.
+ * ObjectGrid Schema
+ * A specialized grid component that automatically fetches and displays data from ObjectQL objects.
+ * Implements the grid view type from @objectstack/spec view.zod ListView schema.
  * 
- * Supports multiple view types:
- * - grid: Traditional table with CRUD operations, search, filters, pagination
- * - kanban: Card-based view grouped by a field (e.g., status)
- * - calendar: Calendar view with events
- * - gantt: Project timeline view
- * - map: Geographic map view (future)
+ * Features:
+ * - Traditional table/grid with CRUD operations
+ * - Search, filters, pagination
+ * - Column resizing, sorting
+ * - Row selection
+ * - Inline editing support
  */
-export interface ObjectTableSchema extends BaseSchema {
-  type: 'object-table';
+export interface ObjectGridSchema extends BaseSchema {
+  type: 'object-grid';
   
   /**
    * Internal name for the view
@@ -196,12 +196,6 @@ export interface ObjectTableSchema extends BaseSchema {
    * Display label override
    */
   label?: string;
-  
-  /**
-   * View type
-   * @default 'grid'
-   */
-  viewType?: 'grid' | 'kanban' | 'calendar' | 'gantt' | 'map';
   
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
@@ -273,24 +267,6 @@ export interface ObjectTableSchema extends BaseSchema {
    * Aligned with @objectstack/spec PaginationConfigSchema
    */
   pagination?: PaginationConfig;
-  
-  /**
-   * Kanban Settings
-   * Required when viewType is 'kanban'
-   */
-  kanban?: KanbanConfig;
-  
-  /**
-   * Calendar Settings
-   * Required when viewType is 'calendar'
-   */
-  calendar?: CalendarConfig;
-  
-  /**
-   * Gantt Settings
-   * Required when viewType is 'gantt'
-   */
-  gantt?: GanttConfig;
   
   /**
    * Custom CSS class
@@ -630,10 +606,10 @@ export interface ObjectViewSchema extends BaseSchema {
   layout?: 'drawer' | 'modal' | 'page';
   
   /**
-   * Table configuration
-   * Inherits from ObjectTableSchema
+   * Table/Grid configuration
+   * Inherits from ObjectGridSchema
    */
-  table?: Partial<Omit<ObjectTableSchema, 'type' | 'objectName'>>;
+  table?: Partial<Omit<ObjectGridSchema, 'type' | 'objectName'>>;
   
   /**
    * Form configuration
@@ -690,6 +666,6 @@ export interface ObjectViewSchema extends BaseSchema {
  * Union type of all ObjectQL component schemas
  */
 export type ObjectQLComponentSchema =
-  | ObjectTableSchema
+  | ObjectGridSchema
   | ObjectFormSchema
   | ObjectViewSchema;

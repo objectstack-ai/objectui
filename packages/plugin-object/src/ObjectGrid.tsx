@@ -7,26 +7,27 @@
  */
 
 /**
- * ObjectTable Component
+ * ObjectGrid Component
  * 
- * A specialized table component built on top of data-table.
+ * A specialized grid component built on top of data-table.
  * Auto-generates columns from ObjectQL schema with type-aware rendering.
- * Now fully aligned with @objectstack/spec view.zod ListView schema.
+ * Implements the grid view type from @objectstack/spec view.zod ListView schema.
  * 
- * Supports multiple view types:
- * - grid: Traditional table with CRUD operations (default)
- * - kanban: Card-based view grouped by a field
- * - calendar: Calendar view with events
- * - gantt: Project timeline view
+ * Features:
+ * - Traditional table/grid with CRUD operations
+ * - Search, filters, pagination
+ * - Column resizing, sorting
+ * - Row selection
+ * - Inline editing support
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import type { ObjectTableSchema, DataSource, ListColumn, ViewData } from '@object-ui/types';
+import type { ObjectGridSchema, DataSource, ListColumn, ViewData } from '@object-ui/types';
 import { SchemaRenderer } from '@object-ui/react';
 import { getCellRenderer } from './field-renderers';
 
-export interface ObjectTableProps {
-  schema: ObjectTableSchema;
+export interface ObjectGridProps {
+  schema: ObjectGridSchema;
   dataSource?: DataSource;
   className?: string;
   onRowClick?: (record: any) => void;
@@ -41,7 +42,7 @@ export interface ObjectTableProps {
  * Helper to get data configuration from schema
  * Handles both new ViewData format and legacy inline data
  */
-function getDataConfig(schema: ObjectTableSchema): ViewData | null {
+function getDataConfig(schema: ObjectGridSchema): ViewData | null {
   // New format: explicit data configuration
   if (schema.data) {
     return schema.data;
@@ -84,7 +85,7 @@ function normalizeColumns(
   return columns as string[];
 }
 
-export const ObjectTable: React.FC<ObjectTableProps> = ({
+export const ObjectGrid: React.FC<ObjectGridProps> = ({
   schema,
   dataSource,
   onEdit,

@@ -27,7 +27,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
     objectName: "users",
     title: "User Management",
     fields: ["name", "email", "role", "status"],
-    data: [
+    staticData: [
       { id: 1, name: "Alice Johnson", email: "alice@example.com", role: "Admin", status: "Active" },
       { id: 2, name: "Bob Smith", email: "bob@example.com", role: "User", status: "Active" },
       { id: 3, name: "Carol White", email: "carol@example.com", role: "Manager", status: "Inactive" },
@@ -61,7 +61,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
         type: "object-grid",
         objectName: "products",
         fields: ["name", "category", "price", "stock"],
-        data: [
+        staticData: [
           { id: 1, name: "Laptop Pro", category: "Electronics", price: "$1,299", stock: 45 },
           { id: 2, name: "Wireless Mouse", category: "Accessories", price: "$29", stock: 120 },
           { id: 3, name: "USB-C Cable", category: "Accessories", price: "$15", stock: 200 }
@@ -77,7 +77,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
         type: "object-grid",
         objectName: "products",
         fields: ["name", "category", "price", "stock"],
-        data: [
+        staticData: [
           { id: 1, name: "Laptop Pro", category: "Electronics", price: "$1,299", stock: 45 },
           { id: 2, name: "Wireless Mouse", category: "Accessories", price: "$29", stock: 120 },
           { id: 3, name: "USB-C Cable", category: "Accessories", price: "$15", stock: 200 }
@@ -93,7 +93,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
         type: "object-grid",
         objectName: "products",
         fields: ["name", "category", "price", "stock"],
-        data: [
+        staticData: [
           { id: 1, name: "Laptop Pro", category: "Electronics", price: "$1,299", stock: 45 },
           { id: 2, name: "Wireless Mouse", category: "Accessories", price: "$29", stock: 120 },
           { id: 3, name: "USB-C Cable", category: "Accessories", price: "$15", stock: 200 }
@@ -123,7 +123,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
           { field: "revenue", label: "Revenue", width: 120, align: "right" },
           { field: "growth", label: "Growth", width: 100, align: "center" }
         ],
-        data: [
+        staticData: [
           { id: 1, product: "Laptop Pro", revenue: "$58,455", growth: "+12%" },
           { id: 2, product: "Wireless Mouse", revenue: "$3,480", growth: "+8%" },
           { id: 3, product: "Monitor 27\"", revenue: "$11,970", growth: "+15%" }
@@ -143,7 +143,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
           { field: "stock", label: "Stock", sortable: true },
           { field: "status", label: "Status", sortable: false }
         ],
-        data: [
+        staticData: [
           { sku: "PRD-001", name: "Laptop Pro", stock: 45, status: "In Stock" },
           { sku: "PRD-002", name: "Wireless Mouse", stock: 120, status: "In Stock" },
           { sku: "PRD-003", name: "Monitor", stock: 5, status: "Low Stock" },
@@ -168,7 +168,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
         type: "object-grid",
         objectName: "orders",
         fields: ["orderId", "customer", "amount", "date"],
-        data: [
+        staticData: [
           { orderId: "ORD-001", customer: "Alice Johnson", amount: "$1,299", date: "2024-01-20" },
           { orderId: "ORD-002", customer: "Bob Smith", amount: "$299", date: "2024-01-19" },
           { orderId: "ORD-003", customer: "Carol White", amount: "$599", date: "2024-01-18" },
@@ -187,7 +187,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
         type: "object-grid",
         objectName: "summary",
         fields: ["month", "revenue", "orders"],
-        data: [
+        staticData: [
           { month: "January", revenue: "$124,500", orders: 842 },
           { month: "February", revenue: "$135,200", orders: 923 },
           { month: "March", revenue: "$148,900", orders: 1015 }
@@ -206,7 +206,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
     objectName: "contacts",
     title: "Contact Directory",
     fields: ["name", "email", "department", "phone", "status"],
-    data: [
+    staticData: [
       { id: 1, name: "Alice Johnson", email: "alice@company.com", department: "Engineering", phone: "+1-555-0101", status: "Active" },
       { id: 2, name: "Bob Smith", email: "bob@company.com", department: "Sales", phone: "+1-555-0102", status: "Active" },
       { id: 3, name: "Carol White", email: "carol@company.com", department: "Marketing", phone: "+1-555-0103", status: "Inactive" },
@@ -235,7 +235,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
     objectName: "inventory",
     title: "Inventory Management",
     fields: ["sku", "name", "quantity", "price", "status"],
-    data: [
+    staticData: [
       { id: 1, sku: "PRD-001", name: "Laptop Pro", quantity: 45, price: "$1,299", status: "In Stock" },
       { id: 2, sku: "PRD-002", name: "Wireless Mouse", quantity: 120, price: "$29", status: "In Stock" },
       { id: 3, sku: "PRD-003", name: "Monitor 27\"", quantity: 30, price: "$399", status: "In Stock" },
@@ -267,7 +267,7 @@ Inherits all data-table features: sorting, filtering, pagination, row selection,
       { field: "isActive", label: "Active", type: "boolean", align: "center" },
       { field: "department", label: "Department", type: "select" }
     ],
-    data: [
+    staticData: [
       { id: 1, name: "Alice Johnson", email: "alice@company.com", joinDate: "2022-03-15", salary: "$95,000", isActive: true, department: "Engineering" },
       { id: 2, name: "Bob Smith", email: "bob@company.com", joinDate: "2021-07-22", salary: "$87,000", isActive: true, department: "Sales" },
       { id: 3, name: "Carol White", email: "carol@company.com", joinDate: "2023-01-10", salary: "$92,000", isActive: false, department: "Marketing" },
@@ -572,7 +572,7 @@ When `editable` and `keyboardNavigation` are enabled:
       { field: "stock", label: "Stock", width: 80, align: "center" },
       { field: "status", label: "Status", width: 120 }
     ],
-    data: [
+    staticData: [
       { id: 1, sku: "LAP-001", name: "UltraBook Pro 15", category: "Laptops", price: "$1,299", stock: 45, status: "In Stock" },
       { id: 2, sku: "MOU-001", name: "Wireless Ergonomic Mouse", category: "Accessories", price: "$29", stock: 120, status: "In Stock" },
       { id: 3, sku: "MON-001", name: "4K Monitor 27\"", category: "Displays", price: "$399", stock: 30, status: "In Stock" },
@@ -611,7 +611,7 @@ When `editable` and `keyboardNavigation` are enabled:
       { field: "value", label: "Lifetime Value", width: 130, align: "right" },
       { field: "tier", label: "Tier", width: 100 }
     ],
-    data: [
+    staticData: [
       { id: 1, company: "Acme Corp", contact: "Alice Johnson", email: "alice@acme.com", phone: "+1-555-0101", value: "$125,000", tier: "Gold" },
       { id: 2, company: "TechStart Inc", contact: "Bob Smith", email: "bob@techstart.com", phone: "+1-555-0102", value: "$89,500", tier: "Silver" },
       { id: 3, company: "Global Solutions", contact: "Carol White", email: "carol@global.com", phone: "+1-555-0103", value: "$256,000", tier: "Platinum" },
@@ -651,7 +651,7 @@ When `editable` and `keyboardNavigation` are enabled:
       { field: "status", label: "Status", width: 120 },
       { field: "dueDate", label: "Due Date", width: 110 }
     ],
-    data: [
+    staticData: [
       { id: 1, taskId: "TSK-101", title: "Implement user authentication", assignee: "Alice Johnson", priority: "High", status: "In Progress", dueDate: "2024-02-15" },
       { id: 2, taskId: "TSK-102", title: "Design landing page mockup", assignee: "Bob Smith", priority: "Medium", status: "Completed", dueDate: "2024-02-10" },
       { id: 3, taskId: "TSK-103", title: "Fix responsive layout bugs", assignee: "Carol White", priority: "High", status: "In Progress", dueDate: "2024-02-12" },
@@ -691,7 +691,7 @@ When `editable` and `keyboardNavigation` are enabled:
       { field: "amount", label: "Amount", width: 120, align: "right" },
       { field: "status", label: "Status", width: 100 }
     ],
-    data: [
+    staticData: [
       { id: 1, transactionId: "TXN-2024-001", date: "2024-01-25", description: "Office supplies purchase", category: "Expenses", amount: "-$234.50", status: "Completed" },
       { id: 2, transactionId: "TXN-2024-002", date: "2024-01-24", description: "Client payment received", category: "Income", amount: "+$5,000.00", status: "Completed" },
       { id: 3, transactionId: "TXN-2024-003", date: "2024-01-23", description: "Software subscription", category: "Expenses", amount: "-$99.00", status: "Completed" },
@@ -725,7 +725,7 @@ When `editable` and `keyboardNavigation` are enabled:
       { field: "target", label: "Target", width: 130, align: "right" },
       { field: "achievement", label: "Achievement", width: 120, align: "center" }
     ],
-    data: [
+    staticData: [
       { id: 1, rep: "Alice Johnson", region: "North America", deals: 42, revenue: "$523,000", target: "$500,000", achievement: "105%" },
       { id: 2, rep: "Bob Smith", region: "Europe", deals: 38, revenue: "$456,000", target: "$450,000", achievement: "101%" },
       { id: 3, rep: "Carol White", region: "Asia Pacific", deals: 51, revenue: "$678,000", target: "$600,000", achievement: "113%" },

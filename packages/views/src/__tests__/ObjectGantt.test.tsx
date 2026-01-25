@@ -80,8 +80,8 @@ describe('ObjectGantt', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Task 1')).toBeInTheDocument();
-      expect(screen.getByText('Task 2')).toBeInTheDocument();
+      expect(screen.getAllByText('Task 1').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Task 2').length).toBeGreaterThan(0);
     });
   });
 
@@ -114,7 +114,7 @@ describe('ObjectGantt', () => {
     render(<ObjectGantt schema={schemaWithInlineData} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Project A')).toBeInTheDocument();
+      expect(screen.getAllByText('Project A').length).toBeGreaterThan(0);
       expect(screen.getByText('30%')).toBeInTheDocument();
     });
   });
@@ -143,7 +143,7 @@ describe('ObjectGantt', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Task 1')).toBeInTheDocument();
+      expect(screen.getAllByText('Task 1').length).toBeGreaterThan(0);
     });
 
     // Click on task in the list

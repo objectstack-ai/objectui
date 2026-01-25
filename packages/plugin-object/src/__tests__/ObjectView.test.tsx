@@ -13,9 +13,9 @@ import { ObjectView } from '../ObjectView';
 import type { ObjectViewSchema, DataSource } from '@object-ui/types';
 
 // Mock child components
-vi.mock('../ObjectTable', () => ({
-  ObjectTable: ({ schema, onRowClick, onEdit, onDelete }: any) => (
-    <div data-testid="object-table">
+vi.mock('../ObjectGrid', () => ({
+  ObjectGrid: ({ schema, onRowClick, onEdit, onDelete }: any) => (
+    <div data-testid="object-grid">
       <div data-testid="table-object-name">{schema.objectName}</div>
       <button onClick={() => onRowClick?.({ _id: '1', name: 'Test' })} data-testid="row-click-btn">
         Click Row
@@ -144,7 +144,7 @@ describe('ObjectView', () => {
     render(<ObjectView schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('object-table')).toBeInTheDocument();
+      expect(screen.getByTestId('object-grid')).toBeInTheDocument();
       expect(screen.getByTestId('table-object-name')).toHaveTextContent('users');
     });
   });
@@ -226,7 +226,7 @@ describe('ObjectView', () => {
     render(<ObjectView schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('object-table')).toBeInTheDocument();
+      expect(screen.getByTestId('object-grid')).toBeInTheDocument();
     });
 
     const editButton = screen.getByTestId('edit-btn');
@@ -244,7 +244,7 @@ describe('ObjectView', () => {
     render(<ObjectView schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('object-table')).toBeInTheDocument();
+      expect(screen.getByTestId('object-grid')).toBeInTheDocument();
     });
 
     const rowButton = screen.getByTestId('row-click-btn');

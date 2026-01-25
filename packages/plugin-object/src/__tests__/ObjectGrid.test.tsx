@@ -9,8 +9,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ObjectTable } from '../ObjectTable';
-import type { ObjectTableSchema, DataSource } from '@object-ui/types';
+import { ObjectGrid } from '../ObjectGrid';
+import type { ObjectGridSchema, DataSource } from '@object-ui/types';
 
 // Mock SchemaRenderer
 vi.mock('@object-ui/react', () => ({
@@ -25,9 +25,9 @@ vi.mock('@object-ui/react', () => ({
   ),
 }));
 
-describe('ObjectTable', () => {
+describe('ObjectGrid', () => {
   let mockDataSource: DataSource;
-  let mockSchema: ObjectTableSchema;
+  let mockSchema: ObjectGridSchema;
 
   beforeEach(() => {
     // Mock data source
@@ -72,7 +72,7 @@ describe('ObjectTable', () => {
 
     // Mock schema
     mockSchema = {
-      type: 'object-table',
+      type: 'object-grid',
       objectName: 'users',
       title: 'Users Table',
       fields: ['name', 'email', 'status'],
@@ -80,12 +80,12 @@ describe('ObjectTable', () => {
   });
 
   it('should render loading state initially', () => {
-    render(<ObjectTable schema={mockSchema} dataSource={mockDataSource} />);
-    expect(screen.getByText(/Loading users/i)).toBeInTheDocument();
+    render(<ObjectGrid schema={mockSchema} dataSource={mockDataSource} />);
+    expect(screen.getByText(/Loading grid/i)).toBeInTheDocument();
   });
 
   it('should fetch and display data', async () => {
-    render(<ObjectTable schema={mockSchema} dataSource={mockDataSource} />);
+    render(<ObjectGrid schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('schema-renderer')).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe('ObjectTable', () => {
   });
 
   it('should generate columns from object schema', async () => {
-    render(<ObjectTable schema={mockSchema} dataSource={mockDataSource} />);
+    render(<ObjectGrid schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('table-columns')).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe('ObjectTable', () => {
 
     mockDataSource.getObjectSchema = vi.fn().mockResolvedValue(schemaWithPermissions);
 
-    render(<ObjectTable schema={mockSchema} dataSource={mockDataSource} />);
+    render(<ObjectGrid schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('table-columns')).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('ObjectTable', () => {
     const onDelete = vi.fn();
 
     render(
-      <ObjectTable
+      <ObjectGrid
         schema={{
           ...mockSchema,
           operations: { update: true, delete: true },
@@ -169,7 +169,7 @@ describe('ObjectTable', () => {
     const onBulkDelete = vi.fn();
 
     render(
-      <ObjectTable
+      <ObjectGrid
         schema={{
           ...mockSchema,
           selectable: 'multiple',
@@ -192,7 +192,7 @@ describe('ObjectTable', () => {
       defaultFilters: { status: 'active' },
     };
 
-    render(<ObjectTable schema={schemaWithFilters} dataSource={mockDataSource} />);
+    render(<ObjectGrid schema={schemaWithFilters} dataSource={mockDataSource} />);
 
     await waitFor(() => {
       expect(mockDataSource.find).toHaveBeenCalledWith(
@@ -210,7 +210,7 @@ describe('ObjectTable', () => {
       defaultSort: { field: 'name', order: 'asc' as const },
     };
 
-    render(<ObjectTable schema={schemaWithSort} dataSource={mockDataSource} />);
+    render(<ObjectGrid schema={schemaWithSort} dataSource={mockDataSource} />);
 
     await waitFor(() => {
       expect(mockDataSource.find).toHaveBeenCalledWith(

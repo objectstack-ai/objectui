@@ -19,8 +19,8 @@
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 
-export { ObjectTable } from './ObjectTable';
-export type { ObjectTableProps } from './ObjectTable';
+export { ObjectGrid } from './ObjectGrid';
+export type { ObjectGridProps } from './ObjectGrid';
 
 export { ObjectForm } from './ObjectForm';
 export type { ObjectFormProps } from './ObjectForm';
@@ -52,22 +52,22 @@ export type { CellRendererProps } from './field-renderers';
 
 // Re-export related types from @object-ui/types
 export type {
-  ObjectTableSchema,
+  ObjectGridSchema,
   ObjectFormSchema,
   ObjectViewSchema,
   ObjectQLComponentSchema,
 } from '@object-ui/types';
 
 // Import components for registration
-import { ObjectTable } from './ObjectTable';
+import { ObjectGrid } from './ObjectGrid';
 import { ObjectForm } from './ObjectForm';
 import { ObjectView } from './ObjectView';
 
 // Create renderer wrappers for ComponentRegistry
-const ObjectTableRenderer: React.FC<{ schema: any }> = ({ schema }) => {
+const ObjectGridRenderer: React.FC<{ schema: any }> = ({ schema }) => {
   // For now, render without dataSource since it requires ObjectQL setup
   // This allows the component to at least render in documentation
-  return <ObjectTable schema={schema} dataSource={null as any} />;
+  return <ObjectGrid schema={schema} dataSource={null as any} />;
 };
 
 const ObjectFormRenderer: React.FC<{ schema: any }> = ({ schema }) => {
@@ -79,8 +79,8 @@ const ObjectViewRenderer: React.FC<{ schema: any }> = ({ schema }) => {
 };
 
 // Register components with ComponentRegistry
-ComponentRegistry.register('object-table', ObjectTableRenderer, {
-  label: 'Object Table',
+ComponentRegistry.register('object-grid', ObjectGridRenderer, {
+  label: 'Object Grid',
   category: 'plugin',
   inputs: [
     { name: 'objectName', type: 'string', label: 'Object Name', required: true },
@@ -116,7 +116,7 @@ ComponentRegistry.register('object-view', ObjectViewRenderer, {
 
 // Export for manual use
 export const objectComponents = {
-  'object-table': ObjectTableRenderer,
+  'object-grid': ObjectGridRenderer,
   'object-form': ObjectFormRenderer,
   'object-view': ObjectViewRenderer,
 };

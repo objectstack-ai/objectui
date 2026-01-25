@@ -196,7 +196,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const dependencies = dependenciesField ? record[dependenciesField] : [];
 
       return {
-        id: record.id || record._id || String(index),
+        id: record.id || record._id || `task-${index}`,
         title,
         start: startDate ? new Date(startDate) : new Date(),
         end: endDate ? new Date(endDate) : new Date(),

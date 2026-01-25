@@ -214,8 +214,8 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
         id: String(value),
         title: String(value),
         summary,
-        cards: columnCards.map(record => ({
-          id: record.id || record._id || String(Math.random()),
+        cards: columnCards.map((record, idx) => ({
+          id: record.id || record._id || `${value}-${idx}`,
           title: record[displayColumns[0]] || record.name || record.title || 'Untitled',
           description: displayColumns[1] ? record[displayColumns[1]] : undefined,
           data: record,

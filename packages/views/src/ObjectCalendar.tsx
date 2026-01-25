@@ -199,7 +199,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
       const color = colorField ? record[colorField] : undefined;
 
       return {
-        id: record.id || record._id || String(index),
+        id: record.id || record._id || `event-${index}`,
         title,
         start: startDate ? new Date(startDate) : new Date(),
         end: endDate ? new Date(endDate) : undefined,

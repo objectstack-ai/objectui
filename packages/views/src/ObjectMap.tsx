@@ -267,7 +267,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         const description = mapConfig.descriptionField ? record[mapConfig.descriptionField] : undefined;
 
         return {
-          id: record.id || record._id || String(index),
+          id: record.id || record._id || `marker-${index}`,
           title,
           description,
           coordinates,

@@ -60,6 +60,33 @@ function getDataConfig(schema: ObjectGridSchema): ViewData | null {
 }
 
 /**
+ * Helper to convert sort config to QueryParams format
+ */
+function convertSortToQueryParams(sort: string | any[] | undefined): Record<string, 'asc' | 'desc'> | undefined {
+  if (!sort) return undefined;
+  
+  // If it's a string like "name desc"
+  if (typeof sort === 'string') {
+    const parts = sort.split(' ');
+    const field = parts[0];
+    const order = (parts[1]?.toLowerCase() === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc';
+    return { [field]: order };
+  }
+  
+  // If it's an array of SortConfig objects
+  if (Array.isArray(sort)) {
+    return sort.reduce((acc, item) => {
+      if (item.field && item.order) {
+        acc[item.field] = item.order;
+      }
+      return acc;
+    }, {} as Record<string, 'asc' | 'desc'>);
+  }
+  
+  return undefined;
+}
+
+/**
  * Helper to get kanban configuration from schema
  * Extracts kanban-specific settings or provides defaults
  */
@@ -83,8 +110,6 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
   className,
   onCardClick,
   onCardMove,
-  onEdit,
-  onDelete,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,11 +138,11 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
 
         if (dataConfig?.provider === 'object') {
           const objectName = dataConfig.object;
-          const records = await dataSource.query(objectName, {
-            filters: schema.filter,
-            sort: schema.sort,
+          const result = await dataSource.find(objectName, {
+            $filter: schema.filter,
+            $orderby: convertSortToQueryParams(schema.sort),
           });
-          setData(records || []);
+          setData(result?.data || []);
         } else if (dataConfig?.provider === 'api') {
           // For API provider, we'd need to fetch from the read endpoint
           // This would typically be handled by a custom hook or data fetching layer
@@ -195,7 +220,7 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
           description: displayColumns[1] ? record[displayColumns[1]] : undefined,
           data: record,
           // Map additional fields to display
-          fields: displayColumns.slice(2).reduce((acc, fieldName) => {
+          fields: displayColumns.slice(2).reduce((acc: Record<string, any>, fieldName: string) => {
             acc[fieldName] = record[fieldName];
             return acc;
           }, {} as Record<string, any>),
@@ -231,7 +256,7 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
       const objectName = dataConfig.object;
       dataSource.update(objectName, cardId, {
         [kanbanConfig.groupByField]: toColumnId,
-      }).catch(err => {
+      }).catch((err: any) => {
         console.error('Failed to update record:', err);
         // Revert the change on error
         setData(prevData => {

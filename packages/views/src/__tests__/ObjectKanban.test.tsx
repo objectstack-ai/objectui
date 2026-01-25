@@ -18,11 +18,13 @@ describe('ObjectKanban', () => {
   beforeEach(() => {
     // Mock data source
     mockDataSource = {
-      query: vi.fn().mockResolvedValue([
-        { _id: '1', title: 'Task 1', status: 'todo', priority: 'high' },
-        { _id: '2', title: 'Task 2', status: 'in-progress', priority: 'medium' },
-        { _id: '3', title: 'Task 3', status: 'done', priority: 'low' },
-      ]),
+      find: vi.fn().mockResolvedValue({
+        data: [
+          { _id: '1', title: 'Task 1', status: 'todo', priority: 'high' },
+          { _id: '2', title: 'Task 2', status: 'in-progress', priority: 'medium' },
+          { _id: '3', title: 'Task 3', status: 'done', priority: 'low' },
+        ],
+      }),
       getObjectSchema: vi.fn().mockResolvedValue({
         name: 'tasks',
         label: 'Tasks',
@@ -61,7 +63,7 @@ describe('ObjectKanban', () => {
     render(<ObjectKanban schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
-      expect(mockDataSource.query).toHaveBeenCalledWith('tasks', expect.any(Object));
+      expect(mockDataSource.find).toHaveBeenCalledWith('tasks', expect.any(Object));
     });
 
     await waitFor(() => {

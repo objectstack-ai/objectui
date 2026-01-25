@@ -60,6 +60,33 @@ function getDataConfig(schema: ObjectGridSchema): ViewData | null {
 }
 
 /**
+ * Helper to convert sort config to QueryParams format
+ */
+function convertSortToQueryParams(sort: string | any[] | undefined): Record<string, 'asc' | 'desc'> | undefined {
+  if (!sort) return undefined;
+  
+  // If it's a string like "name desc"
+  if (typeof sort === 'string') {
+    const parts = sort.split(' ');
+    const field = parts[0];
+    const order = (parts[1]?.toLowerCase() === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc';
+    return { [field]: order };
+  }
+  
+  // If it's an array of SortConfig objects
+  if (Array.isArray(sort)) {
+    return sort.reduce((acc, item) => {
+      if (item.field && item.order) {
+        acc[item.field] = item.order;
+      }
+      return acc;
+    }, {} as Record<string, 'asc' | 'desc'>);
+  }
+  
+  return undefined;
+}
+
+/**
  * Helper to get gantt configuration from schema
  */
 function getGanttConfig(schema: ObjectGridSchema): GanttConfig | null {
@@ -81,8 +108,6 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   dataSource,
   className,
   onTaskClick,
-  onEdit,
-  onDelete,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,11 +136,11 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
 
         if (dataConfig?.provider === 'object') {
           const objectName = dataConfig.object;
-          const records = await dataSource.query(objectName, {
-            filters: schema.filter,
-            sort: schema.sort,
+          const result = await dataSource.find(objectName, {
+            $filter: schema.filter,
+            $orderby: convertSortToQueryParams(schema.sort),
           });
-          setData(records || []);
+          setData(result?.data || []);
         } else if (dataConfig?.provider === 'api') {
           console.warn('API provider not yet implemented for ObjectGantt');
           setData([]);
@@ -328,7 +353,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
 
             {/* Task Bars */}
             <div className="relative">
-              {tasks.map((task, index) => {
+              {tasks.map((task) => {
                 const position = getTaskPosition(task);
                 
                 return (

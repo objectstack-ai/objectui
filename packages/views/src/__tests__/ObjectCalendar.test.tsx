@@ -18,20 +18,22 @@ describe('ObjectCalendar', () => {
   beforeEach(() => {
     // Mock data source
     mockDataSource = {
-      query: vi.fn().mockResolvedValue([
-        {
-          _id: '1',
-          title: 'Meeting 1',
-          start_date: '2024-01-15T10:00:00Z',
-          end_date: '2024-01-15T11:00:00Z',
-        },
-        {
-          _id: '2',
-          title: 'Meeting 2',
-          start_date: '2024-01-20T14:00:00Z',
-          end_date: '2024-01-20T15:00:00Z',
-        },
-      ]),
+      find: vi.fn().mockResolvedValue({
+        data: [
+          {
+            _id: '1',
+            title: 'Meeting 1',
+            start_date: '2024-01-15T10:00:00Z',
+            end_date: '2024-01-15T11:00:00Z',
+          },
+          {
+            _id: '2',
+            title: 'Meeting 2',
+            start_date: '2024-01-20T14:00:00Z',
+            end_date: '2024-01-20T15:00:00Z',
+          },
+        ],
+      }),
       getObjectSchema: vi.fn().mockResolvedValue({
         name: 'events',
         label: 'Events',
@@ -70,7 +72,7 @@ describe('ObjectCalendar', () => {
     render(<ObjectCalendar schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
-      expect(mockDataSource.query).toHaveBeenCalledWith('events', expect.any(Object));
+      expect(mockDataSource.find).toHaveBeenCalledWith('events', expect.any(Object));
     });
 
     await waitFor(() => {

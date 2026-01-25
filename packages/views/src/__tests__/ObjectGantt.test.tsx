@@ -18,22 +18,24 @@ describe('ObjectGantt', () => {
   beforeEach(() => {
     // Mock data source
     mockDataSource = {
-      query: vi.fn().mockResolvedValue([
-        {
-          _id: '1',
-          title: 'Task 1',
-          start_date: '2024-01-01T00:00:00Z',
-          end_date: '2024-01-15T00:00:00Z',
-          progress: 50,
-        },
-        {
-          _id: '2',
-          title: 'Task 2',
-          start_date: '2024-01-10T00:00:00Z',
-          end_date: '2024-01-25T00:00:00Z',
-          progress: 75,
-        },
-      ]),
+      find: vi.fn().mockResolvedValue({
+        data: [
+          {
+            _id: '1',
+            title: 'Task 1',
+            start_date: '2024-01-01T00:00:00Z',
+            end_date: '2024-01-15T00:00:00Z',
+            progress: 50,
+          },
+          {
+            _id: '2',
+            title: 'Task 2',
+            start_date: '2024-01-10T00:00:00Z',
+            end_date: '2024-01-25T00:00:00Z',
+            progress: 75,
+          },
+        ],
+      }),
       getObjectSchema: vi.fn().mockResolvedValue({
         name: 'tasks',
         label: 'Tasks',
@@ -74,7 +76,7 @@ describe('ObjectGantt', () => {
     render(<ObjectGantt schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
-      expect(mockDataSource.query).toHaveBeenCalledWith('tasks', expect.any(Object));
+      expect(mockDataSource.find).toHaveBeenCalledWith('tasks', expect.any(Object));
     });
 
     await waitFor(() => {

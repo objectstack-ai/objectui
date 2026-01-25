@@ -18,22 +18,24 @@ describe('ObjectMap', () => {
   beforeEach(() => {
     // Mock data source
     mockDataSource = {
-      query: vi.fn().mockResolvedValue([
-        {
-          _id: '1',
-          name: 'Location 1',
-          latitude: 40.7128,
-          longitude: -74.006,
-          description: 'New York',
-        },
-        {
-          _id: '2',
-          name: 'Location 2',
-          latitude: 34.0522,
-          longitude: -118.2437,
-          description: 'Los Angeles',
-        },
-      ]),
+      find: vi.fn().mockResolvedValue({
+        data: [
+          {
+            _id: '1',
+            name: 'Location 1',
+            latitude: 40.7128,
+            longitude: -74.006,
+            description: 'New York',
+          },
+          {
+            _id: '2',
+            name: 'Location 2',
+            latitude: 34.0522,
+            longitude: -118.2437,
+            description: 'Los Angeles',
+          },
+        ],
+      }),
       getObjectSchema: vi.fn().mockResolvedValue({
         name: 'locations',
         label: 'Locations',
@@ -74,7 +76,7 @@ describe('ObjectMap', () => {
     render(<ObjectMap schema={mockSchema} dataSource={mockDataSource} />);
 
     await waitFor(() => {
-      expect(mockDataSource.query).toHaveBeenCalledWith('locations', expect.any(Object));
+      expect(mockDataSource.find).toHaveBeenCalledWith('locations', expect.any(Object));
     });
 
     await waitFor(() => {

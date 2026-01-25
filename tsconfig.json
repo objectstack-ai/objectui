@@ -32,9 +32,7 @@
       "@object-ui/ui": ["packages/ui/src"],
       "@object-ui/ui/*": ["packages/ui/src/*"],
       "@object-ui/renderer": ["packages/renderer/src"],
-      "@object-ui/renderer/*": ["packages/renderer/src/*"],
-      "@object-ui/designer": ["packages/designer/src"],
-      "@object-ui/designer/*": ["packages/designer/src/*"]
+      "@object-ui/renderer/*": ["packages/renderer/src/*"]
     }
   },
   "include": ["packages", "examples"]

@@ -31,7 +31,6 @@ export default defineConfig({
       '@object-ui/components': path.resolve(__dirname, './packages/components/src'),
       '@': path.resolve(__dirname, './packages/components/src'),
       '@object-ui/ui': path.resolve(__dirname, './packages/ui/src'),
-      '@object-ui/designer': path.resolve(__dirname, './packages/designer/src'),
     },
   },
 });

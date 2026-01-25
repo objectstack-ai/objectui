@@ -126,8 +126,6 @@ export {
   ChartSchema,
   TimelineEventSchema,
   TimelineSchema,
-  BreadcrumbItemSchema,
-  BreadcrumbSchema,
   KbdSchema,
   HtmlSchema,
   DataDisplaySchema,

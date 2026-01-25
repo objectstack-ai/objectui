@@ -254,23 +254,6 @@ export const TimelineSchema = BaseSchema.extend({
 });
 
 /**
- * Breadcrumb Item Schema
- */
-export const BreadcrumbItemSchema = z.object({
-  label: z.string().describe('Breadcrumb label'),
-  href: z.string().optional().describe('Link URL'),
-});
-
-/**
- * Breadcrumb Schema - Breadcrumb navigation
- */
-export const BreadcrumbSchema = BaseSchema.extend({
-  type: z.literal('breadcrumb'),
-  items: z.array(BreadcrumbItemSchema).describe('Breadcrumb items'),
-  separator: z.string().optional().describe('Custom separator'),
-});
-
-/**
  * Keyboard Key Schema - Keyboard key display
  */
 export const KbdSchema = BaseSchema.extend({
@@ -302,7 +285,6 @@ export const DataDisplaySchema = z.union([
   TreeViewSchema,
   ChartSchema,
   TimelineSchema,
-  BreadcrumbSchema,
   KbdSchema,
   HtmlSchema,
 ]);

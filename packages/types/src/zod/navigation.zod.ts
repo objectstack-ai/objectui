@@ -94,7 +94,6 @@ export const BreadcrumbSchema = BaseSchema.extend({
  */
 export const PaginationSchema = BaseSchema.extend({
   type: z.literal('pagination'),
-  currentPage: z.number().optional().describe('Current page number (deprecated, use page)'),
   page: z.number().optional().describe('Current page number'),
   totalPages: z.number().describe('Total number of pages'),
   siblings: z.number().optional().describe('Number of sibling pages to show'),

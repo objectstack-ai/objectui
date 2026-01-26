@@ -76,8 +76,8 @@ function normalizeColumns(
 ): ListColumn[] | string[] | undefined {
   if (!columns || columns.length === 0) return undefined;
   
-  // Already in ListColumn format - check for null and object type
-  if (columns[0] !== null && columns[0] !== undefined && typeof columns[0] === 'object') {
+  // Already in ListColumn format - check for object type with optional chaining
+  if (typeof columns[0] === 'object' && columns[0] !== null) {
     return columns as ListColumn[];
   }
   
@@ -147,9 +147,9 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
     
     if (cols) {
       // If columns are already ListColumn objects, convert them to data-table format
-      if (cols.length > 0 && cols[0] !== null && cols[0] !== undefined && typeof cols[0] === 'object') {
+      if (cols.length > 0 && typeof cols[0] === 'object' && cols[0] !== null) {
         return (cols as ListColumn[])
-          .filter((col) => col && col.field) // Filter out invalid column objects
+          .filter((col) => col?.field && typeof col.field === 'string') // Filter out invalid column objects
           .map((col) => ({
             header: col.label || col.field.charAt(0).toUpperCase() + col.field.slice(1).replace(/_/g, ' '),
             accessorKey: col.field,
@@ -159,9 +159,9 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
           }));
       }
       
-      // String array format - return as-is for now
+      // String array format - filter out invalid entries
       return (cols as string[])
-        .filter((fieldName) => fieldName && typeof fieldName === 'string') // Filter out invalid entries
+        .filter((fieldName) => typeof fieldName === 'string' && fieldName.trim().length > 0)
         .map((fieldName) => ({
           header: fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' '),
           accessorKey: fieldName,

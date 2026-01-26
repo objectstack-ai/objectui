@@ -28,26 +28,10 @@ export type { ObjectFormProps } from './ObjectForm';
 export { ObjectView } from './ObjectView';
 export type { ObjectViewProps } from './ObjectView';
 
-// Export field renderers for customization
-export {
-  getCellRenderer,
-  TextCellRenderer,
-  NumberCellRenderer,
-  CurrencyCellRenderer,
-  PercentCellRenderer,
-  BooleanCellRenderer,
-  DateCellRenderer,
-  DateTimeCellRenderer,
-  SelectCellRenderer,
-  EmailCellRenderer,
-  UrlCellRenderer,
-  PhoneCellRenderer,
-  FileCellRenderer,
-  ImageCellRenderer,
-  LookupCellRenderer,
-  FormulaCellRenderer,
-  UserCellRenderer,
-} from './field-renderers';
+// Export field renderers specific to this package
+// Note: Standard field renderers are now in @object-ui/fields
+export * from '@object-ui/fields';
+
 export type { CellRendererProps } from './field-renderers';
 
 // Re-export related types from @object-ui/types

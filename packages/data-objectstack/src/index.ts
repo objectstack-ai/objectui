@@ -8,7 +8,7 @@
 
 import { ObjectStackClient, type QueryOptions as ObjectStackQueryOptions } from '@objectstack/client';
 import type { DataSource, QueryParams, QueryResult } from '@object-ui/types';
-import { convertFiltersToAST } from '../utils/filter-converter';
+import { convertFiltersToAST } from '@object-ui/core';
 
 /**
  * ObjectStack Data Source Adapter
@@ -19,7 +19,7 @@ import { convertFiltersToAST } from '../utils/filter-converter';
  * 
  * @example
  * ```typescript
- * import { ObjectStackAdapter } from '@object-ui/core/adapters';
+ * import { ObjectStackAdapter } from '@object-ui/data-objectstack';
  * 
  * const dataSource = new ObjectStackAdapter({
  *   baseUrl: 'https://api.example.com',

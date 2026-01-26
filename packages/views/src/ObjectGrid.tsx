@@ -24,7 +24,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, ViewData } from '@object-ui/types';
 import { SchemaRenderer } from '@object-ui/react';
-import { getCellRenderer } from './field-renderers';
+import { getCellRenderer } from '@object-ui/fields';
 import { Button } from '@object-ui/components';
 import {
   DropdownMenu,

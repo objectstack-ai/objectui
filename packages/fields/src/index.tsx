@@ -6,13 +6,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-/**
- * Field Renderers for ObjectTable and ObjectForm
- * 
- * Provides specialized rendering functions for different field types.
- * Implements both Cell View (read mode) and Form Control (edit mode) for each field type.
- */
-
 import React from 'react';
 import type { FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
 import { Badge, Avatar, AvatarFallback, Button } from '@object-ui/components';
@@ -31,7 +24,7 @@ export interface CellRendererProps {
 /**
  * Format currency value
  */
-function formatCurrency(value: number, currency: string = 'USD'): string {
+export function formatCurrency(value: number, currency: string = 'USD'): string {
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -45,14 +38,14 @@ function formatCurrency(value: number, currency: string = 'USD'): string {
 /**
  * Format percent value
  */
-function formatPercent(value: number, precision: number = 2): string {
+export function formatPercent(value: number, precision: number = 2): string {
   return `${(value * 100).toFixed(precision)}%`;
 }
 
 /**
  * Format date value
  */
-function formatDate(value: string | Date, _format?: string): string {
+export function formatDate(value: string | Date, _format?: string): string {
   if (!value) return '-';
   const date = typeof value === 'string' ? new Date(value) : value;
   if (isNaN(date.getTime())) return '-';
@@ -68,7 +61,7 @@ function formatDate(value: string | Date, _format?: string): string {
 /**
  * Format datetime value
  */
-function formatDateTime(value: string | Date): string {
+export function formatDateTime(value: string | Date): string {
   if (!value) return '-';
   const date = typeof value === 'string' ? new Date(value) : value;
   if (isNaN(date.getTime())) return '-';
@@ -482,4 +475,210 @@ export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> 
   };
   
   return rendererMap[fieldType] || TextCellRenderer;
+}
+
+/**
+ * Map field type to form component type
+ * 
+ * @param fieldType - The ObjectQL field type identifier to convert
+ * (for example: `"text"`, `"number"`, `"date"`, `"lookup"`).
+ * @returns The normalized form field type string used in the form schema
+ * (for example: `"input"`, `"textarea"`, `"date-picker"`, `"select"`).
+ */
+export function mapFieldTypeToFormType(fieldType: string): string {
+  const typeMap: Record<string, string> = {
+    // Text-based fields
+    text: 'input',
+    textarea: 'textarea',
+    markdown: 'textarea', // Markdown editor (fallback to textarea)
+    html: 'textarea', // Rich text editor (fallback to textarea)
+    
+    // Numeric fields
+    number: 'input',
+    currency: 'input',
+    percent: 'input',
+    
+    // Date/Time fields
+    date: 'date-picker',
+    datetime: 'date-picker',
+    time: 'input', // Time picker (fallback to input with type="time")
+    
+    // Boolean
+    boolean: 'switch',
+    
+    // Selection fields
+    select: 'select',
+    lookup: 'select',
+    master_detail: 'select',
+    
+    // Contact fields
+    email: 'input',
+    phone: 'input',
+    url: 'input',
+    
+    // File fields
+    file: 'file-upload',
+    image: 'file-upload',
+    
+    // Special fields
+    password: 'input',
+    location: 'input', // Location/map field (fallback to input)
+    
+    // Auto-generated/computed fields (typically read-only)
+    formula: 'input',
+    summary: 'input',
+    auto_number: 'input',
+    
+    // Complex data types
+    object: 'input', // JSON object (fallback to input)
+    vector: 'input', // Vector/embedding data (fallback to input)
+    grid: 'input', // Grid/table data (fallback to input)
+  };
+
+  return typeMap[fieldType] || 'input';
+}
+
+/**
+ * Formats file size in bytes to human-readable string
+ * @param bytes - File size in bytes (must be non-negative)
+ * @returns Formatted string (e.g., "5 MB", "1.5 GB")
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 0 || !Number.isFinite(bytes)) {
+    return '0 B';
+  }
+  
+  if (bytes === 0) {
+    return '0 B';
+  }
+  
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = bytes;
+  let unitIndex = 0;
+  
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  
+  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
+}
+
+/**
+ * Build validation rules from field metadata
+ * @param field - Field metadata from ObjectStack
+ * @returns Validation rule object compatible with react-hook-form
+ */
+export function buildValidationRules(field: any): any {
+  const rules: any = {};
+
+  // Required validation
+  if (field.required) {
+    rules.required = typeof field.required_message === 'string' 
+      ? field.required_message 
+      : `${field.label || field.name} is required`;
+  }
+
+  // Length validation for text fields
+  if (field.min_length) {
+    rules.minLength = {
+      value: field.min_length,
+      message: field.min_length_message || `Minimum length is ${field.min_length} characters`,
+    };
+  }
+
+  if (field.max_length) {
+    rules.maxLength = {
+      value: field.max_length,
+      message: field.max_length_message || `Maximum length is ${field.max_length} characters`,
+    };
+  }
+
+  // Number range validation
+  if (field.min !== undefined) {
+    rules.min = {
+      value: field.min,
+      message: field.min_message || `Minimum value is ${field.min}`,
+    };
+  }
+
+  if (field.max !== undefined) {
+    rules.max = {
+      value: field.max,
+      message: field.max_message || `Maximum value is ${field.max}`,
+    };
+  }
+
+  // Pattern validation
+  if (field.pattern) {
+    rules.pattern = {
+      value: typeof field.pattern === 'string' ? new RegExp(field.pattern) : field.pattern,
+      message: field.pattern_message || 'Invalid format',
+    };
+  }
+
+  // Email validation
+  if (field.type === 'email') {
+    rules.pattern = {
+      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      message: 'Please enter a valid email address',
+    };
+  }
+
+  // URL validation
+  if (field.type === 'url') {
+    rules.pattern = {
+      value: /^https?:\/\/.+/,
+      message: 'Please enter a valid URL',
+    };
+  }
+
+  // Custom validation function
+  if (field.validate) {
+    rules.validate = field.validate;
+  }
+
+  return Object.keys(rules).length > 0 ? rules : undefined;
+}
+
+/**
+ * Evaluate a conditional expression for field visibility
+ * @param condition - Condition object from field metadata
+ * @param formData - Current form values
+ * @returns Whether the condition is met
+ */
+export function evaluateCondition(condition: any, formData: any): boolean {
+  if (!condition) return true;
+
+  // Simple field equality check
+  if (condition.field && condition.value !== undefined) {
+    const fieldValue = formData[condition.field];
+    if (condition.operator === '=' || condition.operator === '==') {
+      return fieldValue === condition.value;
+    } else if (condition.operator === '!=') {
+      return fieldValue !== condition.value;
+    } else if (condition.operator === '>') {
+      return fieldValue > condition.value;
+    } else if (condition.operator === '>=') {
+      return fieldValue >= condition.value;
+    } else if (condition.operator === '<') {
+      return fieldValue < condition.value;
+    } else if (condition.operator === '<=') {
+      return fieldValue <= condition.value;
+    } else if (condition.operator === 'in') {
+      return Array.isArray(condition.value) && condition.value.includes(fieldValue);
+    }
+  }
+
+  // AND/OR logic
+  if (condition.and && Array.isArray(condition.and)) {
+    return condition.and.every((c: any) => evaluateCondition(c, formData));
+  }
+
+  if (condition.or && Array.isArray(condition.or)) {
+    return condition.or.some((c: any) => evaluateCondition(c, formData));
+  }
+
+  // Default to true if condition format is unknown
+  return true;
 }

@@ -6,4 +6,5 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export { ObjectStackAdapter, createObjectStackAdapter } from './objectstack-adapter';
+// export { ObjectStackAdapter, createObjectStackAdapter } from './objectstack-adapter';
+// Adapters have been moved to separate packages (e.g. @object-ui/data-objectstack)

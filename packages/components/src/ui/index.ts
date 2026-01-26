@@ -28,13 +28,9 @@ export * from './dialog';
 export * from './drawer';
 export * from './dropdown-menu';
 export * from './empty';
-/** @deprecated Use form.tsx components (FormField, FormItem, FormLabel, FormControl, FormMessage) instead */
-export * from './field';
 export * from './filter-builder';
 export * from './form';
 export * from './hover-card';
-/** @deprecated Use standard Tailwind flex utilities with Shadcn primitives instead */
-export * from './input-group';
 export * from './input-otp';
 export * from './input';
 export * from './item';
@@ -54,26 +50,13 @@ export * from './sheet';
 export * from './sidebar';
 export * from './skeleton';
 export * from './slider';
-/** 
- * Sonner is the recommended toast solution for ObjectUI.
- * When you import { Toaster } from '@object-ui/components', you get the Sonner Toaster (recommended).
- * The legacy toast system is still available but deprecated.
- * @see https://ui.shadcn.com/docs/components/sonner
- */
+export * from './sonner';
 export { Toaster } from './sonner';
 export * from './spinner';
 export * from './switch';
 export * from './table';
 export * from './tabs';
 export * from './textarea';
-/** @deprecated Use Sonner (sonner.tsx) for toast notifications instead */
-export * from './toast';
-/** 
- * @deprecated Use the Sonner-based Toaster instead. 
- * Import { Toaster } from '@object-ui/components' to get the recommended Sonner Toaster.
- * This ToastNotifier export is the legacy Radix-based toaster.
- */
-export { Toaster as ToastNotifier } from './toaster';
 export * from './toggle-group';
 export * from './toggle';
 export * from './tooltip';

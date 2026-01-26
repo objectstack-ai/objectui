@@ -12,8 +12,6 @@ Standard UI component library for Object UI, built with Shadcn UI + Tailwind CSS
 - 🔌 **Extensible** - Easy to customize and extend
 - 🔄 **Sync Tools** - Scripts to keep components updated with latest Shadcn
 
-> **⚠️ Component Deprecations**: Some custom components are being phased out in favor of standard Shadcn patterns. See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for details on migrating from deprecated components.
-
 ## Keeping Components Updated
 
 ObjectUI provides tools to sync components with the latest Shadcn UI versions:

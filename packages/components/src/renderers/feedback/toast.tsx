@@ -8,18 +8,21 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import type { ToastSchema } from '@object-ui/types';
-import { useToast } from '../../hooks/use-toast';
+import { toast } from 'sonner';
 import { Button } from '../../ui';
 
 ComponentRegistry.register('toast', 
-  ({ schema, ...props }: { schema: ToastSchema; [key: string]: any }) => {
-    const { toast } = useToast();
-    
+  ({ schema }: { schema: ToastSchema }) => {
     const showToast = () => {
-      toast({
-        title: schema.title,
+      const toastFn = schema.variant === 'success' ? toast.success :
+                      schema.variant === 'error' ? toast.error :
+                      schema.variant === 'warning' ? toast.warning :
+                      schema.variant === 'info' ? toast.info :
+                      toast;
+      
+      toastFn(schema.title || 'Notification', {
         description: schema.description,
-        variant: schema.variant as any,
+        duration: schema.duration,
       });
     };
     
@@ -37,17 +40,19 @@ ComponentRegistry.register('toast',
       { 
         name: 'variant', 
         type: 'enum', 
-        enum: ['default', 'destructive'], 
+        enum: ['default', 'success', 'warning', 'error', 'info'], 
         defaultValue: 'default',
         label: 'Variant'
       },
+      { name: 'duration', type: 'number', label: 'Duration (ms)' },
       { name: 'buttonLabel', type: 'string', label: 'Button Label' },
       { name: 'className', type: 'string', label: 'CSS Class' }
     ],
     defaultProps: {
       title: 'Notification',
       buttonLabel: 'Show Toast',
-      variant: 'default'
+      variant: 'default',
+      duration: 5000
     }
   }
 );

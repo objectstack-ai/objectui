@@ -675,9 +675,95 @@ export interface ObjectViewSchema extends BaseSchema {
 }
 
 /**
+ * Object Map Component Schema
+ */
+export interface ObjectMapSchema extends BaseSchema {
+  type: 'object-map';
+  /** ObjectQL object name */
+  objectName: string;
+  /** Field containing location data (or lat/long pair) */
+  locationField?: string;
+  /** Field for marker title */
+  titleField?: string;
+}
+
+/**
+ * Object Gantt Component Schema
+ */
+export interface ObjectGanttSchema extends BaseSchema {
+  type: 'object-gantt';
+  /** ObjectQL object name */
+  objectName: string;
+  /** Field for task start date */
+  startDateField?: string;
+  /** Field for task end date */
+  endDateField?: string;
+  /** Field for task title/name */
+  titleField?: string;
+  /** Field for task dependencies */
+  dependencyField?: string;
+  /** Field for progress (0-100) */
+  progressField?: string;
+}
+
+/**
+ * Object Calendar Component Schema
+ */
+export interface ObjectCalendarSchema extends BaseSchema {
+  type: 'object-calendar';
+  /** ObjectQL object name */
+  objectName: string;
+  /** Field for event start */
+  startDateField?: string;
+  /** Field for event end */
+  endDateField?: string;
+  /** Field for event title */
+  titleField?: string;
+  /** Default view mode */
+  defaultView?: 'month' | 'week' | 'day' | 'agenda';
+}
+
+/**
+ * Object Kanban Component Schema
+ */
+export interface ObjectKanbanSchema extends BaseSchema {
+  type: 'object-kanban';
+  /** ObjectQL object name */
+  objectName: string;
+  /** Field to group columns by (e.g. status) */
+  groupField: string;
+  /** Field for card title */
+  titleField?: string;
+  /** Fields to display on card */
+  cardFields?: string[];
+}
+
+/**
+ * Object Chart Component Schema
+ */
+export interface ObjectChartSchema extends BaseSchema {
+  type: 'object-chart';
+  /** ObjectQL object name */
+  objectName: string;
+  /** Chart type */
+  chartType: 'bar' | 'line' | 'pie' | 'area' | 'scatter';
+  /** Field for X axis (categories) */
+  xAxisField: string;
+  /** Fields for Y axis (values) */
+  yAxisFields?: string[];
+  /** Aggregation function */
+  aggregation?: 'cardinality' | 'sum' | 'avg' | 'min' | 'max';
+}
+
+/**
  * Union type of all ObjectQL component schemas
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema
   | ObjectFormSchema
-  | ObjectViewSchema;
+  | ObjectViewSchema
+  | ObjectMapSchema
+  | ObjectGanttSchema
+  | ObjectCalendarSchema
+  | ObjectKanbanSchema
+  | ObjectChartSchema;

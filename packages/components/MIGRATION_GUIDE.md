@@ -73,7 +73,14 @@ const form = useForm();
 
 1. **Install react-hook-form** (if not already installed)
    ```bash
+   # Using pnpm
    pnpm add react-hook-form
+   
+   # Using npm
+   npm install react-hook-form
+   
+   # Using yarn
+   yarn add react-hook-form
    ```
 
 2. **Replace component imports**

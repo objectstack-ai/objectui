@@ -11,10 +11,18 @@ import { ComponentRegistry } from '@object-ui/core';
 import { ObjectCalendar } from './ObjectCalendar';
 import type { ObjectCalendarProps } from './ObjectCalendar';
 
+// Export ObjectCalendar component
 export { ObjectCalendar };
 export type { ObjectCalendarProps };
 
-// Register component
+// Export CalendarView component (merged from plugin-calendar-view)
+export { CalendarView } from './CalendarView';
+export type { CalendarViewProps, CalendarEvent } from './CalendarView';
+
+// Import and register calendar-view renderer
+import './calendar-view-renderer';
+
+// Register object-calendar component
 const ObjectCalendarRenderer: React.FC<{ schema: any }> = ({ schema }) => {
   return <ObjectCalendar schema={schema} dataSource={null as any} />;
 };

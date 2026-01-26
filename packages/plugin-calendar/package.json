@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "type": "module",
   "license": "MIT",
-  "description": "Calendar view plugin for Object UI",
+  "description": "Calendar view plugins for Object UI - includes both ObjectQL-integrated and standalone calendar components",
   "homepage": "https://www.objectui.org",
   "repository": {
     "type": "git",

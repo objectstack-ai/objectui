@@ -2,7 +2,9 @@
 title: "Plugin Calendar"
 ---
 
-Calendar view component for ObjectQL data sources - displays database records as calendar events.
+import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+
+Calendar view components for ObjectUI - includes both ObjectQL-integrated and standalone calendar components.
 
 ## Installation
 
@@ -12,11 +14,113 @@ npm install @object-ui/plugin-calendar
 
 ## Overview
 
-The `@object-ui/plugin-calendar` plugin provides calendar visualization for ObjectQL data sources. It's designed to work with object-based data providers and automatically maps record fields to calendar events.
+The `@object-ui/plugin-calendar` plugin provides two calendar components:
 
-**Note**: This plugin is designed for use with ObjectQL data sources. For a standalone calendar component, see [Calendar View Plugin](/docs/plugins/plugin-calendar-view).
+1. **ObjectCalendar** (`object-calendar`): For ObjectQL data sources - displays database records as calendar events
+2. **CalendarView** (`calendar-view`): Standalone calendar component for displaying pre-loaded event data
 
-## Features
+Both components support month, week, and day views with full event management capabilities.
+
+## CalendarView Component
+
+Full-featured standalone calendar with month, week, and day views for displaying events and scheduling.
+
+### Interactive Examples
+
+#### Month View
+
+<InteractiveDemo
+  schema={{
+    type: "calendar-view",
+    view: "month",
+    data: [
+      {
+        id: 1,
+        title: "Team Meeting",
+        start: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(),
+        end: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(),
+        color: "#3b82f6",
+        allDay: false
+      },
+      {
+        id: 2,
+        title: "Project Deadline",
+        start: new Date(new Date().setDate(new Date().getDate() + 3)).toISOString(),
+        color: "#ef4444",
+        allDay: true
+      },
+      {
+        id: 3,
+        title: "Conference",
+        start: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(),
+        end: new Date(new Date().setDate(new Date().getDate() + 9)).toISOString(),
+        color: "#10b981",
+        allDay: true
+      }
+    ],
+    titleField: "title",
+    startDateField: "start",
+    endDateField: "end",
+    colorField: "color",
+    allDayField: "allDay",
+    className: "h-[600px] border rounded-lg"
+  }}
+  title="Month View Calendar"
+  description="Full calendar view displaying events across the month"
+/>
+
+### CalendarView Usage
+
+```tsx
+import '@object-ui/plugin-calendar'
+
+const schema = {
+  type: 'calendar-view',
+  view: 'month',
+  data: [
+    {
+      id: 1,
+      title: 'Team Meeting',
+      start: '2024-01-15T10:00:00',
+      end: '2024-01-15T11:00:00',
+      color: '#3b82f6'
+    }
+  ]
+}
+```
+
+### CalendarView Schema API
+
+```typescript
+{
+  type: 'calendar-view',
+  view?: 'month' | 'week' | 'day',
+  data?: Array<CalendarEventData>,
+  titleField?: string,
+  startDateField?: string,
+  endDateField?: string,
+  allDayField?: string,
+  colorField?: string,
+  colorMapping?: Record<string, string>,
+  currentDate?: string,
+  allowCreate?: boolean,
+  onEventClick?: (event: any) => void,
+  onDateClick?: (date: Date) => void,
+  onViewChange?: (view: string) => void,
+  onNavigate?: (date: Date) => void,
+  className?: string
+}
+```
+
+## ObjectCalendar Component
+
+Calendar component designed for use with ObjectQL data sources.
+
+## ObjectCalendar Component
+
+Calendar component designed for use with ObjectQL data sources.
+
+### Features
 
 - **ObjectQL Integration**: Works seamlessly with object/api/value data providers
 - **Automatic Field Mapping**: Maps database fields to calendar events
@@ -25,9 +129,9 @@ The `@object-ui/plugin-calendar` plugin provides calendar visualization for Obje
 - **Event Interaction**: Click handling for events and dates
 - **Color Coding**: Support for event color customization
 
-## Usage
+### ObjectCalendar Usage
 
-### Basic Usage with ObjectQL
+#### Basic Usage with ObjectQL
 
 ```tsx
 import '@object-ui/plugin-calendar'
@@ -168,6 +272,27 @@ Map your database fields to calendar properties:
 }
 ```
 
+## Comparison: CalendarView vs ObjectCalendar
+
+| Feature | CalendarView | ObjectCalendar |
+|---------|-------------|----------------|
+| **Schema Type** | `calendar-view` | `object-calendar` |
+| **Data Source** | Static arrays | ObjectQL (database) |
+| **Use Case** | Pre-loaded event data | Dynamic data from backend |
+| **Field Mapping** | Standard field names | Configurable field names |
+| **Data Loading** | Manual via props | Automatic via ObjectQL |
+| **Best For** | Static schedules | Database-driven apps |
+
+**When to use CalendarView**:
+- You have static or pre-loaded event data
+- You're not using ObjectQL
+- You need a simple, standalone calendar
+
+**When to use ObjectCalendar**:
+- You're using ObjectQL for data management
+- Events come from a database or API
+- You need automatic data fetching and filtering
+
 ## Event Handling
 
 ### Event Click
@@ -264,31 +389,82 @@ const taskCalendar = {
 }
 ```
 
-## Comparison with Calendar View Plugin
+## Direct Component Usage
 
-| Feature | object-calendar | calendar-view |
-|---------|----------------|---------------|
-| **Data Source** | ObjectQL (database) | Static arrays |
-| **Use Case** | Dynamic data from backend | Pre-loaded event data |
-| **Field Mapping** | Configurable field names | Standard field names |
-| **Data Loading** | Automatic via ObjectQL | Manual via props |
-| **Best For** | Database-driven apps | Static schedules |
+You can also import and use the components directly in React:
 
-**When to use object-calendar**:
-- You're using ObjectQL for data management
-- Events come from a database or API
-- You need automatic data fetching and filtering
+```tsx
+import { CalendarView, ObjectCalendar } from '@object-ui/plugin-calendar';
 
-**When to use calendar-view**:
-- You have static or pre-loaded event data
-- You're not using ObjectQL
-- You need a simple, standalone calendar
+// CalendarView - Standalone calendar
+function MyCalendar() {
+  const events = [
+    {
+      id: 1,
+      title: 'Meeting',
+      start: new Date('2024-01-15T10:00:00'),
+      end: new Date('2024-01-15T11:00:00'),
+      color: '#3b82f6'
+    }
+  ];
+
+  return (
+    <CalendarView
+      events={events}
+      view="month"
+      onEventClick={(event) => console.log(event)}
+    />
+  );
+}
+
+// ObjectCalendar - ObjectQL-integrated
+function MyObjectCalendar({ dataSource }) {
+  const schema = {
+    objectName: 'events',
+    calendar: {
+      startDateField: 'startDate',
+      titleField: 'title'
+    }
+  };
+
+  return (
+    <ObjectCalendar
+      schema={schema}
+      dataSource={dataSource}
+      onEventClick={(record) => console.log(record)}
+    />
+  );
+}
+```
 
 ## TypeScript Support
 
 ```typescript
-import type { ObjectGridSchema, CalendarConfig } from '@object-ui/types'
+import type { 
+  CalendarViewSchema, 
+  CalendarEvent,
+  ObjectGridSchema,
+  CalendarConfig 
+} from '@object-ui/types'
 
+// CalendarView types
+const events: CalendarEvent[] = [
+  {
+    id: 1,
+    title: 'Meeting',
+    start: new Date('2024-01-15T10:00:00'),
+    end: new Date('2024-01-15T11:00:00'),
+    color: '#3b82f6'
+  }
+]
+
+const calendarViewSchema: CalendarViewSchema = {
+  type: 'calendar-view',
+  view: 'month',
+  data: events
+}
+
+// ObjectCalendar types
 const calendarConfig: CalendarConfig = {
   startDateField: 'startDate',
   endDateField: 'endDate',
@@ -296,16 +472,43 @@ const calendarConfig: CalendarConfig = {
   colorField: 'category'
 }
 
-const calendarSchema: ObjectGridSchema = {
+const objectCalendarSchema: ObjectGridSchema = {
   type: 'object-calendar',
   objectName: 'events',
   calendar: calendarConfig
 }
 ```
 
+## Migration from @object-ui/plugin-calendar-view
+
+The `@object-ui/plugin-calendar-view` package has been merged into this package. If you were using it:
+
+### Before
+
+```bash
+npm install @object-ui/plugin-calendar-view
+```
+
+```tsx
+import '@object-ui/plugin-calendar-view'
+import { CalendarView } from '@object-ui/plugin-calendar-view'
+```
+
+### After
+
+```bash
+npm install @object-ui/plugin-calendar
+```
+
+```tsx
+import '@object-ui/plugin-calendar'
+import { CalendarView } from '@object-ui/plugin-calendar'
+```
+
+All functionality remains the same - just update your imports and package dependencies.
+
 ## Related Documentation
 
-- [Calendar View Plugin](/docs/plugins/plugin-calendar-view) - Standalone calendar component
 - [Plugin System Overview](/docs/concepts/plugins)
 - [Views Package](/docs/views) - ObjectQL data management
 - [Package README](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-calendar)

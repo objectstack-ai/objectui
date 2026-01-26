@@ -3,7 +3,6 @@
   "pages": [
     "plugin-aggrid",
     "plugin-calendar",
-    "plugin-calendar-view",
     "plugin-charts",
     "plugin-chatbot",
     "plugin-editor",

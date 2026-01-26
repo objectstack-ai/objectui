@@ -15,7 +15,6 @@
     "@object-ui/core": "workspace:*",
     "@object-ui/plugin-aggrid": "workspace:*",
     "@object-ui/plugin-calendar": "workspace:*",
-    "@object-ui/plugin-calendar-view": "workspace:*",
     "@object-ui/plugin-charts": "workspace:*",
     "@object-ui/plugin-chatbot": "workspace:*",
     "@object-ui/plugin-editor": "workspace:*",

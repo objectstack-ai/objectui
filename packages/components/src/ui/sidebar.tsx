@@ -52,20 +52,22 @@ type SidebarContextProps = {
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
 
+// Default sidebar state for when no provider exists (e.g., during SSR/prerendering)
+const DEFAULT_SIDEBAR_STATE: SidebarContextProps = {
+  state: "expanded",
+  open: true,
+  setOpen: () => {},
+  openMobile: false,
+  setOpenMobile: () => {},
+  isMobile: false,
+  toggleSidebar: () => {},
+}
+
 function useSidebar() {
   const context = React.useContext(SidebarContext)
   if (!context) {
-    // Return default values when no provider exists (e.g., during SSR/prerendering)
-    // This allows components to gracefully degrade without breaking the build
-    return {
-      state: "expanded" as const,
-      open: true,
-      setOpen: () => {},
-      openMobile: false,
-      setOpenMobile: () => {},
-      isMobile: false,
-      toggleSidebar: () => {},
-    }
+    // Return default values to allow components to gracefully degrade without breaking the build
+    return DEFAULT_SIDEBAR_STATE
   }
 
   return context

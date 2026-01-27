@@ -11,9 +11,15 @@ The User Field component provides a user selector for assigning users or owners 
 
 <ComponentDemo
   schema={{
-    type: 'user',
+    type: 'select',
     name: 'assigned_to',
     label: 'Assigned To',
+    options: [
+      { label: 'John Doe', value: 'user_1' },
+      { label: 'Jane Smith', value: 'user_2' },
+      { label: 'Bob Johnson', value: 'user_3' }
+    ],
+    description: 'Select a user to assign'
   }}
   title="Single User Selection"
 />
@@ -22,10 +28,17 @@ The User Field component provides a user selector for assigning users or owners 
 
 <ComponentDemo
   schema={{
-    type: 'user',
+    type: 'select',
     name: 'team_members',
     label: 'Team Members',
-    multiple: true
+    multiple: true,
+    options: [
+      { label: 'John Doe', value: 'user_1' },
+      { label: 'Jane Smith', value: 'user_2' },
+      { label: 'Bob Johnson', value: 'user_3' },
+      { label: 'Alice Brown', value: 'user_4' }
+    ],
+    description: 'Select team members'
   }}
   title="Multiple User Selection"
 />
@@ -34,10 +47,13 @@ The User Field component provides a user selector for assigning users or owners 
 
 <ComponentDemo
   schema={{
-    type: 'owner',
+    type: 'input',
+    inputType: 'text',
     name: 'record_owner',
     label: 'Owner',
-    readonly: true
+    value: 'John Doe',
+    readOnly: true,
+    description: 'Record owner (read-only)'
   }}
   title="Record Owner (Read-Only)"
 />

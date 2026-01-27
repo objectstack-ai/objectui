@@ -11,14 +11,13 @@ The Summary Field component displays aggregated values from related records. Thi
 
 <ComponentDemo
   schema={{
-    type: 'summary',
+    type: 'input',
+    inputType: 'number',
     name: 'order_count',
     label: 'Total Orders',
-    summary_object: 'orders',
-    summary_field: 'id',
-    summary_type: 'count',
-    readonly: true,
-    value: 42
+    value: 42,
+    readOnly: true,
+    description: 'Count of related orders'
   }}
   title="Count of Related Records"
 />
@@ -27,14 +26,13 @@ The Summary Field component displays aggregated values from related records. Thi
 
 <ComponentDemo
   schema={{
-    type: 'summary',
+    type: 'input',
+    inputType: 'number',
     name: 'total_revenue',
     label: 'Total Revenue',
-    summary_object: 'orders',
-    summary_field: 'amount',
-    summary_type: 'sum',
-    readonly: true,
-    value: 15750.50
+    value: 15750.50,
+    readOnly: true,
+    description: 'Sum of order amounts'
   }}
   title="Sum of Field Values"
 />
@@ -43,14 +41,13 @@ The Summary Field component displays aggregated values from related records. Thi
 
 <ComponentDemo
   schema={{
-    type: 'summary',
+    type: 'input',
+    inputType: 'number',
     name: 'avg_rating',
     label: 'Average Rating',
-    summary_object: 'reviews',
-    summary_field: 'rating',
-    summary_type: 'avg',
-    readonly: true,
-    value: 4.52
+    value: 4.52,
+    readOnly: true,
+    description: 'Average of review ratings'
   }}
   title="Average of Field Values"
 />

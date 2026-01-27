@@ -11,10 +11,12 @@ The Percent Field component provides a percentage input that automatically conve
 
 <ComponentDemo
   schema={{
-    type: 'percent',
+    type: 'input',
+    inputType: 'number',
     name: 'completion',
-    label: 'Completion',
-    placeholder: '0'
+    label: 'Completion (%)',
+    placeholder: '0',
+    description: 'Enter value from 0 to 100'
   }}
   title="Basic Percent Field"
 />
@@ -23,11 +25,12 @@ The Percent Field component provides a percentage input that automatically conve
 
 <ComponentDemo
   schema={{
-    type: 'percent',
+    type: 'input',
+    inputType: 'number',
     name: 'progress',
-    label: 'Progress',
-    precision: 1,
-    value: 0.753
+    label: 'Progress (%)',
+    value: 75.3,
+    description: 'Percentage with decimal precision'
   }}
   title="With Decimal Precision"
 />
@@ -36,11 +39,12 @@ The Percent Field component provides a percentage input that automatically conve
 
 <ComponentDemo
   schema={{
-    type: 'percent',
+    type: 'input',
+    inputType: 'number',
     name: 'discount',
-    label: 'Discount Rate',
+    label: 'Discount Rate (%)',
     required: true,
-    precision: 2
+    placeholder: '0.00'
   }}
   title="Required Percent"
 />
@@ -49,11 +53,12 @@ The Percent Field component provides a percentage input that automatically conve
 
 <ComponentDemo
   schema={{
-    type: 'percent',
+    type: 'input',
+    inputType: 'number',
     name: 'success_rate',
-    label: 'Success Rate',
-    value: 0.875,
-    readonly: true
+    label: 'Success Rate (%)',
+    value: 87.5,
+    readOnly: true
   }}
   title="Read-Only Percent"
 />

@@ -11,7 +11,8 @@ The DateTime Field component provides a combined date and time input for collect
 
 <ComponentDemo
   schema={{
-    type: 'datetime',
+    type: 'input',
+    inputType: 'datetime-local',
     name: 'meeting_time',
     label: 'Meeting Time',
     placeholder: 'Select date and time...'
@@ -23,7 +24,8 @@ The DateTime Field component provides a combined date and time input for collect
 
 <ComponentDemo
   schema={{
-    type: 'datetime',
+    type: 'input',
+    inputType: 'datetime-local',
     name: 'scheduled_at',
     label: 'Scheduled At',
     value: '2024-03-15T14:30'
@@ -35,7 +37,8 @@ The DateTime Field component provides a combined date and time input for collect
 
 <ComponentDemo
   schema={{
-    type: 'datetime',
+    type: 'input',
+    inputType: 'datetime-local',
     name: 'appointment',
     label: 'Appointment',
     required: true
@@ -47,11 +50,12 @@ The DateTime Field component provides a combined date and time input for collect
 
 <ComponentDemo
   schema={{
-    type: 'datetime',
+    type: 'input',
+    inputType: 'datetime-local',
     name: 'created_at',
     label: 'Created At',
     value: '2024-03-15T10:30',
-    readonly: true
+    readOnly: true
   }}
   title="Read-Only DateTime"
 />

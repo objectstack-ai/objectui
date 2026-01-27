@@ -11,9 +11,11 @@ The Image Field component provides an image upload interface with thumbnail prev
 
 <ComponentDemo
   schema={{
-    type: 'image',
+    type: 'file-upload',
     name: 'avatar',
     label: 'Profile Picture',
+    accept: 'image/*',
+    description: 'Upload your profile picture'
   }}
   title="Basic Image Upload"
 />
@@ -22,10 +24,12 @@ The Image Field component provides an image upload interface with thumbnail prev
 
 <ComponentDemo
   schema={{
-    type: 'image',
+    type: 'file-upload',
     name: 'gallery',
     label: 'Photo Gallery',
-    multiple: true
+    multiple: true,
+    accept: 'image/*',
+    description: 'Upload multiple images'
   }}
   title="Multiple Image Upload"
 />

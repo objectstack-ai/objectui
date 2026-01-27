@@ -11,10 +11,12 @@ The Object Field component provides a JSON editor for storing and editing struct
 
 <ComponentDemo
   schema={{
-    type: 'object',
+    type: 'textarea',
     name: 'metadata',
     label: 'Metadata',
-    placeholder: '{\n  "key": "value"\n}'
+    placeholder: '{\n  "key": "value"\n}',
+    rows: 6,
+    description: 'Enter JSON object data'
   }}
   title="Basic Object Editor"
 />
@@ -23,14 +25,12 @@ The Object Field component provides a JSON editor for storing and editing struct
 
 <ComponentDemo
   schema={{
-    type: 'object',
+    type: 'textarea',
     name: 'config',
     label: 'Configuration',
-    schema: {
-      api_key: 'string',
-      timeout: 'number',
-      enabled: 'boolean'
-    }
+    value: '{\n  "api_key": "abc123",\n  "timeout": 5000,\n  "enabled": true\n}',
+    rows: 6,
+    description: 'Structured configuration object'
   }}
   title="Structured Configuration"
 />
@@ -39,19 +39,12 @@ The Object Field component provides a JSON editor for storing and editing struct
 
 <ComponentDemo
   schema={{
-    type: 'object',
+    type: 'textarea',
     name: 'settings',
     label: 'Settings',
-    value: {
-      theme: 'dark',
-      notifications: {
-        email: true,
-        push: false
-      },
-      privacy: {
-        public: false
-      }
-    }
+    value: '{\n  "theme": "dark",\n  "notifications": {\n    "email": true,\n    "push": false\n  }\n}',
+    rows: 8,
+    description: 'Nested object data'
   }}
   title="Nested Object Data"
 />
@@ -60,14 +53,13 @@ The Object Field component provides a JSON editor for storing and editing struct
 
 <ComponentDemo
   schema={{
-    type: 'object',
+    type: 'textarea',
     name: 'response',
     label: 'API Response',
-    value: {
-      status: 200,
-      data: { id: 123, name: 'Test' }
-    },
-    readonly: true
+    value: '{\n  "status": 200,\n  "data": {\n    "id": 123,\n    "name": "Test"\n  }\n}',
+    readOnly: true,
+    rows: 6,
+    description: 'Read-only JSON display'
   }}
   title="Read-Only JSON Display"
 />

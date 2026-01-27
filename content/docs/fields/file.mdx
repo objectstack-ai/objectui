@@ -11,7 +11,7 @@ The File Field component provides a file upload interface with support for multi
 
 <ComponentDemo
   schema={{
-    type: 'file',
+    type: 'file-upload',
     name: 'attachment',
     label: 'Attachment',
   }}
@@ -22,10 +22,11 @@ The File Field component provides a file upload interface with support for multi
 
 <ComponentDemo
   schema={{
-    type: 'file',
+    type: 'file-upload',
     name: 'documents',
     label: 'Documents',
-    multiple: true
+    multiple: true,
+    description: 'Upload one or more files'
   }}
   title="Multiple File Upload"
 />
@@ -34,11 +35,11 @@ The File Field component provides a file upload interface with support for multi
 
 <ComponentDemo
   schema={{
-    type: 'file',
+    type: 'file-upload',
     name: 'pdf_upload',
     label: 'PDF Documents',
-    accept: ['application/pdf'],
-    multiple: true
+    accept: '.pdf',
+    description: 'PDF files only'
   }}
   title="PDF Files Only"
 />

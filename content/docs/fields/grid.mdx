@@ -11,14 +11,13 @@ The Grid Field component provides an inline table for managing related records o
 
 <ComponentDemo
   schema={{
-    type: 'grid',
+    type: 'textarea',
     name: 'line_items',
     label: 'Line Items',
-    columns: [
-      { name: 'product', label: 'Product', type: 'text' },
-      { name: 'quantity', label: 'Quantity', type: 'number' },
-      { name: 'price', label: 'Price', type: 'currency' }
-    ]
+    value: 'Product A | Qty: 2 | $29.99\nProduct B | Qty: 1 | $49.99\nProduct C | Qty: 5 | $9.99',
+    rows: 4,
+    readOnly: true,
+    description: 'Sub-table data preview'
   }}
   title="Basic Grid"
 />
@@ -27,19 +26,13 @@ The Grid Field component provides an inline table for managing related records o
 
 <ComponentDemo
   schema={{
-    type: 'grid',
+    type: 'textarea',
     name: 'order_items',
-    label: 'Order Items',
-    columns: [
-      { name: 'item', label: 'Item', type: 'text' },
-      { name: 'qty', label: 'Qty', type: 'number' },
-      { name: 'price', label: 'Price', type: 'currency' }
-    ],
-    value: [
-      { item: 'Widget A', qty: 2, price: 29.99 },
-      { item: 'Widget B', qty: 1, price: 49.99 },
-      { item: 'Widget C', qty: 5, price: 9.99 }
-    ]
+    label: 'Order Items (3 rows)',
+    value: 'Item          | Qty | Price\nWidget A      | 2   | $29.99\nWidget B      | 1   | $49.99\nWidget C      | 5   | $9.99',
+    rows: 5,
+    readOnly: true,
+    description: 'Formatted grid data'
   }}
   title="Grid with Data"
 />
@@ -48,19 +41,13 @@ The Grid Field component provides an inline table for managing related records o
 
 <ComponentDemo
   schema={{
-    type: 'grid',
+    type: 'textarea',
     name: 'transaction_history',
-    label: 'Transaction History',
-    columns: [
-      { name: 'date', label: 'Date', type: 'date' },
-      { name: 'description', label: 'Description', type: 'text' },
-      { name: 'amount', label: 'Amount', type: 'currency' }
-    ],
-    readonly: true,
-    value: [
-      { date: '2024-03-15', description: 'Payment received', amount: 100.00 },
-      { date: '2024-03-14', description: 'Service charge', amount: -5.00 }
-    ]
+    label: 'Transaction History (2 rows)',
+    value: 'Date       | Description      | Amount\n2024-03-15 | Payment received | $100.00\n2024-03-14 | Service charge   | -$5.00',
+    rows: 4,
+    readOnly: true,
+    description: 'Read-only transaction grid'
   }}
   title="Read-Only Grid"
 />

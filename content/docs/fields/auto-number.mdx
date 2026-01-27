@@ -11,11 +11,13 @@ The AutoNumber Field component displays auto-generated sequence numbers. This is
 
 <ComponentDemo
   schema={{
-    type: 'auto_number',
+    type: 'input',
+    inputType: 'text',
     name: 'order_number',
     label: 'Order Number',
-    readonly: true,
-    value: 'ORD-0001'
+    value: 'ORD-0001',
+    readOnly: true,
+    description: 'Auto-generated on record creation'
   }}
   title="Basic AutoNumber"
 />
@@ -24,12 +26,13 @@ The AutoNumber Field component displays auto-generated sequence numbers. This is
 
 <ComponentDemo
   schema={{
-    type: 'auto_number',
+    type: 'input',
+    inputType: 'text',
     name: 'invoice_id',
     label: 'Invoice ID',
-    format: 'INV-{0000}',
-    readonly: true,
-    value: 'INV-1234'
+    value: 'INV-1234',
+    readOnly: true,
+    description: 'Format: INV-{0000}'
   }}
   title="Invoice Number Format"
 />
@@ -38,12 +41,13 @@ The AutoNumber Field component displays auto-generated sequence numbers. This is
 
 <ComponentDemo
   schema={{
-    type: 'auto_number',
+    type: 'input',
+    inputType: 'text',
     name: 'ticket_id',
     label: 'Ticket ID',
-    format: 'TKT-{YYYY}{MM}-{0000}',
-    readonly: true,
-    value: 'TKT-202403-0567'
+    value: 'TKT-202403-0567',
+    readOnly: true,
+    description: 'Format: TKT-{YYYY}{MM}-{0000}'
   }}
   title="Date-Based Ticket ID"
 />

@@ -744,38 +744,38 @@ import { GridField } from './widgets/GridField';
 
 // Create wrapper renderers for field widgets to work with ComponentDemo
 function createFieldRenderer(FieldWidget: React.ComponentType<any>) {
-  return function FieldRenderer({ schema, className, value: initialValue, ...props }: any) {
-    const [value, setValue] = React.useState(initialValue ?? schema.value ?? '');
+  const FieldRenderer: React.FC<any> = ({ schema, className, value: initialValue, ...props }) => {
+    const [value, setValue] = React.useState(initialValue ?? schema?.value ?? '');
     
     const field = {
-      name: schema.name || 'field',
-      label: schema.label,
-      type: schema.type,
-      placeholder: schema.placeholder,
-      required: schema.required,
-      readonly: schema.readonly || schema.readOnly,
-      help: schema.help,
-      description: schema.description,
-      defaultValue: schema.defaultValue || schema.value,
+      name: schema?.name || 'field',
+      label: schema?.label,
+      type: schema?.type,
+      placeholder: schema?.placeholder,
+      required: schema?.required,
+      readonly: schema?.readonly || schema?.readOnly,
+      help: schema?.help,
+      description: schema?.description,
+      defaultValue: schema?.defaultValue || schema?.value,
       ...schema,
     };
 
-    const handleChange = (newValue: any) => {
+    const handleChange = React.useCallback((newValue: any) => {
       setValue(newValue);
       if (props.onChange) {
         props.onChange(newValue);
       }
-    };
+    }, [props]);
 
-    const readonly = schema.readonly || schema.readOnly || false;
+    const readonly = schema?.readonly || schema?.readOnly || false;
 
     return (
       <div 
         className="grid w-full items-center gap-1.5"
-        data-obj-id={schema.id}
-        data-obj-type={schema.type}
+        data-obj-id={schema?.id}
+        data-obj-type={schema?.type}
       >
-        {schema.label && (
+        {schema?.label && (
           <label htmlFor={schema.id} className={schema.required ? "after:content-['*'] after:ml-0.5 after:text-red-500" : ""}>
             {schema.label}
           </label>
@@ -787,12 +787,16 @@ function createFieldRenderer(FieldWidget: React.ComponentType<any>) {
           readonly={readonly}
           className={className}
         />
-        {schema.description && (
+        {schema?.description && (
           <p className="text-sm text-gray-500">{schema.description}</p>
         )}
       </div>
     );
   };
+  
+  FieldRenderer.displayName = `FieldRenderer(${FieldWidget.displayName || FieldWidget.name || 'Component'})`;
+  
+  return FieldRenderer;
 }
 
 export function registerFields() {

@@ -7,7 +7,7 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    // Removed rootDir to prevent file not under rootDir errors when importing from workspace dependencies
+    // Removed explicit rootDir to prevent file not under rootDir errors when importing from workspace dependencies
     "noEmit": false,
     "declaration": true,
     "composite": true,

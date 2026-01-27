@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@object-ui/compon
 import { SchemaRendererProvider, SchemaRenderer, useRenderer } from '@object-ui/react';
 import { registerFields } from '@object-ui/fields';
 import { registerLayout } from '@object-ui/layout';
+import '@object-ui/plugin-dashboard'; // Auto-register dashboard
 import { SidebarNav } from './components/SidebarNav';
 
 // 1. Register components from packages (The "Controls Repository")
@@ -25,36 +26,40 @@ const mockData = {
 
 // Dashboard Page
 const dashboardSchema = {
-  type: "page",
+  type: "dashboard", // Changed from 'page' to 'dashboard'
   props: { title: "Executive Dashboard" },
-  children: [
+  widgets: [
     {
-      type: "grid",
-      props: { cols: 3, gap: 4, className: "mb-8" },
-      children: [
-        {
-          type: "card",
-          props: { title: "Total Revenue" },
-          children: [{ type: "text", props: { value: "$125,000", className: "text-2xl font-bold" } }]
-        },
-        {
+      id: "w1",
+      component: {
+        type: "card",
+        props: { title: "Total Revenue" },
+        children: [{ type: "text", props: { value: "$125,000", className: "text-2xl font-bold" } }]
+      }
+    },
+    {
+       id: "w2",
+       component: {
           type: "card",
           props: { title: "Active Leads" },
           children: [{ type: "text", props: { value: "45", className: "text-2xl font-bold" } }]
-        },
-        {
+       }
+    },
+    {
+       id: "w3",
+       component: {
           type: "card",
           props: { title: "Open Deals" },
           children: [{ type: "text", props: { value: "12", className: "text-2xl font-bold" } }]
-        }
-      ]
+       }
     },
     {
-      type: "card", 
-      props: { title: "Recent Activity", className: "col-span-3" },
-      children: [
-         { type: "text", props: { value: "Activity list would go here...", className: "text-gray-500" } }
-      ]
+      id: "w4",
+      layout: { w: 3, h: 2 },
+      title: "Recent Activity",
+      component: {
+         type: "text", props: { value: "Activity list would go here...", className: "text-gray-500" } 
+      }
     }
   ]
 };

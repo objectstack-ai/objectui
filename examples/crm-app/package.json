@@ -13,6 +13,7 @@
     "@object-ui/core": "workspace:*",
     "@object-ui/fields": "workspace:*",
     "@object-ui/layout": "workspace:*",
+    "@object-ui/plugin-dashboard": "workspace:*",
     "@object-ui/react": "workspace:*",
     "@object-ui/types": "workspace:*",
     "clsx": "^2.1.1",

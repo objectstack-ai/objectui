@@ -15,6 +15,9 @@ import './renderers';
 export { cn } from './lib/utils';
 export { renderChildren } from './lib/utils';
 
+// Export placeholder registration
+export { registerPlaceholders } from './renderers/placeholders';
+
 // Export raw Shadcn UI components
 export * from './ui';
 

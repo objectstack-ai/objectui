@@ -5,11 +5,13 @@ import { SchemaRendererProvider, SchemaRenderer, useRenderer } from '@object-ui/
 import { registerFields } from '@object-ui/fields';
 import { registerLayout } from '@object-ui/layout';
 import '@object-ui/plugin-dashboard'; // Auto-register dashboard
+import { registerPlaceholders } from '@object-ui/components';
 import { SidebarNav } from './components/SidebarNav';
 
 // 1. Register components from packages (The "Controls Repository")
 registerFields();
 registerLayout();
+registerPlaceholders(); // Register missing components as placeholders
 
 // 2. Define Mock Data (In a real app, this comes from an API)
 const mockData = {
@@ -56,9 +58,13 @@ const dashboardSchema = {
     {
       id: "w4",
       layout: { w: 3, h: 2 },
-      title: "Recent Activity",
+      title: "Recent Activity (Kanban Placeholder)",
       component: {
-         type: "text", props: { value: "Activity list would go here...", className: "text-gray-500" } 
+         type: "view:kanban", 
+         props: { 
+            columns: ["Todo", "In Progress", "Done"],
+            data: [{id: 1, title: "Task 1", status: "Todo"}]
+         } 
       }
     }
   ]
@@ -77,7 +83,7 @@ const contactsSchema = {
       },
       children: [
         { 
-          type: "button", 
+          type: "action:button", 
           props: { label: "Add Contact", variant: "default" },
           events: { onClick: [{ action: "navigate", params: { url: "/contacts/new" } }] } 
         }
@@ -88,7 +94,7 @@ const contactsSchema = {
       className: "mt-6",
       children: [
         {
-          type: "table", // Note: We need to implement 'table' in plugins soon
+          type: "view:grid", 
           bind: "contacts", 
           props: {
             columns: [
@@ -99,6 +105,15 @@ const contactsSchema = {
           }
         }
       ]
+    },
+    {
+        type: "view:map",
+        props: {
+            lat: 34.05,
+            lng: -118.25,
+            zoom: 10
+        },
+        className: "mt-4 h-64"
     }
   ]
 };

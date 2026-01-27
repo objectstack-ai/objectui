@@ -545,7 +545,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.2.0
-        version: 1.6.1(@types/node@25.0.10)(@vitest/ui@4.0.18(vitest@4.0.18))(happy-dom@20.3.9)(jsdom@27.4.0)(lightningcss@1.30.2)
+        version: 1.6.1(@types/node@25.0.10)(@vitest/ui@4.0.18)(happy-dom@20.3.9)(jsdom@27.4.0)(lightningcss@1.30.2)
 
   packages/fields:
     dependencies:
@@ -620,6 +620,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.2.1
         version: 4.7.0(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2))
+      react-router-dom:
+        specifier: ^7.13.0
+        version: 7.13.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       vite:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)
@@ -13808,7 +13811,7 @@ snapshots:
       jiti: 2.6.1
       lightningcss: 1.30.2
 
-  vitest@1.6.1(@types/node@25.0.10)(@vitest/ui@4.0.18(vitest@4.0.18))(happy-dom@20.3.9)(jsdom@27.4.0)(lightningcss@1.30.2):
+  vitest@1.6.1(@types/node@25.0.10)(@vitest/ui@4.0.18)(happy-dom@20.3.9)(jsdom@27.4.0)(lightningcss@1.30.2):
     dependencies:
       '@vitest/expect': 1.6.1
       '@vitest/runner': 1.6.1

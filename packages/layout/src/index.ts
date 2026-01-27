@@ -7,10 +7,12 @@ import { ComponentRegistry } from '@object-ui/core';
 import { PageHeader } from './PageHeader';
 import { AppShell } from './AppShell';
 import { Page } from './Page';
+import { SidebarNav } from './SidebarNav';
 
 export * from './PageHeader';
 export * from './AppShell';
 export * from './Page';
+export * from './SidebarNav';
 
 export function registerLayout() {
   ComponentRegistry.register('page-header', PageHeader, {

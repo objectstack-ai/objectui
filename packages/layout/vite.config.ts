@@ -26,7 +26,8 @@ export default defineConfig({
         '@object-ui/types',
         'clsx',
         'tailwind-merge',
-        'lucide-react'
+        'lucide-react',
+        'react-router-dom'
       ],
     },
   },

@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "pnpm --filter @examples/crm-app dev",
     "build": "pnpm --filter './packages/*' -r build && pnpm --filter './examples/*' -r build && pnpm --filter './apps/*' -r build",
-    "pretest": "pnpm --filter @object-ui/types build && pnpm --filter @object-ui/core build && pnpm --filter @object-ui/react build && pnpm --filter @object-ui/components build && pnpm --filter @object-ui/plugin-kanban build && pnpm --filter @object-ui/plugin-charts build",
+    "pretest": "pnpm --filter @object-ui/types build && pnpm --filter @object-ui/core build && pnpm --filter @object-ui/react build && pnpm --filter @object-ui/components build && pnpm --filter @object-ui/fields build && pnpm --filter @object-ui/layout build && pnpm --filter @object-ui/plugin-kanban build && pnpm --filter @object-ui/plugin-charts build",
     "test": "vitest run",
     "site:build": "pnpm --filter @objectui/site build",
     "site:start": "pnpm --filter @objectui/site start",

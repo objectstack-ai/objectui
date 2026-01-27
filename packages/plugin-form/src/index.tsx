@@ -19,4 +19,5 @@ const ObjectFormRenderer: React.FC<{ schema: any }> = ({ schema }) => {
 };
 
 ComponentRegistry.register('object-form', ObjectFormRenderer);
-ComponentRegistry.register('form', ObjectFormRenderer); // Alias
+// Note: 'form' type is handled by @object-ui/components Form component
+// This plugin only handles 'object-form' which integrates with ObjectQL/ObjectStack

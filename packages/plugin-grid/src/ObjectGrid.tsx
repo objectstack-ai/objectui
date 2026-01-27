@@ -53,6 +53,15 @@ export interface ObjectGridProps {
 function getDataConfig(schema: ObjectGridSchema): ViewData | null {
   // New format: explicit data configuration
   if (schema.data) {
+    // Check if data is an array (shorthand format) or already a ViewData object
+    if (Array.isArray(schema.data)) {
+      // Convert array shorthand to proper ViewData format
+      return {
+        provider: 'value',
+        items: schema.data,
+      };
+    }
+    // Already in ViewData format
     return schema.data;
   }
   

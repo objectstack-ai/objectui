@@ -76,6 +76,9 @@ export function PluginLoader({ plugins, children }: PluginLoaderProps) {
               return import('@object-ui/plugin-grid');
             case 'view':
               return import('@object-ui/plugin-view');
+            default:
+              console.warn(`Unknown plugin: ${plugin}`);
+              return Promise.resolve();
           }
         });
 

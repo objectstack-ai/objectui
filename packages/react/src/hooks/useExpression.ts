@@ -22,14 +22,13 @@ export function useExpression(
   expression: string | boolean | number | null | undefined,
   context: Record<string, any> = {}
 ): any {
-  const evaluator = useMemo(
-    () => new ExpressionEvaluator(context),
-    [JSON.stringify(context)]
-  );
-
+  // We evaluate directly without caching the evaluator to avoid issues with context changes
   return useMemo(
-    () => evaluator.evaluate(expression),
-    [evaluator, expression]
+    () => {
+      const evaluator = new ExpressionEvaluator(context);
+      return evaluator.evaluate(expression);
+    },
+    [expression, context]
   );
 }
 
@@ -46,13 +45,12 @@ export function useCondition(
   condition: string | boolean | undefined,
   context: Record<string, any> = {}
 ): boolean {
-  const evaluator = useMemo(
-    () => new ExpressionEvaluator(context),
-    [JSON.stringify(context)]
-  );
-
+  // We evaluate directly without caching the evaluator to avoid issues with context changes
   return useMemo(
-    () => evaluator.evaluateCondition(condition),
-    [evaluator, condition]
+    () => {
+      const evaluator = new ExpressionEvaluator(context);
+      return evaluator.evaluateCondition(condition);
+    },
+    [condition, context]
   );
 }

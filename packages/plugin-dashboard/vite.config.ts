@@ -26,7 +26,8 @@ export default defineConfig({
         '@object-ui/react',
         '@object-ui/types',
         'tailwind-merge',
-        'clsx'
+        'clsx',
+        'lucide-react'
       ],
       output: {
         globals: {

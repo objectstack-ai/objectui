@@ -8,8 +8,9 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import { DashboardRenderer } from './DashboardRenderer';
+import { MetricWidget } from './MetricWidget';
 
-export { DashboardRenderer };
+export { DashboardRenderer, MetricWidget };
 
 // Register dashboard component
 ComponentRegistry.register(
@@ -28,5 +29,19 @@ ComponentRegistry.register(
         columns: 3,
         widgets: []
     }
+  }
+);
+
+// Register metric component
+ComponentRegistry.register(
+  'metric',
+  MetricWidget,
+  {
+    label: 'Metric Card',
+    category: 'Dashboard',
+    inputs: [
+        { name: 'label', type: 'string', label: 'Label' },
+        { name: 'value', type: 'string', label: 'Value' },
+    ]
   }
 );

@@ -425,6 +425,32 @@ export interface AspectRatioSchema extends BaseSchema {
 }
 
 /**
+ * Page Region (Header, Sidebar, Main, etc)
+ */
+export interface PageRegion {
+  /**
+   * Region name/id
+   */
+  name: string;
+  /**
+   * Region type
+   */
+  type?: 'header' | 'sidebar' | 'main' | 'footer' | 'aside';
+  /**
+   * Width (flex basis)
+   */
+  width?: string;
+  /**
+   * Components in this region
+   */
+  components: SchemaNode[];
+  /**
+   * CSS class
+   */
+  className?: string;
+}
+
+/**
  * Page layout component
  * Top-level container for a page route
  */
@@ -443,7 +469,12 @@ export interface PageSchema extends BaseSchema {
    */
   description?: string;
   /**
-   * Main content array
+   * Page layout regions
+   * (Aligned with @objectstack/spec Page.regions)
+   */
+  regions?: PageRegion[];
+  /**
+   * Main content array (Legacy/Simple mode)
    */
   body?: SchemaNode[];
   /**

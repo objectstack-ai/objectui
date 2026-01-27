@@ -332,7 +332,7 @@ export type {
 // Union Types - Discriminated Unions for All Schemas
 // ============================================================================
 
-import type { BaseSchema, SchemaNode } from './base';
+import type { AnySchema, BaseSchema, SchemaNode } from './base';
 import type { LayoutSchema } from './layout';
 import type { FormComponentSchema } from './form';
 import type { DataDisplaySchema } from './data-display';

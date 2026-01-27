@@ -18,6 +18,35 @@
 import type { BaseSchema, SchemaNode } from './base';
 
 /**
+ * Dashboard Component Schema
+ * (Report / BI View)
+ */
+export interface DashboardSchema extends BaseSchema {
+  type: 'dashboard';
+  /**
+   * Layout Grid Configuration (e.g. 12 column grid)
+   */
+  columns?: number;
+  /**
+   * Widget gap
+   */
+  gap?: number;
+  /**
+   * Dashboard Widgets
+   */
+  widgets: Array<{
+    /** Unique Widget ID */
+    id: string;
+    /** Widget Title */
+    title?: string;
+    /** Widget Component (Chart, Statistic, List, etc) */
+    component: SchemaNode;
+    /** Grid Position: x, y, w, h */
+    layout?: { x: number; y: number; w: number; h: number };
+  }>;
+}
+
+/**
  * Kanban column
  */
 export interface KanbanColumn {
@@ -470,4 +499,5 @@ export type ComplexSchema =
   | CalendarViewSchema
   | FilterBuilderSchema
   | CarouselSchema
-  | ChatbotSchema;
+  | ChatbotSchema
+  | DashboardSchema;

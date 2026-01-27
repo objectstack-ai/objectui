@@ -675,6 +675,33 @@ export interface ObjectViewSchema extends BaseSchema {
 }
 
 /**
+ * Generic View Definition
+ * Aligned with @objectstack/spec View/ListView
+ * Defines the data requirement, not just the visual component.
+ */
+export interface ListViewSchema extends BaseSchema {
+  type: 'list-view';
+  
+  /** Object Name */
+  objectName: string;
+  
+  /** View Type (grid, kanban, etc) */
+  viewType?: 'grid' | 'kanban' | 'calendar' | 'gantt' | 'map' | 'chart';
+  
+  /** Fields to fetch/display */
+  fields?: string[];
+  
+  /** Filter conditions */
+  filters?: Array<any[] | string>; // placeholder for FilterCondition
+  
+  /** Sort order */
+  sort?: Array<{ field: string; order: 'asc' | 'desc' }>;
+  
+  /** Visual Component overrides */
+  options?: Record<string, any>;
+}
+
+/**
  * Object Map Component Schema
  */
 export interface ObjectMapSchema extends BaseSchema {
@@ -766,4 +793,5 @@ export type ObjectQLComponentSchema =
   | ObjectGanttSchema
   | ObjectCalendarSchema
   | ObjectKanbanSchema
-  | ObjectChartSchema;
+  | ObjectChartSchema
+  | ListViewSchema;

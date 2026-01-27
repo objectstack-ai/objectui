@@ -31,6 +31,21 @@ pnpm add @object-ui/plugin-aggrid ag-grid-community ag-grid-react
 
 Note: `ag-grid-community` and `ag-grid-react` are peer dependencies and must be installed separately.
 
+### Next.js App Router Setup
+
+If you're using Next.js with the App Router and dynamic imports, you may need to import AG Grid CSS in your root layout to ensure styles load correctly:
+
+```typescript
+// app/layout.tsx
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-quartz.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+import 'ag-grid-community/styles/ag-theme-balham.css';
+import 'ag-grid-community/styles/ag-theme-material.css';
+```
+
+This is necessary when the plugin is loaded dynamically (e.g., via `React.lazy()` or dynamic imports in client components), as Next.js may not properly process CSS imports from dynamically loaded modules.
+
 ## Usage
 
 ### Automatic Registration (Side-Effect Import)

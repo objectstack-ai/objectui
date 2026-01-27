@@ -3,6 +3,7 @@ title: "Plugin Timeline"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Timeline component with vertical, horizontal, and Gantt-style layouts for displaying events and project timelines.
 
@@ -11,6 +12,8 @@ Timeline component with vertical, horizontal, and Gantt-style layouts for displa
 ```bash
 npm install @object-ui/plugin-timeline
 ```
+
+<PluginLoader plugins={['timeline']}>
 
 ## Interactive Examples
 
@@ -462,3 +465,5 @@ const timelineSchema: TimelineSchema = {
 
 - [Plugin System Overview](/docs/concepts/plugins)
 - [Package README](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-timeline)
+
+</PluginLoader>

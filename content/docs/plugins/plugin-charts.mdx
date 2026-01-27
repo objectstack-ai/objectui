@@ -3,6 +3,7 @@ title: "Plugin Charts"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Data visualization components powered by Recharts.
 
@@ -11,6 +12,8 @@ Data visualization components powered by Recharts.
 ```bash
 npm install @object-ui/plugin-charts
 ```
+
+<PluginLoader plugins={['charts']}>
 
 ## Interactive Examples
 
@@ -341,3 +344,5 @@ const chartSchema: BarChartSchema = {
 - [Plugin System Overview](/docs/concepts/plugins)
 - [Lazy-Loaded Plugins Architecture](../concepts/lazy-loading)
 - [Package README](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-charts)
+
+</PluginLoader>

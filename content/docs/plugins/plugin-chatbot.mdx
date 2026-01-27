@@ -3,6 +3,7 @@ title: "Plugin Chatbot"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Chat interface component with message history, typing indicators, and customizable avatars.
 
@@ -11,6 +12,8 @@ Chat interface component with message history, typing indicators, and customizab
 ```bash
 npm install @object-ui/plugin-chatbot
 ```
+
+<PluginLoader plugins={['chatbot']}>
 
 ## Interactive Examples
 
@@ -464,3 +467,5 @@ const chatbotSchema: ChatbotSchema = {
 
 - [Plugin System Overview](/docs/concepts/plugins)
 - [Package README](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-chatbot)
+
+</PluginLoader>

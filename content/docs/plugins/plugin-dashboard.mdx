@@ -3,6 +3,7 @@ title: "Plugin Dashboard"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Dashboard layouts and metric widgets for creating beautiful dashboards with KPIs, charts, and statistics.
 
@@ -11,6 +12,8 @@ Dashboard layouts and metric widgets for creating beautiful dashboards with KPIs
 ```bash
 npm install @object-ui/plugin-dashboard
 ```
+
+<PluginLoader plugins={['dashboard']}>
 
 ## Interactive Examples
 
@@ -193,3 +196,5 @@ const dashboard: DashboardSchema = {
 ## License
 
 MIT
+
+</PluginLoader>

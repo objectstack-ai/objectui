@@ -3,6 +3,7 @@ title: "Plugin Calendar"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Calendar view components for ObjectUI - includes both ObjectQL-integrated and standalone calendar components.
 
@@ -10,6 +11,9 @@ Calendar view components for ObjectUI - includes both ObjectQL-integrated and st
 
 ```bash
 npm install @object-ui/plugin-calendar
+```
+
+<PluginLoader plugins={['calendar']}>
 ```
 
 ## Overview
@@ -511,3 +515,5 @@ All functionality remains the same - just update your imports and package depend
 
 - [Plugin System Overview](/docs/concepts/plugins)
 - [Package README](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-calendar)
+
+</PluginLoader>

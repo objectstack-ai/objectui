@@ -3,6 +3,7 @@ title: "Plugin Form"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Advanced form components with validation, multi-step forms, and comprehensive field support.
 
@@ -11,6 +12,8 @@ Advanced form components with validation, multi-step forms, and comprehensive fi
 ```bash
 npm install @object-ui/plugin-form
 ```
+
+<PluginLoader plugins={['form']}>
 
 ## Interactive Examples
 
@@ -198,3 +201,5 @@ const loginForm: FormSchema = {
 ## License
 
 MIT
+
+</PluginLoader>

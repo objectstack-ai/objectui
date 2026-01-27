@@ -3,6 +3,7 @@ title: "Plugin Grid"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Advanced data grid with sorting, filtering, pagination, and row selection capabilities.
 
@@ -11,6 +12,8 @@ Advanced data grid with sorting, filtering, pagination, and row selection capabi
 ```bash
 npm install @object-ui/plugin-grid
 ```
+
+<PluginLoader plugins={['grid']}>
 
 ## Interactive Examples
 
@@ -237,3 +240,5 @@ const grid: GridSchema = {
 ## License
 
 MIT
+
+</PluginLoader>

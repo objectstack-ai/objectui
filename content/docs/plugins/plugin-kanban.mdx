@@ -3,6 +3,7 @@ title: "Plugin Kanban"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Kanban board component with drag-and-drop powered by @dnd-kit.
 
@@ -11,6 +12,8 @@ Kanban board component with drag-and-drop powered by @dnd-kit.
 ```bash
 npm install @object-ui/plugin-kanban
 ```
+
+<PluginLoader plugins={['kanban']}>
 
 ## Interactive Examples
 
@@ -425,3 +428,5 @@ const kanbanSchema: KanbanSchema = {
 - [Plugin System Overview](/docs/concepts/plugins)
 - [Lazy-Loaded Plugins Architecture](../concepts/lazy-loading)
 - [Package README](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-kanban)
+
+</PluginLoader>

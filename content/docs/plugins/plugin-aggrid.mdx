@@ -3,6 +3,7 @@ title: "Plugin AgGrid"
 ---
 
 import { InteractiveDemo } from '@/app/components/InteractiveDemo';
+import { PluginLoader } from '@/app/components/PluginLoader';
 
 Data grid component powered by AG Grid Community Edition with lazy loading for optimal performance.
 
@@ -13,6 +14,8 @@ npm install @object-ui/plugin-aggrid ag-grid-community ag-grid-react
 ```
 
 Note: `ag-grid-community` and `ag-grid-react` are peer dependencies and must be installed separately.
+
+<PluginLoader plugins={['aggrid']}>
 
 ## Interactive Examples
 
@@ -641,3 +644,5 @@ This results in significantly faster initial page loads for applications that do
 - [AG Grid Community Documentation](https://www.ag-grid.com/documentation/)
 - [Column Definitions Guide](https://www.ag-grid.com/documentation/javascript/column-definitions/)
 - [Grid Options Reference](https://www.ag-grid.com/documentation/javascript/grid-options/)
+
+</PluginLoader>

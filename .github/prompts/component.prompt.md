@@ -4,6 +4,29 @@
 **Task:** Create reusable, schema-driven UI widgets for the ObjectStack Design System.
 **Environment:** You are working in an Application or Plugin codebase. You consume `@objectstack/spec` types to build compatible components.
 
+## 0. Architectural Strategy (Strict)
+
+**❌ Do NOT create a package for every component.**
+**✅ Group by Dependency Weight:**
+
+1.  **Atoms (@object-ui/components):**
+    *   Shadcn Primitives, Icons, Buttons.
+    *   Zero business logic.
+    *   Zero heavy 3rd-party deps.
+
+2.  **Fields (@object-ui/fields):**
+    *   Standard Input/Display widgets (Text, Number, Date, Select).
+    *   Must implement `FieldWidgetProps`.
+
+3.  **Layouts & Patterns (@object-ui/layout):**
+    *   Page structures (Sidebar, Header, AppLauncher).
+    *   Routing-aware components.
+
+4.  **Plugins (@object-ui/plugin-*):**
+    *   **Heavy Widgets Only.**
+    *   If it adds >50KB bundle size, it's a plugin.
+    *   Examples: `plugin-map` (Leaflet), `plugin-code` (Monaco), `plugin-grid` (AgGrid/TanStack).
+
 ---
 
 ## 1. Component Categories

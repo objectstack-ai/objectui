@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "pnpm --filter @object-ui/types build && pnpm --filter @object-ui/core build && pnpm --filter @object-ui/react build && pnpm --filter @object-ui/components build && pnpm --filter @object-ui/fields build && pnpm --filter @object-ui/layout build && pnpm --filter @object-ui/plugin-dashboard build",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

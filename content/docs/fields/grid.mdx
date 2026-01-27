@@ -192,25 +192,27 @@ import { GridCellRenderer } from '@object-ui/fields';
 
 ## Full Grid Functionality
 
-For advanced grid features, use the grid plugin:
+For advanced grid features, use the grid plugin (`@object-ui/plugin-grid`):
 
 ```typescript
 // Basic inline grid (simple display)
 { type: 'grid', name: 'items', columns: [...] }
 
-// Advanced grid (full CRUD)
+// Advanced grid with full features (requires plugin)
 {
   type: 'plugin:grid',
   bind: 'items',
   props: {
     columns: [...],
-    editable: true,
-    sortable: true,
-    filterable: true,
-    pagination: { pageSize: 20 }
+    editable: true,      // Plugin feature: inline editing
+    sortable: true,      // Plugin feature: column sorting
+    filterable: true,    // Plugin feature: filtering
+    pagination: { pageSize: 20 }  // Plugin feature: pagination
   }
 }
 ```
+
+**Note**: Features like `editable`, `sortable`, `filterable`, and advanced `pagination` are provided by the `@object-ui/plugin-grid` package, not the basic grid field.
 
 ## Use Cases
 

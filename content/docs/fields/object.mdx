@@ -183,8 +183,9 @@ import { ObjectCellRenderer } from '@object-ui/fields';
 
 ## Schema Validation
 
-For typed object fields, define a schema:
+For typed object fields, you can define a schema in two formats:
 
+**Simplified Format** (for documentation):
 ```typescript
 {
   type: 'object',
@@ -198,6 +199,30 @@ For typed object fields, define a schema:
       depth: 'number'
     },
     materials: 'array'
+  }
+}
+```
+
+**JSON Schema Format** (for validation):
+```typescript
+{
+  type: 'object',
+  name: 'product_specs',
+  label: 'Product Specifications',
+  schema: {
+    type: 'object',
+    properties: {
+      weight: { type: 'number' },
+      dimensions: {
+        type: 'object',
+        properties: {
+          width: { type: 'number' },
+          height: { type: 'number' },
+          depth: { type: 'number' }
+        }
+      },
+      materials: { type: 'array' }
+    }
   }
 }
 ```

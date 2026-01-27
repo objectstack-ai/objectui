@@ -91,6 +91,7 @@ export type {
   ScrollAreaSchema,
   ResizableSchema,
   ResizablePanel,
+  AspectRatioSchema,
   LayoutSchema,
   PageSchema,
 } from './layout';
@@ -108,15 +109,17 @@ export type {
   RadioGroupSchema,
   RadioOption,
   SwitchSchema,
-  ToggleSchema,
   SliderSchema,
   FileUploadSchema,
   DatePickerSchema,
   CalendarSchema,
-  InputOTPSchema,
   ValidationRule,
   FieldCondition,
   FormField,
+  ComboboxSchema,
+  CommandSchema,
+  InputOTPSchema,
+  ToggleSchema,
   FormSchema,
   LabelSchema,
   FormComponentSchema,
@@ -142,6 +145,7 @@ export type {
   ChartSchema,
   TimelineEvent,
   TimelineSchema,
+  KbdSchema,
   HtmlSchema,
   StatisticSchema,
   DataDisplaySchema,
@@ -151,10 +155,13 @@ export type {
 // Feedback Components - Status & Progress Indication
 // ============================================================================
 export type {
+  SpinnerSchema,
   LoadingSchema,
   ProgressSchema,
   SkeletonSchema,
   ToastSchema,
+  EmptySchema,
+  SonnerSchema,
   ToasterSchema,
   FeedbackSchema,
 } from './feedback';
@@ -164,6 +171,7 @@ export type {
 // ============================================================================
 export type {
   AccordionItem,
+  ToggleGroupSchema,
   AccordionSchema,
   CollapsibleSchema,
   DisclosureSchema,
@@ -183,6 +191,7 @@ export type {
   TooltipSchema,
   HoverCardSchema,
   MenuItem,
+  MenubarSchema,
   DropdownMenuSchema,
   ContextMenuSchema,
   OverlaySchema,
@@ -197,8 +206,10 @@ export type {
   SidebarSchema,
   BreadcrumbItem,
   BreadcrumbSchema,
-  PaginationSchema,
+  ButtonGroupSchema,
+  NavigationMenuSchema,
   NavigationSchema,
+  PaginationSchema,
 } from './navigation';
 
 // ============================================================================
@@ -218,6 +229,9 @@ export type {
   FilterField,
   CarouselItem,
   CarouselSchema,
+  DashboardWidgetLayout,
+  DashboardWidgetSchema,
+  DashboardSchema,
   ChatMessage,
   ChatbotSchema,
   ComplexSchema,
@@ -268,6 +282,12 @@ export type {
   GanttConfig,
   SortConfig,
   // Component schemas
+  ObjectMapSchema,
+  ObjectGanttSchema,
+  ObjectCalendarSchema,
+  ObjectKanbanSchema,
+  ObjectChartSchema,
+  ListViewSchema,
   ObjectGridSchema,
   ObjectFormSchema,
   ObjectViewSchema,

@@ -492,6 +492,36 @@ export interface ChatbotSchema extends BaseSchema {
 }
 
 /**
+ * Dashboard Widget Layout
+ */
+export interface DashboardWidgetLayout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Dashboard Widget
+ */
+export interface DashboardWidgetSchema {
+  id: string;
+  title?: string;
+  component: SchemaNode;
+  layout?: DashboardWidgetLayout;
+}
+
+/**
+ * Dashboard Schema
+ */
+export interface DashboardSchema extends BaseSchema {
+  type: 'dashboard';
+  columns?: number;
+  gap?: number;
+  widgets: DashboardWidgetSchema[];
+}
+
+/**
  * Union type of all complex schemas
  */
 export type ComplexSchema =

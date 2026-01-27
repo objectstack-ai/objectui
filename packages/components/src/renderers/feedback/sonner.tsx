@@ -26,7 +26,7 @@ ComponentRegistry.register('sonner',
     };
     
     return (
-      <Button onClick={showToast} variant={schema.buttonVariant} className={schema.className}>
+      <Button onClick={showToast} variant={schema.buttonVariant} className={schema.className} {...props}>
         {schema.buttonLabel || 'Show Toast'}
       </Button>
     );

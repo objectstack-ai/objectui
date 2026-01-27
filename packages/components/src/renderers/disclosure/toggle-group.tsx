@@ -21,10 +21,10 @@ ComponentRegistry.register('toggle-group',
     
     return (
       <ToggleGroup 
-        type={schema.selectionType || 'single'}
+        type={(schema.selectionType || 'single') as any}
         variant={schema.variant}
         size={schema.size}
-        value={schema.value}
+        value={schema.value as any}
         className={schema.className} 
         {...toggleGroupProps}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}

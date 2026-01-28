@@ -3,9 +3,9 @@
     "guide",
     "blocks",
     "core",
+    "layout",
     "fields",
     "components",
-    "views",
     "plugins"
   ]
 }

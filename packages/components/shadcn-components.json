@@ -13,7 +13,7 @@
     "components": "@/ui",
     "utils": "@/lib/utils"
   },
-  "registry": "https://ui.shadcn.com/registry",
+  "registry": "https://ui.shadcn.com",
   "components": {
     "accordion": {
       "source": "https://ui.shadcn.com/r/styles/default/accordion.json",
@@ -69,6 +69,11 @@
       "source": "https://ui.shadcn.com/r/styles/default/carousel.json",
       "dependencies": ["embla-carousel-react"],
       "registryDependencies": ["button"]
+    },
+    "chart": {
+      "source": "https://ui.shadcn.com/r/styles/default/chart.json",
+      "dependencies": ["recharts", "lucide-react"],
+      "registryDependencies": []
     },
     "checkbox": {
       "source": "https://ui.shadcn.com/r/styles/default/checkbox.json",

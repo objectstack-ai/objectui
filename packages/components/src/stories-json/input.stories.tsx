@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Schema/Inputs/Input',
+  title: 'Schema/Inputs',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],
@@ -17,7 +17,7 @@ type Story = StoryObj<typeof meta>;
 
 const renderStory = (args: any) => <SchemaRenderer schema={args as unknown as BaseSchema} />;
 
-export const Default: Story = {
+export const Input: Story = {
   render: renderStory,
   args: {
     type: 'input',

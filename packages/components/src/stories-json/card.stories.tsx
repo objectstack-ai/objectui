@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Schema/Layout/Card',
+  title: 'Schema/Layout',
   component: SchemaRenderer,
   parameters: {
     layout: 'padded',
@@ -20,7 +20,7 @@ type Story = StoryObj<typeof meta>;
 
 const renderStory = (args: any) => <SchemaRenderer schema={args as unknown as BaseSchema} />;
 
-export const Default: Story = {
+export const Card: Story = {
   render: renderStory,
   args: {
     type: 'card',

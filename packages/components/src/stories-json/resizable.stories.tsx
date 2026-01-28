@@ -3,9 +3,9 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Schema/Layout/Resizable',
+  title: 'Schema/Layout',
   component: SchemaRenderer,
-  parameters: { layout: 'padded' },
+  parameters: { layout: 'centered' },
   tags: ['autodocs'],
   argTypes: {
     schema: { table: { disable: true } }
@@ -17,7 +17,7 @@ type Story = StoryObj<typeof meta>;
 
 const renderStory = (args: any) => <SchemaRenderer schema={args as unknown as BaseSchema} />;
 
-export const Default: Story = {
+export const Resizable: Story = {
   render: renderStory,
   args: {
     type: 'resizable',

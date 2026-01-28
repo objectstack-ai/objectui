@@ -66,3 +66,52 @@ export const Combobox: Story = {
     ]
   } as any,
 };
+
+export const Command: Story = {
+  render: renderStory,
+  args: {
+      type: 'command',
+      placeholder: 'Search documentation...',
+      className: 'rounded-lg border shadow-md w-[450px]',
+      groups: [
+          {
+              heading: 'Suggestions',
+              items: [
+                 { value: 'cal', label: 'Calendar' },
+                 { value: 'em', label: 'Search Emoji' },
+                 { value: 'calc', label: 'Calculator' }
+              ]
+          },
+          {
+              heading: 'Settings',
+              items: [
+                  { value: 'prof', label: 'Profile' },
+                  { value: 'bill', label: 'Billing' },
+                  { value: 'set', label: 'Settings' }
+              ]
+          }
+      ]
+  } as any,
+};
+
+export const FilterBuilder: Story = {
+  render: renderStory,
+  args: {
+    type: 'filter-builder',
+    name: 'user_filters',
+    label: 'User Filters',
+    fields: [
+      { value: 'name', label: 'Name', type: 'text' },
+      { value: 'email', label: 'Email', type: 'text' },
+      { value: 'age', label: 'Age', type: 'number' },
+      { value: 'status', label: 'Status', type: 'select', options: ['active', 'inactive'] }
+    ],
+    value: {
+      id: 'root',
+      logic: 'and',
+      conditions: [
+          { field: 'age', operator: 'gt', value: 18 }
+      ]
+    }
+  } as any,
+};

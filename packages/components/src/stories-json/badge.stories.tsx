@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Schema/Data Display/Badge',
+  title: 'Schema/Data Display',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],
@@ -17,7 +17,7 @@ type Story = StoryObj<typeof meta>;
 
 const renderStory = (args: any) => <SchemaRenderer schema={args as unknown as BaseSchema} />;
 
-export const Default: Story = {
+export const Badge: Story = {
   render: renderStory,
   args: {
     type: 'badge',

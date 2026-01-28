@@ -13,17 +13,6 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Textarea: Story = {
-  args: {
-    type: 'textarea',
-    id: 'bio-field',
-    label: 'Biography',
-    placeholder: 'Tell us a little about yourself...',
-    className: 'min-h-[100px]',
-  },
-  render: (args) => <SchemaRenderer schema={args} />
-};
-
 export const Toggle: Story = {
   args: {
     type: 'toggle',

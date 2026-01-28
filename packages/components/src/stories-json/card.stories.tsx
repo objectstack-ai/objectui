@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Card',
+  title: 'Schema/Layout/Card',
   component: SchemaRenderer,
   parameters: {
     layout: 'padded',
@@ -26,7 +26,7 @@ export const Default: Story = {
     type: 'card',
     className: "w-[350px]",
     // Using high-level props supported by CardRenderer
-    title: "Create Project",
+    title: 'Schema/Layout/Create Project',
     description: "Deploy your new project in one-click.",
     // Main content (wrapped in CardContent by renderer)
     children: [

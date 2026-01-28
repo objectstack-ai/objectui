@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SchemaRenderer } from '../SchemaRenderer';
 
 const meta: Meta = {
-  title: 'Layout/Page',
+  title: 'Schema/Layout/Page',
   component: SchemaRenderer,
   parameters: { layout: 'fullscreen' },
   tags: ['autodocs'],
@@ -17,7 +17,7 @@ type Story = StoryObj<typeof meta>;
 export const Dashboard: Story = {
   args: {
     type: 'page',
-    title: 'Dashboard',
+    title: 'Schema/Layout/Dashboard',
     description: 'Overview of your project analysis.',
     children: [
         { 

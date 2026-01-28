@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Disclosure/Accordion',
+  title: 'Schema/Data Display/Accordion',
   component: SchemaRenderer,
   parameters: { layout: 'padded' },
   tags: ['autodocs'],

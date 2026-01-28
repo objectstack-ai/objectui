@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SchemaRenderer } from '../SchemaRenderer';
 
 const meta: Meta = {
-  title: 'Overlay/Extras',
+  title: 'Schema/Feedback/Extras',
   component: SchemaRenderer,
   tags: ['autodocs'],
   argTypes: {
@@ -16,7 +16,7 @@ type Story = StoryObj<typeof meta>;
 export const AlertDialogExample: Story = {
   args: {
     type: 'alert-dialog',
-    title: 'Delete Account',
+    title: 'Schema/Feedback/Delete Account',
     description: 'Are you sure you want to delete your account? This action cannot be undone.',
     actionText: 'Yes, Delete',
     cancelText: 'Cancel',
@@ -49,7 +49,7 @@ export const ContextMenuExample: Story = {
 export const DrawerExample: Story = {
     args: {
       type: 'drawer',
-      title: 'Monthly Goal',
+      title: 'Schema/Feedback/Monthly Goal',
       description: 'Set your daily activity goal.',
       trigger: [
           { type: 'button', content: 'Open Drawer', variant: 'outline' }

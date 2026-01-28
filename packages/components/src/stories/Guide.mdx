@@ -1,0 +1,55 @@
+import { Meta, Source } from "@storybook/blocks";
+
+<Meta title="Guide/Getting Started" />
+
+# Getting Started
+
+## Installation
+
+```bash
+pnpm add @object-ui/react @object-ui/components
+```
+
+## Basic Usage
+
+The core component is `<SchemaRenderer />`.
+
+```tsx
+import { SchemaRenderer } from "@object-ui/react";
+
+const schema = {
+  type: "page",
+  children: [
+    {
+      type: "card",
+      props: { title: "Hello World" },
+      children: [
+        { type: "text", props: { content: "This is a server-driven UI." } }
+      ]
+    }
+  ]
+};
+
+export default function App() {
+  return <SchemaRenderer schema={schema} />;
+}
+```
+
+## The Schema Protocol
+
+Every component is a JSON object with a `type` and `props`.
+
+```json
+{
+  "type": "button",
+  "props": {
+    "variant": "outline"
+  },
+  "children": [],
+  "events": {
+    "onClick": [
+      { "action": "toast", "message": "Clicked!" }
+    ]
+  }
+}
+```

@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Data Display/Alert',
+  title: 'Schema/Data Display/Alert',
   component: SchemaRenderer,
   parameters: { layout: 'padded' },
   tags: ['autodocs'],
@@ -21,7 +21,7 @@ export const Default: Story = {
   render: renderStory,
   args: {
     type: 'alert',
-    title: 'Heads up!',
+    title: 'Schema/Data Display/Heads up!',
     description: 'You can add components to your app using the cli.',
     className: 'w-[400px]'
   } as any,
@@ -32,7 +32,7 @@ export const Destructive: Story = {
   args: {
     type: 'alert',
     variant: 'destructive',
-    title: 'Error',
+    title: 'Schema/Data Display/Error',
     description: 'Your session has expired. Please log in again.',
     className: 'w-[400px]'
   } as any,

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SchemaRenderer } from '../SchemaRenderer';
 
 const meta: Meta = {
-  title: 'Data Display/Extras',
+  title: 'Schema/Data Display/Extras',
   component: SchemaRenderer,
   tags: ['autodocs'],
   argTypes: {
@@ -25,7 +25,7 @@ export const KeyboardKey: Story = {
 export const ListUnordered: Story = {
   args: {
     type: 'list',
-    title: 'Technology Stack',
+    title: 'Schema/Data Display/Technology Stack',
     ordered: false,
     items: [
         'React',
@@ -40,7 +40,7 @@ export const ListUnordered: Story = {
 export const ListOrdered: Story = {
   args: {
     type: 'list',
-    title: 'Installation Steps',
+    title: 'Schema/Data Display/Installation Steps',
     ordered: true,
     items: [
         'Run npm install',
@@ -80,7 +80,7 @@ export const SimpleTable: Story = {
 export const TreeView: Story = {
   args: {
     type: 'tree-view',
-    title: 'Project Files',
+    title: 'Schema/Data Display/Project Files',
     nodes: [
         {
           id: 'src',

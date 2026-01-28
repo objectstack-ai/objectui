@@ -31,10 +31,7 @@
     "pretest": "pnpm run prebuild",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
-    "lint": "eslint .",
-    "storybook": "storybook dev -p 6006",
-    "prebuild-storybook": "pnpm run prebuild",
-    "build-storybook": "storybook build"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@object-ui/core": "workspace:*",

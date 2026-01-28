@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Overlay/Tooltips',
+  title: 'Schema/Feedback/Tooltips',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],

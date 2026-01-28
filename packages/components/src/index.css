@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* Scan sources for Tailwind classes */
-@source './src/**/*.{ts,tsx}';
+@source '../src/**/*.{ts,tsx}';
 
 /* Tailwind plugin for animations */
 @plugin 'tailwindcss-animate';

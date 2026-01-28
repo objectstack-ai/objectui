@@ -114,7 +114,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   const [error, setError] = useState<Error | null>(null);
   const [objectSchema, setObjectSchema] = useState<any>(null);
 
-  const dataConfig = getDataConfig(schema);
+  const rawDataConfig = getDataConfig(schema);
+  // Memoize dataConfig using deep comparison to prevent infinite loops
+  const dataConfig = useMemo(() => {
+    return rawDataConfig;
+  }, [JSON.stringify(rawDataConfig)]);
+
   const ganttConfig = getGanttConfig(schema);
   const hasInlineData = dataConfig?.provider === 'value';
 

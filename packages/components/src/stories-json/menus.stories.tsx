@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Overlay/Menus',
+  title: 'Schema/Navigation/Menus',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],
@@ -47,7 +47,7 @@ export const Sheet: Story = {
     trigger: [
         { type: 'button', props: { variant: 'outline' }, children: [{type: 'text', content: 'Open Sheet'}] }
     ],
-    title: 'Edit profile',
+    title: 'Schema/Navigation/Edit profile',
     description: 'Make changes to your profile here. Click save when you\'re done.',
     side: 'right',
     content: [

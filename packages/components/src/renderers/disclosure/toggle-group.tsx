@@ -16,6 +16,7 @@ ComponentRegistry.register('toggle-group',
         'data-obj-id': dataObjId, 
         'data-obj-type': dataObjType,
         style,
+        type, // Extract type to prevent overriding the one we set below
         ...toggleGroupProps
     } = props;
     

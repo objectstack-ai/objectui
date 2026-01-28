@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SchemaRenderer } from '../SchemaRenderer';
 
 const meta: Meta = {
-  title: 'Feedback/Extras',
+  title: 'Schema/Feedback/Extras',
   component: SchemaRenderer,
   tags: ['autodocs'],
 };

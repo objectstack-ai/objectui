@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SchemaRenderer } from '../SchemaRenderer';
 
 const meta: Meta = {
-  title: 'Form/Extras',
+  title: 'Schema/Inputs/Extras',
   component: SchemaRenderer,
   tags: ['autodocs'],
   argTypes: {
@@ -39,7 +39,7 @@ export const Toggle: Story = {
 export const ToggleGroup: Story = {
   args: {
     type: 'toggle-group',
-    groupType: 'multiple',
+    selectionType: 'multiple',
     variant: 'outline',
     items: [
         { value: 'bold', label: 'Bold', icon: <SchemaRenderer schema={{ type: 'icon', name: 'bold', className: 'h-4 w-4' }} /> },
@@ -58,7 +58,7 @@ export const ToggleGroup: Story = {
 export const ToggleGroupText: Story = {
     args: {
       type: 'toggle-group',
-      groupType: 'single',
+      selectionType: 'single',
       variant: 'outline',
       items: [
           { value: 'left', label: 'Left' },

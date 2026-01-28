@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Complex/Resizable',
+  title: 'Schema/Layout/Resizable',
   component: SchemaRenderer,
   parameters: { layout: 'padded' },
   tags: ['autodocs'],

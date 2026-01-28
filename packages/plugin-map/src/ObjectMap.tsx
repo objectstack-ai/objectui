@@ -190,7 +190,12 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
 
-  const dataConfig = getDataConfig(schema);
+  const rawDataConfig = getDataConfig(schema);
+  // Memoize dataConfig using deep comparison to prevent infinite loops
+  const dataConfig = useMemo(() => {
+    return rawDataConfig;
+  }, [JSON.stringify(rawDataConfig)]);
+  
   const mapConfig = getMapConfig(schema);
   const hasInlineData = dataConfig?.provider === 'value';
 

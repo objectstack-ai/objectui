@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Overlay/Dialog',
+  title: 'Schema/Feedback/Dialog',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],
@@ -21,7 +21,7 @@ export const Default: Story = {
   render: renderStory,
   args: {
     type: 'dialog',
-    title: 'Edit profile',
+    title: 'Schema/Feedback/Edit profile',
     description: 'Make changes to your profile here. Click save when you\'re done.',
     trigger: [
         { type: 'button', props: { variant: 'outline' }, children: [{type:'text', content: 'Edit Profile'}] }

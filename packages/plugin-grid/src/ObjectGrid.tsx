@@ -115,13 +115,25 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
   const [objectSchema, setObjectSchema] = useState<any>(null);
 
   // Get data configuration (supports both new and legacy formats)
-  const dataConfig = getDataConfig(schema);
+  const rawDataConfig = getDataConfig(schema);
+  // Memoize dataConfig using deep comparison to prevent infinite loops
+  const dataConfig = React.useMemo(() => {
+    return rawDataConfig;
+  }, [JSON.stringify(rawDataConfig)]);
+  
   const hasInlineData = dataConfig?.provider === 'value';
 
   useEffect(() => {
     if (hasInlineData && dataConfig?.provider === 'value') {
-      setData(dataConfig.items as any[]);
-      setLoading(false);
+       // Only update if data is different to avoid infinite loop
+       setData(prev => {
+         const newItems = dataConfig.items as any[];
+         if (JSON.stringify(prev) !== JSON.stringify(newItems)) {
+            return newItems;
+         }
+         return prev;
+       });
+       setLoading(false);
     }
   }, [hasInlineData, dataConfig]);
 

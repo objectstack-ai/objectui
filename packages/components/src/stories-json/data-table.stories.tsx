@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SchemaRenderer } from '../SchemaRenderer';
 
 const meta: Meta = {
-  title: 'Complex/Data Table',
+  title: 'Schema/Data Display/Data Table',
   component: SchemaRenderer,
   tags: ['autodocs'],
   argTypes: {

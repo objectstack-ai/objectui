@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Data Display/Statistic',
+  title: 'Schema/Data Display/Statistic',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],

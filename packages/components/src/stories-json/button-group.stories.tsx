@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'JSON/Basic/Button Group',
+  title: 'Schema/Actions/Button Group',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],

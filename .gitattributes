@@ -3,3 +3,7 @@
 # Use custom merge driver for pnpm-lock.yaml
 # This prevents manual merge conflicts in the lockfile by regenerating it
 pnpm-lock.yaml merge=pnpm-merge
+
+# Keep Shadcn components as generated vendor code
+packages/components/src/ui/** linguist-generated=true
+packages/components/src/ui/** linguist-readonly=true

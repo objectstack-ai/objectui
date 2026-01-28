@@ -115,6 +115,15 @@ interface UIComponent {
  * No any: Use strict Generics.
  * Registry: Use a central ComponentRegistry to map strings ("type": "button") to React components. Do not use eval() or dynamic imports to load components at runtime for security.
 
+🛑 Rule #7: The "No-Touch" Zones (Shadcn Purity)
+ * Protected Path: packages/components/src/ui/**/*.tsx
+   * Rule: You are FORBIDDEN from modifying the logic or styles of files in this directory.
+   * Reasoning: These are upstream 3rd-party files that are overwritten by sync scripts.
+   * Workaround: If a user asks to change the behavior of Button or Dialog:
+     1. Do NOT edit src/ui/button.tsx.
+     2. Create or Edit a wrapper in packages/components/src/custom/.
+     3. Import the primitive from @/ui/... and wrap it.
+
 6. Implementation Patterns
 Pattern A: The Component Registry (Extensibility)
 How do we let users add their own "Map" component?

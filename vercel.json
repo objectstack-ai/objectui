@@ -1,6 +1,0 @@
-{
-  "buildCommand": "pnpm storybook:build",
-  "outputDirectory": "storybook-static",
-  "framework": "storybook",
-  "installCommand": "pnpm install"
-}

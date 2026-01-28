@@ -1,24 +1,19 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { SchemaRenderer } from '@object-ui/react';
-import type { BaseSchema } from '@object-ui/types';
+import { SchemaRenderer } from '../SchemaRenderer';
 
-const meta = {
-  title: 'JSON/Complex/Data Table',
+const meta: Meta = {
+  title: 'Complex/Data Table',
   component: SchemaRenderer,
-  parameters: { layout: 'padded' },
   tags: ['autodocs'],
   argTypes: {
-    schema: { table: { disable: true } }
+    // Schema properties
   }
-} satisfies Meta<typeof SchemaRenderer>;
+};
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const renderStory = (args: any) => <SchemaRenderer schema={args as unknown as BaseSchema} />;
-
 export const Default: Story = {
-  render: renderStory,
   args: {
     type: 'data-table',
     caption: 'Employees',
@@ -33,11 +28,11 @@ export const Default: Story = {
         { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'User' },
         { id: 3, name: 'Bob Johnson', email: 'bob@example.com', role: 'User' }
     ]
-  } as any,
+  },
+  render: (args) => <SchemaRenderer schema={args} />
 };
 
 export const FullFeatures: Story = {
-    render: renderStory,
     args: {
       type: 'data-table',
       caption: 'Full Feature Table',
@@ -49,16 +44,17 @@ export const FullFeatures: Story = {
       rowActions: true,
       pageSize: 5,
       columns: [
-          { header: 'ID', accessorKey: 'id', width: '60px' },
-          { header: 'Product', accessorKey: 'product' },
-          { header: 'Price', accessorKey: 'price' },
-          { header: 'Stock', accessorKey: 'stock' },
+          { header: 'Invoice', accessorKey: 'invoice' },
+          { header: 'Status', accessorKey: 'status' },
+          { header: 'Amount', accessorKey: 'amount', enableSorting: true },
+          { header: 'Method', accessorKey: 'method' }
       ],
-      data: Array.from({length: 20}).map((_, i) => ({
-          id: i + 1,
-          product: `Product ${i + 1}`,
-          price: `$${(Math.random() * 100).toFixed(2)}`,
-          stock: Math.floor(Math.random() * 50)
+      data: Array.from({ length: 20 }).map((_, i) => ({
+          invoice: `INV-${1000 + i}`,
+          status: i % 3 === 0 ? 'Paid' : 'Pending',
+          amount: `$${(Math.random() * 500).toFixed(2)}`,
+          method: i % 2 === 0 ? 'Credit Card' : 'PayPal'
       }))
-    } as any,
+    },
+    render: (args) => <SchemaRenderer schema={args} />
   };

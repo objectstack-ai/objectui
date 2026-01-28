@@ -17,8 +17,9 @@ Display key metrics with trend indicators.
   title="Stats Cards Grid"
   description="Revenue and user statistics"
   schema={{
-    type: "div",
-    className: "grid gap-4 md:grid-cols-2 lg:grid-cols-4",
+    type: "grid",
+    gap: 4,
+    className: "md:grid-cols-2 lg:grid-cols-4",
     children: [
       {
         type: "card",
@@ -498,8 +499,9 @@ Complete dashboard layout with multiple sections.
         ]
       },
       {
-        type: "div",
-        className: "grid gap-4 md:grid-cols-2 lg:grid-cols-4",
+        type: "grid",
+        gap: 4,
+        className: "md:grid-cols-2 lg:grid-cols-4",
         children: [
           {
             type: "card",
@@ -588,8 +590,9 @@ Complete dashboard layout with multiple sections.
         ]
       },
       {
-        type: "div",
-        className: "grid gap-4 md:grid-cols-2 lg:grid-cols-7",
+        type: "grid",
+        gap: 4,
+        className: "md:grid-cols-2 lg:grid-cols-7",
         children: [
           {
             type: "card",
@@ -605,8 +608,8 @@ Complete dashboard layout with multiple sections.
                     className: "text-lg font-semibold mb-4"
                   },
                   {
-                    type: "div",
-                    className: "h-[300px] flex items-center justify-center text-muted-foreground",
+                    type: "flex",
+                    className: "h-[300px] items-center justify-center text-muted-foreground",
                     children: [
                       {
                         type: "text",

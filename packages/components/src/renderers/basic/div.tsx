@@ -49,7 +49,6 @@ ComponentRegistry.register('div',
   DivRenderer,
   {
     label: 'Container (Deprecated)',
-    deprecated: true,
     inputs: [
       { name: 'className', type: 'string', label: 'CSS Class' }
     ],

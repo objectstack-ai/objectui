@@ -51,3 +51,8 @@ apps/site/.source
 
 # Test artifacts
 test-screenshots
+
+# Backup files
+*.bak
+*.backup
+*~

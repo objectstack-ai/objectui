@@ -49,7 +49,6 @@ ComponentRegistry.register('span',
   SpanRenderer,
   {
     label: 'Inline Container (Deprecated)',
-    deprecated: true,
     inputs: [
       { name: 'className', type: 'string', label: 'CSS Class' }
     ],

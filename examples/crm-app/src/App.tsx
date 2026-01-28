@@ -23,18 +23,16 @@ registerPlaceholders();
 const Layout = () => {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-gray-50 dark:bg-gray-900">
-        <SidebarNav />
-        <SidebarInset>
-          <div className="p-4 border-b bg-background flex items-center md:hidden">
-             <SidebarTrigger />
-             <span className="ml-2 font-semibold">CRM Demo</span>
-          </div>
-          <main className="flex-1 overflow-y-auto w-full p-4 md:p-8">
-            <Outlet />
-          </main>
-        </SidebarInset>
-      </div>
+      <SidebarNav />
+      <SidebarInset>
+        <div className="p-4 border-b bg-background flex items-center md:hidden">
+            <SidebarTrigger />
+            <span className="ml-2 font-semibold">CRM Demo</span>
+        </div>
+        <main className="flex-1 overflow-y-auto w-full p-4 md:p-8 bg-gray-50 dark:bg-gray-900">
+          <Outlet />
+        </main>
+      </SidebarInset>
     </SidebarProvider>
   );
 };

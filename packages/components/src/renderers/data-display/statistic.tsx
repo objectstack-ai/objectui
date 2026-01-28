@@ -9,14 +9,15 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { StatisticSchema } from '@object-ui/types';
 import { cn } from '../../lib/utils';
-import { TrendingUp, TrendingDown, Minus, icons } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
 // Helper to resolve icon
 const getIcon = (name: string) => {
     if (!name) return null;
     const pascalName = name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
     // @ts-ignore
-    const Icon = icons[pascalName] || icons[name];
+    const Icon = LucideIcons[pascalName] || LucideIcons[name];
     return Icon;
 };
 

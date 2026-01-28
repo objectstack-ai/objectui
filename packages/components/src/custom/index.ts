@@ -7,4 +7,5 @@ export * from './filter-builder';
 export * from './input-group';
 export * from './item';
 export * from './kbd';
+export * from './native-select';
 export * from './spinner';

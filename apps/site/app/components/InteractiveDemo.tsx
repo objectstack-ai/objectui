@@ -24,6 +24,18 @@ interface InteractiveDemoProps {
   }>;
 }
 
+/**
+ * DemoWrapper - Wraps content with SidebarProvider and resets layout classes
+ * This ensures components that require sidebar context work in isolated demos
+ */
+function DemoWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider className="flex-none min-h-0 w-auto">
+      {children}
+    </SidebarProvider>
+  );
+}
+
 export function InteractiveDemo({ 
   schema, 
   title, 
@@ -55,9 +67,9 @@ export function InteractiveDemo({
                     </div>
                   )}
                   <div className="p-6 bg-background">
-                    <SidebarProvider>
+                    <DemoWrapper>
                       <SchemaRenderer schema={example.schema} />
-                    </SidebarProvider>
+                    </DemoWrapper>
                   </div>
                 </div>
               ))}
@@ -96,9 +108,9 @@ export function InteractiveDemo({
       <Tabs items={['Preview', 'Code']} defaultIndex={0}>
         <Tab value="Preview">
           <div className="border rounded-lg p-6 bg-background">
-            <SidebarProvider>
+            <DemoWrapper>
               <SchemaRenderer schema={schema} />
-            </SidebarProvider>
+            </DemoWrapper>
           </div>
         </Tab>
         <Tab value="Code">

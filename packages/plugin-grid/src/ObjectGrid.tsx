@@ -341,7 +341,10 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
               </DropdownMenuItem>
             )}
             {operations?.delete && onDelete && (
-              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(row)}>
+              <DropdownMenuItem 
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive" 
+                onClick={() => onDelete(row)}
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>

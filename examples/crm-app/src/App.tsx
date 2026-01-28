@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Outlet, useParams } from 'react-router-dom';
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@object-ui/components';
+import { SidebarProvider, SidebarInset, SidebarTrigger, Separator } from '@object-ui/components';
 import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';
 import { registerFields } from '@object-ui/fields';
 import { registerLayout } from '@object-ui/layout';
@@ -25,13 +25,14 @@ const Layout = () => {
     <SidebarProvider>
       <SidebarNav />
       <SidebarInset>
-        <div className="p-4 border-b bg-background flex items-center md:hidden">
-            <SidebarTrigger />
-            <span className="ml-2 font-semibold">CRM Demo</span>
-        </div>
-        <main className="flex-1 overflow-y-auto w-full p-4 md:p-8 bg-gray-50 dark:bg-gray-900">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <span className="font-semibold">CRM Demo</span>
+        </header>
+        <div className="flex flex-1 flex-col gap-4 p-4 md:p-8 bg-gray-50 dark:bg-gray-900 overflow-y-auto">
           <Outlet />
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

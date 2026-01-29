@@ -43,9 +43,10 @@ export async function startMockServer() {
              
              try {
                 const objectql = kernel!.getService<any>('objectql');
-                const user = (await objectql.getObject('user').findOne('current', {}, session)) || {};
-                const contacts = await objectql.getObject('contact').find({}, session);
-                const opportunities = await objectql.getObject('opportunity').find({}, session);
+                // Use IDataEngine interface directly
+                const user = (await objectql.findOne('user', 'current')) || {};
+                const contacts = await objectql.find('contact', {});
+                const opportunities = await objectql.find('opportunity', {});
                 const stats = { revenue: 125000, leads: 45, deals: 12 };
 
                 return HttpResponse.json({
@@ -77,21 +78,21 @@ async function seedData(kernel: ObjectKernel) {
     
     // Seed User
     if (mockData.user) {
-        // ObjectQL insert usually needs specific structure, but we try simplest first
-        await objectql.getObject('user').insert({ ...mockData.user, id: 'current', _id: 'current' }, session);
+        // Use IDataEngine interface directly: insert(object, data)
+        await objectql.insert('user', { ...mockData.user, id: 'current', _id: 'current' });
     }
 
     // Seed Contacts
     if (mockData.contacts) {
         for (const contact of mockData.contacts) {
-            await objectql.getObject('contact').insert({ ...contact, _id: contact.id }, session);
+            await objectql.insert('contact', { ...contact, _id: contact.id });
         }
     }
 
     // Seed Opportunities
     if (mockData.opportunities) {
         for (const opp of mockData.opportunities) {
-            await objectql.getObject('opportunity').insert({ ...opp, _id: opp.id }, session);
+            await objectql.insert('opportunity', { ...opp, _id: opp.id });
         }
     }
 
@@ -103,7 +104,7 @@ async function seedData(kernel: ObjectKernel) {
     ];
 
     for (const acc of accounts) {
-        await objectql.getObject('account').insert({ ...acc, _id: acc.id }, session);
+        await objectql.insert('account', { ...acc, _id: acc.id });
     }
 
     console.log('[MockServer] Data seeded successfully');

@@ -36,6 +36,7 @@ const StatisticRenderer = ({ schema }: { schema: StatisticSchema }) => {
             {schema.label}
             </p>
           )}
+          {/* Dynamic icon resolution from Lucide, not component creation during render */}
           {/* eslint-disable-next-line */}
           {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
       </div>

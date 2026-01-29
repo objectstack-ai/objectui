@@ -25,6 +25,34 @@ export default defineConfig(({ mode }) => ({
       '@object-ui/example-crm': path.resolve(__dirname, '../../examples/crm/src'),
     },
   },
+  optimizeDeps: {
+    include: [
+      'msw',
+      'msw/browser',
+      '@objectstack/spec',
+      '@objectstack/spec/data',
+      '@objectstack/spec/system',
+      '@objectstack/spec/ui'
+    ]
+  },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/, /packages/],
+      transformMixedEsModules: true
+    },
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Suppress warnings for optional dynamic imports
+        if (
+          warning.code === 'UNRESOLVED_IMPORT' &&
+          warning.message.includes('@objectstack/driver-memory')
+        ) {
+          return;
+        }
+        warn(warning);
+      }
+    }
+  },
   test: {
     globals: true,
     environment: 'jsdom',

@@ -1,3 +1,9 @@
+/**
+ * Main Entry Point
+ * 
+ * Initializes MSW and renders the CRM application.
+ */
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -8,10 +14,8 @@ import { initClient } from './client';
 
 async function bootstrap() {
   // 1. Start MSW Mock Server (Critical: Must be first)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🛑 Bootstrapping Mock Server...');
-    await startMockServer();
-  }
+  console.log('🛑 Bootstrapping Mock Server...');
+  await startMockServer();
 
   // 2. Initialize Clients (Must happen AFTER MSW is ready)
   // This ensures discovery requests (/api/v1/metadata) are intercepted by MSW

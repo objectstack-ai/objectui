@@ -52,7 +52,7 @@ export class Registry<T = any> {
 
   register(type: string, component: ComponentRenderer<T>, meta?: ComponentMeta) {
     if (this.components.has(type)) {
-      console.warn(`Component type "${type}" is already registered. Overwriting.`);
+      // console.warn(`Component type "${type}" is already registered. Overwriting.`);
     }
     this.components.set(type, {
       type,

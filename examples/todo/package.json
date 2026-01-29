@@ -1,0 +1,17 @@
+{
+  "name": "@object-ui/example-todo",
+  "version": "0.6.1",
+  "description": "Example Todo App using ObjectStack Protocol",
+  "private": true,
+  "scripts": {
+    "build": "objectstack compile objectstack.config.ts dist/objectstack.json"
+  },
+  "dependencies": {
+    "@objectstack/spec": "^0.6.1",
+    "@objectstack/client": "^0.6.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@objectstack/cli": "^0.6.1"
+  }
+}

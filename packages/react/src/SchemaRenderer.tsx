@@ -30,7 +30,7 @@ export const SchemaRenderer = forwardRef<any, { schema: SchemaNode } & Record<st
     if (newSchema.props) {
       const newProps = { ...newSchema.props };
       for (const [key, val] of Object.entries(newProps)) {
-        newProps[key] = evaluator.evaluate(val);
+        newProps[key] = evaluator.evaluate(val as any);
       }
       newSchema.props = newProps;
     }

@@ -23,7 +23,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, ViewData } from '@object-ui/types';
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, useDataScope } from '@object-ui/react';
 import { getCellRenderer } from '@object-ui/fields';
 import { Button } from '@object-ui/components';
 import {
@@ -114,12 +114,22 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
   const [error, setError] = useState<Error | null>(null);
   const [objectSchema, setObjectSchema] = useState<any>(null);
 
+  // Resolve bound data if 'bind' property exists
+  const boundData = useDataScope(schema.bind);
+
   // Get data configuration (supports both new and legacy formats)
   const rawDataConfig = getDataConfig(schema);
   // Memoize dataConfig using deep comparison to prevent infinite loops
   const dataConfig = React.useMemo(() => {
+    // If we have bound data, it takes precedence as inline value
+    if (boundData && Array.isArray(boundData)) {
+        return {
+            provider: 'value',
+            items: boundData
+        };
+    }
     return rawDataConfig;
-  }, [JSON.stringify(rawDataConfig)]);
+  }, [JSON.stringify(rawDataConfig), boundData]);
   
   const hasInlineData = dataConfig?.provider === 'value';
 

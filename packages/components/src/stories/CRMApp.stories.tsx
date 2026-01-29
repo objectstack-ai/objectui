@@ -57,16 +57,32 @@ const dashboardSchema = {
     props: { title: "Dashboard" },
     children: [
         {
-            type: "page:header",
-            props: { title: "Dashboard", description: "Overview of your business performance." }
+            type: "div",
+            className: "flex items-center justify-between mb-6",
+            children: [
+                {
+                    type: "page:header",
+                    props: { title: "Dashboard", description: "Overview of your business performance." },
+                    className: "mb-0" 
+                },
+                {
+                    type: "div",
+                    className: "flex gap-2",
+                    children: [
+                         { type: "button", props: { variant: "outline", size: "sm", children: "Download Report" } },
+                         { type: "button", props: { size: "sm", children: "Refresh" } }
+                    ]
+                }
+            ]
         },
         {
             type: "grid",
-            props: { cols: 3, gap: 4, className: "mb-8 mt-6" },
+            props: { cols: 4, gap: 4, className: "mb-8 mt-2" },
             children: [
                 { type: "card", props: { title: "Total Revenue", description: "${data.revenueGrowth}" }, children: [{type: "text", content: "${data.revenue}", className: "text-2xl font-bold"}] },
                 { type: "card", props: { title: "Subscriptions", description: "${data.subGrowth}" }, children: [{type: "text", content: "${data.subscriptions}", className: "text-2xl font-bold"}] },
                 { type: "card", props: { title: "Sales", description: "${data.salesGrowth}" }, children: [{type: "text", content: "${data.sales}", className: "text-2xl font-bold"}] },
+                { type: "card", props: { title: "Active Now", description: "+201 since last hour" }, children: [{type: "text", content: "+573", className: "text-2xl font-bold"}] },
             ]
         },
         {
@@ -75,24 +91,37 @@ const dashboardSchema = {
             children: [
                 { 
                     type: "page:card", 
-                    props: { title: "Overview", className: "col-span-4" },
+                    props: { title: "Revenue Overview", className: "col-span-4" },
                     children: [{ type: "chart:bar", props: { 
                         data: "${data.overview}",
                         index: "name",
-                        categories: ["total"]
+                        categories: ["total"],
+                        colors: ["blue"]
                     }}] 
                 },
                 { 
                     type: "page:card", 
-                    props: { title: "Recent Sales", className: "col-span-3" },
+                    props: { title: "Recent Sales", description: "You made 265 sales this month.", className: "col-span-3" },
                     children: [
                         { type: "view:simple", children: [
-                             { type: "div", className: "flex items-center justify-between py-2 border-b", children: [
-                                { type: "div", className: "flex items-center gap-2", children: [{type:"avatar", props:{fallback:"OM"}}, {type:"div", children:[{type:"text", content:"Olivia Martin", className:"font-medium"}, {type:"text", content:"olivia.martin@email.com", className:"text-xs text-muted-foreground"}]}] },
+                             { type: "div", className: "flex items-center justify-between py-3 border-b hover:bg-muted/50 px-2 rounded transition-colors", children: [
+                                { type: "div", className: "flex items-center gap-3", children: [{type:"avatar", props:{fallback:"OM"}}, {type:"div", children:[{type:"text", content:"Olivia Martin", className:"font-medium block"}, {type:"text", content:"olivia.martin@email.com", className:"text-xs text-muted-foreground block"}]}] },
                                 { type: "text", content: "+$1,999.00", className: "font-medium" }
                             ]},
-                             { type: "div", className: "flex items-center justify-between py-2 border-b", children: [
-                                { type: "div", className: "flex items-center gap-2", children: [{type:"avatar", props:{fallback:"JL"}}, {type:"div", children:[{type:"text", content:"Jackson Lee", className:"font-medium"}, {type:"text", content:"jackson.lee@email.com", className:"text-xs text-muted-foreground"}]}] },
+                             { type: "div", className: "flex items-center justify-between py-3 border-b hover:bg-muted/50 px-2 rounded transition-colors", children: [
+                                { type: "div", className: "flex items-center gap-3", children: [{type:"avatar", props:{fallback:"JL"}}, {type:"div", children:[{type:"text", content:"Jackson Lee", className:"font-medium block"}, {type:"text", content:"jackson.lee@email.com", className:"text-xs text-muted-foreground block"}]}] },
+                                { type: "text", content: "+$39.00", className: "font-medium" }
+                            ]},
+                             { type: "div", className: "flex items-center justify-between py-3 border-b hover:bg-muted/50 px-2 rounded transition-colors", children: [
+                                { type: "div", className: "flex items-center gap-3", children: [{type:"avatar", props:{fallback:"IN"}}, {type:"div", children:[{type:"text", content:"Isabella Nguyen", className:"font-medium block"}, {type:"text", content:"isabella.nguyen@email.com", className:"text-xs text-muted-foreground block"}]}] },
+                                { type: "text", content: "+$299.00", className: "font-medium" }
+                            ]},
+                             { type: "div", className: "flex items-center justify-between py-3 border-b hover:bg-muted/50 px-2 rounded transition-colors", children: [
+                                { type: "div", className: "flex items-center gap-3", children: [{type:"avatar", props:{fallback:"WK"}}, {type:"div", children:[{type:"text", content:"William Kim", className:"font-medium block"}, {type:"text", content:"will@email.com", className:"text-xs text-muted-foreground block"}]}] },
+                                { type: "text", content: "+$99.00", className: "font-medium" }
+                            ]},
+                             { type: "div", className: "flex items-center justify-between py-3 hover:bg-muted/50 px-2 rounded transition-colors", children: [
+                                { type: "div", className: "flex items-center gap-3", children: [{type:"avatar", props:{fallback:"SD"}}, {type:"div", children:[{type:"text", content:"Sofia Davis", className:"font-medium block"}, {type:"text", content:"sofia.davis@email.com", className:"text-xs text-muted-foreground block"}]}] },
                                 { type: "text", content: "+$39.00", className: "font-medium" }
                             ]},
                         ]}
@@ -164,6 +193,68 @@ const opportunitiesSchema = {
     ]
 };
 
+const settingsSchema = {
+    type: "page",
+    props: { title: "Settings" },
+    children: [
+        {
+            type: "page:header",
+            props: { title: "Settings", description: "Manage your account settings and preferences." }
+        },
+        {
+            type: "div",
+            className: "grid grid-cols-1 md:grid-cols-3 gap-8 mt-6",
+            children: [
+                {
+                    type: "div",
+                    className: "col-span-1",
+                    children: [
+                        { type: "text", content: "Profile Information", className: "text-lg font-semibold block mb-2" },
+                        { type: "text", content: "Update your account's profile information and email address.", className: "text-sm text-muted-foreground" },
+                        { 
+                            type: "div", 
+                            className: "mt-4 flex flex-col gap-1",
+                            children: [
+                                { type: "button", props: { variant: "ghost", className: "justify-start font-semibold bg-muted", children: "General" } },
+                                { type: "button", props: { variant: "ghost", className: "justify-start", children: "Security" } },
+                                { type: "button", props: { variant: "ghost", className: "justify-start", children: "Billing" } },
+                                { type: "button", props: { variant: "ghost", className: "justify-start", children: "Notifications" } },
+                            ]
+                        }
+                    ]
+                },
+                {
+                    type: "page:card",
+                    className: "col-span-2",
+                    children: [
+                        {
+                            type: "div", // Using div as form container for now
+                            className: "space-y-4",
+                            children: [
+                                { type: "field:text", props: { label: "Username", defaultValue: "${data.profile.name}", description: "This is your public display name." } },
+                                { type: "field:text", props: { label: "Email", defaultValue: "${data.profile.email}", description: "Please enter a valid email address." } },
+                                { type: "field:text", props: { label: "Role", defaultValue: "${data.profile.role}", readonly: true, disabled: true } },
+                                { type: "div", className: "pt-4 flex justify-end", children: [
+                                    { type: "button", props: { children: "Save Changes" } }
+                                ]}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+};
+
+const SETTINGS_DATA = {
+    profile: {
+        name: "Admin User",
+        email: "admin@objectui.dev",
+        role: "Administrator",
+        notifications: true
+    }
+};
+
 /* --- APP COMPONENT --- */
 
 const CRMStoryApp = () => {
@@ -177,6 +268,8 @@ const CRMStoryApp = () => {
                 return <SchemaRendererProvider dataSource={CONTACTS_DATA}><SchemaRenderer schema={contactsSchema} /></SchemaRendererProvider>;
             case "opportunities":
                 return <SchemaRendererProvider dataSource={OPPORTUNITIES_DATA}><SchemaRenderer schema={opportunitiesSchema} /></SchemaRendererProvider>;
+            case "settings":
+                return <SchemaRendererProvider dataSource={SETTINGS_DATA}><SchemaRenderer schema={settingsSchema} /></SchemaRendererProvider>;
             default:
                 return (
                     <div className="p-8">

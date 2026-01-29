@@ -16,6 +16,7 @@ export function baseOptions(): BaseLayoutProps {
       </div>
     ),
     },
+    githubUrl: 'https://github.com/objectstack-ai/objectui',
     links: [
       {
         text: 'Documentation',
@@ -24,11 +25,6 @@ export function baseOptions(): BaseLayoutProps {
       {
         text: 'Storybook',
         url: 'https://storybook.objectui.org',
-      },
-      {
-        text: 'GitHub',
-        url: 'https://github.com/objectstack-ai/objectui',
-        external: true,
       },
     ],
   };

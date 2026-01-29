@@ -7,11 +7,13 @@ import { ComponentRegistry } from '@object-ui/core';
 import { PageHeader } from './PageHeader';
 import { AppShell } from './AppShell';
 import { Page } from './Page';
+import { PageCard } from './PageCard';
 import { SidebarNav } from './SidebarNav';
 
 export * from './PageHeader';
 export * from './AppShell';
 export * from './Page';
+export * from './PageCard';
 export * from './SidebarNav';
 
 export function registerLayout() {
@@ -26,6 +28,13 @@ export function registerLayout() {
 
   // Alias for protocol compliance
   ComponentRegistry.register('page:header', PageHeader);
+
+  // Page Card
+  ComponentRegistry.register('page:card', PageCard, {
+    label: 'Page Card',
+    category: 'Layout',
+    isContainer: true
+  });
 
   ComponentRegistry.register('app-shell', AppShell, {
       label: 'App Shell',

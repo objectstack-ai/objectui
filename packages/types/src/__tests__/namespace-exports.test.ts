@@ -52,29 +52,29 @@ describe('ObjectStack Spec v0.6.1 Namespace Exports', () => {
 
   it('should export Hub namespace', () => {
     // Type check only - verify Hub namespace exists
-    type HubTest = typeof Hub | undefined;
-    const hub: HubTest = undefined;
-    expect(hub).toBeUndefined();
+    type HubTest = Hub.Tenant | undefined;
+    const hubTenant: HubTest = undefined;
+    expect(hubTenant).toBeUndefined();
   });
 
   it('should export Automation namespace', () => {
     // Type check only - verify Automation namespace exists
-    type AutomationTest = typeof Automation | undefined;
-    const automation: AutomationTest = undefined;
-    expect(automation).toBeUndefined();
+    type AutomationTest = Automation.Workflow | undefined;
+    const workflow: AutomationTest = undefined;
+    expect(workflow).toBeUndefined();
   });
 
   it('should export Permission namespace', () => {
     // Type check only - verify Permission namespace exists
-    type PermissionTest = typeof Permission | undefined;
-    const permission: PermissionTest = undefined;
-    expect(permission).toBeUndefined();
+    type PermissionTest = Permission.PermissionSet | undefined;
+    const permissionSet: PermissionTest = undefined;
+    expect(permissionSet).toBeUndefined();
   });
 
   it('should export Shared namespace', () => {
     // Type check only - verify Shared namespace exists
-    type SharedTest = typeof Shared | undefined;
-    const shared: SharedTest = undefined;
-    expect(shared).toBeUndefined();
+    type SharedTest = Shared.ObjectId | undefined;
+    const objectId: SharedTest = undefined;
+    expect(objectId).toBeUndefined();
   });
 });

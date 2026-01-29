@@ -4,6 +4,7 @@ import path from 'path';
 
 const config: StorybookConfig = {
   stories: ["../packages/**/src/**/*.mdx", "../packages/**/src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
+  staticDirs: ['../public'],
   addons: [
     "@storybook/addon-links",
     "@storybook/addon-essentials",

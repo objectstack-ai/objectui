@@ -1,7 +1,14 @@
 import type { Preview } from '@storybook/react-vite'
+import { initialize, mswLoader } from 'msw-storybook-addon';
+import { handlers } from './mocks';
 import '../packages/components/src/index.css';
 import { ComponentRegistry } from '@object-ui/core';
 import * as components from '../packages/components/src/index';
+
+// Initialize MSW
+initialize({
+  onUnhandledRequest: 'bypass'
+});
 
 // Register all base components for Storybook
 Object.values(components);
@@ -24,7 +31,11 @@ import '@object-ui/plugin-timeline';
 import '@object-ui/plugin-view';
 
 const preview: Preview = {
+  loaders: [mswLoader],
   parameters: {
+    msw: {
+       handlers: handlers
+    },
     options: {
       storySort: {
         method: 'alphabetical',

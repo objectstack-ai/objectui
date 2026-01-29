@@ -755,8 +755,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^0.4.1
-        version: 0.4.1
+        specifier: ^0.6.1
+        version: 0.6.1
       lodash:
         specifier: ^4.17.23
         version: 4.17.23
@@ -1505,8 +1505,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       '@objectstack/spec':
-        specifier: ^0.3.3
-        version: 0.3.3
+        specifier: ^0.6.1
+        version: 0.6.1
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -1600,8 +1600,8 @@ importers:
   packages/types:
     dependencies:
       '@objectstack/spec':
-        specifier: ^0.3.3
-        version: 0.3.3
+        specifier: ^0.6.1
+        version: 0.6.1
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -3047,10 +3047,6 @@ packages:
 
   '@objectstack/runtime@0.6.1':
     resolution: {integrity: sha512-l+hYxniYSC6mb1ROYEmfemXu84+p1Z9z5SDK6/gAfN8z9PBOWy9vQ7HQfB+XIndqgbJ6IelbNBHGYd+K7RawXg==}
-
-  '@objectstack/spec@0.3.3':
-    resolution: {integrity: sha512-GGSrRLECgYY1epLocdCkCsicerFKAKlRpluGmCqK1iVNgTgiC04zniLogYQXu5kf6UIB6mHQNBHcbr1x5DOmVQ==}
-    engines: {node: '>=18.0.0'}
 
   '@objectstack/spec@0.4.1':
     resolution: {integrity: sha512-UEGjeZBgK0eAcShKOVYgDQ8+vekaRcgYSmJ09Avf3iyTzjl3sKqYC0WVQdyVWbqptMhU5kNlKEIIVxcdJnUc0Q==}
@@ -11478,10 +11474,6 @@ snapshots:
       '@objectstack/core': 0.6.1
       '@objectstack/spec': 0.6.1
       '@objectstack/types': 0.6.1
-
-  '@objectstack/spec@0.3.3':
-    dependencies:
-      zod: 3.25.76
 
   '@objectstack/spec@0.4.1':
     dependencies:

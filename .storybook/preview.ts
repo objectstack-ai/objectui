@@ -1,6 +1,7 @@
 import type { Preview } from '@storybook/react-vite'
 import { initialize, mswLoader } from 'msw-storybook-addon';
 import { handlers } from './mocks';
+import { startMockServer } from './msw-browser';
 import '../packages/components/src/index.css';
 import { ComponentRegistry } from '@object-ui/core';
 import * as components from '../packages/components/src/index';
@@ -9,6 +10,14 @@ import * as components from '../packages/components/src/index';
 initialize({
   onUnhandledRequest: 'bypass'
 });
+
+// Start MSW runtime with ObjectStack kernel
+// This must be called during Storybook initialization
+if (typeof window !== 'undefined') {
+  startMockServer().catch(err => {
+    console.error('Failed to start MSW runtime:', err);
+  });
+}
 
 // Register all base components for Storybook
 Object.values(components);

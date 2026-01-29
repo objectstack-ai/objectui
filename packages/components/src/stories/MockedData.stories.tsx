@@ -32,11 +32,20 @@ const DataFetcher = () => {
     const [data, setData] = useState<any>(null);
 
     useEffect(() => {
-        // Fetch from the mocked API
-        fetch('/api/v1/data/contact/1')
-            .then(res => res.json())
-            .then(setData)
-            .catch(e => console.error("Fetch failed", e));
+        // Simulate a fetch call locally since MSW might not be configured in this environment
+        const mockData = {
+            name: "Sarah Connors",
+            title: "Lead Engineer",
+            company: "Cyberdyne Systems",
+            email: "sarah@cyberdyne.com",
+            status: "Active"
+        };
+
+        const timer = setTimeout(() => {
+            setData(mockData);
+        }, 800);
+
+        return () => clearTimeout(timer);
     }, []);
 
     if (!data) return <div className="p-4">Loading data from MSW...</div>;

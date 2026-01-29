@@ -14,10 +14,13 @@ import { contactListSchema, contactDetailSchema } from './schemas/contacts';
 import { opportunityListSchema } from './schemas/opportunities';
 import { opportunityDetailSchema } from './schemas/opportunity-detail';
 
+import { registerCustomWidgets } from './components/registry';
+
 // 1. Register components
 registerFields();
 registerLayout();
 registerPlaceholders();
+registerCustomWidgets();
 
 // Generic Layout Shell
 const Layout = () => {

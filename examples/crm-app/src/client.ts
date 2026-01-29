@@ -1,7 +1,8 @@
 import { ObjectStackClient } from '@objectstack/client';
 
 export const client = new ObjectStackClient({
-  baseUrl: '/api/v1'
+  baseUrl: '/api/v1',
+  fetch: globalThis.fetch.bind(globalThis)
 });
 
 export const initClient = async () => {

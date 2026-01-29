@@ -33,20 +33,12 @@ export async function startMockServer() {
       customHandlers: [
           // Custom handlers that are not part of standard CRUD
           http.get('/api/bootstrap', async () => {
-             // We can use ObjectStackServer helper which proxies to the kernel if initialized
-             // Or better, use the kernel instance we have right here.
-             // But MSWPlugin might not expose the kernel globally to the handler context easily without closure
-             // So we use the closure 'kernel' variable.
-             
-             // However, ObjectQL usually requires a 'session'. 
-             const session = { userId: 'current', isSpaceAdmin: true }; // Mock session
-             
+             // We use closure 'driver' variable to bypass objectql service issues
              try {
-                const objectql = kernel!.getService<any>('objectql');
-                // Use IDataEngine interface directly
-                const user = (await objectql.findOne('user', 'current')) || {};
-                const contacts = await objectql.find('contact', {});
-                const opportunities = await objectql.find('opportunity', {});
+                // Use IDataEngine interface directly via driver
+                const user = (await driver.findOne('user', 'current')) || {};
+                const contacts = await driver.find('contact', {});
+                const opportunities = await driver.find('opportunity', {});
                 const stats = { revenue: 125000, leads: 45, deals: 12 };
 
                 return HttpResponse.json({
@@ -74,7 +66,6 @@ export async function startMockServer() {
 // Helper to seed data into the in-memory driver
 async function initializeMockData(kernel: ObjectKernel, driver: InMemoryDriver) {
     console.log('[MockServer] Initializing mock data (fresh)...');
-    // const objectql = kernel.getService<any>('objectql');
     
     try {
         // Seed User

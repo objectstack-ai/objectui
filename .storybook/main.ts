@@ -27,6 +27,8 @@ const config: StorybookConfig = {
           '@object-ui/components': path.resolve(__dirname, '../packages/components/src/index.ts'),
           '@object-ui/fields': path.resolve(__dirname, '../packages/fields/src/index.tsx'),
           '@object-ui/layout': path.resolve(__dirname, '../packages/layout/src/index.ts'),
+          // Alias example packages for Storybook to resolve them from workspace
+          '@object-ui/example-crm': path.resolve(__dirname, '../examples/crm/src/index.ts'),
           // Alias plugin packages for Storybook to resolve them from workspace
           '@object-ui/plugin-aggrid': path.resolve(__dirname, '../packages/plugin-aggrid/src/index.tsx'),
           '@object-ui/plugin-calendar': path.resolve(__dirname, '../packages/plugin-calendar/src/index.tsx'),

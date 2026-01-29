@@ -21,7 +21,22 @@ import {
   FileField,
   LocationField,
   FormulaField,
-  SummaryField
+  SummaryField,
+  RichTextField,
+  ImageField,
+  ObjectField,
+  VectorField,
+  GridField,
+  ColorField,
+  SliderField,
+  RatingField,
+  CodeField,
+  AvatarField,
+  AddressField,
+  GeolocationField,
+  SignatureField,
+  QRCodeField,
+  MasterDetailField
 } from './index';
 import { FieldMetadata } from '@object-ui/types';
 
@@ -374,5 +389,178 @@ export const ReadOnly: Story = {
         readonly={true}
       />
     </div>
+  )
+};
+
+// --- New Widgets ---
+
+export const RichText: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={RichTextField}
+      field={{ label: 'Description', type: 'html' }}
+      initialValue="<p><b>Rich</b> text content...</p>"
+    />
+  )
+};
+
+export const Image: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={ImageField}
+      field={{ label: 'Banner', type: 'image' }}
+      initialValue="https://placehold.co/600x400"
+    />
+  )
+};
+
+export const Color: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={ColorField}
+      field={{ label: 'Theme Color', type: 'color' }}
+      initialValue="#3b82f6"
+    />
+  )
+};
+
+export const Slider: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={SliderField}
+      field={{ label: 'Opacity', type: 'slider', min: 0, max: 100 } as any}
+      initialValue={75}
+    />
+  )
+};
+
+export const Rating: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={RatingField}
+      field={{ label: 'Score', type: 'rating', max: 5 } as any}
+      initialValue={4}
+    />
+  )
+};
+
+export const Code: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={CodeField}
+      field={{ label: 'Config JSON', type: 'code' }}
+      initialValue='{ "debug": true }'
+    />
+  )
+};
+
+export const Avatar: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={AvatarField}
+      field={{ label: 'Profile', type: 'avatar' }}
+      initialValue="https://github.com/shadcn.png"
+    />
+  )
+};
+
+export const Signature: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={SignatureField}
+      field={{ label: 'Sign Here', type: 'signature' }}
+      initialValue=""
+    />
+  )
+};
+
+export const QRCode: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={QRCodeField}
+      field={{ label: 'Scan Me', type: 'qrcode' }}
+      initialValue="https://objectui.org"
+    />
+  )
+};
+
+export const Address: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={AddressField}
+      field={{ label: 'Shipping Address', type: 'address' }}
+      initialValue={{ street: '123 Main St', city: 'Anytown', country: 'USA' }}
+    />
+  )
+};
+
+export const Geolocation: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={GeolocationField}
+      field={{ label: 'Location', type: 'geolocation' }}
+      initialValue={{ lat: 37.7749, lng: -122.4194 }}
+    />
+  )
+};
+
+export const Object: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={ObjectField}
+      field={{ 
+        label: 'Metadata', 
+        type: 'object',
+        fields: [
+            { name: 'key', type: 'text', label: 'Key' },
+            { name: 'value', type: 'text', label: 'Value' }
+        ]
+      } as any}
+      initialValue={{ key: 'theme', value: 'dark' }}
+    />
+  )
+};
+
+export const Grid: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={GridField}
+      field={{ 
+        label: 'Order Items', 
+        type: 'grid',
+        columns: [
+            { field: 'item', label: 'Item' },
+            { field: 'qty', label: 'Qty' }
+        ]
+      } as any}
+      initialValue={[
+          { item: 'Apple', qty: 2 },
+          { item: 'Banana', qty: 5 }
+      ]}
+    />
+  )
+};
+
+export const MasterDetail: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={MasterDetailField}
+      field={{ 
+        label: 'Line Items', 
+        type: 'master_detail',
+        reference_to: 'products'
+      } as any}
+      initialValue={[]}
+    />
+  )
+};
+
+export const Vector: Story = {
+  render: () => (
+    <FieldWrapper 
+      Component={VectorField}
+      field={{ label: 'Embedding', type: 'vector' }}
+      initialValue={[0.1, 0.2, 0.3, 0.4]}
+    />
   )
 };

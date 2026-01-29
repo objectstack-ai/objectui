@@ -19,7 +19,7 @@ import { SignatureField } from './widgets/SignatureField';
 import { QRCodeField } from './widgets/QRCodeField';
 import { MasterDetailField } from './widgets/MasterDetailField';
 
-const mockField = {
+const mockField: any = {
   name: 'test_field',
   label: 'Test Field',
   type: 'text',
@@ -210,6 +210,7 @@ describe('New Field Widgets', () => {
       const { container } = render(
         <SignatureField
           value=""
+          field={mockField}
           onChange={() => {}}
         />
       );
@@ -221,6 +222,7 @@ describe('New Field Widgets', () => {
       const { container } = render(
         <SignatureField
           value="data:image/png;base64,..."
+          field={mockField}
           onChange={() => {}}
           readonly={true}
         />
@@ -259,6 +261,7 @@ describe('New Field Widgets', () => {
       const { container } = render(
         <MasterDetailField
           value={[]}
+          field={mockField}
           onChange={() => {}}
         />
       );
@@ -273,6 +276,7 @@ describe('New Field Widgets', () => {
       const { container } = render(
         <MasterDetailField
           value={items}
+          field={mockField}
           onChange={() => {}}
         />
       );
@@ -287,6 +291,7 @@ describe('New Field Widgets', () => {
       const { container } = render(
         <MasterDetailField
           value={items}
+          field={mockField}
           onChange={() => {}}
           readonly={true}
         />

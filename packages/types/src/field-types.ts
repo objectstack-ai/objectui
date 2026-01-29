@@ -397,6 +397,50 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
   columns?: any[];
 }
 
+export interface ColorFieldMetadata extends BaseFieldMetadata {
+  type: 'color';
+}
+
+export interface CodeFieldMetadata extends BaseFieldMetadata {
+  type: 'code';
+}
+
+export interface AvatarFieldMetadata extends BaseFieldMetadata {
+  type: 'avatar';
+}
+
+export interface SignatureFieldMetadata extends BaseFieldMetadata {
+  type: 'signature';
+}
+
+export interface QRCodeFieldMetadata extends BaseFieldMetadata {
+  type: 'qrcode';
+}
+
+export interface AddressFieldMetadata extends BaseFieldMetadata {
+  type: 'address';
+}
+
+export interface GeolocationFieldMetadata extends BaseFieldMetadata {
+  type: 'geolocation';
+}
+
+export interface SliderFieldMetadata extends BaseFieldMetadata {
+  type: 'slider';
+  min?: number;
+  max?: number;
+}
+
+export interface RatingFieldMetadata extends BaseFieldMetadata {
+  type: 'rating';
+  max?: number;
+}
+
+export interface MasterDetailFieldMetadata extends BaseFieldMetadata {
+  type: 'master_detail';
+  reference_to?: string;
+}
+
 /**
  * Union type of all field metadata types
  */
@@ -427,7 +471,17 @@ export type FieldMetadata =
   | UserFieldMetadata
   | ObjectFieldMetadata
   | VectorFieldMetadata
-  | GridFieldMetadata;
+  | GridFieldMetadata
+  | ColorFieldMetadata
+  | CodeFieldMetadata
+  | AvatarFieldMetadata
+  | SignatureFieldMetadata
+  | QRCodeFieldMetadata
+  | AddressFieldMetadata
+  | GeolocationFieldMetadata
+  | SliderFieldMetadata
+  | RatingFieldMetadata
+  | MasterDetailFieldMetadata;
 
 /**
  * Object schema definition

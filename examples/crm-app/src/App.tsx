@@ -10,6 +10,7 @@ import { ObjectGrid } from '@object-ui/plugin-grid';
 import { dataSource } from './config/dataSource';
 import { registerPlaceholders } from '@object-ui/components';
 import { SidebarNav } from './components/SidebarNav';
+import { client } from './client';
 
 // Schemas
 import { dashboardSchema } from './schemas/dashboard';
@@ -57,12 +58,8 @@ const ContactDetailPage = () => {
     
     useEffect(() => {
         setLoading(true);
-        // Using the MSW intercepted endpoint
-        fetch(`/api/v1/data/contact/${id}`)
-            .then(res => {
-                if (!res.ok) throw new Error("Not found");
-                return res.json();
-            })
+        // Using the ObjectStack Client
+        client.data.get('contact', id!)
             .then(setContact)
             .catch(() => setContact(null))
             .finally(() => setLoading(false));
@@ -85,11 +82,7 @@ const OpportunityDetailPage = () => {
     
     useEffect(() => {
         setLoading(true);
-        fetch(`/api/v1/data/opportunity/${id}`)
-            .then(res => {
-                if (!res.ok) throw new Error("Not found");
-                return res.json();
-            })
+        client.data.get('opportunity', id!)
             .then(setOpportunity)
             .catch(() => setOpportunity(null))
             .finally(() => setLoading(false));

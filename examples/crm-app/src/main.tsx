@@ -4,12 +4,14 @@ import App from './App';
 import './index.css';
 
 import { startMockServer } from './mocks/runtime';
+import { initClient } from './client';
 
 async function enableMocking() {
   if (process.env.NODE_ENV !== 'development') {
     return;
   }
-  return startMockServer();
+  await startMockServer();
+  await initClient(); // Ensure client is connected after server starts
 }
 
 enableMocking().then(() => {

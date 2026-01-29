@@ -33,6 +33,6 @@ async function bootstrap() {
 }
 
 bootstrap().catch(err => {
-    console.error("FATAL: Application failed to start", err);
-    document.body.innerHTML = `<div style="color:red; padding: 20px;"><h1>Application Error</h1><pre>${err.message}</pre></div>`;
+  console.error("FATAL: Application failed to start", err);
+  document.body.innerHTML = `<div style="color:red; padding: 20px;"><h1>Application Error</h1><pre>${err.message}</pre></div>`;
 });

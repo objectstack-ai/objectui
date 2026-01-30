@@ -105,12 +105,15 @@ export class BulkOperationError extends ObjectStackError {
    * Get a summary of the bulk operation failure
    */
   getSummary() {
+    const total = this.successCount + this.failureCount;
+    const failureRate = total > 0 ? this.failureCount / total : 0;
+    
     return {
       operation: this.details.operation,
-      total: this.successCount + this.failureCount,
+      total: total,
       successful: this.successCount,
       failed: this.failureCount,
-      failureRate: this.failureCount / (this.successCount + this.failureCount),
+      failureRate: failureRate,
       errors: this.errors,
     };
   }

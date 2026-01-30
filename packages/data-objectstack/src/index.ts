@@ -175,9 +175,13 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
           const ids = data.map(item => (item as any).id).filter(Boolean);
           
           if (ids.length === 0) {
-            throw new BulkOperationError('delete', 0, data.length, 
-              data.map((_, index) => ({ index, error: 'Missing ID' }))
-            );
+            // Track which items are missing IDs
+            const errors = data.map((_, index) => ({
+              index,
+              error: `Missing ID for item at index ${index}`
+            }));
+            
+            throw new BulkOperationError('delete', 0, data.length, errors);
           }
           
           await this.client.data.deleteMany(resource, ids);
@@ -249,12 +253,17 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
         throw error;
       }
       
-      // Wrap other errors in BulkOperationError
+      // Wrap other errors in BulkOperationError with proper error tracking
+      const errors = data.map((_, index) => ({
+        index,
+        error: error.message || String(error)
+      }));
+      
       throw new BulkOperationError(
         operation,
         0,
         data.length,
-        [{ index: 0, error: error.message || error }],
+        errors,
         { resource, originalError: error }
       );
     }

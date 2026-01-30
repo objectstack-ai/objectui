@@ -33,10 +33,14 @@ export interface CacheStats {
  * 
  * Features:
  * - LRU (Least Recently Used) eviction policy
- * - TTL (Time To Live) based expiration
+ * - TTL (Time To Live) based expiration (fixed from creation, not sliding)
  * - Memory limit controls
- * - Thread-safe operations (async/await)
+ * - Async-safe operations
  * - Performance statistics tracking
+ * 
+ * Note: Concurrent requests for the same uncached key may result in multiple
+ * fetcher calls. For production use cases requiring request deduplication,
+ * consider wrapping the cache with a promise-based deduplication layer.
  * 
  * @example
  * ```typescript

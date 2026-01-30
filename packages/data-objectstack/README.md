@@ -83,9 +83,10 @@ dataSource.clearCache();
 ### Cache Configuration
 
 - **LRU Eviction**: Automatically evicts least recently used entries when cache is full
-- **TTL Expiration**: Entries expire after the configured time-to-live (default: 5 minutes)
+- **TTL Expiration**: Entries expire after the configured time-to-live from creation (default: 5 minutes)
+  - Note: TTL is fixed from creation time, not sliding based on access
 - **Memory Limits**: Configurable maximum cache size (default: 100 entries)
-- **Thread-Safe**: Handles concurrent access patterns safely
+- **Concurrent Access**: Handles async operations safely. Note that concurrent requests for the same uncached key may result in multiple fetcher calls.
 
 ## Error Handling
 

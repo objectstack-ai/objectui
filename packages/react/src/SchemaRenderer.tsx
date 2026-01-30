@@ -55,9 +55,26 @@ export const SchemaRenderer = forwardRef<any, { schema: SchemaNode } & Record<st
 
   // Note: We don't forward the ref to the Component because components in the registry
   // may not support refs. The SchemaRenderer itself can still receive refs for its own use.
+  
+  // Extract schema metadata properties that should NOT be passed as React props
+  const {
+    type: _type,
+    children: _children,
+    body: _body,
+    schema: _schema,
+    visible: _visible,
+    visibleOn: _visibleOn,
+    hidden: _hidden,
+    hiddenOn: _hiddenOn,
+    disabled: _disabled,
+    disabledOn: _disabledOn,
+    ...componentProps
+  } = evaluatedSchema;
+
   return React.createElement(Component, {
     schema: evaluatedSchema,
-    ...(evaluatedSchema.props || {}),
+    ...componentProps,  // Spread non-metadata schema properties as props
+    ...(evaluatedSchema.props || {}),  // Override with explicit props if provided
     className: evaluatedSchema.className,
     'data-obj-id': evaluatedSchema.id,
     'data-obj-type': evaluatedSchema.type,

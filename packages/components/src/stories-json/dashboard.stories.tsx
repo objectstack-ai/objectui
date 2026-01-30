@@ -25,24 +25,30 @@ export const Default: Story = {
     type: 'dashboard',
     columns: 3,
     gap: 4,
-    children: [
+    widgets: [
       { 
-        type: 'metric', 
-        label: 'Total Revenue',
-        value: '$45,231.89',
-        className: 'col-span-1'
+        id: 'metric-1',
+        component: {
+          type: 'metric', 
+          label: 'Total Revenue',
+          value: '$45,231.89',
+        }
       },
       { 
-        type: 'metric', 
-        label: 'Active Users',
-        value: '2,350',
-        className: 'col-span-1'
+        id: 'metric-2',
+        component: {
+          type: 'metric', 
+          label: 'Active Users',
+          value: '2,350',
+        }
       },
       { 
-        type: 'metric', 
-        label: 'Conversion Rate',
-        value: '12.5%',
-        className: 'col-span-1'
+        id: 'metric-3',
+        component: {
+          type: 'metric', 
+          label: 'Conversion Rate',
+          value: '12.5%',
+        }
       }
     ]
   } as any,
@@ -54,24 +60,28 @@ export const WithCards: Story = {
     type: 'dashboard',
     columns: 2,
     gap: 6,
-    children: [
+    widgets: [
       {
-        type: 'card',
-        title: 'Schema/Plugins/Sales Overview',
-        children: [
-          { type: 'metric', label: 'Today', value: '$1,234' },
-          { type: 'metric', label: 'This Week', value: '$8,456' },
-        ],
-        className: 'col-span-1'
+        id: 'card-1',
+        title: 'Sales Overview',
+        component: {
+          type: 'card',
+          children: [
+            { type: 'metric', label: 'Today', value: '$1,234' },
+            { type: 'metric', label: 'This Week', value: '$8,456' },
+          ],
+        }
       },
       {
-        type: 'card',
-        title: 'Schema/Plugins/User Metrics',
-        children: [
-          { type: 'metric', label: 'Online', value: '456' },
-          { type: 'metric', label: 'New Today', value: '89' },
-        ],
-        className: 'col-span-1'
+        id: 'card-2',
+        title: 'User Metrics',
+        component: {
+          type: 'card',
+          children: [
+            { type: 'metric', label: 'Online', value: '456' },
+            { type: 'metric', label: 'New Today', value: '89' },
+          ],
+        }
       }
     ]
   } as any,

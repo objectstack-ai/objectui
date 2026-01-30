@@ -1,15 +1,13 @@
 import type { Preview } from '@storybook/react-vite'
-import { initialize, mswLoader } from 'msw-storybook-addon';
+import { mswLoader } from 'msw-storybook-addon';
 import { handlers } from './mocks';
 import { startMockServer } from './msw-browser';
 import '../packages/components/src/index.css';
 import { ComponentRegistry } from '@object-ui/core';
 import * as components from '../packages/components/src/index';
 
-// Initialize MSW
-initialize({
-  onUnhandledRequest: 'bypass'
-});
+// Note: MSW is initialized by MSWPlugin in msw-browser.ts
+// We don't need to call initialize() from msw-storybook-addon
 
 // Track MSW initialization state
 let mswInitialized = false;

@@ -1,0 +1,34 @@
+{
+  "name": "@object-ui/create-plugin",
+  "version": "0.3.1",
+  "description": "CLI tool to scaffold ObjectUI plugins",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "create-plugin": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^14.0.2",
+    "fs-extra": "^11.2.0",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^25.0.10",
+    "@types/prompts": "^2.4.9",
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

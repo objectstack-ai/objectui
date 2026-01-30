@@ -250,7 +250,25 @@ export {
 } from './objectql.zod';
 
 // ============================================================================
-// Phase 2 Schemas - Theme, Reports, and Blocks
+// CRUD Components - Create, Read, Update, Delete Operations
+// ============================================================================
+export {
+  ActionExecutionModeSchema,
+  ActionCallbackSchema,
+  ActionConditionSchema,
+  ActionSchema,
+  CRUDOperationSchema,
+  CRUDFilterSchema,
+  CRUDToolbarSchema,
+  CRUDPaginationSchema,
+  CRUDSchema,
+  DetailSchema,
+  CRUDDialogSchema,
+  CRUDComponentSchema,
+} from './crud.zod';
+
+// ============================================================================
+// Phase 2 Schemas - Theme, Reports, Blocks, and Views
 // ============================================================================
 export {
   ColorPaletteSchema,
@@ -294,6 +312,18 @@ export {
   BlockComponentSchema,
 } from './blocks.zod';
 
+export {
+  ViewTypeSchema,
+  DetailViewFieldSchema,
+  DetailViewSectionSchema,
+  DetailViewTabSchema,
+  DetailViewSchema,
+  ViewSwitcherSchema,
+  FilterUISchema,
+  SortUISchema,
+  ViewComponentSchema,
+} from './views.zod';
+
 // ============================================================================
 // Union Types - All Component Schemas
 // ============================================================================
@@ -309,9 +339,11 @@ import { OverlaySchema } from './overlay.zod';
 import { NavigationSchema } from './navigation.zod';
 import { ComplexSchema } from './complex.zod';
 import { ObjectQLComponentSchema } from './objectql.zod';
+import { CRUDComponentSchema } from './crud.zod';
 import { ThemeComponentSchema } from './theme.zod';
 import { ReportComponentSchema } from './reports.zod';
 import { BlockComponentSchema } from './blocks.zod';
+import { ViewComponentSchema } from './views.zod';
 
 /**
  * Union of all component schemas.
@@ -328,9 +360,11 @@ export const AnyComponentSchema = z.union([
   NavigationSchema,
   ComplexSchema,
   ObjectQLComponentSchema,
+  CRUDComponentSchema,
   ThemeComponentSchema,
   ReportComponentSchema,
   BlockComponentSchema,
+  ViewComponentSchema,
 ]);
 
 /**

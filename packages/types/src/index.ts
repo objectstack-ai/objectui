@@ -410,6 +410,26 @@ export type {
   ComponentSchema,
 } from './blocks';
 
+export type {
+  // View System Enhancements
+  ViewType,
+  DetailViewSchema,
+  DetailViewField,
+  DetailViewSection,
+  DetailViewTab,
+  ViewSwitcherSchema,
+  FilterUISchema,
+  SortUISchema,
+  ViewComponentSchema,
+} from './views';
+
+export type {
+  // Enhanced Action System (Phase 2)
+  ActionExecutionMode,
+  ActionCallback,
+  ActionCondition,
+} from './crud';
+
 /**
  * Union of all component schemas.
  * Use this for generic component rendering where the type is determined at runtime.

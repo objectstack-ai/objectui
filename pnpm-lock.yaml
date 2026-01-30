@@ -936,9 +936,6 @@ importers:
       '@object-ui/types':
         specifier: workspace:*
         version: link:../types
-      '@tanstack/react-virtual':
-        specifier: ^3.11.3
-        version: 3.13.18(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react:
         specifier: 19.2.3
         version: 19.2.3

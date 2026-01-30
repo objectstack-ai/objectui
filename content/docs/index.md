@@ -76,3 +76,29 @@ Stop rebuilding components from scratch. ObjectUI includes:
 - 🗂️ **Kanban Boards** with drag-and-drop
 - 📈 **Dashboards** with real-time updates
 - All components are accessible, responsive, and themeable
+
+---
+
+## 🆕 Phase 2: Advanced Features
+
+ObjectUI Phase 2 introduces enterprise-grade capabilities:
+
+### Application Framework
+- **[AppSchema](/docs/core/app-schema)** - Complete app configuration with navigation, branding, and layouts
+- **[ThemeSchema](/docs/core/theme-schema)** - Dynamic theming with light/dark modes and color palettes
+
+### Advanced Actions
+- **[Enhanced Actions](/docs/core/enhanced-actions)** - AJAX calls, confirmation dialogs, action chaining, and conditional execution
+- **Callbacks** - Success/failure handlers with tracking
+
+### Reporting & Analytics
+- **[ReportSchema](/docs/core/report-schema)** - Enterprise reports with aggregation, export (PDF/Excel/CSV), and scheduling
+- **Data Visualization** - Charts, metrics, and dashboards
+
+### Reusable Components
+- **[BlockSchema](/docs/blocks/block-schema)** - Reusable component blocks with variables, slots, and marketplace support
+- **Component Library** - Share and discover pre-built blocks
+
+[**Learn more about Phase 2 →**](/docs/guide/phase2-schemas)
+
+---

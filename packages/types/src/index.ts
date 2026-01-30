@@ -365,6 +365,71 @@ import type { CRUDComponentSchema } from './crud';
 import type { ObjectQLComponentSchema, ListViewSchema } from './objectql';
 import type { AppSchema } from './app';
 
+// ============================================================================
+// Phase 2 Schemas - New Additions
+// ============================================================================
+export type {
+  // Theme System
+  ThemeSchema,
+  ThemeDefinition,
+  ThemeMode,
+  ColorPalette,
+  Typography,
+  SpacingScale,
+  BorderRadius,
+  ThemeSwitcherSchema,
+  ThemePreviewSchema,
+} from './theme';
+
+export type {
+  // Report System
+  ReportSchema,
+  ReportExportFormat,
+  ReportScheduleFrequency,
+  ReportAggregationType,
+  ReportField,
+  ReportFilter,
+  ReportGroupBy,
+  ReportSection,
+  ReportSchedule,
+  ReportExportConfig,
+  ReportBuilderSchema,
+  ReportViewerSchema,
+} from './reports';
+
+export type {
+  // Block System
+  BlockSchema,
+  BlockMetadata,
+  BlockVariable,
+  BlockSlot,
+  BlockLibraryItem,
+  BlockLibrarySchema,
+  BlockEditorSchema,
+  BlockInstanceSchema,
+  ComponentSchema,
+} from './blocks';
+
+export type {
+  // View System Enhancements
+  ViewType,
+  DetailViewSchema,
+  DetailViewField,
+  DetailViewSection,
+  DetailViewTab,
+  ViewSwitcherSchema,
+  FilterUISchema,
+  SortUISchema,
+  ViewComponentSchema,
+} from './views';
+
+export type {
+  // Enhanced Action System (Phase 2)
+  ActionExecutionMode,
+  ActionCallback,
+  ActionCondition,
+} from './crud';
+
 /**
  * Union of all component schemas.
  * Use this for generic component rendering where the type is determined at runtime.

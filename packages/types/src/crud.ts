@@ -21,7 +21,66 @@ import type { FormField } from './form';
 import type { TableColumn } from './data-display';
 
 /**
+ * Action execution mode for chaining
+ */
+export type ActionExecutionMode = 'sequential' | 'parallel';
+
+/**
+ * Action callback configuration
+ */
+export interface ActionCallback {
+  /**
+   * Callback type
+   */
+  type: 'toast' | 'message' | 'redirect' | 'reload' | 'custom' | 'ajax' | 'dialog';
+  /**
+   * Message to display
+   */
+  message?: string;
+  /**
+   * Redirect URL
+   */
+  url?: string;
+  /**
+   * API endpoint for ajax callback
+   */
+  api?: string;
+  /**
+   * HTTP method for ajax callback
+   */
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  /**
+   * Dialog schema to open
+   */
+  dialog?: SchemaNode;
+  /**
+   * Custom callback handler expression
+   */
+  handler?: string;
+}
+
+/**
+ * Conditional action configuration
+ */
+export interface ActionCondition {
+  /**
+   * Condition expression
+   * @example "${data.status === 'active'}"
+   */
+  expression: string;
+  /**
+   * Action to execute if condition is true
+   */
+  then?: ActionSchema | ActionSchema[];
+  /**
+   * Action to execute if condition is false
+   */
+  else?: ActionSchema | ActionSchema[];
+}
+
+/**
  * Action button configuration for CRUD operations
+ * Enhanced with Phase 2 features: ajax, confirm, dialog, chaining, conditional execution
  */
 export interface ActionSchema extends BaseSchema {
   type: 'action';
@@ -48,10 +107,11 @@ export interface ActionSchema extends BaseSchema {
   disabled?: boolean;
   /**
    * Action type
+   * Enhanced in Phase 2 with 'ajax', 'confirm', 'dialog'
    */
-  actionType?: 'button' | 'link' | 'dropdown';
+  actionType?: 'button' | 'link' | 'dropdown' | 'ajax' | 'confirm' | 'dialog';
   /**
-   * API endpoint to call
+   * API endpoint to call (for ajax actions)
    */
   api?: string;
   /**
@@ -60,13 +120,93 @@ export interface ActionSchema extends BaseSchema {
    */
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   /**
-   * Confirmation message before execution
+   * Request body/data
+   */
+  data?: any;
+  /**
+   * Request headers
+   */
+  headers?: Record<string, string>;
+  /**
+   * Confirmation dialog configuration (for confirm actions)
+   */
+  confirm?: {
+    /**
+     * Confirmation title
+     */
+    title?: string;
+    /**
+     * Confirmation message
+     */
+    message?: string;
+    /**
+     * Confirm button text
+     */
+    confirmText?: string;
+    /**
+     * Cancel button text
+     */
+    cancelText?: string;
+    /**
+     * Confirm button variant
+     */
+    confirmVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost';
+  };
+  /**
+   * Legacy confirmation message (deprecated - use confirm object instead)
+   * @deprecated Use confirm.message instead
    */
   confirmText?: string;
+  /**
+   * Dialog configuration (for dialog actions)
+   */
+  dialog?: {
+    /**
+     * Dialog title
+     */
+    title?: string;
+    /**
+     * Dialog content
+     */
+    content?: SchemaNode | SchemaNode[];
+    /**
+     * Dialog size
+     */
+    size?: 'sm' | 'default' | 'lg' | 'xl' | 'full';
+    /**
+     * Dialog actions
+     */
+    actions?: ActionSchema[];
+  };
   /**
    * Success message after execution
    */
   successMessage?: string;
+  /**
+   * Error message on failure
+   */
+  errorMessage?: string;
+  /**
+   * Success callback (Phase 2)
+   */
+  onSuccess?: ActionCallback;
+  /**
+   * Failure callback (Phase 2)
+   */
+  onFailure?: ActionCallback;
+  /**
+   * Action chaining - actions to execute after this one (Phase 2)
+   */
+  chain?: ActionSchema[];
+  /**
+   * Chain execution mode
+   * @default 'sequential'
+   */
+  chainMode?: ActionExecutionMode;
+  /**
+   * Conditional execution (Phase 2)
+   */
+  condition?: ActionCondition;
   /**
    * Whether to reload data after action
    * @default true
@@ -85,6 +225,40 @@ export interface ActionSchema extends BaseSchema {
    * Redirect URL after success
    */
   redirect?: string;
+  /**
+   * Action logging/tracking (Phase 2)
+   */
+  tracking?: {
+    /**
+     * Enable tracking
+     */
+    enabled?: boolean;
+    /**
+     * Event name
+     */
+    event?: string;
+    /**
+     * Additional metadata
+     */
+    metadata?: Record<string, any>;
+  };
+  /**
+   * Timeout in milliseconds
+   */
+  timeout?: number;
+  /**
+   * Retry configuration
+   */
+  retry?: {
+    /**
+     * Maximum retry attempts
+     */
+    maxAttempts?: number;
+    /**
+     * Delay between retries (in ms)
+     */
+    delay?: number;
+  };
 }
 
 /**

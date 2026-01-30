@@ -1,0 +1,368 @@
+---
+title: "Theme Schema (ThemeSchema)"
+description: "Dynamic theming with light/dark modes, color palettes, and typography"
+---
+
+# Theme Schema
+
+The `ThemeSchema` provides a comprehensive theming system for ObjectUI applications, supporting light/dark modes, custom color palettes, typography, and CSS variable integration.
+
+## Overview
+
+ThemeSchema enables:
+- **Multiple theme definitions** - Create and switch between custom themes
+- **Light/Dark modes** - Automatic mode switching with persistence
+- **Color palettes** - 20+ semantic colors for consistent design
+- **Typography system** - Font families, sizes, weights, and line heights
+- **Tailwind integration** - Direct integration with Tailwind CSS
+- **CSS variables** - Custom CSS variable support
+
+## Basic Usage
+
+```typescript
+import type { ThemeSchema } from '@object-ui/types';
+
+const theme: ThemeSchema = {
+  type: 'theme',
+  mode: 'dark',
+  themes: [
+    {
+      name: 'professional',
+      label: 'Professional',
+      light: {
+        primary: '#3b82f6',
+        background: '#ffffff',
+        foreground: '#0f172a'
+      },
+      dark: {
+        primary: '#60a5fa',
+        background: '#0f172a',
+        foreground: '#f1f5f9'
+      }
+    }
+  ],
+  activeTheme: 'professional',
+  allowSwitching: true,
+  persistPreference: true
+};
+```
+
+## Properties
+
+### Theme Configuration
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `type` | `'theme'` | - | Component type identifier (required) |
+| `mode` | `'light' \| 'dark' \| 'system'` | `'light'` | Current theme mode |
+| `themes` | `ThemeDefinition[]` | - | Available theme definitions |
+| `activeTheme` | `string` | - | Currently active theme name |
+| `allowSwitching` | `boolean` | `false` | Allow users to switch themes |
+| `persistPreference` | `boolean` | `false` | Save theme preference to localStorage |
+| `storageKey` | `string` | `'theme'` | Storage key for persisting theme |
+
+## Theme Definition
+
+```typescript
+interface ThemeDefinition {
+  name: string;           // Theme identifier
+  label?: string;         // Display name
+  light?: ColorPalette;   // Light mode colors
+  dark?: ColorPalette;    // Dark mode colors
+  typography?: Typography;
+  spacing?: SpacingScale;
+  radius?: BorderRadius;
+  cssVariables?: Record<string, string>;
+  tailwind?: Record<string, any>;
+}
+```
+
+## Color Palette
+
+Semantic color tokens for consistent design:
+
+```typescript
+interface ColorPalette {
+  // Brand colors
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  
+  // Base colors
+  background?: string;
+  foreground?: string;
+  muted?: string;
+  mutedForeground?: string;
+  
+  // Component colors
+  card?: string;
+  cardForeground?: string;
+  popover?: string;
+  popoverForeground?: string;
+  
+  // UI elements
+  border?: string;
+  input?: string;
+  ring?: string;
+  
+  // Status colors
+  success?: string;
+  warning?: string;
+  destructive?: string;
+  info?: string;
+}
+```
+
+### Example Color Palette
+
+```json
+{
+  "light": {
+    "primary": "#3b82f6",
+    "secondary": "#64748b",
+    "accent": "#8b5cf6",
+    "background": "#ffffff",
+    "foreground": "#0f172a",
+    "muted": "#f1f5f9",
+    "mutedForeground": "#64748b",
+    "border": "#e2e8f0",
+    "input": "#e2e8f0",
+    "ring": "#3b82f6",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "destructive": "#ef4444",
+    "info": "#3b82f6"
+  },
+  "dark": {
+    "primary": "#60a5fa",
+    "secondary": "#94a3b8",
+    "accent": "#a78bfa",
+    "background": "#0f172a",
+    "foreground": "#f1f5f9",
+    "muted": "#1e293b",
+    "mutedForeground": "#94a3b8",
+    "border": "#334155",
+    "input": "#334155",
+    "ring": "#60a5fa",
+    "success": "#34d399",
+    "warning": "#fbbf24",
+    "destructive": "#f87171",
+    "info": "#60a5fa"
+  }
+}
+```
+
+## Typography System
+
+```typescript
+interface Typography {
+  fontSans?: string[];    // Sans-serif font stack
+  fontSerif?: string[];   // Serif font stack
+  fontMono?: string[];    // Monospace font stack
+  fontSize?: number;      // Base font size (rem)
+  lineHeight?: number;    // Base line height
+  headingWeight?: number; // Font weight for headings
+  bodyWeight?: number;    // Font weight for body text
+}
+```
+
+### Example Typography
+
+```json
+{
+  "typography": {
+    "fontSans": ["Inter", "system-ui", "sans-serif"],
+    "fontSerif": ["Merriweather", "Georgia", "serif"],
+    "fontMono": ["JetBrains Mono", "monospace"],
+    "fontSize": 16,
+    "lineHeight": 1.5,
+    "headingWeight": 600,
+    "bodyWeight": 400
+  }
+}
+```
+
+## Spacing Scale
+
+```typescript
+interface SpacingScale {
+  base?: number;               // Base spacing unit (rem)
+  scale?: Record<string, string>;  // Custom spacing values
+}
+```
+
+## Border Radius
+
+```typescript
+interface BorderRadius {
+  sm?: string;
+  default?: string;
+  md?: string;
+  lg?: string;
+  xl?: string;
+}
+```
+
+## Complete Theme Example
+
+```typescript
+const professionalTheme: ThemeSchema = {
+  type: 'theme',
+  mode: 'system',
+  
+  themes: [
+    {
+      name: 'professional',
+      label: 'Professional',
+      
+      light: {
+        primary: '#3b82f6',
+        secondary: '#64748b',
+        accent: '#8b5cf6',
+        background: '#ffffff',
+        foreground: '#0f172a',
+        muted: '#f1f5f9',
+        mutedForeground: '#64748b',
+        card: '#ffffff',
+        cardForeground: '#0f172a',
+        popover: '#ffffff',
+        popoverForeground: '#0f172a',
+        border: '#e2e8f0',
+        input: '#e2e8f0',
+        ring: '#3b82f6',
+        success: '#10b981',
+        warning: '#f59e0b',
+        destructive: '#ef4444',
+        info: '#3b82f6'
+      },
+      
+      dark: {
+        primary: '#60a5fa',
+        secondary: '#94a3b8',
+        accent: '#a78bfa',
+        background: '#0f172a',
+        foreground: '#f1f5f9',
+        muted: '#1e293b',
+        mutedForeground: '#94a3b8',
+        card: '#1e293b',
+        cardForeground: '#f1f5f9',
+        popover: '#1e293b',
+        popoverForeground: '#f1f5f9',
+        border: '#334155',
+        input: '#334155',
+        ring: '#60a5fa',
+        success: '#34d399',
+        warning: '#fbbf24',
+        destructive: '#f87171',
+        info: '#60a5fa'
+      },
+      
+      typography: {
+        fontSans: ['Inter', 'system-ui', 'sans-serif'],
+        fontSize: 16,
+        lineHeight: 1.5,
+        headingWeight: 600,
+        bodyWeight: 400
+      },
+      
+      spacing: {
+        base: 0.25,
+        scale: {
+          '0': '0',
+          '1': '0.25rem',
+          '2': '0.5rem',
+          '4': '1rem',
+          '8': '2rem'
+        }
+      },
+      
+      radius: {
+        sm: '0.25rem',
+        default: '0.5rem',
+        md: '0.75rem',
+        lg: '1rem',
+        xl: '1.5rem'
+      },
+      
+      cssVariables: {
+        '--header-height': '4rem',
+        '--sidebar-width': '16rem'
+      }
+    }
+  ],
+  
+  activeTheme: 'professional',
+  allowSwitching: true,
+  persistPreference: true,
+  storageKey: 'app-theme'
+};
+```
+
+## Theme Switcher
+
+Use `ThemeSwitcherSchema` to add a theme switcher UI:
+
+```typescript
+import type { ThemeSwitcherSchema } from '@object-ui/types';
+
+const switcher: ThemeSwitcherSchema = {
+  type: 'theme-switcher',
+  variant: 'dropdown',
+  showMode: true,      // Show light/dark mode toggle
+  showThemes: true,    // Show theme selector
+  lightIcon: 'Sun',
+  darkIcon: 'Moon'
+};
+```
+
+### Switcher Variants
+
+- **`dropdown`** - Dropdown menu with theme options
+- **`toggle`** - Simple light/dark toggle button
+- **`buttons`** - Button group with all options
+
+## Theme Preview
+
+Use `ThemePreviewSchema` to preview themes:
+
+```typescript
+import type { ThemePreviewSchema } from '@object-ui/types';
+
+const preview: ThemePreviewSchema = {
+  type: 'theme-preview',
+  theme: professionalTheme.themes[0],
+  mode: 'light',
+  showColors: true,
+  showTypography: true,
+  showComponents: true
+};
+```
+
+## Runtime Validation
+
+```typescript
+import { ThemeSchema } from '@object-ui/types/zod';
+
+const result = ThemeSchema.safeParse(myTheme);
+
+if (result.success) {
+  console.log('Valid theme configuration');
+} else {
+  console.error('Validation errors:', result.error);
+}
+```
+
+## Best Practices
+
+1. **Use semantic colors** - Stick to the semantic color tokens for consistency
+2. **Test both modes** - Always test light and dark modes
+3. **Maintain contrast** - Ensure sufficient color contrast for accessibility
+4. **Limit custom themes** - Offer 2-3 well-designed themes max
+5. **Respect system preferences** - Use `mode: 'system'` by default
+6. **Persist preferences** - Enable `persistPreference` for better UX
+
+## Related
+
+- [App Schema](/docs/core/app-schema) - Application configuration
+- [CSS Variables](https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties) - MDN documentation
+- [Tailwind Theming](https://tailwindcss.com/docs/theme) - Tailwind CSS theming guide

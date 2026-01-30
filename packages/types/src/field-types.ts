@@ -67,11 +67,12 @@ export interface BaseFieldMetadata {
   defaultValue?: any;
   
   /**
-   * Field permissions
+   * Field permissions (Phase 3.2.6)
    */
   permissions?: {
     read?: boolean;
     write?: boolean;
+    edit?: boolean;
   };
   
   /**
@@ -93,6 +94,22 @@ export interface BaseFieldMetadata {
    * Custom validation function or rules
    */
   validate?: ValidationFunction | ValidationRule;
+  
+  /**
+   * Field dependencies (Phase 3.2.3)
+   * List of fields that this field depends on
+   */
+  depends_on?: string[];
+  
+  /**
+   * Field index for database optimization
+   */
+  indexed?: boolean;
+  
+  /**
+   * Field is unique constraint
+   */
+  unique?: boolean;
 }
 
 /**
@@ -339,21 +356,53 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
 
 /**
  * Formula field metadata (read-only computed field)
+ * Phase 3.2.4: Enhanced formula field with real-time computation
  */
 export interface FormulaFieldMetadata extends BaseFieldMetadata {
   type: 'formula';
+  /**
+   * Formula expression
+   * Supports JavaScript-like expressions with field references
+   * @example "${amount} * ${tax_rate}"
+   * @example "${firstName} + ' ' + ${lastName}"
+   */
   formula?: string;
-  return_type?: string;
+  /**
+   * Return type of the formula
+   */
+  return_type?: 'text' | 'number' | 'boolean' | 'date' | 'datetime';
+  /**
+   * Whether to recompute on dependency changes
+   */
+  auto_compute?: boolean;
 }
 
 /**
  * Summary/Rollup field metadata (aggregation)
+ * Phase 3.2.5: Enhanced summary field implementation
  */
 export interface SummaryFieldMetadata extends BaseFieldMetadata {
   type: 'summary';
+  /**
+   * Related object to summarize from
+   */
   summary_object?: string;
+  /**
+   * Field to aggregate in the related object
+   */
   summary_field?: string;
-  summary_type?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  /**
+   * Aggregation type
+   */
+  summary_type?: 'count' | 'sum' | 'avg' | 'min' | 'max' | 'first' | 'last';
+  /**
+   * Filter condition for summarized records
+   */
+  summary_filter?: Record<string, any>;
+  /**
+   * Whether to auto-update on related record changes
+   */
+  auto_update?: boolean;
 }
 
 /**
@@ -383,18 +432,92 @@ export interface ObjectFieldMetadata extends BaseFieldMetadata {
 
 /**
  * Vector field metadata (embeddings)
+ * Phase 3.2.1: Complete vector field implementation
  */
 export interface VectorFieldMetadata extends BaseFieldMetadata {
   type: 'vector';
+  /**
+   * Vector dimensions (e.g., 768 for BERT, 1536 for OpenAI)
+   */
   dimensions?: number;
+  /**
+   * Distance metric for similarity search
+   */
+  distance_metric?: 'cosine' | 'euclidean' | 'dot_product';
+  /**
+   * Whether to index for similarity search
+   */
+  indexed?: boolean;
+  /**
+   * Normalization strategy
+   */
+  normalize?: boolean;
 }
 
 /**
  * Grid field metadata (sub-table)
+ * Phase 3.2.2: Complete grid field implementation
  */
 export interface GridFieldMetadata extends BaseFieldMetadata {
   type: 'grid';
-  columns?: any[];
+  /**
+   * Column definitions for the grid
+   */
+  columns?: GridColumnDefinition[];
+  /**
+   * Minimum number of rows
+   */
+  min_rows?: number;
+  /**
+   * Maximum number of rows
+   */
+  max_rows?: number;
+  /**
+   * Whether to allow adding rows
+   */
+  allow_add?: boolean;
+  /**
+   * Whether to allow deleting rows
+   */
+  allow_delete?: boolean;
+  /**
+   * Whether to allow reordering rows
+   */
+  allow_reorder?: boolean;
+}
+
+/**
+ * Grid column definition
+ */
+export interface GridColumnDefinition {
+  /**
+   * Column field name
+   */
+  name: string;
+  /**
+   * Column label
+   */
+  label?: string;
+  /**
+   * Field type
+   */
+  type: string;
+  /**
+   * Whether column is required
+   */
+  required?: boolean;
+  /**
+   * Default value for new rows
+   */
+  defaultValue?: any;
+  /**
+   * Column width
+   */
+  width?: number;
+  /**
+   * Validation rules
+   */
+  validate?: ValidationRule;
 }
 
 export interface ColorFieldMetadata extends BaseFieldMetadata {
@@ -484,7 +607,105 @@ export type FieldMetadata =
   | MasterDetailFieldMetadata;
 
 /**
+ * Object trigger configuration (Phase 3.1.3)
+ */
+export interface ObjectTrigger {
+  /**
+   * Trigger name
+   */
+  name: string;
+  /**
+   * When to execute the trigger
+   */
+  when: 'before' | 'after';
+  /**
+   * Which operation triggers this
+   */
+  on: 'create' | 'update' | 'delete' | 'read';
+  /**
+   * Trigger condition (optional)
+   */
+  condition?: string;
+  /**
+   * Action to execute
+   */
+  action: 'validation' | 'workflow' | 'notification' | 'calculation' | 'custom';
+  /**
+   * Action configuration
+   */
+  config?: Record<string, any>;
+}
+
+/**
+ * Object permission configuration (Phase 3.1.4)
+ */
+export interface ObjectPermission {
+  /**
+   * Permission profile name
+   */
+  profile?: string;
+  /**
+   * Role-based permissions
+   */
+  roles?: string[];
+  /**
+   * CRUD permissions
+   */
+  create?: boolean;
+  read?: boolean;
+  update?: boolean;
+  delete?: boolean;
+  /**
+   * Record-level permissions
+   */
+  record_level?: {
+    /**
+     * User can only access own records
+     */
+    own_records_only?: boolean;
+    /**
+     * Sharing rules
+     */
+    sharing_rules?: SharingRule[];
+  };
+  /**
+   * Field-level permissions
+   */
+  field_permissions?: Record<string, {
+    read?: boolean;
+    edit?: boolean;
+  }>;
+}
+
+/**
+ * Sharing rule configuration
+ */
+export interface SharingRule {
+  /**
+   * Rule name
+   */
+  name: string;
+  /**
+   * Criteria for sharing
+   */
+  criteria?: Record<string, any>;
+  /**
+   * Access level granted
+   */
+  access_level: 'read' | 'edit' | 'full';
+  /**
+   * Share with users/roles
+   */
+  share_with?: {
+    users?: string[];
+    roles?: string[];
+    groups?: string[];
+  };
+}
+
+/**
  * Object schema definition
+ * Phase 3.1: Enhanced with inheritance, triggers, permissions, and caching
  */
 export interface ObjectSchemaMetadata {
   /**
@@ -508,12 +729,123 @@ export interface ObjectSchemaMetadata {
   fields: Record<string, FieldMetadata>;
   
   /**
-   * Permissions
+   * Permissions (Phase 3.1.4: Enhanced permissions)
    */
-  permissions?: {
+  permissions?: ObjectPermission | {
     create?: boolean;
     read?: boolean;
     update?: boolean;
     delete?: boolean;
   };
+  
+  /**
+   * Parent object to inherit from (Phase 3.1.2)
+   */
+  extends?: string;
+  
+  /**
+   * Triggers configuration (Phase 3.1.3)
+   */
+  triggers?: ObjectTrigger[];
+  
+  /**
+   * Primary key field
+   */
+  primary_key?: string;
+  
+  /**
+   * Indexes for optimization
+   */
+  indexes?: ObjectIndex[];
+  
+  /**
+   * Relationships with other objects
+   */
+  relationships?: ObjectRelationship[];
+  
+  /**
+   * Record naming pattern
+   */
+  name_field?: string;
+  
+  /**
+   * Soft delete configuration
+   */
+  soft_delete?: boolean;
+  
+  /**
+   * Audit trail configuration
+   */
+  audit_trail?: boolean;
+  
+  /**
+   * Schema version
+   */
+  version?: string;
+  
+  /**
+   * Cache configuration (Phase 3.1.5)
+   */
+  cache?: {
+    /**
+     * Enable metadata caching
+     */
+    enabled?: boolean;
+    /**
+     * Cache TTL in seconds
+     */
+    ttl?: number;
+    /**
+     * Cache invalidation strategy
+     */
+    invalidation?: 'time' | 'event' | 'manual';
+  };
+}
+
+/**
+ * Object index configuration
+ */
+export interface ObjectIndex {
+  /**
+   * Index name
+   */
+  name: string;
+  /**
+   * Fields to index
+   */
+  fields: string[];
+  /**
+   * Whether index is unique
+   */
+  unique?: boolean;
+  /**
+   * Index type
+   */
+  type?: 'btree' | 'hash' | 'gist' | 'gin';
+}
+
+/**
+ * Object relationship configuration
+ */
+export interface ObjectRelationship {
+  /**
+   * Relationship name
+   */
+  name: string;
+  /**
+   * Related object
+   */
+  object: string;
+  /**
+   * Relationship type
+   */
+  type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many';
+  /**
+   * Foreign key field
+   */
+  foreign_key?: string;
+  /**
+   * Cascade delete
+   */
+  cascade_delete?: boolean;
 }

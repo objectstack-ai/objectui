@@ -299,6 +299,8 @@ export type {
 // ============================================================================
 export type {
   BaseFieldMetadata,
+  VisibilityCondition,
+  ValidationFunction,
   TextFieldMetadata,
   TextareaFieldMetadata,
   MarkdownFieldMetadata,
@@ -328,9 +330,88 @@ export type {
   ObjectFieldMetadata,
   VectorFieldMetadata,
   GridFieldMetadata,
+  GridColumnDefinition,
+  ColorFieldMetadata,
+  CodeFieldMetadata,
+  AvatarFieldMetadata,
+  SignatureFieldMetadata,
+  QRCodeFieldMetadata,
+  AddressFieldMetadata,
+  GeolocationFieldMetadata,
+  SliderFieldMetadata,
+  RatingFieldMetadata,
+  MasterDetailFieldMetadata,
   FieldMetadata,
+  ObjectTrigger,
+  ObjectPermission,
+  SharingRule,
   ObjectSchemaMetadata,
+  ObjectIndex,
+  ObjectRelationship,
 } from './field-types';
+
+// ============================================================================
+// Phase 3: Data Protocol Advanced Types
+// ============================================================================
+export type {
+  // Query AST (Phase 3.3)
+  QueryASTNodeType,
+  QueryASTNode,
+  SelectNode,
+  FromNode,
+  WhereNode,
+  JoinNode,
+  GroupByNode,
+  OrderByNode,
+  LimitNode,
+  OffsetNode,
+  SubqueryNode,
+  AggregateNode,
+  FieldNode,
+  LiteralNode,
+  OperatorNode,
+  FunctionNode,
+  ComparisonOperator,
+  LogicalOperator,
+  QueryAST,
+  QuerySchema,
+  QuerySortConfig,
+  JoinConfig,
+  AggregationConfig,
+  // Filter Schema (Phase 3.4)
+  AdvancedFilterSchema,
+  AdvancedFilterCondition,
+  AdvancedFilterOperator,
+  DateRangeFilter,
+  DateRangePreset,
+  FilterBuilderConfig,
+  FilterFieldConfig,
+  // Validation Schema (Phase 3.5)
+  AdvancedValidationSchema,
+  AdvancedValidationRule,
+  ValidationRuleType,
+  AsyncValidationFunction,
+  ValidationContext,
+  AdvancedValidationResult,
+  AdvancedValidationError,
+  // Driver Interface (Phase 3.6)
+  DriverInterface,
+  ConnectionConfig,
+  DriverQueryResult,
+  BatchOperation,
+  BatchResult,
+  TransactionContext,
+  CacheManager,
+  ConnectionPool,
+  // Datasource Schema (Phase 3.7)
+  DatasourceSchema,
+  DatasourceType,
+  DatasourceMetric,
+  DatasourceAlert,
+  DatasourceManager,
+  HealthCheckResult,
+  DatasourceMetrics,
+} from './data-protocol';
 
 // ============================================================================
 // API and Events - API Integration and Event Handling

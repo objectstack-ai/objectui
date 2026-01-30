@@ -11,12 +11,22 @@ initialize({
   onUnhandledRequest: 'bypass'
 });
 
+// Track MSW initialization state
+let mswInitialized = false;
+let mswInitPromise: Promise<void> | null = null;
+
 // Start MSW runtime with ObjectStack kernel
 // This must be called during Storybook initialization
 if (typeof window !== 'undefined') {
-  startMockServer().catch(err => {
-    console.error('Failed to start MSW runtime:', err);
-  });
+  mswInitPromise = startMockServer()
+    .then(() => {
+      mswInitialized = true;
+      console.log('[Storybook] MSW Runtime Ready');
+    })
+    .catch(err => {
+      console.error('Failed to start MSW runtime:', err);
+      throw err;
+    });
 }
 
 // Register all base components for Storybook
@@ -41,8 +51,20 @@ import '@object-ui/plugin-view';
 import '@object-ui/layout';
 import '@object-ui/fields';
 
+/**
+ * Loader that ensures MSW runtime is initialized before rendering stories.
+ * This prevents race conditions where stories try to fetch data before handlers are ready.
+ */
+const ensureMSWReady = async () => {
+  if (!mswInitialized && mswInitPromise) {
+    console.log('[Storybook] Waiting for MSW runtime to initialize...');
+    await mswInitPromise;
+  }
+  return {};
+};
+
 const preview: Preview = {
-  loaders: [mswLoader],
+  loaders: [ensureMSWReady, mswLoader],
   parameters: {
     msw: {
        handlers: handlers

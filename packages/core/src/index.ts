@@ -8,11 +8,12 @@
 
 export * from './types';
 export * from './registry/Registry';
-export * from './validation/schema-validator';
+export * from './validation';
 export * from './builder/schema-builder';
 export * from './utils/filter-converter';
 export * from './evaluator';
 export * from './actions';
+export * from './query';
 // export * from './data-scope'; // TODO
 // export * from './validators'; // TODO
 

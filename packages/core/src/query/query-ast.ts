@@ -1,0 +1,237 @@
+/**
+ * ObjectUI - Query AST Builder
+ * Phase 3.3: QuerySchema AST implementation
+ */
+
+import type {
+  QueryAST,
+  QuerySchema,
+  SelectNode,
+  FromNode,
+  WhereNode,
+  JoinNode,
+  GroupByNode,
+  OrderByNode,
+  LimitNode,
+  OffsetNode,
+  AggregateNode,
+  FieldNode,
+  LiteralNode,
+  OperatorNode,
+  LogicalOperator,
+  AdvancedFilterSchema,
+  AdvancedFilterCondition,
+  QuerySortConfig,
+  JoinConfig,
+  AggregationConfig,
+} from '@object-ui/types';
+
+/**
+ * Query AST Builder - Converts QuerySchema to AST
+ */
+export class QueryASTBuilder {
+  build(query: QuerySchema): QueryAST {
+    const ast: QueryAST = {
+      select: this.buildSelect(query),
+      from: this.buildFrom(query),
+    };
+
+    if (query.filter) {
+      ast.where = this.buildWhere(query.filter);
+    }
+
+    if (query.joins && query.joins.length > 0) {
+      ast.joins = query.joins.map(join => this.buildJoin(join));
+    }
+
+    if (query.group_by && query.group_by.length > 0) {
+      ast.group_by = this.buildGroupBy(query.group_by);
+    }
+
+    if (query.sort && query.sort.length > 0) {
+      ast.order_by = this.buildOrderBy(query.sort);
+    }
+
+    if (query.limit !== undefined) {
+      ast.limit = this.buildLimit(query.limit);
+    }
+
+    if (query.offset !== undefined) {
+      ast.offset = this.buildOffset(query.offset);
+    }
+
+    return ast;
+  }
+
+  private buildSelect(query: QuerySchema): SelectNode {
+    const fields: (FieldNode | AggregateNode)[] = [];
+
+    if (query.fields && query.fields.length > 0) {
+      fields.push(...query.fields.map(field => this.buildField(field)));
+    } else {
+      fields.push(this.buildField('*'));
+    }
+
+    if (query.aggregations && query.aggregations.length > 0) {
+      fields.push(...query.aggregations.map(agg => this.buildAggregation(agg)));
+    }
+
+    return {
+      type: 'select',
+      fields,
+      distinct: false,
+    };
+  }
+
+  private buildFrom(query: QuerySchema): FromNode {
+    return {
+      type: 'from',
+      table: query.object,
+    };
+  }
+
+  private buildWhere(filter: AdvancedFilterSchema): WhereNode {
+    return {
+      type: 'where',
+      condition: this.buildFilterCondition(filter),
+    };
+  }
+
+  private buildFilterCondition(filter: AdvancedFilterSchema): OperatorNode {
+    const operator = filter.operator || 'and';
+    const operands: (OperatorNode | FieldNode | LiteralNode)[] = [];
+
+    if (filter.conditions && filter.conditions.length > 0) {
+      operands.push(...filter.conditions.map(cond => this.buildCondition(cond)));
+    }
+
+    if (filter.groups && filter.groups.length > 0) {
+      operands.push(...filter.groups.map(group => this.buildFilterCondition(group)));
+    }
+
+    return {
+      type: 'operator',
+      operator: operator as LogicalOperator,
+      operands,
+    };
+  }
+
+  private buildCondition(condition: AdvancedFilterCondition): OperatorNode {
+    const field = this.buildField(condition.field);
+    const value = this.buildLiteral(condition.value);
+    
+    return {
+      type: 'operator',
+      operator: '=',
+      operands: [field, value],
+    };
+  }
+
+  private buildJoin(join: JoinConfig): JoinNode {
+    const onCondition: OperatorNode = {
+      type: 'operator',
+      operator: '=',
+      operands: [
+        this.buildField(join.on.local_field),
+        this.buildField(join.on.foreign_field, join.alias || join.object),
+      ],
+    };
+
+    return {
+      type: 'join',
+      join_type: join.type,
+      table: join.object,
+      alias: join.alias,
+      on: onCondition,
+    };
+  }
+
+  private buildGroupBy(fields: string[]): GroupByNode {
+    return {
+      type: 'group_by',
+      fields: fields.map(field => this.buildField(field)),
+    };
+  }
+
+  private buildOrderBy(sorts: QuerySortConfig[]): OrderByNode {
+    return {
+      type: 'order_by',
+      fields: sorts.map(sort => ({
+        field: this.buildField(sort.field),
+        direction: sort.order,
+      })),
+    };
+  }
+
+  private buildLimit(limit: number): LimitNode {
+    return {
+      type: 'limit',
+      value: limit,
+    };
+  }
+
+  private buildOffset(offset: number): OffsetNode {
+    return {
+      type: 'offset',
+      value: offset,
+    };
+  }
+
+  private buildField(field: string, table?: string): FieldNode {
+    const parts = field.split('.');
+    
+    if (parts.length === 2) {
+      return {
+        type: 'field',
+        table: parts[0],
+        name: parts[1],
+      };
+    }
+
+    return {
+      type: 'field',
+      table,
+      name: field,
+    };
+  }
+
+  private buildLiteral(value: any): LiteralNode {
+    let dataType: 'string' | 'number' | 'boolean' | 'date' | 'null' = 'string';
+    
+    if (value === null || value === undefined) {
+      dataType = 'null';
+    } else if (typeof value === 'number') {
+      dataType = 'number';
+    } else if (typeof value === 'boolean') {
+      dataType = 'boolean';
+    } else if (value instanceof Date) {
+      dataType = 'date';
+    }
+
+    return {
+      type: 'literal',
+      value,
+      data_type: dataType,
+    };
+  }
+
+  private buildAggregation(agg: AggregationConfig): AggregateNode {
+    return {
+      type: 'aggregate',
+      function: agg.function,
+      field: agg.field ? this.buildField(agg.field) : undefined,
+      alias: agg.alias,
+      distinct: agg.distinct,
+    };
+  }
+
+  optimize(ast: QueryAST): QueryAST {
+    return ast;
+  }
+}
+
+export const defaultQueryASTBuilder = new QueryASTBuilder();
+
+export function buildQueryAST(query: QuerySchema): QueryAST {
+  return defaultQueryASTBuilder.build(query);
+}

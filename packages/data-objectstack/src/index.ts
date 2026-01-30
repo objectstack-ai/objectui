@@ -70,7 +70,7 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
       } catch (error: any) {
         throw new ConnectionError(
           error?.message || 'Failed to connect to ObjectStack server',
-          this.client.config?.baseUrl,
+          undefined,
           { originalError: error }
         );
       }
@@ -181,14 +181,15 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
           }
           
           await this.client.data.deleteMany(resource, ids);
-          return [];
+          return [] as T[];
         }
         
         case 'update': {
           // Check if client supports updateMany
-          if (typeof this.client.data.updateMany === 'function') {
+          if (typeof (this.client.data as any).updateMany === 'function') {
             try {
-              return await this.client.data.updateMany<T>(resource, data);
+              const updateMany = (this.client.data as any).updateMany;
+              return await updateMany(resource, data) as T[];
             } catch (error) {
               // If updateMany is not supported, fall back to individual updates
               console.warn('updateMany not supported, falling back to individual updates');

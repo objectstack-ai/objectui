@@ -549,7 +549,7 @@ function applyFieldTypeFormatting(colDef: ColDef, field: FieldMetadata): void {
       };
       break;
       
-    case 'number':
+    case 'number': {
       const precision = (field as any).precision;
       if (precision !== undefined) {
         colDef.valueFormatter = (params: any) => {
@@ -558,6 +558,7 @@ function applyFieldTypeFormatting(colDef: ColDef, field: FieldMetadata): void {
         };
       }
       break;
+    }
       
     case 'color':
       colDef.cellRenderer = (params: any) => {

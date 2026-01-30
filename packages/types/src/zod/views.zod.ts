@@ -134,7 +134,7 @@ export const FilterUISchema = BaseSchema.extend({
     options: z.array(z.object({ label: z.string(), value: z.any() })).optional().describe('Options for select filter'),
     placeholder: z.string().optional().describe('Placeholder'),
   })).describe('Available filters'),
-  values: z.record(z.any()).optional().describe('Current filter values'),
+  values: z.record(z.string(), z.any()).optional().describe('Current filter values'),
   onChange: z.string().optional().describe('Filter change callback'),
   showClear: z.boolean().optional().describe('Show clear button'),
   showApply: z.boolean().optional().describe('Show apply button'),

@@ -73,8 +73,8 @@ export const BlockSchema = BaseSchema.extend({
   variables: z.array(BlockVariableSchema).optional().describe('Block variables/props'),
   slots: z.array(BlockSlotSchema).optional().describe('Block slots for content injection'),
   template: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Block template (component tree)'),
-  values: z.record(z.any()).optional().describe('Variable values (when using a block)'),
-  slotContent: z.record(z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])).optional().describe('Slot content (when using a block)'),
+  values: z.record(z.string(), z.any()).optional().describe('Variable values (when using a block)'),
+  slotContent: z.record(z.string(), z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])).optional().describe('Slot content (when using a block)'),
   blockRef: z.string().optional().describe('Block reference (for reusing saved blocks)'),
   editable: z.boolean().optional().describe('Enable edit mode'),
 });
@@ -130,8 +130,8 @@ export const BlockInstanceSchema = BaseSchema.extend({
   type: z.literal('block-instance'),
   blockId: z.string().describe('Block reference ID'),
   blockName: z.string().optional().describe('Block name (for local blocks)'),
-  values: z.record(z.any()).optional().describe('Variable values'),
-  slotContent: z.record(z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])).optional().describe('Slot content'),
+  values: z.record(z.string(), z.any()).optional().describe('Variable values'),
+  slotContent: z.record(z.string(), z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])).optional().describe('Slot content'),
   overrideStyles: z.boolean().optional().describe('Override styles'),
 });
 
@@ -141,7 +141,7 @@ export const BlockInstanceSchema = BaseSchema.extend({
 export const ComponentSchema = BaseSchema.extend({
   type: z.literal('component'),
   componentName: z.string().optional().describe('Component name/identifier'),
-  props: z.record(z.any()).optional().describe('Component props'),
+  props: z.record(z.string(), z.any()).optional().describe('Component props'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Component children'),
 });
 

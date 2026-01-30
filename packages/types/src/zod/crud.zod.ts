@@ -62,7 +62,7 @@ export const ActionSchema: z.ZodType<any> = z.lazy(() => BaseSchema.extend({
   api: z.string().optional().describe('API endpoint to call (for ajax actions)'),
   method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']).optional().default('POST').describe('HTTP method'),
   data: z.any().optional().describe('Request body/data'),
-  headers: z.record(z.string()).optional().describe('Request headers'),
+  headers: z.record(z.string(), z.string()).optional().describe('Request headers'),
   confirm: z.object({
     title: z.string().optional().describe('Confirmation title'),
     message: z.string().optional().describe('Confirmation message'),
@@ -91,7 +91,7 @@ export const ActionSchema: z.ZodType<any> = z.lazy(() => BaseSchema.extend({
   tracking: z.object({
     enabled: z.boolean().optional().describe('Enable tracking'),
     event: z.string().optional().describe('Event name'),
-    metadata: z.record(z.any()).optional().describe('Additional metadata'),
+    metadata: z.record(z.string(), z.any()).optional().describe('Additional metadata'),
   }).optional().describe('Action logging/tracking'),
   timeout: z.number().optional().describe('Timeout in milliseconds'),
   retry: z.object({
@@ -163,7 +163,7 @@ export const CRUDSchema = BaseSchema.extend({
   api: z.string().optional().describe('API endpoint for list/search'),
   columns: z.array(z.any()).describe('Table columns configuration'),
   fields: z.array(z.any()).optional().describe('Form fields for create/edit'),
-  operations: z.record(z.union([z.boolean(), CRUDOperationSchema])).optional().describe('Enabled operations'),
+  operations: z.record(z.string(), z.union([z.boolean(), CRUDOperationSchema])).optional().describe('Enabled operations'),
   toolbar: CRUDToolbarSchema.optional().describe('Toolbar configuration'),
   filters: z.array(CRUDFilterSchema).optional().describe('Filter configuration'),
   pagination: CRUDPaginationSchema.optional().describe('Pagination configuration'),

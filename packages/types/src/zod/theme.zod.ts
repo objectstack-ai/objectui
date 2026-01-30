@@ -61,7 +61,7 @@ export const TypographySchema = z.object({
  */
 export const SpacingScaleSchema = z.object({
   base: z.number().optional().describe('Base spacing unit (in rem)'),
-  scale: z.record(z.string()).optional().describe('Custom spacing values'),
+  scale: z.record(z.string(), z.string()).optional().describe('Custom spacing values'),
 });
 
 /**
@@ -91,8 +91,8 @@ export const ThemeDefinitionSchema = z.object({
   typography: TypographySchema.optional().describe('Typography configuration'),
   spacing: SpacingScaleSchema.optional().describe('Spacing scale configuration'),
   radius: BorderRadiusSchema.optional().describe('Border radius configuration'),
-  cssVariables: z.record(z.string()).optional().describe('Custom CSS variables'),
-  tailwind: z.record(z.any()).optional().describe('Tailwind configuration overrides'),
+  cssVariables: z.record(z.string(), z.string()).optional().describe('Custom CSS variables'),
+  tailwind: z.record(z.string(), z.any()).optional().describe('Tailwind configuration overrides'),
 });
 
 /**

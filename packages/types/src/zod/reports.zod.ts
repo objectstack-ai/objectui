@@ -105,7 +105,7 @@ export const ReportExportConfigSchema = z.object({
   includeHeaders: z.boolean().optional().describe('Include headers'),
   orientation: z.enum(['portrait', 'landscape']).optional().describe('Page orientation (for PDF)'),
   pageSize: z.enum(['A4', 'A3', 'Letter', 'Legal']).optional().describe('Page size (for PDF)'),
-  options: z.record(z.any()).optional().describe('Custom options'),
+  options: z.record(z.string(), z.any()).optional().describe('Custom options'),
 });
 
 /**
@@ -122,7 +122,7 @@ export const ReportSchema = BaseSchema.extend({
   sections: z.array(ReportSectionSchema).optional().describe('Report sections'),
   schedule: ReportScheduleSchema.optional().describe('Schedule configuration'),
   defaultExportFormat: ReportExportFormatSchema.optional().describe('Default export format'),
-  exportConfigs: z.record(ReportExportConfigSchema).optional().describe('Export configurations'),
+  exportConfigs: z.record(z.string(), ReportExportConfigSchema).optional().describe('Export configurations'),
   showExportButtons: z.boolean().optional().describe('Show export buttons'),
   showPrintButton: z.boolean().optional().describe('Show print button'),
   showScheduleButton: z.boolean().optional().describe('Show schedule button'),

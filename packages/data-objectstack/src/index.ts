@@ -9,6 +9,14 @@
 import { ObjectStackClient, type QueryOptions as ObjectStackQueryOptions } from '@objectstack/client';
 import type { DataSource, QueryParams, QueryResult } from '@object-ui/types';
 import { convertFiltersToAST } from '@object-ui/core';
+import { MetadataCache } from './cache/MetadataCache';
+import {
+  ObjectStackError,
+  MetadataNotFoundError,
+  BulkOperationError,
+  ConnectionError,
+  createErrorFromResponse,
+} from './errors';
 
 /**
  * ObjectStack Data Source Adapter
@@ -35,13 +43,19 @@ import { convertFiltersToAST } from '@object-ui/core';
 export class ObjectStackAdapter<T = any> implements DataSource<T> {
   private client: ObjectStackClient;
   private connected: boolean = false;
+  private metadataCache: MetadataCache;
 
   constructor(config: {
     baseUrl: string;
     token?: string;
     fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+    cache?: {
+      maxSize?: number;
+      ttl?: number;
+    };
   }) {
     this.client = new ObjectStackClient(config);
+    this.metadataCache = new MetadataCache(config.cache);
   }
 
   /**
@@ -50,8 +64,16 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
    */
   async connect(): Promise<void> {
     if (!this.connected) {
-      await this.client.connect();
-      this.connected = true;
+      try {
+        await this.client.connect();
+        this.connected = true;
+      } catch (error: any) {
+        throw new ConnectionError(
+          error?.message || 'Failed to connect to ObjectStack server',
+          this.client.config?.baseUrl,
+          { originalError: error }
+        );
+      }
     }
   }
 
@@ -130,31 +152,110 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
   }
 
   /**
-   * Bulk operations (optional implementation).
+   * Bulk operations with optimized batch processing and error handling.
+   * 
+   * @param resource - Resource name
+   * @param operation - Operation type (create, update, delete)
+   * @param data - Array of records to process
+   * @returns Promise resolving to array of results
    */
   async bulk(resource: string, operation: 'create' | 'update' | 'delete', data: Partial<T>[]): Promise<T[]> {
     await this.connect();
 
-    switch (operation) {
-      case 'create':
-        return this.client.data.createMany<T>(resource, data);
-      case 'delete': {
-        const ids = data.map(item => (item as any).id).filter(Boolean);
-        await this.client.data.deleteMany(resource, ids);
-        return [];
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    try {
+      switch (operation) {
+        case 'create':
+          return await this.client.data.createMany<T>(resource, data);
+        
+        case 'delete': {
+          const ids = data.map(item => (item as any).id).filter(Boolean);
+          
+          if (ids.length === 0) {
+            throw new BulkOperationError('delete', 0, data.length, 
+              data.map((_, index) => ({ index, error: 'Missing ID' }))
+            );
+          }
+          
+          await this.client.data.deleteMany(resource, ids);
+          return [];
+        }
+        
+        case 'update': {
+          // Check if client supports updateMany
+          if (typeof this.client.data.updateMany === 'function') {
+            try {
+              return await this.client.data.updateMany<T>(resource, data);
+            } catch (error) {
+              // If updateMany is not supported, fall back to individual updates
+              console.warn('updateMany not supported, falling back to individual updates');
+            }
+          }
+          
+          // Fallback: Process updates individually with detailed error tracking
+          const results: T[] = [];
+          const errors: Array<{ index: number; error: any }> = [];
+          
+          for (let i = 0; i < data.length; i++) {
+            const item = data[i];
+            const id = (item as any).id;
+            
+            if (!id) {
+              errors.push({ index: i, error: 'Missing ID' });
+              continue;
+            }
+            
+            try {
+              const result = await this.client.data.update<T>(resource, String(id), item);
+              results.push(result);
+            } catch (error: any) {
+              errors.push({ index: i, error: error.message || error });
+            }
+          }
+          
+          // If there were any errors, throw BulkOperationError
+          if (errors.length > 0) {
+            throw new BulkOperationError(
+              'update',
+              results.length,
+              errors.length,
+              errors,
+              { resource, totalRecords: data.length }
+            );
+          }
+          
+          return results;
+        }
+        
+        default:
+          throw new ObjectStackError(
+            `Unsupported bulk operation: ${operation}`,
+            'UNSUPPORTED_OPERATION',
+            400
+          );
       }
-      case 'update': {
-        // For update, we need to handle each record individually
-        // or use the batch update if all records get the same changes
-        const results = await Promise.all(
-          data.map(item => 
-            this.client.data.update<T>(resource, String((item as any).id), item)
-          )
-        );
-        return results;
+    } catch (error: any) {
+      // If it's already a BulkOperationError, re-throw it
+      if (error instanceof BulkOperationError) {
+        throw error;
       }
-      default:
-        throw new Error(`Unsupported bulk operation: ${operation}`);
+      
+      // If it's already an ObjectStackError, re-throw it
+      if (error instanceof ObjectStackError) {
+        throw error;
+      }
+      
+      // Wrap other errors in BulkOperationError
+      throw new BulkOperationError(
+        operation,
+        0,
+        data.length,
+        [{ index: 0, error: error.message || error }],
+        { resource, originalError: error }
+      );
     }
   }
 
@@ -199,6 +300,7 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
 
   /**
    * Get object schema/metadata from ObjectStack.
+   * Uses caching to improve performance for repeated requests.
    * 
    * @param objectName - Object name
    * @returns Promise resolving to the object schema
@@ -207,11 +309,25 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
     await this.connect();
     
     try {
-      const schema = await this.client.meta.getObject(objectName);
+      // Use cache with automatic fetching
+      const schema = await this.metadataCache.get(objectName, async () => {
+        const result = await this.client.meta.getObject(objectName);
+        return result;
+      });
+      
       return schema;
-    } catch (error) {
-      console.error(`Failed to fetch schema for ${objectName}:`, error);
-      throw error;
+    } catch (error: any) {
+      // Check if it's a 404 error
+      if (error?.status === 404 || error?.statusCode === 404) {
+        throw new MetadataNotFoundError(objectName, { originalError: error });
+      }
+      
+      // For other errors, wrap in ObjectStackError if not already
+      if (error instanceof ObjectStackError) {
+        throw error;
+      }
+      
+      throw createErrorFromResponse(error, `getObjectSchema(${objectName})`);
     }
   }
 
@@ -220,6 +336,29 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
    */
   getClient(): ObjectStackClient {
     return this.client;
+  }
+
+  /**
+   * Get cache statistics for monitoring performance.
+   */
+  getCacheStats() {
+    return this.metadataCache.getStats();
+  }
+
+  /**
+   * Invalidate metadata cache entries.
+   * 
+   * @param key - Optional key to invalidate. If omitted, invalidates all entries.
+   */
+  invalidateCache(key?: string): void {
+    this.metadataCache.invalidate(key);
+  }
+
+  /**
+   * Clear all cache entries and statistics.
+   */
+  clearCache(): void {
+    this.metadataCache.clear();
   }
 }
 
@@ -230,7 +369,8 @@ export class ObjectStackAdapter<T = any> implements DataSource<T> {
  * ```typescript
  * const dataSource = createObjectStackAdapter({
  *   baseUrl: process.env.API_URL,
- *   token: process.env.API_TOKEN
+ *   token: process.env.API_TOKEN,
+ *   cache: { maxSize: 100, ttl: 300000 }
  * });
  * ```
  */
@@ -238,6 +378,26 @@ export function createObjectStackAdapter<T = any>(config: {
   baseUrl: string;
   token?: string;
   fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  cache?: {
+    maxSize?: number;
+    ttl?: number;
+  };
 }): DataSource<T> {
   return new ObjectStackAdapter<T>(config);
 }
+
+// Export error classes for error handling
+export {
+  ObjectStackError,
+  MetadataNotFoundError,
+  BulkOperationError,
+  ConnectionError,
+  AuthenticationError,
+  ValidationError,
+  createErrorFromResponse,
+  isObjectStackError,
+  isErrorType,
+} from './errors';
+
+// Export cache types
+export type { CacheStats } from './cache/MetadataCache';

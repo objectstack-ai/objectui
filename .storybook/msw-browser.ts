@@ -45,20 +45,9 @@ export async function startMockServer() {
         baseUrl: '/api/v1', 
         logRequests: true,
         customHandlers: [
-            // Handle /api/v1/index.json for ObjectStackClient.connect()
-            http.get('http://localhost:6006/api/v1/index.json', async () => {
-                console.log('[MSW Custom Handler] Intercepted /api/v1/index.json');
-                return HttpResponse.json({
-                    version: '1.0',
-                    objects: ['contact', 'opportunity', 'account'],
-                    endpoints: {
-                        data: '/api/v1/data',
-                        metadata: '/api/v1/metadata'
-                    }
-                });
-            }),
-            http.get('/api/v1/index.json', async () => {
-                console.log('[MSW Custom Handler] Intercepted /api/v1/index.json (relative)');
+            // Handle /api/v1/index.json for ObjectStackClient.connect() - try all URL variations
+            http.get('*/api/v1/index.json', async () => {
+                console.log('[MSW Custom Handler] Intercepted /api/v1/index.json (wildcard)');
                 return HttpResponse.json({
                     version: '1.0',
                     objects: ['contact', 'opportunity', 'account'],

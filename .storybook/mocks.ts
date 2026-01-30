@@ -12,20 +12,9 @@ import { http, HttpResponse } from 'msw';
  */
 
 export const handlers = [
-    // Handle ObjectStack client connection endpoint (both absolute and relative URLs)
-    http.get('http://localhost:6006/api/v1/index.json', async () => {
-        console.log('[MSW Handlers mocks.ts] Intercepted /api/v1/index.json (absolute)');
-        return HttpResponse.json({
-            version: '1.0',
-            objects: ['contact', 'opportunity', 'account'],
-            endpoints: {
-                data: '/api/v1/data',
-                metadata: '/api/v1/metadata'
-            }
-        });
-    }),
-    http.get('/api/v1/index.json', async () => {
-        console.log('[MSW Handlers mocks.ts] Intercepted /api/v1/index.json (relative)');
+    // Handle ObjectStack client connection endpoint with wildcard to catch all variations
+    http.get('*/api/v1/index.json', async () => {
+        console.log('[MSW Handlers mocks.ts] Intercepted /api/v1/index.json (wildcard)');
         return HttpResponse.json({
             version: '1.0',
             objects: ['contact', 'opportunity', 'account'],

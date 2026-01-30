@@ -1,13 +1,23 @@
 ---
-title: "Phase 2 Schema Reference"
-description: "Complete reference for ObjectUI Phase 2 schemas including App, Theme, Reports, Blocks, and Enhanced Actions"
+title: "Schema Overview"
+description: "Comprehensive overview of ObjectUI schemas for building enterprise applications"
 ---
 
-# Phase 2 Schema Reference
+# Schema Overview
 
-ObjectUI Phase 2 introduces advanced schemas for enterprise applications, providing comprehensive solutions for theming, reporting, reusable components, and complex action workflows.
+ObjectUI provides powerful schemas that enable you to build sophisticated enterprise applications with advanced features like theming, reporting, reusable components, and complex workflows. This guide provides an overview of all available schemas and helps you get started quickly.
 
-## New Schemas
+## Key Capabilities
+
+ObjectUI includes enterprise-grade capabilities to build production-ready applications:
+
+- **Application Structure** - Define complete multi-page applications with navigation
+- **Dynamic Theming** - Brand your applications with custom themes and light/dark modes
+- **Advanced Actions** - Build complex workflows with API calls, chaining, and conditions
+- **Enterprise Reporting** - Generate, schedule, and export comprehensive reports
+- **Reusable Components** - Create and share component blocks across projects
+
+## Core Schemas
 
 ### Application Configuration
 
@@ -80,7 +90,7 @@ const action: ActionSchema = {
 - **`confirm`** - Confirmation dialogs
 - **`dialog`** - Modal/dialog actions
 
-**Advanced Features:**
+**Key Features:**
 - Action chaining (sequential/parallel)
 - Conditional execution (if/then/else)
 - Success/failure callbacks
@@ -158,7 +168,7 @@ const block: BlockSchema = {
 
 ## View Components
 
-Phase 2 also includes enhanced view components:
+ObjectUI also includes enhanced view components:
 
 ### [Detail View](/docs/components/detail-view)
 Rich detail pages with sections, tabs, and related records.
@@ -172,19 +182,23 @@ Advanced filtering interface with multiple field types.
 ### [Sort UI](/docs/components/sort-ui)
 Sort configuration with multiple fields.
 
-## Getting Started
+## Installation & Setup
 
-### Installation
+### Package Installation
 
-All Phase 2 schemas are included in `@object-ui/types`:
+All schemas are included in `@object-ui/types`. Install it in your project:
 
 ```bash
 npm install @object-ui/types
 # or
 pnpm add @object-ui/types
+# or
+yarn add @object-ui/types
 ```
 
-### Basic Usage
+### TypeScript Usage
+
+Import the type definitions you need:
 
 ```typescript
 import type { 
@@ -198,7 +212,7 @@ import type {
 
 ### Runtime Validation
 
-Use Zod schemas for runtime validation:
+For runtime validation, use the included Zod schemas:
 
 ```typescript
 import { 
@@ -212,18 +226,21 @@ import {
 const result = AppSchema.safeParse(myConfig);
 if (result.success) {
   // Valid configuration
+  const app = result.data;
 } else {
   // Handle validation errors
+  console.error(result.error);
 }
 ```
 
-## Examples
+## Quick Start Example
 
-### Complete Application
+Here's a complete example showing how to build a simple CRM application using ObjectUI schemas:
 
 ```typescript
 import type { AppSchema, ThemeSchema } from '@object-ui/types';
 
+// Define your application structure
 const app: AppSchema = {
   type: 'app',
   name: 'enterprise-crm',
@@ -259,6 +276,7 @@ const app: AppSchema = {
   ]
 };
 
+// Configure your theme
 const theme: ThemeSchema = {
   type: 'theme',
   mode: 'system',
@@ -272,52 +290,90 @@ const theme: ThemeSchema = {
 };
 ```
 
-## Migration Guide
+This creates a professional-looking CRM application with:
+- A sidebar layout with navigation menu
+- Sales section with leads and deals
+- User menu with profile and logout options
+- Professional theme with light/dark mode support
 
-If you're upgrading from Phase 1, here's what's new:
+## Advanced Features
 
-### ActionSchema Enhancements
-- ✅ New `ajax`, `confirm`, `dialog` action types
-- ✅ Action chaining with `chain` array
-- ✅ Conditional execution with `condition`
-- ✅ Callbacks with `onSuccess` and `onFailure`
-- ✅ Tracking with `tracking` config
+ObjectUI provides advanced schemas and capabilities for enterprise applications:
 
-### New Top-Level Schemas
-- ✅ `AppSchema` - Application configuration
-- ✅ `ThemeSchema` - Theming system
-- ✅ `ReportSchema` - Reporting system
-- ✅ `BlockSchema` - Reusable blocks
+### Core Schemas
 
-### View Enhancements
-- ✅ `DetailViewSchema` - Rich detail pages
-- ✅ `ViewSwitcherSchema` - View mode toggling
-- ✅ `FilterUISchema` - Enhanced filtering
-- ✅ `SortUISchema` - Sort configuration
+ObjectUI includes these top-level schemas:
 
-## Resources
+- **`AppSchema`** - Define your entire application structure
+- **`ThemeSchema`** - Configure themes and color palettes
+- **`ReportSchema`** - Create data reports with aggregation
+- **`BlockSchema`** - Build reusable component blocks
+
+### Enhanced ActionSchema
+
+The `ActionSchema` provides comprehensive action handling:
+
+- ✅ Action types: `ajax`, `confirm`, `dialog`
+- ✅ Action chaining via the `chain` array (sequential or parallel)
+- ✅ Conditional execution with the `condition` property
+- ✅ Success/failure callbacks: `onSuccess` and `onFailure`
+- ✅ Event tracking with the `tracking` configuration
+- ✅ Automatic retry logic
+
+### View Components
+
+ObjectUI includes enhanced view components:
+
+- **`DetailViewSchema`** - Rich detail pages with sections and tabs
+- **`ViewSwitcherSchema`** - Toggle between list, grid, kanban, calendar views
+- **`FilterUISchema`** - Advanced filtering interface
+- **`SortUISchema`** - Multi-field sort configuration
+
+## Getting Started
+
+### Installation Steps
+
+1. **Install package** - Add `@object-ui/types` to your project
+   ```bash
+   npm install @object-ui/types@latest
+   ```
+
+2. **Configure application** - Define your app structure with AppSchema (optional)
+   
+3. **Set up theming** - Add a ThemeSchema for consistent styling (optional)
+
+4. **Implement actions** - Use advanced action features like `confirm` and callbacks
+
+5. **Test your application** - Verify all functionality works as expected
+
+## Learning Resources
 
 ### Documentation
-- [PHASE2_IMPLEMENTATION.md](https://github.com/objectstack-ai/objectui/blob/main/packages/types/PHASE2_IMPLEMENTATION.md) - Complete implementation guide
-- [PHASE2_QUICK_START.md](https://github.com/objectstack-ai/objectui/blob/main/PHASE2_QUICK_START.md) - Quick start guide
+- **[Implementation Guide](https://github.com/objectstack-ai/objectui/blob/main/packages/types/PHASE2_IMPLEMENTATION.md)** - Complete implementation details and technical specifications
+- **[Quick Start Guide](https://github.com/objectstack-ai/objectui/blob/main/PHASE2_QUICK_START.md)** - Step-by-step tutorial for getting started
 
 ### API Reference
-- [TypeScript Types](https://github.com/objectstack-ai/objectui/tree/main/packages/types/src)
-- [Zod Validation](https://github.com/objectstack-ai/objectui/tree/main/packages/types/src/zod)
+- **[TypeScript Types](https://github.com/objectstack-ai/objectui/tree/main/packages/types/src)** - Browse all type definitions
+- **[Zod Validation Schemas](https://github.com/objectstack-ai/objectui/tree/main/packages/types/src/zod)** - Runtime validation schemas
 
-### Examples
-- [Test Suite](https://github.com/objectstack-ai/objectui/blob/main/packages/types/src/__tests__/phase2-schemas.test.ts) - 40+ example configurations
+### Code Examples
+- **[Test Suite](https://github.com/objectstack-ai/objectui/blob/main/packages/types/src/__tests__/phase2-schemas.test.ts)** - 40+ working examples demonstrating all features
 
-## Support
+## Getting Help
 
-Need help? Check out:
-- [GitHub Issues](https://github.com/objectstack-ai/objectui/issues)
-- [Discussions](https://github.com/objectstack-ai/objectui/discussions)
-- [Documentation](https://objectui.com/docs)
+### Community Support
+- **[GitHub Discussions](https://github.com/objectstack-ai/objectui/discussions)** - Ask questions and share ideas
+- **[GitHub Issues](https://github.com/objectstack-ai/objectui/issues)** - Report bugs and request features
+
+### Official Documentation
+- **[Documentation Site](https://objectui.com/docs)** - Full documentation and guides
+- **[Schema Reference](/docs/core)** - Detailed schema documentation
 
 ## Next Steps
 
-1. Review individual schema documentation
-2. Check out the [Quick Start Guide](https://github.com/objectstack-ai/objectui/blob/main/PHASE2_QUICK_START.md)
-3. Explore [test examples](https://github.com/objectstack-ai/objectui/blob/main/packages/types/src/__tests__/phase2-schemas.test.ts)
-4. Build your first Phase 2 application!
+Ready to build with ObjectUI? Here's what to do next:
+
+1. **[Review schema documentation](/docs/core)** - Learn about each schema in detail
+2. **[Try the Quick Start](https://github.com/objectstack-ai/objectui/blob/main/PHASE2_QUICK_START.md)** - Build your first ObjectUI application
+3. **[Explore examples](https://github.com/objectstack-ai/objectui/blob/main/packages/types/src/__tests__/phase2-schemas.test.ts)** - See real-world usage patterns
+4. **[Join the community](https://github.com/objectstack-ai/objectui/discussions)** - Connect with other developers

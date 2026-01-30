@@ -1,0 +1,303 @@
+---
+title: "Application Schema (AppSchema)"
+description: "Configure your entire application with navigation, branding, and global settings"
+---
+
+# Application Schema
+
+The `AppSchema` defines the top-level configuration for your entire ObjectUI application, including navigation menus, branding, layout strategies, and global actions.
+
+## Overview
+
+AppSchema provides a declarative way to configure:
+- **Navigation menus** - Hierarchical menu structures with icons and badges
+- **Branding** - Logo, title, favicon
+- **Layout strategies** - Sidebar, header, or empty layout
+- **Global actions** - User menu, global toolbar buttons
+
+## Basic Usage
+
+```typescript
+import type { AppSchema } from '@object-ui/types';
+
+const app: AppSchema = {
+  type: 'app',
+  name: 'my-crm',
+  title: 'My CRM Application',
+  logo: '/logo.svg',
+  favicon: '/favicon.ico',
+  layout: 'sidebar',
+  
+  menu: [
+    {
+      type: 'item',
+      label: 'Dashboard',
+      icon: 'LayoutDashboard',
+      path: '/dashboard'
+    }
+  ],
+  
+  actions: [
+    {
+      type: 'user',
+      label: 'John Doe',
+      avatar: '/avatar.jpg'
+    }
+  ]
+};
+```
+
+## Properties
+
+### Basic Configuration
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | `'app'` | Component type identifier (required) |
+| `name` | `string` | Application system identifier |
+| `title` | `string` | Display title shown in browser |
+| `description` | `string` | Application description |
+| `logo` | `string` | Logo URL or icon name |
+| `favicon` | `string` | Favicon URL |
+
+### Layout Configuration
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `layout` | `'sidebar' \| 'header' \| 'empty'` | `'sidebar'` | Global layout strategy |
+
+**Layout Options:**
+- **`sidebar`** - Standard admin layout with left sidebar navigation
+- **`header`** - Top navigation bar only
+- **`empty`** - No layout, pages handle their own structure
+
+### Navigation Menu
+
+The `menu` property accepts an array of `MenuItem` objects:
+
+```typescript
+interface MenuItem {
+  type?: 'item' | 'group' | 'separator';
+  label?: string;
+  icon?: string;          // Lucide icon name
+  path?: string;          // Route path
+  href?: string;          // External link
+  children?: MenuItem[];  // Submenu items
+  badge?: string | number;
+  hidden?: boolean | string; // Visibility condition
+}
+```
+
+#### Menu Types
+
+**Item** - Single navigation link
+```json
+{
+  "type": "item",
+  "label": "Dashboard",
+  "icon": "LayoutDashboard",
+  "path": "/dashboard",
+  "badge": "New"
+}
+```
+
+**Group** - Collapsible menu group
+```json
+{
+  "type": "group",
+  "label": "Sales",
+  "icon": "DollarSign",
+  "children": [
+    { "type": "item", "label": "Leads", "path": "/leads" },
+    { "type": "item", "label": "Deals", "path": "/deals" }
+  ]
+}
+```
+
+**Separator** - Visual separator
+```json
+{
+  "type": "separator"
+}
+```
+
+### Global Actions
+
+The `actions` property defines global toolbar buttons:
+
+```typescript
+interface AppAction {
+  type: 'button' | 'dropdown' | 'user';
+  label?: string;
+  icon?: string;
+  onClick?: string;
+  avatar?: string;        // For type='user'
+  description?: string;   // For type='user'
+  items?: MenuItem[];     // For type='dropdown' or 'user'
+  shortcut?: string;      // Keyboard shortcut
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+}
+```
+
+## Complete Example
+
+```typescript
+const crm: AppSchema = {
+  type: 'app',
+  name: 'acme-crm',
+  title: 'Acme CRM',
+  description: 'Customer Relationship Management System',
+  logo: '/acme-logo.svg',
+  favicon: '/favicon.ico',
+  layout: 'sidebar',
+  
+  menu: [
+    {
+      type: 'item',
+      label: 'Dashboard',
+      icon: 'LayoutDashboard',
+      path: '/dashboard'
+    },
+    {
+      type: 'separator'
+    },
+    {
+      type: 'group',
+      label: 'Sales',
+      icon: 'DollarSign',
+      children: [
+        {
+          type: 'item',
+          label: 'Leads',
+          icon: 'Users',
+          path: '/leads',
+          badge: 12
+        },
+        {
+          type: 'item',
+          label: 'Opportunities',
+          icon: 'Target',
+          path: '/opportunities'
+        },
+        {
+          type: 'item',
+          label: 'Quotes',
+          icon: 'FileText',
+          path: '/quotes'
+        }
+      ]
+    },
+    {
+      type: 'group',
+      label: 'Marketing',
+      icon: 'Megaphone',
+      children: [
+        {
+          type: 'item',
+          label: 'Campaigns',
+          path: '/campaigns'
+        },
+        {
+          type: 'item',
+          label: 'Email Templates',
+          path: '/templates'
+        }
+      ]
+    },
+    {
+      type: 'separator'
+    },
+    {
+      type: 'item',
+      label: 'Settings',
+      icon: 'Settings',
+      path: '/settings',
+      hidden: '${user.role !== "admin"}'
+    }
+  ],
+  
+  actions: [
+    {
+      type: 'button',
+      label: 'Quick Actions',
+      icon: 'Zap',
+      variant: 'outline',
+      onClick: 'openQuickActions'
+    },
+    {
+      type: 'user',
+      label: 'John Doe',
+      avatar: '/avatars/john.jpg',
+      description: 'john@acme.com',
+      items: [
+        {
+          type: 'item',
+          label: 'Profile',
+          icon: 'User',
+          path: '/profile'
+        },
+        {
+          type: 'item',
+          label: 'Settings',
+          icon: 'Settings',
+          path: '/settings'
+        },
+        {
+          type: 'separator'
+        },
+        {
+          type: 'item',
+          label: 'Logout',
+          icon: 'LogOut',
+          path: '/logout'
+        }
+      ]
+    }
+  ]
+};
+```
+
+## Runtime Validation
+
+Use Zod validation to ensure your app configuration is correct:
+
+```typescript
+import { AppSchema } from '@object-ui/types/zod';
+
+const result = AppSchema.safeParse(myAppConfig);
+
+if (result.success) {
+  console.log('Valid app configuration');
+} else {
+  console.error('Validation errors:', result.error);
+}
+```
+
+## Conditional Navigation
+
+Use expression syntax to show/hide menu items based on user permissions:
+
+```json
+{
+  "type": "item",
+  "label": "Admin Panel",
+  "path": "/admin",
+  "hidden": "${user.role !== 'admin'}"
+}
+```
+
+## Best Practices
+
+1. **Use semantic icons** - Choose Lucide icons that clearly represent the section
+2. **Group related items** - Use menu groups to organize navigation
+3. **Limit top-level items** - Keep the main menu concise (5-7 items)
+4. **Add badges for notifications** - Show counts or status indicators
+5. **Hide admin features** - Use conditional visibility for role-based access
+6. **Provide keyboard shortcuts** - Add shortcuts for frequently used actions
+
+## Related
+
+- [Layout Schema](/docs/guide/layout) - Page layout configuration
+- [Navigation Components](/docs/components/basic/navigation-menu) - Navigation UI components
+- [Theme Schema](/docs/core/theme-schema) - Application theming

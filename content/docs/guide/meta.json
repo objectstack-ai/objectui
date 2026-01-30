@@ -8,6 +8,7 @@
     "data-source",
     "fields",
     "component-registry",
-    "plugins"
+    "plugins",
+    "phase2-schemas"
   ]
 }

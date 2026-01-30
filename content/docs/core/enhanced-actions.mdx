@@ -1,0 +1,420 @@
+---
+title: "Enhanced Actions"
+description: "Advanced action system with AJAX calls, chaining, conditions, and callbacks"
+---
+
+# Enhanced Actions
+
+ObjectUI's action system has been significantly enhanced to support complex workflows, including AJAX API calls, confirmation dialogs, action chaining, conditional execution, and comprehensive tracking.
+
+## Overview
+
+The enhanced `ActionSchema` provides:
+- **New action types**: `ajax`, `confirm`, `dialog`
+- **Action chaining**: Execute multiple actions sequentially or in parallel
+- **Conditional logic**: If/then/else execution based on data
+- **Callbacks**: Success and failure handlers
+- **Tracking**: Event logging and analytics
+- **Retry logic**: Automatic retry with configurable backoff
+
+## Action Types
+
+### Ajax Actions
+
+Execute API calls with full request configuration:
+
+```typescript
+const ajaxAction: ActionSchema = {
+  type: 'action',
+  label: 'Load Data',
+  actionType: 'ajax',
+  api: '/api/users',
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer token'
+  },
+  data: {
+    filter: 'active'
+  },
+  onSuccess: {
+    type: 'toast',
+    message: 'Data loaded successfully'
+  },
+  onFailure: {
+    type: 'message',
+    message: 'Failed to load data'
+  }
+};
+```
+
+**Ajax Properties:**
+- `api` - API endpoint URL
+- `method` - HTTP method (GET, POST, PUT, DELETE, PATCH)
+- `data` - Request body/payload
+- `headers` - Custom HTTP headers
+- `timeout` - Request timeout in milliseconds
+- `retry` - Retry configuration
+
+### Confirm Actions
+
+Show confirmation dialog before executing:
+
+```typescript
+const confirmAction: ActionSchema = {
+  type: 'action',
+  label: 'Delete Record',
+  actionType: 'confirm',
+  confirm: {
+    title: 'Confirm Deletion',
+    message: 'Are you sure you want to delete this record?',
+    confirmText: 'Yes, Delete',
+    cancelText: 'Cancel',
+    confirmVariant: 'destructive'
+  },
+  api: '/api/records/123',
+  method: 'DELETE'
+};
+```
+
+**Confirm Properties:**
+- `title` - Dialog title
+- `message` - Confirmation message
+- `confirmText` - Confirm button text
+- `cancelText` - Cancel button text
+- `confirmVariant` - Button style
+
+### Dialog Actions
+
+Open a modal or dialog:
+
+```typescript
+const dialogAction: ActionSchema = {
+  type: 'action',
+  label: 'Edit Details',
+  actionType: 'dialog',
+  dialog: {
+    title: 'Edit Record',
+    size: 'lg',
+    content: {
+      type: 'form',
+      fields: [
+        { name: 'name', type: 'input', label: 'Name' },
+        { name: 'email', type: 'input', label: 'Email' }
+      ]
+    },
+    actions: [
+      {
+        type: 'action',
+        label: 'Save',
+        actionType: 'ajax',
+        api: '/api/records/123',
+        method: 'PUT'
+      }
+    ]
+  }
+};
+```
+
+## Action Chaining
+
+Execute multiple actions in sequence or parallel:
+
+```typescript
+const chainedAction: ActionSchema = {
+  type: 'action',
+  label: 'Process Order',
+  actionType: 'ajax',
+  api: '/api/orders/process',
+  method: 'POST',
+  
+  chain: [
+    {
+      type: 'action',
+      label: 'Send Email',
+      actionType: 'ajax',
+      api: '/api/emails/send',
+      method: 'POST'
+    },
+    {
+      type: 'action',
+      label: 'Update Inventory',
+      actionType: 'ajax',
+      api: '/api/inventory/update',
+      method: 'PUT'
+    },
+    {
+      type: 'action',
+      label: 'Log Event',
+      actionType: 'ajax',
+      api: '/api/events/log',
+      method: 'POST'
+    }
+  ],
+  
+  chainMode: 'sequential'  // or 'parallel'
+};
+```
+
+**Chain Modes:**
+- `sequential` - Execute actions one after another (default)
+- `parallel` - Execute all actions simultaneously
+
+## Conditional Execution
+
+Execute different actions based on conditions:
+
+```typescript
+const conditionalAction: ActionSchema = {
+  type: 'action',
+  label: 'Approve',
+  actionType: 'button',
+  
+  condition: {
+    expression: '${data.amount > 1000}',
+    then: {
+      type: 'action',
+      label: 'Require Manager Approval',
+      actionType: 'confirm',
+      confirm: {
+        title: 'Manager Approval Required',
+        message: 'Amount exceeds $1000. Manager approval needed.'
+      }
+    },
+    else: {
+      type: 'action',
+      label: 'Auto Approve',
+      actionType: 'ajax',
+      api: '/api/approve',
+      method: 'POST'
+    }
+  }
+};
+```
+
+**Condition Properties:**
+- `expression` - JavaScript expression to evaluate
+- `then` - Action(s) to execute if true
+- `else` - Action(s) to execute if false
+
+## Callbacks
+
+Handle success and failure scenarios:
+
+```typescript
+const actionWithCallbacks: ActionSchema = {
+  type: 'action',
+  label: 'Submit',
+  actionType: 'ajax',
+  api: '/api/submit',
+  method: 'POST',
+  
+  onSuccess: {
+    type: 'toast',
+    message: 'Submitted successfully!'
+  },
+  
+  onFailure: {
+    type: 'dialog',
+    dialog: {
+      title: 'Submission Failed',
+      content: {
+        type: 'text',
+        value: 'Please try again or contact support.'
+      }
+    }
+  }
+};
+```
+
+**Callback Types:**
+- `toast` - Show toast notification
+- `message` - Show message dialog
+- `redirect` - Navigate to URL
+- `reload` - Reload data
+- `ajax` - Execute another API call
+- `dialog` - Open dialog
+- `custom` - Custom handler
+
+## Action Tracking
+
+Track actions for analytics:
+
+```typescript
+const trackedAction: ActionSchema = {
+  type: 'action',
+  label: 'Download Report',
+  actionType: 'ajax',
+  api: '/api/reports/download',
+  
+  tracking: {
+    enabled: true,
+    event: 'report_downloaded',
+    metadata: {
+      reportType: 'sales',
+      format: 'pdf',
+      dateRange: '2024-01'
+    }
+  }
+};
+```
+
+## Retry Logic
+
+Automatically retry failed requests:
+
+```typescript
+const retryAction: ActionSchema = {
+  type: 'action',
+  label: 'Submit',
+  actionType: 'ajax',
+  api: '/api/submit',
+  method: 'POST',
+  
+  timeout: 30000,  // 30 seconds
+  
+  retry: {
+    maxAttempts: 3,
+    delay: 1000  // 1 second between retries
+  }
+};
+```
+
+## Complete Example
+
+A comprehensive action combining multiple features:
+
+```typescript
+const complexAction: ActionSchema = {
+  type: 'action',
+  label: 'Process Order',
+  icon: 'ShoppingCart',
+  variant: 'default',
+  
+  // Confirm before processing
+  actionType: 'confirm',
+  confirm: {
+    title: 'Confirm Order',
+    message: 'Process this order for ${data.customerName}?',
+    confirmText: 'Process Order',
+    confirmVariant: 'default'
+  },
+  
+  // Conditional logic
+  condition: {
+    expression: '${data.totalAmount > 1000}',
+    then: {
+      type: 'action',
+      actionType: 'ajax',
+      api: '/api/orders/process-premium',
+      method: 'POST'
+    },
+    else: {
+      type: 'action',
+      actionType: 'ajax',
+      api: '/api/orders/process-standard',
+      method: 'POST'
+    }
+  },
+  
+  // Action chain
+  chain: [
+    {
+      type: 'action',
+      label: 'Send Confirmation Email',
+      actionType: 'ajax',
+      api: '/api/emails/order-confirmation',
+      method: 'POST',
+      data: {
+        orderId: '${data.id}',
+        customerEmail: '${data.customerEmail}'
+      }
+    },
+    {
+      type: 'action',
+      label: 'Update Inventory',
+      actionType: 'ajax',
+      api: '/api/inventory/update',
+      method: 'PUT',
+      data: {
+        items: '${data.items}'
+      }
+    },
+    {
+      type: 'action',
+      label: 'Create Invoice',
+      actionType: 'ajax',
+      api: '/api/invoices/create',
+      method: 'POST'
+    }
+  ],
+  chainMode: 'sequential',
+  
+  // Callbacks
+  onSuccess: {
+    type: 'toast',
+    message: 'Order processed successfully!'
+  },
+  onFailure: {
+    type: 'dialog',
+    dialog: {
+      title: 'Order Processing Failed',
+      content: {
+        type: 'text',
+        value: 'Unable to process order. Please try again.'
+      }
+    }
+  },
+  
+  // Tracking
+  tracking: {
+    enabled: true,
+    event: 'order_processed',
+    metadata: {
+      source: 'web_app',
+      amount: '${data.totalAmount}'
+    }
+  },
+  
+  // Retry
+  timeout: 60000,
+  retry: {
+    maxAttempts: 3,
+    delay: 2000
+  },
+  
+  // Post-action behavior
+  reload: true,
+  close: true,
+  redirect: '/orders/success'
+};
+```
+
+## Runtime Validation
+
+```typescript
+import { ActionSchema } from '@object-ui/types/zod';
+
+const result = ActionSchema.safeParse(myAction);
+
+if (result.success) {
+  console.log('Valid action configuration');
+} else {
+  console.error('Validation errors:', result.error);
+}
+```
+
+## Best Practices
+
+1. **Use confirm for destructive actions** - Always confirm delete, archive, etc.
+2. **Provide clear feedback** - Use callbacks to inform users of success/failure
+3. **Chain related operations** - Group logically related API calls
+4. **Track important events** - Enable tracking for business-critical actions
+5. **Set appropriate timeouts** - Don't let users wait indefinitely
+6. **Retry transient failures** - Use retry for network-related errors
+7. **Keep chains short** - Long chains can be hard to debug
+
+## Related
+
+- [CRUD Components](/docs/plugins/crud) - CRUD operations with actions
+- [Form Schema](/docs/core/form-renderer) - Form submission actions
+- [Data Source](/docs/guide/data-source) - API integration

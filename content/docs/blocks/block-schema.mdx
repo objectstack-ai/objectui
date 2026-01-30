@@ -1,0 +1,459 @@
+---
+title: "Block Schema (BlockSchema)"
+description: "Reusable component blocks with variables, slots, and marketplace support"
+---
+
+# Block Schema
+
+The `BlockSchema` defines reusable component blocks that can be configured with variables, support content injection through slots, and shared via a marketplace.
+
+## Overview
+
+BlockSchema enables:
+- **Reusable components** - Create once, use everywhere
+- **Variable system** - Typed props for customization
+- **Slot system** - Content injection points
+- **Block templates** - Predefined component trees
+- **Marketplace support** - Share and discover blocks
+- **Version control** - Track block versions
+
+## Basic Usage
+
+```typescript
+import type { BlockSchema } from '@object-ui/types';
+
+const heroBlock: BlockSchema = {
+  type: 'block',
+  
+  meta: {
+    name: 'hero-section',
+    label: 'Hero Section',
+    description: 'A customizable hero banner with image and CTA',
+    category: 'Marketing'
+  },
+  
+  variables: [
+    {
+      name: 'title',
+      type: 'string',
+      defaultValue: 'Welcome',
+      required: true
+    },
+    {
+      name: 'showButton',
+      type: 'boolean',
+      defaultValue: true
+    }
+  ],
+  
+  slots: [
+    {
+      name: 'content',
+      label: 'Content Area'
+    }
+  ],
+  
+  template: {
+    type: 'div',
+    className: 'hero-section',
+    children: []
+  }
+};
+```
+
+## Properties
+
+### Block Metadata
+
+```typescript
+interface BlockMetadata {
+  name: string;              // Block identifier
+  label?: string;            // Display name
+  description?: string;      // Block description
+  category?: string;         // Category for organization
+  icon?: string;             // Icon name
+  tags?: string[];           // Search tags
+  author?: string;           // Creator
+  version?: string;          // Version number
+  license?: string;          // License type
+  repository?: string;       // Source code URL
+  preview?: string;          // Preview image URL
+  premium?: boolean;         // Premium/paid block
+}
+```
+
+### Block Variables
+
+Variables define configurable properties:
+
+```typescript
+interface BlockVariable {
+  name: string;                    // Variable name
+  label?: string;                  // Display label
+  type?: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'component';
+  defaultValue?: any;              // Default value
+  description?: string;            // Help text
+  required?: boolean;              // Is required?
+  validation?: any;                // Validation rules
+  enum?: any[];                    // Allowed values
+}
+```
+
+### Block Slots
+
+Slots define content injection points:
+
+```typescript
+interface BlockSlot {
+  name: string;                    // Slot name
+  label?: string;                  // Display label
+  description?: string;            // Description
+  defaultContent?: SchemaNode | SchemaNode[];
+  allowedTypes?: string[];         // Allowed component types
+  maxChildren?: number;            // Maximum children
+  required?: boolean;              // Is required?
+}
+```
+
+## Complete Example
+
+```typescript
+const cardBlock: BlockSchema = {
+  type: 'block',
+  
+  // Metadata
+  meta: {
+    name: 'feature-card',
+    label: 'Feature Card',
+    description: 'A card component for highlighting product features',
+    category: 'Marketing',
+    icon: 'Box',
+    tags: ['card', 'feature', 'marketing', 'product'],
+    author: 'ObjectUI Team',
+    version: '1.0.0',
+    license: 'MIT',
+    repository: 'https://github.com/objectui/blocks',
+    preview: '/blocks/feature-card-preview.png'
+  },
+  
+  // Variables (configurable props)
+  variables: [
+    {
+      name: 'title',
+      label: 'Title',
+      type: 'string',
+      defaultValue: 'Feature Title',
+      description: 'The card title text',
+      required: true
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'string',
+      defaultValue: 'Feature description goes here',
+      description: 'The card description text'
+    },
+    {
+      name: 'icon',
+      label: 'Icon',
+      type: 'string',
+      defaultValue: 'Star',
+      description: 'Lucide icon name',
+      enum: ['Star', 'Heart', 'Check', 'Zap', 'Shield']
+    },
+    {
+      name: 'variant',
+      label: 'Variant',
+      type: 'string',
+      defaultValue: 'default',
+      enum: ['default', 'outline', 'filled']
+    },
+    {
+      name: 'showButton',
+      label: 'Show Button',
+      type: 'boolean',
+      defaultValue: true,
+      description: 'Show the action button'
+    },
+    {
+      name: 'buttonText',
+      label: 'Button Text',
+      type: 'string',
+      defaultValue: 'Learn More'
+    }
+  ],
+  
+  // Slots (content injection points)
+  slots: [
+    {
+      name: 'header',
+      label: 'Header Content',
+      description: 'Optional header above the card',
+      allowedTypes: ['text', 'image', 'icon'],
+      maxChildren: 1
+    },
+    {
+      name: 'content',
+      label: 'Additional Content',
+      description: 'Extra content below description',
+      allowedTypes: ['text', 'list', 'div']
+    }
+  ],
+  
+  // Template (component tree)
+  template: {
+    type: 'card',
+    className: 'feature-card ${variant}',
+    children: [
+      {
+        type: 'div',
+        className: 'card-icon',
+        children: [
+          {
+            type: 'icon',
+            name: '${icon}',
+            size: 48,
+            className: 'text-primary'
+          }
+        ]
+      },
+      {
+        type: 'div',
+        className: 'card-content',
+        children: [
+          {
+            type: 'text',
+            variant: 'h3',
+            value: '${title}',
+            className: 'card-title'
+          },
+          {
+            type: 'text',
+            value: '${description}',
+            className: 'card-description'
+          },
+          {
+            type: 'slot',
+            name: 'content'
+          },
+          {
+            type: 'button',
+            label: '${buttonText}',
+            variant: 'outline',
+            visible: '${showButton}',
+            className: 'card-button'
+          }
+        ]
+      }
+    ]
+  },
+  
+  editable: true
+};
+```
+
+## Using Blocks
+
+### Block Instance
+
+Use `BlockInstanceSchema` to instantiate a block:
+
+```typescript
+import type { BlockInstanceSchema } from '@object-ui/types';
+
+const instance: BlockInstanceSchema = {
+  type: 'block-instance',
+  blockId: 'feature-card',
+  
+  // Override variable values
+  values: {
+    title: 'Fast Performance',
+    description: 'Lightning-fast response times',
+    icon: 'Zap',
+    variant: 'filled',
+    showButton: true,
+    buttonText: 'See Benchmarks'
+  },
+  
+  // Provide slot content
+  slotContent: {
+    content: [
+      {
+        type: 'list',
+        items: [
+          'Sub-second page loads',
+          'Optimized bundle size',
+          'Edge caching'
+        ]
+      }
+    ]
+  }
+};
+```
+
+## Block Library
+
+Use `BlockLibrarySchema` to browse available blocks:
+
+```typescript
+import type { BlockLibrarySchema } from '@object-ui/types';
+
+const library: BlockLibrarySchema = {
+  type: 'block-library',
+  apiEndpoint: '/api/blocks',
+  category: 'Marketing',
+  searchQuery: 'hero',
+  showPremium: true,
+  loading: false,
+  
+  blocks: [
+    {
+      id: 'hero-section-1',
+      meta: {
+        name: 'hero-section',
+        label: 'Hero Section',
+        category: 'Marketing',
+        // ... other metadata
+      },
+      schema: heroBlock,
+      installs: 1234,
+      rating: 4.8,
+      ratingCount: 156
+    }
+  ],
+  
+  onInstall: 'handleInstallBlock',
+  onPreview: 'handlePreviewBlock'
+};
+```
+
+## Block Editor
+
+Use `BlockEditorSchema` to create/edit blocks:
+
+```typescript
+import type { BlockEditorSchema } from '@object-ui/types';
+
+const editor: BlockEditorSchema = {
+  type: 'block-editor',
+  
+  block: cardBlock,
+  
+  showVariables: true,
+  showSlots: true,
+  showTemplate: true,
+  showPreview: true,
+  
+  onSave: 'handleSaveBlock',
+  onCancel: 'handleCancel'
+};
+```
+
+## Marketplace Example
+
+```typescript
+const marketplace: BlockLibrarySchema = {
+  type: 'block-library',
+  apiEndpoint: 'https://blocks.objectui.com/api',
+  
+  blocks: [
+    {
+      id: 'pricing-table-pro',
+      meta: {
+        name: 'pricing-table-pro',
+        label: 'Pricing Table Pro',
+        description: 'Professional pricing comparison table',
+        category: 'Marketing',
+        icon: 'DollarSign',
+        tags: ['pricing', 'saas', 'comparison'],
+        author: 'ObjectUI Team',
+        version: '2.1.0',
+        license: 'MIT',
+        premium: false,
+        preview: 'https://blocks.objectui.com/previews/pricing-table.png'
+      },
+      schema: { /* block schema */ },
+      installs: 5420,
+      rating: 4.9,
+      ratingCount: 234,
+      updatedAt: '2024-01-15T10:00:00Z'
+    },
+    {
+      id: 'testimonial-slider',
+      meta: {
+        name: 'testimonial-slider',
+        label: 'Testimonial Slider',
+        description: 'Animated testimonial carousel',
+        category: 'Marketing',
+        icon: 'Quote',
+        tags: ['testimonial', 'slider', 'social-proof'],
+        author: 'Community',
+        version: '1.3.0',
+        premium: true
+      },
+      schema: { /* block schema */ },
+      installs: 2150,
+      rating: 4.7,
+      ratingCount: 89
+    }
+  ]
+};
+```
+
+## Runtime Validation
+
+```typescript
+import { BlockSchema } from '@object-ui/types/zod';
+
+const result = BlockSchema.safeParse(myBlock);
+
+if (result.success) {
+  console.log('Valid block configuration');
+} else {
+  console.error('Validation errors:', result.error);
+}
+```
+
+## Best Practices
+
+1. **Clear naming** - Use descriptive names for blocks, variables, and slots
+2. **Provide defaults** - Set sensible default values for all variables
+3. **Document thoroughly** - Add descriptions for variables and slots
+4. **Use enums for choices** - Limit options with enum arrays
+5. **Version carefully** - Use semantic versioning (1.0.0)
+6. **Test variations** - Try different variable combinations
+7. **Add previews** - Include preview images for marketplace listings
+8. **Tag appropriately** - Use relevant tags for discoverability
+
+## Use Cases
+
+### Landing Page Components
+- Hero sections
+- Feature grids
+- Pricing tables
+- Testimonial carousels
+- Call-to-action blocks
+
+### Dashboard Widgets
+- Metric cards
+- Chart containers
+- Data tables
+- Status indicators
+
+### Form Sections
+- Multi-step wizards
+- Address forms
+- Payment forms
+- Survey sections
+
+### Content Blocks
+- Blog post templates
+- Documentation sections
+- FAQ accordions
+- Timeline components
+
+## Related
+
+- [Component Registry](/docs/guide/component-registry) - Registering components
+- [Schema Rendering](/docs/guide/schema-rendering) - Rendering blocks
+- [Plugins](/docs/guide/plugins) - Extending ObjectUI

@@ -2,6 +2,10 @@
   "title": "Core",
   "pages": [
     "schema-renderer",
-    "form-renderer"
+    "form-renderer",
+    "app-schema",
+    "theme-schema",
+    "enhanced-actions",
+    "report-schema"
   ]
 }

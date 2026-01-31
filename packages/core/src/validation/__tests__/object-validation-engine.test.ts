@@ -179,7 +179,7 @@ describe('ObjectValidationEngine', () => {
         record: { email: 'user@example.com', tenant_id: 'tenant-123' },
       };
 
-      const results = await engine.validateRecord([rule], context, 'insert');
+      await engine.validateRecord([rule], context, 'insert');
       expect(uniquenessChecker).toHaveBeenCalledWith(
         ['email', 'tenant_id'],
         { email: 'user@example.com', tenant_id: 'tenant-123' },

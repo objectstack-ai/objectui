@@ -48,6 +48,7 @@ const SpanRenderer = forwardRef<HTMLSpanElement, { schema: SpanSchema; className
 ComponentRegistry.register('span', 
   SpanRenderer,
   {
+    namespace: 'ui',
     label: 'Inline Container (Deprecated)',
     inputs: [
       { name: 'className', type: 'string', label: 'CSS Class' }

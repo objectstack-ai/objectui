@@ -48,6 +48,7 @@ const DivRenderer = forwardRef<HTMLDivElement, { schema: DivSchema; className?: 
 ComponentRegistry.register('div', 
   DivRenderer,
   {
+    namespace: 'ui',
     label: 'Container (Deprecated)',
     inputs: [
       { name: 'className', type: 'string', label: 'CSS Class' }

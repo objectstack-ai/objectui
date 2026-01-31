@@ -38,6 +38,7 @@ tags.forEach(tag => {
   Component.displayName = `Semantic${tag.charAt(0).toUpperCase() + tag.slice(1)}`;
 
   ComponentRegistry.register(tag, Component, {
+    namespace: 'ui',
       label: tag.charAt(0).toUpperCase() + tag.slice(1),
       category: 'layout',
       inputs: [

@@ -15,6 +15,7 @@ ComponentRegistry.register('toaster',
     return <SonnerToaster />;
   },
   {
+    namespace: 'ui',
     label: 'Toaster',
     inputs: [],
     defaultProps: {}

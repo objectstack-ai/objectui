@@ -37,6 +37,7 @@ const SeparatorRenderer = forwardRef<HTMLDivElement, { schema: SeparatorSchema; 
 ComponentRegistry.register('separator', 
   SeparatorRenderer,
   {
+    namespace: 'ui',
     label: 'Separator',
     inputs: [
       { 

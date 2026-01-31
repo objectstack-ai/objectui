@@ -63,6 +63,7 @@ const InputRenderer = ({ schema, className, onChange, value, ...props }: { schem
 };
 
 ComponentRegistry.register('input', InputRenderer, {
+    namespace: 'ui',
     label: 'Input Field',
     inputs: [
       { name: 'label', type: 'string', label: 'Label' },

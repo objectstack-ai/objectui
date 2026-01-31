@@ -812,92 +812,92 @@ function createFieldRenderer(FieldWidget: React.ComponentType<any>) {
 
 export function registerFields() {
   // Basic fields - wrapped for documentation compatibility
-  ComponentRegistry.register('text', createFieldRenderer(TextField));
-  ComponentRegistry.register('textarea', createFieldRenderer(TextAreaField));
-  ComponentRegistry.register('number', createFieldRenderer(NumberField));
-  ComponentRegistry.register('boolean', createFieldRenderer(BooleanField));
-  ComponentRegistry.register('select', createFieldRenderer(SelectField));
-  ComponentRegistry.register('date', createFieldRenderer(DateField));
-  ComponentRegistry.register('datetime', createFieldRenderer(DateTimeField));
-  ComponentRegistry.register('time', createFieldRenderer(TimeField));
+  ComponentRegistry.register('text', createFieldRenderer(TextField), { namespace: 'field' });
+  ComponentRegistry.register('textarea', createFieldRenderer(TextAreaField), { namespace: 'field' });
+  ComponentRegistry.register('number', createFieldRenderer(NumberField), { namespace: 'field' });
+  ComponentRegistry.register('boolean', createFieldRenderer(BooleanField), { namespace: 'field' });
+  ComponentRegistry.register('select', createFieldRenderer(SelectField), { namespace: 'field' });
+  ComponentRegistry.register('date', createFieldRenderer(DateField), { namespace: 'field' });
+  ComponentRegistry.register('datetime', createFieldRenderer(DateTimeField), { namespace: 'field' });
+  ComponentRegistry.register('time', createFieldRenderer(TimeField), { namespace: 'field' });
   
   // Contact fields - wrapped for documentation compatibility
-  ComponentRegistry.register('email', createFieldRenderer(EmailField));
-  ComponentRegistry.register('phone', createFieldRenderer(PhoneField));
-  ComponentRegistry.register('url', createFieldRenderer(UrlField));
+  ComponentRegistry.register('email', createFieldRenderer(EmailField), { namespace: 'field' });
+  ComponentRegistry.register('phone', createFieldRenderer(PhoneField), { namespace: 'field' });
+  ComponentRegistry.register('url', createFieldRenderer(UrlField), { namespace: 'field' });
   
   // Specialized fields - wrapped for documentation compatibility
-  ComponentRegistry.register('currency', createFieldRenderer(CurrencyField));
-  ComponentRegistry.register('percent', createFieldRenderer(PercentField));
-  ComponentRegistry.register('password', createFieldRenderer(PasswordField));
-  ComponentRegistry.register('markdown', createFieldRenderer(RichTextField));
-  ComponentRegistry.register('html', createFieldRenderer(RichTextField));
-  ComponentRegistry.register('lookup', createFieldRenderer(LookupField));
-  ComponentRegistry.register('master_detail', createFieldRenderer(MasterDetailField));
+  ComponentRegistry.register('currency', createFieldRenderer(CurrencyField), { namespace: 'field' });
+  ComponentRegistry.register('percent', createFieldRenderer(PercentField), { namespace: 'field' });
+  ComponentRegistry.register('password', createFieldRenderer(PasswordField), { namespace: 'field' });
+  ComponentRegistry.register('markdown', createFieldRenderer(RichTextField), { namespace: 'field' });
+  ComponentRegistry.register('html', createFieldRenderer(RichTextField), { namespace: 'field' });
+  ComponentRegistry.register('lookup', createFieldRenderer(LookupField), { namespace: 'field' });
+  ComponentRegistry.register('master_detail', createFieldRenderer(MasterDetailField), { namespace: 'field' });
   
   // File fields
-  ComponentRegistry.register('file', createFieldRenderer(FileField));
-  ComponentRegistry.register('image', createFieldRenderer(ImageField));
+  ComponentRegistry.register('file', createFieldRenderer(FileField), { namespace: 'field' });
+  ComponentRegistry.register('image', createFieldRenderer(ImageField), { namespace: 'field' });
   
   // Location field
-  ComponentRegistry.register('location', createFieldRenderer(LocationField));
+  ComponentRegistry.register('location', createFieldRenderer(LocationField), { namespace: 'field' });
   
   // Computed/Read-only fields
-  ComponentRegistry.register('formula', createFieldRenderer(FormulaField));
-  ComponentRegistry.register('summary', createFieldRenderer(SummaryField));
-  ComponentRegistry.register('auto_number', createFieldRenderer(AutoNumberField));
+  ComponentRegistry.register('formula', createFieldRenderer(FormulaField), { namespace: 'field' });
+  ComponentRegistry.register('summary', createFieldRenderer(SummaryField), { namespace: 'field' });
+  ComponentRegistry.register('auto_number', createFieldRenderer(AutoNumberField), { namespace: 'field' });
   
   // User fields
-  ComponentRegistry.register('user', createFieldRenderer(UserField));
-  ComponentRegistry.register('owner', createFieldRenderer(UserField));
+  ComponentRegistry.register('user', createFieldRenderer(UserField), { namespace: 'field' });
+  ComponentRegistry.register('owner', createFieldRenderer(UserField), { namespace: 'field' });
   
   // Complex data types
-  ComponentRegistry.register('object', createFieldRenderer(ObjectField));
-  ComponentRegistry.register('vector', createFieldRenderer(VectorField));
-  ComponentRegistry.register('grid', createFieldRenderer(GridField));
+  ComponentRegistry.register('object', createFieldRenderer(ObjectField), { namespace: 'field' });
+  ComponentRegistry.register('vector', createFieldRenderer(VectorField), { namespace: 'field' });
+  ComponentRegistry.register('grid', createFieldRenderer(GridField), { namespace: 'field' });
   
   // NEW: Additional field types from @objectstack/spec
-  ComponentRegistry.register('color', createFieldRenderer(ColorField));
-  ComponentRegistry.register('slider', createFieldRenderer(SliderField));
-  ComponentRegistry.register('rating', createFieldRenderer(RatingField));
-  ComponentRegistry.register('code', createFieldRenderer(CodeField));
-  ComponentRegistry.register('avatar', createFieldRenderer(AvatarField));
-  ComponentRegistry.register('address', createFieldRenderer(AddressField));
-  ComponentRegistry.register('geolocation', createFieldRenderer(GeolocationField));
-  ComponentRegistry.register('signature', createFieldRenderer(SignatureField));
-  ComponentRegistry.register('qrcode', createFieldRenderer(QRCodeField));
+  ComponentRegistry.register('color', createFieldRenderer(ColorField), { namespace: 'field' });
+  ComponentRegistry.register('slider', createFieldRenderer(SliderField), { namespace: 'field' });
+  ComponentRegistry.register('rating', createFieldRenderer(RatingField), { namespace: 'field' });
+  ComponentRegistry.register('code', createFieldRenderer(CodeField), { namespace: 'field' });
+  ComponentRegistry.register('avatar', createFieldRenderer(AvatarField), { namespace: 'field' });
+  ComponentRegistry.register('address', createFieldRenderer(AddressField), { namespace: 'field' });
+  ComponentRegistry.register('geolocation', createFieldRenderer(GeolocationField), { namespace: 'field' });
+  ComponentRegistry.register('signature', createFieldRenderer(SignatureField), { namespace: 'field' });
+  ComponentRegistry.register('qrcode', createFieldRenderer(QRCodeField), { namespace: 'field' });
   
   // Register with field: prefix for explicit field widgets
-  ComponentRegistry.register('field:text', TextField);
-  ComponentRegistry.register('field:textarea', TextAreaField);
-  ComponentRegistry.register('field:number', NumberField);
-  ComponentRegistry.register('field:email', EmailField);
-  ComponentRegistry.register('field:phone', PhoneField);
-  ComponentRegistry.register('field:url', UrlField);
-  ComponentRegistry.register('field:currency', CurrencyField);
-  ComponentRegistry.register('field:percent', PercentField);
-  ComponentRegistry.register('field:password', PasswordField);
-  ComponentRegistry.register('field:date', DateField);
-  ComponentRegistry.register('field:datetime', DateTimeField);
-  ComponentRegistry.register('field:time', TimeField);
-  ComponentRegistry.register('field:lookup', LookupField);
-  ComponentRegistry.register('field:file', FileField);
-  ComponentRegistry.register('field:image', ImageField);
-  ComponentRegistry.register('field:location', LocationField);
-  ComponentRegistry.register('field:user', UserField);
-  ComponentRegistry.register('field:object', ObjectField);
+  ComponentRegistry.register('text', TextField, { namespace: 'field' });
+  ComponentRegistry.register('textarea', TextAreaField, { namespace: 'field' });
+  ComponentRegistry.register('number', NumberField, { namespace: 'field' });
+  ComponentRegistry.register('email', EmailField, { namespace: 'field' });
+  ComponentRegistry.register('phone', PhoneField, { namespace: 'field' });
+  ComponentRegistry.register('url', UrlField, { namespace: 'field' });
+  ComponentRegistry.register('currency', CurrencyField, { namespace: 'field' });
+  ComponentRegistry.register('percent', PercentField, { namespace: 'field' });
+  ComponentRegistry.register('password', PasswordField, { namespace: 'field' });
+  ComponentRegistry.register('date', DateField, { namespace: 'field' });
+  ComponentRegistry.register('datetime', DateTimeField, { namespace: 'field' });
+  ComponentRegistry.register('time', TimeField, { namespace: 'field' });
+  ComponentRegistry.register('lookup', LookupField, { namespace: 'field' });
+  ComponentRegistry.register('file', FileField, { namespace: 'field' });
+  ComponentRegistry.register('image', ImageField, { namespace: 'field' });
+  ComponentRegistry.register('location', LocationField, { namespace: 'field' });
+  ComponentRegistry.register('user', UserField, { namespace: 'field' });
+  ComponentRegistry.register('object', ObjectField, { namespace: 'field' });
   
   // NEW: field: prefix registrations for new widgets
-  ComponentRegistry.register('field:color', ColorField);
-  ComponentRegistry.register('field:slider', SliderField);
-  ComponentRegistry.register('field:rating', RatingField);
-  ComponentRegistry.register('field:code', CodeField);
-  ComponentRegistry.register('field:avatar', AvatarField);
-  ComponentRegistry.register('field:address', AddressField);
-  ComponentRegistry.register('field:geolocation', GeolocationField);
-  ComponentRegistry.register('field:signature', SignatureField);
-  ComponentRegistry.register('field:qrcode', QRCodeField);
-  ComponentRegistry.register('field:master_detail', MasterDetailField);
+  ComponentRegistry.register('color', ColorField, { namespace: 'field' });
+  ComponentRegistry.register('slider', SliderField, { namespace: 'field' });
+  ComponentRegistry.register('rating', RatingField, { namespace: 'field' });
+  ComponentRegistry.register('code', CodeField, { namespace: 'field' });
+  ComponentRegistry.register('avatar', AvatarField, { namespace: 'field' });
+  ComponentRegistry.register('address', AddressField, { namespace: 'field' });
+  ComponentRegistry.register('geolocation', GeolocationField, { namespace: 'field' });
+  ComponentRegistry.register('signature', SignatureField, { namespace: 'field' });
+  ComponentRegistry.register('qrcode', QRCodeField, { namespace: 'field' });
+  ComponentRegistry.register('master_detail', MasterDetailField, { namespace: 'field' });
 }
 
 export * from './widgets/types';

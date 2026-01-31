@@ -67,6 +67,7 @@ const StatisticRenderer = ({ schema }: { schema: StatisticSchema }) => {
 };
 
 ComponentRegistry.register('statistic', StatisticRenderer, {
+    namespace: 'ui',
   label: 'Statistic',
   category: 'data-display',
   icon: 'Activity',

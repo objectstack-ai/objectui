@@ -72,6 +72,7 @@ ComponentRegistry.register(
   'page',
   PageRenderer,
   {
+    namespace: 'ui',
     label: 'Page',
     icon: 'Layout',
     category: 'layout',

@@ -41,6 +41,7 @@ ButtonRenderer.displayName = 'ButtonRenderer';
 
 ComponentRegistry.register('button', ButtonRenderer,
   {
+    namespace: 'ui',
     label: 'Button',
     inputs: [
       { name: 'label', type: 'string', label: 'Label', defaultValue: 'Button' },

@@ -82,6 +82,7 @@ const StackRenderer = forwardRef<HTMLDivElement, { schema: StackSchema; classNam
 ComponentRegistry.register('stack', 
   StackRenderer,
   {
+    namespace: 'ui',
     label: 'Stack',
     inputs: [
       { 

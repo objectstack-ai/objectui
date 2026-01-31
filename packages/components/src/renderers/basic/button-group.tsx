@@ -47,6 +47,7 @@ ComponentRegistry.register('button-group',
     );
   },
   {
+    namespace: 'ui',
     label: 'Button Group',
     inputs: [
       { 

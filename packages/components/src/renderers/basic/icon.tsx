@@ -75,6 +75,7 @@ IconRenderer.displayName = 'IconRenderer';
 ComponentRegistry.register('icon',
   IconRenderer,
   {
+    namespace: 'ui',
     label: 'Icon',
     icon: 'smile',
     category: 'basic',

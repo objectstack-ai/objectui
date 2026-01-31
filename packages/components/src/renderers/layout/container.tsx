@@ -77,6 +77,7 @@ const ContainerRenderer = forwardRef<HTMLDivElement, { schema: ContainerSchema; 
 ComponentRegistry.register('container', 
   ContainerRenderer,
   {
+    namespace: 'ui',
     label: 'Container',
     inputs: [
       { 

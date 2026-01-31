@@ -54,6 +54,7 @@ const CardRenderer = forwardRef<HTMLDivElement, { schema: CardSchema; className?
 ComponentRegistry.register('card', 
   CardRenderer,
   {
+    namespace: 'ui',
     label: 'Card',
     inputs: [
       { name: 'title', type: 'string', label: 'Title' },

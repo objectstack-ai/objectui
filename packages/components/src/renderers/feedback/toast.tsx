@@ -21,7 +21,8 @@ ComponentRegistry.register('toast',
                       toast;
       
       toastFn(schema.title || 'Notification', {
-        description: schema.description,
+        namespace: 'ui',
+    description: schema.description,
         duration: schema.duration,
       });
     };

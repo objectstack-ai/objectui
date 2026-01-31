@@ -600,6 +600,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
 // Register the component
 ComponentRegistry.register('data-table', DataTableRenderer, {
+    namespace: 'ui',
   label: 'Data Table',
   icon: 'table',
   inputs: [

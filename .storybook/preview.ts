@@ -2,6 +2,7 @@ import type { Preview } from '@storybook/react-vite'
 import { initialize, mswLoader } from 'msw-storybook-addon';
 import { handlers } from './mocks';
 import { startMockServer } from './msw-browser';
+import { withMSWDebug } from './msw-debug';
 import '../packages/components/src/index.css';
 import { ComponentRegistry } from '@object-ui/core';
 import * as components from '../packages/components/src/index';
@@ -43,6 +44,7 @@ import '@object-ui/fields';
 
 const preview: Preview = {
   loaders: [mswLoader],
+  decorators: [withMSWDebug],
   parameters: {
     msw: {
        handlers: handlers
@@ -64,6 +66,13 @@ const preview: Preview = {
        color: /(background|color)$/i,
        date: /Date$/i,
       },
+    },
+    // Add accessibility addon configuration
+    a11y: {
+      element: '#storybook-root',
+      config: {},
+      options: {},
+      manual: false,
     },
   },
 };

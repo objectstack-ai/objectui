@@ -1,5 +1,6 @@
 // .storybook/mocks.ts
 import { http, HttpResponse } from 'msw';
+import { allHandlers } from './msw-handlers';
 
 /**
  * MSW Handlers for Storybook
@@ -19,4 +20,7 @@ export const handlers = [
     // - /api/v1/metadata/*
     // - /api/v1/index.json (for ObjectStackClient.connect())
     // - /api/bootstrap
+    
+    // Import all reusable handlers from msw-handlers.ts
+    ...allHandlers,
 ];

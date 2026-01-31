@@ -59,6 +59,7 @@
     "@objectstack/objectql": "^0.7.1",
     "@objectstack/plugin-msw": "^0.7.1",
     "@objectstack/runtime": "^0.7.1",
+    "@storybook/addon-a11y": "^10.2.3",
     "@storybook/addon-essentials": "^8.6.14",
     "@storybook/addon-interactions": "^8.6.14",
     "@storybook/addon-links": "^8.6.15",

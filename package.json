@@ -4,6 +4,7 @@
   "type": "module",
   "license": "MIT",
   "homepage": "https://www.objectui.org",
+  "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=20",
     "pnpm": ">=9"
@@ -18,7 +19,7 @@
     "dev": "pnpm --filter @examples/crm-app dev",
     "build": "turbo run build",
     "build:old": "pnpm --filter './packages/*' -r build && pnpm --filter './examples/*' -r build && pnpm --filter './apps/*' -r build",
-    "pretest": "turbo run build --filter=@object-ui/types --filter=@object-ui/core --filter=@object-ui/react --filter=@object-ui/components --filter=@object-ui/fields --filter=@object-ui/layout --filter=@object-ui/plugin-kanban --filter=@object-ui/plugin-charts --filter=@object-ui/plugin-form --filter=@object-ui/plugin-grid",
+    "pretest": "turbo run build --filter=@object-ui/types --filter=@object-ui/core --filter=@object-ui/react --filter=@object-ui/components --filter=@object-ui/fields --filter=@object-ui/layout --filter=@object-ui/plugin-kanban --filter=@object-ui/plugin-charts --filter=@object-ui/plugin-form --filter=@object-ui/plugin-grid --filter=@object-ui/plugin-dashboard",
     "test": "turbo run test",
     "test:root": "vitest run",
     "site:dev": "pnpm --filter @objectui/site dev",

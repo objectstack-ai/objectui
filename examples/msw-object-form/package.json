@@ -14,8 +14,11 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@object-ui/components": "workspace:*",
     "@object-ui/fields": "workspace:*",
+    "@object-ui/plugin-dashboard": "workspace:*",
     "@object-ui/plugin-form": "workspace:*",
+    "@object-ui/plugin-grid": "workspace:*",
     "@object-ui/react": "workspace:*",
     "@object-ui/types": "workspace:*",
     "@objectstack/client": "^0.7.2",

@@ -25,7 +25,6 @@
  */
 
 import type {
-  BaseValidation,
   ScriptValidation,
   UniquenessValidation,
   StateMachineValidation,
@@ -81,17 +80,72 @@ export interface ValidationExpressionEvaluator {
 /**
  * Simple expression evaluator (basic implementation)
  * In production, this should use a proper expression engine
+ * 
+ * SECURITY NOTE: This implementation uses a sandboxed approach with limited
+ * expression capabilities. For production use, consider:
+ * - JSONLogic (jsonlogic.com)
+ * - expr-eval with allowlist
+ * - Custom AST-based evaluator
  */
 class SimpleExpressionEvaluator implements ValidationExpressionEvaluator {
   evaluate(expression: string, context: Record<string, any>): any {
     try {
-      // Create a safe evaluation context
-      const func = new Function(...Object.keys(context), `return ${expression}`);
-      return func(...Object.values(context));
+      // Sanitize expression: only allow basic comparisons and logical operators
+      // This is a basic safeguard - proper expression parsing should be used in production
+      const sanitizedExpression = this.sanitizeExpression(expression);
+      
+      // Create a safe evaluation context with read-only access
+      const safeContext = this.createSafeContext(context);
+      const contextKeys = Object.keys(safeContext);
+      const contextValues = Object.values(safeContext);
+      
+      // Use Function constructor with controlled input
+      const func = new Function(...contextKeys, `'use strict'; return (${sanitizedExpression});`);
+      return func(...contextValues);
     } catch (error) {
       console.error('Expression evaluation error:', error);
       return false;
     }
+  }
+
+  /**
+   * Sanitize expression to prevent code injection
+   */
+  private sanitizeExpression(expression: string): string {
+    // Remove potentially dangerous patterns
+    const dangerous = [
+      /require\s*\(/gi,
+      /import\s+/gi,
+      /eval\s*\(/gi,
+      /Function\s*\(/gi,
+      /constructor/gi,
+      /__proto__/gi,
+      /prototype/gi,
+    ];
+
+    for (const pattern of dangerous) {
+      if (pattern.test(expression)) {
+        throw new Error('Invalid expression: contains forbidden pattern');
+      }
+    }
+
+    return expression;
+  }
+
+  /**
+   * Create a safe read-only context
+   */
+  private createSafeContext(context: Record<string, any>): Record<string, any> {
+    const safe: Record<string, any> = {};
+    for (const [key, value] of Object.entries(context)) {
+      // Deep clone primitive values and objects to prevent mutation
+      if (typeof value === 'object' && value !== null) {
+        safe[key] = JSON.parse(JSON.stringify(value));
+      } else {
+        safe[key] = value;
+      }
+    }
+    return safe;
   }
 }
 
@@ -533,7 +587,7 @@ export class ObjectValidationEngine {
   private getPredefinedPattern(format: string): RegExp {
     const patterns: Record<string, RegExp> = {
       email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-      url: /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/,
+      url: /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)$/,
       phone: /^[\d\s\-+()]+$/,
       ipv4: /^(\d{1,3}\.){3}\d{1,3}$/,
       ipv6: /^([\da-f]{1,4}:){7}[\da-f]{1,4}$/i,

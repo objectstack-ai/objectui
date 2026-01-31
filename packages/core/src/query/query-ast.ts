@@ -19,6 +19,7 @@ import type {
   WindowNode,
   WindowFunction,
   WindowFrame,
+  WindowConfig,
   FieldNode,
   LiteralNode,
   OperatorNode,
@@ -81,8 +82,10 @@ export class QueryASTBuilder {
       fields.push(...query.aggregations.map(agg => this.buildAggregation(agg)));
     }
 
-    // Add window functions if they exist (future extension point)
-    // query.windows?.forEach(win => fields.push(this.buildWindow(win)));
+    // Add window functions (ObjectStack Spec v0.7.1)
+    if (query.windows && query.windows.length > 0) {
+      fields.push(...query.windows.map(win => this.buildWindow(win)));
+    }
 
     return {
       type: 'select',
@@ -289,16 +292,7 @@ export class QueryASTBuilder {
   /**
    * Build window function node (ObjectStack Spec v0.7.1)
    */
-  private buildWindow(config: {
-    function: WindowFunction;
-    field?: string;
-    alias: string;
-    partitionBy?: string[];
-    orderBy?: Array<{ field: string; direction: 'asc' | 'desc' }>;
-    frame?: WindowFrame;
-    offset?: number;
-    defaultValue?: any;
-  }): WindowNode {
+  private buildWindow(config: WindowConfig): WindowNode {
     const node: WindowNode = {
       type: 'window',
       function: config.function,

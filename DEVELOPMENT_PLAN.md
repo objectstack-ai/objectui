@@ -65,21 +65,112 @@
 
 ---
 
-### Phase 4B: Production Readiness Validation (CURRENT)
-### 阶段 4B: 生产就绪验证 (当前阶段)
+### Phase 4B: MSW-Based Component Development & Testing (CURRENT) 🔥
+### 阶段 4B: 基于 MSW 的组件开发与测试 (当前阶段) 🔥
 
-**Timeline / 时间线:** 2026-02-01 to 2026-02-07 (1 week)  
+**Timeline / 时间线:** 2026-02-01 to 2026-02-14 (2 weeks)  
 **Priority / 优先级:** P0 (Critical)
 
 #### Objectives / 目标
 
-Validate that ObjectUI is ready for production use with real backends.  
-验证 ObjectUI 可与真实后端配合在生产环境中使用。
+**Frontend-First Development**: Enable all component development and debugging in the browser using MSW (Mock Service Worker) plugin, eliminating the need for a backend server during development.
+
+**前端优先开发**：使用 MSW（Mock Service Worker）插件在浏览器中实现所有组件的开发和调试，在开发期间无需后端服务器。
+
+#### Strategy / 策略
+
+Use the **@objectstack/plugin-msw** to run the entire ObjectStack Runtime (Kernel) in the browser with an in-memory driver. This allows:
+- ✅ Zero-backend component development
+- ✅ Real-time schema validation and testing
+- ✅ Instant feedback loop for UI changes
+- ✅ Component isolation and testing
+- ✅ Easy demonstration and sharing
+
+#### Tasks / 任务
+
+1. **MSW Environment Setup** / **MSW 环境搭建**
+   - [ ] Set up MSW browser runtime for all 79 components
+   - [ ] Create Storybook stories with MSW integration
+   - [ ] Configure component testing environment
+   - [ ] Set up browser-based kernel initialization
+   - [ ] Create reusable MSW handlers for all plugins
+
+2. **Component Testing with MSW** / **基于 MSW 的组件测试**
+   - [ ] Test all Form components (18) with mock data
+   - [ ] Test all Layout components (10) with various configurations
+   - [ ] Test all Data Display components (8) with mock datasets
+   - [ ] Test all Overlay/Modal components (9) with interactions
+   - [ ] Test all Feedback components (6) with various states
+   - [ ] Test all Navigation components (4) with routing
+   - [ ] Test all Disclosure components (3) with expand/collapse
+   - [ ] Test all Complex components (5) with real-like data
+   - [ ] Test all Basic components (9) with edge cases
+
+3. **Plugin Development & Testing** / **插件开发与测试**
+   - [ ] Test plugin-form with MSW-backed ObjectQL
+   - [ ] Test plugin-view with mock metadata
+   - [ ] Test plugin-grid with large mock datasets
+   - [ ] Test plugin-kanban with drag-and-drop in browser
+   - [ ] Test plugin-charts with dynamic data
+   - [ ] Test plugin-dashboard with mock metrics
+   - [ ] Test all other plugins (calendar, timeline, chatbot, map, etc.)
+
+4. **MSW Documentation & Examples** / **MSW 文档与示例**
+   - [ ] Create MSW setup guide for component developers
+   - [ ] Document browser-based development workflow
+   - [ ] Create example schemas for all component types
+   - [ ] Add troubleshooting guide for MSW issues
+   - [ ] Create video tutorials for MSW-based development
+
+5. **Storybook Integration** / **Storybook 集成**
+   - [ ] Complete all 79 component stories with MSW data
+   - [ ] Add interactive controls for all props
+   - [ ] Add accessibility testing to stories
+   - [ ] Add visual regression testing
+   - [ ] Deploy Storybook to GitHub Pages
+
+6. **Developer Experience** / **开发者体验**
+   - [ ] Improve error messages in MSW mode
+   - [ ] Add debug panel for kernel state inspection
+   - [ ] Create component playground with live schema editing
+   - [ ] Add MSW request/response logging UI
+   - [ ] Create quick-start templates
+
+#### Success Criteria / 成功标准
+
+- ✅ All 79 components testable in browser without backend
+- ✅ Storybook with 100% component coverage
+- ✅ MSW setup time < 30 seconds
+- ✅ Component iteration time < 5 seconds (hot reload)
+- ✅ Comprehensive MSW documentation
+- ✅ Zero backend dependencies for development
+
+#### Deliverables / 交付物
+
+- [ ] Complete Storybook with MSW integration
+- [ ] MSW development guide (English + Chinese)
+- [ ] Component playground application
+- [ ] Browser-based testing suite
+- [ ] Video tutorials (5-10 videos)
+
+---
+
+### Phase 4C: Production Backend Integration (Next)
+### 阶段 4C: 生产环境后端集成 (下一阶段)
+
+**Timeline / 时间线:** 2026-02-15 to 2026-02-28 (2 weeks)  
+**Priority / 优先级:** P0 (Critical)
+
+#### Objectives / 目标
+
+After validating all components in browser with MSW, integrate with real ObjectStack backend for production readiness.
+
+在浏览器中使用 MSW 验证所有组件后，集成真实的 ObjectStack 后端以实现生产就绪。
 
 #### Tasks / 任务
 
 1. **Backend Integration Testing** / **后端集成测试**
-   - [ ] Test ObjectStackAdapter with real ObjectStack backend
+   - [ ] Test ObjectStackAdapter with real ObjectStack 0.7.2 backend
    - [ ] Validate all CRUD operations (Create, Read, Update, Delete)
    - [ ] Test filters, sorting, pagination (40+ filter operators)
    - [ ] Test bulk operations
@@ -88,34 +179,27 @@ Validate that ObjectUI is ready for production use with real backends.
 
 2. **Example Application Testing** / **示例应用测试**
    - [ ] Test CRM app with live backend
-   - [ ] Test Todo app with MSW mock server
+   - [ ] Migrate from MSW to real backend smoothly
    - [ ] Validate all plugins work with real data
    - [ ] Performance testing under load
 
-3. **Documentation Completion** / **文档完善**
-   - [ ] Create component reference guide (all 79 components)
-   - [ ] Create plugin development guide
-   - [ ] Create deployment guide
-   - [ ] Add Chinese documentation (zh-CN)
-
-4. **Developer Experience** / **开发者体验**
-   - [ ] Improve error messages
-   - [ ] Add debug mode for SchemaRenderer
-   - [ ] Create development tools (CLI improvements)
-   - [ ] Add TypeScript strict mode
+3. **Deployment Guide** / **部署指南**
+   - [ ] Create production deployment guide
+   - [ ] Document backend setup procedures
+   - [ ] Create environment configuration guide
+   - [ ] Add monitoring and logging setup
 
 #### Success Criteria / 成功标准
 
-- ✅ All components work with ObjectStack 0.7.2
-- ✅ CRM app fully functional with backend
+- ✅ All components work with ObjectStack 0.7.2 backend
+- ✅ CRM app fully functional with real backend
 - ✅ Performance: < 3s initial load, < 100ms interactions
-- ✅ Documentation covers 100% of public API
-- ✅ Zero critical bugs
+- ✅ Zero critical bugs in production mode
 
 ---
 
-### Phase 4C: Component Gap Analysis & Filling
-### 阶段 4C: 组件缺口分析与补充
+### Phase 4D: Component Gap Filling
+### 阶段 4D: 组件缺口补充
 
 **Timeline / 时间线:** 2026-02-08 to 2026-02-21 (2 weeks)  
 **Priority / 优先级:** P1 (High)
@@ -154,7 +238,7 @@ Validate that ObjectUI is ready for production use with real backends.
 
 ---
 
-### Phase 5: Enterprise Features
+### Phase 11: Enterprise Features
 ### 阶段 5: 企业级功能
 
 **Timeline / 时间线:** 2026-02-22 to 2026-03-31 (5 weeks)  
@@ -194,7 +278,7 @@ Validate that ObjectUI is ready for production use with real backends.
 
 ---
 
-### Phase 6: Performance & Scalability
+### Phase 11: Performance & Scalability
 ### 阶段 6: 性能与可扩展性
 
 **Timeline / 时间线:** 2026-04-01 to 2026-04-30 (4 weeks)  
@@ -228,7 +312,7 @@ Validate that ObjectUI is ready for production use with real backends.
 
 ---
 
-### Phase 7: Developer Tools & DX
+### Phase 11: Developer Tools & DX
 ### 阶段 7: 开发者工具与体验
 
 **Timeline / 时间线:** 2026-05-01 to 2026-05-31 (4 weeks)  
@@ -262,7 +346,7 @@ Validate that ObjectUI is ready for production use with real backends.
 
 ---
 
-### Phase 8: Mobile & Responsive
+### Phase 11: Mobile & Responsive
 ### 阶段 8: 移动端与响应式
 
 **Timeline / 时间线:** 2026-06-01 to 2026-06-30 (4 weeks)  
@@ -290,7 +374,7 @@ Validate that ObjectUI is ready for production use with real backends.
 
 ---
 
-### Phase 9: AI & Advanced Features
+### Phase 11: AI & Advanced Features
 ### 阶段 9: AI 与高级功能
 
 **Timeline / 时间线:** 2026-07-01 to 2026-09-30 (3 months)  
@@ -324,7 +408,7 @@ Validate that ObjectUI is ready for production use with real backends.
 
 ---
 
-### Phase 10: Community & Ecosystem
+### Phase 11: Community & Ecosystem
 ### 阶段 10: 社区与生态系统
 
 **Timeline / 时间线:** 2026-10-01 to 2026-12-31 (3 months)  

@@ -174,7 +174,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
           return await this.client.data.createMany<T>(resource, data);
         
         case 'delete': {
-          const ids = data.map(item => (item as Record<string, unknown>).id).filter(Boolean);
+          const ids = data.map(item => (item as Record<string, unknown>).id).filter(Boolean) as string[];
           
           if (ids.length === 0) {
             // Track which items are missing IDs

@@ -71,51 +71,52 @@ export class Registry<T = any> {
       );
     }
     
-    this.components.set(fullType, {
+    const config: ComponentConfig<T> = {
       type: fullType,
       component,
       ...meta
-    });
+    };
+    
+    // Store under the full namespaced type
+    this.components.set(fullType, config);
+    
+    // For backward compatibility, also store under the non-namespaced type
+    // if a namespace was provided (so 'button' works even when registered as 'ui:button')
+    if (namespace) {
+      this.components.set(type, config);
+    }
   }
 
   get(type: string, namespace?: string): ComponentRenderer<T> | undefined {
-    // First try with namespace if provided
+    // If namespace is provided, only look in that namespace
     if (namespace) {
       const namespacedType = `${namespace}:${type}`;
-      const component = this.components.get(namespacedType)?.component;
-      if (component) {
-        return component;
-      }
+      return this.components.get(namespacedType)?.component;
     }
     
-    // Fallback to non-namespaced lookup for backward compatibility
+    // No namespace provided - check non-namespaced lookup for backward compatibility
     return this.components.get(type)?.component;
   }
 
   getConfig(type: string, namespace?: string): ComponentConfig<T> | undefined {
-    // First try with namespace if provided
+    // If namespace is provided, only look in that namespace
     if (namespace) {
       const namespacedType = `${namespace}:${type}`;
-      const config = this.components.get(namespacedType);
-      if (config) {
-        return config;
-      }
+      return this.components.get(namespacedType);
     }
     
-    // Fallback to non-namespaced lookup for backward compatibility
+    // No namespace provided - check non-namespaced lookup for backward compatibility
     return this.components.get(type);
   }
 
   has(type: string, namespace?: string): boolean {
-    // First try with namespace if provided
+    // If namespace is provided, only check in that namespace
     if (namespace) {
       const namespacedType = `${namespace}:${type}`;
-      if (this.components.has(namespacedType)) {
-        return true;
-      }
+      return this.components.has(namespacedType);
     }
     
-    // Fallback to non-namespaced lookup for backward compatibility
+    // No namespace provided - check non-namespaced lookup for backward compatibility
     return this.components.has(type);
   }
   

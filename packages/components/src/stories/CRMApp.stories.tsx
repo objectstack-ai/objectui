@@ -112,10 +112,10 @@ const dashboardSchema = {
             type: "grid",
             props: { cols: 4, gap: 4, className: "mb-8 mt-2" },
             children: [
-                { type: "card", props: { title: "Total Revenue", description: "${data.revenueGrowth}" }, children: [{type: "text", content: "${data.revenue}", className: "text-2xl font-bold"}] },
-                { type: "card", props: { title: "Subscriptions", description: "${data.subGrowth}" }, children: [{type: "text", content: "${data.subscriptions}", className: "text-2xl font-bold"}] },
-                { type: "card", props: { title: "Sales", description: "${data.salesGrowth}" }, children: [{type: "text", content: "${data.sales}", className: "text-2xl font-bold"}] },
-                { type: "card", props: { title: "Active Now", description: "+201 since last hour" }, children: [{type: "text", content: "+573", className: "text-2xl font-bold"}] },
+                { type: "card", title: "Total Revenue", description: "${data.revenueGrowth}", children: [{type: "text", content: "${data.revenue}", className: "text-2xl font-bold"}] },
+                { type: "card", title: "Subscriptions", description: "${data.subGrowth}", children: [{type: "text", content: "${data.subscriptions}", className: "text-2xl font-bold"}] },
+                { type: "card", title: "Sales", description: "${data.salesGrowth}", children: [{type: "text", content: "${data.sales}", className: "text-2xl font-bold"}] },
+                { type: "card", title: "Active Now", description: "+201 since last hour", children: [{type: "text", content: "+573", className: "text-2xl font-bold"}] },
             ]
         },
         {
@@ -193,14 +193,12 @@ const contactsSchema = {
                 {
                     type: "view:grid",
                     bind: "contacts",
-                    props: {
-                        columns: [
-                            { key: "name", label: "Name", type: "text" },
-                            { key: "company", label: "Company", type: "text" },
-                            { key: "email", label: "Email", type: "text" },
-                            { key: "status", label: "Status", type: "text" }
-                        ]
-                    }
+                    columns: [
+                        { key: "name", label: "Name", type: "text" },
+                        { key: "company", label: "Company", type: "text" },
+                        { key: "email", label: "Email", type: "text" },
+                        { key: "status", label: "Status", type: "text" }
+                    ]
                 }
             ]
         }
@@ -225,16 +223,14 @@ const opportunitiesSchema = {
                 {
                     type: "view:grid",
                     bind: "opportunities",
-                    props: {
-                        columns: [
-                            { key: "name", label: "Deal Name", type: "text" },
-                            { key: "contact", label: "Contact", type: "text" },
-                            { key: "stage", label: "Stage", type: "text" },
-                            { key: "amount", label: "Amount ($)", type: "number" },
-                            { key: "probability", label: "Probability", type: "text" },
-                            { key: "closeDate", label: "Close Date", type: "text" }
-                        ]
-                    }
+                    columns: [
+                        { key: "name", label: "Deal Name", type: "text" },
+                        { key: "contact", label: "Contact", type: "text" },
+                        { key: "stage", label: "Stage", type: "text" },
+                        { key: "amount", label: "Amount ($)", type: "number" },
+                        { key: "probability", label: "Probability", type: "text" },
+                        { key: "closeDate", label: "Close Date", type: "text" }
+                    ]
                 }
             ]
         }
@@ -321,15 +317,13 @@ const accountsSchema = {
                 {
                     type: "view:grid",
                     bind: "accounts",
-                    props: {
-                        columns: [
-                            { key: "name", label: "Account Name", type: "text" },
-                            { key: "industry", label: "Industry", type: "text" },
-                            { key: "revenue", label: "Annual Revenue ($)", type: "number" },
-                            { key: "employees", label: "Employees", type: "number" },
-                            { key: "status", label: "Status", type: "text" }
-                        ]
-                    }
+                    columns: [
+                        { key: "name", label: "Account Name", type: "text" },
+                        { key: "industry", label: "Industry", type: "text" },
+                        { key: "revenue", label: "Annual Revenue ($)", type: "number" },
+                        { key: "employees", label: "Employees", type: "number" },
+                        { key: "status", label: "Status", type: "text" }
+                    ]
                 }
             ]
         }
@@ -482,22 +476,22 @@ const opportunityDetailSchema = {
             children: [
                 { 
                     type: "card", 
-                    props: { title: "Deal Amount" }, 
+                    title: "Deal Amount", 
                     children: [{ type: "text", content: "$${data.amount}", className: "text-2xl font-bold" }] 
                 },
                 { 
                     type: "card", 
-                    props: { title: "Probability" }, 
+                    title: "Probability", 
                     children: [{ type: "text", content: "${data.probability}", className: "text-2xl font-bold" }] 
                 },
                 { 
                     type: "card", 
-                    props: { title: "Expected Revenue" }, 
+                    title: "Expected Revenue", 
                     children: [{ type: "text", content: "$${data.expectedRevenue}", className: "text-2xl font-bold" }] 
                 },
                 { 
                     type: "card", 
-                    props: { title: "Days to Close" }, 
+                    title: "Days to Close", 
                     children: [{ type: "text", content: "${data.daysToClose}", className: "text-2xl font-bold" }] 
                 }
             ]

@@ -384,6 +384,7 @@ export type {
   QuerySortConfig,
   JoinConfig,
   AggregationConfig,
+  WindowConfig,
   // Filter Schema (Phase 3.4)
   AdvancedFilterSchema,
   AdvancedFilterCondition,

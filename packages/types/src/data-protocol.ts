@@ -341,6 +341,11 @@ export interface QuerySchema {
   group_by?: string[];
   
   /**
+   * Window functions (ObjectStack Spec v0.7.1)
+   */
+  windows?: WindowConfig[];
+  
+  /**
    * Related objects to expand
    */
   expand?: string[];
@@ -375,10 +380,40 @@ export interface JoinConfig {
  * Aggregation configuration
  */
 export interface AggregationConfig {
-  function: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  function: 'count' | 'sum' | 'avg' | 'min' | 'max' | 'count_distinct' | 'array_agg' | 'string_agg';
   field?: string;
   alias?: string;
   distinct?: boolean;
+  separator?: string; // For string_agg function
+}
+
+/**
+ * Window function configuration (ObjectStack Spec v0.7.1)
+ */
+export interface WindowConfig {
+  /** Window function name */
+  function: WindowFunction;
+  
+  /** Field to operate on (not required for row_number, rank, etc.) */
+  field?: string;
+  
+  /** Result alias */
+  alias: string;
+  
+  /** PARTITION BY fields */
+  partitionBy?: string[];
+  
+  /** ORDER BY clause */
+  orderBy?: Array<{ field: string; direction: 'asc' | 'desc' }>;
+  
+  /** Window frame specification */
+  frame?: WindowFrame;
+  
+  /** Offset for lag/lead functions */
+  offset?: number;
+  
+  /** Default value for lag/lead when no previous/next row */
+  defaultValue?: any;
 }
 
 /**

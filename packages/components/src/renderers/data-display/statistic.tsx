@@ -16,7 +16,7 @@ import * as LucideIcons from 'lucide-react';
 const getIcon = (name: string) => {
     if (!name) return null;
     const pascalName = name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
-    // @ts-expect-error - Dynamic icon lookup from Lucide
+    // Dynamic icon lookup from Lucide
     const Icon = LucideIcons[pascalName] || LucideIcons[name];
     return Icon;
 };
@@ -67,6 +67,7 @@ const StatisticRenderer = ({ schema }: { schema: StatisticSchema }) => {
 };
 
 ComponentRegistry.register('statistic', StatisticRenderer, {
+  namespace: 'ui',
   label: 'Statistic',
   category: 'data-display',
   icon: 'Activity',
@@ -75,7 +76,6 @@ ComponentRegistry.register('statistic', StatisticRenderer, {
     { name: 'value', type: 'string', label: 'Value' },
     { name: 'description', type: 'string', label: 'Description' },
     { 
-   namespace: 'ui',
       name: 'trend', 
       type: 'enum', 
       enum: [

@@ -147,9 +147,17 @@ class SimpleExpressionEvaluator implements ValidationExpressionEvaluator {
       
       switch (op) {
         case '===':
-        case '==': return leftVal == rightVal;
+          return leftVal === rightVal;
+        case '==':
+          // Use loose equality for backward compatibility with existing expressions
+          // eslint-disable-next-line eqeqeq
+          return leftVal == rightVal;
         case '!==':
-        case '!=': return leftVal != rightVal;
+          return leftVal !== rightVal;
+        case '!=':
+          // Use loose inequality for backward compatibility with existing expressions
+          // eslint-disable-next-line eqeqeq
+          return leftVal != rightVal;
         case '>': return leftVal > rightVal;
         case '<': return leftVal < rightVal;
         case '>=': return leftVal >= rightVal;
@@ -175,11 +183,14 @@ class SimpleExpressionEvaluator implements ValidationExpressionEvaluator {
     for (let i = 0; i < expr.length; i++) {
       const char = expr[i];
       const nextChar = expr[i + 1];
+      const prevChar = i > 0 ? expr[i - 1] : '';
       
+      // Handle string quotes, checking for escape sequences
       if ((char === '"' || char === "'") && !inString) {
         inString = true;
         stringChar = char;
-      } else if (char === stringChar && inString) {
+      } else if (char === stringChar && inString && prevChar !== '\\') {
+        // Only close string if quote is not escaped
         inString = false;
       }
       

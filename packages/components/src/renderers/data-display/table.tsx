@@ -56,10 +56,11 @@ export const SimpleTableRenderer = ({ schema, className }: any) => {
             displayData.map((row: any, i: number) => (
               <TableRow key={row.id || i}>
                 {columns.map((col: any, index: number) => {
-                  const accessor = col.key || col.accessorKey;
+                  const accessor = col.key || col.accessorKey || '';
+                  const value = accessor ? row[accessor] : '';
                   return (
                     <TableCell key={col.key || col.accessorKey || index}>
-                      {row[accessor]}
+                      {value}
                     </TableCell>
                   );
                 })}

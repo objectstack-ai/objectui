@@ -3,14 +3,6 @@ import { useParams } from 'react-router-dom';
 import { ObjectGrid } from '@object-ui/plugin-grid';
 import { Button } from '@object-ui/components';
 import { Plus } from 'lucide-react';
-import { 
-  Breadcrumb, 
-  BreadcrumbItem, 
-  BreadcrumbLink, 
-  BreadcrumbList, 
-  BreadcrumbPage, 
-  BreadcrumbSeparator 
-} from '@object-ui/components';
 
 export function ObjectView({ dataSource, objects, onEdit }: any) {
     const { objectName } = useParams();

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
   SidebarHeader,
@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuGroup,
   Avatar,
   AvatarImage,
   AvatarFallback,
@@ -27,7 +28,6 @@ import {
   Plus, 
   Settings, 
   LogOut, 
-  User,
   LayoutDashboard,
   Database,
   Users,
@@ -56,8 +56,6 @@ function getIcon(name?: string) {
 }
 
 export function AppSidebar({ activeAppName, onAppChange }: { activeAppName: string, onAppChange: (name: string) => void }) {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { isMobile } = useSidebar();
   
   const apps = appConfig.apps || [];

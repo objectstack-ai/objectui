@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import type { AppSchema } from '@object-ui/types';
 import { startMockServer, stopMockServer } from '../mocks/server';
 
@@ -131,7 +131,11 @@ describe('Server-Driven Definitions', () => {
       };
 
       // Test that the schema can be rendered
-      render(<SchemaRenderer schema={pageSchema} />);
+      render(
+        <SchemaRendererProvider dataSource={{}}>
+          <SchemaRenderer schema={pageSchema} />
+        </SchemaRendererProvider>
+      );
 
       expect(screen.getByText('Contact List')).toBeInTheDocument();
     });

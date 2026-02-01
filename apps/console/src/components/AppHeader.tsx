@@ -1,4 +1,4 @@
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { 
   Breadcrumb, 
   BreadcrumbItem, 
@@ -6,12 +6,11 @@ import {
   BreadcrumbList, 
   BreadcrumbPage, 
   BreadcrumbSeparator,
-  Separator
 } from '@object-ui/components';
 
 export function AppHeader({ appName, objects }: { appName: string, objects: any[] }) {
     const location = useLocation();
-    const { objectName } = useParams();
+
     
     // Find current object if we are on an object route
     // Note: This logic assumes simple paths for now.

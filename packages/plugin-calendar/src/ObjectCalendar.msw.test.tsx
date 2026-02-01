@@ -7,7 +7,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import React from 'react';
 
-const BASE_URL = 'http://test-api.com';
+const BASE_URL = 'http://localhost';
 
 // --- Mock Data ---
 
@@ -32,6 +32,10 @@ const mockEvents = {
 // --- MSW Setup ---
 
 const handlers = [
+  http.options('*', () => {
+    return new HttpResponse(null, { status: 200 });
+  }),
+
   http.get(`${BASE_URL}/api/v1`, () => {
     return HttpResponse.json({ status: 'ok', version: '1.0.0' });
   }),
@@ -39,6 +43,11 @@ const handlers = [
   // Data Query: GET /api/v1/data/events
   http.get(`${BASE_URL}/api/v1/data/events`, () => {
     return HttpResponse.json(mockEvents);
+  }),
+
+  // Metadata Query
+  http.get(`${BASE_URL}/api/v1/metadata/object/events`, () => {
+    return HttpResponse.json({ fields: {} });
   })
 ];
 

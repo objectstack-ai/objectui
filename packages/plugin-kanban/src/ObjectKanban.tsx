@@ -42,9 +42,14 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
             const results = await dataSource.find(schema.objectName, {
                 options: { $top: 100 } // Fetch up to 100 cards
             });
-            // Handle { value: [] } OData shape or direct array
-            const data = (results as any).value || results;
-            console.log("ObjectKanban fetched:", JSON.stringify(data));
+            // Handle { value: [] } OData shape or { data: [] } shape or direct array
+            let data = results;
+            if ((results as any).value) {
+                data = (results as any).value;
+            } else if ((results as any).data) {
+                data = (results as any).data;
+            }
+
             if (Array.isArray(data)) {
                 setFetchedData(data);
             }

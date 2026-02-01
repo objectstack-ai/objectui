@@ -13,7 +13,7 @@ import { ContactObject } from '../../../examples/crm/src/objects/contact.object'
 // Register widget renderers
 registerAllFields();
 
-const BASE_URL = process.env.OBJECTSTACK_API_URL || 'http://test-api.com';
+const BASE_URL = process.env.OBJECTSTACK_API_URL || 'http://localhost';
 
 // --- Mock Data ---
 

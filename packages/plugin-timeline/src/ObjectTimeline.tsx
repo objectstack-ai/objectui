@@ -48,7 +48,13 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
             const results = await dataSource.find(schema.objectName, {
                 options: { $top: 100 }
             });
-            const data = (results as any).value || results;
+            let data = results;
+            if ((results as any).value) {
+                data = (results as any).value;
+            } else if ((results as any).data) {
+                data = (results as any).data;
+            }
+
             if (Array.isArray(data)) {
                 setFetchedData(data);
             }

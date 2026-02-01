@@ -144,19 +144,42 @@ export function App() {
                    schema={{
                       type: 'object-grid',
                       objectName: 'contact',
-                      filters: [],
+                      // Enable comprehensive features
+                      filterable: true,
                       searchableFields: ['name', 'email', 'company'],
+                      sortable: true,
+                      resizable: true,
+                      pagination: {
+                        pageSize: 10
+                      },
+                      selection: {
+                        type: 'multiple'
+                      },
                       columns: [
-                        { field: 'name', label: 'Name', width: 200 },
+                        { field: 'name', label: 'Name', width: 200, fixed: 'left' },
                         { field: 'email', label: 'Email', width: 220 },
                         { field: 'phone', label: 'Phone', width: 150 },
                         { field: 'company', label: 'Company', width: 180 },
-                        { field: 'role', label: 'Role', width: 150 },
-                        { field: 'status', label: 'Status' }
+                        { field: 'position', label: 'Position', width: 150 },
+                        { field: 'department', label: 'Department', width: 150 },
+                        { field: 'priority', label: 'Priority', width: 100 },
+                        { field: 'salary', label: 'Salary', width: 120 },
+                        { field: 'commission_rate', label: 'Commission', width: 120 },
+                        { field: 'birthdate', label: 'Birthdate', width: 120 },
+                        { field: 'is_active', label: 'Active', width: 100 },
+                        { field: 'last_contacted', label: 'Last Contacted', width: 180 },
+                        { field: 'profile_url', label: 'LinkedIn', width: 200 },
                       ]
                    }}
                    dataSource={dataSource}
                    onEdit={handleEdit}
+                   onRowSelect={(selected) => console.log('Selected rows:', selected)}
+                   onDelete={async (record) => {
+                      if (confirm(`Are you sure you want to delete ${record.name}?`)) {
+                        await dataSource?.delete('contact', record.id);
+                        setRefreshKey(k => k + 1);
+                      }
+                   }}
                    className="h-full w-full"
                 />
              </div>

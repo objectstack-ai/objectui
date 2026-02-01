@@ -4,7 +4,7 @@ import { Button } from '@object-ui/components';
 import { Eye, EyeOff } from 'lucide-react';
 import { FieldWidgetProps } from './types';
 
-export function PasswordField({ value, onChange, field, readonly, ...props }: FieldWidgetProps<string>) {
+export function PasswordField({ value, onChange, field, readonly, className, ...props }: FieldWidgetProps<string>) {
   const [showPassword, setShowPassword] = useState(false);
   const config = field || (props as any).schema;
 
@@ -20,7 +20,7 @@ export function PasswordField({ value, onChange, field, readonly, ...props }: Fi
         onChange={(e) => onChange(e.target.value)}
         placeholder={config?.placeholder}
         disabled={readonly}
-        className={`pr-10 ${props.className || ''}`}
+        className={`pr-10 ${className || ''}`}
         {...props}
       />
       <Button

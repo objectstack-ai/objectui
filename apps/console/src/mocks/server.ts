@@ -87,21 +87,55 @@ function createHandlers(baseUrl: string, kernel: ObjectKernel) {
   const protocol = kernel.getService('protocol') as any;
   
   return [
-    // Discovery endpoint
+    // Discovery endpoint - Handle both with and without trailing slash
+    http.get(`${baseUrl}`, async () => {
+      const response = await protocol.getDiscovery();
+      return HttpResponse.json(response, { status: 200 });
+    }),
     http.get(`${baseUrl}/`, async () => {
-      const response = await protocol.handleDiscovery();
+      const response = await protocol.getDiscovery();
       return HttpResponse.json(response, { status: 200 });
     }),
 
-    // Metadata endpoints
+    // Metadata endpoints - Support both legacy /meta and new /metadata paths
     http.get(`${baseUrl}/meta/objects`, async () => {
-      const response = await protocol.handleMetadataListObjects();
+      const response = await protocol.getMetaItems({ type: 'object' });
+      return HttpResponse.json(response, { status: 200 });
+    }),
+    http.get(`${baseUrl}/metadata/objects`, async () => {
+      const response = await protocol.getMetaItems({ type: 'object' });
       return HttpResponse.json(response, { status: 200 });
     }),
 
     http.get(`${baseUrl}/meta/objects/:objectName`, async ({ params }) => {
-      const response = await protocol.handleMetadataGetObject({ objectName: params.objectName as string });
-      return HttpResponse.json(response, { status: 200 });
+      console.log('MSW: getting meta item for (legacy)', params.objectName);
+      try {
+        const response = await protocol.getMetaItem({ 
+          type: 'object', 
+          name: params.objectName as string 
+        });
+        return HttpResponse.json(response || { error: 'Not found' }, { status: response ? 200 : 404 });
+      } catch (e) {
+        return HttpResponse.json({ error: String(e) }, { status: 500 });
+      }
+    }),
+
+    http.get(`${baseUrl}/metadata/object/:objectName`, async ({ params }) => {
+      console.log('MSW: getting meta item for', params.objectName);
+      try {
+        const response = await protocol.getMetaItem({ 
+          type: 'object', 
+          name: params.objectName as string 
+        });
+        
+        // Unwrap item if present
+        const payload = (response && response.item) ? response.item : response;
+        
+        return HttpResponse.json(payload || { error: 'Not found' }, { status: payload ? 200 : 404 });
+      } catch (e) {
+        console.error('MSW: error getting meta item', e);
+        return HttpResponse.json({ error: String(e) }, { status: 500 });
+      }
     }),
 
     // Data endpoints - Find all
@@ -118,7 +152,7 @@ function createHandlers(baseUrl: string, kernel: ObjectKernel) {
         }
       });
 
-      const response = await protocol.handleFind({
+      const response = await protocol.findData({
         objectName: params.objectName as string,
         query
       });
@@ -127,7 +161,7 @@ function createHandlers(baseUrl: string, kernel: ObjectKernel) {
 
     // Data endpoints - Find by ID
     http.get(`${baseUrl}/data/:objectName/:id`, async ({ params }) => {
-      const response = await protocol.handleFindById({
+      const response = await protocol.getData({
         objectName: params.objectName as string,
         id: params.id as string
       });
@@ -137,7 +171,7 @@ function createHandlers(baseUrl: string, kernel: ObjectKernel) {
     // Data endpoints - Create
     http.post(`${baseUrl}/data/:objectName`, async ({ params, request }) => {
       const body = await request.json();
-      const response = await protocol.handleCreate({
+      const response = await protocol.createData({
         objectName: params.objectName as string,
         data: body
       });
@@ -147,7 +181,7 @@ function createHandlers(baseUrl: string, kernel: ObjectKernel) {
     // Data endpoints - Update
     http.patch(`${baseUrl}/data/:objectName/:id`, async ({ params, request }) => {
       const body = await request.json();
-      const response = await protocol.handleUpdate({
+      const response = await protocol.updateData({
         objectName: params.objectName as string,
         id: params.id as string,
         data: body
@@ -157,7 +191,7 @@ function createHandlers(baseUrl: string, kernel: ObjectKernel) {
 
     // Data endpoints - Delete
     http.delete(`${baseUrl}/data/:objectName/:id`, async ({ params }) => {
-      const response = await protocol.handleDelete({
+      const response = await protocol.deleteData({
         objectName: params.objectName as string,
         id: params.id as string
       });

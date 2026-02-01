@@ -64,11 +64,11 @@ describe('ObjectForm with MSW Integration', () => {
 
       // Wait for form to load
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
       expect(screen.getByLabelText(/Email/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Phone Number/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Phone/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Company/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Position/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Priority/i)).toBeInTheDocument();
@@ -95,13 +95,13 @@ describe('ObjectForm with MSW Integration', () => {
 
       // Wait for form to load
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
       // Fill in the form
-      await user.type(screen.getByLabelText(/Full Name/i), 'Test User');
+      await user.type(screen.getByLabelText(/^Name/i), 'Test User');
       await user.type(screen.getByLabelText(/Email/i), 'test@example.com');
-      await user.type(screen.getByLabelText(/Phone Number/i), '+1234567890');
+      await user.type(screen.getByLabelText(/^Phone/i), '+1234567890');
       await user.type(screen.getByLabelText(/Company/i), 'Test Company');
 
       // Submit the form
@@ -138,7 +138,7 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
       // Try to submit without filling required fields
@@ -169,11 +169,11 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
       // Fill required fields only
-      await user.type(screen.getByLabelText(/Full Name/i), 'Default Test');
+      await user.type(screen.getByLabelText(/^Name/i), 'Default Test');
       await user.type(screen.getByLabelText(/Email/i), 'default@example.com');
 
       // Submit
@@ -207,7 +207,7 @@ describe('ObjectForm with MSW Integration', () => {
 
       // Wait for data to load
       await waitFor(() => {
-        const nameInput = screen.getByLabelText(/Full Name/i) as HTMLInputElement;
+        const nameInput = screen.getByLabelText(/^Name/i) as HTMLInputElement;
         expect(nameInput.value).toBe('John Doe');
       });
 
@@ -238,12 +238,12 @@ describe('ObjectForm with MSW Integration', () => {
 
       // Wait for data to load
       await waitFor(() => {
-        const nameInput = screen.getByLabelText(/Full Name/i) as HTMLInputElement;
+        const nameInput = screen.getByLabelText(/^Name/i) as HTMLInputElement;
         expect(nameInput.value).toBe('John Doe');
       });
 
       // Update the name
-      const nameInput = screen.getByLabelText(/Full Name/i);
+      const nameInput = screen.getByLabelText(/^Name/i);
       await user.clear(nameInput);
       await user.type(nameInput, 'John Doe Updated');
 
@@ -299,7 +299,7 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        const nameInput = screen.getByLabelText(/Full Name/i) as HTMLInputElement;
+        const nameInput = screen.getByLabelText(/^Name/i) as HTMLInputElement;
         expect(nameInput.value).toBe('John Doe');
         expect(nameInput.disabled).toBe(true);
       });
@@ -324,7 +324,7 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
       const checkbox = screen.getByLabelText(/Active/i) as HTMLInputElement;
@@ -345,7 +345,7 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
       const numberInput = screen.getByLabelText(/Priority/i) as HTMLInputElement;
@@ -366,7 +366,7 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
       const textarea = screen.getByLabelText(/Notes/i) as HTMLTextAreaElement;
@@ -387,10 +387,10 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
-      const phoneInput = screen.getByLabelText(/Phone Number/i) as HTMLInputElement;
+      const phoneInput = screen.getByLabelText(/^Phone/i) as HTMLInputElement;
       expect(phoneInput.type).toBe('tel');
     });
   });
@@ -415,7 +415,7 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
       const cancelButton = screen.getByRole('button', { name: /cancel/i });
@@ -445,10 +445,10 @@ describe('ObjectForm with MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
       });
 
-      await user.type(screen.getByLabelText(/Full Name/i), 'Persist Test');
+      await user.type(screen.getByLabelText(/^Name/i), 'Persist Test');
       await user.type(screen.getByLabelText(/Email/i), 'persist@example.com');
       await user.click(screen.getByRole('button', { name: /create/i }));
 

@@ -9,6 +9,9 @@ export const ContactObject = ObjectSchema.create({
     phone: Field.text({ label: 'Phone' }),
     title: Field.text({ label: 'Title' }),
     company: Field.text({ label: 'Company' }),
-    status: Field.select(['Active', 'Lead', 'Customer'], { label: 'Status' })
+    status: Field.select(['Active', 'Lead', 'Customer'], { label: 'Status' }),
+    priority: Field.number({ label: 'Priority', defaultValue: 5 }),
+    is_active: Field.boolean({ label: 'Active', defaultValue: true }),
+    notes: Field.textarea({ label: 'Notes' })
   }
 });

@@ -82,9 +82,10 @@ ComponentRegistry.register('form',
 
       // Defensive check: If data is an Event, use getValues()
       let formData = data;
-      // Check for Event-like properties
+      // Check for Event-like properties (both native and React Synthetic Events)
       const isEvent = data && (
         (data as any).nativeEvent || 
+        (data as any)._reactName ||
         typeof (data as any).preventDefault === 'function' || 
         typeof (data as any).stopPropagation === 'function' ||
         (data as any).target
@@ -170,11 +171,29 @@ ComponentRegistry.register('form',
       ? cn('grid gap-4', gridColsClass)
       : 'space-y-4';
 
-    // Extract designer-related props
+    // Extract designer-related props and exclude form-specific schema props
     const { 
         'data-obj-id': dataObjId, 
         'data-obj-type': dataObjType,
-        style, 
+        style,
+        // Exclude all schema properties that should not be passed to HTML form element
+        onSubmit: _excludeOnSubmit,
+        onChange: _excludeOnChange,
+        onCancel: _excludeOnCancel,
+        fields: _excludeFields,
+        defaultValues: _excludeDefaultValues,
+        submitLabel: _excludeSubmitLabel,
+        cancelLabel: _excludeCancelLabel,
+        showCancel: _excludeShowCancel,
+        showSubmit: _excludeShowSubmit,
+        showActions: _excludeShowActions,
+        layout: _excludeLayout,
+        columns: _excludeColumns,
+        resetOnSubmit: _excludeResetOnSubmit,
+        validationMode: _excludeValidationMode,
+        fieldContainerClass: _excludeFieldContainerClass,
+        disabled: _excludeDisabled,
+        schema: _excludeSchema,
         ...formProps 
     } = props;
 

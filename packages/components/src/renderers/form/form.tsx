@@ -77,7 +77,6 @@ ComponentRegistry.register('form',
 
     // Handle form submission
     const handleSubmit = form.handleSubmit(async (data) => {
-      console.log('Form Renderer handleSubmit data:', data);
       setIsSubmitting(true);
       setSubmitError(null);
 
@@ -93,7 +92,7 @@ ComponentRegistry.register('form',
       );
 
       if (isEvent) {
-        console.warn('Form Renderer: Received Event instead of data! Fetching values manually.');
+        // This should not happen with RHF handleSubmit, but just in case
         formData = form.getValues();
       } else if (!formData || Object.keys(formData).length === 0) {
         // Fallback: if data is empty check getValues(), in case RHF failed to pass it for some reason
@@ -172,11 +171,13 @@ ComponentRegistry.register('form',
       ? cn('grid gap-4', gridColsClass)
       : 'space-y-4';
 
-    // Extract designer-related props
+    // Extract designer-related props and conflicting handlers
     const { 
         'data-obj-id': dataObjId, 
         'data-obj-type': dataObjType,
-        style, 
+        style,
+        onSubmit: _ignoredOnSubmit, // Prevent overwriting our handleSubmit
+        onChange: _ignoredOnChange, // Prevent overwriting our onChange
         ...formProps 
     } = props;
 

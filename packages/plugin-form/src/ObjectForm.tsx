@@ -262,7 +262,19 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
   }, [objectSchema, schema.fields, schema.customFields, schema.readOnly, schema.mode, hasInlineFields]);
 
   // Handle form submission
-  const handleSubmit = useCallback(async (formData: any) => {
+  const handleSubmit = useCallback(async (formData: any, e?: any) => {
+    // If we receive an event as the first argument, it means the Form renderer passed the event instead of data
+    // This happens when react-hook-form's handleSubmit is bypassed or configured incorrectly
+    if (formData && (formData.nativeEvent || formData._reactName === 'onSubmit')) {
+      console.warn('ObjectForm: Received Event instead of data in handleSubmit! This suggests a Form renderer issue.');
+      // Proceed defensively - we can't do much if we don't have data, but let's try to not crash
+      // If we are here, formData is actually the event
+      if (e === undefined) {
+         e = formData;
+         formData = {}; // Reset to empty object or we try to submit the Event object
+      }
+    }
+
     console.log('ObjectForm submitting data:', formData);
     // For inline fields without a dataSource, just call the success callback
     if (hasInlineFields && !dataSource) {

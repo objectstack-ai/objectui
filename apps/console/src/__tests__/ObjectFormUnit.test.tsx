@@ -115,7 +115,10 @@ describe('ObjectForm Unit Tests', () => {
       // Fill in form
       await user.type(screen.getByLabelText(/Full Name/i), 'Test User');
       await user.type(screen.getByLabelText(/Email/i), 'test@example.com');
-
+      
+      // Debug DOM state
+      // console.log('DEBUG_DOM_HTML:', screen.getByLabelText(/Full Name/i).outerHTML);
+      
       // Submit
       const submitButton = screen.getByRole('button', { name: /create/i });
       await user.click(submitButton);

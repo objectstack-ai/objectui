@@ -56,6 +56,11 @@ ComponentRegistry.register('form',
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [submitError, setSubmitError] = React.useState<string | null>(null);
 
+    // React to defaultValues changes
+    React.useEffect(() => {
+      form.reset(defaultValues);
+    }, [defaultValues]);
+
     // Watch for form changes - only track changes when onAction is available
     React.useEffect(() => {
       if (onAction) {

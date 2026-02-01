@@ -53,8 +53,8 @@ describe('Dashboard MSW Integration', () => {
       render(<DashboardRenderer schema={schema} />);
 
       // Check that widget titles are rendered
-      expect(screen.getByText('Total Contacts')).toBeInTheDocument();
-      expect(screen.getByText('Active Contacts')).toBeInTheDocument();
+      expect(screen.getAllByText('Total Contacts')).toHaveLength(2);
+      expect(screen.getAllByText('Active Contacts')).toHaveLength(1);
     });
 
     it('should render dashboard with different column configurations', async () => {

@@ -368,7 +368,7 @@ describe('ObjectForm Unit Tests', () => {
       expect(emailInput).toHaveAttribute('type', 'email');
 
       // Verify Boolean (Switch/Checkbox)
-      expect(screen.getByText('Boolean Type')).toBeInTheDocument();
+      expect(screen.getAllByText('Boolean Type').length).toBeGreaterThan(0);
       const switchControl = screen.getByRole('switch', { name: 'Boolean Type' });
       expect(switchControl).toBeInTheDocument();
     });

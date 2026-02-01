@@ -307,8 +307,8 @@ describe('Server-Driven Definitions', () => {
       render(<SchemaRenderer schema={complexPage} />);
 
       expect(screen.getByText('CRM Dashboard')).toBeInTheDocument();
-      expect(screen.getByText('Total Contacts')).toBeInTheDocument();
-      expect(screen.getByText('Active')).toBeInTheDocument();
+      expect(screen.getAllByText('Total Contacts')).toHaveLength(1);
+      expect(screen.getAllByText('Active')).toHaveLength(2);
     });
   });
 

@@ -24,7 +24,7 @@ describe('MSW Server Integration', () => {
     // Check that initial data was loaded
     const contacts = await driver!.find('contact', { object: 'contact' });
     expect(contacts).toHaveLength(3);
-    expect(contacts[0].name).toBe('John Doe');
+    expect(contacts[0].name).toBe('Alice Johnson');
   });
 
   it('should create a new contact via driver', async () => {

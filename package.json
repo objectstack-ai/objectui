@@ -48,6 +48,8 @@
     "shadcn:check": "node scripts/shadcn-sync.js --check",
     "shadcn:update": "node scripts/shadcn-sync.js --update",
     "shadcn:update-all": "node scripts/shadcn-sync.js --update-all --backup",
+    "start:console": "node packages/cli/dist/cli.js start --dir apps/console/dist",
+    "start": "node packages/cli/dist/cli.js start --dir apps/console/dist",
     "shadcn:diff": "node scripts/shadcn-sync.js --diff",
     "shadcn:list": "node scripts/shadcn-sync.js --list",
     "changeset": "changeset",

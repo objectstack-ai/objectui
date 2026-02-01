@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { BaseSchema, SchemaNodeSchema } from './base.zod';
+import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 
 /**
  * Accordion Item Schema

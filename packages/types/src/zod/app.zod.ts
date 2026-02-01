@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { BaseSchema } from './base.zod';
+import { BaseSchema } from './base.zod.js';
 
 /**
  * Menu Item Schema - Navigation menu item

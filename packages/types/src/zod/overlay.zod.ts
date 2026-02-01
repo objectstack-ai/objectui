@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { BaseSchema, SchemaNodeSchema } from './base.zod';
+import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 
 /**
  * Dialog Schema - Dialog/modal component

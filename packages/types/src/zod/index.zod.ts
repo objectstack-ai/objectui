@@ -41,7 +41,7 @@ export {
   AppSchema,
   AppActionSchema,
   MenuItemSchema as AppMenuItemSchema,
-} from './app.zod';
+} from './app.zod.js';
 
 // ============================================================================
 // Base Schema - Foundation
@@ -55,7 +55,7 @@ export {
   HTMLAttributesSchema,
   EventHandlersSchema,
   StylePropsSchema,
-} from './base.zod';
+} from './base.zod.js';
 
 // ============================================================================
 // Layout Components - Structure & Organization
@@ -80,7 +80,7 @@ export {
   AspectRatioSchema,
   PageSchema,
   LayoutSchema,
-} from './layout.zod';
+} from './layout.zod.js';
 
 // ============================================================================
 // Form Components - User Input & Interaction
@@ -112,7 +112,7 @@ export {
   FormFieldSchema,
   FormSchema,
   FormComponentSchema,
-} from './form.zod';
+} from './form.zod.js';
 
 // ============================================================================
 // Data Display Components - Information Presentation
@@ -138,7 +138,7 @@ export {
   KbdSchema,
   HtmlSchema,
   DataDisplaySchema,
-} from './data-display.zod';
+} from './data-display.zod.js';
 
 // ============================================================================
 // Feedback Components - Status & Progress Indication
@@ -153,7 +153,7 @@ export {
   EmptySchema,
   SonnerSchema,
   FeedbackSchema,
-} from './feedback.zod';
+} from './feedback.zod.js';
 
 // ============================================================================
 // Disclosure Components - Collapsible Content
@@ -165,7 +165,7 @@ export {
   ToggleGroupItemSchema,
   ToggleGroupSchema,
   DisclosureSchema,
-} from './disclosure.zod';
+} from './disclosure.zod.js';
 
 // ============================================================================
 // Overlay Components - Modals & Popovers
@@ -184,7 +184,7 @@ export {
   MenubarMenuSchema,
   MenubarSchema,
   OverlaySchema,
-} from './overlay.zod';
+} from './overlay.zod.js';
 
 // ============================================================================
 // Navigation Components - Menus & Navigation
@@ -199,7 +199,7 @@ export {
   ButtonGroupButtonSchema,
   ButtonGroupSchema,
   NavigationSchema,
-} from './navigation.zod';
+} from './navigation.zod.js';
 
 // ============================================================================
 // Complex Components - Advanced/Composite Components
@@ -224,7 +224,7 @@ export {
   DashboardWidgetSchema,
   DashboardSchema,
   ComplexSchema,
-} from './complex.zod';
+} from './complex.zod.js';
 
 // ============================================================================
 // ObjectQL Components - Smart Data Components
@@ -247,7 +247,7 @@ export {
   ObjectChartSchema,
   ListViewSchema,
   ObjectQLComponentSchema,
-} from './objectql.zod';
+} from './objectql.zod.js';
 
 // ============================================================================
 // CRUD Components - Create, Read, Update, Delete Operations
@@ -265,7 +265,7 @@ export {
   DetailSchema,
   CRUDDialogSchema,
   CRUDComponentSchema,
-} from './crud.zod';
+} from './crud.zod.js';
 
 // ============================================================================
 // Phase 2 Schemas - Theme, Reports, Blocks, and Views
@@ -281,7 +281,7 @@ export {
   ThemeSwitcherSchema,
   ThemePreviewSchema,
   ThemeComponentSchema,
-} from './theme.zod';
+} from './theme.zod.js';
 
 export {
   ReportExportFormatSchema,
@@ -297,7 +297,7 @@ export {
   ReportBuilderSchema,
   ReportViewerSchema,
   ReportComponentSchema,
-} from './reports.zod';
+} from './reports.zod.js';
 
 export {
   BlockVariableSchema,
@@ -310,7 +310,7 @@ export {
   BlockInstanceSchema,
   ComponentSchema,
   BlockComponentSchema,
-} from './blocks.zod';
+} from './blocks.zod.js';
 
 export {
   ViewTypeSchema,
@@ -322,28 +322,28 @@ export {
   FilterUISchema,
   SortUISchema,
   ViewComponentSchema,
-} from './views.zod';
+} from './views.zod.js';
 
 // ============================================================================
 // Union Types - All Component Schemas
 // ============================================================================
 
 import { z } from 'zod';
-import { AppSchema } from './app.zod';
-import { LayoutSchema } from './layout.zod';
-import { FormComponentSchema } from './form.zod';
-import { DataDisplaySchema } from './data-display.zod';
-import { FeedbackSchema } from './feedback.zod';
-import { DisclosureSchema } from './disclosure.zod';
-import { OverlaySchema } from './overlay.zod';
-import { NavigationSchema } from './navigation.zod';
-import { ComplexSchema } from './complex.zod';
-import { ObjectQLComponentSchema } from './objectql.zod';
-import { CRUDComponentSchema } from './crud.zod';
-import { ThemeComponentSchema } from './theme.zod';
-import { ReportComponentSchema } from './reports.zod';
-import { BlockComponentSchema } from './blocks.zod';
-import { ViewComponentSchema } from './views.zod';
+import { AppSchema } from './app.zod.js';
+import { LayoutSchema } from './layout.zod.js';
+import { FormComponentSchema } from './form.zod.js';
+import { DataDisplaySchema } from './data-display.zod.js';
+import { FeedbackSchema } from './feedback.zod.js';
+import { DisclosureSchema } from './disclosure.zod.js';
+import { OverlaySchema } from './overlay.zod.js';
+import { NavigationSchema } from './navigation.zod.js';
+import { ComplexSchema } from './complex.zod.js';
+import { ObjectQLComponentSchema } from './objectql.zod.js';
+import { CRUDComponentSchema } from './crud.zod.js';
+import { ThemeComponentSchema } from './theme.zod.js';
+import { ReportComponentSchema } from './reports.zod.js';
+import { BlockComponentSchema } from './blocks.zod.js';
+import { ViewComponentSchema } from './views.zod.js';
 
 /**
  * Union of all component schemas.

@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { BaseSchema } from './base.zod';
+import { BaseSchema } from './base.zod.js';
 
 /**
  * Color Palette Schema

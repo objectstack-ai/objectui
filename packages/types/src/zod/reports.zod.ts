@@ -17,8 +17,8 @@
  */
 
 import { z } from 'zod';
-import { BaseSchema, SchemaNodeSchema } from './base.zod';
-import { ChartSchema } from './data-display.zod';
+import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
+import { ChartSchema } from './data-display.zod.js';
 
 /**
  * Report Export Format Schema

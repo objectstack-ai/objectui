@@ -46,7 +46,7 @@ export function RatingField({ value, onChange, field, readonly, ...props }: Fiel
           onMouseEnter={() => setHoverValue(i + 1)}
           onMouseLeave={() => setHoverValue(null)}
           className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
-          disabled={readonly}
+          disabled={readonly || props.disabled}
         >
           <Star
             className={`w-5 h-5 transition-colors ${

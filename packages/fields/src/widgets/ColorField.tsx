@@ -27,7 +27,7 @@ export function ColorField({ value, onChange, field, readonly, ...props }: Field
         type="color"
         value={value || '#000000'}
         onChange={(e) => onChange(e.target.value)}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
         className="w-10 h-10 rounded border border-input cursor-pointer"
       />
       <Input
@@ -35,7 +35,7 @@ export function ColorField({ value, onChange, field, readonly, ...props }: Field
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={colorField?.placeholder || '#000000'}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
         className={props.className}
         pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
       />

@@ -22,7 +22,7 @@ export function TextAreaField({ value, onChange, field, readonly, errorMessage, 
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={textareaField?.placeholder}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
         rows={rows}
         maxLength={maxLength}
         aria-invalid={!!errorMessage}

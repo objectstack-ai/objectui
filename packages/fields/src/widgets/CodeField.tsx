@@ -25,7 +25,7 @@ export function CodeField({ value, onChange, field, readonly, ...props }: FieldW
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={config?.placeholder || `// Write ${language} code here...`}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
       className={`font-mono text-sm ${props.className}`}
       rows={12}
       spellCheck={false}

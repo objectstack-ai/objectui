@@ -23,7 +23,7 @@ export function PhoneField({ value, onChange, field, readonly, errorMessage, ...
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={config?.placeholder || '(555) 123-4567'}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
       aria-invalid={!!errorMessage}
     />
   );

@@ -32,7 +32,7 @@ export function UrlField({ value, onChange, field, readonly, errorMessage, ...pr
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={config?.placeholder || 'https://example.com'}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
       aria-invalid={!!errorMessage}
     />
   );

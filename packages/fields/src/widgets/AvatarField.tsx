@@ -96,7 +96,7 @@ export function AvatarField({ value, onChange, field, readonly, ...props }: Fiel
           variant="outline"
           size="sm"
           onClick={() => fileInputRef.current?.click()}
-          disabled={readonly}
+          disabled={readonly || props.disabled}
         >
           <Upload className="w-4 h-4 mr-2" />
           {value ? 'Change' : 'Upload'} Avatar

@@ -51,7 +51,7 @@ export function AddressField({ value, onChange, field, readonly, ...props }: Fie
           value={address.street || ''}
           onChange={(e) => handleFieldChange('street', e.target.value)}
           placeholder="123 Main St"
-          disabled={readonly}
+          disabled={readonly || props.disabled}
           className={props.className}
         />
       </div>
@@ -65,7 +65,7 @@ export function AddressField({ value, onChange, field, readonly, ...props }: Fie
             value={address.city || ''}
             onChange={(e) => handleFieldChange('city', e.target.value)}
             placeholder="San Francisco"
-            disabled={readonly}
+            disabled={readonly || props.disabled}
           />
         </div>
         
@@ -77,7 +77,7 @@ export function AddressField({ value, onChange, field, readonly, ...props }: Fie
             value={address.state || ''}
             onChange={(e) => handleFieldChange('state', e.target.value)}
             placeholder="CA"
-            disabled={readonly}
+            disabled={readonly || props.disabled}
           />
         </div>
       </div>
@@ -91,7 +91,7 @@ export function AddressField({ value, onChange, field, readonly, ...props }: Fie
             value={address.zipCode || ''}
             onChange={(e) => handleFieldChange('zipCode', e.target.value)}
             placeholder="94102"
-            disabled={readonly}
+            disabled={readonly || props.disabled}
           />
         </div>
         
@@ -103,7 +103,7 @@ export function AddressField({ value, onChange, field, readonly, ...props }: Fie
             value={address.country || ''}
             onChange={(e) => handleFieldChange('country', e.target.value)}
             placeholder="United States"
-            disabled={readonly}
+            disabled={readonly || props.disabled}
           />
         </div>
       </div>

@@ -169,12 +169,10 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
         generatedFields.push(customField);
       } else {
         // Auto-generate field from schema
-        const mappedType = mapFieldTypeToFormType(field.type);
-        if (fieldName === 'name') { console.log('DEBUG: Name field mapped to:', mappedType); }
         const formField: FormField = {
           name: fieldName,
           label: field.label || fieldName,
-          type: mappedType,
+          type: mapFieldTypeToFormType(field.type),
           required: field.required || false,
           disabled: schema.readOnly || schema.mode === 'view' || field.readonly,
           placeholder: field.placeholder,

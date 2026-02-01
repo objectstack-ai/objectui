@@ -41,7 +41,7 @@ export function ObjectField({ value, onChange, field, readonly, ...props }: Fiel
       value={jsonString}
       onChange={handleChange}
       placeholder={config?.placeholder || '{\n  "key": "value"\n}'}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
       className={`font-mono text-xs ${props.className || ''}`}
       rows={6}
     />

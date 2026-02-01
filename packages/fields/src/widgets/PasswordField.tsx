@@ -20,7 +20,7 @@ export function PasswordField({ value, onChange, field, readonly, className, ...
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={config?.placeholder}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
         className={`pr-10 ${className || ''}`}
       />
       <Button

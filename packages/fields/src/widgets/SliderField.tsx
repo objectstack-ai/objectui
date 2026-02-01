@@ -30,7 +30,7 @@ export function SliderField({ value, onChange, field, readonly, ...props }: Fiel
         min={min}
         max={max}
         step={step}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
         className={props.className}
       />
       <span className="text-sm font-medium w-12 text-right">{value ?? min}</span>

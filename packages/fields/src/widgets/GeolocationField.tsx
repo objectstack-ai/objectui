@@ -121,7 +121,7 @@ export function GeolocationField({ value, onChange, field, readonly, ...props }:
             value={location.latitude ?? ''}
             onChange={(e) => handleFieldChange('latitude', e.target.value)}
             placeholder="37.7749"
-            disabled={readonly}
+            disabled={readonly || props.disabled}
             step="any"
             className={props.className}
           />
@@ -135,7 +135,7 @@ export function GeolocationField({ value, onChange, field, readonly, ...props }:
             value={location.longitude ?? ''}
             onChange={(e) => handleFieldChange('longitude', e.target.value)}
             placeholder="-122.4194"
-            disabled={readonly}
+            disabled={readonly || props.disabled}
             step="any"
           />
         </div>

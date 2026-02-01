@@ -98,7 +98,7 @@ export function MasterDetailField({
                 variant="ghost"
                 size="sm"
                 onClick={() => handleRemove(item.id)}
-                disabled={readonly}
+                disabled={readonly || props.disabled}
               >
                 <X className="w-4 h-4" />
               </Button>

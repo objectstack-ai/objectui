@@ -36,7 +36,7 @@ export function PercentField({ value, onChange, field, readonly, errorMessage, c
         value={displayValue}
         onChange={handleChange}
         placeholder={percentField?.placeholder || '0'}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
         className={`pr-8 ${className || ''}`}
         step={Math.pow(10, -precision).toFixed(precision)}
         aria-invalid={!!errorMessage}

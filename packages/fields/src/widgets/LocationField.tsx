@@ -39,7 +39,7 @@ export function LocationField({ value, onChange, field, readonly, ...props }: Fi
       value={displayValue}
       onChange={handleChange}
       placeholder={config?.placeholder || 'latitude, longitude'}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
       className={props.className}
     />
   );

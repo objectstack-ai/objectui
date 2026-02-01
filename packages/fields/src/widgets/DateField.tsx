@@ -13,7 +13,7 @@ export function DateField({ value, onChange, field, readonly, ...props }: FieldW
       type="date"
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
     />
   );
 }

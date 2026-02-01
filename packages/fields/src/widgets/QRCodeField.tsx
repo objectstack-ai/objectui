@@ -51,7 +51,7 @@ export function QRCodeField({ value, onChange, field, readonly, ...props }: Fiel
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={config?.placeholder || 'Enter text for QR code'}
-          disabled={readonly}
+          disabled={readonly || props.disabled}
           className={props.className}
         />
         {value && (

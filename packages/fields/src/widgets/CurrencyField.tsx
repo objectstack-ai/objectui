@@ -53,7 +53,7 @@ export function CurrencyField({ value, onChange, field, readonly, errorMessage, 
         }}
         onBlur={handleBlur}
         placeholder={currencyField?.placeholder || '0.00'}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
         className={`pl-8 ${className || ''}`}
         step={Math.pow(10, -precision).toFixed(precision)}
         aria-invalid={!!errorMessage}

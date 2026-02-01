@@ -23,7 +23,7 @@ export function SelectField({ value, onChange, field, readonly, ...props }: Fiel
       {...props}
       value={value} 
       onValueChange={onChange}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
     >
       <SelectTrigger className={props.className}>
         <SelectValue placeholder={config?.placeholder || "Select an option"} />

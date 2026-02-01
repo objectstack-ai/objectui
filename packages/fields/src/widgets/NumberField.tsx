@@ -21,7 +21,7 @@ export function NumberField({ value, onChange, field, readonly, ...props }: Fiel
         onChange(val === '' ? (null as any) : Number(val));
       }}
       placeholder={numberField?.placeholder}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
       step={precision ? Math.pow(10, -precision) : 'any'}
     />
   );

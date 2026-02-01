@@ -32,7 +32,7 @@ export function RichTextField({ value, onChange, field, readonly, errorMessage, 
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={richField?.placeholder || 'Enter text...'}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
         rows={rows}
         className={`font-mono text-sm ${props.className || ''}`}
         aria-invalid={!!errorMessage}

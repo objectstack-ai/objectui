@@ -21,7 +21,7 @@ export function BooleanField({ value, onChange, field, readonly, ...props }: Fie
                 id={id}
                 checked={!!value}
                 onCheckedChange={(checked) => onChange(!!checked)}
-                disabled={readonly}
+                disabled={readonly || props.disabled}
             />
             <Label htmlFor={id}>{label}</Label>
         </div>
@@ -35,7 +35,7 @@ export function BooleanField({ value, onChange, field, readonly, ...props }: Fie
             id={id} 
             checked={!!value} 
             onCheckedChange={onChange}
-            disabled={readonly}
+            disabled={readonly || props.disabled}
         />
         <Label htmlFor={id}>{label}</Label>
     </div>

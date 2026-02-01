@@ -4,7 +4,6 @@ import { TextareaFieldMetadata } from '@object-ui/types';
 import { FieldWidgetProps } from './types';
 
 export function TextField({ value, onChange, field, readonly, ...props }: FieldWidgetProps<string>) {
-  console.log('TextField props disabled:', (props as any).disabled, 'readonly:', readonly, 'field:', field ? 'yes' : 'no');
   const fieldData = field || (props as any).schema;
 
   if (readonly) {
@@ -21,7 +20,7 @@ export function TextField({ value, onChange, field, readonly, ...props }: FieldW
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={fieldData?.placeholder}
-        disabled={readonly}
+        disabled={readonly || props.disabled}
       />
     );
   }

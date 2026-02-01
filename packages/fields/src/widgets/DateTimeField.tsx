@@ -19,7 +19,7 @@ export function DateTimeField({ value, onChange, field, readonly, ...props }: Fi
       type="datetime-local"
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
-      disabled={readonly}
+      disabled={readonly || props.disabled}
     />
   );
 }

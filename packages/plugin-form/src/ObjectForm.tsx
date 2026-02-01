@@ -263,7 +263,6 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
 
   // Handle form submission
   const handleSubmit = useCallback(async (formData: any) => {
-    console.log('ObjectForm submitting data:', formData);
     // For inline fields without a dataSource, just call the success callback
     if (hasInlineFields && !dataSource) {
       if (schema.onSuccess) {

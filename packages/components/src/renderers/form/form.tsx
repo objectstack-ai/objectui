@@ -170,11 +170,29 @@ ComponentRegistry.register('form',
       ? cn('grid gap-4', gridColsClass)
       : 'space-y-4';
 
-    // Extract designer-related props
+    // Extract designer-related props and exclude form schema properties from DOM element
     const { 
         'data-obj-id': dataObjId, 
         'data-obj-type': dataObjType,
         style, 
+        // Exclude form schema properties that should not be passed to DOM
+        onSubmit: _excludeOnSubmit,
+        onChange: _excludeOnChange,
+        onCancel: _excludeOnCancel,
+        fields: _excludeFields,
+        defaultValues: _excludeDefaultValues,
+        submitLabel: _excludeSubmitLabel,
+        cancelLabel: _excludeCancelLabel,
+        showCancel: _excludeShowCancel,
+        showSubmit: _excludeShowSubmit,
+        showActions: _excludeShowActions,
+        layout: _excludeLayout,
+        columns: _excludeColumns,
+        resetOnSubmit: _excludeResetOnSubmit,
+        validationMode: _excludeValidationMode,
+        disabled: _excludeDisabled,
+        fieldContainerClass: _excludeFieldContainerClass,
+        children: _excludeChildren,
         ...formProps 
     } = props;
 

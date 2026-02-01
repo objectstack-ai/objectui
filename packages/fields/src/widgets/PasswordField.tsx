@@ -21,6 +21,7 @@ export function PasswordField({ value, onChange, field, readonly, ...props }: Fi
         placeholder={config?.placeholder}
         disabled={readonly}
         className={`pr-10 ${props.className || ''}`}
+        {...props}
       />
       <Button
         type="button"

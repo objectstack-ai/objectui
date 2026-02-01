@@ -39,6 +39,7 @@ export function PercentField({ value, onChange, field, readonly, errorMessage, .
         className={`pr-8 ${props.className || ''}`}
         step={Math.pow(10, -precision).toFixed(precision)}
         aria-invalid={!!errorMessage}
+        {...props}
       />
       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
         %

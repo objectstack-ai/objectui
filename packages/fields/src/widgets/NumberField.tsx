@@ -23,6 +23,7 @@ export function NumberField({ value, onChange, field, readonly, ...props }: Fiel
       disabled={readonly}
       step={precision ? Math.pow(10, -precision) : 'any'}
       className={props.className}
+      {...props}
     />
   );
 }

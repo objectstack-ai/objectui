@@ -34,6 +34,7 @@ export function UrlField({ value, onChange, field, readonly, errorMessage, ...pr
       disabled={readonly}
       className={props.className}
       aria-invalid={!!errorMessage}
+      {...props}
     />
   );
 }

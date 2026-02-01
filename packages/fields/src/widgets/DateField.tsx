@@ -14,6 +14,7 @@ export function DateField({ value, onChange, field, readonly, ...props }: FieldW
       onChange={(e) => onChange(e.target.value)}
       disabled={readonly}
       className={props.className}
+      {...props}
     />
   );
 }

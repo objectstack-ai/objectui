@@ -26,6 +26,7 @@ export function TextAreaField({ value, onChange, field, readonly, errorMessage, 
         maxLength={maxLength}
         className={props.className}
         aria-invalid={!!errorMessage}
+        {...props}
       />
       {maxLength && (
         <div 

@@ -23,8 +23,8 @@ export function EmailField({ value, onChange, field, readonly, errorMessage, ...
       onChange={(e) => onChange(e.target.value)}
       placeholder={config?.placeholder || 'email@example.com'}
       disabled={readonly}
-      className={props.className}
       aria-invalid={!!errorMessage}
+      {...props}
     />
   );
 }

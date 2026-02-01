@@ -20,6 +20,7 @@ export function DateTimeField({ value, onChange, field, readonly, ...props }: Fi
       onChange={(e) => onChange(e.target.value)}
       disabled={readonly}
       className={props.className}
+      {...props}
     />
   );
 }

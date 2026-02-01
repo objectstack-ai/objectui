@@ -44,6 +44,7 @@ export function CurrencyField({ value, onChange, field, readonly, errorMessage, 
         {currency === 'USD' ? '$' : currency}
       </span>
       <Input
+        {...props}
         type="number"
         value={value ?? ''}
         onChange={(e) => {
@@ -56,7 +57,6 @@ export function CurrencyField({ value, onChange, field, readonly, errorMessage, 
         className={`pl-8 ${className || ''}`}
         step={Math.pow(10, -precision).toFixed(precision)}
         aria-invalid={!!errorMessage}
-        {...props}
       />
     </div>
   );

@@ -15,13 +15,13 @@ export function PasswordField({ value, onChange, field, readonly, className, ...
   return (
     <div className="relative">
       <Input
+        {...props}
         type={showPassword ? 'text' : 'password'}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={config?.placeholder}
         disabled={readonly}
         className={`pr-10 ${className || ''}`}
-        {...props}
       />
       <Button
         type="button"

@@ -60,7 +60,7 @@ The Percent Field component provides a percentage input that automatically conve
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface PercentFieldSchema {
   type: 'percent';
   name: string;                  // Field name/ID
@@ -87,7 +87,7 @@ The percent field handles automatic conversion:
 - **Display Value**: Percentage between 0 and 100 (e.g., `75%`)
 
 Example:
-```typescript
+```plaintext
 // Stored in database: 0.85
 // Displayed to user: 85%
 // User enters: 90
@@ -98,7 +98,7 @@ Example:
 
 In tables/grids, values are formatted with percentage symbol:
 
-```typescript
+```plaintext
 import { PercentCellRenderer } from '@object-ui/fields';
 
 // Renders: 85.50%

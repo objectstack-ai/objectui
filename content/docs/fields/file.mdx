@@ -45,7 +45,7 @@ The File Field component provides a file upload interface with support for multi
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface FileFieldSchema {
   type: 'file';
   name: string;                  // Field name/ID
@@ -76,7 +76,7 @@ interface FileMetadata {
 
 Common MIME type examples:
 
-```typescript
+```plaintext
 // Documents
 accept: ['application/pdf', 'application/msword']
 
@@ -105,7 +105,7 @@ accept: ['image/*']  // All images
 
 In tables/grids, displays file count:
 
-```typescript
+```plaintext
 import { FileCellRenderer } from '@object-ui/fields';
 
 // Renders: "3 files" or "document.pdf"
@@ -115,7 +115,7 @@ import { FileCellRenderer } from '@object-ui/fields';
 
 This component creates object URLs for file preview. Actual file upload requires backend integration:
 
-```typescript
+```plaintext
 // Frontend creates preview
 const fileData = {
   name: 'document.pdf',

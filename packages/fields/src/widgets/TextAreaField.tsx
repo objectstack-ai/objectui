@@ -12,8 +12,8 @@ export function TextAreaField({ value, onChange, field, readonly, errorMessage, 
   }
 
   const textareaField = field as any;
-  const rows = textareaField.rows || 4;
-  const maxLength = textareaField.max_length;
+  const rows = textareaField?.rows || 4;
+  const maxLength = textareaField?.max_length;
 
   return (
     <div className="relative">

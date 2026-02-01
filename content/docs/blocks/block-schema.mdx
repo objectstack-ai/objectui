@@ -19,7 +19,7 @@ BlockSchema enables:
 
 ## Basic Usage
 
-```typescript
+```plaintext
 import type { BlockSchema } from '@object-ui/types';
 
 const heroBlock: BlockSchema = {
@@ -65,7 +65,7 @@ const heroBlock: BlockSchema = {
 
 ### Block Metadata
 
-```typescript
+```plaintext
 interface BlockMetadata {
   name: string;              // Block identifier
   label?: string;            // Display name
@@ -86,7 +86,7 @@ interface BlockMetadata {
 
 Variables define configurable properties:
 
-```typescript
+```plaintext
 interface BlockVariable {
   name: string;                    // Variable name
   label?: string;                  // Display label
@@ -103,7 +103,7 @@ interface BlockVariable {
 
 Slots define content injection points:
 
-```typescript
+```plaintext
 interface BlockSlot {
   name: string;                    // Slot name
   label?: string;                  // Display label
@@ -117,7 +117,7 @@ interface BlockSlot {
 
 ## Complete Example
 
-```typescript
+```plaintext
 const cardBlock: BlockSchema = {
   type: 'block',
   
@@ -258,7 +258,7 @@ const cardBlock: BlockSchema = {
 
 Use `BlockInstanceSchema` to instantiate a block:
 
-```typescript
+```plaintext
 import type { BlockInstanceSchema } from '@object-ui/types';
 
 const instance: BlockInstanceSchema = {
@@ -295,7 +295,7 @@ const instance: BlockInstanceSchema = {
 
 Use `BlockLibrarySchema` to browse available blocks:
 
-```typescript
+```plaintext
 import type { BlockLibrarySchema } from '@object-ui/types';
 
 const library: BlockLibrarySchema = {
@@ -331,7 +331,7 @@ const library: BlockLibrarySchema = {
 
 Use `BlockEditorSchema` to create/edit blocks:
 
-```typescript
+```plaintext
 import type { BlockEditorSchema } from '@object-ui/types';
 
 const editor: BlockEditorSchema = {
@@ -351,7 +351,7 @@ const editor: BlockEditorSchema = {
 
 ## Marketplace Example
 
-```typescript
+```plaintext
 const marketplace: BlockLibrarySchema = {
   type: 'block-library',
   apiEndpoint: 'https://blocks.objectui.com/api',
@@ -402,7 +402,7 @@ const marketplace: BlockLibrarySchema = {
 
 ## Runtime Validation
 
-```typescript
+```plaintext
 import { BlockSchema } from '@object-ui/types/zod';
 
 const result = BlockSchema.safeParse(myBlock);

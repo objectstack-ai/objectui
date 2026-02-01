@@ -32,7 +32,7 @@ The Image Field component provides an image upload interface with thumbnail prev
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface ImageFieldSchema {
   type: 'image';
   name: string;                  // Field name/ID
@@ -57,7 +57,7 @@ interface ImageFieldSchema {
 
 By default, accepts all common image formats:
 
-```typescript
+```plaintext
 // Default: 'image/*'
 // Specific formats:
 accept: ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -75,7 +75,7 @@ accept: ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 
 In tables/grids, displays image thumbnails:
 
-```typescript
+```plaintext
 import { ImageCellRenderer } from '@object-ui/fields';
 
 // Shows up to 3 thumbnails plus count if more
@@ -85,7 +85,7 @@ import { ImageCellRenderer } from '@object-ui/fields';
 
 For best results, consider:
 
-```typescript
+```plaintext
 {
   type: 'image',
   name: 'product_images',
@@ -103,7 +103,7 @@ For best results, consider:
 
 This component creates object URLs for preview. For production use, implement server-side upload:
 
-```typescript
+```plaintext
 const uploadImage = async (file: File) => {
   // Validate dimensions
   const img = new Image();

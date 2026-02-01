@@ -23,7 +23,7 @@ The enhanced `ActionSchema` provides:
 
 Execute API calls with full request configuration:
 
-```typescript
+```plaintext
 const ajaxAction: ActionSchema = {
   type: 'action',
   label: 'Load Data',
@@ -59,7 +59,7 @@ const ajaxAction: ActionSchema = {
 
 Show confirmation dialog before executing:
 
-```typescript
+```plaintext
 const confirmAction: ActionSchema = {
   type: 'action',
   label: 'Delete Record',
@@ -87,7 +87,7 @@ const confirmAction: ActionSchema = {
 
 Open a modal or dialog:
 
-```typescript
+```plaintext
 const dialogAction: ActionSchema = {
   type: 'action',
   label: 'Edit Details',
@@ -119,7 +119,7 @@ const dialogAction: ActionSchema = {
 
 Execute multiple actions in sequence or parallel:
 
-```typescript
+```plaintext
 const chainedAction: ActionSchema = {
   type: 'action',
   label: 'Process Order',
@@ -163,7 +163,7 @@ const chainedAction: ActionSchema = {
 
 Execute different actions based on conditions:
 
-```typescript
+```plaintext
 const conditionalAction: ActionSchema = {
   type: 'action',
   label: 'Approve',
@@ -200,7 +200,7 @@ const conditionalAction: ActionSchema = {
 
 Handle success and failure scenarios:
 
-```typescript
+```plaintext
 const actionWithCallbacks: ActionSchema = {
   type: 'action',
   label: 'Submit',
@@ -239,7 +239,7 @@ const actionWithCallbacks: ActionSchema = {
 
 Track actions for analytics:
 
-```typescript
+```plaintext
 const trackedAction: ActionSchema = {
   type: 'action',
   label: 'Download Report',
@@ -262,7 +262,7 @@ const trackedAction: ActionSchema = {
 
 Automatically retry failed requests:
 
-```typescript
+```plaintext
 const retryAction: ActionSchema = {
   type: 'action',
   label: 'Submit',
@@ -283,7 +283,7 @@ const retryAction: ActionSchema = {
 
 A comprehensive action combining multiple features:
 
-```typescript
+```plaintext
 const complexAction: ActionSchema = {
   type: 'action',
   label: 'Process Order',
@@ -391,7 +391,7 @@ const complexAction: ActionSchema = {
 
 ## Runtime Validation
 
-```typescript
+```plaintext
 import { ActionSchema } from '@object-ui/types/zod';
 
 const result = ActionSchema.safeParse(myAction);

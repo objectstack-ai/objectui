@@ -52,7 +52,7 @@ The Formula Field component displays computed values calculated from other field
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface FormulaFieldSchema {
   type: 'formula';
   name: string;                  // Field name/ID
@@ -81,7 +81,7 @@ The formula field formats values based on return type:
 
 Common formula patterns:
 
-```typescript
+```plaintext
 // Arithmetic
 formula: 'price * quantity'
 formula: '(subtotal - discount) * tax_rate'
@@ -103,7 +103,7 @@ formula: 'end_date - start_date'
 
 In tables/grids, displays with monospace font:
 
-```typescript
+```plaintext
 import { FormulaCellRenderer } from '@object-ui/fields';
 
 // Renders computed value in monospace font
@@ -113,7 +113,7 @@ import { FormulaCellRenderer } from '@object-ui/fields';
 
 Formula fields are computed on the backend:
 
-```typescript
+```plaintext
 // Example backend calculation
 const calculateFormula = (formula: string, record: any) => {
   // Parse and evaluate formula

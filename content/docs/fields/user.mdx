@@ -44,7 +44,7 @@ The User Field component provides a user selector for assigning users or owners 
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface UserFieldSchema {
   type: 'user' | 'owner';
   name: string;                  // Field name/ID
@@ -84,7 +84,7 @@ interface User {
 
 In tables/grids, displays avatar with name:
 
-```typescript
+```plaintext
 import { UserCellRenderer } from '@object-ui/fields';
 
 // Single user: Avatar + name
@@ -95,7 +95,7 @@ import { UserCellRenderer } from '@object-ui/fields';
 
 User selection requires integration with your user management system:
 
-```typescript
+```plaintext
 // Example user search API
 const searchUsers = async (query: string) => {
   const response = await fetch(`/api/users/search?q=${query}`);
@@ -116,7 +116,7 @@ const user = {
 
 Common permission configurations:
 
-```typescript
+```plaintext
 // Record owner only
 {
   type: 'owner',
@@ -156,7 +156,7 @@ Common permission configurations:
 
 Example backend logic for user fields:
 
-```typescript
+```plaintext
 // Set owner on create
 const createRecord = async (data: any, currentUser: User) => {
   return db.create('records', {

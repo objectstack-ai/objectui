@@ -9,7 +9,7 @@ The FormRenderer is a specialized component for rendering dynamic forms based on
 
 ## Basic Usage
 
-```typescript
+```plaintext
 import { FormRenderer } from '@object-ui/react';
 
 <FormRenderer
@@ -31,7 +31,7 @@ import { FormRenderer } from '@object-ui/react';
 
 ## Form Schema
 
-```typescript
+```plaintext
 interface FormViewSchema {
   type: 'form';
   sections: FormSection[];      // Form sections
@@ -84,7 +84,7 @@ The FormRenderer uses react-hook-form for efficient state management:
 
 Forms support responsive grid layouts with 1-4 columns:
 
-```typescript
+```plaintext
 {
   sections: [
     {
@@ -104,7 +104,7 @@ Forms support responsive grid layouts with 1-4 columns:
 
 Sections can be made collapsible to organize complex forms:
 
-```typescript
+```plaintext
 {
   sections: [
     {
@@ -125,7 +125,7 @@ Sections can be made collapsible to organize complex forms:
 
 Called when form is submitted with valid data:
 
-```typescript
+```plaintext
 <FormRenderer
   schema={schema}
   onSubmit={async (data) => {
@@ -139,7 +139,7 @@ Called when form is submitted with valid data:
 
 Called whenever any field value changes:
 
-```typescript
+```plaintext
 <FormRenderer
   schema={schema}
   onChange={(data) => {
@@ -153,7 +153,7 @@ Called whenever any field value changes:
 
 Provide initial form values:
 
-```typescript
+```plaintext
 <FormRenderer
   schema={schema}
   data={{
@@ -170,25 +170,25 @@ FormRenderer supports multiple validation types:
 
 ### Required Fields
 
-```typescript
+```plaintext
 { field: 'email', type: 'email', required: true }
 ```
 
 ### Min/Max Length
 
-```typescript
+```plaintext
 { field: 'username', type: 'text', min: 3, max: 20 }
 ```
 
 ### Pattern Matching
 
-```typescript
+```plaintext
 { field: 'phone', type: 'text', pattern: /^\d{3}-\d{3}-\d{4}$/ }
 ```
 
 ### Custom Validation
 
-```typescript
+```plaintext
 { 
   field: 'age', 
   type: 'number',
@@ -208,7 +208,7 @@ The FormRenderer supports all field types from the Field Registry:
 
 ## Complete Example
 
-```typescript
+```plaintext
 <FormRenderer
   schema={{
     type: 'form',
@@ -273,7 +273,7 @@ The FormRenderer supports all field types from the Field Registry:
 
 The FormRenderer uses Tailwind CSS and can be customized:
 
-```typescript
+```plaintext
 <FormRenderer
   schema={schema}
   className="max-w-2xl mx-auto"

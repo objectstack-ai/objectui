@@ -19,7 +19,7 @@ ThemeSchema enables:
 
 ## Basic Usage
 
-```typescript
+```plaintext
 import type { ThemeSchema } from '@object-ui/types';
 
 const theme: ThemeSchema = {
@@ -63,7 +63,7 @@ const theme: ThemeSchema = {
 
 ## Theme Definition
 
-```typescript
+```plaintext
 interface ThemeDefinition {
   name: string;           // Theme identifier
   label?: string;         // Display name
@@ -81,7 +81,7 @@ interface ThemeDefinition {
 
 Semantic color tokens for consistent design:
 
-```typescript
+```plaintext
 interface ColorPalette {
   // Brand colors
   primary?: string;
@@ -154,7 +154,7 @@ interface ColorPalette {
 
 ## Typography System
 
-```typescript
+```plaintext
 interface Typography {
   fontSans?: string[];    // Sans-serif font stack
   fontSerif?: string[];   // Serif font stack
@@ -184,7 +184,7 @@ interface Typography {
 
 ## Spacing Scale
 
-```typescript
+```plaintext
 interface SpacingScale {
   base?: number;               // Base spacing unit (rem)
   scale?: Record<string, string>;  // Custom spacing values
@@ -193,7 +193,7 @@ interface SpacingScale {
 
 ## Border Radius
 
-```typescript
+```plaintext
 interface BorderRadius {
   sm?: string;
   default?: string;
@@ -205,7 +205,7 @@ interface BorderRadius {
 
 ## Complete Theme Example
 
-```typescript
+```plaintext
 const professionalTheme: ThemeSchema = {
   type: 'theme',
   mode: 'system',
@@ -302,7 +302,7 @@ const professionalTheme: ThemeSchema = {
 
 Use `ThemeSwitcherSchema` to add a theme switcher UI:
 
-```typescript
+```plaintext
 import type { ThemeSwitcherSchema } from '@object-ui/types';
 
 const switcher: ThemeSwitcherSchema = {
@@ -325,7 +325,7 @@ const switcher: ThemeSwitcherSchema = {
 
 Use `ThemePreviewSchema` to preview themes:
 
-```typescript
+```plaintext
 import type { ThemePreviewSchema } from '@object-ui/types';
 
 const preview: ThemePreviewSchema = {
@@ -340,7 +340,7 @@ const preview: ThemePreviewSchema = {
 
 ## Runtime Validation
 
-```typescript
+```plaintext
 import { ThemeSchema } from '@object-ui/types/zod';
 
 const result = ThemeSchema.safeParse(myTheme);

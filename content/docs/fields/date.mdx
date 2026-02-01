@@ -33,7 +33,7 @@ The Date Field component provides a date picker for selecting dates and optional
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface DateFieldSchema {
   type: 'date' | 'datetime';
   name: string;                  // Field name/ID
@@ -73,7 +73,7 @@ The date field supports various display formats:
 
 In tables/grids, dates are formatted consistently:
 
-```typescript
+```plaintext
 import { DateCellRenderer } from '@object-ui/fields';
 
 // Renders: Dec 31, 2024
@@ -84,7 +84,7 @@ import { DateCellRenderer } from '@object-ui/fields';
 
 For collecting both date and time:
 
-```typescript
+```plaintext
 {
   type: 'datetime',
   name: 'appointment',

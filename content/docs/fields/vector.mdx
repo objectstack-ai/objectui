@@ -37,7 +37,7 @@ The Vector Field component displays vector embeddings used in AI/ML applications
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface VectorFieldSchema {
   type: 'vector';
   name: string;                  // Field name/ID
@@ -79,7 +79,7 @@ Different AI models use different embedding sizes:
 
 Vectors are stored as arrays of floating-point numbers:
 
-```typescript
+```plaintext
 // Example embedding
 const embedding: number[] = [
   0.1234, -0.5678, 0.9012, 0.3456, -0.7890,
@@ -91,7 +91,7 @@ const embedding: number[] = [
 
 In tables/grids, displays compact preview:
 
-```typescript
+```plaintext
 import { VectorCellRenderer } from '@object-ui/fields';
 
 // Renders: [0.1234, -0.5678, 0.9012...] (768D)
@@ -103,7 +103,7 @@ Common operations with vector fields (performed on backend):
 
 ### Similarity Search
 
-```typescript
+```plaintext
 // Find similar vectors using cosine similarity
 const findSimilar = async (queryVector: number[], limit: number = 10) => {
   return await db.raw(`
@@ -136,7 +136,7 @@ const findSimilar = async (queryVector: number[], limit: number = 10) => {
 
 Example vector storage and search:
 
-```typescript
+```plaintext
 // PostgreSQL with pgvector extension
 import { Client } from 'pg';
 
@@ -208,7 +208,7 @@ Vector storage is supported by:
 
 ## Example: Semantic Search
 
-```typescript
+```plaintext
 // 1. Generate embedding for user query
 const query = "Find documentation about authentication";
 const queryEmbedding = await generateEmbedding(query);

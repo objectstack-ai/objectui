@@ -19,7 +19,7 @@ ReportSchema provides:
 
 ## Basic Usage
 
-```typescript
+```plaintext
 import type { ReportSchema } from '@object-ui/types';
 
 const salesReport: ReportSchema = {
@@ -68,7 +68,7 @@ const salesReport: ReportSchema = {
 
 ### Report Fields
 
-```typescript
+```plaintext
 interface ReportField {
   name: string;                    // Field name
   label?: string;                  // Display label
@@ -91,7 +91,7 @@ interface ReportField {
 
 ### Filters
 
-```typescript
+```plaintext
 interface ReportFilter {
   field: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 
@@ -103,7 +103,7 @@ interface ReportFilter {
 
 ### Group By
 
-```typescript
+```plaintext
 interface ReportGroupBy {
   field: string;
   label?: string;
@@ -115,7 +115,7 @@ interface ReportGroupBy {
 
 Define report structure with sections:
 
-```typescript
+```plaintext
 interface ReportSection {
   type: 'header' | 'summary' | 'chart' | 'table' | 'text' | 'page-break';
   title?: string;
@@ -129,7 +129,7 @@ interface ReportSection {
 
 ## Export Configuration
 
-```typescript
+```plaintext
 interface ReportExportConfig {
   format: 'pdf' | 'excel' | 'csv' | 'json' | 'html';
   filename?: string;
@@ -142,7 +142,7 @@ interface ReportExportConfig {
 
 ## Scheduling
 
-```typescript
+```plaintext
 interface ReportSchedule {
   enabled?: boolean;
   frequency?: 'once' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
@@ -159,7 +159,7 @@ interface ReportSchedule {
 
 ## Complete Example
 
-```typescript
+```plaintext
 const comprehensiveReport: ReportSchema = {
   type: 'report',
   title: 'Quarterly Sales Analysis',
@@ -333,7 +333,7 @@ const comprehensiveReport: ReportSchema = {
 
 Use `ReportBuilderSchema` for interactive report creation:
 
-```typescript
+```plaintext
 import type { ReportBuilderSchema } from '@object-ui/types';
 
 const builder: ReportBuilderSchema = {
@@ -363,7 +363,7 @@ const builder: ReportBuilderSchema = {
 
 Use `ReportViewerSchema` to display generated reports:
 
-```typescript
+```plaintext
 import type { ReportViewerSchema } from '@object-ui/types';
 
 const viewer: ReportViewerSchema = {
@@ -379,7 +379,7 @@ const viewer: ReportViewerSchema = {
 
 ## Runtime Validation
 
-```typescript
+```plaintext
 import { ReportSchema } from '@object-ui/types/zod';
 
 const result = ReportSchema.safeParse(myReport);

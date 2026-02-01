@@ -35,7 +35,7 @@ The Currency Field component provides a formatted currency input with proper loc
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface CurrencyFieldSchema {
   type: 'currency';
   name: string;                  // Field name/ID
@@ -66,7 +66,7 @@ interface CurrencyFieldSchema {
 
 In tables/grids, currency values are formatted with the appropriate symbol:
 
-```typescript
+```plaintext
 import { CurrencyCellRenderer } from '@object-ui/fields';
 
 // Renders: $1,234.56 or €1.234,56 based on locale

@@ -34,7 +34,7 @@ The URL Field component provides a text input with URL validation and clickable 
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface UrlFieldSchema {
   type: 'url';
   name: string;                  // Field name/ID
@@ -59,7 +59,7 @@ The URL field automatically validates:
 
 In tables/grids, URLs are clickable external links:
 
-```typescript
+```plaintext
 import { UrlCellRenderer } from '@object-ui/fields';
 
 // Renders as: <a href="https://example.com" target="_blank">https://example.com</a>

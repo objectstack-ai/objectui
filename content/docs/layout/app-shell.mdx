@@ -9,7 +9,7 @@ The AppShell component provides the main application layout structure with an in
 
 ## Basic Usage
 
-```typescript
+```plaintext
 import { AppShell } from '@object-ui/layout';
 import { SidebarNav } from '@object-ui/layout';
 
@@ -36,7 +36,7 @@ import { SidebarNav } from '@object-ui/layout';
 
 ## Component Props
 
-```typescript
+```plaintext
 interface AppShellProps {
   sidebar?: React.ReactNode;     // Sidebar content (usually SidebarNav)
   navbar?: React.ReactNode;      // Top navbar content (logo, search, user menu)
@@ -93,7 +93,7 @@ The main content area features:
 
 Control whether sidebar is open by default:
 
-```typescript
+```plaintext
 <AppShell defaultOpen={false}>
   {/* Sidebar starts collapsed */}
 </AppShell>
@@ -112,7 +112,7 @@ The navbar area is flexible and can contain:
 
 ### Logo and Title
 
-```typescript
+```plaintext
 navbar={
   <div className="flex items-center gap-2">
     <img src="/logo.svg" alt="Logo" className="h-8 w-8" />
@@ -123,7 +123,7 @@ navbar={
 
 ### Search Bar
 
-```typescript
+```plaintext
 navbar={
   <div className="flex-1 max-w-md">
     <Input placeholder="Search..." />
@@ -133,7 +133,7 @@ navbar={
 
 ### User Menu
 
-```typescript
+```plaintext
 navbar={
   <div className="flex items-center gap-4 ml-auto">
     <NotificationsButton />
@@ -144,7 +144,7 @@ navbar={
 
 ## Complete Example
 
-```typescript
+```plaintext
 import { AppShell, SidebarNav } from '@object-ui/layout';
 import { Avatar, Button, Input } from '@object-ui/components';
 
@@ -231,7 +231,7 @@ function App() {
 
 Combine AppShell with the Page component for complete layouts:
 
-```typescript
+```plaintext
 <AppShell sidebar={<SidebarNav items={navItems} />}>
   <Page
     title="Dashboard"

@@ -35,7 +35,7 @@ The Rich Text Field component provides a WYSIWYG editor for creating formatted t
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface RichTextFieldSchema {
   type: 'markdown' | 'html';
   name: string;                  // Field name/ID
@@ -77,7 +77,7 @@ interface RichTextFieldSchema {
 
 In tables/grids, rich text is shown as plain text:
 
-```typescript
+```plaintext
 import { TextCellRenderer } from '@object-ui/fields';
 
 // Strips formatting, shows plain text only

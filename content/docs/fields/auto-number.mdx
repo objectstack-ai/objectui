@@ -50,7 +50,7 @@ The AutoNumber Field component displays auto-generated sequence numbers. This is
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface AutoNumberFieldSchema {
   type: 'auto_number';
   name: string;                  // Field name/ID
@@ -71,14 +71,14 @@ Common format patterns:
 
 ### Simple Sequential
 
-```typescript
+```plaintext
 format: '{0000}'           // 0001, 0002, 0003...
 format: '{00000}'          // 00001, 00002, 00003...
 ```
 
 ### With Prefix
 
-```typescript
+```plaintext
 format: 'ORD-{0000}'       // ORD-0001, ORD-0002...
 format: 'INV-{00000}'      // INV-00001, INV-00002...
 format: 'CUST-{000}'       // CUST-001, CUST-002...
@@ -86,7 +86,7 @@ format: 'CUST-{000}'       // CUST-001, CUST-002...
 
 ### Date-Based
 
-```typescript
+```plaintext
 format: '{YYYY}-{0000}'    // 2024-0001, 2024-0002...
 format: '{YY}{MM}-{000}'   // 2403-001, 2403-002...
 format: 'ORD-{YYYYMMDD}-{00}'  // ORD-20240315-01...
@@ -94,7 +94,7 @@ format: 'ORD-{YYYYMMDD}-{00}'  // ORD-20240315-01...
 
 ### Mixed Format
 
-```typescript
+```plaintext
 format: 'PO-{YYYY}-{MM}-{0000}'  // PO-2024-03-0001
 format: '{YY}Q{Q}-{000}'         // 24Q1-001, 24Q1-002...
 ```
@@ -112,7 +112,7 @@ format: '{YY}Q{Q}-{000}'         // 24Q1-001, 24Q1-002...
 
 AutoNumber values are generated on record creation:
 
-```typescript
+```plaintext
 const generateAutoNumber = (format: string, sequence: number) => {
   const now = new Date();
   
@@ -137,7 +137,7 @@ generateAutoNumber('ORD-{YYYY}-{0000}', 42);
 
 The backend maintains sequence counters:
 
-```typescript
+```plaintext
 interface SequenceCounter {
   object: string;           // Object name
   field: string;            // Field name

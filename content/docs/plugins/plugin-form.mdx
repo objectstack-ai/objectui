@@ -70,7 +70,7 @@ npm install @object-ui/plugin-form
 
 ### Form
 
-```typescript
+```plaintext
 {
   type: 'form',
   fields: FormField[],
@@ -84,7 +84,7 @@ npm install @object-ui/plugin-form
 
 ### Form Field
 
-```typescript
+```plaintext
 interface FormField {
   name: string;
   type: string;                   // 'input', 'select', 'checkbox', etc.
@@ -102,13 +102,13 @@ interface FormField {
 
 ### Auto-registration (Side-effect Import)
 
-```typescript
+```plaintext
 import '@object-ui/plugin-form';
 ```
 
 ### Manual Registration
 
-```typescript
+```plaintext
 import { formComponents } from '@object-ui/plugin-form';
 import { ComponentRegistry } from '@object-ui/core';
 
@@ -188,7 +188,7 @@ The plugin supports these field types:
 
 ## TypeScript Support
 
-```typescript
+```plaintext
 import type { FormSchema, FormField } from '@object-ui/plugin-form';
 
 const loginForm: FormSchema = {

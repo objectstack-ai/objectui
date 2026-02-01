@@ -9,7 +9,7 @@ The SidebarNav component provides a responsive sidebar navigation menu with supp
 
 ## Basic Usage
 
-```typescript
+```plaintext
 import { SidebarNav } from '@object-ui/layout';
 import { Home, Users, Settings } from 'lucide-react';
 
@@ -37,7 +37,7 @@ import { Home, Users, Settings } from 'lucide-react';
 
 ## Component Props
 
-```typescript
+```plaintext
 interface SidebarNavProps {
   items: NavItem[];              // Navigation items
   title?: string;                // Sidebar title (default: "Application")
@@ -57,7 +57,7 @@ interface NavItem {
 
 The SidebarNav automatically highlights the active route based on the current URL:
 
-```typescript
+```plaintext
 // Current URL: /users
 // The "Users" menu item will be highlighted
 ```
@@ -66,7 +66,7 @@ The SidebarNav automatically highlights the active route based on the current UR
 
 Add Lucide icons to navigation items:
 
-```typescript
+```plaintext
 import { 
   LayoutDashboard, 
   Users, 
@@ -88,7 +88,7 @@ import {
 
 Set a custom title for the sidebar:
 
-```typescript
+```plaintext
 <SidebarNav
   title="ObjectUI Dashboard"
   items={navItems}
@@ -97,7 +97,7 @@ Set a custom title for the sidebar:
 
 ## Complete Example
 
-```typescript
+```plaintext
 import { SidebarNav } from '@object-ui/layout';
 import { 
   Home,
@@ -155,7 +155,7 @@ function App() {
 
 The SidebarNav is designed to work with AppShell:
 
-```typescript
+```plaintext
 import { AppShell, SidebarNav } from '@object-ui/layout';
 
 <AppShell
@@ -244,7 +244,7 @@ Common icons:
 
 For complex navigation, you can extend the component to support groups:
 
-```typescript
+```plaintext
 // Future enhancement - grouped navigation
 {
   group: 'Main',
@@ -266,7 +266,7 @@ For complex navigation, you can extend the component to support groups:
 
 Add badges to navigation items (future enhancement):
 
-```typescript
+```plaintext
 {
   title: 'Messages',
   href: '/messages',

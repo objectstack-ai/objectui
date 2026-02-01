@@ -17,7 +17,7 @@ AppSchema provides a declarative way to configure:
 
 ## Basic Usage
 
-```typescript
+```plaintext
 import type { AppSchema } from '@object-ui/types';
 
 const app: AppSchema = {
@@ -75,7 +75,7 @@ const app: AppSchema = {
 
 The `menu` property accepts an array of `MenuItem` objects:
 
-```typescript
+```plaintext
 interface MenuItem {
   type?: 'item' | 'group' | 'separator';
   label?: string;
@@ -125,7 +125,7 @@ interface MenuItem {
 
 The `actions` property defines global toolbar buttons:
 
-```typescript
+```plaintext
 interface AppAction {
   type: 'button' | 'dropdown' | 'user';
   label?: string;
@@ -142,7 +142,7 @@ interface AppAction {
 
 ## Complete Example
 
-```typescript
+```plaintext
 const crm: AppSchema = {
   type: 'app',
   name: 'acme-crm',
@@ -262,7 +262,7 @@ const crm: AppSchema = {
 
 Use Zod validation to ensure your app configuration is correct:
 
-```typescript
+```plaintext
 import { AppSchema } from '@object-ui/types/zod';
 
 const result = AppSchema.safeParse(myAppConfig);

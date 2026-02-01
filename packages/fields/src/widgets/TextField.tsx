@@ -9,14 +9,14 @@ export function TextField({ value, onChange, field, readonly, ...props }: FieldW
   }
 
   // Cast for rows property
-  const rows = (field as unknown as TextareaFieldMetadata).rows;
+  const rows = (field as unknown as TextareaFieldMetadata)?.rows;
 
   if (rows && rows > 1) {
     return (
       <Textarea
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={field.placeholder}
+        placeholder={field?.placeholder}
         disabled={readonly}
         className={props.className}
       />
@@ -25,7 +25,7 @@ export function TextField({ value, onChange, field, readonly, ...props }: FieldW
 
   return (
     <Input
-      type={field.type === 'password' ? 'password' : 'text'}
+      type={field?.type === 'password' ? 'password' : 'text'}
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={field.placeholder}

@@ -24,33 +24,9 @@ The Hover Card component displays rich content when hovering over an element.
   title="Basic Hover Card"
 />
 
-## With Rich Content
-
-<ComponentDemo
-  schema={{
-    type: 'hover-card',
-    trigger: {
-      type: 'text',
-      value: '@username',
-      className: 'font-semibold cursor-pointer'
-    },
-    content: {
-      type: 'flex',
-      direction: 'column',
-      gap: 2,
-      children: [
-        { type: 'text', value: 'John Doe', className: 'font-bold' },
-        { type: 'text', value: 'Software Developer', className: 'text-sm text-muted-foreground' },
-        { type: 'text', value: 'Building amazing things with code.' }
-      ]
-    }
-  }}
-  title="User Profile Card"
-/>
-
 ## Schema
 
-```typescript
+```plaintext
 interface HoverCardSchema {
   type: 'hover-card';
   trigger: ComponentSchema;       // Trigger element

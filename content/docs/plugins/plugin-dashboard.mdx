@@ -67,7 +67,7 @@ npm install @object-ui/plugin-dashboard
 
 ### Dashboard
 
-```typescript
+```plaintext
 {
   type: 'dashboard',
   widgets: Widget[],
@@ -79,7 +79,7 @@ npm install @object-ui/plugin-dashboard
 
 ### Metric Card
 
-```typescript
+```plaintext
 {
   type: 'metric-card',
   title: string,
@@ -96,13 +96,13 @@ npm install @object-ui/plugin-dashboard
 
 ### Auto-registration (Side-effect Import)
 
-```typescript
+```plaintext
 import '@object-ui/plugin-dashboard';
 ```
 
 ### Manual Registration
 
-```typescript
+```plaintext
 import { dashboardComponents } from '@object-ui/plugin-dashboard';
 import { ComponentRegistry } from '@object-ui/core';
 
@@ -183,7 +183,7 @@ Object.entries(dashboardComponents).forEach(([type, component]) => {
 
 ## TypeScript Support
 
-```typescript
+```plaintext
 import type { DashboardSchema, MetricCardSchema } from '@object-ui/plugin-dashboard';
 
 const dashboard: DashboardSchema = {

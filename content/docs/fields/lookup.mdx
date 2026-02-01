@@ -46,7 +46,7 @@ The Lookup Field component provides a reference field for creating relationships
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface LookupFieldSchema {
   type: 'lookup' | 'master_detail';
   name: string;                  // Field name/ID
@@ -89,7 +89,7 @@ interface LookupOption {
 
 In tables/grids, lookup values display the referenced record name:
 
-```typescript
+```plaintext
 import { LookupCellRenderer } from '@object-ui/fields';
 
 // Single value: Display name/label
@@ -108,7 +108,7 @@ import { LookupCellRenderer } from '@object-ui/fields';
 
 For lookups that fetch data from an API:
 
-```typescript
+```plaintext
 {
   type: 'lookup',
   name: 'customer',

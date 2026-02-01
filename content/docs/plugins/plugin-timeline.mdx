@@ -194,7 +194,7 @@ const schema = {
 
 ### Timeline Schema
 
-```typescript
+```plaintext
 {
   type: 'timeline',
   variant?: 'vertical' | 'horizontal' | 'gantt',
@@ -211,7 +211,7 @@ const schema = {
 
 ### Timeline Item (Vertical/Horizontal)
 
-```typescript
+```plaintext
 {
   time: string,              // ISO date string
   title: string,
@@ -225,7 +225,7 @@ const schema = {
 
 ### Gantt Item
 
-```typescript
+```plaintext
 {
   label: string,            // Row label
   items: Array<{
@@ -444,7 +444,7 @@ const schema = {
 
 ## TypeScript Support
 
-```typescript
+```plaintext
 import type { TimelineSchema } from '@object-ui/types'
 
 const timelineSchema: TimelineSchema = {

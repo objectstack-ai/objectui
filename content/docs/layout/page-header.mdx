@@ -9,7 +9,7 @@ The PageHeader component provides a consistent header for pages with title, desc
 
 ## Basic Usage
 
-```typescript
+```plaintext
 import { PageHeader } from '@object-ui/layout';
 
 <PageHeader
@@ -68,7 +68,7 @@ import { PageHeader } from '@object-ui/layout';
 
 ## Component Props
 
-```typescript
+```plaintext
 interface PageHeaderProps {
   title: string;                 // Page title (required)
   description?: string;          // Page description
@@ -82,13 +82,13 @@ interface PageHeaderProps {
 
 ### Simple Header
 
-```typescript
+```plaintext
 <PageHeader title="Settings" />
 ```
 
 ### With Description
 
-```typescript
+```plaintext
 <PageHeader
   title="Analytics"
   description="Track your key metrics and performance indicators"
@@ -97,7 +97,7 @@ interface PageHeaderProps {
 
 ### With Action Buttons
 
-```typescript
+```plaintext
 <PageHeader
   title="Projects"
   description="Manage your projects and tasks"
@@ -118,7 +118,7 @@ interface PageHeaderProps {
 
 ### With Children
 
-```typescript
+```plaintext
 <PageHeader
   title="Team"
   description="Manage your team members"
@@ -165,7 +165,7 @@ The PageHeader uses a flex layout:
 
 The Page component includes built-in PageHeader support:
 
-```typescript
+```plaintext
 <Page
   title="Dashboard"
   description="Welcome to your dashboard"
@@ -178,7 +178,7 @@ The Page component includes built-in PageHeader support:
 
 ## Complete Example
 
-```typescript
+```plaintext
 import { PageHeader } from '@object-ui/layout';
 import { Button } from '@object-ui/components';
 import { Plus, Download, Settings } from 'lucide-react';

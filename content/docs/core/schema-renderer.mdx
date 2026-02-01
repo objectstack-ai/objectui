@@ -11,7 +11,7 @@ The SchemaRenderer is the heart of ObjectUI. It takes a JSON schema and dynamica
 
 The SchemaRenderer uses the Component Registry to look up the appropriate component for each schema type and renders it with the provided props.
 
-```typescript
+```plaintext
 import { SchemaRenderer } from '@object-ui/react';
 
 <SchemaRenderer schema={{
@@ -77,7 +77,7 @@ The SchemaRenderer automatically handles nested schemas:
 
 ## Schema Structure
 
-```typescript
+```plaintext
 interface SchemaNode {
   type: string;                  // Component type (e.g., 'card', 'button', 'text')
   id?: string;                   // Unique identifier
@@ -104,7 +104,7 @@ When an unknown component type is encountered, SchemaRenderer displays a helpful
 
 The SchemaRenderer uses the Component Registry to resolve component types:
 
-```typescript
+```plaintext
 import { ComponentRegistry } from '@object-ui/core';
 
 // Register a custom component
@@ -121,7 +121,7 @@ ComponentRegistry.register('my-widget', MyWidgetComponent);
 
 ### Simple Rendering
 
-```typescript
+```plaintext
 import { SchemaRenderer } from '@object-ui/react';
 
 function App() {
@@ -139,7 +139,7 @@ function App() {
 
 ### Dynamic Schemas
 
-```typescript
+```plaintext
 import { SchemaRenderer } from '@object-ui/react';
 import { useState, useEffect } from 'react';
 
@@ -163,7 +163,7 @@ function DynamicPage() {
 
 You can pass additional props to the rendered component:
 
-```typescript
+```plaintext
 <SchemaRenderer 
   schema={{ type: 'button', label: 'Click Me' }}
   onClick={() => console.log('Clicked!')}
@@ -192,7 +192,7 @@ These can be used for debugging, testing, or styling:
 
 If a schema is just a string, it's rendered as text:
 
-```typescript
+```plaintext
 <SchemaRenderer schema="Hello World" />
 // Renders: Hello World
 ```
@@ -201,7 +201,7 @@ If a schema is just a string, it's rendered as text:
 
 Null or undefined schemas render nothing:
 
-```typescript
+```plaintext
 <SchemaRenderer schema={null} />
 // Renders: null
 ```

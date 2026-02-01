@@ -67,7 +67,7 @@ The Grid Field component provides an inline table for managing related records o
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface GridFieldSchema {
   type: 'grid';
   name: string;                  // Field name/ID
@@ -97,7 +97,7 @@ interface ColumnDefinition {
 
 Columns can use any field type:
 
-```typescript
+```plaintext
 columns: [
   { name: 'name', label: 'Name', type: 'text', required: true },
   { name: 'quantity', label: 'Qty', type: 'number', min: 1 },
@@ -112,7 +112,7 @@ columns: [
 
 Grid data is stored as an array of objects:
 
-```typescript
+```plaintext
 const gridValue = [
   { product: 'Item 1', quantity: 2, price: 29.99 },
   { product: 'Item 2', quantity: 1, price: 49.99 },
@@ -124,7 +124,7 @@ const gridValue = [
 
 ### Invoice Line Items
 
-```typescript
+```plaintext
 {
   type: 'grid',
   name: 'line_items',
@@ -140,7 +140,7 @@ const gridValue = [
 
 ### Order Details
 
-```typescript
+```plaintext
 {
   type: 'grid',
   name: 'order_details',
@@ -158,7 +158,7 @@ const gridValue = [
 
 ### Task Checklist
 
-```typescript
+```plaintext
 {
   type: 'grid',
   name: 'tasks',
@@ -184,7 +184,7 @@ const gridValue = [
 
 In tables/grids, displays row count:
 
-```typescript
+```plaintext
 import { GridCellRenderer } from '@object-ui/fields';
 
 // Renders: "5 rows"
@@ -194,7 +194,7 @@ import { GridCellRenderer } from '@object-ui/fields';
 
 For advanced grid features, use the grid plugin (`@object-ui/plugin-grid`):
 
-```typescript
+```plaintext
 // Basic inline grid (simple display)
 { type: 'grid', name: 'items', columns: [...] }
 
@@ -228,7 +228,7 @@ For advanced grid features, use the grid plugin (`@object-ui/plugin-grid`):
 
 Grid data is typically stored as JSON:
 
-```typescript
+```plaintext
 // Database column type: JSONB (PostgreSQL)
 interface OrderRecord {
   id: string;
@@ -256,7 +256,7 @@ await db.insert('orders', order);
 
 Example validation for grid data:
 
-```typescript
+```plaintext
 const validateGridData = (data: any[], columns: ColumnDefinition[]) => {
   const errors: string[] = [];
   

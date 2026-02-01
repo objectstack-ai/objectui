@@ -77,38 +77,8 @@ The Toggle component is a button that can be toggled between on and off states, 
 
 ## Schema
 
-```typescript
-interface ToggleSchema {
-  type: 'toggle';
-  
-  // Content
-  label?: string;                       // Toggle label text
-  children?: SchemaNode | SchemaNode[]; // Alternative content
-  
-  // State
-  defaultPressed?: boolean;             // Default pressed state
-  pressed?: boolean;                    // Controlled pressed state
-  disabled?: boolean;                   // Whether toggle is disabled
-  
-  // Appearance
-  variant?: 'default' | 'outline';      // Toggle variant (default: 'default')
-  size?: 'default' | 'sm' | 'lg';       // Toggle size (default: 'default')
-  
-  // Events
-  onChange?: (pressed: boolean) => void; // Change handler
-  
-  // Accessibility
-  ariaLabel?: string;                   // Accessible label
-  
-  // Styling
-  className?: string;                   // Tailwind CSS classes
-  
-  // Base properties
-  id?: string;
-  visible?: boolean | string;
-  testId?: string;
-}
-```
+(Schema documentation temporarily disabled)
+
 
 ## Examples
 

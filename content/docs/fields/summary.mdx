@@ -57,7 +57,7 @@ The Summary Field component displays aggregated values from related records. Thi
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface SummaryFieldSchema {
   type: 'summary';
   name: string;                  // Field name/ID
@@ -85,7 +85,7 @@ interface SummaryFieldSchema {
 
 ### Count Related Records
 
-```typescript
+```plaintext
 {
   type: 'summary',
   name: 'task_count',
@@ -98,7 +98,7 @@ interface SummaryFieldSchema {
 
 ### Sum Amounts
 
-```typescript
+```plaintext
 {
   type: 'summary',
   name: 'total_sales',
@@ -111,7 +111,7 @@ interface SummaryFieldSchema {
 
 ### Average Value
 
-```typescript
+```plaintext
 {
   type: 'summary',
   name: 'avg_response_time',
@@ -124,7 +124,7 @@ interface SummaryFieldSchema {
 
 ### Min/Max Values
 
-```typescript
+```plaintext
 {
   type: 'summary',
   name: 'highest_bid',
@@ -139,7 +139,7 @@ interface SummaryFieldSchema {
 
 In tables/grids, displays with tabular numbers:
 
-```typescript
+```plaintext
 import { SummaryCellRenderer } from '@object-ui/fields';
 
 // Renders: 15,750.50 (formatted with proper precision)
@@ -149,7 +149,7 @@ import { SummaryCellRenderer } from '@object-ui/fields';
 
 Summary fields are calculated through database aggregations:
 
-```typescript
+```plaintext
 // Example backend aggregation
 const calculateSummary = async (config: SummaryConfig, parentId: string) => {
   const { summary_object, summary_field, summary_type } = config;

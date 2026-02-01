@@ -74,7 +74,7 @@ The Object Field component provides a JSON editor for storing and editing struct
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface ObjectFieldSchema {
   type: 'object';
   name: string;                  // Field name/ID
@@ -103,7 +103,7 @@ The field validates JSON syntax in real-time:
 
 The object field stores data as parsed JSON:
 
-```typescript
+```plaintext
 // Input (string)
 '{"name": "John", "age": 30}'
 
@@ -121,7 +121,7 @@ The object field stores data as parsed JSON:
 
 ### Configuration Objects
 
-```typescript
+```plaintext
 {
   type: 'object',
   name: 'api_config',
@@ -139,7 +139,7 @@ The object field stores data as parsed JSON:
 
 ### Metadata
 
-```typescript
+```plaintext
 {
   type: 'object',
   name: 'custom_metadata',
@@ -154,7 +154,7 @@ The object field stores data as parsed JSON:
 
 ### Preferences
 
-```typescript
+```plaintext
 {
   type: 'object',
   name: 'user_preferences',
@@ -175,7 +175,7 @@ The object field stores data as parsed JSON:
 
 In tables/grids, displays formatted JSON preview:
 
-```typescript
+```plaintext
 import { ObjectCellRenderer } from '@object-ui/fields';
 
 // Shows: [Object] or truncated JSON in read-only mode
@@ -186,7 +186,7 @@ import { ObjectCellRenderer } from '@object-ui/fields';
 For typed object fields, you can define a schema in two formats:
 
 **Simplified Format** (for documentation):
-```typescript
+```plaintext
 {
   type: 'object',
   name: 'product_specs',
@@ -204,7 +204,7 @@ For typed object fields, you can define a schema in two formats:
 ```
 
 **JSON Schema Format** (for validation):
-```typescript
+```plaintext
 {
   type: 'object',
   name: 'product_specs',
@@ -248,7 +248,7 @@ For typed object fields, you can define a schema in two formats:
 
 Example backend validation:
 
-```typescript
+```plaintext
 import Ajv from 'ajv';
 
 const ajv = new Ajv();

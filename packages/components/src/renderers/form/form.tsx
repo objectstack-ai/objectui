@@ -408,7 +408,8 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
   if (RegisteredComponent) {
     // For specialized fields (e.g. fields package), they expect 'field' prop.
     // Ensure we pass all props.
-    return <RegisteredComponent {...props} />;
+    // Also pass 'schema' for standard renderers that expect it
+    return <RegisteredComponent schema={props} {...props} />;
   }
 
   const { inputType, options = [], placeholder, ...fieldProps } = props;

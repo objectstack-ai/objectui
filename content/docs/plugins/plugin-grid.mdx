@@ -58,7 +58,7 @@ Interactive demo temporarily disabled due to a known issue with the data-table c
 
 ### Grid
 
-```typescript
+```plaintext
 {
   type: 'grid',
   columns: GridColumn[],
@@ -74,7 +74,7 @@ Interactive demo temporarily disabled due to a known issue with the data-table c
 
 ### Column Definition
 
-```typescript
+```plaintext
 interface GridColumn {
   header: string;
   accessorKey: string;
@@ -90,13 +90,13 @@ interface GridColumn {
 
 ### Auto-registration (Side-effect Import)
 
-```typescript
+```plaintext
 import '@object-ui/plugin-grid';
 ```
 
 ### Manual Registration
 
-```typescript
+```plaintext
 import { gridComponents } from '@object-ui/plugin-grid';
 import { ComponentRegistry } from '@object-ui/core';
 
@@ -230,7 +230,7 @@ Add action buttons to each row:
 
 ## TypeScript Support
 
-```typescript
+```plaintext
 import type { GridSchema, GridColumn } from '@object-ui/plugin-grid';
 
 const grid: GridSchema = {

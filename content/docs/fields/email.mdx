@@ -34,7 +34,7 @@ The Email Field component provides a text input with built-in email validation a
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface EmailFieldSchema {
   type: 'email';
   name: string;                  // Field name/ID
@@ -60,7 +60,7 @@ The email field automatically validates:
 
 In tables/grids, email addresses are clickable links:
 
-```typescript
+```plaintext
 import { EmailCellRenderer } from '@object-ui/fields';
 
 // Renders as: <a href="mailto:user@example.com">user@example.com</a>

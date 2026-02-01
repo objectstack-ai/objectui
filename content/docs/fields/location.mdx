@@ -46,7 +46,7 @@ The Location Field component provides an input for geographic coordinates, stori
 
 ## Field Schema
 
-```typescript
+```plaintext
 interface LocationFieldSchema {
   type: 'location';
   name: string;                  // Field name/ID
@@ -72,7 +72,7 @@ interface LocationValue {
 
 The location field stores coordinates as an object:
 
-```typescript
+```plaintext
 {
   latitude: 37.7749,
   longitude: -122.4194
@@ -105,7 +105,7 @@ Examples:
 
 For full map functionality, consider integrating with map services:
 
-```typescript
+```plaintext
 import { LocationField } from '@object-ui/fields';
 
 // Basic coordinates input
@@ -127,7 +127,7 @@ import { LocationField } from '@object-ui/fields';
 
 The field validates coordinate ranges:
 
-```typescript
+```plaintext
 // Valid coordinates
 { latitude: 37.7749, longitude: -122.4194 } ✓
 

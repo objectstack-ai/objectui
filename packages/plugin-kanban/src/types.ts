@@ -38,6 +38,21 @@ export interface KanbanSchema extends BaseSchema {
   type: 'kanban';
   
   /**
+   * Object name to fetch data from.
+   */
+  objectName?: string;
+
+  /**
+   * Field to group records by (maps to column IDs).
+   */
+  groupBy?: string;
+
+  /**
+   * Static data or bound data.
+   */
+  data?: any[];
+
+  /**
    * Array of columns to display in the kanban board.
    * Each column contains an array of cards.
    */

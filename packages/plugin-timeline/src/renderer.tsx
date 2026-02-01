@@ -85,9 +85,7 @@ function formatDate(dateString: string, format?: string): string {
   return date.toISOString().split('T')[0];
 }
 
-ComponentRegistry.register(
-  'timeline',
-  ({ schema, className, ...props }: { schema: TimelineSchema; className?: string; [key: string]: any }) => {
+export const TimelineRenderer = ({ schema, className, ...props }: { schema: TimelineSchema; className?: string; [key: string]: any }) => {
     const {
       variant = 'vertical',
       items = [],
@@ -280,7 +278,11 @@ ComponentRegistry.register(
     }
 
     return null;
-  },
+  };
+
+ComponentRegistry.register(
+  'timeline', 
+  TimelineRenderer,
   {
     namespace: 'plugin-timeline',
     label: 'Timeline',

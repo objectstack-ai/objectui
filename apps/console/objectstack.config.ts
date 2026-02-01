@@ -7,9 +7,9 @@ export default defineConfig({
   // Project Metadata
   // ============================================================================
   
-  name: '@object-ui/example-msw-object-form',
+  name: '@object-ui/console',
   version: '0.1.0',
-  description: 'ObjectUI Example: MSW Object Form (Wrapper)',
+  description: 'ObjectStack Console',
   
   // ============================================================================
   // Build Settings

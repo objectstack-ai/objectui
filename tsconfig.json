@@ -35,5 +35,5 @@
       "@object-ui/renderer/*": ["packages/renderer/src/*"]
     }
   },
-  "include": ["packages", "examples"]
+  "include": ["packages", "examples", "apps"]
 }

@@ -1,7 +1,7 @@
 {
-  "name": "@object-ui/example-msw-object-form",
+  "name": "@object-ui/console",
   "version": "0.1.0",
-  "description": "MSW integration example with ObjectForm component for testing CRUD operations",
+  "description": "ObjectStack Console - The standard runtime UI for ObjectStack applications",
   "private": true,
   "type": "module",
   "scripts": {

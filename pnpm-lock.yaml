@@ -160,6 +160,121 @@ importers:
         specifier: ^9.0.3
         version: 9.0.3
 
+  apps/console:
+    dependencies:
+      '@object-ui/components':
+        specifier: workspace:*
+        version: link:../../packages/components
+      '@object-ui/example-crm':
+        specifier: workspace:*
+        version: link:../../examples/crm
+      '@object-ui/example-todo':
+        specifier: workspace:*
+        version: link:../../examples/todo
+      '@object-ui/fields':
+        specifier: workspace:*
+        version: link:../../packages/fields
+      '@object-ui/layout':
+        specifier: ^0.1.1
+        version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react-router-dom@7.13.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(tailwindcss@4.1.18)
+      '@object-ui/plugin-dashboard':
+        specifier: workspace:*
+        version: link:../../packages/plugin-dashboard
+      '@object-ui/plugin-form':
+        specifier: workspace:*
+        version: link:../../packages/plugin-form
+      '@object-ui/plugin-grid':
+        specifier: workspace:*
+        version: link:../../packages/plugin-grid
+      '@object-ui/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@object-ui/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@objectstack/client':
+        specifier: ^0.7.2
+        version: 0.7.2
+      '@objectstack/driver-memory':
+        specifier: ^0.7.2
+        version: 0.7.2
+      '@objectstack/objectql':
+        specifier: ^0.7.2
+        version: 0.7.2
+      '@objectstack/plugin-msw':
+        specifier: ^0.7.2
+        version: 0.7.2(@objectstack/runtime@0.7.2)(@types/node@25.0.10)(typescript@5.9.3)
+      '@objectstack/runtime':
+        specifier: ^0.7.2
+        version: 0.7.2
+      '@objectstack/spec':
+        specifier: ^0.7.2
+        version: 0.7.2
+      lucide-react:
+        specifier: ^0.563.0
+        version: 0.563.0(react@19.2.3)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+      react-router-dom:
+        specifier: ^7.13.0
+        version: 7.13.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.18
+        version: 4.1.18
+      '@testing-library/jest-dom':
+        specifier: ^6.6.3
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@testing-library/user-event':
+        specifier: ^14.5.2
+        version: 14.6.1(@testing-library/dom@10.4.1)
+      '@types/node':
+        specifier: ^25.0.10
+        version: 25.0.10
+      '@types/react':
+        specifier: 19.2.9
+        version: 19.2.9
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.9)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))
+      '@vitest/ui':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18)
+      autoprefixer:
+        specifier: ^10.4.23
+        version: 10.4.23(postcss@8.5.6)
+      happy-dom:
+        specifier: ^20.0.0
+        version: 20.3.9
+      msw:
+        specifier: ^2.12.7
+        version: 2.12.7(@types/node@25.0.10)(typescript@5.9.3)
+      postcss:
+        specifier: ^8.5.6
+        version: 8.5.6
+      tailwindcss:
+        specifier: ^4.1.18
+        version: 4.1.18
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.11
+        version: 6.4.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@25.0.10)(@vitest/ui@4.0.18)(happy-dom@20.3.9)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(msw@2.12.7(@types/node@25.0.10)(typescript@5.9.3))(tsx@4.21.0)
+
   apps/site:
     dependencies:
       '@monaco-editor/react':
@@ -414,121 +529,6 @@ importers:
       vite:
         specifier: ^5.3.1
         version: 5.4.21(@types/node@25.0.10)(lightningcss@1.30.2)
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@25.0.10)(@vitest/ui@4.0.18)(happy-dom@20.3.9)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(msw@2.12.7(@types/node@25.0.10)(typescript@5.9.3))(tsx@4.21.0)
-
-  examples/msw-object-form:
-    dependencies:
-      '@object-ui/components':
-        specifier: workspace:*
-        version: link:../../packages/components
-      '@object-ui/example-crm':
-        specifier: workspace:*
-        version: link:../crm
-      '@object-ui/example-todo':
-        specifier: workspace:*
-        version: link:../todo
-      '@object-ui/fields':
-        specifier: workspace:*
-        version: link:../../packages/fields
-      '@object-ui/layout':
-        specifier: ^0.1.1
-        version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react-router-dom@7.13.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(tailwindcss@4.1.18)
-      '@object-ui/plugin-dashboard':
-        specifier: workspace:*
-        version: link:../../packages/plugin-dashboard
-      '@object-ui/plugin-form':
-        specifier: workspace:*
-        version: link:../../packages/plugin-form
-      '@object-ui/plugin-grid':
-        specifier: workspace:*
-        version: link:../../packages/plugin-grid
-      '@object-ui/react':
-        specifier: workspace:*
-        version: link:../../packages/react
-      '@object-ui/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      '@objectstack/client':
-        specifier: ^0.7.2
-        version: 0.7.2
-      '@objectstack/driver-memory':
-        specifier: ^0.7.2
-        version: 0.7.2
-      '@objectstack/objectql':
-        specifier: ^0.7.2
-        version: 0.7.2
-      '@objectstack/plugin-msw':
-        specifier: ^0.7.2
-        version: 0.7.2(@objectstack/runtime@0.7.2)(@types/node@25.0.10)(typescript@5.9.3)
-      '@objectstack/runtime':
-        specifier: ^0.7.2
-        version: 0.7.2
-      '@objectstack/spec':
-        specifier: ^0.7.2
-        version: 0.7.2
-      lucide-react:
-        specifier: ^0.563.0
-        version: 0.563.0(react@19.2.3)
-      react:
-        specifier: 19.2.3
-        version: 19.2.3
-      react-dom:
-        specifier: 19.2.3
-        version: 19.2.3(react@19.2.3)
-      react-router-dom:
-        specifier: ^7.13.0
-        version: 7.13.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-    devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4.1.18
-        version: 4.1.18
-      '@testing-library/jest-dom':
-        specifier: ^6.6.3
-        version: 6.9.1
-      '@testing-library/react':
-        specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@testing-library/user-event':
-        specifier: ^14.5.2
-        version: 14.6.1(@testing-library/dom@10.4.1)
-      '@types/node':
-        specifier: ^25.0.10
-        version: 25.0.10
-      '@types/react':
-        specifier: 19.2.9
-        version: 19.2.9
-      '@types/react-dom':
-        specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.9)
-      '@vitejs/plugin-react':
-        specifier: ^4.3.4
-        version: 4.7.0(vite@6.4.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))
-      '@vitest/ui':
-        specifier: ^4.0.18
-        version: 4.0.18(vitest@4.0.18)
-      autoprefixer:
-        specifier: ^10.4.23
-        version: 10.4.23(postcss@8.5.6)
-      happy-dom:
-        specifier: ^20.0.0
-        version: 20.3.9
-      msw:
-        specifier: ^2.12.7
-        version: 2.12.7(@types/node@25.0.10)(typescript@5.9.3)
-      postcss:
-        specifier: ^8.5.6
-        version: 8.5.6
-      tailwindcss:
-        specifier: ^4.1.18
-        version: 4.1.18
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.11
-        version: 6.4.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.0.10)(@vitest/ui@4.0.18)(happy-dom@20.3.9)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(msw@2.12.7(@types/node@25.0.10)(typescript@5.9.3))(tsx@4.21.0)
@@ -14099,14 +14099,14 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.0.3
 
-  '@vitest/mocker@4.0.18(msw@2.12.7(@types/node@25.0.10)(typescript@5.9.3))(vite@6.4.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))':
+  '@vitest/mocker@4.0.18(msw@2.12.7(@types/node@25.0.10)(typescript@5.9.3))(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))':
     dependencies:
       '@vitest/spy': 4.0.18
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
       msw: 2.12.7(@types/node@25.0.10)(typescript@5.9.3)
-      vite: 6.4.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
+      vite: 7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
 
   '@vitest/pretty-format@2.0.5':
     dependencies:
@@ -19943,7 +19943,7 @@ snapshots:
   vitest@4.0.18(@types/node@25.0.10)(@vitest/ui@4.0.18)(happy-dom@20.3.9)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(msw@2.12.7(@types/node@25.0.10)(typescript@5.9.3))(tsx@4.21.0):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(msw@2.12.7(@types/node@25.0.10)(typescript@5.9.3))(vite@6.4.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))
+      '@vitest/mocker': 4.0.18(msw@2.12.7(@types/node@25.0.10)(typescript@5.9.3))(vite@7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18
@@ -19960,7 +19960,7 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 6.4.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
+      vite: 7.3.1(@types/node@25.0.10)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 25.0.10

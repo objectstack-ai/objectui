@@ -16,38 +16,55 @@ import {
   SelectItem,
   Label
 } from '../../ui';
+import { cn } from '../../lib/utils';
+import React from 'react';
 
-ComponentRegistry.register('select', 
-  ({ schema, className, ...props }: { schema: SelectSchema; className?: string; [key: string]: any }) => {
-    // Extract designer-related props
-    const { 
-        'data-obj-id': dataObjId, 
-        'data-obj-type': dataObjType,
-        style, 
-        ...selectProps 
-    } = props;
+const SelectRenderer = ({ schema, className, onChange, value, ...props }: { schema: SelectSchema; className?: string; onChange?: (val: any) => void; value?: any; [key: string]: any }) => {
+  // Extract designer-related props
+  const { 
+      'data-obj-id': dataObjId, 
+      'data-obj-type': dataObjType,
+      style, 
+      ...selectProps 
+  } = props;
 
-    return (
+  const handleValueChange = (newValue: string) => {
+    if (onChange) {
+      onChange(newValue);
+    }
+  };
+
+  return (
     <div 
-        className={`grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}`}
+        className={cn("grid w-full items-center gap-1.5", schema.wrapperClass)}
         data-obj-id={dataObjId}
         data-obj-type={dataObjType}
         style={style}
     >
-      {schema.label && <Label>{schema.label}</Label>}
-      <Select defaultValue={schema.defaultValue} {...selectProps}>
+      {schema.label && <Label className={cn(schema.required && "text-destructive after:content-['*'] after:ml-0.5")}>{schema.label}</Label>}
+      <Select 
+        defaultValue={value === undefined ? schema.defaultValue : undefined} 
+        value={value ?? schema.value}
+        onValueChange={handleValueChange}
+        disabled={schema.disabled}
+        required={schema.required}
+        name={schema.name}
+        {...selectProps}
+      >
         <SelectTrigger className={className}>
           <SelectValue placeholder={schema.placeholder} />
         </SelectTrigger>
         <SelectContent>
           {schema.options?.map((opt) => (
-             <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+             <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled}>{opt.label}</SelectItem>
           ))}
         </SelectContent>
       </Select>
     </div>
   );
-  },
+};
+
+ComponentRegistry.register('select', SelectRenderer,
   {
     namespace: 'ui',
     label: 'Select',
@@ -55,6 +72,8 @@ ComponentRegistry.register('select',
       { name: 'label', type: 'string', label: 'Label' },
       { name: 'placeholder', type: 'string', label: 'Placeholder' },
       { name: 'defaultValue', type: 'string', label: 'Default Value' },
+      { name: 'required', type: 'boolean', label: 'Required' },
+      { name: 'disabled', type: 'boolean', label: 'Disabled' },
       { 
         name: 'options', 
         type: 'array', 

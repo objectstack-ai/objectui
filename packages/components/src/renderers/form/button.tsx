@@ -11,6 +11,20 @@ import type { ButtonSchema } from '@object-ui/types';
 import { Button } from '../../ui';
 import { renderChildren } from '../../lib/utils';
 import { forwardRef } from 'react';
+import { Loader2, icons, type LucideIcon } from 'lucide-react';
+
+// Helper to convert icon names to PascalCase (e.g., "arrow-right" -> "ArrowRight")
+function toPascalCase(str: string): string {
+  return str
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
+}
+
+// Map of renamed icons in lucide-react
+const iconNameMap: Record<string, string> = {
+  'Home': 'House',
+};
 
 const ButtonRenderer = forwardRef<HTMLButtonElement, { schema: ButtonSchema; [key: string]: any }>(
   ({ schema, ...props }, ref) => {
@@ -22,17 +36,36 @@ const ButtonRenderer = forwardRef<HTMLButtonElement, { schema: ButtonSchema; [ke
         ...buttonProps 
     } = props;
 
+    // Resolve icon
+    let Icon: LucideIcon | null = null;
+    if (schema.icon) {
+      const iconName = toPascalCase(schema.icon);
+      const mappedIconName = iconNameMap[iconName] || iconName;
+      Icon = (icons as any)[mappedIconName] as LucideIcon;
+    }
+    
+    // Determine loading state
+    const isLoading = schema.loading || props.loading;
+    
+    // Determine disabled state
+    const isDisabled = schema.disabled || props.disabled || isLoading;
+
     return (
     <Button 
         ref={ref}
+        type={schema.buttonType || "button"}
         variant={schema.variant} 
         size={schema.size} 
         className={schema.className} 
+        disabled={isDisabled}
         {...buttonProps}
         // Apply designer props
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
     >
+      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {!isLoading && Icon && schema.iconPosition !== 'right' && <Icon className="mr-2 h-4 w-4" />}
       {schema.label || renderChildren(schema.body || schema.children)}
+      {!isLoading && Icon && schema.iconPosition === 'right' && <Icon className="ml-2 h-4 w-4" />}
     </Button>
   );
   }

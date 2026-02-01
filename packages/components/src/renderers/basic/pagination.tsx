@@ -9,6 +9,7 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { PaginationSchema } from '@object-ui/types';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../../ui/pagination';
+import React from 'react';
 
 ComponentRegistry.register('pagination', 
   ({ schema, ...props }: { schema: PaginationSchema; [key: string]: any }) => {
@@ -16,13 +17,23 @@ ComponentRegistry.register('pagination',
         'data-obj-id': dataObjId, 
         'data-obj-type': dataObjType,
         style,
+        onPageChange,
         ...paginationProps
     } = props;
     
     const currentPage = schema.currentPage || schema.page || 1;
     const totalPages = schema.totalPages || 1;
-    const showEllipsis = totalPages > 7;
     
+    const handlePageChange = (page: number, e: React.MouseEvent) => {
+      e.preventDefault();
+      if (page === currentPage) return;
+      if (page < 1 || page > totalPages) return;
+      
+      if (onPageChange) {
+        onPageChange(page);
+      }
+    };
+
     const getPageNumbers = () => {
       if (totalPages <= 7) {
         return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -47,21 +58,36 @@ ComponentRegistry.register('pagination',
       >
         <PaginationContent>
           <PaginationItem>
-            <PaginationPrevious href="#" />
+            <PaginationPrevious 
+              href="#" 
+              onClick={(e) => handlePageChange(currentPage - 1, e)}
+              className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              aria-disabled={currentPage <= 1}
+            />
           </PaginationItem>
           {getPageNumbers().map((page, idx) => (
             <PaginationItem key={idx}>
               {page === -1 ? (
                 <PaginationEllipsis />
               ) : (
-                <PaginationLink href="#" isActive={page === currentPage}>
+                <PaginationLink 
+                  href="#" 
+                  isActive={page === currentPage}
+                  onClick={(e) => handlePageChange(page, e)}
+                  className="cursor-pointer"
+                >
                   {page}
                 </PaginationLink>
               )}
             </PaginationItem>
           ))}
           <PaginationItem>
-            <PaginationNext href="#" />
+            <PaginationNext 
+              href="#" 
+              onClick={(e) => handlePageChange(currentPage + 1, e)}
+              className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              aria-disabled={currentPage >= totalPages}
+            />
           </PaginationItem>
         </PaginationContent>
       </Pagination>

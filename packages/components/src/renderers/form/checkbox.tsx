@@ -9,42 +9,63 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { CheckboxSchema } from '@object-ui/types';
 import { Checkbox, Label } from '../../ui';
+import { cn } from '../../lib/utils';
+import React from 'react';
 
-ComponentRegistry.register('checkbox', 
-  ({ schema, className, ...props }: { schema: CheckboxSchema; className?: string; [key: string]: any }) => {
-    // Extract designer-related props
-    const { 
-        'data-obj-id': dataObjId, 
-        'data-obj-type': dataObjType,
-        style, 
-        ...checkboxProps 
-    } = props;
+const CheckboxRenderer = ({ schema, className, onChange, value, ...props }: { schema: CheckboxSchema; className?: string; onChange?: (val: any) => void; value?: any; [key: string]: any }) => {
+  // Extract designer-related props
+  const { 
+      'data-obj-id': dataObjId, 
+      'data-obj-type': dataObjType,
+      style, 
+      ...checkboxProps 
+  } = props;
 
-    return (
+  const handleCheckedChange = (checked: boolean) => {
+    if (onChange) {
+      onChange(checked);
+    }
+  };
+
+  return (
     <div 
-        className={`flex items-center space-x-2 ${schema.wrapperClass || ''}`}
+        className={cn("flex items-center space-x-2", schema.wrapperClass)}
         data-obj-id={dataObjId}
         data-obj-type={dataObjType}
         style={style}
     >
-      <Checkbox id={schema.id} className={className} {...checkboxProps} />
-      <Label htmlFor={schema.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+      <Checkbox 
+        id={schema.id} 
+        className={className} 
+        checked={value ?? schema.checked ?? false}
+        defaultChecked={value === undefined ? schema.defaultChecked : undefined}
+        onCheckedChange={handleCheckedChange}
+        disabled={schema.disabled}
+        required={schema.required}
+        name={schema.name}
+        {...checkboxProps} 
+      />
+      <Label htmlFor={schema.id} className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", schema.required && "text-destructive after:content-['*'] after:ml-0.5")}>
         {schema.label}
       </Label>
     </div>
   );
-  },
+};
+
+ComponentRegistry.register('checkbox', CheckboxRenderer,
   {
     namespace: 'ui',
     label: 'Checkbox',
     inputs: [
       { name: 'label', type: 'string', label: 'Label', required: true },
       { name: 'id', type: 'string', label: 'ID', required: true },
-      { name: 'checked', type: 'boolean', label: 'Checked' }
+      { name: 'checked', type: 'boolean', label: 'Checked' },
+      { name: 'required', type: 'boolean', label: 'Required' },
+      { name: 'disabled', type: 'boolean', label: 'Disabled' }
     ],
     defaultProps: {
       label: 'Checkbox label',
-      id: 'checkbox-field' // Will be made unique by designer's ensureNodeIds
+      id: 'checkbox-field'
     }
   }
 );

@@ -43,7 +43,7 @@
     "@types/node": "^25.0.10",
     "@types/react": "^19.0.6",
     "@types/react-dom": "^19.0.2",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^5.1.2",
     "@vitest/ui": "^4.0.18",
     "autoprefixer": "^10.4.23",
     "happy-dom": "^20.0.0",

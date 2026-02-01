@@ -6,6 +6,8 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { registerAllFields } from '@object-ui/fields';
 import React from 'react';
+// @ts-ignore - Import from examples
+import { ContactObject } from '../../../examples/crm/src/objects/contact.object';
 
 registerAllFields();
 
@@ -13,15 +15,7 @@ const BASE_URL = 'http://test-api.com';
 
 // --- Mock Data ---
 
-const mockSchema = {
-  name: 'contact',
-  label: 'Contact',
-  fields: {
-    name: { type: 'text', label: 'Full Name' },
-    email: { type: 'email', label: 'Email' },
-    company: { type: 'text', label: 'Company' }
-  }
-};
+const mockSchema = ContactObject;
 
 const mockData = {
   value: [
@@ -91,7 +85,8 @@ describe('ObjectGrid with ObjectStack/MSW', () => {
 
         // Verify Column Headers (from schema or props)
         await waitFor(() => {
-            expect(screen.getByText('Full Name')).toBeInTheDocument();
+            // Changed from 'Full Name' to 'Name' to match CRM example schema
+            expect(screen.getByText('Name')).toBeInTheDocument();
         });
         expect(screen.getByText('Email')).toBeInTheDocument();
         expect(screen.getByText('Company')).toBeInTheDocument();

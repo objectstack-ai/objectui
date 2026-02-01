@@ -6,6 +6,8 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { registerAllFields } from '@object-ui/fields';
 import React from 'react';
+// @ts-ignore - Import from examples
+import { ContactObject } from '../../../examples/crm/src/objects/contact.object';
 
 // Register widget renderers
 registerAllFields();
@@ -14,35 +16,13 @@ const BASE_URL = 'http://test-api.com';
 
 // --- Mock Data ---
 
-const mockSchema = {
-  name: 'contact',
-  label: 'Contact',
-  fields: {
-    name: { 
-      type: 'text', 
-      label: 'Full Name',
-      required: true 
-    },
-    email: { 
-      type: 'email', 
-      label: 'Email Address' 
-    },
-    status: {
-      type: 'select',
-      label: 'Status',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' }
-      ]
-    }
-  }
-};
+const mockSchema = ContactObject;
 
 const mockRecord = {
   _id: 'rec_123',
   name: 'Alice Smith',
   email: 'alice@example.com',
-  status: 'active'
+  status: 'Customer'
 };
 
 // --- MSW Setup ---
@@ -114,9 +94,10 @@ describe('ObjectForm with ObjectStack/MSW', () => {
 
     // Verify fields appear (async as schema loads via HTTP)
     await waitFor(() => {
-      expect(screen.getByText('Full Name')).toBeInTheDocument();
+      // Changed from 'Full Name' to 'Name' based on CRM example schema
+      expect(screen.getByText('Name')).toBeInTheDocument();
     });
-    expect(screen.getByText('Email Address')).toBeInTheDocument();
+    expect(screen.getByText('Email')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
   });
 
@@ -135,9 +116,11 @@ describe('ObjectForm with ObjectStack/MSW', () => {
 
     // Initial load of schema logic + data fetch
     await waitFor(() => {
-      expect(screen.getByRole('textbox', { name: /Full Name/i })).toHaveValue('Alice Smith');
+      // Changed from 'Full Name' to 'Name'
+      expect(screen.getByRole('textbox', { name: /Name/i })).toHaveValue('Alice Smith');
     }, { timeout: 2000 }); // Give slight buffer for network mock
 
-    expect(screen.getByRole('textbox', { name: /Email Address/i })).toHaveValue('alice@example.com');
+    // Changed from 'Email Address' to 'Email'
+    expect(screen.getByRole('textbox', { name: /Email/i })).toHaveValue('alice@example.com');
   });
 });

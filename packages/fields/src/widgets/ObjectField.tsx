@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Textarea, cn } from '@object-ui/components';
 import { FieldWidgetProps } from './types';
 
@@ -17,30 +17,29 @@ export function ObjectField({ value, onChange, field, readonly, ...props }: Fiel
   
   const [jsonString, setJsonString] = useState(getInitialJsonString);
   const [error, setError] = useState<string | null>(null);
-  const prevValueRef = useRef(value);
 
   // Sync internal string state when value changes externally
-  // Using direct state update during render (before commit) to avoid effect
-  if (prevValueRef.current !== value) {
-    prevValueRef.current = value;
+  // This is a controlled component pattern where we need to sync external changes
+  useEffect(() => {
     try {
       if (value === undefined || value === null) {
-        if (jsonString !== '') {
-          setJsonString('');
-        }
-      } else {
-        // Only update if the parsed internal state doesn't match the new value
-        // This prevents cursor jumping/reformatting while typing valid JSON
-        const currentParsed = jsonString ? JSON.parse(jsonString) : null;
-        if (JSON.stringify(currentParsed) !== JSON.stringify(value)) {
-          setJsonString(JSON.stringify(value, null, 2));
-        }
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Required for controlled component sync
+        setJsonString('');
+        return;
+      }
+      // Only update if the parsed internal state doesn't match the new value
+      // This prevents cursor jumping/reformatting while typing valid JSON
+      const currentParsed = jsonString ? JSON.parse(jsonString) : null;
+      if (JSON.stringify(currentParsed) !== JSON.stringify(value)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Required for controlled component sync
+        setJsonString(JSON.stringify(value, null, 2));
       }
     } catch {
       // Fallback if internal state was invalid JSON
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Required for controlled component sync
       setJsonString(JSON.stringify(value, null, 2));
     }
-  }
+  }, [value, jsonString]);
 
   if (readonly) {
     if (!value) return <span className="text-sm">-</span>;

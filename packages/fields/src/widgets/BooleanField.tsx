@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { Switch, Checkbox, Label } from '@object-ui/components';
 import { FieldWidgetProps } from './types';
 
 export function BooleanField({ value, onChange, field, readonly, ...props }: FieldWidgetProps<boolean>) {
-  if (readonly) {
-    return <span className="text-sm">{value ? 'Yes' : 'No'}</span>;
-  }
-
   const config = (field || (props as any).schema) as any;
   // Use simple type assertion for arbitrary custom properties not in BaseFieldMetadata
   const widget = config?.widget;
-  const id = config?.name || `boolean-field-${Math.random().toString(36).substr(2, 9)}`;
+  // Generate unique ID using React's useId hook - must be before early returns (rules of hooks)
+  const generatedId = useId();
+  const id = config?.name || generatedId;
   const label = config?.label || 'Checkbox';
+
+  if (readonly) {
+    return <span className="text-sm">{value ? 'Yes' : 'No'}</span>;
+  }
 
   if (widget === 'checkbox') {
      return (

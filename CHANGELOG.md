@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.2] - 2026-02-02
+
+### Changed
+
+- Bug fixes and improvements across all packages
+- Fixed duplicate component registry imports
+- Enhanced MSW plugin configuration with robust manual handlers for API endpoints
+- Improved data fetching and binding in ObjectKanban and ObjectTimeline components
+- Enhanced form components with loading state, required and disabled props
+- Added disabled prop support to various field components
+- Improved metadata handling and className utility in form and grid components
+- Enhanced layout components with improved props handling and responsive configurations
+- Added comprehensive unit tests for field widgets
+- Updated ObjectStack dependencies to version 0.8.2 across multiple packages
+
+---
+
 ## [0.3.1] - 2026-01-27
 
 ### Changed
@@ -78,6 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Example applications in the examples directory
 - Complete documentation site with VitePress
 
+[0.3.2]: https://github.com/objectstack-ai/objectui/releases/tag/v0.3.2
+[0.3.1]: https://github.com/objectstack-ai/objectui/releases/tag/v0.3.1
 [0.3.0]: https://github.com/objectstack-ai/objectui/releases/tag/v0.3.0
 [0.2.1]: https://github.com/objectstack-ai/objectui/releases/tag/v0.2.1
 [0.2.0]: https://github.com/objectstack-ai/objectui/releases/tag/v0.2.0

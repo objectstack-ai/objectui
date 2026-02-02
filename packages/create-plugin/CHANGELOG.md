@@ -1,4 +1,4 @@
-# @object-ui/plugin-calendar
+# @object-ui/create-plugin
 
 ## 0.3.2
 
@@ -14,22 +14,3 @@
   - **Layout**: Enhanced layout components with improved props handling and responsive configurations
   - **Testing**: Added comprehensive unit tests for field widgets and improved test configurations
   - **Dependencies**: Updated ObjectStack dependencies to version 0.8.2 across multiple packages
-
-- Updated dependencies
-  - @object-ui/core@0.3.2
-  - @object-ui/react@0.3.2
-  - @object-ui/components@0.3.2
-  - @object-ui/fields@0.3.2
-  - @object-ui/types@0.3.2
-
-## 0.3.1
-
-### Patch Changes
-
-- Maintenance release - Documentation and build improvements
-- Updated dependencies
-  - @object-ui/types@0.3.1
-  - @object-ui/core@0.3.1
-  - @object-ui/react@0.3.1
-  - @object-ui/components@0.3.1
-  - @object-ui/fields@0.3.1

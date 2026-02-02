@@ -8,6 +8,7 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@object-ui/example-*"
+    "@object-ui/example-*",
+    "@object-ui/console"
   ]
 }

@@ -29,7 +29,7 @@
     "@object-ui/example-kitchen-sink": "workspace:*",
     "@object-ui/example-todo": "workspace:*",
     "@object-ui/fields": "workspace:*",
-    "@object-ui/layout": "^0.1.1",
+    "@object-ui/layout": "^0.1.2",
     "@object-ui/plugin-dashboard": "workspace:*",
     "@object-ui/plugin-form": "workspace:*",
     "@object-ui/plugin-grid": "workspace:*",

@@ -16,6 +16,11 @@ export default defineConfig({
       '@object-ui/core': resolve(__dirname, '../core/src/index.ts'),
       '@object-ui/types': resolve(__dirname, '../types/src/index.ts'),
       '@object-ui/data-objectstack': resolve(__dirname, '../data-objectstack/src/index.ts'),
+      '@object-ui/react': resolve(__dirname, '../react/src'),
+      '@object-ui/components': resolve(__dirname, '../components/src'),
+      '@object-ui/fields': resolve(__dirname, '../fields/src'),
+      '@object-ui/plugin-dashboard': resolve(__dirname, '../plugin-dashboard/src'),
+      '@object-ui/plugin-grid': resolve(__dirname, '../plugin-grid/src'),
     }
   },
   build: {

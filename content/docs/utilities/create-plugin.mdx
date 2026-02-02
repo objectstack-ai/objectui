@@ -1,0 +1,380 @@
+---
+title: "Create Plugin"
+description: "Interactive CLI tool for creating ObjectUI plugins"
+---
+
+# Create Plugin
+
+The `@object-ui/create-plugin` package is an interactive CLI tool that scaffolds new ObjectUI plugins with best practices and TypeScript support. It generates a complete plugin structure ready for development.
+
+## Installation
+
+```bash
+npm install -g @object-ui/create-plugin
+```
+
+Or use with npx (recommended):
+
+```bash
+npx @object-ui/create-plugin my-plugin
+```
+
+## Features
+
+- 🎯 **Interactive Prompts** - Step-by-step plugin creation
+- 📦 **Complete Scaffold** - All files needed to start
+- 🔷 **TypeScript First** - Full TypeScript support
+- 🎨 **Best Practices** - Follow ObjectUI conventions
+- 🚀 **Ready to Develop** - Start coding immediately
+- 📝 **Documentation Template** - Includes README and docs
+
+## Quick Start
+
+### Create a New Plugin
+
+```bash
+npx @object-ui/create-plugin my-awesome-plugin
+```
+
+This will:
+
+1. Ask you a few questions about your plugin
+2. Generate the plugin structure
+3. Install dependencies
+4. Initialize a git repository
+
+### Interactive Prompts
+
+When you run `create-plugin`, you'll be asked:
+
+```
+? Plugin name: my-awesome-plugin
+? Description: An awesome plugin for ObjectUI
+? Author: Your Name
+? Component name: AwesomeComponent
+? Component type: awesome-component
+? License: MIT
+```
+
+## Generated Structure
+
+The tool creates a complete plugin structure:
+
+```
+my-awesome-plugin/
+├── src/
+│   ├── index.tsx              # Main entry point
+│   ├── AwesomeComponent.tsx   # Component implementation
+│   └── types.ts               # TypeScript types
+├── package.json               # Package configuration
+├── tsconfig.json             # TypeScript config
+├── vite.config.ts            # Vite build config
+├── README.md                 # Documentation
+└── .gitignore                # Git ignore rules
+```
+
+## Generated Files
+
+### `src/index.tsx`
+
+The main entry point that registers your component:
+
+```typescript
+import { ComponentRegistry } from '@object-ui/core'
+import { AwesomeComponent } from './AwesomeComponent'
+
+// Auto-register the component
+ComponentRegistry.register('awesome-component', AwesomeComponent)
+
+// Export for direct use
+export { AwesomeComponent }
+export * from './types'
+```
+
+### `src/AwesomeComponent.tsx`
+
+The component implementation with lazy loading:
+
+```typescript
+import React, { Suspense } from 'react'
+import { Skeleton } from '@object-ui/components'
+import type { AwesomeComponentProps } from './types'
+
+// Lazy load heavy implementation
+const AwesomeImpl = React.lazy(() => import('./AwesomeImpl'))
+
+export const AwesomeComponent: React.FC<AwesomeComponentProps> = (props) => {
+  return (
+    <Suspense fallback={<Skeleton className="w-full h-[400px]" />}>
+      <AwesomeImpl {...props} />
+    </Suspense>
+  )
+}
+```
+
+### `src/types.ts`
+
+TypeScript type definitions:
+
+```typescript
+import type { BaseComponentSchema } from '@object-ui/types'
+
+export interface AwesomeComponentSchema extends BaseComponentSchema {
+  type: 'awesome-component'
+  // Your component-specific props
+  message?: string
+  color?: string
+}
+
+export interface AwesomeComponentProps {
+  schema: AwesomeComponentSchema
+}
+```
+
+### `package.json`
+
+Pre-configured with all necessary settings:
+
+```json
+{
+  "name": "@object-ui/plugin-awesome",
+  "version": "0.1.0",
+  "description": "An awesome plugin for ObjectUI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "test": "vitest"
+  },
+  "peerDependencies": {
+    "@object-ui/core": "^0.3.0",
+    "@object-ui/components": "^0.3.0",
+    "react": "^18.0.0"
+  }
+}
+```
+
+## Development Workflow
+
+After creating your plugin:
+
+### 1. Install Dependencies
+
+```bash
+cd my-awesome-plugin
+npm install
+```
+
+### 2. Start Development
+
+```bash
+npm run dev
+```
+
+This starts Vite in dev mode with HMR.
+
+### 3. Implement Your Component
+
+Edit `src/AwesomeImpl.tsx`:
+
+```typescript
+import React from 'react'
+import type { AwesomeComponentProps } from './types'
+
+const AwesomeImpl: React.FC<AwesomeComponentProps> = ({ schema }) => {
+  const { message = 'Hello!', color = 'blue' } = schema
+
+  return (
+    <div className={`p-4 text-${color}-600`}>
+      <h2 className="text-2xl font-bold">{message}</h2>
+    </div>
+  )
+}
+
+export default AwesomeImpl
+```
+
+### 4. Add Tests
+
+Create `src/AwesomeComponent.test.tsx`:
+
+```typescript
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { AwesomeComponent } from './AwesomeComponent'
+
+describe('AwesomeComponent', () => {
+  it('renders message', () => {
+    const schema = {
+      type: 'awesome-component' as const,
+      message: 'Test message',
+    }
+    
+    render(<AwesomeComponent schema={schema} />)
+    expect(screen.getByText('Test message')).toBeInTheDocument()
+  })
+})
+```
+
+### 5. Build for Production
+
+```bash
+npm run build
+```
+
+This creates optimized bundles in the `dist/` folder.
+
+### 6. Test in Your App
+
+Link your plugin for local testing:
+
+```bash
+# In plugin directory
+npm link
+
+# In your app directory
+npm link @object-ui/plugin-awesome
+```
+
+### 7. Publish to NPM
+
+```bash
+npm publish
+```
+
+## Configuration Options
+
+### Custom Templates
+
+You can customize the scaffolding by creating a `.create-plugin.config.js`:
+
+```javascript
+// .create-plugin.config.js
+module.exports = {
+  template: 'custom',
+  defaults: {
+    author: 'Your Name',
+    license: 'MIT',
+  },
+  prompts: {
+    // Custom prompts
+  },
+}
+```
+
+### Plugin Naming Conventions
+
+Follow these naming conventions:
+
+- **Package name:** `@object-ui/plugin-<name>` or `@yourorg/objectui-plugin-<name>`
+- **Component type:** `kebab-case` (e.g., `awesome-component`)
+- **Component name:** `PascalCase` (e.g., `AwesomeComponent`)
+
+## Best Practices
+
+### 1. Lazy Loading
+
+Always use lazy loading for heavy dependencies:
+
+```typescript
+const HeavyImpl = React.lazy(() => import('./HeavyImpl'))
+```
+
+### 2. Type Safety
+
+Export all TypeScript types:
+
+```typescript
+export type { AwesomeComponentSchema, AwesomeComponentProps }
+```
+
+### 3. Loading States
+
+Provide meaningful loading states:
+
+```typescript
+<Suspense fallback={<Skeleton className="w-full h-[200px]" />}>
+  <AwesomeImpl {...props} />
+</Suspense>
+```
+
+### 4. Documentation
+
+Include comprehensive documentation:
+
+- README with usage examples
+- JSDoc comments for all exports
+- Storybook stories for component showcase
+
+### 5. Testing
+
+Write tests for all functionality:
+
+- Unit tests for components
+- Integration tests for schemas
+- E2E tests for user flows
+
+## Example Plugins
+
+See these official plugins for reference:
+
+- **[@object-ui/plugin-charts](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-charts)** - Data visualization
+- **[@object-ui/plugin-kanban](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-kanban)** - Kanban boards
+- **[@object-ui/plugin-editor](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-editor)** - Code editor
+
+## Package Information
+
+**Package Name:** `@object-ui/create-plugin`  
+**Version:** 0.3.1  
+**Binary:** `create-plugin`  
+**License:** MIT
+
+## Dependencies
+
+The tool uses:
+
+- **Inquirer** - Interactive prompts
+- **Chalk** - Terminal colors
+- **Ora** - Loading spinners
+- **fs-extra** - File system utilities
+
+## Next Steps
+
+- **[Plugin Concepts](/docs/guide/plugins)** - Learn how plugins work
+- **[CLI](/docs/utilities/cli)** - Test your plugin with the CLI
+- **[Component Registry](/docs/guide/component-registry)** - Register components
+- **[Publishing Guide](/docs/guide/publishing-plugins)** - Publish to npm
+
+## Troubleshooting
+
+### Permission Denied
+
+```bash
+# On Linux/Mac, use sudo
+sudo npm install -g @object-ui/create-plugin
+```
+
+### Template Not Found
+
+Make sure you have the latest version:
+
+```bash
+npm update -g @object-ui/create-plugin
+```
+
+### Dependencies Not Installing
+
+Try clearing npm cache:
+
+```bash
+npm cache clean --force
+npx @object-ui/create-plugin my-plugin
+```
+
+## Need Help?
+
+- [GitHub Issues](https://github.com/objectstack-ai/objectui/issues)
+- [Plugin Development Guide](/docs/guide/plugins)
+- [Examples](https://github.com/objectstack-ai/objectui/tree/main/packages)

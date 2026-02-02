@@ -6,6 +6,7 @@
     "layout",
     "fields",
     "components",
-    "plugins"
+    "plugins",
+    "utilities"
   ]
 }

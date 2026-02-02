@@ -1,0 +1,505 @@
+---
+title: "ObjectStack Data Adapter"
+description: "Data adapter for connecting ObjectUI to ObjectStack backends"
+---
+
+# ObjectStack Data Adapter
+
+The `@object-ui/data-objectstack` package provides a data adapter that connects ObjectUI to ObjectStack backends. It enables seamless integration with ObjectStack's data layer, supporting CRUD operations, queries, and real-time updates.
+
+## Installation
+
+```bash
+npm install @object-ui/data-objectstack @objectstack/client
+```
+
+**Note:** The `@objectstack/client` package is a peer dependency and must be installed separately.
+
+## Overview
+
+The ObjectStack adapter bridges ObjectUI's schema-driven UI with ObjectStack's data backend, providing:
+
+- 🔌 **Automatic Integration** - Connect to ObjectStack APIs
+- 🔄 **CRUD Operations** - Create, read, update, delete
+- 🔍 **Query Builder** - Build complex queries
+- 📊 **Data Binding** - Automatic data synchronization
+- 🚀 **Real-time Updates** - Live data updates (if supported by backend)
+
+## Features
+
+- **ObjectStack Client Integration** - Uses `@objectstack/client` for API communication
+- **Data Provider** - React context provider for data access
+- **Query Support** - Full ObjectQL query support
+- **Automatic Field Mapping** - Maps ObjectStack schemas to UI components
+- **Type Safety** - Full TypeScript support
+- **Error Handling** - Comprehensive error handling and retry logic
+
+## Quick Start
+
+### 1. Setup Provider
+
+Wrap your app with the `ObjectStackProvider`:
+
+```typescript
+import { ObjectStackProvider } from '@object-ui/data-objectstack'
+import { SchemaRenderer } from '@object-ui/react'
+
+function App() {
+  return (
+    <ObjectStackProvider
+      apiUrl="https://api.example.com"
+      apiKey="your-api-key"
+    >
+      <SchemaRenderer schema={schema} />
+    </ObjectStackProvider>
+  )
+}
+```
+
+### 2. Use in Schemas
+
+Reference ObjectStack data sources in your schemas:
+
+```json
+{
+  "type": "data-table",
+  "dataSource": {
+    "type": "objectstack",
+    "object": "users",
+    "query": {
+      "filters": [
+        {
+          "field": "status",
+          "operator": "eq",
+          "value": "active"
+        }
+      ],
+      "sort": [
+        {
+          "field": "createdAt",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    }
+  },
+  "columns": [
+    {
+      "key": "name",
+      "title": "Name"
+    },
+    {
+      "key": "email",
+      "title": "Email"
+    },
+    {
+      "key": "status",
+      "title": "Status"
+    }
+  ]
+}
+```
+
+## API Reference
+
+### `ObjectStackProvider`
+
+React context provider for ObjectStack integration.
+
+**Props:**
+
+```typescript
+interface ObjectStackProviderProps {
+  /** API endpoint URL */
+  apiUrl: string
+  
+  /** API authentication key */
+  apiKey: string
+  
+  /** Optional organization ID */
+  organizationId?: string
+  
+  /** Optional custom configuration */
+  config?: ObjectStackConfig
+  
+  /** Children components */
+  children: React.ReactNode
+}
+```
+
+**Example:**
+
+```typescript
+<ObjectStackProvider
+  apiUrl="https://api.objectstack.dev"
+  apiKey={process.env.REACT_APP_OBJECTSTACK_KEY}
+  organizationId="org_123"
+>
+  <App />
+</ObjectStackProvider>
+```
+
+### `useObjectStack`
+
+Hook to access the ObjectStack client:
+
+```typescript
+import { useObjectStack } from '@object-ui/data-objectstack'
+
+function MyComponent() {
+  const client = useObjectStack()
+  
+  const fetchUsers = async () => {
+    const users = await client.query('users', {
+      filters: [{ field: 'status', operator: 'eq', value: 'active' }]
+    })
+    return users
+  }
+  
+  // ...
+}
+```
+
+### Data Source Schema
+
+Configure ObjectStack data sources in your schemas:
+
+```typescript
+interface ObjectStackDataSource {
+  /** Data source type */
+  type: 'objectstack'
+  
+  /** Object/table name */
+  object: string
+  
+  /** Optional query */
+  query?: {
+    /** Filter conditions */
+    filters?: Array<{
+      field: string
+      operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'nin' | 'like'
+      value: any
+    }>
+    
+    /** Sort order */
+    sort?: Array<{
+      field: string
+      direction: 'asc' | 'desc'
+    }>
+    
+    /** Pagination */
+    limit?: number
+    offset?: number
+    
+    /** Field selection */
+    select?: string[]
+  }
+}
+```
+
+## Usage Examples
+
+### Basic Data Table
+
+```json
+{
+  "type": "data-table",
+  "dataSource": {
+    "type": "objectstack",
+    "object": "products",
+    "query": {
+      "limit": 20,
+      "sort": [{ "field": "name", "direction": "asc" }]
+    }
+  },
+  "columns": [
+    { "key": "name", "title": "Product Name" },
+    { "key": "price", "title": "Price" },
+    { "key": "stock", "title": "Stock" }
+  ]
+}
+```
+
+### Filtered Data
+
+```json
+{
+  "type": "grid",
+  "dataSource": {
+    "type": "objectstack",
+    "object": "orders",
+    "query": {
+      "filters": [
+        { "field": "status", "operator": "eq", "value": "pending" },
+        { "field": "total", "operator": "gt", "value": 100 }
+      ],
+      "sort": [{ "field": "createdAt", "direction": "desc" }],
+      "limit": 50
+    }
+  }
+}
+```
+
+### Form with ObjectStack Backend
+
+```json
+{
+  "type": "form",
+  "dataSource": {
+    "type": "objectstack",
+    "object": "users",
+    "action": "create"
+  },
+  "fields": [
+    {
+      "name": "name",
+      "type": "text",
+      "label": "Full Name",
+      "required": true
+    },
+    {
+      "name": "email",
+      "type": "email",
+      "label": "Email Address",
+      "required": true
+    },
+    {
+      "name": "role",
+      "type": "select",
+      "label": "Role",
+      "options": [
+        { "value": "admin", "label": "Administrator" },
+        { "value": "user", "label": "User" }
+      ]
+    }
+  ],
+  "onSubmit": {
+    "type": "objectstack.create",
+    "object": "users",
+    "redirect": "/users"
+  }
+}
+```
+
+### Real-time Updates
+
+```json
+{
+  "type": "kanban",
+  "dataSource": {
+    "type": "objectstack",
+    "object": "tasks",
+    "realtime": true,
+    "query": {
+      "filters": [
+        { "field": "project", "operator": "eq", "value": "${projectId}" }
+      ]
+    }
+  },
+  "columns": [
+    {
+      "id": "todo",
+      "title": "To Do",
+      "statusField": "status",
+      "statusValue": "todo"
+    },
+    {
+      "id": "in-progress",
+      "title": "In Progress",
+      "statusField": "status",
+      "statusValue": "in-progress"
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "statusField": "status",
+      "statusValue": "done"
+    }
+  ]
+}
+```
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# .env
+REACT_APP_OBJECTSTACK_API_URL=https://api.objectstack.dev
+REACT_APP_OBJECTSTACK_API_KEY=your_api_key_here
+REACT_APP_OBJECTSTACK_ORG_ID=org_123
+```
+
+### Custom Configuration
+
+```typescript
+import { ObjectStackProvider } from '@object-ui/data-objectstack'
+
+const config = {
+  timeout: 30000,
+  retries: 3,
+  caching: true,
+  debug: process.env.NODE_ENV === 'development',
+}
+
+<ObjectStackProvider
+  apiUrl={process.env.REACT_APP_OBJECTSTACK_API_URL}
+  apiKey={process.env.REACT_APP_OBJECTSTACK_API_KEY}
+  config={config}
+>
+  <App />
+</ObjectStackProvider>
+```
+
+## Advanced Usage
+
+### Custom Queries
+
+Use the client directly for complex queries:
+
+```typescript
+import { useObjectStack } from '@object-ui/data-objectstack'
+
+function Dashboard() {
+  const client = useObjectStack()
+  
+  const fetchDashboardData = async () => {
+    // Multiple queries in parallel
+    const [users, orders, revenue] = await Promise.all([
+      client.query('users', { 
+        filters: [{ field: 'createdAt', operator: 'gte', value: startDate }]
+      }),
+      client.query('orders', {
+        filters: [{ field: 'status', operator: 'eq', value: 'completed' }]
+      }),
+      client.aggregate('orders', {
+        field: 'total',
+        operation: 'sum',
+        groupBy: 'month'
+      })
+    ])
+    
+    return { users, orders, revenue }
+  }
+  
+  // ...
+}
+```
+
+### Mutations
+
+Create, update, and delete records:
+
+```typescript
+import { useObjectStack } from '@object-ui/data-objectstack'
+
+function UserForm() {
+  const client = useObjectStack()
+  
+  const createUser = async (data) => {
+    const user = await client.create('users', data)
+    return user
+  }
+  
+  const updateUser = async (id, data) => {
+    const user = await client.update('users', id, data)
+    return user
+  }
+  
+  const deleteUser = async (id) => {
+    await client.delete('users', id)
+  }
+  
+  // ...
+}
+```
+
+### Error Handling
+
+```typescript
+import { useObjectStack } from '@object-ui/data-objectstack'
+
+function DataComponent() {
+  const client = useObjectStack()
+  const [error, setError] = useState(null)
+  
+  const fetchData = async () => {
+    try {
+      const data = await client.query('users')
+      return data
+    } catch (err) {
+      if (err.code === 'UNAUTHORIZED') {
+        // Handle auth error
+        setError('Please log in')
+      } else if (err.code === 'NOT_FOUND') {
+        // Handle not found
+        setError('Data not found')
+      } else {
+        // Handle other errors
+        setError('An error occurred')
+      }
+    }
+  }
+  
+  // ...
+}
+```
+
+## Package Information
+
+**Package Name:** `@object-ui/data-objectstack`  
+**Version:** 0.3.1  
+**License:** MIT
+
+## Dependencies
+
+- **@objectstack/client** (peer dependency) - ObjectStack API client
+- **@object-ui/types** - TypeScript types
+- **react** (peer dependency) - React library
+
+## Integration with Plugins
+
+Many plugins support ObjectStack data sources:
+
+- **plugin-grid** - Data grids with ObjectStack queries
+- **plugin-form** - Forms with ObjectStack CRUD
+- **plugin-kanban** - Kanban boards with ObjectStack data
+- **plugin-calendar** - Calendars with ObjectStack events
+- **plugin-gantt** - Gantt charts with ObjectStack tasks
+- **plugin-map** - Maps with ObjectStack locations
+
+## Next Steps
+
+- **[ObjectStack Documentation](https://objectstack.dev/docs)** - Learn about ObjectStack
+- **[Data Sources Guide](/docs/guide/data-source)** - Learn about data sources
+- **[Plugins](/docs/plugins)** - Explore plugins with data support
+- **[Schema Overview](/docs/guide/schema-overview)** - Learn the schema format
+
+## Troubleshooting
+
+### Authentication Errors
+
+Check your API key and URL:
+
+```typescript
+console.log('API URL:', process.env.REACT_APP_OBJECTSTACK_API_URL)
+console.log('API Key:', process.env.REACT_APP_OBJECTSTACK_API_KEY?.substring(0, 10) + '...')
+```
+
+### CORS Issues
+
+Configure CORS on your ObjectStack backend to allow your domain.
+
+### Data Not Loading
+
+Check browser console and network tab for errors. Verify:
+- API endpoint is correct
+- API key is valid
+- Object name exists in your ObjectStack instance
+- Query syntax is correct
+
+## Need Help?
+
+- [ObjectStack Documentation](https://objectstack.dev/docs)
+- [GitHub Issues](https://github.com/objectstack-ai/objectui/issues)
+- [ObjectUI Documentation](https://www.objectui.org)

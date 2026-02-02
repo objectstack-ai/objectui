@@ -1,0 +1,491 @@
+---
+title: "Runner"
+description: "Universal runtime for ObjectUI applications"
+---
+
+# ObjectUI Runner
+
+The `@object-ui/runner` package is a universal runtime application for ObjectUI. It serves as a standalone demo environment, plugin testing playground, and reference implementation for building ObjectUI applications.
+
+## Overview
+
+The Runner is a complete ObjectUI application that demonstrates best practices and provides a development environment for testing plugins and features.
+
+## Features
+
+- 🎮 **Standalone Application** - Complete ObjectUI app
+- 🧪 **Plugin Testing** - Test plugins in isolation
+- 🎨 **Example Implementations** - Reference code
+- 🚀 **Development Playground** - Experiment with schemas
+- 📦 **Pre-configured** - All official plugins included
+
+## Running the Runner
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/objectstack-ai/objectui.git
+cd objectui
+
+# Install dependencies
+pnpm install
+
+# Run the runner
+cd packages/runner
+pnpm dev
+```
+
+The runner will start at `http://localhost:5173`.
+
+### Using PNPM Workspace
+
+From the repository root:
+
+```bash
+# Run runner from root
+pnpm --filter @object-ui/runner dev
+```
+
+## What's Included
+
+### Pre-installed Plugins
+
+The Runner includes these plugins by default:
+
+- **@object-ui/plugin-kanban** - Kanban board with drag-and-drop
+- **@object-ui/plugin-charts** - Data visualization charts
+
+### Example Schemas
+
+The Runner includes example schemas demonstrating:
+
+- Dashboard layouts
+- Data tables and grids
+- Form validation
+- Kanban boards
+- Chart visualizations
+- Calendar views
+- Timeline displays
+
+### Development Tools
+
+- **Hot Module Reloading** - Instant updates
+- **Error Overlay** - Debug errors easily
+- **React DevTools** - Inspect component tree
+- **Network Inspector** - Monitor API calls
+
+## Directory Structure
+
+```
+packages/runner/
+├── src/
+│   ├── App.tsx              # Main application
+│   ├── main.tsx             # Entry point
+│   ├── schemas/             # Example schemas
+│   │   ├── dashboard.json
+│   │   ├── kanban.json
+│   │   └── charts.json
+│   └── components/          # Custom components
+├── public/                  # Static assets
+├── package.json
+└── vite.config.ts
+```
+
+## Configuration
+
+### `vite.config.ts`
+
+The Runner uses Vite for development and building:
+
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    open: true,
+  },
+})
+```
+
+### Adding Custom Plugins
+
+To test your own plugin:
+
+1. **Link your plugin:**
+
+```bash
+# In your plugin directory
+npm link
+
+# In runner directory
+npm link @object-ui/plugin-yourplugin
+```
+
+2. **Import in `src/main.tsx`:**
+
+```typescript
+import '@object-ui/plugin-yourplugin'
+```
+
+3. **Use in schemas:**
+
+```json
+{
+  "type": "your-component",
+  "props": {
+    // Your component props
+  }
+}
+```
+
+## Use Cases
+
+### 1. Plugin Development
+
+Test new plugins in a full application context:
+
+```typescript
+// src/main.tsx
+import '@object-ui/plugin-myplugin'
+
+// src/schemas/test.json
+{
+  "type": "my-component",
+  "message": "Testing my plugin"
+}
+```
+
+### 2. Schema Prototyping
+
+Experiment with complex schemas:
+
+```bash
+# Edit schemas in src/schemas/
+# Changes are reflected immediately
+```
+
+### 3. Integration Testing
+
+Test how multiple plugins work together:
+
+```json
+{
+  "type": "div",
+  "children": [
+    { "type": "kanban", "..." },
+    { "type": "bar-chart", "..." },
+    { "type": "data-table", "..." }
+  ]
+}
+```
+
+### 4. Demo & Presentation
+
+Use as a live demo environment:
+
+```bash
+# Start runner for presentation
+pnpm dev --host
+
+# Access from any device on network
+# http://your-ip:5173
+```
+
+## Example Schemas
+
+### Dashboard Example
+
+```json
+{
+  "type": "div",
+  "className": "p-8 space-y-6",
+  "children": [
+    {
+      "type": "heading",
+      "level": 1,
+      "children": "Sales Dashboard"
+    },
+    {
+      "type": "div",
+      "className": "grid grid-cols-3 gap-4",
+      "children": [
+        {
+          "type": "card",
+          "title": "Revenue",
+          "value": "$125,000",
+          "change": "+12.5%"
+        },
+        {
+          "type": "card",
+          "title": "Orders",
+          "value": "1,234",
+          "change": "+8.2%"
+        },
+        {
+          "type": "card",
+          "title": "Customers",
+          "value": "567",
+          "change": "+5.1%"
+        }
+      ]
+    },
+    {
+      "type": "bar-chart",
+      "data": [
+        { "month": "Jan", "sales": 4000 },
+        { "month": "Feb", "sales": 3000 },
+        { "month": "Mar", "sales": 6000 }
+      ],
+      "dataKey": "sales",
+      "xAxisKey": "month",
+      "height": 300
+    }
+  ]
+}
+```
+
+### Kanban Example
+
+```json
+{
+  "type": "kanban",
+  "columns": [
+    {
+      "id": "todo",
+      "title": "To Do",
+      "cards": [
+        {
+          "id": "1",
+          "title": "Design homepage",
+          "description": "Create wireframes"
+        }
+      ]
+    },
+    {
+      "id": "in-progress",
+      "title": "In Progress",
+      "cards": []
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "cards": []
+    }
+  ]
+}
+```
+
+## Development Scripts
+
+### `pnpm dev`
+
+Start development server with HMR:
+
+```bash
+pnpm dev
+```
+
+### `pnpm build`
+
+Build for production:
+
+```bash
+pnpm build
+```
+
+### `pnpm preview`
+
+Preview production build:
+
+```bash
+pnpm preview
+```
+
+### `pnpm test`
+
+Run tests:
+
+```bash
+pnpm test
+```
+
+## Environment Variables
+
+Configure the runner with environment variables:
+
+```bash
+# .env
+VITE_API_URL=http://localhost:3000
+VITE_APP_TITLE="ObjectUI Runner"
+```
+
+Use in code:
+
+```typescript
+const apiUrl = import.meta.env.VITE_API_URL
+```
+
+## Package Information
+
+**Package Name:** `@object-ui/runner`  
+**Version:** 0.3.1  
+**Type:** Application (not published to npm)  
+**License:** MIT
+
+## Dependencies
+
+Key dependencies:
+
+- **@object-ui/react** - Core renderer
+- **@object-ui/components** - UI components
+- **@object-ui/plugin-kanban** - Kanban plugin
+- **@object-ui/plugin-charts** - Charts plugin
+- **React** - UI library
+- **Vite** - Build tool
+
+## Extending the Runner
+
+### Add Custom Routes
+
+Edit `src/App.tsx`:
+
+```typescript
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/custom" element={<CustomPage />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+```
+
+### Add Custom Components
+
+Create in `src/components/`:
+
+```typescript
+// src/components/MyComponent.tsx
+export const MyComponent = () => {
+  return <div>My Custom Component</div>
+}
+```
+
+Register with the ComponentRegistry:
+
+```typescript
+import { ComponentRegistry } from '@object-ui/core'
+import { MyComponent } from './components/MyComponent'
+
+ComponentRegistry.register('my-component', MyComponent)
+```
+
+### Add Custom Schemas
+
+Add to `src/schemas/`:
+
+```json
+// src/schemas/my-page.json
+{
+  "type": "div",
+  "className": "p-8",
+  "children": [
+    {
+      "type": "my-component"
+    }
+  ]
+}
+```
+
+## Best Practices
+
+### 1. Modular Schemas
+
+Keep schemas in separate files:
+
+```
+src/schemas/
+├── dashboard.json
+├── kanban.json
+├── charts.json
+└── index.ts
+```
+
+### 2. Environment Configuration
+
+Use environment variables for configuration:
+
+```typescript
+const config = {
+  apiUrl: import.meta.env.VITE_API_URL,
+  features: {
+    analytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
+  },
+}
+```
+
+### 3. Error Boundaries
+
+Wrap components in error boundaries:
+
+```typescript
+import { ErrorBoundary } from '@object-ui/components'
+
+<ErrorBoundary>
+  <SchemaRenderer schema={schema} />
+</ErrorBoundary>
+```
+
+## Next Steps
+
+- **[CLI](/docs/utilities/cli)** - Use CLI for rapid development
+- **[Plugins](/docs/plugins)** - Explore available plugins
+- **[Schema Overview](/docs/guide/schema-overview)** - Learn schema format
+- **[Examples](https://github.com/objectstack-ai/objectui/tree/main/examples)** - See more examples
+
+## Troubleshooting
+
+### Port Already in Use
+
+Change port in `vite.config.ts`:
+
+```typescript
+export default defineConfig({
+  server: {
+    port: 3000, // Use different port
+  },
+})
+```
+
+### Plugin Not Loading
+
+Check if plugin is imported in `main.tsx`:
+
+```typescript
+import '@object-ui/plugin-yourplugin'
+```
+
+### Build Errors
+
+Clear cache and rebuild:
+
+```bash
+rm -rf node_modules dist .vite
+pnpm install
+pnpm build
+```
+
+## Need Help?
+
+- [GitHub Issues](https://github.com/objectstack-ai/objectui/issues)
+- [Documentation](https://www.objectui.org)
+- [Examples](https://github.com/objectstack-ai/objectui/tree/main/examples)

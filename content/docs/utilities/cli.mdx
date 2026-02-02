@@ -1,0 +1,386 @@
+---
+title: "ObjectUI CLI"
+description: "Command-line interface for building ObjectUI applications"
+---
+
+# ObjectUI CLI
+
+The ObjectUI CLI (`@object-ui/cli`) is a command-line tool for scaffolding and running ObjectUI applications directly from JSON or YAML schemas. It provides a built-in development server and supports rapid prototyping without writing any code.
+
+## Installation
+
+```bash
+npm install -g @object-ui/cli
+```
+
+Or use with npx:
+
+```bash
+npx @object-ui/cli --help
+```
+
+## Features
+
+- 🚀 **Project Scaffolding** - Generate new ObjectUI projects from schemas
+- 🔥 **Built-in Dev Server** - Express + Vite development server with HMR
+- 📄 **JSON/YAML Support** - Write schemas in JSON or YAML format
+- ⚡ **Hot Module Reloading** - See changes instantly
+- 🎨 **Zero Configuration** - Works out of the box
+- 📦 **Production Builds** - Optimized builds for deployment
+
+## Commands
+
+### `objectui` (Binary Name)
+
+The main CLI binary.
+
+```bash
+objectui [command] [options]
+```
+
+### Available Commands
+
+#### `init` - Create a New Project
+
+Initialize a new ObjectUI project from a schema.
+
+```bash
+objectui init <project-name>
+```
+
+**Options:**
+- `--template <name>` - Use a specific template
+- `--schema <path>` - Use an existing schema file
+
+**Example:**
+
+```bash
+# Create a new project
+objectui init my-dashboard
+
+# Create from existing schema
+objectui init my-app --schema ./schema.json
+```
+
+#### `dev` - Start Development Server
+
+Start the development server with hot module reloading.
+
+```bash
+objectui dev [options]
+```
+
+**Options:**
+- `--port <number>` - Port to run on (default: 5173)
+- `--host` - Expose to network
+- `--schema <path>` - Schema file to use
+
+**Example:**
+
+```bash
+# Start dev server
+objectui dev
+
+# Custom port
+objectui dev --port 3000
+
+# Specific schema
+objectui dev --schema ./schemas/dashboard.json
+```
+
+#### `build` - Production Build
+
+Build the application for production.
+
+```bash
+objectui build [options]
+```
+
+**Options:**
+- `--outDir <path>` - Output directory (default: dist)
+- `--minify` - Minify output
+- `--sourcemap` - Generate source maps
+
+**Example:**
+
+```bash
+# Build for production
+objectui build
+
+# Custom output directory
+objectui build --outDir ./build
+```
+
+#### `preview` - Preview Production Build
+
+Preview the production build locally.
+
+```bash
+objectui preview [options]
+```
+
+**Options:**
+- `--port <number>` - Port to run on (default: 4173)
+
+**Example:**
+
+```bash
+# Preview production build
+objectui preview
+```
+
+## Schema File Format
+
+The CLI supports both JSON and YAML schema files.
+
+### JSON Schema Example
+
+Create a `schema.json` file:
+
+```json
+{
+  "type": "app",
+  "title": "My Dashboard",
+  "pages": [
+    {
+      "path": "/",
+      "title": "Home",
+      "component": {
+        "type": "div",
+        "className": "p-8",
+        "children": [
+          {
+            "type": "heading",
+            "level": 1,
+            "children": "Welcome to ObjectUI"
+          },
+          {
+            "type": "bar-chart",
+            "data": [
+              { "name": "Jan", "value": 400 },
+              { "name": "Feb", "value": 300 },
+              { "name": "Mar", "value": 600 }
+            ],
+            "dataKey": "value",
+            "xAxisKey": "name",
+            "height": 300
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+### YAML Schema Example
+
+Create a `schema.yaml` file:
+
+```yaml
+type: app
+title: My Dashboard
+pages:
+  - path: /
+    title: Home
+    component:
+      type: div
+      className: p-8
+      children:
+        - type: heading
+          level: 1
+          children: Welcome to ObjectUI
+        - type: bar-chart
+          data:
+            - name: Jan
+              value: 400
+            - name: Feb
+              value: 300
+            - name: Mar
+              value: 600
+          dataKey: value
+          xAxisKey: name
+          height: 300
+```
+
+## Development Server
+
+The CLI includes a built-in development server powered by Express and Vite.
+
+### Features
+
+- **Hot Module Reloading** - Instant updates when you change schema files
+- **Error Overlay** - See errors directly in the browser
+- **Fast Refresh** - React Fast Refresh for component changes
+- **Network Access** - Share with team using `--host` flag
+
+### Server Architecture
+
+```
+┌─────────────────┐
+│  Express Server │ (Static file serving, API proxy)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│   Vite Server   │ (HMR, bundling, transpiling)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  React App      │ (SchemaRenderer)
+└─────────────────┘
+```
+
+## Configuration
+
+The CLI can be configured via `objectui.config.js` in your project root.
+
+```javascript
+// objectui.config.js
+export default {
+  // Development server options
+  server: {
+    port: 5173,
+    host: true,
+  },
+  
+  // Build options
+  build: {
+    outDir: 'dist',
+    minify: true,
+    sourcemap: true,
+  },
+  
+  // Schema options
+  schema: {
+    path: './schema.json',
+    format: 'json', // or 'yaml'
+  },
+  
+  // Plugin options
+  plugins: [
+    '@object-ui/plugin-charts',
+    '@object-ui/plugin-kanban',
+  ],
+}
+```
+
+## Environment Variables
+
+The CLI supports environment variables for configuration:
+
+```bash
+# Port
+OBJECTUI_PORT=3000
+
+# Host
+OBJECTUI_HOST=0.0.0.0
+
+# Schema path
+OBJECTUI_SCHEMA=./schemas/app.json
+
+# Build output
+OBJECTUI_OUT_DIR=./build
+```
+
+## Use Cases
+
+### 1. Rapid Prototyping
+
+Quickly prototype UIs by editing JSON schemas:
+
+```bash
+# Create project
+objectui init prototype
+
+# Start dev server
+cd prototype
+objectui dev
+
+# Edit schema.json and see changes instantly
+```
+
+### 2. Schema-Driven Applications
+
+Build entire applications from schemas without writing code:
+
+```bash
+# Use complex schema
+objectui dev --schema ./complex-app.json
+```
+
+### 3. Backend Integration
+
+Integrate with your API backend:
+
+```json
+{
+  "type": "data-table",
+  "dataSource": {
+    "api": "http://localhost:3000/api/users",
+    "method": "GET"
+  },
+  "columns": [...]
+}
+```
+
+### 4. Demos and Presentations
+
+Create interactive demos without a build setup:
+
+```bash
+npx @object-ui/cli dev --schema ./demo.json
+```
+
+## Package Information
+
+**Package Name:** `@object-ui/cli`  
+**Version:** 0.3.1  
+**Binary:** `objectui`  
+**License:** MIT
+
+## Dependencies
+
+The CLI uses:
+
+- **Express** - HTTP server
+- **Vite** - Build tool and dev server
+- **Commander** - CLI argument parsing
+- **Chalk** - Terminal colors
+- **Ora** - Loading spinners
+
+## Next Steps
+
+- **[Create Plugin](/docs/utilities/create-plugin)** - Create custom plugins
+- **[Schema Overview](/docs/guide/schema-overview)** - Learn the schema format
+- **[Plugins](/docs/plugins)** - Explore available plugins
+- **[Examples](https://github.com/objectstack-ai/objectui/tree/main/examples)** - See example projects
+
+## Troubleshooting
+
+### Port Already in Use
+
+```bash
+# Use a different port
+objectui dev --port 3001
+```
+
+### Schema Not Found
+
+```bash
+# Specify schema path
+objectui dev --schema ./path/to/schema.json
+```
+
+### Module Not Found
+
+Make sure all required plugins are installed:
+
+```bash
+# Install missing plugins
+npm install @object-ui/plugin-charts @object-ui/plugin-kanban
+```
+
+## Need Help?
+
+- [GitHub Issues](https://github.com/objectstack-ai/objectui/issues)
+- [Documentation](https://www.objectui.org)
+- [Examples](https://github.com/objectstack-ai/objectui/tree/main/examples)

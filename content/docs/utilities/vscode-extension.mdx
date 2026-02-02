@@ -1,0 +1,495 @@
+---
+title: "VS Code Extension"
+description: "Visual Studio Code extension for ObjectUI schema development"
+---
+
+# ObjectUI VS Code Extension
+
+The ObjectUI VS Code extension provides a comprehensive development environment for creating and editing ObjectUI schemas. It includes schema preview, validation, IntelliSense, syntax highlighting, and powerful productivity features.
+
+## Installation
+
+### From VS Code Marketplace
+
+1. Open VS Code
+2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
+3. Search for "ObjectUI"
+4. Click Install
+
+### From Command Line
+
+```bash
+code --install-extension objectui.object-ui
+```
+
+### Manual Installation
+
+Download the `.vsix` file from the releases page and install:
+
+```bash
+code --install-extension objectui-0.3.1.vsix
+```
+
+## Features
+
+- 🔍 **Schema Preview** - Live preview of your UI schemas
+- ✅ **JSON Validation** - Real-time schema validation
+- 💡 **IntelliSense** - Auto-completion for schema properties
+- 🎨 **Syntax Highlighting** - Enhanced JSON highlighting for ObjectUI
+- 📝 **Snippets** - Quick schema templates
+- 🔧 **Commands** - Useful schema manipulation commands
+- 🚀 **Export to React** - Convert schemas to React components
+- 📋 **Format Schema** - Auto-format your schema files
+
+## Commands
+
+Access commands via Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
+
+### `ObjectUI: Preview Schema`
+
+Opens a live preview of your schema in a side panel.
+
+**Usage:**
+1. Open a `.json` or `.objectui.json` file
+2. Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac)
+3. Type "ObjectUI: Preview Schema"
+4. Preview opens in side panel
+
+**Keyboard Shortcut:** `Ctrl+Alt+P` (Windows/Linux) or `Cmd+Alt+P` (Mac)
+
+### `ObjectUI: Validate Schema`
+
+Validates the current schema against ObjectUI schema definitions.
+
+**Usage:**
+1. Open a schema file
+2. Run command
+3. View validation errors in Problems panel
+
+**Keyboard Shortcut:** `Ctrl+Alt+V` (Windows/Linux) or `Cmd+Alt+V` (Mac)
+
+### `ObjectUI: Export to React`
+
+Converts the schema to a React component.
+
+**Usage:**
+1. Open a schema file
+2. Run command
+3. React component code is copied to clipboard
+
+**Output Example:**
+
+```typescript
+import { SchemaRenderer } from '@object-ui/react'
+
+const schema = {
+  "type": "div",
+  "className": "p-4",
+  "children": [
+    { "type": "heading", "level": 1, "children": "Hello World" }
+  ]
+}
+
+export default function MyComponent() {
+  return <SchemaRenderer schema={schema} />
+}
+```
+
+### `ObjectUI: Format Schema`
+
+Formats the schema JSON with consistent indentation and ordering.
+
+**Usage:**
+1. Open a schema file
+2. Run command
+3. Schema is auto-formatted
+
+**Keyboard Shortcut:** `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac)
+
+### `ObjectUI: Create New Schema`
+
+Creates a new schema file from a template.
+
+**Usage:**
+1. Run command
+2. Select template (Dashboard, Form, Grid, etc.)
+3. New file is created with template content
+
+## Language Support
+
+### File Associations
+
+The extension recognizes these file patterns:
+
+- `*.objectui.json` - ObjectUI schema files
+- `schema.json` - Schema files in specific directories
+- Any `.json` file with `"type": "app"` or component types
+
+### Syntax Highlighting
+
+Enhanced JSON highlighting for ObjectUI-specific properties:
+
+- **Component Types** - Highlighted in blue
+- **Actions** - Highlighted in green
+- **Data Sources** - Highlighted in purple
+- **Expressions** - Highlighted in orange
+
+## IntelliSense
+
+### Auto-completion
+
+Type-ahead suggestions for:
+
+- Component types (`div`, `button`, `form`, `data-table`, etc.)
+- Schema properties (`className`, `dataSource`, `children`, etc.)
+- Action types (`navigate`, `submit`, `ajax`, etc.)
+- Data source types (`api`, `objectstack`, `value`, etc.)
+
+**Example:**
+
+Type `"type": "` and get suggestions:
+- `button`
+- `card`
+- `data-table`
+- `form`
+- `grid`
+- And 100+ more...
+
+### Hover Information
+
+Hover over properties to see:
+
+- Property description
+- Expected type
+- Example values
+- Link to documentation
+
+### Validation
+
+Real-time validation with error messages:
+
+```json
+{
+  "type": "button",
+  "invalidProp": true  // ❌ Error: Unknown property
+}
+```
+
+## Snippets
+
+Type these prefixes and press Tab to insert templates:
+
+### `objectui-button`
+
+```json
+{
+  "type": "button",
+  "variant": "default",
+  "children": "Click me"
+}
+```
+
+### `objectui-form`
+
+```json
+{
+  "type": "form",
+  "fields": [
+    {
+      "name": "fieldName",
+      "type": "text",
+      "label": "Label",
+      "required": true
+    }
+  ],
+  "onSubmit": {
+    "type": "ajax",
+    "url": "/api/endpoint",
+    "method": "POST"
+  }
+}
+```
+
+### `objectui-grid`
+
+```json
+{
+  "type": "data-table",
+  "dataSource": {
+    "type": "api",
+    "url": "/api/data"
+  },
+  "columns": [
+    {
+      "key": "id",
+      "title": "ID"
+    }
+  ]
+}
+```
+
+### `objectui-app`
+
+```json
+{
+  "type": "app",
+  "title": "My App",
+  "pages": [
+    {
+      "path": "/",
+      "title": "Home",
+      "component": {
+        "type": "div",
+        "children": []
+      }
+    }
+  ]
+}
+```
+
+### `objectui-chart`
+
+```json
+{
+  "type": "bar-chart",
+  "data": [
+    { "name": "A", "value": 100 }
+  ],
+  "dataKey": "value",
+  "xAxisKey": "name",
+  "height": 300
+}
+```
+
+## Configuration
+
+Configure the extension via Settings (Ctrl+, / Cmd+,):
+
+### `objectui.preview.port`
+
+Port for preview server (default: `5173`)
+
+```json
+{
+  "objectui.preview.port": 3000
+}
+```
+
+### `objectui.preview.autoRefresh`
+
+Auto-refresh preview on save (default: `true`)
+
+```json
+{
+  "objectui.preview.autoRefresh": true
+}
+```
+
+### `objectui.validation.enabled`
+
+Enable real-time validation (default: `true`)
+
+```json
+{
+  "objectui.validation.enabled": true
+}
+```
+
+### `objectui.validation.severity`
+
+Validation severity level (default: `error`)
+
+Options: `error`, `warning`, `info`
+
+```json
+{
+  "objectui.validation.severity": "warning"
+}
+```
+
+### `objectui.completion.enabled`
+
+Enable auto-completion (default: `true`)
+
+```json
+{
+  "objectui.completion.enabled": true
+}
+```
+
+### `objectui.snippets.enabled`
+
+Enable code snippets (default: `true`)
+
+```json
+{
+  "objectui.snippets.enabled": true
+}
+```
+
+## Workspace Settings
+
+Create `.vscode/settings.json` in your project:
+
+```json
+{
+  "objectui.preview.port": 5173,
+  "objectui.preview.autoRefresh": true,
+  "objectui.validation.enabled": true,
+  "objectui.completion.enabled": true,
+  "files.associations": {
+    "*.schema.json": "objectui-json",
+    "ui.json": "objectui-json"
+  }
+}
+```
+
+## Keyboard Shortcuts
+
+Default keyboard shortcuts:
+
+| Command | Windows/Linux | Mac |
+|---------|--------------|-----|
+| Preview Schema | `Ctrl+Alt+P` | `Cmd+Alt+P` |
+| Validate Schema | `Ctrl+Alt+V` | `Cmd+Alt+V` |
+| Format Schema | `Ctrl+Alt+F` | `Cmd+Alt+F` |
+| Export to React | `Ctrl+Alt+E` | `Cmd+Alt+E` |
+
+### Custom Shortcuts
+
+Customize via Keyboard Shortcuts editor (Ctrl+K Ctrl+S):
+
+```json
+{
+  "key": "ctrl+shift+p",
+  "command": "objectui.preview",
+  "when": "editorLangId == json"
+}
+```
+
+## Context Menus
+
+Right-click on a schema file to access:
+
+### Editor Context Menu
+
+- **Preview Schema** - Open live preview
+- **Validate Schema** - Run validation
+- **Export to React** - Convert to React component
+- **Format Schema** - Auto-format
+
+### Explorer Context Menu
+
+- **Preview Schema** - Preview selected file
+- **Create Schema** - Create new schema in folder
+
+## Preview Features
+
+The preview panel includes:
+
+- **Live Rendering** - See changes immediately
+- **Interactive UI** - Test interactions
+- **Device Toggle** - Mobile/tablet/desktop views
+- **Dark Mode Toggle** - Test light/dark themes
+- **Refresh Button** - Manual refresh
+- **Console** - View errors and logs
+
+## Development Workflow
+
+### Typical Workflow
+
+1. **Create Schema** - Use snippet or command
+2. **Edit Schema** - IntelliSense helps with completion
+3. **Preview** - Open live preview (Ctrl+Alt+P)
+4. **Validate** - Check for errors (Ctrl+Alt+V)
+5. **Test** - Interact with preview
+6. **Export** - Convert to React (Ctrl+Alt+E)
+
+### Tips
+
+- **Split Editor** - Keep schema and preview side-by-side
+- **Auto Save** - Enable auto-save for instant preview updates
+- **Multi-root Workspace** - Work on multiple schema projects
+- **Git Integration** - Track schema changes
+
+## Package Information
+
+**Extension ID:** `objectui.object-ui`  
+**Version:** 0.3.1  
+**License:** MIT
+
+## Extension Dependencies
+
+The extension bundles:
+
+- **JSON Language Server** - For validation and IntelliSense
+- **Schema Definitions** - ObjectUI type definitions
+- **Preview Server** - Built-in Vite server
+
+## Troubleshooting
+
+### Preview Not Working
+
+1. Check preview port is available:
+   ```bash
+   # Change port in settings
+   "objectui.preview.port": 5174
+   ```
+
+2. Check firewall settings
+3. Reload window (Ctrl+R)
+
+### Validation Not Working
+
+1. Check file is recognized as ObjectUI schema
+2. Verify `objectui.validation.enabled` is `true`
+3. Reload window
+
+### IntelliSense Not Showing
+
+1. Verify `objectui.completion.enabled` is `true`
+2. Check file language mode is JSON
+3. Reload window
+
+### Extension Not Loading
+
+1. Check extension is enabled
+2. Check for extension errors in Output panel
+3. Reinstall extension
+
+## Updates
+
+The extension auto-updates via VS Code's extension manager.
+
+### Manual Update
+
+```bash
+code --install-extension objectui.object-ui --force
+```
+
+### Check Version
+
+1. Go to Extensions
+2. Find ObjectUI extension
+3. Check version number
+
+## Contributing
+
+The extension is open source. Contribute on GitHub:
+
+- **Repository:** [objectstack-ai/objectui](https://github.com/objectstack-ai/objectui)
+- **Issues:** [Report bugs or request features](https://github.com/objectstack-ai/objectui/issues)
+- **Pull Requests:** [Contribute code](https://github.com/objectstack-ai/objectui/pulls)
+
+## Next Steps
+
+- **[Schema Overview](/docs/guide/schema-overview)** - Learn the schema format
+- **[CLI](/docs/utilities/cli)** - Use CLI for development
+- **[Plugins](/docs/plugins)** - Explore available plugins
+- **[Examples](https://github.com/objectstack-ai/objectui/tree/main/examples)** - See example schemas
+
+## Need Help?
+
+- [GitHub Issues](https://github.com/objectstack-ai/objectui/issues)
+- [Documentation](https://www.objectui.org)
+- [VS Code Extension Documentation](https://code.visualstudio.com/docs/editor/extension-marketplace)

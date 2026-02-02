@@ -179,7 +179,7 @@ ComponentRegistry.register('form',
         style,
         onSubmit: _ignoredOnSubmit, // Prevent overwriting our handleSubmit
         onChange: _ignoredOnChange, // Prevent overwriting our onChange
-        // Extract schema props that should not be spread to DOM
+        // Extract schema props that should not be spread to DOM (handled separately by schema destructuring above)
         submitLabel: _submitLabel,
         cancelLabel: _cancelLabel,
         showSubmit: _showSubmit,

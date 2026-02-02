@@ -10,11 +10,15 @@
     "./objectstack.config": "./objectstack.config.ts"
   },
   "scripts": {
+    "serve": "objectstack serve objectstack.config.ts",
     "build": "objectstack compile objectstack.config.ts dist/objectstack.json",
     "start": "tsx server.ts"
   },
   "dependencies": {
-    "@objectstack/spec": "^0.9.0"
+    "@objectstack/core": "^0.9.0",
+    "@objectstack/runtime": "^0.9.0",
+    "@objectstack/spec": "^0.9.0",
+    "pino": "^8.21.0"
   },
   "devDependencies": {
     "@objectstack/cli": "^0.9.0",

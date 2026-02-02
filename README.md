@@ -76,6 +76,12 @@ Since this package is not yet published to NPM, here is how to play with the sou
 
     Edit the JSON schema files and the changes will be instantly reflected in the browser.
 
+## Examples
+
+- [examples/crm](examples/crm) - CRM metadata app with a custom server.
+- [examples/kitchen-sink](examples/kitchen-sink) - Component catalog metadata app.
+- [examples/objectstack-server](examples/objectstack-server) - Run a metadata app with @objectstack/cli.
+
 ## 📦 For React Developers
 
 Install the core packages to use `<SchemaRenderer>` inside your Next.js or Vite app.

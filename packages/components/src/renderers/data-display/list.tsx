@@ -7,12 +7,9 @@
  */
 
 import { ComponentRegistry } from '@object-ui/core';
-import compact from 'lodash/compact';
-import { ComponentRegistry } from '@object-ui/core';
 import type { ListSchema } from '@object-ui/types';
 import { useDataScope } from '@object-ui/react';
-import { renderChildren } from '../../lib/utils';
-import { cn } from '../../lib/utils';
+import { renderChildren, cn } from '../../lib/utils';
 
 ComponentRegistry.register('list', 
   ({ schema, className, ...props }: { schema: ListSchema; className?: string; [key: string]: any }) => {

@@ -56,17 +56,15 @@ const server = setupServer(...handlers);
 // --- Test Suite ---
 
 describe('ObjectCalendar with MSW', () => {
-  if (!process.env.OBJECTSTACK_API_URL) {
-    beforeAll(() => server.listen());
-    afterEach(() => server.resetHandlers());
-    afterAll(() => server.close());
-  }
-
-  const dataSource = new ObjectStackAdapter({
-    baseUrl: BASE_URL,
-  });
+  beforeAll(() => server.listen());
+  afterEach(() => server.resetHandlers());
+  afterAll(() => server.close());
 
   it('fetches events and renders them', async () => {
+    const dataSource = new ObjectStackAdapter({
+      baseUrl: BASE_URL,
+    });
+
     render(
       <ObjectCalendar
         schema={{

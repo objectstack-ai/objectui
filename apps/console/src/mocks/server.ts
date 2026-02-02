@@ -165,7 +165,7 @@ function createHandlers(baseUrl: string, kernel: ObjectKernel, driver: InMemoryD
         // Try simple find first
         const records = await driver.find(params.objectName as string, {
             object: params.objectName as string,
-            where: ['_id', '=', params.id]
+            where: [['_id', '=', params.id]]
         });
         // Manual filter to ensure we get the correct record if driver ignores filters
         const record = records ? records.find((r: any) => r.id === params.id || r._id === params.id) : null;

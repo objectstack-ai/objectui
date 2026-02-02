@@ -8,27 +8,38 @@ import { FieldWidgetProps } from './types';
  */
 export function ObjectField({ value, onChange, field, readonly, ...props }: FieldWidgetProps<any>) {
   const config = field || (props as any).schema;
-  const [jsonString, setJsonString] = useState('');
+  
+  // Initialize string state based on value
+  const getInitialJsonString = () => {
+    if (value === undefined || value === null) return '';
+    return JSON.stringify(value, null, 2);
+  };
+  
+  const [jsonString, setJsonString] = useState(getInitialJsonString);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize/Sync internal string state when value changes externally
+  // Sync internal string state when value changes externally
+  // This is a controlled component pattern where we need to sync external changes
   useEffect(() => {
     try {
-        if (value === undefined || value === null) {
-            setJsonString('');
-            return;
-        }
-        // Only update if the parsed internal state doesn't match the new value
-        // This prevents cursor jumping/reformatting while typing valid JSON
-        const currentParsed = jsonString ? JSON.parse(jsonString) : null;
-        if (JSON.stringify(currentParsed) !== JSON.stringify(value)) {
-            setJsonString(JSON.stringify(value, null, 2));
-        }
-    } catch (e) {
-        // Fallback if internal state was invalid JSON
+      if (value === undefined || value === null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Required for controlled component sync
+        setJsonString('');
+        return;
+      }
+      // Only update if the parsed internal state doesn't match the new value
+      // This prevents cursor jumping/reformatting while typing valid JSON
+      const currentParsed = jsonString ? JSON.parse(jsonString) : null;
+      if (JSON.stringify(currentParsed) !== JSON.stringify(value)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Required for controlled component sync
         setJsonString(JSON.stringify(value, null, 2));
+      }
+    } catch {
+      // Fallback if internal state was invalid JSON
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Required for controlled component sync
+      setJsonString(JSON.stringify(value, null, 2));
     }
-  }, [value]);
+  }, [value, jsonString]);
 
   if (readonly) {
     if (!value) return <span className="text-sm">-</span>;

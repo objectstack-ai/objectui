@@ -130,7 +130,6 @@ describe('Standard Field Widgets', () => {
           />
         );
         // getByRole('textbox') doesn't work for password type usually
-        // eslint-disable-next-line testing-library/no-node-access
         const input = screen.getByDisplayValue('secret'); 
         expect(input).toHaveAttribute('type', 'password');
       });

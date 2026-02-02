@@ -1,9 +1,19 @@
+/**
+ * ObjectUI
+ * Copyright (c) 2024-present ObjectStack Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
 import '@testing-library/jest-dom';
 import React from 'react';
-import '@object-ui/fields'; // Import fields first
-import '@object-ui/plugin-dashboard'; // Import to register dashboard components
-import '@object-ui/plugin-grid'; // Import to register grid components
-import '@object-ui/components'; // Imports @object-ui/components for types
+
+// Import packages to register components (side-effect imports)
+import '@object-ui/components'; // Register all ObjectUI components
+import '@object-ui/fields'; // Register field widgets
+import '@object-ui/plugin-dashboard'; // Register dashboard components
+import '@object-ui/plugin-grid'; // Register grid components
 
 // Manually re-register basic text component to override field widget
 // This is necessary because @object-ui/fields has @object-ui/components as a dependency,
@@ -41,3 +51,11 @@ ComponentRegistry.register('text',
     label: 'Text',
   }
 );
+
+// Polyfill ResizeObserver for Radix UI (Shadcn) components
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+

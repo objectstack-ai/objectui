@@ -15,11 +15,11 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         it('should have at least one app defined', () => {
             expect(appConfig.apps).toBeDefined();
             expect(Array.isArray(appConfig.apps)).toBe(true);
-            expect(appConfig.apps.length).toBeGreaterThan(0);
+            expect(appConfig.apps!.length).toBeGreaterThan(0);
         });
 
         it('should have valid app structure', () => {
-            const app = appConfig.apps[0];
+            const app = appConfig.apps![0];
             
             // Required fields per spec
             expect(app.name).toBeDefined();
@@ -32,7 +32,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         });
 
         it('should support optional app metadata', () => {
-            const app = appConfig.apps[0];
+            const app = appConfig.apps![0];
             
             // Optional fields that should be defined if present
             if (app.description) {
@@ -47,7 +47,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         });
 
         it('should support app branding configuration', () => {
-            const appsWithBranding = appConfig.apps.filter((a: any) => a.branding);
+            const appsWithBranding = appConfig.apps!.filter((a: any) => a.branding);
             
             if (appsWithBranding.length > 0) {
                 const app = appsWithBranding[0];
@@ -69,7 +69,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
 
         it('should support homePageId for custom landing pages', () => {
             // homePageId is optional but should be a string if defined
-            appConfig.apps.forEach((app: any) => {
+            appConfig.apps!.forEach((app: any) => {
                 if (app.homePageId) {
                     expect(typeof app.homePageId).toBe('string');
                     expect(app.homePageId.length).toBeGreaterThan(0);
@@ -79,7 +79,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
 
         it('should support permission requirements', () => {
             // requiredPermissions is optional but should be an array if defined
-            appConfig.apps.forEach((app: any) => {
+            appConfig.apps!.forEach((app: any) => {
                 if (app.requiredPermissions) {
                     expect(Array.isArray(app.requiredPermissions)).toBe(true);
                     app.requiredPermissions.forEach((perm: any) => {
@@ -92,13 +92,13 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
 
     describe('NavigationItem Validation', () => {
         it('should have navigation items defined', () => {
-            const app = appConfig.apps[0];
+            const app = appConfig.apps![0];
             expect(app.navigation).toBeDefined();
             expect(Array.isArray(app.navigation)).toBe(true);
         });
 
         it('should support object navigation items', () => {
-            const objectNavItems = getAllNavItems(appConfig.apps[0].navigation)
+            const objectNavItems = getAllNavItems(appConfig.apps![0].navigation)
                 .filter((item: any) => item.type === 'object');
             
             if (objectNavItems.length > 0) {
@@ -111,7 +111,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         });
 
         it('should support group navigation items', () => {
-            const groupNavItems = getAllNavItems(appConfig.apps[0].navigation)
+            const groupNavItems = getAllNavItems(appConfig.apps![0].navigation)
                 .filter((item: any) => item.type === 'group');
             
             if (groupNavItems.length > 0) {
@@ -124,7 +124,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         });
 
         it('should have valid navigation item structure', () => {
-            const allNavItems = getAllNavItems(appConfig.apps[0].navigation);
+            const allNavItems = getAllNavItems(appConfig.apps![0].navigation);
             
             allNavItems.forEach((item: any) => {
                 // All items must have id, label, and type
@@ -156,7 +156,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         });
 
         it('should support navigation item visibility', () => {
-            const allNavItems = getAllNavItems(appConfig.apps[0].navigation);
+            const allNavItems = getAllNavItems(appConfig.apps![0].navigation);
             
             // visible field is optional but should be string or boolean if present
             allNavItems.forEach((item: any) => {
@@ -172,11 +172,11 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         it('should have objects defined', () => {
             expect(appConfig.objects).toBeDefined();
             expect(Array.isArray(appConfig.objects)).toBe(true);
-            expect(appConfig.objects.length).toBeGreaterThan(0);
+            expect(appConfig.objects!.length).toBeGreaterThan(0);
         });
 
         it('should have valid object structure', () => {
-            const object = appConfig.objects[0];
+            const object = appConfig.objects![0];
             
             // Required fields
             expect(object.name).toBeDefined();
@@ -187,7 +187,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         });
 
         it('should have valid field definitions', () => {
-            const object = appConfig.objects[0];
+            const object = appConfig.objects![0];
             const fields = Array.isArray(object.fields) 
                 ? object.fields 
                 : Object.values(object.fields);
@@ -201,8 +201,8 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
         });
 
         it('should reference only defined objects in navigation', () => {
-            const objectNames = new Set(appConfig.objects.map((o: any) => o.name));
-            const navItems = getAllNavItems(appConfig.apps[0].navigation);
+            const objectNames = new Set(appConfig.objects!.map((o: any) => o.name));
+            const navItems = getAllNavItems(appConfig.apps![0].navigation);
             const objectNavItems = navItems.filter((item: any) => item.type === 'object');
             
             objectNavItems.forEach((item: any) => {
@@ -233,7 +233,7 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
 
         it('should reference only defined objects in manifest', () => {
             if (appConfig.manifest?.data) {
-                const objectNames = new Set(appConfig.objects.map((o: any) => o.name));
+                const objectNames = new Set(appConfig.objects!.map((o: any) => o.name));
                 
                 appConfig.manifest.data.forEach((seed: any) => {
                     expect(objectNames.has(seed.object)).toBe(true);
@@ -250,8 +250,8 @@ describe('ObjectStack Spec v0.8.2 Compliance', () => {
 
         it('should have datasource configuration', () => {
             expect(appConfig.datasources).toBeDefined();
-            expect(appConfig.datasources.default).toBeDefined();
-            expect(appConfig.datasources.default.driver).toBeDefined();
+            expect(appConfig.datasources!.default).toBeDefined();
+            expect(appConfig.datasources!.default.driver).toBeDefined();
         });
     });
 });

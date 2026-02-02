@@ -25,7 +25,7 @@ We have completed the following work:
 
 **File:** [`OBJECTUI_ENTERPRISE_SOLUTION.md`](./OBJECTUI_ENTERPRISE_SOLUTION.md)  
 **Size:** ~40KB  
-**Language:** Bilingual
+**Language:** English
 
 **Content Includes:**
 - ✅ Project positioning and core advantages
@@ -53,7 +53,7 @@ We have completed the following work:
 
 **File:** [`PACKAGE_SCAN_REPORT.md`](./PACKAGE_SCAN_REPORT.md)  
 **Size:** ~23KB  
-**Language:** Bilingual
+**Language:** English
 
 **Content Includes:**
 - ✅ Executive summary (overall score 95/100)
@@ -83,11 +83,11 @@ We have completed the following work:
 
 ---
 
-### 3. Quick Start Guide (Chinese Version)
+### 3. Quick Start Guide
 
-**File:** [`QUICK_START_GUIDE_CN.md`](./QUICK_START_GUIDE_CN.md)  
+**File:** [`QUICK_START_GUIDE.md`](./QUICK_START_GUIDE.md)  
 **Size:** ~18KB  
-**Language:** Chinese
+**Language:** English
 
 **Content Includes:**
 - ✅ 5-minute quick start guide
@@ -325,7 +325,7 @@ Completed deliverables:
 2. [Package Scan Report](./PACKAGE_SCAN_REPORT.md) - Focus on architecture and Spec alignment sections
 
 ### For Developers
-1. [Quick Start Guide](./QUICK_START_GUIDE_CN.md) - Get started first
+1. [Quick Start Guide](./QUICK_START_GUIDE.md) - Get started first
 2. [Enterprise Solution](./OBJECTUI_ENTERPRISE_SOLUTION.md) - Dive deeper
 3. [Package Scan Report](./PACKAGE_SCAN_REPORT.md) - Understand details
 

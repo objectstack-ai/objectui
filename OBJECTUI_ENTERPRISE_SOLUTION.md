@@ -58,45 +58,45 @@ ObjectUI is a **Universal Server-Driven UI (SDUI) Engine** built on React + Tail
 
 ### Monorepo Topology
 
-ObjectUI **PNPM Workspace** **25+ **
+ObjectUI uses **PNPM Workspace** management, containing **25+ packages**:
 
 ```
 objectui/
 ├── packages/
-│ ├── types/ # - TypeScript
-│ ├── core/ # -
-│ ├── react/ # React
-│ ├── components/ # UI (Shadcn)
-│ ├── fields/ #
-│ ├── layout/ # (Header, Sidebar, AppShell)
-│ ├── data-objectstack/ # ObjectStack
-│ ├── cli/ # CLI
-│ ├── runner/ #
-│ ├── create-plugin/ #
-│ ├── vscode-extension/ # VS Code
+│ ├── types/ # Protocol layer - Pure TypeScript definitions
+│ ├── core/ # Engine layer - Validation, expressions, registries
+│ ├── react/ # React binding layer
+│ ├── components/ # UI component library (Shadcn)
+│ ├── fields/ # Field renderer registry
+│ ├── layout/ # Layout components (Header, Sidebar, AppShell)
+│ ├── data-objectstack/ # ObjectStack data adapter
+│ ├── cli/ # CLI tools
+│ ├── runner/ # Application runner
+│ ├── create-plugin/ # Plugin scaffolding tool
+│ ├── vscode-extension/ # VS Code extension
 │   │
-│ └── plugin-*/ # 13
-│ ├── plugin-form # (react-hook-form)
-│ ├── plugin-grid #
-│ ├── plugin-kanban # (dnd-kit)
-│ ├── plugin-charts # (Recharts)
-│ ├── plugin-calendar #
-│ ├── plugin-gantt #
-│ ├── plugin-timeline #
-│ ├── plugin-dashboard #
-│ ├── plugin-map #
-│ ├── plugin-markdown # Markdown
-│ ├── plugin-editor # (Monaco)
-│ ├── plugin-view # ObjectQL
-│ ├── plugin-chatbot #
-│ └── plugin-aggrid # AG Grid
+│ └── plugin-*/ # 13 data visualization plugins
+│ ├── plugin-form # Form plugin (react-hook-form)
+│ ├── plugin-grid # Data grid
+│ ├── plugin-kanban # Kanban board (dnd-kit)
+│ ├── plugin-charts # Charts (Recharts)
+│ ├── plugin-calendar # Calendar
+│ ├── plugin-gantt # Gantt chart
+│ ├── plugin-timeline # Timeline
+│ ├── plugin-dashboard # Dashboard
+│ ├── plugin-map # Map visualization
+│ ├── plugin-markdown # Markdown renderer
+│ ├── plugin-editor # Rich text editor (Monaco)
+│ ├── plugin-view # ObjectQL integration view
+│ ├── plugin-chatbot # Chatbot interface
+│ └── plugin-aggrid # AG Grid integration
 │
 ├── apps/
-│ ├── console/ #
-│ └── site/ #
+│ ├── console/ # Development console app
+│ └── site/ # Documentation website
 │
-├── examples/ #
-└── docs/ #
+├── examples/ # Example projects
+└── docs/ # Documentation
 ```
 
 ### Dependency Graph
@@ -584,12 +584,12 @@ export interface DatasourceSchema {
    cd my-enterprise-app
    ```
 
-3. ** JSON Schema**
+3. **Create JSON Schema**
    ```json
    // app.schema.json
    {
      "type": "app",
- title: ,
+     "title": "Enterprise Management System",
      "routes": [
        {
          "path": "/",
@@ -598,13 +598,13 @@ export interface DatasourceSchema {
            "widgets": [
              {
                "type": "card",
- title: ,
+               "title": "Total Users",
                "value": "${stats.users}",
                "icon": "users"
              },
              {
                "type": "card",
- title: ,
+               "title": "Total Revenue",
                "value": "${stats.revenue}",
                "icon": "dollar-sign"
              }
@@ -617,9 +617,9 @@ export interface DatasourceSchema {
            "type": "crud",
            "api": "/api/users",
            "columns": [
- { name: name, label: , type: text },
- { name: email, label: , type: email },
- { name: role, label: , type: select,
+              { "name": "name", "label": "Name", "type": "text" },
+              { "name": "email", "label": "Email", "type": "email" },
+              { "name": "role", "label": "Role", "type": "select",
                "options": ["admin", "user", "guest"] }
            ]
          }
@@ -822,29 +822,29 @@ export interface DatasourceSchema {
   "type": "crud",
   "name": "users",
   "api": "/api/users",
- title: ,
+  "title": "User Management",
   "columns": [
- { name: name, label: , type: text, required: true },
- { name: email, label: , type: email, required: true,
+    { "name": "name", "label": "Full Name", "type": "text", "required": true },
+    { "name": "email", "label": "Email Address", "type": "email", "required": true,
       "validation": { "type": "email", "unique": true } },
- { name: role, label: , type: select,
+    { "name": "role", "label": "User Role", "type": "select",
       "options": [
- { label: , value: admin },
- { label: , value: user },
- { label: , value: guest }
+        { "label": "Administrator", "value": "admin" },
+        { "label": "Standard User", "value": "user" },
+        { "label": "Guest", "value": "guest" }
       ]
     },
- { name: department, label: , type: lookup,
+    { "name": "department", "label": "Department", "type": "lookup",
       "lookupObject": "departments", "lookupField": "name" },
- { name: status, label: , type: select,
+    { "name": "status", "label": "Account Status", "type": "select",
       "options": ["active", "inactive", "pending"] },
- { name: createdAt, label: , type: datetime, readonly: true }
+    { "name": "createdAt", "label": "Created At", "type": "datetime", "readonly": true }
   ],
   "actions": [
- { label: , type: create, icon: plus },
- { label: , type: update, icon: edit },
- { label: , type: delete, icon: trash,
- confirm: }
+    { "label": "Create User", "type": "create", "icon": "plus" },
+    { "label": "Edit User", "type": "update", "icon": "edit" },
+    { "label": "Delete User", "type": "delete", "icon": "trash",
+      "confirm": "Are you sure you want to delete this user?" }
   ],
   "filters": [
     { "field": "role", "operator": "equals" },
@@ -865,13 +865,13 @@ export interface DatasourceSchema {
 ```json
 {
   "type": "dashboard",
- title: ,
+  "title": "Executive Dashboard",
   "layout": "grid",
   "columns": 3,
   "widgets": [
     {
       "type": "card",
- title: ,
+      "title": "Total Users",
       "value": "${stats.totalUsers}",
       "icon": "users",
       "trend": { "value": "${stats.userGrowth}", "direction": "up" },
@@ -879,7 +879,7 @@ export interface DatasourceSchema {
     },
     {
       "type": "card",
- title: ,
+      "title": "Monthly Revenue",
       "value": "${formatCurrency(stats.monthlyRevenue)}",
       "icon": "dollar-sign",
       "trend": { "value": "${stats.revenueGrowth}", "direction": "up" },
@@ -887,7 +887,7 @@ export interface DatasourceSchema {
     },
     {
       "type": "card",
- title: ,
+      "title": "Pending Orders",
       "value": "${stats.pendingOrders}",
       "icon": "shopping-cart",
       "trend": { "value": "${stats.orderChange}", "direction": "down" },
@@ -895,7 +895,7 @@ export interface DatasourceSchema {
     },
     {
       "type": "chart",
- title: ,
+      "title": "Sales Trend",
       "chartType": "area",
       "dataSource": { "api": "/api/stats/sales-trend" },
       "xField": "date",
@@ -905,7 +905,7 @@ export interface DatasourceSchema {
     },
     {
       "type": "chart",
- title: ,
+      "title": "Product Distribution",
       "chartType": "pie",
       "dataSource": { "api": "/api/stats/product-distribution" },
       "nameField": "product",
@@ -915,13 +915,13 @@ export interface DatasourceSchema {
     },
     {
       "type": "grid",
- title: ,
+      "title": "Recent Orders",
       "dataSource": { "api": "/api/orders/recent" },
       "columns": [
- { field: orderNo, label: },
- { field: customer, label: },
- { field: amount, label: , type: currency },
- { field: status, label: , type: badge }
+        { "field": "orderNo", "label": "Order Number" },
+        { "field": "customer", "label": "Customer Name" },
+        { "field": "amount", "label": "Amount", "type": "currency" },
+        { "field": "status", "label": "Status", "type": "badge" }
       ],
       "span": 3,
       "pagination": false
@@ -936,14 +936,14 @@ export interface DatasourceSchema {
 ```json
 {
   "type": "kanban",
- title: ,
+  "title": "Project Tasks",
   "dataSource": { "api": "/api/tasks" },
   "groupByField": "status",
   "columns": [
- { id: todo, title: , color: gray },
- { id: in_progress, title: , color: blue },
- { id: review, title: , color: yellow },
- { id: done, title: , color: green }
+    { "id": "todo", "title": "To Do", "color": "gray" },
+    { "id": "in_progress", "title": "In Progress", "color": "blue" },
+    { "id": "review", "title": "Review", "color": "yellow" },
+    { "id": "done", "title": "Done", "color": "green" }
   ],
   "cardTemplate": {
     "title": "${task.title}",
@@ -953,9 +953,9 @@ export interface DatasourceSchema {
     "priority": "${task.priority}"
   },
   "actions": [
- { label: , type: create, icon: plus },
- { label: , type: update, icon: edit },
- { label: , type: delete, icon: trash }
+    { "label": "Create Task", "type": "create", "icon": "plus" },
+    { "label": "Edit Task", "type": "update", "icon": "edit" },
+    { "label": "Delete Task", "type": "delete", "icon": "trash" }
   ],
   "onCardMove": {
     "type": "ajax",
@@ -982,14 +982,14 @@ export interface DatasourceSchema {
 ```json
 {
   "type": "report-builder",
- title: ,
+  "title": "Sales Report Builder",
   "dataSources": ["sales", "products", "customers"],
   "fields": [
- { name: orderDate, label: , type: date },
- { name: product, label: , type: lookup },
- { name: customer, label: , type: lookup },
- { name: amount, label: , type: currency },
- { name: quantity, label: , type: number }
+    { "name": "orderDate", "label": "Order Date", "type": "date" },
+    { "name": "product", "label": "Product", "type": "lookup" },
+    { "name": "customer", "label": "Customer", "type": "lookup" },
+    { "name": "amount", "label": "Amount", "type": "currency" },
+    { "name": "quantity", "label": "Quantity", "type": "number" }
   ],
   "aggregations": ["sum", "avg", "count", "min", "max"],
   "groupBy": ["orderDate", "product", "customer"],
@@ -1014,7 +1014,7 @@ export interface DatasourceSchema {
 {
   "type": "crud",
   "name": "permissions",
- title: ,
+  "title": "Permission Management",
   "objectSchema": {
     "name": "Task",
     "fields": [...],

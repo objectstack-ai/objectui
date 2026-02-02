@@ -52,29 +52,23 @@ const ContainerRenderer = forwardRef<HTMLDivElement, { schema: ContainerSchema; 
       className
     );
 
-    // Extract designer-related properties
+    // Extract designer-related props
     const { 
         'data-obj-id': dataObjId, 
         'data-obj-type': dataObjType,
         style, 
-        properties, // Handle properties wrapper if it exists (legacy/config fix)
         ...containerProps 
     } = props;
-
-    // Merge properties if they exist (handling the properties wrapper issue)
-    const mergedProps = { ...containerProps, ...properties };
 
     return (
       <div 
         ref={ref}
         className={containerClass} 
-        {...mergedProps}
+        {...containerProps}
         // Apply designer props
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
         {schema.children && renderChildren(schema.children)}
-        {/* Support properties.children which comes from objectstack.config wrapper */}
-        {properties?.children && renderChildren(properties.children)}
       </div>
     );
   }

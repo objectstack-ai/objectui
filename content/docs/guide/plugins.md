@@ -526,6 +526,9 @@ export function registerComponents() {
 - [Schema Rendering](./schema-rendering.md) - How schemas become UI
 - [Lazy-Loaded Plugins Architecture](./lazy-loading.md) - Deep dive
 - [Creating Components](/spec/component-package.md) - Component development
+- **[Create Plugin Utility](/docs/utilities/create-plugin)** - Scaffold new plugins quickly
+- **[CLI Tool](/docs/utilities/cli)** - Test plugins with the CLI
+- **[All Utilities](/docs/utilities)** - Complete toolkit for development
 
 ## Next Steps
 

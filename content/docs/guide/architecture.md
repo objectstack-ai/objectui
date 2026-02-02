@@ -100,6 +100,18 @@ Each plugin provides specialized, complex widgets:
 
 **Important**: Heavy dependencies (like AG Grid, Monaco, Recharts) are only allowed in plugin packages to keep the core bundle small.
 
+### Utility Packages
+
+Development tools and integration utilities:
+
+- `@object-ui/cli` - Command-line tool for building apps from schemas
+- `@object-ui/create-plugin` - Interactive plugin scaffolder
+- `@object-ui/runner` - Universal runtime for testing and demos
+- `@object-ui/data-objectstack` - ObjectStack data backend adapter
+- `vscode-extension` - VS Code extension for schema development
+
+[Learn more about utilities →](/docs/utilities)
+
 ## How Schema Rendering Works
 
 ### 1. JSON Schema Input
@@ -401,3 +413,4 @@ ComponentRegistry.register('my-widget', MyWidget, {
 - [Expressions](/docs/guide/expressions) - Dynamic expressions
 - [Plugins](/docs/guide/plugins) - Plugin system
 - [Data Sources](/docs/guide/data-source) - Data integration
+- [Utilities](/docs/utilities) - Development tools and CLI utilities

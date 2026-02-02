@@ -107,6 +107,7 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
         setInitialData(schema.initialData || schema.initialValues || {});
+        setLoading(false);
         return;
       }
 

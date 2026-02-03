@@ -67,6 +67,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
   }, [onEdit, schema.editUrl]);
 
   const handleDelete = React.useCallback(() => {
+    // TODO: Replace with proper confirmation dialog component
     const confirmMessage = schema.deleteConfirmation || 'Are you sure you want to delete this record?';
     if (window.confirm(confirmMessage)) {
       onDelete?.();

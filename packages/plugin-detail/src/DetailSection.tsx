@@ -33,9 +33,17 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
       return <SchemaRenderer schema={field.render} data={{ ...data, value }} />;
     }
 
+    // Calculate span class based on field.span value
+    const spanClass = field.span === 1 ? 'col-span-1' :
+                      field.span === 2 ? 'col-span-2' :
+                      field.span === 3 ? 'col-span-3' :
+                      field.span === 4 ? 'col-span-4' :
+                      field.span === 5 ? 'col-span-5' :
+                      field.span === 6 ? 'col-span-6' : '';
+
     // Default field rendering
     return (
-      <div key={field.name} className={cn("space-y-1", field.span && `col-span-${field.span}`)}>
+      <div key={field.name} className={cn("space-y-1", spanClass)}>
         <div className="text-sm font-medium text-muted-foreground">
           {field.label || field.name}
         </div>

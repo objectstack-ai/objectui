@@ -40,17 +40,25 @@ export const ListView: React.FC<ListViewProps> = ({
 
   // Load saved view preference
   React.useEffect(() => {
-    const storageKey = `listview-${schema.objectName}-view`;
-    const savedView = localStorage.getItem(storageKey);
-    if (savedView && ['grid', 'list', 'kanban', 'calendar', 'chart'].includes(savedView)) {
-      setCurrentView(savedView as ViewType);
+    try {
+      const storageKey = `listview-${schema.objectName}-view`;
+      const savedView = localStorage.getItem(storageKey);
+      if (savedView && ['grid', 'list', 'kanban', 'calendar', 'chart'].includes(savedView)) {
+        setCurrentView(savedView as ViewType);
+      }
+    } catch (error) {
+      console.warn('Failed to load view preference from localStorage:', error);
     }
   }, [schema.objectName]);
 
   const handleViewChange = React.useCallback((view: ViewType) => {
     setCurrentView(view);
-    const storageKey = `listview-${schema.objectName}-view`;
-    localStorage.setItem(storageKey, view);
+    try {
+      const storageKey = `listview-${schema.objectName}-view`;
+      localStorage.setItem(storageKey, view);
+    } catch (error) {
+      console.warn('Failed to save view preference to localStorage:', error);
+    }
     onViewChange?.(view);
   }, [schema.objectName, onViewChange]);
 

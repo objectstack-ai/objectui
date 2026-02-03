@@ -162,15 +162,43 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
     }
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files || [])
-      const validFiles = files.filter(file => file.size <= maxFileSize)
-      
-      if (validFiles.length < files.length) {
-        console.warn(`Some files exceeded the ${maxFileSize / 1024 / 1024}MB size limit`)
+    const files = Array.from(e.target.files || [])
+    
+    // Validate file sizes and MIME types
+    const validFiles = files.filter(file => {
+      // Size validation
+      if (file.size > maxFileSize) {
+        console.warn(`File ${file.name} exceeds ${maxFileSize / 1024 / 1024}MB limit`)
+        return false
       }
       
-      setSelectedFiles(prev => [...prev, ...validFiles])
+      // Basic MIME type validation
+      const acceptedTypes = acceptedFileTypes.split(',').map(t => t.trim())
+      const matchesType = acceptedTypes.some(type => {
+        if (type.startsWith('.')) {
+          return file.name.toLowerCase().endsWith(type.toLowerCase())
+        }
+        if (type.endsWith('/*')) {
+          const category = type.split('/')[0]
+          return file.type.startsWith(category + '/')
+        }
+        return file.type === type
+      })
+      
+      if (!matchesType) {
+        console.warn(`File ${file.name} type ${file.type} not accepted`)
+        return false
+      }
+      
+      return true
+    })
+    
+    if (validFiles.length < files.length) {
+      console.warn(`${files.length - validFiles.length} file(s) were rejected`)
     }
+    
+    setSelectedFiles(prev => [...prev, ...validFiles])
+  }
 
     const handleRemoveFile = (index: number) => {
       setSelectedFiles(prev => prev.filter((_, i) => i !== index))

@@ -10,6 +10,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import type { ChatbotSchema, ChatMessage } from '@object-ui/types';
 import { Chatbot } from './index';
 import { ChatbotEnhanced } from './ChatbotEnhanced';
+import { generateUniqueId } from './utils';
 import { useState } from 'react';
 
 /**
@@ -42,7 +43,7 @@ ComponentRegistry.register('chatbot',
     const handleSendMessage = (content: string) => {
       // Create user message with robust ID generation
       const userMessage: ChatMessage = {
-        id: crypto?.randomUUID?.() || `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: generateUniqueId('msg'),
         role: 'user',
         content,
         timestamp: schema.showTimestamp ? new Date().toLocaleTimeString() : undefined,
@@ -60,7 +61,7 @@ ComponentRegistry.register('chatbot',
       if (schema.autoResponse) {
         setTimeout(() => {
           const assistantMessage: ChatMessage = {
-            id: crypto?.randomUUID?.() || `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            id: generateUniqueId('msg'),
             role: 'assistant',
             content: schema.autoResponseText || 'Thank you for your message!',
             timestamp: schema.showTimestamp ? new Date().toLocaleTimeString() : undefined,
@@ -214,7 +215,7 @@ ComponentRegistry.register('chatbot-enhanced',
 
     const handleSendMessage = (content: string, files?: File[]) => {
       const userMessage: ChatMessage = {
-        id: crypto?.randomUUID?.() || `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: generateUniqueId('msg'),
         role: 'user',
         content,
         timestamp: schema.showTimestamp ? new Date().toLocaleTimeString() : undefined,
@@ -231,7 +232,7 @@ ComponentRegistry.register('chatbot-enhanced',
       if (schema.autoResponse) {
         setTimeout(() => {
           const assistantMessage: ChatMessage = {
-            id: crypto?.randomUUID?.() || `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            id: generateUniqueId('msg'),
             role: 'assistant',
             content: schema.autoResponseText || 'Thank you for your message!',
             timestamp: schema.showTimestamp ? new Date().toLocaleTimeString() : undefined,

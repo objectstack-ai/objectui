@@ -38,7 +38,7 @@ export const ReportRenderer: React.FC<ReportRendererProps> = ({ schema }) => {
           const ChartComponent = ComponentRegistry.get(chartType);
           return ChartComponent ? (
             <div className="min-h-[300px] border rounded-md p-4 bg-white/50">
-              {React.createElement(ChartComponent, { schema: { ...schema.chart, data } })}
+              <ChartComponent schema={{ ...schema.chart, data }} />
             </div>
           ) : null;
         })()}
@@ -49,14 +49,14 @@ export const ReportRenderer: React.FC<ReportRendererProps> = ({ schema }) => {
              {(() => {
                const GridComponent = showGrid ? (ComponentRegistry.get('aggrid') || ComponentRegistry.get('table')) : null;
                return GridComponent ? (
-                  React.createElement(GridComponent, {
-                     schema: { 
-                         type: 'aggrid', 
-                         rowData: data, 
-                         columnDefs: columns,
-                         domLayout: 'autoHeight'
-                     }
-                  })
+                  <GridComponent 
+                    schema={{ 
+                      type: 'aggrid', 
+                      rowData: data, 
+                      columnDefs: columns,
+                      domLayout: 'autoHeight'
+                    }}
+                  />
               ) : (
                  // Simple Fallback Table if Grid plugin missing
                  <div className="overflow-x-auto">

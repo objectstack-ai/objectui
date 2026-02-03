@@ -9,8 +9,20 @@
 "use client"
 
 import * as React from "react"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import { cn, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@object-ui/components"
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PlusIcon } from "lucide-react"
+import { 
+  cn, 
+  Button, 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue,
+  Calendar,
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@object-ui/components"
 
 const DEFAULT_EVENT_COLOR = "bg-blue-500 text-white"
 
@@ -32,6 +44,7 @@ export interface CalendarViewProps {
   onDateClick?: (date: Date) => void
   onViewChange?: (view: "month" | "week" | "day") => void
   onNavigate?: (date: Date) => void
+  onAddClick?: () => void
   className?: string
 }
 
@@ -43,10 +56,20 @@ function CalendarView({
   onDateClick,
   onViewChange,
   onNavigate,
+  onAddClick,
   className,
 }: CalendarViewProps) {
   const [selectedView, setSelectedView] = React.useState(view)
   const [selectedDate, setSelectedDate] = React.useState(currentDate)
+
+  // Sync state if props change
+  React.useEffect(() => {
+    setSelectedDate(currentDate)
+  }, [currentDate])
+
+  React.useEffect(() => {
+    setSelectedView(view)
+  }, [view])
 
   const handlePrevious = () => {
     const newDate = new Date(selectedDate)
@@ -113,37 +136,70 @@ function CalendarView({
     }
   }
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date)
+      onNavigate?.(date)
+    }
+  }
+
   return (
     <div className={cn("flex flex-col h-full bg-background", className)}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleToday}>
-            Today
-          </Button>
-          <div className="flex items-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePrevious}
-              className="h-8 w-8"
-            >
-              <ChevronLeftIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleNext}
-              className="h-8 w-8"
-            >
-              <ChevronRightIcon className="h-4 w-4" />
-            </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center bg-muted/50 rounded-lg p-1 gap-1">
+             <Button variant="ghost" size="sm" onClick={handleToday} className="h-8">
+               Today
+             </Button>
+             <div className="h-4 w-px bg-border mx-1" />
+             <Button
+               variant="ghost"
+               size="icon"
+               onClick={handlePrevious}
+               className="h-8 w-8"
+             >
+               <ChevronLeftIcon className="h-4 w-4" />
+             </Button>
+             <Button
+               variant="ghost"
+               size="icon"
+               onClick={handleNext}
+               className="h-8 w-8"
+             >
+               <ChevronRightIcon className="h-4 w-4" />
+             </Button>
           </div>
-          <h2 className="text-lg font-semibold ml-2">{getDateLabel()}</h2>
+          
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="ghost" 
+                className={cn(
+                  "text-xl font-semibold h-auto px-3 py-1 hover:bg-muted/50 transition-colors",
+                  "flex items-center gap-2"
+                )}
+              >
+                <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+                <span>{getDateLabel()}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateSelect}
+                initialFocus
+                fromYear={2000}
+                toYear={2050}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
+
         <div className="flex items-center gap-2">
           <Select value={selectedView} onValueChange={handleViewChange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-32 bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -152,6 +208,13 @@ function CalendarView({
               <SelectItem value="month">Month</SelectItem>
             </SelectContent>
           </Select>
+          
+          {onAddClick && (
+            <Button onClick={onAddClick} size="sm" className="gap-1">
+              <PlusIcon className="h-4 w-4" />
+              New
+            </Button>
+          )}
         </div>
       </div>
 

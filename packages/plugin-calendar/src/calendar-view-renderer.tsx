@@ -30,6 +30,51 @@ ComponentRegistry.register('calendar-view',
         /** Field name indicating if event is all-day */
         const allDayField = schema.allDayField || 'allDay';
         
+        return {
+          id: record._id || record.id || index,
+          title: record[titleField] || 'Untitled Event',
+          start: new Date(record[startField]),
+          end: record[endField] ? new Date(record[endField]) : undefined,
+          allDay: record[allDayField],
+          color: record[colorField],
+          data: record,
+        };
+      });
+    }, [schema.data, schema.titleField, schema.startDateField, schema.endDateField, schema.colorField, schema.allDayField]);
+
+    const handleEventClick = (event: CalendarEvent) => {
+      if (schema.events?.onEventClick) {
+        // Dispatch configured action
+        // This would use the action runner in a real implementation
+        // For now we just call onAction if provided
+        onAction?.({ 
+          type: 'event-click',
+          payload: event 
+        });
+      }
+    };
+    
+    const handleAddClick = () => {
+       // Standard "Create" action trigger
+       onAction?.({
+         type: 'create',
+         payload: {}
+       });
+    };
+
+    return (
+      <CalendarView 
+        className={className}
+        events={events}
+        onEventClick={handleEventClick}
+        onAddClick={handleAddClick}
+        // Pass validation or other props
+        {...props}
+      />
+    );
+  }
+);        const allDayField = schema.allDayField || 'allDay';
+        
         const title = record[titleField] || 'Untitled';
         const start = record[startField] ? new Date(record[startField]) : new Date();
         const end = record[endField] ? new Date(record[endField]) : undefined;

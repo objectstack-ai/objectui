@@ -107,6 +107,43 @@ describe('Plugins Integration Test', () => {
             });
             expect(screen.getByText('Task 2')).toBeInTheDocument();
         });
+
+        it('does not re-fetch data on stable schema re-renders', async () => {
+            const schema = {
+                type: 'calendar',
+                objectName: 'todo_task',
+                dateField: 'due_date',
+                titleField: 'name'
+            };
+
+            const { rerender } = render(
+                <ObjectCalendar 
+                    schema={schema as any}
+                    dataSource={mockDataSource as any}
+                />
+            );
+
+            // Wait for initial fetch
+            await waitFor(() => {
+                expect(mockDataSource.find).toHaveBeenCalledTimes(1);
+            });
+
+            // Re-render with a NEW schema object but IDENTICAL content
+            // This tests if useMemo/useEffect are correctly handling deep equality or specific property dependencies
+            // instead of just object reference equality.
+            rerender(
+                <ObjectCalendar 
+                    schema={{ ...schema } as any}
+                    dataSource={mockDataSource as any}
+                />
+            );
+
+            // Wait a bit to ensure no extra calls happen immediately
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Should still only have called find once
+            expect(mockDataSource.find).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('ObjectKanban', () => {

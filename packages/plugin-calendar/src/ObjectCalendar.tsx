@@ -25,8 +25,19 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectGridSchema, DataSource, ViewData, CalendarConfig } from '@object-ui/types';
 
+export interface CalendarSchema {
+  type: 'calendar';
+  objectName?: string;
+  dateField?: string;
+  endField?: string;
+  titleField?: string;
+  colorField?: string;
+  filter?: any;
+  sort?: any;
+}
+
 export interface ObjectCalendarProps {
-  schema: ObjectGridSchema;
+  schema: ObjectGridSchema | CalendarSchema;
   dataSource?: DataSource;
   className?: string;
   onEventClick?: (record: any) => void;
@@ -38,12 +49,12 @@ export interface ObjectCalendarProps {
 /**
  * Helper to get data configuration from schema
  */
-function getDataConfig(schema: ObjectGridSchema): ViewData | null {
-  if (schema.data) {
+function getDataConfig(schema: ObjectGridSchema | CalendarSchema): ViewData | null {
+  if ('data' in schema && schema.data) {
     return schema.data;
   }
   
-  if (schema.staticData) {
+  if ('staticData' in schema && schema.staticData) {
     return {
       provider: 'value',
       items: schema.staticData,
@@ -90,9 +101,9 @@ function convertSortToQueryParams(sort: string | any[] | undefined): Record<stri
 /**
  * Helper to get calendar configuration from schema
  */
-function getCalendarConfig(schema: ObjectGridSchema): CalendarConfig | null {
+function getCalendarConfig(schema: ObjectGridSchema | CalendarSchema): CalendarConfig | null {
   // Check if schema has calendar configuration
-  if (schema.filter && typeof schema.filter === 'object' && 'calendar' in schema.filter) {
+  if ('filter' in schema && schema.filter && typeof schema.filter === 'object' && 'calendar' in schema.filter) {
     return (schema.filter as any).calendar as CalendarConfig;
   }
   

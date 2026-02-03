@@ -48,6 +48,16 @@ export interface KanbanSchema extends BaseSchema {
   groupBy?: string;
 
   /**
+   * Field to use as the card title.
+   */
+  cardTitle?: string;
+
+  /**
+   * Fields to display on the card.
+   */
+  cardFields?: string[];
+
+  /**
    * Static data or bound data.
    */
   data?: any[];

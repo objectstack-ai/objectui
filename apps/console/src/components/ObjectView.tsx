@@ -4,7 +4,7 @@ import { ObjectGrid } from '@object-ui/plugin-grid';
 import { ObjectKanban } from '@object-ui/plugin-kanban';
 import { ObjectCalendar } from '@object-ui/plugin-calendar';
 import { Button, Tabs, TabsList, TabsTrigger } from '@object-ui/components';
-import { Plus, LayoutTemplate, Calendar as CalendarIcon, Kanban as KanbanIcon, Table as TableIcon } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Kanban as KanbanIcon, Table as TableIcon } from 'lucide-react';
 
 export function ObjectView({ dataSource, objects, onEdit }: any) {
     const { objectName } = useParams();

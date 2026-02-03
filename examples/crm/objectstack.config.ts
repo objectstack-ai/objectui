@@ -82,6 +82,7 @@ export default defineStack({
                 xField: 'stage',
                 yField: 'amount'
             },
+            // @ts-ignore
             data: {
                 object: 'opportunity',
                 aggregate: [
@@ -96,6 +97,7 @@ export default defineStack({
             options: {
                 columns: ['name', 'amount', 'stage']
             },
+            // @ts-ignore
             data: {
                 object: 'opportunity',
                 limit: 5,
@@ -110,6 +112,7 @@ export default defineStack({
                 xField: 'month',
                 yField: 'revenue'
             },
+            // @ts-ignore
             data: {
                 provider: 'value',
                 items: [

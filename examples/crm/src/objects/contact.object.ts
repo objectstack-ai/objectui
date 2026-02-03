@@ -10,7 +10,7 @@ export const ContactObject = ObjectSchema.create({
     phone: Field.text({ label: 'Phone' }),
     title: Field.text({ label: 'Title' }),
     account: Field.lookup('account', { label: 'Account' }),
-    status: Field.select(['Active', 'Lead', 'Customer'], { label: 'Status', filterable: true }),
+    status: Field.select(['Active', 'Lead', 'Customer'], { label: 'Status' }),
     priority: Field.select(['High', 'Medium', 'Low'], { label: 'Priority', defaultValue: 'Medium' }),
     is_active: Field.boolean({ label: 'Active', defaultValue: true }),
     notes: Field.textarea({ label: 'Notes' })

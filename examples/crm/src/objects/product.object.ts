@@ -7,9 +7,9 @@ export const ProductObject = ObjectSchema.create({
   fields: {
     name: Field.text({ label: 'Product Name', required: true, searchable: true }),
     sku: Field.text({ label: 'SKU', required: true, searchable: true }),
-    category: Field.select(['Electronics', 'Furniture', 'Clothing', 'Services'], { label: 'Category', filterable: true }),
-    price: Field.currency({ label: 'Price', sortable: true }),
-    stock: Field.number({ label: 'Stock', sortable: true }),
+    category: Field.select(['Electronics', 'Furniture', 'Clothing', 'Services'], { label: 'Category' }),
+    price: Field.currency({ label: 'Price' }),
+    stock: Field.number({ label: 'Stock' }),
     description: Field.textarea({ label: 'Description' }),
     image: Field.url({ label: 'Image URL' })
   },

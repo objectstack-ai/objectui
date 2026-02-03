@@ -6,7 +6,7 @@ export const AccountObject = ObjectSchema.create({
   icon: 'building',
   fields: {
     name: Field.text({ label: 'Account Name', required: true, searchable: true }),
-    industry: Field.select(['Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing'], { label: 'Industry', filterable: true }),
+    industry: Field.select(['Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing'], { label: 'Industry' }),
     rating: Field.select(['Hot', 'Warm', 'Cold'], { label: 'Rating' }),
     type: Field.select(['Customer', 'Partner', 'Reseller', 'Vendor'], { label: 'Type' }),
     annual_revenue: Field.currency({ label: 'Annual Revenue' }),

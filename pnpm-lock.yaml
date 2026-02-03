@@ -204,6 +204,9 @@ importers:
       '@object-ui/plugin-calendar':
         specifier: workspace:*
         version: link:../../packages/plugin-calendar
+      '@object-ui/plugin-charts':
+        specifier: workspace:*
+        version: link:../../packages/plugin-charts
       '@object-ui/plugin-dashboard':
         specifier: workspace:*
         version: link:../../packages/plugin-dashboard

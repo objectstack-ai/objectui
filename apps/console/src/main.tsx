@@ -10,6 +10,9 @@ import './index.css';
 import { App } from './App';
 import { startMockServer } from './mocks/browser';
 
+// Register plugins
+import '@object-ui/plugin-charts';
+
 // Start MSW before rendering the app
 async function bootstrap() {
   // Initialize Mock Service Worker if enabled

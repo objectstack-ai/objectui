@@ -92,9 +92,13 @@ export default defineStack({
             },
             // @ts-ignore
             data: {
-                object: 'opportunity',
-                aggregate: [
-                    { $group: { _id: '$stage', amount: { $sum: '$amount' } } }
+                provider: 'value',
+                items: [
+                    { stage: 'Prospecting', amount: 120000 },
+                    { stage: 'Qualification', amount: 85000 },
+                    { stage: 'Proposal', amount: 50000 },
+                    { stage: 'Negotiation', amount: 35000 },
+                    { stage: 'Closed Won', amount: 150000 }
                 ]
             }
         },
@@ -103,13 +107,22 @@ export default defineStack({
             type: 'table',
             layout: { x: 2, y: 0, w: 2, h: 2 },
             options: {
-                columns: ['name', 'amount', 'stage']
+                columns: [
+                    { header: 'Opportunity Name', accessorKey: 'name' }, 
+                    { header: 'Amount', accessorKey: 'amount' }, 
+                    { header: 'Stage', accessorKey: 'stage' }
+                ]
             },
             // @ts-ignore
             data: {
-                object: 'opportunity',
-                limit: 5,
-                sort: [['created_date', 'desc']]
+                provider: 'value',
+                items: [
+                   { name: 'TechCorp License', amount: '$50,000', stage: 'Proposal' },
+                   { name: 'Software Inc Pilot', amount: '$5,000', stage: 'Closed Won' },
+                   { name: 'Consulting Q2', amount: '$12,000', stage: 'Negotiation' },
+                   { name: 'Global Widget Deal', amount: '$85,000', stage: 'Qualification' },
+                   { name: 'Startup Bundle', amount: '$2,500', stage: 'Prospecting' }
+                ]
             }
         },
         {

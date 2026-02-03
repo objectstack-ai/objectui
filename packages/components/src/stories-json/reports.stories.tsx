@@ -114,7 +114,9 @@ export const ReportBuilder: Story = {
       { name: 'revenue', label: 'Revenue', type: 'number' },
       { name: 'units', label: 'Units Sold', type: 'number' },
       { name: 'region', label: 'Region', type: 'string' },
-      { name: 'date', label: 'Date', type: 'date' }
+      { name: 'product', label: 'Product', type: 'string' },
+      { name: 'date', label: 'Date', type: 'date' },
+      { name: 'customer', label: 'Customer', type: 'string' }
     ],
     showPreview: true,
     onSave: 'handleSaveReport',
@@ -129,16 +131,31 @@ export const ReportBuilderWithInitialConfig: Story = {
     report: {
       type: 'report',
       title: 'Monthly Sales Report',
-      description: 'Sales performance tracking',
+      description: 'Sales performance tracking by region',
       fields: [
         { name: 'revenue', label: 'Revenue', type: 'number', aggregation: 'sum', showInSummary: true },
-        { name: 'units', label: 'Units Sold', type: 'number', aggregation: 'count' }
+        { name: 'units', label: 'Units Sold', type: 'number', aggregation: 'count', showInSummary: true },
+        { name: 'region', label: 'Region', type: 'string' }
       ],
+      filters: [
+        { field: 'date', operator: 'greater_than', value: '2024-01-01' }
+      ],
+      groupBy: [
+        { field: 'region', sort: 'asc' }
+      ],
+      sections: [
+        { type: 'header', title: 'Executive Summary' },
+        { type: 'summary', title: 'Key Metrics' },
+        { type: 'table', title: 'Detailed Data' }
+      ],
+      showExportButtons: true,
+      defaultExportFormat: 'pdf'
     },
     availableFields: [
       { name: 'revenue', label: 'Revenue', type: 'number' },
       { name: 'units', label: 'Units Sold', type: 'number' },
       { name: 'region', label: 'Region', type: 'string' },
+      { name: 'product', label: 'Product', type: 'string' },
       { name: 'date', label: 'Date', type: 'date' }
     ],
     showPreview: true,

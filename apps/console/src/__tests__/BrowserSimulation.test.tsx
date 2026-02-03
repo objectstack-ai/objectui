@@ -295,7 +295,7 @@ describe('Kanban Integration', () => {
         
         // Use getAllByText for "In Progress" since it appears in both header and badge
         const inProgressElements = screen.getAllByText('In Progress');
-        expect(inProgressElements.length).toBeGreaterThan(0);
+        expect(inProgressElements.length).toBeGreaterThanOrEqual(2); // Column header + badge
         
         expect(screen.getByText('Done')).toBeInTheDocument();
 
@@ -312,16 +312,10 @@ describe('Kanban Integration', () => {
         // Verify badges
         expect(screen.getByText('High Priority')).toBeInTheDocument();
         expect(screen.getByText('Bug')).toBeInTheDocument();
-        
-        // "In Progress" appears in both header and badge, check length
-        const inProgressBadges = screen.getAllByText('In Progress');
-        expect(inProgressBadges.length).toBeGreaterThanOrEqual(1);
-        
         expect(screen.getByText('Completed')).toBeInTheDocument();
 
-        // Verify column count display (shows "1" for task count in In Progress column)
-        const countElements = screen.getAllByText(/1/);
-        expect(countElements.length).toBeGreaterThan(0);
+        // Verify column count display - In Progress column shows "1 / 3" (1 card out of limit of 3)
+        expect(screen.getByText('1 / 3')).toBeInTheDocument();
     });
 
     it('Scenario B: Metadata-Driven Hydration (Server Test)', async () => {

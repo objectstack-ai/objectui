@@ -347,13 +347,14 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
     try {
       switch (operation) {
-        case 'create':
+        case 'create': {
           emitProgress();
           const created = await this.client.data.createMany<T>(resource, data);
           completed = created.length;
           failed = total - completed;
           emitProgress();
           return created;
+        }
         
         case 'delete': {
           const ids = data.map(item => (item as Record<string, unknown>).id).filter(Boolean) as string[];

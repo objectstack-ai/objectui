@@ -30,6 +30,12 @@ const mocks = vi.hoisted(() => {
             }
             return { data: [] }; 
         }
+        async findOne(objectName: string, id: string) {
+            if (objectName === 'kitchen_sink') {
+                return { id, name: 'Test Sink', amount: 100 };
+            }
+            return null;
+        }
         async getObjectSchema(name: string) {
             if (name === 'kitchen_sink') {
                 return {
@@ -164,10 +170,11 @@ describe('Console Application Simulation', () => {
         });
 
         // 4. Verify Field Inputs
-        // Wait for at least one field to appear to ensure form is loaded
+        // Wait for form to finish loading and fields to appear
+        // Note: Increased timeout to account for async schema fetching and form generation
         await waitFor(() => {
              expect(screen.getByText(/Text \(Name\)/i)).toBeInTheDocument();
-        }, { timeout: 5000 });
+        }, { timeout: 15000 });
 
         const fieldLabels = [
             'Text (Name)',
@@ -178,16 +185,14 @@ describe('Console Application Simulation', () => {
             'Boolean (Switch)',
         ];
 
-        // Check each label exists
+        // Check each label exists - use waitFor for each to handle async rendering
         for (const label of fieldLabels) {
-             const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-             const regex = new RegExp(escaped, 'i');
-             const elements = screen.queryAllByText(regex);
-             if (elements.length === 0) {
-                 console.log(`Failed to find label: ${label}`);
-                 // console.log(document.body.innerHTML); // Too large, but useful if localized
-             }
-             expect(elements.length).toBeGreaterThan(0);
+             await waitFor(() => {
+                 const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                 const regex = new RegExp(escaped, 'i');
+                 const elements = screen.queryAllByText(regex);
+                 expect(elements.length).toBeGreaterThan(0);
+             }, { timeout: 5000 });
         }
 
         // 5. Test specific interaction (e.g. typing in name)

@@ -36,14 +36,22 @@ export const TodoTask = ObjectSchema.create({
       description: 'Rich text notes with formatting',
     }),
   },
-  // actions: {
-  //   // Custom button on the Record page
-  //   complete: {
-  //       label: 'Mark Complete',
-  //       type: 'script',
-  //       on: 'record',
-  //       todo: 'update_record',
-  //       visible: [['is_completed', '=', false]]
-  //   }
-  // }
+  list_views: {
+    all: {
+      label: 'All Tasks',
+      columns: ['subject', 'due_date', 'priority', 'is_completed']
+    },
+    calendar: {
+      label: 'Calendar',
+      type: 'calendar',
+      dateField: 'due_date',
+      titleField: 'subject'
+    },
+    board: {
+      label: 'Board',
+      type: 'kanban',
+      groupBy: 'priority',
+      columns: ['subject', 'due_date', 'is_completed']
+    }
+  }
 });

@@ -24,8 +24,8 @@ export default defineStack({
       navigation: [
         {
           id: 'nav_dashboard',
-          type: 'page',
-          pageName: 'dashboard',
+          type: 'dashboard',
+          dashboardName: 'crm_dashboard',
           label: 'Dashboard',
           icon: 'layout-dashboard'
         },
@@ -68,6 +68,60 @@ export default defineStack({
         }
       ]
     })
+  ],
+  dashboards: [
+    {
+      name: 'crm_dashboard',
+      label: 'CRM Overview',
+      widgets: [
+        {
+            title: 'Pipeline by Stage',
+            type: 'bar',
+            layout: { x: 0, y: 0, w: 2, h: 2 },
+            options: {
+                xField: 'stage',
+                yField: 'amount'
+            },
+            data: {
+                object: 'opportunity',
+                aggregate: [
+                    { $group: { _id: '$stage', amount: { $sum: '$amount' } } }
+                ]
+            }
+        },
+        {
+            title: 'Recent Opportunities',
+            type: 'table',
+            layout: { x: 2, y: 0, w: 2, h: 2 },
+            options: {
+                columns: ['name', 'amount', 'stage']
+            },
+            data: {
+                object: 'opportunity',
+                limit: 5,
+                sort: [['created_date', 'desc']]
+            }
+        },
+        {
+            title: 'Revenue Trends',
+            type: 'line',
+            layout: { x: 0, y: 2, w: 4, h: 2 },
+            options: {
+                xField: 'month',
+                yField: 'revenue'
+            },
+            data: {
+                provider: 'value',
+                items: [
+                   { month: 'Jan', revenue: 45000 },
+                   { month: 'Feb', revenue: 52000 },
+                   { month: 'Mar', revenue: 48000 },
+                   { month: 'Apr', revenue: 61000 }
+                ]
+            }
+        }
+      ]
+    }
   ],
   manifest: {
     id: 'com.example.crm',

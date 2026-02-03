@@ -28,6 +28,12 @@ export const OpportunityObject = ObjectSchema.create({
       label: 'Won',
       columns: ['name', 'amount', 'account', 'close_date'],
       filter: [['stage', '=', 'Closed Won']]
+    },
+    pipeline: {
+      label: 'Pipeline',
+      type: 'kanban',
+      columns: ['name', 'amount', 'account'],
+      groupBy: 'stage'
     }
   }
 });

@@ -139,19 +139,34 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
 
-  const dataConfig = useMemo(() => getDataConfig(schema), [schema]);
-  const calendarConfig = useMemo(() => getCalendarConfig(schema), [schema]);
+  const dataConfig = useMemo(() => getDataConfig(schema), [
+    (schema as any).data,
+    (schema as any).staticData,
+    schema.objectName,
+  ]);
+  const calendarConfig = useMemo(() => getCalendarConfig(schema), [
+    schema.filter,
+    (schema as any).calendar,
+    (schema as any).dateField,
+    (schema as any).endField,
+    (schema as any).titleField,
+    (schema as any).colorField
+  ]);
   const hasInlineData = dataConfig?.provider === 'value';
 
   // Fetch data based on provider
   useEffect(() => {
+    let isMounted = true;
     const fetchData = async () => {
       try {
+        if (!isMounted) return;
         setLoading(true);
         
         if (hasInlineData && dataConfig?.provider === 'value') {
-          setData(dataConfig.items as any[]);
-          setLoading(false);
+          if (isMounted) {
+            setData(dataConfig.items as any[]);
+            setLoading(false);
+          }
           return;
         }
 
@@ -178,20 +193,26 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
             }
           }
           
-          setData(items);
+          if (isMounted) {
+            setData(items);
+          }
         } else if (dataConfig?.provider === 'api') {
           console.warn('API provider not yet implemented for ObjectCalendar');
-          setData([]);
+          if (isMounted) setData([]);
         }
         
-        setLoading(false);
+        if (isMounted) setLoading(false);
       } catch (err) {
-        setError(err as Error);
-        setLoading(false);
+        console.error('[ObjectCalendar] Error fetching data:', err);
+        if (isMounted) {
+          setError(err as Error);
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
+    return () => { isMounted = false; };
   }, [dataConfig, dataSource, hasInlineData, schema.filter, schema.sort]);
 
   // Fetch object schema for field metadata

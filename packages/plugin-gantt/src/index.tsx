@@ -15,6 +15,9 @@ import type { ObjectGanttProps } from './ObjectGantt';
 export { ObjectGantt };
 export type { ObjectGanttProps };
 
+export { GanttView } from './GanttView';
+export type { GanttViewProps, GanttTask, GanttViewMode } from './GanttView';
+
 // Register component
 const ObjectGanttRenderer: React.FC<{ schema: any }> = ({ schema }) => {
   const { dataSource } = useSchemaContext();
@@ -27,6 +30,6 @@ ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
   category: 'plugin',
   inputs: [
     { name: 'objectName', type: 'string', label: 'Object Name', required: true },
-    { name: 'gantt', type: 'object', label: 'Gantt Config', description: 'startDateField, endDateField, titleField, progressField, dependenciesField' },
+    { name: 'gantt', type: 'object', label: 'Gantt Config', description: 'startDateField, endDateField, titleField, progressField, percentageField, colorField, dependenciesField' },
   ],
 });

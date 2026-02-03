@@ -160,6 +160,8 @@ export interface GanttConfig {
   progressField?: string;
   /** Dependencies field */
   dependenciesField?: string;
+  /** Color field */
+  colorField?: string;
 }
 
 /**

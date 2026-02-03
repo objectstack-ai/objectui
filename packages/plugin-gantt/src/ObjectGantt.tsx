@@ -24,6 +24,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import type { ObjectGridSchema, DataSource, ViewData, GanttConfig } from '@object-ui/types';
+import { GanttView, type GanttTask } from './GanttView';
 
 export interface ObjectGanttProps {
   schema: ObjectGridSchema;
@@ -191,7 +192,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       return [];
     }
 
-    const { startDateField, endDateField, titleField, progressField, dependenciesField } = ganttConfig;
+    const { startDateField, endDateField, titleField, progressField, dependenciesField, colorField } = ganttConfig;
 
     return data.map((record, index) => {
       const startDate = record[startDateField];
@@ -199,6 +200,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const title = record[titleField] || 'Untitled Task';
       const progress = progressField ? record[progressField] : 0;
       const dependencies = dependenciesField ? record[dependenciesField] : [];
+      const color = colorField ? record[colorField] : undefined;
 
       return {
         id: record.id || record._id || `task-${index}`,
@@ -207,57 +209,11 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         end: endDate ? new Date(endDate) : new Date(),
         progress: Math.min(100, Math.max(0, progress || 0)), // Clamp between 0-100
         dependencies: Array.isArray(dependencies) ? dependencies : [],
+        color,
         data: record,
       };
     }).filter(task => !isNaN(task.start.getTime()) && !isNaN(task.end.getTime()));
   }, [data, ganttConfig]);
-
-  // Calculate timeline range
-  const timelineRange = useMemo(() => {
-    if (!tasks.length) {
-      const now = new Date();
-      return {
-        start: new Date(now.getFullYear(), now.getMonth(), 1),
-        end: new Date(now.getFullYear(), now.getMonth() + 3, 0),
-      };
-    }
-
-    const allDates = tasks.flatMap(task => [task.start, task.end]);
-    const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
-
-    // Add some padding
-    minDate.setDate(minDate.getDate() - 7);
-    maxDate.setDate(maxDate.getDate() + 7);
-
-    return { start: minDate, end: maxDate };
-  }, [tasks]);
-
-  // Generate month headers
-  const months = useMemo(() => {
-    const result = [];
-    const current = new Date(timelineRange.start);
-    current.setDate(1);
-
-    while (current <= timelineRange.end) {
-      result.push(new Date(current));
-      current.setMonth(current.getMonth() + 1);
-    }
-
-    return result;
-  }, [timelineRange]);
-
-  // Calculate task bar position and width
-  const getTaskPosition = (task: any) => {
-    const totalDays = (timelineRange.end.getTime() - timelineRange.start.getTime()) / (1000 * 60 * 60 * 24);
-    const taskStart = (task.start.getTime() - timelineRange.start.getTime()) / (1000 * 60 * 60 * 24);
-    const taskDuration = (task.end.getTime() - task.start.getTime()) / (1000 * 60 * 60 * 24);
-
-    return {
-      left: `${(taskStart / totalDays) * 100}%`,
-      width: `${(taskDuration / totalDays) * 100}%`,
-    };
-  };
 
   if (loading) {
     return (
@@ -291,122 +247,16 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     );
   }
 
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
   return (
     <div className={className}>
-      <div className="border rounded-lg bg-background overflow-hidden">
-        <div className="flex">
-          {/* Task List */}
-          <div className="w-64 border-r flex-shrink-0">
-            <div className="border-b p-3 font-semibold bg-muted">Tasks</div>
-            <div>
-              {tasks.map(task => (
-                <div
-                  key={task.id}
-                  className="border-b p-3 hover:bg-muted/50 cursor-pointer"
-                  onClick={() => onTaskClick?.(task.data)}
-                >
-                  <div className="font-medium text-sm truncate">{task.title}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {task.start.toLocaleDateString()} - {task.end.toLocaleDateString()}
-                  </div>
-                  {task.progress > 0 && (
-                    <div className="mt-2">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span>Progress</span>
-                        <span>{task.progress}%</span>
-                      </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary"
-                          style={{ width: `${task.progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Timeline */}
-          <div className="flex-1 overflow-x-auto">
-            {/* Month Headers */}
-            <div className="border-b bg-muted sticky top-0 z-10">
-              <div className="flex">
-                {months.map((month, index) => {
-                  const daysInMonth = new Date(
-                    month.getFullYear(),
-                    month.getMonth() + 1,
-                    0
-                  ).getDate();
-                  
-                  return (
-                    <div
-                      key={index}
-                      className="border-r p-3 text-center font-semibold text-sm"
-                      style={{ minWidth: `${daysInMonth * 20}px` }}
-                    >
-                      {monthNames[month.getMonth()]} {month.getFullYear()}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Task Bars */}
-            <div className="relative">
-              {tasks.map((task) => {
-                const position = getTaskPosition(task);
-                
-                return (
-                  <div
-                    key={task.id}
-                    className="border-b relative"
-                    style={{ height: '60px' }}
-                  >
-                    {/* Month grid lines */}
-                    <div className="absolute inset-0 flex pointer-events-none">
-                      {months.map((month, idx) => {
-                        const daysInMonth = new Date(
-                          month.getFullYear(),
-                          month.getMonth() + 1,
-                          0
-                        ).getDate();
-                        
-                        return (
-                          <div
-                            key={idx}
-                            className="border-r"
-                            style={{ minWidth: `${daysInMonth * 20}px` }}
-                          />
-                        );
-                      })}
-                    </div>
-
-                    {/* Task Bar */}
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 h-8 bg-primary/80 rounded cursor-pointer hover:bg-primary transition-colors flex items-center px-2 text-white text-xs font-medium overflow-hidden"
-                      style={position}
-                      onClick={() => onTaskClick?.(task.data)}
-                    >
-                      {/* Progress overlay */}
-                      {task.progress > 0 && (
-                        <div
-                          className="absolute inset-0 bg-primary-foreground/20"
-                          style={{ width: `${task.progress}%` }}
-                        />
-                      )}
-                      <span className="relative z-10 truncate">{task.title}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+      <div className="h-[calc(100vh-200px)] min-h-[600px]">
+        <GanttView 
+          tasks={tasks}
+          onTaskClick={(task) => onTaskClick?.(task.data)}
+          onAddClick={() => {
+            // Placeholder for add action
+          }}
+        />
       </div>
     </div>
   );

@@ -121,7 +121,6 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
   onEventClick,
   onDateClick,
 }) => {
-  console.log('ObjectCalendar Schema:', JSON.stringify(schema)); 
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -129,8 +128,8 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
 
-  const dataConfig = getDataConfig(schema);
-  const calendarConfig = getCalendarConfig(schema);
+  const dataConfig = useMemo(() => getDataConfig(schema), [schema]);
+  const calendarConfig = useMemo(() => getCalendarConfig(schema), [schema]);
   const hasInlineData = dataConfig?.provider === 'value';
 
   // Fetch data based on provider
@@ -155,7 +154,20 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
             $filter: schema.filter,
             $orderby: convertSortToQueryParams(schema.sort),
           });
-          setData(result?.data || []);
+          
+          let items: any[] = [];
+          
+          if (Array.isArray(result)) {
+            items = result;
+          } else if (result && typeof result === 'object') {
+            if (Array.isArray((result as any).data)) {
+              items = (result as any).data;
+            } else if (Array.isArray((result as any).value)) {
+              items = (result as any).value;
+            }
+          }
+          
+          setData(items);
         } else if (dataConfig?.provider === 'api') {
           console.warn('API provider not yet implemented for ObjectCalendar');
           setData([]);
@@ -248,7 +260,14 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
     return events.filter(event => {
       const eventStart = new Date(event.start);
       eventStart.setHours(0, 0, 0, 0);
-      const eventEnd = event.end ? new Date(event.end) : eventStart;
+      
+      let eventEnd: Date;
+      if (event.end) {
+        eventEnd = new Date(event.end);
+      } else {
+        eventEnd = new Date(eventStart);
+      }
+      
       eventEnd.setHours(23, 59, 59, 999);
       
       const checkDay = new Date(day);

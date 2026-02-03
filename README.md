@@ -370,7 +370,9 @@ We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md
 
 - 📖 [Contributing Guide](./CONTRIBUTING.md) - How to contribute to the project
 - 🏗️ [Architecture Evaluation](./ARCHITECTURE_EVALUATION.md) - Comprehensive architecture analysis and improvement recommendations ([中文版](./ARCHITECTURE_EVALUATION.zh-CN.md))
-- 🔄 [ObjectStack Spec Alignment](./OBJECTSTACK_SPEC_ALIGNMENT.md) - Alignment analysis with ObjectStack Spec v0.7.1 and development roadmap ([中文版](./OBJECTSTACK_SPEC_ALIGNMENT.zh-CN.md))
+- 🔄 [ObjectStack Spec UI Alignment](./OBJECTSTACK_SPEC_UI_ALIGNMENT.md) - Detailed alignment analysis with @objectstack/spec v0.9.0 UI protocol requirements
+- 🚀 [Development Roadmap](./DEVELOPMENT_ROADMAP.zh-CN.md) - Complete 6-week development plan for server integration and production launch ([中文](./DEVELOPMENT_ROADMAP.zh-CN.md))
+- 📊 [Executive Summary](./EXECUTIVE_SUMMARY.zh-CN.md) - Quick reference for current status and next steps ([中文](./EXECUTIVE_SUMMARY.zh-CN.md))
 
 ### Development Setup
 

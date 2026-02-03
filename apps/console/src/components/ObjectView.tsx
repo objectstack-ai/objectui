@@ -165,49 +165,58 @@ export function ObjectView({ dataSource, objects, onEdit }: any) {
     };
 
     return (
-        <div className="h-full flex flex-col gap-4">
+        <div className="h-full flex flex-col">
              {/* Header Section */}
-             <div className="flex justify-between items-start">
-                 <div className="space-y-1">
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">{objectDef.label}</h1>
-                    <div className="flex items-center gap-2">
-                        {/* View Switcher Tabs */}
-                        {views.length > 1 && (
-                            <Tabs value={activeView.id} onValueChange={handleViewChange} className="h-8">
-                                <TabsList className="h-8 p-0 bg-transparent border-0 gap-2">
-                                    {views.map((v: any) => (
-                                        <TabsTrigger 
-                                            key={v.id} 
-                                            value={v.id}
-                                            className="h-8 px-3 data-[state=active]:bg-muted data-[state=active]:shadow-none border border-transparent data-[state=active]:border-border rounded-md transition-all"
-                                        >
-                                            {v.type === 'kanban' && <KanbanIcon className="mr-2 h-3.5 w-3.5" />}
-                                            {v.type === 'calendar' && <CalendarIcon className="mr-2 h-3.5 w-3.5" />}
-                                            {v.type === 'grid' && <TableIcon className="mr-2 h-3.5 w-3.5" />}
-                                            {v.type === 'gantt' && <AlignLeft className="mr-2 h-3.5 w-3.5" />}
-                                            {v.label}
-                                        </TabsTrigger>
-                                    ))}
-                                </TabsList>
-                            </Tabs>
-                        )}
-                        {views.length <= 1 && (
-                             <p className="text-slate-500 text-sm">
-                                {objectDef.description || 'Manage your records'}
-                             </p>
-                        )}
+             <div className="flex justify-between items-center py-4 px-6 border-b shrink-0 bg-background/95 backdrop-blur z-10 sticky top-0">
+                 <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-lg shrink-0">
+                             {/* Map icons based on object name if possible, fallback to generic */}
+                            <TableIcon className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold tracking-tight text-foreground">{objectDef.label}</h1>
+                            <p className="text-sm text-muted-foreground">{activeView.label}</p>
+                        </div>
                     </div>
+
+                    {/* View Switcher - Re-styled as refined segmented control */}
+                    {views.length > 1 && (
+                        <div className="ml-4 h-8 bg-muted/50 rounded-lg p-1 flex items-center">
+                            {views.map((v: any) => (
+                                <button
+                                    key={v.id}
+                                    onClick={() => handleViewChange(v.id)}
+                                    className={`
+                                        flex items-center gap-2 px-3 h-full rounded-md text-sm font-medium transition-all
+                                        ${activeView.id === v.id 
+                                            ? 'bg-background shadow-sm text-foreground' 
+                                            : 'text-muted-foreground hover:bg-background/50 hover:text-foreground/80'
+                                        }
+                                    `}
+                                >
+                                    {v.type === 'kanban' && <KanbanIcon className="h-3.5 w-3.5" />}
+                                    {v.type === 'calendar' && <CalendarIcon className="h-3.5 w-3.5" />}
+                                    {v.type === 'grid' && <TableIcon className="h-3.5 w-3.5" />}
+                                    {v.type === 'gantt' && <AlignLeft className="h-3.5 w-3.5" />}
+                                    <span>{v.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                  </div>
-                 <div className="flex gap-2">
-                    <Button onClick={() => onEdit(null)} className="shadow-none">
-                        <Plus className="mr-2 h-4 w-4" /> New {objectDef.label}
+                 
+                 <div className="flex items-center gap-2">
+                    <Button onClick={() => onEdit(null)} className="shadow-none gap-2">
+                        <Plus className="h-4 w-4" /> 
+                        <span className="hidden sm:inline">New</span>
                     </Button>
                  </div>
              </div>
 
              {/* Content Area */}
-             <div className="flex-1 rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden p-0 relative">
-                <div className="absolute inset-0">
+             <div className="flex-1 bg-muted/5 p-4 sm:p-6 overflow-hidden">
+                <div className="h-full w-full rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden relative">
                     {renderCurrentView()}
                 </div>
              </div>

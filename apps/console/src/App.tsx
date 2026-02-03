@@ -169,10 +169,14 @@ function findFirstRoute(items: any[]): string {
     return '/';
 }
 
+import { ThemeProvider } from './components/theme-provider';
+
 export function App() {
   return (
-    <BrowserRouter>
-        <AppContent />
-    </BrowserRouter>
+    <ThemeProvider defaultTheme="system" storageKey="object-ui-theme">
+      <BrowserRouter>
+          <AppContent />
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

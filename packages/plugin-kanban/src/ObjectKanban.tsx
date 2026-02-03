@@ -34,45 +34,53 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
 
   // Fetch object definition for metadata (labels, options)
   useEffect(() => {
+    let isMounted = true;
     const fetchMeta = async () => {
         if (!dataSource || !schema.objectName) return;
         try {
-            const def = await dataSource.getObject(schema.objectName);
-            setObjectDef(def);
+            const def = await dataSource.getObjectSchema(schema.objectName);
+            if (isMounted) setObjectDef(def);
         } catch (e) {
             console.warn("Failed to fetch object def", e);
         }
     };
     fetchMeta();
+    return () => { isMounted = false; };
   }, [schema.objectName, dataSource]);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchData = async () => {
         if (!dataSource || !schema.objectName) return;
-        setLoading(true);
+        if (isMounted) setLoading(true);
         try {
-            // Simple find for now, usually we might want filters
-            // Using a large limit or pagination would be needed for real apps,
-            // for now, we assume a reasonable default.
             const results = await dataSource.find(schema.objectName, {
-                options: { $top: 100 } // Fetch up to 100 cards
+                options: { $top: 100 },
+                $filter: schema.filter
             });
+            
             // Handle { value: [] } OData shape or { data: [] } shape or direct array
-            let data = results;
-            if ((results as any).value) {
-                data = (results as any).value;
-            } else if ((results as any).data) {
-                data = (results as any).data;
+            let data: any[] = [];
+            if (Array.isArray(results)) {
+                data = results;
+            } else if (results && typeof results === 'object') {
+                if (Array.isArray((results as any).value)) {
+                    data = (results as any).value;
+                } else if (Array.isArray((results as any).data)) {
+                    data = (results as any).data;
+                }
             }
 
-            if (Array.isArray(data)) {
+            console.log(`[ObjectKanban] Extracted data (length: ${data.length})`);
+
+            if (isMounted) {
                 setFetchedData(data);
             }
         } catch (e) {
-            console.error(e);
-            setError(e as Error);
+            console.error('[ObjectKanban] Fetch error:', e);
+            if (isMounted) setError(e as Error);
         } finally {
-            setLoading(false);
+            if (isMounted) setLoading(false);
         }
     };
 
@@ -80,7 +88,8 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
     if (schema.objectName && !boundData && !schema.data) {
         fetchData();
     }
-  }, [schema.objectName, dataSource, boundData, schema.data]);
+    return () => { isMounted = false; };
+  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter]);
 
   // Determine which data to use: bound -> inline -> fetched
   const rawData = boundData || schema.data || fetchedData;

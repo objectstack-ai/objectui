@@ -161,7 +161,7 @@ describe('Plugins Integration Test', () => {
 
             // Wait for schema fetch and rendering
             await waitFor(() => {
-                expect(mockDataSource.getObject).toHaveBeenCalledWith('todo_task');
+                expect(mockDataSource.getObjectSchema).toHaveBeenCalledWith('todo_task');
             });
 
             // Expect columns to be generated from schema options

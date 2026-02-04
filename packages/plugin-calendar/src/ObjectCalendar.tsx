@@ -139,6 +139,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
   onDateClick,
   onNavigate,
   onViewChange,
+  ...rest
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,6 +177,16 @@ export const ObjectCalendar: React.FC<ObjectCalendarProps> = ({
             setLoading(false);
           }
           return;
+        }
+
+        // Prioritize data passed from parent (ListView)
+        if ((schema as any).data || (rest as any).data) {
+            const passedData = (schema as any).data || (rest as any).data;
+            if (Array.isArray(passedData)) {
+                setData(passedData);
+                setLoading(false);
+                return;
+            }
         }
 
         if (!dataSource) {

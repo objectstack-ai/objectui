@@ -145,11 +145,6 @@ export function ObjectView({ dataSource, objects, onEdit }: any) {
                     aggregation: activeView.aggregation,
                     series: activeView.series,
                     config: activeView.config,
-                },
-                gallery: {
-                    imageField: activeView.imageField,
-                    titleField: activeView.titleField || 'name',
-                    subtitleField: activeView.subtitleField
                 }
             }
         };

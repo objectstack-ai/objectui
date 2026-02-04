@@ -49,6 +49,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   schema,
   dataSource,
   className,
+  ...props
 }) => {
   const [fetchedData, setFetchedData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -89,12 +90,12 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         }
     };
 
-    if (schema.objectName && !boundData && !schema.items) {
+    if (schema.objectName && !boundData && !schema.items && !(props as any).data) {
         fetchData();
     }
-  }, [schema.objectName, dataSource, boundData, schema.items]);
+  }, [schema.objectName, dataSource, boundData, schema.items, (props as any).data]);
 
-  const rawData = boundData || fetchedData;
+  const rawData = (props as any).data || boundData || fetchedData;
 
   // Transform data to items if we have raw data and no explicit items
   let effectiveItems = schema.items;

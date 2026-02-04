@@ -19,6 +19,13 @@ export const ObjectGallery = (props: any) => {
 
     useEffect(() => {
         let isMounted = true;
+        
+        // Use data prop if available (from ListView)
+        if ((props.data && Array.isArray(props.data))) {
+            setFetchedData(props.data);
+            return;
+        }
+
         const fetchData = async () => {
             if (!dataSource || !schema.objectName) return;
             if (isMounted) setLoading(true);
@@ -49,13 +56,13 @@ export const ObjectGallery = (props: any) => {
             }
         };
     
-        if (schema.objectName && !boundData && !schema.data) {
+        if (schema.objectName && !boundData && !schema.data && !props.data) {
             fetchData();
         }
         return () => { isMounted = false; };
-      }, [schema.objectName, dataSource, boundData, schema.data, schema.filter]);
+      }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, props.data]);
 
-    const items = boundData || schema.data || fetchedData || [];
+    const items = props.data || boundData || schema.data || fetchedData || [];
     
     // Config
     const imageField = schema.imageField || 'image';

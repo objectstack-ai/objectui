@@ -108,11 +108,15 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
   onEdit,
   onDelete,
   onRowSelect,
+  ...rest
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [objectSchema, setObjectSchema] = useState<any>(null);
+
+  // Check if data is passed directly (from ListView)
+  const passedData = (rest as any).data;
 
   // Resolve bound data if 'bind' property exists
   const boundData = useDataScope(schema.bind);
@@ -121,6 +125,14 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
   const rawDataConfig = getDataConfig(schema);
   // Memoize dataConfig using deep comparison to prevent infinite loops
   const dataConfig = React.useMemo(() => {
+    // If we have passed data (highest priority), treat it as value provider
+    if (passedData && Array.isArray(passedData)) {
+        return {
+            provider: 'value',
+            items: passedData
+        };
+    }
+
     // If we have bound data, it takes precedence as inline value
     if (boundData && Array.isArray(boundData)) {
         return {
@@ -129,7 +141,7 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
         };
     }
     return rawDataConfig;
-  }, [JSON.stringify(rawDataConfig), boundData]);
+  }, [JSON.stringify(rawDataConfig), boundData, passedData]);
   
   const hasInlineData = dataConfig?.provider === 'value';
 

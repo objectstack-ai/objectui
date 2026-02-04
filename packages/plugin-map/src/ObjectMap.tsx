@@ -216,6 +216,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   dataSource,
   className,
   onMarkerClick,
+  ...rest
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,6 +238,16 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
     const fetchData = async () => {
       try {
         setLoading(true);
+        
+        // Prioritize data passed via props (from ListView)
+        if ((schema as any).data || (rest as any).data) {
+             const passed = (schema as any).data || (rest as any).data;
+             if (Array.isArray(passed)) {
+                 setData(passed);
+                 setLoading(false);
+                 return;
+             }
+        }
         
         if (hasInlineData && dataConfig?.provider === 'value') {
           setData(dataConfig.items as any[]);

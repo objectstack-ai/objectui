@@ -39,12 +39,67 @@ export const ListView: React.FC<ListViewProps> = ({
   const [sortField] = React.useState(schema.sort?.[0]?.field || '');
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>(schema.sort?.[0]?.order || 'asc');
   const [showFilters, setShowFilters] = React.useState(false);
+  
+  // Data State
+  const dataSource = props.dataSource;
+  const [data, setData] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(false);
 
   const storageKey = React.useMemo(() => {
     return schema.id 
       ? `listview-${schema.objectName}-${schema.id}-view`
       : `listview-${schema.objectName}-view`;
   }, [schema.objectName, schema.id]);
+
+  // Fetch data effect
+  React.useEffect(() => {
+    let isMounted = true;
+    
+    const fetchData = async () => {
+      if (!dataSource || !schema.objectName) return;
+      
+      setLoading(true);
+      try {
+        // Construct filter
+        let filter: any = schema.filters || [];
+        // TODO: Merge with searchTerm and user filters
+        // For now, we rely on the backend/driver to handle $filter
+        
+        // Convert sort to query format
+        // ObjectQL uses simple object: { field: 'asc' }
+        const sort: any = sortField ? { [sortField]: sortOrder } : undefined;
+
+        const results = await dataSource.find(schema.objectName, {
+           $filter: filter,
+           $orderby: sort,
+           $top: 100 // Default pagination limit
+        });
+        
+        let items: any[] = [];
+        if (Array.isArray(results)) {
+            items = results;
+        } else if (results && typeof results === 'object') {
+           if (Array.isArray((results as any).data)) {
+              items = (results as any).data; 
+           } else if (Array.isArray((results as any).value)) {
+              items = (results as any).value;
+           }
+        }
+        
+        if (isMounted) {
+          setData(items);
+        }
+      } catch (err) {
+        console.error("ListView data fetch error:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchData();
+    
+    return () => { isMounted = false; };
+  }, [schema.objectName, dataSource, schema.filters, sortField, sortOrder]); // Re-fetch on filter/sort change
 
   // Load saved view preference
   React.useEffect(() => {
@@ -201,6 +256,11 @@ export const ListView: React.FC<ListViewProps> = ({
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
+           schema={viewComponentSchema} 
+           {...props} 
+           data={data} // Pass data to children to avoid double-fetch
+           loading={loading}
+       
               placeholder={`Search ${schema.objectName}...`}
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}

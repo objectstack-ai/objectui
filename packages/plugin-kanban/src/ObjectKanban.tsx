@@ -22,6 +22,7 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
   schema,
   dataSource,
   className,
+  ...props
 }) => {
   const [fetchedData, setFetchedData] = useState<any[]>([]);
   const [objectDef, setObjectDef] = useState<any>(null);
@@ -85,14 +86,15 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
     };
 
     // Trigger fetch if we have an objectName AND verify no inline/bound data overrides it
-    if (schema.objectName && !boundData && !schema.data) {
+    // And NO props.data passed from ListView
+    if (schema.objectName && !boundData && !schema.data && !(props as any).data) {
         fetchData();
     }
     return () => { isMounted = false; };
-  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter]);
+  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, (props as any).data]);
 
-  // Determine which data to use: bound -> inline -> fetched
-  const rawData = boundData || schema.data || fetchedData;
+  // Determine which data to use: props.data -> bound -> inline -> fetched
+  const rawData = (props as any).data || boundData || schema.data || fetchedData;
 
   // Enhance data with title mapping and ensure IDs
   const effectiveData = useMemo(() => {

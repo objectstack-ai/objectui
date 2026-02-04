@@ -128,6 +128,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   dataSource,
   className,
   onTaskClick,
+  ...rest
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,6 +149,13 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     const fetchData = async () => {
       try {
         setLoading(true);
+        // 1. Check for data prop (Unified ListView)
+        if ((rest as any).data && Array.isArray((rest as any).data)) {
+            setData((rest as any).data);
+            setLoading(false);
+            return;
+        }
+
         
         if (hasInlineData && dataConfig?.provider === 'value') {
           setData(dataConfig.items as any[]);

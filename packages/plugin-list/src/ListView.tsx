@@ -196,13 +196,13 @@ export const ListView: React.FC<ListViewProps> = ({
   React.useEffect(() => {
     try {
       const savedView = localStorage.getItem(storageKey);
-      if (savedView && ['grid', 'kanban', 'calendar', 'timeline', 'gantt', 'map', 'gallery'].includes(savedView)) {
+      if (savedView && ['grid', 'kanban', 'calendar', 'timeline', 'gantt', 'map', 'gallery'].includes(savedView) && availableViews.includes(savedView as ViewType)) {
         setCurrentView(savedView as ViewType);
       }
     } catch (error) {
       console.warn('Failed to load view preference from localStorage:', error);
     }
-  }, [storageKey]);
+  }, [storageKey, availableViews]);
 
   const handleViewChange = React.useCallback((view: ViewType) => {
     setCurrentView(view);
@@ -327,7 +327,7 @@ export const ListView: React.FC<ListViewProps> = ({
     }
     
     // Check for Map capabilities
-    if (schema.options?.map?.locationField) {
+    if (schema.options?.map?.locationField || (schema.options?.map?.latitudeField && schema.options?.map?.longitudeField)) {
       views.push('map');
     }
     

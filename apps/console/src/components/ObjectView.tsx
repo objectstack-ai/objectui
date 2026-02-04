@@ -118,7 +118,7 @@ export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
                     descriptionField: activeView.descriptionField,
                 },
                 map: {
-                    locationField: activeView.locationField || 'location',
+                    locationField: activeView.locationField,
                     titleField: activeView.titleField || objectDef.titleField || 'name',
                     latitudeField: activeView.latitudeField,
                     longitudeField: activeView.longitudeField,

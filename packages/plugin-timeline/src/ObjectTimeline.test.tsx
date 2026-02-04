@@ -62,6 +62,8 @@ describe('ObjectTimeline', () => {
              expect(mockDataSource.find).toHaveBeenCalled();
         });
 
-        expect(screen.getByText('Event 1')).toBeDefined();
+        await waitFor(() => {
+            expect(screen.getByText('Event 1')).toBeDefined();
+        });
     });
 });

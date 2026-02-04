@@ -101,7 +101,7 @@ export const ObjectKanban: React.FC<ObjectKanbanProps> = ({
     if (!Array.isArray(rawData)) return [];
     
     // Support cardTitle property from schema (passed by ObjectView)
-    // @ts-ignore - cardTitle might not be in KanbanSchema type definition yet
+    // @ts-expect-error - cardTitle might not be in KanbanSchema type definition yet
     let titleField = schema.cardTitle || (schema as any).titleField;
 
     // Fallback: Try to infer from object definition

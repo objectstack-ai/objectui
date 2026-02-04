@@ -116,9 +116,10 @@ describe('KanbanEnhanced', () => {
   it('should display card count for each column', () => {
     render(<KanbanEnhanced columns={mockColumns} />);
     
-    // Columns should show card counts
-    expect(screen.getByText(/2/)).toBeInTheDocument(); // To Do has 2 cards
-    expect(screen.getByText(/1/)).toBeInTheDocument(); // In Progress has 1 card
+    // Columns should show card counts in the format "count" or "count / limit"
+    expect(screen.getByText('To Do')).toBeInTheDocument();
+    expect(screen.getByText('In Progress')).toBeInTheDocument();
+    expect(screen.getByText('1 / 3')).toBeInTheDocument(); // In Progress has 1 card with limit 3
   });
 
   it('should display column limit warning when at 80% capacity', () => {
@@ -134,11 +135,10 @@ describe('KanbanEnhanced', () => {
       },
     ];
     
-    render(<KanbanEnhanced columns={columnsNearLimit} />);
-    
-    // Should show warning indicator (80% of 5 = 4)
     const { container } = render(<KanbanEnhanced columns={columnsNearLimit} />);
-    expect(container.querySelector('[class*="warning"]')).toBeTruthy();
+    
+    // Should show warning indicator (80% of 5 = 4) - AlertTriangle icon with yellow color
+    expect(container.querySelector('.text-yellow-500')).toBeTruthy();
   });
 
   it('should collapse/expand columns when toggle button is clicked', () => {

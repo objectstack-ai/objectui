@@ -236,7 +236,7 @@ function KanbanColumnEnhanced({
   )
 }
 
-export default function KanbanEnhanced({
+export function KanbanEnhanced({
   columns,
   onCardMove,
   onColumnToggle,
@@ -390,3 +390,5 @@ export default function KanbanEnhanced({
     </DndContext>
   )
 }
+
+export default KanbanEnhanced;

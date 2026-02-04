@@ -26,7 +26,7 @@ if (!global.PointerEvent) {
       this.shiftKey = props.shiftKey || false;
     }
   }
-  // @ts-expect-error - PointerEvent polyfill for testing
+  // @ts-expect-error Mocking global PointerEvent
   global.PointerEvent = PointerEvent as any;
 }
 

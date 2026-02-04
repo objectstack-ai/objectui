@@ -13,10 +13,11 @@ import { DetailSection } from './DetailSection';
 import { DetailTabs } from './DetailTabs';
 import { RelatedList } from './RelatedList';
 import { SchemaRenderer } from '@object-ui/react';
-import type { DetailViewSchema } from '@object-ui/types';
+import type { DetailViewSchema, DataSource } from '@object-ui/types';
 
 export interface DetailViewProps {
   schema: DetailViewSchema;
+  dataSource?: DataSource;
   className?: string;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -25,17 +26,34 @@ export interface DetailViewProps {
 
 export const DetailView: React.FC<DetailViewProps> = ({
   schema,
+  dataSource,
   className,
   onEdit,
   onDelete,
   onBack,
 }) => {
-  const [data] = React.useState(schema.data);
-  const [loading, setLoading] = React.useState(!schema.data && !!schema.api);
+  const [data, setData] = React.useState<any>(schema.data);
+  const [loading, setLoading] = React.useState(!schema.data && !!((schema.api && schema.resourceId) || (dataSource && schema.objectName && schema.resourceId)));
 
-  // Fetch data if API provided
+  // Fetch data if API or DataSource provided
   React.useEffect(() => {
-    if (schema.api && schema.resourceId) {
+    // If inline data provided, use it
+     if (schema.data) {
+        setData(schema.data);
+        setLoading(false);
+        return;
+    }
+
+    if (dataSource && schema.objectName && schema.resourceId) {
+      setLoading(true);
+      dataSource.findOne(schema.objectName, schema.resourceId).then((result) => {
+         setData(result);
+         setLoading(false);
+      }).catch((err) => {
+         console.error('Failed to fetch detail data:', err);
+         setLoading(false);
+      });
+    } else if (schema.api && schema.resourceId) {
       setLoading(true);
       // TODO: Fetch from API
       // This would integrate with the data provider

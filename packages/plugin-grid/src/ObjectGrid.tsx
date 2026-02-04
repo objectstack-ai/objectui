@@ -108,6 +108,7 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
   onEdit,
   onDelete,
   onRowSelect,
+  onRowClick,
   ...rest
 }) => {
   const [data, setData] = useState<any[]>([]);

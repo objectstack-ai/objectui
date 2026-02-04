@@ -7,7 +7,8 @@
  */
 
 import * as React from 'react';
-import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder } from '@object-ui/components';
+import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder } from '@object-ui/components';
+import type { SortItem } from '@object-ui/components';
 import { Search, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react';
 import type { FilterGroup } from '@object-ui/components';
 import { ViewSwitcher, ViewType } from './ViewSwitcher';
@@ -70,8 +71,20 @@ export const ListView: React.FC<ListViewProps> = ({
     (schema.viewType as ViewType) || 'grid'
   );
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [sortField] = React.useState(schema.sort?.[0]?.field || '');
-  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>(schema.sort?.[0]?.order || 'asc');
+  
+  // Sort State
+  const [showSort, setShowSort] = React.useState(false);
+  const [currentSort, setCurrentSort] = React.useState<SortItem[]>(() => {
+    if (schema.sort && schema.sort.length > 0) {
+      return schema.sort.map(s => ({
+        id: crypto.randomUUID(),
+        field: s.field,
+        order: (s.order as 'asc' | 'desc') || 'asc'
+      }));
+    }
+    return [];
+  });
+
   const [showFilters, setShowFilters] = React.useState(false);
   
   const [currentFilters, setCurrentFilters] = React.useState<FilterGroup>({
@@ -135,7 +148,9 @@ export const ListView: React.FC<ListViewProps> = ({
         
         // Convert sort to query format
         // ObjectQL uses simple object: { field: 'asc' }
-        const sort: any = sortField ? { [sortField]: sortOrder } : undefined;
+        const sort: any = currentSort.length > 0 
+          ? currentSort.reduce((acc, item) => ({ ...acc, [item.field]: item.order }), {})
+          : undefined;
 
         const results = await dataSource.find(schema.objectName, {
            $filter: finalFilter,
@@ -167,7 +182,7 @@ export const ListView: React.FC<ListViewProps> = ({
     fetchData();
     
     return () => { isMounted = false; };
-  }, [schema.objectName, dataSource, schema.filters, sortField, sortOrder, currentFilters]); // Re-fetch on filter/sort change
+  }, [schema.objectName, dataSource, schema.filters, currentSort, currentFilters]); // Re-fetch on filter/sort change
 
   // Load saved view preference
   React.useEffect(() => {
@@ -196,19 +211,13 @@ export const ListView: React.FC<ListViewProps> = ({
     onSearchChange?.(value);
   }, [onSearchChange]);
 
-  const handleSortChange = React.useCallback(() => {
-    const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
-    setSortOrder(newOrder);
-    onSortChange?.({ field: sortField, order: newOrder });
-  }, [sortField, sortOrder, onSortChange]);
-
   // Generate the appropriate view component schema
   const viewComponentSchema = React.useMemo(() => {
     const baseProps = {
       objectName: schema.objectName,
       fields: schema.fields,
       filters: schema.filters,
-      sort: [{ field: sortField, order: sortOrder }],
+      sort: currentSort,
       className: "h-full w-full",
       // Disable internal controls that clash with ListView toolbar
       showSearch: false,
@@ -278,7 +287,7 @@ export const ListView: React.FC<ListViewProps> = ({
       default:
         return baseProps;
     }
-  }, [currentView, schema, sortField, sortOrder]);
+  }, [currentView, schema, currentSort]);
 
   // Available view types based on schema configuration
   const availableViews = React.useMemo(() => {
@@ -399,17 +408,42 @@ export const ListView: React.FC<ListViewProps> = ({
                </PopoverContent>
              </Popover>
             
-            {sortField && (
-               <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleSortChange}
-                className="h-8 px-2 lg:px-3 text-muted-foreground hover:text-primary"
-               >
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <span className="hidden lg:inline">Sort</span>
-              </Button>
-            )}
+             <Popover open={showSort} onOpenChange={setShowSort}>
+               <PopoverTrigger asChild>
+                  <Button
+                    variant={currentSort.length > 0 ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn(
+                      "h-8 px-2 lg:px-3 text-muted-foreground hover:text-primary",
+                      currentSort.length > 0 && "text-primary bg-secondary/50"
+                    )}
+                  >
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    <span className="hidden lg:inline">Sort</span>
+                     {currentSort.length > 0 && (
+                      <span className="ml-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
+                        {currentSort.length}
+                      </span>
+                    )}
+                  </Button>
+               </PopoverTrigger>
+               <PopoverContent align="start" className="w-[600px] p-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b pb-2">
+                       <h4 className="font-medium text-sm">Sort Records</h4>
+                    </div>
+                    <SortBuilder
+                      fields={filterFields}
+                      value={currentSort}
+                      onChange={(newSort) => {
+                        console.log('Sort Changed:', newSort);
+                        setCurrentSort(newSort);
+                        if (onSortChange) onSortChange(newSort);
+                      }}
+                    />
+                  </div>
+               </PopoverContent>
+             </Popover>
             
             {/* Future: Group, Color, Height */}
           </div>

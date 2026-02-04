@@ -208,9 +208,11 @@ export function AppContent() {
                             recordId: editingRecord?.id,
                             layout: 'vertical',
                             columns: 1,
-                            fields: Array.isArray(currentObjectDef.fields) 
-                                ? currentObjectDef.fields.map((f: any) => f.name)
-                                : Object.keys(currentObjectDef.fields || {}).map(k => k), /* Ensure all keys are mapped */
+                            // FIX: fields property should be array of strings, but currentObjectDef.fields might be an object
+                            // Explicitly map all keys to ensure we include all fields
+                            fields: currentObjectDef.fields && !Array.isArray(currentObjectDef.fields)
+                                ? Object.keys(currentObjectDef.fields)
+                                : (currentObjectDef.fields || []).map((f: any) => typeof f === 'string' ? f : f.name),
                             onSuccess: () => { setIsDialogOpen(false); navigate(location.pathname); }, 
                             onCancel: () => setIsDialogOpen(false),
                             showSubmit: true,

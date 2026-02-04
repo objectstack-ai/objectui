@@ -155,23 +155,33 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
     // Determine which fields to include
     const fieldsToShow = schema.fields || Object.keys(objectSchema.fields || {});
     
-    fieldsToShow.forEach((fieldName) => {
-      const field = objectSchema.fields?.[fieldName];
-      if (!field) return;
+    // Support object format for fields in schema (legacy/compat)
+    const fieldNames = Array.isArray(fieldsToShow) 
+        ? fieldsToShow 
+        : Object.keys(fieldsToShow);
+
+    fieldNames.forEach((fieldName) => {
+      // If fieldsToShow is an array of strings, fieldName is the string
+      // If fieldsToShow is array of objects (unlikely but possible in some formats), we need to extract name
+      const name = typeof fieldName === 'string' ? fieldName : (fieldName as any).name;
+      if (!name) return;
+
+      const field = objectSchema.fields?.[name];
+      if (!field && !hasInlineFields) return; // Skip if not found in object definition unless inline
 
       // Check field-level permissions for create/edit modes
-      const hasWritePermission = !field.permissions || field.permissions.write !== false;
+      const hasWritePermission = !field?.permissions || field?.permissions.write !== false;
       if (schema.mode !== 'view' && !hasWritePermission) return; // Skip fields without write permission
 
       // Check if there's a custom field configuration
-      const customField = schema.customFields?.find(f => f.name === fieldName);
+      const customField = schema.customFields?.find(f => f.name === name);
       
       if (customField) {
         generatedFields.push(customField);
-      } else {
+      } else if (field) {
         // Auto-generate field from schema
         const formField: FormField = {
-          name: fieldName,
+          name: name,
           label: field.label || fieldName,
           type: mapFieldTypeToFormType(field.type),
           required: field.required || false,

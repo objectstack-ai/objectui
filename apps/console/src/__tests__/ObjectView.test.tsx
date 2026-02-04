@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ObjectView } from '../components/ObjectView';
+import { ComponentRegistry } from '@object-ui/core';
 
 // Mock child plugins to isolate ObjectView logic
 vi.mock('@object-ui/plugin-grid', () => ({
@@ -22,6 +23,8 @@ vi.mock('@object-ui/components', async () => {
         cn: (...inputs: any[]) => inputs.filter(Boolean).join(' '),
         Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
         Input: (props: any) => <input {...props} data-testid="mock-input" />,
+        ToggleGroup: ({ children, value, onValueChange }: any) => <div data-value={value} onChange={onValueChange}>{children}</div>,
+        ToggleGroupItem: ({ children, value }: any) => <button data-value={value}>{children}</button>,
         Tabs: ({ value, onValueChange, children }: any) => (
             <div data-testid="tabs" data-value={value} onClick={(e: any) => {
                  // Simple event delegation for testing
@@ -59,6 +62,14 @@ vi.mock('react-router-dom', () => ({
 
 describe('ObjectView Component', () => {
     
+    beforeEach(() => {
+        // Register mock components for SchemaRenderer to find
+        ComponentRegistry.register('object-grid', (props: any) => <div data-testid="object-grid">Grid View: {props.schema.objectName}</div>);
+        ComponentRegistry.register('object-kanban', (props: any) => <div data-testid="object-kanban">Kanban View: {props.schema.groupField}</div>);
+        ComponentRegistry.register('object-calendar', (props: any) => <div data-testid="object-calendar">Calendar View: {props.schema.startDateField}</div>);
+        ComponentRegistry.register('list-view', (props: any) => <div data-testid="list-view">List View</div>); 
+    });
+
     const mockDataSource = {
         find: vi.fn().mockResolvedValue([]),
         delete: vi.fn().mockResolvedValue(true)

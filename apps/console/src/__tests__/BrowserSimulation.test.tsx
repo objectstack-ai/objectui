@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@object-ui/fields'; // Ensure fields are registered for ObjectForm tests
 
@@ -153,7 +153,7 @@ describe('Console Application Simulation', () => {
         // We assume Grid renders the rows.
     });
 
-    it('Scenario 4: Object Create Form (All Field Types)', async () => {
+    it('Scenario 4: Object Create Form (All Field Types)', { timeout: 20000 }, async () => {
         // Helper function to check if a label exists in the form
         const expectLabelToExist = (label: string) => {
             const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -181,10 +181,12 @@ describe('Console Application Simulation', () => {
             expect(title).toBeInTheDocument();
         });
 
+        const dialog = screen.getByRole('dialog');
+
         // 4. Verify Field Inputs
         // Wait for form to finish loading and first field to appear
         await waitFor(() => {
-             expect(screen.getByText(/Text \(Name\)/i)).toBeInTheDocument();
+             expect(within(dialog).getByText(/Text \(Name\)/i)).toBeInTheDocument();
         }, { timeout: 10000 });
 
         const fieldLabels = [

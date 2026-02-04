@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ObjectGantt } from '@object-ui/plugin-gantt';
+import { ObjectTimeline } from '@object-ui/plugin-timeline';
+import { ObjectMap } from '@object-ui/plugin-map';
 import { ListView } from '@object-ui/plugin-list';
 // Import plugins for side-effects (registration)
 import '@object-ui/plugin-grid';
@@ -69,6 +71,38 @@ export function ObjectView({ dataSource, objects, onEdit }: any) {
             onEdit,
             onRowClick: (record: any) => onEdit(record), // Default to edit on click
         };
+
+        // Explicitly handle Timeline and Map to ensure dataSource is passed correctly
+        if (activeView.type === 'timeline') {
+            return (
+                <ObjectTimeline
+                    key={key}
+                    {...commonProps}
+                    schema={{
+                        type: 'object-timeline',
+                        objectName: objectDef.name,
+                        dateField: activeView.dateField || activeView.startDateField || 'due_date',
+                        titleField: activeView.titleField || objectDef.titleField || 'name',
+                        descriptionField: activeView.descriptionField,
+                    } as any}
+                />
+            );
+        }
+
+        if (activeView.type === 'map') {
+            return (
+                <ObjectMap
+                    key={key}
+                    {...commonProps}
+                    schema={{
+                        type: 'object-map',
+                        objectName: objectDef.name,
+                        locationField: activeView.locationField || 'location',
+                        titleField: activeView.titleField || objectDef.titleField || 'name',
+                    } as any}
+                />
+            );
+        }
 
         // Gantt is not yet supported by ListView, handle separately
         if (activeView.type === 'gantt') {

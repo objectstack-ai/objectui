@@ -42,9 +42,16 @@ export default defineConfig({
       '@objectstack/spec',
       '@objectstack/spec/data',
       '@objectstack/spec/system',
-      '@objectstack/spec/ui'
+      '@objectstack/spec/ui',
+      'react-map-gl',
+      'react-map-gl/maplibre',
+      'maplibre-gl'
     ],
     esbuildOptions: {
+      target: 'esnext',
+      supported: { 
+        'top-level-await': true 
+      },
       resolveExtensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json']
     }
   },

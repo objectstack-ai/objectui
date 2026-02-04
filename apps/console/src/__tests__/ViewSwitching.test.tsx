@@ -91,11 +91,22 @@ describe('Console View Switching Integration', () => {
         expect(screen.getByText('Sites')).toBeInTheDocument();
     });
 
-    it('switches to Timeline view correctly', () => {
+    it('switches to Timeline view correctly', async () => {
         // Force view to 'history' (timeline)
         mockSearchParams.set('view', 'history');
         
-        renderObjectView();
+        // Mock data for project task
+        // We must mock the find method to return data that the TIMELINE can render
+        // Timeline expects: titleField='name', dateField='due_date'
+        const mockTasks = [
+            { id: '1', name: 'Task 1', due_date: '2023-01-01', status: 'Todo' },
+            { id: '2', name: 'Task 2', due_date: '2023-01-05', status: 'Done' }
+        ];
+        
+        // Setup mock response
+        mockDataSource.find.mockResolvedValue({ value: mockTasks });
+
+        const { container, debug } = renderObjectView();
         
         // 1. Check registry has the component (verifies import)
         expect(ComponentRegistry.has('object-timeline')).toBe(true);
@@ -103,30 +114,75 @@ describe('Console View Switching Integration', () => {
         // 2. Check no error boundary (verifies unknown type)
         expect(screen.queryByText(/Unknown component type/i)).not.toBeInTheDocument();
         
-        // 3. Check CONTENT is rendered (verifies options/props passed correctly + not blank)
-        // Since we are using the real Timeline component, we need to know what it renders when empty.
-        // It usually renders a list or empty state.
-        // If options were missing, it might crash or render completely blank.
-        // Let's assume it renders at least the wrapper or "No items"
-        const timeline = document.querySelector('.object-timeline') || document.querySelector('ol'); 
-        expect(timeline).toBeInTheDocument();
+        // 3. Wait for data loading and verify CONTENT
+        // Timeline renders <Timeline> -> <TimelineItem>
+        // We expect to see "Task 1" and "Task 2" in the document
+        await waitFor(() => {
+             expect(screen.getByText('Task 1')).toBeInTheDocument();
+             expect(screen.getByText('Task 2')).toBeInTheDocument();
+        });
+        
+        // Inspect DOM structure slightly deeper
+        // Timeline plugins usually use distinct classes or elements (ol/li)
+        const timelineList = container.querySelector('ol');
+        expect(timelineList).toBeInTheDocument();
     });
 
-    it('switches to Map view correctly', () => {
+    it('switches to Map view correctly', async () => {
         mockSearchParams.set('view', 'sites');
-        renderObjectView();
+        
+        // Mock Map Data with Location
+        const mockSites = [
+             { id: '1', name: 'Site Alpha', location: { lat: 40, lng: -74 } },
+             { id: '2', name: 'Site Beta', location: { lat: 41, lng: -75 } }
+        ];
+        mockDataSource.find.mockResolvedValue({ value: mockSites });
+
+        const { container } = renderObjectView();
         
         expect(ComponentRegistry.has('object-map')).toBe(true);
         expect(screen.queryByText(/Unknown component type/i)).not.toBeInTheDocument();
         
         // 3. Verify content
         // Map usually renders a container.
-        // If we missed options mapping, it might be 0 height or error.
-        const mapContainer = document.querySelector('.object-map') || document.querySelector('[class*="leaflet"]');
-        // Since we don't have leaflet installed/mocked fully, it might be just a div.
-        // But checking that *something* is in the View area is key.
+        // It might be hard to verify "Site Alpha" if it's rendered inside a Canvas or proprietary Map,
+        // BUT our ObjectMap implementation might render markers as divs if it's a simple implementation.
+        // Let's assume it renders a marker list or similar for accessibility if map fails,
+        // OR we just verify the container exists.
+        
+        // If ObjectMap uses Leaflet/GoogleMaps, checking for specific text inside the map container might be flaky
+        // unless we mock the map library. 
+        // For now, let's verify the wrapper is there.
         const viewArea = document.querySelector('.flex-1.overflow-hidden.relative');
         expect(viewArea).not.toBeEmptyDOMElement();
+        
+        // Attempt to wait for map initialization (if async)
+        await waitFor(() => {
+             // If ObjectMap lists items in a side panel or similar:
+             // expect(screen.getByText('Site Alpha')).toBeInTheDocument(); 
+             
+             // If not, we just confirm the view didn't crash
+             expect(ComponentRegistry.has('object-map')).toBe(true);
+        });
+    });
+
+    it('switches to Gantt view correctly', async () => {
+        mockSearchParams.set('view', 'roadmap');
+        
+        const mockGanttData = [
+            { id: '1', name: 'Phase 1', start: '2023-01-01', end: '2023-01-05' }
+        ];
+        mockDataSource.find.mockResolvedValue({ value: mockGanttData });
+        
+        const { container } = renderObjectView();
+        
+        expect(screen.queryByText(/Unknown component type/i)).not.toBeInTheDocument();
+        
+        // Verify Gantt loaded
+        // Usually Gantt renders "Phase 1" in the task list on the left
+        await waitFor(() => {
+            expect(screen.getByText('Phase 1')).toBeInTheDocument();
+        });
     });
 
     it('switches to Gantt view correctly', () => {

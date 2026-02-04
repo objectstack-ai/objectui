@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ObjectView } from '../components/ObjectView';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';

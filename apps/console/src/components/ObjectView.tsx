@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ObjectGantt } from '@object-ui/plugin-gantt';
 import { ListView } from '@object-ui/plugin-list';
@@ -13,7 +13,6 @@ import type { ListViewSchema } from '@object-ui/types';
 export function ObjectView({ dataSource, objects, onEdit }: any) {
     const { objectName } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [refreshKey, setRefreshKey] = useState(0);
     
     // Get Object Definition
     const objectDef = objects.find((o: any) => o.name === objectName);
@@ -54,29 +53,12 @@ export function ObjectView({ dataSource, objects, onEdit }: any) {
     const activeViewId = searchParams.get('view') || views[0]?.id;
     const activeView = views.find((v: any) => v.id === activeViewId) || views[0];
 
-    // Helper: Normalize Columns for Grid
-    const getGridColumns = (view: any) => {
-        if (!view.columns) return [];
-        return view.columns.map((colName: string) => {
-             // Find field definition
-             const fieldDef = Array.isArray(objectDef.fields) 
-                ? objectDef.fields.find((f: any) => f.name === colName)
-                : objectDef.fields?.[colName];
-             
-             return {
-                 field: colName,
-                 label: fieldDef?.label || colName,
-                 width: 150
-             };
-        });
-    };
-
     const handleViewChange = (viewId: string) => {
         setSearchParams({ view: viewId });
     };
 
     const renderCurrentView = () => {
-        const key = `${objectName}-${activeView.id}-${refreshKey}`;
+        const key = `${objectName}-${activeView.id}`;
         const commonProps = {
             dataSource,
             className: "h-full border-none"

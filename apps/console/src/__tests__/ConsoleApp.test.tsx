@@ -56,7 +56,7 @@ vi.mock('../dataSource', () => {
 // Mock Child Components (Integration level)
 // We want to verify routing, so we mock the "Page" components but keep Layout structure mostly
 vi.mock('../components/ObjectView', () => ({
-    ObjectView: ({ objects }: any) => <div data-testid="object-view">Object View</div>
+    ObjectView: () => <div data-testid="object-view">Object View</div>
 }));
 
 vi.mock('../components/DashboardView', () => ({

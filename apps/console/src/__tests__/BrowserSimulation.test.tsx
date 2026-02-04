@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import '@object-ui/fields'; // Ensure fields are registered for ObjectForm tests
 
 // -----------------------------------------------------------------------------
 // SYSTEM INTEGRATION TEST: Console Application
@@ -175,6 +176,9 @@ describe('Console Application Simulation', () => {
         // 3. Verify Dialog Opens
         await waitFor(() => {
             expect(screen.getByRole('dialog')).toBeInTheDocument();
+            // Verify title to ensure object definition was found
+            const title = screen.getByRole('heading', { name: /Create.*Sink/i });
+            expect(title).toBeInTheDocument();
         });
 
         // 4. Verify Field Inputs

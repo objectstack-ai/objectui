@@ -19,7 +19,9 @@ vi.mock('@object-ui/plugin-calendar', () => ({
 // Mock UI Components to allow interaction testing without Radix complexity
 vi.mock('@object-ui/components', async () => {
     return {
+        cn: (...inputs: any[]) => inputs.filter(Boolean).join(' '),
         Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
+        Input: (props: any) => <input {...props} data-testid="mock-input" />,
         Tabs: ({ value, onValueChange, children }: any) => (
             <div data-testid="tabs" data-value={value} onClick={(e: any) => {
                  // Simple event delegation for testing

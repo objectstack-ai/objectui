@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { ObjectStackClient } from '@objectstack/client';
 import { ObjectForm } from '@object-ui/plugin-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Empty, EmptyTitle } from '@object-ui/components';
+import { SchemaRendererProvider } from '@object-ui/react';
 import { ObjectStackDataSource } from './dataSource';
 import appConfig from '../objectstack.config';
 
@@ -105,6 +106,7 @@ export function AppContent() {
         onAppChange={handleAppChange}
         objects={allObjects}
     >
+      <SchemaRendererProvider dataSource={dataSource || {}}>
       <Routes>
         <Route path="/" element={
              <Navigate to={findFirstRoute(activeApp.navigation)} replace />
@@ -155,6 +157,7 @@ export function AppContent() {
              </div>
           </DialogContent>
        </Dialog>
+      </SchemaRendererProvider>
     </ConsoleLayout>
   );
 }

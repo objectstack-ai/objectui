@@ -128,6 +128,46 @@ export const ListView: React.FC<ListViewProps> = ({
           yAxisFields: schema.options?.chart?.yAxisFields || ['value'],
           ...(schema.options?.chart || {}),
         };
+      case 'spreadsheet':
+        return {
+          type: 'object-spreadsheet',
+          ...baseProps,
+          ...(schema.options?.spreadsheet || {}),
+        };
+      case 'gallery':
+        return {
+          type: 'object-gallery',
+          ...baseProps,
+          imageField: schema.options?.gallery?.imageField,
+          titleField: schema.options?.gallery?.titleField || 'name',
+          subtitleField: schema.options?.gallery?.subtitleField,
+          ...(schema.options?.gallery || {}),
+        };
+      case 'timeline':
+        return {
+          type: 'object-timeline',
+          ...baseProps,
+          dateField: schema.options?.timeline?.dateField || 'created_at',
+          titleField: schema.options?.timeline?.titleField || 'name',
+          ...(schema.options?.timeline || {}),
+        };
+      case 'gantt':
+        return {
+          type: 'object-gantt',
+          ...baseProps,
+          startDateField: schema.options?.gantt?.startDateField || 'start_date',
+          endDateField: schema.options?.gantt?.endDateField || 'end_date',
+          progressField: schema.options?.gantt?.progressField || 'progress',
+          dependenciesField: schema.options?.gantt?.dependenciesField || 'dependencies',
+          ...(schema.options?.gantt || {}),
+        };
+      case 'map':
+        return {
+          type: 'object-map',
+          ...baseProps,
+          locationField: schema.options?.map?.locationField || 'location',
+          ...(schema.options?.map || {}),
+        };
       default:
         return baseProps;
     }

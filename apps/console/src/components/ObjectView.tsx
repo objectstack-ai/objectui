@@ -114,6 +114,21 @@ export function ObjectView({ dataSource, objects, onEdit }: any) {
                     titleField: activeView.titleField || 'name',
                     colorField: activeView.colorField,
                     allDayField: activeView.allDayField,
+                },
+                timeline: {
+                    dateField: activeView.dateField || activeView.startDateField || 'due_date',
+                    titleField: activeView.titleField || objectDef.titleField || 'name',
+                    descriptionField: activeView.descriptionField,
+                },
+                map: {
+                    locationField: activeView.locationField || 'location',
+                    titleField: activeView.titleField || objectDef.titleField || 'name',
+                },
+                gantt: {
+                    startDateField: activeView.startDateField || 'start_date',
+                    endDateField: activeView.endDateField || 'end_date',
+                    progressField: activeView.progressField,
+                    dependenciesField: activeView.dependenciesField,
                 }
             }
         };

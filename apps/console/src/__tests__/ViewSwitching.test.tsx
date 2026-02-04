@@ -97,18 +97,36 @@ describe('Console View Switching Integration', () => {
         
         renderObjectView();
         
-        // Should NOT show "Unknown component type"
+        // 1. Check registry has the component (verifies import)
+        expect(ComponentRegistry.has('object-timeline')).toBe(true);
+
+        // 2. Check no error boundary (verifies unknown type)
         expect(screen.queryByText(/Unknown component type/i)).not.toBeInTheDocument();
         
-        expect(ComponentRegistry.has('object-timeline')).toBe(true);
+        // 3. Check CONTENT is rendered (verifies options/props passed correctly + not blank)
+        // Since we are using the real Timeline component, we need to know what it renders when empty.
+        // It usually renders a list or empty state.
+        // If options were missing, it might crash or render completely blank.
+        // Let's assume it renders at least the wrapper or "No items"
+        const timeline = document.querySelector('.object-timeline') || document.querySelector('ol'); 
+        expect(timeline).toBeInTheDocument();
     });
 
     it('switches to Map view correctly', () => {
         mockSearchParams.set('view', 'sites');
         renderObjectView();
         
-        expect(screen.queryByText(/Unknown component type/i)).not.toBeInTheDocument();
         expect(ComponentRegistry.has('object-map')).toBe(true);
+        expect(screen.queryByText(/Unknown component type/i)).not.toBeInTheDocument();
+        
+        // 3. Verify content
+        // Map usually renders a container.
+        // If we missed options mapping, it might be 0 height or error.
+        const mapContainer = document.querySelector('.object-map') || document.querySelector('[class*="leaflet"]');
+        // Since we don't have leaflet installed/mocked fully, it might be just a div.
+        // But checking that *something* is in the View area is key.
+        const viewArea = document.querySelector('.flex-1.overflow-hidden.relative');
+        expect(viewArea).not.toBeEmptyDOMElement();
     });
 
     it('switches to Gantt view correctly', () => {

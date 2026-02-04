@@ -104,6 +104,7 @@ export const ListView: React.FC<ListViewProps> = ({
         return {
           type: 'object-kanban',
           ...baseProps,
+          groupBy: schema.options?.kanban?.groupField || 'status',
           groupField: schema.options?.kanban?.groupField || 'status',
           titleField: schema.options?.kanban?.titleField || 'name',
           cardFields: schema.fields || [],

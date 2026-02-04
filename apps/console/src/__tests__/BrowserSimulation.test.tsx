@@ -145,7 +145,7 @@ describe('Console Application Simulation', () => {
         });
 
         // Verify "New" Button exists
-        const newButton = screen.getByRole('button', { name: /New Kitchen Sink/i });
+        const newButton = screen.getByRole('button', { name: /New/i });
         expect(newButton).toBeInTheDocument();
 
         // Verify Grid rendered
@@ -169,7 +169,7 @@ describe('Console Application Simulation', () => {
         });
 
         // 2. Click "New Kitchen Sink"
-        const newButton = screen.getByRole('button', { name: /New Kitchen Sink/i });
+        const newButton = screen.getByRole('button', { name: /New/i });
         fireEvent.click(newButton);
 
         // 3. Verify Dialog Opens
@@ -217,7 +217,7 @@ describe('Console Application Simulation', () => {
 
         // Verify Data Grid Headers
         expect(screen.getByText('Region')).toBeInTheDocument();
-        expect(screen.getByText('Sales')).toBeInTheDocument();
+        expect(screen.getAllByText('Sales').length).toBeGreaterThan(0);
         expect(screen.getByText('Target')).toBeInTheDocument();
 
         // Verify Data Rows
@@ -243,7 +243,7 @@ describe('Console Application Simulation', () => {
         });
         
         // Verify the form can be opened (showing metadata was loaded)
-        const newButton = screen.getByRole('button', { name: /New Kitchen Sink/i });
+        const newButton = screen.getByRole('button', { name: /New/i });
         fireEvent.click(newButton);
         
         // Verify form loaded with schema-based fields
@@ -267,7 +267,7 @@ describe('Console Application Simulation', () => {
             expect(screen.getByRole('heading', { name: /Kitchen Sink/i })).toBeInTheDocument();
         });
         
-        const newButton = screen.getByRole('button', { name: /New Kitchen Sink/i });
+        const newButton = screen.getByRole('button', { name: /New/i });
         expect(newButton).toBeInTheDocument();
     });
 

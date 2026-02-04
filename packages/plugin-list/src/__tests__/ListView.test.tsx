@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ListView } from '../ListView';
 import type { ListViewSchema } from '@object-ui/types';
+import { SchemaRendererProvider } from '@object-ui/react';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -21,6 +22,22 @@ const localStorageMock = (() => {
     removeItem: (key: string) => { delete store[key]; },
   };
 })();
+
+const mockDataSource = {
+  find: vi.fn().mockResolvedValue([]),
+  findOne: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+};
+
+const renderWithProvider = (component: React.ReactNode) => {
+  return render(
+    <SchemaRendererProvider dataSource={mockDataSource}>
+      {component}
+    </SchemaRendererProvider>
+  );
+};
 
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
@@ -45,7 +62,7 @@ describe('ListView', () => {
       fields: ['name', 'email'],
     };
 
-    const { container } = render(<ListView schema={schema} />);
+    const { container } = renderWithProvider(<ListView schema={schema} />);
     expect(container).toBeTruthy();
   });
 
@@ -57,7 +74,7 @@ describe('ListView', () => {
       fields: ['name', 'email'],
     };
 
-    render(<ListView schema={schema} />);
+    renderWithProvider(<ListView schema={schema} />);
     const searchInput = screen.getByPlaceholderText(/search/i);
     expect(searchInput).toBeInTheDocument();
   });
@@ -71,7 +88,7 @@ describe('ListView', () => {
       fields: ['name', 'email'],
     };
 
-    render(<ListView schema={schema} onSearchChange={onSearchChange} />);
+    renderWithProvider(<ListView schema={schema} onSearchChange={onSearchChange} />);
     const searchInput = screen.getByPlaceholderText(/search/i);
     
     fireEvent.change(searchInput, { target: { value: 'test' } });
@@ -86,11 +103,20 @@ describe('ListView', () => {
       fields: ['name', 'email'],
     };
 
-    render(<ListView schema={schema} />);
+    renderWithProvider(<ListView schema={schema} />);
     
-    // localStorage should be set with initial view
+    // Find list view button and click it
+    // Using getAllByRole because there might be multiple buttons
+    const buttons = screen.getAllByRole('radio'); // ToggleGroup usually uses radio role if type="single"
+    // However, if it's implemented as buttons using ToggleGroup which is roving tabindex...
+    // Let's try finding by aria-label which ViewSwitcher sets
+    const listButton = screen.getByLabelText('List');
+
+    fireEvent.click(listButton);
+    
+    // localStorage should be set with new view
     const storageKey = 'listview-contacts-view';
-    expect(localStorageMock.getItem(storageKey)).toBeTruthy();
+    expect(localStorageMock.getItem(storageKey)).toBe('list');
   });
 
   it('should call onViewChange when view is changed', () => {
@@ -102,7 +128,7 @@ describe('ListView', () => {
       fields: ['name', 'email'],
     };
 
-    const { rerender } = render(<ListView schema={schema} onViewChange={onViewChange} />);
+    renderWithProvider(<ListView schema={schema} onViewChange={onViewChange} />);
     
     // Simulate view change by updating the view prop in ViewSwitcher
     // Since we can't easily trigger the actual view switcher in tests,
@@ -121,7 +147,7 @@ describe('ListView', () => {
       fields: ['name', 'email'],
     };
 
-    render(<ListView schema={schema} />);
+    renderWithProvider(<ListView schema={schema} />);
     
     // Find filter button (by icon or aria-label)
     const buttons = screen.getAllByRole('button');
@@ -145,7 +171,7 @@ describe('ListView', () => {
       sort: [{ field: 'name', order: 'asc' }],
     };
 
-    render(<ListView schema={schema} onSortChange={onSortChange} />);
+    renderWithProvider(<ListView schema={schema} onSortChange={onSortChange} />);
     
     // Find sort button
     const buttons = screen.getAllByRole('button');
@@ -167,7 +193,7 @@ describe('ListView', () => {
       fields: ['name', 'email'],
     };
 
-    render(<ListView schema={schema} />);
+    renderWithProvider(<ListView schema={schema} />);
     const searchInput = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
     
     // Type in search

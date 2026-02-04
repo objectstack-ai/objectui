@@ -117,14 +117,14 @@ describe('DetailView', () => {
       data: { name: 'John Doe' },
       fields: [{ name: 'name', label: 'Name' }],
       showEdit: true,
+      // Disable back button to ensure it's not the first button found if using generic search
+      showBack: false 
     };
 
     render(<DetailView schema={schema} onEdit={onEdit} />);
     
-    const buttons = screen.getAllByRole('button');
-    const editButton = buttons.find(btn => 
-      btn.querySelector('svg') !== null
-    );
+    // Find button with text "Edit"
+    const editButton = screen.getByRole('button', { name: /edit/i });
     
     if (editButton) {
       fireEvent.click(editButton);
@@ -241,8 +241,9 @@ describe('DetailView', () => {
 
     const { container } = render(<DetailView schema={schema} />);
     
-    // Check for skeleton elements (they typically have specific classes)
-    const skeletons = container.querySelectorAll('[class*="skeleton"]');
+    // Check for skeleton elements (they typically have animate-pulse class)
+    // DetailedView uses Skeleton component which has animate-pulse class
+    const skeletons = container.querySelectorAll('.animate-pulse');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 });

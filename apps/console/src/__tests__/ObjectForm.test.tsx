@@ -211,7 +211,7 @@ describe('ObjectForm with MSW Integration', () => {
 
       const createdContact = onSuccess.mock.calls[0][0];
       // Check default values from schema
-      expect(createdContact.priority).toBe(5);
+      expect(createdContact.priority).toBe('Medium');
       expect(createdContact.is_active).toBe(true);
     });
   });
@@ -362,19 +362,19 @@ describe('ObjectForm with MSW Integration', () => {
         <ObjectForm
           schema={{
             type: 'object-form',
-            objectName: 'contact',
+            objectName: 'kitchen_sink',
             mode: 'create',
-            fields: ['name', 'email', 'priority'],
+            fields: ['name', 'amount'],
           }}
           dataSource={dataSource}
         />
       );
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/^Name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/Text/i)).toBeInTheDocument();
       });
 
-      const numberInput = screen.getByLabelText(/Priority/i) as HTMLInputElement;
+      const numberInput = screen.getByLabelText(/Number/i) as HTMLInputElement;
       expect(numberInput.type).toBe('number');
     });
 

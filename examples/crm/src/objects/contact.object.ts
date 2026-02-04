@@ -6,6 +6,7 @@ export const ContactObject = ObjectSchema.create({
   icon: 'user',
   fields: {
     name: Field.text({ label: 'Name', required: true, searchable: true }),
+    company: Field.text({ label: 'Company' }),
     email: Field.email({ label: 'Email', searchable: true }),
     phone: Field.text({ label: 'Phone' }),
     title: Field.text({ label: 'Title' }),

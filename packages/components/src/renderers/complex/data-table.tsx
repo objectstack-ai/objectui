@@ -491,18 +491,18 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       key={rowId} 
                       data-state={isSelected ? 'selected' : undefined}
                       className={cn(
-                        // @ts-ignore
+                        // @ts-expect-error - onRowClick might not be in schema type definition
                         schema.onRowClick && "cursor-pointer"
                       )}
                       onClick={(e) => {
-                        // @ts-ignore
+                        // @ts-expect-error - onRowClick might not be in schema type definition
                         if (schema.onRowClick && !e.defaultPrevented) {
                            // Simple heuristic to avoid triggering on interactive elements if they didn't stop propagation
                            const target = e.target as HTMLElement;
                            if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('a')) {
                              return;
                            }
-                           // @ts-ignore
+                           // @ts-expect-error - onRowClick might not be in schema type definition
                            schema.onRowClick(row);
                         }
                       }}

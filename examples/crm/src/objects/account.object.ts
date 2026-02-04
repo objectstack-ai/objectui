@@ -12,15 +12,17 @@ export const AccountObject = ObjectSchema.create({
     annual_revenue: Field.currency({ label: 'Annual Revenue' }),
     website: Field.url({ label: 'Website' }),
     phone: Field.text({ label: 'Phone' }),
+    employees: Field.number({ label: 'Employees' }),
     billing_address: Field.textarea({ label: 'Billing Address' }),
     latitude: Field.number({ label: 'Latitude', scale: 6 }),
     longitude: Field.number({ label: 'Longitude', scale: 6 }),
-    owner: Field.lookup('user', { label: 'Owner' })
+    owner: Field.lookup('user', { label: 'Owner' }),
+    created_at: Field.datetime({ label: 'Created Date' })
   },
   list_views: {
     all: {
       label: 'All Accounts',
-      columns: ['name', 'industry', 'type', 'phone', 'website']
+      columns: ['name', 'industry', 'type', 'phone', 'website', 'employees', 'owner']
     },
     map_view: {
       label: 'Map View',

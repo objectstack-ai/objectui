@@ -104,7 +104,7 @@ export default defineStack({
           layout: { x: 0, y: 0, w: 1, h: 1 },
           options: {
             label: 'Total Revenue',
-            value: '$1,245,000',
+            value: '$652,000',
             trend: { value: 12.5, direction: 'up', label: 'vs last month' },
             icon: 'DollarSign'
           }
@@ -114,7 +114,7 @@ export default defineStack({
           layout: { x: 1, y: 0, w: 1, h: 1 },
           options: {
             label: 'Active Deals',
-            value: '45',
+            value: '5',
             trend: { value: 2.1, direction: 'down', label: 'vs last month' },
             icon: 'Briefcase'
           }
@@ -124,7 +124,7 @@ export default defineStack({
           layout: { x: 2, y: 0, w: 1, h: 1 },
           options: {
             label: 'Win Rate',
-            value: '68%',
+            value: '42%',
             trend: { value: 4.3, direction: 'up', label: 'vs last month' },
             icon: 'Trophy'
           }
@@ -134,7 +134,7 @@ export default defineStack({
           layout: { x: 3, y: 0, w: 1, h: 1 },
           options: {
             label: 'Avg Deal Size',
-            value: '$24,000',
+            value: '$93,000',
             trend: { value: 1.2, direction: 'up', label: 'vs last month' },
             icon: 'BarChart3'
           }
@@ -153,8 +153,8 @@ export default defineStack({
             data: {
                 provider: 'value',
                 items: [
-                   { month: 'Jan', revenue: 45000 },
-                   { month: 'Feb', revenue: 52000 },
+                   { month: 'Jan', revenue: 155000 },
+                   { month: 'Feb', revenue: 87000 },
                    { month: 'Mar', revenue: 48000 },
                    { month: 'Apr', revenue: 61000 },
                    { month: 'May', revenue: 55000 },
@@ -175,10 +175,10 @@ export default defineStack({
             data: {
                 provider: 'value',
                 items: [
-                    { source: 'Website', value: 45 },
-                    { source: 'Referral', value: 25 },
-                    { source: 'Partner', value: 20 },
-                    { source: 'Ads', value: 10 }
+                    { source: 'Web', value: 2 },
+                    { source: 'Referral', value: 1 },
+                    { source: 'Partner', value: 1 },
+                    { source: 'Existing Business', value: 3 }
                 ]
             }
         },
@@ -196,11 +196,11 @@ export default defineStack({
             data: {
                 provider: 'value',
                 items: [
-                    { stage: 'Prospecting', amount: 120000 },
-                    { stage: 'Qualification', amount: 85000 },
-                    { stage: 'Proposal', amount: 50000 },
-                    { stage: 'Negotiation', amount: 35000 },
-                    { stage: 'Closed Won', amount: 150000 }
+                    { stage: 'Prospecting', amount: 250000 },
+                    { stage: 'Qualification', amount: 35000 },
+                    { stage: 'Proposal', amount: 85000 },
+                    { stage: 'Negotiation', amount: 45000 },
+                    { stage: 'Closed Won', amount: 225000 }
                 ]
             }
         },
@@ -216,10 +216,10 @@ export default defineStack({
             data: {
                 provider: 'value',
                 items: [
-                    { name: 'Enterprise License', sales: 450 },
-                    { name: 'Pro Subscription', sales: 320 },
-                    { name: 'Basic Plan', sales: 210 },
-                    { name: 'Consulting Hours', sales: 150 }
+                    { name: 'Workstation Pro Laptop', sales: 45000 },
+                    { name: 'Implementation Service', sales: 32000 },
+                    { name: 'Premimum Support', sales: 21000 },
+                    { name: 'Executive Mesh Chair', sales: 15000 }
                 ]
             }
         },
@@ -241,11 +241,11 @@ export default defineStack({
             data: {
                 provider: 'value',
                 items: [
-                   { name: 'TechCorp License', amount: '$50,000', stage: 'Proposal', date: '2024-06-30' },
-                   { name: 'Software Inc Pilot', amount: '$5,000', stage: 'Closed Won', date: '2024-01-15' },
-                   { name: 'Consulting Q2', amount: '$12,000', stage: 'Negotiation', date: '2024-05-20' },
-                   { name: 'Global Widget Deal', amount: '$85,000', stage: 'Qualification', date: '2024-07-10' },
-                   { name: 'Startup Bundle', amount: '$2,500', stage: 'Prospecting', date: '2024-08-01' }
+                   { name: 'Berlin Automation Project', amount: '$250,000', stage: 'Prospecting', date: '2024-09-01' },
+                   { name: 'ObjectStack Enterprise License', amount: '$150,000', stage: 'Closed Won', date: '2024-01-15' },
+                   { name: 'London Annual Renewal', amount: '$85,000', stage: 'Proposal', date: '2024-05-15' },
+                   { name: 'SF Tower Expansion', amount: '$75,000', stage: 'Closed Won', date: '2024-02-28' },
+                   { name: 'Global Fin Q1 Upsell', amount: '$45,000', stage: 'Negotiation', date: '2024-03-30' }
                 ]
             }
         }
@@ -268,55 +268,98 @@ export default defineStack({
             name: "ObjectStack HQ", 
             industry: "Technology", 
             type: "Partner", 
+            employees: 120,
             billing_address: "44 Tehama St, San Francisco, CA 94105", 
             latitude: 37.7879,
             longitude: -122.3961,
             website: "https://objectstack.com", 
-            phone: "555-0101" 
+            phone: "415-555-0101",
+            owner: "1",
+            created_at: new Date("2023-01-15")
           },
           { 
             _id: "2", 
             name: "Salesforce Tower", 
             industry: "Technology", 
             type: "Customer", 
+            employees: 35000,
             billing_address: "415 Mission St, San Francisco, CA 94105", 
             latitude: 37.7897,
             longitude: -122.3972,
             website: "https://salesforce.com", 
-            phone: "555-0102" 
+            phone: "415-555-0102",
+            owner: "1",
+            created_at: new Date("2023-02-20")
           },
           { 
             _id: "3", 
-            name: "Central Park Office", 
+            name: "Global Financial Services", 
             industry: "Finance", 
             type: "Customer", 
-            billing_address: "New York, NY", 
-            latitude: 40.7829,
-            longitude: -73.9654,
-            website: "https://finance.example.com", 
-            phone: "555-0103" 
+            employees: 5000,
+            billing_address: "100 Wall St, New York, NY 10005", 
+            latitude: 40.7056,
+            longitude: -74.0084,
+            website: "https://globalfin.example.com", 
+            phone: "212-555-0103",
+            owner: "2",
+            created_at: new Date("2023-03-10")
           },
           { 
             _id: "4",
-            name: "London Branch", 
-            industry: "Finance", 
+            name: "London Consulting Grp", 
+            industry: "Services", 
             type: "Partner", 
-            billing_address: "London, UK", 
-            latitude: 51.5074,
-            longitude: -0.1278,
-            website: "https://uk.example.com", 
-            phone: "555-0104"
+            employees: 250,
+            billing_address: "10 Downing St, London, UK", 
+            latitude: 51.5034,
+            longitude: -0.1276,
+            website: "https://lcg.example.co.uk", 
+            phone: "+44-555-0104",
+            owner: "2",
+            created_at: new Date("2023-04-05")
           },
            { 
             _id: "5",
-            name: "Tokyo Innovation Center", 
-            industry: "Technology", 
+            name: "Tokyo E-Commerce", 
+            industry: "Retail", 
             type: "Vendor", 
-            billing_address: "Tokyo, Japan", 
-            latitude: 35.6762,
-            longitude: 139.6503,
-            website: "https://jp.example.com", 
-            phone: "555-0105"
+            employees: 80,
+            billing_address: "Shibuya Crossing, Tokyo, Japan", 
+            latitude: 35.6595,
+            longitude: 139.7004,
+            website: "https://tokyoshop.example.jp", 
+            phone: "+81-555-0105",
+            owner: "1",
+            created_at: new Date("2023-05-20")
+          },
+          { 
+            _id: "6",
+            name: "Berlin AutoWorks", 
+            industry: "Manufacturing", 
+            type: "Customer", 
+            employees: 1200,
+            billing_address: "Berlin, Germany", 
+            latitude: 52.5200,
+            longitude: 13.4050,
+            website: "https://berlinauto.example.de", 
+            phone: "+49-555-0106",
+            owner: "1",
+            created_at: new Date("2023-06-15")
+          },
+          { 
+            _id: "7",
+            name: "Paris Fashion House", 
+            industry: "Retail", 
+            type: "Customer", 
+            employees: 450,
+            billing_address: "Champs-Élysées, Paris, France", 
+            latitude: 48.8698,
+            longitude: 2.3075,
+            website: "https://mode.example.fr", 
+            phone: "+33-555-0107",
+            owner: "2",
+            created_at: new Date("2023-07-01")
           }
         ]
       },
@@ -327,38 +370,107 @@ export default defineStack({
           { 
             _id: "1", 
             name: "Alice Johnson", 
-            email: "alice@example.com", 
-            phone: "555-0101", 
+            email: "alice@objectstack.com", 
+            phone: "415-555-1001", 
             title: "VP Sales", 
-            company: "TechCorp", 
+            department: "Sales",
+            account: "1",
             status: "Active",
-            latitude: 40.7128,
-            longitude: -74.0060, // NYC
-            address: "New York, NY"
+            priority: "High",
+            birthdate: new Date("1985-04-12"),
+            latitude: 37.7879,
+            longitude: -122.3961,
+            address: "San Francisco, CA"
           },
           { 
             _id: "2", 
             name: "Bob Smith", 
-            email: "bob@tech.com", 
-            phone: "555-0102", 
-            title: "Developer", 
-            company: "Software Inc", 
-            status: "Lead",
-            latitude: 47.6062,
-            longitude: -122.3321, // Seattle
-            address: "Seattle, WA"
+            email: "bob@salesforce.com", 
+            phone: "415-555-1002", 
+            title: "CTO", 
+            department: "Engineering",
+            account: "2",
+            status: "Active",
+            priority: "High",
+            birthdate: new Date("1980-08-23"),
+            latitude: 37.7897,
+            longitude: -122.3972,
+            address: "San Francisco, CA"
           },
           { 
             _id: "3", 
             name: "Charlie Brown", 
-            email: "charlie@peanuts.com", 
-            phone: "555-0103", 
-            title: "Manager", 
-            company: "Good Grief LLC", 
+            email: "charlie@globalfin.com", 
+            phone: "212-555-1003", 
+            title: "Procurement Manager", 
+            department: "Purchasing",
+            account: "3",
             status: "Customer",
-            latitude: 44.9778,
-            longitude: -93.2650, // Minneapolis
-            address: "Minneapolis, MN"
+            priority: "Medium",
+            birthdate: new Date("1990-01-15"),
+            latitude: 40.7056,
+            longitude: -74.0084,
+            address: "New York, NY"
+          },
+          { 
+            _id: "4", 
+            name: "Diana Prince", 
+            email: "diana@lcg.co.uk", 
+            phone: "+44-555-1004", 
+            title: "Director", 
+            department: "Management",
+            account: "4",
+            status: "Partner",
+            priority: "High",
+            birthdate: new Date("1988-06-05"),
+            latitude: 51.5034,
+            longitude: -0.1276,
+            address: "London, UK"
+          },
+          { 
+            _id: "5", 
+            name: "Evan Wright", 
+            email: "evan@berlinauto.de", 
+            phone: "+49-555-1005", 
+            title: "Head of Operations", 
+            department: "Operations",
+            account: "6",
+            status: "Lead",
+            priority: "High",
+            birthdate: new Date("1975-11-30"),
+            latitude: 52.5200,
+            longitude: 13.4050,
+            address: "Berlin, DE"
+          },
+          { 
+            _id: "6", 
+            name: "Fiona Gallagher", 
+            email: "fiona@mode.fr", 
+            phone: "+33-555-1006", 
+            title: "Creative Director", 
+            department: "Design",
+            account: "7",
+            status: "Customer",
+            priority: "Low",
+            birthdate: new Date("1992-03-18"),
+            latitude: 48.8698,
+            longitude: 2.3075,
+            address: "Paris, FR"
+          },
+          { 
+            _id: "7", 
+            name: "George Martin", 
+            email: "george@salesforce.com", 
+            phone: "415-555-1007", 
+            title: "Senior Developer", 
+            department: "Engineering",
+            account: "2",
+            status: "Active",
+            priority: "Low",
+            birthdate: new Date("1995-12-12"),
+            latitude: 37.7897,
+            longitude: -122.3972,
+            address: "San Francisco, CA"
           }
         ]
       },
@@ -368,33 +480,101 @@ export default defineStack({
         records: [
           { 
               _id: "101", 
-              name: "TechCorp Enterprise License", 
-              amount: 50000, 
-              stage: "Proposal", 
-              close_date: new Date("2024-06-30"), 
-              account_id: "1", 
-              contact_ids: ["1", "2"], 
+              name: "ObjectStack Enterprise License", 
+              amount: 150000, 
+              stage: "Closed Won", 
+              close_date: new Date("2024-01-15"), 
+              account_id: "2", 
+              contact_ids: ["2", "7"], 
+              probability: 100,
+              type: "New Business",
+              lead_source: "Partner",
+              next_step: "Onboarding",
               description: "Enterprise software license for 500 users. Includes premium support and training." 
           },
           { 
               _id: "102", 
-              name: "Software Inc Pilot", 
-              amount: 5000, 
-              stage: "Closed Won", 
-              close_date: new Date("2024-01-15"), 
-              account_id: "2",
-              contact_ids: ["2"],
-              description: "Pilot program for 50 users." 
+              name: "Global Fin Q1 Upsell", 
+              amount: 45000, 
+              stage: "Negotiation", 
+              close_date: new Date("2024-03-30"), 
+              account_id: "3",
+              contact_ids: ["3"],
+              probability: 80,
+              type: "Upgrade",
+              lead_source: "Existing Business",
+              next_step: "Review Contract",
+              description: "Adding 50 more seats to the existing contract." 
           },
           { 
               _id: "103", 
-              name: "Good Grief Consultant", 
+              name: "London Annual Renewal", 
+              amount: 85000, 
+              stage: "Proposal", 
+              close_date: new Date("2024-05-15"), 
+              account_id: "4",
+              contact_ids: ["4"],
+              probability: 60,
+              type: "Renewal",
+              lead_source: "Existing Business",
+              next_step: "Send Quote",
+              description: "Annual renewal for continuous integration services." 
+          },
+          { 
+              _id: "104", 
+              name: "Berlin Automation Project", 
+              amount: 250000, 
+              stage: "Prospecting", 
+              close_date: new Date("2024-09-01"), 
+              account_id: "6",
+              contact_ids: ["5"],
+              probability: 20,
+              type: "New Business",
+              lead_source: "Web",
+              next_step: "Initial Discovery Call",
+              description: "Full factory automation software suite." 
+          },
+          { 
+              _id: "105", 
+              name: "Paris Store POS System", 
+              amount: 35000, 
+              stage: "Qualification", 
+              close_date: new Date("2024-07-20"), 
+              account_id: "7",
+              contact_ids: ["6"],
+              probability: 40,
+              type: "New Business",
+              lead_source: "Referral",
+              next_step: "Demo",
+              description: "POS system for the flagship store on Champs-Élysées." 
+          },
+          { 
+              _id: "106", 
+              name: "Tokyo E-Com Integration", 
               amount: 12000, 
-              stage: "Negotiation", 
-              close_date: new Date("2024-05-20"), 
-              account_id: "3",
-              contact_ids: ["3"],
-              description: "Consulting services for Q2 implementation." 
+              stage: "Closed Lost", 
+              close_date: new Date("2024-02-10"), 
+              account_id: "5",
+              contact_ids: [],
+              probability: 0,
+              type: "New Business",
+              lead_source: "Web",
+              next_step: "N/A",
+              description: "Client chose a competitor." 
+          },
+          { 
+              _id: "107", 
+              name: "SF Tower Expansion", 
+              amount: 75000, 
+              stage: "Closed Won", 
+              close_date: new Date("2024-02-28"), 
+              account_id: "2", 
+              contact_ids: ["2"], 
+              probability: 100,
+              type: "Upgrade",
+              lead_source: "Existing Business",
+              next_step: "Implement",
+              description: "Additional storage modules." 
           }
         ]
       },
@@ -402,51 +582,58 @@ export default defineStack({
         object: 'user',
         mode: 'upsert',
         records: [
-             { _id: "1", name: 'John Doe', email: 'john@example.com', username: 'jdoe', role: 'admin', active: true },
-             { _id: "2", name: 'Jane Smith', email: 'jane@example.com', username: 'jsmith', role: 'user', active: true }
+             { _id: "1", name: 'Martin CEO', email: 'martin@example.com', username: 'martin', role: 'admin', active: true },
+             { _id: "2", name: 'Sarah Sales', email: 'sarah@example.com', username: 'sarah', role: 'user', active: true }
         ]
       },
       {
           object: 'product',
           mode: 'upsert',
           records: [
-              { _id: "p1", sku: 'PROD-001', name: 'Laptop', category: 'Electronics', price: 1299.99, stock: 15, image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=300&q=80' },
-              { _id: "p2", sku: 'PROD-002', name: 'Wireless Mouse', category: 'Electronics', price: 29.99, stock: 120, image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=300&q=80' },
-              { _id: "p3", sku: 'PROD-003', name: 'Ergonomic Chair', category: 'Furniture', price: 249.99, stock: 8, image: 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=300&q=80' },
-              { _id: "p4", sku: 'PROD-004', name: 'Standing Desk', category: 'Furniture', price: 499.99, stock: 20, image: 'https://images.unsplash.com/photo-1595515106969-1ce29566ff1c?w=300&q=80' },
-              { _id: "p5", sku: 'PROD-005', name: 'Noise Cancelling Headphones', category: 'Electronics', price: 199.99, stock: 45, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80' }
+              { _id: "p1", sku: 'HW-LAP-001', name: 'Workstation Pro Laptop', category: 'Electronics', price: 2499.99, stock: 15, image: 'https://images.unsplash.com/photo-1593642702821-c8da6771f0c6?w=600&q=80' },
+              { _id: "p2", sku: 'HW-ACC-002', name: 'Wireless Ergonomic Mouse', category: 'Electronics', price: 89.99, stock: 120, image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&q=80' },
+              { _id: "p3", sku: 'FUR-CHR-003', name: 'Executive Mesh Chair', category: 'Furniture', price: 549.99, stock: 8, image: 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=600&q=80' },
+              { _id: "p4", sku: 'FUR-DSK-004', name: 'Adjustable Standing Desk', category: 'Furniture', price: 799.99, stock: 20, image: 'https://images.unsplash.com/photo-1595515106969-1ce29566ff1c?w=600&q=80' },
+              { _id: "p5", sku: 'HW-AUD-005', name: 'Studio Noise Cancelling Headphones', category: 'Electronics', price: 349.99, stock: 45, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80' },
+              { _id: "p6", sku: 'HW-MON-006', name: '4K UltraWide Monitor', category: 'Electronics', price: 899.99, stock: 30, image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=600&q=80' },
+              { _id: "p7", sku: 'SVC-CNS-007', name: 'Implementation Service (Hourly)', category: 'Services', price: 250.00, stock: 1000, image: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600&q=80' },
+              { _id: "p8", sku: 'SVC-SUP-008', name: 'Premium Support (Annual)', category: 'Services', price: 5000.00, stock: 1000, image: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=600&q=80' }
           ]
       },
       {
           object: 'order',
           mode: 'upsert',
           records: [
-              { _id: "o1", name: 'ORD-1001', customer: "1", order_date: new Date('2024-01-15'), amount: 159.99, status: 'Draft' },
-              { _id: "o2", name: 'ORD-1002', customer: "2", order_date: new Date('2024-01-18'), amount: 89.50, status: 'Pending' }
+              { _id: "o1", name: 'ORD-2024-001', customer: "2", order_date: new Date('2024-01-15'), amount: 15459.99, status: 'Draft' },
+              { _id: "o2", name: 'ORD-2024-002', customer: "3", order_date: new Date('2024-01-18'), amount: 289.50, status: 'Pending' }
           ]
       },
       {
           object: 'project_task',
           mode: 'upsert',
           records: [
-              { _id: "t1", name: "Requirements Gathering", start_date: new Date("2024-01-01"), end_date: new Date("2024-01-14"), progress: 100, status: 'Completed', color: '#10b981', priority: 'High' },
-              { _id: "t2", name: "System Design", start_date: new Date("2024-01-15"), end_date: new Date("2024-02-15"), progress: 100, status: 'Completed', color: '#3b82f6', priority: 'High', dependencies: 't1' },
-              { _id: "t3", name: "Implementation", start_date: new Date("2024-02-16"), end_date: new Date("2024-04-30"), progress: 65, status: 'In Progress', color: '#8b5cf6', priority: 'High', dependencies: 't2' },
-              { _id: "t4", name: "Quality Assurance", start_date: new Date("2024-05-01"), end_date: new Date("2024-05-30"), progress: 0, status: 'Planned', color: '#f59e0b', priority: 'Medium', dependencies: 't3' },
-              { _id: "t5", name: "User Acceptance", start_date: new Date("2024-06-01"), end_date: new Date("2024-06-15"), progress: 0, status: 'Planned', color: '#f43f5e', priority: 'Medium', dependencies: 't4' },
-              { _id: "t6", name: "Go Live", start_date: new Date("2024-06-20"), end_date: new Date("2024-06-20"), progress: 0, status: 'Planned', color: '#ef4444', priority: 'Critical', dependencies: 't5' }
+              { _id: "t1", name: "Requirements Gathering", start_date: new Date("2024-02-01"), end_date: new Date("2024-02-14"), progress: 100, status: 'Completed', color: '#10b981', priority: 'High', manager: "1" },
+              { _id: "t2", name: "Architecture Design", start_date: new Date("2024-02-15"), end_date: new Date("2024-03-01"), progress: 100, status: 'Completed', color: '#3b82f6', priority: 'High', dependencies: 't1', manager: "1" },
+              { _id: "t3", name: "Frontend Development", start_date: new Date("2024-03-02"), end_date: new Date("2024-04-15"), progress: 75, status: 'In Progress', color: '#8b5cf6', priority: 'High', dependencies: 't2', manager: "2" },
+              { _id: "t4", name: "Backend API Integration", start_date: new Date("2024-03-02"), end_date: new Date("2024-04-10"), progress: 80, status: 'In Progress', color: '#6366f1', priority: 'High', dependencies: 't2', manager: "2" },
+              { _id: "t5", name: "QA & Testing", start_date: new Date("2024-04-16"), end_date: new Date("2024-05-01"), progress: 0, status: 'Planned', color: '#f59e0b', priority: 'Medium', dependencies: 't3,t4', manager: "1" },
+              { _id: "t6", name: "UAT", start_date: new Date("2024-05-02"), end_date: new Date("2024-05-15"), progress: 0, status: 'Planned', color: '#f43f5e', priority: 'Medium', dependencies: 't5', manager: "1" },
+              { _id: "t7", name: "Go Live & Launch", start_date: new Date("2024-05-20"), end_date: new Date("2024-05-20"), progress: 0, status: 'Planned', color: '#ef4444', priority: 'Critical', dependencies: 't6', manager: "1" }
           ]
       },
       {
           object: 'event',
           mode: 'upsert',
           records: [
-              { _id: "e1", subject: "Weekly Standup", start: new Date("2024-02-05T09:00:00"), end: new Date("2024-02-05T10:00:00"), location: "Conference Room A", type: "Meeting", description: "Team synchronization" },
-              { _id: "e2", subject: "Client Call - TechCorp", start: new Date("2024-02-06T14:00:00"), end: new Date("2024-02-06T15:00:00"), location: "Zoom", type: "Call", description: "Project update" },
-              { _id: "e3", subject: "Project Review", start: new Date("2024-02-08T10:00:00"), end: new Date("2024-02-08T11:30:00"), location: "Board Room", type: "Meeting", description: "Milestone review" },
-              { _id: "e4", subject: "Lunch with Partners", start: new Date("2024-02-09T12:00:00"), end: new Date("2024-02-09T13:30:00"), location: "Downtown Cafe", type: "Other", description: "Networking" }
+              { _id: "e1", subject: "Weekly Standup", start: new Date("2024-02-05T09:00:00"), end: new Date("2024-02-05T10:00:00"), location: "Conference Room A", type: "Meeting", description: "Team synchronization regarding Project Alpha" },
+              { _id: "e2", subject: "Client Call - TechCorp", start: new Date("2024-02-06T14:00:00"), end: new Date("2024-02-06T15:00:00"), location: "Zoom", type: "Call", description: "Reviewing Q1 Goals and Roadblocks" },
+              { _id: "e3", subject: "Project Review", start: new Date("2024-02-08T10:00:00"), end: new Date("2024-02-08T11:30:00"), location: "Board Room", type: "Meeting", description: "Milestone review with stakeholders" },
+              { _id: "e4", subject: "Lunch with Partners", start: new Date("2024-02-09T12:00:00"), end: new Date("2024-02-09T13:30:00"), location: "Downtown Cafe", type: "Other", description: "Networking event" },
+              { _id: "e5", subject: "Product Demo - Berlin Auto", start: new Date("2024-03-10T11:00:00"), end: new Date("2024-03-10T12:30:00"), location: "Online", type: "Meeting", description: "Showcasing the new automation suite capabilities" },
+              { _id: "e6", subject: "Internal Training", start: new Date("2024-03-15T09:00:00"), end: new Date("2024-03-15T16:00:00"), location: "Training Center", type: "Other", description: "Security compliance training for all staff" }
           ]
       }
     ]
+
   }
 });

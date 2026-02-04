@@ -12,16 +12,19 @@ export const OpportunityObject = ObjectSchema.create({
     account: Field.lookup('account', { label: 'Account' }),
     contacts: Field.lookup('contact', { label: 'Contacts', multiple: true }),
     probability: Field.percent({ label: 'Probability' }),
+    type: Field.select(['New Business', 'Existing Business', 'Upgrade', 'Renewal'], { label: 'Type' }),
+    lead_source: Field.select(['Web', 'Phone', 'Partner', 'Referral', 'Other'], { label: 'Lead Source' }),
+    next_step: Field.text({ label: 'Next Step' }),
     description: Field.textarea({ label: 'Description' })
   },
   list_views: {
     all: {
       label: 'All Opportunities',
-      columns: ['name', 'account', 'amount', 'stage', 'close_date']
+      columns: ['name', 'account', 'amount', 'stage', 'probability', 'close_date', 'type']
     },
     closing_soon: {
       label: 'Closing Soon',
-      columns: ['name', 'amount', 'stage', 'close_date'],
+      columns: ['name', 'amount', 'stage', 'close_date', 'next_step'],
       sort: [['close_date', 'asc']]
     },
     won: {
@@ -35,7 +38,7 @@ export const OpportunityObject = ObjectSchema.create({
       columns: ['name', 'amount', 'account'],
       groupField: 'stage',
       titleField: 'name',
-      cardFields: ['amount', 'account', 'close_date']
+      cardFields: ['amount', 'account', 'close_date', 'probability']
     } as any
   }
 });

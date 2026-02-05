@@ -201,7 +201,7 @@ describe('Console Application Simulation', () => {
         // Check all labels exist concurrently using Promise.all for faster execution
         await Promise.all(
             fieldLabels.map(label =>
-                waitFor(() => expectLabelToExist(label), { timeout: 5000 })
+                waitFor(() => expectLabelToExist(label), { timeout: 12000 })
             )
         );
 

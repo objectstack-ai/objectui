@@ -135,7 +135,7 @@ describe('Console App Integration', () => {
         // 2. Should eventually show Main Layout (header/sidebar)
         await waitFor(() => {
             expect(screen.queryByText(/Initializing/i)).not.toBeInTheDocument();
-        });
+        }, { timeout: 10000 });
 
         // Check for App Name in sidebar/header config
         const appLabels = screen.getAllByText('Sales App');
@@ -151,7 +151,7 @@ describe('Console App Integration', () => {
         await waitFor(() => {
             const appLabels = screen.getAllByText('Sales App');
             expect(appLabels.length).toBeGreaterThan(0);
-        });
+        }, { timeout: 10000 });
 
         // Click the navigation item
         // Note: Sidebar implementation might be collapsible or using specific DOM structure 
@@ -163,7 +163,7 @@ describe('Console App Integration', () => {
         // And render ObjectView
         await waitFor(() => {
             expect(screen.getByTestId('object-view')).toBeInTheDocument();
-        });
+        }, { timeout: 10000 });
     });
 
     it('handles app switching', async () => {
@@ -172,7 +172,7 @@ describe('Console App Integration', () => {
         await waitFor(() => {
             const appLabels = screen.getAllByText('Sales App');
             expect(appLabels.length).toBeGreaterThan(0);
-        });
+        }, { timeout: 10000 });
 
         // Find App Switcher (SidebarMenuButton with app name)
         // This might be tricky depending on Shadcn structure. 

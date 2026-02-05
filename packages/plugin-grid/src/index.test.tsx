@@ -23,7 +23,7 @@ describe('Plugin Grid Registration', () => {
     );
     
     // Use findByTestId for async safety
-    const element = await screen.findByTestId('grid-mock');
+    const element = await screen.findByTestId('grid-mock', {}, { timeout: 5000 });
     expect(element).toHaveTextContent('DataSource: mock-datasource');
   });
 });

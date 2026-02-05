@@ -10,6 +10,7 @@ import { ObjectQLPlugin } from '@objectstack/objectql';
 import { InMemoryDriver } from '@objectstack/driver-memory';
 import { MSWPlugin } from '@objectstack/plugin-msw';
 import { setupWorker } from 'msw/browser';
+import { http, HttpResponse } from 'msw';
 import appConfig from '../../objectstack.shared';
 
 let kernel: ObjectKernel | null = null;
@@ -74,6 +75,19 @@ export async function startMockServer() {
   // Manually start MSW worker with correct service worker path
   if (typeof window !== 'undefined') {
     const handlers = mswPlugin.getHandlers();
+
+    // Manual Fix: Add discovery endpoint handler to prevent 302/404 errors during initialization
+    handlers.unshift(
+      http.get('*/.well-known/objectstack', () => {
+         return HttpResponse.json({
+            name: "ObjectStack",
+            version: "1.0.0",
+            api_base: "/api/v1",
+            status: "ok"
+         });
+      })
+    );
+
     const worker = setupWorker(...handlers);
     
     // Check if we are served under a base path (e.g. /console/)

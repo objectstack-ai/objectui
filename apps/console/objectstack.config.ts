@@ -25,6 +25,8 @@ const InMemoryDriver = DriverMemoryPkg.InMemoryDriver || (DriverMemoryPkg as any
 const DriverPlugin = RuntimePkg.DriverPlugin || (RuntimePkg as any).default?.DriverPlugin || (RuntimePkg as any).default;
 // const HonoServerPlugin = HonoServerPluginPkg.HonoServerPlugin || (HonoServerPluginPkg as any).default?.HonoServerPlugin || (HonoServerPluginPkg as any).default;
 
+const memoryDriver = new InMemoryDriver();
+
 import ConsolePluginConfig from './plugin.js';
 
 const FixedConsolePlugin = {
@@ -32,6 +34,75 @@ const FixedConsolePlugin = {
     init: () => {},
     start: async (ctx: any) => {
         console.log('DEBUG: FixedConsolePlugin start called');
+
+        // Official way: Configure the 'default' datasource manually
+        try {
+            const metadataService = ctx.metadata || ctx.getService('metadata');
+            if (metadataService && metadataService.addDatasource) {
+                console.log('[Config] Registering default datasource (memory)...');
+                await metadataService.addDatasource({
+                    name: 'default',
+                    driver: 'in-memory-driver', // Using the registered service name from logs
+                });
+            } else {
+                 console.warn('[Config] Metadata service not available for datasource registration');
+            }
+        } catch (e: any) {
+             console.error('[Config] Failed to register default datasource:', e);
+        }
+
+        // --- Data Seeding Logic ---
+        try {
+            console.log('[Seeder] Checking for initial data...');
+            
+            // Resolve the active driver from the runtime context
+            let activeDriver = null;
+            
+            try {
+                // Try getting the service that was explicitly logged as registered
+                // "Service 'driver.in-memory-driver' registered"
+                const serviceName = 'driver.in-memory-driver';
+                const service = ctx.getService(serviceName);
+                if (service && typeof service.create === 'function') {
+                    activeDriver = service;
+                } else if (service && service.driver && typeof service.driver.create === 'function') {
+                    activeDriver = service.driver;
+                }
+            } catch (err: any) {
+                console.log(`[Seeder] Driver retrieval error: ${err.message}`);
+            }
+
+            if (!activeDriver) {
+                 console.log("[Seeder] Driver 'driver.in-memory-driver' not found or invalid.");
+                 console.log("[Seeder] Available Services:", ctx.getServiceNames ? ctx.getServiceNames() : 'Unknown');
+                 // Last resort fallback
+                 activeDriver = memoryDriver;
+            } else {
+                 console.log("[Seeder] Successfully resolved active driver from Runtime.");
+            }
+
+            const manifest = sharedConfig.manifest;
+            if (manifest && Array.isArray(manifest.data)) {
+                 for (const dataset of manifest.data) {
+                     if (dataset.object && Array.isArray(dataset.records)) {
+                         console.log(`[Seeder] Seeding ${dataset.records.length} records for ${dataset.object}`);
+                         for (const record of dataset.records) {
+                              try {
+                                  await activeDriver.create(dataset.object, record);
+                              } catch (err: any) {
+                                  console.warn(`[Seeder] Failed to insert ${dataset.object} record:`, err.message);
+                              }
+                         }
+                     }
+                 }
+                 console.log('[Seeder] Data seeding complete.');
+            } else {
+                console.log('[Seeder] No initial data found in manifest.');
+            }
+        } catch (e: any) {
+            console.error('[Seeder] Critical error during data seeding:', e);
+        }
+        // --------------------------
 
         let app = null;
         const staticRoot = './dist';
@@ -106,7 +177,8 @@ const FixedConsolePlugin = {
 
 const plugins: any[] = [
     new ObjectQLPlugin(),
-    new DriverPlugin(new InMemoryDriver(), 'memory'),
+    // Driver registration
+    new DriverPlugin(memoryDriver, 'in-memory-driver'),
     // new MSWPlugin(), // Disabled in production mode
     // HonoServerPlugin is auto-detected
     FixedConsolePlugin
@@ -127,11 +199,13 @@ export default defineConfig({
     target: 'node18',
   },
   
+  /*
   datasources: {
     default: {
       driver: 'memory', 
     },
   },
+  */
   
   plugins,
   

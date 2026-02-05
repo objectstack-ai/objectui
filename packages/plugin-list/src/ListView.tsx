@@ -236,7 +236,15 @@ export const ListView: React.FC<ListViewProps> = ({
     return views;
   }, [schema.options, schema.viewType]);
 
-  // Load saved view preference
+  // Sync view from props
+  React.useEffect(() => {
+     if (schema.viewType) {
+        setCurrentView(schema.viewType as ViewType);
+     }
+  }, [schema.viewType]);
+
+  // Load saved view preference (DISABLED: interfering with schema-defined views)
+  /*
   React.useEffect(() => {
     try {
       const savedView = localStorage.getItem(storageKey);
@@ -247,6 +255,7 @@ export const ListView: React.FC<ListViewProps> = ({
       console.warn('Failed to load view preference from localStorage:', error);
     }
   }, [storageKey, availableViews]);
+  */
 
   const handleViewChange = React.useCallback((view: ViewType) => {
     setCurrentView(view);

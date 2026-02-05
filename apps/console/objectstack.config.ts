@@ -34,6 +34,45 @@ class PatchedHonoServerPlugin extends HonoServerPlugin {
         // @ts-ignore
         this.start = this.start?.bind(this);
     }
+
+    async start(ctx: any) {
+        // @ts-ignore
+        await super.start(ctx);
+        
+        // SPA Fallback: Serve index.html for unknown routes (excluding /api)
+        // @ts-ignore
+        const app = this.server.getRawApp();
+        // @ts-ignore
+        const staticRoot = this.options.staticRoot;
+        
+        if (staticRoot) {
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Register fallback after serveStatic (which is added in listen/super.start)
+            app.get('*', async (c: any) => {
+                // Ignore API calls -> let them 404
+                if (c.req.path.startsWith('/api') || c.req.path.startsWith('/assets')) {
+                    // return c.notFound(); // Hono's c.notFound() isn't standard in all versions, let's use status
+                    return c.text('Not Found', 404);
+                }
+                
+                try {
+                    // Try to serve index.html
+                    // Ensure we resolve relative to CWD or config location
+                    const indexPath = path.resolve(staticRoot, 'index.html');
+                    if (fs.existsSync(indexPath)) {
+                         const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                         return c.html(indexContent);
+                    }
+                    return c.text('SPA Index Not Found', 404);
+                } catch (e: any) {
+                    return c.text('Server Error: ' + e.message, 500);
+                }
+            });
+            console.log('SPA Fallback route registered for ' + staticRoot);
+        }
+    }
 }
 
 import ConsolePluginConfig from './plugin.js';

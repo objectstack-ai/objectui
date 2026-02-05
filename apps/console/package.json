@@ -15,6 +15,7 @@
   "scripts": {
     "msw:init": "msw init -y public",
     "dev": "pnpm msw:init && vite",
+    "start": "tsx ../../node_modules/@objectstack/cli/bin/objectstack.js serve objectstack.config.ts",
     "build": "pnpm msw:init && tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -54,6 +55,7 @@
     "react-router-dom": "^7.13.0"
   },
   "devDependencies": {
+    "@objectstack/cli": "^1.0.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",

@@ -1,6 +1,41 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+// @ts-ignore
+globalThis.require = require;
+
 import { defineConfig } from './src/config';
-import { MSWPlugin } from '@objectstack/plugin-msw';
-import { ObjectQLPlugin } from '@objectstack/objectql';
+// @ts-ignore
+import * as MSWPluginPkg from '@objectstack/plugin-msw';
+// @ts-ignore
+import * as ObjectQLPluginPkg from '@objectstack/objectql';
+// @ts-ignore
+import * as HonoServerPluginPkg from '@objectstack/plugin-hono-server';
+
+const MSWPlugin = MSWPluginPkg.MSWPlugin || (MSWPluginPkg as any).default?.MSWPlugin || (MSWPluginPkg as any).default;
+const ObjectQLPlugin = ObjectQLPluginPkg.ObjectQLPlugin || (ObjectQLPluginPkg as any).default?.ObjectQLPlugin || (ObjectQLPluginPkg as any).default;
+const HonoServerPlugin = HonoServerPluginPkg.HonoServerPlugin || (HonoServerPluginPkg as any).default?.HonoServerPlugin || (HonoServerPluginPkg as any).default;
+
+// FIX: Ensure init is own property for runtime compatibility
+class PatchedMSWPlugin extends MSWPlugin {
+    constructor(...args: any[]) {
+        super(...args);
+        // @ts-ignore
+        this.init = this.init.bind(this);
+        // @ts-ignore
+        this.start = this.start?.bind(this);
+    }
+}
+
+class PatchedHonoServerPlugin extends HonoServerPlugin {
+    constructor(...args: any[]) {
+        super(...args);
+        // @ts-ignore
+        this.init = this.init.bind(this);
+        // @ts-ignore
+        this.start = this.start?.bind(this);
+    }
+}
+
 import ConsolePluginConfig from './plugin.js';
 import crmConfig from '@object-ui/example-crm/objectstack.config';
 import todoConfig from '@object-ui/example-todo/objectstack.config';
@@ -47,8 +82,7 @@ export default defineConfig({
   
   plugins: [
     new ObjectQLPlugin(),
-    new MSWPlugin(),
-    FixedConsolePlugin
+    new PatchedMSWPlugin(),    new PatchedHonoServerPlugin(),    FixedConsolePlugin
   ],
 
   // ============================================================================

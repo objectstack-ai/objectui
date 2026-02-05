@@ -1,6 +1,6 @@
 {
   "name": "@object-ui/console",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "ObjectStack Console - The standard runtime UI for ObjectStack applications",
   "type": "module",

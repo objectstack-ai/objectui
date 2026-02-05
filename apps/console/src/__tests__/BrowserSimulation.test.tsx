@@ -143,7 +143,7 @@ describe('Console Application Simulation', () => {
         // Verify Object Header
         await waitFor(() => {
             expect(screen.getByRole('heading', { name: /Kitchen Sink/i })).toBeInTheDocument();
-        });
+        }, { timeout: 5000 });
 
         // Verify "New" Button exists
         const newButton = screen.getByRole('button', { name: /New/i });

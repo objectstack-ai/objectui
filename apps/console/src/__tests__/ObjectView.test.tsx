@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ObjectView } from '../components/ObjectView';
@@ -20,7 +19,7 @@ vi.mock('@object-ui/plugin-calendar', () => ({
 
 vi.mock('@object-ui/components', async (importOriginal) => {
     const React = await import('react');
-    const MockTabsContext = React.createContext({ onValueChange: (v: any) => {} });
+    const MockTabsContext = React.createContext({ onValueChange: ( _v: any) => {} });
     const actual = await importOriginal<any>();
     return {
         ...actual,

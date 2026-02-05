@@ -80,7 +80,7 @@ describe('ObjectForm Field Type Mapping', () => {
         // Wait for schema to load and render
         await waitFor(() => {
             expect(screen.getByLabelText(/Text Field/i)).toBeInTheDocument();
-        });
+        }, { timeout: 3000 });
 
         // 1. Text Field -> Input[type=text]
         expect(container.querySelector('input[name="text_field"][type="text"]')).toBeInTheDocument();

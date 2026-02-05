@@ -77,6 +77,11 @@ class PatchedHonoServerPlugin extends HonoServerPlugin {
                     return c.text('Asset Not Found', 404);
                 });
 
+                // Server-side Redirect: Root -> Console
+                app.get('/', (c: any) => {
+                    return c.redirect('/console/');
+                });
+
                 // Register fallback after serveStatic (which is added in listen/originalStart)
                 app.get('/console/*', async (c: any) => {
                     // Ignore API calls -> let them 404

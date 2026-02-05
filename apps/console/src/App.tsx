@@ -291,7 +291,7 @@ import { ThemeProvider } from './components/theme-provider';
 export function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="object-ui-theme">
-      <BrowserRouter>
+      <BrowserRouter basename="/console">
           <Routes>
               <Route path="/apps/:appName/*" element={<AppContent />} />
               <Route path="/" element={<RootRedirect />} />

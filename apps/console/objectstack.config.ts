@@ -96,6 +96,21 @@ const DummyApiRegistryPlugin = {
     }
 };
 
+const plugins: any[] = [
+    new ObjectQLPlugin(),
+    // new PatchedMSWPlugin(), // Disabled in production mode as per requirement
+    new PatchedHonoServerPlugin({
+        staticRoot: './dist'
+    }),
+    FixedConsolePlugin,
+    DummyApiRegistryPlugin
+];
+
+// Re-enable MSW only if explicitly needed (e.g. via test env var, though technically pnpm dev uses browser MSW)
+if (process.env.ENABLE_MSW_PLUGIN === 'true') {
+    plugins.push(new PatchedMSWPlugin());
+}
+
 export default defineConfig({
   // ============================================================================
   // Project Metadata
@@ -130,13 +145,7 @@ export default defineConfig({
   // Plugin Configuration
   // ============================================================================
   
-  plugins: [
-    new ObjectQLPlugin(),
-    new PatchedMSWPlugin(),
-    new PatchedHonoServerPlugin(),
-    FixedConsolePlugin,
-    DummyApiRegistryPlugin
-  ],
+  plugins,
 
   // ============================================================================
   // Merged Stack Configuration (CRM + Todo + Kitchen Sink + Mock Metadata)

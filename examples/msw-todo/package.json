@@ -11,12 +11,12 @@
   },
   "dependencies": {
     "@object-ui/example-todo": "workspace:*",
-    "@objectstack/client": "^1.0.8",
-    "@objectstack/driver-memory": "^1.0.8",
-    "@objectstack/objectql": "^1.0.8",
-    "@objectstack/plugin-msw": "^1.0.8",
-    "@objectstack/runtime": "^1.0.8",
-    "@objectstack/spec": "^1.0.8",
+    "@objectstack/client": "^1.0.9",
+    "@objectstack/driver-memory": "^1.0.9",
+    "@objectstack/objectql": "^1.0.9",
+    "@objectstack/plugin-msw": "^1.0.9",
+    "@objectstack/runtime": "^1.0.9",
+    "@objectstack/spec": "^1.0.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

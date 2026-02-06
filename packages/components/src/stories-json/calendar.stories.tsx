@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Components/Calendar',
+  title: 'Plugins/Scheduling/Calendar',
   component: SchemaRenderer,
   parameters: {
     layout: 'padded',

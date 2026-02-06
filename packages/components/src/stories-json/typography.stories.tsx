@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Components/Typography',
+  title: 'Primitives/General/Typography',
   component: SchemaRenderer,
   parameters: { layout: 'padded' },
   tags: ['autodocs'],

@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Views/Chatbot',
+  title: 'Plugins/Rich Content/Chatbot',
   component: SchemaRenderer,
   parameters: {
     layout: 'centered',

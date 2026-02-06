@@ -4,7 +4,7 @@ import type { BaseSchema } from '@object-ui/types';
 import { createStorybookDataSource } from '@storybook-config/datasource';
 
 const meta: Meta = {
-  title: 'Components/Table',
+  title: 'Primitives/Data Display/Table',
   component: SchemaRenderer,
   tags: ['autodocs'],
   argTypes: {

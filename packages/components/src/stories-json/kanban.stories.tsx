@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Views/Kanban',
+  title: 'Plugins/Scheduling/Kanban',
   component: SchemaRenderer,
   parameters: {
     layout: 'padded',

@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Components/Collapsible',
+  title: 'Primitives/Data Display/Collapsible',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],

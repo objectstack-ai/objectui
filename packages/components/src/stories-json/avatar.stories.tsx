@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Components/Avatar',
+  title: 'Primitives/Data Display/Avatar',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],

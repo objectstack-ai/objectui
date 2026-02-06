@@ -1,34 +1,61 @@
 import { Meta } from "@storybook/blocks";
 
-<Meta title="Introduction" />
+<Meta title="Getting Started/Introduction" />
 
-# Welcome to Object UI
+# ObjectUI — Server-Driven UI Engine
 
-Object UI is a **Universal, Server-Driven UI (SDUI) Engine** built on React + Tailwind + Shadcn.
+**ObjectUI** is a universal, server-driven UI (SDUI) engine built on **React + Tailwind + Shadcn**.
+It interprets JSON metadata into pixel-perfect, accessible, and interactive enterprise interfaces.
 
-It is designed to interpret JSON metadata into pixel-perfect, accessible, and interactive Enterprise Interfaces.
+## 🏗 Architecture
 
-## Core Concepts
-
-- **Protocol Agnostic**: Works with any backend via Data Adapters.
-- **Server Driven**: The UI structure is defined by JSON schemas.
-- **Shadcn Compatible**: Uses standard Shadcn UI primitives.
-- **Action System**: declaratively define behavior (clicks, validation, navigation).
-
-## Packages
-
-| Package | Description |
+| Package | Role |
 |---|---|
-| `@object-ui/core` | The logic engine (Validation, Expressions, Registry). |
-| `@object-ui/components` | The base UI atoms (Button, Card, Input). |
-| `@object-ui/fields` | Standardized input fields. |
-| `@object-ui/layout` | Page skeletons and shells. |
-| `@object-ui/plugin-*` | Specialized widgets (Grids, Charts, Maps). |
+| `@object-ui/types` | JSON Protocol — Pure TypeScript interfaces |
+| `@object-ui/core` | Engine — Schema registry, validation, expressions |
+| `@object-ui/components` | Primitives — Shadcn UI wrappers (Button, Card, Badge…) |
+| `@object-ui/fields` | Field Widgets — 47+ input field renderers |
+| `@object-ui/layout` | Shell — Header, Sidebar, AppShell |
+| `@object-ui/react` | Runtime — `SchemaRenderer`, `useRenderer` |
+| `@object-ui/plugin-*` | Plugins — Grid, Kanban, Charts, Gantt, Map… |
+| `@object-ui/data-*` | Data Adapters — REST, ObjectQL, ObjectStack |
 
-## Getting Started
+## 🎯 How It Works
 
-Check the **Guide** section for tutorials on how to use the SchemaRenderer.
+Everything is driven by **JSON schemas**. A UI tree is a recursive structure of `UIComponent` nodes:
 
-## Architecture
+```json
+{
+  "type": "page",
+  "children": [
+    {
+      "type": "grid",
+      "props": { "cols": 3, "gap": 4 },
+      "children": [
+        { "type": "metric", "label": "Revenue", "value": "$45,231" },
+        { "type": "metric", "label": "Users", "value": "2,350" },
+        { "type": "metric", "label": "Growth", "value": "12.5%" }
+      ]
+    }
+  ]
+}
+```
 
-This project is a monorepo managed with PNPM.
+The `SchemaRenderer` recursively walks this tree and resolves each `type` to a registered React component.
+
+## 📖 Storybook Guide
+
+This Storybook is organized by capability:
+
+- **Getting Started** — Introduction and data binding guides.
+- **Primitives** — Atomic Shadcn UI wrappers driven by JSON (Button, Card, Input, Dialog…).
+- **Fields** — All 47+ field widget renderers (text, number, select, date, lookup…).
+- **Plugins** — Complex views powered by specialized libraries (Grid, Kanban, Gantt, Charts, Map…).
+- **Templates** — Composed page-level layouts (Dashboard, Page, Reports, Sidebar).
+- **Apps** — Full application demos (CRM) using all of the above.
+
+## 🔗 Links
+
+- [GitHub Repository](https://github.com/objectstack-ai/objectui)
+- [ObjectStack Spec](https://github.com/objectstack-ai/spec)
+- [Shadcn UI](https://ui.shadcn.com/)

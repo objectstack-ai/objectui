@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Components/Carousel',
+  title: 'Primitives/Data Display/Carousel',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],

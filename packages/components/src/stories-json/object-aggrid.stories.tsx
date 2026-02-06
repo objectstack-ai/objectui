@@ -4,7 +4,7 @@ import type { BaseSchema } from '@object-ui/types';
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
 
 const meta = {
-  title: 'Views/Object Data Grid (ObjectAgGrid)',
+  title: 'Plugins/Data Views/Object AgGrid',
   component: SchemaRenderer,
   parameters: {
     layout: 'padded',

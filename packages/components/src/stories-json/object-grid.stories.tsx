@@ -4,7 +4,7 @@ import type { BaseSchema } from '@object-ui/types';
 import { createStorybookDataSource } from '@storybook-config/datasource';
 
 const meta = {
-  title: 'Views/Object Grid',
+  title: 'Plugins/Data Views/Object Grid',
   component: SchemaRenderer,
   parameters: {
     layout: 'padded',

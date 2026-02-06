@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Components/Data Display/Metric Card',
+  title: 'Primitives/Data Display/Metric Card',
   component: SchemaRenderer,
   parameters: {
     layout: 'padded',

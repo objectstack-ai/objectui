@@ -59,13 +59,16 @@ import '@object-ui/plugin-calendar';
 import '@object-ui/plugin-charts';
 import '@object-ui/plugin-chatbot';
 import '@object-ui/plugin-dashboard';
+import '@object-ui/plugin-detail';
 import '@object-ui/plugin-editor';
 import '@object-ui/plugin-form';
 import '@object-ui/plugin-gantt';
 import '@object-ui/plugin-grid';
 import '@object-ui/plugin-kanban';
+import '@object-ui/plugin-list';
 import '@object-ui/plugin-map';
 import '@object-ui/plugin-markdown';
+import '@object-ui/plugin-report';
 import '@object-ui/plugin-timeline';
 import '@object-ui/plugin-view';
 import '@object-ui/layout';
@@ -81,11 +84,18 @@ const preview: Preview = {
       storySort: {
         method: 'alphabetical',
         order: [
-          'Introduction', 
-          'Guide', 
-          'Primitives', 
-          'Schema', 
-          ['Actions', 'Inputs', 'Layout', 'Data Display', 'Navigation', 'Feedback', 'Plugins']
+          'Getting Started',
+            ['Introduction', 'Data Binding'],
+          'Primitives',
+            ['General', 'Data Display', 'Data Entry', 'Navigation', 'Feedback', 'Overlay', 'Layout'],
+          'Fields',
+            ['Gallery'],
+          'Plugins',
+            ['Data Views', 'Forms', 'Scheduling', 'Rich Content'],
+          'Templates',
+            ['Dashboard', 'Page', 'Reports', 'Sidebar'],
+          'Apps',
+            ['CRM'],
         ],
       },
     },

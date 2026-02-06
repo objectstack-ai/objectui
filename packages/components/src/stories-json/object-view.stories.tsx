@@ -4,7 +4,7 @@ import type { BaseSchema } from '@object-ui/types';
 import { createStorybookDataSource } from '@storybook-config/datasource';
 
 const meta = {
-  title: 'Views/Object View',
+  title: 'Plugins/Data Views/Object View',
   component: SchemaRenderer,
   parameters: {
     layout: 'padded',

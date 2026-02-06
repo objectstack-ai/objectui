@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Components/Separator',
+  title: 'Primitives/General/Separator',
   component: SchemaRenderer,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],

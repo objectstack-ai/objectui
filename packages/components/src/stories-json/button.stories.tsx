@@ -3,7 +3,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import type { BaseSchema } from '@object-ui/types';
 
 const meta = {
-  title: 'Components/Button',
+  title: 'Primitives/General/Button',
   component: SchemaRenderer,
   parameters: {
     layout: 'centered',

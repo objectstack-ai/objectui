@@ -1,0 +1,727 @@
+---
+title: "E-commerce Backend Management Case Study"
+description: "Build a complete e-commerce backend management system with ObjectUI"
+---
+
+# E-commerce Backend Management System
+
+Build a production-ready e-commerce backend management system using ObjectUI. This comprehensive case study walks through creating a full-featured admin panel for managing products, orders, inventory, and customers.
+
+## Overview
+
+### The Challenge
+
+E-commerce businesses need powerful backend systems to manage product catalogs with complex variants, process orders efficiently, track inventory across multiple warehouses, and handle payment integrations. Building a custom admin panel traditionally requires months of development.
+
+### The Solution
+
+Using ObjectUI's schema-driven approach, we built a complete e-commerce backend in 2-3 weeks with:
+- 📦 Product catalog with variants (size, color, material)
+- 🛒 Order processing pipeline with status tracking
+- 📊 Real-time inventory management across warehouses
+- 👥 Customer management and segmentation
+- 💳 Stripe payment integration and refunds
+- 📈 Sales analytics and revenue dashboard
+
+### Tech Stack
+
+- **Frontend**: ObjectUI + React 18 + TypeScript
+- **Backend**: Next.js API Routes
+- **Database**: PostgreSQL with Prisma ORM
+- **Payments**: Stripe API
+- **Storage**: AWS S3 for product images
+- **Deployment**: Vercel
+
+### Demo
+
+- [**Live Demo**](https://ecommerce-demo.objectui.org) (Coming Soon)
+- [**Source Code**](https://github.com/objectstack-ai/objectui/tree/main/examples/ecommerce)
+
+---
+
+## System Architecture
+
+### Data Model
+
+```prisma
+// schema.prisma
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  category    String
+  brand       String?
+  basePrice   Decimal  @db.Decimal(10, 2)
+  sku         String   @unique
+  images      String[] // Array of image URLs
+  variants    ProductVariant[]
+  inventory   InventoryItem[]
+  orderItems  OrderItem[]
+  tags        Tag[]
+  status      String   // "draft", "active", "archived"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProductVariant {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  name        String   // "Small / Red", "Large / Blue"
+  sku         String   @unique
+  price       Decimal  @db.Decimal(10, 2)
+  attributes  Json     // {"size": "S", "color": "Red"}
+  inventory   InventoryItem[]
+  orderItems  OrderItem[]
+  createdAt   DateTime @default(now())
+}
+
+model InventoryItem {
+  id          String          @id @default(cuid())
+  productId   String?
+  product     Product?        @relation(fields: [productId], references: [id])
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+  warehouseId String
+  warehouse   Warehouse       @relation(fields: [warehouseId], references: [id])
+  quantity    Int
+  reserved    Int             @default(0) // Reserved for pending orders
+  reorderPoint Int            @default(10)
+  updatedAt   DateTime        @updatedAt
+  
+  @@unique([productId, variantId, warehouseId])
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  address   String
+  city      String
+  country   String
+  inventory InventoryItem[]
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  items           OrderItem[]
+  subtotal        Decimal     @db.Decimal(10, 2)
+  tax             Decimal     @db.Decimal(10, 2)
+  shipping        Decimal     @db.Decimal(10, 2)
+  total           Decimal     @db.Decimal(10, 2)
+  status          String      // "pending", "processing", "shipped", "delivered", "cancelled", "refunded"
+  paymentStatus   String      // "pending", "paid", "failed", "refunded"
+  paymentMethod   String      // "card", "paypal", "bank_transfer"
+  stripePaymentId String?
+  shippingAddress Json
+  billingAddress  Json
+  trackingNumber  String?
+  notes           String?
+  activities      OrderActivity[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model OrderItem {
+  id          String          @id @default(cuid())
+  orderId     String
+  order       Order           @relation(fields: [orderId], references: [id])
+  productId   String
+  product     Product         @relation(fields: [productId], references: [id])
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity    Int
+  price       Decimal         @db.Decimal(10, 2)
+  total       Decimal         @db.Decimal(10, 2)
+}
+
+model OrderActivity {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  type      String   // "status_change", "payment", "shipment", "note"
+  message   String
+  metadata  Json?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  phone     String?
+  orders    Order[]
+  addresses Json[]   // Array of addresses
+  segment   String   // "vip", "regular", "at-risk", "new"
+  lifetime  Decimal  @db.Decimal(10, 2) @default(0) // Lifetime value
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id         String          @id @default(cuid())
+  email      String          @unique
+  name       String
+  role       String          // "admin", "manager", "warehouse", "support"
+  activities OrderActivity[]
+  createdAt  DateTime        @default(now())
+}
+
+model Tag {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  color    String
+  products Product[]
+}
+```
+
+### Application Structure
+
+```
+ecommerce/
+├── src/
+│   ├── schemas/
+│   │   ├── dashboard.schema.ts       # Sales overview dashboard
+│   │   ├── products.schema.ts        # Product catalog & management
+│   │   ├── variants.schema.ts        # Variant configuration
+│   │   ├── inventory.schema.ts       # Inventory tracking
+│   │   ├── orders.schema.ts          # Order management
+│   │   ├── customers.schema.ts       # Customer database
+│   │   └── analytics.schema.ts       # Reports & analytics
+│   ├── api/
+│   │   ├── products/
+│   │   ├── inventory/
+│   │   ├── orders/
+│   │   ├── customers/
+│   │   ├── payments/
+│   │   └── analytics/
+│   ├── components/
+│   │   ├── ProductCard.tsx          # Product display component
+│   │   ├── InventoryBadge.tsx       # Stock level indicator
+│   │   ├── OrderTimeline.tsx        # Order status visualization
+│   │   └── PaymentStatus.tsx        # Payment status widget
+│   └── lib/
+│       ├── prisma.ts                # Database client
+│       ├── stripe.ts                # Stripe integration
+│       └── s3.ts                    # Image upload
+├── prisma/
+│   └── schema.prisma
+└── package.json
+```
+
+---
+
+## Implementation Guide
+
+### Part 1: Project Setup (30 minutes)
+
+#### 1. Initialize Project
+
+```bash
+# Create Next.js app
+npx create-next-app@latest ecommerce-admin --typescript --tailwind --app
+cd ecommerce-admin
+
+# Install dependencies
+npm install @object-ui/react @object-ui/components @object-ui/fields @object-ui/plugin-grid
+npm install @prisma/client stripe aws-sdk
+npm install -D prisma
+```
+
+#### 2. Setup Database
+
+```bash
+# Initialize Prisma
+npx prisma init
+
+# Update .env
+DATABASE_URL="postgresql://user:password@localhost:5432/ecommerce?schema=public"
+STRIPE_SECRET_KEY="sk_test_..."
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+AWS_S3_BUCKET="ecommerce-products"
+
+# Create schema and migrate
+npx prisma db push
+npx prisma generate
+```
+
+#### 3. Configure ObjectUI
+
+```tsx title="src/app/providers.tsx"
+'use client';
+
+import React from 'react';
+import { ComponentRegistry } from '@object-ui/core';
+import { registerAllComponents } from '@object-ui/components';
+import { registerAllFields } from '@object-ui/fields';
+import { registerGridPlugin } from '@object-ui/plugin-grid';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  // Register components once
+  React.useEffect(() => {
+    registerAllComponents(ComponentRegistry);
+    registerAllFields();
+    registerGridPlugin();
+  }, []);
+
+  return <>{children}</>;
+}
+```
+
+
+### Part 2: Dashboard Schema (1 hour)
+
+```typescript title="src/schemas/dashboard.schema.ts"
+export const dashboardSchema = {
+  type: 'page',
+  className: 'min-h-screen bg-gray-50 dark:bg-gray-900',
+  children: [
+    {
+      type: 'app-shell',
+      header: {
+        type: 'header-bar',
+        title: 'E-commerce Admin',
+        logo: '/logo.svg',
+        navigation: [
+          { label: 'Dashboard', href: '/', icon: 'LayoutDashboard' },
+          { label: 'Products', href: '/products', icon: 'Package' },
+          { label: 'Orders', href: '/orders', icon: 'ShoppingCart' },
+          { label: 'Inventory', href: '/inventory', icon: 'Warehouse' },
+          { label: 'Customers', href: '/customers', icon: 'Users' },
+          { label: 'Analytics', href: '/analytics', icon: 'TrendingUp' },
+        ],
+        userMenu: {
+          name: '{{user.name}}',
+          email: '{{user.email}}',
+          avatar: '{{user.avatar}}',
+          items: [
+            { label: 'Profile', href: '/profile' },
+            { label: 'Settings', href: '/settings' },
+            { label: 'Logout', action: { type: 'logout' } },
+          ],
+        },
+      },
+      children: [
+        {
+          type: 'container',
+          className: 'p-8',
+          children: [
+            // KPI Metrics
+            {
+              type: 'grid',
+              cols: 4,
+              gap: 6,
+              className: 'mb-8',
+              children: [
+                {
+                  type: 'card',
+                  className: 'text-center',
+                  children: [
+                    {
+                      type: 'text',
+                      content: 'Total Revenue',
+                      className: 'text-sm text-gray-600 mb-2',
+                    },
+                    {
+                      type: 'text',
+                      content: '$2,458,392',
+                      className: 'text-3xl font-bold text-green-600',
+                    },
+                    {
+                      type: 'text',
+                      content: '+18.2% from last month',
+                      className: 'text-xs text-gray-500 mt-1',
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  className: 'text-center',
+                  children: [
+                    {
+                      type: 'text',
+                      content: 'Orders Today',
+                      className: 'text-sm text-gray-600 mb-2',
+                    },
+                    {
+                      type: 'text',
+                      content: '247',
+                      className: 'text-3xl font-bold text-blue-600',
+                    },
+                    {
+                      type: 'text',
+                      content: '23 pending shipment',
+                      className: 'text-xs text-gray-500 mt-1',
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  className: 'text-center',
+                  children: [
+                    {
+                      type: 'text',
+                      content: 'Avg Order Value',
+                      className: 'text-sm text-gray-600 mb-2',
+                    },
+                    {
+                      type: 'text',
+                      content: '$127.50',
+                      className: 'text-3xl font-bold text-purple-600',
+                    },
+                    {
+                      type: 'text',
+                      content: '+$8.20 improvement',
+                      className: 'text-xs text-gray-500 mt-1',
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  className: 'text-center',
+                  children: [
+                    {
+                      type: 'text',
+                      content: 'Low Stock Items',
+                      className: 'text-sm text-gray-600 mb-2',
+                    },
+                    {
+                      type: 'text',
+                      content: '12',
+                      className: 'text-3xl font-bold text-orange-600',
+                    },
+                    {
+                      type: 'text',
+                      content: 'Need reorder',
+                      className: 'text-xs text-gray-500 mt-1',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 3: Product Management (2 hours)
+
+```typescript title="src/schemas/products.schema.ts"
+export const productsSchema = {
+  type: 'page',
+  children: [
+    {
+      type: 'container',
+      className: 'p-8',
+      children: [
+        {
+          type: 'flex',
+          justify: 'between',
+          className: 'mb-6',
+          children: [
+            {
+              type: 'text',
+              content: 'Product Catalog',
+              className: 'text-2xl font-bold',
+            },
+            {
+              type: 'button',
+              text: 'New Product',
+              onClick: { type: 'navigate', href: '/products/new' },
+            },
+          ],
+        },
+        {
+          type: 'data-grid',
+          dataSource: {
+            api: '/api/products',
+            method: 'GET',
+          },
+          columns: [
+            { key: 'name', title: 'Product Name', sortable: true },
+            { key: 'sku', title: 'SKU', width: 120 },
+            { key: 'category', title: 'Category', width: 120 },
+            { key: 'basePrice', title: 'Price', type: 'currency', sortable: true },
+            { key: 'inventory', title: 'Stock', width: 100 },
+            { key: 'status', title: 'Status', width: 100 },
+          ],
+          pageSize: 20,
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 4: Order Processing (2 hours)
+
+```typescript title="src/schemas/orders.schema.ts"
+export const ordersSchema = {
+  type: 'page',
+  children: [
+    {
+      type: 'container',
+      className: 'p-8',
+      children: [
+        {
+          type: 'tabs',
+          defaultValue: 'all',
+          items: [
+            { value: 'all', label: 'All Orders' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'processing', label: 'Processing' },
+            { value: 'shipped', label: 'Shipped' },
+          ],
+          content: [
+            {
+              value: 'all',
+              children: [
+                {
+                  type: 'data-table',
+                  dataSource: {
+                    api: '/api/orders',
+                    method: 'GET',
+                  },
+                  columns: [
+                    { key: 'orderNumber', title: 'Order #' },
+                    { key: 'customer', title: 'Customer' },
+                    { key: 'total', title: 'Total', type: 'currency' },
+                    { key: 'status', title: 'Status' },
+                    { key: 'createdAt', title: 'Date', type: 'datetime' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 5: API Implementation (2 hours)
+
+```typescript title="src/app/api/products/route.ts"
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get('page') || '1');
+  const pageSize = parseInt(searchParams.get('pageSize') || '20');
+
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
+      include: {
+        variants: true,
+        inventory: true,
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.product.count(),
+  ]);
+
+  return NextResponse.json({
+    data: products,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      pages: Math.ceil(total / pageSize),
+    },
+  });
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  
+  const product = await prisma.product.create({
+    data: {
+      name: body.name,
+      slug: body.slug,
+      description: body.description,
+      category: body.category,
+      basePrice: body.basePrice,
+      sku: body.sku,
+      images: body.images || [],
+      status: 'draft',
+    },
+  });
+
+  return NextResponse.json(product);
+}
+```
+
+```typescript title="src/app/api/orders/[id]/process/route.ts"
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { stripe } from '@/lib/stripe';
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const order = await prisma.order.findUnique({
+    where: { id: params.id },
+    include: { items: true },
+  });
+
+  if (!order) {
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  }
+
+  // Process payment with Stripe
+  if (order.paymentStatus === 'pending') {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(parseFloat(order.total.toString()) * 100),
+      currency: 'usd',
+      metadata: { orderId: order.id },
+    });
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        stripePaymentId: paymentIntent.id,
+        paymentStatus: 'paid',
+      },
+    });
+  }
+
+  // Update order status
+  const updatedOrder = await prisma.order.update({
+    where: { id: order.id },
+    data: { status: 'processing' },
+  });
+
+  return NextResponse.json(updatedOrder);
+}
+```
+
+```typescript title="src/lib/stripe.ts"
+import Stripe from 'stripe';
+
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2023-10-16',
+});
+```
+
+---
+
+## Key Features Implementation
+
+### 1. Product Variants
+
+Features:
+- Dynamic attribute configuration (size, color, material)
+- Variant-specific pricing and SKUs
+- Bulk variant generation
+- Inventory tracking per variant
+
+### 2. Inventory Management
+
+Features:
+- Multi-warehouse support
+- Real-time stock levels
+- Low stock alerts
+- Inventory reservation system
+
+### 3. Order Processing
+
+Features:
+- Order status workflow
+- Payment processing with Stripe
+- Shipping integration
+- Refund handling
+
+### 4. Customer Segmentation
+
+Features:
+- Customer lifetime value calculation
+- Segment classification (VIP, Regular, At-Risk)
+- Order history
+- Analytics
+
+---
+
+## Deployment
+
+### 1. Build for Production
+
+```bash
+npm run build
+```
+
+### 2. Deploy to Vercel
+
+```bash
+npm i -g vercel
+vercel --prod
+```
+
+### 3. Configure Environment
+
+```env
+DATABASE_URL=postgresql://...
+STRIPE_SECRET_KEY=sk_live_...
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_BUCKET=ecommerce-products
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=your-secret-key
+```
+
+---
+
+## Next Steps
+
+### Feature Enhancements
+
+- [ ] Multi-currency support
+- [ ] Discount codes
+- [ ] Gift cards
+- [ ] Product reviews
+- [ ] Email notifications
+
+### Performance Optimizations
+
+- [ ] Image optimization
+- [ ] CDN for product images
+- [ ] Redis caching
+- [ ] Database indexing
+
+### Scaling
+
+- [ ] Microservices architecture
+- [ ] Event-driven processing
+- [ ] Read replicas
+- [ ] Load balancing
+
+---
+
+## Resources
+
+- [**Source Code**](https://github.com/objectstack-ai/objectui/tree/main/examples/ecommerce)
+- [**Live Demo**](https://ecommerce-demo.objectui.org)
+- [**API Documentation**](https://ecommerce-demo.objectui.org/api-docs)
+
+---
+
+## Community
+
+Share your e-commerce customizations:
+- [GitHub Discussions](https://github.com/objectstack-ai/objectui/discussions)
+- [Discord](https://discord.gg/objectui)

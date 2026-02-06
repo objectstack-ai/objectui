@@ -1,0 +1,713 @@
+---
+title: "CRM System Case Study"
+description: "Build a complete Customer Relationship Management system with ObjectUI"
+---
+
+# Complete CRM System
+
+Build a production-ready Customer Relationship Management system using ObjectUI. This comprehensive case study walks through creating a full-featured CRM from scratch.
+
+## Overview
+
+### The Challenge
+
+Modern businesses need powerful CRM systems to manage customer relationships, track sales pipelines, and analyze business performance. Traditional custom development takes months and significant resources.
+
+### The Solution
+
+Using ObjectUI's schema-driven approach, we built a complete CRM system in 2-3 weeks with:
+- 📇 Contact and company management
+- 💼 Visual deal pipeline (drag-and-drop Kanban)
+- 📊 Sales analytics and reporting
+- 📧 Activity timeline and communications
+- 👥 Role-based access control
+- 🔍 Advanced search and filtering
+
+### Tech Stack
+
+- **Frontend**: ObjectUI + React 18 + TypeScript
+- **Backend**: Next.js API Routes
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: NextAuth.js
+- **Deployment**: Vercel
+
+### Demo
+
+- [**Live Demo**](https://crm-demo.objectui.org) (Coming Soon)
+- [**Source Code**](https://github.com/objectstack-ai/objectui/tree/main/examples/crm)
+
+---
+
+## System Architecture
+
+### Data Model
+
+```prisma
+// schema.prisma
+model Contact {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String   @unique
+  phone     String?
+  position  String?
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+  deals     Deal[]
+  activities Activity[]
+  tags      Tag[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id          String    @id @default(cuid())
+  name        String
+  industry    String?
+  website     String?
+  size        String?   // "1-10", "11-50", "51-200", "201-500", "500+"
+  contacts    Contact[]
+  deals       Deal[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Deal {
+  id          String    @id @default(cuid())
+  title       String
+  amount      Decimal
+  stage       String    // "lead", "qualified", "proposal", "negotiation", "closed-won", "closed-lost"
+  probability Int       // 0-100
+  expectedClose DateTime?
+  contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id])
+  companyId   String?
+  company     Company?  @relation(fields: [companyId], references: [id])
+  ownerId     String
+  owner       User      @relation(fields: [ownerId], references: [id])
+  activities  Activity[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  type      String   // "call", "email", "meeting", "note", "task"
+  subject   String
+  content   String?
+  dueDate   DateTime?
+  completed Boolean  @default(false)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String
+  role      String     // "admin", "manager", "sales-rep"
+  deals     Deal[]
+  activities Activity[]
+  createdAt DateTime   @default(now())
+}
+
+model Tag {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  color    String
+  contacts Contact[]
+}
+```
+
+### Application Structure
+
+```
+crm/
+├── src/
+│   ├── schemas/
+│   │   ├── dashboard.schema.ts      # Main dashboard
+│   │   ├── contacts.schema.ts       # Contacts list & detail
+│   │   ├── companies.schema.ts      # Companies management
+│   │   ├── deals.schema.ts          # Deal pipeline (Kanban)
+│   │   ├── activities.schema.ts     # Activity timeline
+│   │   └── reports.schema.ts        # Analytics & reports
+│   ├── api/
+│   │   ├── contacts/
+│   │   ├── companies/
+│   │   ├── deals/
+│   │   ├── activities/
+│   │   └── reports/
+│   ├── components/
+│   │   ├── DealCard.tsx            # Custom deal card component
+│   │   ├── ActivityTimeline.tsx    # Activity visualization
+│   │   └── MetricsCard.tsx         # KPI display
+│   └── lib/
+│       ├── prisma.ts               # Database client
+│       └── auth.ts                 # Authentication
+├── prisma/
+│   └── schema.prisma
+└── package.json
+```
+
+---
+
+## Implementation Guide
+
+### Part 1: Project Setup (30 minutes)
+
+#### 1. Initialize Project
+
+```bash
+# Create Next.js app
+npx create-next-app@latest crm-app --typescript --tailwind --app
+cd crm-app
+
+# Install dependencies
+npm install @object-ui/react @object-ui/components @object-ui/fields @object-ui/plugin-kanban
+npm install @prisma/client next-auth
+npm install -D prisma
+```
+
+#### 2. Setup Database
+
+```bash
+# Initialize Prisma
+npx prisma init
+
+# Update .env
+DATABASE_URL="postgresql://user:password@localhost:5432/crm?schema=public"
+
+# Create schema and migrate
+npx prisma db push
+npx prisma generate
+```
+
+#### 3. Configure ObjectUI
+
+```tsx title="src/app/providers.tsx"
+'use client';
+
+import { ComponentRegistry } from '@object-ui/core';
+import { registerAllComponents } from '@object-ui/components';
+import { registerAllFields } from '@object-ui/fields';
+import { registerKanbanPlugin } from '@object-ui/plugin-kanban';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  // Register components once
+  React.useEffect(() => {
+    registerAllComponents(ComponentRegistry);
+    registerAllFields();
+    registerKanbanPlugin();
+  }, []);
+
+  return <>{children}</>;
+}
+```
+
+### Part 2: Dashboard Schema (1 hour)
+
+```typescript title="src/schemas/dashboard.schema.ts"
+export const dashboardSchema = {
+  type: 'page',
+  className: 'min-h-screen bg-gray-50 dark:bg-gray-900',
+  children: [
+    {
+      type: 'app-shell',
+      header: {
+        type: 'header-bar',
+        title: 'CRM Dashboard',
+        logo: '/logo.svg',
+        navigation: [
+          { label: 'Dashboard', href: '/', icon: 'Home' },
+          { label: 'Contacts', href: '/contacts', icon: 'Users' },
+          { label: 'Companies', href: '/companies', icon: 'Building2' },
+          { label: 'Deals', href: '/deals', icon: 'TrendingUp' },
+          { label: 'Reports', href: '/reports', icon: 'BarChart3' },
+        ],
+        userMenu: {
+          name: '{{user.name}}',
+          email: '{{user.email}}',
+          avatar: '{{user.avatar}}',
+          items: [
+            { label: 'Profile', href: '/profile' },
+            { label: 'Settings', href: '/settings' },
+            { label: 'Logout', action: { type: 'logout' } },
+          ],
+        },
+      },
+      children: [
+        {
+          type: 'container',
+          className: 'p-8',
+          children: [
+            // KPI Metrics
+            {
+              type: 'grid',
+              cols: 4,
+              gap: 6,
+              className: 'mb-8',
+              children: [
+                {
+                  type: 'card',
+                  className: 'text-center',
+                  children: [
+                    {
+                      type: 'text',
+                      content: 'Total Revenue',
+                      className: 'text-sm text-gray-600 mb-2',
+                    },
+                    {
+                      type: 'text',
+                      content: '$1,234,567',
+                      className: 'text-3xl font-bold text-green-600',
+                    },
+                    {
+                      type: 'text',
+                      content: '+12.5% from last month',
+                      className: 'text-xs text-gray-500 mt-1',
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  className: 'text-center',
+                  children: [
+                    {
+                      type: 'text',
+                      content: 'Active Deals',
+                      className: 'text-sm text-gray-600 mb-2',
+                    },
+                    {
+                      type: 'text',
+                      content: '47',
+                      className: 'text-3xl font-bold text-blue-600',
+                    },
+                    {
+                      type: 'text',
+                      content: '8 closing this week',
+                      className: 'text-xs text-gray-500 mt-1',
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  className: 'text-center',
+                  children: [
+                    {
+                      type: 'text',
+                      content: 'Win Rate',
+                      className: 'text-sm text-gray-600 mb-2',
+                    },
+                    {
+                      type: 'text',
+                      content: '68%',
+                      className: 'text-3xl font-bold text-purple-600',
+                    },
+                    {
+                      type: 'text',
+                      content: '+5% improvement',
+                      className: 'text-xs text-gray-500 mt-1',
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  className: 'text-center',
+                  children: [
+                    {
+                      type: 'text',
+                      content: 'New Contacts',
+                      className: 'text-sm text-gray-600 mb-2',
+                    },
+                    {
+                      type: 'text',
+                      content: '156',
+                      className: 'text-3xl font-bold text-orange-600',
+                    },
+                    {
+                      type: 'text',
+                      content: 'This month',
+                      className: 'text-xs text-gray-500 mt-1',
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // Charts Section
+            {
+              type: 'grid',
+              cols: 2,
+              gap: 6,
+              className: 'mb-8',
+              children: [
+                {
+                  type: 'card',
+                  title: 'Revenue Trend',
+                  children: [
+                    {
+                      type: 'line-chart',
+                      height: 300,
+                      dataSource: {
+                        api: '/api/reports/revenue-trend',
+                        method: 'GET',
+                      },
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  title: 'Deals by Stage',
+                  children: [
+                    {
+                      type: 'bar-chart',
+                      height: 300,
+                      dataSource: {
+                        api: '/api/reports/deals-by-stage',
+                        method: 'GET',
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // Recent Activities
+            {
+              type: 'card',
+              title: 'Recent Activities',
+              children: [
+                {
+                  type: 'data-table',
+                  dataSource: {
+                    api: '/api/activities/recent',
+                    method: 'GET',
+                  },
+                  columns: [
+                    { key: 'type', title: 'Type', width: 100 },
+                    { key: 'subject', title: 'Subject' },
+                    { key: 'contact', title: 'Contact' },
+                    { key: 'user', title: 'User' },
+                    { key: 'createdAt', title: 'Date', type: 'datetime' },
+                  ],
+                  pageSize: 10,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 3: Deal Pipeline (Kanban) (2 hours)
+
+```typescript title="src/schemas/deals.schema.ts"
+export const dealsSchema = {
+  type: 'page',
+  children: [
+    {
+      type: 'container',
+      className: 'p-8',
+      children: [
+        {
+          type: 'flex',
+          justify: 'between',
+          className: 'mb-6',
+          children: [
+            {
+              type: 'text',
+              content: 'Sales Pipeline',
+              className: 'text-2xl font-bold',
+            },
+            {
+              type: 'button',
+              text: 'New Deal',
+              onClick: {
+                type: 'dialog',
+                title: 'Create Deal',
+                content: {
+                  type: 'form',
+                  fields: [
+                    {
+                      type: 'field',
+                      fieldType: 'text',
+                      name: 'title',
+                      label: 'Deal Title',
+                      required: true,
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'currency',
+                      name: 'amount',
+                      label: 'Deal Amount',
+                      required: true,
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'select',
+                      name: 'contactId',
+                      label: 'Contact',
+                      dataSource: {
+                        api: '/api/contacts',
+                        method: 'GET',
+                      },
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'date',
+                      name: 'expectedClose',
+                      label: 'Expected Close Date',
+                    },
+                  ],
+                  onSubmit: {
+                    type: 'api',
+                    method: 'POST',
+                    url: '/api/deals',
+                    onSuccess: {
+                      type: 'notification',
+                      message: 'Deal created successfully!',
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+
+        {
+          type: 'kanban',
+          dataSource: {
+            api: '/api/deals',
+            method: 'GET',
+          },
+          columns: [
+            { id: 'lead', title: 'Lead', color: 'gray' },
+            { id: 'qualified', title: 'Qualified', color: 'blue' },
+            { id: 'proposal', title: 'Proposal', color: 'yellow' },
+            { id: 'negotiation', title: 'Negotiation', color: 'orange' },
+            { id: 'closed-won', title: 'Closed Won', color: 'green' },
+            { id: 'closed-lost', title: 'Closed Lost', color: 'red' },
+          ],
+          cardTemplate: {
+            type: 'card',
+            className: 'cursor-move hover:shadow-lg transition-shadow',
+            children: [
+              {
+                type: 'flex',
+                justify: 'between',
+                className: 'mb-2',
+                children: [
+                  {
+                    type: 'text',
+                    content: '{{title}}',
+                    className: 'font-semibold',
+                  },
+                  {
+                    type: 'badge',
+                    text: '{{probability}}%',
+                  },
+                ],
+              },
+              {
+                type: 'text',
+                content: '${{amount}}',
+                className: 'text-2xl font-bold text-green-600 mb-2',
+              },
+              {
+                type: 'text',
+                content: '{{contact.name}}',
+                className: 'text-sm text-gray-600 mb-1',
+              },
+              {
+                type: 'text',
+                content: 'Expected: {{expectedClose}}',
+                className: 'text-xs text-gray-500',
+              },
+            ],
+          },
+          onCardMove: {
+            type: 'api',
+            method: 'PATCH',
+            url: '/api/deals/{{id}}/stage',
+          },
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 4: API Routes (2 hours)
+
+```typescript title="src/app/api/deals/route.ts"
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+
+export async function GET(request: NextRequest) {
+  const session = await getServerSession();
+  
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const deals = await prisma.deal.findMany({
+    include: {
+      contact: true,
+      company: true,
+      owner: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return NextResponse.json(deals);
+}
+
+export async function POST(request: NextRequest) {
+  const session = await getServerSession();
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = await request.json();
+  
+  const deal = await prisma.deal.create({
+    data: {
+      title: body.title,
+      amount: body.amount,
+      stage: 'lead',
+      probability: 10,
+      expectedClose: body.expectedClose,
+      contactId: body.contactId,
+      ownerId: session.user.id,
+    },
+  });
+
+  return NextResponse.json(deal);
+}
+```
+
+---
+
+## Key Features Implementation
+
+### 1. Contact Management
+
+**Schema**: [View contacts.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/crm/src/schemas/contacts.schema.ts)
+
+Features:
+- Grid view with search/filter
+- Detail view with activity timeline
+- Quick actions (call, email, note)
+- Tag management
+
+### 2. Deal Pipeline
+
+**Schema**: [View deals.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/crm/src/schemas/deals.schema.ts)
+
+Features:
+- Drag-and-drop Kanban board
+- Deal probability tracking
+- Expected close dates
+- Revenue forecasting
+
+### 3. Activity Timeline
+
+**Schema**: [View activities.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/crm/src/schemas/activities.schema.ts)
+
+Features:
+- Chronological activity feed
+- Filter by type (call, email, meeting)
+- Quick add actions
+- Reminders and tasks
+
+### 4. Analytics & Reporting
+
+**Schema**: [View reports.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/crm/src/schemas/reports.schema.ts)
+
+Features:
+- Revenue metrics
+- Win/loss analysis
+- Sales rep performance
+- Export to PDF/Excel
+
+---
+
+## Deployment
+
+### 1. Build for Production
+
+```bash
+npm run build
+```
+
+### 2. Deploy to Vercel
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel --prod
+```
+
+### 3. Configure Environment
+
+```env
+DATABASE_URL=postgresql://...
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=your-secret-key
+```
+
+---
+
+## Next Steps
+
+### Feature Enhancements
+
+- [ ] Email integration (Gmail, Outlook)
+- [ ] Calendar sync
+- [ ] Mobile app
+- [ ] AI-powered lead scoring
+- [ ] Advanced reporting
+
+### Performance Optimizations
+
+- [ ] Implement caching (Redis)
+- [ ] Database query optimization
+- [ ] Image optimization
+- [ ] Code splitting
+
+### Scaling
+
+- [ ] Multi-tenancy
+- [ ] Horizontal scaling
+- [ ] CDN integration
+- [ ] Monitoring & alerts
+
+---
+
+## Resources
+
+- [**Source Code**](https://github.com/objectstack-ai/objectui/tree/main/examples/crm)
+- [**Live Demo**](https://crm-demo.objectui.org)
+- [**API Documentation**](https://crm-demo.objectui.org/api-docs)
+
+---
+
+## Community
+
+Share your CRM customizations:
+- [GitHub Discussions](https://github.com/objectstack-ai/objectui/discussions)
+- [Discord](https://discord.gg/objectui)

@@ -1,0 +1,726 @@
+---
+title: "Security Best Practices"
+description: "Build secure ObjectUI applications with industry best practices"
+---
+
+# Security Best Practices
+
+Protect your ObjectUI applications from common security vulnerabilities. This guide covers input validation, XSS prevention, authentication, and more.
+
+## Input Validation and Sanitization
+
+### 1. Validate User Input
+
+Always validate data before processing:
+
+```tsx
+import { z } from 'zod';
+
+// Define validation schema
+const userSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  age: z.number().min(18).max(120),
+  role: z.enum(['user', 'admin', 'moderator']),
+});
+
+export function UserForm({ schema }: FormSchema) {
+  const handleSubmit = (data: unknown) => {
+    try {
+      // Validate input
+      const validated = userSchema.parse(data);
+      
+      // Safe to use validated data
+      processUser(validated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error('Validation failed:', error.errors);
+        showErrors(error.errors);
+      }
+    }
+  };
+
+  return <form onSubmit={handleSubmit}>{/* Form fields */}</form>;
+}
+```
+
+### 2. Sanitize HTML Content
+
+Prevent XSS attacks by sanitizing HTML:
+
+```tsx
+import DOMPurify from 'dompurify';
+
+export function RichTextDisplay({ schema }: RichTextSchema) {
+  const { content } = schema;
+
+  // ❌ Dangerous - Direct HTML injection
+  // return <div dangerouslySetInnerHTML={{ __html: content }} />;
+
+  // ✅ Safe - Sanitized HTML
+  const sanitized = DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'a'],
+    ALLOWED_ATTR: ['href', 'title'],
+  });
+
+  return <div dangerouslySetInnerHTML={{ __html: sanitized }} />;
+}
+```
+
+### 3. Validate Schema Structure
+
+```tsx
+import { ComponentSchema } from '@object-ui/types';
+
+export function validateSchema(schema: unknown): schema is ComponentSchema {
+  if (!schema || typeof schema !== 'object') {
+    throw new Error('Schema must be an object');
+  }
+
+  const s = schema as Record<string, unknown>;
+
+  if (!s.type || typeof s.type !== 'string') {
+    throw new Error('Schema must have a valid type');
+  }
+
+  // Prevent script injection
+  if (s.type.includes('<script>') || s.type.includes('javascript:')) {
+    throw new Error('Invalid schema type detected');
+  }
+
+  return true;
+}
+```
+
+## XSS (Cross-Site Scripting) Prevention
+
+### 1. Escape Dynamic Content
+
+```tsx
+export function TextComponent({ schema }: TextSchema) {
+  const { content } = schema;
+
+  // ✅ Safe - React automatically escapes
+  return <p>{content}</p>;
+
+  // ❌ Dangerous
+  // return <p dangerouslySetInnerHTML={{ __html: content }} />;
+}
+```
+
+### 2. Sanitize URLs
+
+```tsx
+export function LinkComponent({ schema }: LinkSchema) {
+  const { href, text } = schema;
+
+  // Validate and sanitize URL
+  const sanitizeUrl = (url: string): string => {
+    try {
+      const parsed = new URL(url);
+      
+      // Only allow safe protocols
+      if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+        console.warn('Blocked unsafe URL protocol:', parsed.protocol);
+        return '#';
+      }
+      
+      return url;
+    } catch {
+      console.warn('Invalid URL:', url);
+      return '#';
+    }
+  };
+
+  return (
+    <a
+      href={sanitizeUrl(href)}
+      target="_blank"
+      rel="noopener noreferrer" // Prevent tabnabbing
+    >
+      {text}
+    </a>
+  );
+}
+```
+
+### 3. Content Security Policy (CSP)
+
+Configure CSP headers:
+
+```html title="index.html"
+<meta http-equiv="Content-Security-Policy" 
+      content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: https:;
+        font-src 'self' data:;
+        connect-src 'self' https://api.example.com;
+      " />
+```
+
+## Authentication and Authorization
+
+### 1. Secure Token Storage
+
+```tsx
+// ❌ Bad - localStorage is vulnerable to XSS
+localStorage.setItem('token', token);
+
+// ✅ Better - httpOnly cookie (set by server)
+// Server sets: Set-Cookie: token=...; HttpOnly; Secure; SameSite=Strict
+
+// ✅ Alternative - Memory only (for SPA)
+let authToken: string | null = null;
+
+export const auth = {
+  setToken: (token: string) => {
+    authToken = token;
+  },
+  getToken: () => authToken,
+  clearToken: () => {
+    authToken = null;
+  },
+};
+```
+
+### 2. Implement Role-Based Access Control (RBAC)
+
+```tsx
+import { createContext, useContext } from 'react';
+
+interface User {
+  id: string;
+  role: 'admin' | 'user' | 'guest';
+  permissions: string[];
+}
+
+const AuthContext = createContext<User | null>(null);
+
+export function useAuth() {
+  const user = useContext(AuthContext);
+  
+  const hasPermission = (permission: string) => {
+    return user?.permissions.includes(permission) || false;
+  };
+
+  const hasRole = (role: string) => {
+    return user?.role === role;
+  };
+
+  return { user, hasPermission, hasRole };
+}
+
+export function ProtectedComponent({ schema }: ProtectedSchema) {
+  const { hasPermission } = useAuth();
+
+  if (!hasPermission(schema.requiredPermission)) {
+    return <div>Access Denied</div>;
+  }
+
+  return <SchemaRenderer schema={schema.children} />;
+}
+```
+
+### 3. Validate Permissions Server-Side
+
+```tsx
+export function AdminPanel({ schema }: AdminPanelSchema) {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    // ✅ Server validates permissions
+    fetch('/api/admin/data', {
+      headers: {
+        'Authorization': `Bearer ${getToken()}`,
+      },
+    })
+      .then(res => {
+        if (res.status === 403) {
+          throw new Error('Unauthorized');
+        }
+        return res.json();
+      })
+      .then(setData)
+      .catch(handleError);
+  }, []);
+
+  return <div>{/* Render data */}</div>;
+}
+```
+
+## API Security
+
+### 1. Prevent CSRF Attacks
+
+```tsx
+// Generate CSRF token on page load
+const csrfToken = generateCSRFToken();
+
+export function FormComponent({ schema }: FormSchema) {
+  const handleSubmit = async (data: FormData) => {
+    await fetch('/api/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken, // Include CSRF token
+      },
+      body: JSON.stringify(data),
+    });
+  };
+
+  return <form onSubmit={handleSubmit}>{/* Form fields */}</form>;
+}
+```
+
+### 2. Rate Limiting
+
+Implement client-side rate limiting:
+
+```tsx
+import { RateLimiter } from 'limiter';
+
+const limiter = new RateLimiter({
+  tokensPerInterval: 10,
+  interval: 'minute',
+});
+
+export function SearchComponent({ schema }: SearchSchema) {
+  const handleSearch = async (query: string) => {
+    // Check rate limit
+    const allowed = await limiter.removeTokens(1);
+    
+    if (!allowed) {
+      console.warn('Rate limit exceeded');
+      return;
+    }
+
+    // Proceed with search
+    const results = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    // ...
+  };
+
+  return <input onChange={(e) => handleSearch(e.target.value)} />;
+}
+```
+
+### 3. Validate API Responses
+
+```tsx
+import { z } from 'zod';
+
+const apiResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+  })),
+  error: z.string().optional(),
+});
+
+export function DataComponent({ schema }: DataSchema) {
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    fetch(schema.api)
+      .then(res => res.json())
+      .then(json => {
+        // Validate response structure
+        const validated = apiResponseSchema.parse(json);
+        
+        if (validated.success) {
+          setData(validated.data);
+        }
+      })
+      .catch(error => {
+        console.error('API error:', error);
+      });
+  }, [schema.api]);
+
+  return <div>{/* Render data */}</div>;
+}
+```
+
+## Secure Data Handling
+
+### 1. Encrypt Sensitive Data
+
+```tsx
+import CryptoJS from 'crypto-js';
+
+const ENCRYPTION_KEY = process.env.REACT_APP_ENCRYPTION_KEY!;
+
+export const crypto = {
+  encrypt: (data: string): string => {
+    return CryptoJS.AES.encrypt(data, ENCRYPTION_KEY).toString();
+  },
+
+  decrypt: (encrypted: string): string => {
+    const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
+    return bytes.toString(CryptoJS.enc.Utf8);
+  },
+};
+
+// Usage
+const sensitiveData = crypto.encrypt(userSSN);
+sessionStorage.setItem('temp', sensitiveData);
+
+// Later
+const decrypted = crypto.decrypt(sessionStorage.getItem('temp')!);
+```
+
+### 2. Mask Sensitive Information
+
+```tsx
+export function CreditCardDisplay({ schema }: CreditCardSchema) {
+  const { cardNumber } = schema;
+
+  // Mask all but last 4 digits
+  const masked = cardNumber.replace(/\d(?=\d{4})/g, '*');
+
+  return <div>Card: {masked}</div>;
+}
+```
+
+### 3. Secure File Uploads
+
+```tsx
+export function FileUpload({ schema }: FileUploadSchema) {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Invalid file type');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('File too large');
+      return;
+    }
+
+    // Upload file
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRF-Token': csrfToken,
+      },
+    });
+  };
+
+  return (
+    <input
+      type="file"
+      accept=".png,.jpg,.jpeg,.pdf" // Client-side filter
+      onChange={handleFileChange}
+    />
+  );
+}
+```
+
+## Dependency Security
+
+### 1. Audit Dependencies
+
+Regularly audit npm packages:
+
+```bash
+# Check for vulnerabilities
+npm audit
+
+# Fix vulnerabilities
+npm audit fix
+
+# Force fix (may have breaking changes)
+npm audit fix --force
+```
+
+### 2. Use Dependabot
+
+Enable Dependabot in `.github/dependabot.yml`:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+```
+
+### 3. Pin Dependencies
+
+Use exact versions for critical packages:
+
+```json
+{
+  "dependencies": {
+    "@object-ui/react": "0.4.0",     // Exact version
+    "@object-ui/components": "^0.4.0" // Allow patches
+  }
+}
+```
+
+## Environment Variables
+
+### 1. Never Commit Secrets
+
+```bash
+# .gitignore
+.env
+.env.local
+.env.*.local
+```
+
+### 2. Validate Environment Variables
+
+```tsx
+const requiredEnvVars = [
+  'REACT_APP_API_URL',
+  'REACT_APP_PUBLIC_KEY',
+] as const;
+
+requiredEnvVars.forEach(envVar => {
+  if (!process.env[envVar]) {
+    throw new Error(`Missing required environment variable: ${envVar}`);
+  }
+});
+
+export const config = {
+  apiUrl: process.env.REACT_APP_API_URL!,
+  publicKey: process.env.REACT_APP_PUBLIC_KEY!,
+};
+```
+
+### 3. Separate Public and Private Variables
+
+```env
+# Public (exposed to client)
+REACT_APP_API_URL=https://api.example.com
+REACT_APP_PUBLIC_KEY=pk_abc123
+
+# Private (server-side only)
+DATABASE_URL=postgresql://...
+SECRET_KEY=secret_abc123
+```
+
+## Security Headers
+
+Configure security headers in your server:
+
+```typescript
+// Express.js example
+import helmet from 'helmet';
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
+```
+
+## Security Checklist
+
+✅ **Input Validation**
+- [ ] Validate all user input
+- [ ] Sanitize HTML content
+- [ ] Validate schema structure
+- [ ] Use Zod or similar for runtime validation
+
+✅ **XSS Prevention**
+- [ ] Escape dynamic content
+- [ ] Sanitize URLs
+- [ ] Configure Content Security Policy
+- [ ] Never use dangerouslySetInnerHTML without sanitization
+
+✅ **Authentication**
+- [ ] Use secure token storage
+- [ ] Implement RBAC
+- [ ] Validate permissions server-side
+- [ ] Use httpOnly cookies for tokens
+
+✅ **API Security**
+- [ ] Implement CSRF protection
+- [ ] Add rate limiting
+- [ ] Validate API responses
+- [ ] Use HTTPS only
+
+✅ **Data Security**
+- [ ] Encrypt sensitive data
+- [ ] Mask PII in UI
+- [ ] Validate file uploads
+- [ ] Never log sensitive information
+
+✅ **Dependencies**
+- [ ] Run npm audit regularly
+- [ ] Enable Dependabot
+- [ ] Pin critical dependencies
+- [ ] Keep dependencies updated
+
+✅ **Environment**
+- [ ] Never commit secrets
+- [ ] Validate environment variables
+- [ ] Separate public/private vars
+- [ ] Use .env.example template
+
+✅ **Headers**
+- [ ] Configure security headers
+- [ ] Enable HSTS
+- [ ] Set X-Frame-Options
+- [ ] Configure CORS properly
+
+## Common Vulnerabilities
+
+### 1. SQL Injection
+
+**Problem**: User input in database queries.
+
+**Solution**: Use parameterized queries or ORM.
+
+```typescript
+// ❌ Vulnerable
+const query = `SELECT * FROM users WHERE id = ${userId}`;
+
+// ✅ Safe
+const query = 'SELECT * FROM users WHERE id = ?';
+db.execute(query, [userId]);
+```
+
+### 2. Command Injection
+
+**Problem**: User input in system commands.
+
+**Solution**: Avoid shell execution, use libraries.
+
+```typescript
+// ❌ Vulnerable
+exec(`convert ${filename} output.jpg`);
+
+// ✅ Safe
+import sharp from 'sharp';
+await sharp(filename).toFile('output.jpg');
+```
+
+### 3. Path Traversal
+
+**Problem**: User input in file paths.
+
+**Solution**: Validate and sanitize paths.
+
+```typescript
+import path from 'path';
+
+// ❌ Vulnerable
+const file = readFileSync(`/uploads/${userInput}`);
+
+// ✅ Safe
+const safePath = path.normalize(userInput).replace(/^(\.\.(\/|\\|$))+/, '');
+const file = readFileSync(path.join('/uploads', safePath));
+```
+
+## Security Testing
+
+### 1. Automated Security Scanning
+
+```bash
+# Install OWASP Dependency Check
+npm install -g retire
+
+# Scan for vulnerabilities
+retire --path ./node_modules
+```
+
+### 2. Manual Penetration Testing
+
+Test common attack vectors:
+- XSS injection in all input fields
+- CSRF attacks on state-changing operations
+- SQL injection in search/filter fields
+- Authentication bypass attempts
+- Authorization escalation
+
+### 3. Security Code Review
+
+Review code for:
+- Hardcoded secrets
+- Unsafe eval() usage
+- Missing input validation
+- Insecure dependencies
+- Exposed sensitive data
+
+## Incident Response
+
+### 1. Have a Plan
+
+Document incident response procedures:
+1. Detect and analyze the incident
+2. Contain the breach
+3. Eradicate the threat
+4. Recover systems
+5. Post-incident review
+
+### 2. Monitor and Alert
+
+Set up security monitoring:
+
+```tsx
+// Log security events
+export function logSecurityEvent(event: SecurityEvent) {
+  fetch('/api/security/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timestamp: new Date().toISOString(),
+      type: event.type,
+      severity: event.severity,
+      details: event.details,
+    }),
+  });
+}
+
+// Usage
+if (failedLoginAttempts > 5) {
+  logSecurityEvent({
+    type: 'BRUTE_FORCE_ATTEMPT',
+    severity: 'HIGH',
+    details: { userId, attempts: failedLoginAttempts },
+  });
+}
+```
+
+## Next Steps
+
+- [Performance Optimization](/docs/guide/performance) - Optimize your app
+- [Custom Components](/docs/guide/custom-components) - Build secure components
+- [Plugin Development](/docs/guide/plugin-development) - Create secure plugins
+
+## Resources
+
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+- [React Security Best Practices](https://react.dev/learn/security)
+- [MDN Web Security](https://developer.mozilla.org/en-US/docs/Web/Security)
+- [npm Security Best Practices](https://docs.npmjs.com/security-best-practices)

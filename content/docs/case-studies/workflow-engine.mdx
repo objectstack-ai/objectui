@@ -1,0 +1,1670 @@
+---
+title: "Workflow Engine System Case Study"
+description: "Build a complete workflow automation engine with ObjectUI"
+---
+
+# Workflow Engine System
+
+Build a production-ready workflow automation engine using ObjectUI. This comprehensive case study walks through creating a visual workflow builder with custom tasks, conditional logic, parallel execution, and comprehensive audit logging.
+
+## Overview
+
+### The Challenge
+
+Modern businesses need flexible workflow automation systems to orchestrate complex business processes, handle conditional branching, manage parallel task execution, implement retry logic, and maintain comprehensive audit trails. Traditional BPM systems are complex and expensive, while building custom solutions requires significant engineering effort.
+
+### The Solution
+
+Using ObjectUI's schema-driven approach, we built a complete workflow engine in 2-3 weeks with:
+- 🎨 Visual workflow builder with drag-and-drop interface
+- 🔧 Custom task types (HTTP, Email, Script, Database, Approval)
+- 🔀 Conditional logic and dynamic branching
+- ⚡ Parallel execution and task synchronization
+- 🔄 Error handling, retry policies, and timeout management
+- 📝 Comprehensive audit logging and execution history
+- 📊 Workflow analytics and performance metrics
+
+### Tech Stack
+
+- **Frontend**: ObjectUI + React 18 + TypeScript
+- **Backend**: Next.js API Routes + Bull Queue
+- **Database**: PostgreSQL with Prisma ORM
+- **Workflow Engine**: Custom state machine
+- **Message Queue**: Redis + Bull
+- **Storage**: AWS S3 for artifacts
+- **Deployment**: Vercel + Railway
+
+### Demo
+
+- [**Live Demo**](https://workflow-demo.objectui.org) (Coming Soon)
+- [**Source Code**](https://github.com/objectstack-ai/objectui/tree/main/examples/workflow-engine)
+
+---
+
+## System Architecture
+
+### Data Model
+
+```prisma
+// schema.prisma
+model Workflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  version     Int      @default(1)
+  definition  Json     // Workflow DAG definition
+  config      Json?    // Global workflow config
+  status      String   // "draft", "active", "archived"
+  tags        Tag[]
+  executions  WorkflowExecution[]
+  triggers    WorkflowTrigger[]
+  createdBy   String
+  user        User     @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([status])
+}
+
+model WorkflowTrigger {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  type       String   // "manual", "scheduled", "webhook", "event"
+  config     Json     // Trigger-specific config
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+model WorkflowExecution {
+  id          String   @id @default(cuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id])
+  status      String   // "pending", "running", "completed", "failed", "cancelled"
+  input       Json?    // Execution input data
+  output      Json?    // Execution output data
+  context     Json     @default("{}")  // Shared execution context
+  error       String?  @db.Text
+  tasks       TaskExecution[]
+  events      ExecutionEvent[]
+  startedAt   DateTime?
+  completedAt DateTime?
+  duration    Int?     // Milliseconds
+  triggeredBy String?  // User ID or trigger ID
+  retryCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  @@index([workflowId, status])
+  @@index([status, createdAt])
+}
+
+model TaskExecution {
+  id          String            @id @default(cuid())
+  executionId String
+  execution   WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  taskId      String            // Task ID from workflow definition
+  taskType    String            // "http", "email", "script", "database", "approval", "condition"
+  name        String
+  config      Json              // Task configuration
+  input       Json?             // Task input data
+  output      Json?             // Task output data
+  status      String            // "pending", "running", "completed", "failed", "skipped", "cancelled"
+  error       String?           @db.Text
+  retryCount  Int               @default(0)
+  maxRetries  Int               @default(0)
+  timeout     Int?              // Milliseconds
+  startedAt   DateTime?
+  completedAt DateTime?
+  duration    Int?              // Milliseconds
+  events      TaskEvent[]
+  createdAt   DateTime          @default(now())
+  
+  @@index([executionId, status])
+  @@index([status])
+}
+
+model TaskEvent {
+  id        String        @id @default(cuid())
+  taskId    String
+  task      TaskExecution @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  type      String        // "started", "retry", "timeout", "error", "completed"
+  message   String
+  metadata  Json?
+  timestamp DateTime      @default(now())
+  
+  @@index([taskId, timestamp])
+}
+
+model ExecutionEvent {
+  id          String            @id @default(cuid())
+  executionId String
+  execution   WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  type        String            // "started", "task_completed", "branched", "merged", "error", "completed"
+  message     String
+  taskId      String?
+  metadata    Json?
+  timestamp   DateTime          @default(now())
+  
+  @@index([executionId, timestamp])
+}
+
+model TaskTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   // "http", "email", "script", "database", "approval"
+  category    String   // "integration", "notification", "transformation", "approval"
+  icon        String?
+  schema      Json     // JSON Schema for task config
+  defaultConfig Json   // Default configuration
+  examples    Json?    // Example configurations
+  version     String   @default("1.0.0")
+  isPublic    Boolean  @default(true)
+  createdBy   String
+  user        User     @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ApprovalTask {
+  id          String        @id @default(cuid())
+  taskId      String        @unique
+  task        TaskExecution @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  approvers   String[]      // User IDs
+  approved    Boolean?
+  approvedBy  String?       // User ID
+  rejectedBy  String?       // User ID
+  comment     String?
+  decidedAt   DateTime?
+  expiresAt   DateTime?
+  
+  @@index([approvedBy])
+  @@index([decidedAt])
+}
+
+model Schedule {
+  id          String   @id @default(cuid())
+  workflowId  String
+  name        String
+  cronExpression String
+  timezone    String   @default("UTC")
+  input       Json?    // Input data for execution
+  enabled     Boolean  @default(true)
+  lastRun     DateTime?
+  nextRun     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([enabled, nextRun])
+}
+
+model User {
+  id        String         @id @default(cuid())
+  email     String         @unique
+  name      String
+  role      String         // "admin", "editor", "viewer", "approver"
+  workflows Workflow[]
+  templates TaskTemplate[]
+  createdAt DateTime       @default(now())
+}
+
+model Tag {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  color     String
+  workflows Workflow[]
+}
+```
+
+### Application Structure
+
+```
+workflow-engine/
+├── src/
+│   ├── schemas/
+│   │   ├── workflows.schema.ts      # Workflow list & management
+│   │   ├── builder.schema.ts        # Visual workflow builder
+│   │   ├── executions.schema.ts     # Execution monitoring
+│   │   ├── templates.schema.ts      # Task template library
+│   │   ├── approvals.schema.ts      # Approval queue
+│   │   └── analytics.schema.ts      # Workflow analytics
+│   ├── api/
+│   │   ├── workflows/
+│   │   ├── executions/
+│   │   ├── tasks/
+│   │   ├── approvals/
+│   │   └── schedules/
+│   ├── engine/
+│   │   ├── executor.ts              # Workflow execution engine
+│   │   ├── task-handlers/           # Task type implementations
+│   │   │   ├── http.ts
+│   │   │   ├── email.ts
+│   │   │   ├── script.ts
+│   │   │   └── database.ts
+│   │   ├── condition-evaluator.ts  # Conditional logic
+│   │   └── retry-policy.ts         # Retry mechanism
+│   ├── components/
+│   │   ├── FlowCanvas.tsx          # Workflow canvas
+│   │   ├── TaskNode.tsx            # Task node component
+│   │   ├── ExecutionTimeline.tsx   # Execution visualization
+│   │   └── ApprovalCard.tsx        # Approval request card
+│   └── lib/
+│       ├── prisma.ts               # Database client
+│       ├── queue.ts                # Bull queue setup
+│       └── s3.ts                   # Artifact storage
+├── workers/
+│   ├── workflow-executor.ts        # Background workflow executor
+│   └── scheduler.ts                # Scheduled workflow trigger
+├── prisma/
+│   └── schema.prisma
+└── package.json
+```
+
+---
+
+## Implementation Guide
+
+### Part 1: Project Setup (30 minutes)
+
+#### 1. Initialize Project
+
+```bash
+# Create Next.js app
+npx create-next-app@latest workflow-engine --typescript --tailwind --app
+cd workflow-engine
+
+# Install dependencies
+npm install @object-ui/react @object-ui/components @object-ui/fields
+npm install @prisma/client bull ioredis
+npm install cron-parser date-fns axios
+npm install reactflow
+npm install -D prisma @types/bull @types/cron
+```
+
+#### 2. Setup Database and Redis
+
+```bash
+# Initialize Prisma
+npx prisma init
+
+# Update .env
+DATABASE_URL="postgresql://user:password@localhost:5432/workflow?schema=public"
+REDIS_URL="redis://localhost:6379"
+
+# Create schema and migrate
+npx prisma db push
+npx prisma generate
+```
+
+#### 3. Configure ObjectUI
+
+```tsx title="src/app/providers.tsx"
+'use client';
+
+import React from 'react';
+import { ComponentRegistry } from '@object-ui/core';
+import { registerAllComponents } from '@object-ui/components';
+import { registerAllFields } from '@object-ui/fields';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  React.useEffect(() => {
+    registerAllComponents(ComponentRegistry);
+    registerAllFields();
+  }, []);
+
+  return <>{children}</>;
+}
+```
+
+### Part 2: Workflow List Schema (1 hour)
+
+```typescript title="src/schemas/workflows.schema.ts"
+export const workflowsSchema = {
+  type: 'page',
+  className: 'min-h-screen bg-gray-50 dark:bg-gray-900',
+  children: [
+    {
+      type: 'app-shell',
+      header: {
+        type: 'header-bar',
+        title: 'Workflow Engine',
+        logo: '/logo.svg',
+        navigation: [
+          { label: 'Workflows', href: '/', icon: 'GitBranch' },
+          { label: 'Executions', href: '/executions', icon: 'Play' },
+          { label: 'Templates', href: '/templates', icon: 'Library' },
+          { label: 'Approvals', href: '/approvals', icon: 'CheckSquare' },
+          { label: 'Schedules', href: '/schedules', icon: 'Clock' },
+          { label: 'Analytics', href: '/analytics', icon: 'BarChart3' },
+        ],
+        userMenu: {
+          name: '{{user.name}}',
+          email: '{{user.email}}',
+          items: [
+            { label: 'Profile', href: '/profile' },
+            { label: 'Settings', href: '/settings' },
+            { label: 'Logout', action: { type: 'logout' } },
+          ],
+        },
+      },
+      children: [
+        {
+          type: 'container',
+          className: 'p-8',
+          children: [
+            {
+              type: 'flex',
+              justify: 'between',
+              className: 'mb-6',
+              children: [
+                {
+                  type: 'text',
+                  content: 'Workflows',
+                  className: 'text-2xl font-bold',
+                },
+                {
+                  type: 'button',
+                  text: 'Create Workflow',
+                  icon: 'Plus',
+                  onClick: {
+                    type: 'navigate',
+                    href: '/workflows/new',
+                  },
+                },
+              ],
+            },
+
+            // Tabs for workflow status
+            {
+              type: 'tabs',
+              defaultValue: 'all',
+              className: 'mb-6',
+              items: [
+                { value: 'all', label: 'All Workflows' },
+                { value: 'active', label: 'Active' },
+                { value: 'draft', label: 'Draft' },
+                { value: 'archived', label: 'Archived' },
+              ],
+              content: [
+                {
+                  value: 'all',
+                  children: [
+                    {
+                      type: 'data-grid',
+                      dataSource: {
+                        api: '/api/workflows',
+                        method: 'GET',
+                      },
+                      columns: [
+                        {
+                          key: 'name',
+                          title: 'Workflow Name',
+                          sortable: true,
+                          render: {
+                            type: 'flex',
+                            direction: 'column',
+                            children: [
+                              {
+                                type: 'text',
+                                content: '{{name}}',
+                                className: 'font-medium',
+                              },
+                              {
+                                type: 'text',
+                                content: '{{description}}',
+                                className: 'text-sm text-gray-500',
+                              },
+                            ],
+                          },
+                        },
+                        {
+                          key: 'status',
+                          title: 'Status',
+                          width: 120,
+                          render: {
+                            type: 'badge',
+                            text: '{{status}}',
+                            variant: '{{statusVariant}}',
+                          },
+                        },
+                        {
+                          key: 'version',
+                          title: 'Version',
+                          width: 100,
+                          render: {
+                            type: 'text',
+                            content: 'v{{version}}',
+                          },
+                        },
+                        {
+                          key: 'executions',
+                          title: 'Executions',
+                          width: 120,
+                          render: {
+                            type: 'text',
+                            content: '{{executionCount}} runs',
+                          },
+                        },
+                        {
+                          key: 'successRate',
+                          title: 'Success Rate',
+                          width: 130,
+                          render: {
+                            type: 'progress',
+                            value: '{{successRate}}',
+                            showLabel: true,
+                          },
+                        },
+                        {
+                          key: 'updatedAt',
+                          title: 'Last Modified',
+                          type: 'datetime',
+                          width: 160,
+                        },
+                        {
+                          key: 'actions',
+                          title: 'Actions',
+                          width: 200,
+                          render: {
+                            type: 'flex',
+                            gap: 2,
+                            children: [
+                              {
+                                type: 'button',
+                                text: 'Edit',
+                                size: 'sm',
+                                variant: 'outline',
+                                onClick: {
+                                  type: 'navigate',
+                                  href: '/workflows/{{id}}/edit',
+                                },
+                              },
+                              {
+                                type: 'button',
+                                text: 'Run',
+                                size: 'sm',
+                                onClick: {
+                                  type: 'dialog',
+                                  title: 'Execute Workflow',
+                                  content: {
+                                    type: 'form',
+                                    fields: [
+                                      {
+                                        type: 'field',
+                                        fieldType: 'json',
+                                        name: 'input',
+                                        label: 'Input Data (JSON)',
+                                        placeholder: '{"key": "value"}',
+                                      },
+                                    ],
+                                    onSubmit: {
+                                      type: 'api',
+                                      method: 'POST',
+                                      url: '/api/workflows/{{id}}/execute',
+                                      onSuccess: {
+                                        type: 'notification',
+                                        message: 'Workflow execution started',
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                        },
+                      ],
+                      pageSize: 20,
+                      sortable: true,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+```
+
+
+### Part 3: Visual Workflow Builder (3 hours)
+
+```typescript title="src/schemas/builder.schema.ts"
+export const builderSchema = {
+  type: 'page',
+  children: [
+    {
+      type: 'container',
+      className: 'h-screen flex flex-col',
+      children: [
+        // Top toolbar
+        {
+          type: 'flex',
+          justify: 'between',
+          className: 'p-4 border-b bg-white',
+          children: [
+            {
+              type: 'flex',
+              gap: 4,
+              align: 'center',
+              children: [
+                {
+                  type: 'button',
+                  text: 'Back',
+                  variant: 'ghost',
+                  icon: 'ArrowLeft',
+                  onClick: { type: 'navigate', href: '/workflows' },
+                },
+                {
+                  type: 'field',
+                  fieldType: 'text',
+                  name: 'name',
+                  placeholder: 'Workflow Name',
+                  className: 'text-lg font-semibold',
+                },
+              ],
+            },
+            {
+              type: 'flex',
+              gap: 3,
+              children: [
+                {
+                  type: 'button',
+                  text: 'Validate',
+                  variant: 'outline',
+                  onClick: {
+                    type: 'api',
+                    method: 'POST',
+                    url: '/api/workflows/validate',
+                    data: '{{workflow}}',
+                  },
+                },
+                {
+                  type: 'button',
+                  text: 'Save Draft',
+                  variant: 'outline',
+                  onClick: {
+                    type: 'api',
+                    method: 'POST',
+                    url: '/api/workflows',
+                    data: '{{workflow}}',
+                  },
+                },
+                {
+                  type: 'button',
+                  text: 'Publish',
+                  onClick: {
+                    type: 'api',
+                    method: 'POST',
+                    url: '/api/workflows/publish',
+                    data: '{{workflow}}',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+
+        // Main canvas area
+        {
+          type: 'grid',
+          cols: 4,
+          className: 'flex-1 overflow-hidden',
+          children: [
+            // Task palette
+            {
+              type: 'card',
+              className: 'col-span-1 overflow-y-auto border-r',
+              children: [
+                {
+                  type: 'accordion',
+                  items: [
+                    {
+                      title: 'Integrations',
+                      children: [
+                        {
+                          type: 'task-palette',
+                          tasks: [
+                            {
+                              type: 'http',
+                              icon: 'Globe',
+                              label: 'HTTP Request',
+                              color: 'blue',
+                            },
+                            {
+                              type: 'database',
+                              icon: 'Database',
+                              label: 'Database Query',
+                              color: 'green',
+                            },
+                            {
+                              type: 'email',
+                              icon: 'Mail',
+                              label: 'Send Email',
+                              color: 'purple',
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      title: 'Control Flow',
+                      children: [
+                        {
+                          type: 'task-palette',
+                          tasks: [
+                            {
+                              type: 'condition',
+                              icon: 'GitBranch',
+                              label: 'Condition',
+                              color: 'yellow',
+                            },
+                            {
+                              type: 'loop',
+                              icon: 'RotateCw',
+                              label: 'Loop',
+                              color: 'orange',
+                            },
+                            {
+                              type: 'parallel',
+                              icon: 'Layers',
+                              label: 'Parallel',
+                              color: 'cyan',
+                            },
+                            {
+                              type: 'wait',
+                              icon: 'Clock',
+                              label: 'Wait',
+                              color: 'gray',
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      title: 'Human Tasks',
+                      children: [
+                        {
+                          type: 'task-palette',
+                          tasks: [
+                            {
+                              type: 'approval',
+                              icon: 'CheckSquare',
+                              label: 'Approval',
+                              color: 'indigo',
+                            },
+                            {
+                              type: 'manual',
+                              icon: 'Hand',
+                              label: 'Manual Task',
+                              color: 'pink',
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      title: 'Data',
+                      children: [
+                        {
+                          type: 'task-palette',
+                          tasks: [
+                            {
+                              type: 'transform',
+                              icon: 'Code',
+                              label: 'Transform Data',
+                              color: 'violet',
+                            },
+                            {
+                              type: 'script',
+                              icon: 'FileCode',
+                              label: 'Run Script',
+                              color: 'amber',
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // Canvas
+            {
+              type: 'flow-canvas',
+              className: 'col-span-3',
+              nodes: '{{workflow.nodes}}',
+              edges: '{{workflow.edges}}',
+              onNodeAdd: {
+                type: 'add-node',
+              },
+              onNodeUpdate: {
+                type: 'update-node',
+              },
+              onNodeDelete: {
+                type: 'delete-node',
+              },
+              onEdgeAdd: {
+                type: 'add-edge',
+              },
+              onEdgeDelete: {
+                type: 'delete-edge',
+              },
+            },
+          ],
+        },
+
+        // Task configuration panel
+        {
+          type: 'drawer',
+          open: '{{selectedNode != null}}',
+          side: 'right',
+          title: 'Task Configuration',
+          width: 400,
+          children: [
+            {
+              type: 'form',
+              data: '{{selectedNode}}',
+              onChange: {
+                type: 'update-node-config',
+              },
+              fields: [
+                {
+                  type: 'field',
+                  fieldType: 'text',
+                  name: 'name',
+                  label: 'Task Name',
+                  required: true,
+                },
+                {
+                  type: 'field',
+                  fieldType: 'textarea',
+                  name: 'description',
+                  label: 'Description',
+                },
+                {
+                  type: 'field',
+                  fieldType: 'number',
+                  name: 'timeout',
+                  label: 'Timeout (seconds)',
+                  min: 1,
+                  max: 3600,
+                },
+                {
+                  type: 'field',
+                  fieldType: 'number',
+                  name: 'maxRetries',
+                  label: 'Max Retries',
+                  min: 0,
+                  max: 10,
+                  default: 0,
+                },
+                {
+                  type: 'conditional',
+                  condition: '{{selectedNode.type === "http"}}',
+                  children: [
+                    {
+                      type: 'field',
+                      fieldType: 'select',
+                      name: 'method',
+                      label: 'HTTP Method',
+                      required: true,
+                      options: [
+                        { value: 'GET', label: 'GET' },
+                        { value: 'POST', label: 'POST' },
+                        { value: 'PUT', label: 'PUT' },
+                        { value: 'DELETE', label: 'DELETE' },
+                        { value: 'PATCH', label: 'PATCH' },
+                      ],
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'text',
+                      name: 'url',
+                      label: 'URL',
+                      required: true,
+                      placeholder: 'https://api.example.com/endpoint',
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'json',
+                      name: 'headers',
+                      label: 'Headers',
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'json',
+                      name: 'body',
+                      label: 'Request Body',
+                    },
+                  ],
+                },
+                {
+                  type: 'conditional',
+                  condition: '{{selectedNode.type === "email"}}',
+                  children: [
+                    {
+                      type: 'field',
+                      fieldType: 'text',
+                      name: 'to',
+                      label: 'To',
+                      required: true,
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'text',
+                      name: 'subject',
+                      label: 'Subject',
+                      required: true,
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'rich-text',
+                      name: 'body',
+                      label: 'Email Body',
+                      required: true,
+                    },
+                  ],
+                },
+                {
+                  type: 'conditional',
+                  condition: '{{selectedNode.type === "condition"}}',
+                  children: [
+                    {
+                      type: 'field',
+                      fieldType: 'code',
+                      name: 'expression',
+                      label: 'Condition Expression',
+                      language: 'javascript',
+                      required: true,
+                      placeholder: 'return context.amount > 1000;',
+                    },
+                  ],
+                },
+                {
+                  type: 'conditional',
+                  condition: '{{selectedNode.type === "approval"}}',
+                  children: [
+                    {
+                      type: 'field',
+                      fieldType: 'multi-select',
+                      name: 'approvers',
+                      label: 'Approvers',
+                      required: true,
+                      dataSource: {
+                        api: '/api/users?role=approver',
+                        method: 'GET',
+                      },
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'number',
+                      name: 'expiryHours',
+                      label: 'Expiry (hours)',
+                      default: 24,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 4: Execution Monitoring (2 hours)
+
+```typescript title="src/schemas/executions.schema.ts"
+export const executionsSchema = {
+  type: 'page',
+  children: [
+    {
+      type: 'container',
+      className: 'p-8',
+      children: [
+        {
+          type: 'flex',
+          justify: 'between',
+          className: 'mb-6',
+          children: [
+            {
+              type: 'text',
+              content: 'Workflow Executions',
+              className: 'text-2xl font-bold',
+            },
+            {
+              type: 'flex',
+              gap: 3,
+              children: [
+                {
+                  type: 'field',
+                  fieldType: 'date-range',
+                  name: 'dateRange',
+                  placeholder: 'Filter by date',
+                },
+                {
+                  type: 'button',
+                  text: 'Refresh',
+                  variant: 'outline',
+                  icon: 'RefreshCw',
+                  onClick: {
+                    type: 'refresh',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+
+        // Status tabs
+        {
+          type: 'tabs',
+          defaultValue: 'all',
+          className: 'mb-6',
+          items: [
+            { value: 'all', label: 'All', count: '{{counts.all}}' },
+            { value: 'running', label: 'Running', count: '{{counts.running}}' },
+            { value: 'completed', label: 'Completed', count: '{{counts.completed}}' },
+            { value: 'failed', label: 'Failed', count: '{{counts.failed}}' },
+          ],
+          content: [
+            {
+              value: 'all',
+              children: [
+                {
+                  type: 'data-table',
+                  dataSource: {
+                    api: '/api/executions',
+                    method: 'GET',
+                    realtime: true,
+                    refreshInterval: 5000,
+                  },
+                  columns: [
+                    {
+                      key: 'workflow',
+                      title: 'Workflow',
+                      render: {
+                        type: 'text',
+                        content: '{{workflow.name}}',
+                        className: 'font-medium',
+                      },
+                    },
+                    {
+                      key: 'status',
+                      title: 'Status',
+                      width: 120,
+                      render: {
+                        type: 'badge',
+                        text: '{{status}}',
+                        variant: '{{statusVariant}}',
+                        pulse: '{{status === "running"}}',
+                      },
+                    },
+                    {
+                      key: 'progress',
+                      title: 'Progress',
+                      width: 150,
+                      render: {
+                        type: 'progress',
+                        value: '{{progress}}',
+                        showLabel: true,
+                      },
+                    },
+                    {
+                      key: 'duration',
+                      title: 'Duration',
+                      width: 100,
+                      render: {
+                        type: 'text',
+                        content: '{{formattedDuration}}',
+                      },
+                    },
+                    {
+                      key: 'startedAt',
+                      title: 'Started',
+                      type: 'datetime',
+                      width: 160,
+                    },
+                    {
+                      key: 'actions',
+                      title: 'Actions',
+                      width: 150,
+                      render: {
+                        type: 'flex',
+                        gap: 2,
+                        children: [
+                          {
+                            type: 'button',
+                            text: 'View',
+                            size: 'sm',
+                            variant: 'outline',
+                            onClick: {
+                              type: 'dialog',
+                              title: 'Execution Details',
+                              size: 'xl',
+                              content: {
+                                type: 'include',
+                                schema: 'execution-detail',
+                                props: { executionId: '{{id}}' },
+                              },
+                            },
+                          },
+                          {
+                            type: 'button',
+                            text: 'Cancel',
+                            size: 'sm',
+                            variant: 'destructive',
+                            visible: '{{status === "running"}}',
+                            onClick: {
+                              type: 'api',
+                              method: 'POST',
+                              url: '/api/executions/{{id}}/cancel',
+                              confirm: 'Cancel this execution?',
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                  pageSize: 25,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// Execution Detail Schema
+export const executionDetailSchema = {
+  type: 'container',
+  children: [
+    {
+      type: 'grid',
+      cols: 3,
+      gap: 6,
+      className: 'mb-6',
+      children: [
+        {
+          type: 'card',
+          title: 'Execution Info',
+          children: [
+            {
+              type: 'dl-list',
+              items: [
+                { label: 'Workflow', value: '{{workflow.name}}' },
+                { label: 'Status', value: '{{status}}' },
+                { label: 'Started', value: '{{startedAt}}' },
+                { label: 'Completed', value: '{{completedAt}}' },
+                { label: 'Duration', value: '{{formattedDuration}}' },
+                { label: 'Retry Count', value: '{{retryCount}}' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'card',
+          title: 'Input Data',
+          children: [
+            {
+              type: 'code-block',
+              language: 'json',
+              content: '{{JSON.stringify(input, null, 2)}}',
+            },
+          ],
+        },
+        {
+          type: 'card',
+          title: 'Output Data',
+          children: [
+            {
+              type: 'code-block',
+              language: 'json',
+              content: '{{JSON.stringify(output, null, 2)}}',
+            },
+          ],
+        },
+      ],
+    },
+
+    {
+      type: 'card',
+      title: 'Task Timeline',
+      className: 'mb-6',
+      children: [
+        {
+          type: 'execution-timeline',
+          tasks: '{{tasks}}',
+        },
+      ],
+    },
+
+    {
+      type: 'card',
+      title: 'Execution Events',
+      children: [
+        {
+          type: 'data-table',
+          data: '{{events}}',
+          columns: [
+            { key: 'timestamp', title: 'Time', type: 'datetime', width: 180 },
+            { 
+              key: 'type',
+              title: 'Event',
+              render: {
+                type: 'badge',
+                text: '{{type}}',
+              },
+            },
+            { key: 'message', title: 'Message' },
+            { key: 'taskId', title: 'Task', width: 150 },
+          ],
+          pageSize: 15,
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 5: Workflow Engine Implementation (3 hours)
+
+```typescript title="src/engine/executor.ts"
+import { prisma } from '@/lib/prisma';
+import { workflowQueue } from '@/lib/queue';
+import { TaskHandler } from './task-handlers';
+
+export class WorkflowExecutor {
+  async execute(executionId: string) {
+    const execution = await prisma.workflowExecution.findUnique({
+      where: { id: executionId },
+      include: {
+        workflow: true,
+        tasks: true,
+      },
+    });
+
+    if (!execution) {
+      throw new Error('Execution not found');
+    }
+
+    try {
+      // Update status to running
+      await prisma.workflowExecution.update({
+        where: { id: executionId },
+        data: {
+          status: 'running',
+          startedAt: new Date(),
+        },
+      });
+
+      // Execute workflow DAG
+      const definition = execution.workflow.definition as any;
+      const context = { ...execution.input, ...execution.context };
+      
+      const result = await this.executeDAG(
+        definition,
+        context,
+        executionId
+      );
+
+      // Mark as completed
+      await prisma.workflowExecution.update({
+        where: { id: executionId },
+        data: {
+          status: 'completed',
+          output: result,
+          completedAt: new Date(),
+          duration: Date.now() - execution.startedAt!.getTime(),
+        },
+      });
+    } catch (error) {
+      // Mark as failed
+      await prisma.workflowExecution.update({
+        where: { id: executionId },
+        data: {
+          status: 'failed',
+          error: error.message,
+          completedAt: new Date(),
+        },
+      });
+      throw error;
+    }
+  }
+
+  private async executeDAG(
+    definition: any,
+    context: any,
+    executionId: string
+  ) {
+    const { nodes, edges } = definition;
+    const completed = new Set<string>();
+    const results: Record<string, any> = {};
+
+    // Find start node
+    const startNode = nodes.find((n: any) => n.type === 'start');
+    if (!startNode) {
+      throw new Error('No start node found');
+    }
+
+    // Execute nodes in topological order
+    await this.executeNode(
+      startNode.id,
+      nodes,
+      edges,
+      context,
+      executionId,
+      completed,
+      results
+    );
+
+    return results;
+  }
+
+  private async executeNode(
+    nodeId: string,
+    nodes: any[],
+    edges: any[],
+    context: any,
+    executionId: string,
+    completed: Set<string>,
+    results: Record<string, any>
+  ) {
+    if (completed.has(nodeId)) {
+      return;
+    }
+
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node) {
+      throw new Error(`Node ${nodeId} not found`);
+    }
+
+    // Create task execution record
+    const taskExecution = await prisma.taskExecution.create({
+      data: {
+        executionId,
+        taskId: nodeId,
+        taskType: node.type,
+        name: node.data.name,
+        config: node.data.config,
+        status: 'pending',
+      },
+    });
+
+    try {
+      // Execute task
+      const handler = TaskHandler.getHandler(node.type);
+      const result = await handler.execute(
+        node.data.config,
+        context,
+        taskExecution.id
+      );
+
+      // Update task as completed
+      await prisma.taskExecution.update({
+        where: { id: taskExecution.id },
+        data: {
+          status: 'completed',
+          output: result,
+          completedAt: new Date(),
+        },
+      });
+
+      results[nodeId] = result;
+      completed.add(nodeId);
+
+      // Execute next nodes
+      const outgoingEdges = edges.filter((e) => e.source === nodeId);
+      
+      for (const edge of outgoingEdges) {
+        // Check condition if edge has one
+        if (edge.condition) {
+          const shouldExecute = this.evaluateCondition(
+            edge.condition,
+            context,
+            results
+          );
+          if (!shouldExecute) continue;
+        }
+
+        await this.executeNode(
+          edge.target,
+          nodes,
+          edges,
+          { ...context, ...result },
+          executionId,
+          completed,
+          results
+        );
+      }
+    } catch (error) {
+      // Handle retry logic
+      if (taskExecution.retryCount < node.data.config.maxRetries) {
+        await this.retryTask(taskExecution.id, error);
+      } else {
+        await prisma.taskExecution.update({
+          where: { id: taskExecution.id },
+          data: {
+            status: 'failed',
+            error: error.message,
+            completedAt: new Date(),
+          },
+        });
+        throw error;
+      }
+    }
+  }
+
+  private async retryTask(taskId: string, error: any) {
+    const task = await prisma.taskExecution.findUnique({
+      where: { id: taskId },
+    });
+
+    if (!task) return;
+
+    await prisma.taskExecution.update({
+      where: { id: taskId },
+      data: {
+        retryCount: task.retryCount + 1,
+        status: 'pending',
+      },
+    });
+
+    await prisma.taskEvent.create({
+      data: {
+        taskId,
+        type: 'retry',
+        message: `Retrying after error: ${error.message}`,
+      },
+    });
+
+    // Re-queue the task
+    // Implementation depends on your queue system
+  }
+
+  private evaluateCondition(
+    condition: string,
+    context: any,
+    results: any
+  ): boolean {
+    try {
+      const func = new Function('context', 'results', condition);
+      return func(context, results);
+    } catch (error) {
+      console.error('Condition evaluation error:', error);
+      return false;
+    }
+  }
+}
+```
+
+```typescript title="src/engine/task-handlers/http.ts"
+import axios from 'axios';
+
+export class HttpTaskHandler {
+  async execute(config: any, context: any, taskId: string) {
+    const { method, url, headers, body } = config;
+
+    // Replace variables in URL and body
+    const processedUrl = this.replaceVariables(url, context);
+    const processedBody = body ? this.replaceVariables(
+      JSON.stringify(body),
+      context
+    ) : undefined;
+
+    const response = await axios({
+      method,
+      url: processedUrl,
+      headers,
+      data: processedBody ? JSON.parse(processedBody) : undefined,
+      timeout: config.timeout || 30000,
+    });
+
+    return {
+      status: response.status,
+      headers: response.headers,
+      data: response.data,
+    };
+  }
+
+  private replaceVariables(template: string, context: any): string {
+    return template.replace(/\{\{(.+?)\}\}/g, (_, key) => {
+      const value = key.split('.').reduce((obj: any, k: string) => obj?.[k], context);
+      return value !== undefined ? String(value) : '';
+    });
+  }
+}
+```
+
+### Part 6: API Implementation (2 hours)
+
+```typescript title="src/app/api/workflows/route.ts"
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status');
+
+  const where = status && status !== 'all' ? { status } : {};
+
+  const workflows = await prisma.workflow.findMany({
+    where,
+    include: {
+      tags: true,
+      _count: {
+        select: { executions: true },
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  // Calculate success rate
+  const enrichedWorkflows = await Promise.all(
+    workflows.map(async (workflow) => {
+      const executions = await prisma.workflowExecution.groupBy({
+        by: ['status'],
+        where: { workflowId: workflow.id },
+        _count: true,
+      });
+
+      const total = executions.reduce((sum, e) => sum + e._count, 0);
+      const completed = executions.find((e) => e.status === 'completed')?._count || 0;
+      const successRate = total > 0 ? (completed / total) * 100 : 0;
+
+      return {
+        ...workflow,
+        executionCount: total,
+        successRate: Math.round(successRate),
+        statusVariant: workflow.status === 'active' ? 'success' : 'secondary',
+      };
+    })
+  );
+
+  return NextResponse.json(enrichedWorkflows);
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  
+  const workflow = await prisma.workflow.create({
+    data: {
+      name: body.name,
+      description: body.description,
+      definition: body.definition,
+      config: body.config,
+      status: body.status || 'draft',
+      createdBy: body.userId,
+    },
+  });
+
+  return NextResponse.json(workflow);
+}
+```
+
+```typescript title="src/app/api/workflows/[id]/execute/route.ts"
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { workflowQueue } from '@/lib/queue';
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const body = await request.json();
+  
+  const workflow = await prisma.workflow.findUnique({
+    where: { id: params.id },
+  });
+
+  if (!workflow) {
+    return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
+  }
+
+  // Create execution record
+  const execution = await prisma.workflowExecution.create({
+    data: {
+      workflowId: workflow.id,
+      status: 'pending',
+      input: body.input || {},
+      triggeredBy: body.userId,
+    },
+  });
+
+  // Queue for execution
+  await workflowQueue.add('execute-workflow', {
+    executionId: execution.id,
+  });
+
+  return NextResponse.json(execution);
+}
+```
+
+---
+
+## Key Features Implementation
+
+### 1. Visual Workflow Builder
+
+Features:
+- Drag-and-drop canvas
+- Task palette with 10+ task types
+- Real-time validation
+- Auto-save functionality
+
+### 2. Task Types
+
+Available task types:
+- HTTP Request
+- Database Query
+- Send Email
+- Run Script
+- Approval Task
+- Conditional Branch
+- Loop/Iteration
+- Wait/Delay
+
+### 3. Error Handling
+
+Features:
+- Automatic retry with backoff
+- Custom error handlers
+- Timeout management
+- Error notifications
+
+### 4. Audit Logging
+
+Features:
+- Complete execution history
+- Task-level events
+- Performance metrics
+- Error tracking
+
+---
+
+## Deployment
+
+### 1. Build for Production
+
+```bash
+npm run build
+```
+
+### 2. Deploy to Vercel
+
+```bash
+npm i -g vercel
+vercel --prod
+```
+
+### 3. Configure Environment
+
+```env
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+AWS_S3_BUCKET=workflow-artifacts
+SMTP_HOST=smtp.sendgrid.net
+SMTP_USER=apikey
+SMTP_PASS=...
+```
+
+### 4. Start Workers
+
+```bash
+# Run workflow executor worker
+node workers/workflow-executor.js
+
+# Run scheduler worker
+node workers/scheduler.js
+```
+
+---
+
+## Next Steps
+
+### Feature Enhancements
+
+- [ ] Sub-workflows
+- [ ] Workflow versioning
+- [ ] A/B testing for workflows
+- [ ] Webhook triggers
+- [ ] SLA monitoring
+- [ ] Custom task plugins
+
+### Performance Optimizations
+
+- [ ] Parallel task execution
+- [ ] Workflow caching
+- [ ] Database query optimization
+- [ ] Queue prioritization
+
+### Scaling
+
+- [ ] Distributed execution
+- [ ] Horizontal worker scaling
+- [ ] Event sourcing
+- [ ] Multi-tenancy
+
+---
+
+## Resources
+
+- [**Source Code**](https://github.com/objectstack-ai/objectui/tree/main/examples/workflow-engine)
+- [**Live Demo**](https://workflow-demo.objectui.org)
+- [**API Documentation**](https://workflow-demo.objectui.org/api-docs)
+
+---
+
+## Community
+
+Share your workflow implementations:
+- [GitHub Discussions](https://github.com/objectstack-ai/objectui/discussions)
+- [Discord](https://discord.gg/objectui)

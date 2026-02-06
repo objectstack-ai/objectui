@@ -1,0 +1,1422 @@
+---
+title: "Analytics Dashboard Platform Case Study"
+description: "Build a comprehensive analytics dashboard platform with ObjectUI"
+---
+
+# Analytics Dashboard Platform
+
+Build a production-ready analytics dashboard platform using ObjectUI. This comprehensive case study walks through creating a full-featured data visualization and reporting system with real-time metrics, custom chart builders, and advanced filtering.
+
+## Overview
+
+### The Challenge
+
+Modern businesses need powerful analytics platforms to visualize data, track KPIs, generate reports, and make data-driven decisions. Building custom dashboards with flexible visualizations and real-time updates traditionally requires significant development effort and specialized expertise.
+
+### The Solution
+
+Using ObjectUI's schema-driven approach, we built a complete analytics platform in 2-3 weeks with:
+- 📊 Real-time metrics and KPI tracking
+- 📈 Custom chart builder with 15+ visualization types
+- 📄 Report generation (PDF/Excel export)
+- 🔍 Advanced data filtering and aggregation
+- 👥 User segmentation and cohort analysis
+- 🎯 Goal tracking and alerts
+- 📱 Responsive dashboard layouts
+
+### Tech Stack
+
+- **Frontend**: ObjectUI + React 18 + TypeScript
+- **Backend**: Next.js API Routes
+- **Database**: PostgreSQL with Prisma ORM + TimescaleDB
+- **Visualization**: Recharts + D3.js
+- **Real-time**: WebSocket (Socket.io)
+- **Export**: PDFKit + ExcelJS
+- **Deployment**: Vercel
+
+### Demo
+
+- [**Live Demo**](https://analytics-demo.objectui.org) (Coming Soon)
+- [**Source Code**](https://github.com/objectstack-ai/objectui/tree/main/examples/analytics)
+
+---
+
+## System Architecture
+
+### Data Model
+
+```prisma
+// schema.prisma
+model Dashboard {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  layout      Json     // Dashboard layout configuration
+  widgets     Widget[]
+  filters     DashboardFilter[]
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  teamId      String?
+  team        Team?    @relation(fields: [teamId], references: [id])
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Widget {
+  id           String   @id @default(cuid())
+  dashboardId  String
+  dashboard    Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  type         String   // "metric", "line-chart", "bar-chart", "pie-chart", "table", "map"
+  title        String
+  description  String?
+  config       Json     // Widget-specific configuration
+  dataSource   DataSource @relation(fields: [dataSourceId], references: [id])
+  dataSourceId String
+  position     Json     // Grid position {x, y, w, h}
+  refreshRate  Int      @default(60) // Seconds
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DataSource {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // "sql", "api", "webhook", "file"
+  connection  Json     // Connection details
+  query       String?  @db.Text
+  transform   String?  @db.Text // JavaScript transform function
+  cache       Boolean  @default(true)
+  cacheTTL    Int      @default(300) // Seconds
+  widgets     Widget[]
+  reports     Report[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Metric {
+  id          String   @id @default(cuid())
+  name        String
+  key         String   @unique
+  value       Decimal  @db.Decimal(20, 4)
+  previousValue Decimal? @db.Decimal(20, 4)
+  unit        String?  // "$", "%", "users", etc.
+  trend       String?  // "up", "down", "stable"
+  changePercent Decimal? @db.Decimal(10, 2)
+  timestamp   DateTime @default(now())
+  metadata    Json?
+  
+  @@index([key, timestamp])
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  name       String
+  category   String
+  properties Json
+  userId     String?
+  sessionId  String?
+  timestamp  DateTime @default(now())
+  
+  @@index([name, timestamp])
+  @@index([userId, timestamp])
+  @@index([category, timestamp])
+}
+
+model Report {
+  id           String     @id @default(cuid())
+  name         String
+  description  String?
+  type         String     // "scheduled", "on-demand"
+  format       String     // "pdf", "excel", "csv"
+  schedule     String?    // Cron expression
+  dataSourceId String
+  dataSource   DataSource @relation(fields: [dataSourceId], references: [id])
+  template     Json       // Report template
+  recipients   String[]   // Email addresses
+  lastRun      DateTime?
+  nextRun      DateTime?
+  executions   ReportExecution[]
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model ReportExecution {
+  id        String   @id @default(cuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  status    String   // "pending", "running", "completed", "failed"
+  fileUrl   String?
+  error     String?
+  startedAt DateTime @default(now())
+  completedAt DateTime?
+}
+
+model DashboardFilter {
+  id          String    @id @default(cuid())
+  dashboardId String
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  type        String    // "date-range", "select", "multi-select", "search"
+  name        String
+  key         String
+  config      Json
+  default     Json?
+}
+
+model UserSegment {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  criteria    Json     // Segmentation rules
+  userCount   Int      @default(0)
+  analytics   SegmentAnalytics[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SegmentAnalytics {
+  id           String      @id @default(cuid())
+  segmentId    String
+  segment      UserSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  metric       String
+  value        Decimal     @db.Decimal(20, 4)
+  timestamp    DateTime    @default(now())
+  
+  @@index([segmentId, metric, timestamp])
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  metricKey   String
+  target      Decimal  @db.Decimal(20, 4)
+  current     Decimal  @db.Decimal(20, 4) @default(0)
+  startDate   DateTime
+  endDate     DateTime
+  status      String   // "active", "completed", "failed", "cancelled"
+  progress    Int      @default(0) // Percentage
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  alerts      Alert[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Alert {
+  id        String   @id @default(cuid())
+  goalId    String?
+  goal      Goal?    @relation(fields: [goalId], references: [id])
+  type      String   // "threshold", "anomaly", "goal-milestone"
+  condition Json     // Alert condition
+  message   String
+  severity  String   // "info", "warning", "critical"
+  triggered Boolean  @default(false)
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id         String      @id @default(cuid())
+  email      String      @unique
+  name       String
+  role       String      // "admin", "analyst", "viewer"
+  teamId     String?
+  team       Team?       @relation(fields: [teamId], references: [id])
+  dashboards Dashboard[]
+  reports    Report[]
+  goals      Goal[]
+  createdAt  DateTime    @default(now())
+}
+
+model Team {
+  id         String      @id @default(cuid())
+  name       String
+  members    User[]
+  dashboards Dashboard[]
+  createdAt  DateTime    @default(now())
+}
+```
+
+### Application Structure
+
+```
+analytics/
+├── src/
+│   ├── schemas/
+│   │   ├── overview.schema.ts        # Main analytics overview
+│   │   ├── dashboard-builder.schema.ts # Custom dashboard builder
+│   │   ├── chart-config.schema.ts    # Chart configuration
+│   │   ├── reports.schema.ts         # Report management
+│   │   ├── segments.schema.ts        # User segmentation
+│   │   ├── goals.schema.ts           # Goal tracking
+│   │   └── data-explorer.schema.ts   # Data exploration tool
+│   ├── api/
+│   │   ├── metrics/
+│   │   ├── events/
+│   │   ├── dashboards/
+│   │   ├── reports/
+│   │   ├── segments/
+│   │   └── export/
+│   ├── components/
+│   │   ├── ChartRenderer.tsx        # Dynamic chart rendering
+│   │   ├── MetricCard.tsx           # KPI card component
+│   │   ├── DataTable.tsx            # Advanced data table
+│   │   └── FilterBar.tsx            # Filter controls
+│   ├── lib/
+│   │   ├── prisma.ts                # Database client
+│   │   ├── aggregations.ts          # Data aggregation utils
+│   │   ├── export.ts                # PDF/Excel export
+│   │   └── websocket.ts             # Real-time updates
+│   └── workers/
+│       ├── report-generator.ts      # Background report generation
+│       └── metric-aggregator.ts     # Metric calculation
+├── prisma/
+│   └── schema.prisma
+└── package.json
+```
+
+---
+
+## Implementation Guide
+
+### Part 1: Project Setup (30 minutes)
+
+#### 1. Initialize Project
+
+```bash
+# Create Next.js app
+npx create-next-app@latest analytics-platform --typescript --tailwind --app
+cd analytics-platform
+
+# Install dependencies
+npm install @object-ui/react @object-ui/components @object-ui/fields @object-ui/plugin-charts
+npm install @prisma/client recharts d3 socket.io-client
+npm install pdfkit exceljs date-fns
+npm install -D prisma @types/pdfkit
+```
+
+#### 2. Setup Database with TimescaleDB
+
+```bash
+# Initialize Prisma
+npx prisma init
+
+# Update .env
+DATABASE_URL="postgresql://user:password@localhost:5432/analytics?schema=public"
+
+# Enable TimescaleDB extension (for time-series data)
+# In PostgreSQL: CREATE EXTENSION IF NOT EXISTS timescaledb;
+
+# Create schema and migrate
+npx prisma db push
+npx prisma generate
+```
+
+#### 3. Configure ObjectUI
+
+```tsx title="src/app/providers.tsx"
+'use client';
+
+import React from 'react';
+import { ComponentRegistry } from '@object-ui/core';
+import { registerAllComponents } from '@object-ui/components';
+import { registerAllFields } from '@object-ui/fields';
+import { registerChartsPlugin } from '@object-ui/plugin-charts';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  // Register components once
+  React.useEffect(() => {
+    registerAllComponents(ComponentRegistry);
+    registerAllFields();
+    registerChartsPlugin();
+  }, []);
+
+  return <>{children}</>;
+}
+```
+
+### Part 2: Analytics Overview Dashboard (2 hours)
+
+```typescript title="src/schemas/overview.schema.ts"
+export const overviewSchema = {
+  type: 'page',
+  className: 'min-h-screen bg-gray-50 dark:bg-gray-900',
+  children: [
+    {
+      type: 'app-shell',
+      header: {
+        type: 'header-bar',
+        title: 'Analytics Platform',
+        logo: '/logo.svg',
+        navigation: [
+          { label: 'Overview', href: '/', icon: 'LayoutDashboard' },
+          { label: 'Dashboards', href: '/dashboards', icon: 'Grid3x3' },
+          { label: 'Reports', href: '/reports', icon: 'FileText' },
+          { label: 'Segments', href: '/segments', icon: 'Users' },
+          { label: 'Goals', href: '/goals', icon: 'Target' },
+          { label: 'Data Explorer', href: '/explorer', icon: 'Search' },
+        ],
+        userMenu: {
+          name: '{{user.name}}',
+          email: '{{user.email}}',
+          avatar: '{{user.avatar}}',
+          items: [
+            { label: 'Profile', href: '/profile' },
+            { label: 'Settings', href: '/settings' },
+            { label: 'Logout', action: { type: 'logout' } },
+          ],
+        },
+      },
+      children: [
+        {
+          type: 'container',
+          className: 'p-8',
+          children: [
+            // Date Range Picker
+            {
+              type: 'flex',
+              justify: 'between',
+              className: 'mb-6',
+              children: [
+                {
+                  type: 'text',
+                  content: 'Analytics Overview',
+                  className: 'text-2xl font-bold',
+                },
+                {
+                  type: 'flex',
+                  gap: 3,
+                  children: [
+                    {
+                      type: 'field',
+                      fieldType: 'date-range',
+                      name: 'dateRange',
+                      defaultValue: {
+                        from: '{{dateRange.from}}',
+                        to: '{{dateRange.to}}',
+                      },
+                      onChange: {
+                        type: 'refresh',
+                      },
+                    },
+                    {
+                      type: 'button',
+                      text: 'Export Dashboard',
+                      variant: 'outline',
+                      icon: 'Download',
+                      onClick: {
+                        type: 'api',
+                        method: 'POST',
+                        url: '/api/export/dashboard',
+                        download: true,
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // Key Metrics Row
+            {
+              type: 'grid',
+              cols: 4,
+              gap: 6,
+              className: 'mb-8',
+              children: [
+                {
+                  type: 'metric-card',
+                  title: 'Total Users',
+                  value: '{{metrics.totalUsers}}',
+                  change: '{{metrics.usersChange}}',
+                  trend: '{{metrics.usersTrend}}',
+                  icon: 'Users',
+                  color: 'blue',
+                  dataSource: {
+                    api: '/api/metrics/total-users',
+                    method: 'GET',
+                    realtime: true,
+                  },
+                },
+                {
+                  type: 'metric-card',
+                  title: 'Active Sessions',
+                  value: '{{metrics.activeSessions}}',
+                  change: '{{metrics.sessionsChange}}',
+                  trend: '{{metrics.sessionsTrend}}',
+                  icon: 'Activity',
+                  color: 'green',
+                  dataSource: {
+                    api: '/api/metrics/active-sessions',
+                    method: 'GET',
+                    realtime: true,
+                  },
+                },
+                {
+                  type: 'metric-card',
+                  title: 'Conversion Rate',
+                  value: '{{metrics.conversionRate}}%',
+                  change: '{{metrics.conversionChange}}',
+                  trend: '{{metrics.conversionTrend}}',
+                  icon: 'TrendingUp',
+                  color: 'purple',
+                  dataSource: {
+                    api: '/api/metrics/conversion-rate',
+                    method: 'GET',
+                    realtime: true,
+                  },
+                },
+                {
+                  type: 'metric-card',
+                  title: 'Avg Session Duration',
+                  value: '{{metrics.avgDuration}}',
+                  change: '{{metrics.durationChange}}',
+                  trend: '{{metrics.durationTrend}}',
+                  icon: 'Clock',
+                  color: 'orange',
+                  dataSource: {
+                    api: '/api/metrics/avg-duration',
+                    method: 'GET',
+                    realtime: true,
+                  },
+                },
+              ],
+            },
+
+            // Charts Grid
+            {
+              type: 'grid',
+              cols: 2,
+              gap: 6,
+              className: 'mb-8',
+              children: [
+                {
+                  type: 'card',
+                  title: 'User Growth',
+                  actions: [
+                    {
+                      type: 'dropdown-menu',
+                      trigger: {
+                        type: 'button',
+                        text: 'Daily',
+                        variant: 'ghost',
+                        size: 'sm',
+                      },
+                      items: [
+                        { label: 'Hourly', value: 'hourly' },
+                        { label: 'Daily', value: 'daily' },
+                        { label: 'Weekly', value: 'weekly' },
+                        { label: 'Monthly', value: 'monthly' },
+                      ],
+                    },
+                  ],
+                  children: [
+                    {
+                      type: 'line-chart',
+                      height: 300,
+                      dataSource: {
+                        api: '/api/analytics/user-growth',
+                        method: 'GET',
+                        params: {
+                          interval: '{{interval}}',
+                          dateRange: '{{dateRange}}',
+                        },
+                      },
+                      xAxis: 'date',
+                      yAxis: ['users', 'newUsers'],
+                      colors: ['#3b82f6', '#10b981'],
+                      smooth: true,
+                      showGrid: true,
+                      showTooltip: true,
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  title: 'Traffic Sources',
+                  children: [
+                    {
+                      type: 'pie-chart',
+                      height: 300,
+                      dataSource: {
+                        api: '/api/analytics/traffic-sources',
+                        method: 'GET',
+                      },
+                      nameKey: 'source',
+                      valueKey: 'visitors',
+                      showLegend: true,
+                      showPercentage: true,
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // More Detailed Charts
+            {
+              type: 'grid',
+              cols: 3,
+              gap: 6,
+              className: 'mb-8',
+              children: [
+                {
+                  type: 'card',
+                  title: 'Top Pages',
+                  children: [
+                    {
+                      type: 'data-table',
+                      dataSource: {
+                        api: '/api/analytics/top-pages',
+                        method: 'GET',
+                      },
+                      columns: [
+                        { key: 'page', title: 'Page' },
+                        { key: 'views', title: 'Views', align: 'right' },
+                        { 
+                          key: 'change',
+                          title: 'Change',
+                          align: 'right',
+                          render: {
+                            type: 'trend-indicator',
+                            value: '{{change}}',
+                          },
+                        },
+                      ],
+                      pageSize: 10,
+                      compact: true,
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  title: 'Device Breakdown',
+                  children: [
+                    {
+                      type: 'donut-chart',
+                      height: 250,
+                      dataSource: {
+                        api: '/api/analytics/devices',
+                        method: 'GET',
+                      },
+                      nameKey: 'device',
+                      valueKey: 'sessions',
+                      innerRadius: '60%',
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  title: 'Geographic Distribution',
+                  children: [
+                    {
+                      type: 'bar-chart',
+                      height: 250,
+                      dataSource: {
+                        api: '/api/analytics/geography',
+                        method: 'GET',
+                      },
+                      xAxis: 'country',
+                      yAxis: 'users',
+                      horizontal: true,
+                      showValues: true,
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // Real-time Activity
+            {
+              type: 'card',
+              title: 'Real-time Activity',
+              badge: {
+                text: 'Live',
+                variant: 'success',
+                pulse: true,
+              },
+              children: [
+                {
+                  type: 'data-table',
+                  dataSource: {
+                    api: '/api/analytics/realtime',
+                    method: 'GET',
+                    realtime: true,
+                    refreshInterval: 5000,
+                  },
+                  columns: [
+                    { key: 'timestamp', title: 'Time', type: 'time', width: 100 },
+                    { key: 'event', title: 'Event' },
+                    { key: 'user', title: 'User', width: 200 },
+                    { key: 'page', title: 'Page' },
+                    { key: 'location', title: 'Location', width: 150 },
+                  ],
+                  pageSize: 15,
+                  autoRefresh: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 3: Custom Dashboard Builder (3 hours)
+
+```typescript title="src/schemas/dashboard-builder.schema.ts"
+export const dashboardBuilderSchema = {
+  type: 'page',
+  children: [
+    {
+      type: 'container',
+      className: 'p-8',
+      children: [
+        {
+          type: 'flex',
+          justify: 'between',
+          className: 'mb-6',
+          children: [
+            {
+              type: 'text',
+              content: 'Dashboard Builder',
+              className: 'text-2xl font-bold',
+            },
+            {
+              type: 'flex',
+              gap: 3,
+              children: [
+                {
+                  type: 'button',
+                  text: 'Preview',
+                  variant: 'outline',
+                  icon: 'Eye',
+                  onClick: {
+                    type: 'dialog',
+                    title: 'Dashboard Preview',
+                    size: 'full',
+                    content: {
+                      type: 'include',
+                      schema: 'dashboard-preview',
+                    },
+                  },
+                },
+                {
+                  type: 'button',
+                  text: 'Save Dashboard',
+                  onClick: {
+                    type: 'api',
+                    method: 'POST',
+                    url: '/api/dashboards',
+                    data: '{{dashboard}}',
+                    onSuccess: {
+                      type: 'notification',
+                      message: 'Dashboard saved successfully!',
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+
+        {
+          type: 'grid',
+          cols: 4,
+          gap: 6,
+          children: [
+            // Widget Palette
+            {
+              type: 'card',
+              title: 'Widgets',
+              className: 'col-span-1',
+              children: [
+                {
+                  type: 'accordion',
+                  items: [
+                    {
+                      title: 'Charts',
+                      children: [
+                        {
+                          type: 'widget-palette',
+                          widgets: [
+                            { type: 'line-chart', icon: 'LineChart', label: 'Line Chart' },
+                            { type: 'bar-chart', icon: 'BarChart3', label: 'Bar Chart' },
+                            { type: 'pie-chart', icon: 'PieChart', label: 'Pie Chart' },
+                            { type: 'area-chart', icon: 'AreaChart', label: 'Area Chart' },
+                            { type: 'scatter-chart', icon: 'ScatterChart', label: 'Scatter Plot' },
+                            { type: 'heatmap', icon: 'Grid3x3', label: 'Heatmap' },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      title: 'Metrics',
+                      children: [
+                        {
+                          type: 'widget-palette',
+                          widgets: [
+                            { type: 'metric-card', icon: 'Activity', label: 'Metric Card' },
+                            { type: 'gauge', icon: 'Gauge', label: 'Gauge' },
+                            { type: 'progress', icon: 'TrendingUp', label: 'Progress' },
+                            { type: 'stat-card', icon: 'Hash', label: 'Stat Card' },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      title: 'Data',
+                      children: [
+                        {
+                          type: 'widget-palette',
+                          widgets: [
+                            { type: 'data-table', icon: 'Table', label: 'Data Table' },
+                            { type: 'pivot-table', icon: 'Grid', label: 'Pivot Table' },
+                            { type: 'list', icon: 'List', label: 'List' },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      title: 'Maps',
+                      children: [
+                        {
+                          type: 'widget-palette',
+                          widgets: [
+                            { type: 'map', icon: 'Map', label: 'Geographic Map' },
+                            { type: 'choropleth', icon: 'MapPin', label: 'Choropleth' },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // Canvas
+            {
+              type: 'card',
+              title: 'Canvas',
+              className: 'col-span-3',
+              children: [
+                {
+                  type: 'grid-layout',
+                  editable: true,
+                  cols: 12,
+                  rowHeight: 60,
+                  widgets: '{{dashboard.widgets}}',
+                  onDrop: {
+                    type: 'add-widget',
+                  },
+                  onResize: {
+                    type: 'update-widget',
+                  },
+                  onRemove: {
+                    type: 'remove-widget',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+
+        // Widget Configuration Panel
+        {
+          type: 'drawer',
+          open: '{{selectedWidget != null}}',
+          side: 'right',
+          title: 'Widget Configuration',
+          children: [
+            {
+              type: 'form',
+              data: '{{selectedWidget}}',
+              onChange: {
+                type: 'update-widget-config',
+              },
+              fields: [
+                {
+                  type: 'field',
+                  fieldType: 'text',
+                  name: 'title',
+                  label: 'Title',
+                  required: true,
+                },
+                {
+                  type: 'field',
+                  fieldType: 'textarea',
+                  name: 'description',
+                  label: 'Description',
+                },
+                {
+                  type: 'field',
+                  fieldType: 'select',
+                  name: 'dataSourceId',
+                  label: 'Data Source',
+                  required: true,
+                  dataSource: {
+                    api: '/api/data-sources',
+                    method: 'GET',
+                  },
+                },
+                {
+                  type: 'field',
+                  fieldType: 'number',
+                  name: 'refreshRate',
+                  label: 'Refresh Rate (seconds)',
+                  min: 10,
+                  max: 3600,
+                  default: 60,
+                },
+                {
+                  type: 'conditional',
+                  condition: '{{selectedWidget.type.includes("chart")}}',
+                  children: [
+                    {
+                      type: 'field',
+                      fieldType: 'select',
+                      name: 'xAxis',
+                      label: 'X Axis Field',
+                      dataSource: {
+                        api: '/api/data-sources/{{dataSourceId}}/fields',
+                        method: 'GET',
+                      },
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'multi-select',
+                      name: 'yAxis',
+                      label: 'Y Axis Fields',
+                      dataSource: {
+                        api: '/api/data-sources/{{dataSourceId}}/fields',
+                        method: 'GET',
+                      },
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'color-picker',
+                      name: 'colors',
+                      label: 'Chart Colors',
+                      multiple: true,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 4: Report Generation (2 hours)
+
+```typescript title="src/schemas/reports.schema.ts"
+export const reportsSchema = {
+  type: 'page',
+  children: [
+    {
+      type: 'container',
+      className: 'p-8',
+      children: [
+        {
+          type: 'flex',
+          justify: 'between',
+          className: 'mb-6',
+          children: [
+            {
+              type: 'text',
+              content: 'Reports',
+              className: 'text-2xl font-bold',
+            },
+            {
+              type: 'button',
+              text: 'Create Report',
+              onClick: {
+                type: 'dialog',
+                title: 'Create New Report',
+                content: {
+                  type: 'form',
+                  fields: [
+                    {
+                      type: 'field',
+                      fieldType: 'text',
+                      name: 'name',
+                      label: 'Report Name',
+                      required: true,
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'textarea',
+                      name: 'description',
+                      label: 'Description',
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'select',
+                      name: 'type',
+                      label: 'Report Type',
+                      required: true,
+                      options: [
+                        { value: 'on-demand', label: 'On-Demand' },
+                        { value: 'scheduled', label: 'Scheduled' },
+                      ],
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'select',
+                      name: 'format',
+                      label: 'Export Format',
+                      required: true,
+                      options: [
+                        { value: 'pdf', label: 'PDF' },
+                        { value: 'excel', label: 'Excel' },
+                        { value: 'csv', label: 'CSV' },
+                      ],
+                    },
+                    {
+                      type: 'conditional',
+                      condition: '{{type === "scheduled"}}',
+                      children: [
+                        {
+                          type: 'field',
+                          fieldType: 'cron',
+                          name: 'schedule',
+                          label: 'Schedule',
+                          required: true,
+                        },
+                        {
+                          type: 'field',
+                          fieldType: 'tag-input',
+                          name: 'recipients',
+                          label: 'Recipients (Email)',
+                          placeholder: 'Enter email addresses',
+                        },
+                      ],
+                    },
+                    {
+                      type: 'field',
+                      fieldType: 'select',
+                      name: 'dataSourceId',
+                      label: 'Data Source',
+                      required: true,
+                      dataSource: {
+                        api: '/api/data-sources',
+                        method: 'GET',
+                      },
+                    },
+                  ],
+                  onSubmit: {
+                    type: 'api',
+                    method: 'POST',
+                    url: '/api/reports',
+                    onSuccess: {
+                      type: 'notification',
+                      message: 'Report created successfully!',
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+
+        {
+          type: 'tabs',
+          defaultValue: 'all',
+          items: [
+            { value: 'all', label: 'All Reports' },
+            { value: 'scheduled', label: 'Scheduled' },
+            { value: 'on-demand', label: 'On-Demand' },
+          ],
+          content: [
+            {
+              value: 'all',
+              children: [
+                {
+                  type: 'data-table',
+                  dataSource: {
+                    api: '/api/reports',
+                    method: 'GET',
+                  },
+                  columns: [
+                    { key: 'name', title: 'Report Name' },
+                    { 
+                      key: 'type',
+                      title: 'Type',
+                      width: 120,
+                      render: {
+                        type: 'badge',
+                        text: '{{type}}',
+                      },
+                    },
+                    { key: 'format', title: 'Format', width: 100 },
+                    { key: 'schedule', title: 'Schedule', width: 150 },
+                    { key: 'lastRun', title: 'Last Run', type: 'datetime', width: 160 },
+                    { key: 'nextRun', title: 'Next Run', type: 'datetime', width: 160 },
+                    {
+                      key: 'actions',
+                      title: 'Actions',
+                      width: 200,
+                      render: {
+                        type: 'flex',
+                        gap: 2,
+                        children: [
+                          {
+                            type: 'button',
+                            text: 'Run Now',
+                            size: 'sm',
+                            variant: 'outline',
+                            onClick: {
+                              type: 'api',
+                              method: 'POST',
+                              url: '/api/reports/{{id}}/execute',
+                              onSuccess: {
+                                type: 'notification',
+                                message: 'Report generation started',
+                              },
+                            },
+                          },
+                          {
+                            type: 'button',
+                            text: 'History',
+                            size: 'sm',
+                            variant: 'ghost',
+                            onClick: {
+                              type: 'navigate',
+                              href: '/reports/{{id}}/history',
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                  pageSize: 20,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+```
+
+### Part 5: API Implementation (2 hours)
+
+```typescript title="src/app/api/analytics/user-growth/route.ts"
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { startOfDay, subDays, format } from 'date-fns';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const interval = searchParams.get('interval') || 'daily';
+  const days = parseInt(searchParams.get('days') || '30');
+
+  const startDate = startOfDay(subDays(new Date(), days));
+
+  // Query events grouped by date
+  const events = await prisma.$queryRaw`
+    SELECT 
+      DATE_TRUNC('day', timestamp) as date,
+      COUNT(DISTINCT user_id) as users,
+      COUNT(DISTINCT CASE 
+        WHEN timestamp >= ${startDate} 
+        THEN user_id 
+      END) as new_users
+    FROM events
+    WHERE timestamp >= ${startDate}
+    GROUP BY DATE_TRUNC('day', timestamp)
+    ORDER BY date ASC
+  `;
+
+  return NextResponse.json({
+    data: events.map((row: any) => ({
+      date: format(new Date(row.date), 'MMM dd'),
+      users: parseInt(row.users),
+      newUsers: parseInt(row.new_users),
+    })),
+  });
+}
+```
+
+```typescript title="src/app/api/export/dashboard/route.ts"
+import { NextRequest, NextResponse } from 'next/server';
+import PDFDocument from 'pdfkit';
+import ExcelJS from 'exceljs';
+import { prisma } from '@/lib/prisma';
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const { format, dashboardId } = body;
+
+  const dashboard = await prisma.dashboard.findUnique({
+    where: { id: dashboardId },
+    include: {
+      widgets: {
+        include: { dataSource: true },
+      },
+    },
+  });
+
+  if (!dashboard) {
+    return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+  }
+
+  if (format === 'pdf') {
+    return await exportToPDF(dashboard);
+  } else if (format === 'excel') {
+    return await exportToExcel(dashboard);
+  }
+
+  return NextResponse.json({ error: 'Invalid format' }, { status: 400 });
+}
+
+async function exportToPDF(dashboard: any) {
+  const doc = new PDFDocument();
+  const chunks: Buffer[] = [];
+
+  doc.on('data', (chunk) => chunks.push(chunk));
+  
+  return new Promise((resolve) => {
+    doc.on('end', () => {
+      const pdfBuffer = Buffer.concat(chunks);
+      resolve(
+        new NextResponse(pdfBuffer, {
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="${dashboard.name}.pdf"`,
+          },
+        })
+      );
+    });
+
+    // Generate PDF content
+    doc.fontSize(24).text(dashboard.name, { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(dashboard.description || '');
+    doc.moveDown();
+
+    // Add widget data
+    dashboard.widgets.forEach((widget: any) => {
+      doc.fontSize(16).text(widget.title);
+      doc.fontSize(10).text(widget.description || '');
+      doc.moveDown();
+    });
+
+    doc.end();
+  });
+}
+
+async function exportToExcel(dashboard: any) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet(dashboard.name);
+
+  // Add header
+  worksheet.addRow([dashboard.name]);
+  worksheet.addRow([dashboard.description || '']);
+  worksheet.addRow([]);
+
+  // Add widget data
+  for (const widget of dashboard.widgets) {
+    worksheet.addRow([widget.title]);
+    // Add widget-specific data export logic here
+    worksheet.addRow([]);
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  
+  return new NextResponse(buffer, {
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${dashboard.name}.xlsx"`,
+    },
+  });
+}
+```
+
+```typescript title="src/lib/websocket.ts"
+import { Server as SocketServer } from 'socket.io';
+import { prisma } from './prisma';
+
+export function setupWebSocket(io: SocketServer) {
+  io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+
+    // Subscribe to real-time metrics
+    socket.on('subscribe:metrics', async (metricKeys: string[]) => {
+      // Join rooms for each metric
+      metricKeys.forEach((key) => {
+        socket.join(`metric:${key}`);
+      });
+    });
+
+    // Subscribe to dashboard updates
+    socket.on('subscribe:dashboard', (dashboardId: string) => {
+      socket.join(`dashboard:${dashboardId}`);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Client disconnected:', socket.id);
+    });
+  });
+
+  // Emit metric updates
+  return {
+    emitMetricUpdate: (key: string, value: any) => {
+      io.to(`metric:${key}`).emit('metric:update', { key, value });
+    },
+    emitDashboardUpdate: (dashboardId: string, data: any) => {
+      io.to(`dashboard:${dashboardId}`).emit('dashboard:update', data);
+    },
+  };
+}
+```
+
+---
+
+## Key Features Implementation
+
+### 1. Real-time Metrics
+
+**Schema**: [View metrics.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/analytics/src/schemas/metrics.schema.ts)
+
+Features:
+- WebSocket-based live updates
+- Metric trend calculation
+- Historical data comparison
+- Custom metric definitions
+
+### 2. Custom Chart Builder
+
+**Schema**: [View chart-config.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/analytics/src/schemas/chart-config.schema.ts)
+
+Features:
+- Drag-and-drop widget placement
+- 15+ chart types
+- Custom data source configuration
+- Real-time preview
+
+### 3. User Segmentation
+
+**Schema**: [View segments.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/analytics/src/schemas/segments.schema.ts)
+
+Features:
+- Rule-based segmentation
+- Cohort analysis
+- Segment-specific analytics
+- Automated segment updates
+
+### 4. Report Generation
+
+**Schema**: [View reports.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/analytics/src/schemas/reports.schema.ts)
+
+Features:
+- Scheduled reports
+- PDF/Excel/CSV export
+- Email distribution
+- Report templates
+
+### 5. Data Explorer
+
+**Schema**: [View data-explorer.schema.ts](https://github.com/objectstack-ai/objectui/tree/main/examples/analytics/src/schemas/data-explorer.schema.ts)
+
+Features:
+- Ad-hoc queries
+- Advanced filtering
+- Data aggregation
+- Export capabilities
+
+---
+
+## Deployment
+
+### 1. Build for Production
+
+```bash
+npm run build
+```
+
+### 2. Deploy to Vercel
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel --prod
+```
+
+### 3. Configure Environment
+
+```env
+DATABASE_URL=postgresql://...
+TIMESCALEDB_ENABLED=true
+WEBSOCKET_URL=wss://your-domain.com
+REDIS_URL=redis://...
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=your-secret-key
+```
+
+### 4. Setup Background Workers
+
+```bash
+# For scheduled reports
+# Add to your deployment platform (Vercel Cron, AWS Lambda, etc.)
+0 0 * * * node workers/report-generator.js
+*/5 * * * * node workers/metric-aggregator.js
+```
+
+---
+
+## Next Steps
+
+### Feature Enhancements
+
+- [ ] AI-powered insights and anomaly detection
+- [ ] Predictive analytics
+- [ ] Custom SQL query builder
+- [ ] A/B testing integration
+- [ ] Funnel analysis
+- [ ] Cohort retention charts
+- [ ] Mobile app analytics
+
+### Performance Optimizations
+
+- [ ] Query result caching with Redis
+- [ ] Materialized views for complex aggregations
+- [ ] Data sampling for large datasets
+- [ ] Lazy loading for dashboard widgets
+- [ ] Worker threads for heavy computations
+
+### Scaling
+
+- [ ] Horizontal scaling for API servers
+- [ ] Read replicas for database
+- [ ] Dedicated analytics database
+- [ ] Event streaming with Kafka
+- [ ] Distributed caching
+
+---
+
+## Resources
+
+- [**Source Code**](https://github.com/objectstack-ai/objectui/tree/main/examples/analytics)
+- [**Live Demo**](https://analytics-demo.objectui.org)
+- [**API Documentation**](https://analytics-demo.objectui.org/api-docs)
+- [**Recharts Documentation**](https://recharts.org/en-US/)
+
+---
+
+## Community
+
+Share your analytics customizations:
+- [GitHub Discussions](https://github.com/objectstack-ai/objectui/discussions)
+- [Discord](https://discord.gg/objectui)

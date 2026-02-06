@@ -1,6 +1,10 @@
 {
   "title": "Guide",
   "pages": [
+    "quick-start",
+    "installation",
+    "zero-to-deployment",
+    "video-tutorials",
     "architecture",
     "schema-rendering",
     "layout",
@@ -9,6 +13,10 @@
     "fields",
     "component-registry",
     "plugins",
-    "schema-overview"
+    "schema-overview",
+    "custom-components",
+    "plugin-development",
+    "performance",
+    "security"
   ]
 }

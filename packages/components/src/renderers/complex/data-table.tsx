@@ -350,7 +350,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   };
 
   // Cell editing handlers
-  const startEdit = (rowIndex: number, columnKey: string, currentValue: any) => {
+  const startEdit = (rowIndex: number, columnKey: string) => {
     if (!editable) return;
     
     const column = columns.find(col => col.accessorKey === columnKey);
@@ -358,8 +358,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     
     setEditingCell({ rowIndex, columnKey });
     
-    // Check if there's a pending change for this cell
+    // Check if there's a pending change for this cell, otherwise use current data value
     const rowChanges = pendingChanges.get(rowIndex);
+    const currentValue = paginatedData[rowIndex][columnKey];
     const valueToEdit = rowChanges?.[columnKey] ?? currentValue ?? '';
     setEditValue(valueToEdit);
   };
@@ -461,8 +462,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     
     if (e.key === 'Enter' && !editingCell) {
       e.preventDefault();
-      const value = paginatedData[rowIndex][columnKey];
-      startEdit(rowIndex, columnKey, value);
+      startEdit(rowIndex, columnKey);
     }
   };
 
@@ -707,7 +707,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               minWidth: columnWidth,
                               maxWidth: columnWidth
                             }}
-                            onDoubleClick={() => isEditable && startEdit(rowIndex, col.accessorKey, originalValue)}
+                            onDoubleClick={() => isEditable && startEdit(rowIndex, col.accessorKey)}
                             onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.accessorKey)}
                             tabIndex={0}
                           >

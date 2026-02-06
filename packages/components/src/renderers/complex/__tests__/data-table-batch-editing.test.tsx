@@ -71,11 +71,10 @@ describe('Data Table - Batch Editing', () => {
       expect(modifiedIndicator).toBeInTheDocument();
     });
 
-    // Edit second cell in same row - now the name shows as 'John Smith'
-    const emailCell = container.querySelector('td:has-text("john@example.com")') || 
-                      Array.from(container.querySelectorAll('td')).find(el => 
-                        el.textContent?.includes('john@example.com')
-                      );
+    // Edit second cell in same row - find by searching through all cells
+    const emailCell = Array.from(container.querySelectorAll('td')).find(el => 
+      el.textContent?.includes('john@example.com')
+    );
     
     expect(emailCell).toBeInTheDocument();
     if (emailCell) {

@@ -89,7 +89,7 @@ export const EditableTable: Story = {
 export const BatchEditTable: Story = {
     args: {
       type: 'data-table',
-      caption: 'Batch Edit Mode - Edit Multiple Rows & Save Together',
+      caption: 'Batch Edit Mode - Edit Multiple Rows & Save Together (💡 Double-click cells to edit, then see save buttons appear)',
       searchable: false,
       pagination: false,
       editable: true,

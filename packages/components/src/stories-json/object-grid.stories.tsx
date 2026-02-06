@@ -196,11 +196,19 @@ export const EditableGrid: Story = {
 /**
  * Batch Edit Grid - Multi-Row Editing with Batch Save
  * 
- * This story demonstrates advanced batch editing capabilities:
+ * **💡 How to use:**
+ * 1. Double-click any cell (except SKU) to start editing
+ * 2. Press Enter to confirm the edit (cell becomes highlighted in amber)
+ * 3. Edit more cells across different rows
+ * 4. Watch the toolbar appear showing "X rows modified" with Save/Cancel buttons
+ * 5. Row-level save buttons (✓) appear in the Actions column for edited rows
+ * 6. Click "Save All" to batch save, or click row save buttons individually
+ * 
+ * **Features demonstrated:**
  * - Edit multiple cells across multiple rows
  * - Modified rows are highlighted with amber background
  * - Modified cells shown in bold amber text
- * - Save individual rows using row-level save buttons
+ * - Row-level save/cancel buttons appear after editing
  * - Batch save all changes at once using "Save All" button
  * - Cancel changes per row or all at once
  * - Toolbar shows count of modified rows
@@ -250,7 +258,13 @@ export const BatchEditGrid: Story = {
 /**
  * Advanced Batch Editing - Real-World Inventory Management
  * 
- * This example shows a complete workflow:
+ * **💡 Instructions:**
+ * - Double-click any cell (except ID and SKU which are read-only)
+ * - Make edits across multiple rows and pages
+ * - Save buttons appear in Actions column after editing
+ * - Batch save toolbar appears when there are pending changes
+ * 
+ * **Complete workflow demonstration:**
  * - Large dataset with pagination
  * - Multiple editable fields
  * - Read-only columns (ID, SKU)

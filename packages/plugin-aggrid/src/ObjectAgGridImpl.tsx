@@ -18,10 +18,8 @@ import type {
   StatusPanelDef,
   GetContextMenuItemsParams,
   MenuItemDef,
-  IServerSideDatasource,
-  IServerSideGetRowsParams
 } from 'ag-grid-community';
-import type { DataSource, FieldMetadata, ObjectSchemaMetadata } from '@object-ui/types';
+import type { FieldMetadata, ObjectSchemaMetadata } from '@object-ui/types';
 import type { ObjectAgGridImplProps } from './object-aggrid.types';
 import { FIELD_TYPE_TO_FILTER_TYPE } from './object-aggrid.types';
 import { createFieldCellRenderer, createFieldCellEditor } from './field-renderers';
@@ -62,7 +60,6 @@ export default function ObjectAgGridImpl({
   const [error, setError] = useState<Error | null>(null);
   const [objectSchema, setObjectSchema] = useState<ObjectSchemaMetadata | null>(null);
   const [rowData, setRowData] = useState<any[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
 
   // Fetch object metadata
   useEffect(() => {
@@ -116,7 +113,6 @@ export default function ObjectAgGridImpl({
 
         const result = await dataSource.find(objectName, queryParams);
         setRowData(result.data || []);
-        setTotalCount(result.total || 0);
         callbacks?.onDataLoaded?.(result.data || []);
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -415,15 +411,6 @@ export default function ObjectAgGridImpl({
       </div>
     </div>
   );
-}
-
-/**
- * Escape HTML to prevent XSS attacks
- */
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 /**

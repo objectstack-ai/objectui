@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { ObjectChart } from '@object-ui/plugin-charts';
 import { ListView } from '@object-ui/plugin-list';
@@ -8,13 +8,14 @@ import '@object-ui/plugin-grid';
 import '@object-ui/plugin-kanban';
 import '@object-ui/plugin-calendar';
 import { Button, Empty, EmptyTitle, EmptyDescription, Sheet, SheetContent } from '@object-ui/components';
-import { Plus, Calendar as CalendarIcon, Kanban as KanbanIcon, Table as TableIcon, AlignLeft } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Kanban as KanbanIcon, Table as TableIcon, AlignLeft, Code2 } from 'lucide-react';
 import type { ListViewSchema } from '@object-ui/types';
 
 export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
     const navigate = useNavigate();
     const { objectName, viewId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
+    const [showDebug, setShowDebug] = useState(false);
     
     // Get Object Definition
     const objectDef = objects.find((o: any) => o.name === objectName);
@@ -189,6 +190,16 @@ export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
                  </div>
                  
                  <div className="flex items-center gap-2">
+                    <Button 
+                        size="sm" 
+                        variant={showDebug ? "secondary" : "outline"}
+                        onClick={() => setShowDebug(!showDebug)} 
+                        className="shadow-none gap-2 hidden sm:flex"
+                        title="Toggle Metadata Inspector"
+                    >
+                        <Code2 className="h-4 w-4" /> 
+                        <span className="hidden lg:inline">Metadata</span>
+                    </Button>
                     <Button size="sm" onClick={() => onEdit(null)} className="shadow-none gap-2">
                         <Plus className="h-4 w-4" /> 
                         <span className="hidden sm:inline">New</span>
@@ -231,10 +242,39 @@ export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
              </div>
 
              {/* 3. Content Area (Edge-to-Edge) */}
-             <div className="flex-1 overflow-hidden relative">
-                <div className="absolute inset-0">
-                    {renderCurrentView()}
+             <div className="flex-1 overflow-hidden relative flex flex-row">
+                <div className="flex-1 relative h-full">
+                    <div className="absolute inset-0">
+                        {renderCurrentView()}
+                    </div>
                 </div>
+                {showDebug && (
+                  <div className="w-[400px] border-l bg-muted/30 p-0 overflow-hidden flex flex-col shrink-0 shadow-xl z-20 transition-all">
+                     <div className="p-3 border-b bg-muted/50 font-semibold text-sm flex items-center justify-between">
+                        <span>Metadata Inspector</span>
+                        <span className="text-xs text-muted-foreground">JSON Protocol</span>
+                     </div>
+                     <div className="flex-1 overflow-auto p-4 space-y-6">
+                        <div>
+                            <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">View Configuration</h4>
+                            <div className="relative rounded-md border bg-slate-950 text-slate-50 overflow-hidden">
+                                <pre className="text-xs p-3 overflow-auto max-h-[400px]">
+                                    {JSON.stringify(activeView, null, 2)}
+                                </pre>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">Object Definition</h4>
+                             <div className="relative rounded-md border bg-slate-950 text-slate-50 overflow-hidden">
+                                <pre className="text-xs p-3 overflow-auto max-h-[400px]">
+                                    {JSON.stringify(objectDef, null, 2)}
+                                </pre>
+                            </div>
+                        </div>
+                     </div>
+                  </div>
+                )}
              </div>
 
              {/* Drawer for Record Details */}

@@ -2,10 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useSe
 import { useState, useEffect } from 'react';
 import { ObjectStackClient } from '@objectstack/client';
 import { ObjectForm } from '@object-ui/plugin-form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Empty, EmptyTitle } from '@object-ui/components';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Empty, EmptyTitle, Button } from '@object-ui/components';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ObjectStackDataSource } from './dataSource';
 import appConfig from '../objectstack.shared';
+import { Code2 } from 'lucide-react';
 
 // Components
 import { ConsoleLayout } from './components/ConsoleLayout';
@@ -22,6 +23,7 @@ import { useParams } from 'react-router-dom';
 // Detail View Component
 function RecordDetailView({ dataSource, objects, onEdit }: any) {
   const { objectName, recordId } = useParams();
+  const [showDebug, setShowDebug] = useState(false);
   const objectDef = objects.find((o: any) => o.name === objectName);
 
   if (!objectDef) {
@@ -35,32 +37,68 @@ function RecordDetailView({ dataSource, objects, onEdit }: any) {
     );
   }
 
+  const detailSchema = {
+    type: 'detail-view',
+    objectName: objectDef.name,
+    resourceId: recordId,
+    showBack: true,
+    onBack: 'history',
+    showEdit: true,
+    title:  objectDef.label,
+    sections: [
+       {
+          title: 'Details',
+          fields: Object.keys(objectDef.fields || {}).map(key => ({
+             name: key, 
+             label: objectDef.fields[key].label || key,
+             type: objectDef.fields[key].type || 'text'
+          })),
+          columns: 2
+       }
+    ]
+  };
+
   return (
-    <div className="h-full bg-background overflow-auto p-4 lg:p-6">
-       <DetailView 
-         schema={{
-           type: 'detail-view',
-           objectName: objectDef.name,
-           resourceId: recordId,
-           showBack: true,
-           onBack: 'history',
-           showEdit: true,
-           title:  objectDef.label,
-           sections: [
-              {
-                 title: 'Details',
-                 fields: Object.keys(objectDef.fields || {}).map(key => ({
-                    name: key, 
-                    label: objectDef.fields[key].label || key,
-                    type: objectDef.fields[key].type || 'text'
-                 })),
-                 columns: 2
-              }
-           ]
-         }}
-         dataSource={dataSource}
-         onEdit={() => onEdit({ _id: recordId, id: recordId })}
-       />
+    <div className="h-full bg-background overflow-hidden flex flex-col relative">
+       <div className="absolute top-4 right-4 z-50">
+           <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => setShowDebug(!showDebug)}
+              title="Toggle Metadata Inspector"
+              className="bg-background/80 backdrop-blur shadow-sm"
+           >
+             <Code2 className="h-4 w-4" />
+           </Button>
+       </div>
+
+       <div className="flex-1 overflow-hidden flex flex-row">
+           <div className="flex-1 overflow-auto p-4 lg:p-6">
+               <DetailView 
+                 schema={detailSchema}
+                 dataSource={dataSource}
+                 onEdit={() => onEdit({ _id: recordId, id: recordId })}
+               />
+           </div>
+           {showDebug && (
+                <div className="w-[400px] border-l bg-muted/30 p-0 overflow-hidden flex flex-col shrink-0 shadow-xl z-20 transition-all">
+                    <div className="p-3 border-b bg-muted/50 font-semibold text-sm flex items-center justify-between">
+                        <span>Metadata Inspector</span>
+                        <span className="text-xs text-muted-foreground">JSON Protocol</span>
+                    </div>
+                    <div className="flex-1 overflow-auto p-4 space-y-6">
+                        <div>
+                            <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">View Schema</h4>
+                            <div className="relative rounded-md border bg-slate-950 text-slate-50 overflow-hidden">
+                                <pre className="text-xs p-3 overflow-auto max-h-[800px]">
+                                    {JSON.stringify(detailSchema, null, 2)}
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+           )}
+       </div>
     </div>
   );
 }

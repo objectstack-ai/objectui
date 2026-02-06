@@ -355,8 +355,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     setEditValue(currentValue ?? '');
   };
 
-  const saveEdit = () => {
+  const saveEdit = (force: boolean = false) => {
     if (!editingCell) return;
+    
+    // Don't save if we're in cancelled state (unless forced)
+    if (!force && editingCell === null) return;
     
     const { rowIndex, columnKey } = editingCell;
     const globalIndex = (currentPage - 1) * pageSize + rowIndex;
@@ -379,6 +382,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const handleCellKeyDown = (e: React.KeyboardEvent, rowIndex: number, columnKey: string) => {
     if (!editable) return;
     
+    const column = columns.find(col => col.accessorKey === columnKey);
+    if (column?.editable === false) return;
+    
     if (e.key === 'Enter' && !editingCell) {
       e.preventDefault();
       const value = paginatedData[rowIndex][columnKey];
@@ -389,7 +395,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      saveEdit();
+      saveEdit(true);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       cancelEdit();
@@ -596,7 +602,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                             }}
                             onDoubleClick={() => isEditable && startEdit(rowIndex, col.accessorKey, cellValue)}
                             onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.accessorKey)}
-                            tabIndex={isEditable ? 0 : -1}
+                            tabIndex={0}
                           >
                             {isEditing ? (
                               <Input
@@ -604,7 +610,6 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
                                 onKeyDown={handleEditKeyDown}
-                                onBlur={saveEdit}
                                 className="h-8 px-2 py-1"
                               />
                             ) : (

@@ -55,7 +55,7 @@ export default defineConfig({
 });
 ```
 
-The console will be available at `/console` in your ObjectStack application.
+The console will be available at `/` in your ObjectStack application.
 
 ## Development
 

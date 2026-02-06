@@ -58,7 +58,7 @@ const FixedConsolePlugin = {
              console.log('DEBUG: Registering SPA routes for ' + absoluteStaticRoot);
              
              // Manual Asset Handler
-             app.get('/console/assets/*', async (c: any) => {
+             app.get('/assets/*', async (c: any) => {
                 const filePath = path.join(absoluteStaticRoot, c.req.path.replace('/console', ''));
                 if (fs.existsSync(filePath)) {
                     const ext = path.extname(filePath);
@@ -75,13 +75,9 @@ const FixedConsolePlugin = {
                 return c.text('Asset Not Found', 404);
             });
 
-            // Redirect Root
-            app.get('/', (c: any) => {
-                return c.redirect('/console/');
-            });
 
             // SPA Fallback
-            app.get('/console/*', async (c: any) => {
+            app.get('/*', async (c: any) => {
                 if (c.req.path.startsWith('/api')) {
                     return c.text('Not Found', 404);
                 }

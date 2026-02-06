@@ -76,11 +76,8 @@ export async function startMockServer() {
     const handlers = mswPlugin.getHandlers();
     const worker = setupWorker(...handlers);
     
-    // Check if we are served under a base path (e.g. /console/)
-    const isConsolePath = window.location.pathname.startsWith('/console/');
-    // If the app is at /console/, the mockServiceWorker.js is likely served at /console/mockServiceWorker.js
     // unless vite base is handled strangely. But typically public assets follow base.
-    const swUrl = isConsolePath ? '/console/mockServiceWorker.js' : '/mockServiceWorker.js';
+    const swUrl = '/mockServiceWorker.js';
 
     console.log(`[MSW] Starting worker with script at: ${swUrl}`);
     

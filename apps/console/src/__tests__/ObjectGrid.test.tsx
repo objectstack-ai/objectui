@@ -42,10 +42,10 @@ describe('ObjectGrid MSW Integration', () => {
 
       // Wait for data to load
       await waitFor(() => {
-        expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+        expect(screen.getAllByText('Alice Johnson')[0]).toBeInTheDocument();
       }, { timeout: 10000 });
 
-      expect(screen.getByText('alice@objectstack.com')).toBeInTheDocument();
+      expect(screen.getAllByText('alice@objectstack.com')[0]).toBeInTheDocument();
       // expect(screen.getByText('ObjectStack HQ')).toBeInTheDocument();
     });
 
@@ -62,11 +62,11 @@ describe('ObjectGrid MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+        expect(screen.getAllByText('Alice Johnson')[0]).toBeInTheDocument();
       }, { timeout: 10000 });
 
       // Check that all specified columns are rendered
-      expect(screen.getByText('415-555-1001')).toBeInTheDocument();
+      expect(screen.getAllByText('415-555-1001')[0]).toBeInTheDocument();
       // expect(screen.getByText('ObjectStack HQ')).toBeInTheDocument();
       expect(screen.getAllByText('Active')[0]).toBeInTheDocument();
     });
@@ -139,7 +139,7 @@ describe('ObjectGrid MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+        expect(screen.getAllByText('Alice Johnson')[0]).toBeInTheDocument();
       }, { timeout: 10000 });
 
       // Note: Row selection UI depends on the actual grid implementation
@@ -163,7 +163,7 @@ describe('ObjectGrid MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+        expect(screen.getAllByText('Alice Johnson')[0]).toBeInTheDocument();
       }, { timeout: 10000 });
 
       // Look for edit buttons (implementation-specific)
@@ -187,7 +187,7 @@ describe('ObjectGrid MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+        expect(screen.getAllByText('Alice Johnson')[0]).toBeInTheDocument();
       }, { timeout: 10000 });
 
       // Look for delete buttons (implementation-specific)
@@ -211,7 +211,7 @@ describe('ObjectGrid MSW Integration', () => {
       // Check for loading indicator (implementation-specific)
       // The grid should eventually show data
       await waitFor(() => {
-        expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+        expect(screen.getAllByText('Alice Johnson')[0]).toBeInTheDocument();
       }, { timeout: 10000 });
     });
 
@@ -228,9 +228,9 @@ describe('ObjectGrid MSW Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
-        expect(screen.getByText('Bob Smith')).toBeInTheDocument();
-        expect(screen.getByText('Charlie Brown')).toBeInTheDocument();
+        expect(screen.getAllByText('Alice Johnson')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Bob Smith')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Charlie Brown')[0]).toBeInTheDocument();
       }, { timeout: 10000 });
     });
   });

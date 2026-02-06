@@ -29,6 +29,21 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
   ]
 });
 
-// Note: 'form' type is handled by @object-ui/components Form component
-// This plugin only handles 'object-form' which integrates with ObjectQL/ObjectStack
-// Do NOT register as 'form' - that would conflict with the low-level Form renderer
+// Register as view:form for the standard view protocol
+// This allows using { type: 'view:form', objectName: '...' } in schemas
+// skipFallback prevents overwriting the basic 'form' component from @object-ui/components
+ComponentRegistry.register('form', ObjectFormRenderer, {
+  namespace: 'view',
+  skipFallback: true,
+  label: 'Data Form View',
+  category: 'view',
+  inputs: [
+    { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+    { name: 'fields', type: 'array', label: 'Fields' },
+    { name: 'mode', type: 'enum', label: 'Mode', enum: ['create', 'edit', 'view'] },
+  ]
+});
+
+// Note: 'form' type (without namespace) is handled by @object-ui/components Form component
+// This plugin registers as 'view:form' (with view namespace) for the view protocol
+// ObjectForm internally uses { type: 'form' } to render the basic Form component

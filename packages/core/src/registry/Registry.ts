@@ -27,6 +27,16 @@ export type ComponentMeta = {
   icon?: string; // Icon name or svg string
   category?: string; // Grouping category
   namespace?: string; // Component namespace (e.g., 'ui', 'plugin-grid', 'field')
+  /**
+   * When true, prevents the component from being registered with a non-namespaced fallback.
+   * Use this when a component should only be accessible via its full namespaced key.
+   * This avoids conflicts with other components that share the same base name.
+   * 
+   * @example
+   * // Register as 'view:form' only, don't overwrite 'form'
+   * registry.register('form', FormView, { namespace: 'view', skipFallback: true });
+   */
+  skipFallback?: boolean;
   inputs?: ComponentInput[];
   defaultProps?: Record<string, any>; // Default props when dropped
   defaultChildren?: SchemaNode[]; // Default children when dropped
@@ -94,7 +104,8 @@ export class Registry<T = any> {
     // This allows "button" to work even when registered as "ui:button"
     // Note: If multiple namespaced components share the same short name,
     // the last registration wins for non-namespaced lookups
-    if (meta?.namespace) {
+    // Skip this if skipFallback is true to avoid overwriting other components
+    if (meta?.namespace && !meta?.skipFallback) {
       this.components.set(type, {
         type: fullType, // Keep reference to namespaced type
         component,

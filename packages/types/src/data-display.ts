@@ -394,6 +394,16 @@ export interface DataTableSchema extends BaseSchema {
    */
   onCellChange?: (rowIndex: number, columnKey: string, newValue: any, row: any) => void;
   /**
+   * Row save handler
+   * Called when saving changes for a single row
+   */
+  onRowSave?: (rowIndex: number, changes: Record<string, any>, row: any) => void | Promise<void>;
+  /**
+   * Batch save handler
+   * Called when saving changes for multiple rows
+   */
+  onBatchSave?: (changes: Array<{ rowIndex: number; changes: Record<string, any>; row: any }>) => void | Promise<void>;
+  /**
    * Row click handler
    * Called when a row is clicked
    */

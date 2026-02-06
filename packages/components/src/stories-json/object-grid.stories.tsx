@@ -192,3 +192,48 @@ export const EditableGrid: Story = {
   } as any,
 };
 
+/**
+ * Batch Edit Grid - Multi-row editing with batch save
+ * 
+ * This story demonstrates batch editing capabilities:
+ * - Edit multiple cells across multiple rows
+ * - Modified rows are highlighted
+ * - Save individual rows or batch save all changes
+ * - Cancel changes per row or all at once
+ */
+export const BatchEditGrid: Story = {
+  render: renderStory,
+  args: {
+    type: 'object-grid',
+    objectName: 'Product',
+    columns: [
+      { field: 'sku', header: 'SKU', width: 120, editable: false },
+      { field: 'name', header: 'Product Name', sortable: true },
+      { field: 'price', header: 'Price', sortable: true },
+      { field: 'stock', header: 'Stock', sortable: true }
+    ],
+    data: [
+      { sku: 'PROD-001', name: 'Laptop', price: '$1299.99', stock: 15 },
+      { sku: 'PROD-002', name: 'Mouse', price: '$29.99', stock: 120 },
+      { sku: 'PROD-003', name: 'Keyboard', price: '$79.99', stock: 45 },
+      { sku: 'PROD-004', name: 'Monitor', price: '$399.99', stock: 22 }
+    ],
+    editable: true,
+    pagination: false,
+    rowActions: true,
+    className: 'w-full',
+    onRowSave: async (rowIndex: number, changes: Record<string, any>, row: any) => {
+      console.log('Saving row:', { rowIndex, changes, row });
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      alert(`Saved changes for ${row.name}: ${JSON.stringify(changes)}`);
+    },
+    onBatchSave: async (allChanges: Array<{ rowIndex: number; changes: Record<string, any>; row: any }>) => {
+      console.log('Batch saving:', allChanges);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      alert(`Batch saved ${allChanges.length} rows`);
+    }
+  } as any,
+};
+

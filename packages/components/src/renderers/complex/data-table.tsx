@@ -44,6 +44,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   GripVertical,
+  Save,
+  X,
 } from 'lucide-react';
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -123,6 +125,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnKey: string } | null>(null);
   const [editValue, setEditValue] = useState<any>('');
+  // Track pending changes for multi-cell editing: rowIndex -> { columnKey -> newValue }
+  const [pendingChanges, setPendingChanges] = useState<Map<number, Record<string, any>>>(new Map());
+  const [isSaving, setIsSaving] = useState(false);
   
   // Refs for column resizing
   const resizingColumn = useRef<string | null>(null);
@@ -352,7 +357,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     if (column?.editable === false) return;
     
     setEditingCell({ rowIndex, columnKey });
-    setEditValue(currentValue ?? '');
+    
+    // Check if there's a pending change for this cell
+    const rowChanges = pendingChanges.get(rowIndex);
+    const valueToEdit = rowChanges?.[columnKey] ?? currentValue ?? '';
+    setEditValue(valueToEdit);
   };
 
   const saveEdit = (force: boolean = false) => {
@@ -365,7 +374,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     const globalIndex = (currentPage - 1) * pageSize + rowIndex;
     const row = sortedData[globalIndex];
     
-    // Call the callback with the new value
+    // Update pending changes
+    const newPendingChanges = new Map(pendingChanges);
+    const rowChanges = newPendingChanges.get(rowIndex) || {};
+    rowChanges[columnKey] = editValue;
+    newPendingChanges.set(rowIndex, rowChanges);
+    setPendingChanges(newPendingChanges);
+    
+    // Call the legacy onCellChange callback if provided
     if (schema.onCellChange) {
       schema.onCellChange(globalIndex, columnKey, editValue, row);
     }
@@ -377,6 +393,64 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const cancelEdit = () => {
     setEditingCell(null);
     setEditValue('');
+  };
+
+  const saveRow = async (rowIndex: number) => {
+    const globalIndex = (currentPage - 1) * pageSize + rowIndex;
+    const row = sortedData[globalIndex];
+    const rowChanges = pendingChanges.get(rowIndex);
+    
+    if (!rowChanges || Object.keys(rowChanges).length === 0) return;
+    
+    setIsSaving(true);
+    try {
+      if (schema.onRowSave) {
+        await schema.onRowSave(globalIndex, rowChanges, row);
+      }
+      
+      // Clear pending changes for this row
+      const newPendingChanges = new Map(pendingChanges);
+      newPendingChanges.delete(rowIndex);
+      setPendingChanges(newPendingChanges);
+    } catch (error) {
+      console.error('Failed to save row:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelRowChanges = (rowIndex: number) => {
+    const newPendingChanges = new Map(pendingChanges);
+    newPendingChanges.delete(rowIndex);
+    setPendingChanges(newPendingChanges);
+  };
+
+  const saveBatch = async () => {
+    if (pendingChanges.size === 0) return;
+    
+    setIsSaving(true);
+    try {
+      const changesToSave = Array.from(pendingChanges.entries()).map(([rowIndex, changes]) => {
+        const globalIndex = (currentPage - 1) * pageSize + rowIndex;
+        const row = sortedData[globalIndex];
+        return { rowIndex: globalIndex, changes, row };
+      });
+      
+      if (schema.onBatchSave) {
+        await schema.onBatchSave(changesToSave);
+      }
+      
+      // Clear all pending changes
+      setPendingChanges(new Map());
+    } catch (error) {
+      console.error('Failed to save batch:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelAllChanges = () => {
+    setPendingChanges(new Map());
   };
 
   const handleCellKeyDown = (e: React.KeyboardEvent, rowIndex: number, columnKey: string) => {
@@ -431,7 +505,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     return selectedRowIds.has(rowId);
   }) && !allPageRowsSelected;
 
-  const showToolbar = searchable || exportable || (selectable && selectedRowIds.size > 0);
+  const hasPendingChanges = pendingChanges.size > 0;
+  const showToolbar = searchable || exportable || (selectable && selectedRowIds.size > 0) || hasPendingChanges;
 
   return (
     <div className={`flex flex-col h-full gap-4 ${className || ''}`}>
@@ -456,6 +531,32 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           </div>
           
           <div className="flex items-center gap-2">
+            {hasPendingChanges && (
+              <>
+                <div className="text-sm text-muted-foreground">
+                  {pendingChanges.size} row{pendingChanges.size > 1 ? 's' : ''} modified
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelAllChanges}
+                  disabled={isSaving}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel All
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={saveBatch}
+                  disabled={isSaving}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save All ({pendingChanges.size})
+                </Button>
+              </>
+            )}
+            
             {exportable && (
               <Button
                 variant="outline"
@@ -555,13 +656,16 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   const globalIndex = (currentPage - 1) * pageSize + rowIndex;
                   const rowId = getRowId(row, globalIndex);
                   const isSelected = selectedRowIds.has(rowId);
+                  const rowHasChanges = pendingChanges.has(rowIndex);
+                  const rowChanges = pendingChanges.get(rowIndex) || {};
                   
                   return (
                     <TableRow 
                       key={rowId} 
                       data-state={isSelected ? 'selected' : undefined}
                       className={cn(
-                        schema.onRowClick && "cursor-pointer"
+                        schema.onRowClick && "cursor-pointer",
+                        rowHasChanges && "bg-amber-50 dark:bg-amber-950/20"
                       )}
                       onClick={(e) => {
                         if (schema.onRowClick && !e.defaultPrevented) {
@@ -584,7 +688,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       )}
                       {columns.map((col, colIndex) => {
                         const columnWidth = columnWidths[col.accessorKey] || col.width;
-                        const cellValue = row[col.accessorKey];
+                        const originalValue = row[col.accessorKey];
+                        const hasPendingChange = rowChanges[col.accessorKey] !== undefined;
+                        const cellValue = hasPendingChange ? rowChanges[col.accessorKey] : originalValue;
                         const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.columnKey === col.accessorKey;
                         const isEditable = editable && col.editable !== false;
                         
@@ -593,14 +699,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                             key={colIndex} 
                             className={cn(
                               col.cellClassName,
-                              isEditable && !isEditing && "cursor-text hover:bg-muted/50"
+                              isEditable && !isEditing && "cursor-text hover:bg-muted/50",
+                              hasPendingChange && "font-semibold text-amber-700 dark:text-amber-400"
                             )}
                             style={{
                               width: columnWidth,
                               minWidth: columnWidth,
                               maxWidth: columnWidth
                             }}
-                            onDoubleClick={() => isEditable && startEdit(rowIndex, col.accessorKey, cellValue)}
+                            onDoubleClick={() => isEditable && startEdit(rowIndex, col.accessorKey, originalValue)}
                             onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.accessorKey)}
                             tabIndex={0}
                           >
@@ -621,20 +728,45 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       {rowActions && (
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => schema.onRowEdit?.(row)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => schema.onRowDelete?.(row)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {rowHasChanges && (schema.onRowSave || schema.onBatchSave) ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => cancelRowChanges(rowIndex)}
+                                  disabled={isSaving}
+                                  title="Cancel changes"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => saveRow(rowIndex)}
+                                  disabled={isSaving}
+                                  title="Save row"
+                                >
+                                  <Save className="h-4 w-4 text-green-600" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => schema.onRowEdit?.(row)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => schema.onRowDelete?.(row)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       )}

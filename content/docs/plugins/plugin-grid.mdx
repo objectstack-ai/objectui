@@ -263,6 +263,52 @@ function handleCellChange(rowIndex, columnKey, newValue, row) {
 }
 ```
 
+### Batch Editing & Multi-Row Save
+
+Edit multiple cells across multiple rows and save them individually or all at once:
+
+```json
+{
+  "type": "object-grid",
+  "objectName": "products",
+  "columns": [
+    { "header": "SKU", "accessorKey": "sku", "editable": false },
+    { "header": "Name", "accessorKey": "name" },
+    { "header": "Price", "accessorKey": "price" }
+  ],
+  "editable": true,
+  "rowActions": true,
+  "onRowSave": "handleRowSave",
+  "onBatchSave": "handleBatchSave"
+}
+```
+
+**Features:**
+- **Pending changes tracking**: Edit multiple cells across rows before saving
+- **Visual indicators**: Modified rows highlighted in amber, modified cells in bold
+- **Row-level save/cancel**: Individual row save and cancel buttons
+- **Batch operations**: Save All and Cancel All buttons for bulk actions
+- **Flexible callbacks**: `onRowSave` for single row, `onBatchSave` for multiple rows
+
+**Example Handlers:**
+```javascript
+function handleRowSave(rowIndex, changes, row) {
+  console.log('Saving row:', rowIndex, changes);
+  // Save single row to backend
+  await dataSource.update(row.id, changes);
+}
+
+function handleBatchSave(allChanges) {
+  console.log('Batch saving:', allChanges.length, 'rows');
+  // Save all changes at once
+  await Promise.all(
+    allChanges.map(({ row, changes }) => 
+      dataSource.update(row.id, changes)
+    )
+  );
+}
+```
+
 ## TypeScript Support
 
 ```plaintext

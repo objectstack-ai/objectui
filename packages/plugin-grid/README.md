@@ -284,6 +284,63 @@ const schema = {
 - Spreadsheet-like editing experience
 - Real-time updates with backend synchronization
 
+### Batch Editing & Multi-Row Save
+
+Edit multiple cells across multiple rows and save them individually or all at once:
+
+```typescript
+const schema = {
+  type: 'object-grid',
+  objectName: 'products',
+  columns: [
+    { header: 'SKU', accessorKey: 'sku', editable: false },
+    { header: 'Name', accessorKey: 'name' },
+    { header: 'Price', accessorKey: 'price' },
+    { header: 'Stock', accessorKey: 'stock' }
+  ],
+  editable: true,
+  rowActions: true,  // Show row-level save/cancel buttons
+  onRowSave: async (rowIndex, changes, row) => {
+    // Save a single row
+    console.log('Saving row:', rowIndex, changes);
+    await dataSource.update(row.id, changes);
+  },
+  onBatchSave: async (allChanges) => {
+    // Save all modified rows at once
+    console.log('Batch saving:', allChanges);
+    await Promise.all(
+      allChanges.map(({ row, changes }) => 
+        dataSource.update(row.id, changes)
+      )
+    );
+  }
+};
+```
+
+**Batch Editing Features:**
+- **Pending changes tracking**: Edit multiple cells across multiple rows before saving
+- **Visual indicators**: 
+  - Modified rows are highlighted with amber background
+  - Modified cells are shown in bold with amber text
+  - Toolbar shows count of modified rows
+- **Row-level actions**: Save or cancel changes for individual rows
+- **Batch operations**: 
+  - "Save All" button to save all modified rows at once
+  - "Cancel All" button to discard all pending changes
+- **Flexible callbacks**:
+  - `onRowSave`: Called when saving a single row
+  - `onBatchSave`: Called when saving multiple rows at once
+  - `onCellChange`: Still called for immediate cell updates (legacy support)
+
+**Example Workflow:**
+1. User edits multiple cells across different rows
+2. Modified rows are visually highlighted
+3. Toolbar shows "X rows modified" with Save All/Cancel All buttons
+4. User can:
+   - Save individual rows using row-level save button
+   - Save all changes at once using "Save All" button
+   - Cancel individual row changes or all changes
+
 ## TypeScript Support
 
 ```typescript

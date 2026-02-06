@@ -440,12 +440,79 @@ export interface ObjectGridSchema extends BaseSchema {
 }
 
 /**
+ * Form Section Configuration
+ * Aligns with @objectstack/spec FormSection
+ */
+export interface ObjectFormSection {
+  /**
+   * Section identifier
+   */
+  name?: string;
+  
+  /**
+   * Section label
+   */
+  label?: string;
+  
+  /**
+   * Section description
+   */
+  description?: string;
+  
+  /**
+   * Whether the section can be collapsed
+   * @default false
+   */
+  collapsible?: boolean;
+  
+  /**
+   * Whether the section is initially collapsed
+   * @default false
+   */
+  collapsed?: boolean;
+  
+  /**
+   * Number of columns for field layout
+   * @default 1
+   */
+  columns?: 1 | 2 | 3 | 4;
+  
+  /**
+   * Field names or inline field configurations for this section
+   */
+  fields: (string | FormField)[];
+}
+
+/**
  * ObjectForm Schema
  * A smart form component that generates forms from ObjectQL object schemas.
  * It automatically creates form fields based on object metadata.
+ * 
+ * Supports multiple form variants aligned with @objectstack/spec FormView:
+ * - `simple`  – Flat field list (default)
+ * - `tabbed`  – Fields organized in tabs
+ * - `wizard`  – Multi-step form with navigation
+ * - `split`   – Side-by-side panels (reserved)
+ * - `drawer`  – Slide-out form panel (reserved)
+ * - `modal`   – Dialog-based form (reserved)
  */
 export interface ObjectFormSchema extends BaseSchema {
   type: 'object-form';
+  
+  /**
+   * Form variant type.
+   * Aligns with @objectstack/spec FormView.type
+   * 
+   * - `simple`  – Standard flat form (default)
+   * - `tabbed`  – Sections as tabs
+   * - `wizard`  – Multi-step wizard with progress indicator
+   * - `split`   – Side-by-side panel layout (reserved)
+   * - `drawer`  – Slide-out form (reserved)
+   * - `modal`   – Dialog form (reserved)
+   *
+   * @default 'simple'
+   */
+  formType?: 'simple' | 'tabbed' | 'wizard' | 'split' | 'drawer' | 'modal';
   
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
@@ -493,7 +560,14 @@ export interface ObjectFormSchema extends BaseSchema {
   initialData?: Record<string, any>;
   
   /**
-   * Field groups for organized layout
+   * Form sections for organized layout.
+   * Used by tabbed/wizard/simple forms to group fields.
+   * Aligns with @objectstack/spec FormView.sections
+   */
+  sections?: ObjectFormSection[];
+  
+  /**
+   * Field groups for organized layout (legacy, prefer sections)
    */
   groups?: Array<{
     title?: string;
@@ -512,26 +586,55 @@ export interface ObjectFormSchema extends BaseSchema {
    * - `inline`     – compact inline layout, typically used in toolbars
    * - `grid`       – **experimental** grid layout
    *
-   * Note: As of the current implementation, the underlying form renderer does not yet
-   * support a native `grid` layout and will internally treat `layout: "grid"` as
-   * `layout: "vertical"`. This value is exposed in the schema for forward compatibility,
-   * and behavior may change once grid support is implemented.
-   *
    * @default 'vertical'
    */
   layout?: 'vertical' | 'horizontal' | 'inline' | 'grid';
   
   /**
    * Grid columns (for grid layout).
-   *
-   * Intended number of columns when using a `grid` layout. Current renderers that do
-   * not implement true grid support may ignore this value and fall back to a vertical
-   * layout. When grid layout is supported, this value should control how many form
-   * fields are placed per row.
-   *
    * @default 2
    */
   columns?: number;
+  
+  /**
+   * Default active tab (section name). Only used when formType is 'tabbed'.
+   */
+  defaultTab?: string;
+  
+  /**
+   * Tab position. Only used when formType is 'tabbed'.
+   * @default 'top'
+   */
+  tabPosition?: 'top' | 'bottom' | 'left' | 'right';
+  
+  /**
+   * Allow skipping steps. Only used when formType is 'wizard'.
+   * @default false
+   */
+  allowSkip?: boolean;
+  
+  /**
+   * Show step indicator. Only used when formType is 'wizard'.
+   * @default true
+   */
+  showStepIndicator?: boolean;
+  
+  /**
+   * Text for Next button. Only used when formType is 'wizard'.
+   * @default 'Next'
+   */
+  nextText?: string;
+  
+  /**
+   * Text for Previous button. Only used when formType is 'wizard'.
+   * @default 'Back'
+   */
+  prevText?: string;
+  
+  /**
+   * Called when wizard step changes. Only used when formType is 'wizard'.
+   */
+  onStepChange?: (step: number) => void;
   
   /**
    * Show submit button

@@ -17,6 +17,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import type { ObjectFormSchema, FormField, FormSchema, DataSource } from '@object-ui/types';
 import { SchemaRenderer } from '@object-ui/react';
 import { mapFieldTypeToFormType, buildValidationRules, evaluateCondition, formatFileSize } from '@object-ui/fields';
+import { TabbedForm } from './TabbedForm';
+import { WizardForm } from './WizardForm';
+import { FormSection } from './FormSection';
 
 export interface ObjectFormProps {
   /**
@@ -58,6 +61,56 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
   schema,
   dataSource,
 }) => {
+
+  // Route to specialized form variant based on formType
+  if (schema.formType === 'tabbed' && schema.sections?.length) {
+    return (
+      <TabbedForm
+        schema={{
+          ...schema,
+          formType: 'tabbed',
+          sections: schema.sections.map(s => ({
+            name: s.name,
+            label: s.label,
+            description: s.description,
+            columns: s.columns,
+            fields: s.fields,
+          })),
+          defaultTab: schema.defaultTab,
+          tabPosition: schema.tabPosition,
+        }}
+        dataSource={dataSource}
+        className={schema.className}
+      />
+    );
+  }
+
+  if (schema.formType === 'wizard' && schema.sections?.length) {
+    return (
+      <WizardForm
+        schema={{
+          ...schema,
+          formType: 'wizard',
+          sections: schema.sections.map(s => ({
+            name: s.name,
+            label: s.label,
+            description: s.description,
+            columns: s.columns,
+            fields: s.fields,
+          })),
+          allowSkip: schema.allowSkip,
+          showStepIndicator: schema.showStepIndicator,
+          nextText: schema.nextText,
+          prevText: schema.prevText,
+          onStepChange: schema.onStepChange,
+        }}
+        dataSource={dataSource}
+        className={schema.className}
+      />
+    );
+  }
+
+  // Default: simple form (original implementation below)
 
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
@@ -375,12 +428,55 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
   // Convert to FormSchema
   // Note: FormSchema currently only supports 'vertical' and 'horizontal' layouts
   // Map 'grid' and 'inline' to 'vertical' as fallback
+  const formLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal') 
+    ? schema.layout 
+    : 'vertical';
+
+  // If sections are provided for the simple form, render with FormSection grouping
+  if (schema.sections?.length && (!schema.formType || schema.formType === 'simple')) {
+    return (
+      <div className="w-full space-y-6">
+        {schema.sections.map((section, index) => {
+          // Filter formFields to only include fields in this section
+          const sectionFieldNames = section.fields.map(f => typeof f === 'string' ? f : f.name);
+          const sectionFields = formFields.filter(f => sectionFieldNames.includes(f.name));
+          
+          return (
+            <FormSection
+              key={section.name || section.label || index}
+              label={section.label}
+              description={section.description}
+              collapsible={section.collapsible}
+              collapsed={section.collapsed}
+              columns={section.columns}
+            >
+              <SchemaRenderer
+                schema={{
+                  type: 'form',
+                  fields: sectionFields,
+                  layout: formLayout,
+                  defaultValues: finalDefaultValues,
+                  // Only show action buttons after the last section
+                  showSubmit: index === schema.sections!.length - 1 && schema.showSubmit !== false && schema.mode !== 'view',
+                  showCancel: index === schema.sections!.length - 1 && schema.showCancel !== false,
+                  submitLabel: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+                  cancelLabel: schema.cancelText,
+                  onSubmit: handleSubmit,
+                  onCancel: handleCancel,
+                } as FormSchema}
+              />
+            </FormSection>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Default flat form (no sections)
   const formSchema: FormSchema = {
     type: 'form',
     fields: formFields,
-    layout: (schema.layout === 'vertical' || schema.layout === 'horizontal') 
-      ? schema.layout 
-      : 'vertical',
+    layout: formLayout,
     columns: schema.columns,
     submitLabel: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
     cancelLabel: schema.cancelText,

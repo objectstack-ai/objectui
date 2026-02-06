@@ -12,6 +12,12 @@ import { ObjectForm } from './ObjectForm';
 
 export { ObjectForm };
 export type { ObjectFormProps } from './ObjectForm';
+export { FormSection } from './FormSection';
+export type { FormSectionProps } from './FormSection';
+export { TabbedForm } from './TabbedForm';
+export type { TabbedFormProps, TabbedFormSchema, FormSectionConfig } from './TabbedForm';
+export { WizardForm } from './WizardForm';
+export type { WizardFormProps, WizardFormSchema } from './WizardForm';
 
 // Register object-form component
 const ObjectFormRenderer: React.FC<{ schema: any }> = ({ schema }) => {

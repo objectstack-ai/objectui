@@ -290,6 +290,7 @@ export type {
   ListViewSchema,
   ObjectGridSchema,
   ObjectFormSchema,
+  ObjectFormSection,
   ObjectViewSchema,
   ObjectQLComponentSchema,
 } from './objectql';

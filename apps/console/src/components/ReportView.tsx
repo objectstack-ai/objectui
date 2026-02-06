@@ -31,8 +31,8 @@ export function ReportView() {
     return (
       <div className="h-full flex items-center justify-center p-8">
          <Empty>
-          <EmptyTitle>报表未找到</EmptyTitle>
-          <EmptyDescription>报表 "{reportName}" 不存在。</EmptyDescription>
+          <EmptyTitle>Report Not Found</EmptyTitle>
+          <EmptyDescription>The report "{reportName}" could not be found.</EmptyDescription>
         </Empty>
       </div>
     );
@@ -50,14 +50,14 @@ export function ReportView() {
          <div className="flex items-center p-4 border-b bg-muted/10 gap-2">
             <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
                <ChevronLeft className="h-4 w-4 mr-1" />
-               返回查看
+               Back to View
             </Button>
-            <div className="font-medium">编辑报表: {reportData.title}</div>
+            <div className="font-medium">Edit Report: {reportData.title}</div>
          </div>
          <div className="flex-1 overflow-auto">
             <ReportBuilder 
                schema={{ 
-                  title: '报表构建器', 
+                  title: 'Report Builder', 
                   report: reportData,
                   availableFields: MOCK_FIELDS,
                   onSave: handleSave,
@@ -84,12 +84,12 @@ export function ReportView() {
       <div className="flex justify-between items-center p-6 border-b shrink-0 bg-muted/10">
         <div>
            {/* Header is handled by ReportViewer usually, but we can have a page header too */}
-           <h1 className="text-lg font-medium text-muted-foreground">{reportData.title || '报表查看器'}</h1>
+           <h1 className="text-lg font-medium text-muted-foreground">{reportData.title || 'Report Viewer'}</h1>
         </div>
         <div className="flex items-center gap-2">
            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
               <PenLine className="h-4 w-4 mr-2" />
-              编辑报表
+              Edit Report
            </Button>
            <Button 
              variant={showDebug ? "secondary" : "ghost"}
@@ -98,7 +98,7 @@ export function ReportView() {
              className="gap-2"
            >
              <Code2 className="h-4 w-4" />
-             {showDebug ? '隐藏 JSON' : '显示 JSON'}
+             {showDebug ? 'Hide JSON' : 'Show JSON'}
            </Button>
         </div>
       </div>
@@ -113,12 +113,12 @@ export function ReportView() {
          {showDebug && (
             <div className="w-[400px] border-l bg-muted/30 p-0 overflow-hidden flex flex-col shrink-0 shadow-xl z-20 transition-all">
                 <div className="p-3 border-b bg-muted/50 font-semibold text-sm flex items-center justify-between">
-                  <span>元数据检查器</span>
-                  <span className="text-xs text-muted-foreground">JSON 协议</span>
+                  <span>Metadata Inspector</span>
+                  <span className="text-xs text-muted-foreground">JSON Protocol</span>
                 </div>
                 <div className="flex-1 overflow-auto p-4 space-y-6">
                   <div>
-                      <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">报表配置</h4>
+                      <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">Report Configuration</h4>
                         <div className="relative rounded-md border bg-slate-950 text-slate-50 overflow-hidden">
                           <pre className="text-xs p-3 overflow-auto max-h-[800px]">
                               {JSON.stringify(reportData, null, 2)}

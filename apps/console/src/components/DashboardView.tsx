@@ -22,8 +22,8 @@ export function DashboardView() {
     return (
       <div className="h-full flex items-center justify-center p-8">
          <Empty>
-          <EmptyTitle>仪表盘未找到</EmptyTitle>
-          <EmptyDescription>仪表盘 "{dashboardName}" 不存在。</EmptyDescription>
+          <EmptyTitle>Dashboard Not Found</EmptyTitle>
+          <EmptyDescription>The dashboard "{dashboardName}" could not be found.</EmptyDescription>
         </Empty>
       </div>
     );
@@ -45,7 +45,7 @@ export function DashboardView() {
           className="gap-2"
         >
           <Code2 className="h-4 w-4" />
-          元数据
+          Metadata
         </Button>
       </div>
 
@@ -57,12 +57,12 @@ export function DashboardView() {
          {showDebug && (
             <div className="w-[400px] border-l bg-muted/30 p-0 overflow-hidden flex flex-col shrink-0 shadow-xl z-20 transition-all">
                 <div className="p-3 border-b bg-muted/50 font-semibold text-sm flex items-center justify-between">
-                  <span>元数据检查器</span>
-                  <span className="text-xs text-muted-foreground">JSON 协议</span>
+                  <span>Metadata Inspector</span>
+                  <span className="text-xs text-muted-foreground">JSON Protocol</span>
                 </div>
                 <div className="flex-1 overflow-auto p-4 space-y-6">
                   <div>
-                      <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">仪表盘配置</h4>
+                      <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">Dashboard Configuration</h4>
                         <div className="relative rounded-md border bg-slate-950 text-slate-50 overflow-hidden">
                           <pre className="text-xs p-3 overflow-auto max-h-[800px]">
                               {JSON.stringify(dashboard, null, 2)}

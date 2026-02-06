@@ -17,13 +17,13 @@ export function LoadingScreen() {
         {/* Title */}
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">ObjectStack Console</h1>
-          <p className="text-sm text-muted-foreground">正在初始化应用程序...</p>
+          <p className="text-sm text-muted-foreground">Initializing application...</p>
         </div>
         
         {/* Loading indicator */}
         <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 rounded-full">
           <Spinner className="h-4 w-4 text-primary" />
-          <span className="text-sm text-muted-foreground">连接数据源</span>
+          <span className="text-sm text-muted-foreground">Connecting to data source</span>
         </div>
       </div>
     </div>

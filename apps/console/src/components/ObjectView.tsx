@@ -24,8 +24,8 @@ export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
       return (
         <div className="h-full p-4 flex items-center justify-center">
           <Empty>
-            <EmptyTitle>对象未找到</EmptyTitle>
-            <EmptyDescription>对象 "{objectName}" 在当前配置中不存在。</EmptyDescription>
+            <EmptyTitle>Object Not Found</EmptyTitle>
+            <EmptyDescription>The object "{objectName}" does not exist in the current configuration.</EmptyDescription>
           </Empty>
         </div>
       );
@@ -44,7 +44,7 @@ export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
         if (viewList.length === 0) {
             viewList.push({ 
                 id: 'all', 
-                label: '全部记录', 
+                label: 'All Records', 
                 type: 'grid', 
                 columns: objectDef.fields ? Object.keys(objectDef.fields).slice(0, 5) : [] 
             });
@@ -195,14 +195,14 @@ export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
                         variant={showDebug ? "secondary" : "outline"}
                         onClick={() => setShowDebug(!showDebug)} 
                         className="shadow-none gap-2 hidden sm:flex"
-                        title="切换元数据检查器"
+                        title="Toggle Metadata Inspector"
                     >
                         <Code2 className="h-4 w-4" /> 
-                        <span className="hidden lg:inline">元数据</span>
+                        <span className="hidden lg:inline">Metadata</span>
                     </Button>
                     <Button size="sm" onClick={() => onEdit(null)} className="shadow-none gap-2">
                         <Plus className="h-4 w-4" /> 
-                        <span className="hidden sm:inline">新建</span>
+                        <span className="hidden sm:inline">New</span>
                     </Button>
                  </div>
              </div>
@@ -251,12 +251,12 @@ export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
                 {showDebug && (
                   <div className="w-[400px] border-l bg-muted/30 p-0 overflow-hidden flex flex-col shrink-0 shadow-xl z-20 transition-all">
                      <div className="p-3 border-b bg-muted/50 font-semibold text-sm flex items-center justify-between">
-                        <span>元数据检查器</span>
-                        <span className="text-xs text-muted-foreground">JSON 协议</span>
+                        <span>Metadata Inspector</span>
+                        <span className="text-xs text-muted-foreground">JSON Protocol</span>
                      </div>
                      <div className="flex-1 overflow-auto p-4 space-y-6">
                         <div>
-                            <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">视图配置</h4>
+                            <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">View Configuration</h4>
                             <div className="relative rounded-md border bg-slate-950 text-slate-50 overflow-hidden">
                                 <pre className="text-xs p-3 overflow-auto max-h-[400px]">
                                     {JSON.stringify(activeView, null, 2)}
@@ -265,7 +265,7 @@ export function ObjectView({ dataSource, objects, onEdit, onRowClick }: any) {
                         </div>
 
                         <div>
-                            <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">对象定义</h4>
+                            <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">Object Definition</h4>
                              <div className="relative rounded-md border bg-slate-950 text-slate-50 overflow-hidden">
                                 <pre className="text-xs p-3 overflow-auto max-h-[400px]">
                                     {JSON.stringify(objectDef, null, 2)}

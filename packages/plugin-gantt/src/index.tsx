@@ -27,7 +27,17 @@ export const ObjectGanttRenderer: React.FC<{ schema: any }> = ({ schema }) => {
 ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
   namespace: 'plugin-gantt',
   label: 'Object Gantt',
-  category: 'plugin',
+  category: 'view',
+  inputs: [
+    { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+    { name: 'gantt', type: 'object', label: 'Gantt Config', description: 'startDateField, endDateField, titleField, progressField, percentageField, colorField, dependenciesField' },
+  ],
+});
+
+ComponentRegistry.register('view:gantt', ObjectGanttRenderer, {
+  namespace: 'view',
+  label: 'Gantt View',
+  category: 'view',
   inputs: [
     { name: 'objectName', type: 'string', label: 'Object Name', required: true },
     { name: 'gantt', type: 'object', label: 'Gantt Config', description: 'startDateField, endDateField, titleField, progressField, percentageField, colorField, dependenciesField' },

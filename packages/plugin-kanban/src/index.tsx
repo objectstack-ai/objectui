@@ -250,7 +250,21 @@ ComponentRegistry.register(
   {
     namespace: 'plugin-kanban',
     label: 'Object Kanban',
-    category: 'plugin',
+    category: 'view',
+    inputs: [
+      { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+      { name: 'columns', type: 'array', label: 'Columns' }
+    ]
+  }
+);
+
+ComponentRegistry.register(
+  'view:kanban',
+  ObjectKanbanRenderer,
+  {
+    namespace: 'view',
+    label: 'Kanban Board',
+    category: 'view',
     inputs: [
       { name: 'objectName', type: 'string', label: 'Object Name', required: true },
       { name: 'columns', type: 'array', label: 'Columns' }

@@ -70,5 +70,10 @@ export const ObjectChart = (props: any) => {
 ComponentRegistry.register('object-chart', ObjectChart, {
     namespace: 'plugin-charts',
     label: 'Object Chart',
-    category: 'view'
+    category: 'view',
+    inputs: [
+        { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+        { name: 'data', type: 'array', label: 'Data', description: 'Optional static data' },
+        { name: 'filter', type: 'array', label: 'Filter' },
+    ]
 });

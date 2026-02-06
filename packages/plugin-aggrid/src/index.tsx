@@ -390,7 +390,7 @@ ComponentRegistry.register(
     namespace: 'plugin-aggrid',
     label: 'Object AG Grid',
     icon: 'Table',
-    category: 'plugin',
+    category: 'view',
     inputs: [
       { 
         name: 'objectName', 

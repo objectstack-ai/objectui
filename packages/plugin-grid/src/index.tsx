@@ -25,7 +25,12 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
 ComponentRegistry.register('object-grid', ObjectGridRenderer, {
   namespace: 'plugin-grid',
   label: 'Object Grid',
-  category: 'plugin'
+  category: 'plugin',
+  inputs: [
+    { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+    { name: 'columns', type: 'array', label: 'Columns' },
+    { name: 'filters', type: 'array', label: 'Filters' },
+  ]
 });
 
 // Alias for view namespace - this allows using { type: 'view:grid' } in schemas
@@ -33,7 +38,12 @@ ComponentRegistry.register('object-grid', ObjectGridRenderer, {
 ComponentRegistry.register('grid', ObjectGridRenderer, {
   namespace: 'view',
   label: 'Data Grid',
-  category: 'view'
+  category: 'view',
+  inputs: [
+    { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+    { name: 'columns', type: 'array', label: 'Columns' },
+    { name: 'filters', type: 'array', label: 'Filters' },
+  ]
 });
 
 // Note: 'grid' type is handled by @object-ui/components Grid layout component

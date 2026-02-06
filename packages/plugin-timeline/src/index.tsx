@@ -293,7 +293,17 @@ export const ObjectTimelineRenderer: React.FC<any> = ({ schema, ...props }) => {
 ComponentRegistry.register('object-timeline', ObjectTimelineRenderer, {
   namespace: 'plugin-timeline',
   label: 'Object Timeline',
-  category: 'plugin',
+  category: 'view',
+  inputs: [
+    { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+    { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'], defaultValue: 'vertical' },
+  ]
+});
+
+ComponentRegistry.register('view:timeline', ObjectTimelineRenderer, {
+  namespace: 'view',
+  label: 'Timeline View',
+  category: 'view',
   inputs: [
     { name: 'objectName', type: 'string', label: 'Object Name', required: true },
     { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'], defaultValue: 'vertical' },

@@ -32,7 +32,17 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any }> = ({ schema }) =>
 ComponentRegistry.register('object-calendar', ObjectCalendarRenderer, {
   namespace: 'plugin-calendar',
   label: 'Object Calendar',
-  category: 'plugin',
+  category: 'view',
+  inputs: [
+    { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+    { name: 'calendar', type: 'object', label: 'Calendar Config', description: 'startDateField, endDateField, titleField, colorField' },
+  ],
+});
+
+ComponentRegistry.register('view:calendar', ObjectCalendarRenderer, {
+  namespace: 'view',
+  label: 'Calendar View',
+  category: 'view',
   inputs: [
     { name: 'objectName', type: 'string', label: 'Object Name', required: true },
     { name: 'calendar', type: 'object', label: 'Calendar Config', description: 'startDateField, endDateField, titleField, colorField' },

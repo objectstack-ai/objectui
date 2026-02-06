@@ -25,7 +25,17 @@ console.log('Registering object-map...');
 ComponentRegistry.register('object-map', ObjectMapRenderer, {
   namespace: 'plugin-map',
   label: 'Object Map',
-  category: 'plugin',
+  category: 'view',
+  inputs: [
+    { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+    { name: 'map', type: 'object', label: 'Map Config', description: 'latitudeField, longitudeField, titleField' },
+  ],
+});
+
+ComponentRegistry.register('view:map', ObjectMapRenderer, {
+  namespace: 'view',
+  label: 'Map View',
+  category: 'view',
   inputs: [
     { name: 'objectName', type: 'string', label: 'Object Name', required: true },
     { name: 'map', type: 'object', label: 'Map Config', description: 'latitudeField, longitudeField, titleField' },

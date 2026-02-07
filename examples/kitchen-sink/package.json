@@ -10,6 +10,7 @@
     "./objectstack.config": "./objectstack.config.ts"
   },
   "scripts": {
+    "serve": "objectstack serve objectstack.config.ts",
     "build": "objectstack compile objectstack.config.ts dist/objectstack.json"
   },
   "dependencies": {

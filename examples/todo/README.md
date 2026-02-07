@@ -46,17 +46,33 @@ examples/todo/
 
 ## 💡 Usage
 
-This package is part of the `examples` workspace. To build and verify:
+This package is part of the `examples` workspace. You can build it, run it as an API server, or just use it for reference.
+
+### Running as API Server
+
+```bash
+# From the monorepo root
+pnpm run serve:todo
+
+# Or from this directory
+pnpm run serve
+```
+
+The server will start on `http://localhost:3000` providing:
+- GraphQL API endpoint: `http://localhost:3000/graphql`
+- REST API endpoints based on the object definitions
+
+### Building the Example
 
 ```bash
 # Install dependencies (from monorepo root)
 pnpm install
 
 # Build the example
-pnpm --filter @objectstack/example-todo build
+pnpm --filter @object-ui/example-todo build
 
 # Run type checking
-pnpm --filter @objectstack/example-todo typecheck
+pnpm --filter @object-ui/example-todo typecheck
 ```
 
 ## 📖 Learning Path

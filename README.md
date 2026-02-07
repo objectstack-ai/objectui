@@ -78,9 +78,32 @@ Since this package is not yet published to NPM, here is how to play with the sou
 
 ## Examples
 
-- [examples/crm](examples/crm) - CRM metadata app with a custom server.
-- [examples/kitchen-sink](examples/kitchen-sink) - Component catalog metadata app.
-- [examples/objectstack-server](examples/objectstack-server) - Run a metadata app with @objectstack/cli.
+ObjectStack examples that demonstrate different features and use cases:
+
+- **[examples/crm](examples/crm)** - Full-featured CRM application with dashboards, multiple views (Grid, Kanban, Map, Gantt), and custom server implementation.
+- **[examples/todo](examples/todo)** - Simple task management app demonstrating basic ObjectStack configuration and field types.
+- **[examples/kitchen-sink](examples/kitchen-sink)** - Comprehensive component catalog showing all available field types, dashboard widgets, and view types.
+- **[examples/msw-todo](examples/msw-todo)** - Frontend-first development example using MSW (Mock Service Worker) to run ObjectStack in the browser.
+
+### Running Examples as API Servers
+
+All examples (except msw-todo) can be run as API servers using `@objectstack/cli`:
+
+```bash
+# From the monorepo root
+pnpm run serve:crm          # Start CRM example on http://localhost:3000
+pnpm run serve:todo         # Start Todo example on http://localhost:3000
+pnpm run serve:kitchen-sink # Start Kitchen Sink example on http://localhost:3000
+
+# Or from individual example directories
+cd examples/crm
+pnpm run serve
+```
+
+Each server provides:
+- GraphQL API endpoint: `http://localhost:3000/graphql`
+- REST API endpoints based on object definitions
+- Sample data loaded from the configuration manifest
 
 ## 📦 For React Developers
 

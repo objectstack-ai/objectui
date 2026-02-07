@@ -44,7 +44,43 @@ const ObjectViewRenderer: React.FC<{ schema: any }> = ({ schema }) => {
 };
 
 ComponentRegistry.register('object-view', ObjectViewRenderer, {
-  namespace: 'plugin-view'
+  namespace: 'plugin-view',
+  label: 'Object View',
+  category: 'view',
+  icon: 'LayoutDashboard',
+  inputs: [
+    { name: 'objectName', type: 'string', label: 'Object Name', required: true },
+    { name: 'title', type: 'string', label: 'Title' },
+    { name: 'description', type: 'string', label: 'Description' },
+    { name: 'layout', type: 'enum', label: 'Form Layout', enum: ['drawer', 'modal', 'page'] },
+    { name: 'defaultViewType', type: 'enum', label: 'Default View Type', enum: ['grid', 'kanban', 'gallery', 'calendar', 'timeline', 'gantt', 'map'] },
+    { name: 'defaultListView', type: 'string', label: 'Default Named View' },
+    { name: 'showSearch', type: 'boolean', label: 'Show Search' },
+    { name: 'showFilters', type: 'boolean', label: 'Show Filters' },
+    { name: 'showCreate', type: 'boolean', label: 'Show Create Button' },
+    { name: 'showRefresh', type: 'boolean', label: 'Show Refresh Button' },
+    { name: 'showViewSwitcher', type: 'boolean', label: 'Show View Switcher' },
+    { name: 'listViews', type: 'object', label: 'Named List Views' },
+    { name: 'navigation', type: 'object', label: 'Navigation Config' },
+    { name: 'searchableFields', type: 'array', label: 'Searchable Fields' },
+    { name: 'filterableFields', type: 'array', label: 'Filterable Fields' },
+  ],
+  defaultProps: {
+    layout: 'drawer',
+    defaultViewType: 'grid',
+    showSearch: true,
+    showFilters: true,
+    showCreate: true,
+    showRefresh: true,
+    showViewSwitcher: true,
+  },
+});
+
+// Register alias 'view' → same renderer
+ComponentRegistry.register('view', ObjectViewRenderer, {
+  namespace: 'plugin-view',
+  label: 'View',
+  category: 'view',
 });
 
 ComponentRegistry.register('view-switcher', ViewSwitcher, {

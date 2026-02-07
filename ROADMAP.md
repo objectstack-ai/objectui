@@ -28,7 +28,7 @@
 | @object-ui/plugin-dashboard | ✅ Complete | 100% | Dashboard layout |
 | @object-ui/plugin-detail | ✅ Complete | 100% | Record detail view |
 | @object-ui/plugin-list | ✅ Complete | 100% | List with view switching |
-| @object-ui/plugin-view | 🟡 Partial | 50% | Basic container only |
+| @object-ui/plugin-view | ✅ Complete | 90% | Multi-view rendering, named listViews, NavigationConfig |
 | @object-ui/plugin-object | ⚪ Prebuilt | N/A | No source, has dist |
 | @object-ui/plugin-report | 🟡 Partial | 60% | Basic report rendering |
 | @object-ui/plugin-timeline | ✅ Complete | 100% | 3 timeline variants |

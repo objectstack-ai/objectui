@@ -729,6 +729,29 @@ export interface ObjectViewSchema extends BaseSchema {
   layout?: 'drawer' | 'modal' | 'page';
   
   /**
+   * Default list view type
+   * @default 'grid'
+   */
+  defaultViewType?: 'grid' | 'kanban' | 'gallery' | 'calendar' | 'timeline' | 'gantt' | 'map';
+  
+  /**
+   * Named list views (e.g., "All Records", "My Records", "Active").
+   * Aligned with @objectstack/spec View.listViews.
+   */
+  listViews?: Record<string, NamedListView>;
+  
+  /**
+   * Default named list view to display
+   */
+  defaultListView?: string;
+  
+  /**
+   * Navigation config for row/item click behavior.
+   * Aligned with @objectstack/spec ListView.navigation.
+   */
+  navigation?: ViewNavigationConfig;
+  
+  /**
    * Table/Grid configuration
    * Inherits from ObjectGridSchema
    */
@@ -739,6 +762,16 @@ export interface ObjectViewSchema extends BaseSchema {
    * Inherits from ObjectFormSchema
    */
   form?: Partial<Omit<ObjectFormSchema, 'type' | 'objectName' | 'mode'>>;
+  
+  /**
+   * Fields that support text search
+   */
+  searchableFields?: string[];
+  
+  /**
+   * Fields available for the filter UI
+   */
+  filterableFields?: string[];
   
   /**
    * Show search box
@@ -765,6 +798,12 @@ export interface ObjectViewSchema extends BaseSchema {
   showRefresh?: boolean;
   
   /**
+   * Show view switcher (for multi-view)
+   * @default true
+   */
+  showViewSwitcher?: boolean;
+  
+  /**
    * Enable/disable built-in operations
    */
   operations?: {
@@ -786,29 +825,156 @@ export interface ObjectViewSchema extends BaseSchema {
 }
 
 /**
+ * Named List View Definition
+ * Used in ObjectViewSchema.listViews for named views (e.g., "All", "My Records").
+ */
+export interface NamedListView {
+  /** View display label */
+  label: string;
+  
+  /** View type (grid, kanban, etc.) */
+  type?: 'grid' | 'kanban' | 'gallery' | 'calendar' | 'timeline' | 'gantt' | 'map';
+  
+  /** Columns/fields to display */
+  columns?: string[];
+  
+  /** Filter conditions */
+  filter?: any[];
+  
+  /** Sort configuration */
+  sort?: Array<{ field: string; order: 'asc' | 'desc' }>;
+  
+  /** Type-specific options (kanban groupField, calendar startDateField, etc.) */
+  options?: Record<string, any>;
+}
+
+/**
+ * Navigation configuration for row/item click behavior.
+ * Aligned with @objectstack/spec ListView.navigation.
+ */
+export interface ViewNavigationConfig {
+  /**
+   * How to open the target view on interaction
+   * - page: Full page navigation
+   * - drawer: Slide-out panel
+   * - modal: Dialog overlay
+   * - split: Side-by-side panel
+   * - popover: Hover/click preview card
+   * - new_window: Open in new browser tab
+   * - none: No navigation on click
+   * @default 'page'
+   */
+  mode: 'page' | 'drawer' | 'modal' | 'split' | 'popover' | 'new_window' | 'none';
+  
+  /** Target view/form config name */
+  view?: string;
+  
+  /** Prevent default navigation behavior */
+  preventNavigation?: boolean;
+  
+  /** Open in new tab (for page/new_window modes) */
+  openNewTab?: boolean;
+  
+  /** Width for drawer/modal/split modes (e.g., '600px', '50%') */
+  width?: string | number;
+}
+
+/**
  * Generic View Definition
- * Aligned with @objectstack/spec View/ListView
+ * Aligned with @objectstack/spec View/ListView.
  * Defines the data requirement, not just the visual component.
  */
 export interface ListViewSchema extends BaseSchema {
   type: 'list-view';
   
+  /** View name identifier */
+  name?: string;
+  
+  /** View display label */
+  label?: string;
+  
   /** Object Name */
   objectName: string;
   
-  /** View Type (grid, kanban, etc) */
+  /** View Type (grid, kanban, etc.) @default 'grid' */
   viewType?: 'grid' | 'kanban' | 'gallery' | 'calendar' | 'timeline' | 'gantt' | 'map';
   
-  /** Fields to fetch/display */
+  /** Columns definition (string field names or full column config) */
+  columns?: string[] | Array<{
+    field: string;
+    label?: string;
+    width?: number | string;
+    align?: 'left' | 'center' | 'right';
+    hidden?: boolean;
+    sortable?: boolean;
+    resizable?: boolean;
+    wrap?: boolean;
+    type?: string;
+    link?: boolean;
+    action?: string;
+  }>;
+  
+  /** Fields to fetch/display (alias for simple string[] columns) */
   fields?: string[];
   
   /** Filter conditions */
-  filters?: Array<any[] | string>; // placeholder for FilterCondition
+  filters?: Array<any[] | string>;
   
   /** Sort order */
   sort?: Array<{ field: string; order: 'asc' | 'desc' }>;
   
-  /** Visual Component overrides */
+  /** Fields that support text search */
+  searchableFields?: string[];
+  
+  /** Fields available for filter UI */
+  filterableFields?: string[];
+  
+  /** Row selection mode */
+  selection?: { type: 'none' | 'single' | 'multiple' };
+  
+  /** Pagination configuration */
+  pagination?: { pageSize: number; pageSizeOptions?: number[] };
+  
+  /** Allow column resizing @default false */
+  resizable?: boolean;
+  
+  /** Show alternating row colors @default false */
+  striped?: boolean;
+  
+  /** Show cell borders @default false */
+  bordered?: boolean;
+  
+  /** Navigation config for row click behavior */
+  navigation?: ViewNavigationConfig;
+  
+  /** Kanban-specific configuration */
+  kanban?: {
+    groupField: string;
+    titleField?: string;
+    cardFields?: string[];
+    [key: string]: any;
+  };
+  
+  /** Calendar-specific configuration */
+  calendar?: {
+    startDateField: string;
+    endDateField?: string;
+    titleField?: string;
+    defaultView?: 'month' | 'week' | 'day' | 'agenda';
+    [key: string]: any;
+  };
+  
+  /** Gantt-specific configuration */
+  gantt?: {
+    startDateField: string;
+    endDateField: string;
+    titleField?: string;
+    progressField?: string;
+    dependenciesField?: string;
+    [key: string]: any;
+  };
+  
+  /** Visual Component overrides (legacy, prefer typed configs above) */
   options?: Record<string, any>;
 }
 

@@ -292,6 +292,8 @@ export type {
   ObjectFormSchema,
   ObjectFormSection,
   ObjectViewSchema,
+  NamedListView,
+  ViewNavigationConfig,
   ObjectQLComponentSchema,
 } from './objectql';
 

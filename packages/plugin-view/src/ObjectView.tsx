@@ -8,10 +8,18 @@
 
 /**
  * ObjectView Component
- * 
- * A complete object management interface that combines ObjectGrid and ObjectForm
- * with optional ViewSwitcher, FilterUI, and SortUI controls.
- * Provides list view with integrated search, filters, and create/edit operations.
+ *
+ * A complete object management interface that combines multi-view data display
+ * (grid, kanban, calendar, gallery, timeline, gantt, map) with ObjectForm
+ * for create/edit operations.
+ *
+ * Features:
+ * - Multi-view type rendering via SchemaRenderer
+ * - Named listViews support (e.g., "All", "My Records", "Active")
+ * - Navigation config for row click behavior (page/drawer/modal/none/new_window)
+ * - Direct data fetching for all view types
+ * - Integrated search, filter, and sort controls
+ * - ViewSwitcher for toggling between view types
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -19,16 +27,18 @@ import type {
   ObjectViewSchema,
   ObjectGridSchema,
   ObjectFormSchema,
-  ListViewSchema,
   DataSource,
   ViewSwitcherSchema,
   FilterUISchema,
   SortUISchema,
   ViewType,
+  NamedListView,
+  ViewNavigationConfig,
 } from '@object-ui/types';
 import { ObjectGrid } from '@object-ui/plugin-grid';
 import { ObjectForm } from '@object-ui/plugin-form';
 import {
+  cn,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -41,24 +51,40 @@ import {
   DrawerDescription,
   Button,
   Input,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from '@object-ui/components';
 import { Plus, Search, RefreshCw } from 'lucide-react';
 import { ViewSwitcher } from './ViewSwitcher';
 import { FilterUI } from './FilterUI';
 import { SortUI } from './SortUI';
 
+/**
+ * Attempt to import SchemaRenderer from @object-ui/react.
+ * Falls back to null if not available.
+ */
+let SchemaRendererComponent: React.FC<any> | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require('@object-ui/react');
+  SchemaRendererComponent = mod.SchemaRenderer || null;
+} catch {
+  // @object-ui/react not available
+}
+
 export interface ObjectViewProps {
   /**
    * The schema configuration for the view
    */
   schema: ObjectViewSchema;
-  
+
   /**
    * Data source (ObjectQL or ObjectStack adapter).
    * If not provided, falls back to SchemaRendererProvider context.
    */
   dataSource: DataSource;
-  
+
   /**
    * Additional CSS class
    */
@@ -67,7 +93,7 @@ export interface ObjectViewProps {
   /**
    * Views available for the ViewSwitcher.
    * Each view defines a type (grid, kanban, calendar, etc.) and display columns/config.
-   * If not provided, only the default grid view is shown.
+   * If not provided, uses schema.listViews or falls back to default grid view.
    */
   views?: Array<{
     id: string;
@@ -102,11 +128,10 @@ export interface ObjectViewProps {
 
   /**
    * Render a custom ListView implementation for multi-view support.
-   * When provided, this replaces the default ObjectGrid for the content area.
-   * The function receives the computed ListViewSchema and interaction props.
+   * When provided, this replaces the default view rendering for the content area.
    */
   renderListView?: (props: {
-    schema: ListViewSchema;
+    schema: any;
     dataSource: DataSource;
     onEdit?: (record: Record<string, unknown>) => void;
     onRowClick?: (record: Record<string, unknown>) => void;
@@ -123,10 +148,10 @@ type FormMode = 'create' | 'edit' | 'view';
 
 /**
  * ObjectView Component
- * 
- * Renders a complete object management interface with table and forms.
- * Supports ViewSwitcher, FilterUI, and SortUI for rich data exploration.
- * 
+ *
+ * Renders a complete object management interface with multi-view rendering
+ * and integrated CRUD operations.
+ *
  * @example Basic usage (grid only)
  * ```tsx
  * <ObjectView
@@ -135,23 +160,38 @@ type FormMode = 'create' | 'edit' | 'view';
  *     objectName: 'users',
  *     layout: 'drawer',
  *     showSearch: true,
- *     showFilters: true
+ *     showFilters: true,
  *   }}
  *   dataSource={dataSource}
  * />
  * ```
- * 
- * @example Multi-view with ViewSwitcher
+ *
+ * @example Named listViews
  * ```tsx
  * <ObjectView
- *   schema={schema}
+ *   schema={{
+ *     type: 'object-view',
+ *     objectName: 'contacts',
+ *     listViews: {
+ *       all: { label: 'All Contacts', type: 'grid', columns: ['name', 'email', 'phone'] },
+ *       board: { label: 'By Status', type: 'kanban', options: { kanban: { groupField: 'status' } } },
+ *       calendar: { label: 'Meetings', type: 'calendar', options: { calendar: { startDateField: 'meeting_date' } } },
+ *     },
+ *     defaultListView: 'all',
+ *   }}
  *   dataSource={dataSource}
- *   views={[
- *     { id: 'all', label: 'All', type: 'grid', columns: ['name', 'email'] },
- *     { id: 'board', label: 'Board', type: 'kanban', groupBy: 'status' },
- *   ]}
- *   activeViewId="all"
- *   onViewChange={setActiveViewId}
+ * />
+ * ```
+ *
+ * @example With navigation config
+ * ```tsx
+ * <ObjectView
+ *   schema={{
+ *     type: 'object-view',
+ *     objectName: 'accounts',
+ *     navigation: { mode: 'drawer', width: '600px' },
+ *   }}
+ *   dataSource={dataSource}
  * />
  * ```
  */
@@ -159,7 +199,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   schema,
   dataSource,
   className,
-  views,
+  views: viewsProp,
   activeViewId,
   onViewChange,
   onRowClick,
@@ -174,34 +214,137 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Data fetching state for non-grid views
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
   // Filter & Sort state
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [sortConfig, setSortConfig] = useState<Array<{ field: string; direction: 'asc' | 'desc' }>>([]);
 
-  // Multi-view state: determine active view
-  const hasMultiView = views && views.length > 0;
-  const currentActiveViewId = activeViewId || views?.[0]?.id;
-  const activeView = views?.find(v => v.id === currentActiveViewId) || views?.[0];
+  // --- Named listViews ---
+  const namedListViews = schema.listViews;
+  const hasNamedViews = namedListViews != null && Object.keys(namedListViews).length > 0;
+  const [activeNamedView, setActiveNamedView] = useState<string>(() => {
+    if (schema.defaultListView && namedListViews?.[schema.defaultListView]) {
+      return schema.defaultListView;
+    }
+    if (namedListViews) {
+      const keys = Object.keys(namedListViews);
+      return keys[0] || '';
+    }
+    return '';
+  });
+
+  // Get current named view config
+  const currentNamedViewConfig: NamedListView | null = useMemo(() => {
+    if (!hasNamedViews || !activeNamedView) return null;
+    return namedListViews![activeNamedView] || null;
+  }, [hasNamedViews, activeNamedView, namedListViews]);
+
+  // --- Multi-view type state (prop-based views) ---
+  const viewsPropResolved = useMemo(() => {
+    if (viewsProp && viewsProp.length > 0) return viewsProp;
+    return null;
+  }, [viewsProp]);
+
+  const hasMultiView = viewsPropResolved != null && viewsPropResolved.length > 0;
+  const currentActiveViewId = activeViewId || viewsPropResolved?.[0]?.id;
+  const activeView = viewsPropResolved?.find(v => v.id === currentActiveViewId) || viewsPropResolved?.[0];
+
+  // Current view type from named view, multi-view prop, or default
+  const currentViewType: string = useMemo(() => {
+    if (currentNamedViewConfig?.type) return currentNamedViewConfig.type;
+    if (activeView?.type) return activeView.type;
+    return schema.defaultViewType || 'grid';
+  }, [currentNamedViewConfig, activeView, schema.defaultViewType]);
+
+  // Navigation config
+  const navigationConfig: ViewNavigationConfig | undefined = schema.navigation;
 
   // Fetch object schema from ObjectQL/ObjectStack
   useEffect(() => {
+    let isMounted = true;
     const fetchObjectSchema = async () => {
       try {
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
-        setObjectSchema(schemaData);
+        if (isMounted) setObjectSchema(schemaData);
       } catch (err) {
         console.error('Failed to fetch object schema:', err);
       }
     };
-
     if (schema.objectName && dataSource) {
       fetchObjectSchema();
     }
+    return () => { isMounted = false; };
   }, [schema.objectName, dataSource]);
+
+  // Fetch data for non-grid view types (grid handles its own data via ObjectGrid)
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchData = async () => {
+      // Only fetch for non-grid views (ObjectGrid has its own data fetching)
+      if (currentViewType === 'grid' && !renderListView) return;
+      if (!dataSource || !schema.objectName) return;
+
+      setLoading(true);
+      try {
+        // Build filter
+        const baseFilter = currentNamedViewConfig?.filter || activeView?.filter || schema.table?.defaultFilters || [];
+        const userFilter = Object.entries(filterValues)
+          .filter(([, v]) => v !== undefined && v !== '' && v !== null)
+          .map(([field, value]) => [field, '=', value]);
+
+        let finalFilter: any = [];
+        if (baseFilter.length > 0 && userFilter.length > 0) {
+          finalFilter = ['and', ...baseFilter, ...userFilter];
+        } else if (userFilter.length === 1) {
+          finalFilter = userFilter[0];
+        } else if (userFilter.length > 1) {
+          finalFilter = ['and', ...userFilter];
+        } else {
+          finalFilter = baseFilter;
+        }
+
+        // Build sort
+        const sort = sortConfig.length > 0
+          ? sortConfig.map(s => ({ field: s.field, order: s.direction }))
+          : (currentNamedViewConfig?.sort || activeView?.sort || schema.table?.defaultSort || undefined);
+
+        const results = await dataSource.find(schema.objectName, {
+          $filter: finalFilter.length > 0 ? finalFilter : undefined,
+          $orderby: sort,
+          $top: 100,
+        });
+
+        let items: any[] = [];
+        if (Array.isArray(results)) {
+          items = results;
+        } else if (results && typeof results === 'object') {
+          if (Array.isArray((results as any).data)) {
+            items = (results as any).data;
+          } else if (Array.isArray((results as any).value)) {
+            items = (results as any).value;
+          }
+        }
+
+        if (isMounted) setData(items);
+      } catch (err) {
+        console.error('ObjectView data fetch error:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchData();
+    return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema.objectName, dataSource, currentViewType, filterValues, sortConfig, refreshKey, currentNamedViewConfig, activeView, renderListView]);
 
   // Determine layout mode
   const layout = schema.layout || 'drawer';
-  
+
   // Determine enabled operations
   const operations = schema.operations || schema.table?.operations || {
     create: true,
@@ -237,7 +380,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     }
   }, [layout, schema, onEditProp]);
 
-  // Handle view action
+  // Handle view action (read a record)
   const handleView = useCallback((record: Record<string, unknown>) => {
     if (layout === 'page' && schema.onNavigate) {
       const recordId = record._id || record.id;
@@ -249,14 +392,50 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     }
   }, [layout, schema]);
 
-  // Handle row click
+  // Handle row click - respects NavigationConfig
   const handleRowClick = useCallback((record: Record<string, unknown>) => {
     if (onRowClick) {
       onRowClick(record);
-    } else if (operations.read !== false) {
+      return;
+    }
+
+    // Check NavigationConfig
+    if (navigationConfig) {
+      if (navigationConfig.mode === 'none' || navigationConfig.preventNavigation) {
+        return; // Do nothing
+      }
+      if (navigationConfig.mode === 'new_window' || navigationConfig.openNewTab) {
+        const recordId = record._id || record.id;
+        const url = `/${schema.objectName}/${recordId}`;
+        window.open(url, '_blank');
+        return;
+      }
+      if (navigationConfig.mode === 'drawer') {
+        setFormMode('view');
+        setSelectedRecord(record);
+        setIsFormOpen(true);
+        return;
+      }
+      if (navigationConfig.mode === 'modal') {
+        setFormMode('view');
+        setSelectedRecord(record);
+        setIsFormOpen(true);
+        return;
+      }
+      if (navigationConfig.mode === 'page') {
+        const recordId = record._id || record.id;
+        if (schema.onNavigate) {
+          schema.onNavigate(recordId as string | number, 'view');
+        }
+        return;
+      }
+    }
+
+    // Default behavior
+    if (operations.read !== false) {
       handleView(record);
     }
-  }, [operations.read, handleView, onRowClick]);
+  }, [onRowClick, navigationConfig, operations.read, handleView, schema]);
 
   // Handle delete action
   const handleDelete = useCallback((_record: Record<string, unknown>) => {
@@ -286,9 +465,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     setRefreshKey(prev => prev + 1);
   }, []);
 
-  // --- ViewSwitcher schema ---
+  // --- ViewSwitcher schema (for multi-view prop views) ---
   const viewSwitcherSchema: ViewSwitcherSchema | null = useMemo(() => {
-    if (!hasMultiView || !views || views.length <= 1) return null;
+    if (!hasMultiView || !viewsPropResolved || viewsPropResolved.length <= 1) return null;
     return {
       type: 'view-switcher' as const,
       variant: 'tabs',
@@ -297,65 +476,90 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       storageKey: `view-pref-${schema.objectName}`,
       defaultView: (activeView?.type || 'grid') as ViewType,
       activeView: (activeView?.type || 'grid') as ViewType,
-      views: views.map(v => ({
-        type: v.type as ViewType,
-        label: v.label,
-        icon: v.type === 'kanban' ? 'kanban' :
-              v.type === 'calendar' ? 'calendar' :
-              v.type === 'chart' ? 'bar-chart' :
-              v.type === 'map' ? 'map' :
-              'table',
-      })),
+      views: viewsPropResolved.map(v => {
+        const iconMap: Record<string, string> = {
+          kanban: 'kanban',
+          calendar: 'calendar',
+          map: 'map',
+          gallery: 'layout-grid',
+          timeline: 'activity',
+          gantt: 'gantt-chart',
+          grid: 'table',
+          list: 'list',
+          detail: 'file-text',
+        };
+        return {
+          type: v.type as ViewType,
+          label: v.label,
+          icon: iconMap[v.type] || 'table',
+        };
+      }),
     };
-  }, [hasMultiView, views, activeView, schema.objectName]);
+  }, [hasMultiView, viewsPropResolved, activeView, schema.objectName]);
 
   // Handle view type change from ViewSwitcher → map back to view ID
   const handleViewTypeChange = useCallback((viewType: ViewType) => {
-    if (!views) return;
-    const matched = views.find(v => v.type === viewType);
+    if (!viewsPropResolved) return;
+    const matched = viewsPropResolved.find(v => v.type === viewType);
     if (matched && onViewChange) {
       onViewChange(matched.id);
     }
-  }, [views, onViewChange]);
+  }, [viewsPropResolved, onViewChange]);
 
-  // --- FilterUI schema (auto-generated from objectSchema or fields) ---
+  // Handle named view change
+  const handleNamedViewChange = useCallback((viewKey: string) => {
+    setActiveNamedView(viewKey);
+  }, []);
+
+  // --- FilterUI schema (auto-generated from objectSchema or filterableFields) ---
   const filterSchema: FilterUISchema | null = useMemo(() => {
     if (schema.showFilters === false) return null;
+
+    // If filterableFields specified, use only those
+    const filterableFieldNames = schema.filterableFields;
     const fields = (objectSchema as any)?.fields || {};
-    const filterableFields = Object.entries(fields)
-      .filter(([, f]: [string, any]) => !f.hidden)
-      .slice(0, 8)
-      .map(([key, f]: [string, any]) => {
-        const fieldType = f.type || 'text';
-        let filterType: 'text' | 'number' | 'select' | 'date' | 'boolean' = 'text';
-        let options: Array<{ label: string; value: any }> | undefined;
 
-        if (fieldType === 'number' || fieldType === 'currency' || fieldType === 'percent') {
-          filterType = 'number';
-        } else if (fieldType === 'boolean' || fieldType === 'toggle') {
-          filterType = 'boolean';
-        } else if (fieldType === 'date' || fieldType === 'datetime') {
-          filterType = 'date';
-        } else if (fieldType === 'select' || f.options) {
-          filterType = 'select';
-          options = (f.options || []).map((o: any) =>
-            typeof o === 'string' ? { label: o, value: o } : { label: o.label, value: o.value },
-          );
-        }
-        return { field: key, label: f.label || key, type: filterType, placeholder: `Filter ${f.label || key}...`, ...(options ? { options } : {}) };
-      });
+    const fieldEntries = filterableFieldNames
+      ? filterableFieldNames.map(name => [name, fields[name] || { label: name }] as [string, any])
+      : Object.entries(fields).filter(([, f]: [string, any]) => !f.hidden).slice(0, 8);
 
-    if (filterableFields.length === 0) return null;
+    const filterableFieldDefs = fieldEntries.map(([key, f]: [string, any]) => {
+      const fieldType = f.type || 'text';
+      let filterType: 'text' | 'number' | 'select' | 'date' | 'boolean' = 'text';
+      let options: Array<{ label: string; value: any }> | undefined;
+
+      if (fieldType === 'number' || fieldType === 'currency' || fieldType === 'percent') {
+        filterType = 'number';
+      } else if (fieldType === 'boolean' || fieldType === 'toggle') {
+        filterType = 'boolean';
+      } else if (fieldType === 'date' || fieldType === 'datetime') {
+        filterType = 'date';
+      } else if (fieldType === 'select' || f.options) {
+        filterType = 'select';
+        options = (f.options || []).map((o: any) =>
+          typeof o === 'string' ? { label: o, value: o } : { label: o.label, value: o.value },
+        );
+      }
+      return {
+        field: key,
+        label: f.label || key,
+        type: filterType,
+        placeholder: `Filter ${f.label || key}...`,
+        ...(options ? { options } : {}),
+      };
+    });
+
+    if (filterableFieldDefs.length === 0) return null;
 
     return {
       type: 'filter-ui' as const,
       layout: 'popover' as const,
       showClear: true,
       showApply: true,
-      filters: filterableFields,
+      filters: filterableFieldDefs,
       values: filterValues,
     };
-  }, [schema.showFilters, objectSchema, filterValues]);
+  }, [schema.showFilters, schema.filterableFields, objectSchema, filterValues]);
 
   // --- SortUI schema ---
   const sortSchema: SortUISchema | null = useMemo(() => {
@@ -376,29 +580,102 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     };
   }, [objectSchema, sortConfig]);
 
+  // --- Generate view component schema for non-grid views ---
+  const generateViewSchema = useCallback((viewType: string): any => {
+    const baseProps: Record<string, any> = {
+      objectName: schema.objectName,
+      fields: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.fields,
+      className: 'h-full w-full',
+      showSearch: false,
+    };
+
+    // Resolve type-specific options from current named view or active view
+    const viewOptions = currentNamedViewConfig?.options || activeView || {};
+
+    switch (viewType) {
+      case 'kanban':
+        return {
+          type: 'object-kanban',
+          ...baseProps,
+          groupBy: viewOptions.kanban?.groupField || viewOptions.groupBy || viewOptions.groupField || 'status',
+          groupField: viewOptions.kanban?.groupField || viewOptions.groupField || 'status',
+          titleField: viewOptions.kanban?.titleField || viewOptions.titleField || 'name',
+          cardFields: baseProps.fields || [],
+          ...(viewOptions.kanban || {}),
+        };
+      case 'calendar':
+        return {
+          type: 'object-calendar',
+          ...baseProps,
+          startDateField: viewOptions.calendar?.startDateField || viewOptions.startDateField || 'start_date',
+          endDateField: viewOptions.calendar?.endDateField || viewOptions.endDateField || 'end_date',
+          titleField: viewOptions.calendar?.titleField || viewOptions.titleField || 'name',
+          ...(viewOptions.calendar || {}),
+        };
+      case 'gallery':
+        return {
+          type: 'object-gallery',
+          ...baseProps,
+          imageField: viewOptions.gallery?.imageField || viewOptions.imageField,
+          titleField: viewOptions.gallery?.titleField || viewOptions.titleField || 'name',
+          subtitleField: viewOptions.gallery?.subtitleField || viewOptions.subtitleField,
+          ...(viewOptions.gallery || {}),
+        };
+      case 'timeline':
+        return {
+          type: 'object-timeline',
+          ...baseProps,
+          dateField: viewOptions.timeline?.dateField || viewOptions.dateField || 'created_at',
+          titleField: viewOptions.timeline?.titleField || viewOptions.titleField || 'name',
+          ...(viewOptions.timeline || {}),
+        };
+      case 'gantt':
+        return {
+          type: 'object-gantt',
+          ...baseProps,
+          startDateField: viewOptions.gantt?.startDateField || viewOptions.startDateField || 'start_date',
+          endDateField: viewOptions.gantt?.endDateField || viewOptions.endDateField || 'end_date',
+          progressField: viewOptions.gantt?.progressField || viewOptions.progressField || 'progress',
+          dependenciesField: viewOptions.gantt?.dependenciesField || viewOptions.dependenciesField || 'dependencies',
+          ...(viewOptions.gantt || {}),
+        };
+      case 'map':
+        return {
+          type: 'object-map',
+          ...baseProps,
+          locationField: viewOptions.map?.locationField || viewOptions.locationField || 'location',
+          ...(viewOptions.map || {}),
+        };
+      default:
+        return null;
+    }
+  }, [schema.objectName, schema.table?.fields, currentNamedViewConfig, activeView]);
+
   // Build grid schema (default content renderer)
-  const gridSchema: ObjectGridSchema = {
+  const gridSchema: ObjectGridSchema = useMemo(() => ({
     type: 'object-grid',
     objectName: schema.objectName,
     title: schema.table?.title,
     description: schema.table?.description,
-    fields: schema.table?.fields,
-    columns: schema.table?.columns,
+    fields: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.fields,
+    columns: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
     operations: {
       ...operations,
       create: false, // Create is handled by the view's create button
     },
-    defaultFilters: schema.table?.defaultFilters,
-    defaultSort: schema.table?.defaultSort,
+    defaultFilters: currentNamedViewConfig?.filter || activeView?.filter || schema.table?.defaultFilters,
+    defaultSort: currentNamedViewConfig?.sort || activeView?.sort || schema.table?.defaultSort,
     pageSize: schema.table?.pageSize,
     selectable: schema.table?.selectable,
     className: schema.table?.className,
-  };
+  }), [schema, operations, currentNamedViewConfig, activeView]);
 
   // Build form schema
   const buildFormSchema = (): ObjectFormSchema => {
-    const recordId = selectedRecord ? (selectedRecord._id || selectedRecord.id) as string | number | undefined : undefined;
-    
+    const recordId = selectedRecord
+      ? ((selectedRecord._id || selectedRecord.id) as string | number | undefined)
+      : undefined;
+
     return {
       type: 'object-form',
       objectName: schema.objectName,
@@ -436,10 +713,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     }
   };
 
+  // Determine form container width from navigation config
+  const formWidthClass = useMemo(() => {
+    const w = navigationConfig?.width;
+    if (!w) return '';
+    if (typeof w === 'number') return `max-w-[${w}px]`;
+    return `max-w-[${w}]`;
+  }, [navigationConfig]);
+
   // Render the form in a drawer
   const renderDrawerForm = () => (
     <Drawer open={isFormOpen} onOpenChange={setIsFormOpen} direction="right">
-      <DrawerContent className="w-full sm:max-w-2xl">
+      <DrawerContent className={cn('w-full sm:max-w-2xl', formWidthClass)}>
         <DrawerHeader>
           <DrawerTitle>{getFormTitle()}</DrawerTitle>
           {schema.form?.description && (
@@ -456,7 +741,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // Render the form in a modal
   const renderModalForm = () => (
     <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn('max-w-2xl max-h-[90vh] overflow-y-auto', formWidthClass)}>
         <DialogHeader>
           <DialogTitle>{getFormTitle()}</DialogTitle>
           {schema.form?.description && (
@@ -470,43 +755,68 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // Compute merged filters for the list
   const mergedFilters = useMemo(() => {
-    const hasUserFilters = Object.keys(filterValues).some(k => filterValues[k] !== undefined && filterValues[k] !== '' && filterValues[k] !== null);
+    const hasUserFilters = Object.keys(filterValues).some(
+      k => filterValues[k] !== undefined && filterValues[k] !== '' && filterValues[k] !== null,
+    );
     if (hasUserFilters) {
       return Object.entries(filterValues)
         .filter(([, v]) => v !== undefined && v !== '' && v !== null)
         .map(([field, value]) => ({ field, operator: 'equals' as const, value }));
     }
-    return activeView?.filter ?? schema.table?.defaultFilters;
-  }, [filterValues, activeView, schema.table?.defaultFilters]);
+    return currentNamedViewConfig?.filter || activeView?.filter || schema.table?.defaultFilters;
+  }, [filterValues, currentNamedViewConfig, activeView, schema.table?.defaultFilters]);
 
   const mergedSort = useMemo(() => {
-    return sortConfig.length > 0 ? sortConfig : activeView?.sort ?? schema.table?.defaultSort;
-  }, [sortConfig, activeView, schema.table?.defaultSort]);
+    return sortConfig.length > 0
+      ? sortConfig
+      : currentNamedViewConfig?.sort || activeView?.sort || schema.table?.defaultSort;
+  }, [sortConfig, currentNamedViewConfig, activeView, schema.table?.defaultSort]);
 
   // --- Content renderer ---
   const renderContent = () => {
-    const key = `${schema.objectName}-${activeView?.id || 'default'}-${refreshKey}`;
+    const key = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}-${refreshKey}`;
 
-    // If a custom renderListView is provided and we have multi-view, use it
-    if (renderListView && hasMultiView && activeView) {
-      const listViewSchema: ListViewSchema = {
-        type: 'list-view',
-        id: activeView.id,
-        objectName: schema.objectName,
-        viewType: activeView.type,
-        fields: activeView.columns,
-        filters: mergedFilters,
-        sort: mergedSort,
-        options: activeView, // Pass all view-specific options
-      };
-
+    // If a custom renderListView is provided, use it
+    if (renderListView) {
       return renderListView({
-        schema: listViewSchema,
+        schema: {
+          type: 'list-view',
+          objectName: schema.objectName,
+          viewType: currentViewType as any,
+          fields: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.fields,
+          filters: mergedFilters,
+          sort: mergedSort,
+          options: currentNamedViewConfig?.options || activeView,
+        },
         dataSource,
         onEdit: handleEdit,
         onRowClick: handleRowClick,
         className: 'h-full',
       });
+    }
+
+    // For non-grid views, use SchemaRenderer with generated schema
+    if (currentViewType !== 'grid') {
+      const viewSchema = generateViewSchema(currentViewType);
+      if (viewSchema && SchemaRendererComponent) {
+        return (
+          <SchemaRendererComponent
+            key={key}
+            schema={viewSchema}
+            dataSource={dataSource}
+            data={data}
+            loading={loading}
+          />
+        );
+      }
+      // Fallback: if SchemaRenderer is not available or schema not generated
+      if (!SchemaRendererComponent) {
+        return (
+          <div className="flex items-center justify-center h-40 text-muted-foreground">
+            <p>SchemaRenderer not available. Install @object-ui/react to render {currentViewType} views.</p>
+          </div>
+        );
+      }
     }
 
     // Default: use ObjectGrid
@@ -523,14 +833,37 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     );
   };
 
+  // --- Named list views tabs ---
+  const renderNamedViewTabs = () => {
+    if (!hasNamedViews) return null;
+    const entries = Object.entries(namedListViews!);
+    if (entries.length <= 1) return null;
+
+    return (
+      <Tabs value={activeNamedView} onValueChange={handleNamedViewChange} className="w-full">
+        <TabsList className="w-auto">
+          {entries.map(([key, view]) => (
+            <TabsTrigger key={key} value={key} className="text-sm">
+              {view.label || key}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+    );
+  };
+
   // Render toolbar
   const renderToolbar = () => {
     const showSearchBox = schema.showSearch !== false;
     const showCreateButton = schema.showCreate !== false && operations.create !== false;
     const showRefreshButton = schema.showRefresh !== false;
-    
+    const showViewSwitcherToggle = schema.showViewSwitcher !== false;
+
     return (
       <div className="flex flex-col gap-3">
+        {/* Named view tabs (if any) */}
+        {renderNamedViewTabs()}
+
         {/* Main toolbar row */}
         <div className="flex items-center justify-between gap-4">
           {/* Left side: Search */}
@@ -555,7 +888,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
               <FilterUI schema={filterSchema} onChange={setFilterValues} />
             )}
             {sortSchema && (
-              <SortUI schema={sortSchema} onChange={setSortConfig} />
+              <SortUI schema={sortSchema} onChange={(sort) => setSortConfig(sort ?? [])} />
             )}
             {showRefreshButton && (
               <Button variant="outline" size="sm" onClick={handleRefresh}>
@@ -572,8 +905,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           </div>
         </div>
 
-        {/* ViewSwitcher row (if multi-view) */}
-        {viewSwitcherSchema && (
+        {/* ViewSwitcher row (if multi-view via props) */}
+        {showViewSwitcherToggle && viewSwitcherSchema && (
           <ViewSwitcher
             schema={viewSwitcherSchema}
             onViewChange={handleViewTypeChange}
@@ -583,6 +916,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       </div>
     );
   };
+
+  // Determine which form container to render
+  const formLayout = navigationConfig?.mode === 'modal' ? 'modal'
+    : navigationConfig?.mode === 'drawer' ? 'drawer'
+    : layout;
 
   return (
     <div className={className}>
@@ -607,8 +945,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       {renderContent()}
 
       {/* Form (drawer or modal) */}
-      {layout === 'drawer' && renderDrawerForm()}
-      {layout === 'modal' && renderModalForm()}
+      {formLayout === 'drawer' && renderDrawerForm()}
+      {formLayout === 'modal' && renderModalForm()}
     </div>
   );
 };

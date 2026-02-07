@@ -229,6 +229,13 @@ export interface DetailViewSchema extends BaseSchema {
    */
   footer?: SchemaNode;
   /**
+   * Navigation handler for SPA-aware routing.
+   * Called instead of window.location.href for back/edit navigation.
+   * @param url - The URL to navigate to
+   * @param options - Navigation options (replace, newTab, etc.)
+   */
+  onNavigate?: (url: string, options?: { replace?: boolean; newTab?: boolean }) => void;
+  /**
    * Related records section
    */
   related?: Array<{

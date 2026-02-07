@@ -437,6 +437,19 @@ export interface ObjectGridSchema extends BaseSchema {
    * @default 0
    */
   frozenColumns?: number;
+
+  /**
+   * Navigation configuration for row click behavior.
+   * Controls how record detail is displayed when a row is clicked.
+   * Aligned with @objectstack/spec ListView.navigation.
+   */
+  navigation?: ViewNavigationConfig;
+
+  /**
+   * Callback for page-level navigation (used by 'page' mode).
+   * Called with recordId and action ('view' | 'edit').
+   */
+  onNavigate?: (recordId: string | number, action?: string) => void;
 }
 
 /**
@@ -1006,6 +1019,12 @@ export interface ListViewSchema extends BaseSchema {
   
   /** Navigation config for row click behavior */
   navigation?: ViewNavigationConfig;
+
+  /**
+   * Callback for page-level navigation (used by 'page' mode).
+   * Called with recordId and action ('view' | 'edit').
+   */
+  onNavigate?: (recordId: string | number, action?: string) => void;
   
   /** Kanban-specific configuration */
   kanban?: {

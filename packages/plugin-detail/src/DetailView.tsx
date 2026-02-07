@@ -66,32 +66,43 @@ export const DetailView: React.FC<DetailViewProps> = ({
   const handleBack = React.useCallback(() => {
     if (onBack) {
       onBack();
+    } else if (schema.onNavigate) {
+      // SPA-aware navigation
+      const backUrl = schema.backUrl || (schema.objectName ? `/${schema.objectName}` : '/');
+      schema.onNavigate(backUrl, { replace: true });
     } else if (schema.backUrl) {
       window.location.href = schema.backUrl;
     } else {
       window.history.back();
     }
-  }, [onBack, schema.backUrl]);
+  }, [onBack, schema.backUrl, schema.onNavigate, schema.objectName]);
 
   const handleEdit = React.useCallback(() => {
     if (onEdit) {
       onEdit();
+    } else if (schema.onNavigate && schema.editUrl) {
+      // SPA-aware navigation
+      schema.onNavigate(schema.editUrl);
+    } else if (schema.onNavigate && schema.objectName && schema.resourceId) {
+      // Build edit URL from object + resource
+      schema.onNavigate(`/${schema.objectName}/${schema.resourceId}/edit`);
     } else if (schema.editUrl) {
       window.location.href = schema.editUrl;
     }
-    // TODO: Implement inline edit mode
-    // else {
-    //   setEditMode(true);
-    // }
-  }, [onEdit, schema.editUrl]);
+  }, [onEdit, schema.editUrl, schema.onNavigate, schema.objectName, schema.resourceId]);
 
   const handleDelete = React.useCallback(() => {
-    // TODO: Replace with proper confirmation dialog component
     const confirmMessage = schema.deleteConfirmation || 'Are you sure you want to delete this record?';
+    // Use window.confirm as fallback — the ActionProvider's onConfirm handler
+    // will intercept this if wired up via the action system.
     if (window.confirm(confirmMessage)) {
       onDelete?.();
+      // Navigate back after deletion if onNavigate available
+      if (schema.onNavigate && schema.objectName) {
+        schema.onNavigate(`/${schema.objectName}`, { replace: true });
+      }
     }
-  }, [onDelete, schema.deleteConfirmation]);
+  }, [onDelete, schema.deleteConfirmation, schema.onNavigate, schema.objectName]);
 
   if (loading || schema.loading) {
     return (

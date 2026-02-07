@@ -23,9 +23,9 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, ViewData } from '@object-ui/types';
-import { SchemaRenderer, useDataScope } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay } from '@object-ui/react';
 import { getCellRenderer } from '@object-ui/fields';
-import { Button } from '@object-ui/components';
+import { Button, NavigationOverlay } from '@object-ui/components';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -350,6 +350,15 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
     return generatedColumns;
   }, [objectSchema, schemaFields, schemaColumns, dataConfig, hasInlineData]);
 
+  // --- NavigationConfig support ---
+  // Must be called before any early returns to satisfy React hooks rules
+  const navigation = useNavigationOverlay({
+    navigation: schema.navigation,
+    objectName: schema.objectName,
+    onNavigate: schema.onNavigate,
+    onRowClick,
+  });
+
   if (error) {
     return (
       <div className="p-4 border border-red-300 bg-red-50 rounded-md">
@@ -371,7 +380,7 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
   const columns = generateColumns();
   const operations = 'operations' in schema ? schema.operations : undefined;
   const hasActions = operations && (operations.update || operations.delete);
-  
+
   const columnsWithActions = hasActions ? [
     ...columns,
     {
@@ -445,11 +454,65 @@ export const ObjectGrid: React.FC<ObjectGridProps> = ({
     editable: schema.editable ?? false,
     className: schema.className,
     onSelectionChange: onRowSelect,
-    onRowClick: onRowClick,
+    onRowClick: navigation.handleClick,
     onCellChange: onCellChange,
     onRowSave: onRowSave,
     onBatchSave: onBatchSave,
   };
 
-  return <SchemaRenderer schema={dataTableSchema} />;
+  // Build record detail title
+  const detailTitle = schema.label
+    ? `${schema.label} Detail`
+    : schema.objectName
+      ? `${schema.objectName.charAt(0).toUpperCase() + schema.objectName.slice(1)} Detail`
+      : 'Record Detail';
+
+  // For split mode, wrap the grid in the ResizablePanelGroup
+  if (navigation.isOverlay && navigation.mode === 'split') {
+    return (
+      <NavigationOverlay
+        {...navigation}
+        title={detailTitle}
+        mainContent={<SchemaRenderer schema={dataTableSchema} />}
+      >
+        {(record) => (
+          <div className="space-y-3">
+            {Object.entries(record).map(([key, value]) => (
+              <div key={key} className="flex flex-col">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {key.replace(/_/g, ' ')}
+                </span>
+                <span className="text-sm">{String(value ?? '—')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </NavigationOverlay>
+    );
+  }
+
+  return (
+    <>
+      <SchemaRenderer schema={dataTableSchema} />
+      {navigation.isOverlay && (
+        <NavigationOverlay
+          {...navigation}
+          title={detailTitle}
+        >
+          {(record) => (
+            <div className="space-y-3">
+              {Object.entries(record).map(([key, value]) => (
+                <div key={key} className="flex flex-col">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {key.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-sm">{String(value ?? '—')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </NavigationOverlay>
+      )}
+    </>
+  );
 };

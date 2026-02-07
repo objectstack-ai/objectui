@@ -102,7 +102,7 @@ Action.params: ActionParam[]
 
 ---
 
-#### 3. NavigationConfig
+#### 3. NavigationConfig ✅ (v0.5.0)
 
 **Spec Requirement:**
 ```typescript
@@ -114,17 +114,29 @@ NavigationConfig: {
 }
 ```
 
-**Current State:** Not implemented. No TypeScript interface in @object-ui/types.
+**Current State:** Fully implemented. `ViewNavigationConfig` interface in @object-ui/types.
+Reusable `useNavigationOverlay` hook in @object-ui/react + `NavigationOverlay` component in @object-ui/components.
 
-**Missing Features:**
-- [ ] Add NavigationConfig to @object-ui/types
-- [ ] Implement in plugin-grid (row click behavior)
-- [ ] Implement in plugin-list (item click behavior)
-- [ ] Implement in plugin-detail (related list navigation)
-- [ ] Drawer navigation mode
-- [ ] Modal navigation mode
-- [ ] Split view navigation mode
-- [ ] Popover preview mode
+**Completed:**
+- [x] `ViewNavigationConfig` interface in @object-ui/types (7 modes, width, view, preventNavigation, openNewTab)
+- [x] `navigation?: ViewNavigationConfig` on ObjectGridSchema, ListViewSchema, ObjectViewSchema
+- [x] `onNavigate` callback on ObjectGridSchema, ListViewSchema, DetailViewSchema
+- [x] `useNavigationOverlay` hook (state management, click handler, overlay control)
+- [x] `NavigationOverlay` component (Sheet/Dialog/Popover/ResizablePanelGroup rendering)
+- [x] Implement in plugin-grid (row click → drawer/modal/split/popover/page/new_window/none)
+- [x] Implement in plugin-list (onRowClick passthrough to child views + overlay rendering)
+- [x] Implement in plugin-detail (SPA-aware back/edit/delete navigation via onNavigate)
+- [x] Drawer navigation mode (Sheet, right-side panel)
+- [x] Modal navigation mode (Dialog, center overlay)
+- [x] Split view navigation mode (ResizablePanelGroup, side-by-side)
+- [x] Popover preview mode (Popover, hover/click card)
+- [x] 51 useNavigationOverlay hook tests + 20 NavigationOverlay component tests
+
+**Remaining:**
+- [ ] `navigation.view` property — target view/form schema lookup (currently renders field list)
+- [ ] ObjectForm integration in overlay content (render forms when editing)
+- [ ] ActionParam UI collection (before execution) — param form dialog
+- [ ] FormField.dependsOn (field dependencies) — type defined, runtime evaluation pending
 
 ---
 

@@ -1836,9 +1836,15 @@ importers:
 
   packages/react:
     dependencies:
+      '@object-ui/components':
+        specifier: workspace:*
+        version: link:../components
       '@object-ui/core':
         specifier: workspace:*
         version: link:../core
+      '@object-ui/types':
+        specifier: workspace:*
+        version: link:../types
       '@objectstack/spec':
         specifier: ^1.0.11
         version: 1.0.11

@@ -8,5 +8,6 @@ export * from './input-group';
 export * from './item';
 export * from './kbd';
 export * from './native-select';
+export * from './navigation-overlay';
 export * from './spinner';
 export * from './sort-builder';

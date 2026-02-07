@@ -7,12 +7,12 @@
  */
 
 import * as React from 'react';
-import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder } from '@object-ui/components';
+import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay } from '@object-ui/components';
 import type { SortItem } from '@object-ui/components';
 import { Search, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react';
 import type { FilterGroup } from '@object-ui/components';
 import { ViewSwitcher, ViewType } from './ViewSwitcher';
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, useNavigationOverlay } from '@object-ui/react';
 import type { ListViewSchema } from '@object-ui/types';
 
 export interface ListViewProps {
@@ -22,6 +22,8 @@ export interface ListViewProps {
   onFilterChange?: (filters: any) => void;
   onSortChange?: (sort: any) => void;
   onSearchChange?: (search: string) => void;
+  /** Callback when a row/item is clicked (overrides NavigationConfig) */
+  onRowClick?: (record: Record<string, unknown>) => void;
   [key: string]: any;
 }
 
@@ -65,6 +67,7 @@ export const ListView: React.FC<ListViewProps> = ({
   onFilterChange,
   onSortChange,
   onSearchChange,
+  onRowClick,
   ...props
 }) => {
   // Kernel level default: Ensure viewType is always defined (default to 'grid')
@@ -272,6 +275,14 @@ export const ListView: React.FC<ListViewProps> = ({
     onSearchChange?.(value);
   }, [onSearchChange]);
 
+  // --- NavigationConfig support ---
+  const navigation = useNavigationOverlay({
+    navigation: schema.navigation,
+    objectName: schema.objectName,
+    onNavigate: schema.onNavigate,
+    onRowClick,
+  });
+
   // Generate the appropriate view component schema
   const viewComponentSchema = React.useMemo(() => {
     const baseProps = {
@@ -282,6 +293,8 @@ export const ListView: React.FC<ListViewProps> = ({
       className: "h-full w-full",
       // Disable internal controls that clash with ListView toolbar
       showSearch: false,
+      // Pass navigation click handler to child views
+      onRowClick: navigation.handleClick,
     };
 
     switch (currentView) {
@@ -507,6 +520,33 @@ export const ListView: React.FC<ListViewProps> = ({
           loading={loading}
         />
       </div>
+
+      {/* Navigation Overlay (drawer/modal/popover) */}
+      {navigation.isOverlay && (
+        <NavigationOverlay
+          {...navigation}
+          title={
+            schema.label
+              ? `${schema.label} Detail`
+              : schema.objectName
+                ? `${schema.objectName.charAt(0).toUpperCase() + schema.objectName.slice(1)} Detail`
+                : 'Record Detail'
+          }
+        >
+          {(record) => (
+            <div className="space-y-3">
+              {Object.entries(record).map(([key, value]) => (
+                <div key={key} className="flex flex-col">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {key.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-sm">{String(value ?? '—')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </NavigationOverlay>
+      )}
     </div>
   );
 };

@@ -476,16 +476,24 @@ import type { AppSchema } from './app';
 // Phase 2 Schemas - New Additions
 // ============================================================================
 export type {
-  // Theme System
+  // Theme System (aligned with @objectstack/spec)
+  Theme,
   ThemeSchema,
-  ThemeDefinition,
   ThemeMode,
   ColorPalette,
   Typography,
-  SpacingScale,
+  Spacing,
   BorderRadius,
+  Shadow,
+  Breakpoints,
+  Animation,
+  ZIndex,
+  ThemeLogo,
   ThemeSwitcherSchema,
   ThemePreviewSchema,
+  // Legacy aliases
+  ThemeDefinition,
+  SpacingScale,
 } from './theme';
 
 export type {

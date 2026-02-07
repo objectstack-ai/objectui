@@ -8,3 +8,4 @@
 
 export * from './SchemaRendererContext';
 export * from './ActionContext';
+export * from './ThemeContext';

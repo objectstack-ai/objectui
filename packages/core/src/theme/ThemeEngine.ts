@@ -1,0 +1,452 @@
+/**
+ * ObjectUI
+ * Copyright (c) 2024-present ObjectStack Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * @object-ui/core - Theme Engine
+ *
+ * Converts a spec-aligned Theme JSON into CSS custom properties
+ * that can be injected into the DOM. Also handles theme inheritance
+ * (extends), media-query-aware mode resolution, and token merging.
+ *
+ * @module theme
+ * @packageDocumentation
+ */
+
+import type { Theme, ColorPalette, ThemeMode } from '@object-ui/types';
+
+// ============================================================================
+// Color Utilities
+// ============================================================================
+
+/**
+ * Convert a hex color (#RRGGBB or #RGB) to an HSL string "H S% L%".
+ * Returns null if the input is not a valid hex color.
+ */
+export function hexToHSL(hex: string): string | null {
+  // Expand shorthand (#RGB → #RRGGBB)
+  let clean = hex.replace(/^#/, '');
+  if (clean.length === 3) {
+    clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
+  }
+  const match = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(clean);
+  if (!match) return null;
+
+  const r = parseInt(match[1], 16) / 255;
+  const g = parseInt(match[2], 16) / 255;
+  const b = parseInt(match[3], 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+/**
+ * Detect if a color string is a hex value.
+ */
+function isHex(color: string): boolean {
+  return /^#([a-f\d]{3}|[a-f\d]{6})$/i.test(color);
+}
+
+/**
+ * Convert a color to a CSS-ready value.
+ * - Hex colors → HSL format for Shadcn CSS variable compatibility
+ * - Non-hex colors → passed through as-is (rgb, hsl, oklch, etc.)
+ */
+export function toCSSColor(color: string): string {
+  if (isHex(color)) {
+    return hexToHSL(color) ?? color;
+  }
+  return color;
+}
+
+// ============================================================================
+// Theme → CSS Variable Mapping
+// ============================================================================
+
+/**
+ * Mapping from spec ColorPalette keys → Shadcn CSS variable names.
+ *
+ * The spec uses semantic names (primary, secondary, error, text, surface, etc.)
+ * while Shadcn uses its own naming (--primary, --secondary, --destructive, etc.)
+ * This maps the spec keys to the closest Shadcn equivalent.
+ */
+const COLOR_TO_CSS_MAP: Record<keyof ColorPalette, string | string[]> = {
+  primary: '--primary',
+  secondary: '--secondary',
+  accent: '--accent',
+  success: '--success',
+  warning: '--warning',
+  error: '--destructive',
+  info: '--info',
+  background: '--background',
+  surface: '--card',
+  text: '--foreground',
+  textSecondary: '--muted-foreground',
+  border: '--border',
+  disabled: '--muted',
+  primaryLight: '--primary-light',
+  primaryDark: '--primary-dark',
+  secondaryLight: '--secondary-light',
+  secondaryDark: '--secondary-dark',
+};
+
+/**
+ * Generate CSS custom properties from a Theme's color palette.
+ */
+export function generateColorVars(colors: ColorPalette): Record<string, string> {
+  const vars: Record<string, string> = {};
+
+  for (const [key, cssVar] of Object.entries(COLOR_TO_CSS_MAP)) {
+    const value = colors[key as keyof ColorPalette];
+    if (value) {
+      const cssValue = toCSSColor(value);
+      if (Array.isArray(cssVar)) {
+        for (const v of cssVar) {
+          vars[v] = cssValue;
+        }
+      } else {
+        vars[cssVar] = cssValue;
+      }
+    }
+  }
+
+  return vars;
+}
+
+/**
+ * Generate CSS custom properties from a Theme's typography config.
+ */
+export function generateTypographyVars(typography: NonNullable<Theme['typography']>): Record<string, string> {
+  const vars: Record<string, string> = {};
+
+  if (typography.fontFamily?.base) {
+    vars['--font-sans'] = typography.fontFamily.base;
+  }
+  if (typography.fontFamily?.heading) {
+    vars['--font-heading'] = typography.fontFamily.heading;
+  }
+  if (typography.fontFamily?.mono) {
+    vars['--font-mono'] = typography.fontFamily.mono;
+  }
+
+  if (typography.fontSize) {
+    for (const [key, value] of Object.entries(typography.fontSize)) {
+      if (value) vars[`--font-size-${key}`] = value;
+    }
+  }
+
+  if (typography.fontWeight) {
+    for (const [key, value] of Object.entries(typography.fontWeight)) {
+      if (value != null) vars[`--font-weight-${key}`] = String(value);
+    }
+  }
+
+  if (typography.lineHeight) {
+    for (const [key, value] of Object.entries(typography.lineHeight)) {
+      if (value) vars[`--line-height-${key}`] = value;
+    }
+  }
+
+  if (typography.letterSpacing) {
+    for (const [key, value] of Object.entries(typography.letterSpacing)) {
+      if (value) vars[`--letter-spacing-${key}`] = value;
+    }
+  }
+
+  return vars;
+}
+
+/**
+ * Generate CSS custom properties from a Theme's border radius config.
+ */
+export function generateBorderRadiusVars(borderRadius: NonNullable<Theme['borderRadius']>): Record<string, string> {
+  const vars: Record<string, string> = {};
+  const map: Record<string, string> = {
+    none: '--radius-none',
+    sm: '--radius-sm',
+    base: '--radius',
+    md: '--radius-md',
+    lg: '--radius-lg',
+    xl: '--radius-xl',
+    '2xl': '--radius-2xl',
+    full: '--radius-full',
+  };
+
+  for (const [key, cssVar] of Object.entries(map)) {
+    const value = borderRadius[key as keyof typeof borderRadius];
+    if (value) vars[cssVar] = value;
+  }
+
+  return vars;
+}
+
+/**
+ * Generate CSS custom properties from a Theme's shadow config.
+ */
+export function generateShadowVars(shadows: NonNullable<Theme['shadows']>): Record<string, string> {
+  const vars: Record<string, string> = {};
+  const map: Record<string, string> = {
+    none: '--shadow-none',
+    sm: '--shadow-sm',
+    base: '--shadow',
+    md: '--shadow-md',
+    lg: '--shadow-lg',
+    xl: '--shadow-xl',
+    '2xl': '--shadow-2xl',
+    inner: '--shadow-inner',
+  };
+
+  for (const [key, cssVar] of Object.entries(map)) {
+    const value = shadows[key as keyof typeof shadows];
+    if (value) vars[cssVar] = value;
+  }
+
+  return vars;
+}
+
+/**
+ * Generate CSS custom properties from a Theme's animation config.
+ */
+export function generateAnimationVars(animation: NonNullable<Theme['animation']>): Record<string, string> {
+  const vars: Record<string, string> = {};
+
+  if (animation.duration) {
+    for (const [key, value] of Object.entries(animation.duration)) {
+      if (value) vars[`--duration-${key}`] = value;
+    }
+  }
+
+  if (animation.timing) {
+    for (const [key, value] of Object.entries(animation.timing)) {
+      if (value) vars[`--timing-${key}`] = value;
+    }
+  }
+
+  return vars;
+}
+
+/**
+ * Generate CSS custom properties from a Theme's z-index config.
+ */
+export function generateZIndexVars(zIndex: NonNullable<Theme['zIndex']>): Record<string, string> {
+  const vars: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(zIndex)) {
+    if (value != null) vars[`--z-${key}`] = String(value);
+  }
+
+  return vars;
+}
+
+/**
+ * Generate ALL CSS custom properties from a complete Theme.
+ * This is the main entry point for theme → CSS conversion.
+ */
+export function generateThemeVars(theme: Theme): Record<string, string> {
+  const vars: Record<string, string> = {};
+
+  // Colors (always present — colors.primary is required)
+  Object.assign(vars, generateColorVars(theme.colors));
+
+  // Typography
+  if (theme.typography) {
+    Object.assign(vars, generateTypographyVars(theme.typography));
+  }
+
+  // Border Radius
+  if (theme.borderRadius) {
+    Object.assign(vars, generateBorderRadiusVars(theme.borderRadius));
+  }
+
+  // Shadows
+  if (theme.shadows) {
+    Object.assign(vars, generateShadowVars(theme.shadows));
+  }
+
+  // Animation
+  if (theme.animation) {
+    Object.assign(vars, generateAnimationVars(theme.animation));
+  }
+
+  // Z-Index
+  if (theme.zIndex) {
+    Object.assign(vars, generateZIndexVars(theme.zIndex));
+  }
+
+  // Custom CSS variables (passthrough)
+  if (theme.customVars) {
+    for (const [key, value] of Object.entries(theme.customVars)) {
+      // Ensure CSS variable prefix
+      const varName = key.startsWith('--') ? key : `--${key}`;
+      vars[varName] = value;
+    }
+  }
+
+  return vars;
+}
+
+// ============================================================================
+// Theme Inheritance
+// ============================================================================
+
+/**
+ * Deep-merge two Theme objects. The `child` overrides the `parent`.
+ * Only defined properties in child override; undefined falls back to parent.
+ */
+export function mergeThemes(parent: Theme, child: Partial<Theme>): Theme {
+  return {
+    ...parent,
+    ...child,
+    // Deep-merge colors
+    colors: {
+      ...parent.colors,
+      ...(child.colors ?? {}),
+    },
+    // Deep-merge typography
+    typography: child.typography || parent.typography
+      ? {
+          ...parent.typography,
+          ...child.typography,
+          fontFamily: {
+            ...parent.typography?.fontFamily,
+            ...child.typography?.fontFamily,
+          },
+          fontSize: {
+            ...parent.typography?.fontSize,
+            ...child.typography?.fontSize,
+          },
+          fontWeight: {
+            ...parent.typography?.fontWeight,
+            ...child.typography?.fontWeight,
+          },
+          lineHeight: {
+            ...parent.typography?.lineHeight,
+            ...child.typography?.lineHeight,
+          },
+          letterSpacing: {
+            ...parent.typography?.letterSpacing,
+            ...child.typography?.letterSpacing,
+          },
+        }
+      : undefined,
+    // Deep-merge border radius
+    borderRadius: child.borderRadius || parent.borderRadius
+      ? { ...parent.borderRadius, ...child.borderRadius }
+      : undefined,
+    // Deep-merge shadows
+    shadows: child.shadows || parent.shadows
+      ? { ...parent.shadows, ...child.shadows }
+      : undefined,
+    // Deep-merge breakpoints
+    breakpoints: child.breakpoints || parent.breakpoints
+      ? { ...parent.breakpoints, ...child.breakpoints }
+      : undefined,
+    // Deep-merge animation
+    animation: child.animation || parent.animation
+      ? {
+          ...parent.animation,
+          ...child.animation,
+          duration: {
+            ...parent.animation?.duration,
+            ...child.animation?.duration,
+          },
+          timing: {
+            ...parent.animation?.timing,
+            ...child.animation?.timing,
+          },
+        }
+      : undefined,
+    // Deep-merge zIndex
+    zIndex: child.zIndex || parent.zIndex
+      ? { ...parent.zIndex, ...child.zIndex }
+      : undefined,
+    // Deep-merge spacing
+    spacing: child.spacing || parent.spacing
+      ? { ...parent.spacing, ...child.spacing }
+      : undefined,
+    // Deep-merge customVars
+    customVars: child.customVars || parent.customVars
+      ? { ...parent.customVars, ...child.customVars }
+      : undefined,
+    // Deep-merge logo
+    logo: child.logo || parent.logo
+      ? { ...parent.logo, ...child.logo }
+      : undefined,
+  };
+}
+
+/**
+ * Resolve theme inheritance from a registry of themes.
+ * If a theme has `extends`, the parent is looked up and merged recursively.
+ *
+ * @param theme - The theme to resolve
+ * @param registry - Map of theme name → Theme
+ * @param visited - Set of already-visited names (cycle detection)
+ * @returns The fully resolved theme
+ */
+export function resolveThemeInheritance(
+  theme: Theme,
+  registry: Map<string, Theme>,
+  visited: Set<string> = new Set(),
+): Theme {
+  if (!theme.extends) return theme;
+
+  // Cycle detection
+  if (visited.has(theme.name)) return theme;
+  visited.add(theme.name);
+
+  const parent = registry.get(theme.extends);
+  if (!parent) return theme;
+
+  // Recursively resolve parent first
+  const resolvedParent = resolveThemeInheritance(parent, registry, visited);
+
+  return mergeThemes(resolvedParent, theme);
+}
+
+// ============================================================================
+// Mode Resolution
+// ============================================================================
+
+/**
+ * Resolve the effective mode from a ThemeMode value.
+ * 'auto' checks the system preference (prefers-color-scheme).
+ *
+ * @param mode - The declared mode
+ * @param systemDark - Whether the system prefers dark mode (for SSR or testing)
+ * @returns 'light' or 'dark'
+ */
+export function resolveMode(
+  mode: ThemeMode = 'auto',
+  systemDark?: boolean,
+): 'light' | 'dark' {
+  if (mode === 'light' || mode === 'dark') return mode;
+
+  // 'auto' — check system preference
+  if (systemDark !== undefined) return systemDark ? 'dark' : 'light';
+
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  return 'light'; // fallback
+}

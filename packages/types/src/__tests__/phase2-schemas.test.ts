@@ -120,25 +120,20 @@ describe('Phase 2: ThemeSchema Zod Validation', () => {
         {
           name: 'professional',
           label: 'Professional',
-          light: {
+          mode: 'auto',
+          colors: {
             primary: '#3b82f6',
             secondary: '#64748b',
             background: '#ffffff',
-            foreground: '#0f172a',
-          },
-          dark: {
-            primary: '#60a5fa',
-            secondary: '#94a3b8',
-            background: '#0f172a',
-            foreground: '#f1f5f9',
+            text: '#0f172a',
           },
           typography: {
-            fontSans: ['Inter', 'sans-serif'],
-            fontSize: 16,
-            lineHeight: 1.5,
+            fontFamily: { base: 'Inter, sans-serif' },
+            fontSize: { base: '1rem' },
+            lineHeight: { normal: '1.5' },
           },
-          radius: {
-            default: '0.5rem',
+          borderRadius: {
+            base: '0.5rem',
             lg: '1rem',
           },
         },

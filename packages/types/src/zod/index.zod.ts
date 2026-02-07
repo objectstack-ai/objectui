@@ -277,14 +277,21 @@ export {
 export {
   ColorPaletteSchema,
   TypographySchema,
+  SpacingSchema,
   SpacingScaleSchema,
   BorderRadiusSchema,
+  ShadowSchema,
+  BreakpointsSchema,
+  AnimationSchema,
+  ZIndexSchema,
+  ThemeLogoSchema,
   ThemeModeSchema,
   ThemeDefinitionSchema,
   ThemeSchema,
+  ThemeComponentSchema,
+  ThemeUnionSchema,
   ThemeSwitcherSchema,
   ThemePreviewSchema,
-  ThemeComponentSchema,
 } from './theme.zod.js';
 
 export {
@@ -344,7 +351,7 @@ import { NavigationSchema } from './navigation.zod.js';
 import { ComplexSchema } from './complex.zod.js';
 import { ObjectQLComponentSchema } from './objectql.zod.js';
 import { CRUDComponentSchema } from './crud.zod.js';
-import { ThemeComponentSchema } from './theme.zod.js';
+import { ThemeUnionSchema } from './theme.zod.js';
 import { ReportComponentSchema } from './reports.zod.js';
 import { BlockComponentSchema } from './blocks.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
@@ -365,7 +372,7 @@ export const AnyComponentSchema = z.union([
   ComplexSchema,
   ObjectQLComponentSchema,
   CRUDComponentSchema,
-  ThemeComponentSchema,
+  ThemeUnionSchema,
   ReportComponentSchema,
   BlockComponentSchema,
   ViewComponentSchema,

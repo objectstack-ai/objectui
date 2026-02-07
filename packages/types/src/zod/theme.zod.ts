@@ -8,10 +8,10 @@
 
 /**
  * @object-ui/types/zod - Theme Schema Zod Validators
- * 
+ *
  * Zod validation schemas for theme configuration.
- * Following @objectstack/spec UI specification format.
- * 
+ * Aligned with @objectstack/spec UI specification.
+ *
  * @module zod/theme
  * @packageDocumentation
  */
@@ -21,84 +21,208 @@ import { BaseSchema } from './base.zod.js';
 
 /**
  * Color Palette Schema
+ * Aligned with @objectstack/spec ColorPaletteSchema.
  */
 export const ColorPaletteSchema = z.object({
-  primary: z.string().optional().describe('Primary brand color'),
+  primary: z.string().describe('Primary brand color'),
   secondary: z.string().optional().describe('Secondary color'),
   accent: z.string().optional().describe('Accent color'),
-  background: z.string().optional().describe('Background color'),
-  foreground: z.string().optional().describe('Foreground/text color'),
-  muted: z.string().optional().describe('Muted color'),
-  mutedForeground: z.string().optional().describe('Muted foreground color'),
-  border: z.string().optional().describe('Border color'),
-  input: z.string().optional().describe('Input border color'),
-  ring: z.string().optional().describe('Ring/focus color'),
   success: z.string().optional().describe('Success color'),
   warning: z.string().optional().describe('Warning color'),
-  destructive: z.string().optional().describe('Error/destructive color'),
-  info: z.string().optional().describe('Info color'),
-  card: z.string().optional().describe('Card background color'),
-  cardForeground: z.string().optional().describe('Card foreground color'),
-  popover: z.string().optional().describe('Popover background color'),
-  popoverForeground: z.string().optional().describe('Popover foreground color'),
+  error: z.string().optional().describe('Error color'),
+  info: z.string().optional().describe('Informational color'),
+  background: z.string().optional().describe('Background color'),
+  surface: z.string().optional().describe('Surface/card background color'),
+  text: z.string().optional().describe('Primary text color'),
+  textSecondary: z.string().optional().describe('Secondary text color'),
+  border: z.string().optional().describe('Border color'),
+  disabled: z.string().optional().describe('Disabled state color'),
+  primaryLight: z.string().optional().describe('Lighter primary variant'),
+  primaryDark: z.string().optional().describe('Darker primary variant'),
+  secondaryLight: z.string().optional().describe('Lighter secondary variant'),
+  secondaryDark: z.string().optional().describe('Darker secondary variant'),
 });
 
 /**
  * Typography Schema
+ * Aligned with @objectstack/spec TypographySchema.
  */
 export const TypographySchema = z.object({
-  fontSans: z.array(z.string()).optional().describe('Font family for sans-serif text'),
-  fontSerif: z.array(z.string()).optional().describe('Font family for serif text'),
-  fontMono: z.array(z.string()).optional().describe('Font family for monospace text'),
-  fontSize: z.number().optional().describe('Base font size (in rem)'),
-  lineHeight: z.number().optional().describe('Line height'),
-  headingWeight: z.number().optional().describe('Font weight for headings'),
-  bodyWeight: z.number().optional().describe('Font weight for body text'),
+  fontFamily: z.object({
+    base: z.string().optional().describe('Base body font family'),
+    heading: z.string().optional().describe('Heading font family'),
+    mono: z.string().optional().describe('Monospace font family'),
+  }).optional().describe('Font family definitions'),
+  fontSize: z.object({
+    xs: z.string().optional(),
+    sm: z.string().optional(),
+    base: z.string().optional(),
+    lg: z.string().optional(),
+    xl: z.string().optional(),
+    '2xl': z.string().optional(),
+    '3xl': z.string().optional(),
+    '4xl': z.string().optional(),
+  }).optional().describe('Font size scale'),
+  fontWeight: z.object({
+    light: z.number().optional(),
+    normal: z.number().optional(),
+    medium: z.number().optional(),
+    semibold: z.number().optional(),
+    bold: z.number().optional(),
+  }).optional().describe('Font weight scale'),
+  lineHeight: z.object({
+    tight: z.string().optional(),
+    normal: z.string().optional(),
+    relaxed: z.string().optional(),
+    loose: z.string().optional(),
+  }).optional().describe('Line height scale'),
+  letterSpacing: z.object({
+    tighter: z.string().optional(),
+    tight: z.string().optional(),
+    normal: z.string().optional(),
+    wide: z.string().optional(),
+    wider: z.string().optional(),
+  }).optional().describe('Letter spacing scale'),
 });
 
 /**
  * Spacing Scale Schema
+ * Aligned with @objectstack/spec SpacingSchema.
  */
-export const SpacingScaleSchema = z.object({
-  base: z.number().optional().describe('Base spacing unit (in rem)'),
-  scale: z.record(z.string(), z.string()).optional().describe('Custom spacing values'),
+export const SpacingSchema = z.object({
+  '0': z.string().optional(),
+  '1': z.string().optional(),
+  '2': z.string().optional(),
+  '3': z.string().optional(),
+  '4': z.string().optional(),
+  '5': z.string().optional(),
+  '6': z.string().optional(),
+  '8': z.string().optional(),
+  '10': z.string().optional(),
+  '12': z.string().optional(),
+  '16': z.string().optional(),
+  '20': z.string().optional(),
+  '24': z.string().optional(),
 });
 
 /**
  * Border Radius Schema
+ * Aligned with @objectstack/spec BorderRadiusSchema.
  */
 export const BorderRadiusSchema = z.object({
-  sm: z.string().optional().describe('Small radius'),
-  default: z.string().optional().describe('Default radius'),
-  md: z.string().optional().describe('Medium radius'),
-  lg: z.string().optional().describe('Large radius'),
-  xl: z.string().optional().describe('Extra large radius'),
+  none: z.string().optional(),
+  sm: z.string().optional(),
+  base: z.string().optional(),
+  md: z.string().optional(),
+  lg: z.string().optional(),
+  xl: z.string().optional(),
+  '2xl': z.string().optional(),
+  full: z.string().optional(),
+});
+
+/**
+ * Shadow Schema
+ * Aligned with @objectstack/spec ShadowSchema.
+ */
+export const ShadowSchema = z.object({
+  none: z.string().optional(),
+  sm: z.string().optional(),
+  base: z.string().optional(),
+  md: z.string().optional(),
+  lg: z.string().optional(),
+  xl: z.string().optional(),
+  '2xl': z.string().optional(),
+  inner: z.string().optional(),
+});
+
+/**
+ * Breakpoints Schema
+ * Aligned with @objectstack/spec BreakpointsSchema.
+ */
+export const BreakpointsSchema = z.object({
+  xs: z.string().optional(),
+  sm: z.string().optional(),
+  md: z.string().optional(),
+  lg: z.string().optional(),
+  xl: z.string().optional(),
+  '2xl': z.string().optional(),
+});
+
+/**
+ * Animation Schema
+ * Aligned with @objectstack/spec AnimationSchema.
+ */
+export const AnimationSchema = z.object({
+  duration: z.object({
+    fast: z.string().optional(),
+    base: z.string().optional(),
+    slow: z.string().optional(),
+  }).optional().describe('Duration presets'),
+  timing: z.object({
+    linear: z.string().optional(),
+    ease: z.string().optional(),
+    easeIn: z.string().optional(),
+    easeOut: z.string().optional(),
+    easeInOut: z.string().optional(),
+  }).optional().describe('Timing function presets'),
+});
+
+/**
+ * Z-Index Schema
+ * Aligned with @objectstack/spec ZIndexSchema.
+ */
+export const ZIndexSchema = z.object({
+  base: z.number().optional(),
+  dropdown: z.number().optional(),
+  sticky: z.number().optional(),
+  fixed: z.number().optional(),
+  modalBackdrop: z.number().optional(),
+  modal: z.number().optional(),
+  popover: z.number().optional(),
+  tooltip: z.number().optional(),
+});
+
+/**
+ * Theme Logo Schema
+ */
+export const ThemeLogoSchema = z.object({
+  light: z.string().optional().describe('Logo URL for light mode'),
+  dark: z.string().optional().describe('Logo URL for dark mode'),
+  favicon: z.string().optional().describe('Favicon URL'),
 });
 
 /**
  * Theme Mode Schema
+ * Aligned with @objectstack/spec ThemeMode.
  */
-export const ThemeModeSchema = z.enum(['light', 'dark', 'system']).describe('Theme mode');
+export const ThemeModeSchema = z.enum(['light', 'dark', 'auto']).describe('Theme mode');
 
 /**
  * Theme Definition Schema
+ * Aligned with @objectstack/spec ThemeSchema.
  */
 export const ThemeDefinitionSchema = z.object({
-  name: z.string().describe('Theme name/identifier'),
-  label: z.string().optional().describe('Theme display label'),
-  light: ColorPaletteSchema.optional().describe('Light mode color palette'),
-  dark: ColorPaletteSchema.optional().describe('Dark mode color palette'),
-  typography: TypographySchema.optional().describe('Typography configuration'),
-  spacing: SpacingScaleSchema.optional().describe('Spacing scale configuration'),
-  radius: BorderRadiusSchema.optional().describe('Border radius configuration'),
-  cssVariables: z.record(z.string(), z.string()).optional().describe('Custom CSS variables'),
-  tailwind: z.record(z.string(), z.any()).optional().describe('Tailwind configuration overrides'),
+  name: z.string().describe('Theme identifier'),
+  label: z.string().describe('Display label'),
+  description: z.string().optional().describe('Human-readable description'),
+  mode: ThemeModeSchema.default('auto').describe('Theme mode'),
+  colors: ColorPaletteSchema.describe('Semantic color palette'),
+  typography: TypographySchema.optional().describe('Typography design tokens'),
+  spacing: SpacingSchema.optional().describe('Spacing scale'),
+  borderRadius: BorderRadiusSchema.optional().describe('Border radius scale'),
+  shadows: ShadowSchema.optional().describe('Shadow scale'),
+  breakpoints: BreakpointsSchema.optional().describe('Responsive breakpoints'),
+  animation: AnimationSchema.optional().describe('Animation presets'),
+  zIndex: ZIndexSchema.optional().describe('Z-index layering'),
+  customVars: z.record(z.string(), z.string()).optional().describe('Custom CSS variables'),
+  logo: ThemeLogoSchema.optional().describe('Logo/branding assets'),
+  extends: z.string().optional().describe('Extend another theme by name'),
 });
 
 /**
- * Theme Schema
+ * Theme Component Schema (ObjectUI rendering)
  */
-export const ThemeSchema = BaseSchema.extend({
+export const ThemeComponentSchema = BaseSchema.extend({
   type: z.literal('theme'),
   mode: ThemeModeSchema.optional().describe('Current theme mode'),
   themes: z.array(ThemeDefinitionSchema).optional().describe('Available themes'),
@@ -133,21 +257,37 @@ export const ThemePreviewSchema = BaseSchema.extend({
 });
 
 /**
- * Union of all theme schemas
+ * Legacy alias — use ThemeComponentSchema
+ * @deprecated
  */
-export const ThemeComponentSchema = z.union([
-  ThemeSchema,
+export const ThemeSchema = ThemeComponentSchema;
+
+/**
+ * Union of all theme component schemas (for AnyComponentSchema union).
+ */
+export const ThemeUnionSchema = z.union([
+  ThemeComponentSchema,
   ThemeSwitcherSchema,
   ThemePreviewSchema,
 ]);
+
+/**
+ * Legacy alias — use SpacingSchema
+ * @deprecated
+ */
+export const SpacingScaleSchema = SpacingSchema;
 
 /**
  * Export type inference helpers
  */
 export type ColorPaletteSchemaType = z.infer<typeof ColorPaletteSchema>;
 export type TypographySchemaType = z.infer<typeof TypographySchema>;
-export type SpacingScaleSchemaType = z.infer<typeof SpacingScaleSchema>;
+export type SpacingSchemaType = z.infer<typeof SpacingSchema>;
 export type BorderRadiusSchemaType = z.infer<typeof BorderRadiusSchema>;
+export type ShadowSchemaType = z.infer<typeof ShadowSchema>;
+export type BreakpointsSchemaType = z.infer<typeof BreakpointsSchema>;
+export type AnimationSchemaType = z.infer<typeof AnimationSchema>;
+export type ZIndexSchemaType = z.infer<typeof ZIndexSchema>;
 export type ThemeModeSchemaType = z.infer<typeof ThemeModeSchema>;
 export type ThemeDefinitionSchemaType = z.infer<typeof ThemeDefinitionSchema>;
 export type ThemeSchemaType = z.infer<typeof ThemeSchema>;

@@ -190,7 +190,17 @@ export const ObjectForm: React.FC<ObjectFormProps> = ({
     );
   }
 
-  // Default: simple form (original implementation below)
+  // Default: simple form
+  return <SimpleObjectForm schema={schema} dataSource={dataSource} />;
+};
+
+/**
+ * SimpleObjectForm — default form variant with auto-generated fields from ObjectQL schema.
+ */
+const SimpleObjectForm: React.FC<ObjectFormProps> = ({
+  schema,
+  dataSource,
+}) => {
 
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);

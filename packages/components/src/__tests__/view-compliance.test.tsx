@@ -58,7 +58,7 @@ describe('View Component Compliance', () => {
             // Check direct registration or via namespace aliasing
             // ComponentRegistry.get checks namespaces.
             // If registered as { type: 'grid', namespace: 'view' }, fullKey is 'view:grid'.
-            let hasView = ComponentRegistry.getAllConfigs().some(c => c.type === viewKey);
+            const hasView = ComponentRegistry.getAllConfigs().some(c => c.type === viewKey);
 
             if (!hasView) {
                  // Try looking for non-namespaced if it is a view category

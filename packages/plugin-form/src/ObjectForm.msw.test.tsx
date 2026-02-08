@@ -85,7 +85,7 @@ const handlers = [
   http.get(`${BASE_URL}/api/v1/data/:object/:id`, ({ params }) => {
     const { object, id } = params;
     if (object === 'contact' && id === '1') {
-      return HttpResponse.json(mockRecord);
+      return HttpResponse.json({ record: mockRecord });
     }
     return new HttpResponse(null, { status: 404 });
   })

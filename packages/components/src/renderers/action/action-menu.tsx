@@ -13,7 +13,7 @@
  * Each menu item triggers the corresponding action via ActionRunner.
  */
 
-import React, { forwardRef, useCallback, useState } from 'react';
+import React, { forwardRef, useCallback, useMemo, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { ActionSchema } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
@@ -56,7 +56,11 @@ const ActionMenuItem: React.FC<{
   const isVisible = useCondition(action.visible ? `\${${action.visible}}` : undefined);
   const isEnabled = useCondition(action.enabled ? `\${${action.enabled}}` : undefined);
 
-  const Icon = resolveIcon(action.icon);
+  const iconElement = useMemo(() => {
+    const Icon = resolveIcon(action.icon);
+    // eslint-disable-next-line react-hooks/static-components -- Icon is resolved from a stable icon registry
+    return Icon ? <Icon className="mr-2 h-4 w-4" /> : null;
+  }, [action.icon]);
 
   if (action.visible && !isVisible) return null;
 
@@ -72,7 +76,7 @@ const ActionMenuItem: React.FC<{
         action.className,
       )}
     >
-      {Icon && <Icon className="mr-2 h-4 w-4" />}
+      {iconElement}
       <span>{action.label || action.name}</span>
     </DropdownMenuItem>
   );

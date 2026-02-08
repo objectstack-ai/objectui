@@ -40,6 +40,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@object-ui/core': path.resolve(__dirname, './packages/core/src'),
+      '@object-ui/types/zod': path.resolve(__dirname, './packages/types/src/zod/index.zod.ts'),
       '@object-ui/types': path.resolve(__dirname, './packages/types/src'),
       '@object-ui/react': path.resolve(__dirname, './packages/react/src'),
       '@object-ui/protocol': path.resolve(__dirname, './packages/core/src'),
@@ -65,6 +66,7 @@ export default defineConfig({
       '@object-ui/plugin-markdown': path.resolve(__dirname, './packages/plugin-markdown/src'),
       '@object-ui/plugin-timeline': path.resolve(__dirname, './packages/plugin-timeline/src'),
       '@object-ui/plugin-view': path.resolve(__dirname, './packages/plugin-view/src'),
+      '@object-ui/plugin-report': path.resolve(__dirname, './packages/plugin-report/src'),
       '@object-ui/runner': path.resolve(__dirname, './packages/runner/src'),
       '@': path.resolve(__dirname, './packages/components/src'),
       '@object-ui/ui': path.resolve(__dirname, './packages/ui/src'),

@@ -923,10 +923,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     : layout;
 
   return (
-    <div className={className}>
+    <div className={cn('flex flex-col h-full', className)}>
       {/* Title and description */}
       {(schema.title || schema.description) && (
-        <div className="mb-4">
+        <div className="mb-4 shrink-0">
           {schema.title && (
             <h2 className="text-2xl font-bold tracking-tight">{schema.title}</h2>
           )}
@@ -937,12 +937,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       )}
 
       {/* Toolbar */}
-      <div className="mb-4">
+      <div className="mb-4 shrink-0">
         {renderToolbar()}
       </div>
 
       {/* Content */}
-      {renderContent()}
+      <div className="flex-1 min-h-0">
+        {renderContent()}
+      </div>
 
       {/* Form (drawer or modal) */}
       {formLayout === 'drawer' && renderDrawerForm()}

@@ -227,9 +227,13 @@ const SimpleObjectForm: React.FC<ObjectFormProps> = ({
           throw new Error('DataSource is required when using ObjectQL schema fetching (inline fields not provided)');
         }
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
+        if (!schemaData) {
+          throw new Error(`No schema found for object "${schema.objectName}"`);
+        }
         setObjectSchema(schemaData);
       } catch (err) {
         setError(err as Error);
+        setLoading(false);
       }
     };
 
@@ -242,6 +246,9 @@ const SimpleObjectForm: React.FC<ObjectFormProps> = ({
       });
     } else if (schema.objectName && dataSource) {
       fetchObjectSchema();
+    } else if (!hasInlineFields) {
+      // No objectName or dataSource and no inline fields — cannot proceed
+      setLoading(false);
     }
   }, [schema.objectName, dataSource, hasInlineFields]);
 

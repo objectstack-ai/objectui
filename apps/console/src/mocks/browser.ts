@@ -79,22 +79,9 @@ export async function startMockServer() {
     });
   }
 
-  // Initialize default data from manifest if available
-  // Seed initial data from manifest.data[] into the in-memory driver
-  const manifest = (appConfig as any).manifest;
-  if (manifest && Array.isArray(manifest.data)) {
-    const totals: string[] = [];
-    for (const dataset of manifest.data) {
-      if (dataset.object && Array.isArray(dataset.records)) {
-        for (const record of dataset.records) {
-          await driver!.create(dataset.object, record);
-        }
-        totals.push(`${dataset.object}(${dataset.records.length})`);
-      }
-    }
-    if (import.meta.env.DEV) console.log(`[MSW] Seeded: ${totals.join(', ')}`);
-  }
-  
+  // Note: AppPlugin already loads manifest data during bootstrap via the Seeder,
+  // so we don't need to manually seed it again here. Doing so would create duplicates.
+
   if (import.meta.env.DEV) console.log('[MSW] ObjectStack Runtime ready');
   return kernel;
 }

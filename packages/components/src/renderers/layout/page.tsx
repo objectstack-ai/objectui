@@ -12,7 +12,7 @@
  * body/children for backward compatibility.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { PageSchema, PageRegion, SchemaNode } from '@object-ui/types';
 import { SchemaRenderer, PageVariablesProvider } from '@object-ui/react';
 import { ComponentRegistry } from '@object-ui/core';
@@ -357,29 +357,25 @@ export const PageRenderer: React.FC<{
   } = props;
 
   // Select the layout variant based on template or page type
-  const TemplateLayout = resolveTemplate(schema);
-  let LayoutVariant: React.FC<{ schema: PageSchema }>;
-
-  if (TemplateLayout) {
-    // Template takes priority over page type
-    LayoutVariant = TemplateLayout;
-  } else {
+  const layoutElement = useMemo(() => {
+    const TemplateLayout = resolveTemplate(schema);
+    if (TemplateLayout) {
+      // Template takes priority over page type
+      // eslint-disable-next-line react-hooks/static-components -- TemplateLayout is resolved from a stable template registry
+      return <TemplateLayout schema={schema} />;
+    }
     switch (pageType) {
       case 'home':
-        LayoutVariant = HomePageLayout;
-        break;
+        return <HomePageLayout schema={schema} />;
       case 'app':
-        LayoutVariant = AppPageLayout;
-        break;
+        return <AppPageLayout schema={schema} />;
       case 'utility':
-        LayoutVariant = UtilityPageLayout;
-        break;
+        return <UtilityPageLayout schema={schema} />;
       case 'record':
       default:
-        LayoutVariant = RecordPageLayout;
-        break;
+        return <RecordPageLayout schema={schema} />;
     }
-  }
+  }, [schema, pageType]);
 
   const pageContent = (
     <div
@@ -409,7 +405,7 @@ export const PageRenderer: React.FC<{
         )}
 
         {/* Page body — type-specific layout */}
-        <LayoutVariant schema={schema} />
+        {layoutElement}
       </div>
     </div>
   );

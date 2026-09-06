@@ -202,6 +202,135 @@ function fromDesignerField(
 }
 
 /**
+ * Field types whose `reference` (the target object a relationship links to)
+ * `@objectstack/spec` requires to be present and non-empty — the sibling of
+ * `MetadataService`'s list, kept here for the same reason this file keeps its
+ * own `toFieldsMap` and `carryOver`: the two writers convert different input
+ * types on different paths and neither owns the other's.
+ *
+ * Measured against the installed 17.3.0 by parsing `{ type, label: 'L' }` for
+ * every one of `FieldSchema`'s 49 declared types: exactly `lookup` and
+ * `master_detail` are refused for a missing target, and no other type is
+ * refused at all on that minimal document.
+ */
+const RELATIONSHIP_TYPES_REQUIRING_REFERENCE = ['lookup', 'master_detail'];
+
+/**
+ * Refuse a relationship field whose target is missing — BEFORE the PUT.
+ *
+ * `@objectstack/spec` 17.3.0 made `reference` a hard requirement on `lookup`
+ * and `master_detail` (a `custom` refinement at path `reference`). Against a
+ * matched backend, PUTting a half-filled relationship draft returns `422
+ * INVALID_METADATA` for the WHOLE object document — so the damage is not
+ * confined to the incomplete field: every later save of that object fails the
+ * same way until the draft is completed or removed. At 17.2.0 the requirement
+ * was prose only and this page persisted such drafts freely.
+ *
+ * The maintainer's reconciliation for that change (objectui#7122, 2026-09-05,
+ * ruled item 4) is to keep the incomplete draft in the client and never PUT it.
+ * This raises inside the caller's save `try`, so the message lands in the
+ * page's existing error surface — the same banner a nameless or duplicated
+ * field already produces, and no new UI affordance.
+ *
+ * ## The `.trim()` is a DECLARED DIVERGENCE, not an accident
+ *
+ * The predicate is `typeof reference === 'string' && reference.trim() !== ''`,
+ * which is STRICTER than the contract. Measured on the installed 17.3.0, at
+ * field level and again through the whole document:
+ *
+ *   FieldSchema.safeParse({ type: 'lookup', label: 'L', reference: '   ' })
+ *     => success = true
+ *   ObjectSchema.safeParse({ …, fields: { rel: { …, reference: '   ' } } })
+ *     => success = true
+ *
+ * — the spec ACCEPTS a whitespace-only target and this page refuses it.
+ * objectui being stricter than the platform is a divergence, not a neutral
+ * choice, so it is STATED rather than left to be inferred from a predicate
+ * (objectui#7122 contract review); undeclared, it is indistinguishable from a
+ * bug and the next reader "fixes" it.
+ *
+ * ⭐ Kept, deliberately. A whitespace-only `reference` names no object — there
+ * is no `   ` object for the record picker to query or for `$expand` to resolve
+ * — so admitting it buys the author nothing and only moves the same failure to
+ * a later and worse place, past the PUT and into a stored document. This guard
+ * exists precisely to stop a target-less lookup being saved, and a blank target
+ * is a target-less lookup that happens to parse.
+ *
+ * ⚠️ The spec accepting `'   '` while refusing `''` reads as an upstream gap
+ * rather than deliberate latitude — filed as objectstack#16126. This page is
+ * compensating for it; when it lands upstream, this section retires and the
+ * behaviour stays. The sibling writer (`MetadataService.ts`) carries the same
+ * declaration, for the parity reason stated above.
+ */
+function assertRelationshipTargetPresent(
+  field: { type?: string; reference?: unknown },
+  fieldName: string,
+  writer: string,
+): void {
+  if (!RELATIONSHIP_TYPES_REQUIRING_REFERENCE.includes(String(field?.type))) return;
+  const reference = field?.reference;
+  if (typeof reference === 'string' && reference.trim() !== '') return;
+  throw new Error(
+    `${writer} cannot save the field \`${fieldName}\`: a \`${field?.type}\` field needs a ` +
+      `\`reference\` naming the object it links to, ${describeUnusableTarget(reference)} ` +
+      'Pick the target object, or change the field to a non-relationship type.',
+  );
+}
+
+/**
+ * Why THIS value is not a usable target, and what the contract does about it —
+ * both halves, because the four states differ on both. The sibling copy in
+ * `MetadataService.ts` is word-for-word the same, for the parity reason above.
+ *
+ * ⚠️ Split out because the one sentence this used to carry ("…and this one has
+ * none") was inaccurate for two of the four (objectui#7122 contract review):
+ *
+ * | `reference`     | the spec's verdict, measured on 17.3.0             |
+ * |-----------------|----------------------------------------------------|
+ * | absent          | refused — `custom` at `reference`                  |
+ * | `''`            | refused — `custom` at `reference`                  |
+ * | non-string      | refused — **`invalid_type`**, not a missing target |
+ * | whitespace-only | ⚠️ **accepted** — refused only by this writer      |
+ *
+ * A non-string is not a field that "has none"; it is a field whose value is the
+ * wrong KIND, and "supply a target" is not the repair for `reference: 42`. And
+ * the 422 the other three branches promise is one this page cannot keep for the
+ * whitespace case — the spec would let it through — so that branch says what
+ * actually happens instead.
+ */
+function describeUnusableTarget(reference: unknown): string {
+  if (reference === undefined) {
+    return (
+      'and this one has none. `@objectstack/spec` requires it (17.3.0), so the server refuses ' +
+      'the whole object document with 422 `INVALID_METADATA` — which would then block EVERY ' +
+      'later save of this object, not just this field.'
+    );
+  }
+  if (typeof reference !== 'string') {
+    return (
+      `and this one holds ${reference === null ? 'null' : `a ${typeof reference}`} instead of ` +
+      'an object name. `@objectstack/spec` refuses that (17.3.0) as `invalid_type` at path ' +
+      '`reference` — not as a missing target — so the server refuses the whole object document ' +
+      'with 422 `INVALID_METADATA`, which would then block EVERY later save of this object.'
+    );
+  }
+  if (reference === '') {
+    return (
+      'and this one is empty. `@objectstack/spec` requires a non-empty value (17.3.0), so the ' +
+      'server refuses the whole object document with 422 `INVALID_METADATA` — which would then ' +
+      'block EVERY later save of this object, not just this field.'
+    );
+  }
+  return (
+    'and this one is blank — whitespace names no object, so nothing could ever resolve it. ' +
+    '`@objectstack/spec` 17.3.0 ACCEPTS this value (measured, both at field level and through ' +
+    '`ObjectSchema`), so the PUT would succeed and the failure would surface later and further ' +
+    'away — the record picker with no object to query, `$expand` with nothing to resolve. This ' +
+    'writer refuses it deliberately and says so (objectui#7122; upstream objectstack#16126).'
+  );
+}
+
+/**
  * Key the designer's field list by field NAME — the shape `ObjectSchema.fields`
  * requires — and refuse the three lists that shape cannot carry
  * (objectui#6489).
@@ -288,7 +417,13 @@ function toFieldsMap(
     const prev = Object.prototype.hasOwnProperty.call(prevFields, name)
       ? prevFields[name]
       : undefined;
-    entries.push([name, fromDesignerField(designed, prev)]);
+    const emitted = fromDesignerField(designed, prev);
+    // Checked on the EMITTED entry, not on `designed`: `fromDesignerField`
+    // merges the carried-over server entry underneath the designer's values, so
+    // the target may legitimately arrive from `prev` on a field the author did
+    // not touch. Reading `designed.referenceTo` alone would refuse those.
+    assertRelationshipTargetPresent(emitted, name, '[MetadataFieldsPage]');
+    entries.push([name, emitted]);
   });
 
   return Object.fromEntries(entries);

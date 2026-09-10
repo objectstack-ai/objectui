@@ -17,7 +17,9 @@ wired into no `package.json` script and no workflow.
 The pin derives the arm list on every run — flatten the union recursively through nested
 unions and `z.lazy`, then match each leaf arm to a named export **by identity**. Both
 properties are load-bearing and both are controls in the file rather than claims in a comment:
-a walk that stops at the top-level sub-unions scores exactly `options.length` arms, and a
+a walk that stops at the 13 top-level members — 12 sub-unions plus one object arm
+(`AppComponentSchema`, an arm at depth 1), not 13 sub-unions — scores exactly
+`options.length` arms, and a
 name-based match is satisfied by `export { NavigationSchema as BreadcrumbSchema }` — the
 parent sub-union under the arm's name, which passes every behavioural leg of #8777's pin. No
 count is hard-coded; the only bound asserted against the real union is a floor read off that

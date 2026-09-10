@@ -67,6 +67,19 @@
  *
  * ## Instruments
  *
+ * ⚠️ **Four expected NAMES here moved in objectui#8729, and the reason is
+ *   worth keeping.** That card made this chip resolve the field's label through
+ *   `fieldLabel` — the call `HeaderHighlight` and `DetailSection` already make —
+ *   instead of printing the raw stored column. So a fixture whose authored
+ *   label differs from its stored name now announces the label:
+ *   `status: Negotiation` → `Status: Negotiation`, `owner:` → `Owner:`,
+ *   `stage:` → `Stage:`, `ratio:` → `Ratio:`. ⭐ THIS CARD'S SUBJECT DID NOT
+ *   MOVE: the VALUE half of every one of those strings is byte-identical, and
+ *   the whole `RENDERER_BACKED` table below is untouched down to the byte
+ *   because it declares `label: field` — the two spellings coincide there, so
+ *   the naming change is invisible to it, which is itself the measurement that
+ *   the change is confined to the name.
+ *
  * - Chips are navigated by `[data-summary-chip="<field>"]`, added by this change
  *   so a renderer-backed chip (which carries no `aria-label` — see below) has the
  *   same handle as a string one. ⚠️ NOT by `queryByText`, which throws on
@@ -253,7 +266,7 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       '[object Object]',
     );
     expect(textOf(chip), 'the auto-detected chip reads the record name').toBe(
-      'status: Negotiation',
+      'Status: Negotiation',
     );
   });
 
@@ -281,7 +294,7 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
     expect(
       chip.getAttribute('aria-label'),
       'a string-path chip keeps the accessible name it always had, now true',
-    ).toBe('owner: Ada Lovelace');
+    ).toBe('Owner: Ada Lovelace');
   });
 
   it('OPTION FAMILY — a select field holding an object reads the coerced text, not a pill in a pill', () => {
@@ -297,7 +310,7 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
     expect(nestedPills(chip).length, 'the option renderer is not nested inside the chip').toBe(0);
     expect(textOf(chip), 'the chip reads the coerced text').toBe('Negotiation');
     expect(chip.getAttribute('aria-label'), 'and its accessible name says the same').toBe(
-      'stage: Negotiation',
+      'Stage: Negotiation',
     );
   });
 
@@ -429,7 +442,7 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       expect(
         chip.getAttribute('aria-label'),
         'and the accessible name still comes from that same string',
-      ).toBe('ratio: 12.3%');
+      ).toBe('Ratio: 12.3%');
     });
   });
 

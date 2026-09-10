@@ -332,6 +332,11 @@ describe('objectui#8567 — the identity and the operator path are untouched', (
     expect(convertFiltersToAST({ status: 'active' })).toEqual(['status', '=', 'active']);
     expect(convertFiltersToAST({ count: 0, ok: false }))
       .toEqual(['and', ['count', '=', 0], ['ok', '=', false]]);
-    expect(convertFiltersToAST({ a: null, b: undefined })).toEqual({ a: null, b: undefined });
+    // UPDATED by objectui#9020 — an all-skipped filter answers "no constraint"
+    // rather than handing back the caller's object. The skip itself, which is
+    // what this control guards, is unchanged: the sibling case below is the
+    // half that would redden if this card had made null keys meaningful.
+    expect(convertFiltersToAST({ a: null, b: undefined })).toBeUndefined();
+    expect(convertFiltersToAST({ a: null, status: 'active' })).toEqual(['status', '=', 'active']);
   });
 });

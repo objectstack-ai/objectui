@@ -479,6 +479,13 @@ function refuseTextComparand(field: string, operator: string, target: unknown): 
  * // constrains nothing, and says so (objectui#8770). Callers skip the slot.
  * convertFiltersToAST({ $and: [] })
  * // => undefined
+ *
+ * @example
+ * // A filter whose EVERY key is skipped for a null/undefined value also
+ * // constrains nothing — the same answer this function already gives that key
+ * // when a sibling survives (objectui#9020). Callers skip the slot.
+ * convertFiltersToAST({ a: null })
+ * // => undefined
  */
 export function convertFiltersToAST(
   filter: Record<string, any>,
@@ -489,9 +496,19 @@ export function convertFiltersToAST(
    * — see the tail for why a COUNT rather than a flag.
    */
   let trueIdentityGroups = 0;
+  /**
+   * How many keys the loop SKIPPED for a `null` / `undefined` value — a SECOND
+   * count, deliberately not folded into the one above. The tail says why the
+   * two "this constrains nothing" states are counted apart even though they
+   * reach the same answer (objectui#9020).
+   */
+  let skippedNullKeys = 0;
 
   for (const [field, value] of Object.entries(filter)) {
-    if (value === null || value === undefined) continue;
+    if (value === null || value === undefined) {
+      skippedNullKeys += 1;
+      continue;
+    }
 
     // Logical combinators are read BEFORE the field/operator machinery below,
     // because they are not fields and their value is not an operator map.
@@ -782,15 +799,69 @@ export function convertFiltersToAST(
     //
     // ⛔ Scoped to a filter whose EVERY key is such a group, which is why the
     // count above is compared with the key count instead of being a flag. The
-    // `return filter` below also serves inputs that are not combinators at all
-    // — `{}`, an all-null filter, an empty operator map — and they are NOT this
-    // case: a null-valued key is this function's own long-standing tolerance
-    // rather than a ruled identity, and the object it hands back travels the
-    // `$expand` / `$search` route as `filter={"a":null}`, which the server reads
-    // as a REAL `a IS NULL` predicate. Folding those into "no constraint" would
-    // return MORE rows on a path #5322 said nothing about, so `{ $and: [], a:
-    // null }` keeps the object it has always returned.
+    // `return filter` below still serves inputs that are not combinators at all
+    // — `{}`, an empty operator map, and a MIXTURE of an identity group with a
+    // skipped key — and they are NOT this case.
     if (trueIdentityGroups > 0 && trueIdentityGroups === Object.keys(filter).length) {
+      return undefined;
+    }
+
+    // The WHOLE filter was keys the loop SKIPPED for a null/undefined value —
+    // objectui#9020.
+    //
+    // Skipping such a key is this file's oldest documented behaviour and is NOT
+    // what changed here: `{ a: null, s: 1 }` still lowers to `['s', '=', 1]`,
+    // pinned as "should skip null and undefined values" since long before any of
+    // the cards above. What changed is what the function says when the skip
+    // leaves NOTHING behind. It used to hand back the CALLER'S ORIGINAL OBJECT,
+    // and that object meant two different things on the two `find()` routes of
+    // `@object-ui/data-objectstack` — measured against @objectstack/spec 17.4.0
+    // and @objectstack/client 17.4.0:
+    //
+    //   - the plain route (`convertQueryParams` → `client.data.find`) tests the
+    //     value with `isFilterAST`, and its ELSE branch spreads a plain object's
+    //     entries as query parameters SKIPPING null ones — so `{ a: null }`
+    //     appended nothing at all, no `filter` parameter was sent, and the
+    //     answer was EVERY ROW;
+    //   - the `$expand` / `$search` route (`rawFindWithPopulate`, and the export
+    //     route beside it) JSON-serialises the same object into `filter=`, and
+    //     `{ a: null }` is a well-formed `FilterCondition` the spec accepts
+    //     (`null` is in `ACCEPTED_FILTER_COMPARAND_TYPES`), so it arrived as a
+    //     REAL predicate and the answer was SOME rows.
+    //
+    // One authored filter, two row sets, and the deciding input was whether the
+    // query happened to want a lookup expanded — the split objectui#6948
+    // recorded on this file and the shared `translateFilterToAST` helper exists
+    // to close. It was also self-inconsistent within ONE route: the key meant
+    // "no constraint" the moment ANY sibling produced a condition and meant a
+    // predicate when it was alone, which is the sibling-dependence objectui#8555
+    // named here.
+    //
+    // ⇒ the tie is broken by what this function ALREADY says about the key, not
+    // by inventing a meaning for it. The loop's `continue` is the ruling: the key
+    // contributes no condition. Carrying that to the wire is `undefined`, and an
+    // author who wants the predicate has always been able to spell it
+    // `{ a: { $null: true } }` → `['a', 'is_null', true]`. The opposite repair —
+    // making a null-valued key lower to a predicate — would have broken the skip
+    // pin and changed every caller.
+    //
+    // ⚠️ SAME ANSWER as the fold above, NOT the same state, which is why these
+    // are two counts and two guards rather than one. That fold's `undefined` is
+    // objectstack#5322's RULED identity, reached by `lowerLogicalGroup`; this
+    // one is this file's own tolerance made consistent with itself. They
+    // coincide because "no constraint" has exactly ONE expressible spelling in
+    // this dialect — the absence of the slot — not because the two inputs are
+    // the same kind of thing. Keeping the counts apart is also what keeps each
+    // fence readable: a filter that MIXES the two (`{ $and: [], a: null }`,
+    // `{ $and: [], b: undefined }`) satisfies neither guard and still returns the
+    // object, which is objectui#9030's open question and deliberately not
+    // answered here.
+    //
+    // ⛔ `{}` is not this case either — `skippedNullKeys > 0` excludes it. An
+    // empty filter has no key to skip, `toFilterNode` already folds it one level
+    // up, and objectui#8770 measured that boundary; moving it is a separate
+    // argument nobody has made.
+    if (skippedNullKeys > 0 && skippedNullKeys === Object.keys(filter).length) {
       return undefined;
     }
     // If no conditions, return original filter
@@ -1034,9 +1105,11 @@ function viewFilterRuleToNode(rule: ViewFilterRuleLike): FilterNode {
  * Returns `undefined` for an absent or empty source, so callers can skip
  * `$filter` rather than sending an empty array — and, since objectui#8770, for
  * an object source that is nothing but TRUE-identity combinators
- * (`{ $and: [] }`), which constrains nothing and so contributes nothing to the
- * `and` {@link mergeFilterNodes} builds. That answer is inherited from
- * {@link convertFiltersToAST}, not decided a second time here.
+ * (`{ $and: [] }`), and since objectui#9020 for one whose every key is skipped
+ * for a null/undefined value (`{ a: null }`). Both constrain nothing and so
+ * contribute nothing to the `and` {@link mergeFilterNodes} builds. Those answers
+ * are inherited from {@link convertFiltersToAST}, not decided a second time
+ * here — including the fact that they are two separate decisions there.
  */
 export function toFilterNode(source: unknown): FilterNode | Record<string, any> | undefined {
   if (source === null || source === undefined) return undefined;

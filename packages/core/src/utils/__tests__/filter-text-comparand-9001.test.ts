@@ -385,11 +385,17 @@ describe('objectui#9001 — what the guard must NOT touch', () => {
     // A new refusal must not perturb it. It cannot: the guard THROWS, so it
     // adds no `continue` and skips no key, and the tail is unreachable from
     // it. Pinned rather than argued.
+    //
+    // ⚠️ UPDATED by objectui#9020, which gave the all-skipped tail its own
+    // count and its own `undefined`. That is a SECOND guard beside this one,
+    // not a change to it: the two cases below that mix the kinds still satisfy
+    // neither guard, which is how this control keeps measuring what it was
+    // written to measure.
     expect(convertFiltersToAST({ $and: [] })).toBeUndefined();
     expect(convertFiltersToAST({ $or: [{}] })).toBeUndefined();
     expect(convertFiltersToAST({ $and: [], a: null })).toEqual({ $and: [], a: null });
     expect(convertFiltersToAST({})).toEqual({});
-    expect(convertFiltersToAST({ a: null })).toEqual({ a: null });
+    expect(convertFiltersToAST({ a: null })).toBeUndefined();
     expect(convertFiltersToAST({ $and: [], name: { $icontains: 'x' } })).toEqual([
       'name',
       'icontains',

@@ -26,6 +26,18 @@
  * already share, whose verdict is `@objectstack/spec/data`'s own
  * `isMultiValueField`.
  *
+ * ⚠️ That verdict is the SPEC's, and it is NOT the driver's — the two rules
+ * are not one predicate, and this file does not assert that they agree. The
+ * spec gates on the field TYPE (`MULTI_OPTION_TYPES.has(type) ||
+ * (MULTI_CAPABLE_TYPES.has(type) && multiple === true)`), while `driver-sql`
+ * decides storage on `!!field.multiple` whatever the type is, so a
+ * `multiple: true` def on a type OUTSIDE the spec's multi-capable set is
+ * single-valued to the renderer and a JSON column to the driver. Which of the
+ * two is right is owned upstream by objectstack#17469; ⛔ nothing here decides
+ * it. The cases below stay clear of that disagreement on purpose: they relate
+ * through a `lookup` field, which both rules call multi-valued, so what they
+ * measure is the rail's compilation and not the open question.
+ *
  * The LINK half is not repairable at this layer and is not repaired: no URL
  * spelling on this surface carries membership, so the link is SUPPRESSED on a
  * multi-value relationship rather than pointed at an unscoped child table.

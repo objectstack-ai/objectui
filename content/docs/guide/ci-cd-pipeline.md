@@ -318,6 +318,35 @@ first, which is what stops a scanner that recognises nothing from reporting a cl
   reads declared return types with the TypeScript parser, and every pre-install gate's import graph is
   held to node builtins plus local modules
   ([#8903](https://github.com/objectstack-ai/objectui/issues/8903)).
+- Then `scripts/check-test-path-roots.mjs` — a test that reads the filesystem inside an assertion
+  must root its paths on **its own file**, never on `process.cwd()`. The cwd is not one place here:
+  a package's own `test` script moves Vitest's root up to the repository root and leaves
+  `process.cwd()` down in the package directory, so a path assembled from the cwd reads a
+  **different tree** depending on which invocation started it, and a single assertion reaches two
+  verdicts — measured at `7 passed` from the repository root and `2 failed / 5 passed` from the
+  package directory, cwd the only variable
+  ([#7791](https://github.com/objectstack-ai/objectui/issues/7791)). Root `AGENTS.md` had taught
+  that rule with nothing behind it, and what a taught-only rule costs is also measured:
+  [#7799](https://github.com/objectstack-ai/objectui/issues/7799) repaired thirteen instances of the
+  class in a single day without closing it, and `gridArrayArmOrderby-8973.test.tsx` — written
+  **after** that sweep — arrived carrying the same defect
+  ([#8953](https://github.com/objectstack-ai/objectui/issues/8953)). It is deliberately not a
+  `process.cwd` grep, because one of those thirteen was invisible to the census regex that found the
+  other twelve: it spelled the read through a `globalThis` cast, to dodge a browser `process` shim.
+  So the scan starts at the **filesystem call** and resolves what its path argument is rooted at
+  through the file's own bindings — which catches a root laundered through a `const`, on a line that
+  holds no `cwd` at all — and it decides what counts as a filesystem call by **import provenance**
+  rather than by name, because a test that declares its own `writeFile` into a temporary directory
+  is twelve false positives for anything reading the spelling. Across the tree, name-matching
+  produced 28 violations and provenance produces 8.
+- ⚠️ **Read that gate's green for what it is: it declares its own blind spot on every run.** The
+  census line ends with `N root(s) NOT CLASSIFIED` — 376 as this was written, enumerated by
+  `--blind` — because root resolution stops at the module edge, so a root arriving as a function
+  parameter or from an import is invisible to it. That is the largest gap and it is structural: one
+  of the three files repaired alongside the gate handed `process.cwd()` straight to a helper that
+  did the reads, and was found by a human reading the file, not by the gate. A clean run is a
+  verdict on the roots this gate can classify, never a clean bill of health for the class — which is
+  the same over-reading the card itself is about.
 - Then `scripts/check-cross-repo-closer-outcome.mjs` — it extracts the ~250 lines of inline
   `github-script` out of `cross-repo-issue-closer.yml` with a real parser, never a retyped copy,
   runs it under doubles the way `actions/github-script` does, and pins each exit's outcome: which

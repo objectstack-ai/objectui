@@ -120,10 +120,29 @@ function isTitledPageHeader(node: any): boolean {
   return literalTitleText(node?.title ?? node?.properties?.title) !== '';
 }
 
-/** Depth-bounded walk over the component shapes a page can nest. */
+/**
+ * Depth-bounded walk over the component shapes a page can nest.
+ *
+ * Takes ONE node or a LIST of them, and judges both by the same rule. `body`
+ * and `children` are declared `SchemaNode | SchemaNode[]` on `PageNodeSchema`
+ * and on `BaseSchema`, and `FlatContent` below has always rendered the bare-node
+ * form, so a single node is a first-class authored shape — at the top level and
+ * at every nested level the recursion re-enters (objectui#8923). This used to
+ * open with `if (!Array.isArray(nodes)) return false`, so every bare-node
+ * channel answered "no titled header here" and PageRenderer drew a second `h1`
+ * next to the authored one (the outline objectui#3434 closed).
+ *
+ * Normalising HERE rather than at the three call sites is deliberate: one
+ * normaliser at the entry beats four predicates each having to remember
+ * `Array.isArray`. It spends no depth budget — the widening happens inside the
+ * same invocation as the `depth > 6` check — so the bound still admits exactly
+ * the levels it admitted before. Spelled the way `FlatContent` already widens
+ * the same two keys.
+ */
 function containsTitledPageHeader(nodes: unknown, depth = 0): boolean {
-  if (!Array.isArray(nodes) || depth > 6) return false;
-  return nodes.some(
+  if (depth > 6) return false;
+  const list: unknown[] = Array.isArray(nodes) ? nodes : nodes ? [nodes] : [];
+  return list.some(
     (n: any) =>
       !!n &&
       typeof n === 'object' &&
@@ -157,8 +176,8 @@ function pageHeaderOwnsTitle(schema: PageNodeSchema): boolean {
   const regionNodes = (schema.regions ?? []).flatMap((r: any) => r?.components ?? []);
   return (
     containsTitledPageHeader(regionNodes) ||
-    containsTitledPageHeader((schema as any).body) ||
-    containsTitledPageHeader((schema as any).children)
+    containsTitledPageHeader(schema.body) ||
+    containsTitledPageHeader(schema.children)
   );
 }
 

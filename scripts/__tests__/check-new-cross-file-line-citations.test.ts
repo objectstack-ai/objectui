@@ -119,6 +119,49 @@ describe('the differ FIRES — the direction that makes this a gate at all', () 
     expect(added[1].citedWritten).toBe('packages/core/src/actions/ActionRunner.ts');
   });
 
+  /**
+   * objectui#9026 — THE GATE'S OWN ZERO, reproduced and then made to fire.
+   *
+   * ⭐ This is the assertion the card is about. A pull request whose docblock
+   * carried six cross-file addresses — all of them already rotted — was scored
+   * `0 new citation(s)` by this gate, because scope opened only on a full
+   * `NAME:NNN` and the docblock named its file without one. Report-only was
+   * never the problem: the gate was SILENT on the class, and a reader who knows
+   * a number is report-only still reads a clean sheet as nothing to look at.
+   *
+   * ⛔ A green run proves nothing here. The paired ablation below removes the
+   * filename and asserts the gate falls back to the zero it used to print, so
+   * the firing direction is the thing under test.
+   */
+  const KANBAN_DOCBLOCK = [
+    ' * `packages/plugin-kanban/src/ObjectKanban.tsx` reads `schema.groupBy` at',
+    ' * thirteen sites: lane materialisation (`:601`, `:625`, `:640`), card moves',
+    ' * (`:747`, `:865`) and their effect deps.',
+    '',
+  ].join('\n');
+
+  it('reports the continuation addresses under a filename that carries no number', () => {
+    const added = newCitationsIn({
+      relPath: NOTES,
+      baseText: '',
+      headText: KANBAN_DOCBLOCK,
+    });
+    expect(added.map((a) => a.citedLine)).toEqual([601, 625, 640, 747, 865]);
+    for (const a of added) {
+      expect(a.syntax).toBe('continuation');
+      expect(a.citedWritten).toBe('packages/plugin-kanban/src/ObjectKanban.tsx');
+    }
+  });
+
+  it('⛔ ABLATION — with the filename gone the gate prints the zero it used to', () => {
+    const added = newCitationsIn({
+      relPath: NOTES,
+      baseText: '',
+      headText: KANBAN_DOCBLOCK.replace('`packages/plugin-kanban/src/ObjectKanban.tsx` reads', 'the renderer reads'),
+    });
+    expect(added).toHaveLength(0);
+  });
+
   it('a RE-ADDRESSED citation is new — moving the number is not a repair', () => {
     // Clause 4 repairs an existing address by converting it to a content
     // anchor, never by moving the number to a different number. So an edited

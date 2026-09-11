@@ -47,6 +47,7 @@ import {
   CONTROLS,
   FALSE_VERDICTS,
   MAX_ANCHOR_LINES,
+  CONT_WINDOW,
 } from '../cross-file-line-citation-census.mjs';
 
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -363,5 +364,111 @@ describe('reporting buckets', () => {
     expect(bucketOf('scripts/pm/check-half-states.mjs')).toBe('scripts/pm');
     expect(bucketOf('scripts/check-doc-links.mjs')).toBe('scripts');
     expect(bucketOf('ROADMAP.md')).toBe('(repo root)');
+  });
+});
+
+/**
+ * objectui#9026 — the continuation form the charter claimed and the code could
+ * not read.
+ *
+ * ⭐ THE WHOLE POINT IS THAT GREEN WAS THE WRONG ANSWER. `ObjectKanbanSchema`
+ * carried six bare addresses into `plugin-kanban`'s renderer; every one of them
+ * had rotted by ~370 lines, and this scanner reported the docblock EMPTY. So a
+ * passing run of the assertions below proves nothing on its own — each one is
+ * written so that removing the mechanism it names sends it back to that zero,
+ * and the two `⛔` cases do exactly that ablation inline.
+ *
+ * The fixture is the real docblock, recovered from the commit that replaced it,
+ * ⛔ not a paraphrase — the shape is the finding.
+ */
+describe('a bare filename opens the continuation scope, not only a full address', () => {
+  const DOCBLOCK = [
+    '   * The lane key the `object-kanban` renderer actually reads —',
+    '   * `packages/plugin-kanban/src/ObjectKanban.tsx` reads `schema.groupBy` at',
+    '   * thirteen sites: lane materialisation (`:601`, `:625`, `:640`), card moves',
+    '   * (`:747`, `:865`) and their effect deps. Undeclared here until',
+    '   * objectui#7322, so an authored value reached the renderer only through',
+    "   * {@link BaseSchema}'s `[key: string]: any` — admitted, never examined.",
+    '   *',
+    '   * REQUIRED, as the retired `groupField` was: a board is a grouping of records',
+    "   * by one field. The renderer's `if (!schema.groupBy)` branches (`:601`,",
+    '   * `:613`) are defensive early-returns, not a lane-less mode — every',
+    '   * documented and tested `object-kanban` node authors this key.',
+  ].join('\n');
+
+  const NAMES_THE_FILE = '`packages/plugin-kanban/src/ObjectKanban.tsx` reads `schema.groupBy` at';
+  const cited = (text: string) =>
+    scan(text, 'packages/types/src/objectql.ts').hits.map((h) => h.citedLine);
+
+  it('reads the addresses that sit under the line naming the file', () => {
+    const seen = cited(DOCBLOCK);
+    // Reported against the file the prose names, ⛔ never against the citing file.
+    for (const h of scan(DOCBLOCK, 'packages/types/src/objectql.ts').hits) {
+      expect(h.syntax).toBe('continuation');
+      expect(h.citedWritten).toBe('packages/plugin-kanban/src/ObjectKanban.tsx');
+    }
+    expect(seen).toEqual([601, 625, 640, 747, 865]);
+  });
+
+  it('⛔ ABLATION — take the filename away and the same docblock reads zero again', () => {
+    // The trigger is the whole defect: scope used to open ONLY on a full
+    // `NAME:NNN`, so a filename carrying no number of its own put nothing in
+    // scope and every address below it was a colon and a number. This is that
+    // state, reconstructed — and it is the zero the census actually reported.
+    const noFilename = DOCBLOCK.replace(NAMES_THE_FILE, 'reads `schema.groupBy` at');
+    expect(noFilename).not.toContain('ObjectKanban.tsx');
+    expect(cited(noFilename)).toEqual([]);
+  });
+
+  it('⛔ ABLATION — the proximity window was never the binding constraint', () => {
+    // ⚠️ Reading the ±2 window as the cause is the tempting wrong turn, and it
+    // is measurably wrong: with the trigger absent, that docblock reads 0 of 6
+    // at ANY window, because no window can carry a file that never entered
+    // scope. Here is the same fact locally — the first address sits ONE line
+    // under the filename, well inside the window that was already shipped.
+    const lines = DOCBLOCK.split('\n');
+    const namesFileAt = lines.findIndex((l) => l.includes('ObjectKanban.tsx'));
+    const firstAddressAt = lines.findIndex((l) => l.includes(':601'));
+    expect(firstAddressAt - namesFileAt).toBeLessThanOrEqual(CONT_WINDOW);
+    // ⇒ the window admitted it and the scanner still refused it. So the window
+    // stays where it shipped; ⛔ widening it is not this fix.
+    expect(CONT_WINDOW).toBe(2);
+  });
+
+  it('⚠️ leaves the restated address BLIND, and says so rather than implying coverage', () => {
+    // The sixth address is restated in a second paragraph, eight lines below the
+    // only filename and with none of its own. It is NOT read, and that is the
+    // deliberate guard doing its job, ⛔ not an oversight to quietly widen: on
+    // this tree, reaching it costs 14 more rows of which 3 are a port, a cron
+    // minute and a Chinese enumeration. Pinned by name so no reader can cite
+    // this syntax as covering an address that drifted out of its scope.
+    expect(DOCBLOCK).toContain(':613');
+    expect(cited(DOCBLOCK)).not.toContain(613);
+  });
+
+  it('gives an address to the file named to its LEFT, not to the line’s last match', () => {
+    // REGRESSION: scope used to be whatever the line's LAST match left behind,
+    // so a line naming two files gave its bare addresses to the wrong one —
+    // silently, and with a verdict attached. Both belong to the file written
+    // before them.
+    const twoFiles = '// (`ViewTabBar.tsx:564`, `:667`; `ManageViewsDialog.tsx:300`, `:361`)';
+    expect(shapes(twoFiles)).toEqual([
+      'colon ViewTabBar.tsx:564',
+      'colon ManageViewsDialog.tsx:300',
+      'continuation ViewTabBar.tsx:667',
+      'continuation ManageViewsDialog.tsx:361',
+    ]);
+  });
+
+  it('does not let a filename in one paragraph capture a number in the next', () => {
+    // A blank line ends the prose unit. Without this, a filename in one
+    // sentence adopts the port number in the next one — measured on this tree
+    // as three readings, two of them a port and one a cron minute.
+    const acrossBlank = ['see `apps/console/vite.config.ts`', '', 'the backend runs on :3000'].join('\n');
+    expect(shapes(acrossBlank)).toEqual([]);
+    // FIRING CONTROL for the same code path: without the blank line it IS read,
+    // so the empty result above is the barrier and ⛔ not a scanner that failed.
+    const sameParagraph = ['see `apps/console/vite.config.ts`', 'the backend runs on :3000'].join('\n');
+    expect(shapes(sameParagraph)).toEqual(['continuation apps/console/vite.config.ts:3000']);
   });
 });

@@ -296,6 +296,10 @@ export const ADJUDICATED = new Map([
     { reads: ['content/docs/components/basic/button-group.mdx'] },
   ],
   [
+    'packages/types/src/__tests__/calendar-doc-key-set-8830.test.ts',
+    { reads: ['content/docs/plugins/plugin-calendar.mdx'] },
+  ],
+  [
     'packages/types/src/__tests__/calendar-flat-color-allday-8466.test.ts',
     { reads: ['packages/plugin-calendar/README.md'] },
   ],

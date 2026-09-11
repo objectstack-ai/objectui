@@ -263,12 +263,30 @@ const schema: ObjectCalendarSchema = {
 }
 ```
 
-`CalendarConfig` is `@objectstack/spec`'s `CalendarConfigSchema`, and that schema
-is **strict**: these four are the whole of it, and a fifth key is rejected rather
-than ignored. `ObjectCalendar` destructures exactly
-`{ startDateField, endDateField, titleField, colorField }`
-(`ObjectCalendar.tsx`), so the list above is also the whole of what the renderer
-reads.
+`CalendarConfig` is a re-export of `@objectstack/spec`'s `CalendarConfigSchema`,
+and that schema is **strict**: the four keys above are the whole of *the spec
+type*, and it refuses a fifth by name with an `unrecognized_keys` diagnostic.
+That is a statement about the type — not about what this renderer reads, and not
+about what reaches it.
+
+`ObjectCalendar` (`ObjectCalendar.tsx`) reads **five** keys off the `calendar`
+block: the four above plus objectui's own `allDayField`, honoured since
+objectui#8026.
+
+`{ startDateField, endDateField, titleField, colorField, allDayField }`
+
+`allDayField` names the record field carrying the all-day flag. It is
+objectui-local by design — the spec refuses the name — and this renderer gives it
+**no** default field name, so a calendar that never declares it draws exactly as
+before, with the all-day flag inferred from the absence of an end date.
+
+Nor is a fifth key rejected on the way in. Neither published face of
+`ObjectCalendarSchema` declares the `calendar` container, so whatever you write
+inside it reaches the renderer unexamined; on the list-view path the container
+*is* declared — as objectui's own mirror of the spec schema, which keeps
+`.passthrough()` for exactly this. Annotating the block `CalendarConfig` is what
+narrows it to the spec's four: under that annotation `allDayField` does not
+compile.
 
 ## Configuration
 

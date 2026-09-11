@@ -302,7 +302,8 @@ async function renderAndCollect(child: any, rows: Record<string, any>[]) {
     expect(childCalls().some((c: any[]) => isRowQuery(c[1]))).toBe(true);
     expect(childCalls().some((c: any[]) => isBadgeProbe(c[1]))).toBe(true);
   });
-  const rowQueries = () => childCalls().filter((c: any[]) => isRowQuery(c[1])).map((c) => c[1]);
+  const rowQueries = (): Record<string, any>[] =>
+    childCalls().filter((c: any[]) => isRowQuery(c[1])).map((c: any[]) => c[1]);
   return {
     ds,
     rowQueries,

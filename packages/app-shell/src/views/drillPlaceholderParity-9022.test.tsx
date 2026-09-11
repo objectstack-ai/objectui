@@ -65,12 +65,20 @@ const LITERAL_FILTER = {
   close_date: { $gte: '2026-04-01' },
 };
 
-let location = { pathname: '', search: '' };
+/**
+ * Where the router currently is, rendered rather than captured into a module
+ * variable: a render-phase write to an outer binding is a lint error here, and
+ * an effect-based capture would need its own settling window on top of the one
+ * `waitFor` already gives us.
+ */
+function LocationProbe() {
+  const { pathname, search } = useLocation();
+  return <span data-testid="router-location">{`${pathname}${search}`}</span>;
+}
 
-function LocationSpy() {
-  const l = useLocation();
-  location = { pathname: l.pathname, search: l.search };
-  return null;
+/** The probe's current reading, or the empty string before anything mounted. */
+function currentLocation(): string {
+  return screen.queryByTestId('router-location')?.textContent ?? '';
 }
 
 /** The host wiring `DashboardView` and `ReportView` both use, verbatim. */
@@ -95,7 +103,6 @@ function mount(
   ds: ReturnType<typeof makeDataSource>,
 ) {
   cleanup();
-  location = { pathname: '', search: '' };
   return render(
     <MemoryRouter initialEntries={['/apps/crm/dashboard/pipeline']}>
       <FilterScopeProvider currentUserId={SCOPE.currentUserId} currentOrgId={SCOPE.currentOrgId}>
@@ -104,7 +111,7 @@ function mount(
             path="/apps/:appName/*"
             element={
               <Host>
-                <LocationSpy />
+                <LocationProbe />
                 <DrillDownDrawer
                   open
                   onClose={vi.fn()}
@@ -138,8 +145,8 @@ async function drawerScope(filter: Record<string, unknown>): Promise<FilterTripl
 async function navigateScope(filter: Record<string, unknown>): Promise<FilterTriple[]> {
   const ds = makeDataSource();
   mount('navigate', filter, ds);
-  await waitFor(() => expect(location.pathname).toBe('/apps/crm/opportunity/data'));
-  return parseUrlFilterTriples(new URLSearchParams(location.search));
+  await waitFor(() => expect(currentLocation()).toMatch(/^\/apps\/crm\/opportunity\/data/));
+  return parseUrlFilterTriples(new URLSearchParams(currentLocation().split('?')[1] ?? ''));
 }
 
 /** The scope the drawer's own header button lands on (`OpenInListButton`). */
@@ -147,8 +154,8 @@ async function openInListScope(filter: Record<string, unknown>): Promise<FilterT
   const ds = makeDataSource();
   mount('drawer', filter, ds);
   fireEvent.click(await screen.findByTestId('drill-open-in-list'));
-  await waitFor(() => expect(location.pathname).toBe('/apps/crm/opportunity/data'));
-  return parseUrlFilterTriples(new URLSearchParams(location.search));
+  await waitFor(() => expect(currentLocation()).toMatch(/^\/apps\/crm\/opportunity\/data/));
+  return parseUrlFilterTriples(new URLSearchParams(currentLocation().split('?')[1] ?? ''));
 }
 
 afterEach(cleanup);

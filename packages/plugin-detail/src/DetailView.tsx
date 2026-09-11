@@ -294,7 +294,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
   const { t } = useDetailTranslation();
   // Tenant default currency (ADR-0053) for summary metrics whose field omits one.
   const { currency: tenantCurrency } = useLocalization();
-  const { fieldOptionLabel } = useSafeFieldLabel();
+  const { fieldOptionLabel, fieldLabel } = useSafeFieldLabel();
 
   // Field-level permission gate. Filter section.fields and top-level
   // fields based on the current user's read permissions BEFORE any
@@ -1059,6 +1059,44 @@ export const DetailView: React.FC<DetailViewProps> = ({
                     .find((f) => f.name === fieldName);
                   const objField = objectSchema?.fields?.[fieldName];
                   const ftype = sectionField?.type || objField?.type;
+                  // ── The chip's NAME half ──────────────────────────────────
+                  //
+                  // The chip carries no visible label, so what follows is the
+                  // WHOLE of what a screen-reader user hears the field called —
+                  // and it used to be `fieldName`, the raw stored column
+                  // (objectui#8729). Every other band of this page resolves a
+                  // label: `HeaderHighlight` and `DetailSection` both call
+                  // `fieldLabel(objectName, name, authoredLabel)`. This is that
+                  // same call, not a fourth resolution path — a chip and the
+                  // highlight strip one band below must name the same field the
+                  // same way, including when a translation overrides the
+                  // authored label.
+                  //
+                  // The fallback chain is this render's own field resolution,
+                  // not a new one: the summary chip is addressed by NAME only
+                  // (`summaryFields: ['owner_ref']`), so unlike the siblings —
+                  // whose inputs are field objects that already carry a label —
+                  // it has to find one. `sectionField` (the author's explicit
+                  // entry) wins over `objField` (the object schema), exactly as
+                  // `enrichDetailField` states it, and `fieldName` is the floor,
+                  // exactly as `DetailSection` spells it (`field.label ||
+                  // field.name`). `autoSummaryFields` above already merges the
+                  // two sources this way to PICK the chip; this names it from
+                  // the same pair.
+                  //
+                  // ⚠️ NOT `chipField.label` below: `enrichDetailField` copies
+                  // `ENRICHED_FIELD_METADATA_KEYS`, and `label` is deliberately
+                  // not one of them — so that bag carries `sectionField?.label`
+                  // alone and an object-schema label would be dropped.
+                  //
+                  // ⛔ `data-summary-chip` keeps the RAW name on purpose: it is
+                  // a machine handle for tests and automation, not a name for a
+                  // reader, and a stored column is exactly what it should say.
+                  const chipLabel = fieldLabel(
+                    schema.objectName || '',
+                    fieldName,
+                    sectionField?.label || objField?.label || fieldName,
+                  );
                   let display: string = String(val);
                   let percentValue: number | null = null;
                   try {
@@ -1182,7 +1220,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                             it — hiding the very value this branch exists to
                             show. Same accessible name, `field: value`, composed
                             from content instead. */}
-                        <span className="sr-only">{`${fieldName}: `}</span>
+                        <span className="sr-only">{`${chipLabel}: `}</span>
                         <ChipCellRenderer value={val} field={chipField as any} />
                       </Badge>
                     );
@@ -1194,7 +1232,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         key={fieldName}
                         variant="secondary"
                         className="text-xs bg-primary/10 text-primary border-transparent hover:bg-primary/15 gap-1.5 pl-2 pr-2"
-                        aria-label={`${fieldName}: ${display}`}
+                        aria-label={`${chipLabel}: ${display}`}
                         data-summary-chip={fieldName}
                       >
                         <span
@@ -1215,7 +1253,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                       key={fieldName}
                       variant="secondary"
                       className="text-xs bg-primary/10 text-primary border-transparent hover:bg-primary/15"
-                      aria-label={`${fieldName}: ${display}`}
+                      aria-label={`${chipLabel}: ${display}`}
                       data-summary-chip={fieldName}
                     >
                       {display}

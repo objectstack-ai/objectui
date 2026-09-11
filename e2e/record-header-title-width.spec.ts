@@ -147,8 +147,26 @@ const PAGE = {
 
 /** The measured render size of `<Button size="icon">` in both headers. */
 const ICON_BUTTON = 'h-10 w-10 shrink-0';
-/** A tail box wide enough to reproduce the measured app tails (see header). */
-const TAIL_BOX = 'h-9 w-48 shrink-0';
+/**
+ * Tail boxes sized so each fixture tail lands in the band where the hazard
+ * lives — and the band is narrow in BOTH directions, which is the part worth
+ * writing down.
+ *
+ * A tail has to FIT on the row to starve the title: `tail + gap <= viewport`.
+ * Push it wider than that and the row's own wrap drops it to a second line all
+ * by itself, the title gets the whole row back, and the floor looks
+ * unnecessary — measured: a 786px DetailView tail at 799px passes this spec
+ * with the floor deleted. Make it much narrower and there is no deficit to
+ * arbitrate at all.
+ *
+ * So these two match what the running app actually produced with three
+ * labelled `record_header` actions at 799px (DetailView 724.83px,
+ * PageHeader 564.41px), not a width chosen to make a floor look needed:
+ *   DetailView  4 x 176px + 3 x 6px (`gap-1.5`) = 722px
+ *   PageHeader  3 x 192px + 2 x 8px (`gap-2`)   = 592px
+ */
+const DETAIL_TAIL_BOX = 'h-9 w-44 shrink-0';
+const PAGE_TAIL_BOX = 'h-9 w-48 shrink-0';
 
 /**
  * Long enough that the h1's own text is never the binding constraint at the
@@ -186,21 +204,22 @@ const DETAIL_FIXTURE = box(
     `<button class="${DETAIL.backButton} ${ICON_BUTTON}"></button>` +
       box(DETAIL.innerColumn, box(DETAIL.titleRow, `<h1 class="${DETAIL.h1}">${TITLE}</h1>`)),
   ) +
-    box(DETAIL.tail, Array.from({ length: 4 }, () => box(TAIL_BOX)).join('')),
+    box(DETAIL.tail, Array.from({ length: 4 }, () => box(DETAIL_TAIL_BOX)).join('')),
 );
 
 const PAGE_FIXTURE = box(
   PAGE.row,
   `<button class="${PAGE.backButton} ${ICON_BUTTON}"></button>` +
     box(PAGE.titleColumn, `<h1 class="${PAGE.h1}">${TITLE}</h1>`) +
-    box(PAGE.slot, Array.from({ length: 3 }, () => box(TAIL_BOX)).join('')),
+    box(PAGE.slot, Array.from({ length: 3 }, () => box(PAGE_TAIL_BOX)).join('')),
 );
 
 const ALL_CANDIDATES = [
   ...Object.values(DETAIL),
   ...Object.values(PAGE),
   ICON_BUTTON,
-  TAIL_BOX,
+  DETAIL_TAIL_BOX,
+  PAGE_TAIL_BOX,
 ]
   .join(' ')
   .split(/\s+/)

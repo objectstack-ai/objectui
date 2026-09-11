@@ -262,6 +262,103 @@
  * land; see that function for the rule and for the residual window it cannot
  * close.
  *
+ * ## What a re-baseline ABSORBS — objectui#7848
+ *
+ * Every entry above re-pins {@link BASELINE} by an ABSOLUTE fresh reading of a
+ * named tree, ⛔ never by applying a delta to the constant it replaces. That is
+ * the right construction and the record depends on it: a delta chain compounds
+ * whatever each link got wrong, and a fresh reading cannot. But it has a
+ * consequence stated nowhere else here, and the consequence is the whole of
+ * objectui#7848. A fresh reading is SILENT ABOUT ITS OWN COMPOSITION. Every byte
+ * that arrived between one baseline and the next and was not removed in between
+ * is inside the new constant with no name on it, while the record written above
+ * that constant names only the cause that MOTIVATED the move. Those are two
+ * different sets, nothing separates them, and ⛔ nothing goes red when they
+ * differ — the same shape as the stale comment objectui#7528 and objectui#8964
+ * each caught one column over.
+ *
+ * ⇒ read every "measured N on `<commit>`" entry above as exactly what it is: a
+ * true total for that tree, and ⛔ NOT a claim that the change described beside
+ * it is what put the bytes there.
+ *
+ * ### The one entry whose record can be audited, and what makes it auditable
+ *
+ * objectui#7479's is the only re-baseline here that publishes enough to close
+ * its own accounting — and it closes. Read off the table under "Why
+ * `i18n-locales` became `i18n-locale-en`": control `d8b4739d4`, after
+ * `755d34a5f`, one container, one instrument.
+ *
+ *   | claimant                                  |    bytes |
+ *   |-------------------------------------------|---------:|
+ *   | aggregate fall                            | -410,553 |
+ *   | the catalogue chunk alone                 | -415,781 |
+ *   | ⚠️ `i18n-runtime`, a NEW eager member      |   +5,329 |
+ *   | ⇒ the i18n family, net                    | -410,452 |
+ *   | ⇒ residual — everything that is not i18n  |     -101 |
+ *
+ * ⚠️ The third row is what a reader loses by subtracting two figures instead of
+ * reading the table, and losing it inverts the conclusion. 415,781 against
+ * 410,553 leaves 5,228 bytes that look like non-locale content absorbed under
+ * cover of a locale change. They are not: `i18n-runtime` — the provider, hooks
+ * and formatters, which stay eager — is a chunk that does not exist in the
+ * control column at all, it is i18n, and it accounts for 5,329 of those 5,228,
+ * leaving 101 bytes that moved the OTHER way. The eager chunk counts say the
+ * same thing without the byte figures: `d8b4739d4` weighed 50 of 518 chunks and
+ * `755d34a5f` 51 of 528 chunks, so of the ten chunks that appeared exactly one
+ * is eager, and `i18n-runtime` is it.
+ *
+ * ⇒ that re-baseline absorbed essentially nothing, and the ONLY reason anyone
+ * can say so is that its record carries three unmoved control rows and both
+ * chunk counts. ⛔ A record that publishes just the new constant cannot be
+ * audited at all — not because its number is wrong, but because nothing in it
+ * is falsifiable. That, and not a house style, is why the entries above are the
+ * length they are.
+ *
+ * ### What was carried in anyway, and how much of it may honestly be claimed
+ *
+ * objectui#7848 measured the closure at 3,263,896 gzipped bytes on `52cac3886`
+ * against the baseline then in force, 3,222,314 on `3d257c85a`, and named the
+ * difference: 41,582 bytes that had arrived in six days with no card explaining
+ * any of them. `52cac3886` is an ancestor of `755d34a5f` — GitHub compare
+ * reports `ahead_by=627, behind_by=0` — and because the constant below is an
+ * absolute reading of that descendant tree, every one of those bytes that was
+ * not removed in between is inside it, unattributed and unnamed. THAT is the
+ * absorption this section exists to record, and it is why the card stayed open
+ * after its headline figure was overtaken.
+ *
+ * ⛔ What may NOT be written is a floor — "at least 41,582 of them" — and this
+ * file's own record is the reason. The one large removal inside that span is
+ * the catalogue change itself, and the catalogue was GROWING across the drift
+ * window: `i18n-locales` measured 446,076 on `177afeba1` and 454,602 on
+ * `bbe285ee7`, +8,526 bytes, a window that contains `52cac3886`. Drift that is
+ * UNATTRIBUTED cannot also be asserted disjoint from the chunk that left, and
+ * no reading of the catalogue exists on `3d257c85a` or on `52cac3886` to
+ * separate the two. ⇒ a large part of the 41,582 is inside the constant below;
+ * how large is NOT established, and a floor written here would be one more
+ * unbound figure of exactly the class objectui#8964 exists to refuse.
+ *
+ * ### ⚠️ The tree that was measured is not the tree that landed
+ *
+ * The control/after pair above is a clean A/B — one commit apart, one container
+ * — but it is an A/B of the FIRST commit of objectui#7479's branch, not of the
+ * pull request that carried it. After `755d34a5f` that branch took 22 more
+ * commits before it was squash-merged onto `main` as `77b2a18a16`, and one of
+ * them (`bf268c3723`) merged 15 further commits of `main` in. Three of the 22
+ * edit non-test source inside `framework`'s own group,
+ * `packages/(core|react|types)` — `packages/core/src/utils/filter-tokens.ts`,
+ * `packages/react/src/SchemaRenderer.tsx` and
+ * `packages/react/src/hooks/usePageAssignment.ts`, 175 added lines against 47
+ * removed.
+ *
+ * ⛔ None of that is weighed by the constant below, and what it costs gzipped is
+ * UNMEASURED rather than small — nobody has built `77b2a18a16`. The docblock on
+ * {@link BASELINE} already warns that CI weighs the pull request's MERGE ref
+ * while this is the branch tree, "so the two differ by whatever has landed on
+ * `main` since". The half it does not cover is that they also differ by
+ * whatever landed on the BRANCH after the reading was taken. ⇒ take the reading
+ * on the tree you are about to merge, or name here the commits that arrived
+ * after it.
+ *
  * ## Raising it
  *
  * Re-baselining is legitimate — it is how a ratchet advances — but it is a
@@ -269,6 +366,12 @@
  * in the prose attached to it, and say in the PR what the added bytes buy.
  * Silently bumping the number to make CI green reproduces the gate this file
  * replaced.
+ *
+ * ⇒ and publish the ROWS, not only the total, for the reason the section above
+ * gives: the unmoved chunks beside the moved one are what let the next reader
+ * tell the bytes your change is accountable for from the drift riding in with
+ * them. ⛔ "What the added bytes buy" answered with a cause and no control is
+ * the form that has absorbed every byte this file cannot now attribute.
  */
 
 import fs from 'node:fs';
@@ -403,6 +506,28 @@ export const BASELINE = Object.freeze({
    * `apps/console/dist/eager-closure.json`. ⛔ Not taken from CI's report and
    * not extrapolated: CI weighs the pull-request MERGE ref and this is the
    * branch tree, so the two differ by whatever has landed on `main` since.
+   *
+   * ⚠️ PROVENANCE — what a reader can and cannot check, because a reader who
+   * tries the obvious thing gets nothing and currently learns nothing from it.
+   * The commit named below is a BRANCH TIP and this repository squash-merges,
+   * so it is not reachable from `main` and cannot be fetched by sha:
+   * `git fetch origin 755d34a5f1` answers "couldn't find remote ref", and
+   * `git merge-base --is-ancestor` cannot resolve the object at all (exit 128,
+   * ⛔ not the exit 1 that would mean "resolved, and not an ancestor"). The
+   * previous baseline `34a1578ef` does resolve and is genuinely not an ancestor
+   * — exit 1, read against a control leg `d9580f4647` of the same age that
+   * exits 0 in the same checkout, because an exit 1 from a shallow clone means
+   * nothing without one. ⛔ This is the convention working rather than a defect:
+   * naming the tree the reading was taken on is the point, and no commit on
+   * `main` has that tree.
+   *
+   * ⇒ the CONSEQUENCE, which nobody had written down: the provenance of this
+   * constant ⛔ cannot be checked from a `main` checkout with git alone. It is
+   * checkable — the GitHub compare API resolves these shas when a clone cannot,
+   * and every ancestry figure in "What a re-baseline ABSORBS" above came from
+   * it. The squash merge that carried this branch onto `main` is `77b2a18a16`,
+   * which is reachable; ⚠️ its tree is 22 commits PAST the one measured here,
+   * so it is a handle on what LANDED and ⛔ never a substitute for the reading.
    */
   gzipBytes: 3_164_817,
   chunks: 51,

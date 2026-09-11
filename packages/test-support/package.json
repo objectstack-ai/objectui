@@ -17,6 +17,7 @@
     "./zod-wrapper-keys": "./src/zod-wrapper-keys.json"
   },
   "scripts": {
+    "test": "vitest run --root ../.. packages/test-support/",
     "type-check": "tsc --noEmit",
     "lint": "eslint ."
   },

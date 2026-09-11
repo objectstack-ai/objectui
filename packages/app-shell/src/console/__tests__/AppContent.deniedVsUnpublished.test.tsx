@@ -94,13 +94,21 @@ vi.mock('../../views/ObjectView', () => ({ ObjectView: () => <div data-testid="o
 let locale: 'en' | 'zh' = 'en';
 vi.mock('@object-ui/i18n', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
+  // ⚠️ The packs come from `@object-ui/i18n/locales`, NOT from the entry
+  // (objectui#7479). The entry re-exports `en` alone now; `actual.zh` is
+  // `undefined` there, and an `undefined` pack makes every lookup miss and fall
+  // through to the call site's inline default — which is ENGLISH. That renders
+  // as "the zh case passes by reading English", the exact failure the comment
+  // above says these cases exist to rule out. Imported inside the factory
+  // rather than at module scope because `vi.mock` is hoisted above the imports.
+  const packs = await import('@object-ui/i18n/locales');
   const lookup = (pack: unknown, key: string): unknown =>
     key.split('.').reduce<any>((node, k) => (node == null ? undefined : node[k]), pack);
   return {
     ...actual,
     useObjectTranslation: () => ({
       t: (key: string, options?: Record<string, unknown>) => {
-        const hit = lookup(locale === 'zh' ? actual.zh : actual.en, key);
+        const hit = lookup(locale === 'zh' ? packs.zh : packs.en, key);
         return typeof hit === 'string' ? hit : String(options?.defaultValue ?? key);
       },
     }),

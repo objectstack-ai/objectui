@@ -38,7 +38,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
-import { normalizeChartSchema } from '@object-ui/plugin-charts';
+// The repository's ONE resolver for the `I18nLabel` union, and already a
+// dependency of this package — `DatasetReportRenderer` itself resolves measure
+// labels through it. Used below only to show that what ARRIVES at the chart
+// component is a usable two-language value; see the scope note above for which
+// half of the claim that is and where the other half lives.
+import { pickLocalized } from '@object-ui/i18n';
 import { DatasetReportRenderer } from '../DatasetReportRenderer';
 
 let captured: { schema: Record<string, any> } | null = null;
@@ -103,17 +108,22 @@ describe('report chart chrome — the locale-map arm travels too (objectui#9038)
     expect(schema.description).toEqual(DESCRIPTION);
   });
 
-  it('resolves to either language once the renderer supplies the viewer', async () => {
-    // ⚠️ An EXPLICIT language on both calls: `pickLocalized` reads an absent one
-    // as `en`, so a two-language claim made without it would print the same
+  it('what arrives is a usable two-language value, not merely a non-empty one', async () => {
+    // ⚠️ An EXPLICIT language on every call: `pickLocalized` reads an absent one
+    // as `en`, so a two-language claim made without one would print the same
     // string twice and prove nothing (objectui#8943).
+    //
+    // This restates the RESOLVER, deliberately and with its limit stated: it
+    // shows the arriving value resolves both ways, NOT that the renderer feeds
+    // it the viewer's language. That second half needs the real chart component
+    // and therefore recharts, which resolves in `@object-ui/plugin-charts`
+    // alone — `ChartRenderer.presentationLocaleHeading-9038.test.tsx` renders
+    // these same maps there and reads the headings out of the DOM.
     const schema = await chartSchema({ ...CHART, subtitle: SUBTITLE, description: DESCRIPTION });
-    const zh = normalizeChartSchema(schema, 'zh-CN');
-    expect(zh.subtitle).toBe('仅未结管道');
-    expect(zh.description).toBe('按阶段的金额');
-    const en = normalizeChartSchema(schema, 'en');
-    expect(en.subtitle).toBe('Open pipeline only');
-    expect(en.description).toBe('Amount by stage');
+    expect(pickLocalized(schema.subtitle, 'zh-CN')).toBe('仅未结管道');
+    expect(pickLocalized(schema.subtitle, 'en')).toBe('Open pipeline only');
+    expect(pickLocalized(schema.description, 'zh-CN')).toBe('按阶段的金额');
+    expect(pickLocalized(schema.description, 'en')).toBe('Amount by stage');
   });
 
   it('still drops `title` from the lowered chrome — this renderer paints its own', async () => {

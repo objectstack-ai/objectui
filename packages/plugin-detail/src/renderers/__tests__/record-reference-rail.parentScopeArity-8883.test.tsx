@@ -236,6 +236,14 @@ const viewAllLink = (): HTMLAnchorElement | null =>
 
 let warnSpy: ReturnType<typeof vi.spyOn>;
 
+/** The rail's own `console.warn` calls, by their first argument. */
+const railWarnings = (): string[] =>
+  (warnSpy.mock.calls as unknown[][])
+    .map((c) => c[0])
+    .filter((first): first is string =>
+      typeof first === 'string' && first.includes('RecordReferenceRail'),
+    );
+
 beforeEach(() => {
   vi.stubGlobal('IntersectionObserver', ImmediateIO as unknown as typeof IntersectionObserver);
   warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -302,12 +310,10 @@ describe('reference rail parent scope — compiled by ARITY (objectui#8883)', ()
     });
     // Absent on screen ⇒ the developer console is the only place it can be
     // said at all, and it IS said — once, naming the field and the reason.
-    const suppressionWarnings = warnSpy.mock.calls.filter(
-      (c) => typeof c[0] === 'string' && c[0].includes('RecordReferenceRail'),
-    );
+    const suppressionWarnings = railWarnings();
     expect(suppressionWarnings.length).toBe(1);
-    expect(suppressionWarnings[0][0]).toContain(MULTI_REF);
-    expect(suppressionWarnings[0][0]).toContain('View All');
+    expect(suppressionWarnings[0]).toContain(MULTI_REF);
+    expect(suppressionWarnings[0]).toContain('View All');
   });
 
   it('MEASURED DIFFERENCE — the rail resolves the arity BEFORE its one read', async () => {
@@ -359,11 +365,7 @@ describe('reference rail parent scope — compiled by ARITY (objectui#8883)', ()
     expect(drawn).toBeGreaterThan(0);
     expect(badgeText()).toBe(String(drawn));
     // Nothing was suppressed, so nothing was said.
-    expect(
-      warnSpy.mock.calls.filter(
-        (c) => typeof c[0] === 'string' && c[0].includes('RecordReferenceRail'),
-      ).length,
-    ).toBe(0);
+    expect(railWarnings().length).toBe(0);
   });
 
   it('DEGRADATION CONTROL — an adapter with no `getObjectSchema` still reads rows, on the historical wire', async () => {

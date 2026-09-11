@@ -19,17 +19,24 @@
  * `DashboardRenderer` / `dashboard-grid` → `SchemaRenderer` → the registry's
  * `chart` (`ChartRenderer`) → `AdvancedChartImpl` — and reads the resulting DOM.
  *
- * Scope of what can be proven here, and why it is not every key: everything the
- * chart draws OUTSIDE Recharts' `ResponsiveContainer` — the ChartFrame titles,
- * and the chart container's height and accessible name. Recharts' own marks
- * (bars, LabelList, reference lines, Brush) need a measured box, which the
- * headless DOM never provides (`ResponsiveContainer` measures 0×0 and renders
- * no children), so asserting them *here* would pass for the wrong reason. Those
- * keys are pinned in `plugin-charts/src/ChartRenderer.dashboardChartConfig.test.tsx`,
- * which mocks `ResponsiveContainer` to a fixed size — the only place in this
- * repo that can, since `recharts` resolves inside plugin-charts alone (measured:
- * `require.resolve('recharts')` from `packages/plugin-dashboard` is
- * MODULE_NOT_FOUND).
+ * Scope of this file: everything the chart draws OUTSIDE Recharts'
+ * `ResponsiveContainer` — the ChartFrame titles, and the chart container's
+ * height and accessible name. Recharts' own marks (bars, LabelList, reference
+ * lines, Brush) need a measured box, which this file does not arrange, so they
+ * are asserted — also on the dashboard surface, also end to end — in
+ * `DashboardChart.chartConfigMarks-4044.test.tsx` beside this one, which sizes
+ * the `ResponsiveContainer` element itself.
+ *
+ * ⚠️ This paragraph used to say the marks could only be pinned inside
+ * `plugin-charts` (whose `ChartRenderer.dashboardChartConfig.test.tsx` mocks
+ * `ResponsiveContainer`), because `recharts` resolves in that package alone.
+ * The premise is still true — re-measured, `require.resolve('recharts')` from
+ * `packages/plugin-dashboard` is MODULE_NOT_FOUND — but the CONCLUSION was
+ * wrong, and wrong in the expensive direction: it left every plot-internal key
+ * with no dashboard-surface pin at all, so the relays could stop forwarding
+ * them and the only drawn evidence (in a file that hand-builds its own schema)
+ * would stay green. A `recharts` mock is not the only way to give the plot a
+ * box; see the sibling file for the one that needs no module mock.
  *
  * The widget below binds INLINE ROWS — deliberately not an ADR-0021 dataset,
  * which is the path `DatasetWidget.chartConfig.dom.test.tsx` already covers.
@@ -154,13 +161,25 @@ describe.each(SURFACES)('%s relay — inline chartConfig reaches the real chart 
     expect(chartEl(container).style.height).toBe('');
   });
 
-  // Negative pin for the one key on the ruling's list that is refused, and the
-  // reason is measurable right here: BOTH elements that could have carried the
-  // name render outside `ResponsiveContainer` — the chart container (which
-  // `description` does label, above) and the `SchemaRenderer` node (which would
-  // pick up a FLATTENED `ariaLabel`). Neither does, because `ChartRenderer`
-  // destructures `{ schema, onChartClick }` and drops every other prop.
-  it('ignores chartConfig.aria — no accessible name appears anywhere', async () => {
+  // The one key on the ruling's DO-NOW list that is NOT forwarded, and this is
+  // the measurement behind that refusal rather than a pin of it.
+  //
+  // ⚠️ Read what it can and cannot fail for. It stays green whether or not the
+  // relay forwards `aria` — measured, by forwarding it on purpose in both
+  // spellings and re-running this file: with `aria` lowered as the nested spec
+  // object, and again with it FLATTENED onto the node's own `ariaLabel` /
+  // `ariaDescribedBy` / `role` (which `BaseSchema` already declares and
+  // `SchemaRenderer` already converts to DOM attributes), every assertion here
+  // still passed and only the seam refusal in the sibling file went red. That
+  // is the finding: an authored `aria` reaches no attribute on this surface in
+  // EITHER spelling, because `ChartRenderer` destructures `{ schema,
+  // onChartClick }` and drops the rest, so forwarding it would move
+  // declared-but-not-delivered one layer down instead of delivering it.
+  //
+  // The control that makes this readable is four assertions up: `description`,
+  // travelling the same whitelist onto the same node, DOES produce
+  // `role="img"` + `aria-label` here.
+  it('an authored chartConfig.aria reaches no attribute on this surface', async () => {
     const { container } = await renderWidget(surface, {
       aria: { ariaLabel: 'Authored name', role: 'figure' },
     });

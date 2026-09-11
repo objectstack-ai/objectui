@@ -28,15 +28,19 @@
  * `DatasetWidget.chartConfig.test.tsx`; together the two close the loop from
  * dashboard metadata to drawn pixels.
  *
- * ⭐ Since objectui#4044 this file carries the plot-internal half for THREE
- * seams, not one. The two INLINE dashboard relays (`DashboardRenderer` and
- * `DashboardGridLayout`, for widgets bound to inline rows or to a
- * `provider: 'object'` aggregate rather than to an ADR-0021 dataset) now lower
- * the same keys through the same `chartConfigPresentation` whitelist, onto a
- * node of the same shape — they differ only by a pre-set `colors` palette and a
- * height utility class, neither of which any assertion below reads. Their seam
- * is pinned in plugin-dashboard's `DashboardChart.chartConfig-4044.test.tsx`
- * and the keys that paint OUTSIDE `ResponsiveContainer` in its DOM sibling.
+ * ⭐ What this file is NOT (objectui#4044). Since that card the two INLINE
+ * dashboard relays (`DashboardRenderer` and `DashboardGridLayout`, for widgets
+ * bound to inline rows or to a `provider: 'object'` aggregate rather than to an
+ * ADR-0021 dataset) lower the same keys through the same
+ * `chartConfigPresentation` whitelist onto a node of the same shape. It is
+ * tempting to read the assertions below as covering those relays too. They do
+ * not, and the difference was measured: with the forwarding deleted from BOTH
+ * relays, every test in this file still passed — because the schema above is
+ * hand-built here rather than composed by a relay. What this file pins is the
+ * CHART BLOCK: that a node carrying these keys draws them. The dashboard
+ * surface pins its own end of the chain, in plugin-dashboard's
+ * `DashboardChart.chartConfig-4044.test.tsx` (the seam) and its two
+ * end-to-end siblings `…chartConfigDom-4044` and `…chartConfigMarks-4044`.
  */
 
 import React from 'react';

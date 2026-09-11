@@ -36,10 +36,16 @@
  *  - `DashboardChart.chartConfigDom-4044.test.tsx` beside this file renders the
  *    REAL chain for the keys that paint outside Recharts' `ResponsiveContainer`
  *    (`title`, `subtitle`, `description`, `height`);
- *  - `plugin-charts/src/ChartRenderer.dashboardChartConfig.test.tsx` renders the
- *    marks for the keys that paint inside it (`colors`, `showDataLabels`,
- *    `annotations`, `interaction`) — `recharts` resolves inside that package
- *    alone, so the `ResponsiveContainer` size mock has to live there.
+ *  - `DashboardChart.chartConfigMarks-4044.test.tsx`, also beside this file,
+ *    renders the same real chain for the keys that paint INSIDE it (`colors`
+ *    and its `categoryColors` arm, `showDataLabels`, `annotations`,
+ *    `interaction`, `showLegend`), by sizing the `ResponsiveContainer` element.
+ *
+ * Both of those are on the dashboard surface, which is what the ruling asks
+ * for. `plugin-charts/src/ChartRenderer.dashboardChartConfig.test.tsx` also
+ * draws these keys, but it hand-builds its schema: measured, it stays entirely
+ * GREEN when both relays stop forwarding, so it pins the CHART BLOCK and never
+ * this seam.
  *
  * ## The keys deliberately NOT here
  *
@@ -239,14 +245,24 @@ describe.each(CASES)('$surface relay, $branch.name — chartConfig keys REFUSED 
   });
 
   it('ignores chartConfig.aria, which nothing on this path reads', async () => {
-    // Measured on this tree: `ChartRenderer` destructures `{ schema,
-    // onChartClick }` and drops every other prop, `AdvancedChartImpl` declares
-    // no `aria` prop and never reads `ariaLabel` (lit control in the same
-    // sweep: `title`, read there), and `normalizeChartSchema` names neither.
-    // The chart's one accessible name comes from `description`
-    // (`role="img"` + `aria-label`). Forwarding `aria` — nested or flattened —
-    // would deliver nothing, so it stays refused and the measurement is
-    // reported to objectstack#17385's per-key ledger half instead.
+    // `aria` IS on the ruling's DO-NOW list, so the refusal is measured rather
+    // than assumed. Two ablations, both run on this tree: forwarding `aria` as
+    // the nested spec object, and forwarding it FLATTENED onto the node's own
+    // `ariaLabel` / `ariaDescribedBy` / `role` — members `BaseSchema` already
+    // declares and `SchemaRenderer` already turns into DOM attributes, so the
+    // flattened route needs no new declaration anywhere. In BOTH runs the only
+    // red was this assertion; the DOM sibling's
+    // `an authored chartConfig.aria reaches no attribute on this surface`
+    // stayed green, i.e. the forwarded key still changed nothing on screen.
+    // `ChartRenderer` destructures `{ schema, onChartClick }` and drops the
+    // rest, `AdvancedChartImpl` declares no `aria` prop, and
+    // `normalizeChartSchema` names neither; the chart's one accessible name
+    // comes from `description` (`role="img"` + `aria-label`, pinned there).
+    //
+    // Delivering `aria` therefore needs a READER inside `@object-ui/plugin-charts`
+    // — a new member on a published face — which this card is not authorised to
+    // add, and which also has to answer to the accessible name `description`
+    // already sets. Reported rather than guessed.
     const node = await compose({ aria: { ariaLabel: 'Authored name', role: 'figure' } });
     expect('aria' in node).toBe(false);
     expect('ariaLabel' in node).toBe(false);

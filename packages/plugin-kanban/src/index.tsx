@@ -67,20 +67,42 @@ export function bucketCardsIntoColumns(
 
   // Build label→id mapping so data values (labels like "In Progress") match
   // column IDs (option values like "in_progress").
-  const labelToColumnId: Record<string, string> = {};
+  // ⚠️ Null prototype, not `{}` (objectui#9043). This map and `groups` below are
+  // keyed by RECORD DATA, which no schema guards — `@objectstack/spec` narrows the
+  // lane `id` (objectui#8913), not the values stored in the grouped field — so a
+  // stored value like 'constructor' or '__proto__' would otherwise be answered by
+  // `Object.prototype` instead of by what this function actually put here:
+  //   - the READ below is `labelToColumnId[k] ?? rawKey`, and `??` only falls back
+  //     on null/undefined, so an INHERITED member is returned as if it were a
+  //     declared lane id;
+  //   - the WRITE `labelToColumnId['__proto__'] = col.id` on a prototype-bearing
+  //     object invokes the `__proto__` setter, which silently ignores a string —
+  //     so a lane legitimately declared with that option value loses its mapping.
+  // `Object.prototype.hasOwnProperty.call(...)` would close the READ only; the
+  // write hazard needs the null prototype, which is why both maps take that route.
+  const labelToColumnId: Record<string, string> = Object.create(null);
   columns.forEach((col: any) => {
     if (col.id) labelToColumnId[String(col.id).toLowerCase()] = col.id;
     if (col.title) labelToColumnId[String(col.title).toLowerCase()] = col.id;
   });
 
   // 1. Group data by key, normalizing via label→id mapping.
+  // ⚠️ Null prototype for the same reason (objectui#9043), and this is the leg that
+  // CRASHES: on a `{}` accumulator `acc['toString']` is the inherited METHOD, which
+  // is truthy, so the array is never created and the next line calls `.push` on a
+  // function — thrown during render, so the user sees a blank board with nothing
+  // naming the record. `acc['__proto__'] = []` would likewise hit the setter and be
+  // dropped, and step 2's `groups[col.id]` read would answer `Object.prototype` for
+  // a lane declared `{ id: '__proto__' }`, which spreads as "not iterable".
+  // ⚠️ The repair keeps every record: an offending one keeps its own value as its
+  // group key and still surfaces in the trailing lane, never discarded (#2792).
   const groups = data.reduce((acc, item) => {
     const rawKey = String(item[groupBy] ?? '');
     const key = labelToColumnId[rawKey.toLowerCase()] ?? rawKey;
     if (!acc[key]) acc[key] = [];
     acc[key].push(mapCoverImage(item));
     return acc;
-  }, {} as Record<string, any[]>);
+  }, Object.create(null) as Record<string, any[]>);
 
   // 2. Inject into declared columns.
   const mapped = columns.map((col: any) => ({

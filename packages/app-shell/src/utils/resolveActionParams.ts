@@ -299,14 +299,35 @@ interface RuntimeField {
   accept?: string[];
   maxSize?: number;
   // ── Lookup-specific metadata (preserved when resolving lookup params) ──
+  //
+  // ⭐ objectui#7435 — three members are declared here in the spelling
+  // `@objectstack/spec`'s `FieldSchema` DECLARES, alongside the snake twins
+  // this interface already carried. They are not new metadata: they are the
+  // only spelling a spec-compliant author can emit and the one
+  // `getObjectSchema` serves, and until this change no camel spelling could be
+  // read off a resolved field def at all. MEASURED on the pin resolved here,
+  // `@objectstack/spec@17.4.0` — `FieldSchema.safeParse` ACCEPTS
+  // `displayField` / `descriptionField` / `lookupFilters` and REFUSES every
+  // snake twin below with `unrecognized_keys`, controls lit in the same run.
+  //
+  // ⛔ `id_field` and `title_format` deliberately gain NO camel twin. Measured
+  // on that same pin, `FieldSchema` refuses `idField` exactly as it refuses
+  // `id_field` (the spec's only `idField` is on `InlineGridColumnSchema`, a
+  // different shape), and `titleFormat` is an OBJECT-level key whose canonical
+  // target carries an ADR-0079 deprecation toward `nameField`. Declaring either
+  // camel spelling here would fossilise a spelling no contract declares —
+  // the exact defect this family exists to stop. Routed to objectui#7650.
   reference_to?: string;
   reference?: string;
+  displayField?: string;
   display_field?: string;
   reference_field?: string;
   id_field?: string;
+  descriptionField?: string;
   description_field?: string;
   title_format?: string;
   lookup_columns?: unknown[];
+  lookupFilters?: unknown[];
   lookup_filters?: unknown[];
   lookup_page_size?: number;
   depends_on?: unknown[];
@@ -538,15 +559,37 @@ export function resolveActionParam(
         // objectui#7642 CENSUS — verdict KEEP. The in-file provenance note above is
         // CORRECT (`ctx.objects` is `useMetadata().objects`, the `/api/v1/meta/object`
         // documents), so this really is the object-schema def. It is still kept: the
-        // serve path runs no parse, and none of the four reads below has a camel leg,
-        // so retiring them deletes the only read of four authorable keys.
+        // serve path runs no parse, so retiring a snake read deletes the only read
+        // of an authorable key. (That census sentence used to add "and none of the
+        // four reads below has a camel leg" — objectui#7435 made that half false for
+        // three of them; the KEEP verdict it supports is unchanged.)
+        //
+        // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST on the three
+        // keys that have one. Every read here used to be snake-only, so the
+        // camelCase values `getObjectSchema` serves were silently dropped and
+        // the param rendered with picker defaults. The snake legs are KEPT
+        // behind the declared one, in their pre-existing order: a per-site
+        // producer sweep found no in-repo producer of them, but neither of the
+        // two producers that can still emit them is covered by that sweep — a
+        // document stored before the key was tightened (the serve path runs no
+        // parse — objectui#7650) and a host adapter outside this repo. Dropping
+        // a leg is a retirement with its own evidence, not a side effect here.
+        //
+        // ⛔ `idField` and `titleFormat` keep their snake-only reads on purpose
+        // — see {@link RuntimeField}. Neither has a `FieldSchema` spelling to
+        // rank first, so there is nothing to add that would not fossilise an
+        // undeclared key. `lookupColumns` / `lookupPageSize` / `dependsOn` ARE
+        // declared and DO still read snake-only; they are outside this card's
+        // three-key scope and stay recorded on objectui#7435 rather than being
+        // swept in silently.
         referenceTo: param.reference ?? field.reference,
-        displayField: field.display_field ?? field.reference_field,
+        displayField:
+          field.displayField ?? field.display_field ?? field.reference_field,
         idField: field.id_field,
-        descriptionField: field.description_field,
+        descriptionField: field.descriptionField ?? field.description_field,
         titleFormat: field.title_format,
         lookupColumns: field.lookup_columns,
-        lookupFilters: field.lookup_filters,
+        lookupFilters: field.lookupFilters ?? field.lookup_filters,
         lookupPageSize: field.lookup_page_size,
         dependsOn: field.depends_on,
       }

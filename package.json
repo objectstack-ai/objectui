@@ -68,6 +68,7 @@
     "check:skill-examples": "node scripts/check-skill-examples.mjs",
     "check:skill-eval-tokens": "node scripts/check-skill-eval-tokens.mjs",
     "check:doc-types": "node scripts/check-doc-component-types.mjs",
+    "check:prompt-keys": "node scripts/check-prompt-component-keys.mjs",
     "check:doc-snippets": "node scripts/check-doc-snippet-types.mjs",
     "check:doc-examples": "node scripts/check-doc-example-types.mjs",
     "check:doc-fences": "node scripts/check-doc-fence-languages.mjs",

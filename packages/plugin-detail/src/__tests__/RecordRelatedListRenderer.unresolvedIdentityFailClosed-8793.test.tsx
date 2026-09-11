@@ -199,27 +199,37 @@ describe('objectui#8793 — an unresolvable column identity is EXCLUDED, not kep
     expect(cells).toEqual(expect.arrayContaining(['Fix the pump', 'Replace filter', '90000']));
   });
 
-  it('THE LIMIT OF THIS REPAIR — an EMPTIED column set falls through to auto-derived columns (objectui#9053)', async () => {
-    // Pinned as the CURRENT behaviour it is, so the bound on this fix is legible
-    // to the next reader instead of living only in a pull-request body.
+  it('THE LIMIT OF THIS REPAIR — an EMPTIED set still falls through to auto-derived columns, and objectui#9090 filters THOSE too', async () => {
+    // The bound on this repair, pinned as the behaviour it is instead of living
+    // only in a pull-request body.
     //
     // When the fold removes EVERY authored member, `RelatedList` reads the empty
     // array as "no columns were authored" and derives a set from the child
-    // object's schema instead. That derivation runs the FK filter, `pruneEmpty`
-    // and its own FLS filter — but `redactFields` is a BLOCK-level concept that
-    // never reaches it, so the redacted field comes back.
+    // object's schema instead. That derivation is a path the block's own list
+    // never reached, so when this row was first written the redacted field came
+    // back through it — filed as objectui#9053 and pinned here red-on-landing.
     //
-    // Reachable today, without this change: a resolvable `{ field: 'salary' }`
-    // redacted on its own empties the array exactly the same way. Filed as
-    // objectui#9053 — a hole this card neither opened nor closes; this row will
-    // red when that one lands, which is the point of pinning it here.
+    // objectui#9090 landed first and closed it: the block now hands `redactFields`
+    // DOWN as well, and `RelatedList` filters the derived set by the same
+    // `accessorKey || columnIdentity` key it renders through. The fall-through
+    // itself is unchanged — that is still the bound — but the redacted value no
+    // longer survives it, so this row now pins the pair.
     renderBlock({
       columns: [{ accessorKey: 'salary', header: 'Salary' }],
       redactFields: ['salary'],
     });
 
     const cells = await paintedCells();
-    expect(cells).toContain('90000');
+
+    // THE FALL-THROUGH, proven rather than assumed: `status` was never authored,
+    // so its values can only be on screen because the derivation ran. Without
+    // this control the assertion below is equally satisfied by a list that
+    // rendered no columns at all — a different outcome with the same shape.
+    expect(cells).toEqual(expect.arrayContaining(['Fix the pump', 'open']));
+
+    // …and the redacted field does not come back with it (objectui#9090).
+    expect(cells).not.toContain('90000');
+    expect(cells).not.toContain('120000');
   });
 
   it('CENSUS — `RelatedList` runs its OWN field-security filter, and that one reads `accessorKey`', async () => {

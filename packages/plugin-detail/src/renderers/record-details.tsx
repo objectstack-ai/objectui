@@ -158,7 +158,33 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     );
     return list.filter((e) => {
       const n = fieldName(e);
-      return n ? allowed.has(n) : true;
+      // Fail CLOSED on an entry this fold cannot NAME (objectui#9054). The
+      // else-branch used to KEEP such an entry, so anything that is not a bare
+      // string, `{ field }`, `{ name }` or `{ fieldName }` escaped BOTH
+      // `enforceFieldSecurity` and `redactFields` — a field-security control
+      // defaulting to *permit* on the one input it could not understand.
+      //
+      // The same one-arm repair objectui#8793 / PR objectui#9058 made on
+      // `record:related_list`'s fold, deliberately identical: one defect on two
+      // paths gets one shape. `record-highlights.tsx` expresses the same
+      // semantics by dropping unnamed entries BEFORE its allow-list; that is
+      // this line's meaning, not a third policy.
+      //
+      // ⚠️ What this does NOT claim. On the related list the kept entry
+      // rendered its REAL VALUE, because `RelatedList` resolves a column as
+      // `accessorKey || columnIdentity(c)` — a second read point that could
+      // name what the fold could not. This path has no such second reader:
+      // `DetailSection` renders from `field.name` only, and an entry the fold
+      // cannot name has no `name` for it either, so the kept entry painted a
+      // labelless `—` placeholder row and never a record value (measured on
+      // the real DOM in the pin beside this file). The defect closed here is
+      // therefore the fail-open DEFAULT on a security boundary, not a measured
+      // value leak.
+      //
+      // Scoped to the filtering path only: with neither key set this whole
+      // function returns `list` by reference above, so an ordinary detail
+      // block renders exactly what it always did.
+      return n ? allowed.has(n) : false;
     });
   };
 

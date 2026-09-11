@@ -90,6 +90,7 @@
     "check:lockfile-integrity": "node scripts/check-lockfile-integrity.mjs",
     "merge-queue-head": "node scripts/check-merge-queue-head.mjs",
     "check:pre-install-import-graph": "node scripts/check-pre-install-import-graph.mjs",
+    "check:test-path-roots": "node scripts/check-test-path-roots.mjs",
     "check:vi-mock-specifiers": "node scripts/check-vi-mock-specifiers.mjs",
     "check:vi-mock-inherit": "node scripts/check-vi-mock-inherit.mjs",
     "check:vi-mock-override-shape": "node scripts/check-vi-mock-override-shape.mjs",

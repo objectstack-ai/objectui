@@ -71,6 +71,31 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { examplesByCategory } from '../src/index.js';
 
+/**
+ * The repo root, derived from THIS FILE's own location — never from
+ * `process.cwd()` (objectui#7799, and the gate that closed the class,
+ * objectui#8953).
+ *
+ * What stood at the read site below was `path.join(process.cwd(), …)` under the
+ * comment "`process.cwd()` is the repo root by construction:
+ * `scripts/vitest-invocation-guard.mjs` refuses any run whose Vitest root is
+ * not it". THAT PREMISE IS FALSE. The guard rejects a run whose VITEST root is
+ * not the repo root; this package's own `test` script — `vitest run --root ../..
+ * examples/schema-catalog/` — sets that root correctly while leaving
+ * `process.cwd()` in the package directory. The guard passes and the cwd is the
+ * package, so `expect(fs.existsSync(siteDir)).toBe(true)` was asserting against
+ * a path that does not exist under that invocation.
+ *
+ * Spelled in string operations, copying the landed precedent of objectui#7791
+ * (PR #7796) and objectui#7799 (PR #7806): only BARE `import.meta.url` is read
+ * here and taken apart by hand.
+ */
+const SELF_DEPTH_BELOW_REPO_ROOT = 4; // examples / schema-catalog / test / this file
+const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
+  .split('/')
+  .slice(0, -SELF_DEPTH_BELOW_REPO_ROOT)
+  .join('/');
+
 registerLayout();
 
 /** `DashboardRenderer`'s retired inline-analytics placeholder (framework#3320). */
@@ -205,9 +230,8 @@ describe('plugin-dashboard catalog entries render in the docs gallery (objectui#
    * things this pin assumes about them.
    */
   it('the docs-site gallery host still registers the dashboard packages and passes the dataset stub', () => {
-    // `process.cwd()` is the repo root by construction: `scripts/vitest-
-    // invocation-guard.mjs` refuses any run whose Vitest root is not it.
-    const siteDir = path.join(process.cwd(), 'apps/site/app/components');
+    // Rooted at this file, never at the cwd — see `REPO_ROOT` above.
+    const siteDir = path.join(REPO_ROOT, 'apps/site/app/components');
     expect(fs.existsSync(siteDir)).toBe(true);
     const registrations = fs.readFileSync(path.join(siteDir, 'registerCatalogBlocks.ts'), 'utf8');
     expect(registrations).toContain('@object-ui/plugin-dashboard');

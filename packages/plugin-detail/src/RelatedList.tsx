@@ -134,6 +134,26 @@ export interface RelatedListProps {
   toolbarActions?: RelatedRowActionDef[];
   /** Execute one of {@link toolbarActions} (no row context). */
   onToolbarAction?: (action: RelatedRowActionDef) => void | Promise<void>;
+  /**
+   * Field names this list must never show, whatever decided its columns
+   * (objectui#9053).
+   *
+   * The block-level authoring preference `record:related_list` reads as
+   * `redactFields`, pushed down to the component that actually decides
+   * columns. It used to be applied only where the block could apply it — over
+   * the AUTHORED `columns` array — and this component has two more paths that
+   * decide columns on their own (`highlightFields` prominence and the
+   * heuristic field walk), which that list never reached. Redacting EVERY
+   * authored column therefore emptied the array, the empty array read as "no
+   * columns were authored", and the derived set brought the redacted field
+   * straight back: applying the control maximally switched it off.
+   *
+   * ⚠️ This is an AUTHORING preference, not the permission boundary. Field
+   * security is enforced independently and unconditionally through
+   * `perms.checkField(..., 'read')` on every path below; a field that must be
+   * unreachable belongs in FLS, not here.
+   */
+  redactFields?: string[];
   /** Maximum number of columns to auto-generate. Default 6. */
   maxColumns?: number;
   /** Page size for pagination (enables pagination when set) */
@@ -391,6 +411,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   toolbarActions,
   onToolbarAction,
   add,
+  redactFields,
   maxColumns = 6,
   pageSize,
   defaultSort,
@@ -1009,6 +1030,22 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   //  - Cap at `maxColumns` to keep the related card readable; users can
   //    click "View All" to see the full list.
   const perms = usePermissions();
+  /**
+   * [objectui#9053] The redaction list as a lookup, memoised on the PROP's
+   * identity so `effectiveColumns` keeps the reference-stable dependency the
+   * rest of this file is built around: a caller that passes no list passes
+   * `undefined`, which never changes, and one that passes its authored array
+   * passes it by reference.
+   */
+  const redactedFields = React.useMemo(
+    () =>
+      new Set(
+        (Array.isArray(redactFields) ? redactFields : []).filter(
+          (f): f is string => typeof f === 'string' && f.length > 0,
+        ),
+      ),
+    [redactFields],
+  );
   const effectiveColumns = React.useMemo(() => {
     const relatedObjectName = objectName || api || '';
     // FLS: drop columns the current user cannot read on the related object.
@@ -1026,6 +1063,27 @@ export const RelatedList: React.FC<RelatedListProps> = ({
             const key = c?.accessorKey || columnIdentity(c);
             return key !== referenceField;
           })
+        : cols;
+
+    /**
+     * [objectui#9053] Redaction — the block-level authoring preference, asked
+     * on EVERY path below rather than only over the authored array.
+     *
+     * Identity is resolved the way this component resolves it everywhere else
+     * (`accessorKey || columnIdentity`), because that is the key it RENDERS
+     * through: filtering on any other reading would leave a column refused by
+     * name and drawn by accessor.
+     *
+     * ⛔ Fail-OPEN on a column it cannot name, exactly like `filterFLS` beside
+     * it. Whether an entry whose identity does not resolve should be kept or
+     * dropped is objectui#8793's question, not this one, and answering it here
+     * would fold two policies into one diff.
+     */
+    const isRedacted = (key: unknown): boolean =>
+      redactedFields.size > 0 && !!key && redactedFields.has(String(key));
+    const filterRedacted = (cols: any[]): any[] =>
+      redactedFields.size > 0
+        ? cols.filter((c) => !isRedacted(c?.accessorKey || columnIdentity(c)))
         : cols;
 
     /**
@@ -1268,7 +1326,21 @@ export const RelatedList: React.FC<RelatedListProps> = ({
      };
      if (columns && columns.length > 0) {
        const normalized = columns.map(normalizeColumn);
-       return pruneEmpty(filterFLS(filterFK(normalized)));
+       // [objectui#9053] Redaction is applied to the authored candidates FIRST
+       // and their emptiness judged HERE, so an array emptied by redaction
+       // behaves exactly as it already does when the BLOCK empties it upstream
+       // — it falls through to the derivation below, which is redaction-filtered
+       // too. That keeps one outcome for one input: the same authoring must not
+       // render a derived list when the block happened to name the column and an
+       // empty one when only this component could. ⛔ What an emptied-by-security
+       // column set should LOOK like is objectui#9053's deferred question; this
+       // deliberately answers it the way the shipping path already answers it
+       // rather than inventing a second answer. Emptiness produced by FLS or by
+       // `pruneEmpty` keeps its existing meaning untouched: still an empty list.
+       const candidates = filterRedacted(normalized);
+       if (candidates.length > 0) {
+         return pruneEmpty(filterFLS(filterFK(candidates)));
+       }
      }
     if (!objectSchema?.fields) return [];
 
@@ -1285,7 +1357,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         )
       : [];
     if (declaredHighlights.length > 0) {
-      const hf = pruneEmpty(filterFLS(filterFK(declaredHighlights.map(normalizeColumn))));
+      const hf = pruneEmpty(
+        filterFLS(filterFK(filterRedacted(declaredHighlights.map(normalizeColumn)))),
+      );
       if (hf.length > 0) return hf.slice(0, Math.max(1, maxColumns));
     }
 
@@ -1331,6 +1405,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         if (key === 'id' || key === referenceField) return false;
         if (def?.hidden) return false;
         if (def?.type && SKIP_TYPES.has(def.type)) return false;
+        // [objectui#9053] Redaction: drop redacted fields from the walk too —
+        // asked here rather than over `generated` so the priority sort and the
+        // `maxColumns` slice below both see the set the reader will get.
+        if (isRedacted(key)) return false;
         // FLS: drop unreadable fields from auto-derived columns too.
         if (perms?.isLoaded && resolvedObjectName
             && !perms.checkField(resolvedObjectName, key, 'read')) {
@@ -1378,7 +1456,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
 
     const pruned = pruneEmpty(generated);
     return pruned.slice(0, Math.max(1, maxColumns));
-  }, [columns, objectSchema, objectName, api, resolveFieldLabel, referenceField, relatedData, maxColumns, lookupLabels, perms]);
+  }, [columns, objectSchema, objectName, api, resolveFieldLabel, referenceField, relatedData, maxColumns, lookupLabels, perms, redactedFields]);
 
   /**
    * [#6108] The SERVED per-column sortability projection for this object —

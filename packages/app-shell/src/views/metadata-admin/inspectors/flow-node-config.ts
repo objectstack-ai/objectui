@@ -226,13 +226,35 @@ export interface FlowConfigField {
   /** One-line helper hint shown under the control. */
   help?: string;
   /**
-   * The spec default for this key, in the `'true'`/`'false'` string spelling
-   * this table compares against. Read at TWO sites, both for an unset key:
-   * `isFieldVisible` resolves a `showWhen` controller through it (a declared
-   * default decides which fields are on screen), and — since objectui#8451,
-   * objectui#6830 arm A — a `boolean` control seeds its checked state from
-   * it, so the box shows the value the runtime applies rather than a blank
-   * `false`. Shown, never written: it does not become part of the node.
+   * The spec default for this key, always a string: the `'true'` / `'false'`
+   * spelling for a `boolean`, the option's own `value` for a `select`.
+   *
+   * Read at THREE sites, every one of them only when the key is UNSET
+   * ({@link isUnsetFieldValue}) — so the list is what a declaration actually
+   * changes on screen, which is the correction objectui#6830 asked for:
+   *
+   * 1. {@link controllerAdmits} (reached through {@link isFieldVisible})
+   *    resolves an unset `showWhen` CONTROLLER through it, so a declared
+   *    default decides which fields are on screen at all.
+   * 2. Since objectui#8451 (objectui#6830 arm A) a `boolean` control seeds its
+   *    checked state from it, so the box shows the value the runtime applies
+   *    rather than a blank `false`.
+   * 3. Since objectui#6830 arm A's select half, a `select` control shows it as
+   *    the trigger's PLACEHOLDER — the matching option's label, drawn muted —
+   *    so the same fact is legible there without becoming a selection.
+   *
+   * Shown, never WRITTEN: it does not become part of the node, at any of the
+   * three. objectui#6263's standing ruling ("the console needs no second
+   * default contract") is what keeps the write half out — a fourth READ site
+   * is cheap, a first write site is not this file's to add.
+   *
+   * ⚠️ A declaration here is a claim about the installed spec and is acted on
+   * as one; `flow-node-config.spec-reconciliation.test.ts` reconciles the
+   * approval-escalation block against `ApprovalEscalationSchema` so a drift
+   * there reddens on the bump. That ledger does NOT yet cover the other
+   * declaring fields (objectui#6830 measured four of them declaring a default
+   * the installed spec applies none of), so a new declaration outside that
+   * block is currently unchecked — derive it from the spec, never from taste.
    */
   defaultValue?: string;
   /**

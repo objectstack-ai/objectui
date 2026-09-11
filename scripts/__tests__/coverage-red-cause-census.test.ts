@@ -188,27 +188,55 @@ describe('attribution requires BOTH the live window and the computed shard', () 
   });
 });
 
-describe('the summary counts merges, not jobs', () => {
+describe('the summary counts MERGES, not runs', () => {
+  const suspects = [
+    { name: 'doc-links', path: 'scripts/__tests__/check-doc-links.test.ts', liveFrom: '2026-09-04T00:00:00Z', liveUntil: '2026-09-08T00:00:00Z' },
+  ];
+  const shard2 = { 'scripts/__tests__/check-doc-links.test.ts': 2 };
+
   it('splits delivered from red and buckets the red by cause', () => {
-    const suspects = [
-      { name: 'doc-links', path: 'scripts/__tests__/check-doc-links.test.ts', liveFrom: '2026-09-04T00:00:00Z', liveUntil: '2026-09-08T00:00:00Z' },
-    ];
-    const shard2 = { 'scripts/__tests__/check-doc-links.test.ts': 2 };
     const snapshot = {
       runs: [
-        { delivered: true, createdAt: '2026-09-05T00:00:00Z', failingShards: [], suspectShard: shard2 },
-        { delivered: false, createdAt: '2026-09-05T01:00:00Z', failingShards: [2], suspectShard: shard2 },
-        { delivered: false, createdAt: '2026-09-05T02:00:00Z', failingShards: [2], suspectShard: shard2 },
-        { delivered: false, createdAt: '2026-09-05T03:00:00Z', failingShards: [3], suspectShard: shard2 },
+        { sha: 'aaa', delivered: true, createdAt: '2026-09-05T00:00:00Z', failingShards: [], suspectShard: shard2 },
+        { sha: 'bbb', delivered: false, createdAt: '2026-09-05T01:00:00Z', failingShards: [2], suspectShard: shard2 },
+        { sha: 'ccc', delivered: false, createdAt: '2026-09-05T02:00:00Z', failingShards: [2], suspectShard: shard2 },
+        { sha: 'ddd', delivered: false, createdAt: '2026-09-05T03:00:00Z', failingShards: [3], suspectShard: shard2 },
       ],
     };
     expect(summarise(snapshot, suspects)).toEqual({
+      runs: 4,
       merges: 4,
+      supersededRuns: 0,
       delivered: 1,
       red: 3,
       redShare: 0.75,
       byCause: { 'doc-links': 2, unattributed: 1 },
     });
+  });
+
+  it('does not count a superseded run as a red merge when the same sha delivered', () => {
+    // objectui#6049's per-sha concurrency group cancels the earlier run and
+    // starts a fresh one on the SAME head sha. The cancelled one has no
+    // artifact; the commit still got its merged report. Counting runs here is
+    // what made this census disagree with objectui#6055's published figures.
+    const snapshot = {
+      runs: [
+        { sha: 'eee', delivered: false, createdAt: '2026-09-05T04:00:00Z', failingShards: [], suspectShard: shard2 },
+        { sha: 'eee', delivered: true, createdAt: '2026-09-05T04:00:30Z', failingShards: [], suspectShard: shard2 },
+      ],
+    };
+    const out = summarise(snapshot, suspects);
+    expect(out).toMatchObject({ runs: 2, merges: 1, supersededRuns: 1, red: 0, delivered: 1 });
+  });
+
+  it('keeps a sha red when none of its runs delivered', () => {
+    const snapshot = {
+      runs: [
+        { sha: 'fff', delivered: false, createdAt: '2026-09-05T05:00:00Z', failingShards: [], suspectShard: shard2 },
+        { sha: 'fff', delivered: false, createdAt: '2026-09-05T05:00:30Z', failingShards: [2], suspectShard: shard2 },
+      ],
+    };
+    expect(summarise(snapshot, suspects)).toMatchObject({ merges: 1, red: 1, byCause: { 'doc-links': 1 } });
   });
 });
 

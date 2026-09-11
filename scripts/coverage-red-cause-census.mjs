@@ -248,21 +248,44 @@ async function fetchSnapshot(repo, since) {
   return { repo, since, generatedAt: new Date().toISOString(), runs, mergeGroup: mergeGroup.map((r) => ({ id: r.id, sha: r.head_sha, createdAt: r.created_at, conclusion: r.conclusion })) };
 }
 
-/** Summary the card reports: denominator, delivery split, cause split. */
+/**
+ * Summary the card reports: denominator, delivery split, cause split.
+ *
+ * ⚠️ THE UNIT IS A MERGE, NOT A RUN, and the difference is not pedantic. The
+ * per-sha push concurrency group (objectui#6049) cancels a superseded run and
+ * starts a fresh one on the SAME head sha seconds later; the cancelled one has
+ * no `coverage-report` artifact and so reads as red, while the commit itself
+ * got its merged report moments afterwards. Counting runs therefore
+ * OVER-counts red. Measured over 2026-09-02..09-11 the gap is 4 runs in 700 —
+ * small, and exactly the 4 that made this census's own first draft disagree
+ * with objectui#6055's published 454/301 by two in each column. Collapsed by
+ * sha, both numbers land on objectui#6055's to the unit.
+ *
+ * A merge is delivered when ANY of its runs delivered. A red merge's cause is
+ * taken from its runs that failed.
+ */
 export function summarise(snapshot, suspects) {
-  const runs = snapshot.runs;
-  const red = runs.filter((r) => !r.delivered);
+  const bySha = new Map();
+  for (const run of snapshot.runs) {
+    if (!bySha.has(run.sha)) bySha.set(run.sha, []);
+    bySha.get(run.sha).push(run);
+  }
   const byCause = new Map();
-  for (const run of red) {
-    const names = attributeRun(run, suspects);
+  let red = 0;
+  for (const runs of bySha.values()) {
+    if (runs.some((r) => r.delivered)) continue;
+    red += 1;
+    const names = [...new Set(runs.flatMap((r) => attributeRun(r, suspects)))].sort();
     const key = names.length ? names.join(' + ') : 'unattributed';
     byCause.set(key, (byCause.get(key) ?? 0) + 1);
   }
   return {
-    merges: runs.length,
-    delivered: runs.length - red.length,
-    red: red.length,
-    redShare: red.length / Math.max(1, runs.length),
+    runs: snapshot.runs.length,
+    merges: bySha.size,
+    supersededRuns: snapshot.runs.length - bySha.size,
+    delivered: bySha.size - red,
+    red,
+    redShare: red / Math.max(1, bySha.size),
     byCause: Object.fromEntries([...byCause].sort((a, b) => b[1] - a[1])),
   };
 }

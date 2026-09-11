@@ -17,7 +17,7 @@
  *
  * ⚠️ That first one is a RUNTIME tolerance, not an optional key. This header
  * used to call `SortConfig.order` "optional"; it is required on the interface,
- * on its zod mirror and on `@objectstack/spec`'s `SortItemSchema`. Corrected
+ * on its zod counterpart and on `@objectstack/spec`'s `SortItemSchema`. Corrected
  * under objectui#9031, whose subject is the third copy of that same sentence —
  * the one the refusal diagnostic printed at authors.
  *

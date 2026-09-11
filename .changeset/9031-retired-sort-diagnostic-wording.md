@@ -7,7 +7,7 @@ The retired-`sort` refusal no longer prescribes metadata the spec rejects (objec
 `convertSortToQueryParams` refuses the retired string `sort` clause out loud, and the
 diagnostic it prints is the text an author reads at the moment they are ALREADY being
 corrected. It ended by telling them "`order` is optional and means `'asc'`". It is not
-optional: `SortConfig.order` is required on the interface, on its zod mirror, and on
+optional: `SortConfig.order` is required on the interface, on its zod counterpart, and on
 `@objectstack/spec`'s `SortItemSchema`, which refuses an entry without it. An author who
 followed the correction verbatim was refused a second time — at publish, by a different
 door, with no hint that the advice itself was wrong.

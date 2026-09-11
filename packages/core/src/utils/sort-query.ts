@@ -78,7 +78,7 @@ export interface QuerySortEntry {
  * carries the fix and not just the complaint.
  *
  * ⚠️ BOTH keys, deliberately. `order` is REQUIRED on `SortConfig`, on its zod
- * mirror and on `@objectstack/spec`'s `SortItemSchema`, so an example that
+ * counterpart and on `@objectstack/spec`'s `SortItemSchema`, so an example that
  * omitted it would make this diagnostic prescribe metadata a publish refuses —
  * objectui#9031. The pin feeds this very example back through `SortItemSchema`
  * from the installed artifact rather than eyeballing it, because the way this
@@ -130,7 +130,7 @@ export function resetRetiredSortSpellingReports(): void {
  *    than dropped (see {@link normalizeSortEntries}), because types are erased
  *    and an entry that arrives without it still has to mean something;
  *  - and it is NOT permission — `order` is required on `SortConfig`, on its zod
- *    mirror and on `@objectstack/spec`'s `SortItemSchema`, which refuses an
+ *    counterpart and on `@objectstack/spec`'s `SortItemSchema`, which refuses an
  *    entry without it.
  *
  * Stating only the first is what made an author who followed this correction
@@ -147,7 +147,7 @@ function reportRetiredSortSpelling(sort: string): void {
       `(objectui#8221) and was REFUSED — received ${JSON.stringify(sort)}, so this query ` +
       `carries no \`$orderby\`. Write the array form instead: ` +
       `sort: ${ARRAY_FORM_EXAMPLE} — both keys, on every entry. \`order\` is required: on ` +
-      `\`SortConfig\`, on its zod mirror, and on \`@objectstack/spec\`'s \`SortItemSchema\`, ` +
+      `\`SortConfig\`, on its zod counterpart, and on \`@objectstack/spec\`'s \`SortItemSchema\`, ` +
       `which refuses an entry without it. (A missing \`order\` is still read as \`'asc'\` ` +
       `here — that is a runtime tolerance, not permission to omit the key: metadata ` +
       `written that way is refused when it is published.) ` +

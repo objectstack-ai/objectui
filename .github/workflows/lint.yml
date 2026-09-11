@@ -408,6 +408,27 @@ jobs:
         if: steps.relevant.outputs.should_run == 'true'
         run: node scripts/check-vi-mock-override-shape.mjs
 
+      # ── Test path roots (objectui#8953) ───────────────────────────────────
+      # A test that resolves a repository path from `process.cwd()` reads a
+      # different tree under a package's own `test` script than under the form
+      # CI runs, so the same assertion reaches two verdicts. AGENTS.md has
+      # taught that rule since PR objectui#8952 and nothing enforced it;
+      # objectui#7799 repaired 13 instances of it in a single day.
+      #
+      # This step is a SECOND signal, not the gate. The gate is
+      # `scripts/__tests__/check-test-path-roots.test.ts`, which runs inside
+      # `Test (shard N/4)` — a required context that subscribes `merge_group`,
+      # so it blocks a queue build. This step reaches the same verdict sooner
+      # and with a message aimed at the author.
+      #
+      # After `pnpm install`, unlike the entry-guard step above: the scan parses
+      # every test file with the TypeScript compiler, because the defect is a
+      # RESOLVED ROOT and not a spelling — one of objectui#7799's own 13 was
+      # invisible to that card's census regex.
+      - name: Verify no test resolves a repository path from the process cwd
+        if: steps.relevant.outputs.should_run == 'true'
+        run: node scripts/check-test-path-roots.mjs
+
 
       # ── The cross-repo closer's outcome contract (#5261) ──────────────────
       # `cross-repo-issue-closer.yml` carries ~250 lines of inline

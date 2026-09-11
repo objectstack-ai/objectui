@@ -176,6 +176,17 @@
  * import"; a widening here is the correct response to a new way of reaching
  * one, and a bullet quietly disappearing is not.
  *
+ * ⚠️ THE WIDENING HAS TWO HALVES, and objectui#7479 shipped only one of them
+ * the first time. The alternation above selects the POPULATION; the binding
+ * walk below decides what each member is read as. Widening the first alone put
+ * two files in the population that bound nothing — and a member with no read
+ * row is precisely what this suite's own assertion calls a file the report says
+ * nothing about. It passed on the branch and failed in the merge queue, because
+ * the assertion arrived on `main` from objectui#9046 after the branch last
+ * built: neither change is wrong alone, and together they are. ⇒ ⛔ never widen
+ * the alternation without asking what the binding walk does with the shape it
+ * just admitted.
+ *
  * NO MATCH COUNT IS STATED IN THIS SECTION, and the absence is the fix rather
  * than an omission (objectui#8752). It used to open with one — "19 matches
  * today, of which these four" — written true and then decayed in place: 19 in
@@ -222,6 +233,12 @@
  *     `packages/plugin-grid/demo/bulk-actions.tsx` — whole-pack `resources`
  *     wiring only, no per-key property reads: nothing for the leg to see and
  *     nothing at risk.
+ *     ⚠️ Since objectui#7479 `main.tsx` names the pack SUBPATH, the published
+ *     all-ten door, because the entry no longer re-exports nine of them. The
+ *     wiring above is unchanged to the byte; only the specifier moved. The
+ *     population grep matches a subpath already (it tests the line for the
+ *     package name), so the binding walk had to match one too — see the two
+ *     halves warning above.
  *   - `packages/react/src/utils/nonGridRowCeiling.tsx` — the importer this
  *     section was missing when objectui#8752 was filed, and the one worth
  *     reading twice: it is the first instance in this tree of class 4 below.
@@ -759,6 +776,35 @@ const PACK_EXPORT_NAMES = new Set(['en', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'pt
 const PACK_MAP_EXPORT_NAME = 'builtInLocales';
 
 /**
+ * The pack package's named export that RETURNS the locale-tag map rather than
+ * being it — `getLoadedBuiltInLocales()`. The call's result has the same shape
+ * as {@link PACK_MAP_EXPORT_NAME}, so a chain read off the CALL opens with a
+ * locale tag and resolves exactly as a chain off the map does.
+ */
+const PACK_MAP_ACCESSOR_EXPORT_NAME = 'getLoadedBuiltInLocales';
+
+/**
+ * Whether an import's module specifier is the pack package — the entry, or one
+ * of its published subpaths.
+ *
+ * ⚠️ SUBPATHS COUNT, and this predicate exists because leaving them out split
+ * the instrument in half. `derivePackObjectImporters()` selects its population
+ * with a SUBSTRING test over the grep line (`line.includes(...)`), so
+ * `@object-ui/i18n/locales` has always been an importer; the binding walk below
+ * compared for EQUALITY, so the same file bound nothing and reported no reads.
+ * A file in the population with no row is the one thing the enumeration's own
+ * assertions call a broken walk, and the two halves disagreeing is how you get
+ * there without either half looking wrong on its own.
+ *
+ * Named pack exports come from `.` and `./locales` only (`packages/i18n`'s
+ * `exports` map), and both of them really are packs, so accepting the whole
+ * subpath space cannot admit a non-pack `en`.
+ */
+function isPackModuleSpecifier(text) {
+  return text === PACK_IMPORT_SPECIFIER || text.startsWith(`${PACK_IMPORT_SPECIFIER}/`);
+}
+
+/**
  * Resolve the local bindings a file binds locale pack objects to.
  *
  * The binding name is whatever the importer chose, so nothing downstream may
@@ -775,7 +821,7 @@ function packBindingsOf(source) {
     if (
       ts.isImportDeclaration(node) &&
       ts.isStringLiteral(node.moduleSpecifier) &&
-      node.moduleSpecifier.text === PACK_IMPORT_SPECIFIER &&
+      isPackModuleSpecifier(node.moduleSpecifier.text) &&
       node.importClause?.namedBindings &&
       ts.isNamedImports(node.importClause.namedBindings)
     ) {
@@ -784,6 +830,40 @@ function packBindingsOf(source) {
         if (PACK_EXPORT_NAMES.has(exported) || exported === PACK_MAP_EXPORT_NAME) {
           bindings.set(element.name.text, exported);
         }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return bindings;
+}
+
+/**
+ * Resolve the local names a file binds the RESIDENT-CATALOGUE ACCESSOR to.
+ *
+ * Kept in its own map rather than folded into {@link packBindingsOf} because
+ * the two are not the same kind of name: a pack binding IS a pack, so a chain
+ * climbs straight off the identifier, while this one is a FUNCTION and the map
+ * is its call's result. Reading `getLoadedBuiltInLocales.console` would be a
+ * read of a function property, not of a catalogue, and putting it in the same
+ * map is how that row would get written.
+ *
+ * @returns {Map<string, string>} local binding name -> the export it is bound
+ *   to (always {@link PACK_MAP_ACCESSOR_EXPORT_NAME}).
+ */
+function packMapAccessorBindingsOf(source) {
+  const bindings = new Map();
+  const visit = (node) => {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      isPackModuleSpecifier(node.moduleSpecifier.text) &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings)
+    ) {
+      for (const element of node.importClause.namedBindings.elements) {
+        const exported = (element.propertyName ?? element.name).text;
+        if (exported === PACK_MAP_ACCESSOR_EXPORT_NAME) bindings.set(element.name.text, exported);
       }
     }
     ts.forEachChild(node, visit);
@@ -968,8 +1048,9 @@ function isNonReferenceIdentifier(identifier) {
  *   local alias of a pack subtree.
  * @property {string} file Repo-relative path of the importer.
  * @property {string} binding The identifier the FILE actually spells.
- * @property {string | null} via For an alias, the chain it stands for; `null`
- *   for a direct reference to the import binding.
+ * @property {string | null} via For an alias, the chain it stands for; the
+ *   call spelling for a read off the resident-catalogue accessor's RESULT;
+ *   `null` for a direct reference to the import binding.
  * @property {string} pack The pack export the binding descends from — a locale
  *   tag, or the locale-tag map.
  * @property {string[]} chain The pack path this read reaches, alias prefix
@@ -1045,13 +1126,34 @@ export function derivePackObjectPropertyReads(root, files) {
     const text = readFileSync(full, 'utf8');
     const source = ts.createSourceFile(full, text, ts.ScriptTarget.Latest, true);
     const bindings = packBindingsOf(source);
-    if (bindings.size === 0) continue;
+    const mapAccessors = packMapAccessorBindingsOf(source);
+    if (bindings.size === 0 && mapAccessors.size === 0) continue;
     const aliases = packAliasesOf(source, bindings);
 
     const visit = (node) => {
       // A pack name inside a TYPE (`keyof typeof builtInLocales`) reads no
       // key at run time; collecting it would put a phantom row on an importer.
       if (ts.isTypeNode(node)) return;
+      // A CALL of the resident-catalogue accessor IS the locale-tag map, so the
+      // chain climbs off the CALL and resolves exactly as a chain off
+      // `builtInLocales` does — one locale tag, then pack path. Reaching a pack
+      // this way is a read like any other, and a walk keyed only on names a
+      // file IMPORTS cannot see it: the name imported here is a function.
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && mapAccessors.has(node.expression.text)) {
+        const { chain, dynamic } = propertyChainAt(node);
+        const spelling = `${node.expression.text}()`;
+        rows.push({
+          file,
+          binding: node.expression.text,
+          via: spelling,
+          pack: PACK_MAP_EXPORT_NAME,
+          chain,
+          depth: chain.length,
+          dynamic,
+          line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+          text: [spelling, ...chain].join('.') + (dynamic ? '[…]' : ''),
+        });
+      }
       const alias = ts.isIdentifier(node) ? aliases.get(node.text) : undefined;
       const isBinding = ts.isIdentifier(node) && bindings.has(node.text);
       if ((isBinding || alias) && !isNonReferenceIdentifier(node)) {

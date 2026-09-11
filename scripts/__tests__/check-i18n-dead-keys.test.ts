@@ -1157,6 +1157,96 @@ describe('the pack-object property reads are derived, with their depth (objectui
     });
   });
 
+  /**
+   * ⭐ Two WAYS OF REACHING a pack, both of which land a file in the importer
+   * population while binding nothing the walk above recognised (objectui#7479).
+   *
+   * Both are pinned as SHAPES rather than as the files that introduced them,
+   * for the reason this whole suite states: the instance is the class's proof
+   * of non-emptiness, never its work item. The failure they guard against has
+   * one signature — a file the population contains and the report says nothing
+   * about — and that silence is indistinguishable from a clean file unless the
+   * derivation is asked directly.
+   */
+  describe('sees a pack reached by SUBPATH or by ACCESSOR CALL, not only one named in an entry import', () => {
+    it('a pack imported from a published SUBPATH is read exactly as one imported from the entry', () => {
+      // The firing case for the subpath half. `derivePackObjectImporters()`
+      // selects the population with a SUBSTRING test, so a subpath importer was
+      // always in it; the binding walk compared for EQUALITY, so it bound
+      // nothing and the file went silent.
+      const rows = readsOf(`import { zh } from '${I18N_PKG}/locales';\nconst v = zh.fixtureNs.leafTwo;\n`);
+      expect(rows.map((r) => ({ binding: r.binding, pack: r.pack, key: r.key }))).toEqual([
+        { binding: 'zh', pack: 'zh', key: 'fixtureNs.leafTwo' },
+      ]);
+    });
+
+    it('the same read spelled off the ENTRY is the control, and it was always seen', () => {
+      // Same kind, same run, pre-existing the widening: if this one ever goes
+      // quiet the walk is broken generally and the case above proves nothing.
+      const rows = readsOf(`import { zh } from '${I18N_PKG}';\nconst v = zh.fixtureNs.leafTwo;\n`);
+      expect(rows.map((r) => ({ binding: r.binding, pack: r.pack, key: r.key }))).toEqual([
+        { binding: 'zh', pack: 'zh', key: 'fixtureNs.leafTwo' },
+      ]);
+    });
+
+    it('a package whose name merely STARTS WITH the pack package is not one of its subpaths', () => {
+      // The widening is scoped to the subpath separator on purpose. A plain
+      // substring test would bind pack names out of any package sharing the
+      // prefix, and the rows it invented would be reads of another package.
+      expect(readsOf(`import { zh } from '${I18N_PKG}ext/locales';\nconst v = zh.fixtureNs.leafTwo;\n`)).toEqual([]);
+    });
+
+    it('a chain off the resident-catalogue ACCESSOR CALL resolves like one off the map', () => {
+      // The firing case for the accessor half. The call's result IS the
+      // locale-tag map, so the tag is stripped and the key resolves at the same
+      // depth as `builtInLocales.en.fixtureNs.leafTwo` above.
+      const rows = readsOf(
+        `import { getLoadedBuiltInLocales } from '${I18N_PKG}';\n` +
+          `const v = getLoadedBuiltInLocales().en.fixtureNs.leafTwo;\n`,
+      );
+      const row = rowFor(rows, 'getLoadedBuiltInLocales().en.fixtureNs.leafTwo');
+      expect(row, 'a read through the accessor is a pack read; silence here is the queue failure objectui#7479 hit').toBeDefined();
+      expect(row?.pack, 'the call returns the locale-tag map, not a pack').toBe('builtInLocales');
+      expect(row?.key, 'the tag is not a key segment here either').toBe('fixtureNs.leafTwo');
+      expect(row?.keyDepth).toBe(2);
+      expect(row?.via, 'the row says the pack was reached through a call, not bound by an import').toBe('getLoadedBuiltInLocales()');
+    });
+
+    it('an accessor call indexed by a RUNTIME language is reported opaque, never as reading nothing', () => {
+      // The shape the console actually ships. It is class 1 — the segments
+      // below the computed access are unknowable — and the row must exist to
+      // say so, exactly as `builtInLocales[lang]` does.
+      const rows = readsOf(
+        `import { getLoadedBuiltInLocales } from '${I18N_PKG}';\n` +
+          `const v = getLoadedBuiltInLocales()[lang];\n`,
+      );
+      expect(rows.map((r) => ({ text: r.text, dynamic: r.dynamic, resolves: r.resolves }))).toEqual([
+        { text: 'getLoadedBuiltInLocales()[…]', dynamic: true, resolves: 'opaque' },
+      ]);
+    });
+
+    it('a property of the ACCESSOR ITSELF is not a pack read', () => {
+      // Why the accessor is held in its own map rather than beside the packs: a
+      // pack binding IS a pack, so a chain climbs straight off the identifier.
+      // This one is a FUNCTION, and a row for `<accessor>.fixtureNs` would be a
+      // read of a function property reported as a catalogue key.
+      const rows = readsOf(
+        `import { getLoadedBuiltInLocales } from '${I18N_PKG}';\n` +
+          `const v = getLoadedBuiltInLocales.fixtureNs;\n`,
+      );
+      expect(rows, 'no call, no map, no read').toEqual([]);
+    });
+
+    it('ignores an identically-named accessor that came from somewhere else', () => {
+      expect(
+        readsOf(
+          `import { getLoadedBuiltInLocales } from './not-the-packs.js';\n` +
+            `const v = getLoadedBuiltInLocales().en.fixtureNs.leafTwo;\n`,
+        ),
+      ).toEqual([]);
+    });
+  });
+
   // ── the depth, which is the load-bearing half ─────────────────────────────
   describe('reports how deep each read is', () => {
     const rows = readsOf(

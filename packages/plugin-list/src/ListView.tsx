@@ -2744,6 +2744,53 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         return {
           type: 'object-gantt',
           ...baseProps,
+          // objectui#7334 — the view-level `navigation` the author wrote.
+          //
+          // `ObjectGantt` owns a record drawer of its own and resolves
+          // `const navConfig = schema.navigation ?? { mode: 'drawer' }`, then
+          // classifies four overlay modes (`drawer`/`modal`/`split`/`popover`)
+          // to decide whether to suppress the host's `onRowClick`. Nothing put
+          // `navigation` on the node it receives, so that `??` was the ONLY
+          // branch ever taken: a view authoring `navigation: { mode: 'page' }`
+          // got a drawer, with no diagnostic. The component knows four modes
+          // and was only ever handed the default.
+          //
+          // ⭐ ON THE BRANCH, NOT ON `baseProps`, and that is a measurement
+          // rather than a preference. SEVEN other child views read
+          // `schema.navigation` for themselves, each at its own
+          // `useNavigationOverlay` call — `ObjectGrid`, `ObjectGallery`,
+          // `ObjectKanban`, `ObjectCalendar`, `ObjectMap`, `ObjectTimeline`,
+          // `ObjectTree` (⛔ cited by symbol, not by line: objectui#8875). And
+          // every one of them ALSO receives `onRowClick:
+          // navigation.handleClick` from `baseProps`, which
+          // `useNavigationOverlay` gives FULL priority over any `navigation` it
+          // is handed. So putting the key on `baseProps` would deliver it to
+          // seven views in two broken ways at once:
+          //
+          //   - six of them (grid, gallery, kanban, map, timeline, tree) pass
+          //     `onRowClick` UNCONDITIONALLY, so the authored config would
+          //     arrive and then be outranked — declared, delivered, and STILL
+          //     not enforced, which is this card's own defect relocated;
+          //   - calendar alone mirrors gantt's `navIsOverlay ? undefined :
+          //     onRowClick`, so it would genuinely CHANGE BEHAVIOUR: today its
+          //     `navConfig` is always the `{ mode: 'drawer' }` fallback and it
+          //     suppresses the host handler; fed an authored `page` it would
+          //     stop suppressing and defer to ListView's overlay instead.
+          //
+          // That is two sources of truth for one question. `gantt` is the only
+          // branch where forwarding settles the question rather than splitting
+          // it: its wrapper drops host props entirely (objectui#7210 /
+          // objectui#7222), so the schema path is the only live carrier and
+          // `onRowClick` is not there to outrank anything.
+          //
+          // Conditional, not `navigation: schema.navigation` — an ABSENT key,
+          // not present-and-undefined, the same distinction the two non-axis
+          // keys below are omitted for. It is what keeps the `?? { mode:
+          // 'drawer' }` fallback reachable for a view that authored nothing.
+          //
+          // ⛔ This is route A only. Forwarding host PROPS to the chart is
+          // objectui#7210 half 2's scope and collides with objectui#7333.
+          ...(schema.navigation ? { navigation: schema.navigation } : {}),
           // ViewData pass-through: a view authored with `data: {provider:'api',
           // read, write}` (composite endpoint) must reach ObjectGantt, whose
           // getDataConfig prefers schema.data over the objectName fallback.

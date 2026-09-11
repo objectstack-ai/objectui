@@ -260,6 +260,23 @@ export const ADJUDICATED = new Map([
     'packages/plugin-detail/src/__tests__/guideCrudAppRenders.test.tsx',
     { reads: ['content/docs/guide/building-crud-app.md'] },
   ],
+  // The `reads` below is a MEASURED subset of a DERIVED population, which is
+  // why it is one document rather than a tree. Two of this test's three pins
+  // name `packages/plugin-detail/README.md` by constant; the third enumerates
+  // `git grep -l isMultiValueField packages` and opens every hit, so any
+  // markdown that starts mentioning that symbol joins the set. Measured on this
+  // card: the enumeration offers 18 paths, ten of them CHANGELOGs the test
+  // drops before opening anything, and exactly one markdown document survives
+  // into the read set -- the same README the other two pins name. The root
+  // `CHANGELOG.md` the scanner resolves is never in the population at all: the
+  // pathspec is `packages`, and the bare literal comes from the drop filter.
+  [
+    'packages/plugin-detail/src/__tests__/relatedListParentScopeResidue-8937.test.ts',
+    {
+      reads: ['packages/plugin-detail/README.md'],
+      notRead: ['CHANGELOG.md', 'packages/plugin-detail/CHANGELOG.md'],
+    },
+  ],
   [
     'packages/plugin-detail/src/renderers/__tests__/docsActivityMapTranscription-7876.test.ts',
     { reads: ['content/docs/plugins/plugin-detail.mdx'] },

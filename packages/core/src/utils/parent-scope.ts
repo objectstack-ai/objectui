@@ -23,11 +23,11 @@
  *
  * ## The rule itself is not invented here
  *
- * The arity verdict is `@objectstack/spec/data`'s own `isMultiValueField`, the
- * same predicate the driver that executes the query decides on. That matters
- * more here than anywhere: this function chooses `$contains` vs `=`, the driver
- * chooses whether to accept it, and two readers of one question disagreeing is
- * the entire defect class. The spec's rule is BROADER than an eyeballed
+ * The arity verdict is `@objectstack/spec/data`'s own `isMultiValueField`. That
+ * matters more here than anywhere: this function chooses `$contains` vs `=` and
+ * every surface that asks the question now reads that one choice, so two
+ * readers of one question disagreeing — the entire defect class — cannot
+ * recur INSIDE this repository. The spec's rule is BROADER than an eyeballed
  * `multiple === true` in both directions — `multiselect` / `checkboxes` /
  * `tags` persist an array with no flag at all, and `multiple: true` is INERT on
  * a type outside the spec's multi-capable set (`master_detail`, say) — so a
@@ -36,6 +36,36 @@
  * ⛔ Do not add a local arity rule at any call site, however small, and ⛔ do
  * not widen this function to accept an arity the caller computed: the parameter
  * it takes is METADATA, and the verdict is drawn from it here.
+ *
+ * ## ⚠️ The STORAGE side does not read this predicate — the two rules DIVERGE
+ *
+ * This header used to say `isMultiValueField` is "the same predicate the driver
+ * that executes the query decides on". It is not, and the difference is
+ * observable (objectui#8937). Measured on objectstack `origin/main`,
+ * `driver-sql` gates the equality family on its own STORAGE question,
+ * `isJsonField`: a column is JSON when the field's type is in that driver's
+ * `JSON_COLUMN_TYPES` — the spec's `STRUCTURED_JSON_TYPES` and
+ * `MULTI_OPTION_TYPES`, plus the driver-internal `object` / `array` aliases —
+ * OR when `multiple` is merely TRUTHY, on ANY type; a single-value media type
+ * answers from the ADR-0104 dual-encoding window instead. The spec's predicate
+ * is `MULTI_OPTION_TYPES.has(type) || (MULTI_CAPABLE_TYPES.has(type) &&
+ * multiple === true)`.
+ *
+ * ⇒ They diverge for a type OUTSIDE `MULTI_CAPABLE_TYPES` carrying
+ * `multiple: true` (`master_detail` / `tree` / `text`): the spec says
+ * single-valued, so this seam compiles `=`, while the driver stores a JSON
+ * column and refuses `=` with the same `400 INVALID_FILTER` objectui#7299 was
+ * filed for. That is a KNOWN divergence and ⛔ not a regression — both
+ * surfaces sent `=` for that shape before objectui#7299 and objectui#8882 too.
+ *
+ * ⛔ Do NOT close it by widening the predicate here: which of the two rules is
+ * right is an upstream question, filed as objectstack#17469 (enforce-or-align),
+ * and this seam is deliberately not blocked on it. Widening on this side would
+ * move the disagreement across the wire rather than end it, and would make the
+ * ONE compiler this module exists to be disagree with the spec it delegates to.
+ * The divergence is re-derived from the installed spec on every run by
+ * `relatedListParentScopeResidue-8937.test.ts`, so this section reddens when the
+ * spec side moves.
  */
 
 import { isMultiValueField, type ValueShapeFieldDef } from '@objectstack/spec/data';

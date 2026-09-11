@@ -367,11 +367,19 @@ export const RelatedToolbarButton: React.FC<{
  *
  * ⛔ Do not reintroduce a local arity rule here, however small — the warning
  * that stood at this spot still stands, and now names one more reader. This
- * component decides `$contains` vs `=`, the driver that refuses the query
- * decides on `@objectstack/spec/data`'s `isMultiValueField`, and the badge
- * decides too; readers of one question disagreeing is the whole defect class.
- * Moving the decision to a shared seam is NOT "putting a local rule one layer
- * up" — the rule is still the spec's, and there is now exactly one caller of it.
+ * component decides `$contains` vs `=` and the badge decides too; readers of
+ * one question disagreeing is the whole defect class. Moving the decision to a
+ * shared seam is NOT "putting a local rule one layer up" — the rule is still
+ * the spec's, and there is now exactly one caller of it.
+ *
+ * ⚠️ What the seam does NOT buy is agreement with STORAGE. This spot used to
+ * add that the driver refusing the query decides on that same
+ * `isMultiValueField`. It does not (objectui#8937): `driver-sql` gates the
+ * equality family on its own storage question, which reads `multiple` as truthy
+ * on ANY type, so the two rules diverge for `master_detail` / `tree` / `text`
+ * carrying `multiple: true`. The measured rule, the divergence and the upstream
+ * card that owns which of them is right (objectstack#17469) are recorded on the
+ * seam itself — `@object-ui/core`'s `parent-scope` — so one place answers it.
  */
 
 export const RelatedList: React.FC<RelatedListProps> = ({

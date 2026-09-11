@@ -1444,11 +1444,11 @@ jobs:
       # `playwright-report/` keeps working if the HTML reporter is ever enabled
       # on CI. upload-artifact only warns when NO path matches, so the absent
       # one costs nothing.
-      - name: Upload Playwright report
+      - name: Upload failure artefacts
         uses: actions/upload-artifact@v7
         if: ${{ steps.relevant.outputs.should_run == 'true' && !cancelled() && failure() }}
         with:
-          name: playwright-report
+          name: e2e-failure-artifacts
           path: |
             playwright-report/
             test-results/

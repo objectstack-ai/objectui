@@ -176,15 +176,28 @@ const ALL_EDGE_IDS = EDGE_ROWS.map((r) => r.id as string);
  * asks about PRESENCE and not about truthiness — while the `null` row, the
  * `undefined` row and the row carrying no such key are excluded.
  *
- * `NaN` is excluded, and NOT because of the operator. `ValueDataSource`'s
- * constructor deep-clones its items with `JSON.parse(JSON.stringify(items))`,
- * and `JSON.stringify` writes `NaN` as `null` — so by the time any filter runs,
- * that row genuinely holds `null`. Measured while repairing objectui#7349;
- * before the repair nothing was ever excluded, so the round-trip was invisible
- * here. (`undefined` is dropped by the same round-trip, which is why the
- * `undefined` row and the `missing-key` row are indistinguishable below.)
+ * RE-MEASURED (objectui#9175): `NaN` is now KEPT, and the move is in the clone
+ * rather than in the matcher. `ValueDataSource`'s constructor used to
+ * deep-clone its items with `JSON.parse(JSON.stringify(items))`, and
+ * `JSON.stringify` writes `NaN` as `null` — so by the time any filter ran, that
+ * row genuinely held `null` and `is_not_null` excluded it. The round-trip was
+ * an accident of the clone, not a reading of the operator; this file said so
+ * when it first recorded the exclusion, and objectui#9175 replaced the clone
+ * with `structuredClone`. `NaN` reaches the matcher as `NaN`, which is neither
+ * `null` nor `undefined`, so the PRESENCE operator keeps it. The old row set is
+ * kept in this comment because it is the evidence the exclusion was never the
+ * operator's doing.
+ *
+ *   before objectui#9175  ['empty-string', 'zero', 'false', 'array', 'object', 'real']
+ *   after                 the same, plus 'NaN'
+ *
+ * The `undefined` row and the `missing-key` row are still both excluded, but no
+ * longer for one shared reason: the round-trip used to DELETE an `undefined`
+ * value's key, collapsing the two rows into the same shape. `structuredClone`
+ * keeps the key with its `undefined` value, so the two rows now differ — and
+ * `is_not_null` answers NO to both, which is what the operator is for.
  */
-const PRESENT_EDGE_IDS = ['empty-string', 'zero', 'false', 'array', 'object', 'real'];
+const PRESENT_EDGE_IDS = ['empty-string', 'zero', 'false', 'NaN', 'array', 'object', 'real'];
 
 async function selectedIds(
   filter: unknown,

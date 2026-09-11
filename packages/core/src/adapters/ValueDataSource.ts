@@ -1051,8 +1051,27 @@ export class ValueDataSource<T = any> implements DataSource<T> {
   private mutationListeners = new Set<(event: DataSourceMutationEvent<T>) => void>();
 
   constructor(config: ValueDataSourceConfig<T>) {
-    // Deep clone to prevent external mutation
-    this.items = JSON.parse(JSON.stringify(config.items));
+    // Deep clone to prevent external mutation.
+    //
+    // `structuredClone`, NOT a `JSON.parse(JSON.stringify(...))` round-trip
+    // (objectui#9175, maintainer ruling A on objectui#9061). The clone exists
+    // only to stop a caller mutating rows this read-only query source already
+    // handed out; it was never a serialization boundary, and the round-trip
+    // quietly made it one. Everything routed through `provider: 'value'` had to
+    // survive `JSON.stringify` — so a `Date` came back as a string, keys whose
+    // value was `undefined` disappeared, a cycle threw, and objectui#6018's
+    // pinned guarantee ("an inline value never has to be serializable at all")
+    // became false the moment a renderer routed its inline rows through this
+    // adapter to honour `filter` / `sort` / the objectui#7210 ceiling.
+    //
+    // `structuredClone` handles cycles, `Date`, `Map`/`Set`, `BigInt` and typed
+    // arrays, and is already an unguarded runtime requirement of published
+    // ObjectUI packages (`@object-ui/app-shell`, `@object-ui/plugin-designer`).
+    // It still throws `DataCloneError` on a function or a DOM node — that is
+    // deliberate and stays LOUD: ⛔ no `try`/`catch` fallback here, because
+    // falling back to the round-trip would restore exactly the silent
+    // flattening this replaces.
+    this.items = structuredClone(config.items);
     this.idField = config.idField;
   }
 
@@ -1291,8 +1310,13 @@ export class ValueDataSource<T = any> implements DataSource<T> {
     return this.items.length;
   }
 
-  /** Get a snapshot of all items (cloned) */
+  /**
+   * Get a snapshot of all items (cloned).
+   *
+   * Same clone as the constructor and for the same reason — see the note
+   * there: `structuredClone`, never a JSON round-trip (objectui#9175).
+   */
   getAll(): T[] {
-    return JSON.parse(JSON.stringify(this.items));
+    return structuredClone(this.items);
   }
 }

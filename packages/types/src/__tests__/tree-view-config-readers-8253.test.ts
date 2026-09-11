@@ -7,8 +7,9 @@
  */
 
 /**
- * objectui#8253 — `TreeViewConfig`'s key census is total over its readers, and
- * the module-local copy it replaced is GONE rather than shadowed.
+ * objectui#8253 / objectui#8841 — `TreeViewConfig`'s key census is total over
+ * the PROTOCOL, its readers agree with it, and the module-local copy it
+ * replaced is GONE rather than shadowed.
  *
  * ## The card
  *
@@ -41,6 +42,17 @@
  * `"paths": {}` sends the specifier through the workspace dependency to
  * `packages/types/dist/index.d.ts`. Two files, two halves, neither redundant.
  *
+ * ## What objectui#8841 changed (and why the census stopped being a list)
+ *
+ * objectui#8253's export was a hand-written INTERFACE — the protocol's
+ * `ListView.tree` block, copied under a second name — and it declared a fifth
+ * key, `titleField`, that `@objectstack/spec@17.4.0` refuses on that block by
+ * name. The pins here did not catch it because `DECLARED` was AUTHORED beside
+ * the type: the list was written to match the drift, so it agreed with the
+ * defect and stayed green. objectui#8841 derives the type from the protocol and
+ * checks `DECLARED` against `TreeConfigSchema`'s own shape in both directions,
+ * so the list can no longer drift silently — only loudly.
+ *
  * ## Every zero below has a firing control
  *
  * A `not.toMatch` is worth nothing until the same instrument is shown matching
@@ -53,6 +65,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { TreeConfigSchema } from '@objectstack/spec/ui';
+import type { ListView as SpecListView } from '@objectstack/spec/ui';
+
 import type { TreeViewConfig } from '../index';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -64,11 +79,21 @@ const VIEW_BRANCH = 'packages/plugin-view/src/ObjectView.tsx';
 const LIST_BRANCH = 'packages/plugin-list/src/ListView.tsx';
 const CONSOLE_COMPOSITION = 'packages/app-shell/src/views/ObjectView.tsx';
 
-/** The declared keys, as a value — so the runtime census and the type agree. */
+/**
+ * The declared keys, as a value — `it.each` needs one, and a failure named
+ * `reads \`labelField\`` is worth more than a failure named `reads keys[1]`.
+ *
+ * ⚠️ objectui#8841: this list is no longer AUTHORED here. It is checked against
+ * `@objectstack/spec`'s own `TreeConfigSchema` in both directions below, and
+ * that check is the reason the list is allowed to exist at all. The previous
+ * spelling was authored here, carried a fifth key (`titleField`) the protocol
+ * refuses on `ListView.tree`, and stayed green precisely because the list and
+ * the type were maintained together — a census cannot be total over something
+ * it also authors.
+ */
 const DECLARED = [
   'parentField',
   'labelField',
-  'titleField',
   'fields',
   'defaultExpandedDepth',
 ] as const;
@@ -86,6 +111,33 @@ type Equal<A, B> =
 // directions, so a key added to the interface without being added here fails
 // as loudly as the reverse.
 type _CensusMatchesType = Assert<Equal<(typeof DECLARED)[number], keyof TreeViewConfig>>;
+
+// objectui#8841 — and the type itself is the PROTOCOL's block, so the chain
+// closes: list ≡ type ≡ spec. Structural equality rather than `extends`; a
+// hand-written twin satisfies assignability in both directions and would
+// defeat the derivation.
+type SpecTreeConfig = NonNullable<SpecListView['tree']>;
+type _TypeIsTheProtocolBlock = Assert<Equal<TreeViewConfig, SpecTreeConfig>>;
+// FIRING CONTROL: the instrument above must be able to say `false`, and the
+// near-miss it is shown is the one that actually shipped.
+type _ParityCanFail = Assert<Equal<Equal<TreeViewConfig, SpecTreeConfig & { titleField?: string }>, false>>;
+
+describe('the census is the protocol\'s key set, not a copy of it (objectui#8841)', () => {
+  const specKeys = Object.keys(TreeConfigSchema.shape).sort();
+
+  it('list ≡ protocol, both directions', () => {
+    expect([...DECLARED].sort()).toEqual(specKeys);
+  });
+
+  it('CONTROL: the comparison can fail — the key that shipped is the one it rejects', () => {
+    // Without this, an `toEqual` between two lists that were both derived from
+    // the same place would be indistinguishable from one that cannot fail.
+    expect([...DECLARED, 'titleField'].sort()).not.toEqual(specKeys);
+    expect(specKeys).not.toContain('titleField');
+    // FIRING CONTROL on the zero above: a key the protocol DOES declare.
+    expect(specKeys).toContain('parentField');
+  });
+});
 
 describe('the module-local copy is gone, not shadowed (objectui#8253)', () => {
   const src = read(RESOLVER);
@@ -168,112 +220,103 @@ describe('every declared key has a reader (objectui#8253)', () => {
   });
 });
 
-describe('`titleField` stays DECLARED — the measurement the ruling asked for', () => {
-  // The ruling put this key to a measurement: declare it if the console writes
-  // it, else delete the read. The answer came back split, and the READ side
-  // decides.
+describe('`titleField` is NOT declared — the reads that survive are tolerance (objectui#8841)', () => {
+  // objectui#8253 put this key to a measurement — declare it if the console
+  // WRITES it, else delete the read — and then declared it on READ-side
+  // evidence instead. `@objectstack/spec@17.4.0` settles it: `TreeConfigSchema`
+  // is a `strictObject` and REFUSES `titleField` on `ListView.tree` by name, so
+  // the declaration published a key the protocol rejects and an author who
+  // followed `@object-ui/types` was refused at publish. 协议为基准.
   //
-  //   - the console's create-view dialog does NOT offer it: its `tree` slot
-  //     collects `parentField` alone (asserted below);
-  //   - but the console's own host composition reads it BY NAME, as do the
-  //     `ListView` and `ObjectView` tree branches;
-  //   - and objectui#6557 pinned the rung as live behaviour in
-  //     `app-shell/src/views/ObjectView.titleFieldConvergence.test.tsx`
-  //     ("the tree's second view-declared rung … still answers"), a regression
-  //     pin landed precisely so a later edit could not collapse the tree's two
-  //     view-declared rungs into one.
+  // What this block owns now is the SHAPE OF THE REMAINDER, so the next session
+  // does not read "the key is gone" as "every read is gone":
   //
-  // ⇒ Deleting the read would reverse a recorded ruling and redden its pin —
-  // a maintainer's call, not a rider on this card. Declaring the key is what
-  // makes declared = enforced at all four sites at once.
+  //   - the resolver's `schema.titleField` rung is DELETED (it read the flattened
+  //     NODE, and `titleField` is declared on neither the node face nor the
+  //     block's);
+  //   - the three `labelField || titleField` dual-reads in plugin-view,
+  //     plugin-list and app-shell SURVIVE as undeclared tolerant fallbacks, so
+  //     already-stored view records keep resolving. They are recorded here for a
+  //     follow-up, ⛔ not declared anywhere — re-declaring a renderer-side alias
+  //     is the AGENTS.md #0.1 defect this card undoes.
 
-  /**
-   * The console's tree rung, located by NAME so the failure message is the one
-   * line at issue rather than a dump of the whole file.
-   *
-   * `labelField:` is the only seam of its kind in that file — the other five
-   * (objectui#6557 counts six) all spell `titleField:` — and objectui#6557
-   * separately requires every seam to name `viewDef` itself, so a rung hoisted
-   * into a local is already forbidden there and shows up here as an absent
-   * rung rather than as a silently passing one.
-   */
-  const consoleTreeRung = () =>
-    read(CONSOLE_COMPOSITION)
+  it('the protocol refuses it on `ListView.tree`, measured on the installed artifact', () => {
+    const refused = TreeConfigSchema.safeParse({ titleField: 'name' });
+    expect(refused.success).toBe(false);
+    expect(JSON.stringify(refused.error?.issues)).toContain('titleField');
+
+    // FIRING CONTROL: the same schema accepts what it declares, so the refusal
+    // is about the KEY and not about a schema (or an import) that refuses
+    // everything.
+    expect(TreeConfigSchema.safeParse({ labelField: 'name' }).success).toBe(true);
+  });
+
+  it('the resolver no longer reads it', () => {
+    const resolver = read(RESOLVER);
+    const from = resolver.slice(resolver.indexOf('function getTreeConfig'));
+    const fn = from.slice(0, from.indexOf('\n}\n') + 3);
+
+    // Bound the slice, exactly as the census above does: a renamed function
+    // silently turns this into "the whole file" and the negative below would
+    // then be a statement about nothing.
+    expect(fn).toContain('function getTreeConfig');
+    expect(fn.length).toBeLessThan(resolver.length / 2);
+
+    expect(fn).not.toContain('titleField');
+
+    // FIRING CONTROL: the same slice, the same instrument, on the rung that IS
+    // there. Without this, a slice that had become empty would pass the line
+    // above.
+    expect(fn).toContain('labelField');
+  });
+
+  it('CONTROL: the explanation of the deleted rung is in the file, just not in the body', () => {
+    // The prose-vs-declaration trap this file already documents for `interface
+    // TreeConfig`, in its second instance. `ObjectTree.tsx` explains the removal
+    // ABOVE `getTreeConfig` precisely so the slice above stays a reading about
+    // the code. If someone moves that prose inside the function, the negative
+    // above starts failing for the wrong reason — this line is what tells them
+    // which of the two happened.
+    expect(read(RESOLVER)).toContain('titleField');
+  });
+
+  it('the three tolerant dual-reads survive, undeclared, pending a follow-up', () => {
+    // ⚠️ This is a RECORD, not an endorsement. Each of these reads a key the
+    // protocol refuses and no face declares; each reads it through `any`, which
+    // is why none of them had to change when the declaration went. Retiring them
+    // touches three packages and is a decision, not a rider on this card.
+    expect(read(VIEW_BRANCH)).toContain('viewOptions.tree?.titleField');
+    expect(read(LIST_BRANCH)).toContain('treeCfg.titleField');
+
+    const rung = read(CONSOLE_COMPOSITION)
       .split('\n')
       .map((l) => l.trim())
       .find((l) => l.startsWith('labelField:') && l.includes('viewDef') && /\btree\b/.test(l));
-
-  /**
-   * Reads `titleField` off a `tree` expression — tolerant of an interposed TYPE
-   * ANNOTATION, intolerant of the read being gone.
-   *
-   * ⚠️ Why it is not `toContain('tree?.titleField')` any more. That was the
-   * first spelling, and objectui#7559 turned it RED on a tree where the read
-   * was untouched: typing the block as `TreeViewConfig` put a cast BETWEEN the
-   * two halves of the substring —
-   * `(viewDef.tree as TreeViewConfig | undefined)?.titleField`. A pin on a READ
-   * must not double as a pin on the annotation standing in front of it; the
-   * claim this file makes is "the console composition reads it", and that claim
-   * was still true when the substring stopped being there.
-   *
-   * ⛔ It is still a pin on the read, not a formality. The gap it tolerates is
-   * an `as` clause and nothing else: `||` may not appear in it, so `titleField`
-   * has to be taken off THIS `tree`, not off some other term further along the
-   * same line. Deleting the read reddens it — measured by ablation on
-   * objectui#7559, by test-case name.
-   */
-  const READS_TITLE_FIELD = /\btree\b(?:\s+as\s+(?:[^|\n]|\|(?!\|))*?)?\s*\)?\s*\?\.titleField\b/;
-
-  it('the console composition reads it', () => {
-    const rung = consoleTreeRung();
-    // Locating the rung is half of the assertion: if the console stops
-    // composing a `tree` label from `viewDef` at all, that is where it surfaces.
     expect(rung, 'the console composition has no `viewDef` tree `labelField` rung').toBeDefined();
-    expect(rung).toMatch(READS_TITLE_FIELD);
+    expect(rung).toContain('titleField');
+
+    // ⛔ And the console rung is NOT cast to `TreeViewConfig` on the tolerant
+    // half. It cannot be — the type is the protocol's block now and does not
+    // carry the key — and casting it to a local `{ titleField?: string }`
+    // instead would re-declare exactly what this card removed. The canonical
+    // rung on the same line stays typed; that asymmetry is the change.
+    expect(rung).toContain("(viewDef.tree as TreeViewConfig | undefined)?.labelField");
+    expect(rung).not.toContain('as TreeViewConfig | undefined)?.titleField');
   });
 
-  it('CONTROL: the instrument tells a present read from a deleted one', () => {
-    // A regex loosened until it cannot fail reads exactly like one that still
-    // works, so both spellings this rung has actually worn are pinned as
-    // matching, and the shape that means "the read was deleted" as not.
-    const BEFORE_7559 =
-      "labelField: (viewDef as any).tree?.labelField || (viewDef as any).tree?.titleField || 'name',";
-    const AFTER_7559 =
-      "labelField: (viewDef.tree as TreeViewConfig | undefined)?.labelField" +
-      " || (viewDef.tree as TreeViewConfig | undefined)?.titleField || 'name',";
-    const READ_DELETED =
-      "labelField: (viewDef.tree as TreeViewConfig | undefined)?.labelField || 'name',";
-
-    expect(BEFORE_7559).toMatch(READS_TITLE_FIELD);
-    expect(AFTER_7559).toMatch(READS_TITLE_FIELD);
-    expect(READ_DELETED).not.toMatch(READS_TITLE_FIELD);
-
-    // And the tolerance is bounded: a `titleField` taken off a DIFFERENT term
-    // on the same line is not this rung's read.
-    expect("labelField: (viewDef.tree as TreeViewConfig | undefined)?.labelField || other?.titleField || 'name',")
-      .not.toMatch(READS_TITLE_FIELD);
-  });
-
-  it('the plugin-view tree branch reads it', () => {
-    expect(read(VIEW_BRANCH)).toContain('viewOptions.tree?.titleField');
-  });
-
-  it('the plugin-list tree branch reads it', () => {
-    expect(read(LIST_BRANCH)).toContain('treeCfg.titleField');
-  });
-
-  it("objectui#6557's pin on the rung is still in the tree", () => {
-    // Named explicitly: if this file is ever deleted, whoever deletes it is
-    // told here that this declaration's justification went with it.
+  it("objectui#6557's pin on the rung is still in the tree, and still passes", () => {
+    // Named explicitly: the tolerant console rung above is the behaviour that
+    // pin asserts, so deleting the rung without touching that file would redden
+    // it. Whoever takes the follow-up is told here.
     expect(read('packages/app-shell/src/views/ObjectView.titleFieldConvergence.test.tsx'))
       .toContain('tree.titleField');
   });
 
   it("CONTROL: the console's create-view dialog still does NOT offer it for `tree`", () => {
-    // The other half of the measurement, and the half that would have argued
-    // for deleting the read. `titleField` IS collected — for calendar,
-    // timeline and gantt — so a zero for the `tree` slot is a reading about
-    // the tree slot and not about a broken instrument.
+    // The half of objectui#8253's own measurement that argued for deleting the
+    // read, re-measured on this base rather than carried over: `titleField` IS
+    // collected — for calendar, timeline and gantt — so a zero for the `tree`
+    // slot is a reading about the tree slot and not about a broken instrument.
     const dialog = read('packages/app-shell/src/views/CreateViewDialog.tsx');
     const treeSlot = (() => {
       const from = dialog.slice(dialog.indexOf('\n  tree: ['));

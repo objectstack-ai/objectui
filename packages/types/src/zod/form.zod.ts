@@ -687,6 +687,30 @@ export const FormSchema = BaseSchema.extend({
 });
 
 /**
+ * The one string this arm's `inputType` refusal carries into BOTH author-facing
+ * channels — the parse-time issue message and the `.describe()` metadata — so
+ * they cannot drift apart ({@link retirementTombstone}'s discipline).
+ *
+ * ⚠️ The closing sentence is a claim about a DIFFERENT surface and is pinned as
+ * such: on the FORM FIELD path the precedence is the other way round
+ * (`renderers/form/form.tsx`, `type={inputType || NATIVE_INPUT_FIELD_TYPES[declaredType] || 'text'}`),
+ * so an author who meets this message inside `fields: [ … ]` is not the author it
+ * is addressed to. `__tests__/shorthand-input-type-refusal-8762.test.ts` fails if
+ * the message stops saying it; the components-side pin
+ * (`renderers/form/__tests__/shorthand-input-type-discarded-8762.test.tsx`) fails
+ * if either precedence moves.
+ */
+const SHORTHAND_INPUT_TYPE_REFUSAL =
+  '`inputType` is NOT authorable on the `email` / `password` shorthands (objectui#8762). ' +
+  '`packages/components/src/renderers/form/input.tsx` registers each of them by wrapping the ' +
+  '`input` renderer and spreading its OWN `inputType` LAST, so an authored value is overwritten ' +
+  'before the renderer reads it: `{ "type": "password", "inputType": "text" }` renders a MASKED ' +
+  'field, not a text one. Write the input node itself when the input type is the choice — ' +
+  '`{ "type": "input", "inputType": "email" }`, the spelling that IS read. ' +
+  '(A form FIELD is a different position: inside `fields: [ … ]` an authored `inputType` still ' +
+  'wins over the one the field type implies, and this refusal does not reach there.)';
+
+/**
  * Input Shorthand Schema — the `email` / `password` aliases
  * `packages/components/src/renderers/form/input.tsx` registers (objectui#8499).
  *
@@ -697,18 +721,45 @@ export const FormSchema = BaseSchema.extend({
  *   (props) => <InputRenderer {...props} schema={{ ...props.schema, inputType: 'password' }} />, …)
  * ```
  *
- * ⛔ `inputType` is therefore ABSENT from this arm, deliberately, and that
- * absence is the whole difference from {@link InputSchema}. The wrapper spreads
- * its own value LAST, so an authored `inputType` is silently overwritten;
- * declaring it here would publish a key the runtime discards. Write
+ * ⛔ `inputType` is therefore NOT a member here, and that is the whole difference
+ * from {@link InputSchema}. The wrapper spreads its own value LAST, so an
+ * authored `inputType` never reaches the renderer. Write
  * `{ type: 'input', inputType: 'email' }` when the input type is the choice.
  *
- * ⚠️ MEASURED, so the omission is not over-read: `BaseSchema` passes unknown
- * keys through, so `{ type: 'password', inputType: 'text' }` still PARSES —
- * omitting the key states the contract on the declared face, it does not refuse
- * the value. Refusing it by name (the `./tombstone.zod.ts` mechanism) would be
- * an accept-set NARROWING in the opposite direction from this card and is
- * deliberately left to its own ruling; objectui#8499's report records it.
+ * ## Why the key is DECLARED-AND-REFUSED rather than merely omitted (objectui#8762)
+ *
+ * ⚠️ objectui#8499 shipped this arm with the key simply OMITTED and recorded the
+ * reading that made that insufficient: `BaseSchema` is `.passthrough()`, so
+ * `{ type: 'password', inputType: 'text' }` PARSED GREEN and the value survived
+ * into `safeParse`'s output — omission states the contract on the declared face,
+ * it does not refuse the value. Re-measured on this card's base before the
+ * change: ACCEPT, with `inputType: 'text'` still present in the parsed data,
+ * while the DOM rendered `type="password"`. That is the class-(c) trap — a
+ * validated key the runtime discards — so #8499's report left the repair to its
+ * own ruling, which is this card.
+ *
+ * The key therefore stays DECLARED and unwritable, refused BY NAME with guidance
+ * ({@link retirementTombstone}, the mechanism `./tombstone.zod.ts` owns). ⚠️ Not
+ * an ADR-0049 retirement of `inputType` itself — the key is alive and honoured on
+ * {@link InputSchema}; what is unwritable is this POSITION. That is the same
+ * reading `MenuItemSchema.type` (`overlay.zod.ts`) is filed under, and
+ * `aliasKeyRefusal`'s docblock records why declaration history is not what picks
+ * the helper. ⛔ Not `aliasKeyRefusal` either: the remedy here is a different
+ * `type`, not a sibling spelling of a key on this same object, so its
+ * "Did you mean `inputType` → `inputType`?" lead would be nonsense.
+ *
+ * ⛔ The repair is NOT to flip the wrapper's precedence so the author wins:
+ * `{ type: 'password', inputType: 'text' }` would then render an UNMASKED field
+ * under a `password` key, which is worse than refusing it. The card records this
+ * so the cheaper-looking route is not taken by accident.
+ *
+ * ONE rule, not an enumeration: the refusal is a single member on this ONE arm,
+ * whose `type` is an enum, so it covers both literals and any literal later added
+ * to that enum. A shorthand registered in `input.tsx` and NOT added to the enum
+ * is refused whole by `AnyComponentSchema` (no arm claims the literal) rather
+ * than silently accepted — the loud direction — and
+ * `__tests__/shorthand-input-type-refusal-8762.test.ts` compares the enum against
+ * the registration site so the gap turns red instead of widening in silence.
  *
  * Every other key is {@link InputSchema}'s, because it is literally the same
  * renderer reading the same schema.
@@ -716,6 +767,9 @@ export const FormSchema = BaseSchema.extend({
 export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: true }).extend({
   type: z.enum(['email', 'password'])
     .describe('Input shorthand — `renderers/form/input.tsx` pins `inputType` to match'),
+  // Declared and unwritable — the `.omit()` above removes the HONOURED enum
+  // {@link InputSchema} carries, and this puts a named refusal in its place.
+  inputType: retirementTombstone(SHORTHAND_INPUT_TYPE_REFUSAL),
   // Declared here and not (yet) on {@link InputSchema}, which is the pair
   // `__tests__/zod-mirror-parity.test.ts` records as unmirrored for this very key.
   // The renderer both arms share reads it — `renderers/form/input.tsx:42`,

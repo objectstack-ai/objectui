@@ -62,11 +62,20 @@ render is the same defect one layer up, so neither is blessed:
   in "Uncategorized") and a string-first mix is ignored whole. The protocol's "or"
   names two array shapes and no mixed example.
 
-**The bare-string array is admitted for parity and is inert on this block.** The
-renderer honours it only when a board has no `groupBy`, and `groupBy` is required
-on this face — so no document that passes this schema reaches it. It is declared
-because refusing an arm the protocol names would be a second narrowing; the
-requiredness is tracked as objectui#8990.
+**The bare-string array is admitted for parity, and on this block it is now
+REACHABLE.** The renderer honours it only when a board has no `groupBy` — the
+`effectiveColumns` memo takes the string branch under `if (!schema.groupBy)` — and
+`groupBy` was required on this face when this entry was written, so no document
+that passed this schema could reach it. objectui#8990 has since made `groupBy`
+optional on both twins (`groupBy?: string` in `objectql.ts`,
+`z.string().optional()` in the Zod mirror), and a lane-less board now does reach
+the arm: a board carrying only `objectName` and `columns: ['todo', 'doing', 'done']`
+parses green and satisfies every guard on that branch, drawing those lanes titled
+by the raw strings. It is declared because refusing an arm the protocol names would
+be a second narrowing — that reason is unchanged; what moved is that the arm is
+exercised rather than dormant. objectui#8990's own entry records the same
+reachability from its side, pinned with a firing control in
+`packages/plugin-kanban/src/__tests__/laneLessBoard-8990.test.tsx`.
 
 **What is deliberately NOT judged.** `cards` is not required (a swimlane does not
 carry its own cards), so an undeclared lane key such as the retired `items`

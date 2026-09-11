@@ -110,12 +110,35 @@ describe('objectui#8253 — the views entry declares its `tree` block', () => {
       tree: {
         parentField: 'parent',
         labelField: 'name',
-        titleField: 'subject',
         fields: ['name', 'manager'],
         defaultExpandedDepth: 1,
       },
     };
 
     expect(full.tree).toMatchObject({ parentField: 'parent', defaultExpandedDepth: 1 });
+  });
+
+  it('REFUSES `titleField` — the key the protocol rejects on `ListView.tree` (objectui#8841)', () => {
+    // objectui#8253 declared `titleField` on this block; `@objectstack/spec@17.4.0`
+    // REFUSES it there by name (`TreeConfigSchema` is a `strictObject` since spec
+    // #15469). So the declaration accepted what the contract rejects, and a host
+    // that followed this prop's type was refused at publish. objectui#8841
+    // re-derives the block from the spec, which removes the key.
+    //
+    // This is the diagnostic that MOVED, and it is the point of the card: the
+    // host writing the entry inline now learns at compile time what it used to
+    // learn from a parse failure at publish.
+    // ⚠️ The directive must be the LAST comment line before the property.
+    const composed: ViewEntry = {
+      id: 'tree',
+      label: 'Hierarchy',
+      type: 'tree',
+      tree: {
+        // @ts-expect-error objectui#8841 — spec 17.4.0 refuses `tree.titleField`; the block no longer declares it.
+        titleField: 'subject',
+      },
+    };
+
+    expect(composed.type).toBe('tree');
   });
 });

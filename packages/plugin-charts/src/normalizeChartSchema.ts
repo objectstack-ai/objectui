@@ -6,6 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { pickLocalized } from '@object-ui/i18n';
+
 /**
  * The ONE place the spec's author-facing chart shape is translated into the
  * renderer's internal pipeline contract (framework#3729 / objectui#2880).
@@ -261,19 +263,49 @@ const num = (v: unknown): number | undefined => (typeof v === 'number' && Number
 
 /**
  * An i18n label may be a plain string or a `{ en, zh-CN, … }` record. Charts
- * render a string; pick a reasonable one rather than `[object Object]`.
+ * render a string; resolve the one the VIEWER's language asks for.
+ *
+ * ## Why `pickLocalized` and not a local pick (objectui#8943)
+ *
+ * The map arm used to return `Object.values(v).find(isString)` — **the first
+ * string in key order**. That is not a resolution, it is a transcription of how
+ * the author happened to type the object literal: a `zh` viewer got `定价` only
+ * if `zh-CN` was written first, and reordering the JSON — no other change —
+ * showed the same viewer English. Deterministic, silent, and wrong.
+ *
+ * `pickLocalized` (`@object-ui/i18n`) is this repository's ONE answer for the
+ * spec's `I18nLabel` union: exact tag -> base language -> a region-qualified
+ * sibling -> `default` -> `en` -> first value. It is pinned as the twin of the
+ * backend's `resolveI18nLabel` (`@objectstack/spec`) in
+ * `plugin-list/src/__tests__/i18nLabel-resolver-parity.test.ts`. The sibling
+ * read site in this package — `ObjectChart`'s drill-drawer heading — already
+ * routes through it, and this function is what put the CHART heading beside it
+ * on a different answer for the same union on the same node.
+ *
+ * ⛔ Do not reintroduce a module-local pick here, and ⛔ do not "improve" this
+ * by preferring `default`/`en` inline: a hand-rolled preference order is how
+ * this class recurs, and a second answer disagrees with the published one on
+ * the same value.
+ *
+ * ## The admission test is unchanged, deliberately
+ *
+ * Only what `I18nLabel` actually admits gets here — a plain string or an inline
+ * locale map. `pickLocalized` alone would also stringify a number or a boolean
+ * (`String(value)`), which would make this a wider authoring surface than the
+ * contract declares; per AGENTS.md #0.1 that widening belongs in the spec if it
+ * is wanted at all, not in a renderer-side coercion. So the guard below refuses
+ * everything else exactly as before, and `pickLocalized` decides only WHICH
+ * entry of an admitted value wins.
+ *
+ * `pickLocalized` spells a miss `''` (it feeds text nodes); every caller here
+ * treats an empty label as absent, which is what `|| undefined` restores.
  */
-function label(v: unknown): string | undefined {
-  const s = str(v);
-  if (s) return s;
-  if (isRec(v)) {
-    const first = Object.values(v).find((x) => typeof x === 'string' && x);
-    return first as string | undefined;
-  }
-  return undefined;
+function label(v: unknown, language: string | null | undefined): string | undefined {
+  if (typeof v !== 'string' && !isRec(v)) return undefined;
+  return pickLocalized(v, language) || undefined;
 }
 
-function normalizeAxis(raw: unknown): NormalizedAxis | undefined {
+function normalizeAxis(raw: unknown, language: string | null | undefined): NormalizedAxis | undefined {
   if (!isRec(raw)) return undefined;
   const out: NormalizedAxis = {};
   const field = str(raw.field);
@@ -292,7 +324,7 @@ function normalizeAxis(raw: unknown): NormalizedAxis | undefined {
   if (position === 'left' || position === 'right' || position === 'top' || position === 'bottom') {
     out.position = position;
   }
-  const title = label(raw.title);
+  const title = label(raw.title, language);
   if (title) out.title = title;
   return out;
 }
@@ -344,7 +376,7 @@ function normalizeAxis(raw: unknown): NormalizedAxis | undefined {
  * that case is what goes red if the two faces are ever brought into agreement,
  * from either side.
  */
-function normalizeSeries(raw: unknown): NormalizedSeries | undefined {
+function normalizeSeries(raw: unknown, language: string | null | undefined): NormalizedSeries | undefined {
   if (!isRec(raw)) {
     // A bare string is accepted as a shorthand for `{ name }` — the Tremor-ish
     // `categories: ['a','b']` form ChartRenderer already adapts.
@@ -354,7 +386,7 @@ function normalizeSeries(raw: unknown): NormalizedSeries | undefined {
   const dataKey = str(raw.dataKey) ?? str(raw.name);
   if (!dataKey) return undefined;
   const out: NormalizedSeries = { dataKey };
-  const lbl = label(raw.label);
+  const lbl = label(raw.label, language);
   if (lbl) out.label = lbl;
   // INTERNAL spelling FIRST, authored `type` second — see the docblock above.
   // The order is load-bearing and pinned; neither limb is dead.
@@ -379,8 +411,29 @@ function normalizeSeries(raw: unknown): NormalizedSeries | undefined {
  * Translate a chart schema — spec shape, internal shape, or a mix — into the
  * renderer's internal contract. Only keys that resolve to something are
  * present on the result, so callers can spread it over their own defaults.
+ *
+ * @param language the VIEWER's active language, for every `I18nLabel` slot this
+ *   resolves — the chart's `title` / `subtitle` / `description`, an axis
+ *   `title`, and a series `label`. Pure on purpose: this module cannot call a
+ *   hook, so a React caller reads the language once
+ *   (`useObjectTranslation().language`) and hands it down. See {@link label}.
+ *
+ *   ⚠️ OMITTING IT IS NOT NEUTRAL. `pickLocalized` reads an absent language as
+ *   `'en'`, so a locale map resolves through `default` -> `en` -> first value.
+ *   That is the right answer for a caller with no viewer (a build-time or
+ *   server-side normalisation) and the WRONG one for a rendering caller — which
+ *   is why `ChartRenderer` passes it. A caller that reads only structural keys
+ *   off the result (`resolveChartCategoryField` reads `xAxisKey` and nothing
+ *   else) resolves no label at all and may omit it.
+ *
+ *   The parameter is optional so that every existing caller keeps compiling and
+ *   every non-label key keeps its byte-for-byte behaviour; it is NOT optional
+ *   in the sense of "safe to skip when a heading is on screen".
  */
-export function normalizeChartSchema(schema: unknown): NormalizedChartSchema {
+export function normalizeChartSchema(
+  schema: unknown,
+  language?: string | null,
+): NormalizedChartSchema {
   if (!isRec(schema)) return {};
   const out: NormalizedChartSchema = {};
 
@@ -408,7 +461,7 @@ export function normalizeChartSchema(schema: unknown): NormalizedChartSchema {
   // Spec `xAxis` is an object; the report surface narrows it to a bare string.
   // Both mean "the column on the category axis".
   const xAxisRaw = schema.xAxis;
-  const xAxisSpec = normalizeAxis(xAxisRaw);
+  const xAxisSpec = normalizeAxis(xAxisRaw, language);
   if (xAxisSpec && (xAxisSpec.format || xAxisSpec.title || xAxisSpec.showGridLines !== undefined)) {
     out.xAxis = xAxisSpec;
   }
@@ -416,7 +469,7 @@ export function normalizeChartSchema(schema: unknown): NormalizedChartSchema {
   if (xAxisKey) out.xAxisKey = xAxisKey;
 
   const yAxes = (Array.isArray(schema.yAxis) ? schema.yAxis : schema.yAxis !== undefined ? [schema.yAxis] : [])
-    .map((a: unknown) => normalizeAxis(a) ?? (str(a) ? { field: str(a) } : undefined))
+    .map((a: unknown) => normalizeAxis(a, language) ?? (str(a) ? { field: str(a) } : undefined))
     .filter((a): a is NormalizedAxis => !!a);
   if (yAxes.length) out.yAxes = yAxes;
 
@@ -437,7 +490,13 @@ export function normalizeChartSchema(schema: unknown): NormalizedChartSchema {
     : Array.isArray(schema.categories)
       ? schema.categories
       : undefined;
-  let series = rawSeries?.map(normalizeSeries).filter((s): s is NormalizedSeries => !!s);
+  // ⚠️ NOT point-free (`.map(normalizeSeries)`): `Array#map` hands the callback
+  // the INDEX as its second argument, which since objectui#8943 is
+  // `normalizeSeries`' `language` parameter — every series after the first
+  // would resolve its label against the numbers `1`, `2`, … as locale tags.
+  let series = rawSeries
+    ?.map((entry: unknown) => normalizeSeries(entry, language))
+    .filter((s): s is NormalizedSeries => !!s);
   // No series at all: the y-axes name the plotted columns, so a chart written
   // purely in spec shape (`yAxis: [{ field: 'total' }]`) still plots.
   if (!series?.length) {
@@ -455,11 +514,11 @@ export function normalizeChartSchema(schema: unknown): NormalizedChartSchema {
   // ── chrome ──────────────────────────────────────────────────────────────
   if (typeof schema.showLegend === 'boolean') out.showLegend = schema.showLegend;
   if (typeof schema.showDataLabels === 'boolean') out.showDataLabels = schema.showDataLabels;
-  const title = label(schema.title);
+  const title = label(schema.title, language);
   if (title) out.title = title;
-  const subtitle = label(schema.subtitle);
+  const subtitle = label(schema.subtitle, language);
   if (subtitle) out.subtitle = subtitle;
-  const description = label(schema.description);
+  const description = label(schema.description, language);
   if (description) out.description = description;
   const height = num(schema.height);
   if (height !== undefined && height > 0) out.height = height;

@@ -267,14 +267,43 @@ type Lowering =
   | { readonly refused: false; readonly operators: ReadonlySet<string> };
 
 /**
+ * The comparands every spelling is probed with.
+ *
+ * The two BOOLEANS are here because `$null` / `$exists` read their value to pick
+ * a direction, so one probe would see only half of what they emit.
+ *
+ * The STRING is here because "for every other operator the value is irrelevant"
+ * — what this list used to say — stopped being true. objectui#9001 gave
+ * `$icontains` a comparand door: `@objectstack/spec`'s `FILTER_TEXT_CASES`
+ * declares an empty or non-string comparand REFUSED, so probing that operator
+ * with a boolean measures the COMPARAND door and answers "refused", and this
+ * file read that as "not a supported operator" — a supported operator reported
+ * as unsupported, from an instrument that was asking the wrong question rather
+ * than from any defect in the code or the page.
+ */
+const PROBE_COMPARANDS: readonly unknown[] = [true, false, 'probe'];
+
+/**
  * What `convertFiltersToAST` does with `spelling` in operator position — the
- * AST operator(s) it emits, or a refusal. Probed with both booleans because
- * `$null` / `$exists` read their value to pick a direction; for every other
- * operator the value is irrelevant and both probes agree.
+ * AST operator(s) it emits, or a refusal.
+ *
+ * ⚠️ "Refused" means refused for EVERY comparand in {@link PROBE_COMPARANDS},
+ * not for the first one tried. That distinction is the whole repair: an operator
+ * the converter does not support is refused whatever you hand it, while an
+ * operator whose COMPARAND is constrained refuses some values and lowers others
+ * — and this function is asked about the operator. The union over the probes
+ * that lower is still exactly "the operator(s) the lowered node carries", so a
+ * row naming the wrong one (objectui#8558: `notin` for `nin`) still fails, and
+ * a spelling the code genuinely refuses is still reported refused.
+ *
+ * The envelope assertion runs on EVERY refusing probe rather than only on a
+ * fatal one, so a comparand door that refuses outside the `INVALID_FILTER` / 400
+ * envelope is caught here too.
  */
 function lowerings(spelling: string): Lowering {
   const operators = new Set<string>();
-  for (const value of [true, false]) {
+  let refusals = 0;
+  for (const value of PROBE_COMPARANDS) {
     let node: unknown;
     try {
       node = convertFiltersToAST({ probe: { [spelling]: value } });
@@ -283,7 +312,8 @@ function lowerings(spelling: string): Lowering {
         error,
         `${spelling} threw something other than the INVALID_FILTER / 400 envelope`,
       ).toMatchObject({ code: 'INVALID_FILTER', httpStatus: 400 });
-      return { refused: true };
+      refusals += 1;
+      continue;
     }
     if (!Array.isArray(node) || node[0] !== 'probe' || typeof node[1] !== 'string') {
       throw new Error(
@@ -292,6 +322,7 @@ function lowerings(spelling: string): Lowering {
     }
     operators.add(node[1]);
   }
+  if (refusals === PROBE_COMPARANDS.length) return { refused: true };
   return { refused: false, operators };
 }
 
@@ -456,6 +487,27 @@ describe('README filter-operator tables are decided by convertFiltersToAST (obje
   });
 
   describe('the Supported Filter Operators table', () => {
+    it('the string probe is load-bearing, and this is the operator that proves it', () => {
+      // The control for {@link PROBE_COMPARANDS}. Without it the third probe is
+      // an unexplained entry the next reader tidies away, and CI goes red on a
+      // page and a converter that are both correct — which is exactly what
+      // happened when objectui#9001 landed the comparand door.
+      //
+      // Two halves, and both are needed: the boolean probe must still be
+      // refused (or the third probe has nothing to rescue and may go), and the
+      // string probe must still lower (or the rescue does not work and the
+      // repair is elsewhere).
+      expect(
+        () => convertFiltersToAST({ probe: { $icontains: true } }),
+        'a boolean $icontains comparand is refused by the contract\'s own row '
+          + '(FILTER_TEXT_CASES, objectui#9001); if this stops throwing, the string probe may go',
+      ).toThrow();
+      expect(
+        convertFiltersToAST({ probe: { $icontains: 'probe' } }),
+        'and a VALID comparand must lower, or the probe set cannot rescue the operator',
+      ).toEqual(['probe', 'icontains', 'probe']);
+    });
+
     it('every spelling in the first column lowers to exactly the operator(s) the second column names', () => {
       const bad: string[] = [];
       for (const row of supported) {

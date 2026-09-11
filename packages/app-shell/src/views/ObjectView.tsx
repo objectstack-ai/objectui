@@ -2627,18 +2627,30 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                     // auto-detects when omitted.
                     //
                     // Read AS `TreeViewConfig` (`@object-ui/types`, objectui#8253):
-                    // `viewDef` is `Record<string, any>`, so both rungs below were
-                    // `any` property accesses and a misspelling was invisible. This
-                    // is the half of objectui#7559 a declaration CAN close, on the
-                    // one block that now has a declaration to close it with — it
-                    // does NOT make a missing rung visible, which is what the census
-                    // pin (`ObjectView.relayRungCensus-7559.test.ts`) is for.
+                    // `viewDef` is `Record<string, any>`, so the canonical rung
+                    // below was an `any` property access and a misspelling was
+                    // invisible. This is the half of objectui#7559 a declaration CAN
+                    // close, on the one block that now has a declaration to close it
+                    // with — it does NOT make a missing rung visible, which is what
+                    // the census pin (`ObjectView.relayRungCensus-7559.test.ts`) is
+                    // for.
                     //
                     // ⚠️ The cast is repeated per rung rather than hoisted into a
                     // local: objectui#6557's convergence pin reads these seam lines
                     // out of this file and requires each to name `viewDef` itself.
+                    //
+                    // ⛔ The `titleField` rung is deliberately NOT cast (objectui#8841).
+                    // `TreeViewConfig` is now the spec's `ListView.tree` block, and
+                    // `@objectstack/spec@17.4.0` refuses `titleField` there by name,
+                    // so casting to it would not compile and re-declaring the key
+                    // locally would fossilise a renderer-side alias into a second
+                    // contract — AGENTS.md #0.1, and the defect objectui#8841 exists
+                    // to undo. The rung stays as an UNDECLARED tolerant fallback,
+                    // read through `any`, kept so already-stored view records keep
+                    // resolving and so objectui#6557's pin on it stays honest. Its
+                    // retirement is a follow-up, ⛔ not a rider here.
                     ...((viewDef.tree as TreeViewConfig | undefined) || {}),
-                    labelField: (viewDef.tree as TreeViewConfig | undefined)?.labelField || (viewDef.tree as TreeViewConfig | undefined)?.titleField || 'name',
+                    labelField: (viewDef.tree as TreeViewConfig | undefined)?.labelField || viewDef.tree?.titleField || 'name',
                 },
                 // The chart block the view DECLARED, forwarded WHOLE — a
                 // pointer, not a copy of its key set (objectui#7823).

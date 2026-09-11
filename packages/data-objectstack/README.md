@@ -166,6 +166,14 @@ of going unnoticed.
 is always `true` — the direction comes from the operator name, which is how the
 spec's `data/filter.zod.ts` reads it.
 
+`$icontains` constrains its **comparand**, which no other row in this table
+does: `@objectstack/spec`'s `FILTER_TEXT_CASES` declares an empty or non-string
+comparand REFUSED, so an empty box or an uncoerced number throws
+`INVALID_FILTER` / 400 at lowering time instead of sending a predicate that
+constrains nothing or a question nobody wrote (objectui#9001). The operator is
+supported exactly as the row says — write a non-empty string, or drop the
+condition.
+
 #### Logical combinators
 
 `$and` and `$or` take an array of filter conditions and lower to an AST group

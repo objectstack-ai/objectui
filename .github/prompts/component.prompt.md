@@ -67,8 +67,17 @@ Responsible for **Input** (Edit Mode) and **Display** (Read Mode) of a specific 
 ### B. View Layouts (`view:*`)
 Responsible for rendering records. The specific `type` determines the Props contract.
 
+> ⚠️ **A `Keys` entry is a REGISTRY key; a `Required Types` entry is a spec `type` value. They are
+> not the same vocabulary and they have diverged.** `{ "type": "kanban" }` inside a `ListView`
+> config is spec-valid, but the board component is registered as `object-kanban` — the namespaced
+> `view:kanban` and `view:gantt` spellings retired with the bare `kanban` / `gantt` registrations and
+> now answer only the opt-in protocol PLACEHOLDER panel. A document naming one passes
+> `objectui check` and then draws nothing. Write the key from the `Keys` bullet, and where a
+> presentation is a config value rather than a component, write it as a prop. Enforced by
+> `pnpm check:prompt-keys`.
+
 #### 1. List Views (Collection)
-*   **Keys:** `view:grid`, `view:kanban`, `view:map`, `view:calendar`, `view:gantt`, etc.
+*   **Keys:** `view:grid`, `object-kanban`, `view:map`, `view:calendar`, `object-gantt`, etc.
 *   **Contract:** Must implement `ListViewComponentProps`.
     ```typescript
     type ListViewComponentProps = {
@@ -82,7 +91,9 @@ Responsible for rendering records. The specific `type` determines the Props cont
 *   **Required Types (Ref: `src/ui/view.zod.ts`):** `grid`, `spreadsheet`, `kanban`, `gallery`, `calendar`, `timeline`, `gantt`, `map`.
 
 #### 2. Form Views (Detail)
-*   **Keys:** `view:simple`, `view:wizard`, `view:tabbed`, `view:drawer`, etc.
+*   **Keys:** `view:simple`, `view:form`, `view:detail`, etc.
+    *   The `tabbed` / `wizard` / `split` / `drawer` / `modal` presentations are NOT registry keys
+        of their own — they are the `formType` prop on `view:form` (registered as `object-form`).
 *   **Contract:** Must implement `FormViewComponentProps`.
     ```typescript
     type FormViewComponentProps = {

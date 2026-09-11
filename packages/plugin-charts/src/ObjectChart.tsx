@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from 're
 import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, type ElementDataSourceMapping } from '@object-ui/react';
 import { ChartRenderer } from './ChartRenderer';
 import { normalizeChartSchema } from './normalizeChartSchema';
-import { ComponentRegistry, chartMeasureKey, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
+import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
@@ -108,6 +108,17 @@ const OBJECT_BOUND_CHART_CATEGORY_BINDINGS = [
  *
  * Returns `undefined` only when the schema names no category by any declared
  * spelling — a real answer, and what {@link ObjectChart}'s refusal keys on.
+ *
+ * ⚠️ LEDGERED, on purpose: this is the one `normalizeChartSchema` call in the
+ * package that passes NO language (objectui#8943). It is safe here and only
+ * here — the call reads `.xAxisKey`, a COLUMN NAME, and nothing else. No
+ * `I18nLabel` slot on the result is ever read through this path, so there is no
+ * label for a language to resolve. Keeping the function pure (it is called from
+ * plain module scope, outside any component) is worth more than a language
+ * argument that would change no byte of its answer. ⛔ If this ever starts
+ * reading `title` / `subtitle` / `description` / an axis `title` / a series
+ * `label`, it needs the viewer's language and can no longer be called from
+ * outside a component.
  */
 export function resolveChartCategoryField(schema: {
   aggregate?: { groupBy?: unknown } | undefined;
@@ -318,13 +329,13 @@ export async function resolveGroupByLabels(
     // the SERVE path runs no parse — `ObjectStackAdapter.getObjectSchema` returns
     // the server document plus only `normalizeSchemaReferenceKeys` and
     // `applyFieldWidgetOverrides` — so a stored pre-strict def still arrives here.
-    // And there is NO camel leg below to fall back to: retiring these reads would
-    // delete the only read of the value, not re-point it. Adding a `displayField`
-    // leg (the spelling `FieldSchema` declares) is a separate, contract-shaped
-    // change. `idField` is NOT such a leg: measured on the pinned spec 17.2.0,
-    // `FieldSchema` refuses `idField` with `unrecognized_keys` exactly as it
-    // refuses `id_field` (the spec's only `idField` sits on `InlineGridColumnSchema`,
-    // a different shape), so the id read has no declared spelling to re-point to.
+    // ⛔ `idField` is NOT a leg this read may gain, and the carve-out is
+    // RE-MEASURED on the pin actually resolved here (`@objectstack/spec@17.4.0`,
+    // not the 17.2.0 the note used to cite): `FieldSchema` refuses `idField`
+    // with `unrecognized_keys` exactly as it refuses `id_field` (the spec's only
+    // `idField` sits on `InlineGridColumnSchema`, a different shape), so the id
+    // read has no declared spelling to re-point to. Adding one would fossilise
+    // an undeclared spelling. Routed to objectui#7650 option A.
     const idField: string = fieldDef.id_field || 'id';
 
     try {
@@ -334,9 +345,47 @@ export async function resolveGroupByLabels(
       });
       const records = extractRecords(results);
 
-      // Build id→label map using display field from metadata with sensible fallbacks
+      // Build id→label map using display field from metadata with sensible fallbacks.
+      //
+      // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST. Until this
+      // change the chain had no `FieldSchema` leg at all, so `displayField` —
+      // the only display spelling a spec-compliant author can emit, and the one
+      // `getObjectSchema` serves — could not reach this reader in any shape. The
+      // chart fell through to the generic `'name'` heuristic and drew the wrong
+      // axis label. This is the shape objectui#7155 established (declared leg
+      // first, recorded dialect behind it), not a new lenient alias: the two
+      // snake legs below are PRE-EXISTING reads, kept in their pre-existing
+      // relative order, and this change only puts the contract ahead of them.
+      //
+      // MEASURED on the pin resolved here, `@objectstack/spec@17.4.0`:
+      // `FieldSchema.safeParse` ACCEPTS `displayField` and REFUSES
+      // `reference_field` / `display_field` with `unrecognized_keys` (controls
+      // lit in the same run — a minimal lookup def ACCEPTED, `zzz_not_a_real_key`
+      // REJECTED).
+      //
+      // ⚠️ Why the two snake legs STAY. A producer sweep for this site found no
+      // in-repo producer of either spelling (every occurrence in this repo is a
+      // test fixture) and zero key-position occurrences in the producer repo
+      // (control: `displayField`, 23 files). They are kept anyway, because
+      // neither measurement covers the two producers that can still emit them:
+      // a document stored before the key was tightened (the serve path runs no
+      // parse — objectui#7650), and a HOST `DataSource` whose `getObjectSchema`
+      // is not `ObjectStackAdapter`'s and therefore never passes through
+      // `normalizeSchemaReferenceKeys`. Dropping a leg here would be a silent
+      // regression for existing authored data; that is a retirement decision
+      // with its own evidence, not a side effect of adding the declared leg.
+      //
+      // ⚠️ `reference_field` in particular is graded `no-producer` by this
+      // repo's own register (`plugin-grid/src/relationalMetaKeys.ts`), and the
+      // verdict was re-derived for this change and HOLDS. It keeps its place
+      // relative to `display_field` on purpose — reordering two legs nothing
+      // produces would be an unmeasured behaviour change on top of a measured
+      // one. What this change does fix is that it is no longer read FIRST.
       const displayField: string =
-        fieldDef.reference_field || fieldDef.display_field || 'name';
+        fieldDef.displayField
+        || fieldDef.reference_field
+        || fieldDef.display_field
+        || 'name';
       const idToName: Record<string, string> = {};
       for (const rec of records) {
         const id = String(rec[idField] ?? rec.id ?? rec._id ?? '');
@@ -674,26 +723,19 @@ export const ObjectChart = (props: ObjectChartProps) => {
       // where }` payload so the server-side date-bucket engine kicks in.
       // The legacy `{ field, function, groupBy, filter }` cube/analytics
       // path does NOT honour `dateGranularity`.
-      const isStructured = gb && typeof gb === 'object' && !Array.isArray(gb);
-      if (isStructured) {
-        const aggField = schema.aggregate.field;
-        const aggFn = schema.aggregate.function;
-        // Project the measure under its plain field name so downstream
-        // (xAxisKey + series.dataKey lookups) finds it unchanged — the
-        // object-bound result-column convention (framework#3701).
-        const alias = aggregateValueKey(schema.aggregate);
-        // For `count`, omit `field` so the engine emits `count(*)` /
-        // `COUNT(*)`. The upstream dashboard wiring defaults `field: 'value'`
-        // for charts without an explicit valueField, which crashes on SQL
-        // drivers ("no such column: value") since dashboards typically
-        // count rows, not a measure column.
-        const aggregationNode: Record<string, unknown> = { function: aggFn, alias };
-        if (aggFn !== 'count' && aggField) aggregationNode.field = aggField;
-        const results = await ds.aggregate(schema.objectName, {
-          groupBy: [gb],
-          aggregations: [aggregationNode],
-          where: filterForRun,
-        });
+      //
+      // Both halves — the test and the payload — now live in
+      // `objectAggregateSpecQuery` (`@object-ui/core`, objectui#8613), because
+      // the metric family needs the identical call and a transcription there
+      // was the second opinion that let the two wires disagree. The alias it
+      // projects is `chartMeasureKey`'s answer, i.e. what `aggregateValueKey`
+      // above already delegates to, so the column this branch produces is
+      // unchanged.
+      if (isStructuredGroupBy(gb)) {
+        const results = await ds.aggregate(
+          schema.objectName,
+          objectAggregateSpecQuery(schema.aggregate, gb, filterForRun),
+        );
         return Array.isArray(results) ? results : [];
       }
       const results = await ds.aggregate(schema.objectName, {
@@ -1383,11 +1425,12 @@ export const ObjectChart = (props: ObjectChartProps) => {
     // `pickLocalized` answers `''` for an absent value, so `|| 'Details'` keeps
     // the pre-existing fallback exactly as it was for the string arm.
     //
-    // ⚠️ KNOWN INCONSISTENCY, recorded rather than papered over: this makes the
-    // DRILL heading locale-aware while the chart heading beside it still is not
-    // (that one is resolved one layer down, in `normalizeChartSchema`, from a
-    // schema this component has already narrowed). The asymmetry predates this
-    // change and is a successor, not a regression introduced here.
+    // The asymmetry this comment used to record — drill heading locale-aware,
+    // chart heading beside it decided by key order — is CLOSED (objectui#8943).
+    // `normalizeChartSchema`'s `label()` now delegates to this same
+    // `pickLocalized`, and `ChartRenderer` hands it the same
+    // `useObjectTranslation().language` read above. One union, one resolver, two
+    // read sites that agree. ⛔ Do not reintroduce a local pick at either end.
     const title = resolveDrillTitle(drillDown, drillEvent, pickLocalized(schema.title, language) || 'Details');
     const target = drillDown?.target ?? 'drawer';
     const tableSchema = {

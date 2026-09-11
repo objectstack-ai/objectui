@@ -271,8 +271,12 @@ describe('objectui#8555 — operator objects lower exactly as before', () => {
       ['count', '=', 0],
       ['ok', '=', false],
     ]);
-    // A null/undefined value is skipped before any of this, and an all-skipped
-    // filter still returns the original object.
-    expect(convertFiltersToAST({ a: null, b: undefined })).toEqual({ a: null, b: undefined });
+    // A null/undefined value is skipped before any of this. UPDATED by
+    // objectui#9020: an all-skipped filter now says so — `undefined`, "no
+    // constraint" — instead of handing back the caller's original object. The
+    // SKIP is what this control is about and it did not move; only the tail's
+    // answer when the skip leaves nothing behind did.
+    expect(convertFiltersToAST({ a: null, b: undefined })).toBeUndefined();
+    expect(convertFiltersToAST({ a: null, status: 'active' })).toEqual(['status', '=', 'active']);
   });
 });

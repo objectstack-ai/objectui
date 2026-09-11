@@ -95,7 +95,9 @@ export const HttpMethodSchema = stripImportedDefaults(SpecHttpMethodSubsetSchema
  * HTTP Request Schema — `@objectstack/spec/ui` schema re-exported by reference
  * (issue #2231; formerly a hand-written mirror). Differences vs the old mirror:
  * `body` is the spec's `z.unknown()` (a superset of the old record/string/FormData/
- * Blob union) and `method` now defaults to `'GET'` on parse.
+ * Blob union). `method` is declared and accepted but NOT defaulted on parse:
+ * the spec's `.default('GET')` is stripped at the import boundary above, so a
+ * request that omits `method` comes back without it.
  */
 export const HttpRequestSchema = stripImportedDefaults(SpecHttpRequestSchema);
 
@@ -118,22 +120,27 @@ export const ViewDataSchema = stripImportedDefaults(SpecViewDataSchema);
  * and `prefix` is the spec's `ColumnPrefixSchema`. With both upstream the
  * extension collapses to the plain re-export it always said it would become.
  *
- * One behavior change rides along: the spec's `prefix.type` defaults to `'text'`
- * on parse instead of staying `undefined`, so the renderer always gets a value.
+ * The spec declares `prefix.type` with a `.default('text')`. That default is
+ * stripped at the import boundary above, so the key is declared and accepted but
+ * NOT defaulted on parse: a column omitting `prefix.type` comes back without it,
+ * and a renderer reading it cannot assume a value is present.
  */
 export const ListColumnSchema = stripImportedDefaults(SpecListColumnSchema);
 
 /**
  * Selection Config Schema — `@objectstack/spec/ui` schema re-exported by reference
- * (issue #2231; formerly a hand-written mirror). `type` now defaults to `'none'`
- * on parse instead of staying undefined.
+ * (issue #2231; formerly a hand-written mirror). `type` is declared and accepted
+ * but NOT defaulted on parse: the spec's `.default('none')` is stripped at the
+ * import boundary above, so an omitted `type` stays omitted.
  */
 export const SelectionConfigSchema = stripImportedDefaults(SpecSelectionConfigSchema);
 
 /**
  * Pagination Config Schema — `@objectstack/spec/ui` schema re-exported by reference
- * (issue #2231; formerly a hand-written mirror). `pageSize` is now the spec's
- * positive-int with a default of 25 on parse.
+ * (issue #2231; formerly a hand-written mirror). `pageSize` is the spec's
+ * positive-int, declared and accepted but NOT defaulted on parse: the spec's
+ * `.default(25)` is stripped at the import boundary above, so an omitted
+ * `pageSize` stays omitted.
  */
 export const PaginationConfigSchema = stripImportedDefaults(SpecPaginationConfigSchema);
 
@@ -1255,7 +1262,7 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
  * objectui#6939's judging — a lane card with no `title` is refused again.
  */
 const ObjectKanbanLaneSchema = z.object({
-  id: z.string().describe('Lane id — matched against the groupBy value. STRING only: the bucketer builds knownIds from the raw col.id and compares it with Object.keys(groups), which are strings, so a numeric id buckets every card TWICE (objectui#8993)'),
+  id: z.string().describe('Lane id — matched against the groupBy value. STRING only, and the narrowing stands on its own: until objectui#8993 the bucketer built knownIds from the raw col.id and compared it with Object.keys(groups), which are strings, so a numeric id bucketed every card TWICE; the sweep now keys membership the way the injection always did'),
   title: z.string().describe('Lane heading, localized against the groupBy picklist option labels'),
   cards: z.array(KanbanCardSchema).optional().describe('Cards this lane carries — a STATIC board only; an object-bound board buckets records into the lane by groupBy'),
   limit: z.number().optional().describe('WIP limit — the card count at which the lane warns; never reaches the query'),

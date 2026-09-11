@@ -155,7 +155,7 @@ An undeclared lane key is accepted and dropped, not refused.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `id` | string | Lane identifier, matched against the `groupBy` value. Strings only: a non-string id makes the board render every card twice, once in its lane and once in "Uncategorized" (objectui#8993) |
+| `id` | string | Lane identifier, matched against the `groupBy` value. Declare a string; since objectui#8993 a non-string id is matched by its string spelling (a lane `1` takes the group `'1'`) instead of rendering every such card twice |
 | `title` | string | Lane title, localized against the `groupBy` picklist's option labels |
 | `cards` | KanbanCard[] | Cards this lane carries — **optional**, and a static board's option; an object-bound board's cards arrive from the record source |
 | `limit` | number | Max cards allowed (WIP limit). Never reaches the query — the fetch window is the board's `limit` |

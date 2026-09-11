@@ -58,7 +58,7 @@ both measured by rebuilding `packages/types/dist` on each side of the change:
    `description = undefined` after the strip, on both sides of this change, while
    `buttons` — the one member that never carried a default — keeps its description
    through it. So the three simply stop being an exception: before, the local extension
-   supplied descriptions the other ten defaulted keys did not have. Nothing in this
+   supplied descriptions the other seven defaulted keys did not have. Nothing in this
    repository reads them.
 2. In the emitted `objectql.zod.d.ts` the three move from `z.ZodOptional[z.ZodBoolean]`
    to `z.ZodDefault[z.ZodBoolean]` — the spec's own declaration, as the compiler sees it

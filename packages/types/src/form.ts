@@ -1644,20 +1644,35 @@ export interface CodeEditorSchema extends BaseSchema {
  * Both are the SAME renderer as `input`, wrapped so `inputType` is pinned:
  * `<InputRenderer {...props} schema={{ ...props.schema, inputType: 'password' }} />`.
  *
- * ⛔ `inputType` is therefore absent here, and that absence is the whole
+ * ⛔ `inputType` is therefore not a member here, and that is the whole
  * difference from {@link InputSchema}. The wrapper spreads its own value LAST,
- * so an authored `inputType` is silently overwritten; declaring it would publish
- * a key the runtime discards. Write `{ type: 'input', inputType: 'email' }` when
- * the input type is the choice.
+ * so an authored `inputType` never reaches the renderer. Write
+ * `{ type: 'input', inputType: 'email' }` when the input type is the choice.
  *
- * ⚠️ {@link BaseSchema} carries an index signature and its mirror passes unknown
- * keys through, so omitting the key states the contract — it does not refuse the
- * value. Refusing it by name is an accept-set narrowing left to its own ruling.
+ * ⚠️ objectui#8499 shipped this interface with the key merely OMITTED, and
+ * recorded why that was not enough: {@link BaseSchema} carries an index
+ * signature and its mirror is `.passthrough()`, so `inputType` rode through
+ * both faces unchallenged while the renderer threw the value away. objectui#8762
+ * closes that — the key is DECLARED and unwritable on both faces, so `tsc`
+ * refuses it at the authoring site and the zod twin refuses it BY NAME with
+ * guidance pointing at `{ type: 'input', inputType: 'email' }`.
  *
  * Mirror: `zod/form.zod.ts#InputShorthandSchema`.
  */
 export interface InputShorthandSchema extends Omit<InputSchema, 'type' | 'inputType'> {
   type: 'email' | 'password';
+  /**
+   * ⛔ UNWRITABLE at this position (objectui#8762). The `email` / `password`
+   * registration wrapper pins `inputType` itself and spreads it LAST, so an
+   * authored value is discarded — `{ type: 'password', inputType: 'text' }`
+   * renders a MASKED field. Write `{ type: 'input', inputType: 'email' }`
+   * instead. The zod twin refuses it by name and carries the same guidance.
+   *
+   * ⚠️ Not a retirement of `inputType`: the key is alive and honoured on
+   * {@link InputSchema}, and on the FORM FIELD path an authored `inputType`
+   * still wins. It is this POSITION that cannot author it.
+   */
+  inputType?: never;
 }
 
 /**

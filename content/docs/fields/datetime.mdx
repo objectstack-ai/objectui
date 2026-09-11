@@ -39,8 +39,29 @@ const startsAt: DateTimeFieldMetadata = {
   format: 'yyyy-MM-dd HH:mm',
   min_date: '2024-01-01T00:00:00Z',
   max_date: '2030-12-31T23:59:59Z',
+  dueLike: true,
 };
 ```
+
+## Overdue Affordance
+
+`dueLike` marks the field as due/deadline-semantic. It is the same key, with the
+same meaning, that the [Date Field](/docs/fields/date) uses — a past `starts_at`
+or `created_at` is not a missed deadline, so only a field that says so gets the
+affordance:
+
+- the relative face reads **"Overdue Nd"** instead of the neutral "N days ago";
+- the cell is styled red, whichever display face it is painting.
+
+The key is optional. When it is omitted, common due/deadline field-name
+conventions (`due_at`, `deadline`, `expires_at`, `sla_at`, `renewal_at`,
+`next_action_at`, …) turn the affordance on by themselves; set `dueLike: false`
+is not required to opt out, but authoring a neutral name is.
+
+The affordance is **day-granular**. It compares calendar days, so a datetime a
+few hours past its deadline still reads "Today" and is not red — the same answer
+the date field gives for a deadline falling today. The shortest overdue phrase
+is "Overdue 2d".
 
 The value being edited, and the `className` / `disabled` a host supplies, are **not**
 metadata keys — they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).

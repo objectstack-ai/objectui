@@ -325,6 +325,13 @@ export interface ObjectViewProps {
      * `@object-ui/types`, which `plugin-tree`'s resolver imports as well. One
      * declaration, three readers.
      *
+     * ⭐ And since objectui#8841 that one declaration is the PROTOCOL's:
+     * `TreeViewConfig` is `NonNullable<ListView['tree']>` from
+     * `@objectstack/spec/ui`, not a hand copy of it under a second name. What
+     * this prop admits is therefore exactly what `@objectstack/spec` admits on
+     * `ListView.tree` — including its refusal of `titleField`, which the copy
+     * declared and the protocol rejects.
+     *
      * ⚠️ Reach, measured on this tree and NOT claimed wider than it is: the
      * console's own call site passes `mergedViews`, built by
      * `app-shell/src/views/ObjectView.tsx` as `views.map((v: any) => …)` over
@@ -1542,6 +1549,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // Single-parent pointer field; auto-detected from the object's
           // `tree`/self-reference field when not specified.
           parentField: viewOptions.tree?.parentField,
+          // ⚠️ `titleField` is an UNDECLARED tolerant fallback (objectui#8841),
+          // not part of the block: `@objectstack/spec@17.4.0` refuses
+          // `tree.titleField` by name and `TreeViewConfig` no longer carries it.
+          // The read survives because `viewOptions` is untyped here, and it is
+          // kept so view records already storing the key keep resolving.
+          // ⛔ Not to be re-declared anywhere; its retirement is a follow-up.
           labelField: viewOptions.tree?.labelField || viewOptions.tree?.titleField || 'name',
           // The view's columns double as the tree-grid's flat columns.
           fields: viewOptions.tree?.fields || baseProps.fields,

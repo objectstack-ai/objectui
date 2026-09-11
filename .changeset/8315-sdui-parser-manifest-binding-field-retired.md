@@ -26,8 +26,9 @@ narrowing is not mistaken for a runtime rejection.
 this repo and zero in the objectstack copy of this package (measured 2026-09-09 on
 both heads, each with a firing `binding: 'object'` control), and the only manifest
 producer in either tree is `manifestFromConfigs`, whose input face was already narrow.
-The two `binding: 'field'` occurrences in this repo are `@ts-expect-error` negative
-pins asserting the refusal, not writers.
+Every `binding: 'field'` spelling left under `packages/`, `apps/` and `examples/` is
+an `@ts-expect-error` negative pin asserting the refusal, or a docblock mention of
+the retirement — not a writer.
 
 **Why not leave the reader face wide.** The counter-argument — producer → reader is a
 subset relation, so a permissive reader is not wrong — was answered rather than assumed

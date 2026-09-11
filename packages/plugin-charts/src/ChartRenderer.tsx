@@ -3,6 +3,7 @@ import React, { Suspense } from 'react';
 import { Skeleton } from '@object-ui/components';
 import type { ChartContainerConfig } from './ChartContainerImpl';
 import type { ChartSegmentClickEvent } from '@object-ui/core';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { normalizeChartSchema } from './normalizeChartSchema';
 
 // 🚀 Lazy load the implementation files
@@ -110,6 +111,17 @@ export interface ChartRendererProps {
  * ChartRenderer - The public API for the advanced chart component
  */
 export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartClick }) => {
+  // The VIEWER's active language, for the `I18nLabel` slots `normalizeChartSchema`
+  // resolves — the chart heading above all (objectui#8943). Read HERE because
+  // that function is pure and cannot call a hook, which is the whole reason the
+  // heading used to be decided by the author's key order instead.
+  //
+  // `useObjectTranslation` is provider-safe (an optional context read that falls
+  // back to react-i18next's global instance), so this adds no provider
+  // requirement to a host that embeds `ChartRenderer` bare — the same property
+  // `ObjectChart` already relies on for the drill-drawer heading.
+  const { language } = useObjectTranslation();
+
   // ⚡️ Adapter: Normalize the AUTHOR-facing chart schema to Recharts props.
   //
   // The spec shape (`type` / `xAxis: {field}` / `yAxis: [{field, format, …}]` /
@@ -119,7 +131,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
   // winning so DashboardRenderer/ObjectView/the dataset path are untouched
   // (objectui#2880 S1).
   const props = React.useMemo(() => {
-    const spec = normalizeChartSchema(schema);
+    const spec = normalizeChartSchema(schema, language);
 
     // `series` is the one binding both shapes spell with the SAME key, so the
     // blanket "internal props win" rule degenerated here: a spec author's
@@ -190,7 +202,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
       className: schema.className,
       spec,
     };
-  }, [schema]);
+  }, [schema, language]);
 
   return (
     <Suspense fallback={<Skeleton className="w-full h-48 sm:h-64 md:h-80 lg:h-[400px]" />}>

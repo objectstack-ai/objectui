@@ -73,6 +73,35 @@
  * closing line — which pinned that the mirror still required `type` — became
  * its opposite. That is the whole delta objectui#7562 lands here.
  *
+ * ## objectui#8774 — the doc-WIDENING direction, which nothing here caught
+ *
+ * objectui#7562 made the doc the authority, but the pins in this file bound the
+ * enum to a hard-coded `DOCUMENTED_FOURTEEN` constant, and the doc-reading pin
+ * asserted only doc ⊇ fourteen. So of the two ways the authority can move, one
+ * was guarded and one was not:
+ *
+ *   - doc NARROWS (a member removed) → the ⊇ pin reddens.
+ *   - doc WIDENS (a fifteenth member added) → nothing reddened. And widening is
+ *     the direction objectui#7562 CAME FROM: the doc published fourteen while
+ *     the mirror accepted seven, and no instrument said so.
+ *
+ * Measured, not reasoned. The ceiling reviewer's ablation Leg E added `'email'`
+ * to the DOC alone (hash-verified, restored) and every pin in this file stayed
+ * green; its control, Leg D — the same member added to BOTH code faces — did
+ * redden, so the file was live and the hole was directional.
+ *
+ * The fix is that the population is now TAKEN from the doc (`documentedTypes()`)
+ * instead of copied beside it, so `the accept set is EXACTLY the published doc`
+ * compares the enum against the authority rather than against a copy of it and
+ * fails in both directions. A doc-seeded pin has its own failure mode — a reader
+ * that silently matches nothing turns the pin vacuous in the same stroke — so
+ * every reader THROWS on absence and `the doc reader has a floor` drives that,
+ * with the doc's own two-member `logic` union as the positive control.
+ *
+ * ⛔ If this pin reddens because the DOC widened: the mirror follows, as its own
+ * reviewable change. ⛔ Never narrow the doc to match the mirror — under
+ * decision batch #88 a contract does not retract what it published to authors.
+ *
  * ## What this change does NOT reach, stated rather than left as an absence
  *
  * Two of the four census entries — `product-search` and `with-conditions`, plus
@@ -101,6 +130,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
 const CATALOG = join(REPO_ROOT, 'examples/schema-catalog/src/schemas/components-complex-filter-builder');
 const READER = 'packages/components/src/custom/filter-builder.tsx';
+/**
+ * The published doc — a THIRD declaration of this authoring surface, and since
+ * decision batch #88 (objectui#7562) the AUTHORITY for it: *"a contract does
+ * not retract what it published to authors."* Both faces repaired in this file
+ * follow it; they do not define it.
+ */
+const DOC = 'content/docs/components/complex/filter-builder.mdx';
+
+function publishedDoc(): string {
+  return readFileSync(join(REPO_ROOT, DOC), 'utf8');
+}
 
 /** The four entries `node packages/cli/dist/cli.js check` counts for this row. */
 const CENSUS = ['empty-filter-builder', 'product-search', 'user-filters', 'with-conditions'] as const;
@@ -223,14 +263,66 @@ const DOC_ONLY_TYPES: ReadonlyArray<readonly [string, string]> = [
 /** The seven spellings above, for the places that only need the names. */
 const UNRULED_LIVE_TYPES = DOC_ONLY_TYPES.map(([type]) => type);
 
-/** Every member the published doc offers — the accept set after objectui#7562. */
-const DOCUMENTED_FOURTEEN = [
-  'text', 'number', 'currency', 'percent', 'rating',
-  'date', 'datetime', 'time',
-  'boolean',
-  'select', 'status',
-  'lookup', 'master_detail', 'user',
-] as const;
+/**
+ * One `interface <name> { … }` block out of the published doc's schema fence.
+ *
+ * Throws rather than returning an empty string, and the same goes for every
+ * reader below it. A doc-seeded pin has exactly one interesting failure mode —
+ * the reader quietly matches nothing, the population comes back empty, and
+ * every assertion built on it passes while checking nothing — so absence is
+ * LOUD here, and the floor test drives both throws.
+ */
+function docInterfaceBlock(doc: string, iface: string): string {
+  const open = doc.indexOf(`interface ${iface} {`);
+  if (open === -1) throw new Error(`${DOC}: no \`interface ${iface} {\` block`);
+  const close = doc.indexOf('\n}', open);
+  if (close === -1) throw new Error(`${DOC}: \`interface ${iface}\` is never closed`);
+  return doc.slice(open, close);
+}
+
+/**
+ * Every quoted member of the union `<iface>.<key>` declares, in the doc's own
+ * order. The union may span LINES — the doc lays `type?:` out over five rows —
+ * so the slice runs to the terminating `;`, not to the end of the line. Line
+ * comments are stripped first: `// Field type` sits inside that slice, and an
+ * apostrophe in some future one would otherwise mint a phantom member.
+ */
+function docUnionMembers(doc: string, iface: string, key: string): string[] {
+  const block = docInterfaceBlock(doc, iface);
+  const at = block.indexOf(`\n  ${key}:`);
+  if (at === -1) throw new Error(`${DOC}: \`${iface}\` no longer declares \`${key}\``);
+  const end = block.indexOf(';', at);
+  if (end === -1) throw new Error(`${DOC}: \`${iface}.${key}\` is unterminated`);
+  const body = block.slice(at, end).replace(/\/\/[^\n]*/g, '');
+  const members = [...body.matchAll(/'([^']*)'/g)].map((m) => m[1]);
+  if (members.length === 0) {
+    throw new Error(`${DOC}: \`${iface}.${key}\` parsed to ZERO members`);
+  }
+  return members;
+}
+
+/**
+ * The accept set, TAKEN from the authority rather than copied from it
+ * (objectui#8774).
+ *
+ * This used to be a hand-kept `DOCUMENTED_FOURTEEN` constant sitting beside the
+ * pin. A population maintained here can only ever confirm the mirror it was
+ * copied from, which is precisely the blindness objectui#7562 turned out to be:
+ * the doc had moved, both code faces agreed with each other, and no instrument
+ * said so. Measured before it was changed — the ceiling reviewer's ablation
+ * Leg E added a fifteenth member to the DOC alone and every pin in this file
+ * stayed green.
+ */
+function documentedTypes(): string[] {
+  return docUnionMembers(publishedDoc(), 'FilterField', 'type?');
+}
+
+/** The enum this mirror actually declares, behind `.optional()`. */
+function mirrorTypeMembers(): string[] {
+  return (FilterFieldSchema as unknown as {
+    shape: { type: { unwrap(): { options: string[] } } };
+  }).shape.type.unwrap().options;
+}
 
 describe('objectui#6939 — the type vocabulary', () => {
 
@@ -313,10 +405,76 @@ describe('objectui#6939 — the type vocabulary', () => {
     // The set equality, not fourteen individual accepts: an enum that had
     // gained a fifteenth member the doc never published would pass every
     // per-member assertion above and fail only here.
-    const declared = (FilterFieldSchema as unknown as {
-      shape: { type: { unwrap(): { options: string[] } } };
-    }).shape.type.unwrap().options;
-    expect([...declared].sort()).toEqual([...DOCUMENTED_FOURTEEN].sort());
+    //
+    // objectui#8774 — the expectation is now READ FROM the doc rather than
+    // copied into a constant beside it, which is what makes this fail in BOTH
+    // directions instead of one:
+    //
+    //   - the MIRROR grows a member the doc never published → the mirror
+    //     widened past the authority;
+    //   - the DOC grows a fifteenth member the mirror does not implement →
+    //     the divergence objectui#7562 WAS, in the direction that recreates it.
+    //
+    // The second one is the whole card: while this compared against a
+    // hard-coded list, a member added to the mdx reddened nothing here.
+    const declared = mirrorTypeMembers();
+    const documented = documentedTypes();
+    expect(
+      documented.filter((t) => !declared.includes(t)),
+      `the published doc offers \`type\` members this mirror refuses. Under decision ` +
+        `batch #88 the DOC is the authority and the MIRROR follows — widen ` +
+        `FilterFieldSchema.type and FilterField['type'] to match, as its own reviewable ` +
+        `change. ⛔ Do NOT narrow ${DOC} to match the mirror. The one exception to ` +
+        `"the mirror follows": a spelling a LATER ruling RETIRED from this doc — the ` +
+        `way objectui#4814 retired \`owner\` — reappearing in it is a doc REGRESSION, ` +
+        `not a widening, and the doc edit is what gets reverted.`,
+    ).toEqual([]);
+    expect(
+      declared.filter((t) => !documented.includes(t)),
+      `this mirror accepts \`type\` members ${DOC} never published — the mirror widened ` +
+        `past the authority.`,
+    ).toEqual([]);
+    expect([...declared].sort()).toEqual([...documented].sort());
+  });
+
+  it('every member the published doc offers, the mirror ACCEPTS', () => {
+    // The behavioural half of the equality above: `.options` is introspection
+    // of the enum, this is a parse. Seeded from the doc, so a member added to
+    // the mdx is asserted on the day it is added rather than on the day
+    // somebody remembers to copy it into a list in this file.
+    for (const type of documentedTypes()) {
+      expect(
+        FilterFieldSchema.safeParse({ value: 'a', label: 'A', type }).success,
+        `${DOC} offers \`type: '${type}'\`, which this mirror refuses`,
+      ).toBe(true);
+    }
+  });
+
+  it('the doc reader has a floor — its positive control is the doc\'s own `logic` union', () => {
+    // ⚠️ A doc-seeded pin fails the way this repository has failed before: the
+    // reader silently matches nothing, the population is empty, and every
+    // assertion built on it passes while checking nothing — turning the two
+    // tests above vacuous in the same stroke that made them doc-driven. Three
+    // legs, so an empty read cannot be mistaken for agreement.
+    const doc = publishedDoc();
+    // (1) CONTROL — the same reader, the same file, a DIFFERENT block whose
+    //     answer is fixed by the ruling at exactly two members. It can fire in
+    //     the region under test: a reader that matched nothing, matched the
+    //     wrong interface, or stopped at the first line of a multi-line union
+    //     returns something that is not `['and','or']`, and this reddens. And
+    //     it is independent of the `type?:` block it vouches for, so the thing
+    //     being measured cannot be what satisfies it.
+    expect(docUnionMembers(doc, 'FilterGroup', 'logic')).toEqual(['and', 'or']);
+    // (2) The population itself is non-empty and duplicate-free — a duplicated
+    //     member would make the sorted-equality above pass on unequal sets.
+    const documented = documentedTypes();
+    expect(documented.length).toBeGreaterThan(0);
+    expect([...new Set(documented)]).toEqual(documented);
+    // (3) A renamed block or a renamed key is a THROW, not an empty set. This
+    //     is the leg that keeps (2) from being all that stands between a doc
+    //     edit and a pin that has quietly stopped reading anything.
+    expect(() => docUnionMembers(doc, 'FilterField', 'nosuchkey?')).toThrow('no longer declares `nosuchkey?`');
+    expect(() => docUnionMembers(doc, 'NoSuchInterface', 'type?')).toThrow('no `interface NoSuchInterface {` block');
   });
 
   it('the gap is measured against the PUBLISHED doc, not against a private opinion', () => {
@@ -327,7 +485,7 @@ describe('objectui#6939 — the type vocabulary', () => {
     // member `type?` union. This assertion is what makes "the mirror is the odd
     // one out" a reading rather than a claim — and it turns red if someone
     // narrows the DOC to match the mirror, which is the wrong direction.
-    const doc = readFileSync(join(REPO_ROOT, 'content/docs/components/complex/filter-builder.mdx'), 'utf8');
+    const doc = publishedDoc();
     expect(doc).toContain("logic: 'and' | 'or';");
     expect(doc).toMatch(/value: string;\s+\/\/ Field identifier/);
     for (const type of [...RULED, 'select', ...UNRULED_LIVE_TYPES]) {

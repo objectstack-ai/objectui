@@ -140,7 +140,11 @@ export interface NavigationItem {
    * (`{current_user_id}`, `{current_org_id}`); entries whose template can't
    * be resolved are dropped from the URL.
    *
-   * Precedence within `type: 'object'`: `recordId` → `filters` → `viewName`.
+   * Mutually exclusive with `recordId` / `viewName` (objectui#8563): the
+   * combination is REFUSED by `NavigationItemSchema`, which chains the spec's
+   * own `objectNavTargetExclusivity`. There is deliberately no precedence to
+   * resolve it with — an entry picks ONE landing, and the alternative is a
+   * validator that silently ignores two of the three fields an author wrote.
    *
    * Shape derived from the spec's object-nav variant (#3177).
    */
@@ -154,9 +158,10 @@ export interface NavigationItem {
    * welcome-page CTA that should land the user IN the create dialog rather than
    * on the list, hunting for a second button.
    *
-   * Landing surface only: `runAction` describes the LIST surface, so it is
-   * ignored when `recordId` wins the precedence chain and the entry resolves to
-   * a record detail page instead. `NavigationRenderer.resolveHref` encodes it
+   * Landing surface only: `runAction` describes the LIST surface, so combining
+   * it with `recordId` is REFUSED by `NavigationItemSchema` (objectui#8563) — a
+   * record detail page has no list toolbar for the action to run on. It composes
+   * with `viewName` or `filters`. `NavigationRenderer.resolveHref` encodes it
    * as the reserved `?runAction=` search param — {@link NAV_RUN_ACTION_PARAM}
    * in `@object-ui/layout` is that param name's ONE definition, and the list
    * toolbar reads it back through the same constant.

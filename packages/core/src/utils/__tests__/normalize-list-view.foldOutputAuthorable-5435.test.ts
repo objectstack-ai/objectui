@@ -48,9 +48,15 @@
  * empties, this pin reddens and gets updated deliberately.
  *
  * ⚠️ Requires `@objectstack/spec >= 17.3.0` (the release that adopted the
- * three). `@object-ui/core` still declares `^17.2.0`; if this file ever reddens
- * on a resolved 17.2.x, the reading is that the declared floor is too low, not
- * that the fold regressed.
+ * three). That is now also what `@object-ui/core` DECLARES: objectui#9012
+ * measured the refusal against every published 17.x and raised the
+ * `dependencies` floor from `^17.2.0` to `^17.3.0`, so a resolution this
+ * package admits can no longer land on a spec that refuses the fold. The
+ * standing instruction that used to live here — "if this file ever reddens on a
+ * resolved 17.2.x, the reading is that the declared floor is too low, not that
+ * the fold regressed" — has been DISCHARGED, not deleted: it was read exactly
+ * that way. The declared floor itself is pinned by
+ * `normalize-list-view.declaredSpecFloor-9012.test.ts`.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

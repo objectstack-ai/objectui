@@ -526,8 +526,15 @@ describe('P1.4 Page Composition Spec Alignment', () => {
 // ============================================================================
 describe('P1.5 Record Components', () => {
   it('should define RecordDetailsComponentProps', () => {
+    // `columns` is the STRING `'2'`, not the number, since objectui#8604: the
+    // contract declares the body-wide key as `z.enum(['1','2','3','4'])` and
+    // refuses `2` with `invalid_value`. The number spelling this literal
+    // carried compiled here and was refused at publish — the exact defect the
+    // card was filed for. `sections[].columns` one level down keeps `number`
+    // (`z.number().int().min(1).max(4)`); the two are pinned side by side in
+    // `record-details-columns-8604.test.ts`.
     const props: RecordDetailsComponentProps = {
-      columns: 2,
+      columns: '2',
       layout: 'stacked',
       sections: [
         { label: 'Basic Info', fields: ['name', 'email', 'phone'], collapsible: true },
@@ -536,7 +543,7 @@ describe('P1.5 Record Components', () => {
       fields: ['name', 'email'],
       aria: { ariaLabel: 'Account Details' },
     };
-    expect(props.columns).toBe(2);
+    expect(props.columns).toBe('2');
     expect(props.sections).toHaveLength(2);
     expect(props.layout).toBe('stacked');
   });

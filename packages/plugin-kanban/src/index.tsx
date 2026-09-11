@@ -97,7 +97,20 @@ export function bucketCardsIntoColumns(
   // still counts. Surface them in a trailing "Uncategorized" lane; dragging
   // one out to a real column repairs its status (the drag handler refuses to
   // persist a move INTO here).
-  const knownIds = new Set(columns.map((col: any) => col.id));
+  // ⚠️ Key this membership test the way the injection above keys its READ.
+  // `groups[col.id]` is a property read, so it coerces the id: a lane
+  // `{ id: 1 }` correctly picks up the group stored under `'1'`, and every key
+  // `Object.keys(groups)` yields is a string. A Set built from the RAW id
+  // therefore answers `new Set([1]).has('1') === false` and sweeps the very
+  // records the injection already took — the board renders each of them twice,
+  // once in its lane and once in "Uncategorized" (objectui#8993). Membership is
+  // decided twice here, so both decisions must use the same key spelling.
+  // A symbol is the one id a property read does NOT stringify, so it is kept
+  // as-is rather than pushed through `String()` (which throws on symbols):
+  // `Object.keys` never yields a symbol, so such a lane keeps today's reading.
+  const knownIds = new Set<PropertyKey>(
+    columns.map((col: any) => (typeof col.id === 'symbol' ? col.id : String(col.id))),
+  );
   const uncolumnedCards = Object.keys(groups)
     .filter((key) => !knownIds.has(key))
     .flatMap((key) => groups[key]);

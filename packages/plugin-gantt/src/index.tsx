@@ -65,14 +65,21 @@ export type {
  *
  * `columns` and a row cap are NOT mapped, because neither has a read site: a
  * gantt projects the fields its `gantt` config names (start/end/title/progress/
- * dependencies/…) rather than a column list, and its reload issues no `$top` at
- * all — it loads the whole bar set and lets `GanttView` window it. Writing a
- * view's field list or page size onto either key would hand the block a value it
- * ignores, which is the defect this wiring removes, one layer deeper.
+ * dependencies/…) rather than a column list, and the `$top` its reload does
+ * send is the platform ceiling — a named constant, ⛔ not authorable
+ * (objectui#7210, ruling a′). Writing a view's field list or page size onto
+ * either key would hand the block a value it ignores, which is the defect this
+ * wiring removes, one layer deeper. ⚠️ This paragraph used to say the reload
+ * "issues no `$top` at all"; that stopped being true at objectui#7210 and is
+ * corrected here because objectui#8769 puts the same `$top` on one more path.
  *
- * Inline data still wins, unchanged: `getDataConfig` prefers `schema.data` /
+ * Inline data still WINS: `getDataConfig` prefers `schema.data` /
  * `schema.staticData` over the object name, so a gantt authored with both a
- * binding and inline rows renders the inline rows exactly as it did before.
+ * binding and inline rows renders the inline rows. ⚠️ It no longer renders
+ * them UNPROCESSED — objectui#8769 routes the inline provider through the same
+ * adapter query as every other provider, so a `filter` / `sort` mapped here
+ * narrows and orders inline rows exactly as it does fetched ones, and the row
+ * ceiling applies to them too.
  */
 const OBJECT_GANTT_DATA_SOURCE: ElementDataSourceMapping = {
   filter: true,

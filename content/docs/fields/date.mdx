@@ -35,7 +35,9 @@ const closeDate: DateFieldMetadata = {
 ```
 
 The range bounds are `min_date` and `max_date` — the same spelling the datetime field
-uses. `datetime` is its own type with its own metadata (`DateTimeFieldMetadata`); see
+uses, and so is `dueLike`: it marks the field as due/deadline-semantic, gating the
+relative "Overdue Nd" wording and the red styling. `datetime` is its own type with its
+own metadata (`DateTimeFieldMetadata`) and honours `dueLike` identically; see
 [DateTime Field](/docs/fields/datetime).
 
 The value being edited, and the `className` / `disabled` a host supplies, are **not**

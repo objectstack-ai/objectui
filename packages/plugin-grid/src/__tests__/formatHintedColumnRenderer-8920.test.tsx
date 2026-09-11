@@ -258,7 +258,31 @@ describe('objectui#8920 — every ObjectGrid path honours a `format` hint', () =
     // The badge renderer translates the option value to its label; a plain
     // text prefix would print the raw `new`.
     await waitFor(() => expect(container.textContent).toContain('New'));
-    // …and the hinted column in the same grid is still promoted.
-    expect(telHrefs(container)).toContain(`tel:${HINTED_PHONE}`);
+    // …and the hinted column in the same grid is still promoted — which needs
+    // a wait of its OWN, because it is the only fact in this case that the two
+    // assertions above do not imply (objectui#9035).
+    //
+    // `Alice` is a raw row value, and the badge label `New` is
+    // `humanizeLabel('new')`: the prefix renderer is handed a FIXED-key field
+    // descriptor (`{ name, type: BADGE_PREFIX_RENDERER_KEY }`, ObjectGrid.tsx)
+    // carrying no `options`, so `SelectCellRenderer` finds no option to
+    // translate and humanizes the stored code. ⇒ both settle on the first
+    // commit that carries the inline rows, and NEITHER touches the object
+    // schema.
+    //
+    // The `tel:` anchor does. `format: 'phone'` is declared only in
+    // `CONTACT_SCHEMA`, which reaches the grid through the async
+    // `dataSource.getObjectSchema()` fetch, so the promotion lands in a
+    // STRICTLY LATER commit than the two waits above settle on. Read bare, this
+    // assertion sampled whatever tick it happened to run on and intermittently
+    // saw `[]` — reddening PRs that cannot reach the code under test.
+    //
+    // ⛔ The wait is the only thing that changed: the assertion is byte-identical
+    // and still fails if the hinted column stops being promoted (it retries the
+    // same `toContain`, and `telHrefs` re-queries the DOM on every attempt).
+    // Note the shape the file's own `expectHintHonoured` already uses: wait on
+    // the LATEST-arriving fact, then assert the earlier ones. This case had it
+    // inverted.
+    await waitFor(() => expect(telHrefs(container)).toContain(`tel:${HINTED_PHONE}`));
   });
 });

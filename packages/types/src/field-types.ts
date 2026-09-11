@@ -448,6 +448,22 @@ export interface DateTimeFieldMetadata extends BaseFieldMetadata {
   format?: string;
   min_date?: string | Date;
   max_date?: string | Date;
+  /**
+   * Marks this field as due/deadline-semantic — the same key, with the same
+   * meaning, as {@link DateFieldMetadata.dueLike} one interface up.
+   *
+   * It is declared here because the runtime honours it here (objectui#8958).
+   * `DetailViewFieldSchema.dueLike` has always described itself as marking "a
+   * date/datetime field", and `DateTimeCellRenderer` now reads it; leaving it
+   * off this interface would keep the mismatch alive with the sign flipped —
+   * a key the renderer honours but the authoring type rejects.
+   *
+   * ⚠️ Day granularity, inherited from the shared relative-time path: the
+   * overdue wording gates on whole calendar days, so a datetime a few hours
+   * past its deadline is not yet overdue. Sub-day precision is a separate
+   * call and was not taken.
+   */
+  dueLike?: boolean;
 }
 
 /**

@@ -122,10 +122,40 @@ const internals = (schema: z.ZodType): ZodInternals => schema as unknown as ZodI
 const isZodType = (value: unknown): value is z.ZodType =>
   value !== null && (typeof value === 'object' || typeof value === 'function') && '_zod' in value;
 
-/** Clone one schema with a patched def, PRESERVING everything else — `def.checks` above all. */
+/**
+ * Carry a source node's `.describe()` onto a node derived from it — THE ONE
+ * DESCRIPTION RULE, used by every derivation below.
+ *
+ * ⚠️ A description is NOT part of `def`, so nothing here carries it by accident.
+ * Measured on zod 4.4.3: `.describe(d)` stores `{ description: d }` in
+ * `z.globalRegistry`, a WeakMap keyed by the NODE, and `description` reads back
+ * through `_zod.parent`, which only zod's own `clone()` sets. So any node this
+ * module builds with `new Ctor(def)` — every `cloneWithDef` below — starts with
+ * NO description however faithfully it copies `def`, and `.removeDefault()`
+ * hands back an inner node that never had the outer's description to begin with.
+ * Both are the same silent loss, and this is the one place that repairs it.
+ *
+ * ⛔ `.describe()` and not a write to `_zod.parent`: it CLONES, so the derived
+ * node can safely be one of `@objectstack/spec`'s own objects — which it is on
+ * the `default` arm's already-optional branch, 267 times across spec 17.4.0.
+ * Poking `parent` there would mutate the spec's shared graph, which the header's
+ * last paragraph forbids.
+ *
+ * ⛔ The description and nothing else. `z.globalRegistry.get(...)` would also
+ * hand back `id`, and re-registering an `id` rewrites the registry's `_idmap`
+ * entry to point at THIS package's derivation — a mutation of shared global
+ * state, off a surface that promises it mutates nothing.
+ */
+const withDescriptionOf = (source: z.ZodType, derived: z.ZodType): z.ZodType =>
+  source.description === undefined ? derived : derived.describe(source.description);
+
+/**
+ * Clone one schema with a patched def, PRESERVING everything else — `def.checks`
+ * above all, and the node's own description with it (see `withDescriptionOf`).
+ */
 const cloneWithDef = (schema: z.ZodType, patch: Partial<WalkableDef>): z.ZodType => {
   const Ctor = internals(schema).constructor;
-  return new Ctor({ ...internals(schema)._zod.def, ...patch });
+  return withDescriptionOf(schema, new Ctor({ ...internals(schema)._zod.def, ...patch }));
 };
 
 /** Does this node already answer "omissible" to an enclosing object? */
@@ -165,6 +195,10 @@ const walk = (schema: z.ZodType): z.ZodType => {
   // ⛔ Rebuilt through `cloneWithDef`, not `z.lazy(…)`: a fresh `z.lazy` would
   // be a different class with none of this node's own `def.checks` or
   // description, which is the same silent-loss shape the clone rule exists for.
+  // ⚠️ `cloneWithDef` carries the description only because it now asks
+  // `withDescriptionOf` to; a description lives in `z.globalRegistry`, not in
+  // `def`, so copying `def` never carried it. This sentence read as though it
+  // did until objectui#9034 measured otherwise.
   if (def.type === 'lazy') {
     const out = cloneWithDef(schema, { getter: () => walk(def.getter!()) });
     memo.set(schema, out);
@@ -196,10 +230,20 @@ const walk = (schema: z.ZodType): z.ZodType => {
      * omissible and is left alone; a bare `ZodDefault(T)` unwraps to a REQUIRED
      * member and is made optional again, because its omissibility was the
      * default's doing and removing it must not narrow what this package accepts.
+     *
+     * `withDescriptionOf` is the documentation half, and it is the same one rule
+     * the `lazy` arm above invokes. The protocol spells its guidance
+     * `.default(v).describe(d)`, so `d` sits on the OUTER node — the very node
+     * `.removeDefault()` discards. Without the carry, 2024 of the 2024 described
+     * `ZodDefault` nodes reachable from spec 17.4.0 arrive on this side with no
+     * description at all, and this boundary would convey strictly LESS than the
+     * protocol it mirrors. `__tests__/imported-defaults-describe-9034.test.ts`
+     * re-derives that population rather than trusting this paragraph.
      */
     case 'default': {
       const inner = walk((schema as unknown as { removeDefault: () => z.ZodType }).removeDefault());
-      out = isAlreadyOptional(inner) ? inner : z.optional(inner);
+      const next = isAlreadyOptional(inner) ? inner : z.optional(inner);
+      out = withDescriptionOf(schema, next);
       break;
     }
     case 'object': {
@@ -287,9 +331,13 @@ const walk = (schema: z.ZodType): z.ZodType => {
  * schema, at this package's import boundary.
  *
  * Returns a schema with the same TypeScript type, the same keys, the same
- * checks and the same accept set — differing only in that a key the author
- * omitted stays omitted in `parse` output instead of being written for them.
- * The input is left untouched.
+ * checks, the same descriptions and the same accept set — differing only in
+ * that a key the author omitted stays omitted in `parse` output instead of
+ * being written for them. The input is left untouched.
+ *
+ * ⚠️ "the same descriptions" is carried deliberately and is not free — see
+ * `withDescriptionOf`. A description is registry state keyed by the node, so
+ * every derivation here has to re-attach it explicitly (objectui#9034).
  *
  * ⚠️ A schema that HAD a default in it is not reference-equal to the spec's
  * afterwards: a mirror member re-exporting one of these re-exports this

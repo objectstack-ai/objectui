@@ -205,19 +205,30 @@
  * become an excuse to widen it — a ceiling that rises while the sensitivity
  * relaxes is a gate quietly retiring itself.
  *
- * This is a truthful CURRENT-STATE ceiling, not a target. 3.07 MB gzipped
- * before first render is a bad payload, and the honest long-term line is far
- * below it — but lowering the line to a TARGET is a separate decision with its
- * own work behind it (objectui#5324 names the candidates), and re-baselining
- * onto a fresh measurement is not that. Nothing here should be read as a
- * finding that 3.12 MB is acceptable.
+ * This is a truthful CURRENT-STATE ceiling, not a target. A multi-megabyte
+ * gzipped payload before first render is a bad payload, and the honest
+ * long-term line is far below it — but lowering the line to a TARGET is a
+ * separate decision with its own work behind it (objectui#5324 names the
+ * candidates), and re-baselining onto a fresh measurement is not that. Nothing
+ * here should be read as a finding that the ceiling standing over the closure
+ * today is acceptable.
  *
- * The two figures in that paragraph are one constant each, rendered in MiB, and
- * not a contradiction: 3.07 MB is {@link BASELINE}'s measured payload and
- * 3.12 MB is {@link MAX_EAGER_CLOSURE_GZIP_BYTES}, the ceiling standing over it.
- * Saying which is which is the whole of this note — a paragraph that names two
- * sizes without naming their subjects reads as one number that changed its mind
+ * Which is which: {@link BASELINE} carries the measured payload and
+ * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} is the ceiling standing over it. Saying
+ * which is which is the whole of this note — a paragraph that names two sizes
+ * without naming their subjects reads as one number that changed its mind
  * (objectui#7528).
+ *
+ * ⛔ Neither paragraph renders either constant as a size, deliberately. This
+ * note used to state both of them as MiB literals; a re-baseline moved both
+ * constants, and four days and three later edits to this file went by with the
+ * RETIRED pair still written here and nothing red anywhere across that
+ * distance, because nothing fails on a number written in a comment
+ * (objectui#8964). The subjects are named and the readings are left to the
+ * instrument: the two constants below carry them in bytes, each pinned to the
+ * commit it was measured on, and the gate's verdict line prints the live one on
+ * every run. `scripts/__tests__/check-eager-closure-budget.test.ts` refuses a
+ * rendered size written back into either paragraph.
  *
  * ## Per-chunk ceilings (objectui#5490)
  *
@@ -255,8 +266,9 @@
  *
  * Re-baselining is legitimate — it is how a ratchet advances — but it is a
  * DECISION, so make it visible: update the constant, update the measured figure
- * in this comment, and say in the PR what the added bytes buy. Silently bumping
- * the number to make CI green reproduces the gate this file replaced.
+ * in the prose attached to it, and say in the PR what the added bytes buy.
+ * Silently bumping the number to make CI green reproduces the gate this file
+ * replaced.
  */
 
 import fs from 'node:fs';

@@ -119,6 +119,38 @@ function fieldKey(f: any): string | undefined {
   return columnIdentity(f) || (f && typeof f === 'object' ? f.key : undefined) || undefined;
 }
 
+/**
+ * Resolve the host's `tree` block (and the flattened node it may arrive on)
+ * into the form the renderer indexes.
+ *
+ * ## The `schema.titleField` rung is GONE (objectui#8841)
+ *
+ * ⛔ This comment sits ABOVE the function on purpose: the reader census in
+ * `types/src/__tests__/tree-view-config-readers-8253.test.ts` slices this
+ * function's BODY and asserts the key's absence from it, and prose about a
+ * deleted read inside that slice would read as the read itself — the same trap
+ * that file already documents for `interface TreeConfig`.
+ *
+ * A third rung used to stand in the `labelField` chain below,
+ * `?? schema.titleField`. Three measurements retired it:
+ *
+ *   - it read the FLATTENED NODE (`schema`), never the block — `nested.titleField`
+ *     was never spelled in this file — so it was not a `ListView.tree` read at all;
+ *   - `titleField` is declared on NEITHER face: not on `ObjectTreeSchema`
+ *     (`@object-ui/types`, the TS interface and the zod mirror alike), and not on
+ *     the spec's `ListView.tree`, which refuses it by name since
+ *     `@objectstack/spec@17.4.0` closed `TreeConfigSchema`. It survived only on
+ *     `schema` being `any`;
+ *   - it was unreachable from both in-repo producers of an `object-tree` node
+ *     (`plugin-view`'s and `plugin-list`'s `'tree'` branches): each floors
+ *     `labelField` to `'name'` before the node is built, so the `??` chain never
+ *     fell through.
+ *
+ * objectui#8253's ruling said to declare the key only if the console writes it —
+ * measured, it does not (`CreateViewDialog.tsx`'s `tree` slot collects
+ * `parentField` alone) — else delete the read. This is that deletion, executed
+ * on objectui#8841.
+ */
 function getTreeConfig(schema: any): ResolvedTreeConfig {
   const nested = (schema.tree || schema.filter?.tree || {}) as TreeViewConfig;
   const rawFields = Array.isArray(schema.fields)
@@ -128,8 +160,7 @@ function getTreeConfig(schema: any): ResolvedTreeConfig {
       : [];
   return {
     parentField: fieldKey(schema.parentField ?? nested.parentField),
-    labelField:
-      fieldKey(schema.labelField ?? nested.labelField ?? schema.titleField) ?? 'name',
+    labelField: fieldKey(schema.labelField ?? nested.labelField) ?? 'name',
     fields: rawFields.map(fieldKey).filter((f: unknown): f is string => !!f),
     defaultExpandedDepth: schema.defaultExpandedDepth ?? nested.defaultExpandedDepth,
   };

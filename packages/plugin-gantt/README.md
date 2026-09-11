@@ -243,6 +243,16 @@ const recordSource = {
 `{ provider: 'value', items }`, `{ provider: 'api', read, write }` or
 `{ provider: 'schema', schemaId }`.
 
+**The provider does not change which query keys apply.** An authored `filter`
+and `sort` narrow and order the rows on **every** provider, inline ones
+included, and the platform row ceiling (2,000 drawn rows, with a footnote
+naming both numbers) applies to all of them — inline rows cost the browser what
+fetched rows cost. Inline rows go through the same in-memory adapter the other
+providers go through, so `filter` is evaluated with the same matcher and the
+ceiling is applied to the **filtered** set, never to the raw one. Before
+objectui#8769 the inline provider skipped that query and drew every authored
+row with an authored `filter` silently dropped.
+
 **2. How the fields map — `getGanttConfig`.** Two spellings, checked in order.
 The **`gantt` block wins whenever it is present**, and it is taken WHOLE — the
 flat top-level keys are not merged into it. The flat spelling is read only when

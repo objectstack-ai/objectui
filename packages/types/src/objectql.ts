@@ -3185,17 +3185,19 @@ export interface ObjectKanbanSchema extends BaseSchema {
          *
          * STRING only. objectui#8913's first cut admitted a number here on the
          * reading that "the renderer coerces with `String(col.id)`" — TRUE at
-         * the i18n lookup in `localizeColumn`, and FALSE at the site that
-         * decides lane membership: `bucketCardsIntoColumns` builds its
-         * `knownIds` set from the RAW `col.id` and compares it against
+         * the i18n lookup in `localizeColumn`, and FALSE, at the time, where
+         * lane membership is decided: `bucketCardsIntoColumns` built its
+         * `knownIds` set from the RAW `col.id` and compared it against
          * `Object.keys(groups)`, which are always strings. Measured by calling
          * the real function with lanes `{ id: 1 }, { id: 2 }` and records
          * `status: 1` / `status: '2'`: `1:r1, 2:r2, __uncolumned__:r1+r2` —
          * every card rendered TWICE, once in its lane and once in
-         * "Uncategorized"; the string control is a clean `one:r1`. The retired
-         * arm ({@link KanbanColumn.id}) and its mirror are `string` too, and the
-         * protocol names no type. Carrier for the bucketer defect itself:
-         * objectui#8993.
+         * "Uncategorized"; the string control was a clean `one:r1`.
+         * objectui#8993 repaired that sweep, so the two decisions now use one
+         * key spelling — the narrowing stays because the retired arm
+         * ({@link KanbanColumn.id}) and its mirror are `string` too and one
+         * declared type per lane id beats two, not because the renderer is
+         * still broken.
          */
         id: string;
         /** Lane heading; localized against the `groupBy` picklist's option labels. */

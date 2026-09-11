@@ -21,6 +21,13 @@ import {
   AppSchema as SpecAppSchema,
   AppContextSelectorSchema as SpecAppContextSelectorSchema,
   NavigationAreaSchema as SpecNavigationAreaSchema,
+  // ⚠️ NOT a crossing, so it stays RAW — see THE IMPORT BOUNDARY below. This is
+  // the spec's own refinement FUNCTION, not a schema: `stripImportedDefaults`
+  // walks a Zod graph and a refinement has none, and a check that only calls
+  // `ctx.addIssue` cannot write a default into an author's document. Declared
+  // as such in `../__tests__/imported-defaults-8317.test.ts` rather than left
+  // to this paragraph.
+  objectNavTargetExclusivity,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { handlerKeyRefusal } from './tombstone.zod.js';
@@ -105,12 +112,12 @@ const NavigationItemObject = z.object({
   viewName: z.string().optional().describe('Target view name (type: object) — named list view e.g. calendar, pipeline'),
   recordId: z.string().optional().describe('Target record id (type: object) — opens a single record. Supports template variables {current_user_id}, {current_org_id}.'),
   recordMode: z.enum(['view', 'edit']).optional().describe('Record opening mode when recordId is set (default: view)'),
-  filters: z.record(z.string(), z.string()).optional().describe('URL filter conditions (type: object) — targets the /:objectName/data bare surface via filter[<field>]=<value> params instead of a saved view. Values support {current_user_id}/{current_org_id}. Precedence: recordId → filters → viewName.'),
+  filters: z.record(z.string(), z.string()).optional().describe('URL filter conditions (type: object) — targets the /:objectName/data bare surface via filter[<field>]=<value> params instead of a saved view. Values support {current_user_id}/{current_org_id}. Mutually exclusive with recordId/viewName.'),
   // Declared here for the same reason `requiresObject` / `actionDef` are: this
   // schema STRIPS unknown keys, so an entry deep-linking into an action would
   // have validated clean through `objectui validate` with the deep link thrown
   // away (the objectstack#4115 failure class). Spec: `ObjectNavItemSchema.runAction`.
-  runAction: z.string().optional().describe('Auto-run deep link (type: object) — name of an action on the target object that the list surface runs once on arrival. Ignored when recordId wins precedence (that resolves to a record page, not the list). Encoded as the reserved ?runAction= search param.'),
+  runAction: z.string().optional().describe('Auto-run deep link (type: object) — name of an action on the target object that the list surface runs once on arrival. Not combinable with recordId (a record detail page has no list toolbar to auto-run); composes with viewName or filters. Encoded as the reserved ?runAction= search param.'),
   dashboardName: z.string().optional().describe('Target dashboard name (type: dashboard)'),
   pageName: z.string().optional().describe('Target page name (type: page)'),
   reportName: z.string().optional().describe('Target report name (type: report)'),
@@ -161,6 +168,24 @@ const NavigationItemObject = z.object({
         message: `\`${key}\` is required for navigation items of type '${item.type}'`,
       });
     }
+  }
+
+  // The spec's OWN target-exclusivity rule, CHAINED rather than restated
+  // (objectui#8563). This schema is hand-written — it is not `.shape`-derived —
+  // so no other mechanism carries the spec's checks across, and a local copy of
+  // the rule body would drift the day the spec's own moves. `@objectstack/spec`
+  // mounts this same function on the `type: 'object'` branch of ITS
+  // `NavigationItemSchema`, so an item the spec door refuses is refused here too
+  // instead of passing here and failing at publish.
+  //
+  // ⚠️ The rule is deliberately NOT pairwise-exclusive over the target fields,
+  // and chaining is what keeps that from being re-derived wrongly from prose:
+  // `recordId` + `viewName` is TOLERATED, and `runAction` is refused with
+  // `recordId` ONLY — it composes with `viewName` or `filters`. Both asymmetries,
+  // and the identity of the chained function, are pinned in
+  // `../__tests__/nav-target-exclusivity-8563.test.ts`.
+  if (item.type === 'object') {
+    objectNavTargetExclusivity(item, ctx);
   }
 });
 

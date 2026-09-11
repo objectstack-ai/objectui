@@ -63,12 +63,13 @@
  *   - **a NUMERIC lane id.** The first cut admitted one, justified by "the
  *     renderer coerces with `String(col.id)`". That is true at the i18n lookup
  *     in `localizeColumn` and FALSE where lane membership is decided: the
- *     bucketer builds `knownIds` from the RAW `col.id` and compares it with
+ *     bucketer built `knownIds` from the RAW `col.id` and compared it with
  *     `Object.keys(groups)`, which are strings. Lanes `{ id: 1 }, { id: 2 }`
- *     with records `status: 1` / `status: '2'` come back
+ *     with records `status: 1` / `status: '2'` came back
  *     `1:r1, 2:r2, __uncolumned__:r1+r2` — every card rendered TWICE — against
- *     a clean `one:r1` string control. Carrier for the renderer defect:
- *     objectui#8993. `KanbanColumn.id` and its mirror are `string`, and the
+ *     a clean `one:r1` string control. objectui#8993 repaired that sweep; the
+ *     refusal stays because one declared lane-id type beats two, not because
+ *     the renderer is still broken. `KanbanColumn.id` and its mirror are `string`, and the
  *     protocol names no type, so refusing it here is not a narrowing below the
  *     protocol.
  *   - **a MIXED array.** `columns` is a UNION OF TWO ARRAYS, not an array of a
@@ -208,7 +209,7 @@ const REFUSED: Array<readonly [string, unknown]> = [
   // before this card AND under objectui#8913's first cut, which is why they
   // belong here with the same control as every other row: the failure they
   // guard is a declaration blessing a shape the renderer mishandles.
-  ['⭐ a NUMERIC lane id — the bucketer renders every such card twice (objectui#8993)', [{ id: 1, title: 'Stage one' }]],
+  ['⭐ a NUMERIC lane id — the bucketer rendered every such card twice until objectui#8993', [{ id: 1, title: 'Stage one' }]],
   ['⭐ a MIXED array, string first — the renderer ignores the whole list', ['todo', { id: 'done', title: 'Done' }]],
   ['⭐ a MIXED array, object first — the renderer emits a blank lane and mis-buckets', [{ id: 'done', title: 'Done' }, 'todo']],
 ];

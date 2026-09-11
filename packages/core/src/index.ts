@@ -88,6 +88,11 @@ export * from './utils/chart-measure-key.js';
 // floor the x-axis binding on a literal the aggregate contradicts
 // (objectui#8269).
 export * from './utils/chart-category-key.js';
+// "Which CALL does an object-bound aggregate make when its `groupBy` is the
+// structured date-bucketing node?" — the same move on the REQUEST rather than
+// on a result column, so the chart and the metric cannot post two different
+// wires for one authored shape (objectui#8613).
+export * from './utils/object-aggregate-query.js';
 // The AUTHORED half of a dataset-bound chart (objectui#4229's data/presentation
 // split), shared by the dashboard widget and the report's embedded chart so the
 // same spec keys are lowered identically on both (objectui#4877).

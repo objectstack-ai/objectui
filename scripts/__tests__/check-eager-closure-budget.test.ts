@@ -2088,3 +2088,84 @@ describe("chunk counts in this gate's prose (objectui#7528)", () => {
     },
   );
 });
+
+// ── the ceiling note names its constants, and never renders them ─────────────
+
+/**
+ * objectui#8964 — the header note that says WHICH constant is which may name
+ * its two subjects, and may not render either of them as a size.
+ *
+ * The note used to do both. It stated the aggregate ceiling and the baseline as
+ * MiB literals and then explained, correctly and at length, why the two figures
+ * were consistent with each other. A maintainer-authorised re-baseline moved
+ * both constants; the prose stayed. For four days and three subsequent edits to
+ * that file the note rendered the RETIRED pair, explaining the consistency of
+ * two numbers neither of which was in force, and nothing anywhere went red —
+ * because nothing fails on a number written in a comment.
+ *
+ * ⚠️ This is NOT a widening of the chunk-count pin above into a size pin. That
+ * trade was weighed there and declined for a reason that still holds: a general
+ * size pin would have to tell a ceiling's value from the several sizes this
+ * file's prose legitimately carries, and it cannot. This pin does not try. Its
+ * population is two named paragraphs which carry no size at all, and its whole
+ * claim is that they still carry none. The anchored measurements elsewhere in
+ * the header — the re-baseline records, the incident figures — are outside it
+ * and stay exactly as they are.
+ *
+ * ⚠️ Nor may this docblock quote the retired literals back, for the reason the
+ * objectui#7528 block gives: the reader cannot tell a quotation from a claim,
+ * and refusing both is the safe direction. The numbers live in the card.
+ *
+ * The region is located by the sentence that opens it and the sentence that
+ * closes it, both asserted present and unique, so a rewrite that drops either
+ * one turns this red rather than green — an empty scan here would otherwise be
+ * indistinguishable from a note that states nothing.
+ */
+describe('the ceiling note states no rendered size (objectui#8964)', () => {
+  /** The first words of the note, and the last — the region this pin owns. */
+  const OPENS = 'This is a truthful CURRENT-STATE ceiling, not a target.';
+  const CLOSES = 'rendered size written back into either paragraph.';
+
+  /** A size as a person writes one: a numeral, then a byte unit. */
+  const RENDERED_SIZE = /\b\d[\d,_]*(?:\.\d+)?\s*(?:[KMGT]i?B)\b/g;
+
+  const renderedSizes = (text: string): string[] =>
+    [...text.matchAll(RENDERED_SIZE)].map((m) => m[0].replace(/\s+/g, ' ').trim());
+
+  /** The note, as the pin reads it. Throws rather than returning nothing. */
+  function ceilingNote(source: string): string {
+    const start = source.indexOf(OPENS);
+    const end = source.indexOf(CLOSES);
+    if (start < 0 || end < 0) throw new Error('the ceiling note is not where this pin looks for it');
+    return source.slice(start, end + CLOSES.length);
+  }
+
+  it('reads a note that is there exactly once, rather than reading nothing', () => {
+    const source = fs.readFileSync(checkerPath, 'utf8');
+    expect(source.split(OPENS).length - 1).toBe(1);
+    expect(source.split(CLOSES).length - 1).toBe(1);
+    // A floor, so a note shrunk to its two anchors cannot pass by carrying nothing.
+    expect(ceilingNote(source).length).toBeGreaterThan(800);
+  });
+
+  it('sees a rendered size when one is in front of it', () => {
+    expect(renderedSizes('a 9.99 MB payload, 512 KiB of it new, over a 7 GB disk')).toEqual([
+      '9.99 MB',
+      '512 KiB',
+      '7 GB',
+    ]);
+    expect(renderedSizes('objectui#8964 names two constants and renders neither')).toEqual([]);
+  });
+
+  it('renders neither constant as a size', () => {
+    const rendered = renderedSizes(ceilingNote(fs.readFileSync(checkerPath, 'utf8')));
+    expect(
+      rendered,
+      `the note that says which constant is which renders a size (${rendered.join(', ')}). ` +
+        'A figure written here is a second copy of a constant that lives a few lines below it, and ' +
+        'only one of the two moves when the ceiling is re-baselined — which is how this note came to ' +
+        'explain, for four days, why two retired numbers were consistent with each other. Name the ' +
+        'constant and let the gate print the reading (objectui#8964).',
+    ).toEqual([]);
+  });
+});

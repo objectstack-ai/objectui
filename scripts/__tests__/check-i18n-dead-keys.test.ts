@@ -5,13 +5,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  ANALYSED_PACK_OBJECT_IMPORTERS,
   DESIGNER_TABLE,
   collectDesignerKeys,
+  derivePackObjectImporters,
+  derivePackObjectKeyReads,
+  packObjectReadsNoLegSees,
   propertyChainProbe,
   sweep,
   sweepDesignerTable,
   textFootprint,
 } from '../check-i18n-dead-keys.mjs';
+import { collectEnKeys } from '../check-i18n-call-site-keys.mjs';
 
 /**
  * objectui#4658 — the behaviour test for `scripts/check-i18n-dead-keys.mjs`,
@@ -926,5 +931,434 @@ describe('textFootprint() key boundary', () => {
     expect(footprintOf({ 'packages/x/src/a.ts': `export const k = '${KEY}.detail';\n` }, { keyBoundary: false })).toEqual([
       'packages/x/src/a.ts',
     ]);
+  });
+});
+
+/**
+ * objectui#8752 — the enumeration is DERIVED and PINNED, never hand-counted.
+ *
+ * The header section "The pack-object importers, enumerated" told readers to
+ * re-derive the class and then stated a match total in prose. The total was
+ * true when written and decayed in place — 19 in the comment, 28 when the
+ * drift was filed, 31 when it was corrected — and the bullet list decayed with
+ * it, carrying four entries for a population of five. That is a worse failure
+ * than an uncounted list: the section ships its own re-derivation command, so a
+ * reader who trusts the number is a reader who skips the check.
+ *
+ * The count is gone from the prose and computed on every run. This block pins
+ * the half a count cannot cover: that every non-test importer in the live
+ * population has a BULLET, i.e. that somebody read the file and wrote down what
+ * its shape means for the property-chain leg. A sixth importer fails here, by
+ * name, instead of joining the silence.
+ */
+describe('the pack-object importer enumeration is derived, and pinned to the readings (objectui#8752)', () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const scriptPath = path.join(repoRoot, 'scripts', 'check-i18n-dead-keys.mjs');
+  const derived = derivePackObjectImporters(repoRoot);
+
+  it('does not collapse — a broken derivation must not read as a clean enumeration', () => {
+    // The assertion that keeps every other assertion in this block honest. A
+    // grep that matched nothing (a moved directory, a changed specifier, an IO
+    // error swallowed somewhere) returns two empty sets, and two empty sets
+    // satisfy "every importer is analysed" vacuously — the most reassuring
+    // possible rendering of an instrument that stopped looking. Same discipline
+    // as the CLI block's own collapse guards.
+    expect(derived.nonTest.length, 'this repo ships pack-object importers; zero means the derivation broke').toBeGreaterThan(0);
+    expect(derived.test.length, 'test importers vastly outnumber non-test ones here; a handful means the walk broke').toBeGreaterThan(10);
+  });
+
+  it('classifies the locale packs themselves out of the population', () => {
+    // A pack file importing a sibling pack is a DEFINITION, never a reader.
+    for (const file of [...derived.nonTest, ...derived.test]) {
+      expect(file.startsWith('packages/i18n/'), `${file} is a locale-pack file and cannot be a reader of the packs`).toBe(false);
+    }
+  });
+
+  it('splits test importers out — only a non-test importer can keep a SHIPPED key alive', () => {
+    // Both spellings this repo uses, because a predicate that knew one of them
+    // would promote the other half into the set the bullets answer for.
+    for (const file of derived.nonTest) {
+      expect(/(^|\/)__tests__\//.test(file) || /\.test\.tsx?$/.test(file), `${file} is a test file and does not belong in the non-test set`).toBe(false);
+    }
+    expect(derived.test.some((f) => f.includes('/__tests__/'))).toBe(true);
+    expect(derived.test.some((f) => /\.test\.tsx?$/.test(f) && !f.includes('/__tests__/'))).toBe(true);
+  });
+
+  it('EVERY non-test importer in the live population is analysed in the header', () => {
+    const unanalysed = derived.nonTest.filter((f) => !ANALYSED_PACK_OBJECT_IMPORTERS.includes(f));
+    expect(
+      unanalysed,
+      'A pack-object importer with no bullet is a reader nobody has classified — the objectui#8752 ' +
+        'state exactly. Read the file, decide what its shape means for the property-chain leg (covered ' +
+        'by design / by luck / nothing at risk), write the bullet in the header section, and only then ' +
+        'add the path to ANALYSED_PACK_OBJECT_IMPORTERS. ⛔ Adding the path alone makes this test green ' +
+        'while reproducing the defect it exists to catch.',
+    ).toEqual([]);
+  });
+
+  it('EVERY analysed importer still exists in the live population', () => {
+    // The other direction, and it is not symmetry for its own sake: a bullet
+    // about a deleted file reads as coverage of a class that no longer has a
+    // member, which is how an enumeration starts describing a tree nobody has.
+    const vanished = ANALYSED_PACK_OBJECT_IMPORTERS.filter((f) => !derived.nonTest.includes(f));
+    expect(vanished, 'these paths are analysed in the header but no longer import a locale pack — delete the bullet with the entry').toEqual([]);
+  });
+
+  it('each analysed path is spelled in the header, so an entry cannot exist without its reading', () => {
+    // What stops the previous test from being satisfied by a paste. The
+    // constant is an INDEX of bullets; if the path is not in the header text,
+    // the bullet was never written and the reading does not exist.
+    const source = fs.readFileSync(scriptPath, 'utf8');
+    const header = source.slice(0, source.indexOf('\nimport ts from'));
+    for (const file of ANALYSED_PACK_OBJECT_IMPORTERS) {
+      expect(header.includes(file), `${file} is listed as analysed but the header carries no bullet for it`).toBe(true);
+    }
+  });
+
+  it('the header states no hand-written match count', () => {
+    // The regression this card is: a number in prose that nothing recomputes.
+    // The population is printed by the run now, so a total reappearing here is
+    // a step back to the shape that decayed three times.
+    const source = fs.readFileSync(scriptPath, 'utf8');
+    const header = source.slice(0, source.indexOf('\nimport ts from'));
+    const stated = header.match(/\d+\s+matches?\s+today/i);
+    expect(stated, `the enumeration must not state its own population in prose — it decayed through three values doing that; derivePackObjectImporters() reports it instead`).toBeNull();
+  });
+});
+
+/**
+ * objectui#8752 — the fifth importer's reading, MEASURED rather than asserted
+ * in a comment.
+ *
+ * Its bullet claims something specific and load-bearing: the file reads two
+ * TWO-SEGMENT keys off the pack by property access, both legs are blind to that
+ * read, and the keys stay out of the candidate tiers only because the same
+ * expression also spells them literally as the `t()` argument. If that stops
+ * being true — someone templates the key, or moves the default away from its
+ * call — the bullet becomes a false statement about a live blind spot. These
+ * cases are what turn red first.
+ */
+describe('the fifth importer is covered BY COINCIDENCE, not by the leg (objectui#8752)', () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+  /**
+   * Assembled from segments for the reason the objectui#6666 control block
+   * above gives: `textFootprint()` greps `scripts/` too, so a dotted key
+   * spelled contiguously here would make THIS FILE a hit for it and the
+   * measurements below would be measuring the test.
+   */
+  const ceilingKey = (leaf: string) => ['common', leaf].join('.');
+  const KEYS = [ceilingKey('rowCeilingNote'), ceilingKey('rowCeilingNoteUnknownTotal')];
+
+  it('the property-chain leg does not apply: both keys are two segments', () => {
+    for (const k of KEYS) {
+      expect(propertyChainProbe(k), `${k} has two segments; a one-word chain is not evidence`).toBeNull();
+    }
+  });
+
+  it('the full-key probe does NOT see a pack-object property read of these keys', () => {
+    // The measurement the bullet rests on, run on a fixture carrying ONLY the
+    // property read — the real file also spells the key literally, so measuring
+    // it there would answer a different question.
+    const root = repoWith({
+      'packages/x/src/reader.tsx': `import { en } from '${I18N_PKG}';\n` + KEYS.map((k) => `const v = en.${k};\n`).join(''),
+    });
+    const found = textFootprint(root, KEYS);
+    for (const k of KEYS) {
+      expect(found.get(k), `${k} read as a property off the pack is invisible to the full-key probe (a '.' on the left marks a longer key)`).toEqual([]);
+    }
+  });
+
+  it('and DID see it before the key boundary — so the blindness is a measured cost of that boundary', () => {
+    // The control that keeps the assertion above from passing for the wrong
+    // reason (a typo in the fixture, a probe that matches nothing at all).
+    const root = repoWith({
+      'packages/x/src/reader.tsx': `import { en } from '${I18N_PKG}';\n` + KEYS.map((k) => `const v = en.${k};\n`).join(''),
+    });
+    const found = textFootprint(root, KEYS, { keyBoundary: false });
+    for (const k of KEYS) expect(found.get(k)).toEqual(['packages/x/src/reader.tsx']);
+  });
+
+  it('what keeps them live is the LITERAL t() argument in the same expression', () => {
+    const source = fs.readFileSync(path.join(repoRoot, 'packages/react/src/utils/nonGridRowCeiling.tsx'), 'utf8');
+    for (const k of KEYS) {
+      expect(source.includes(`t('${k}'`), `${k} must stay spelled literally at its call site — the property read alone is invisible to every leg`).toBe(true);
+    }
+  });
+});
+
+/**
+ * objectui#9046 — the class-4 derivation: what each pack-object importer READS
+ * off the pack, and how deep.
+ *
+ * objectui#8752 made the importer LIST mechanical and said in as many words
+ * what it was leaving hand-read — "what stays hand-read is what each importer's
+ * shape means". A shape is three facts about each read (which binding, which
+ * property chain, how deep), all three derivable from the AST this script
+ * already parses, and this block pins the derivation of them.
+ *
+ * ⚠️ What is pinned here is the LEG, never a file. The live instance
+ * objectui#8752 pins is this class's proof of non-emptiness, not its work item,
+ * and a second file-specific pin would be the failure mode by name: a blind
+ * spot surviving its own discovery because the instance got nailed down and the
+ * class did not. Every case below is a fixture of a SHAPE.
+ *
+ * The fixture keys are deliberately not spellings of any real pack key: this
+ * suite lives under `scripts/`, which `textFootprint()` greps, so a real dotted
+ * key spelled here would make this file a textual hit for it — the same trap
+ * the objectui#6666 control block above records.
+ */
+describe('the pack-object property reads are derived, with their depth (objectui#9046)', () => {
+  /** A synthetic pack shape, standing in for `collectEnKeys()`'s two sets. */
+  const PACK_KEYS = {
+    leaves: new Set([
+      'fixtureNs.leafTwo',
+      'fixtureNs.otherTwo',
+      'fixtureDeep.group.leafThree',
+      'fixtureDeep.group.leafThreeLonger',
+    ]),
+    branches: new Set(['fixtureNs', 'fixtureDeep', 'fixtureDeep.group']),
+  };
+
+  const READER = 'packages/x/src/reader.tsx';
+  const readsOf = (body: string, file = READER) =>
+    derivePackObjectKeyReads(repoWith({ [file]: body }), [file], PACK_KEYS);
+  const rowFor = (rows: ReturnType<typeof readsOf>, spelled: string) => rows.find((r) => r.text === spelled);
+
+  // ── binding resolution ────────────────────────────────────────────────────
+  describe('resolves the local binding a pack import is bound to', () => {
+    it('follows the LOCAL name, not the export name — this repo already renames on import', () => {
+      const rows = readsOf(`import { en as whateverTheyCalledIt } from '${I18N_PKG}';\nconst v = whateverTheyCalledIt.fixtureNs.leafTwo;\n`);
+      expect(rows.map((r) => ({ binding: r.binding, pack: r.pack, key: r.key }))).toEqual([
+        { binding: 'whateverTheyCalledIt', pack: 'en', key: 'fixtureNs.leafTwo' },
+      ]);
+    });
+
+    it('ignores an identically-named binding that came from somewhere else', () => {
+      // The whole leg hangs off the import edge; a leg that matched on the NAME
+      // would attribute pack reads to any module with a variable called `en`.
+      expect(readsOf(`import { en } from './not-the-packs.js';\nconst v = en.fixtureNs.leafTwo;\n`)).toEqual([]);
+    });
+
+    it('ignores the pack name in a TYPE position — it reads no key at run time', () => {
+      const rows = readsOf(`import { builtInLocales } from '${I18N_PKG}';\ntype T = keyof typeof builtInLocales;\n`);
+      expect(rows, 'a phantom row here would put a read on an importer that performs none').toEqual([]);
+    });
+
+    it('ignores a property that merely SPELLS the binding name', () => {
+      const rows = readsOf(`import { en } from '${I18N_PKG}';\nconst v = someConfig.en.fixtureNs.leafTwo;\nconst w = { en: somethingElse };\n`);
+      expect(rows).toEqual([]);
+    });
+
+    it('strips the locale tag off a chain read through the locale-tag MAP', () => {
+      const rows = readsOf(`import { builtInLocales } from '${I18N_PKG}';\nconst v = builtInLocales.en.fixtureNs.leafTwo;\n`);
+      expect(rowFor(rows, 'builtInLocales.en.fixtureNs.leafTwo')?.key, 'the tag is not a key segment').toBe('fixtureNs.leafTwo');
+      expect(rowFor(rows, 'builtInLocales.en.fixtureNs.leafTwo')?.keyDepth).toBe(2);
+    });
+  });
+
+  // ── the depth, which is the load-bearing half ─────────────────────────────
+  describe('reports how deep each read is', () => {
+    const rows = readsOf(
+      `import { en } from '${I18N_PKG}';\n` +
+        `const a = en.fixtureNs;\n` +
+        `const b = en.fixtureNs.leafTwo;\n` +
+        `const c = en.fixtureDeep.group.leafThree;\n`,
+    );
+
+    it('a subtree read is depth 1 and resolves to a BRANCH, with its leaf count', () => {
+      const row = rowFor(rows, 'en.fixtureNs');
+      expect(row?.depth).toBe(1);
+      expect(row?.resolves).toBe('branch');
+      expect(row?.leavesUnder).toBe(2);
+    });
+
+    it('a two-segment key read is depth 2 and resolves to a LEAF', () => {
+      const row = rowFor(rows, 'en.fixtureNs.leafTwo');
+      expect(row?.depth).toBe(2);
+      expect(row?.resolves).toBe('leaf');
+      expect(row?.key).toBe('fixtureNs.leafTwo');
+    });
+
+    it('a three-segment key read is depth 3', () => {
+      const row = rowFor(rows, 'en.fixtureDeep.group.leafThree');
+      expect(row?.depth).toBe(3);
+      expect(row?.resolves).toBe('leaf');
+    });
+
+    it('a string-literal index is the same read as a dot, not a dynamic one', () => {
+      // Reporting `en['fixtureNs']['leafTwo']` as unknowable would hide a chain
+      // the tool can in fact see, and the spelling is a formatting choice.
+      const row = rowFor(readsOf(`import { en } from '${I18N_PKG}';\nconst v = en['fixtureNs']['leafTwo'];\n`), "en.fixtureNs.leafTwo");
+      expect(row?.key).toBe('fixtureNs.leafTwo');
+      expect(row?.dynamic).toBe(false);
+    });
+  });
+
+  // ── the class-4 shape, and the firing control ─────────────────────────────
+  describe('the class-4 shape — a two-segment key taken off the pack by property access', () => {
+    it('REPORTS the read, with no leg able to see it, when the key is not spelled in the file', () => {
+      // The firing case. This is the shape the class describes with nothing
+      // holding it up: neither probe matches, and before this leg the file's
+      // reading was a human's to supply.
+      const rows = readsOf(`import { en } from '${I18N_PKG}';\nexport const v = en.fixtureNs.leafTwo;\n`);
+      const row = rowFor(rows, 'en.fixtureNs.leafTwo');
+      expect(row, 'the read must be reported at all — silence here is the defect this leg exists to end').toBeDefined();
+      expect(row?.resolves).toBe('leaf');
+      expect(row?.keyDepth, 'fewer than three segments is what puts it out of both legs').toBeLessThan(3);
+      expect(row?.seenBy, 'neither leg can see a two-segment property read').toEqual([]);
+      expect(row?.spelledHere).toBe(false);
+      expect(packObjectReadsNoLegSees(rows).map((r) => r.key)).toContain('fixtureNs.leafTwo');
+    });
+
+    it('and reports the read as COVERED BY COINCIDENCE when the same file also spells the key', () => {
+      // The control in the other direction: the same shape, plus the property
+      // that keeps the tree's real instance out of the tiers. The row must NOT
+      // vanish — coverage by a co-located spelling is a fact about the FILE,
+      // and a report that dropped the row would render it as coverage by the
+      // instrument.
+      const rows = readsOf(
+        `import { en, useT } from '${I18N_PKG}';\n` +
+          `export const v = useT('fixtureNs.leafTwo', { defaultValue: en.fixtureNs.leafTwo });\n`,
+      );
+      const row = rowFor(rows, 'en.fixtureNs.leafTwo');
+      expect(row, 'the shape is still present; only its cover changed').toBeDefined();
+      expect(row?.seenBy).toEqual(['full-key']);
+      expect(row?.spelledHere).toBe(true);
+      expect(packObjectReadsNoLegSees(rows)).toEqual([]);
+    });
+
+    it('goes SILENT when the shape is absent — no pack import, no rows', () => {
+      expect(readsOf(`const v = somethingElse.fixtureNs.leafTwo;\n`)).toEqual([]);
+    });
+  });
+
+  // ── what the existing legs DO cover, measured rather than assumed ─────────
+  describe('measures which leg sees a read, rather than inferring it from the segment count', () => {
+    it('a three-segment read spelled off the import IS seen by the property-chain leg', () => {
+      const row = rowFor(
+        readsOf(`import { en } from '${I18N_PKG}';\nexport const v = en.fixtureDeep.group.leafThree;\n`),
+        'en.fixtureDeep.group.leafThree',
+      );
+      expect(row?.seenBy).toEqual(['property-chain']);
+    });
+
+    it('but the SAME key read through a local alias is seen by nothing', () => {
+      // The inference "three segments, therefore the chain leg covers it" is
+      // wrong here, and only running the predicate catches it: the file spells
+      // no leading dot, so the probe has nothing to match. A rename is all it
+      // takes, and a rename reads as a tidy-up.
+      const rows = readsOf(
+        `import { en } from '${I18N_PKG}';\n` +
+          `const group = en.fixtureDeep.group;\n` +
+          `export const v = group.leafThree;\n`,
+      );
+      const row = rowFor(rows, 'group.leafThree');
+      expect(row, 'the alias must resolve, or a rename hides the read entirely').toBeDefined();
+      expect(row?.key, 'the alias stands for the chain it was bound to').toBe('fixtureDeep.group.leafThree');
+      expect(row?.depth).toBe(3);
+      expect(row?.via).toBe('fixtureDeep.group');
+      expect(row?.seenBy, 'deep enough for the chain probe, and still spelled nowhere').toEqual([]);
+    });
+
+    it('resolves an alias OF an alias, so one more hop does not hide it either', () => {
+      const rows = readsOf(
+        `import { en } from '${I18N_PKG}';\n` +
+          `const deep = en.fixtureDeep;\n` +
+          `const group = deep.group;\n` +
+          `export const v = group.leafThree;\n`,
+      );
+      expect(rowFor(rows, 'group.leafThree')?.key).toBe('fixtureDeep.group.leafThree');
+    });
+
+    it('does NOT invent a path through a dynamically-indexed alias', () => {
+      // The narrowness is the point: a subtree picked by a runtime value is not
+      // a knowable path, and attributing reads to a guessed one would name keys
+      // nobody reads.
+      const rows = readsOf(
+        `import { en } from '${I18N_PKG}';\n` +
+          `const picked = en[whichever];\n` +
+          `export const v = picked.leafTwo;\n`,
+      );
+      expect(rows.map((r) => r.text)).toEqual(['en[…]']);
+      expect(rows[0]?.resolves).toBe('opaque');
+    });
+  });
+
+  // ── the shapes no derivation can resolve, reported as such ────────────────
+  describe('reports an unresolvable read as unknowable, never as "reads nothing"', () => {
+    it('a computed index is OPAQUE and flagged dynamic', () => {
+      const row = rowFor(readsOf(`import { en } from '${I18N_PKG}';\nexport const v = en[someKey];\n`), 'en[…]');
+      expect(row?.dynamic).toBe(true);
+      expect(row?.resolves).toBe('opaque');
+    });
+
+    it('the pack handed on WHOLE is OPAQUE at depth 0', () => {
+      const rows = readsOf(`import { en } from '${I18N_PKG}';\nexport const resources = { en };\n`);
+      expect(rows.map((r) => ({ depth: r.depth, resolves: r.resolves, dynamic: r.dynamic }))).toEqual([
+        { depth: 0, resolves: 'opaque', dynamic: false },
+      ]);
+    });
+
+    it('a chain that is not a pack path at all resolves to unknown, and is not called blind', () => {
+      const rows = readsOf(`import { en } from '${I18N_PKG}';\nexport const v = en.notAPackNamespace.whatever;\n`);
+      expect(rowFor(rows, 'en.notAPackNamespace.whatever')?.resolves).toBe('unknown');
+      expect(packObjectReadsNoLegSees(rows), 'an unknown path is not evidence about any key').toEqual([]);
+    });
+
+    it('a SUBTREE read is reported as a subtree, never as a leaf', () => {
+      // Class 5: every leaf under it becomes reachable without any being
+      // spelled. The row must stay a subtree row — promoting it to a per-leaf
+      // liveness claim would mark a whole namespace live.
+      const row = rowFor(readsOf(`import { en } from '${I18N_PKG}';\nexport const v = { ...en.fixtureDeep.group };\n`), 'en.fixtureDeep.group');
+      expect(row?.resolves).toBe('branch');
+      expect(row?.leavesUnder).toBe(2);
+      expect(row?.seenBy, 'no probe is built out of a branch, so none can match one').toEqual([]);
+    });
+  });
+
+  // ── the real tree: the derivation must not be vacuous there ───────────────
+  describe('on the real tree', () => {
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const derived = derivePackObjectImporters(repoRoot);
+    const packKeys = collectEnKeys(repoRoot);
+    const reads = derivePackObjectKeyReads(repoRoot, derived.nonTest, packKeys);
+
+    it('does not collapse — an empty read set reads as a tree where nobody touches the packs', () => {
+      // The assertion that keeps the rest honest, and the same discipline as
+      // the importer block's own collapse guard. Every importer in the derived
+      // population binds a pack by construction, so zero reads is a broken
+      // walk, not a clean tree.
+      expect(reads.length, 'zero reads across a non-empty importer population means the walk broke').toBeGreaterThan(0);
+    });
+
+    it('reports at least one read for EVERY non-test importer', () => {
+      // Deliberately stated over the derived population rather than over named
+      // files: what must not regress is the CLASS being covered, and naming a
+      // file here would re-create the pin this card exists to avoid.
+      const silent = derived.nonTest.filter((file) => !reads.some((read) => read.file === file));
+      expect(silent, 'an importer with no read row is a file the report says nothing about').toEqual([]);
+    });
+
+    it('every read carries the three facts a hand reading used to supply', () => {
+      for (const read of reads) {
+        expect(typeof read.binding, `${read.file} read has no binding`).toBe('string');
+        expect(Array.isArray(read.chain), `${read.file} read has no property chain`).toBe(true);
+        expect(read.depth, `${read.file} read has no depth`).toBe(read.chain.length);
+        expect(['leaf', 'branch', 'unknown', 'opaque']).toContain(read.resolves);
+      }
+    });
+
+    it('never claims a leg sees a read the leg’s own predicate cannot find', () => {
+      // The measurement, cross-checked against the predicates themselves on the
+      // real sources — the property that separates this from an inference.
+      for (const read of reads) {
+        if (!read.seenBy.includes('property-chain')) continue;
+        const probe = propertyChainProbe(read.key as string);
+        expect(probe, `${read.key} is claimed seen by the chain leg but the probe does not apply`).not.toBeNull();
+        const source = fs.readFileSync(path.join(repoRoot, read.file), 'utf8');
+        expect(source.includes(probe as string), `${read.file} is claimed to spell ${probe} and does not`).toBe(true);
+      }
+    });
   });
 });

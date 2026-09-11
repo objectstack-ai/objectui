@@ -75,6 +75,7 @@ import {
   I18nLabelSchema as SpecI18nLabelSchema,
   ChartAggregateSchema as SpecChartAggregateSchema,
   ChartDrillDownSchema as SpecChartDrillDownSchema,
+  objectNavTargetExclusivity,
 } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
@@ -377,8 +378,8 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
    * `@objectstack/spec` binding inside a mirror must be the direct argument of
    * `stripImportedDefaults(…)`.
    *
-   * Two kinds of read are declared exceptions, and they are enumerated here
-   * rather than pattern-matched, so adding a third is an edit to this list:
+   * Three kinds of read are declared exceptions, and they are enumerated here
+   * rather than pattern-matched, so adding a fourth is an edit to this list:
    *
    *  - a value VOCABULARY — `SpecListViewTypeEnum` / `ViewKindEnum`, which
    *    unwrap the spec's own `.default('grid')` to reach its enum. A set of
@@ -388,12 +389,32 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
    *    and throw.
    *  - a TYPE position, where there is no runtime schema to strip and the
    *    declared type is unchanged by the strip anyway.
+   *  - a chained REFINEMENT (objectui#8563) — a spec check FUNCTION such as
+   *    `objectNavTargetExclusivity`, which a mirror mounts on its own schema.
+   *    There is no Zod graph to walk and no default to remove: the whole effect
+   *    of a refinement is `ctx.addIssue`, so it cannot write a value into a
+   *    parsed document, which is the only thing this boundary is about.
    */
   describe('every `@objectstack/spec` value read in the mirrors goes through the boundary', () => {
     /** `<file>:<enclosing const>` for each read that is allowed to stay raw. */
     const VOCABULARY_EXCEPTIONS = new Set([
       'views.zod.ts:SpecListViewTypeEnum',
       'objectql.zod.ts:ViewKindEnum',
+    ]);
+
+    /**
+     * Spec CHECK FUNCTIONS a mirror chains, keyed by binding name rather than by
+     * owning const: a refinement is read inside whichever schema mounts it, and
+     * the same rule may be mounted on more than one. Chaining these is the
+     * POINT rather than a tolerated exception — a mirror that restated the rule
+     * body instead would drift from the spec's the day the spec's own moved,
+     * which is the defect objectui#8563 closed.
+     *
+     * Held as name → binding so the assertion below can check each entry really
+     * is a function: a schema must not reach this list merely by being listed.
+     */
+    const REFINEMENT_EXCEPTIONS = new Map<string, unknown>([
+      ['objectNavTargetExclusivity', objectNavTargetExclusivity],
     ]);
 
     const isSpecModule = (m: string): boolean =>
@@ -462,7 +483,8 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
     it('no value read bypasses `stripImportedDefaults`', () => {
       const offenders = reads
         .filter((r) => r.kind === 'value' && !r.wrapped)
-        .filter((r) => !VOCABULARY_EXCEPTIONS.has(`${r.file}:${r.owner}`));
+        .filter((r) => !VOCABULARY_EXCEPTIONS.has(`${r.file}:${r.owner}`))
+        .filter((r) => !REFINEMENT_EXCEPTIONS.has(r.name));
       expect(
         offenders.map((r) => `${r.file}:${r.line} ${r.name} (in \`${r.owner ?? '<top level>'}\`)`),
         'an `@objectstack/spec` schema crosses into a mirror without the objectui#8317 import ' +
@@ -486,10 +508,23 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       }
     });
 
+    it('every declared refinement exception is a LIVE FUNCTION, not a schema in disguise', () => {
+      expect(REFINEMENT_EXCEPTIONS.size, 'the list is empty — delete it rather than leave a hole').toBeGreaterThan(0);
+      for (const [name, binding] of REFINEMENT_EXCEPTIONS) {
+        expect(typeof binding, `${name} is not a function, so it does not belong in this list`).toBe('function');
+        expect(
+          '_zod' in Object(binding),
+          `${name} carries Zod internals — it is a schema, and a schema crosses the boundary`,
+        ).toBe(false);
+        const matching = reads.filter((r) => r.name === name && r.kind === 'value');
+        expect(matching.length, `declared exception ${name} matches no read — delete it`).toBeGreaterThan(0);
+      }
+    });
+
     it('every symbol the mirrors import is covered by the differential above', () => {
       const differential = new Set(IMPORTED.map(([n]) => n));
       const missing = [...new Set(reads.map((r) => r.name.replace(/^Spec/, '')))]
-        .filter((n) => !differential.has(n));
+        .filter((n) => !differential.has(n) && !REFINEMENT_EXCEPTIONS.has(n));
       expect(
         missing,
         'a schema imported by a mirror is not in this file\'s `IMPORTED` list, so nothing measures ' +

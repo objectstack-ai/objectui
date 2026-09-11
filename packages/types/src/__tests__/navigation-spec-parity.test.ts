@@ -28,12 +28,19 @@
  *  - `{ type: 'separator' }` — spec-valid, rejected for missing id/label.
  *
  * Deliberately NOT modelled: the spec expresses navigation as a discriminated
- * union of nine variants, each with its target field required and a
- * `superRefine` exclusivity rule. objectui keeps one flat, all-optional shape,
- * so it accepts items the spec would reject (e.g. `type: 'object'` with no
- * `objectName`). Converging on the union is a breaking change for every
- * consumer that reads fields off `NavigationItem` without narrowing — tracked
- * separately, not smuggled in here.
+ * union of nine variants, each with its target field required. objectui keeps
+ * one flat, all-optional shape, so it accepts items the spec would reject (e.g.
+ * `type: 'object'` with no `objectName`). Converging on the union is a breaking
+ * change for every consumer that reads fields off `NavigationItem` without
+ * narrowing — tracked separately, not smuggled in here.
+ *
+ * ⚠️ The object arm's `superRefine` exclusivity rule is the one part of that
+ * paragraph that no longer holds: objectui#8563 CHAINS the spec's exported
+ * `objectNavTargetExclusivity` on `type: 'object'`, so `filters` combined with
+ * `recordId` / `viewName`, and `runAction` combined with `recordId`, are refused
+ * here as well. That narrowing and the neighbours it deliberately leaves alone
+ * are pinned in `./nav-target-exclusivity-8563.test.ts`, not here — this file
+ * still measures the vocabulary gaps only.
  */
 
 import { describe, it, expect } from 'vitest';

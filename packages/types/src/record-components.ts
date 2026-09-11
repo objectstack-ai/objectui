@@ -37,8 +37,29 @@ export interface RecordComponentAriaProps {
  * Aligned with @objectstack/spec RecordDetailsProps.
  */
 export interface RecordDetailsComponentProps {
-  /** Number of columns for field layout (1-4) */
-  columns?: number;
+  /**
+   * Field-grid width for the WHOLE body, as the STRING the contract declares
+   * (`@objectstack/spec` `RecordDetailsProps.columns` is
+   * `z.enum(['1','2','3','4'])`, schema default `'2'`).
+   *
+   * It was `number` here until objectui#8604, which is the wrong PRIMITIVE
+   * TYPE, not merely a wider range: `{ columns: 2 }` compiled locally and the
+   * contract refused it at publish with `invalid_value` at `columns` (measured
+   * on the installed pin, 17.4.0, against a control — `columns: '2'` — that
+   * parses green on the same instrument). Contract-first (Commandment #0.1):
+   * the code moves to the contract's spelling, and today's `columns: 2`
+   * authors are the defect surfacing rather than collateral damage.
+   *
+   * WARNING — this is NOT the spelling `sections[].columns` uses one level
+   * down. That key is `z.number().int().min(1).max(4)`, so a section takes the
+   * NUMBER `2` and refuses the string, exactly inverting this key. The same
+   * word names two different types one level apart; copying either declaration
+   * onto the other is refused at publish. See the `columns` member on the
+   * `sections[]` entry below, and
+   * `__tests__/record-details-columns-8604.test.ts`, which pins both directions
+   * against the installed spec.
+   */
+  columns?: '1' | '2' | '3' | '4';
   /** Detail layout mode */
   layout?: 'stacked' | 'inline' | 'compact';
   /** Sections to organize fields */
@@ -75,6 +96,13 @@ export interface RecordDetailsComponentProps {
      * and `DetailSection` derives the width from the field count. Permitted
      * beside `group`: it describes how this page lays the section out, not
      * anything the group itself declares.
+     *
+     * WARNING — `number` is correct HERE and only here (objectui#8604): the
+     * per-section key is `z.number().int().min(1).max(4)`, while the body-wide
+     * `columns` at the top of this interface is a string enum. A section
+     * carrying `columns: '2'` is refused with `invalid_type` at
+     * `sections.N.columns`; the top-level key refuses `2`. Two types, one word,
+     * one level apart.
      */
     columns?: number;
     /**

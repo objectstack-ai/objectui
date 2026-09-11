@@ -32,6 +32,32 @@ const doc = fs.readFileSync(docPath, 'utf8');
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 
 /**
+ * The data rows of the markdown table that begins at `fromHeader[0]`, as trimmed
+ * cell arrays — separator row skipped, stopping at the first line that is not a
+ * table row.
+ *
+ * ⭐ There is exactly ONE of these on purpose. Three blocks on this page read a
+ * markdown table (the lockfile-driver table, `ci.yml`'s job table and the workflow
+ * inventory), and two of them had grown their own byte-identical copy of this loop
+ * before the inventory needed a third (objectui#8726). Two copies of a reader are
+ * two readers, and the next fix would have reached only one of them — the same
+ * argument the alias rule below is lifted to module scope for.
+ *
+ * ⛔ Callers keep their own `indexOf(header)` assertion: each one has a different
+ * thing to say about a table that has gone missing, and a shared message would say
+ * none of them well.
+ */
+function markdownTableRows(fromHeader: string): string[][] {
+  const rows: string[][] = [];
+  for (const line of fromHeader.split('\n').slice(1)) {
+    if (!line.startsWith('|')) break;
+    if (/^\|[\s|:-]+\|$/.test(line)) continue; // separator
+    rows.push(line.split('|').slice(1, -1).map((c) => c.trim()));
+  }
+  return rows;
+}
+
+/**
  * The `Generate package size report` step body, from its `- name:` line up to the
  * next step at the same indentation. Scoping matters: the *budget* step legitimately
  * exits non-zero, and asserting over the whole file would conflate the two.
@@ -151,6 +177,204 @@ describe('ci-cd-pipeline.md — workflow inventory', () => {
         `(objectui#3212: \`lint.yml\` gated PRs for months while this page never mentioned it).` +
         `\n\nIf a workflow genuinely must not be documented, add it to DOCUMENTATION_EXEMPT in ` +
         `this file with the reason — the exemption is reviewable, skipping the page is not.`,
+    ).toEqual([]);
+  });
+
+  /**
+   * ── The inventory table, and WHAT A ROW MUST ASSERT (objectui#8726) ─────────
+   *
+   * The set above is built from `/^#{1,6}\s/` lines — markdown headings only — so
+   * until now the "Workflow Inventory" table was read by nothing at all. A workflow
+   * satisfied `gives every workflow … its own section` purely by having a heading,
+   * while its row could be absent, duplicated, or say the opposite of the truth.
+   * Two mutations on the merged tree proved it, both green where they should have
+   * been red: deleting `lockfile-integrity.yml`'s row while keeping its `##`
+   * section, and rewriting `live-e2e.yml`'s trailing cell back to the stale
+   * `continue-on-error` wording objectui#8692 had just removed.
+   *
+   * ⭐ The second one is why "does the row exist?" is not the whole answer. The page
+   * asserts the `continue-on-error` claim about that lane in its structural-claims
+   * bullet, and objectui#8084 took the property off the job — so the page could carry
+   * a *contradiction with itself*, a corrected bullet beside an uncorrected row, and
+   * stay green. Existence alone does not see that.
+   *
+   * ⭐ So a row must: (1) exist for every non-exempt workflow and name no other,
+   * (2) appear exactly once, and (3) make no claim about a YAML property that the
+   * workflow it names does not declare. Nothing more.
+   *
+   * ⛔ Deliberately NOT pinned: whether the free prose of `Runs on` and `Blocks a PR?`
+   * is *correct*. Those cells carry real nuance ("every job but the two coverage-lane
+   * jobs", "ESLint **errors** only") that no derivation reproduces, and the honest
+   * source for a blocking answer is the repository's required-context set, which lives
+   * in GitHub's settings and not in this tree. Deriving "Blocks a PR?" from a
+   * `merge_group` trigger would be a *false* derivation in the direction that matters:
+   * `hook-selftests.yml` declares none and the page rightly answers **Yes**. Pinning
+   * more than the page can honestly promise is how a pin becomes the next card, so what
+   * (3) checks is the narrow, mechanical thing — a named YAML key the row itself
+   * invokes — the same discipline STRUCTURAL_BLOCKS below applies to the bullet.
+   *
+   * ⭐ The failure message above tells a contributor to add a heading **and a row**.
+   * That last clause was advice no assertion enforced. It is enforced here now, so the
+   * message and the assertions agree; ⛔ if these are ever retired, the clause goes too.
+   */
+  const INVENTORY_TABLE_HEADER = '| Workflow file | Appears as | Runs on | Blocks a PR? |';
+
+  /** Inventory rows: the `.yml` the first cell names, and the whole row as text. */
+  function inventoryRows(): { file: string; text: string }[] {
+    const at = doc.indexOf(INVENTORY_TABLE_HEADER);
+    expect(
+      at,
+      'the "Workflow Inventory" table of content/docs/guide/ci-cd-pipeline.md no longer has the ' +
+        `header \`${INVENTORY_TABLE_HEADER}\`. Everything below reads that table through this ` +
+        'header, so a renamed or reordered column turns the whole block vacuously green — the ' +
+        'exact failure objectui#8726 was filed about. Restore the header, or teach it the new one.',
+    ).toBeGreaterThan(-1);
+
+    return markdownTableRows(doc.slice(at)).map((cells) => ({
+      file: cells[0].match(/([a-z0-9][a-z0-9-]*\.yml)\b/)?.[1] ?? '',
+      text: cells.join(' | '),
+    }));
+  }
+
+  it('the inventory table parse is live — a zero-row read is a broken reader, not an empty table', () => {
+    // The control every count below rests on. A header that stopped matching, a
+    // table converted to a list, or a separator regex that swallowed the rows would
+    // make "no row is missing" true by comparing nothing at all (objectui#6436).
+    const rows = inventoryRows();
+    expect(
+      rows.length,
+      'the "Workflow Inventory" table parsed to implausibly few rows. This repository has ' +
+        'dozens of workflows and each is supposed to have one; a handful means the reader ' +
+        'broke, not that the page shrank.',
+    ).toBeGreaterThan(5);
+
+    expect(
+      rows.filter((r) => r.file === '').map((r) => r.text),
+      'these inventory rows have no `NAME.yml` in their first cell, so nothing below can ' +
+        'match them to a workflow. The first column is the join key — write the file name ' +
+        'there, in backticks.',
+    ).toEqual([]);
+  });
+
+  it('gives every workflow in .github/workflows/ a row in the inventory table — in both directions', () => {
+    const listed = inventoryRows().map((r) => r.file);
+
+    const missing = [...workflowFiles].filter(
+      (f) => !listed.includes(f) && !DOCUMENTATION_EXEMPT.has(f),
+    );
+    expect(
+      missing,
+      `These workflows exist in .github/workflows/ and have a section on ` +
+        `content/docs/guide/ci-cd-pipeline.md, but no row in its "Workflow Inventory" table:\n` +
+        missing.map((f) => `  - ${f}`).join('\n') +
+        `\n\nAdd the row — file name, the name it appears under in the checks list, what it runs ` +
+        `on, and whether it can block a PR. ⭐ The table is the only place a contributor can see ` +
+        `the whole set at once; a workflow present in the prose but missing from it reads as one ` +
+        `that does not exist (objectui#8726: a merge conflict resolution that dropped a row would ` +
+        `have been invisible to this suite).` +
+        `\n\nIf the workflow genuinely must not be documented, add it to DOCUMENTATION_EXEMPT in ` +
+        `this file with the reason — it then needs neither a section nor a row.`,
+    ).toEqual([]);
+
+    // The phantom direction overlaps the whole-page scan in `never names a workflow
+    // file that does not exist`; it is kept row-scoped because the message a reader
+    // needs here names the row to delete, not a filename somewhere on the page.
+    const phantom = listed.filter((f) => f !== '' && !workflowFiles.has(f));
+    expect(
+      phantom,
+      `the "Workflow Inventory" table has rows for workflows that are NOT in ` +
+        `.github/workflows/:\n` +
+        phantom.map((f) => `  - ${f}`).join('\n') +
+        `\n\nDelete the row. A table that advertises a workflow the repository does not run is ` +
+        `worse than no table — objectui#3451 measured that exact rot on this page's job table.`,
+    ).toEqual([]);
+  });
+
+  it('names each workflow in exactly one inventory row', () => {
+    const listed = inventoryRows().map((r) => r.file).filter(Boolean);
+    const duplicated = [...new Set(listed.filter((f, i) => listed.indexOf(f) !== i))];
+
+    expect(
+      duplicated,
+      `these workflows have more than one row in the "Workflow Inventory" table:\n` +
+        duplicated.map((f) => `  - ${f}`).join('\n') +
+        `\n\nTwo rows for one workflow are two answers to "can it block a PR?", and the set ` +
+        `comparison above cannot tell them apart — it is satisfied by either. A duplicate is how ` +
+        `a conflict resolution that kept both sides survives review (objectui#8726).`,
+    ).toEqual([]);
+  });
+
+  /**
+   * (3), the claim half. A row that INVOKES a YAML key is making an assertion about
+   * the workflow it names, and that assertion is readable out of the YAML. A row that
+   * invokes none is asked for nothing — these two cases are dormant by design, and the
+   * control each carries is what keeps a dormant pin from being an unfalsifiable one.
+   */
+  it('makes no `continue-on-error` claim the workflow YAML does not carry', () => {
+    const jobLevel = (file: string) =>
+      withoutComments(readWorkflow(file))
+        .split('\n')
+        .filter((line) => /^ {4}continue-on-error\s*:/.test(line));
+
+    // Control. Zero job-level declarations is the whole repository's state today
+    // (objectui#8084 removed the last one), so "no workflow carries it" has to be a
+    // reading rather than a broken grep: the same scan one indent deeper must still
+    // find the step-level flags on the cache saves, which are a different thing and stay.
+    const stepLevelAnywhere = [...workflowFiles].filter((f) =>
+      /^ {5,}continue-on-error\s*:/m.test(withoutComments(readWorkflow(f))),
+    );
+    expect(
+      stepLevelAnywhere,
+      'the indent-scoped `continue-on-error` scan matched NO workflow at any depth, but the ' +
+        'cache-save steps declare it. The directory listing, the file reads or the regex is ' +
+        'broken — and until it is fixed, "no job declares continue-on-error" is not a ' +
+        'measurement (objectui#6436).',
+    ).not.toEqual([]);
+
+    const unsupported = inventoryRows()
+      .filter((r) => r.file !== '' && workflowFiles.has(r.file))
+      .filter((r) => r.text.includes('continue-on-error') && jobLevel(r.file).length === 0);
+
+    expect(
+      unsupported.map((r) => r.file),
+      `these "Workflow Inventory" rows invoke \`continue-on-error\` to explain their lane, but ` +
+        `the job in the workflow they name declares no such key:\n` +
+        unsupported.map((r) => `  - ${r.file} — "${r.text.slice(0, 120)}…"`).join('\n') +
+        `\n\n⭐ This is the drift objectui#8726 was filed for. objectui#8084 took the flag off ` +
+        `\`live-e2e\` because it made the run conclusion disagree with the job, objectui#8692 ` +
+        `removed the wording from this table, and the page's structural-claims bullet is pinned ` +
+        `to the property below — so a row that says it again puts the page in contradiction with ` +
+        `itself while every other test stays green. Say what the lane actually is (not in the ` +
+        `required-check set, no \`merge_group\` trigger), or restore the key in the YAML and ` +
+        `argue for it there. NOTE step-level \`continue-on-error:\` on a cache save is a ` +
+        `different thing and is not what this row would be describing.`,
+    ).toEqual([]);
+  });
+
+  it('makes no `merge_group` claim the workflow YAML contradicts', () => {
+    const declaresMergeGroup = (file: string) =>
+      /^\s{2}merge_group\s*:/m.test(withoutComments(readWorkflow(file)));
+
+    // Control: the trigger scan must still see the workflows that do subscribe, or
+    // "this one declares none" is a claim about a grep and not about the YAML.
+    expect(
+      [...workflowFiles].filter(declaresMergeGroup),
+      'the `merge_group` trigger scan matched NO workflow, but `ci.yml` and `lint.yml` are ' +
+        'queue-build subscribers. Nothing below is a reading until that is fixed (objectui#6436).',
+    ).not.toEqual([]);
+
+    const contradicting = inventoryRows()
+      .filter((r) => r.file !== '' && workflowFiles.has(r.file))
+      .filter((r) => /no\s+`merge_group`/.test(r.text) && declaresMergeGroup(r.file));
+
+    expect(
+      contradicting.map((r) => r.file),
+      `these "Workflow Inventory" rows say their workflow declares no \`merge_group\` trigger, ` +
+        `but it does:\n` +
+        contradicting.map((r) => `  - ${r.file}`).join('\n') +
+        `\n\nA workflow that subscribes to \`merge_group\` produces a context on queue builds and ` +
+        `so CAN be required — which is the opposite of what the row tells a reader deciding ` +
+        `whether to wait for it. Update the cell, or drop the trigger.`,
     ).toEqual([]);
   });
 
@@ -415,10 +639,8 @@ describe('ci-cd-pipeline.md — lockfile merge driver', () => {
     expect(at, `that section must keep the table header \`${DRIVER_TABLE_HEADER}\``).toBeGreaterThan(-1);
 
     const named = new Set<string>();
-    for (const line of section.slice(at).split('\n').slice(1)) {
-      if (!line.startsWith('|')) break;
-      if (/^\|[\s|:-]+\|$/.test(line)) continue; // separator
-      for (const m of line.matchAll(/([a-z0-9][a-z0-9-]*\.yml)\b/g)) named.add(m[1]);
+    for (const cells of markdownTableRows(section.slice(at))) {
+      for (const m of cells.join(' | ').matchAll(/([a-z0-9][a-z0-9-]*\.yml)\b/g)) named.add(m[1]);
     }
     return [...named].sort();
   }
@@ -774,12 +996,8 @@ describe('ci-cd-pipeline.md — ci.yml job table', () => {
     const section = coreCiSection();
     const at = section.indexOf(JOB_TABLE_HEADER);
     expect(at, `the job table must keep the header \`${JOB_TABLE_HEADER}\``).toBeGreaterThan(-1);
-    const lines = section.slice(at).split('\n').slice(1);
     const rows: { key: string; appearsAs: string; runs: string }[] = [];
-    for (const line of lines) {
-      if (!line.startsWith('|')) break;
-      if (/^\|[\s|:-]+\|$/.test(line)) continue; // separator
-      const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+    for (const cells of markdownTableRows(section.slice(at))) {
       rows.push({ key: cells[0].replace(/`/g, '').trim(), appearsAs: cells[1] ?? '', runs: cells[2] ?? '' });
     }
     return rows;
@@ -1726,7 +1944,8 @@ describe('ci-cd-pipeline.md — live-e2e backend pin (#7689)', () => {
  * and — worse in the direction this page is read — it described a predicate as disabled while it
  * runs four times a day.
  *
- * The `workflow inventory` block above cannot see this: it matches filenames in headings, so a
+ * The `workflow inventory` block above cannot see this: it matches filenames in headings and in
+ * the inventory table's first column, so a
  * false sentence *inside* a documented section is exactly the drift it is blind to (objectui#7852
  * says so in as many words). This block closes that gap for the one thing on this page that names
  * the sweeper's wiring by identifier.
@@ -2763,12 +2982,27 @@ describe('ci-cd-pipeline.md — the four sections measured as parity defects', (
  * figures would create the defect. The scope of each pin is therefore the one
  * section whose sentence was stating a population it did not derive.
  *
- * ⚠️ Known gap, recorded rather than papered over: the family's noun pattern needs
- * whitespace before the noun, so a hyphenated population ("a 556-page docs build",
- * which this page also carries and which is mirrored in the gate's own header) is
- * invisible to it. That instance is filed as objectui#9004; widening the noun
- * pattern is not a change this pin may make alone, because the same pattern is
- * shared with the other carriers of the family.
+ * ⚠️ The shape gap this docblock used to record as open is closed — rewritten
+ * here deliberately rather than swept, because the record of WHY the defect was
+ * invisible is the only artefact that explains how it survived three passes. What
+ * it recorded: the family's noun pattern took whitespace and only whitespace before
+ * the noun, so a hyphenated attributive (`N-page docs build`) never matched, on this
+ * page or in the gate header that mirrors the same cost argument. objectui#9004
+ * widened the separator to `[\s-]+` below, and that instance is gone from both.
+ *
+ * ⛔ The reason the card gave for not widening — that the pattern is shared with
+ * the other carriers, so one pin may not move it alone — does not survive reading
+ * the carriers. It is NOT shared. Each spells its own: the lint-workflow carrier and
+ * the merge-queue carrier both put a bounded any-character gap between the numeral
+ * and the noun rather than `\s+`, so both already judge the hyphenated form and
+ * neither moves when this one does. This helper is a `const` inside this block and
+ * its blast radius is this file. Measured by running all three carriers, not assumed.
+ *
+ * ⚠️ What the widening still does not reach, which is a reading and not an
+ * assumption: every assertion here is built from a named section of THIS page, so
+ * the mirror in the eager-closure gate's own header is outside all of them. It gets
+ * its own assertion below, over that header's text — otherwise half of objectui#9004
+ * would be a repair with nothing able to notice it come back.
  */
 describe('ci-cd-pipeline.md — populations are pointed at, never counted in prose', () => {
   const EAGER_HEADING = '## Docs Route Eager Closure (`docs-route-eager-closure.yml`)';
@@ -2778,10 +3012,15 @@ describe('ci-cd-pipeline.md — populations are pointed at, never counted in pro
   /** A section of the page as one line — the unit every assertion here judges. */
   const flat = (heading: string): string => section(heading).replace(/\s+/g, ' ').trim();
 
-  /** `<number> <noun>`, the family's own shape, applied to joined text. */
+  /**
+   * `<number> <noun>`, the family's own shape, applied to joined text — with the
+   * separator widened from `\s+` to `[\s-]+` so the hyphenated attributive
+   * (`N-page docs build`) is judged too, not only the spaced form. The docblock
+   * above this block records why that widening is local to this carrier.
+   */
   const population = (noun: string): RegExp =>
     new RegExp(
-      String.raw`\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+${noun}\b`,
+      String.raw`\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[\s-]+${noun}\b`,
       'i',
     );
 
@@ -2866,6 +3105,39 @@ describe('ci-cd-pipeline.md — populations are pointed at, never counted in pro
         `refresh: "all 181 docs pages" was false against a corpus of 184 git-tracked .md/.mdx ` +
         `files and nothing could go red over it. The population is derived from the docs ` +
         `collection directory on every run — name the directory and the reading, never the number.`,
+    ).toBeUndefined();
+  });
+
+  it("states no docs-page population in the gate's own header either", () => {
+    // The mirror site. The page argues the ruling for readers and the gate header
+    // argues it for whoever maintains the script; both used to price it with a
+    // literal nothing derived. Removing one and leaving the other is how a figure
+    // comes back — so the header is judged here, as joined text, the same way.
+    const src = fs.readFileSync(
+      path.join(repoRoot, 'scripts/check-docs-route-eager-closure.mjs'),
+      'utf8',
+    );
+    const header = (/\/\*\*[\s\S]*?\*\//.exec(src)?.[0] ?? '').replace(/\s+/g, ' ').trim();
+
+    // Positive controls first: a "does not contain" assertion is vacuously green on
+    // a header that moved, emptied, or stopped being about this subject at all.
+    for (const anchor of ['registerCatalogBlocks.ts', 'objectui#6316', '`gauge:`']) {
+      expect(
+        header,
+        `the eager-closure gate no longer opens with a docblock naming ${anchor}. That header is ` +
+          'the mirror of this page\'s cost argument; re-point this pin before trusting its green.',
+      ).toContain(anchor);
+    }
+
+    const counted = header.match(population('(?:docs\\s+)?pages?'));
+    expect(
+      counted?.[0],
+      `the eager-closure gate's header states a docs-page population again (found ` +
+        `"${counted?.[0]}"). \u26d4 Not a stale number to refresh: the header carried two of them ` +
+        `and both were false — one priced a hypothetical byte budget at a page count nothing ` +
+        `derived, the other charged an import to a page count that was already wrong against the ` +
+        `tracked .md/.mdx corpus. The gate prints the live reading on every run as its \`gauge:\` ` +
+        `line — name that reading, never a numeral.`,
     ).toBeUndefined();
   });
 

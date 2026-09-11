@@ -216,6 +216,15 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         referenceField={schema.relationshipField}
         parentId={parentLinkValue as any}
         columns={filteredColumns as any}
+        // [objectui#9053] The same list, pushed down to the component that
+        // DECIDES columns. Filtering the authored array here only ever reached
+        // one of the three paths that decide them: redacting every authored
+        // column emptied this array, `RelatedList` read the empty array as "no
+        // columns were authored", and its auto-derivation — which this list
+        // never reached — brought the redacted field back. Passed by reference
+        // (and `undefined` when unauthored) so the column memo downstream keeps
+        // a stable dependency.
+        redactFields={redact.length > 0 ? redact : undefined}
         pageSize={
           typeof schema.limit === 'number' && schema.limit > 0
             ? schema.limit

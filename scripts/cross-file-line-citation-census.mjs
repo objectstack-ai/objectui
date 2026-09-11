@@ -65,12 +65,31 @@
  *   3. `line NNN of/in/at NAME` -- the address written before the name.
  *   4. `NAME line NNN`     -- the address written after the name.
  *   5. THE CONTINUATION ADDRESS -- a bare `:NNN` or `#LNNN` carrying NO
- *      filename, inheriting the file from an address earlier in the same
- *      window. `packages/types/src/crud.ts` writes
+ *      filename, inheriting the file from whatever put one in scope nearby.
+ *      `packages/types/src/crud.ts` writes
  *      `` `ActionRunner.ts:1788` and `:1794` ``; a `basename:[0-9]+` probe
  *      cannot match the second one. The card caught it only because a human
  *      read the site the probe did hit. It is the syntax most likely to be
  *      missed and the reason a count from a one-syntax probe is not a census.
+ *
+ *      ⚠️ SCOPE OPENS TWO WAYS, and until objectui#9026 only the first was
+ *      read: a full `NAME:NNN`, and -- the one that was missing -- a bare
+ *      FILENAME with no address of its own, as in "`` `…/ObjectKanban.tsx` ``
+ *      reads `schema.groupBy` at" followed by `` `:601`, `:625`, `:640` ``.
+ *      That second form is what `ObjectKanbanSchema.groupBy` used for six
+ *      addresses that had ALL rotted, and this file scored the docblock zero.
+ *      ⇒ It was not report-only about that class, it was SILENT on it, which
+ *      is worse: a reader who knows the number is report-only still reads a
+ *      clean sheet as nothing new to look at.
+ *
+ *      ⛔ WHAT THIS SYNTAX STILL DOES NOT COVER, stated so it cannot be cited
+ *      as coverage it does not have. Scope reaches `CONT_WINDOW` lines below
+ *      the last thing that named a file and stops at a blank line, so an
+ *      address restated further down -- past a paragraph break, with no
+ *      filename near it -- is NOT read. That is deliberate and measured: it is
+ *      the guard that keeps a bare `:NNN` from being a colon and a number, and
+ *      the docblock above is read five of six for exactly this reason. The
+ *      sixth is pinned as blind by name in this file's test.
  *
  * The extension list (`SOURCE_EXT`) is what makes `NAME.ext:NNN` a SOURCE
  * ADDRESS rather than a coincidence, and it is copied in spirit from
@@ -282,6 +301,42 @@ const RE_LINE_AFTER = new RegExp(String.raw`(${NAME})\`?[\s,(]+(?:at\s+)?\blines
  */
 const RE_CONT_COLON = /(?<![A-Za-z0-9_$./#-]):(\d+)\b/g;
 const RE_CONT_PERMALINK = /(?<![A-Za-z0-9_$./-])#L(\d+)\b/g;
+/**
+ * A source filename written with NO address of its own -- the OTHER way syntax
+ * 5's scope opens, and the one this file could not read until objectui#9026.
+ *
+ * ⚠️ Measured, not assumed. `ObjectKanbanSchema.groupBy` carried six bare
+ * addresses into `plugin-kanban`'s renderer under the line
+ * "`…/ObjectKanban.tsx` reads `schema.groupBy` at", and scope was opened ONLY
+ * by a full `NAME:NNN`, so a filename with no number of its own put nothing in
+ * scope and all six read as a colon and a number. Every one of them had rotted
+ * and this file scored the docblock EMPTY -- not report-only about the class,
+ * SILENT on it, which is the failure the census exists to make impossible.
+ *
+ * ⛔ The ±2 window is NOT what caused that, and widening it is ⛔ not the fix:
+ * with the window at 999999 and this trigger absent, that docblock still reads
+ * 0 of 6. The defect was what OPENS scope, so that is the only thing that moved.
+ */
+const RE_NAME_ONLY = new RegExp(String.raw`(${NAME})`, 'g');
+
+/**
+ * How far a bare `:NNN` may sit below the thing that put its file in scope.
+ *
+ * DELIBERATE, and left at its shipped value on purpose: a bare `:NNN` on its
+ * own really is a colon and a number, and this is the guard that keeps it from
+ * becoming a citation. Measured on this tree, widening it to 5 would admit 14
+ * more rows -- 11 real citations and 3 that are a port, a cron minute and a
+ * Chinese enumeration. That trade is a judgement about a false-positive guard,
+ * ⛔ not something objectui#9026 was asked to make, so the number stayed.
+ *
+ * ⚠️ Its consequence is stated rather than hidden: an address more than this
+ * many lines below the last thing that named a file is NOT read. In the
+ * docblock above, five of the six are read and the sixth -- restated eight
+ * lines lower, past a paragraph break, with no filename of its own anywhere
+ * near it -- is not. `scripts/__tests__/cross-file-line-citation-census.test.ts`
+ * pins that residual blindness by name so it cannot be mistaken for coverage.
+ */
+export const CONT_WINDOW = 2;
 
 /** A released changelog heading -- `## 1.2.3`, with or without a link wrapper. */
 const RELEASED_HEADING = /^##\s+\[?v?\d+\.\d+\.\d+/;
@@ -523,8 +578,53 @@ export function scanFile(relPath, text) {
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    /** Every source filename written on this line, with the column it starts at. */
+    const namesOnLine = [];
+    if (line.includes('.')) {
+      RE_NAME_ONLY.lastIndex = 0;
+      let nm;
+      while ((nm = RE_NAME_ONLY.exec(line)) !== null) namesOnLine.push({ written: nm[1], start: nm.index });
+    }
+
+    /**
+     * The file a bare `:NNN` at `col` inherits: the nearest filename to its
+     * LEFT on this line, and only failing that whatever is still in scope from
+     * above. Reading leftwards is what the prose means and it is measurable --
+     * `(`ViewTabBar.tsx:564`, `:667`; `ManageViewsDialog.tsx:300`, `:361`)`
+     * gave `:667` to ManageViewsDialog while the sentence gives it to
+     * ViewTabBar, because scope was whatever the line's LAST match happened to
+     * leave behind. Nothing announced that; it scored `out-of-range` and the
+     * wrong file simply absorbed the blame.
+     */
+    const scopeFor = (col) => {
+      for (let k = namesOnLine.length - 1; k >= 0; k -= 1) {
+        if (namesOnLine[k].start < col) return namesOnLine[k].written;
+      }
+      return lastAddress && i - lastAddress.line <= CONT_WINDOW ? lastAddress.written : null;
+    };
+
+    /**
+     * Hands scope to the lines below. A BLANK line ends it: a citation and its
+     * continuation belong to one piece of prose, and crossing a paragraph is
+     * how a filename in one sentence captures a port number in the next. It
+     * costs nothing to say so -- measured on this tree it removes no existing
+     * row at all and drops three readings that were `:3000`, `:5180` and a cron
+     * minute. Otherwise the line's LAST filename is what carries, by column and
+     * ⛔ not by whatever matched last, for the reason `scopeFor` records.
+     */
+    const carryScope = () => {
+      if (line.trim() === '') { lastAddress = null; return; }
+      if (namesOnLine.length > 0) {
+        lastAddress = { written: namesOnLine[namesOnLine.length - 1].written, line: i };
+      }
+      if (lastAddress && i - lastAddress.line > CONT_WINDOW) lastAddress = null;
+    };
+
     if (!/[:#]/.test(line) && !/\bline\s+\d/i.test(line)) {
-      if (lastAddress && i - lastAddress.line > 2) lastAddress = null;
+      // No address syntax can match here, but a bare filename on this line
+      // still puts a file in scope for the ones below it -- which is exactly
+      // the line the `ObjectKanban.tsx` docblock opened with.
+      carryScope();
       continue;
     }
     /** Character spans already claimed on this line, so syntaxes cannot double-count. */
@@ -566,18 +666,17 @@ export function scanFile(relPath, text) {
       }
     }
 
-    // Syntax 5 last, and only where an address is already in scope: a bare
-    // `:NNN` on its own is a colon and a number, not a citation.
-    if (lastAddress && i - lastAddress.line <= 2) {
-      for (const re of [RE_CONT_COLON, RE_CONT_PERMALINK]) {
-        re.lastIndex = 0;
-        let m;
-        while ((m = re.exec(line)) !== null) {
-          record('continuation', lastAddress.written, m[1], m.index, m.index + m[0].length);
-        }
+    // Syntax 5 last, and only where a file is already in scope: a bare `:NNN`
+    // on its own is a colon and a number, not a citation.
+    for (const re of [RE_CONT_COLON, RE_CONT_PERMALINK]) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(line)) !== null) {
+        const written = scopeFor(m.index);
+        if (written) record('continuation', written, m[1], m.index, m.index + m[0].length);
       }
     }
-    if (lastAddress && i - lastAddress.line > 2) lastAddress = null;
+    carryScope();
   }
   return { hits, carvedOut, lines };
 }

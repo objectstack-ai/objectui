@@ -8,8 +8,8 @@
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { SchemaRendererContext, useFilterScope } from '@object-ui/react';
-import { isDrillEnabled, resolveDrillTitle } from '@object-ui/core';
-import type { DrillDownConfig, I18nLabel } from '@object-ui/types';
+import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
+import type { DrillDownConfig, I18nLabel, ObjectChartSchema } from '@object-ui/types';
 import { useLocalization, resolveFieldCurrency, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import { MetricWidget } from './MetricWidget';
 import { DrillDownDrawer } from './DrillDownDrawer';
@@ -48,8 +48,32 @@ const METRIC_DRILL_PAGE_SIZE = 25;
 export interface ObjectMetricWidgetProps {
   /** The object/resource name to query */
   objectName: string;
-  /** Aggregation config (field, function, groupBy) */
-  aggregate?: { field: string; function: string; groupBy?: string };
+  /**
+   * Aggregation config (field, function, groupBy).
+   *
+   * `groupBy` is the contract's own union — BY REFERENCE through
+   * `ObjectChartSchema['aggregate']`, which holds `ChartAggregate` from
+   * `@objectstack/spec/ui` by reference in turn, never a local near-copy of it
+   * (`check:spec-symbols`). It is the same authored key both dashboard relays
+   * compose for the `object-metric` and the `object-chart` node out of one
+   * provider block, so a second spelling here could only be a way for the two
+   * to disagree.
+   *
+   * It used to say `string`, which was a claim about the AUTHOR that nothing
+   * upstream backed: the value crosses two `any` seams on its way in
+   * (`isObjectProvider` narrows the widget data to `aggregate?: any`, and
+   * `computeOne` takes the datasource untyped), so the declaration refused the
+   * structured `{ field, dateGranularity }` node at neither compile time nor
+   * runtime — it merely hid it from the reader, and from anyone asking whether
+   * `computeOne` handled it (objectui#8613). Optional here, unlike the chart's,
+   * because a metric paints ONE number and floors an absent `groupBy` at
+   * `'_all'`.
+   */
+  aggregate?: {
+    field: string;
+    function: string;
+    groupBy?: NonNullable<ObjectChartSchema['aggregate']>['groupBy'];
+  };
   /** Filter conditions */
   filter?: any;
   /**
@@ -252,12 +276,31 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // between the current-period and comparison-period queries.
   const computeOne = useCallback(async (ds: any, filterForRun: any): Promise<number | string | null> => {
     if (aggregate && typeof ds.aggregate === 'function') {
-      const results = await ds.aggregate(objectName, {
-        field: aggregate.field,
-        function: aggregate.function,
-        groupBy: aggregate.groupBy || '_all',
-        filter: filterForRun,
-      });
+      const groupBy = aggregate.groupBy;
+      // Two authored `groupBy` shapes, two wires — the SAME routing the chart
+      // family has had since objectui#7946, shared out of `@object-ui/core` so
+      // there is one answer rather than two (objectui#8613).
+      //
+      // A structured node (`{ field, dateGranularity }`) needs the spec-shape
+      // `{ groupBy: GroupByNode[], aggregations, where }` query, because that
+      // is the one the server's date-bucket engine runs. Forwarded on the
+      // legacy bag below it became `dimensions: [ <the node> ]` on the
+      // analytics wire, where the contract declares dimension NAMES and
+      // `dateGranularity` is not honoured at all: the author asked for monthly
+      // buckets and got a different question answered, silently.
+      //
+      // The readback below is unchanged and needs no branch of its own: the
+      // measure is projected under `chartMeasureKey`'s alias — the raw `field`,
+      // or the literal `'count'` for a fieldless count — and both are limbs the
+      // two chains already try (`row[field]`, `r.count`).
+      const results = isStructuredGroupBy(groupBy)
+        ? await ds.aggregate(objectName, objectAggregateSpecQuery(aggregate, groupBy, filterForRun))
+        : await ds.aggregate(objectName, {
+            field: aggregate.field,
+            function: aggregate.function,
+            groupBy: groupBy || '_all',
+            filter: filterForRun,
+          });
       const data = Array.isArray(results) ? results : [];
       if (data.length === 0) return 0;
       if (aggregate.function === 'count') {

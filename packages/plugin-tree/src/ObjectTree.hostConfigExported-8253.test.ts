@@ -26,6 +26,18 @@
  * maintainer 「同意」), option (a): `packages/types` exports the config, the
  * module-local copy becomes an import of it, and ⛔ there is no second copy.
  *
+ * ## What objectui#8841 changed here
+ *
+ * objectui#8253 shipped that export as a hand-written interface — a copy of the
+ * protocol's `ListView.tree` block under a second name — and the copy declared a
+ * fifth key, `titleField`, that `@objectstack/spec@17.4.0` REFUSES there. The
+ * pins in this file did not catch it because the census was a LITERAL KEY LIST
+ * maintained beside the type: the list was written to match the drift, so it
+ * agreed with the defect. objectui#8841 re-derives the type from the protocol
+ * and re-pins the census as PARITY WITH THE PROTOCOL — plus a runtime leg that
+ * reads the installed `TreeConfigSchema` by content, because a compile-time pin
+ * on a derived alias can only restate its own derivation.
+ *
  * ## Why the import below says `@object-ui/types` and not `../../types/src`
  *
  * This is the load-bearing part of the pin, not a style choice. This package's
@@ -57,6 +69,16 @@ import { describe, it, expect } from 'vitest';
 // relative path into `packages/types/src`.
 import type { TreeViewConfig } from '@object-ui/types';
 
+// The PROTOCOL's own declaration of this block, imported for the parity pins
+// below (objectui#8841). `@object-ui/types` derives `TreeViewConfig` from
+// `ListView['tree']`, so this import is the other end of that derivation and
+// the only thing a census can honestly be total over.
+import { TreeConfigSchema } from '@objectstack/spec/ui';
+import type { ListView as SpecListView } from '@objectstack/spec/ui';
+
+/** The protocol's `ListView.tree` block. */
+type SpecTreeConfig = NonNullable<SpecListView['tree']>;
+
 /* -------------------------------------------------------------------------- */
 /* Compile-time pins — compiled by tsconfig.test.json, chained off type-check. */
 /* -------------------------------------------------------------------------- */
@@ -66,47 +88,80 @@ type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
-/**
- * The keys `getTreeConfig` in `ObjectTree.tsx` reads off this block, and the
- * ones the ruling says the type carries EXACTLY. Pinned as a `keyof` equality
- * rather than a bag of `HasKey` checks, because equality is the only spelling
- * that fails in BOTH directions — a key added here without a reader is as much
- * a defect as a key removed from under one.
- */
-type DeclaredKey =
-  | 'parentField'
-  | 'labelField'
-  | 'titleField'
-  | 'fields'
-  | 'defaultExpandedDepth';
-
-describe('objectui#8253 — TreeViewConfig is reachable through @object-ui/types', () => {
+describe('objectui#8253/#8841 — TreeViewConfig is the protocol\'s block, reachable through @object-ui/types', () => {
   it('is pinned at compile time', () => {
     // Non-vacuity. `keyof any` is `string | number | symbol`, and every
     // `Equal<…>` below would report whatever an `any` made convenient. If the
     // import ever resolves to `any` — a broken export map degrades exactly
     // this way — this line fails FIRST and names the reason.
     type _ConfigIsReal = Assert<Equal<IsAny<TreeViewConfig>, false>>;
+    type _SpecConfigIsReal = Assert<Equal<IsAny<SpecTreeConfig>, false>>;
 
-    // The census, total in both directions. This ALSO refuses an index
-    // signature: `[key: string]: any` would put `string` into `keyof` and this
-    // equality would fail. That matters more than it looks — an index
-    // signature here would re-open the exact hole the card was filed for, by
-    // making every misspelling assignable again.
-    type _Census = Assert<Equal<keyof TreeViewConfig, DeclaredKey>>;
+    // ⭐ THE CENSUS, and objectui#8841 changed what it is made of. It used to be
+    // a LITERAL key list maintained here by hand — and a hand-maintained list
+    // is exactly what let `titleField` through: the list was updated to match
+    // the drift, so the pin agreed with the defect and stayed green while the
+    // published type accepted a key `@objectstack/spec@17.4.0` refuses on
+    // `ListView.tree`. A census can only be total over something it does not
+    // also author.
+    //
+    // So it is PARITY WITH THE PROTOCOL now. Structural equality, not `extends`:
+    // a hand-written twin passes an assignability check in both directions and
+    // would defeat the derivation entirely.
+    type _ParityWithSpec = Assert<Equal<TreeViewConfig, SpecTreeConfig>>;
+
+    // FIRING CONTROL for the line above. An `Equal<…>` loosened until it cannot
+    // report `false` reads exactly like one that still works. This feeds it the
+    // near-miss that actually shipped — the spec's block plus `titleField` — and
+    // requires it to say `false`.
+    type _ParityCanFail = Assert<Equal<Equal<TreeViewConfig, SpecTreeConfig & { titleField?: string }>, false>>;
+
+    // The defect, pinned by name so its return is reported as itself rather
+    // than as an anonymous parity failure.
+    type _TitleFieldIsGone = Assert<Equal<'titleField' extends keyof TreeViewConfig ? true : false, false>>;
+
+    // ⛔ No index signature. This does NOT fall out of parity above: were the
+    // protocol's block `.passthrough()` again (it was, at 17.3.0), both sides
+    // would carry `[key: string]: unknown` and parity would still hold while
+    // every misspelling became assignable again. This line is what pins the
+    // STRICTNESS the card depends on, and it is the line that fires if the
+    // installed `@objectstack/spec` ever drops below 17.4.0.
+    type _NoIndexSignature = Assert<Equal<string extends keyof TreeViewConfig ? true : false, false>>;
 
     // Every key is optional: a host writes the subset it means. `Partial<T>`
     // is structurally identical to `T` only when nothing is required.
     type _AllOptional = Assert<Equal<TreeViewConfig, Partial<TreeViewConfig>>>;
 
-    // Per-key types, read against the sibling node schema's spelling.
-    type _ParentField = Assert<Equal<TreeViewConfig['parentField'], string | undefined>>;
-    type _LabelField = Assert<Equal<TreeViewConfig['labelField'], string | undefined>>;
-    type _TitleField = Assert<Equal<TreeViewConfig['titleField'], string | undefined>>;
-    type _Fields = Assert<Equal<TreeViewConfig['fields'], string[] | undefined>>;
-    type _Depth = Assert<Equal<TreeViewConfig['defaultExpandedDepth'], number | undefined>>;
-
     expect(true).toBe(true);
+  });
+
+  it('parity is a measurement, not a tautology: the protocol\'s RUNTIME shape agrees', () => {
+    // The type-level pins above are all compile-time, and a compile-time pin on
+    // a derived alias can only ever restate the derivation. This is the leg that
+    // reads the installed artifact instead: the same `TreeConfigSchema` the
+    // publisher parses against, by content.
+    //
+    // ⛔ Deliberately NOT a literal key-set equality. Freezing the protocol's
+    // key list here would make a benign spec addition red in objectui and would
+    // put a second hand-maintained list back in the file this card emptied. What
+    // is pinned is the DEFECT and the INSTRUMENT, not the census.
+    const keys = Object.keys(TreeConfigSchema.shape);
+    expect(keys).not.toContain('titleField');
+
+    // FIRING CONTROL for the line above, same instrument: a key the protocol
+    // DOES declare is found, so the zero is a reading about `titleField` and
+    // not about an empty shape or an import that resolved to a stub.
+    expect(keys).toContain('parentField');
+
+    // FIRING CONTROL — the schema accepts what it declares, so the refusal
+    // below is a statement about the KEY and not about a schema that refuses
+    // everything.
+    expect(TreeConfigSchema.safeParse({ parentField: 'parent_id' }).success).toBe(true);
+
+    // The refusal the card was filed for, taken from the protocol itself.
+    const refused = TreeConfigSchema.safeParse({ titleField: 'name' });
+    expect(refused.success).toBe(false);
+    expect(JSON.stringify(refused.error?.issues)).toContain('titleField');
   });
 
   it('refuses the misspelling the card was filed for, at compile time', () => {

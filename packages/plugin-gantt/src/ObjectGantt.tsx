@@ -547,8 +547,15 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * State rather than a value derived from `data.length`: once the rows are
    * capped, `data.length === NON_GRID_ROW_CEILING` is exactly what a result
    * set of exactly the ceiling ALSO looks like, so the fact has to be carried
-   * from the response that knew it. Every path that sets `data` sets this too
-   * — a host `data` prop and an inline `value` set are never truncated by us.
+   * from the response that knew it. Every path that sets `data` sets this too.
+   *
+   * ⚠️ The exempt path is now the HOST `data` prop and only it — rows a host
+   * component handed down are not ours to cap. An inline `value` set IS capped
+   * (objectui#8769): it goes through the same adapter query as every other
+   * provider, so the ceiling arrives with the same `$top` and the same
+   * footnote. Ruling a′'s budget is measured in DOM elements per record and
+   * its own table was measured over the inline provider, so an inline row
+   * costs what a fetched row costs and the ruling text carves out no provider.
    */
   const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
     truncated: false,
@@ -580,20 +587,27 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   const ganttConfig = getGanttConfig(schema);
   const dataProvider = dataConfig?.provider;
   const hasInlineData = dataProvider === 'value';
-  /**
-   * The one primitive field `reload` (below) reads off `dataConfig` beyond
-   * `dataProvider` — the inline-data payload for the `value` provider.
-   * `reload` used to key on `dataConfig` itself: `useMemo` carries no
-   * semantic guarantee (React may discard its cache and recompute), and a
-   * discard alone was enough to give `reload` a fresh identity and re-fire
-   * the mount effect below, refetching. `effectiveDataSource`'s own memo
-   * intentionally keeps `dataConfig` as a dependency (not just its
-   * `object`/`items` primitives): `resolveDataSource` reads a
-   * provider-shaped slice of it (the whole `read`/`write` request config
-   * on `api`), which cannot be flattened to a fixed primitive list the way
-   * the 'object'/'value' branches below can be (objectui#6592).
+  /*
+   * There is deliberately no `dataItems` binding here any more
+   * (objectui#8769). It existed because `reload` READ the inline payload
+   * directly, and it was in `reload`'s dependency list as the one primitive
+   * standing in for `dataConfig` — `reload` may not key on `dataConfig`
+   * itself, because `useMemo` carries no semantic guarantee (React may
+   * discard its cache and recompute) and a discard alone was enough to give
+   * `reload` a fresh identity and re-fire the mount effect below
+   * (objectui#6592).
+   *
+   * `reload` no longer reads the payload: the inline provider goes through
+   * `effectiveDataSource` like every other provider. That memo intentionally
+   * keeps `dataConfig` as a dependency (not just its `object`/`items`
+   * primitives), because `resolveDataSource` reads a provider-shaped slice of
+   * it — the whole `read`/`write` request config on `api` — which cannot be
+   * flattened to a fixed primitive list. Authored items therefore still reach
+   * `reload`: new items → new `dataConfig` (deep-compared above) → new
+   * adapter → new `reload`. The primitive is redundant, and a binding
+   * documented as "the field `reload` reads" that `reload` does not read is
+   * the kind of comment the next reader would trust.
    */
-  const dataItems = dataConfig?.provider === 'value' ? dataConfig.items : undefined;
 
   // Resolve the ViewData config into a concrete DataSource adapter:
   //   provider: 'object' → the context DataSource passed via props (unchanged)
@@ -672,14 +686,24 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         return;
       }
 
-      if (hasInlineData && dataProvider === 'value') {
-        if (isCurrent()) {
-          setData(dataItems as any[]);
-          setRowCeiling({ truncated: false });
-        }
-        return;
-      }
-
+      // ⭐ THERE IS NO SECOND EXIT FOR THE INLINE PROVIDER (objectui#8769).
+      //
+      // `provider: 'value'` used to return here with `setData(dataItems)` —
+      // BEFORE the `find` below, which is the ONE site that lowers
+      // `schema.filter` to `$filter`, `schema.sort` to `$orderby` and the
+      // objectui#7210 ceiling to `$top`. So an authored `filter` reached
+      // nothing and the chart drew EVERY inline row: the fail-OPEN direction,
+      // because the key that was dropped is the key that NARROWS. Accepting a
+      // declared key one cannot honour is the defect; the adapter can honour
+      // all three, so it honours them.
+      //
+      // `resolveDataSource` already answers this provider with a
+      // `ValueDataSource`, which implements `$filter` / `$orderby` / `$skip` /
+      // `$top` / `$select` over its own array — so nothing below is
+      // provider-specific and no combinator had to be written here
+      // (objectui#8513 stays where it is). The matcher is LOCAL: it never
+      // reaches `convertFiltersToAST`, so a comparand that converter refuses
+      // is excluded-and-logged here rather than thrown at render.
       if (!effectiveDataSource || typeof effectiveDataSource.find !== 'function') {
         throw new Error('DataSource required for object/api providers');
       }
@@ -763,7 +787,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- (rest as any).data intentionally untracked, matching the original effect
-  }, [effectiveDataSource, resource, hasInlineData, dataProvider, dataItems, schema.filter, schema.sort, objectSchema, perms]);
+  }, [effectiveDataSource, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms]);
 
   /**
    * Does the query this effect is about to issue DERIVE anything from the
@@ -1467,9 +1491,73 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // visual-regression evidence across all four surfaces in one stroke.
   const navConfig = schema.navigation ?? { mode: 'drawer' };
   const navIsOverlay = navConfig.mode === 'drawer' || navConfig.mode === 'modal' || navConfig.mode === 'split' || navConfig.mode === 'popover';
+
+  // objectui#7334 — the NON-OVERLAY half of an authored `navigation`, and the
+  // reason this component needed one at all.
+  //
+  // `useNavigationOverlay` routes a click three ways once the mode is known:
+  // it owns the four overlay modes itself; `new_window` calls `onNavigate` and
+  // otherwise falls through to a `window.open`; and `page` calls `onNavigate`
+  // and then **returns with no fallback**. This component supplied no
+  // `onNavigate`, and its own registration hands it no host `onRowClick`
+  // either (`ObjectGanttRenderer` forwards `schema` and `dataSource` only —
+  // objectui#7210 / objectui#7222). So `page` had BOTH carriers empty at once.
+  //
+  // That was invisible until the sibling half of objectui#7334 started
+  // forwarding the authored `navigation` down the gantt view-schema path: the
+  // mode was unreachable before, and reaching it turned an authored
+  // `{ mode: 'page' }` from "a drawer opens, which is the wrong thing" into "a
+  // click does nothing at all". A silent dead click is worse than a loud wrong
+  // one, so the sink lands on the same card rather than as a follow-up.
+  //
+  // ⛔ NOT a host prop forwarded to the chart. Nothing is taken from
+  // `ObjectGanttRenderer`, no `{...props}` is spread anywhere, and
+  // objectui#7210 half 2 stays untouched and unruled. The destination is the
+  // one this component ALREADY computes for the drawer's full-page link, so a
+  // `page` click and the drawer's "open full page" affordance cannot diverge.
+  //
+  // ⚠️ `recordDetailHref` is row-based, not id-based, because a mixed-object
+  // gantt (`ganttConfig.objectField`) routes a row to ITS OWN object rather
+  // than the view's — the id alone cannot answer which object a row belongs
+  // to. The hook hands back only the record id, so the row is looked up again
+  // here; when it cannot be found the view's own object is the honest
+  // fallback, which is exactly what a single-object gantt always resolves to.
+  //
+  // Same-tab navigation uses the history + `popstate` pair rather than
+  // `location.assign`, matching `DashboardRenderer` and `PageHeader`: every
+  // href `deriveRecordPageHref` builds is app-relative, so a full document
+  // load would throw away the SPA it is navigating inside.
+  const navigateToRecord = useCallback(
+    (recordId: string | number, action?: string) => {
+      if (typeof window === 'undefined') return;
+      const key = String(recordId);
+      const row = tasks.find((t) => {
+        const rec = t.data as Record<string, any> | undefined;
+        return !!rec && String(rec.id ?? rec._id) === key;
+      })?.data as Record<string, any> | undefined;
+      const href = row
+        ? recordDetailHref(row)?.href ?? null
+        : resource
+          ? deriveRecordPageHref(resource, recordId)
+          : null;
+      // No derivable destination ⇒ do nothing, exactly as before. An invented
+      // URL would be the fabrication objectui#7070 spent this file's other
+      // branches removing.
+      if (!href) return;
+      if (action === 'new_window') {
+        window.open(href, '_blank');
+        return;
+      }
+      window.history.pushState({}, '', href);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    },
+    [tasks, recordDetailHref, resource],
+  );
+
   const navigation = useNavigationOverlay({
     navigation: navConfig,
     objectName: schema.objectName,
+    onNavigate: navigateToRecord,
     onRowClick: navIsOverlay ? undefined : onRowClick,
   });
 

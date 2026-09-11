@@ -43,7 +43,7 @@ one has its own section below.
 | `readme-exports.yml` | README Export Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `packages/**/README.md` imports a name from its own package that the package does not export, or the scan's population collapses |
 | `docs-route-eager-closure.yml` | Docs Route Eager Closure Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a package named in `apps/site/app/components/registerCatalogBlocks.ts` is not already reachable from the docs route's module graph (exit 1), or when the gate's own gauge cannot be trusted (exit 2) |
 | `line-citation-gate.yml` | Line Citation Gate | PR to `main`, `develop` — **no path filter**; manual | No — **report-only** while it beds in; it exits 0 whatever it finds, and exits 1 only when one of its own synthetic controls fails. It declares no `merge_group` trigger, so it cannot be a required context in its current state |
-| `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there; on the pull request itself it is deliberately green and prints an early warning |
+| `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
 | `live-e2e.yml` | Live E2E (informational) | PR to `main`, `develop` (code paths); nightly cron `30 6 * * *`; manual | No — informational lane: not in the required-check set, and it declares no `merge_group` trigger |
@@ -1683,12 +1683,43 @@ by this gate, so an approved governed pull request can land carrying bytes its a
 The remedy the refusal prints **first** is not approval at all — convert the pull request back to a
 draft and leave the merge to the maintainer.
 
-**What it costs when nothing is governed:** nothing. The path test runs before any request is
-constructed, so an ordinary pull request produces a `CLEAR` verdict and **zero** GitHub API calls;
-an API outage cannot block a diff that touches no governed path. The mirrored requirement is that an
-API error on a diff that *is* governed is a refusal with its own exit code (4, distinct from 3 for
+**What it costs when nothing is governed:** on a **pull request**, nothing. The path test runs before
+any request is constructed, so an ordinary pull request produces a `CLEAR` verdict and **zero**
+GitHub API calls; an API outage cannot block a diff that touches no governed path. ⚠️ On a
+**merge-queue build** that is no longer true and the verdict text says so rather than repeating a
+promise the carrier leg took away: the carrier is remote state a seat hangs, not a property of the
+diff, so there is no cheap local pre-filter for it and every merge group costs one label read per
+queued pull request. An outage there **does** refuse the merge group. That is the deliberate
+direction: fail-open on a gate label that cannot be seen is the failure this whole regime exists to
+end. The mirrored requirement on the governed leg is unchanged — an API error on a diff that *is*
+governed is a refusal with its own exit code (4, distinct from 3 for
 "nobody approved"), never a pass — this gate exists because every other layer in the chain failed
 open.
+
+
+**The second leg: the contract-review carrier.** On a **merge-queue build only**, this check carries
+a second and completely independent predicate, keyed on a *label* rather than on paths
+([#9018](https://github.com/objectstack-ai/objectui/issues/9018), a re-implementation of the leg
+objectstack landed as its own `objectstack#17484`). It enumerates **every** pull request the merge
+group is landing — per commit, exactly as the governed leg does, because `merge_group.head_ref`
+names only the *last* pull request in the group and keying on it would let an earlier pull request's
+open carrier ride into `main` behind a clean one — reads each one's labels from the pull object
+(`pull-requests: read`, the scope the review read already needs; the `issues/{n}/labels` route would
+need `issues: read`, which this workflow does not grant), and refuses while
+`needs:contract-review` is on any of them (**exit 6**) or when a label set cannot be read or the
+group names no pull request at all (**exit 7**, split from 6 for the same reason 4 is split from 3).
+The `pull_request` leg is untouched and reads no label.
+
+**The honest boundary of that leg: it reads the label, not the verdict.** A carrier stripped seconds
+before an enqueue with no review verdict on record is, to a label reader, identical to one that was
+never hung. Of the eleven enqueues measured on 2026-09-09, five carried the label into the queue and
+this leg refuses them; six did not and it passes them — including
+[#8164](https://github.com/objectstack-ai/objectui/pull/8164), which landed a real defect. Upgrading
+the predicate until it catches that would make it a *verdict* check, which is a strictly larger rule
+than the one that was ruled. Nothing in this repository answers the verdict question:
+`scripts/pm/check-half-states.mjs` H31 compares the gate's two carriers with each other, which is a
+different question. The `CLEAR` rendering says so out loud, so a green is never read as "the review
+happened".
 
 **What it deliberately does not do.** It does not govern its own workflow or CI configuration
 generally: that would be a larger rule than the one that was ruled. It cannot stop a maintainer

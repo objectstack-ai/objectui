@@ -6,7 +6,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { CONTEXT_TOKENS } from '@objectstack/spec/data';
+import {
+  CONTEXT_TOKENS,
+  CONTEXT_TOKEN_SUGGESTIONS,
+  isContextToken,
+} from '@objectstack/spec/data';
 
 import { resolveDateMacros } from './date-macros.js';
 
@@ -57,37 +61,26 @@ import { resolveDateMacros } from './date-macros.js';
  * copy was byte-identical, so every value comparison and every behavioural
  * test passed while it sat here. Reference identity is the one check that
  * distinguishes a re-export from a fork (objectui#3003).
+ *
+ * The same argument retired the two module-local copies that sat beside it
+ * until objectui#7265 — the near-miss suggestion map and the membership
+ * predicate are imported from `@objectstack/spec/data` now, so neither can
+ * drift either. Both were re-measured against the RESOLVED pin (17.4.0; the
+ * card had measured 17.2.0) before the swap, because "byte-identical" is a
+ * statement about a version, not a property: the map matched on nine keys, in
+ * the same order, with the same values, and the two predicates agreed on every
+ * one of 61 real vocabulary members — the token tuple, both suggestion key
+ * sets, the date-macro tokens and their aliases, plus casing, whitespace and
+ * prototype-key spellings. Each comparison ran a lit control of the same kind
+ * through the same comparator (the spec's own token-description map, and its
+ * date-macro predicate), so "no difference" came from an instrument shown able
+ * to report one.
  */
 
 /** The complete set of session-scoped filter tokens (spec-owned, re-exported). */
 export { CONTEXT_TOKENS };
 
 export type ContextTokenName = (typeof CONTEXT_TOKENS)[number];
-
-/**
- * Near-miss spellings → the token the author meant.
- *
- * Every entry is a real authoring mistake, and each is a correct spelling
- * *somewhere else* in the platform, which is exactly why authors reach for it:
- * `current_user` is the RLS expression root, `{user_id}` is valid
- * `titleFormat` field interpolation, `organization_id` is a real column name.
- *
- * Mirrors `CONTEXT_TOKEN_SUGGESTIONS` in `@objectstack/spec`. Used only to
- * make the runtime warning actionable; the authoring-time gate
- * (`validateFilterTokens` in `@objectstack/lint`) is what actually prevents
- * these from shipping.
- */
-const CONTEXT_TOKEN_SUGGESTIONS: Record<string, ContextTokenName> = {
-  current_user: 'current_user_id',
-  current_user_email: 'current_user_id',
-  user_id: 'current_user_id',
-  userid: 'current_user_id',
-  me: 'current_user_id',
-  current_organization_id: 'current_org_id',
-  org_id: 'current_org_id',
-  organization_id: 'current_org_id',
-  current_tenant_id: 'current_org_id',
-};
 
 /** Session values a filter placeholder can resolve against. */
 export interface FilterTokenScope {
@@ -105,10 +98,6 @@ export interface FilterTokenScope {
 
 /** Whole-string placeholder: `{token}` or `${token}`, anchored. */
 const WHOLE_TOKEN_RE = /^\$?\{([a-zA-Z0-9_]+)\}$/;
-
-function isContextToken(token: string): token is ContextTokenName {
-  return (CONTEXT_TOKENS as readonly string[]).includes(token);
-}
 
 /**
  * Expand `{current_user_id}` / `{current_org_id}` inside a filter.
@@ -144,10 +133,16 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
           console.warn(`[object-ui] ${message}`);
         });
 
-  const values: Record<ContextTokenName, string | null | undefined> = {
+  // Annotated `Record<string, …>` because the spec's predicate returns a plain
+  // `boolean`, not the narrowing `token is ContextTokenName` the deleted local
+  // copy declared, so the narrowed branch below hands this lookup a `string`.
+  // The `satisfies` clause keeps the one thing that narrowing bought: a third
+  // context token in the spec reds this literal at compile time instead of
+  // resolving to `undefined` at runtime.
+  const values: Record<string, string | null | undefined> = {
     current_user_id: currentUserId,
     current_org_id: currentOrgId,
-  };
+  } satisfies Record<ContextTokenName, string | null | undefined>;
 
   const walk = (value: any): any => {
     if (value == null) return value;
@@ -171,6 +166,14 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
       // Not ours. Warn only for near-misses, which resolve in no vocabulary
       // at all and would otherwise fail silently; genuine date macros and
       // nav context-selector ids must pass through quietly.
+      //
+      // Every spelling in the imported map is a real authoring mistake, and
+      // each is a correct spelling *somewhere else* in the platform, which is
+      // exactly why authors reach for it: `current_user` is the RLS expression
+      // root, `{user_id}` is valid `titleFormat` field interpolation,
+      // `organization_id` is a real column name. The map only makes the runtime
+      // warning actionable; the authoring-time gate (`validateFilterTokens` in
+      // `@objectstack/lint`) is what actually prevents these from shipping.
       const suggestion = CONTEXT_TOKEN_SUGGESTIONS[token.toLowerCase()];
       if (suggestion) {
         warn(

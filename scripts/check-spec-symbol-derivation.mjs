@@ -371,7 +371,9 @@
  *
  * The one that remains, `CONTEXT_TOKEN_SUGGESTIONS` (@object-ui/core), is a
  * real mirror and goes to CLAIM_DEBT — see the note there for why a
- * shrink-only block is allowed to grow on a jurisdiction widening. Zero
+ * shrink-only block is allowed to grow on a jurisdiction widening. (Burned
+ * down at objectui#7265; the figures in this paragraph are the #6291
+ * measurement and stay as measured.) Zero
  * legitimate-local fallout, zero CLAIM_ALLOW entries, and the named pin in
  * `scripts/__tests__/check-spec-symbol-derivation.test.ts` was REWRITTEN
  * rather than deleted: it now asserts that a module-local claim IS flagged,
@@ -841,8 +843,10 @@ const ALLOW = {
 // could not serve either, being the card its own PR closes. objectui#7265 is the
 // open burn-down card for the population seeded here.
 // ⚠️ `CLAIM_DEBT_ISSUE` a few screens down has the same defect — objectui#4592 is
-// closed while its 19-entry block is live — and is deliberately NOT changed here,
-// because rule 2's ledger is not what objectui#6291 widened.
+// closed while its 18-entry block is live — and is deliberately NOT changed here,
+// because rule 2's ledger is not what objectui#6291 widened. (Still deliberate at
+// objectui#7265, which burned two entries out of the block below and one out of
+// that one; only the COUNT above moved, never the dead anchor itself.)
 const DEBT_ISSUE = 7265;
 // Re-seeded at objectui#6291, mechanically (`--ledger`), when rule 1 stopped
 // skipping module-local declarations. ⚠️ The block is SHRINK-ONLY and this is the
@@ -850,12 +854,19 @@ const DEBT_ISSUE = 7265;
 // pre-existing mirrors it could not previously SEE, not forks anybody wrote. A
 // name may not be added here for any other reason.
 //
-// All 13 are real mirrors, classified by reading each site — the four
+// All 11 are real mirrors, classified by reading each site — the four
 // different-concept collisions the same widening surfaced went to ALLOW with
 // reasons instead, and the two carrying standalone defects beyond the mirroring
 // already have cards (objectui#6286, objectui#6287). Re-adding a name here still
 // means "collides, not yet triaged"; a name whose triage concluded "deliberate
 // divergence" belongs in ALLOW instead.
+//
+// Burned down so far, in slices, each by the route its own site allowed:
+// `TreeConfig` (@object-ui/plugin-tree), then the @object-ui/core pair
+// `CONTEXT_TOKEN_SUGGESTIONS` / `isContextToken` at objectui#7265 — both
+// imported from `@objectstack/spec/data` after the identity the seeding card
+// asserted against 17.2.0 was RE-MEASURED against the resolved 17.4.0 pin,
+// because "byte-identical" is a statement about a version, not a property.
 const DEBT = {
   "@object-ui/app-shell": [
     "AdminScope",
@@ -864,10 +875,6 @@ const DEBT = {
     "FlowRuntimeState",
     "ObjectLike",
     "RemoteTable",
-  ],
-  "@object-ui/core": [
-    "CONTEXT_TOKEN_SUGGESTIONS",
-    "isContextToken",
   ],
   "@object-ui/types": [
     "UserFilterFieldSchema",
@@ -987,7 +994,9 @@ export const CLAIM_ALLOW = {
 // re-export precisely because "the copy was byte-identical, so every value
 // comparison and every behavioural test passed while it sat here". Burning it
 // down is the same edit that fixed the neighbour; it is listed rather than
-// excused because nothing about it is deliberate. Widening a rule's
+// excused because nothing about it is deliberate. ⇒ DONE at objectui#7265: the
+// site imports the spec's map, the claim went with the declaration that carried
+// it, and the entry left this block by `--claim-ledger`. Widening a rule's
 // jurisdiction is the ONLY sanctioned way this block grows, and it must be
 // mechanically regenerated (`--claim-ledger`) in that same commit.
 //
@@ -1026,7 +1035,6 @@ const CLAIM_DEBT = {
     "SubmitBehavior",
   ],
   "@object-ui/core": [
-    "CONTEXT_TOKEN_SUGGESTIONS",
     "ResultDialogFieldSpec",
     "ViewDataConfig",
   ],

@@ -147,6 +147,40 @@ export interface AlertDialogSchema extends BaseSchema {
    */
   actionText?: string;
   /**
+   * Variant of the confirm (action) button — `'destructive'` for the red
+   * confirm a delete dialog wants. Omit it and the button keeps the exact look
+   * it has always had.
+   *
+   * READ SITE: `packages/components/src/renderers/overlay/alert-dialog.tsx` —
+   * the renderer turns the value into `buttonVariants({ variant })` and hands
+   * it to `AlertDialogAction` as `className`, which `cn()` (tailwind-merge)
+   * resolves over the primitive's baked-in `buttonVariants()`. An OVERRIDE
+   * rather than a prop because `packages/components/src/ui/**` is a No-Touch
+   * zone (AGENTS.md Commandment #7) and `AlertDialogAction` accepts no variant;
+   * `packages/components/src/notifications/NotificationAlerts.tsx` already
+   * expresses a footer variant on this very button the same way.
+   *
+   * ⚠️ WHY TWO VALUES AND NOT `ButtonSchema.variant`'s six (`./form.ts`).
+   * ⛔ Not deference to the ruling that named these two — a MEASUREMENT of the
+   * override channel, re-derived by the pin below rather than recorded here:
+   * an override can only displace a baked-in class that shares its
+   * tailwind-merge group, and three of the six upstream variants set no
+   * background and/or no text colour at all, so the default's `bg-primary` /
+   * `text-primary-foreground` survive underneath them. Declaring a value this
+   * node cannot actually render is the {@link confirmVariant} disease one level
+   * down, at the value instead of the key. The pin measures every declared
+   * value AND every undeclared one, so widening the union without widening the
+   * mechanism reds.
+   *
+   * ⭐ The DOM reading, not the wiring, is the contract: the pin
+   * `packages/components/src/__tests__/alert-dialog-action-variant-8978.test.tsx`
+   * reads the confirm button's own `class` off the rendered dialog, with a
+   * firing control on the default. Declared for objectui#8978, which carries
+   * the capability decision batch #70 granted after {@link confirmVariant} was
+   * measured inert.
+   */
+  actionVariant?: 'default' | 'destructive';
+  /**
    * RETIRED (objectui#7963, ADR-0049 enforce-or-remove; maintainer ruling
    * 2026-09-10) — nothing has ever read this key, so an authored label drew no
    * button at all. Measured on this branch's BASE `72bcd7783` with a
@@ -199,13 +233,16 @@ export interface AlertDialogSchema extends BaseSchema {
    * separate the cancel button's variant from the action button's on this very
    * DOM.
    *
-   * ⚠️ Unlike its two siblings this key has NO surviving spelling, and ⛔ one was
-   * not invented: {@link cancelText} / {@link actionText} are the footer's two
-   * LABELS, not a variant, and this node declares no variant key at all — the
-   * confirm button is `AlertDialogAction`, which ships one fixed
-   * `buttonVariants()` style. Whether that button should be styleable from
-   * metadata is a separate question needing its own card and its own ruling.
-   * @deprecated Not part of this contract — the value was inert, and it has no replacement.
+   * ⚠️ This key stays RETIRED — ⛔ it was not un-retired when the capability it
+   * was supposed to carry arrived. {@link cancelText} / {@link actionText} are
+   * the footer's two LABELS and are still NOT it. The separate card the
+   * retirement named is objectui#8978, and it answered: the confirm button IS
+   * styleable from metadata, under {@link actionVariant} — a spelling in the
+   * `action*` dialect this node already uses for that button, chosen so that no
+   * published key is retired and then re-added under the same name.
+   *
+   * Write {@link actionVariant} instead.
+   * @deprecated Not part of this contract — the value was inert. Use `actionVariant`.
    */
   confirmVariant?: never;
   /**

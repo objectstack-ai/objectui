@@ -936,6 +936,57 @@ function isNonReferenceIdentifier(identifier) {
 }
 
 /**
+ * ⚠️ These three typedefs are the derivation's PUBLIC SHAPE, and they are
+ * declared rather than left to inference for a mechanical reason: an explicit
+ * `@returns` on an exported function OVERRIDES inference for every caller, so
+ * a function annotated `Array<object>` hands its callers `object` however rich
+ * the value it actually builds. `tsconfig.scripts.json` compiles the pin tests
+ * under `scripts/__tests__/`, and the failure that lands there is one TS2339
+ * per property read — a wall of errors whose cause is a single annotation,
+ * nowhere near them. Add a field to a row and it must be added HERE too, or
+ * callers cannot see it.
+ *
+ * @typedef {object} PackObjectRead One reference to a pack binding, or to a
+ *   local alias of a pack subtree.
+ * @property {string} file Repo-relative path of the importer.
+ * @property {string} binding The identifier the FILE actually spells.
+ * @property {string | null} via For an alias, the chain it stands for; `null`
+ *   for a direct reference to the import binding.
+ * @property {string} pack The pack export the binding descends from — a locale
+ *   tag, or the locale-tag map.
+ * @property {string[]} chain The pack path this read reaches, alias prefix
+ *   included. Empty when the read takes no property.
+ * @property {number} depth `chain.length`. The load-bearing output: class 4 is
+ *   the shape where nothing but the depth separates a read both legs see from
+ *   a read neither does.
+ * @property {boolean} dynamic The climb stopped at a COMPUTED access, so the
+ *   segments below it are unknowable rather than absent.
+ * @property {number} line 1-based line of the reference.
+ * @property {string} text The read as the FILE spells it.
+ */
+
+/**
+ * @typedef {object} PackObjectReadVerdict What `classifyPackObjectRead()` adds
+ *   to a read: where the chain lands in the pack, and which leg can see it.
+ * @property {string | null} key The pack path the chain resolves to; `null`
+ *   when the read is opaque.
+ * @property {number} keyDepth Segments in `key`, after any locale tag is
+ *   stripped.
+ * @property {'leaf' | 'branch' | 'unknown' | 'opaque'} resolves
+ * @property {number} leavesUnder Leaves beneath a `branch`; 0 otherwise.
+ * @property {boolean} spelledHere The full dotted key also occurs in this
+ *   file, at a key boundary — cover BY COINCIDENCE, a fact about the FILE.
+ * @property {boolean} chainSpelledHere The property-chain probe's text occurs
+ *   in this file, at a property boundary.
+ * @property {string[]} seenBy The legs above that can see this read, MEASURED
+ *   rather than inferred. Empty means none can.
+ */
+
+/**
+ * @typedef {PackObjectRead & PackObjectReadVerdict} ClassifiedPackObjectRead
+ */
+
+/**
  * Every property read a file performs on a locale pack it imported, with the
  * DEPTH of each read — the derivation objectui#9046 is about.
  *
@@ -959,12 +1010,9 @@ function isNonReferenceIdentifier(identifier) {
  * @param {string[]} files Repo-relative paths to read — normally the `nonTest`
  *   half of `derivePackObjectImporters()`. A path that does not exist is
  *   skipped rather than thrown on, so a partial checkout degrades.
- * @returns {Array<{
- *   file: string, binding: string, via: string | null, pack: string,
- *   chain: string[], depth: number, dynamic: boolean, line: number,
- *   text: string,
- * }>} One row per reference to a pack binding OR to a local alias of a pack
- *   subtree (`packAliasesOf()`), sorted by file then line. `via` carries the
+ * @returns {PackObjectRead[]} One row per reference to a pack binding OR to a
+ *   local alias of a pack subtree (`packAliasesOf()`), sorted by file then
+ *   line. `via` carries the
  *   chain an alias stands for, so `text` can stay the spelling the FILE uses
  *   while `chain` and `depth` describe the pack path that spelling reaches.
  *   `depth === 0` with `dynamic === false` is a reference that reads no
@@ -1032,17 +1080,13 @@ export function derivePackObjectPropertyReads(root, files) {
  * keeps the tree's existing depth-2 reads out of the tiers, and it is a fact
  * about the FILE, so a file that loses it loses it here.
  *
- * @param {{ chain: string[], dynamic: boolean, pack: string }} read
+ * @param {PackObjectRead} read
  * @param {{ leaves: Set<string>, branches: Set<string> }} packKeys
  * @param {string} fileText The importer's own source. `occursAtKeyBoundary()`
  *   and `occursAtPropertyBoundary()` are run over it directly — the same
  *   predicates `textFootprint()` runs over the repo, so "this leg sees it"
  *   means there exactly what it means there.
- * @returns {{
- *   key: string | null, keyDepth: number,
- *   resolves: 'leaf'|'branch'|'unknown'|'opaque', leavesUnder: number,
- *   spelledHere: boolean, chainSpelledHere: boolean, seenBy: string[],
- * }}
+ * @returns {PackObjectReadVerdict}
  */
 export function classifyPackObjectRead(read, packKeys, fileText) {
   const opaque = {
@@ -1105,8 +1149,8 @@ export function classifyPackObjectRead(read, packKeys, fileText) {
  * @param {string} root Repository root.
  * @param {string[]} files Repo-relative importer paths.
  * @param {{ leaves: Set<string>, branches: Set<string> }} packKeys
- * @returns {Array<object>} `derivePackObjectPropertyReads()` rows, each
- *   extended with its `classifyPackObjectRead()` verdict.
+ * @returns {ClassifiedPackObjectRead[]} `derivePackObjectPropertyReads()` rows,
+ *   each extended with its `classifyPackObjectRead()` verdict.
  */
 export function derivePackObjectKeyReads(root, files, packKeys) {
   const textCache = new Map();
@@ -1142,6 +1186,9 @@ export function derivePackObjectKeyReads(root, files, packKeys) {
  *     it up. Whether the key is at risk then depends on the tiers, which the
  *     CLI cross-references: a key in CONFIRMED that some file reads off the
  *     pack is a WRONG VERDICT, not a candidate.
+ *
+ * @param {ClassifiedPackObjectRead[]} reads
+ * @returns {ClassifiedPackObjectRead[]}
  */
 export function packObjectReadsNoLegSees(reads) {
   return reads.filter((read) => read.seenBy.length === 0 && read.resolves !== 'unknown');

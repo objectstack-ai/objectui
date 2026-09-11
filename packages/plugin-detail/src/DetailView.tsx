@@ -1128,8 +1128,13 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         // text states it, the bar below draws it clamped to
                         // its track. They used to scale `num` by two different
                         // rules, so a stored `0.123` said `0.123%` beside a bar
-                        // at 12.3% (objectui#8728). Which rule survived, and
-                        // why it is not the repo-wide one, is in
+                        // at 12.3% (objectui#8728). That number is now the
+                        // repo's — `percentDisplayValue` in `@object-ui/core`,
+                        // the same authority the list cell and the dashboard
+                        // measure read, so one record cannot state two
+                        // percentages in two places (objectui#9071). Which
+                        // predicate was deleted to get there, and which half of
+                        // that authority this chip still does not take, are in
                         // `./summaryChipPercent`.
                         const points = summaryChipPercentPoints(num);
                         display = `${points}%`;

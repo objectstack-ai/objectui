@@ -4,13 +4,16 @@ import {
   createI18n,
   getDirection,
   getAvailableLanguages,
-  builtInLocales,
   isRTL,
   RTL_LANGUAGES,
   formatDate,
   formatCurrency,
   formatNumber,
 } from '../index';
+// ⚠️ From the ALL-TEN door, not the entry (objectui#7479). The entry
+// re-exports `en` alone; these cases compare every pack against every other,
+// which is what that door is for and why it is a separate specifier.
+import { builtInLocales } from '../locales';
 
 describe('@object-ui/i18n', () => {
   describe('createI18n', () => {
@@ -366,18 +369,21 @@ describe('@object-ui/i18n', () => {
     });
 
     it('all locales have the same top-level keys', () => {
+      // Keyed off the map itself rather than `Object.entries`, which erases
+      // which keys it enumerated and leaves `locale` as `unknown` — the same
+      // convention `all-locales-key-parity.test.ts` states next door.
+      const codes = Object.keys(builtInLocales) as Array<keyof typeof builtInLocales>;
       const enKeys = Object.keys(builtInLocales.en).sort();
-      for (const [lang, locale] of Object.entries(builtInLocales)) {
-        const keys = Object.keys(locale).sort();
-        expect(keys).toEqual(enKeys);
+      for (const code of codes) {
+        expect(Object.keys(builtInLocales[code]).sort()).toEqual(enKeys);
       }
     });
 
     it('all locales have common section keys matching English', () => {
+      const codes = Object.keys(builtInLocales) as Array<keyof typeof builtInLocales>;
       const enCommonKeys = Object.keys(builtInLocales.en.common).sort();
-      for (const [lang, locale] of Object.entries(builtInLocales)) {
-        const keys = Object.keys(locale.common).sort();
-        expect(keys).toEqual(enCommonKeys);
+      for (const code of codes) {
+        expect(Object.keys(builtInLocales[code].common).sort()).toEqual(enCommonKeys);
       }
     });
   });

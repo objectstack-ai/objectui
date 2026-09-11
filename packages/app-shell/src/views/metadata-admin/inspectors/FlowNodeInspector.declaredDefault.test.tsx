@@ -12,29 +12,32 @@
  * declaration table would be a source-text snapshot and would pass on a build
  * where nothing rendered at all.
  *
- * ⚑ objectui#8451 rewrote the BOOLEAN half of this file. Triage ruled arm A
- * ("show, do not write") on objectui#6830, and the boolean control now seeds
- * from the declared default, so the three rows that pinned the defect were
- * turned green against the repaired behaviour rather than deleted — the same
- * three PR #8431's ablation leg B predicted would move. Everything else is
- * carried over unchanged, including every select case: that half is blocked on
- * objectui#8450 and is still unrepaired.
+ * ⚑ objectui#8451 rewrote the BOOLEAN half of this file; this revision rewrites
+ * the SELECT half, and arm A is complete. Triage ruled arm A ("show, do not
+ * write") on objectui#6830: the boolean control seeds its checked state from
+ * the declared default, and a select control now states that default as its
+ * trigger PLACEHOLDER. Both halves' defect rows were turned green against the
+ * repaired behaviour rather than deleted — the rows PR #8431's ablation leg B
+ * predicted would move. Everything else is carried over unchanged.
  *
  * The measurement, in four parts:
  *
- *  1. On a BOOLEAN control a declared default now seeds the value: an unset key
- *     draws the declared state, a stored value beats it, and nothing is written
- *     to the node. On a SELECT it still reaches nothing — an unset key draws
- *     `InspectorSelectField`'s own em-dash PLACEHOLDER, which says "nothing is
- *     selected" and is not anything the table declared. (objectui#8450 made
- *     that placeholder reachable at all; before it the trigger was blank,
- *     because the sentinel the field bridges `''` through kept Radix from ever
- *     recognising the empty state. Blank and em-dash are the same fact about
- *     `defaultValue`, told twice.)
- *  2. Both writers of the property feed the repaired boolean — the hand-written
- *     table here and the engine-published `configSchema` that
+ *  1. A declared default now reaches BOTH control kinds, by two different
+ *     mechanisms and neither of them a write. A boolean seeds its VALUE: an
+ *     unset key draws the declared state, a stored value beats it. A select
+ *     seeds its PLACEHOLDER: an unset key draws the declared default's option
+ *     LABEL where `InspectorSelectField`'s own em-dash ("nothing is selected")
+ *     used to sit, a stored value still wins outright, and a select declaring
+ *     nothing still draws the em-dash. (objectui#8450 made that placeholder
+ *     reachable at all; before it the trigger was blank, because the sentinel
+ *     the field bridges `''` through kept Radix from ever recognising the empty
+ *     state. Blank and em-dash were the same fact about `defaultValue`, told
+ *     twice — and both are now gone from the declaring fields.)
+ *  2. Both writers of the property feed both repaired controls — the
+ *     hand-written table here and the engine-published `configSchema` that
  *     `json-schema-to-fields` converts (`default: true` -> `defaultValue:
- *     'true'`). The select is a dead end on both.
+ *     'true'`, `default: 'POST'` -> `defaultValue: 'POST'`). Neither writer
+ *     gets a carrier of its own; the render path is shared.
  *  3. The property also drives VISIBILITY: a declared default on a `showWhen`
  *     CONTROLLER changes which fields are on screen at all (`controllerAdmits`).
  *     That read site predates the repair and is unchanged by it.
@@ -167,27 +170,51 @@ const triggerText = (name: string) => screen.getByRole('combobox', { name }).tex
 const checkbox = (name: string) =>
   screen.queryByLabelText(name) as HTMLInputElement | null;
 
-describe('select: a declared defaultValue still does not reach the control (objectui#8450)', () => {
-  it('select: an unset key draws the placeholder, not the declared "GET"', () => {
+/** Whether a labelled select trigger is drawing a PLACEHOLDER rather than a selection. */
+const triggerIsPlaceholder = (name: string) =>
+  screen.getByRole('combobox', { name }).hasAttribute('data-placeholder');
+
+describe('select: a declared defaultValue reaches the trigger as its placeholder (objectui#6830 arm A)', () => {
+  it('select: an unset key states the declared "GET", not the em-dash', () => {
     // Premise, read from the table the inspector renders from.
     const method = fieldsForNodeType('http_request').find((f) => f.id === 'method');
     expect(method?.defaultValue, 'http_request.method declares a default').toBe('GET');
 
     renderInspector(draftWith('http_request', { config: {} }));
 
-    // Measured, not assumed: the trigger shows `InspectorSelectField`'s own
-    // em-dash placeholder — the "nothing is selected" mark — and NOT the
-    // declared default. (It rendered blank before objectui#8450, which fixed
-    // the placeholder's own unreachability in the shared primitive. That was a
-    // defect in the primitive, not evidence about `defaultValue`; this card's
-    // subject is the assertion below, which is unchanged either way.)
+    // Measured on the RENDERED control, never on the declaration: the trigger's
+    // own text. This row used to assert `'—'` — `InspectorSelectField`'s
+    // "nothing is selected" mark — which was the defect stated as a pin.
     expect(
       triggerText('Method'),
-      'the Method trigger renders its placeholder — the declared default seeds nothing',
-    ).toBe('—');
+      'the Method trigger states the default the runtime applies to an omitted key',
+    ).toBe('GET');
+    // ⭐ And it is still a PLACEHOLDER, not a selection. `data-placeholder` is
+    // Radix's own trigger flag and what Shadcn styles the muted empty state
+    // with, so the author can tell "nothing is stored, this is what happens"
+    // from "I picked GET". Without this the repair would be indistinguishable
+    // from one that silently selected the default on the author's behalf.
+    expect(
+      triggerIsPlaceholder('Method'),
+      'the declared default is drawn as the placeholder, so it never reads as a stored choice',
+    ).toBe(true);
+  });
+
+  it('select: a STORED value beats the declaration — the placeholder never wins over data', () => {
+    // The regression guard. A repair that handed the default to the VALUE
+    // instead of the placeholder passes the row above and fails this one.
+    renderInspector(draftWith('http_request', { config: { method: 'POST' } }));
+    expect(
+      triggerText('Method'),
+      'a stored POST renders as itself, and the declared GET is nowhere near it',
+    ).toBe('POST');
+    expect(
+      triggerIsPlaceholder('Method'),
+      'and it is a real selection, not a placeholder',
+    ).toBe(false);
     expect(
       screen.queryByText('GET'),
-      'the declared default "GET" reaches no part of the rendered inspector',
+      'the declared default does not shadow the value the author stored',
     ).toBeNull();
   });
 
@@ -195,9 +222,47 @@ describe('select: a declared defaultValue still does not reach the control (obje
     renderInspector(draftWith('http_request', { config: { method: 'GET' } }));
     expect(
       triggerText('Method'),
-      'a stored GET renders, so the negative above is a real absence and not a dead document',
+      'a stored GET renders, so every negative here is a real absence and not a dead document',
     ).toBe('GET');
     expect(screen.queryByText('GET'), 'the lit control fires').not.toBeNull();
+  });
+
+  it('select: a field declaring NO default is unchanged — it still draws the em-dash', () => {
+    // The seed belongs to the DECLARATION, not to the control kind. Without
+    // this row an implementation that invented a placeholder for every select
+    // — or that promoted the first option — passes the whole file.
+    // `notify.severity` is the offline table's undeclared select.
+    const severity = fieldsForNodeType('notify').find((f) => f.id === 'severity');
+    expect(severity?.kind, 'severity is a select').toBe('select');
+    expect(severity?.defaultValue, 'and it declares no default').toBeUndefined();
+
+    renderInspector(draftWith('notify', { config: {} }));
+    expect(
+      triggerText('Severity'),
+      'an undeclared select still says "nothing is selected" and invents nothing',
+    ).toBe('—');
+  });
+
+  it('select: showing the default WRITES nothing — the draft is untouched', () => {
+    // ⛔ objectui#6263's fence — "the console needs no second default contract"
+    // — and a test is the only thing that keeps it. A placeholder that also
+    // committed would turn every visit to the inspector into a metadata edit,
+    // freezing today's default into the node and un-tracking it from the spec.
+    //
+    // Both write channels are covered: `onPatch` is the only one this component
+    // HAS, and the byte comparison catches a mutation that bypassed it.
+    const draft = draftWith('http_request', { config: {} });
+    const before = JSON.stringify(draft);
+    const { onPatch } = renderInspector(draft);
+    expect(triggerText('Method'), 'the declared default is on screen').toBe('GET');
+    expect(
+      onPatch.mock.calls,
+      'rendering a placeholder-seeded select patches the draft exactly zero times',
+    ).toEqual([]);
+    expect(
+      JSON.stringify(draft),
+      'and the draft it was handed is unchanged byte for byte — nothing was written in place either',
+    ).toBe(before);
   });
 });
 
@@ -319,11 +384,12 @@ describe('boolean: a declared defaultValue seeds the control (objectui#8451, arm
   });
 });
 
-describe('the online writer of defaultValue hits the same dead end', () => {
-  it('a server-published `default` is derived into the field and still not rendered', () => {
+describe('the online writer of defaultValue reaches the same repaired control', () => {
+  it('a server-published `default` is derived into the field and rendered', () => {
     // `json-schema-to-fields` turns JSON-Schema `default: 'POST'` into
     // `defaultValue: 'POST'` — the ONLINE half of the same property. The render
-    // path is shared, so it is undelivered there too.
+    // path is shared, so the repair reaches it without a second carrier, which
+    // is the shape objectui#7238 removed and this file must not reintroduce.
     stubs.configSchemas = {
       http_request: {
         type: 'object',
@@ -336,10 +402,12 @@ describe('the online writer of defaultValue hits the same dead end', () => {
 
     expect(
       triggerText('Method'),
-      'the server-derived default is not seeded into the control either — the ' +
-        'trigger sits on its placeholder, same as the hand-written half',
-    ).toBe('—');
-    expect(screen.queryByText('POST'), 'the derived default reaches no rendered node').toBeNull();
+      'the server-derived default states itself on the trigger, same as the hand-written half',
+    ).toBe('POST');
+    expect(
+      triggerIsPlaceholder('Method'),
+      'and still as a placeholder — the online writer does not write either',
+    ).toBe(true);
   });
 });
 
@@ -556,5 +624,64 @@ describe('the declaration surface this card names', () => {
       'screen.mode',
       'wait.waitEventConfig.eventType',
     ].sort());
+  });
+
+  /**
+   * Arm A's select half over the WHOLE acceptance surface, not demonstrated on
+   * one field. Triage named the declaring-field list the acceptance surface and
+   * told the implementer to re-derive each entry's `kind` rather than inherit a
+   * list, so the re-derivation is the test: every select-kind declaring field
+   * is rendered on a node of its own type with an EMPTY config, and the
+   * trigger's text is read.
+   *
+   * The expected text is DERIVED — the declaring field's own matching option
+   * label — never spelled out, so this row cannot decay into the table
+   * restating itself. The id list IS spelled out, because that is the surface
+   * whose growth should be visible in review.
+   */
+  it('every select-kind declaring field renders its declared default', () => {
+    const swept = [...FLOW_NODE_TYPE_OPTIONS, ...OFF_PICKER_TYPES];
+    const cases: Array<{ id: string; type: string; label: string; expected: string }> = [];
+    for (const type of swept) {
+      for (const field of fieldsForNodeType(type)) {
+        if (field.kind !== 'select' || field.defaultValue === undefined) continue;
+        const option = field.options?.find((o) => o.value === field.defaultValue);
+        // Every offline declaration names an offered option today. When one
+        // stops doing so the control falls back to the raw value, which is a
+        // deliberate branch in `FlowNodeConfigField` — but it is also a table
+        // defect, so it reddens here rather than rendering quietly.
+        expect(
+          option,
+          `${type}.${field.id}: the declared default must be one of the offered options`,
+        ).toBeDefined();
+        cases.push({ id: `${type}.${field.id}`, type, label: field.label, expected: option!.label });
+      }
+    }
+
+    expect(
+      cases.map((c) => c.id).sort(),
+      'the select-kind half of the declaration surface — seven of the ten',
+    ).toEqual([
+      'approval.behavior',
+      'approval.escalation.action',
+      'approval.onEmptyApprovers',
+      'boundary_event.boundaryConfig.eventType',
+      'http_request.method',
+      'screen.mode',
+      'wait.waitEventConfig.eventType',
+    ]);
+
+    for (const c of cases) {
+      renderInspector(draftWith(c.type, { config: {} }));
+      expect(
+        triggerText(c.label),
+        `${c.id}: an unset key states the declared default on the trigger`,
+      ).toBe(c.expected);
+      expect(
+        triggerIsPlaceholder(c.label),
+        `${c.id}: and states it as a placeholder, never as a selection`,
+      ).toBe(true);
+      cleanup();
+    }
   });
 });

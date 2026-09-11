@@ -139,7 +139,7 @@ const hasLazy = (root: z.ZodType): boolean => reaches(root, 'lazy');
  * Does the subtree hold a tuple with no rest element?
  *
  * ⚠️ The walker's SECOND identity-property exception, and unlike the `lazy` one
- * it is not deliberate — it is a defect this file measured and objectui#9035
+ * it is not deliberate — it is a defect this file measured and objectui#9088
  * carries. Zod spells "no rest element" as `def.rest === null`, and the `tuple`
  * arm compares that against the `undefined` its own `def.rest ? … : undefined`
  * produces, so `null === undefined` is false and EVERY rest-less tuple is
@@ -456,7 +456,7 @@ describe('the carry buys nothing at the identity property\'s expense', () => {
     expect(behindLazy.length, 'no clean export sits behind a `z.lazy` — that exception is untested').toBeGreaterThan(0);
     expect(
       restlessTuple.length,
-      'no clean export holds a rest-less tuple — objectui#9035\'s carve-out below is untested, and if ' +
+      'no clean export holds a rest-less tuple — objectui#9088\'s carve-out below is untested, and if ' +
         'that issue has landed the carve-out should be DELETED rather than left passing vacuously',
     ).toBeGreaterThan(0);
 

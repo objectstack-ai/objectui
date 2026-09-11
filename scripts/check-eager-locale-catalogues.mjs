@@ -260,28 +260,40 @@ export function main() {
   // The sizes are printed on a PASS too. What this gate saves is only legible
   // as a number, and a gate that prints nothing when it passes is one nobody
   // can tell apart from a gate that was switched off.
+  //
+  // ⛔ Each row is labelled from the EAGER SET, never from its code. Labelling
+  // "on demand" by `code !== ACTIVE_CATALOGUE` reads correctly on a healthy
+  // build and lies on exactly the build this gate exists to report: an ablation
+  // that made `zh` eager printed a red verdict naming `zh` above a table
+  // calling it "on demand". The same table then has to stop claiming a saving
+  // it did not make, so the deferred total counts the LAZY rows.
   if (verdict.status !== 'error') {
+    const eagerCodes = new Set(
+      (report?.files ?? []).map((f) => catalogueCodeOfChunkName(f?.name)).filter((c) => c !== null),
+    );
     const rows = [];
     for (const file of emitted) {
       const code = catalogueCodeOfFileName(file);
       if (!code) continue;
-      const gz = gzipBytesOf(file);
-      rows.push({ code, file, gz });
+      rows.push({ code, file, gz: gzipBytesOf(file), eager: eagerCodes.has(code) });
     }
     rows.sort((a, b) => (b.gz ?? 0) - (a.gz ?? 0));
-    const deferred = rows
-      .filter((r) => r.code !== ACTIVE_CATALOGUE)
-      .reduce((sum, r) => sum + (r.gz ?? 0), 0);
+    const lazyRows = rows.filter((r) => !r.eager);
+    const deferred = lazyRows.reduce((sum, r) => sum + (r.gz ?? 0), 0);
     console.log('');
     console.log('Locale catalogue chunks (gzipped):');
     for (const row of rows) {
-      const mark = row.code === ACTIVE_CATALOGUE ? 'EAGER (resident)' : 'on demand';
+      const mark = row.eager
+        ? row.code === ACTIVE_CATALOGUE
+          ? 'EAGER (resident)'
+          : 'EAGER — ⛔ this is the defect'
+        : 'on demand';
       const kb = row.gz === null ? '     ?' : `${(row.gz / 1024).toFixed(1)} KB`;
       console.log(`  ${kb.padStart(9)}  ${row.code.padEnd(3)} ${mark}`);
     }
     console.log(
-      `  ${(deferred / 1024).toFixed(1)} KB gzipped is deferred — the ${rows.length - 1} catalogues ` +
-        `a page load no longer fetches.`,
+      `  ${(deferred / 1024).toFixed(1)} KB gzipped is deferred — the ${lazyRows.length} ` +
+        `catalogue(s) a page load does not fetch.`,
     );
   }
 

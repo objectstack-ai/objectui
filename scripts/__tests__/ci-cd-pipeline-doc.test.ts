@@ -2982,12 +2982,27 @@ describe('ci-cd-pipeline.md — the four sections measured as parity defects', (
  * figures would create the defect. The scope of each pin is therefore the one
  * section whose sentence was stating a population it did not derive.
  *
- * ⚠️ Known gap, recorded rather than papered over: the family's noun pattern needs
- * whitespace before the noun, so a hyphenated population ("a 556-page docs build",
- * which this page also carries and which is mirrored in the gate's own header) is
- * invisible to it. That instance is filed as objectui#9004; widening the noun
- * pattern is not a change this pin may make alone, because the same pattern is
- * shared with the other carriers of the family.
+ * ⚠️ The shape gap this docblock used to record as open is closed — rewritten
+ * here deliberately rather than swept, because the record of WHY the defect was
+ * invisible is the only artefact that explains how it survived three passes. What
+ * it recorded: the family's noun pattern took whitespace and only whitespace before
+ * the noun, so a hyphenated attributive (`N-page docs build`) never matched, on this
+ * page or in the gate header that mirrors the same cost argument. objectui#9004
+ * widened the separator to `[\s-]+` below, and that instance is gone from both.
+ *
+ * ⛔ The reason the card gave for not widening — that the pattern is shared with
+ * the other carriers, so one pin may not move it alone — does not survive reading
+ * the carriers. It is NOT shared. Each spells its own: the lint-workflow carrier and
+ * the merge-queue carrier both put a bounded any-character gap between the numeral
+ * and the noun rather than `\s+`, so both already judge the hyphenated form and
+ * neither moves when this one does. This helper is a `const` inside this block and
+ * its blast radius is this file. Measured by running all three carriers, not assumed.
+ *
+ * ⚠️ What the widening still does not reach, which is a reading and not an
+ * assumption: every assertion here is built from a named section of THIS page, so
+ * the mirror in the eager-closure gate's own header is outside all of them. It gets
+ * its own assertion below, over that header's text — otherwise half of objectui#9004
+ * would be a repair with nothing able to notice it come back.
  */
 describe('ci-cd-pipeline.md — populations are pointed at, never counted in prose', () => {
   const EAGER_HEADING = '## Docs Route Eager Closure (`docs-route-eager-closure.yml`)';
@@ -2997,10 +3012,15 @@ describe('ci-cd-pipeline.md — populations are pointed at, never counted in pro
   /** A section of the page as one line — the unit every assertion here judges. */
   const flat = (heading: string): string => section(heading).replace(/\s+/g, ' ').trim();
 
-  /** `<number> <noun>`, the family's own shape, applied to joined text. */
+  /**
+   * `<number> <noun>`, the family's own shape, applied to joined text — with the
+   * separator widened from `\s+` to `[\s-]+` so the hyphenated attributive
+   * (`N-page docs build`) is judged too, not only the spaced form. The docblock
+   * above this block records why that widening is local to this carrier.
+   */
   const population = (noun: string): RegExp =>
     new RegExp(
-      String.raw`\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+${noun}\b`,
+      String.raw`\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[\s-]+${noun}\b`,
       'i',
     );
 
@@ -3085,6 +3105,39 @@ describe('ci-cd-pipeline.md — populations are pointed at, never counted in pro
         `refresh: "all 181 docs pages" was false against a corpus of 184 git-tracked .md/.mdx ` +
         `files and nothing could go red over it. The population is derived from the docs ` +
         `collection directory on every run — name the directory and the reading, never the number.`,
+    ).toBeUndefined();
+  });
+
+  it("states no docs-page population in the gate's own header either", () => {
+    // The mirror site. The page argues the ruling for readers and the gate header
+    // argues it for whoever maintains the script; both used to price it with a
+    // literal nothing derived. Removing one and leaving the other is how a figure
+    // comes back — so the header is judged here, as joined text, the same way.
+    const src = fs.readFileSync(
+      path.join(repoRoot, 'scripts/check-docs-route-eager-closure.mjs'),
+      'utf8',
+    );
+    const header = (/\/\*\*[\s\S]*?\*\//.exec(src)?.[0] ?? '').replace(/\s+/g, ' ').trim();
+
+    // Positive controls first: a "does not contain" assertion is vacuously green on
+    // a header that moved, emptied, or stopped being about this subject at all.
+    for (const anchor of ['registerCatalogBlocks.ts', 'objectui#6316', '`gauge:`']) {
+      expect(
+        header,
+        `the eager-closure gate no longer opens with a docblock naming ${anchor}. That header is ` +
+          'the mirror of this page\'s cost argument; re-point this pin before trusting its green.',
+      ).toContain(anchor);
+    }
+
+    const counted = header.match(population('(?:docs\\s+)?pages?'));
+    expect(
+      counted?.[0],
+      `the eager-closure gate's header states a docs-page population again (found ` +
+        `"${counted?.[0]}"). \u26d4 Not a stale number to refresh: the header carried two of them ` +
+        `and both were false — one priced a hypothetical byte budget at a page count nothing ` +
+        `derived, the other charged an import to a page count that was already wrong against the ` +
+        `tracked .md/.mdx corpus. The gate prints the live reading on every run as its \`gauge:\` ` +
+        `line — name that reading, never a numeral.`,
     ).toBeUndefined();
   });
 

@@ -13,9 +13,12 @@
  *   2. the overflow counter, `opts.length - visible.length`, counts the
  *      malformed entries too, so `+N` promises badges no surface can show.
  *
- * Both are pinned here, each by an assertion that can fail on its own: a
- * repair that fixes only the counter (the louder of the two) still leaves
- * `Real` off the screen, and this file says so.
+ * Both are pinned here, in two families that fail INDEPENDENTLY — no assertion
+ * does double duty, because the plausible wrong repair is the one that gets the
+ * counter right and leaves the option missing. Measured, by mutating each half
+ * of the repair on its own: reverting only the counter's population reds the
+ * counter family alone, and the caricature that keeps the slice-first order
+ * while computing an honest-looking `+N` reds the rendering family alone.
  *
  * ## The fixtures are the projection, not the authored list
  *
@@ -130,6 +133,16 @@ describe('FieldStub picklist preview — a well-formed option behind malformed o
     expect(screen.queryByText('Select…')).toBeNull();
   });
 
+  it('spends the whole budget on surviving options, not on malformed ones', () => {
+    render(<FieldStub type="multiselect" options={TWO_MALFORMED_THEN_FIVE} />);
+    // All three multi-value slots go to options that can actually render.
+    expect(screen.getByText('Willow')).toBeTruthy();
+    expect(screen.getByText('Walnut')).toBeTruthy();
+    expect(screen.getByText('Wisteria')).toBeTruthy();
+    // The budget is three, so the fourth survivor stays off the card.
+    expect(screen.queryByText('Wattle')).toBeNull();
+  });
+
   it('positional contrast: the same option with the malformed entries LAST always rendered', () => {
     render(<FieldStub type="multiselect" options={MALFORMED_LAST} />);
     expect(screen.getByText('Real')).toBeTruthy();
@@ -139,12 +152,7 @@ describe('FieldStub picklist preview — a well-formed option behind malformed o
 describe('FieldStub picklist preview — the +N overflow counter', () => {
   it('counts the options that survived filtering and were not rendered', () => {
     render(<FieldStub type="multiselect" options={TWO_MALFORMED_THEN_FIVE} />);
-
-    // Three renderable options fit the budget.
-    expect(screen.getByText('Willow')).toBeTruthy();
-    expect(screen.getByText('Walnut')).toBeTruthy();
-    expect(screen.getByText('Wisteria')).toBeTruthy();
-    // Two renderable options are hidden, so the counter says two.
+    // Five options survive the filter and three fit, so the counter says two.
     expect(screen.getByText('+2')).toBeTruthy();
     // Not `+6`: that is what the slice-first order claimed, counting the two
     // malformed entries and the four options it never reached.
@@ -153,7 +161,9 @@ describe('FieldStub picklist preview — the +N overflow counter', () => {
 
   it('drops the counter entirely when every surviving option is on screen', () => {
     render(<FieldStub type="multiselect" options={MALFORMED_FIRST} />);
-    expect(screen.getByText('Real')).toBeTruthy();
+    // Reported as `+4` before the repair: four authored entries, nothing on
+    // screen. Deliberately asserts nothing about `Real` — that belongs to the
+    // other half, and mixing them would stop either from failing on its own.
     expect(screen.queryByText(ANY_OVERFLOW)).toBeNull();
   });
 });

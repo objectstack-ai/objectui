@@ -1560,8 +1560,10 @@ only measurement of the docs route that has ever existed was reconstructed by ha
 [#4616](https://github.com/objectstack-ai/objectui/issues/4616) set had no gauge behind it
 ([#6316](https://github.com/objectstack-ai/objectui/issues/6316)).
 
-**Structural, not byte-level — ruled that way on purpose.** A second byte budget would need a
-556-page docs build in CI. This gate instead walks the route's **static** module graph from source —
+**Structural, not byte-level — ruled that way on purpose.** A second byte budget would have to build
+every page of that collection in CI, on every run. ⛔ No count of them here either, for the reason
+the paragraph above gives: the size of that cost is derived, never written down. This gate instead
+walks the route's **static** module graph from source —
 the route entries, plus every compiled `content/docs/**` MDX module, which the route pulls in through
 the generated `.source/server.ts` — and sorts every package the registrar names into one of three
 buckets:

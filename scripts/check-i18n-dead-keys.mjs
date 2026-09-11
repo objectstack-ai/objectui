@@ -251,12 +251,62 @@
  * the split is the point, and it is the split — never a total — that the
  * bullets are answerable to.
  *
+ * ## The pack-object property reads, DERIVED (objectui#9046)
+ *
+ * The section above made the importer LIST mechanical and said, in as many
+ * words, what it was leaving hand-read: the list's completeness is derived,
+ * what stays hand-read is what each importer's SHAPE means. That second half
+ * is this section, and it is derived too.
+ *
+ * `derivePackObjectPropertyReads()` resolves the local binding each pack
+ * import is bound to — whatever the importer named it, which is why the
+ * binding is resolved from the import clause rather than looked for by the
+ * export's spelling — and reports every property chain read off it, with the
+ * DEPTH of each chain. `classifyPackObjectRead()` then resolves the chain
+ * against the pack's own leaf/branch split and MEASURES which leg above can
+ * see the read, by running this script's two boundary predicates over the
+ * importer's source. Measured, never inferred from the segment count: a read
+ * that reaches a three-segment key through a local alias of a subtree spells
+ * no leading dot anywhere, so the count says "the chain leg covers it" and the
+ * probe finds nothing.
+ *
+ * Five shapes come out, and the CLI prints one row per read:
+ *
+ *   - LEAF, three segments or more, with its chain spelled — the property-chain
+ *     leg's own domain. Covered.
+ *   - LEAF, fewer than three segments — class 4 below, the shape neither leg
+ *     applies to. The report splits these by whether the file ALSO spells the
+ *     key: a co-located spelling is cover BY COINCIDENCE, a fact about that
+ *     file that a tidy-up removes, and it is reported as such rather than
+ *     silently counted as coverage.
+ *   - LEAF reached through a local ALIAS of a pack subtree. Resolved to a fixed
+ *     point, so renaming the subtree into a local no longer hides the read —
+ *     which it did before this section existed, and that rename reads as a
+ *     tidy-up too.
+ *   - SUBTREE — the file takes a whole branch. Every leaf under it becomes
+ *     REACHABLE without any leaf being spelled, so no probe built out of a
+ *     leaf's text can match. ⚠️ Reachable is not rendered, and this leg does
+ *     not close that gap; the row is context for the tiers, never a verdict on
+ *     a key (see class 5 below).
+ *   - OPAQUE — a computed index, or the pack handed on whole as a value. Class
+ *     1 below. The segments are not knowable from syntax, and the row says
+ *     that rather than reporting "reads nothing".
+ *
+ * ⛔ This leg reports READS, never liveness. A read it cannot see is not a dead
+ * key and a key it names is not a live one; what it produces is the reading a
+ * human used to have to supply for each importer by hand. Where a read no leg
+ * sees names a key the sweep put in CONFIRMED, that IS a wrong verdict, and the
+ * CLI says so in those words.
+ *
  * ## What CONFIRMED does NOT guarantee (objectui#7592)
  *
  * Every leg here is a syntactic probe, so CONFIRMED means "no leg saw a
- * reference", never "no consumer exists". Three classes are KNOWN to be able to
- * put a live key in this tier. They are enumerated so the claim this header
- * makes about the tier can be CHECKED against them instead of trusted:
+ * reference", never "no consumer exists". The classes KNOWN to be able to put a
+ * live key in this tier are enumerated below — enumerated rather than counted,
+ * so the claim this header makes about the tier can be CHECKED against them
+ * instead of trusted, and so the list can gain a member without a number
+ * somewhere else going stale (this sentence used to open with one, and it said
+ * three while four were listed):
  *
  *   1. A pack-object reader that indexes DYNAMICALLY — the `outboundAgentText`
  *      shape above. No dotted key, no property chain, no call site. Measured on
@@ -288,16 +338,40 @@
  *      `nonGridRowCeiling.tsx`, bulleted above — is this class's first
  *      instance in the tree: two-segment keys read off the pack by property
  *      access, invisible to both legs, kept out of the tiers only by a literal
- *      `t()` argument sitting in the same expression. The list's COMPLETENESS
- *      is mechanical now (`derivePackObjectImporters()` plus its pin); what
- *      stays hand-read is what each importer's shape means.
+ *      `t()` argument sitting in the same expression.
+ *      ⇒ DERIVED since objectui#9046, and this is the half that changed. The
+ *      list's completeness was already mechanical (`derivePackObjectImporters()`
+ *      plus its pin); the READING of each importer's shape is mechanical now
+ *      too (`derivePackObjectPropertyReads()` plus `classifyPackObjectRead()`,
+ *      section above). Every read of this shape is reported with its depth and
+ *      with whether anything covers it, so an instance held up only by a
+ *      co-located spelling is VISIBLE as that rather than absent from the
+ *      report, and a new one arrives as a row instead of as silence.
+ *      ⛔ The class is not CLOSED, and the difference matters: the leg reports
+ *      the read, it does not make the key visible to the tiers. A key whose
+ *      only reader is a two-segment property read still lands in CONFIRMED —
+ *      the report now says, beside it, that a file reads it. What is gone is
+ *      the silence, not the tiering.
+ *   5. A SUBTREE reader — a file that takes a whole branch off the pack
+ *      (spreading it, or binding it to a local) and reads leaves out of THAT.
+ *      Named here by objectui#9046 rather than discovered by it: the derivation
+ *      above reports the subtree read, and the tree carries several. No probe
+ *      can match, because no leaf is ever spelled; the leaf is selected one hop
+ *      past the pack binding, through a local whose contents need types rather
+ *      than syntax to follow. The report therefore states the subtree read and
+ *      the leaves it makes REACHABLE, and stops there — reachable is not
+ *      rendered, and turning that row into a liveness claim would mark a whole
+ *      namespace live, which is the `wideHeads` mistake in another costume.
+ *      ⇒ This is the class that is measurably OPEN, and it is where a reader
+ *      of CONFIRMED should look first.
  *
  * The tier is therefore the one to READ FIRST, and each entry still needs a
  * human before deletion. The cost of reading it as bulk-deletable is measured:
  * on the day objectui#7592 was filed, 33 of 147 CONFIRMED entries — 22% of the
  * tier — were one live subtree (`chatbot.tool.*`, rendering in ten packs), and
  * following the tier would have reverted every AI tool card to English in nine
- * locales. That class is closed; these four are not.
+ * locales. That class is closed. Of the classes above, class 4 is now REPORTED
+ * rather than closed, and none of the others is either.
  *
  * ## Usage
  *
@@ -672,6 +746,470 @@ export function derivePackObjectImporters(root) {
     (isTestImporter(relPath) ? test : nonTest).add(relPath);
   }
   return { nonTest: [...nonTest].sort(), test: [...test].sort() };
+}
+
+/** The named exports of the pack package that ARE a locale pack object — the
+ *  same set the header's importer grep alternates over, held here so the walk
+ *  below and that recipe cannot drift apart in what counts as a pack. */
+const PACK_EXPORT_NAMES = new Set(['en', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'pt', 'ru', 'ar']);
+
+/** The pack export that is a MAP of locale tag -> pack object rather than a
+ *  pack itself. A chain off it opens with a locale tag, which is not part of
+ *  any pack key and is stripped before the chain is resolved. */
+const PACK_MAP_EXPORT_NAME = 'builtInLocales';
+
+/**
+ * Resolve the local bindings a file binds locale pack objects to.
+ *
+ * The binding name is whatever the importer chose, so nothing downstream may
+ * assume it is spelled like the export: this repo already ships `en as
+ * enLocale` and `en as enPack` alongside a bare `en`, and a leg that looked
+ * for the export name would see two of those three.
+ *
+ * @returns {Map<string, string>} local binding name -> the pack export it is
+ *   bound to (a locale tag, or `builtInLocales`).
+ */
+function packBindingsOf(source) {
+  const bindings = new Map();
+  const visit = (node) => {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      node.moduleSpecifier.text === PACK_IMPORT_SPECIFIER &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings)
+    ) {
+      for (const element of node.importClause.namedBindings.elements) {
+        const exported = (element.propertyName ?? element.name).text;
+        if (PACK_EXPORT_NAMES.has(exported) || exported === PACK_MAP_EXPORT_NAME) {
+          bindings.set(element.name.text, exported);
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return bindings;
+}
+
+/** Step past the wrappers that sit between a binding and the property access
+ *  reading it — `en!.common`, `(en).common`, `(en as Pack).common`. Without
+ *  this the chain stops at the wrapper and a real read reports as depth 0,
+ *  which is the "nothing to see here" row. */
+function unwrapAccessParent(node) {
+  let current = node;
+  for (;;) {
+    const parent = current.parent;
+    if (!parent) return current;
+    const steppable =
+      (ts.isNonNullExpression(parent) || ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent)) &&
+      parent.expression === current;
+    if (!steppable) return current;
+    current = parent;
+  }
+}
+
+/**
+ * Climb the static property chain read off one reference to a pack binding.
+ *
+ * @returns {{ chain: string[], dynamic: boolean }} `chain` is the run of
+ *   statically-known property names (`['common', 'rowCeilingNote']` for
+ *   `en.common.rowCeilingNote`); `dynamic` says the climb stopped at a
+ *   COMPUTED access (`pack[key]`), so the segments below it are unknowable
+ *   here rather than absent — the two must never be reported the same way.
+ */
+function propertyChainAt(identifier) {
+  const chain = [];
+  let node = unwrapAccessParent(identifier);
+  for (;;) {
+    const parent = node.parent;
+    if (!parent) break;
+    if (ts.isPropertyAccessExpression(parent) && parent.expression === node) {
+      chain.push(parent.name.text);
+      node = unwrapAccessParent(parent);
+      continue;
+    }
+    if (ts.isElementAccessExpression(parent) && parent.expression === node) {
+      const argument = parent.argumentExpression;
+      // A string-literal index is the same read as a dot, just spelled the
+      // other way, and reporting it as dynamic would hide a chain the tool
+      // can in fact see.
+      if (argument && ts.isStringLiteral(argument)) {
+        chain.push(argument.text);
+        node = unwrapAccessParent(parent);
+        continue;
+      }
+      return { chain, dynamic: true };
+    }
+    break;
+  }
+  return { chain, dynamic: false };
+}
+
+/**
+ * The static property chain an EXPRESSION reads off a pack binding, read from
+ * the expression down rather than from an identifier up.
+ *
+ * `propertyChainAt()` answers "what does this reference go on to read"; this
+ * answers "what is this expression a read OF", which is what an alias
+ * declaration needs: `const ceiling = en.common;` binds a name to a pack
+ * SUBTREE, and every later `ceiling.x` is a read of `en.common.x`.
+ *
+ * @returns {{ root: string, chain: string[] } | null} `null` when the
+ *   expression is not rooted in a known binding, or when a COMPUTED access
+ *   sits anywhere along it — a dynamically-indexed subtree is not a knowable
+ *   path, and inventing one would attribute reads to keys nobody names.
+ */
+function chainOfExpression(node, roots) {
+  let current = node;
+  while (ts.isNonNullExpression(current) || ts.isParenthesizedExpression(current) || ts.isAsExpression(current)) {
+    current = current.expression;
+  }
+  if (ts.isIdentifier(current)) return roots.has(current.text) ? { root: current.text, chain: [] } : null;
+  if (ts.isPropertyAccessExpression(current)) {
+    const base = chainOfExpression(current.expression, roots);
+    return base === null ? null : { root: base.root, chain: [...base.chain, current.name.text] };
+  }
+  if (ts.isElementAccessExpression(current)) {
+    const argument = current.argumentExpression;
+    if (!argument || !ts.isStringLiteral(argument)) return null;
+    const base = chainOfExpression(current.expression, roots);
+    return base === null ? null : { root: base.root, chain: [...base.chain, argument.text] };
+  }
+  return null;
+}
+
+/**
+ * Local names that stand for a pack SUBTREE, so a read through one is still a
+ * read of the pack.
+ *
+ * Without this the leg is evaded by a rename — `const c = en.common;` followed
+ * by `c.someLeaf` spells no pack path anywhere, and the derivation would report
+ * a depth-1 branch read and call it a day. That edit reads as a tidy-up, which
+ * is the exact way class 4 arrived in the first place.
+ *
+ * Resolved to a fixed point, so an alias of an alias resolves too. Deliberately
+ * NARROW, and the narrowness is the point: only a `const` with a plain
+ * identifier name whose initializer is a static chain off a known root. A local
+ * initialised from a FUNCTION CALL that returns a pack subtree is not resolved
+ * here and cannot be — that needs types, not syntax. See the header's list of
+ * what this leg still cannot see.
+ *
+ * @returns {Map<string, { pack: string, prefix: string[] }>} local name -> the
+ *   pack export it descends from and the chain it stands for.
+ */
+function packAliasesOf(source, bindings) {
+  const aliases = new Map();
+  const declarations = [];
+  const collect = (node) => {
+    if (ts.isTypeNode(node)) return;
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      !bindings.has(node.name.text)
+    ) {
+      declarations.push(node);
+    }
+    ts.forEachChild(node, collect);
+  };
+  collect(source);
+
+  for (let pass = 0; pass < declarations.length + 1; pass += 1) {
+    let grew = false;
+    const roots = new Set([...bindings.keys(), ...aliases.keys()]);
+    for (const declaration of declarations) {
+      const name = declaration.name.text;
+      if (aliases.has(name)) continue;
+      const resolved = chainOfExpression(declaration.initializer, roots);
+      if (resolved === null || resolved.chain.length === 0) continue;
+      const base = bindings.has(resolved.root)
+        ? { pack: bindings.get(resolved.root), prefix: [] }
+        : aliases.get(resolved.root);
+      if (!base) continue;
+      aliases.set(name, { pack: base.pack, prefix: [...base.prefix, ...resolved.chain] });
+      grew = true;
+    }
+    if (!grew) break;
+  }
+  return aliases;
+}
+
+/** Whether this identifier is a DECLARATION of a name rather than a reference
+ *  to one — the import specifier that creates the binding, a parameter or
+ *  variable that shadows it, or a property NAME that merely spells the same
+ *  word (`config.en`, `{ en: somethingElse }`). Counting any of them would
+ *  attribute a read to a file that performs none. */
+function isNonReferenceIdentifier(identifier) {
+  const parent = identifier.parent;
+  if (!parent) return true;
+  if (ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isNamespaceImport(parent)) return true;
+  if (ts.isPropertyAccessExpression(parent) && parent.name === identifier) return true;
+  if (ts.isPropertyAssignment(parent) && parent.name === identifier) return true;
+  if (ts.isVariableDeclaration(parent) && parent.name === identifier) return true;
+  if (ts.isParameter(parent) && parent.name === identifier) return true;
+  if (ts.isBindingElement(parent) && parent.name === identifier) return true;
+  if (ts.isFunctionDeclaration(parent) && parent.name === identifier) return true;
+  return false;
+}
+
+/**
+ * ⚠️ These three typedefs are the derivation's PUBLIC SHAPE, and they are
+ * declared rather than left to inference for a mechanical reason: an explicit
+ * `@returns` on an exported function OVERRIDES inference for every caller, so
+ * a function annotated `Array<object>` hands its callers `object` however rich
+ * the value it actually builds. `tsconfig.scripts.json` compiles the pin tests
+ * under `scripts/__tests__/`, and the failure that lands there is one TS2339
+ * per property read — a wall of errors whose cause is a single annotation,
+ * nowhere near them. Add a field to a row and it must be added HERE too, or
+ * callers cannot see it.
+ *
+ * @typedef {object} PackObjectRead One reference to a pack binding, or to a
+ *   local alias of a pack subtree.
+ * @property {string} file Repo-relative path of the importer.
+ * @property {string} binding The identifier the FILE actually spells.
+ * @property {string | null} via For an alias, the chain it stands for; `null`
+ *   for a direct reference to the import binding.
+ * @property {string} pack The pack export the binding descends from — a locale
+ *   tag, or the locale-tag map.
+ * @property {string[]} chain The pack path this read reaches, alias prefix
+ *   included. Empty when the read takes no property.
+ * @property {number} depth `chain.length`. The load-bearing output: class 4 is
+ *   the shape where nothing but the depth separates a read both legs see from
+ *   a read neither does.
+ * @property {boolean} dynamic The climb stopped at a COMPUTED access, so the
+ *   segments below it are unknowable rather than absent.
+ * @property {number} line 1-based line of the reference.
+ * @property {string} text The read as the FILE spells it.
+ */
+
+/**
+ * @typedef {object} PackObjectReadVerdict What `classifyPackObjectRead()` adds
+ *   to a read: where the chain lands in the pack, and which leg can see it.
+ * @property {string | null} key The pack path the chain resolves to; `null`
+ *   when the read is opaque.
+ * @property {number} keyDepth Segments in `key`, after any locale tag is
+ *   stripped.
+ * @property {'leaf' | 'branch' | 'unknown' | 'opaque'} resolves
+ * @property {number} leavesUnder Leaves beneath a `branch`; 0 otherwise.
+ * @property {boolean} spelledHere The full dotted key also occurs in this
+ *   file, at a key boundary — cover BY COINCIDENCE, a fact about the FILE.
+ * @property {boolean} chainSpelledHere The property-chain probe's text occurs
+ *   in this file, at a property boundary.
+ * @property {string[]} seenBy The legs above that can see this read, MEASURED
+ *   rather than inferred. Empty means none can.
+ */
+
+/**
+ * @typedef {PackObjectRead & PackObjectReadVerdict} ClassifiedPackObjectRead
+ */
+
+/**
+ * Every property read a file performs on a locale pack it imported, with the
+ * DEPTH of each read — the derivation objectui#9046 is about.
+ *
+ * The importer LIST became mechanical with `derivePackObjectImporters()`
+ * (objectui#8752); what stayed hand-read was the reading of what each
+ * importer's shape MEANS for the legs above. That reading is three facts about
+ * each read — which binding, which property chain, how deep — and all three are
+ * derivable from the same AST this script already parses. This function
+ * derives them, so "somebody has to read this file and decide" becomes "the
+ * instrument says which keys this file reads, and how deep they are".
+ *
+ * ⚠️ The DEPTH is the load-bearing half, not the chain. Class 4 of "What
+ * CONFIRMED does NOT guarantee" is a read of a TWO-SEGMENT key: the
+ * property-chain leg returns `null` below three segments by design, and the
+ * key-boundary requirement refuses the full-key probe for a property read
+ * (a `.` on the left is exactly what marks a longer key). So a read at depth 2
+ * is invisible to both legs, a read at depth 3 or more is not, and nothing but
+ * the depth separates them.
+ *
+ * @param {string} root Repository root.
+ * @param {string[]} files Repo-relative paths to read — normally the `nonTest`
+ *   half of `derivePackObjectImporters()`. A path that does not exist is
+ *   skipped rather than thrown on, so a partial checkout degrades.
+ * @returns {PackObjectRead[]} One row per reference to a pack binding OR to a
+ *   local alias of a pack subtree (`packAliasesOf()`), sorted by file then
+ *   line. `via` carries the
+ *   chain an alias stands for, so `text` can stay the spelling the FILE uses
+ *   while `chain` and `depth` describe the pack path that spelling reaches.
+ *   `depth === 0` with `dynamic === false` is a reference that reads no
+ *   property at all — the pack handed on WHOLE (object-literal wiring, or
+ *   passed to a helper as a value).
+ */
+export function derivePackObjectPropertyReads(root, files) {
+  const rows = [];
+  for (const file of files) {
+    const full = join(root, file);
+    if (!existsSync(full)) continue;
+    const text = readFileSync(full, 'utf8');
+    const source = ts.createSourceFile(full, text, ts.ScriptTarget.Latest, true);
+    const bindings = packBindingsOf(source);
+    if (bindings.size === 0) continue;
+    const aliases = packAliasesOf(source, bindings);
+
+    const visit = (node) => {
+      // A pack name inside a TYPE (`keyof typeof builtInLocales`) reads no
+      // key at run time; collecting it would put a phantom row on an importer.
+      if (ts.isTypeNode(node)) return;
+      const alias = ts.isIdentifier(node) ? aliases.get(node.text) : undefined;
+      const isBinding = ts.isIdentifier(node) && bindings.has(node.text);
+      if ((isBinding || alias) && !isNonReferenceIdentifier(node)) {
+        const { chain: read, dynamic } = propertyChainAt(node);
+        const prefix = alias ? alias.prefix : [];
+        const chain = [...prefix, ...read];
+        rows.push({
+          file,
+          binding: node.text,
+          // An alias contributes the chain it stands for, so a read through it
+          // reports the same depth as the same read spelled off the import.
+          via: alias ? prefix.join('.') : null,
+          pack: alias ? alias.pack : bindings.get(node.text),
+          chain,
+          depth: chain.length,
+          dynamic,
+          line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+          text: [node.text, ...read].join('.') + (dynamic ? '[…]' : ''),
+        });
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  return rows.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.text.localeCompare(b.text));
+}
+
+/**
+ * Resolve one derived read against the pack key set, and MEASURE which leg
+ * above can see it — in this file, with this script's own two predicates.
+ *
+ * ⚠️ Measured, never inferred from the segment count, and the difference is
+ * load-bearing. "Three segments, so the property-chain leg covers it" is an
+ * inference about the KEY; what the leg actually needs is the probe's TEXT to
+ * occur in a file. A read through a local alias (`const g = en.deep.group;`
+ * then `g.leaf`) resolves to a three-segment key while the file spells no
+ * leading dot at all, so the inference says covered and the probe finds
+ * nothing. Running the predicates is the same cost and cannot be wrong that
+ * way.
+ *
+ * The verdict is about the READ, never about the key's liveness: this leg
+ * reports what a file takes off the pack, and the tiers above report what the
+ * repo spells. `spelledHere` is where the two meet — it is the property that
+ * keeps the tree's existing depth-2 reads out of the tiers, and it is a fact
+ * about the FILE, so a file that loses it loses it here.
+ *
+ * @param {PackObjectRead} read
+ * @param {{ leaves: Set<string>, branches: Set<string> }} packKeys
+ * @param {string} fileText The importer's own source. `occursAtKeyBoundary()`
+ *   and `occursAtPropertyBoundary()` are run over it directly — the same
+ *   predicates `textFootprint()` runs over the repo, so "this leg sees it"
+ *   means there exactly what it means there.
+ * @returns {PackObjectReadVerdict}
+ */
+export function classifyPackObjectRead(read, packKeys, fileText) {
+  const opaque = {
+    key: null,
+    keyDepth: 0,
+    resolves: 'opaque',
+    leavesUnder: 0,
+    spelledHere: false,
+    chainSpelledHere: false,
+    seenBy: [],
+  };
+  // A computed access, or the pack handed on whole: the segments below this
+  // point are not knowable from the AST. Class 1 of "What CONFIRMED does NOT
+  // guarantee", and reporting it as "reads nothing" would be the wrong half of
+  // the truth.
+  if (read.dynamic || read.chain.length === 0) return opaque;
+
+  // A chain off the locale-tag MAP opens with the tag, which is not a key
+  // segment. Strip exactly one, and only when it really is a tag.
+  const chain =
+    read.pack === PACK_MAP_EXPORT_NAME && PACK_EXPORT_NAMES.has(read.chain[0]) ? read.chain.slice(1) : read.chain;
+  if (chain.length === 0) return opaque;
+
+  const key = chain.join('.');
+  const probe = propertyChainProbe(key);
+  const spelledHere = occursAtKeyBoundary(fileText, key);
+  const chainSpelledHere = probe !== null && occursAtPropertyBoundary(fileText, probe);
+  const seenBy = [...(spelledHere ? ['full-key'] : []), ...(chainSpelledHere ? ['property-chain'] : [])];
+
+  if (packKeys.leaves.has(key)) {
+    return { key, keyDepth: chain.length, resolves: 'leaf', leavesUnder: 0, spelledHere, chainSpelledHere, seenBy };
+  }
+  if (packKeys.branches.has(key)) {
+    const prefix = `${key}.`;
+    let leavesUnder = 0;
+    for (const leaf of packKeys.leaves) if (leaf.startsWith(prefix)) leavesUnder += 1;
+    // A branch read spells the BRANCH, never the leaves under it, so no probe
+    // built out of a leaf's own text can match this line — whatever a probe
+    // found for the BRANCH's own spelling is not evidence about any leaf.
+    // ⚠️ Nor is this row a claim that any particular leaf is rendered: a
+    // subtree spread makes every leaf REACHABLE, and which one the file goes on
+    // to read happens past this binding, one hop beyond what this leg follows.
+    return {
+      key,
+      keyDepth: chain.length,
+      resolves: 'branch',
+      leavesUnder,
+      spelledHere,
+      chainSpelledHere,
+      seenBy: [],
+    };
+  }
+  return { key, keyDepth: chain.length, resolves: 'unknown', leavesUnder: 0, spelledHere, chainSpelledHere, seenBy };
+}
+
+/**
+ * The whole class-4 derivation: every non-test pack-object importer's property
+ * reads, resolved against the pack and classified.
+ *
+ * @param {string} root Repository root.
+ * @param {string[]} files Repo-relative importer paths.
+ * @param {{ leaves: Set<string>, branches: Set<string> }} packKeys
+ * @returns {ClassifiedPackObjectRead[]} `derivePackObjectPropertyReads()` rows,
+ *   each extended with its `classifyPackObjectRead()` verdict.
+ */
+export function derivePackObjectKeyReads(root, files, packKeys) {
+  const textCache = new Map();
+  const textOf = (file) => {
+    if (!textCache.has(file)) {
+      const full = join(root, file);
+      textCache.set(file, existsSync(full) ? readFileSync(full, 'utf8') : '');
+    }
+    return textCache.get(file);
+  };
+  return derivePackObjectPropertyReads(root, files).map((read) => ({
+    ...read,
+    ...classifyPackObjectRead(read, packKeys, textOf(read.file)),
+  }));
+}
+
+/**
+ * The reads no leg above can see — the class-4 population, derived.
+ *
+ * ⚠️ This is NOT a list of dead keys and must never be read as one. It is the
+ * list of reads whose evidence, if it exists, is somewhere other than this
+ * line: the file takes the key off the pack by property access, and no probe
+ * in this script matches that spelling. `spelledHere` splits it in two,
+ * and the split is the entire reading the header's bullets used to supply by
+ * hand:
+ *
+ *   - a read WITH a co-located literal is covered BY COINCIDENCE — the same
+ *     file spells the key, so the tiers see it. True today, and a property of
+ *     that file rather than of the leg: templating the key or moving the
+ *     default away from its call site removes it, and that edit reads as a
+ *     tidy-up.
+ *   - a read WITHOUT one is the shape class 4 describes with nothing holding
+ *     it up. Whether the key is at risk then depends on the tiers, which the
+ *     CLI cross-references: a key in CONFIRMED that some file reads off the
+ *     pack is a WRONG VERDICT, not a candidate.
+ *
+ * @param {ClassifiedPackObjectRead[]} reads
+ * @returns {ClassifiedPackObjectRead[]}
+ */
+export function packObjectReadsNoLegSees(reads) {
+  return reads.filter((read) => read.seenBy.length === 0 && read.resolves !== 'unknown');
 }
 
 /** The namespace bucket a key reports under: two segments once the key is at
@@ -1132,6 +1670,28 @@ if (invokedDirectly) {
   const unanalysedImporters = importers.nonTest.filter((f) => !ANALYSED_PACK_OBJECT_IMPORTERS.includes(f));
   const vanishedImporters = ANALYSED_PACK_OBJECT_IMPORTERS.filter((f) => !importers.nonTest.includes(f));
 
+  // The class-4 derivation (objectui#9046): what each non-test importer takes
+  // off the pack, and how deep. `collectEnKeys()` is re-read rather than
+  // threaded out of `sweep()` because the leaf/branch SPLIT is what resolves a
+  // chain, and `sweep()` returns neither.
+  const packKeys = collectEnKeys(root);
+  const packReads = derivePackObjectKeyReads(root, importers.nonTest, packKeys);
+  const blindReads = packObjectReadsNoLegSees(packReads);
+  const confirmedSet = new Set(result.confirmed);
+  const needsReviewSet = new Set(result.needsReview.map((entry) => entry.key));
+  // A LEAF read names one key, so a tier verdict about that key is a verdict
+  // about this read. A BRANCH read does not: see `classifyPackObjectRead()`.
+  const blindLeafReads = blindReads.filter((read) => read.resolves === 'leaf');
+  const wrongVerdicts = [...new Set(blindLeafReads.filter((r) => confirmedSet.has(r.key)).map((r) => r.key))].sort();
+  const blindBranchReads = blindReads.filter((read) => read.resolves === 'branch');
+  // The CLASS-4 SHAPE itself, reported whether or not anything currently
+  // covers it. A population of zero here and a population held up entirely by
+  // co-located literals are different trees, and a summary that only counted
+  // the uncovered ones would render both as the same silence.
+  const classFourReads = packReads.filter((read) => read.resolves === 'leaf' && read.keyDepth < 3);
+  const classFourCovered = classFourReads.filter((read) => read.seenBy.length > 0);
+  const classFourDark = classFourReads.filter((read) => read.seenBy.length === 0);
+
   // Same collapse guard as the call-site gate's own CLI block: on the REAL
   // repo, an empty or near-empty comparison means the extractor or file walk
   // broke, and would otherwise report every key "dead" while proving nothing.
@@ -1168,6 +1728,22 @@ if (invokedDirectly) {
     );
   }
 
+  // The same discipline as the two collapse guards above, for the newest leg.
+  // A walk that stopped finding reads returns an empty list, and an empty list
+  // renders as "no importer takes a key off the pack" — the most reassuring
+  // possible output of a derivation that broke. Every importer in the derived
+  // population binds a pack by definition, so at least one reference per file
+  // is a floor, not an expectation.
+  if (importers.nonTest.length > 0 && packReads.length === 0) {
+    console.error(
+      `The pack-object property-read derivation collapsed: ${importers.nonTest.length} non-test ` +
+        'importer(s), 0 reads. Every importer binds a pack by construction, so zero reads means the ' +
+        'binding resolution or the AST walk broke — and zero reads reports as a tree where no file ' +
+        'takes a key off the pack by property access.',
+    );
+    process.exit(1);
+  }
+
   if (asJson) {
     console.log(
       JSON.stringify(
@@ -1183,6 +1759,31 @@ if (invokedDirectly) {
             analysed: [...ANALYSED_PACK_OBJECT_IMPORTERS],
             unanalysed: unanalysedImporters,
             vanished: vanishedImporters,
+          },
+          packObjectKeyReads: {
+            reads: packReads.map((read) => ({
+              file: read.file,
+              line: read.line,
+              spelled: read.text,
+              via: read.via,
+              pack: read.pack,
+              key: read.key,
+              depth: read.depth,
+              resolves: read.resolves,
+              leavesUnder: read.leavesUnder,
+              spelledHere: read.spelledHere,
+              seenBy: read.seenBy,
+            })),
+            blindCount: blindReads.length,
+            blindLeafCount: blindLeafReads.length,
+            blindBranchCount: blindBranchReads.length,
+            classFourShapeCount: classFourReads.length,
+            classFourCoveredByColocatedSpelling: classFourCovered.length,
+            classFourUncovered: [...new Set(classFourDark.map((read) => read.key))].sort(),
+            wrongVerdicts,
+            needsReviewLeafKeys: [
+              ...new Set(blindLeafReads.filter((read) => needsReviewSet.has(read.key)).map((read) => read.key)),
+            ].sort(),
           },
           designerTable: {
             file: DESIGNER_TABLE,
@@ -1271,6 +1872,93 @@ if (invokedDirectly) {
           'not keep reasoning about a file that is gone.',
       );
     }
+
+    // -- what each importer READS off the pack, DERIVED (objectui#9046) ------
+    // The other half of the enumeration above. That half answers WHICH FILES
+    // import a pack; this one answers what each of them takes off it and how
+    // deep -- the reading the bullets used to supply by hand, and the half
+    // objectui#8752 left hand-read on purpose.
+    console.log(
+      `\npack-object property reads, derived this run: ${packReads.length} reference(s) to a pack ` +
+        `binding across ${new Set(packReads.map((r) => r.file)).size} of those importer(s). Each row is ` +
+        'what the FILE spells, the pack path it resolves to, how deep that path is, and which leg above ' +
+        "can see it — measured with this script's own two predicates over the file, not inferred from " +
+        'the segment count:',
+    );
+    const readGroups = new Map();
+    for (const read of packReads) {
+      if (!readGroups.has(read.file)) readGroups.set(read.file, new Map());
+      const perFile = readGroups.get(read.file);
+      const label = `${read.text} ${read.key ?? ''}`;
+      if (!perFile.has(label)) perFile.set(label, { read, lines: [] });
+      perFile.get(label).lines.push(read.line);
+    }
+    for (const [file, perFile] of [...readGroups].sort((a, b) => a[0].localeCompare(b[0]))) {
+      console.log(`\n  ${file}`);
+      for (const { read, lines } of [...perFile.values()].sort((a, b) => a.lines[0] - b.lines[0])) {
+        const resolution =
+          read.resolves === 'opaque'
+            ? read.dynamic
+              ? 'indexed dynamically — the segments below are not knowable here'
+              : 'the pack handed on WHOLE — no property read'
+            : read.resolves === 'leaf'
+              ? `key ${read.key}, ${read.keyDepth} segment(s)`
+              : read.resolves === 'branch'
+                ? `subtree ${read.key}, ${read.leavesUnder} leaf/leaves under it`
+                : `${read.key} — not a path in the en pack`;
+        const seen =
+          read.seenBy.length > 0
+            ? `seen by: ${read.seenBy.join(' + ')}`
+            : read.resolves === 'opaque'
+              ? 'NO LEG CAN SEE WHICH KEYS'
+              : 'NO LEG SEES THIS READ';
+        console.log(`    ${read.text.padEnd(40)} depth ${read.depth}  ${resolution}`);
+        console.log(`    ${' '.repeat(40)}   ${seen}   line(s) ${[...new Set(lines)].join(', ')}`);
+      }
+    }
+
+    console.log(
+      `\n${classFourReads.length} read(s) of the CLASS-4 SHAPE — a leaf key of fewer than three ` +
+        'segments taken off the pack by property access. Neither leg applies to that shape by ' +
+        'construction: `propertyChainProbe()` returns null below three segments on purpose, and the key ' +
+        'boundary refuses the full-key probe for the property read itself, because a `.` on the left is ' +
+        `exactly what marks a longer key. ${classFourCovered.length} of them are held visible ONLY by a ` +
+        'co-located spelling of the key elsewhere in the same file — covered BY COINCIDENCE, a property ' +
+        'of that FILE rather than of the instrument, and removed by templating the key or moving a ' +
+        `default away from its call site, an edit that reads as a tidy-up. ${classFourDark.length} are ` +
+        'held by nothing at all.',
+    );
+    console.log(
+      `\n${blindLeafReads.length} leaf read(s) NO leg above can see, at ANY depth — the class-4 reads ` +
+        'held by nothing, plus every read that reaches a THREE-segment key through a local alias of a ' +
+        'pack subtree: the alias spells no leading dot, so the property-chain probe finds nothing even ' +
+        'though the key is deep enough for it.',
+    );
+    if (wrongVerdicts.length > 0) {
+      console.log(
+        `\n⛔ ${wrongVerdicts.length} of those key(s) are in the CONFIRMED tier above while a file ` +
+          `reads them off the pack: ${wrongVerdicts.join(', ')}. That is a WRONG VERDICT, not a ` +
+          'candidate — read the reading file before touching the key.',
+      );
+    }
+
+    const leavesUnderBlindBranches = new Set();
+    for (const read of blindBranchReads) {
+      for (const leaf of packKeys.leaves) if (leaf.startsWith(`${read.key}.`)) leavesUnderBlindBranches.add(leaf);
+    }
+    const branchConfirmed = [...leavesUnderBlindBranches].filter((key) => confirmedSet.has(key)).sort();
+    console.log(
+      `\n${blindBranchReads.length} SUBTREE read(s) no leg above can see, together making ` +
+        `${leavesUnderBlindBranches.size} leaf/leaves REACHABLE without any of them being spelled. ` +
+        'Reachable is not rendered, and this leg does not close that gap: which leaf the file goes ' +
+        'on to read happens past the pack binding, through a local this walk does not follow. So this ' +
+        'is CONTEXT for the tiers, never a claim about any one key' +
+        (branchConfirmed.length > 0
+          ? ` — and ${branchConfirmed.length} of those leaves sit in CONFIRMED: ${branchConfirmed.slice(0, 8).join(', ')}` +
+            (branchConfirmed.length > 8 ? `, … and ${branchConfirmed.length - 8} more` : '') +
+            '. Read the spreading file before deleting any of them.'
+          : '.'),
+    );
 
     console.log(
       '\nThis is a REPORT, not a gate (see the header of scripts/check-i18n-dead-keys.mjs). Every ' +

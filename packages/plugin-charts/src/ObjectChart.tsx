@@ -329,13 +329,13 @@ export async function resolveGroupByLabels(
     // the SERVE path runs no parse — `ObjectStackAdapter.getObjectSchema` returns
     // the server document plus only `normalizeSchemaReferenceKeys` and
     // `applyFieldWidgetOverrides` — so a stored pre-strict def still arrives here.
-    // And there is NO camel leg below to fall back to: retiring these reads would
-    // delete the only read of the value, not re-point it. Adding a `displayField`
-    // leg (the spelling `FieldSchema` declares) is a separate, contract-shaped
-    // change. `idField` is NOT such a leg: measured on the pinned spec 17.2.0,
-    // `FieldSchema` refuses `idField` with `unrecognized_keys` exactly as it
-    // refuses `id_field` (the spec's only `idField` sits on `InlineGridColumnSchema`,
-    // a different shape), so the id read has no declared spelling to re-point to.
+    // ⛔ `idField` is NOT a leg this read may gain, and the carve-out is
+    // RE-MEASURED on the pin actually resolved here (`@objectstack/spec@17.4.0`,
+    // not the 17.2.0 the note used to cite): `FieldSchema` refuses `idField`
+    // with `unrecognized_keys` exactly as it refuses `id_field` (the spec's only
+    // `idField` sits on `InlineGridColumnSchema`, a different shape), so the id
+    // read has no declared spelling to re-point to. Adding one would fossilise
+    // an undeclared spelling. Routed to objectui#7650 option A.
     const idField: string = fieldDef.id_field || 'id';
 
     try {
@@ -345,9 +345,47 @@ export async function resolveGroupByLabels(
       });
       const records = extractRecords(results);
 
-      // Build id→label map using display field from metadata with sensible fallbacks
+      // Build id→label map using display field from metadata with sensible fallbacks.
+      //
+      // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST. Until this
+      // change the chain had no `FieldSchema` leg at all, so `displayField` —
+      // the only display spelling a spec-compliant author can emit, and the one
+      // `getObjectSchema` serves — could not reach this reader in any shape. The
+      // chart fell through to the generic `'name'` heuristic and drew the wrong
+      // axis label. This is the shape objectui#7155 established (declared leg
+      // first, recorded dialect behind it), not a new lenient alias: the two
+      // snake legs below are PRE-EXISTING reads, kept in their pre-existing
+      // relative order, and this change only puts the contract ahead of them.
+      //
+      // MEASURED on the pin resolved here, `@objectstack/spec@17.4.0`:
+      // `FieldSchema.safeParse` ACCEPTS `displayField` and REFUSES
+      // `reference_field` / `display_field` with `unrecognized_keys` (controls
+      // lit in the same run — a minimal lookup def ACCEPTED, `zzz_not_a_real_key`
+      // REJECTED).
+      //
+      // ⚠️ Why the two snake legs STAY. A producer sweep for this site found no
+      // in-repo producer of either spelling (every occurrence in this repo is a
+      // test fixture) and zero key-position occurrences in the producer repo
+      // (control: `displayField`, 23 files). They are kept anyway, because
+      // neither measurement covers the two producers that can still emit them:
+      // a document stored before the key was tightened (the serve path runs no
+      // parse — objectui#7650), and a HOST `DataSource` whose `getObjectSchema`
+      // is not `ObjectStackAdapter`'s and therefore never passes through
+      // `normalizeSchemaReferenceKeys`. Dropping a leg here would be a silent
+      // regression for existing authored data; that is a retirement decision
+      // with its own evidence, not a side effect of adding the declared leg.
+      //
+      // ⚠️ `reference_field` in particular is graded `no-producer` by this
+      // repo's own register (`plugin-grid/src/relationalMetaKeys.ts`), and the
+      // verdict was re-derived for this change and HOLDS. It keeps its place
+      // relative to `display_field` on purpose — reordering two legs nothing
+      // produces would be an unmeasured behaviour change on top of a measured
+      // one. What this change does fix is that it is no longer read FIRST.
       const displayField: string =
-        fieldDef.reference_field || fieldDef.display_field || 'name';
+        fieldDef.displayField
+        || fieldDef.reference_field
+        || fieldDef.display_field
+        || 'name';
       const idToName: Record<string, string> = {};
       for (const rec of records) {
         const id = String(rec[idField] ?? rec.id ?? rec._id ?? '');

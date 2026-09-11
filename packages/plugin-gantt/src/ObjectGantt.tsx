@@ -1491,9 +1491,73 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // visual-regression evidence across all four surfaces in one stroke.
   const navConfig = schema.navigation ?? { mode: 'drawer' };
   const navIsOverlay = navConfig.mode === 'drawer' || navConfig.mode === 'modal' || navConfig.mode === 'split' || navConfig.mode === 'popover';
+
+  // objectui#7334 — the NON-OVERLAY half of an authored `navigation`, and the
+  // reason this component needed one at all.
+  //
+  // `useNavigationOverlay` routes a click three ways once the mode is known:
+  // it owns the four overlay modes itself; `new_window` calls `onNavigate` and
+  // otherwise falls through to a `window.open`; and `page` calls `onNavigate`
+  // and then **returns with no fallback**. This component supplied no
+  // `onNavigate`, and its own registration hands it no host `onRowClick`
+  // either (`ObjectGanttRenderer` forwards `schema` and `dataSource` only —
+  // objectui#7210 / objectui#7222). So `page` had BOTH carriers empty at once.
+  //
+  // That was invisible until the sibling half of objectui#7334 started
+  // forwarding the authored `navigation` down the gantt view-schema path: the
+  // mode was unreachable before, and reaching it turned an authored
+  // `{ mode: 'page' }` from "a drawer opens, which is the wrong thing" into "a
+  // click does nothing at all". A silent dead click is worse than a loud wrong
+  // one, so the sink lands on the same card rather than as a follow-up.
+  //
+  // ⛔ NOT a host prop forwarded to the chart. Nothing is taken from
+  // `ObjectGanttRenderer`, no `{...props}` is spread anywhere, and
+  // objectui#7210 half 2 stays untouched and unruled. The destination is the
+  // one this component ALREADY computes for the drawer's full-page link, so a
+  // `page` click and the drawer's "open full page" affordance cannot diverge.
+  //
+  // ⚠️ `recordDetailHref` is row-based, not id-based, because a mixed-object
+  // gantt (`ganttConfig.objectField`) routes a row to ITS OWN object rather
+  // than the view's — the id alone cannot answer which object a row belongs
+  // to. The hook hands back only the record id, so the row is looked up again
+  // here; when it cannot be found the view's own object is the honest
+  // fallback, which is exactly what a single-object gantt always resolves to.
+  //
+  // Same-tab navigation uses the history + `popstate` pair rather than
+  // `location.assign`, matching `DashboardRenderer` and `PageHeader`: every
+  // href `deriveRecordPageHref` builds is app-relative, so a full document
+  // load would throw away the SPA it is navigating inside.
+  const navigateToRecord = useCallback(
+    (recordId: string | number, action?: string) => {
+      if (typeof window === 'undefined') return;
+      const key = String(recordId);
+      const row = tasks.find((t) => {
+        const rec = t.data as Record<string, any> | undefined;
+        return !!rec && String(rec.id ?? rec._id) === key;
+      })?.data as Record<string, any> | undefined;
+      const href = row
+        ? recordDetailHref(row)?.href ?? null
+        : resource
+          ? deriveRecordPageHref(resource, recordId)
+          : null;
+      // No derivable destination ⇒ do nothing, exactly as before. An invented
+      // URL would be the fabrication objectui#7070 spent this file's other
+      // branches removing.
+      if (!href) return;
+      if (action === 'new_window') {
+        window.open(href, '_blank');
+        return;
+      }
+      window.history.pushState({}, '', href);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    },
+    [tasks, recordDetailHref, resource],
+  );
+
   const navigation = useNavigationOverlay({
     navigation: navConfig,
     objectName: schema.objectName,
+    onNavigate: navigateToRecord,
     onRowClick: navIsOverlay ? undefined : onRowClick,
   });
 

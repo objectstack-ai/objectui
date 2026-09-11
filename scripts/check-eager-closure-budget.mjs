@@ -2228,6 +2228,84 @@ export function readReport(reportPath) {
   }
 }
 
+/**
+ * Every status the four halves are declared to produce, and the only ones
+ * {@link foldHalfStatuses} knows how to weigh.
+ *
+ * DERIVED, not invented: it is the union of the four `@returns` unions above —
+ * {@link evaluateClosureBudget} and {@link evaluatePerChunkBudgets}
+ * (`pass | fail | error`), {@link evaluateHeadroomSensitivity}
+ * (`pass | error`), and {@link evaluateCeilingFreshness}
+ * (`pass | error | not-applicable`). `scripts/__tests__/` re-derives that union
+ * from this file's own text and reds when the two disagree, so a half that
+ * gains a FIFTH status cannot gain it without also being given a code here.
+ * That test is the reason this list may be written down at all (AGENTS.md #9):
+ * an instrument re-derives it.
+ */
+export const RECOGNISED_HALF_STATUSES = Object.freeze([
+  'pass',
+  'fail',
+  'error',
+  'not-applicable',
+]);
+
+/**
+ * Folds the halves' verdicts into one exit code, and names every half whose
+ * status this file does not recognise.
+ *
+ * objectui#9006 — the fold this replaces enumerated only the statuses that
+ * FAIL (`includes('error')`, then `includes('fail')`) and returned `0` for
+ * everything else. `pass` and `not-applicable` were meant to land there; a
+ * status NOBODY enumerated landed there too, while the printer above — which
+ * asks a different question, `status === 'pass'` — rendered that same value as
+ * ❌. A run could print a red cross and exit 0.
+ *
+ * ⛔ The repair is a DISTINCTION, not a tightening. Nothing that exists today
+ * moves: `pass` → 0, `fail` → 1, `error` → 2, and `not-applicable` stays
+ * exactly as INERT as the paragraph below says it must be — it is the absence
+ * of a question, not the answer `pass`, and it still contributes nothing.
+ * Only the unrecognised class changes, from silence to 2.
+ *
+ * WHY 2, AND WHY NOT A `throw`. Both were on the table (objectui#9006 lists
+ * four candidate shapes); the measurement that decides between them is what
+ * Node does with an uncaught exception:
+ *
+ *   - An uncaught `throw` exits Node with **1** — this file's "over budget"
+ *     code. A gauge that produced nothing would then be reported as a size
+ *     regression, which is the exact collapse the paragraph below refuses. A
+ *     `throw` is not louder; in the only unit a workflow reads, it is
+ *     MIS-LABELLED. It would also break `main`'s contract of RETURNING a code,
+ *     which both this file's entrypoint (`process.exit(main())`) and every
+ *     caller in the test file depend on.
+ *   - `2` is this file's own "no trustworthy verdict" code, and an
+ *     unrecognised status is precisely a check that measured nothing. The rule
+ *     stated below — a check that passes by measuring nothing must be LOUDER
+ *     than one that fails by measuring something, never quieter — is satisfied
+ *     by the ordering that already exists, rather than by inventing a rank
+ *     outside it.
+ *
+ * @param {Record<string, string>} halves  half name -> the status it declared
+ * @returns {{ code: number, unrecognised: { half: string, status: string }[] }}
+ *          `code` is 0, 1 or 2; `unrecognised` is empty on every run whose
+ *          halves all declared a recognised status.
+ */
+export function foldHalfStatuses(halves) {
+  const entries = Object.entries(halves);
+  const unrecognised = entries
+    .filter(([, status]) => !RECOGNISED_HALF_STATUSES.includes(status))
+    .map(([half, status]) => ({ half, status }));
+
+  // Ahead of the `error` test on purpose. Both return 2, so the ORDER cannot
+  // change an exit code — what it changes is whether the caller is told. A
+  // sibling half erroring in the same run must not be allowed to absorb the
+  // one signal that a status nobody enumerated exists at all.
+  if (unrecognised.length > 0) return { code: 2, unrecognised };
+
+  const statuses = entries.map(([, status]) => status);
+  if (statuses.includes('error')) return { code: 2, unrecognised };
+  return { code: statuses.includes('fail') ? 1 : 0, unrecognised };
+}
+
 /** Appends `name=value` lines to $GITHUB_OUTPUT when running in Actions. */
 function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
   if (!outputPath) return;
@@ -2339,9 +2417,30 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   // added the third and objectui#6245 the fourth, each under the same rule
   // rather than taking a code of its own. `not-applicable` is inert in the
   // fold: it is the absence of a question, not the answer `pass`.
-  const statuses = [result.status, perChunk.status, sensitivity.status, freshness.status];
-  if (statuses.includes('error')) return 2;
-  return statuses.includes('fail') ? 1 : 0;
+  //
+  // objectui#9006 — the fold itself lives in {@link foldHalfStatuses}, which
+  // recognises those four statuses BY NAME and refuses to weigh any other. The
+  // halves are passed as a NAMED map rather than an array so the refusal can
+  // say which half produced the status nobody enumerated.
+  const { code, unrecognised } = foldHalfStatuses({
+    closure: result.status,
+    'per-chunk': perChunk.status,
+    sensitivity: sensitivity.status,
+    freshness: freshness.status,
+  });
+  for (const { half, status } of unrecognised) {
+    // A ❌, matching what the printer above already rendered for this value:
+    // the two predicates now agree, which is the whole of objectui#9006.
+    console.error(
+      `❌ The \`${half}\` half declared an UNRECOGNISED status ${JSON.stringify(status)}, ` +
+        `so this run has no verdict to give and exits 2 rather than 0.\n` +
+        `Recognised statuses are ` +
+        `${RECOGNISED_HALF_STATUSES.map((s) => `\`${s}\``).join(', ')}. A half that gained a ` +
+        `fifth one must be given a code in RECOGNISED_HALF_STATUSES and in foldHalfStatuses — ` +
+        `until it is, this gate refuses to read its silence as a pass.`,
+    );
+  }
+  return code;
 }
 
 if (isEntrypoint(import.meta.url)) {

@@ -64,8 +64,10 @@ const fields = {
 };
 
 const rows = [
-  { id: 'c1', subject: 'Fix the pump', status: 'open', salary: '90000' },
-  { id: 'c2', subject: 'Replace filter', status: 'closed', salary: '120000' },
+  // `computed_total` is deliberately ABSENT from `fields` above: a key the child
+  // object never declares, which is the shape the residual leg below is about.
+  { id: 'c1', subject: 'Fix the pump', status: 'open', salary: '90000', computed_total: 'SECRET-42' },
+  { id: 'c2', subject: 'Replace filter', status: 'closed', salary: '120000', computed_total: 'SECRET-43' },
 ];
 
 const makeDS = () => ({
@@ -230,6 +232,50 @@ describe('objectui#8793 — an unresolvable column identity is EXCLUDED, not kep
     // …and the redacted field does not come back with it (objectui#9090).
     expect(cells).not.toContain('90000');
     expect(cells).not.toContain('120000');
+  });
+
+  it('THE RESIDUAL LEG — FLS on a key the child object never declares, which nothing downstream refuses', async () => {
+    // The one leg where this repair still moves a rendered cell, and therefore
+    // the case this file needs in order to stay able to fail.
+    //
+    // objectui#9090 gave the REDACT leg a second gate downstream
+    // (`RelatedList.filterRedacted`, resolving `accessorKey || columnIdentity`),
+    // and `filterFLS` beside it has always been the second gate for a DECLARED
+    // field that field security denies — the CENSUS case below pins exactly
+    // that. Both of those resolve the entry the block could not, so neither can
+    // see this arm any more.
+    //
+    // What neither of them refuses is a key the permission evaluator has no
+    // opinion about: `computed_total` is not in the child object's `fields`, so
+    // `perms.checkField` default-ALLOWS it and the derived/authored column
+    // sails through downstream. The block's fold is the only thing standing
+    // between it and the screen, and the fold cannot name it — which is exactly
+    // when it must not pass.
+    renderBlock(
+      {
+        columns: [
+          { field: 'subject', label: 'Subject' },
+          { accessorKey: 'computed_total', header: 'Total' },
+        ],
+        enforceFieldSecurity: true,
+      },
+      (node) => (
+        <PermissionProvider roles={roles} permissions={permsDenying()} userRoles={['restricted']}>
+          {node}
+        </PermissionProvider>
+      ),
+    );
+
+    const cells = await paintedCells();
+
+    // THE LIVE CONTROL, in the same render: the resolvable, allowed column
+    // still paints, so "the value is gone" cannot be satisfied by a fold that
+    // dropped everything.
+    expect(cells).toEqual(expect.arrayContaining(['Fix the pump', 'Replace filter']));
+
+    // The unresolvable entry does not reach the screen.
+    expect(cells).not.toContain('SECRET-42');
+    expect(cells).not.toContain('SECRET-43');
   });
 
   it('CENSUS — `RelatedList` runs its OWN field-security filter, and that one reads `accessorKey`', async () => {

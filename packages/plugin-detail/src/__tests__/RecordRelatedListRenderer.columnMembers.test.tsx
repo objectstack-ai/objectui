@@ -180,6 +180,15 @@ describe('record:related_list — the `columns` MEMBER shape the renderer reads 
     // bypass, not a tolerance. `accessorKey` is the concrete instance: the table
     // LIBRARY's own key, excluded from `columnIdentity` on purpose
     // (objectui#3104). Until objectui#8793 this row pinned the opposite.
+    //
+    // ⚠️ Two of that bypass's three legs are now caught downstream as well and
+    // this row is the only place that still sees THIS one: `filterFLS` refuses a
+    // declared field field-security denies, and since objectui#9090
+    // `filterRedacted` refuses a redacted one — both resolving the same
+    // `accessorKey || columnIdentity` pair. What the fold alone still decides is
+    // a key the permission evaluator has no opinion about, pinned over rendered
+    // cells as THE RESIDUAL LEG in
+    // `RecordRelatedListRenderer.unresolvedIdentityFailClosed-8793.test.tsx`.
     expect(columnIdentity({ accessorKey: 'status' })).toBeUndefined();
     expect(await columnsAfterFold([{ accessorKey: 'status' }], ['status'])).toEqual([]);
 

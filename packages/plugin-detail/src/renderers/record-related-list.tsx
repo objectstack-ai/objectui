@@ -199,6 +199,13 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
       // painted its real values through the table's own key. An entry the
       // security fold cannot check is an entry it must not pass.
       //
+      // Since objectui#9090 that example has a second gate below it: the block
+      // now hands `redactFields` DOWN and `RelatedList` filters by the same
+      // `accessorKey || columnIdentity` pair, as `filterFLS` beside it always
+      // did for a declared field FLS denies. What this arm alone still decides
+      // is a key the permission evaluator has no opinion about — one the child
+      // object never declares, which `checkField` default-ALLOWS downstream.
+      //
       // Scoped to the filtering path only: with neither key set this whole
       // branch is skipped and `columns` is handed down by reference, so an
       // ordinary related list renders exactly what it always did.

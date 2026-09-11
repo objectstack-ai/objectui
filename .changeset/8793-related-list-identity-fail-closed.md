@@ -18,9 +18,19 @@ An entry the security fold cannot check is now excluded rather than kept.
 
 **Behaviour change, deliberately narrowing.** On a related list that switches
 the filter on, a column whose identity resolves to none of `field` / `name` /
-`fieldName` / `key` stops rendering — including one authored purely in the
-`accessorKey` spelling, and including the case where the redacted or denied
+`fieldName` / `key` is no longer handed down — including one authored purely in
+the `accessorKey` spelling, and including the case where the redacted or denied
 field is some other column entirely. Lists that set neither key are untouched:
 the fold does not run there and `columns` is still handed down by reference.
 The protocol-declared spelling for this key is a field-name string
 (`RecordRelatedListProps.columns`), which resolves and is unaffected.
+
+**What that moves on screen, measured by ablation on the current base.** Two of
+the three legs now have a second gate below this one: `RelatedList.filterFLS`
+refuses a declared field that field security denies, and since objectui#9090
+`RelatedList.filterRedacted` refuses a redacted one — both resolving the same
+`accessorKey || columnIdentity` pair this fold refuses, so both already stopped
+such a column from painting. The leg this repair still moves on its own is a key
+the permission evaluator has no opinion about, one the child object never
+declares: `checkField` default-allows it downstream, and the fold is the only
+thing that can refuse it.

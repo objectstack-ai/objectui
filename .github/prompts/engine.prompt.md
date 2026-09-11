@@ -144,7 +144,8 @@ Scenario: User sees the record but lacks permission to view 'Salary' field.
 
 ### E. Theme Injection
 Scenario: App branding (`branding.primaryColor`) must apply to all Buttons.
-*   **Solution:** Convert `App.branding` values into CSS Variables (`--os-primary: #ff0000`) injected at the root `<LayoutProvider>`. All atoms (`atom:button`) consume these variables.
+*   **Solution:** Convert `App.branding` values into CSS Variables (`--os-primary: #ff0000`) injected at the root `<LayoutProvider>`. All atom-level primitives (the `Button` component imported from `@object-ui/components`) consume these variables.
+    *   ⛔ `atom:` is a grouping label, NOT a registry namespace: nothing registers an `atom:` key, so it is never a `type` an author writes. See §F of `component.prompt.md` (objectui#9098).
 
 ---
 

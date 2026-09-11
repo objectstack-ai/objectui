@@ -33,6 +33,22 @@
 
 You will be asked to build components in these 3 standard slots. Refer to `packages/spec` for the complete Zod definitions.
 
+> ⚠️ **Read the LABEL before you copy a token out of this file — the labels below are three different
+> vocabularies, and only two of them are things you may write as a `type`.** objectui#9098 landed the
+> ruling per section, and `pnpm check:prompt-keys` enforces it:
+>
+> - **`Keys:` and `Standard Components Library:` and `Required Components:`** — REGISTRY KEYS a real
+>   renderer answers. Safe to write as a `type`. Gated: the check reds if one of them stops rendering.
+> - **`Protocol Placeholders:`** — keys registered ONLY by the opt-in placeholder module. They
+>   validate and then paint a blank/OBJUI-001 panel. Gated the other way round: the check reds if one
+>   of them gains a real renderer, or loses its registration.
+> - **`Required Types (Ref: ...):`** — spec `type` VALUES inside a config object, ⛔ not registry
+>   keys, and ⛔ deliberately outside the check. See the note in §B for why the two vocabularies
+>   diverged.
+>
+> Anything in prose, in a blockquote, or in trailing text on a bullet is NOT a vocabulary — including
+> every ⛔ tombstone in this file, which names a key precisely so you do not write it.
+
 ### A. Field Widgets (`field:*`)
 Responsible for **Input** (Edit Mode) and **Display** (Read Mode) of a specific data type.
 *   **Contract:** Two layers with the same shape and DIFFERENT names — do not mix them up.
@@ -51,7 +67,8 @@ Responsible for **Input** (Edit Mode) and **Display** (Read Mode) of a specific 
     }
     ```
     The type is **closed**: a key it does not declare is a compile error, not a silent `any`.
-*   **Required Types (Ref: `src/data/field.zod.ts`):**
+*   **Required Types (Ref: `src/data/field.zod.ts`):** — spec `type` VALUES, ⛔ not registry keys;
+    outside `pnpm check:prompt-keys` by design (see §B).
     *   **Textual:** `text` (Input), `textarea` (Multi-line), `password`, `email`, `url`, `phone`.
     *   **Rich Content:** `markdown` (Editor), `html` (WYSIWYG), `code` (Monaco/Ace).
     *   **Numeric:** `number` (Int/Float), `currency` (Money), `percent` (Progress), `slider` (Range).
@@ -120,14 +137,26 @@ Reusable UI blocks for the Drag-and-Drop Page Builder.
       };
     }
     ```
-*   **Standard Components Library:**
+*   **Standard Components Library:** — a REGISTRY VOCABULARY. Every key here is answered by a real
+    renderer, and `pnpm check:prompt-keys` holds it to that.
     *   **Structure:** `page:header`, `page:footer`, `page:sidebar`, `page:tabs`, `page:accordion`, `page:card`.
-    *   **Record Context:** 
+    *   **Record Context:**
         *   `record:details` (The form), `record:highlights` (Key fields header).
         *   `record:related_list` (Sub-grid), `record:activity` (Timeline).
         *   `record:chatter` (Feed), `record:path` (Status Steps).
-    *   **Navigation:** `app:launcher`, `nav:menu`, `nav:breadcrumb`.
-    *   **Utility:** `global:search`, `global:notifications`, `user:profile`.
+    *   **Navigation:** `app:launcher`, `nav:menu`.
+    *   **Utility:** `global:search`, `global:notifications`.
+*   **Protocol Placeholders:** — registered, but ONLY by the opt-in placeholder module. These are
+    protocol surface, ⛔ not a library to reach for: a page schema naming one passes `objectui check`
+    and then paints the dashed placeholder panel in `apps/console`, or the OBJUI-001 "Unknown
+    component type" panel in every other host. The same gate holds this list to being placeholders.
+    *   `nav:breadcrumb` (no renderer ships yet).
+
+> ⛔ **Retired — do not write it, and never suggest it.** `user:profile` was dropped from
+> `PageComponentType` in `@objectstack/spec` 17.3.0 and removed across all three sites by
+> objectui#7122 (the placeholder module, the Studio palette ledger, and the CLI's known-type list).
+> It is no longer a page block any author can legitimately write, under any reading of this file.
+> The shell's own profile affordance is a React slot, not a page block type.
 
 ### E. Dashboard Widgets (`widget:*`)
 Standalone cards placed on a dashboard grid.
@@ -140,22 +169,32 @@ Standalone cards placed on a dashboard grid.
       height: number;
     }
     ```
-*   **Required Types (Ref: `src/ui/dashboard.zod.ts`):**
+*   **Required Types (Ref: `src/ui/dashboard.zod.ts`):** — spec `type` VALUES, ⛔ not registry keys;
+    outside `pnpm check:prompt-keys` by design (see §B).
     *   **KPI:** `metric` (Big Number with Trend).
     *   **Charts:** `bar`, `line`, `pie`, `funnel`, `radar`, `scatter`, `heatmap`.
     *   **Analysis:** `pivot` (Cross-Tab Table).
     *   **Content:** `table` (List), `text` (Note), `image`, `frame` (Embed).
 
-### F. Primitive Atoms (`atom:*`)
+### F. Primitive Atoms — IMPORTED, never authored
 The fundamental building blocks used by all other widgets.
 *   **Contract:** Pure UI components (No metadata dependencies).
-*   **Required Library:**
-    *   `atom:icon` (Lucide Wrapper).
-    *   `atom:button` (Standard Actions).
-    *   `atom:spinner` (Loading State).
-    *   `atom:empty` (No Data Placeholder).
-    *   `atom:error` (Error Boundary/Message).
-    *   `atom:badge` (Status Indicators).
+
+> ⛔ **`atom:` is a grouping label in this document, NOT a registry namespace — and this section is
+> NOT a vocabulary.** Measured against the shared registry derivation (`deriveRegistryKeys`):
+> **nothing in this repository registers any `atom:` key**, so `{ "type": "atom:button" }` in
+> metadata draws the OBJUI-001 "Unknown component type" panel, in every host. ⇒ this is not a
+> roadmap either — the primitives below already exist; what does not exist, and is not planned, is
+> a `type` string for them. They are React components you **import** from `@object-ui/components`.
+> Because the section teaches no keys, it is deliberately OUTSIDE `pnpm check:prompt-keys`.
+
+*   **Primitives (import from `@object-ui/components`; ⛔ never a `type` value):**
+    *   Icon (Lucide wrapper).
+    *   Button (Standard Actions).
+    *   Spinner (Loading State).
+    *   Empty (No Data Placeholder).
+    *   Error state (Error Boundary/Message).
+    *   Badge (Status Indicators).
 
 ### G. Smart Actions (`action:*`)
 Executable elements bound to the Action Protocol. They handle permissions, loading states, and confirmation dialogs automatically.
@@ -167,19 +206,32 @@ Executable elements bound to the Action Protocol. They handle permissions, loadi
       onExecute: () => Promise<void>;
     }
     ```
-*   **Required Components:**
+*   **Required Components:** — a REGISTRY VOCABULARY, and the one that was already correct. All four
+    are registered by a real renderer under `packages/components/src/renderers/action/`, and
+    `pnpm check:prompt-keys` now holds them there.
     *   `action:button`: Standalone smart button.
     *   `action:group`: Toolbar or Button Group.
     *   `action:menu`: Dropdown menu for overflow actions.
     *   `action:icon`: Icon-only trigger (for dense lists).
 
 ### H. AI Interface (`ai:*`)
-Conversational and Generative UI components.
-*   **Required Components:**
-    *   `ai:chat_window`: Standard conversational interface.
+Conversational and Generative UI components. ⚠️ This section is PROTOCOL PLACEHOLDER surface, ⛔ not
+an available component library — read the label before you write any of it.
+*   **Protocol Placeholders:** — registered, but ONLY by the opt-in placeholder module, so each one
+    validates and then paints the dashed placeholder panel in `apps/console` or the OBJUI-001
+    "Unknown component type" panel everywhere else. Name one only when a host you control calls
+    `registerPlaceholders()` and a blank panel is the outcome you want. `pnpm check:prompt-keys`
+    holds this list to being placeholders — it reds if one of them gains a real renderer (the claim
+    below would then understate the platform) and it reds if one of them loses its registration.
     *   `ai:input`: Prompt input with auto-complete/context.
     *   `ai:suggestion`: "Next Best Action" cards.
     *   `ai:feedback`: Thumbs up/down + reasoning capture.
+
+> ⛔ **`ai:chat_window` is DELIBERATELY unregistered — do not "fix" it by registering it.** The
+> placeholder module records the omission in its own comment: the floating chat overlay
+> (`plugin-chatbot`) is the canonical entry point, and inline page-level chat windows are not part of
+> the supported surface. A page schema naming it draws the loud OBJUI-001 panel **by design**, so the
+> misconfiguration gets fixed at the source instead of hiding behind a grey box.
 
 ---
 

@@ -437,6 +437,19 @@ describe('a gated label opens a block, and only the block is judged', () => {
     expect(findings).toEqual([]);
   });
 
+  it('never judges a backticked span with a space in it — that is a command, not a key', () => {
+    // The label lines in the live file end in prose that backticks
+    // `pnpm check:prompt-keys`. No key the derivation produces has whitespace in
+    // it (650 of 650 measured), so this skips nothing a bad key could hide in.
+    const { findings, counters } = run([
+      '*   **Required Components:** — held to this by `pnpm check:prompt-keys`, see `objectui check`.',
+      '    *   `view:grid`: the only key taught here.',
+    ]);
+
+    expect(counters.blockKeys).toBe(1);
+    expect(findings).toEqual([]);
+  });
+
   it('never judges trailing text on a sub-bullet unless it is backticked', () => {
     const { findings, counters } = run([
       '*   **Required Components:**',

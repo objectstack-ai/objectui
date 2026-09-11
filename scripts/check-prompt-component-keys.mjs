@@ -82,11 +82,11 @@
  *   BLOCK: the contiguous run of lines indented strictly MORE than the label's
  *   own bullet, ending at the first non-blank line indented at or below it (or
  *   at end of file). Inside that block only LIST-ITEM lines are read, and from
- *   each, every single-backticked token is taken as a key. Fenced code is
- *   skipped everywhere.
+ *   each, every single-backticked token WITHOUT whitespace in it is taken as a
+ *   key. Fenced code is skipped everywhere.
  *
- * Everything else is prose and is never judged. That is three escape hatches,
- * and the prompt surface uses all three today:
+ * Everything else is prose and is never judged. That is four escape hatches, and
+ * the prompt surface uses all four today:
  *
  *   OUTSIDE THE BLOCK    a blockquote or paragraph at the section's own level
  *                        is not in the label's sub-tree. This is where the
@@ -98,6 +98,10 @@
  *                        "do not write this" example has to stay unjudged.
  *   NOT A LIST ITEM      a continuation paragraph indented under the label is
  *                        skipped even though it IS in the block.
+ *   BACKTICKED PROSE     a backticked span with a space in it is a command or a
+ *                        phrase, never a key: `pnpm check:prompt-keys`,
+ *                        `objectui check`. Not one of the 650 derived keys has
+ *                        whitespace in it, so nothing real is skipped here.
  *   NOT BACKTICKED       trailing prose on a sub-bullet — `(Lucide Wrapper)`,
  *                        `: Standalone smart button.`, `(Sub-grid)` — carries no
  *                        backticks and so contributes nothing. An author who
@@ -252,12 +256,22 @@ export function promptFiles(root) {
     .map((name) => join(dir, name));
 }
 
-/** Every single-backticked token in `text`, pushed as taught keys. */
+/**
+ * Every single-backticked token in `text` that could be a registry key.
+ *
+ * A backticked span containing WHITESPACE is not one: the derivation produces
+ * 650 keys on this tree and not one of them has a space in it, while the prose
+ * around a vocabulary list is full of backticked commands and phrases —
+ * `pnpm check:prompt-keys`, `objectui check`. Skipping them is not a hole a bad
+ * key can hide in: a token with a space resolves to nothing under ANY spelling,
+ * so there is no registration for it to be judged against either way.
+ */
 function harvest(sites, text, { file, line, label, expect, scope }) {
   BACKTICKED.lastIndex = 0;
   let token;
   let found = 0;
   while ((token = BACKTICKED.exec(text))) {
+    if (/\s/.test(token[1])) continue;
     found++;
     sites.push({ file, key: token[1], text: line.trim(), label, expect, scope });
   }

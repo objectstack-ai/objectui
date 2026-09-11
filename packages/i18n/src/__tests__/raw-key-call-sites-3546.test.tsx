@@ -34,16 +34,6 @@ import { I18nProvider, useObjectTranslation } from '../provider';
 import { createSafeTranslation } from '../useSafeTranslation';
 import { builtInLocales } from '../locales/index';
 
-// ⭐ objectui#7479 — the nine non-`en` catalogues are `import()`ed on demand, so
-// nothing below would be resident when `createI18n` reads the registry and the
-// synchronous assertions in this file would see the `en` fallback. This makes
-// all ten resident at MODULE SCOPE: the cost sits in the import phase, next to
-// the barrel import that already paid for these modules, rather than in a
-// `beforeAll` bounded by `hookTimeout` (AGENTS.md, "测试纪律").
-import { registerBuiltInLocales } from '../locales';
-
-registerBuiltInLocales();
-
 /** The five keys this slice backfilled, with their call sites. */
 const KEYS = [
   'console.objectView.cannotEditMetaView',

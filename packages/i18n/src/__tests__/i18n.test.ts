@@ -20,6 +20,12 @@ import {
 // would see the `en` fallback. Called at MODULE SCOPE so the cost sits in the
 // import phase, next to the import that already paid for these modules, rather
 // than in a `beforeAll` bounded by `hookTimeout` (AGENTS.md, "测试纪律").
+//
+// ⚠️ This is the ONE file that says it for itself. Every other suite in this
+// repository that needs the catalogues resident renders, so it runs in a DOM
+// project and `vitest.setup.i18n-catalogues.ts` has already done it. This file
+// runs in `unit`, whose setup chain is deliberately kept cheap for pure-logic
+// node tests that pull no i18n at all — read that module's "Cost" section.
 import { builtInLocales, registerBuiltInLocales } from '../locales';
 
 registerBuiltInLocales();

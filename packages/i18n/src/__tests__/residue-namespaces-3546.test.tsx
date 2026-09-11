@@ -66,16 +66,6 @@ import React from 'react';
 import { I18nProvider, useObjectTranslation } from '../provider';
 import { builtInLocales } from '../locales/index';
 
-// ⭐ objectui#7479 — the nine non-`en` catalogues are `import()`ed on demand, so
-// nothing below would be resident when `createI18n` reads the registry and the
-// synchronous assertions in this file would see the `en` fallback. This makes
-// all ten resident at MODULE SCOPE: the cost sits in the import phase, next to
-// the barrel import that already paid for these modules, rather than in a
-// `beforeAll` bounded by `hookTimeout` (AGENTS.md, "测试纪律").
-import { registerBuiltInLocales } from '../locales';
-
-registerBuiltInLocales();
-
 /**
  * The repo root, derived from THIS FILE's own location — never from
  * `process.cwd()` (objectui#7799).

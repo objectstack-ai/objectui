@@ -138,11 +138,24 @@
     // `dependsOn: ["^build"]`, so the declarations exist by then) — the exact
     // opposite of `tsconfig.scripts.json`, whose pin test asserts its program
     // imports no workspace package. Ours pins the ordering instead.
+    //
+    // The fifth entry is a SUBPATH, and it is spelled differently because it has
+    // to be (objectui#7479). `vitest.setup.i18n-catalogues.ts` imports
+    // `@object-ui/i18n/locales` — the all-ten catalogue door, deliberately NOT
+    // reachable from that package's entry, since reaching it from there is the
+    // eager payload that card removed. A `paths` key matches the WHOLE
+    // specifier, so the package-directory form above cannot answer for a
+    // subpath; the wildcard mirrors the package's own `./locales/*` export
+    // instead of hardcoding one declaration file, so `@object-ui/i18n/locales`
+    // and `@object-ui/i18n/locales/en` both resolve the way a consumer's
+    // bundler resolves them. Same BUILT-package dependency as the four above,
+    // already satisfied by the ci.yml ordering their comment describes.
     "paths": {
       "@object-ui/components": ["./packages/components"],
       "@object-ui/fields": ["./packages/fields"],
       "@object-ui/plugin-dashboard": ["./packages/plugin-dashboard"],
-      "@object-ui/plugin-grid": ["./packages/plugin-grid"]
+      "@object-ui/plugin-grid": ["./packages/plugin-grid"],
+      "@object-ui/i18n/*": ["./packages/i18n/dist/*"]
     }
   },
 

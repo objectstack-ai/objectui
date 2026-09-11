@@ -181,6 +181,110 @@ const PUSHDOWN_FIELD_ROOTS = ['record', ''] as const;
 /** Roots resolved as scope VALUES for pushdown analysis. */
 const PUSHDOWN_VARIABLE_ROOTS = ['current_user', 'user'] as const;
 
+/* ── Lazy row-canon detector (objectui#8972) ─────────────────────────── */
+
+/** The shape of `@object-ui/core`'s offline row-spelling instrument. */
+interface RowCanonModule {
+  detectNonCanonicalRowSpelling?: (
+    source: string,
+    row: Record<string, unknown> | null | undefined,
+    dataNamesRow: boolean,
+  ) => { kind: string; identifier: string; canonical: string } | null;
+}
+
+let rowCanonCached: Promise<RowCanonModule | null> | null = null;
+
+/**
+ * Load `@object-ui/core`'s row-spelling detector the same way the engine is
+ * loaded: lazily, feature-detected, swallowing every failure. The detector
+ * imports `@objectstack/formula` at module scope, so a STATIC import here
+ * would drag the CEL parser into whatever chunk holds this module and undo the
+ * bundle split the header describes.
+ */
+function loadRowCanon(): Promise<RowCanonModule | null> {
+  if (!rowCanonCached) {
+    rowCanonCached = import('@object-ui/core')
+      .then((m) => m as unknown as RowCanonModule)
+      .catch(() => null);
+  }
+  return rowCanonCached;
+}
+
+/**
+ * The wrong-layer `data.*` advisory — why it is wired HERE, and why it is only
+ * an advisory (objectui#8972).
+ *
+ * ## What it closes
+ *
+ * `@objectstack/formula`'s `SCOPE_ROOTS` carries `data`, so at `scope: 'record'`
+ * the engine lint ACCEPTS `data.status == 'x'` with zero findings (measured on
+ * `@objectstack/formula@17.4.0`). objectui#5741 retired that spelling on runtime
+ * record surfaces and objectui#8166 stopped this tier binding an ambient `data`,
+ * so the predicate now faults at runtime with `Unknown variable: data` — but the
+ * author still gets a GREEN lint while typing it. That gap is the whole card:
+ * the diagnostic arrives at misbehaviour time instead of at typing time.
+ *
+ * ## Why this is not a re-run of the warning objectui#5741 deleted
+ *
+ * That ruling removed the Phase-1 warning from the runtime hot path and kept
+ * the export, in its own words, "as the offline instrument". `listConditional.ts`
+ * records the same split: the detector "stays exported for OFFLINE sweeps of
+ * authored metadata, not for this hot path". This call site is neither the hot
+ * path nor a render — it is the editor bridge, classifying authored text as the
+ * author types it, which is the sweep case one document at a time. Nothing is
+ * added back to `evalRowPredicate` / `listConditional.ts`.
+ *
+ * ## Why WARNING and never ERROR
+ *
+ * An `error` here would narrow the accepted set: every save gate on this tier
+ * counts `severity === 'error'` (`ConditionalFormattingEditor`,
+ * `ObjectFieldInspector`, `ConditionBuilder`, `PermissionAdvancedFacets`,
+ * `clientValidation.validateObjectFieldRules`), so promoting this would refuse
+ * predicates already stored in customer metadata. A `warning` leaves
+ * `aria-invalid` unset and every gate open. Narrowing the ACCEPT SET is the
+ * producer-side half and lives in `@objectstack/formula` (objectui#8166's
+ * ruling); adding an advisory the engine never had is not that change.
+ *
+ * ## Why only ONE of the detector's two arms is consulted
+ *
+ * The detector also reports the bare shorthand, and that arm is deliberately
+ * disabled here by passing `row = null` (the arm requires an own key of the
+ * row). Measured, both directions:
+ *
+ *  - at `scope: 'record'` the engine ALREADY errors on a bare identifier and
+ *    names the `record.<field>` fix, so the arm can only duplicate it;
+ *  - at `scope: 'flattened'` — RLS `USING` / `CHECK` — a bare identifier is the
+ *    CORRECT spelling (`organization_id == current_user.organization_id` is the
+ *    editor's own placeholder). All three genuine RLS predicates in this repo
+ *    fire that arm, i.e. it is a 100% false positive rate on that tier.
+ *
+ * `dataNamesRow` is passed `true` because what that guard actually decides — in
+ * its own words, "a surface whose `data` is the host scope's own … is a
+ * legitimate `data.*` site and is left alone" — is whether `data` is legitimate
+ * here. On a record-scope authoring site it is not: `ROW_PREDICATE_ROOTS`,
+ * `FIELD_RULE_ROOTS` and `FORMULA_ROOTS` all exclude it and `buildExpressionScope`
+ * binds nothing under it. The metadata-editing layer where `data` IS canonical
+ * (ADR-0089 D3) is `views/metadata-admin/SchemaForm.tsx`, which evaluates through
+ * `views/metadata-admin/predicate.ts` and never reaches this function — which is
+ * why the gate below is `scope === 'record'` and not a source pattern.
+ */
+function rowCanonAdvisory(finding: {
+  kind: string;
+  identifier: string;
+  canonical: string;
+}): CelLintIssue | null {
+  if (finding.kind !== 'metadata-layer-root') return null;
+  return {
+    severity: 'warning',
+    message:
+      `\`${finding.identifier}\` is not the row on this surface: a row predicate binds the ` +
+      `record as \`${finding.canonical}\` and nothing else (objectui#5741). The CEL scope ` +
+      `vocabulary still accepts \`${finding.identifier}\`, so nothing here blocks the save, but ` +
+      `at runtime the expression faults with \`Unknown variable: ${finding.identifier}\` and the ` +
+      `rule never fires. Re-root the reference on \`${finding.canonical}\`.`,
+  };
+}
+
 /* ── 1. Lint ─────────────────────────────────────────────────────────── */
 
 /**
@@ -197,6 +301,10 @@ const PUSHDOWN_VARIABLE_ROOTS = ['current_user', 'user'] as const;
  * With `hint.role: 'value'` the same checks run for a formula-style value
  * expression (usually paired with `scope: 'record'`, where a bare field ref IS
  * a hard error — it silently evaluates to null at runtime).
+ *
+ * At `scope: 'record'` one finding comes from outside the engine: the
+ * wrong-layer `data.*` advisory described on {@link rowCanonAdvisory}. It is
+ * always a `warning`, so it never narrows what this surface accepts.
  *
  * Empty input is always clean.
  */
@@ -240,6 +348,18 @@ export async function lintCelPredicate(
               `pushdown-able predicate (field vs. value or scope variable).`,
           });
         }
+      } catch {
+        /* advisory only — never let it break the lint */
+      }
+    }
+    // Wrong-layer `data.*` advisory (objectui#8972) — see `rowCanonAdvisory`.
+    // Only in `record` scope, only once the predicate parses, only a WARNING.
+    if (issues.every((i) => i.severity !== 'error') && hint.scope === 'record') {
+      try {
+        const canon = await loadRowCanon();
+        const finding = canon?.detectNonCanonicalRowSpelling?.(source, null, true);
+        const advisory = finding ? rowCanonAdvisory(finding) : null;
+        if (advisory) issues.push(advisory);
       } catch {
         /* advisory only — never let it break the lint */
       }

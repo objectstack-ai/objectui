@@ -177,23 +177,33 @@ describe('ConditionalFormattingEditor · CEL authoring scope (#2571 follow-up)',
     expect(await screen.findByText('perm.cel.valid', {}, { timeout: 3000 })).toBeTruthy();
   });
 
-  it('KNOWN GAP — a `data.*` condition still lints CLEAN although the row is not bound under it', async () => {
-    // NOT desired behaviour, and it is the half of the retirement this card
-    // does NOT close. Dropping `'data'` from ROW_PREDICATE_ROOTS stops
-    // RECOMMENDING it; it does not stop the lint ACCEPTING it, because
-    // `@objectstack/formula`'s `SCOPE_ROOTS` lists `data` and so the
-    // record-scope bare-reference check waves it through. `rowPredicateCanon.ts`
-    // already records exactly this for the server oracle: `data.status` is
-    // "⚠️ silently accepted" while the runtime faults on it.
+  it('a `data.*` condition is ACCEPTED but no longer SILENT — the author gets a warning (objectui#8972)', async () => {
+    // This pin used to assert an unbroken silence, and said it would redden
+    // "when the acceptance is fixed". Read that literally: the acceptance is
+    // NOT fixed here. `@objectstack/formula`'s `SCOPE_ROOTS` still lists
+    // `data`, so the engine still waves this through with zero findings, and
+    // narrowing that set remains the producer-side half (objectui#8166's
+    // ruling). What objectui#8972 changed is the other half of the defect —
+    // the ABSENCE of any diagnostic — by wiring `@object-ui/core`'s
+    // `detectNonCanonicalRowSpelling` into `celAuthoring` as a WARNING.
     //
-    // The runtime half is pinned in the contract suite below, where the same
-    // predicate against the same host bag evaluates to FALSE. Green here plus
-    // false there IS the defect. This test REDDENS when the acceptance is
-    // fixed, at which point objectui#8166 can be closed.
+    // So the two halves are now asserted separately, and the split is the
+    // point: the accept set is untouched (no error, `aria-invalid` unset, the
+    // editor's own error count unchanged, save open), while the author is told
+    // at typing time instead of at misbehaviour time. The runtime half is
+    // pinned in the contract suite below, where the same predicate against the
+    // same host bag evaluates to FALSE.
     render(<Harness initial={[{ condition: "data.status == 'overdue'", style: {} }]} />);
-    expect(await screen.findByText('perm.cel.valid', {}, { timeout: 3000 })).toBeTruthy();
+    expect(
+      await screen.findByText(/Re-root the reference on/, {}, { timeout: 3000 }),
+    ).toBeTruthy();
+    // ACCEPT SET UNCHANGED — the falsifiable half. Promoting the advisory to
+    // an error reddens both of these.
     const ta = document.getElementById('cf-condition-0') as HTMLTextAreaElement;
     expect(ta.getAttribute('aria-invalid')).not.toBe('true');
+    // `border-destructive` is applied from the same `errors.length > 0` the
+    // Save gate counts, so its absence is the editor's own "no blocking issue".
+    expect(ta.className).not.toMatch(/border-destructive/);
   });
 
   it('ALIGNED (objectui#8155) — `app` is neither advertised nor bound, and the lint refuses it', async () => {

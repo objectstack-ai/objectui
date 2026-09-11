@@ -687,14 +687,6 @@ export const LEDGER = [
     why: "\"refuses `allDayField` BY NAME ... on the pinned 17.3.0 and on objectstack main\" \u2014 re-probe `CalendarConfigSchema` at the resolved pin.",
   },
   {
-    file: "packages/plugin-charts/src/ObjectChart.tsx",
-    package: "@objectstack/spec",
-    version: "17.2.0",
-    sites: 1,
-    class: "stale",
-    why: "\"measured on the pinned spec 17.2.0\" backs the claim that `idField` is not a leg of the change.",
-  },
-  {
     file: "packages/plugin-designer/src/DashboardEditor.tsx",
     package: "@objectstack/spec",
     version: "17.0.0",

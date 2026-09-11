@@ -29,11 +29,14 @@ now names the spec symbol it delegates to.
 **Defaults come with the shape, and two of them are visible.** This applies to
 an **authored `record:chatter` / `record:discussion` block**, and to every
 synthesized default page (which emits `record:discussion`) — those are the
-surfaces that render through `RecordChatterRenderer`. The panel the host
-auto-appends when a page omits a discussion block mounts `RecordChatterPanel`
-directly and does **not** run this pipeline, so it is unchanged and now renders
-a different feed from the authored block on the same record; that divergence is
-filed as objectui#8983. On the surfaces this change does reach:
+surfaces that render through `RecordChatterRenderer`. At this change the panel
+the host auto-appends when a page omits a discussion block mounted
+`RecordChatterPanel` directly and did **not** run this pipeline, so it was
+unchanged and rendered a different feed from the authored block on the same
+record; that divergence was filed as objectui#8983 and has since been closed —
+the fallback now mounts this renderer with no schema, so both chatter surfaces
+run the one pipeline and render the same feed. On the surfaces this change
+reaches:
 
 - `showCompleted` defaults to `false`, so **completed activities (feed type
   `task`) are no longer rendered** unless the block authors
@@ -49,8 +52,8 @@ no-filter.
 `enableMentions` are also members of the declared shape and are still unread on
 this path — `RecordActivityTimeline` takes `filterMode` as a component prop
 rather than off `config`, and the chatter path's mentions come from the host
-context. Tracked as objectui#8968. The host fallback panel described above is
-tracked as objectui#8983.
+context. Tracked as objectui#8968. The host fallback panel described above was
+tracked as objectui#8983, since closed — see the note above it.
 
 Marked `minor` rather than `patch`: this repository never declares `major` (the
 fixed release group would drag every package off `@objectstack`'s cadence), and

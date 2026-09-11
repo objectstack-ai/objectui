@@ -130,13 +130,19 @@ function baseNode(): Record<string, unknown> {
  * The tokens `variant` emits that `default` does not, read off `buttonVariants`
  * itself. ⛔ Never typed in — see this file's header.
  */
-function distinguishing(variant: 'default' | 'destructive' | 'outline' | 'ghost' | 'link' | 'secondary'): string[] {
+type Variant = 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
+
+function distinguishing(variant: Variant): string[] {
   const base = new Set(tokens(buttonVariants()));
   return tokens(buttonVariants({ variant })).filter((token) => !base.has(token));
 }
 
-/** The tokens `default` emits that `variant` does not — what an override must DISPLACE. */
-function displaced(variant: 'outline' | 'ghost' | 'link' | 'secondary' | 'destructive'): string[] {
+/**
+ * The tokens `default` emits that `variant` does not — what an override must
+ * DISPLACE. Empty for `default` itself, which is the honest reading: the
+ * primitive already bakes that variant in, so there is nothing to displace.
+ */
+function displaced(variant: Variant): string[] {
   const other = new Set(tokens(buttonVariants({ variant })));
   return tokens(buttonVariants()).filter((token) => !other.has(token));
 }
@@ -251,8 +257,16 @@ describe('objectui#8978 — the override channel is why the union is two values 
       // "declared but cannot be rendered" looks like, and it is the shape this
       // whole card exists to not repeat.
       const { classOf } = probe({ ...baseNode(), actionVariant: variant });
-      const leftovers = displaced(variant).filter((token) => classOf[CONFIRM]?.includes(token));
 
+      // ⭐ ARRIVAL FIRST. Without this half the leg passes when the renderer
+      // applies NOTHING at all — "the default's tokens are still there" is
+      // trivially true of an unwired renderer, so the leg would read green
+      // through the very ablation that proves this card's wiring works, and
+      // would be certifying a claim it cannot fail. Measured: it does exactly
+      // that until this line is here.
+      expect(classOf[CONFIRM]).toEqual(expect.arrayContaining(distinguishing(variant)));
+      // THEN the loss: the override arrived, and the default still shows through.
+      const leftovers = displaced(variant).filter((token) => classOf[CONFIRM]?.includes(token));
       expect(leftovers.length).toBeGreaterThan(0);
       // And the mirror refuses the value by name, so no AUTHOR can reach it.
       expect(AlertDialogMirror.safeParse({ ...baseNode(), actionVariant: variant }).success).toBe(false);

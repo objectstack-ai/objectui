@@ -254,6 +254,98 @@ type VisibilityChainKey =
   | (typeof VISIBILITY_HIDE_KEYS)[number];
 
 /**
+ * The same six legs as a lookup, so the config-bag evaluation loops below can
+ * ask "is this key a visibility predicate?" off the SAME declaration the chain
+ * is built from rather than a second list that can drift from it.
+ */
+const VISIBILITY_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
+  ...VISIBILITY_SHOW_KEYS,
+  ...VISIBILITY_HIDE_KEYS,
+]);
+
+/**
+ * Is this value the canonical CEL envelope — `{ dialect: 'cel', source }` —
+ * that `@objectstack/spec` normalizes an authored predicate into?
+ *
+ * Deliberately narrower than "has a `source`": `cron` and `template` envelopes
+ * are NOT matched, so the `${…}` / template behaviour of the loops below is
+ * byte-for-byte what it was. Only the dialect that `evaluateCondition` routes
+ * to the canonical `@objectstack/formula` engine is held back from the
+ * flattening described in {@link preservePredicateEnvelope}.
+ */
+const isCelEnvelope = (value: unknown): boolean =>
+  !!value
+  && typeof value === 'object'
+  && !Array.isArray(value)
+  && (value as { dialect?: unknown }).dialect === 'cel'
+  && typeof (value as { source?: unknown }).source === 'string';
+
+/**
+ * Evaluate ONE value of a node's config bag (`properties` — the spec spelling
+ * — or its legacy `props` alias), EXCEPT a CEL predicate envelope, which is
+ * returned untouched.
+ *
+ * ## The defect this closes (objectui#9100)
+ *
+ * `ExpressionEvaluator.evaluate` unwraps ANY `{ source: string }` object to its
+ * bare `source` before it does anything else — that unwrap is what lets a
+ * `{ dialect: 'template', source: '${data.total}' }` value interpolate. Applied
+ * to a `{ dialect: 'cel' }` PREDICATE it is destructive instead: the envelope
+ * is the only thing that tells {@link ExpressionEvaluator.evaluateCondition}
+ * to route to the canonical `@objectstack/formula` engine, and the bag loops
+ * run BEFORE the hoist, so by the time either consumer sees the key the
+ * envelope is gone.
+ *
+ * Both consumers then read a bare string and both take the legacy JS path:
+ *
+ *   1. this component's own `shouldHide` chain, off the post-hoist node; and
+ *   2. the RENDERER's `toPredicateInput(…)` → `useCondition(…)` call, one
+ *      layer down (`record:alert`, the four `action:*` blocks, …), which wraps
+ *      the bare string as `${…}` exactly as it is documented to.
+ *
+ * On the legacy engine a CEL stdlib call is simply not a function, so
+ * `has(record.x) && …` throws — and the two polarities of the chain then fail
+ * in OPPOSITE directions, both silently:
+ *
+ *   * on the four SHOW legs the fail-soft `true` is negated to "do not hide",
+ *     so a gate authored to conceal renders on every row — measured in a real
+ *     browser against a real app instance (the card), where a duplicate-lead
+ *     banner showed on 6 of 6 leads whose field was `null`;
+ *   * on the two HIDE legs the same `true` sets `_hidden`, so the node is not
+ *     on screen at all.
+ *
+ * Neither is distinguishable from a predicate that said so on purpose. That is
+ * what makes this a fail-OPEN visibility gate rather than a rendering glitch.
+ *
+ * ## Why the fix is HERE and not in the normalizer
+ *
+ * `toPredicateInput` already preserves a `cel` envelope — that is its whole
+ * documented reason to exist (#2661 / #3314) — and the ACTION path that works
+ * calls the very same function. Measured: mounting the renderer DIRECTLY with
+ * the envelope gates correctly, and only the `SchemaRenderer` route fails, so
+ * the envelope dies upstream of every consumer, in the loops below. What makes
+ * the action path survive is that those loops are per-value and SHALLOW: an
+ * action's predicate sits one level down inside the `actions[]` ARRAY, and
+ * `evaluate` returns a non-string untouched, so nothing walks into it. A
+ * `record:alert` `properties.visible` is a TOP-LEVEL bag key and is hit
+ * head-on. Same normalizer, different depth.
+ *
+ * ## Scope
+ *
+ * Restricted to {@link VISIBILITY_CHAIN_KEYS} — the closed set this file
+ * already declares and `shouldHide` / {@link winningVisibilityKey} already
+ * consult. Every consumer of those six keys takes the envelope by contract
+ * (`evaluateCondition`, `toPredicateInput`), and the metadata destructure near
+ * `createElement` strips all six, so no object value can reach the DOM through
+ * this. A non-predicate key keeps the flattening it has always had.
+ */
+const preservePredicateEnvelope = (
+  key: string,
+  value: unknown,
+  evaluate: (v: unknown) => unknown,
+): unknown => (VISIBILITY_CHAIN_KEYS.has(key) && isCelEnvelope(value) ? value : evaluate(value));
+
+/**
  * Which CONSEQUENCE the diagnostic should print for a faulting predicate on
  * this leg (objectui#6503).
  *
@@ -940,7 +1032,9 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     if (rawPropertiesBag) {
       const newProperties: Record<string, any> = { ...rawPropertiesBag };
       for (const [key, val] of Object.entries(newProperties)) {
-        newProperties[key] = evaluator.evaluate(val as any);
+        // objectui#9100 — a CEL predicate envelope survives this loop; see
+        // `preservePredicateEnvelope`. Every other value evaluates as before.
+        newProperties[key] = preservePredicateEnvelope(key, val, (v) => evaluator.evaluate(v as any));
       }
       newSchema.properties = newProperties;
     }
@@ -1168,7 +1262,9 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     if (isConfigBag(newSchema.props)) {
       const newProps = { ...newSchema.props };
       for (const [key, val] of Object.entries(newProps)) {
-        newProps[key] = evaluator.evaluate(val as any);
+        // objectui#9100, same guard as the `properties` branch above — the two
+        // channels must not disagree about whether a `cel` envelope survives.
+        newProps[key] = preservePredicateEnvelope(key, val, (v) => evaluator.evaluate(v as any));
       }
       newSchema.props = newProps;
     }

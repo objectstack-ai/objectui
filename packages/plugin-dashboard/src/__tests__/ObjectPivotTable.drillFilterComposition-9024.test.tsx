@@ -52,15 +52,36 @@
  * `ValueDataSource`, a real matcher for the `$filter` dialect, over a fixture
  * built so the three possible outcomes are three different row sets:
  *
- *   pivot filter alone  (`region = emea`)           → a, c
- *   click context alone (`stage = won, source = web`) → a, b   ← the pre-fix superset
- *   both, conjoined                                  → a       ← the only correct answer
+ *   pivot filter alone  (`region = emea`)             → a, c
+ *   click context alone (`stage = won, source = web`) → a, b
+ *   both, conjoined                                   → a      ← the only correct answer
  *
  * The pivot's filter is deliberately on a field that is NEITHER axis, so losing
  * it changes the row set; a filter on `rowField`/`columnField` would be
  * re-stated by the click context and could not discriminate. The two
  * single-source answers are asserted as live controls, so the fixture cannot go
  * vacuous without saying so.
+ *
+ * ## What the pre-fix value did at each sink — measured, not assumed
+ *
+ * The spread produced `{ '0': ['region','=','emea'], stage: 'won', source:
+ * 'web' }`. The pivot's conditions are not absent in ONE way; each sink resolves
+ * the stray index key differently and both answers are wrong:
+ *
+ *   - this repo's in-memory matcher — `ValueDataSource`, the one these cases run
+ *     the composed filter through — REFUSES an array comparand outside
+ *     `$in`/`$nin`/`$between` and excludes every row. Ablating the routing turns
+ *     the array cases below into `[]`, with that diagnostic on stderr.
+ *   - the URL sink drops it silently: `serializeDrillFilterParams` skips a bare
+ *     array comparand rather than stringifying it (its own pin in
+ *     `app-shell/src/views/drillUrlFilters.test.ts`), so no `filter[0]` is ever
+ *     written and the list lands scoped by the clicked cell ALONE — the SUPERSET
+ *     this defect is named for, and the `a, b` row above.
+ *
+ * Either way the pivot's own conditions never reach the drilled query. These
+ * cases assert the conjunction, so a red names the drop whichever sink resolved
+ * it — rather than depending on one sink's treatment of a key nobody meant to
+ * send.
  *
  * ## Why the observation point is `openRecordList`
  *
@@ -198,6 +219,10 @@ describe('objectui#9024 — the ARRAY arm survives the drill', () => {
 
 describe('objectui#9024 — the OBJECT arm still composes (no regression)', () => {
   it('conjoins the ObjectQL $filter object with the click context', async () => {
+    // ⭐ The regression guard. Ablating the routing leaves THIS row-set assertion
+    // GREEN — measured — and reds only the shape assertion below it: spreading is
+    // already correct for the object arm, so routing through the seam changes the
+    // composed value's SHAPE here and not the rows it selects.
     const composed = await drillCellViaNavigate({ region: 'emea' });
     expect(await selectedIds(composed)).toEqual(['a']);
     expect(composed).toEqual({

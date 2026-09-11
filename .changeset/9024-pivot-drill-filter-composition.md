@@ -9,8 +9,10 @@ filter survives into the drilled query for BOTH dialects it reads (objectui#9024
 the first into an object literal — the identical statement objectui#8944 removed from
 `ObjectChart` one block over. Spreading an array yields index keys, so a pivot scoped by
 `[['region','=','emea']]` drilled as `{ '0': ['region','=','emea'], stage: 'won', source: 'web' }`
-— the pivot's conditions replaced by a key the query layer ignores. Nothing errored; the drawer
-opened and looked right, scoped by the clicked cell alone.
+— the pivot's conditions replaced by a stray index key. Nothing errored; the drawer opened and
+looked right. Measured at the two sinks: the URL writer skips a bare array comparand, so the list
+landed scoped by the clicked cell ALONE (the superset), and the in-memory matcher refuses that
+comparand and returns nothing at all. Neither carries the pivot's own conditions.
 
 **Direction of the failure.** The pivot's filter is what narrows. Dropping it made the drilled
 list a **superset** — it showed records the pivot itself was scoped to exclude.

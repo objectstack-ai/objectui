@@ -5,7 +5,12 @@
  */
 import i18next, { type i18n as I18nInstance } from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { builtInLocales, isRTL } from './locales/index.js';
+import {
+  BUILT_IN_LANGUAGE_CODES,
+  getLoadedBuiltInLocales,
+  isBuiltInLanguage,
+} from './locales/registry.js';
+import { isRTL } from './locales/rtl.js';
 import type { TranslationKeys } from './locales/en.js';
 
 export interface I18nConfig {
@@ -143,25 +148,66 @@ function deepMergeTranslations(
 }
 
 /**
+ * The language {@link createI18n} will boot in for this config — `defaultLanguage`,
+ * overridden by a browser language this renderer can produce.
+ *
+ * Exported because the answer is needed BEFORE an instance exists
+ * (objectui#7479): with the catalogues lazy, a host that wants its first render
+ * to already be in the right language has to know which catalogue to await, and
+ * the only alternative — create an instance, read `.language`, throw it away —
+ * would boot i18next in the wrong locale to find out what the right one is.
+ * `I18nProvider` and {@link preloadBootstrapLocale} answer with THIS function,
+ * so the host and the provider cannot disagree about which catalogue is active.
+ *
+ * ⚠️ Browser detection is asked of {@link isBuiltInLanguage} rather than of the
+ * merged resource map: a catalogue that has not been fetched yet is still a
+ * language this renderer can produce, and asking the map would have made
+ * detection depend on load order.
+ */
+export function pickInitialLanguage(config: I18nConfig = {}): string {
+  const { defaultLanguage = 'en', resources = {}, detectBrowserLanguage = true } = config;
+  if (!detectBrowserLanguage || typeof navigator === 'undefined') return defaultLanguage;
+  const browserLang = navigator.language?.split('-')[0];
+  if (!browserLang) return defaultLanguage;
+  const known =
+    isBuiltInLanguage(browserLang) ||
+    Object.prototype.hasOwnProperty.call(resources, browserLang);
+  return known ? browserLang : defaultLanguage;
+}
+
+/**
  * Create and initialize an i18next instance with Object UI defaults
  */
 export function createI18n(config: I18nConfig = {}): I18nInstance {
   const {
-    defaultLanguage = 'en',
     fallbackLanguage = 'en',
     resources = {},
-    detectBrowserLanguage = true,
     interpolation,
     warnMissingKeys = isDevEnv(),
   } = config;
+  // `defaultLanguage` and `detectBrowserLanguage` are read by
+  // {@link pickInitialLanguage}, which owns that precedence for this function
+  // AND for the hosts that must know the answer before an instance exists.
 
-  // Merge built-in locales with user-provided resources
+  // Merge the catalogues that are RESIDENT with user-provided resources.
+  //
+  // ⛔ Every built-in code gets a bundle here even when its catalogue has not
+  // been fetched yet (objectui#7479). The empty bundle is load-bearing, not a
+  // placeholder: it keeps `instance.options.resources` — which
+  // {@link getAvailableLanguages}, the browser detection below and i18next's
+  // own `hasResourceBundle` all read — enumerating every language this package
+  // can produce, instead of shrinking to whatever happened to be loaded at
+  // instance-creation time. Until the catalogue lands, `fallbackLng` renders
+  // those keys through `en`; `I18nProvider` then deep-merges the real
+  // catalogue in WITHOUT overwriting anything `resources` put there, so the
+  // precedence below survives the async arrival.
   const mergedResources: Record<string, { translation: Record<string, unknown> }> = {};
+  const residentCatalogues = getLoadedBuiltInLocales();
 
-  for (const [lang, translations] of Object.entries(builtInLocales)) {
+  for (const lang of BUILT_IN_LANGUAGE_CODES) {
     mergedResources[lang] = {
       translation: deepMergeTranslations(
-        translations as unknown as Record<string, unknown>,
+        (residentCatalogues[lang] ?? {}) as unknown as Record<string, unknown>,
         resources[lang] || {},
       ),
     };
@@ -174,14 +220,7 @@ export function createI18n(config: I18nConfig = {}): I18nInstance {
     }
   }
 
-  // Detect browser language if enabled
-  let lng = defaultLanguage;
-  if (detectBrowserLanguage && typeof navigator !== 'undefined') {
-    const browserLang = navigator.language?.split('-')[0];
-    if (browserLang && mergedResources[browserLang]) {
-      lng = browserLang;
-    }
-  }
+  const lng = pickInitialLanguage(config);
 
   const instance = i18next.createInstance();
 

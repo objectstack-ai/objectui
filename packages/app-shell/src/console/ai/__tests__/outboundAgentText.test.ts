@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { en, zh } from '@object-ui/i18n';
+import { en, zh } from '@object-ui/i18n/locales';
 import {
   OUTBOUND_GATE_TEXT,
   resolveOutboundAgentText,

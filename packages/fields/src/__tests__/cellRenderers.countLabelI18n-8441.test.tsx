@@ -88,7 +88,8 @@ import React from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { I18nProvider, en, ru, zh } from '@object-ui/i18n';
+import { I18nProvider } from '@object-ui/i18n';
+import { en, ru, zh } from '@object-ui/i18n/locales';
 
 import { getCellRenderer } from '../index';
 

@@ -476,14 +476,22 @@ Its display name in the checks list is **Bundle Analysis**.
 
 ### Enforced limits
 
-The `Check console performance budget` step makes **two** measurements and returns one verdict.
-Both run before either may fail the step, and **either one can fail it** — this is not a single
-enforced number with a second advisory reading beside it:
+The `Check console performance budget` step makes **three** measurements and returns one verdict.
+All run before any of them may fail the step, and **any one can fail it** — this is not a single
+enforced number with two advisory readings beside it:
 
 | Bundle | Max gzip size | Enforced |
 |--------|---------------|----------|
 | Console main entry (`apps/console/dist/assets/index-*.js`) | **350 KB** (`MAX_ENTRY_GZIP_KB`) | Yes — the step exits non-zero when the entry chunk exceeds it |
 | Eager closure — every chunk the entry reaches through **static** imports, i.e. everything the browser must fetch and parse before the app renders | ⛔ Deliberately not restated here. The ceiling lives in `scripts/check-eager-closure-budget.mjs` beside the argument that produced it, and `pnpm check:eager-closure` prints the measured payload, the ceiling and the headroom together in one verdict line | Yes — the step captures that gate's exit code and exits non-zero on it |
+| Locale-catalogue composition — WHICH of the ten `@object-ui/i18n` catalogues that eager closure holds, measured by `pnpm check:eager-locale-catalogues` ([#7479](https://github.com/objectstack-ai/objectui/issues/7479)). Exactly one may be eager, and it must be the resident `en` | Not a size at all — a membership verdict | Yes — the step captures that gate's exit code and exits non-zero on it |
+
+The third measurement exists because the second one cannot state it. The catalogues could return
+to the eager closure **one at a time**, each arrival small enough to fit inside a ceiling's
+headroom, and every byte verdict would be green until the last one; and they could be routed into a
+chunk with more room without a single byte leaving the browser's request list, which
+[#7399](https://github.com/objectstack-ai/objectui/issues/7399) named and refused. A byte ceiling
+cannot tell "left the closure" from "moved somewhere roomier"; a membership verdict can.
 
 Measurement 1 alone was the whole budget until
 [#5324](https://github.com/objectstack-ai/objectui/issues/5324): `advancedChunks` routes vendor and
@@ -516,6 +524,13 @@ drifted out of range of the regression it exists to catch, or it was replaced on
 after this checkout was made. The step turns a `2` into a failing run carrying a message that says
 so, because a run that measured nothing is not a passing budget and is not a size regression either.
 Run `pnpm check:eager-closure` locally to see which it is; the step log names the half that spoke.
+
+**If the composition half fails:** `pnpm check:eager-locale-catalogues` reads the same three exit
+codes the same way — `1` names the catalogues that became eager, `2` says it could not weigh them
+(no built report, a catalogue emitted under no chunk of its own, or the resident catalogue missing
+from the eager closure, which is what a broken graph walk looks like). ⛔ Raising a byte ceiling is
+never the remedy for a `1` here: the verdict is about composition, and the fix is at the import that
+made a catalogue statically reachable.
 
 ### Package size report — advisory, not a gate
 

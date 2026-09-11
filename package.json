@@ -75,6 +75,7 @@
     "check:doc-fences": "node scripts/check-doc-fence-languages.mjs",
     "check:doc-example-ids": "node scripts/check-doc-example-ids.mjs",
     "check:eager-closure": "node scripts/check-eager-closure-budget.mjs",
+    "check:eager-locale-catalogues": "node scripts/check-eager-locale-catalogues.mjs",
     "check:side-effects-array": "node scripts/check-side-effects-array.mjs",
     "check:sdui-registration-pins": "node scripts/check-sdui-registration-pins.mjs",
     "check:element-data-source-declaration": "node scripts/check-element-data-source-declaration.mjs",

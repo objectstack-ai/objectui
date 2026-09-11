@@ -160,13 +160,28 @@ describe('objectui#9020 — the boundary that proves the two folds were told apa
   it.each([
     ['{ $and: [], a: null }', { $and: [], a: null }],
     ['{ $and: [], b: undefined }', { $and: [], b: undefined }],
-  ])('%s satisfies NEITHER guard and keeps the object', (_label, filter) => {
-    // ⭐ Each guard is keyed on "EVERY key was of MY kind". One identity group
-    // beside one skipped key satisfies neither — even though each key ALONE now
-    // folds. A single merged counter would swallow these, which is exactly the
-    // accidental merge this card was fenced against. Whether they should fold is
-    // objectui#9030's open question, and neither card answers it.
-    expect(convertFiltersToAST(filter)).toEqual(filter);
+  ])('%s folds — answered by objectui#9030, not by a merged counter', (_label, filter) => {
+    // ⚠️ UPDATED. These used to pin the object coming back: each guard was keyed
+    // on "EVERY key was of MY kind", so one identity group beside one skipped
+    // key satisfied neither — even though each key ALONE folds.
+    //
+    // objectui#9030 answered it, and NOT by merging the counters. The identity
+    // fold's denominator became the count of keys the loop actually PROCESSED,
+    // which is every key minus the ones its own first statement skipped; this
+    // card's guard still has its own count and its own arm. The control for
+    // "not merged" is the case below, where a PROCESSED key produced no
+    // condition and neither arm fires.
+    expect(convertFiltersToAST(filter)).toBeUndefined();
+  });
+
+  it('⭐ a PROCESSED key that produced nothing still satisfies neither guard', () => {
+    // Where the arms are still told apart. `{ a: {} }` is entered by the loop
+    // and pushes no condition; it is neither an identity group nor a skipped
+    // key, so it stays in the denominator and the object comes back. A repair
+    // that had keyed the fold on "no conditions were produced" would swallow
+    // these — which is the accidental merge this card was fenced against.
+    expect(convertFiltersToAST({ a: {}, b: undefined })).toEqual({ a: {}, b: undefined });
+    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
   });
 
   it('a nested all-skipped child was already handled and is unchanged', async () => {

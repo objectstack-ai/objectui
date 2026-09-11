@@ -450,6 +450,14 @@ function refuseTextComparand(field: string, operator: string, target: unknown): 
  * // when a sibling survives (objectui#9020). Callers skip the slot.
  * convertFiltersToAST({ a: null })
  * // => undefined
+ *
+ * @example
+ * // … and a filter that MIXES the two constrains nothing either, because the
+ * // identity fold counts only the keys the loop actually PROCESSED
+ * // (objectui#9030). A skipped key used to be counted against that fold, so a
+ * // filter whose every key folds alone did not fold together.
+ * convertFiltersToAST({ $and: [], b: undefined })
+ * // => undefined
  */
 export function convertFiltersToAST(
   filter: Record<string, any>,
@@ -686,9 +694,9 @@ export function convertFiltersToAST(
           // objectui#9001 — the comparand door, at the ONE place this function
           // reads a comparand. It runs before the push, so the refused node is
           // never built; there is no `continue` and no key is skipped, which is
-          // what keeps the TRUE-identity tail's `Object.keys(filter).length`
-          // comparison (objectui#8770, and the counting question objectui#9030
-          // is open on) reading exactly what it read before.
+          // what keeps the TRUE-identity tail's key-count comparison
+          // (objectui#8770, and the denominator objectui#9030 narrowed to the
+          // keys the loop processes) reading exactly what it read before.
           //
           // Keyed on the LOWERED operator rather than on the `$` spelling: the
           // rule belongs to `icontains` itself, and `ValueDataSource`'s AST arm
@@ -761,12 +769,31 @@ export function convertFiltersToAST(
     // site of this function already acts on it: `lowerLogicalGroup` above tests
     // `Array.isArray`, the other three test for `undefined` or falsiness.
     //
-    // ⛔ Scoped to a filter whose EVERY key is such a group, which is why the
-    // count above is compared with the key count instead of being a flag. The
+    // ⛔ Scoped to a filter whose every PROCESSED key is such a group, which is
+    // why the count above is compared with a count instead of being a flag. The
     // `return filter` below still serves inputs that are not combinators at all
-    // — `{}`, an empty operator map, and a MIXTURE of an identity group with a
-    // skipped key — and they are NOT this case.
-    if (trueIdentityGroups > 0 && trueIdentityGroups === Object.keys(filter).length) {
+    // — `{}` and an empty operator map — and they are NOT this case.
+    //
+    // ⭐ The denominator is the number of keys the LOOP ACTUALLY PROCESSED, not
+    // `Object.keys(filter).length` — objectui#9030. Those differ by exactly the
+    // keys the loop's own first statement skipped, and counting a skipped key
+    // against this fold made the fold's answer depend on a key that, by this
+    // function's oldest ruling, contributes nothing: `{ $and: [] }` folded and
+    // `{ $and: [], b: undefined }` did not, though `JSON.stringify` drops the
+    // second key entirely and the two reach either wire route as the same
+    // bytes. Both `null` and `undefined` are subtracted, because the loop skips
+    // them with one statement and the guard below already gives that whole
+    // class the same `undefined` when it is alone — leaving the MIXTURE out
+    // would mean adding an always-TRUE `$and: []` to a filter that folds could
+    // stop it folding, which is the sibling-dependence hazard objectui#8555
+    // named on this file.
+    //
+    // ⚠ Subtraction, not a merged counter. `trueIdentityGroups > 0` still
+    // gates this arm and the skipped count still has its own arm below, so the
+    // two states stay told apart — what changed is only which keys this one
+    // is measured against.
+    const keysTheLoopProcessed = Object.keys(filter).length - skippedNullKeys;
+    if (trueIdentityGroups > 0 && trueIdentityGroups === keysTheLoopProcessed) {
       return undefined;
     }
 
@@ -815,11 +842,16 @@ export function convertFiltersToAST(
     // one is this file's own tolerance made consistent with itself. They
     // coincide because "no constraint" has exactly ONE expressible spelling in
     // this dialect — the absence of the slot — not because the two inputs are
-    // the same kind of thing. Keeping the counts apart is also what keeps each
-    // fence readable: a filter that MIXES the two (`{ $and: [], a: null }`,
-    // `{ $and: [], b: undefined }`) satisfies neither guard and still returns the
-    // object, which is objectui#9030's open question and deliberately not
-    // answered here.
+    // the same kind of thing.
+    //
+    // A filter that MIXES the two kinds (`{ $and: [], a: null }`,
+    // `{ $and: [], b: undefined }`) is answered by the fold ABOVE, since
+    // subtracting the skipped keys leaves a filter whose every processed key is
+    // an identity group — objectui#9030. It used to satisfy neither guard and
+    // come back as the object, so a filter each of whose keys folds ALONE did
+    // not fold TOGETHER. That is why the counts staying apart is a statement
+    // about the two STATES and never about the two ARMS being unreachable from
+    // one input.
     //
     // ⛔ `{}` is not this case either — `skippedNullKeys > 0` excludes it. An
     // empty filter has no key to skip, `toFilterNode` already folds it one level

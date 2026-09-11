@@ -252,6 +252,16 @@ const schema: ObjectCalendarSchema = {
 }
 ```
 
+`filter` and `sort` are not object-only keys (objectui#9061). They narrow and
+order inline records — `staticData` or `data: { provider: 'value' }` — exactly as
+they narrow and order fetched ones, and the platform row ceiling (2,000 drawn
+records with a footnote naming both numbers) applies to inline records too. The
+ceiling is applied to the **filtered** set, so a large inline array that a
+`filter` cuts below the ceiling draws every matching record and shows no
+footnote. Inline records reach the calendar as the in-memory adapter's own deep
+copy, so they must be JSON-serializable and a record handed to `onEventClick` is
+not `===` the authored object.
+
 ### CalendarConfig
 
 ```plaintext

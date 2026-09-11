@@ -347,6 +347,24 @@ const schema: ObjectCalendarSchema = {
 
 Pass the adapter to `SchemaRendererProvider` to wire the fetch up.
 
+**The provider does not change which query keys apply** (objectui#9061, the port
+of objectui#8769). An authored `filter` and `sort` narrow and order the records
+on **every** provider, inline ones included — both `staticData` and
+`data: { provider: 'value', items }` reach the same in-memory adapter the
+`object` provider goes through, so `filter` is evaluated with the same matcher.
+Before objectui#9061 the inline provider skipped that query and drew every
+authored record with an authored `filter` silently dropped. The platform row
+ceiling (2,000 drawn rows, with a footnote naming both numbers — objectui#7210,
+ruling a′) applies to inline records too, and it is applied to the **filtered**
+set, never to the raw one: a large inline array that a `filter` cuts below the
+ceiling draws every matching record and shows no footnote.
+
+⚠️ Two consequences of routing inline records through the adapter. They reach the
+calendar as that adapter's own deep copy rather than as the authored array's
+object identities, so code comparing a record handed to `onEventClick` against
+the authored array with `===` needs `id` equality instead; and the copy is a JSON
+round-trip, so inline records must be JSON-serializable.
+
 ## Customization
 
 Style the calendar with Tailwind classes:

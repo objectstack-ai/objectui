@@ -119,6 +119,16 @@ const schema: ObjectMapSchema = {
 }
 ```
 
+`filter` and `sort` are not object-only keys (objectui#9061). They narrow and
+order inline rows — `staticData`, a bare array under `data`, or
+`data: { provider: 'value' }` — exactly as they narrow and order fetched ones,
+and the platform row ceiling (2,000 plotted rows with a footnote naming both
+numbers) applies to inline rows too. The ceiling is applied to the **filtered**
+set, so a large inline array that a `filter` cuts below the ceiling plots every
+matching row and shows no footnote. Inline rows reach the map as the in-memory
+adapter's own deep copy, so they must be JSON-serializable and a record handed
+to `onMarkerClick` is not `===` the authored object.
+
 ### ObjectMapConfig
 
 ```plaintext

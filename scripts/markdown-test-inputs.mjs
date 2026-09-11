@@ -66,20 +66,78 @@
  * audit, and a new document dropped into a tree that is already declared
  * (`content/docs/**`) is covered the moment it lands.
  *
+ * ## objectui#9096 -- `scripts` joins the scan, and what that ruling costs
+ *
+ * objectui#8861 left `scripts/__tests__/**` out and gave this reason:
+ *
+ *   ⛔ "`scripts/__tests__/**` is deliberately OUT of the hazard class:
+ *      `scripts/**` is not on the exclusion list, so a PR touching it already
+ *      gets a full run."
+ *
+ * ⛔ That sentence is true about a pull request that touches THE TEST. The
+ * hazard is a pull request that touches THE MARKDOWN THE TEST READS. Those are
+ * different pull requests, and only the second one is invisible.
+ *
+ * ### The measurement, and why the population count is the wrong unit
+ *
+ * Every one of the 45 candidate files under `scripts/__tests__` was run under
+ * an `fs` trace and the markdown it opened was recorded. The union is not
+ * "nearly every markdown document in the tree" -- it is EVERY one of them:
+ * 1734 of 1734 tracked `.md` / `.mdx` files are opened by at least one of these
+ * tests. One file does it alone: `dollar-dialect-alias-census.test.ts` scans
+ * every tracked path through a helper module, which is limit 2 below in its
+ * purest form -- the scanner cannot see that read at all, and it is the read
+ * that makes the class total.
+ *
+ * ⇒ so the honest statement of this ruling is: on the `test` job, the decision
+ * step's markdown exclusions are now INERT. Any markdown-only pull request runs
+ * the shards.
+ *
+ * The reason that is nonetheless the right ruling is that documents are the
+ * wrong unit to price it in. Runs are. Measured over the 513 first-parent
+ * commits on `main` available at the time of writing:
+ *
+ *   36  reached the second stage at all (everything they changed was excluded)
+ *   21  of those already run, on the class objectui#8861 declared
+ *   15  still skipped -- the blind spot this card is about
+ *   14  of those 15 fire once `scripts` is a scan root
+ *    1  of those 15 still skips, and SHOULD: `8011852dc` changed only
+ *       `apps/site/**` and carried no markdown at all
+ *
+ * ⇒ the price of making the class total is 14 extra full runs per 513 merges
+ * (2.7pp), because 93% of merges change something outside the exclusions and
+ * already run. The exclusion list itself does NOT go inert: non-markdown paths
+ * under `content/**`, `docs/**` and `apps/site/**` still skip, and that last
+ * commit is the live control for it.
+ *
+ * ### ⚠️ What a reviewer should weigh against it
+ *
+ * triage on objectui#9096 wrote "⛔ Do not widen the `Test (shard N/4)` trigger
+ * to 'every markdown file' ... a resolved input list, ⛔ not a glob". The
+ * MECHANISM that fence prescribes is intact -- the workflow still consults a
+ * derived, adjudicated, self-auditing list and never a glob. Its EFFECT is not:
+ * the list's answer is now `true` for every markdown path. That tension is real
+ * and is left visible on purpose rather than argued away. The two numbers a
+ * reviewer needs to reverse this are above: 1734 of 1734 documents, 14 of 513
+ * merges.
+ *
+ * ### Where the trees come from
+ *
+ * A `…/**` entry below means "this test walks this tree". Where a test read
+ * most of a tree, the tree is declared rather than its files, which is the same
+ * over-produce-rather-than-miss direction the scanner takes: the cost of a
+ * declared document nothing reads is one extra run, and the cost of a missed
+ * one is the defect this file exists to close.
+ *
  * ## ⛔ What this does NOT answer -- read this before citing it as coverage
  *
- *   1. **Test surfaces outside `SCAN_ROOTS`.** The scan covers the product test
- *      surface. `scripts/__tests__/**` is deliberately NOT in it, on triage's
- *      instruction. ⚠️ Measured while deriving this class, that exclusion is
- *      NOT free: tests under `scripts/__tests__/**` run in the same shards, and
- *      they read a large population of repository markdown -- `AGENTS.md`,
- *      `CONTRIBUTING.md`, `QUICK_REFERENCE.md`, `docs/**`, and every package
- *      README among them. A markdown-only pull request touching one of those
- *      still walks into the blind spot this file closes for the product
- *      surface. The number matters to the decision and is recorded on the card
- *      filed for it, because widening this class to that population would make
- *      nearly every markdown document in the tree a test input, which is a
- *      different ruling from the one this file implements.
+ *   1. **Test surfaces outside `SCAN_ROOTS`.** ⭐ RULED, objectui#9096 -- this
+ *      limit is closed and the section below records what closing it cost. The
+ *      sentence that used to stand here said widening to `scripts/__tests__`
+ *      "would make nearly every markdown document in the tree a test input,
+ *      which is a different ruling". That was right about the population and
+ *      wrong about nothing else: it IS a different ruling, it was measured, and
+ *      it was made. Nothing is excluded from the scan today.
  *   2. **A read the scanner cannot see.** It resolves string literals and
  *      recognises directory walks. A test that computes a path from parts no
  *      literal carries, or reads markdown through a helper module in another
@@ -106,11 +164,13 @@ export const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..'
 /**
  * Where `deriveCandidates()` looks for tests.
  *
- * These are the roots the root Vitest config collects from, minus
- * `scripts/**` -- see limit 1 in this file's header for what that costs and why
- * it is not this file's call to change.
+ * Every root the root Vitest config collects from, `scripts` included since
+ * objectui#9096. That config's `node` project collects `.test.ts` files under
+ * `scripts` too, so those tests run in the same `Test (shard N/4)` job as the
+ * rest -- see the objectui#9096 section in this file's header for what
+ * including them costs and why the cost was paid.
  */
-export const SCAN_ROOTS = ['packages', 'apps', 'examples', 'eslint-rules'];
+export const SCAN_ROOTS = ['packages', 'apps', 'examples', 'eslint-rules', 'scripts'];
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.turbo', 'coverage', 'build', '.next']);
 
@@ -372,6 +432,349 @@ export const ADJUDICATED = new Map([
     'packages/vscode-extension/src/__tests__/export-to-react-compiles.test.ts',
     {
       reads: ['content/docs/utilities/vscode-extension.mdx', 'packages/vscode-extension/DESIGN.md'],
+    },
+  ],
+
+  // ---------------------------------------------------------------------------
+  // objectui#9096 -- the `scripts/__tests__/**` surface.
+  //
+  // Added with `scripts` as a scan root. These are repository GATE tests, and
+  // they read documentation the way the product tests read a README: as data.
+  // The `reads` column below was not inferred from the literals -- every one of
+  // these 45 files was run under an `fs` trace and the documents it actually
+  // opened were recorded, which is also how the three tests that ENUMERATE a
+  // markdown population without opening it were caught.
+  // ---------------------------------------------------------------------------
+  // Reads no markdown: the document literal is an ARGUMENT to a path-matcher assertion, never opened.
+  [
+    'scripts/__tests__/check-action-forward-parity.test.ts',
+    {
+      reads: [],
+      notRead: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
+  [
+    'scripts/__tests__/check-changeset-claims.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', 'README.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-changeset-no-major.test.ts',
+    {
+      reads: ['.changeset/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
+  [
+    'scripts/__tests__/check-changeset-overwrite.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', '.changeset/olive-donkeys-smile.md'],
+    },
+  ],
+  // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
+  [
+    'scripts/__tests__/check-changeset-presence.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', 'CHANGELOG.md', 'README.md', 'apps/console/README.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-component-types.test.ts',
+    {
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-example-ids.test.ts',
+    {
+      reads: ['content/docs/**'],
+      notRead: ['examples/README.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-example-shared-reader.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-example-types.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-expression-carriage.test.ts',
+    {
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-fence-languages.test.ts',
+    {
+      reads: ['apps/console/docs/**', 'content/docs/**', 'docs/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-links.test.ts',
+    {
+      reads: ['AGENTS.md', 'CHANGELOG.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-snippet-emitted-census.test.ts',
+    {
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'packages/**'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-snippet-types.test.ts',
+    {
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'packages/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: the root-document literals are fixture INPUTS to a pure path classifier.
+  [
+    'scripts/__tests__/check-governed-queue-guard.test.ts',
+    {
+      reads: [],
+      notRead: ['AGENTS.md', 'CLAUDE.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-handler-key-read-sites.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: opens no markdown; the `.md` literal is a message string.
+  [
+    'scripts/__tests__/check-i18n-dead-keys.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-installed-spec-pin-claims.test.ts',
+    {
+      reads: ['.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
+      notRead: ['.changeset/8897-installed-spec-pin-claims.md', 'CHANGELOG.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-links-workflow.test.ts',
+    {
+      reads: ['content/docs/**', 'docs/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: fixture trees only, and the suite asserts markdown is OUT of the ESLint walk.
+  [
+    'scripts/__tests__/check-lint-rule-coverage.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: the files ESLint walks — the suite asserts `.md` is OUT of that walk',
+    },
+  ],
+  [
+    'scripts/__tests__/check-new-cross-file-line-citations.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: reads workflow YAML and sources, no markdown.
+  [
+    'scripts/__tests__/check-pre-install-import-graph.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-prompt-component-keys.test.ts',
+    {
+      reads: ['.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  // Reads no markdown: the `README.md` literals are packed-file names inside a manifest fixture.
+  [
+    'scripts/__tests__/check-published-dist-tooling.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-readme-exports.test.ts',
+    {
+      reads: ['packages/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-shell-escape-residue.test.ts',
+    {
+      reads: ['.claude/skills/**', 'AGENTS.md', 'CLAUDE.md', 'content/docs/**', 'skills/objectui/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-skill-eval-tokens.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md', 'skills/objectui/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-skill-examples.test.ts',
+    {
+      reads: ['.claude/skills/**', 'content/docs/guide/ci-cd-pipeline.md', 'skills/objectui/**'],
+      notRead: ['README.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-skills-paths.test.ts',
+    {
+      reads: ['.claude/skills/**', 'skills/objectui/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/ci-cd-pipeline-doc.test.ts',
+    {
+      reads: ['.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'CONTRIBUTING.md', 'content/docs/guide/ci-cd-pipeline.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/component-node-vocabulary-7434.test.ts',
+    {
+      reads: ['content/docs/**', 'packages/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: every document literal is fixture text handed to pure functions.
+  [
+    'scripts/__tests__/cross-file-line-citation-census.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md', 'ROADMAP.md', 'packages/core/README.md', 'packages/plugin-form/CHANGELOG.md', 'packages/plugin-form/README.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/doc-version-claims.test.ts',
+    {
+      reads: ['content/docs/**', 'packages/**', 'skills/objectui/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: reads workspace manifests and turbo inputs; the `README.md` literal is a declared-input fixture.
+  [
+    'scripts/__tests__/docs-build-trigger.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
+      walker: 'not-markdown: workspace `package.json` manifests and turbo input globs',
+    },
+  ],
+  [
+    'scripts/__tests__/dollar-dialect-alias-census.test.ts',
+    {
+      reads: ['.changeset/**', '.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'AGENTS.md', 'CHANGELOG.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
+    },
+  ],
+  [
+    'scripts/__tests__/extract-mdx-demos.test.ts',
+    {
+      reads: ['content/docs/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: the `README.md` literal names a repo-wide labeler rule, not a file it opens.
+  [
+    'scripts/__tests__/labeler-package-coverage.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
+      walker: 'not-markdown: package directories under `packages/`',
+    },
+  ],
+  [
+    'scripts/__tests__/layered-read-declared-path-4016.test.ts',
+    {
+      reads: ['skills/objectui/**'],
+      walker: 'not-markdown: package `src/` directories',
+    },
+  ],
+  [
+    'scripts/__tests__/lint-workflow.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: drives the decision step against fixture repositories it
+  // writes in a temp directory, so every document literal here is a fixture path
+  // rather than a file in this tree -- `AGENTS.md` included, which is the
+  // objectui#9096 firing fixture and is WRITTEN by the test, never read from the
+  // repository root.
+  [
+    'scripts/__tests__/markdown-test-inputs.test.ts',
+    {
+      reads: [],
+      notRead: ['AGENTS.md', 'README.md', 'ROADMAP.md', 'packages/plugin-dashboard/README.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/merge-queue-reporting.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/quick-reference-commands-4149.test.ts',
+    {
+      reads: ['QUICK_REFERENCE.md'],
+      walker: 'not-markdown: directory listings that test whether a documented path exists',
+    },
+  ],
+  [
+    'scripts/__tests__/quick-reference-current-release-4143.test.ts',
+    {
+      reads: ['QUICK_REFERENCE.md'],
+      walker: 'not-markdown: package and app directories',
+    },
+  ],
+  [
+    'scripts/__tests__/sync-quick-reference-release.test.ts',
+    {
+      reads: ['QUICK_REFERENCE.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/unconsumed-widget-option-claim-6186.test.ts',
+    {
+      reads: ['content/docs/plugins/plugin-dashboard.mdx'],
     },
   ],
 ]);

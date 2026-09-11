@@ -780,11 +780,26 @@ jobs:
           # So this job asks one more question of the markdown the exclusions
           # above dropped: does a test READ it? `markdown-test-inputs.mjs` holds
           # the derived class -- which documents, and which test reads each --
-          # and audits itself against the tree. The widening is deliberately
-          # narrow: a markdown-only change no test reads still skips, which is
-          # the whole point of the exclusions. Only THIS job carries the extra
+          # and audits itself against the tree. Only THIS job carries the extra
           # stage, because only this job runs the tests that read markdown
           # (measured: `type-check` reads no document, and no e2e spec does).
+          #
+          # ⚠️ objectui#9096: that class is now TOTAL over markdown, and this
+          # comment used to claim the opposite ("the widening is deliberately
+          # narrow"). `scripts` joined the scan roots, and the gate tests under
+          # `scripts/__tests__` read the documentation the way the product tests
+          # read a README -- measured by running all 45 of them under an fs
+          # trace, 1734 of 1734 tracked markdown files are opened by at least
+          # one of them. ⇒ for THIS job, the markdown half of the exclusion list
+          # above is now inert: any markdown-only pull request runs the shards.
+          # Priced over the 513 first-parent commits available at the time: 36
+          # reached this stage, 21 already ran, and the widening moves 14 of the
+          # remaining 15 from skip to run -- 2.7pp of merges.
+          #
+          # ⛔ The rest of the exclusion list is NOT inert and must stay: a
+          # non-markdown change under `content/**`, `docs/**` or `apps/site/**`
+          # still skips. `8011852dc` is the live instance -- a site-only change
+          # carrying no markdown, which skipped then and skips now.
           #
           # Same failure posture as the diff above -- a question that cannot be
           # answered means RUN. The script needs nothing but the checkout and

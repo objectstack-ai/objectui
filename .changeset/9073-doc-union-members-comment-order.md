@@ -28,3 +28,12 @@ never in the surface it reads. One existing throw branch changes outcome — a u
 only `;` lives in a comment is now `is unterminated` (loud) rather than a silently
 truncated set; the throw's wording is unchanged and the two throws the floor test pins
 are unaffected.
+
+The card's other two items land in the same file. The floor test's `logic` control
+claimed to catch "a reader that stopped at the first line of a multi-line union"; it
+cannot, because `logic` is itself single-line — measured by mutating the reader into a
+line-bounded one, where that leg stays green and what actually reddens is the
+zero-members throw out of `documentedTypes()`. The docblock now names that mechanism.
+And the equality pin's message offered its exception as "a LATER ruling", citing
+objectui#4814 (2026-08-16/17), which PREDATES batch #88 (2026-09-02); it now reads
+"ANY ruling", which is what the exception meant.

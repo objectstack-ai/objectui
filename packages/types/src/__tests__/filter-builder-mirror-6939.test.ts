@@ -450,11 +450,17 @@ describe('objectui#6939 — the type vocabulary', () => {
     const documented = documentedTypes();
     expect(
       documented.filter((t) => !declared.includes(t)),
+      // ⚠️ This message used to say "a LATER ruling", which is wrong about the
+      // example it cites and was corrected in objectui#9073: objectui#4814
+      // retired `owner` on 2026-08-16/17, and batch #88 is 2026-09-02 — so the
+      // retirement PREDATES the batch it was offered as an exception to. The
+      // exception does not depend on the order anyway: a spelling ANY ruling
+      // has retired does not come back through the doc.
       `the published doc offers \`type\` members this mirror refuses. Under decision ` +
         `batch #88 the DOC is the authority and the MIRROR follows — widen ` +
         `FilterFieldSchema.type and FilterField['type'] to match, as its own reviewable ` +
         `change. ⛔ Do NOT narrow ${DOC} to match the mirror. The one exception to ` +
-        `"the mirror follows": a spelling a LATER ruling RETIRED from this doc — the ` +
+        `"the mirror follows": a spelling ANY ruling RETIRED from this doc — the ` +
         `way objectui#4814 retired \`owner\` — reappearing in it is a doc REGRESSION, ` +
         `not a widening, and the doc edit is what gets reverted.`,
     ).toEqual([]);
@@ -484,11 +490,22 @@ describe('objectui#6939 — the type vocabulary', () => {
     const doc = publishedDoc();
     // (1) CONTROL — the same reader, the same file, a DIFFERENT block whose
     //     answer is fixed by the ruling at exactly two members. It can fire in
-    //     the region under test: a reader that matched nothing, matched the
-    //     wrong interface, or stopped at the first line of a multi-line union
-    //     returns something that is not `['and','or']`, and this reddens. And
-    //     it is independent of the `type?:` block it vouches for, so the thing
-    //     being measured cannot be what satisfies it.
+    //     the region under test: a reader that matched nothing, or matched the
+    //     wrong interface, returns something that is not `['and','or']`, and
+    //     this reddens. And it is independent of the `type?:` block it vouches
+    //     for, so the thing being measured cannot be what satisfies it.
+    //     ⛔ One mode this control does NOT cover, corrected in objectui#9073
+    //     after it was claimed here: a reader that stops at the FIRST LINE of a
+    //     multi-line union. `logic` is itself single-line, so such a reader
+    //     reads it correctly and this leg stays green.
+    //     That mode IS covered — measured, by mutating this reader into a
+    //     line-bounded one: `type?:` then parses to zero members, the
+    //     zero-members throw fires out of `documentedTypes()`, and six tests in
+    //     this file redden, this one among them at leg (2) rather than here.
+    //     So the guard exists; it is the THROW below plus the equality pin, not
+    //     this control. ⚠️ A control that names a mode it cannot catch is the
+    //     same class of defect as the reader objectui#9073 repaired: a
+    //     confident claim that sends the next reader to the wrong place.
     expect(docUnionMembers(doc, 'FilterGroup', 'logic')).toEqual(['and', 'or']);
     // (2) The population itself is non-empty and duplicate-free — a duplicated
     //     member would make the sorted-equality above pass on unequal sets.

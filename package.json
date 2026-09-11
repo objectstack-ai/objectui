@@ -60,6 +60,7 @@
     "check:published-dist": "node scripts/check-published-dist-tooling.mjs",
     "check:published-tsconfig-exclude": "node scripts/check-published-tsconfig-tooling-exclude.mjs",
     "check:spec-floors": "node scripts/check-spec-range-floors.mjs",
+    "check:installed-pin-claims": "node scripts/check-installed-spec-pin-claims.mjs",
     "check:i18n-keys": "node scripts/check-i18n-call-site-keys.mjs",
     "check:i18n-drift": "node scripts/check-i18n-en-drift.mjs",
     "check:i18n-dead-keys": "node scripts/check-i18n-dead-keys.mjs",

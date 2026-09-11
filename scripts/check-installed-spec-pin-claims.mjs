@@ -97,6 +97,11 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// The ONE entry-guard predicate; a hand-typed `process.argv[1]` comparison
+// answers false through a symlink and the gate then does nothing, with exit 0
+// and no output. `scripts/check-entry-guard.mjs` fails on the hand-typed form.
+import { isEntrypoint } from './invoked-as.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 
@@ -1024,7 +1029,7 @@ export function run(root = ROOT, ledger = LEDGER) {
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+if (isEntrypoint(import.meta.url)) {
   const explain = process.argv.includes('--explain');
   const asJson = process.argv.includes('--json');
   const result = run();

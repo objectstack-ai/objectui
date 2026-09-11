@@ -365,13 +365,40 @@ export const RelatedToolbarButton: React.FC<{
  * as a default.
  *
  * ⛔ Do not reintroduce a local arity rule here, however small. This component
- * decides `$contains` vs `=` on the answer, and the driver that refuses the
- * query decides on the spec's — two readers of one question, disagreeing, is
- * exactly the defect objectui#7299 is about, and putting it one layer up would
- * be a worse version of it. The spec's rule is BROADER than an eyeballed
- * `multiple === true` in both directions: `multiselect` / `checkboxes` / `tags`
- * persist an array with no flag at all, and `multiple: true` is INERT on a type
- * outside `MULTI_CAPABLE_TYPES` (`master_detail`, say). Both are pinned.
+ * decides `$contains` vs `=` on the answer, and a second copy of that rule
+ * living here would be two readers of one question inside one package —
+ * exactly the defect objectui#7299 is about, rebuilt one layer up. The spec's
+ * rule is BROADER than an eyeballed `multiple === true` in both directions:
+ * `multiselect` / `checkboxes` / `tags` persist an array with no flag at all,
+ * and `multiple: true` is INERT on a type outside `MULTI_CAPABLE_TYPES`
+ * (`master_detail`, say). Both are pinned.
+ *
+ * ## The storage side does NOT read this predicate — the two rules DIVERGE
+ *
+ * This docblock used to say the driver that refuses the query decides on the
+ * spec's `isMultiValueField`. It does not (objectui#8937). Measured on
+ * objectstack `origin/main`, `driver-sql` gates the equality family on its own
+ * STORAGE question, `isJsonField`: a column is JSON when the field's type is in
+ * that driver's `JSON_COLUMN_TYPES` — the spec's `STRUCTURED_JSON_TYPES` and
+ * `MULTI_OPTION_TYPES`, plus the driver-internal `object` / `array` aliases —
+ * OR when `multiple` is merely TRUTHY, on ANY type; a single-value media type
+ * answers from the ADR-0104 dual-encoding window instead. The spec's predicate
+ * is `MULTI_OPTION_TYPES.has(type) || (MULTI_CAPABLE_TYPES.has(type) &&
+ * multiple === true)`.
+ *
+ * ⇒ They diverge for a type OUTSIDE `MULTI_CAPABLE_TYPES` carrying
+ * `multiple: true` (`master_detail` / `tree` / `text`): the spec says
+ * single-valued, so this component sends `=`, while the driver stores a JSON
+ * column and refuses `=` with the same `400 INVALID_FILTER` objectui#7299 was
+ * filed for. That is a KNOWN divergence, not a regression — the pre-objectui#8886
+ * renderer sent `=` for that shape too.
+ *
+ * ⛔ Do NOT close it here by widening the predicate: which of the two rules is
+ * right is an upstream question, filed as objectstack#17469 (enforce-or-align),
+ * and this component is deliberately not blocked on it. The divergence is
+ * re-derived from the installed spec each run by
+ * `relatedListParentScopeResidue-8937.test.ts`, so this paragraph reddens when
+ * the spec side moves.
  */
 function parentRelationshipFieldDef(
   objectSchema: unknown,

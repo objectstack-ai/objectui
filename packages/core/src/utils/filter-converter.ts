@@ -20,6 +20,7 @@ import {
   VIEW_FILTER_PAIR_VALUE_OPERATORS,
 } from '@objectstack/spec/ui';
 import { isAcceptedFilterComparand, ACCEPTED_FILTER_COMPARAND_TYPES_SENTENCE } from '@objectstack/spec/data';
+import { isRefusedTextComparand, textComparandRefusalReason } from './text-comparand.js';
 
 /**
  * FilterNode AST type definition
@@ -310,34 +311,6 @@ function describeExoticComparand(value: object): string {
 }
 
 /**
- * A comparand as it appears INSIDE a refusal message.
- *
- * `JSON.stringify` alone is not safe here even though it is what the message
- * wants: it THROWS on a BigInt and on a cyclic object. On THIS face that is not
- * merely noisy, it would REPLACE the refusal — the call sits inside a
- * `throw new FilterOperatorError(...)` expression, so a `TypeError` raised while
- * the message is being built escapes in the refusal's place, and
- * `classifyLoadError` reads a bare `TypeError` as a network fault: the author
- * would be told to check their connection about a filter this layer had already
- * judged. Ported from `ValueDataSource`'s twin (objectui#8748), where the same
- * call is unsafe for the mirror-image reason — a refusal that throws while
- * explaining itself turns the one path that stays quiet into the one path that
- * takes the caller down.
- *
- * No JSON-sourced filter can carry either shape, so this is about the in-memory
- * callers who hand a literal to `convertFiltersToAST`. `?? String(target)` keeps
- * `undefined` and a symbol readable — `JSON.stringify` returns `undefined` for
- * both.
- */
-function describeComparand(target: unknown): string {
-  try {
-    return JSON.stringify(target) ?? String(target);
-  } catch {
-    return String(target);
-  }
-}
-
-/**
  * An `$icontains` comparand that is not a NON-EMPTY STRING —
  * `{ name: { $icontains: '' } }`, `{ name: { $icontains: 42 } }` (objectui#9001).
  *
@@ -376,13 +349,18 @@ function describeComparand(target: unknown): string {
  *
  * ## What transfers from the sibling, and what cannot
  *
- * The DISCRIMINATION (`typeof target !== 'string' || target === ''`) and the
- * MESSAGE transfer verbatim, and the message is load-bearing rather than
- * cosmetic: `mustMention: ['$icontains']` means a differently-worded refusal is
- * a different failure to honour the same contract, not a stylistic variant.
+ * The DISCRIMINATION and the MESSAGE transfer verbatim, and the message is
+ * load-bearing rather than cosmetic: `mustMention: ['$icontains']` means a
+ * differently-worded refusal is a different failure to honour the same
+ * contract, not a stylistic variant.
  * `filter-text-comparand-9001.test.ts` pins the two messages against each other
  * by DRIVING both faces and asserting this one contains the sibling's refusal
  * text, so the mirror cannot drift in silence.
+ *
+ * ⭐ Since objectui#9048 "transfer verbatim" is no longer a claim about two
+ * copies agreeing: both halves are ONE implementation in `text-comparand.ts`,
+ * and this function is the envelope that seats it. The pin above is kept, and
+ * is now a pin on the SEATING rather than on a transcription.
  *
  * The DELIVERY cannot transfer, and that is the card's own Q1 answered by the
  * two call sites rather than by a fresh ruling. `ValueDataSource`
@@ -405,25 +383,11 @@ function describeComparand(target: unknown): string {
  * oversight.
  */
 function refuseTextComparand(field: string, operator: string, target: unknown): never {
-  const declared =
-    `@objectstack/spec's FILTER_TEXT_CASES declares this shape refused `
-    + `(INVALID_FILTER); the declared comparand for '${operator}' is a NON-EMPTY STRING`;
   const ported =
     `It is refused here rather than lowered onto the wire (objectui#9001; ported from `
     + `ValueDataSource's refuseTextComparand, objectui#8748).`;
-  if (target === '') {
-    throw new FilterOperatorError(
-      `[ObjectUI] The filter comparand for field '${field}' on operator '${operator}' is the EMPTY `
-      + `STRING. Every value contains the empty substring, so evaluating it is a `
-      + `predicate that constrains nothing. ${declared}. Drop the condition instead `
-      + `of sending an empty comparand. ${ported}`
-    );
-  }
   throw new FilterOperatorError(
-    `[ObjectUI] The filter comparand for field '${field}' on operator '${operator}' is `
-    + `${target === null ? 'null' : typeof target} (${describeComparand(target)}), `
-    + `not a string. Coercing it would answer a query nobody wrote. ${declared}. `
-    + `Write the comparand as a string. ${ported}`
+    `[ObjectUI] The ${textComparandRefusalReason(field, operator, target)}. ${ported}`
   );
 }
 
@@ -731,7 +695,7 @@ export function convertFiltersToAST(
           // is keyed the same way. The `$` spelling the AUTHOR wrote is what
           // travels into the message, which is what `FILTER_TEXT_CASES`'
           // `mustMention: ['$icontains']` is about.
-          if (astOperator === 'icontains' && (typeof operatorValue !== 'string' || operatorValue === '')) {
+          if (astOperator === 'icontains' && isRefusedTextComparand(operatorValue)) {
             refuseTextComparand(field, operator, operatorValue);
           }
           conditions.push([field, astOperator, operatorValue]);
@@ -926,8 +890,16 @@ function isViewFilterRule(value: unknown): value is ViewFilterRuleLike {
  * single-value operator is refused rather than passed through. See the arm
  * itself for the reasoning and for why the refusal is a throw (objectui#8557).
  *
+ * Its COMPARAND is checked on one operator, `icontains`, whose two refused
+ * shapes `@objectstack/spec`'s `FILTER_TEXT_CASES` declares (objectui#9048).
+ * That arm reads the same shared refusal `convertFiltersToAST` and
+ * `ValueDataSource` read, and the arm itself carries the weighing for a SAVED
+ * view — which is a different input from objectui#8557's and was redone rather
+ * than inherited.
+ *
  * @throws {FilterOperatorError} If the rule carries an ARRAY on an operator the
- * spec declares single-valued.
+ * spec declares single-valued, or an empty / non-string comparand on
+ * `icontains`.
  */
 /**
  * The view-filter operators whose `value` is legitimately an ARRAY.
@@ -1047,6 +1019,106 @@ function viewFilterRuleToNode(rule: ViewFilterRuleLike): FilterNode {
       `'not_in', or a range as { operator: 'between', value: [min, max] } — the ` +
       `three operators the spec declares array-valued, which are untouched ` +
       `(objectui#8557; the same ruling objectui#8530 applied to the object arm).`
+    );
+  }
+
+  // The `icontains` COMPARAND door, on the STORED VIEW rule vocabulary —
+  // objectui#9048. Same two shapes `FILTER_TEXT_CASES` declares refused, same
+  // discrimination and same words as `convertFiltersToAST` and
+  // `ValueDataSource`, because all three now read ONE implementation
+  // (`text-comparand.ts`) rather than three copies of it. Triage ruled exactly
+  // that: "three implementations of one refusal, of which one is correct ⇒ the
+  // useful dispatch is not 'add a third guard' but 'make the dialects share the
+  // one that works'".
+  //
+  // ## Placed AFTER the arity arm, deliberately
+  //
+  // An ARRAY comparand on `icontains` is refused by objectui#8557 above, with
+  // its message about `in` / `not_in` / `between`. Running this door first would
+  // answer the same input with "not a string" — a true sentence that prescribes
+  // the wrong repair, and a silent change to a shipped ruling this card is
+  // fenced away from.
+  //
+  // ## An ABSENT comparand is left alone, and that is a boundary not an omission
+  //
+  // `isRefusedTextComparand(undefined)` is true, so the `!== undefined` test is
+  // load-bearing. The `$` dialect has no "absent" — `{ $icontains: undefined }`
+  // still HAS the key — but this vocabulary does, and the tail below already
+  // encodes it: a rule with no `value` lowers to the 2-tuple `[field, operator]`
+  // because the valueless operators (`is_null` and friends) take their direction
+  // from the operator NAME. Measured on today's tree, that 2-tuple is already
+  // refused downstream with THIS card's code: `parseFilterAST(['name',
+  // 'icontains'])` throws `INVALID_FILTER` / 400 naming
+  // `where.name.$icontains`. So the shape is loud already; moving WHERE it is
+  // refused is a separate argument nobody has made, and `FILTER_TEXT_CASES`
+  // declares two rows, not three.
+  //
+  // ## Why a THROW here, when it means a saved view fails at RENDER
+  //
+  // This is objectui#8557's weighing done again on a different input, not
+  // inherited from it — the card says so, and the inputs really do differ.
+  // Measured on `origin/main` `6df26f025` with `@objectstack/spec` 17.4.0, one
+  // authored view rule `{ field: 'name', operator: 'icontains', value: '' }`:
+  //
+  //   - it lowers to `['name','icontains','']`, which `isFilterAST` ACCEPTS, so
+  //     it is sent rather than stopped at any door;
+  //   - `parseFilterAST` reads it as `{ name: { $icontains: '' } }`;
+  //   - against the in-memory matchers that condition selects ZERO of the
+  //     spec's own nine `FILTER_TEXT_ROWS` (`@objectstack/formula`'s
+  //     `matchesFilterCondition`, and `ValueDataSource` since objectui#8748,
+  //     which also prints a refusal);
+  //   - and on the wire the published table states the other answer in its own
+  //     words — "Every row contains the empty substring, so evaluating it is a
+  //     predicate that constrains nothing".
+  //
+  // So the pre-fix answer is not one behaviour but TWO, chosen by which data
+  // source the saved view happens to render against: silently-empty on the
+  // in-memory faces, constrains-nothing on the wire. That is the acceptance-set
+  // split this card family exists to close, and neither half is "a view that
+  // renders correctly today". objectui#8557's conclusion (loud beats
+  // silently-empty) covers the first half unchanged; the second half is the
+  // WIDENING direction this file's own arity arm names as the one it exists to
+  // avoid — "a stored view's whole purpose can be to hide rows". Both halves
+  // point the same way, which is why the weighing survives the different input.
+  //
+  // The blast radius is also smaller than the shape suggests, measured rather
+  // than assumed. The Console cannot author this rule: `foldFilterGroupToSpecRules`
+  // (`@object-ui/app-shell`, objectui#4155) DROPS a condition whose value is
+  // `null` / `''` / `[]` before it is persisted, precisely so an incomplete row
+  // never reaches storage. What remains is hand-authored metadata and views
+  // saved before that landed. And the throw is not a new blast radius: both
+  // sinks already catch a `FilterOperatorError` from this same function —
+  // `plugin-list`'s `buildEffectiveFilter` inside `ListView`'s load `try`,
+  // `plugin-view`'s `ObjectView` inside its own — and `classifyLoadError` reads
+  // this error's `INVALID_FILTER` / `400`, so the user sees the "filter is
+  // malformed" panel naming their field and operator, not a crashed page and
+  // not a network error.
+  if (
+    operator === 'icontains'
+    && rule.value !== undefined
+    && isRefusedTextComparand(rule.value)
+  ) {
+    // The spelling that ARRIVED, never `$icontains` substituted for it. The
+    // published rows spell the operator `$icontains` because their filters are
+    // written in the `$` dialect; a view rule spells the same operator
+    // `icontains`, and `ValueDataSource` already answers this question the same
+    // way on today's tree — its `$` arm names `$icontains`, its AST arm names
+    // `icontains`, each from the node in hand. Prescribing a spelling this
+    // vocabulary does not have would send a view author looking for a `$` key
+    // their metadata cannot contain, so the `$` twin is NAMED in the tail below
+    // instead of substituted for what they wrote.
+    const arrived = typeof rule.operator === 'string' && rule.operator !== ''
+      ? rule.operator
+      : operator;
+    const tail =
+      `This is a STORED VIEW rule, so it is refused as the filter is BUILT rather `
+      + `than lowered onto the wire: the spelling @objectstack/spec's `
+      + `FILTER_TEXT_CASES uses for this operator is the $-dialect '$icontains', `
+      + `which this vocabulary spells '${arrived}'. Remove the condition from the `
+      + `view, or give it a non-empty string comparand (objectui#9048; the same `
+      + `refusal ValueDataSource and convertFiltersToAST already share).`;
+    throw new FilterOperatorError(
+      `[ObjectUI] The ${textComparandRefusalReason(rule.field, arrived, rule.value)}. ${tail}`
     );
   }
 

@@ -148,9 +148,16 @@ const PAGE = {
 /** The measured render size of `<Button size="icon">` in both headers. */
 const ICON_BUTTON = 'h-10 w-10 shrink-0';
 /** A tail box wide enough to reproduce the measured app tails (see header). */
-const TAIL_BOX = 'h-9 w-44 shrink-0';
+const TAIL_BOX = 'h-9 w-48 shrink-0';
 
-const TITLE = 'Specimen — Full';
+/**
+ * Long enough that the h1's own text is never the binding constraint at the
+ * crowded viewport — what is being measured is the width the arbitration
+ * LEAVES the title, not how long this particular string happens to be — and
+ * still short enough to fit unclipped at the roomy viewport, which is what the
+ * regression guard reads.
+ */
+const TITLE = 'Specimen — Full Assembly Record';
 
 async function tailwindFor(candidates: string[]): Promise<string> {
   const twEntry = fileURLToPath(import.meta.resolve('tailwindcss/index.css'));

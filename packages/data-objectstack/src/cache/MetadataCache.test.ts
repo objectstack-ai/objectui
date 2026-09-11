@@ -221,10 +221,11 @@ describe('MetadataCache', () => {
         cache.get('test', fetcher),
       ]);
       
-      // All should return the same data
-      // Note: Due to async nature, the first call will fetch and others might also fetch
-      // if they check before the first one completes. This is acceptable behavior.
-      // But at least one should be cached if they complete after the first one.
+      // All three are served. They also share ONE fetcher call — `get` coalesces
+      // concurrent misses for the same key onto a single in-flight promise — but
+      // that is pinned by "should coalesce concurrent fetches for the same key"
+      // below, which asserts the call count and the `coalesced` stat. This case
+      // asserts only that every caller gets a value.
       expect(results[0]).toBeDefined();
       expect(results[1]).toBeDefined();
       expect(results[2]).toBeDefined();

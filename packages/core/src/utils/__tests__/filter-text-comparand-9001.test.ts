@@ -386,14 +386,18 @@ describe('objectui#9001 — what the guard must NOT touch', () => {
     // adds no `continue` and skips no key, and the tail is unreachable from
     // it. Pinned rather than argued.
     //
-    // ⚠️ UPDATED by objectui#9020, which gave the all-skipped tail its own
-    // count and its own `undefined`. That is a SECOND guard beside this one,
-    // not a change to it: the two cases below that mix the kinds still satisfy
-    // neither guard, which is how this control keeps measuring what it was
-    // written to measure.
+    // ⚠️ UPDATED TWICE. objectui#9020 gave the all-skipped tail its own count
+    // and its own `undefined` — a SECOND guard beside this one. objectui#9030
+    // then narrowed THIS guard's denominator to the keys the loop actually
+    // PROCESSED, so a mixed filter folds too. Neither touched what this control
+    // measures: a refusal that THROWS adds no `continue`, skips no key, and so
+    // moves neither the numerator nor the denominator. The empty-operator-map
+    // case below is the one that still reaches the object tail, and it is what
+    // keeps this control able to see a perturbation at all.
     expect(convertFiltersToAST({ $and: [] })).toBeUndefined();
     expect(convertFiltersToAST({ $or: [{}] })).toBeUndefined();
-    expect(convertFiltersToAST({ $and: [], a: null })).toEqual({ $and: [], a: null });
+    expect(convertFiltersToAST({ $and: [], a: null })).toBeUndefined();
+    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
     expect(convertFiltersToAST({})).toEqual({});
     expect(convertFiltersToAST({ a: null })).toBeUndefined();
     expect(convertFiltersToAST({ $and: [], name: { $icontains: 'x' } })).toEqual([

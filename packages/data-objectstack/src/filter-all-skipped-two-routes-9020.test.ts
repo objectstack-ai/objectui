@@ -251,17 +251,24 @@ describe('objectui#9020 — controls', () => {
 describe('objectui#9020 — the mixed filter is a different card', () => {
   beforeEach(() => clearSharedDiscoveryCache());
 
-  it('an identity group beside a skipped key is left exactly as it was', async () => {
-    // ⛔ Each guard in the tail is keyed on "EVERY key was of MY kind", so a
-    // filter that mixes the two kinds satisfies neither and keeps the object it
-    // has always returned — even though each of its keys, alone, now folds.
-    // Whether it SHOULD fold is objectui#9030's open question; answering it here
-    // by merging the two counts is the accident this card was fenced against.
+  it('an identity group beside a PROCESSED key that produced nothing is left as it was', async () => {
+    // ⚠️ UPDATED. This used to name `{ $and: [], a: null }` — a filter mixing an
+    // identity group with a SKIPPED key — as the case each guard declines
+    // because each is keyed on "EVERY key was of MY kind". objectui#9030
+    // answered that one: the identity fold now counts only the keys the loop
+    // actually PROCESSED, so the mixed filter folds and both routes agree on it
+    // (measured in `filter-identity-skipped-mix-two-routes-9030.test.ts`).
     //
-    // ⚠️ Asserted at the CONVERTER, not on the routes: the routes still disagree
-    // about this filter, and pinning that disagreement in a file whose subject
-    // is route agreement would read as a claim that it is settled. It is not.
+    // ⭐ The boundary this card was fenced against moving is still here, one
+    // shape over: `{ a: {} }` is a key the loop ENTERED that pushed no
+    // condition, so it is neither an identity group nor a skipped key and no arm
+    // claims it. That is what proves the two counts were not merged into "no
+    // conditions were produced".
+    //
+    // ⚠️ Asserted at the CONVERTER, not on the routes: this input still reaches
+    // both routes as the caller's object, and pinning that in a file whose
+    // subject is route agreement would read as a claim that it is settled.
     const { convertFiltersToAST } = await import('@object-ui/core');
-    expect(convertFiltersToAST({ $and: [], a: null })).toEqual({ $and: [], a: null });
+    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
   });
 });

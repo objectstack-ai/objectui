@@ -29,10 +29,25 @@
  * The condition is therefore composed by `@object-ui/core`'s
  * `composeParentScopeFilter` (objectui#8883), the ONE compiler the related
  * list's rows and the tab badge already share (objectui#7299, objectui#8882).
- * ⛔ Do not add a local arity rule here, however small: the seam's verdict is
- * `@objectstack/spec/data`'s own `isMultiValueField`, the same predicate the
- * driver that executes the query decides on, and two readers of one question
- * disagreeing is the entire defect class.
+ * ⛔ Do not add a local arity rule here, however small. The seam's verdict is
+ * `@objectstack/spec/data`'s own `isMultiValueField`, and a local
+ * approximation is wrong against it in BOTH directions, not merely incomplete:
+ * `multiselect` / `checkboxes` / `tags` persist an array with no flag at all,
+ * and `multiple: true` is INERT on a type outside the spec's multi-capable
+ * set. Two readers of one question, drifted, is the entire defect class.
+ *
+ * ⚠️ The QUERY rule and the STORAGE rule are two rules, and ⛔ this file does
+ * not claim they are one predicate. Measured at source: the spec asks
+ * `MULTI_OPTION_TYPES.has(type) || (MULTI_CAPABLE_TYPES.has(type) && multiple
+ * === true)`, while the SQL driver's own `isJsonField` asks
+ * `JSON_COLUMN_TYPES.has(type) || !!field.multiple` — the flag on ANY type. So
+ * `{ type: 'master_detail', multiple: true }` answers `false` to the spec and
+ * `true` to the driver, and the two part company for exactly the
+ * flag-on-a-non-multi-capable-type case. ⛔ Nothing here decides which is
+ * right: that divergence is owned upstream by objectstack#17469. This renderer
+ * follows the SPEC, because the spec is what the authoring surface is
+ * validated against and what the seam already compiles on — and a second
+ * opinion at this call site would be the defect above, one layer up.
  *
  * ## The "View All" link cannot follow the rows there
  *

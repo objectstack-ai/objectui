@@ -29,6 +29,8 @@ import {
   evaluateHeadroomSensitivity,
   evaluatePerChunkBudgets,
   extractCeilingDeclarations,
+  RECOGNISED_HALF_STATUSES,
+  foldHalfStatuses,
   main,
   measureChunksByName,
   renderTopChunks,
@@ -1284,6 +1286,139 @@ describe('main', () => {
     // number here would render as a verdict about a bundle nobody weighed.
     expect(outputs.closure_gzip_kb).toBe('');
     expect(outputs.closure_chunks).toBe('');
+  });
+
+  /**
+   * objectui#9006 — the fold used to enumerate only the statuses that FAIL:
+   *
+   *     if (statuses.includes('error')) return 2;
+   *     return statuses.includes('fail') ? 1 : 0;
+   *
+   * so a status NEITHER test names fell through to `0` — while the printer,
+   * which asks a different question (`status === 'pass'`), rendered that same
+   * value as ❌. A run could print a red cross and exit 0, which is quieter
+   * than either half of the rule this file argues for: a check that passes by
+   * measuring nothing must be LOUDER than one that fails by measuring
+   * something, never quieter.
+   *
+   * ⚠️ These cases live HERE, and not only in the gate's own workflows, on
+   * purpose. `docs-route-eager-closure.yml` and `performance-budget.yml` are
+   * not among this repo's required merge-queue contexts, so a regression in
+   * the fold would not block a merge through the gate's own job. This file
+   * runs inside `Test (shard N/4)`, which is required (objectui#9098 landed
+   * the same reasoning one card earlier).
+   */
+  describe('the fold recognises exactly the statuses the halves declare (objectui#9006)', () => {
+    const checker = fs.readFileSync(checkerPath, 'utf8');
+
+    /** Both places this file states a half's status: the assignments, and the JSDoc unions. */
+    function declaredStatuses(source: string) {
+      const found = new Set<string>();
+      for (const m of source.matchAll(/\bstatus: '([a-z-]+)',/g)) found.add(m[1]);
+      for (const m of source.matchAll(/@returns \{\{ status: ([^,]+),/g)) {
+        for (const q of m[1].matchAll(/'([a-z-]+)'/g)) found.add(q[1]);
+      }
+      return found;
+    }
+
+    /**
+     * ⛔ The fence, and it is the half that is easy to get wrong: this card is
+     * a DISTINCTION, not a tightening. Every status that exists today keeps the
+     * code it has — `not-applicable` above all, which is inert BY DESIGN ("the
+     * absence of a question, not the answer `pass`") and must stay inert.
+     */
+    it.each([
+      ['every half passing', { closure: 'pass', perChunk: 'pass', sensitivity: 'pass', freshness: 'pass' }, 0],
+      ['freshness not-applicable, the rest passing', { closure: 'pass', perChunk: 'pass', sensitivity: 'pass', freshness: 'not-applicable' }, 0],
+      ['one half failing', { closure: 'fail', perChunk: 'pass', sensitivity: 'pass', freshness: 'not-applicable' }, 1],
+      ['one half erroring', { closure: 'pass', perChunk: 'pass', sensitivity: 'error', freshness: 'not-applicable' }, 2],
+      ['error outranking fail', { closure: 'fail', perChunk: 'pass', sensitivity: 'error', freshness: 'pass' }, 2],
+    ])('leaves %s at its existing exit code', (_label, halves, expected) => {
+      const { code, unrecognised } = foldHalfStatuses(halves as Record<string, string>);
+      expect(code).toBe(expected);
+      expect(unrecognised).toEqual([]);
+    });
+
+    it('is LOUD about a status no half declares, instead of folding it into 0', () => {
+      // 'errror' rather than an obviously-fake token: the realistic arrival of
+      // this class is a typo or a fifth status added to one half without
+      // editing the fold, not a hostile input.
+      const { code, unrecognised } = foldHalfStatuses({
+        closure: 'errror',
+        perChunk: 'pass',
+        sensitivity: 'pass',
+        freshness: 'not-applicable',
+      });
+      // 2, not 1 and not a throw: an unrecognised status is a check that
+      // measured nothing, which is this file's exit 2. An uncaught throw would
+      // exit Node with 1 — the "over budget" code — labelling a broken gauge
+      // as a size regression, the one collapse `main`'s own comment refuses.
+      expect(code).toBe(2);
+      expect(unrecognised).toEqual([{ half: 'closure', status: 'errror' }]);
+    });
+
+    it('names the offending half even when a sibling half independently errors', () => {
+      // Both paths return 2, so this is not about the exit code: it is about
+      // the run that could reveal a status nobody enumerated not being the run
+      // that hides it behind an unrelated error.
+      const { code, unrecognised } = foldHalfStatuses({
+        closure: 'error',
+        perChunk: 'pass',
+        sensitivity: 'wobbly',
+        freshness: 'not-applicable',
+      });
+      expect(code).toBe(2);
+      expect(unrecognised).toEqual([{ half: 'sensitivity', status: 'wobbly' }]);
+    });
+
+    it('keeps `not-applicable` inert in the very run an unrecognised status is loud', () => {
+      // The control of known direction. One run, two classes that both fall
+      // through today: only ONE of them moves.
+      const { unrecognised } = foldHalfStatuses({
+        closure: 'pass',
+        perChunk: 'pass',
+        sensitivity: 'nearly-pass',
+        freshness: 'not-applicable',
+      });
+      expect(unrecognised.map((u) => u.half)).toEqual(['sensitivity']);
+      expect(unrecognised.map((u) => u.status)).not.toContain('not-applicable');
+      // And alone, it is still worth 0 — unchanged from before this card.
+      expect(
+        foldHalfStatuses({ closure: 'pass', perChunk: 'pass', sensitivity: 'pass', freshness: 'not-applicable' }).code,
+      ).toBe(0);
+    });
+
+    /**
+     * The tripwire for the case the card is actually about: a half gaining a
+     * FIFTH status. `RECOGNISED_HALF_STATUSES` is a written-down list, so
+     * AGENTS.md #9 requires an instrument that re-derives it — this is that
+     * instrument, reading the checker's own text rather than a copy.
+     */
+    it('recognises exactly the statuses this file declares, re-derived from its source', () => {
+      expect([...declaredStatuses(checker)].sort()).toEqual([...RECOGNISED_HALF_STATUSES].sort());
+    });
+
+    it('extracts statuses at all — a matcher that matches nothing agrees with everything', () => {
+      // Without this control the assertion above passes for the wrong reason
+      // the moment the shape it reads changes.
+      expect([...declaredStatuses(checker)].length).toBe(RECOGNISED_HALF_STATUSES.length);
+      expect([...declaredStatuses("      status: 'wobbly',")]).toEqual(['wobbly']);
+      expect([...declaredStatuses(" * @returns {{ status: 'pass' | 'wobbly', message: string,")].sort()).toEqual(
+        ['pass', 'wobbly'],
+      );
+    });
+
+    /**
+     * The floor above is only a floor while `main` actually routes through the
+     * function it tests. Re-inlining the two membership tests would leave these
+     * cases green against a function nothing calls.
+     */
+    it('is the fold `main` itself uses, not a parallel copy', () => {
+      const mainBody = checker.slice(checker.indexOf('export function main('));
+      expect(mainBody).toContain('evaluateCeilingFreshness({');
+      expect(mainBody).toContain('foldHalfStatuses({');
+      expect(mainBody).not.toMatch(/statuses\.includes\(/);
+    });
   });
 });
 

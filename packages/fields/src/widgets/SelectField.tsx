@@ -14,6 +14,7 @@ import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { MultiSelectField } from './MultiSelectField.js';
 import { OptionsEmptyState } from './OptionsEmptyState.js';
+import { toHostControlProps } from './toHostGroupProps.js';
 import { useCascadingOptions } from './useCascadingOptions.js';
 
 /**
@@ -144,6 +145,14 @@ function SingleSelectField({
         dependsOnFields={dependsOnFields}
         testId={fieldName ? `select-empty-${fieldName}` : undefined}
         className="h-9"
+        // This widget declares `labelling: 'control'`, so the host emits a
+        // plain `<label for>` and expects a LABELABLE element to be there.
+        // Returning early used to answer that with nothing: the host id
+        // reached no element and the `for` dangled (objectui#8803, the
+        // registered-widget half of objectui#3991). Handing the box this bag
+        // makes it an `<output>` carrying that id — see `OptionsEmptyState`
+        // for the readings that ruled out the alternatives.
+        hostControlProps={toHostControlProps(props)}
       />
     );
   }

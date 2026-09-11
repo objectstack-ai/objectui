@@ -518,10 +518,10 @@ function resolvesToRegisteredFieldWidget(type: string): boolean {
  *
  * ## ⛔ Deliberately NOT extended to the registered-widget path
  *
- * `@object-ui/fields`' `OptionsEmptyState` is the same FAULT on the
- * `field:select` path (measured: the `for` dangles there instead, pointing at
- * an id no element carries) but it is NOT the same mechanism, so it is not
- * fixed by this predicate:
+ * `@object-ui/fields`' `OptionsEmptyState` was the same FAULT on the
+ * `field:select` path — measured there, the `for` dangled instead, pointing at
+ * an id no element carried — but it is NOT the same mechanism, so it was never
+ * fixable by this predicate:
  *
  *  - the branch belongs to a component `ComponentRegistry` resolves, not to
  *    this file. Any third party may register a `field:select` that renders a
@@ -533,6 +533,13 @@ function resolvesToRegisteredFieldWidget(type: string): boolean {
  *    — they publish the label's id and answer with `aria-labelledby`
  *    (objectui#3990 / #4005). Single `select` declares `labelling: 'control'`
  *    and has no such channel; giving it one is a ruling, not a mirror.
+ *
+ * That half was repaired in the WIDGET, by objectui#8803, and it did not need
+ * a ruling after all: `'control'` already promises "the outermost rendered
+ * element is a LABELABLE HTML element", and the zero-option branch simply was
+ * not keeping that promise. It now renders an `<output>` carrying the host id,
+ * so this file's `for` reaches it unchanged — nothing here was extended, and
+ * the host still makes no guess about what a registered widget renders.
  */
 function rendersBuiltinSelectEmptyState(
   type: string,

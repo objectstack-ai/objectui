@@ -230,11 +230,16 @@ async function readGeometry(page: Page, fixture: string, css: string, width: num
   await page.waitForFunction(
     () => {
       const h1 = document.querySelector('h1');
-      if (!h1) return false;
+      const row = document.querySelector('#host > div');
+      // The ROW is what proves layout has run — it always fills the viewport.
+      // ⛔ Deliberately NOT `h1 width > 0`: an ablated floor can drive the h1
+      // to exactly 0, and that reading is the finding, not a reason to hang
+      // until the wait times out and hides it behind a TimeoutError.
+      if (!h1 || !row || row.getBoundingClientRect().width <= 0) return false;
       const w = h1.getBoundingClientRect().width;
       const prev = (window as unknown as { __w?: number }).__w;
       (window as unknown as { __w?: number }).__w = w;
-      return prev !== undefined && Math.abs(prev - w) < 0.01 && w > 0;
+      return prev !== undefined && Math.abs(prev - w) < 0.01;
     },
     null,
     { polling: 'raf', timeout: 10_000 },

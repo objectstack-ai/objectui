@@ -83,6 +83,65 @@ describe('celAuthoring · lintCelPredicate in record scope (field conditional ru
   });
 });
 
+/**
+ * objectui#8972 — the wrong-layer `data.*` advisory.
+ *
+ * The engine's own `SCOPE_ROOTS` carries `data`, so every assertion in here
+ * that a finding EXISTS is an assertion about this module, not about
+ * `@objectstack/formula`: measured on `@objectstack/formula@17.4.0`,
+ * `validateExpression('predicate', "data.status == 'x'", { scope: 'record' })`
+ * answers `{ ok: true, errors: [], warnings: [] }`.
+ *
+ * Three of the five pins below are LIVE CONTROLS rather than true-positive
+ * pins, and they are the reason this is a WARNING and not an error. Each one
+ * describes a world the advisory must NOT create, so each one stays green
+ * across both legs of the ablation.
+ */
+describe('celAuthoring · the wrong-layer `data.*` advisory (objectui#8972)', () => {
+  const RULE_HINT = { ...HINT, scope: 'record' as const };
+
+  it('TRUE POSITIVE — a record-scope `data.*` predicate now warns, naming `record` as the fix', async () => {
+    const issues = await lintCelPredicate("data.status == 'x'", RULE_HINT);
+    const advisory = issues.filter((i) => /\bdata\b/.test(i.message) && /Re-root/.test(i.message));
+    expect(advisory).toHaveLength(1);
+    expect(advisory[0].severity).toBe('warning');
+    expect(advisory[0].message).toMatch(/`record`/);
+  });
+
+  it('LIVE CONTROL — the ACCEPT SET is not narrowed: the same predicate raises no error', async () => {
+    // Every save gate on this tier counts `severity === 'error'` and nothing
+    // else, so "zero errors" IS "still accepted". This is the falsifiable form
+    // of WARN-not-REFUSE: promote the advisory to `error` and this reddens.
+    const issues = await lintCelPredicate("data.status == 'x'", RULE_HINT);
+    expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
+    expect(issues.some((i) => i.severity === 'warning')).toBe(true);
+  });
+
+  it('LIVE CONTROL — the canonical spelling stays completely clean', async () => {
+    // `rowPredicateCanon.test.ts` pins the detector returning null for this;
+    // this pins that the wiring does not turn it into a finding anyway.
+    expect(await lintCelPredicate("record.status == 'x'", RULE_HINT)).toEqual([]);
+  });
+
+  it('LIVE CONTROL — a FLATTENED (RLS) predicate is untouched, bare identifiers included', async () => {
+    // The detector's other arm would fire on all three genuine RLS predicates
+    // in this repo. The advisory is gated on `scope: 'record'` and passes
+    // `row = null`, so neither arm can reach this tier.
+    expect(await lintCelPredicate('organization_id == current_user.organization_id', HINT)).toEqual([]);
+    expect(await lintCelPredicate("data.status == 'x'", HINT)).toEqual([]);
+  });
+
+  it('adds nothing on top of a parse error, and stands down on a non-CEL dialect', async () => {
+    const broken = await lintCelPredicate('data.status ==', RULE_HINT);
+    expect(broken.some((i) => i.severity === 'error')).toBe(true);
+    expect(broken.some((i) => /Re-root/.test(i.message))).toBe(false);
+    // A legacy `${…}` string is not CEL; the detector stands down and so must
+    // this — classifying it belongs to its own dialect's rules.
+    const legacy = await lintCelPredicate('${data.status}', RULE_HINT);
+    expect(legacy.some((i) => /Re-root/.test(i.message))).toBe(false);
+  });
+});
+
 describe('celAuthoring · lintCelPredicate role "value" (formula expressions, #1582 follow-up)', () => {
   const FORMULA_HINT = { ...HINT, scope: 'record' as const, role: 'value' as const };
 

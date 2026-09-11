@@ -506,7 +506,7 @@ describe('the walk covers EVERY entry point, not just the barrel (objectui#8850)
     const dir = workspace({ ...TWO_ENTRY_SOURCES, 'packages/pkg/package.json': twoEntryManifest(TWO_ENTRY_HONEST) });
     try {
       const fromBarrel = walkEntryGraph(path.join(dir, 'packages/pkg/src/index.ts'), dir);
-      expect(fromBarrel.modules.map((m: string) => path.relative(dir, m))).not.toContain(
+      expect(fromBarrel.modules.map((m) => path.relative(dir, m))).not.toContain(
         path.join('packages', 'pkg', 'src', 'registrar.ts'),
       );
       const verdict = evaluatePackage(readArrayPackages(dir)[0], dir);
@@ -640,7 +640,7 @@ describe('classifying a published form — entry point, or provably not a root',
       }),
     });
     expect(verdict.entryPoints).toEqual(['src/index.ts']);
-    expect(verdict.entryForms.map((e: { subpath: string; kind: string }) => [e.subpath, e.kind])).toEqual([
+    expect(verdict.entryForms.map((e) => [e.subpath, e.kind])).toEqual([
       ['.', 'entry-point'],
       ['./styles.css', 'asset'],
     ]);
@@ -659,7 +659,7 @@ describe('classifying a published form — entry point, or provably not a root',
       }),
     });
     expect(verdict.entryPoints).toEqual(['src/index.ts']);
-    expect(verdict.entryForms.map((e: { kind: string }) => e.kind)).toEqual(['entry-point', 'duplicate-entry']);
+    expect(verdict.entryForms.map((e) => e.kind)).toEqual(['entry-point', 'duplicate-entry']);
     expect(verdict.ok).toBe(true);
   });
 

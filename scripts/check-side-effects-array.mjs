@@ -998,9 +998,13 @@ export function deriveSpellingMap(pkg, root = REPO_ROOT) {
  * package name or an extension allow-list. The classification is derived from
  * the manifest's own subpath structure and from what is on disk.
  *
+ * @typedef {{subpath: string, kind: 'entry-point' | 'duplicate-entry' | 'asset',
+ *            sources: string[], forms: string[], alternateFormats: string[]}} EntryFormVerdict
+ *
  * @param {{name: string, dir: string, manifest: any}} pkg
  * @param {{toSource: (form: string) => (string | undefined)}} map from {@link deriveSpellingMap}
  * @param {string} [root]
+ * @returns {{entries: EntryFormVerdict[], problems: string[], roots: string[]}}
  */
 export function classifyEntryForms(pkg, map, root = REPO_ROOT) {
   const pkgAbs = path.join(root, pkg.dir);
@@ -1009,9 +1013,11 @@ export function classifyEntryForms(pkg, map, root = REPO_ROOT) {
     return fs.existsSync(abs) && fs.statSync(abs).isFile();
   };
 
+  /** @type {EntryFormVerdict[]} */
   const entries = [];
+  /** @type {string[]} */
   const problems = [];
-  /** sourceRel -> the subpath that first claimed it as a root. */
+  /** @type {Map<string, string>} sourceRel -> the subpath that first claimed it as a root. */
   const claimedBy = new Map();
 
   for (const { subpath, forms } of manifestEntrySubpaths(pkg.manifest)) {
@@ -1105,7 +1111,7 @@ export function checkReachability(graph, registrars, entryFiles, root = REPO_ROO
  *
  * @returns {{name: string, ok: boolean, gauge: boolean, expected: string[], declared: string[],
  *            missing: string[], stale: string[], registrars: string[], problems: string[],
- *            modulesWalked: number}}
+ *            modulesWalked: number, entryPoints: string[], entryForms: EntryFormVerdict[]}}
  */
 export function evaluatePackage(pkg, root = REPO_ROOT) {
   const problems = [];
@@ -1114,6 +1120,7 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
     return {
       name: pkg.name, ok: false, gauge: true, expected: [], declared: pkg.declared,
       missing: [], stale: [], registrars: [], problems: [map.error], modulesWalked: 0,
+      entryPoints: [], entryForms: [],
     };
   }
 

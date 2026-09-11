@@ -2869,10 +2869,29 @@ describe('ci-cd-pipeline.md — the four sections measured as parity defects', (
           'by this step; if the second one moved or went away, rewrite that section with it.',
       ).toHaveLength(1);
 
+      // The COMPOSITION half (objectui#7479), held to the same three conditions:
+      // a gate whose exit code nothing reads is a reading printed into a log.
+      const catalogueInvocations = step
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => !line.startsWith('#') && line.includes('check-eager-locale-catalogues.mjs'));
+      expect(
+        catalogueInvocations,
+        'the budget step no longer INVOKES `scripts/check-eager-locale-catalogues.mjs` outside its ' +
+          'own comments. The Performance Budget section says three measurements are enforced by ' +
+          'this step; if the third one moved or went away, rewrite that section with it.',
+      ).toHaveLength(1);
+
       for (const [pattern, what] of [
         [/CLOSURE_CODE=\$\?/, "capture the checker's exit code"],
         [/"\$CLOSURE_CODE"\s+-eq\s+2/, 'treat exit 2 (a verdict about the gauge) as its own case'],
         [/"\$CLOSURE_CODE"\s+-ne\s+0/, 'fail the step on any non-zero closure verdict'],
+        [/CATALOGUE_CODE=\$\?/, "capture the composition checker's exit code"],
+        [
+          /"\$CATALOGUE_CODE"\s+-eq\s+2/,
+          'treat the composition exit 2 (a verdict about the gauge) as its own case',
+        ],
+        [/"\$CATALOGUE_CODE"\s+-ne\s+0/, 'fail the step on any non-zero composition verdict'],
       ] as const) {
         expect(
           step,
@@ -2890,22 +2909,31 @@ describe('ci-cd-pipeline.md — the four sections measured as parity defects', (
       ).toEqual([]);
     });
 
-    it('says so on the page, with both rows marked enforced', () => {
+    it('says so on the page, with every enforced row marked enforced', () => {
       const sec = section(PERF_HEADING);
 
       const rows = sec.split('\n').filter((line) => /^\|/.test(line) && /Yes —/.test(line));
       expect(
         rows.length,
-        'the "Enforced limits" table no longer carries two enforced rows. The budget step makes ' +
-          'two measurements and either one can fail it, so the page must not read as one enforced ' +
+        'the "Enforced limits" table no longer carries three enforced rows. The budget step makes ' +
+          'three measurements and any one can fail it, so the page must not read as one enforced ' +
           'number — that sentence ("Exactly one bundle-size number in this repository is ' +
-          'enforced") is what objectui#8420 measured as false.',
-      ).toBe(2);
+          'enforced") is what objectui#8420 measured as false. The third row is the ' +
+          'locale-catalogue composition verdict (objectui#7479), which is not a size at all.',
+      ).toBe(3);
 
       expect(
         rows.some((row) => /[Ee]ager closure/.test(row)),
         'the enforced rows no longer include the eager closure. It is the second half of the same ' +
           'step and it fails the run on its own, so it belongs beside the entry-chunk line.',
+      ).toBe(true);
+
+      expect(
+        rows.some((row) => /check:eager-locale-catalogues/.test(row)),
+        'the enforced rows no longer include the locale-catalogue composition verdict. It is the ' +
+          'third half of the same step and it fails the run on its own — and it is the only one ' +
+          'of the three that can tell "the catalogues left the closure" from "the catalogues ' +
+          'moved to a chunk with more room".',
       ).toBe(true);
 
       // The retired sentence, with a positive control in the same test so a rename of

@@ -126,6 +126,27 @@ export function getLoadedBuiltInLocales(): Readonly<Record<string, LocaleCatalog
   return { ...loaded };
 }
 
+/**
+ * Make a catalogue resident WITHOUT fetching it — for a caller that already
+ * holds one.
+ *
+ * The only caller in this repository is `locales/index.ts`'s
+ * {@link registerBuiltInLocales}: that module statically imports all ten, so
+ * asking {@link loadBuiltInLocale} to `import()` them again would be an await
+ * for modules the evaluator already has. It is also what lets a test that needs
+ * a non-`en` locale resident say so in ONE SYNCHRONOUS LINE at module scope —
+ * the shape AGENTS.md prescribes for a cost that belongs in the import phase,
+ * rather than a `beforeAll` bounded by `hookTimeout`.
+ *
+ * ⛔ Not exported from the package entry, deliberately. An app that wants a
+ * catalogue resident asks for it by CODE through `loadBuiltInLocale`; handing
+ * the entry a way to inject arbitrary objects into the registry would make
+ * "which catalogue is this" unanswerable from the codes alone.
+ */
+export function registerBuiltInLocale(lang: string, catalogue: LocaleCatalogue): void {
+  loaded[lang] = catalogue;
+}
+
 /** Whether `lang`'s catalogue is already resident (no fetch needed). */
 export function isBuiltInLocaleLoaded(lang: string): boolean {
   return Object.prototype.hasOwnProperty.call(loaded, lang);

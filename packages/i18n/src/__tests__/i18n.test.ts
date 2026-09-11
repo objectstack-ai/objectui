@@ -13,7 +13,16 @@ import {
 // ⚠️ From the ALL-TEN door, not the entry (objectui#7479). The entry
 // re-exports `en` alone; these cases compare every pack against every other,
 // which is what that door is for and why it is a separate specifier.
-import { builtInLocales } from '../locales';
+//
+// ⭐ `registerBuiltInLocales()` comes from the same door: the nine non-`en`
+// catalogues are `import()`ed on demand, so nothing below would be resident
+// when `createI18n` reads the registry and this file's synchronous assertions
+// would see the `en` fallback. Called at MODULE SCOPE so the cost sits in the
+// import phase, next to the import that already paid for these modules, rather
+// than in a `beforeAll` bounded by `hookTimeout` (AGENTS.md, "测试纪律").
+import { builtInLocales, registerBuiltInLocales } from '../locales';
+
+registerBuiltInLocales();
 
 describe('@object-ui/i18n', () => {
   describe('createI18n', () => {

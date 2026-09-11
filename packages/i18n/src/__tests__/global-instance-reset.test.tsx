@@ -38,6 +38,16 @@ import { render, screen } from '@testing-library/react';
 import { getI18n } from 'react-i18next';
 import { I18nProvider, useObjectTranslation } from '../index';
 
+// ⭐ objectui#7479 — the nine non-`en` catalogues are `import()`ed on demand, so
+// nothing below would be resident when `createI18n` reads the registry and the
+// synchronous assertions in this file would see the `en` fallback. This makes
+// all ten resident at MODULE SCOPE: the cost sits in the import phase, next to
+// the barrel import that already paid for these modules, rather than in a
+// `beforeAll` bounded by `hookTimeout` (AGENTS.md, "测试纪律").
+import { registerBuiltInLocales } from '../locales';
+
+registerBuiltInLocales();
+
 /**
  * Renders what it resolved instead of assigning to a module variable — writing
  * to one during render is a side effect in render, which `react-hooks/globals`

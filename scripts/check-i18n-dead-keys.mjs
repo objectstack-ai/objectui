@@ -160,9 +160,21 @@
  * import edge:
  *
  *   grep -rn --include=*.ts --include=*.tsx -E \
- *     "import \{[^}]*\b(en|zh|builtInLocales|ja|ko|de|fr|es|pt|ru|ar)\b[^}]*\}" \
+ *     "import \{[^}]*\b(en|zh|builtInLocales|getLoadedBuiltInLocales|ja|ko|de|fr|es|pt|ru|ar)\b[^}]*\}" \
  *     packages apps examples e2e \
  *     | grep "@object-ui/i18n" | grep -v '^packages/i18n/'
+ *
+ * ⭐ `getLoadedBuiltInLocales` joined that alternation with objectui#7479, and
+ * the reason is the whole point of deriving the population rather than listing
+ * it. That card made nine of the ten catalogues lazy, so a module that holds a
+ * pack OBJECT and indexes into it no longer has to NAME a pack in its import —
+ * it asks the registry for whatever is resident. `outboundAgentText.ts` is
+ * exactly that module and it changed in precisely that way: same dynamic
+ * `ai?.[key]` read, same four keys kept alive, and it fell straight out of a
+ * derivation keyed on pack NAMES. ⇒ the class this leg covers is "reaches a
+ * pack object and indexes into it", ⛔ never "writes a pack's name in an
+ * import"; a widening here is the correct response to a new way of reaching
+ * one, and a bullet quietly disappearing is not.
  *
  * NO MATCH COUNT IS STATED IN THIS SECTION, and the absence is the fix rather
  * than an omission (objectui#8752). It used to open with one — "19 matches
@@ -200,6 +212,12 @@
  *     above them — BY LUCK, NOT BY DESIGN. Do NOT read this file as covered by
  *     the leg. Replace that union with anything generated and all four keys
  *     drop to CONFIRMED with a live consumer still reading them.
+ *     ⚠️ Since objectui#7479 it reaches the pack through
+ *     `getLoadedBuiltInLocales()` rather than a static `zh`/`en` import. NOTHING
+ *     about the reading above changed — same dynamic index, same four keys, same
+ *     luck — but the DERIVATION had to be widened to keep seeing it (see the
+ *     alternation above). It is the one importer in this list whose membership
+ *     depends on that widening, which is why it is said here as well as there.
  *   - `packages/plugin-grid/demo/main.tsx` and
  *     `packages/plugin-grid/demo/bulk-actions.tsx` — whole-pack `resources`
  *     wiring only, no per-key property reads: nothing for the leg to see and
@@ -625,7 +643,7 @@ export function derivePackObjectImporters(root) {
     '--include=*.tsx',
     ...[...TEXT_SWEEP_SKIP_DIRS].flatMap((dir) => ['--exclude-dir', dir]),
     '-E',
-    String.raw`import \{[^}]*\b(en|zh|builtInLocales|ja|ko|de|fr|es|pt|ru|ar)\b[^}]*\}`,
+    String.raw`import \{[^}]*\b(en|zh|builtInLocales|getLoadedBuiltInLocales|ja|ko|de|fr|es|pt|ru|ar)\b[^}]*\}`,
     '--',
     ...dirs,
   ];

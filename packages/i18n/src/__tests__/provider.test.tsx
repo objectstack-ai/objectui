@@ -4,6 +4,16 @@ import React from 'react';
 import { I18nProvider, useObjectTranslation, useI18nContext } from '../provider';
 import { createI18n } from '../i18n';
 
+// ⭐ objectui#7479 — the nine non-`en` catalogues are `import()`ed on demand, so
+// nothing below would be resident when `createI18n` reads the registry and the
+// synchronous assertions in this file would see the `en` fallback. This makes
+// all ten resident at MODULE SCOPE: the cost sits in the import phase, next to
+// the barrel import that already paid for these modules, rather than in a
+// `beforeAll` bounded by `hookTimeout` (AGENTS.md, "测试纪律").
+import { registerBuiltInLocales } from '../locales';
+
+registerBuiltInLocales();
+
 // Each test below is written as a fresh browser: the provider now remembers the
 // language across mounts (objectstack#5406), so the `changeLanguage` test would
 // otherwise hand its `zh` to every test after it — including the ones asserting

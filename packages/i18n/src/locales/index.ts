@@ -57,3 +57,34 @@ export {
   loadBuiltInLocale,
   type LocaleCatalogue,
 } from './registry.js';
+
+import { registerBuiltInLocale } from './registry.js';
+
+/**
+ * Make every catalogue this module holds RESIDENT — synchronously, and without
+ * a single `import()`.
+ *
+ * ⛔ Deliberately a CALL and not an import-time side effect: this package
+ * declares `"sideEffects": false`, and a module that registered on import would
+ * make that declaration false for every consumer's bundler. A caller that wants
+ * all ten resident says so.
+ *
+ * Who calls it:
+ *
+ *   - a test that renders in a non-`en` locale and asserts SYNCHRONOUSLY. One
+ *     line at module scope, next to the import that already paid for these ten
+ *     modules, is the shape AGENTS.md prescribes for a cost that belongs in the
+ *     import phase — ⛔ never a `beforeAll`, which is bounded by `hookTimeout`
+ *     and only moves the race;
+ *   - an app that deliberately ships every language resident and wants no
+ *     fetch at switch time.
+ *
+ * ⚠️ It is NOT how a normal app boots. Calling it costs the whole ~1.8 MB of
+ * catalogues on the page-load path, which is the payload objectui#7479 removed.
+ * `preloadBootstrapLocale()` — one catalogue, the active one — is that path.
+ */
+export function registerBuiltInLocales(): void {
+  for (const [code, catalogue] of Object.entries(builtInLocales)) {
+    registerBuiltInLocale(code, catalogue as unknown as Record<string, unknown>);
+  }
+}

@@ -386,6 +386,7 @@ const dataSource = createObjectStackAdapter({ baseUrl: 'https://api.example.com'
 const stats = dataSource.getCacheStats();
 console.log(`Cache hit rate: ${stats.hitRate * 100}%`);
 console.log(`Cache size: ${stats.size}/${stats.maxSize}`);
+console.log(`Fetches coalesced onto an in-flight request: ${stats.coalesced}`);
 
 // Manually invalidate cache entries
 dataSource.invalidateCache('users'); // Invalidate specific schema
@@ -401,7 +402,13 @@ dataSource.clearCache();
 - **TTL Expiration**: Entries expire after the configured time-to-live from creation (default: 5 minutes)
   - Note: TTL is fixed from creation time, not sliding based on access
 - **Memory Limits**: Configurable maximum cache size (default: 100 entries)
-- **Concurrent Access**: Handles async operations safely. Note that concurrent requests for the same uncached key may result in multiple fetcher calls.
+- **Request Coalescing**: Concurrent `get` calls for the same uncached key share a single
+  fetch. The first caller invokes the fetcher; every caller that arrives while that promise
+  is still in flight is handed the same promise instead of starting a second request, and
+  each one increments the `coalesced` counter in `getCacheStats()` — so the saving is
+  something you can read off the adapter, not just a claim in this page.
+  - The in-flight slot is released in a `finally`, so a rejected fetch is not cached and
+    does not poison the key: the next call starts a fresh fetch.
 
 ## Connection State Monitoring
 

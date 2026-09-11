@@ -304,6 +304,15 @@ function describeUnusableTarget(reference: unknown): string {
  * input types on different paths and neither owns the other's. Both are pinned,
  * and each pin asserts the same four states so the copies cannot drift.
  *
+ * ⭐ The two pins are named here so the sentence above can be re-run rather
+ * than believed: `objectui#7714 · the refusal message distinguishes the four
+ * states`, in `MetadataService.specKeyReference.test.ts` (this writer) and in
+ * `MetadataFieldsPage.specKeyReference.test.tsx` (the sibling). The naming is
+ * the repair objectui#8925 made: the designer-side pin did not exist, so that
+ * sentence was false on three of its four rows — its `absent`, `non-string`
+ * and `empty` branches could all be rewritten with the whole `plugin-designer`
+ * package still green — while three separate places went on restating it.
+ *
  * ## The `.trim()` MIRRORS the contract — it is no longer a local opinion
  *
  * The predicate is `typeof reference === 'string' && reference.trim() !== ''`.

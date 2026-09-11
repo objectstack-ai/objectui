@@ -102,3 +102,13 @@ jobs:
       # the missing half. Reads the checkout and nothing else, so no install.
       - name: Check documented component types against the registry
         run: node scripts/check-doc-component-types.mjs
+
+      # Same shape, same blind spot, one file further out: `.github/prompts/**`
+      # is markdown, so `ci.yml`'s type-check diff excludes it under `'**/*.md'`
+      # and a prompt-only PR starts that gate nowhere. The step above asks "does
+      # this type exist"; this one asks the stricter question a file read by an
+      # AI AUTHOR has to survive — "does it render, or is it answered only by the
+      # opt-in placeholder panel". A retired key passes the first and fails the
+      # second, which is the whole of objectui#8929. Reads the checkout only.
+      - name: Check prompt-taught component keys render
+        run: node scripts/check-prompt-component-keys.mjs

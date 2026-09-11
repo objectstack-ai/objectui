@@ -427,8 +427,15 @@ const REGISTRY_RECEIVERS = ['ComponentRegistry', 'componentRegistry', 'registry'
  * Helpers that register from a collection instead of from a literal argument.
  * Each entry names the collection it reads; the derivation re-reads that
  * collection every run and fails if it is gone.
+ *
+ * EXPORTED because the `protocol-placeholder` entry is also the DECLARATION a
+ * sibling gate reads to tell a real renderer from a placeholder panel
+ * (`check-prompt-component-keys.mjs`, objectui#8929). That gate must never
+ * carry its own list of placeholder key names — such a list is exactly the
+ * drift it exists to close — so it asks this table which module the
+ * placeholders come from and follows it live.
  */
-const INDIRECT_REGISTRATIONS = [
+export const INDIRECT_REGISTRATIONS = [
   {
     site: 'packages/components/src/renderers/placeholders.tsx',
     collection: 'PROTOCOL_COMPONENTS',

@@ -16,6 +16,7 @@ import {
   evaluatePackage,
   main,
   readArrayPackages,
+  walkEntryGraph,
 } from '../check-side-effects-array.mjs';
 
 /**
@@ -454,5 +455,273 @@ describe('the real workspace', () => {
     expect(EXIT_OK).toBe(0);
     expect(EXIT_DISAGREES).toBe(1);
     expect(EXIT_NO_MEASUREMENT).toBe(2);
+  });
+});
+
+describe('the walk covers EVERY entry point, not just the barrel (objectui#8850)', () => {
+  // The card's shape, reduced to its bones: a package with TWO subpaths, whose
+  // registrar is reachable only from the SECOND one. Walking just the barrel
+  // makes the registrar invisible — never proposed as MISSING, and read as
+  // STALE if the array names it anyway. That second consequence is why this is
+  // not a coverage nit: the gate does not merely miss the defect, it argues for
+  // introducing one.
+  const TWO_ENTRY_SOURCES: Files = {
+    'packages/pkg/src/index.ts': "export { pure } from './pure.js';\n",
+    'packages/pkg/src/pure.ts': 'export const pure = 1;\n',
+    'packages/pkg/src/secondary.ts': "import './registrar.js';\nexport const secondary = 1;\n",
+    'packages/pkg/src/registrar.ts': "import { Registry } from 'somewhere';\nRegistry.register('fixture:secondary', 1);\n",
+  };
+
+  const twoEntryManifest = (sideEffects: string[]): string =>
+    JSON.stringify(
+      {
+        name: '@fixture/pkg',
+        type: 'module',
+        main: './dist/index.js',
+        exports: {
+          '.': { types: './dist/index.d.ts', import: './dist/index.js' },
+          './secondary': { types: './dist/secondary.d.ts', import: './dist/secondary.js' },
+        },
+        sideEffects,
+      },
+      null,
+      2,
+    );
+
+  /** Forms + BOTH spellings of every entry point + both spellings of the registrar. */
+  const TWO_ENTRY_HONEST = [
+    './dist/index.js',
+    './dist/registrar.js',
+    './dist/secondary.js',
+    './src/index.ts',
+    './src/registrar.ts',
+    './src/secondary.ts',
+  ];
+
+  it('proves the registrar is unreachable from the barrel — the fixture, not the gate', () => {
+    // Anti-vacuity FIRST. Every assertion below is about a module the barrel's
+    // own graph does not contain, so the fixture has to establish that much by
+    // itself; otherwise the walk could have collapsed back to one root and
+    // every green below would be green for the wrong reason.
+    const dir = workspace({ ...TWO_ENTRY_SOURCES, 'packages/pkg/package.json': twoEntryManifest(TWO_ENTRY_HONEST) });
+    try {
+      const fromBarrel = walkEntryGraph(path.join(dir, 'packages/pkg/src/index.ts'), dir);
+      expect(fromBarrel.modules.map((m) => path.relative(dir, m))).not.toContain(
+        path.join('packages', 'pkg', 'src', 'registrar.ts'),
+      );
+      const verdict = evaluatePackage(readArrayPackages(dir)[0], dir);
+      expect(verdict.entryPoints).toEqual(['src/index.ts', 'src/secondary.ts']);
+      expect(verdict.registrars).toEqual(['src/registrar.ts']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('proposes the secondary entry’s registrar as MISSING', () => {
+    // The leg that did not exist before. The array below is exactly what the
+    // barrel-only walk derives — forms plus the source barrel — and it is now
+    // three names short of the promise the package makes.
+    const verdict = run({
+      ...TWO_ENTRY_SOURCES,
+      'packages/pkg/package.json': twoEntryManifest(['./dist/index.js', './dist/secondary.js', './src/index.ts']),
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.missing).toEqual(['dist/registrar.js', 'src/registrar.ts', 'src/secondary.ts']);
+    expect(verdict.stale).toEqual([]);
+  });
+
+  it('...and passes, with no reachability complaint, once the array names them', () => {
+    // The green partner: same fixture, honest array. `problems` empty is also
+    // the reachability assertion — the registrar is reached from the SECONDARY
+    // entry and from nothing else, so a check still anchored on the barrel
+    // alone would report it retained by nobody.
+    const verdict = run({ ...TWO_ENTRY_SOURCES, 'packages/pkg/package.json': twoEntryManifest(TWO_ENTRY_HONEST) });
+    expect(verdict.problems).toEqual([]);
+    expect(verdict.missing).toEqual([]);
+    expect(verdict.stale).toEqual([]);
+    expect(verdict.ok).toBe(true);
+  });
+
+  it('no longer calls a correct entry STALE — the consequence that made this p2', () => {
+    // The gate used to derive an enumeration that did not contain these three
+    // names, so an array that honestly named them read as STALE and the gate
+    // told the author to DELETE a live registration. Nothing here is stale.
+    const verdict = run({ ...TWO_ENTRY_SOURCES, 'packages/pkg/package.json': twoEntryManifest(TWO_ENTRY_HONEST) });
+    expect(verdict.stale).toEqual([]);
+    expect(verdict.registrars).toContain('src/registrar.ts');
+  });
+
+  it('still fails when the secondary entry reaches its registrar only through a shakeable module', () => {
+    // Reachability WIDENED with the walk; it did not go away. Same chain that
+    // fails from the barrel, hung off the secondary entry instead.
+    const verdict = run({
+      ...TWO_ENTRY_SOURCES,
+      'packages/pkg/src/secondary.ts': "export { helper } from './helper.js';\n",
+      'packages/pkg/src/helper.ts': "import './registrar.js';\nexport const helper = 1;\n",
+      'packages/pkg/package.json': twoEntryManifest(TWO_ENTRY_HONEST),
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.problems.join('\n')).toContain('no chain of `sideEffects`-covered modules reaches it');
+  });
+
+  it('walks the union as ONE de-duplicated module set, not once per entry', () => {
+    // The card's cost question. Both entries import the same module; it is
+    // walked once, so N entries cost the union of their graphs and never N
+    // times one of them.
+    const verdict = run({
+      'packages/pkg/src/index.ts': "export { shared } from './shared.js';\n",
+      'packages/pkg/src/secondary.ts': "export { shared } from './shared.js';\n",
+      'packages/pkg/src/shared.ts': 'export const shared = 1;\n',
+      'packages/pkg/package.json': twoEntryManifest([
+        './dist/index.js',
+        './dist/secondary.js',
+        './src/index.ts',
+        './src/secondary.ts',
+      ]),
+    });
+    expect(verdict.entryPoints).toEqual(['src/index.ts', 'src/secondary.ts']);
+    expect(verdict.modulesWalked).toBe(3);
+    expect(verdict.ok).toBe(true);
+  });
+});
+
+describe('classifying a published form — entry point, or provably not a root', () => {
+  // The distinction the fix had to draw. Both shapes below are forms the
+  // inverse of the spelling map CANNOT map to a source file, and neither is a
+  // defect — so "fail loudly when it cannot be mapped" would have turned this
+  // gate red on its whole real population. What is loud is a form that cannot
+  // be CLASSIFIED.
+
+  it('reads a second build FORMAT of one subpath as no new root', () => {
+    // `@object-ui/layout`'s real shape: one subpath `.`, an `import` half and a
+    // `require` half. Conditions choose a format, not an entry, so the `.cjs`
+    // adds no root — and is NOT re-spelled into a `dist/index.umd.js` that the
+    // manifest does not publish and the array would then be told to name.
+    const verdict = run({
+      ...SOURCES,
+      'packages/pkg/package.json': JSON.stringify({
+        name: '@fixture/pkg',
+        main: 'dist/index.umd.cjs',
+        module: 'dist/index.js',
+        exports: { '.': { types: './dist/index.d.ts', import: './dist/index.js', require: './dist/index.umd.cjs' } },
+        // The `.cjs` is a published FORM, so the array names it; what it is not
+        // is a second graph ROOT, and it is not re-spelled into a
+        // `dist/index.umd.js` the manifest never publishes.
+        sideEffects: [...HONEST_ARRAY, './dist/index.umd.cjs'],
+      }),
+    });
+    expect(verdict.entryPoints).toEqual(['src/index.ts']);
+    expect(verdict.entryForms).toEqual([
+      {
+        subpath: '.',
+        kind: 'entry-point',
+        sources: ['src/index.ts'],
+        forms: ['dist/index.js', 'dist/index.umd.cjs'],
+        alternateFormats: ['dist/index.umd.cjs'],
+      },
+    ]);
+    expect(verdict.problems).toEqual([]);
+    expect(verdict.ok).toBe(true);
+  });
+
+  it('reads a published non-module ASSET as no new root', () => {
+    // `@object-ui/app-shell`'s real shape: a stylesheet on its own subpath. It
+    // is a resolution target and there is no import to follow out of it.
+    // Positive on both halves — the file is THERE and no source module produces
+    // it — never "the map returned undefined".
+    const verdict = run({
+      ...SOURCES,
+      'packages/pkg/src/styles.css': '.a { color: red; }\n',
+      'packages/pkg/package.json': JSON.stringify({
+        name: '@fixture/pkg',
+        main: './dist/index.js',
+        exports: { '.': { import: './dist/index.js' }, './styles.css': './src/styles.css' },
+        sideEffects: [...HONEST_ARRAY, './src/styles.css'],
+      }),
+    });
+    expect(verdict.entryPoints).toEqual(['src/index.ts']);
+    expect(verdict.entryForms.map((e) => [e.subpath, e.kind])).toEqual([
+      ['.', 'entry-point'],
+      ['./styles.css', 'asset'],
+    ]);
+    expect(verdict.problems).toEqual([]);
+    expect(verdict.ok).toBe(true);
+  });
+
+  it('reads an ALIAS subpath that resolves to an entry already walked as no new root', () => {
+    const verdict = run({
+      ...SOURCES,
+      'packages/pkg/package.json': JSON.stringify({
+        name: '@fixture/pkg',
+        main: './dist/index.js',
+        exports: { '.': './dist/index.js', './index': './dist/index.js' },
+        sideEffects: HONEST_ARRAY,
+      }),
+    });
+    expect(verdict.entryPoints).toEqual(['src/index.ts']);
+    expect(verdict.entryForms.map((e) => e.kind)).toEqual(['entry-point', 'duplicate-entry']);
+    expect(verdict.ok).toBe(true);
+  });
+
+  it('refuses a form it cannot classify rather than skipping it', () => {
+    // The loud case, and the reason it is loud: a skipped form is a skipped
+    // ROOT, and a registrar behind it would never be proposed as MISSING —
+    // this gate's own silent drop, one level up. `./dist/ghost.js` inverts to
+    // no source module and is not a file present as published.
+    const verdict = run({
+      ...SOURCES,
+      'packages/pkg/package.json': JSON.stringify({
+        name: '@fixture/pkg',
+        main: './dist/index.js',
+        exports: { '.': './dist/index.js', './ghost': './dist/ghost.js' },
+        sideEffects: HONEST_ARRAY,
+      }),
+    });
+    expect(verdict.gauge).toBe(true);
+    expect(verdict.problems.join('\n')).toContain('cannot CLASSIFY');
+    expect(verdict.problems.join('\n')).toContain('"./dist/ghost.js"');
+  });
+
+  it('refuses a subpath PATTERN, which names no single file', () => {
+    // The partner of the case above on the other shape that cannot be a root.
+    // A `*` target resolves to many files or none; it is not an entry point and
+    // it is not an asset on disk, so it is loud rather than silently dropped.
+    const verdict = run({
+      ...SOURCES,
+      'packages/pkg/package.json': JSON.stringify({
+        name: '@fixture/pkg',
+        main: './dist/index.js',
+        exports: { '.': './dist/index.js', './*': './dist/*.js' },
+        sideEffects: HONEST_ARRAY,
+      }),
+    });
+    expect(verdict.gauge).toBe(true);
+    expect(verdict.problems.join('\n')).toContain('cannot CLASSIFY');
+  });
+});
+
+describe('the real workspace — the population this widening was measured against', () => {
+  // The two shapes above are not hypotheticals: they are the only two forms
+  // this workspace publishes beside a barrel today. Pinning them keeps the
+  // design rationale checkable — if either changes, the argument for
+  // classifying rather than failing-to-map has to be re-read.
+  it('classifies every form every array-declaring package publishes', () => {
+    const { results } = evaluate(repoRoot);
+    for (const r of results) {
+      expect(r.problems.join('\n'), r.name).not.toContain('cannot CLASSIFY');
+      expect(r.entryForms.length, `${r.name} publishes no form at all`).toBeGreaterThan(0);
+    }
+  });
+
+  it('finds a stylesheet subpath and a second build format, and no second entry POINT', () => {
+    const { results } = evaluate(repoRoot);
+    const kinds = results.flatMap((r) => r.entryForms.map((e) => e.kind));
+    expect(kinds).toContain('asset'); // @object-ui/app-shell's `./styles.css`
+    expect(results.flatMap((r) => r.entryForms.flatMap((e) => e.alternateFormats)).length).toBeGreaterThan(0);
+    // ...and every package still walks from exactly one root, which is the
+    // sentence this change has to carry: the fix is right, and the genuine
+    // multi-entry population is ZERO today, so it is future packages the
+    // priority rests on rather than present ones.
+    for (const r of results) expect(r.entryPoints, r.name).toHaveLength(1);
   });
 });

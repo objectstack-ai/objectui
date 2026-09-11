@@ -30,7 +30,7 @@
  *
  *   objectui#7791 (PR #7796)  one file, cwd the only variable:
  *                             repo root `7 passed`, package dir `2 failed / 5 passed`
- *   objectui#7799 (PR #7806)  a census of `packages/*​/src`: 19 files mentioning
+ *   objectui#7799 (PR #7806)  a census under `packages` of every test mentioning
  *                             `cwd()`, 13 genuinely defective, repaired one at a time
  *
  * ## Why this is not a `process.cwd` grep, and what that costs

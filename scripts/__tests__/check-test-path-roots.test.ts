@@ -4,9 +4,9 @@
  *
  * ## Why the enforcement lives HERE and not only in a workflow step
  *
- * `scripts/**​/*.test.ts` runs inside `Test (shard N/4)`, which is a REQUIRED
- * context and subscribes `merge_group` — so the scan below is what actually
- * blocks a queue build. The `Lint` step added alongside it is a second, faster
+ * Every test file under `scripts` runs inside `Test (shard N/4)`, which is a
+ * REQUIRED context and subscribes `merge_group` — so the scan below is what
+ * actually blocks a queue build. The `Lint` step added alongside it is a second, faster
  * signal on the same gate, not the gate itself: a workflow job of one's own
  * would report on pull requests and gate nothing.
  *

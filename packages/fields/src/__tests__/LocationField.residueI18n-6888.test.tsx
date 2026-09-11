@@ -68,7 +68,8 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { I18nProvider, builtInLocales } from '@object-ui/i18n';
+import { I18nProvider } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 
 import { LocationField } from '../widgets/LocationField';
 import { AddressField } from '../widgets/AddressField';

@@ -6,9 +6,13 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import type { i18n as I18nInstance } from 'i18next';
-import { createI18n, getDirection, type I18nConfig } from './i18n.js';
+import { createI18n, getDirection, pickInitialLanguage, type I18nConfig } from './i18n.js';
 import { interpolateFallback, optionsOf } from './fallbackInterpolation.js';
-import { builtInLocales } from './locales/index.js';
+import {
+  BUILT_IN_LANGUAGE_CODES as BUILT_IN_CODES,
+  isBuiltInLanguage,
+  loadBuiltInLocale,
+} from './locales/registry.js';
 
 /**
  * `localStorage` key holding the user's explicit language choice.
@@ -125,19 +129,28 @@ export function cacheLanguageSeed(locale: string | null | undefined): void {
 }
 
 /**
- * Languages `createI18n(config)` will know about *synchronously*: the built-in
- * packs plus any extra `config.resources`.
+ * Languages this renderer ships or was handed: a built-in catalogue, or an
+ * entry in `config.resources`.
+ *
+ * ⚠️ Since objectui#7479 a built-in catalogue is FETCHED, not statically
+ * resident, so "known" here no longer means "renderable on the very next
+ * frame" — it means this provider can produce it without asking the app, which
+ * is the question every caller of this predicate is actually asking (may this
+ * stored value be restored; may this seed be honoured). The one caller that
+ * needs the stricter reading is the bootstrap itself, and it gets it by
+ * AWAITING {@link preloadBootstrapLocale} before render rather than by asking a
+ * different predicate.
  *
  * `hasOwnProperty` rather than `in`: a junk stored value like `constructor`
- * would pass an `in` check against the locale map's prototype.
+ * would pass an `in` check against a plain object's prototype.
  */
 function isStaticallyKnownLanguage(lang: string, config?: I18nConfig): boolean {
   const own = Object.prototype.hasOwnProperty;
-  return own.call(builtInLocales, lang) || Boolean(config?.resources && own.call(config.resources, lang));
+  return isBuiltInLanguage(lang) || Boolean(config?.resources && own.call(config.resources, lang));
 }
 
 /** The built-in packs' codes, as a stable identity for consumers' dep arrays. */
-const BUILT_IN_LANGUAGE_CODES: readonly string[] = Object.freeze(Object.keys(builtInLocales));
+const BUILT_IN_LANGUAGE_CODES: readonly string[] = BUILT_IN_CODES;
 
 /**
  * Every language this renderer can produce *without asking the app*: the
@@ -331,6 +344,68 @@ function resolveBootstrapConfig(
   };
 }
 
+/**
+ * Options shared by {@link resolveBootstrapLanguage} and
+ * {@link preloadBootstrapLocale}. Each field mirrors the {@link I18nProvider}
+ * prop of the same name, because the two must answer identically — a host that
+ * preloads one catalogue while the provider boots into another has bought a
+ * flash of `en` instead of avoiding one.
+ */
+export interface BootstrapLocaleOptions {
+  /** The `config` you will pass to {@link I18nProvider}. */
+  config?: I18nConfig;
+  /** The `persistLanguage` you will pass to {@link I18nProvider}. Default `true`. */
+  persistLanguage?: boolean;
+  /** Whether you will pass a `loadLanguage` loader. Default `false`. */
+  hasLoader?: boolean;
+}
+
+/**
+ * The language {@link I18nProvider} will boot in, computed WITHOUT creating an
+ * i18next instance (objectui#7479).
+ *
+ * The full precedence chain, unchanged: explicit choice → tenant seed →
+ * browser language → `defaultLanguage` → `en`.
+ */
+export function resolveBootstrapLanguage(options: BootstrapLocaleOptions = {}): string {
+  const { config, persistLanguage = true, hasLoader = false } = options;
+  const resolved = resolveBootstrapConfig(config, persistLanguage, hasLoader);
+  return pickInitialLanguage(resolved.config);
+}
+
+/**
+ * Fetch the catalogue {@link I18nProvider} will boot in, BEFORE you render it.
+ *
+ * ## Why a host would await this
+ *
+ * Built-in catalogues are lazy since objectui#7479, so the provider can be in
+ * one of two states on its first render, and the difference is visible:
+ *
+ *   - **catalogue already resident** — the first paint is in the user's
+ *     language, exactly as it was when all ten packs shipped eagerly;
+ *   - **catalogue still in flight** — the first paint renders through
+ *     `fallbackLng: 'en'` and re-renders in the user's language when the fetch
+ *     lands. Correct, never blank, and a flash of English for a `zh-CN` viewer.
+ *
+ * ⇒ any host that owns an await before `createRoot().render()` should spend it
+ * here; `apps/console/src/main.tsx` does, alongside the runtime-config and auth
+ * preflight round-trips it already waits on. A host that has no such seam gets
+ * the documented `en`-while-loading behaviour instead, which is why this is a
+ * function a host CALLS rather than a requirement the provider imposes.
+ *
+ * Never rejects: a catalogue that will not download must not take the boot
+ * down, and the provider retries on mount.
+ */
+export async function preloadBootstrapLocale(
+  options: BootstrapLocaleOptions = {},
+): Promise<void> {
+  try {
+    await loadBuiltInLocale(resolveBootstrapLanguage(options));
+  } catch (err) {
+    console.warn('[i18n] Failed to preload the bootstrap locale catalogue:', err);
+  }
+}
+
 interface I18nContextValue {
   /** Current language code */
   language: string;
@@ -495,6 +570,41 @@ export function I18nProvider({
     };
   }, [i18nInstance, persistLanguage]);
 
+  // Fetch the BUILT-IN catalogue for whatever language this instance booted
+  // into (objectui#7479). A host that awaited `preloadBootstrapLocale` finds it
+  // already resident and this resolves without a network round-trip; a host
+  // that did not gets the documented `en`-while-loading render and this is what
+  // ends it.
+  //
+  // ⛔ `overwrite: false` on the merge, unlike the app-specific bundle below.
+  // `createI18n` has already deep-merged `config.resources` over an EMPTY
+  // built-in bundle, so overwriting here would let a catalogue that arrives
+  // late silently undo the caller's own overrides — a precedence inversion
+  // whose only symptom is that it depends on network timing.
+  useEffect(() => {
+    const currentLang = i18nInstance.language || 'en';
+    if (!isBuiltInLanguage(currentLang)) return;
+    let cancelled = false;
+    void loadBuiltInLocale(currentLang)
+      .then((catalogue) => {
+        if (cancelled || !catalogue) return;
+        if (i18nInstance.hasResourceBundle(currentLang, 'translation')) {
+          i18nInstance.addResourceBundle(currentLang, 'translation', catalogue, true, false);
+        } else {
+          i18nInstance.addResourceBundle(currentLang, 'translation', catalogue);
+        }
+        // Force a re-render so anything already on screen in the `en` fallback
+        // re-resolves against the catalogue that just landed.
+        setLanguage(i18nInstance.language || currentLang);
+      })
+      .catch((err) => {
+        console.warn(`[i18n] Failed to load the built-in catalogue for '${currentLang}':`, err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [i18nInstance, language]);
+
   // Load app-specific translations for the initial language on mount
   useEffect(() => {
     if (!loadLanguage) return;
@@ -589,6 +699,22 @@ export function I18nProvider({
     () => ({
       language,
       changeLanguage: async (lang: string) => {
+        // The built-in catalogue first (objectui#7479): a switch to a language
+        // whose pack has never been fetched must RESOLVE it, not render the
+        // `en` fallback and hope the mount effect catches up. Awaited before
+        // `changeLanguage` so the switch and the strings land on the same
+        // frame — the whole point of doing it here rather than reactively.
+        const builtIn = await loadBuiltInLocale(lang).catch((err) => {
+          console.warn(`[i18n] Failed to load the built-in catalogue for '${lang}':`, err);
+          return null;
+        });
+        if (builtIn) {
+          if (i18nInstance.hasResourceBundle(lang, 'translation')) {
+            i18nInstance.addResourceBundle(lang, 'translation', builtIn, true, false);
+          } else {
+            i18nInstance.addResourceBundle(lang, 'translation', builtIn);
+          }
+        }
         // Dynamic language pack loading (v2.0.7)
         if (loadLanguage && !loadedAppLangs.current.has(lang)) {
           loadedAppLangs.current.add(lang);

@@ -36,7 +36,7 @@ import {
   ORG_ERROR_MESSAGE_KEYS,
   resolveOrgErrorMessage,
 } from '../orgErrorMessage';
-import { builtInLocales } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 
 const zh = builtInLocales.zh;
 

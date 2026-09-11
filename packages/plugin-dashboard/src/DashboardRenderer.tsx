@@ -39,7 +39,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { isObjectProvider, deriveStaticTableColumns } from './utils';
+import { isObjectProvider, deriveStaticTableColumns, humanizeFieldKey } from './utils';
 import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
@@ -318,16 +318,39 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * key like 'value' (used by count aggregations that have no real field),
      * fall back to an i18n'd aggregate name (Count / Sum / Average …) instead
      * of leaking the placeholder 'value' string into the legend / tooltip.
+     *
+     * ⭐ THREE ARMS, and only the last two derive a display string from a FIELD
+     * KEY (objectui#9055). The aggregate arm is a different vocabulary and is
+     * deliberately left alone — it is what a blind "humanize everything" here
+     * would eat, and it is pinned as a live control in
+     * `__tests__/fieldKeySpellingOutsideTable-9055.test.tsx`.
+     *
+     * The other two used to hand back the RAW key — `fieldLabel`'s fallback on
+     * the object-bound arm, and the bare `yField` on the arm a static-data
+     * chart takes — so a chart grouped on `close_date` legended it
+     * `close_date` while the table widget beside it on the same dashboard
+     * headed that column `Close Date`. That is the same fallback shape
+     * objectui#9000 removed from the table's whitelist branch, and the class
+     * objectui#5425 ruled out: one value, two spellings, one dashboard.
+     * `humanizeFieldKey` is the single home for the KEY convention
+     * (`./utils`); the i18n wrapper is untouched, a bundle entry still wins and
+     * this is only its fallback.
+     *
+     * It stays distinct from `humanizeLabel`, the VALUE prefixer in
+     * `@object-ui/core` — `utils/humanize-label.ts`'s docblock carries the
+     * per-input difference table and rules that converging the two "is a
+     * decision, not a refactor … it needs its own card".
      */
     const resolveSeriesLabel = useCallback((objectName: string | undefined, yField: string, aggFn: string | undefined) => {
       const isSynthetic = !yField || yField === 'value' || yField === 'count';
       if (aggFn && (isSynthetic || aggFn === 'count')) {
         return t(`report.aggregate.${aggFn}`, { defaultValue: aggFn });
       }
+      const humanized = humanizeFieldKey(yField);
       if (objectName) {
-        return fieldLabel(objectName, yField, yField);
+        return fieldLabel(objectName, yField, humanized);
       }
-      return yField;
+      return humanized;
     }, [t, fieldLabel]);
     const dashName = (schema as any).name as string | undefined;
 

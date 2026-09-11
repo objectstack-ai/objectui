@@ -233,7 +233,7 @@ export function PageHeader({
                         {typeof icon === 'string' ? <LazyIcon name={icon} className="size-5" /> : icon}
                     </div>
                 )}
-                <div className="flex flex-col min-w-0 flex-1">
+                <div className="flex flex-col min-w-48 flex-1">
                     {resolvedTitle ? (
                         <h1 className="text-2xl font-bold tracking-tight md:text-3xl truncate">{resolvedTitle}</h1>
                     ) : null}

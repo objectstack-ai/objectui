@@ -1026,8 +1026,8 @@ export const DetailView: React.FC<DetailViewProps> = ({
             renders its own `page:header` (e.g. record:details embedded
             under a Lightning-style page) to avoid a duplicate title chip. */}
         {schema.showHeader !== false && (
-        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4 pb-4 border-b">
-          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start justify-between gap-3 sm:gap-4 pb-4 border-b">
+          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0 sm:min-w-64">
             {(schema.showBack ?? true) && (
               <Tooltip>
                 <TooltipTrigger asChild>

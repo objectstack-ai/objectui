@@ -3,7 +3,7 @@
  * Reports pending changeset bodies that NAME a file this change touches, so the
  * seat doing the touching re-reads the paragraph before it publishes.
  *
- * Run:  node scripts/check-changeset-claims.mjs
+ * Run:  node scripts/check-changeset-claims.mjs   (also `pnpm check:changeset-claims`)
  *       node scripts/check-changeset-claims.mjs --base <ref> --head <ref>
  *       node scripts/check-changeset-claims.mjs --audit
  * Exit: 0 = nothing to re-read, or findings (this gate is REPORT-ONLY and has

@@ -637,31 +637,71 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     if (!ds || typeof ds.find !== 'function') return;
     if (probeTargets.size === 0) return;
     let cancelled = false;
-    for (const probes of probeTargets.values()) {
-      for (const probe of probes) {
-        // RelatedCountStore.fetch is internally deduplicated, so concurrent
-        // mounts of multiple tab strips don't generate redundant requests.
-        // The attachments probe overrides the store-built single-key filter
-        // with the two-key `(parent_object, parent_id)` scope; the synthetic
-        // relationshipField keeps the cache key unique, and the store's
-        // `sys_attachment` invalidation (data-change bus) still hits it.
-        const finder = probe.attachments
-          ? (object: string, query: any) =>
-              ds.find(object, {
-                ...query,
-                $filter: { parent_object: recordObject, parent_id: parentId },
-              })
-          : (object: string, query: any) => ds.find(object, query);
-        void RelatedCountStore.fetch(
-          finder,
-          probe.objectName,
-          probe.relationshipField,
-          parentId,
-          probe.filter,
-        ).catch(() => 0);
-        if (cancelled) return;
+    void (async () => {
+      // objectui#8882 — the badge asks the SAME question of the parent
+      // relationship that the rows do, and that question's spelling depends on
+      // the relationship field's ARITY. The store compiles it through
+      // `composeParentScopeFilter`, the one compiler `RelatedList` uses for the
+      // ROWS, but that seam can only answer from METADATA — so this call site
+      // owes it the child object's field defs. It is the same `DataSource` the
+      // row side reads them from, one layer up.
+      //
+      // Resolved BEFORE any probe rather than gating on a loaded schema: an
+      // adapter without `getObjectSchema`, or one whose fetch rejects, still
+      // probes — the seam then compiles the historical equality wire, which is
+      // byte for byte what this effect sent before this card. What is NOT done
+      // is probing first and correcting later: the store caches the first
+      // answer it gets, and a lenient backend that answers the wrong question
+      // with a number would have that number cached and never re-probed.
+      const fieldsFor = new Map<string, unknown>();
+      if (typeof ds.getObjectSchema === 'function') {
+        const names = new Set<string>();
+        for (const probes of probeTargets.values()) {
+          for (const probe of probes) {
+            // The attachments probe's `relationshipField` is a synthetic cache
+            // discriminator, not a field on `sys_attachment`, and its wrapper
+            // below replaces `$filter` outright — there is no arity to read.
+            if (!probe.attachments) names.add(probe.objectName);
+          }
+        }
+        await Promise.all(
+          Array.from(names).map(async (name) => {
+            try {
+              fieldsFor.set(name, (await ds.getObjectSchema(name))?.fields);
+            } catch {
+              // Equality it is — the wire this effect has always sent.
+            }
+          }),
+        );
       }
-    }
+      if (cancelled) return;
+      for (const probes of probeTargets.values()) {
+        for (const probe of probes) {
+          // RelatedCountStore.fetch is internally deduplicated, so concurrent
+          // mounts of multiple tab strips don't generate redundant requests.
+          // The attachments probe overrides the store-built single-key filter
+          // with the two-key `(parent_object, parent_id)` scope; the synthetic
+          // relationshipField keeps the cache key unique, and the store's
+          // `sys_attachment` invalidation (data-change bus) still hits it.
+          const finder = probe.attachments
+            ? (object: string, query: any) =>
+                ds.find(object, {
+                  ...query,
+                  $filter: { parent_object: recordObject, parent_id: parentId },
+                })
+            : (object: string, query: any) => ds.find(object, query);
+          void RelatedCountStore.fetch(
+            finder,
+            probe.objectName,
+            probe.relationshipField,
+            parentId,
+            probe.filter,
+            probe.attachments ? undefined : (fieldsFor.get(probe.objectName) as any),
+          ).catch(() => 0);
+          if (cancelled) return;
+        }
+      }
+    })();
     return () => {
       cancelled = true;
     };

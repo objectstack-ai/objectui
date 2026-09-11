@@ -27,7 +27,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { subscribeDataChanges } from '@object-ui/react';
-import { mergeFilterNodes } from '@object-ui/core';
+import { composeParentScopeFilter, mergeFilterNodes, type FieldContainerLike } from '@object-ui/core';
 
 type Listener = () => void;
 
@@ -131,6 +131,7 @@ async function fetchCount(
   relField: string | undefined,
   parentId: string | undefined,
   filter?: CountScopeFilter,
+  fields?: FieldContainerLike,
 ): Promise<number> {
   const k = key(objectName, relField, parentId, filter);
   const cached = counts.get(k);
@@ -144,10 +145,15 @@ async function fetchCount(
     // `limit` which most adapters silently ignored, so the probe ended
     // up fetching the entire target table and returning its global
     // count — completely wrong for parent-scoped badges.
-    const parentScope: Record<string, unknown> = {};
+    // The parent-relationship condition, compiled to match the relationship
+    // field's ARITY by the ONE compiler of it — `@object-ui/core`'s
+    // `composeParentScopeFilter`, the very call `RelatedList` makes for the
+    // ROWS. Without `fields` the seam answers equality, which is the historical
+    // wire and the only answer available to a caller that cannot see metadata.
+    let parentScope: Record<string, unknown> = {};
     if (relField) {
       if (!parentId) return 0;
-      parentScope[relField] = parentId;
+      parentScope = composeParentScopeFilter(relField, parentId, fields);
     }
     // objectui#4664 — the parent relationship AND the list's own declared
     // scope, composed exactly as `RelatedList` composes them for the ROWS
@@ -156,16 +162,25 @@ async function fetchCount(
     // implementations agreeing by luck: the badge cannot count a set the list
     // does not show, because both sides send the same `$filter`.
     //
-    // ⚠️ ONE known exception, and it is a gap rather than a design: the parent
-    // condition `RelatedList` sends is compiled to match the relationship
-    // field's ARITY since objectui#7299 (`{ [relField]: { $contains: parentId } }`
-    // when the child object declares it `multiple: true`), and this probe still
-    // sends bare equality. It has no field metadata in hand to decide with —
-    // four scalars and a filter is the whole input — so closing it is a design
-    // change in this package, tracked as objectui#8882. Until then a related
-    // list on a multi-value relationship renders its ROWS and gets no badge:
-    // the `catch` below swallows the driver's refusal without a `setCount`, so
-    // the store holds no entry and the tab renders no count at all.
+    // ⭐ BOTH halves of that `$filter` are now shared, which is what lets the
+    // claim above be stated without an exception. The declared scope has gone
+    // through `mergeFilterNodes` since objectui#4664; the PARENT condition went
+    // through a second compiler until objectui#8882 — `RelatedList` matched the
+    // relationship field's ARITY (objectui#7299) while this probe sent bare
+    // equality, so a multi-value related list rendered its ROWS and got no
+    // badge: the `catch` below swallows the driver's refusal without a
+    // `setCount`, leaving the store with no entry and the tab with no count.
+    // Both sides now call `composeParentScopeFilter`.
+    //
+    // ⛔ The claim is not self-enforcing, and an unenforced claim is how the
+    // exception above survived being false. What holds it up is a PIN that goes
+    // RED, on the page, with both reads on one wire:
+    // `app-shell/src/views/RecordDetailView.relatedBadgeArity-8882.test.tsx`
+    // renders a real detail page over a backend that REFUSES equality on a
+    // multi-value column the way `driver-sql` does, and asserts the badge digits
+    // equal the rendered row count at a POSITIVE count. Its sibling
+    // `RecordDetailView.relatedListFilter-4664.test.tsx` holds the declared-scope
+    // half. Delete either and this comment is a claim again.
     //
     // The parent condition is never negotiable — a declared filter may only
     // NARROW this parent's children — and `mergeFilterNodes` guarantees that
@@ -294,6 +309,12 @@ export function useRelatedCountVersion(): number {
 /**
  * Imperative store API for non-React callers (mutation handlers, tests).
  * Prefer `useRelatedCount` in components.
+ *
+ * `fetch`'s last parameter is the CHILD object's field defs. It is optional
+ * because a caller that cannot see metadata must still be able to probe — the
+ * seam then compiles the historical equality wire — but a caller that CAN see
+ * them owes them: that is the difference between a badge and no badge on a
+ * multi-value relationship (objectui#8882).
  */
 export const RelatedCountStore = {
   get: getCount,

@@ -879,7 +879,19 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
         const totalCardCount = boardColumns.reduce((sum, c) => sum + (c.cards?.length || 0), 0);
         // "This board holds no cards" — a fact about what was HANDED to this
         // component, true the instant it renders.
-        const isBoardEmpty = totalCardCount === 0 && boardColumns.length > 1;
+        //
+        // ⚠️ It reads the CARDS and deliberately not the LANE COUNT
+        // (objectui#9045). It used to also require more than one lane, which
+        // made the announcement below unreachable on a zero-lane board and on
+        // a one-lane board: `DataEmptyState` is the board's only
+        // `aria-live` region, so on those two shapes assistive technology was
+        // told nothing at all. A zero-lane board became authorable when
+        // objectui#9021 made `ObjectKanbanSchema.groupBy` optional, as the
+        // protocol declares it — which is what moved this from theoretical to
+        // reachable. ⛔ The lane count never separated "still loading" from
+        // "genuinely empty"; `recordsSettled` below is the conjunct that does,
+        // and it is untouched by this.
+        const isBoardEmpty = totalCardCount === 0;
         // "This board HAS no cards" — a fact about the DATA, which is only
         // knowable once the records have settled (objectui#8827). Before
         // #8827 the two were the same expression, so a board whose lazy chunk
@@ -1076,9 +1088,16 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
               // means the BOARD-level empty state above is already saying it,
               // so a per-column copy would be a duplicate. `!recordsSettled`
               // means nobody may say it yet: the placeholder renders the same
-              // `kanban.noCards` string, so leaving it ungated would have kept
-              // the false claim alive on any board with a single lane — where
+              // `kanban.noCards` string, and leaving it ungated would keep that
+              // false claim alive on a board that is only PARTLY empty — some
+              // lanes already holding rows while a refetch is in flight, where
               // `isBoardEmpty` is false and the board-level gate never runs.
+              // ⚠️ objectui#9045 widened the first reason rather than adding
+              // one: now that `isBoardEmpty` is blind to the lane count, a
+              // one-lane empty board reaches the board-level region and gives
+              // up its own placeholder to it — the same trade a multi-lane
+              // empty board has always made, and the reason the duplicate
+              // clause above is TRUE there instead of merely vacuous.
               suppressEmptyPlaceholder={isBoardEmpty || !recordsSettled}
               countsAreWindowed={countsAreWindowed}
             />

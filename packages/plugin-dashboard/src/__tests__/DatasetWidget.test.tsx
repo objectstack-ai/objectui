@@ -444,9 +444,18 @@ describe('DatasetWidget', () => {
     ).toEqual({ archived: false, status: 'open', priority: 'high' });
   });
 
-  it('buildDrillFilter normalizes a missing/empty raw value to null', () => {
-    expect(buildDrillFilter({ status: '' }, ['status'], { status: 'status' })).toEqual({ status: null });
-    expect(buildDrillFilter(undefined, ['status'], { status: 'status' })).toEqual({ status: null });
+  // objectui#9085: an empty bucket used to normalize to a bare `null`, which
+  // `convertFiltersToAST` SKIPS — so the constraint never reached the wire and
+  // the drill answered with every row. The is-empty spelling the converter
+  // carries end to end is `{ $null: true }` -> `[field, 'is_null', true]`. The
+  // row-set consequence is pinned in `@object-ui/core`'s
+  // `dataset-drill-empty-bucket-9085.test.ts`; this is the producer's own shape.
+  it('buildDrillFilter normalizes a missing/empty raw value to an is-empty predicate', () => {
+    expect(buildDrillFilter({ status: '' }, ['status'], { status: 'status' })).toEqual({ status: { $null: true } });
+    expect(buildDrillFilter(undefined, ['status'], { status: 'status' })).toEqual({ status: { $null: true } });
+    // `null` is in the same class: JSON cannot carry `undefined`, so a SQL NULL
+    // grouped value arrives over the wire AS `null`.
+    expect(buildDrillFilter({ status: null }, ['status'], { status: 'status' })).toEqual({ status: { $null: true } });
   });
 
   // ── #1752 date-bucket RANGE drill ────────────────────────────────────────

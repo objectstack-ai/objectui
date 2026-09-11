@@ -18,6 +18,7 @@ import {
   toDomProps,
   chartCategoryKey,
   chartMeasureKey,
+  chartConfigPresentation,
 } from '@object-ui/core';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button, getLazyIcon } from '@object-ui/components';
 import { forwardRef, useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
@@ -639,6 +640,28 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 const xAxisKey = options.xField || 'name';
                 const yField = options.yField || 'value';
 
+                // The widget's declared `chartConfig`, lowered onto the chart
+                // schema — objectui#4044. `DashboardWidget.chartConfig` is
+                // declared as the spec's full `ChartConfigSchema` on EVERY
+                // dashboard widget, but until this card only the ADR-0021
+                // dataset path (`DatasetWidget`) read it: this inline path
+                // mentioned `chartConfig` zero times, so an author who wrote
+                // `chartConfig.title` / `.colors` / `.height` on a widget bound
+                // to inline rows or to a `provider: 'object'` aggregate parsed
+                // clean and got nothing.
+                //
+                // `chartConfigPresentation` is the SAME whitelist the dataset
+                // path lowers through (`@object-ui/core`), not a second copy —
+                // it admits a key only when the chart block measurably draws it
+                // (see its docblock for the two criteria and for why `aria` is
+                // refused). Spread AFTER the derived keys so an authored
+                // `colors` / `height` overrides the defaults below, and BEFORE
+                // nothing that would shadow the dataset-derived bindings: the
+                // whitelist emits no `xAxisKey` and no `series`, which is what
+                // keeps objectstack#17385's open precedence question (authored
+                // axes vs derived) out of this change.
+                const chartPresentation = chartConfigPresentation(widget.chartConfig);
+
                 // provider: 'object' — delegate to ObjectChart for async data loading.
                 // Field/aggregate config comes from the nested data provider.
                 if (isObjectProvider(widgetData)) {
@@ -683,7 +706,8 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                         // which is what `CompareToConfig` projects — so the cast
                         // that used to bridge the skew is gone.
                         compareTo: widget.compareTo,
-                        className: "h-[200px] sm:h-[250px] md:h-[300px]"
+                        className: "h-[200px] sm:h-[250px] md:h-[300px]",
+                        ...chartPresentation,
                     };
                 }
 
@@ -702,7 +726,8 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     colors: CHART_COLORS,
                     // Deterministic first paint inside the grid (#2756).
                     isAnimationActive: false,
-                    className: "h-[200px] sm:h-[250px] md:h-[300px]"
+                    className: "h-[200px] sm:h-[250px] md:h-[300px]",
+                    ...chartPresentation,
                 };
             }
 

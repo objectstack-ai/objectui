@@ -272,11 +272,14 @@ const VISIBILITY_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
  * byte-for-byte what it was. Only the dialect that `evaluateCondition` routes
  * to the canonical `@objectstack/formula` engine is held back from the
  * flattening described in {@link preservePredicateEnvelope}.
+ *
+ * The object-shape half is {@link isConfigBag}, ASKED rather than re-spelled:
+ * objectui#6761 pins that predicate to one definition, and an envelope is the
+ * same question about the same kind of value (a real object, never an array).
+ * This is a third READ of that one answer, not a fourth spelling of it.
  */
 const isCelEnvelope = (value: unknown): boolean =>
-  !!value
-  && typeof value === 'object'
-  && !Array.isArray(value)
+  isConfigBag(value)
   && (value as { dialect?: unknown }).dialect === 'cel'
   && typeof (value as { source?: unknown }).source === 'string';
 

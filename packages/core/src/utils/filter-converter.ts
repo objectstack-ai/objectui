@@ -1085,14 +1085,33 @@ function viewFilterRuleToNode(rule: ViewFilterRuleLike): FilterNode {
   // than assumed. The Console cannot author this rule: `foldFilterGroupToSpecRules`
   // (`@object-ui/app-shell`, objectui#4155) DROPS a condition whose value is
   // `null` / `''` / `[]` before it is persisted, precisely so an incomplete row
-  // never reaches storage. What remains is hand-authored metadata and views
-  // saved before that landed. And the throw is not a new blast radius: both
-  // sinks already catch a `FilterOperatorError` from this same function —
-  // `plugin-list`'s `buildEffectiveFilter` inside `ListView`'s load `try`,
-  // `plugin-view`'s `ObjectView` inside its own — and `classifyLoadError` reads
-  // this error's `INVALID_FILTER` / `400`, so the user sees the "filter is
-  // malformed" panel naming their field and operator, not a crashed page and
-  // not a network error.
+  // never reaches storage. And nothing in this tree authors the shape: over
+  // every tracked file, an `operator: 'icontains'` rule appears only in this
+  // card's own test, changeset and comment — lit control, 40 tracked files
+  // mention the operator at all.
+  //
+  // ## ⚠️ Where the throw LANDS is a second question, and it is NOT settled here
+  //
+  // Two of the sinks catch it: `plugin-list`'s `buildEffectiveFilter` runs
+  // inside `ListView`'s load `try` and `plugin-view`'s `ObjectView` inside its
+  // own, and `classifyLoadError` reads this error's `INVALID_FILTER` / `400`, so
+  // there the user sees the "filter is malformed" panel naming their field and
+  // operator. FOUR more entries do not: `plugin-grid`'s `ObjectGrid` (twice),
+  // `plugin-detail`'s `RelatedList` and `plugin-form`'s `LineItemsPanel` all
+  // call `toFilterNode` inside a RENDER-time `useMemo`, where a throw
+  // propagates as a render error with no `classifyLoadError` in the path.
+  // `ObjectGrid` feeds it `schema.filter`, which the spec declares as
+  // `z.array(ViewFilterRuleSchema)` — i.e. exactly the shape this arm judges.
+  //
+  // That is objectui#9050, an OPEN card on the DELIVERY axis, and this arm
+  // deliberately does not pre-empt it. It is not a class this card creates or
+  // even joins first: objectui#8557's array-arity refusal directly above throws
+  // from this same function through those same four entries and has shipped
+  // that way, and objectui#9050 counts eleven pre-existing throw sites reachable
+  // the same way. ⛔ The alternatives are worse in the direction this whole card
+  // family exists to close — dropping the rule widens the result set, lowering
+  // it keeps the two-answers split. So the refusal lands and WHERE it surfaces
+  // stays objectui#9050's decision to make for all thirteen at once.
   if (
     operator === 'icontains'
     && rule.value !== undefined

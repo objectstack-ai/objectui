@@ -110,11 +110,13 @@ describe('celAuthoring · the wrong-layer `data.*` advisory (objectui#8972)', ()
 
   it('LIVE CONTROL — the ACCEPT SET is not narrowed: the same predicate raises no error', async () => {
     // Every save gate on this tier counts `severity === 'error'` and nothing
-    // else, so "zero errors" IS "still accepted". This is the falsifiable form
-    // of WARN-not-REFUSE: promote the advisory to `error` and this reddens.
+    // else, so "zero errors" IS "still accepted". Deliberately asserts ONLY
+    // that: it is green with the advisory and green without it, and reddens on
+    // exactly one change — promoting the advisory to `error`. That is the
+    // falsifiable form of WARN-not-REFUSE, and mixing the presence of the
+    // warning into it would turn the control into a second true-positive pin.
     const issues = await lintCelPredicate("data.status == 'x'", RULE_HINT);
     expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
-    expect(issues.some((i) => i.severity === 'warning')).toBe(true);
   });
 
   it('LIVE CONTROL — the canonical spelling stays completely clean', async () => {

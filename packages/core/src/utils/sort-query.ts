@@ -76,6 +76,13 @@ export interface QuerySortEntry {
 /**
  * The canonical spelling, quoted in the refusal diagnostic so the message
  * carries the fix and not just the complaint.
+ *
+ * ⚠️ BOTH keys, deliberately. `order` is REQUIRED on `SortConfig`, on its zod
+ * mirror and on `@objectstack/spec`'s `SortItemSchema`, so an example that
+ * omitted it would make this diagnostic prescribe metadata a publish refuses —
+ * objectui#9031. The pin feeds this very example back through `SortItemSchema`
+ * from the installed artifact rather than eyeballing it, because the way this
+ * regresses is somebody "simplifying" the example, not somebody editing prose.
  */
 const ARRAY_FORM_EXAMPLE = "[{ field: 'name', order: 'desc' }]";
 
@@ -112,6 +119,25 @@ export function resetRetiredSortSpellingReports(): void {
  * for. That is the same severity class as `reportRetiredFieldType`, which is
  * also unconditional, and the opposite of `warnOnUnknownActionKeys`, which only
  * reports keys nothing was ever going to read.
+ *
+ * ⚠️ This text is read at the moment the author is ALREADY being corrected, so
+ * it must not prescribe metadata the spec refuses (objectui#9031). It used to
+ * end "`order` is optional and means `'asc'`" — a RUNTIME tolerance stated as
+ * an AUTHORING permission. Both halves of that are load-bearing and both have to
+ * survive any rewording:
+ *
+ *  - the tolerance is REAL — a missing `order` is read as ascending here rather
+ *    than dropped (see {@link normalizeSortEntries}), because types are erased
+ *    and an entry that arrives without it still has to mean something;
+ *  - and it is NOT permission — `order` is required on `SortConfig`, on its zod
+ *    mirror and on `@objectstack/spec`'s `SortItemSchema`, which refuses an
+ *    entry without it.
+ *
+ * Stating only the first is what made an author who followed this correction
+ * verbatim get refused a second time, at publish, by a different door. Deleting
+ * the tolerance instead would be the opposite error: it is what this renderer
+ * actually does, and a diagnostic that denies it sends the author hunting for a
+ * dropped sort key that was never dropped.
  */
 function reportRetiredSortSpelling(sort: string): void {
   if (reportedRetiredSpellings.has(sort)) return;
@@ -120,7 +146,11 @@ function reportRetiredSortSpelling(sort: string): void {
     `[object-ui] convertSortToQueryParams: the legacy string \`sort\` clause is retired ` +
       `(objectui#8221) and was REFUSED — received ${JSON.stringify(sort)}, so this query ` +
       `carries no \`$orderby\`. Write the array form instead: ` +
-      `sort: ${ARRAY_FORM_EXAMPLE} (\`order\` is optional and means \`'asc'\`). ` +
+      `sort: ${ARRAY_FORM_EXAMPLE} — both keys, on every entry. \`order\` is required: on ` +
+      `\`SortConfig\`, on its zod mirror, and on \`@objectstack/spec\`'s \`SortItemSchema\`, ` +
+      `which refuses an entry without it. (A missing \`order\` is still read as \`'asc'\` ` +
+      `here — that is a runtime tolerance, not permission to omit the key: metadata ` +
+      `written that way is refused when it is published.) ` +
       `The array is the only spelling every \`sort\` input declares, and the only one ` +
       `\`@objectstack/spec\` accepts.`,
   );

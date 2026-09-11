@@ -195,7 +195,7 @@ export const SUBJECT_IS_THE_CWD = Object.freeze([
  * admitting a new instance of a class that produced 13 defects in one day.
  */
 export const KNOWN_CWD_ROOTED = Object.freeze([
-  'e2e/live/inline-edit-polish-2572.spec.ts:34 -- `readFileSync(\'e2e/live/.auth/state.json\')`. Playwright, not Vitest: this spec runs only in `live-e2e.yml` against a real backend, so the repair cannot be verified from a seat that cannot run it, and whether `import.meta` survives Playwright\'s TS transform here is unmeasured. Tracked for the sweep.',
+  'e2e/live/inline-edit-polish-2572.spec.ts:34 -- `readFileSync(\'e2e/live/.auth/state.json\')`. Playwright, not Vitest: this spec runs only in `live-e2e.yml` against a real backend, so the repair cannot be verified from a seat that cannot run it, and whether `import.meta` survives Playwright\'s TS transform here is unmeasured. Tracked as objectui#9188.',
 ]);
 
 /**

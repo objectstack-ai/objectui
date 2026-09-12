@@ -249,12 +249,20 @@ export interface FlowConfigField {
    * is cheap, a first write site is not this file's to add.
    *
    * ⚠️ A declaration here is a claim about the installed spec and is acted on
-   * as one; `flow-node-config.spec-reconciliation.test.ts` reconciles the
-   * approval-escalation block against `ApprovalEscalationSchema` so a drift
-   * there reddens on the bump. That ledger does NOT yet cover the other
-   * declaring fields (objectui#6830 measured four of them declaring a default
-   * the installed spec applies none of), so a new declaration outside that
-   * block is currently unchecked — derive it from the spec, never from taste.
+   * as one; `flow-node-config.spec-reconciliation.test.ts` reconciles EVERY
+   * declaring field against its own per-node-type spec schema, so a drift
+   * reddens on the bump. objectui#9109 widened that ledger from the
+   * approval-escalation block, which it used to walk alone — the four
+   * declarations the installed spec applies none of had been sitting outside
+   * it, unchecked, for exactly that reason. A declaration added in a region
+   * the ledger has no spec schema for now fails there by name rather than
+   * going unnoticed.
+   *
+   * What the ledger cannot decide is which END of a divergence to move: it
+   * RECORDS the unbacked declarations (and the reverse case, a spec default
+   * this table states nowhere) in registers that re-measure themselves, and
+   * leaves the choice to a human. ⇒ derive a new value from the spec, never
+   * from taste.
    */
   defaultValue?: string;
   /**

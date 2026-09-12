@@ -118,14 +118,41 @@ export function catalogueCodeOfChunkName(name) {
   return BUILT_IN_LANGUAGE_CODES.includes(code) ? code : null;
 }
 
-/** `assets/i18n-locale-zh-Bx9f1.js` -> `zh`; anything else -> `null`. */
+/**
+ * `assets/i18n-locale-zh-Bx9f1.js` -> `zh`; anything else -> `null`.
+ *
+ * ⛔ The hash segment is NOT constrained to hyphen-free text, and the premise
+ * that it could be was measured false. Rolldown names a chunk with a
+ * **base64url** content hash, whose alphabet includes `-` and `_`. Measured on
+ * one console build of objectui#9078: `i18n-locale-de-cTrdGXD-.js`,
+ * `i18n-locale-fr-CH3jagZ-.js` and `i18n-locale-zh-Ixe-DTac.js` were emitted
+ * alongside seven siblings whose hashes happened to draw no `-`. A matcher
+ * spelled `${code}-[^-]+\\.js$` read exactly those three as `null`, so the gate
+ * reported three catalogues "emitted under no `i18n-locale-<code>` chunk at
+ * all" while all three sat in `assets/`. Which codes fail is decided by the
+ * content hash, i.e. by chance, and it re-rolls whenever a pack's bytes change
+ * — so this gate went red on roughly a third of the packs in any build that
+ * touched one, and green in the next build for no reason it could name.
+ *
+ * ⭐ What the old spelling actually bought is kept, by a different means. Its
+ * comment gave the reason as "`i18n-locale-en-*.js` cannot be read as some
+ * other code's chunk" — a real ambiguity, but one about the CODE, not the
+ * hash: it appears only when one code is a prefix of another followed by `-`,
+ * e.g. a future regional `zh-CN` beside `zh`. So the remainder is matched
+ * against the declared code list LONGEST FIRST, which resolves that case
+ * correctly (`zh-CN-<hash>.js` reads as `zh-CN`) and is indifferent to what
+ * the hash contains.
+ */
 export function catalogueCodeOfFileName(fileName) {
   if (typeof fileName !== 'string') return null;
   const base = path.basename(fileName);
-  for (const code of BUILT_IN_LANGUAGE_CODES) {
-    // `-` then a rolldown hash then `.js`: the hash never contains a `-`, so
-    // `i18n-locale-en-*.js` cannot be read as some other code's chunk.
-    if (new RegExp(`^${CATALOGUE_CHUNK_PREFIX}${code}-[^-]+\\.js$`).test(base)) return code;
+  if (!base.startsWith(CATALOGUE_CHUNK_PREFIX) || !base.endsWith('.js')) return null;
+  const rest = base.slice(CATALOGUE_CHUNK_PREFIX.length, -'.js'.length);
+  // Longest first, so a code that is a prefix of another never wins over it.
+  const byLength = [...BUILT_IN_LANGUAGE_CODES].sort((a, b) => b.length - a.length);
+  for (const code of byLength) {
+    // A hash must actually follow: `i18n-locale-zh.js` names no chunk here.
+    if (rest.startsWith(`${code}-`) && rest.length > code.length + 1) return code;
   }
   return null;
 }

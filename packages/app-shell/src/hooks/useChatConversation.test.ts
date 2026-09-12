@@ -86,6 +86,159 @@ describe('toUIMessages — merging tool-results onto the call (refresh survival)
   });
 });
 
+/**
+ * objectui#9233 — `mergeToolResultsInto` used to overwrite the part's `state`
+ * unconditionally on every merge, so a rehydrated pending approval reached the
+ * chat as Completed and the awaiting-approval card (gated on
+ * `state === 'approval-requested'` in `ChatbotEnhanced`) never rendered on this
+ * sub-path. The rewrite itself is load-bearing and stays — the tests at the end
+ * of this block pin that half. What must not happen is an APPROVAL state being
+ * rewritten by it.
+ */
+describe('toUIMessages — a merged result must not rewrite an approval state (objectui#9233)', () => {
+  const pendingValue = JSON.stringify({
+    status: 'pending_approval',
+    pendingActionId: 'pa_44',
+    toolName: 'action_delete_task',
+  });
+  /** The shape the server really persists for a tool result on this path. */
+  const pendingEnvelope = { type: 'text', value: pendingValue };
+
+  function rowsFor(
+    callPart: Record<string, unknown>,
+    resultPart: Record<string, unknown>,
+  ) {
+    return [
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'This needs your approval.' }, callPart],
+      },
+      { id: 't1', role: 'tool', content: [resultPart] },
+    ];
+  }
+
+  function mergedCallPart(
+    callPart: Record<string, unknown>,
+    resultPart: Record<string, unknown>,
+  ) {
+    const out = toUIMessages(rowsFor(callPart, resultPart) as never);
+    return out[0].parts.find((p) => p.toolCallId === 'c1') as
+      | { state?: string; output?: unknown; errorText?: string }
+      | undefined;
+  }
+
+  it('promotes a merged pending-approval result to approval-requested', () => {
+    // The ModelMessage sub-path in full: the assistant row persists a bare
+    // `tool-call` with NO state, the RESULT arrives on a separate `tool` row.
+    // Merging used to write `output-available` here, which is terminal — and a
+    // terminal state is exactly what `partToolState` passes through, so the
+    // approval was unrecoverable by the time the mapper ran.
+    const part = mergedCallPart(
+      { type: 'tool-call', toolCallId: 'c1', toolName: 'action_delete_task', input: {} },
+      {
+        type: 'tool-result',
+        toolCallId: 'c1',
+        toolName: 'action_delete_task',
+        output: pendingEnvelope,
+      },
+    );
+    expect(part?.state).toBe('approval-requested');
+    // The output is still merged — the fix narrows the STATE rewrite only.
+    expect(part?.output).toEqual(pendingEnvelope);
+  });
+
+  it('promotes an unwrapped pending envelope too', () => {
+    const part = mergedCallPart(
+      { type: 'tool-call', toolCallId: 'c1', toolName: 'action_delete_task', input: {} },
+      {
+        type: 'tool-result',
+        toolCallId: 'c1',
+        toolName: 'action_delete_task',
+        output: { status: 'pending_approval', pendingActionId: 'pa_45' },
+      },
+    );
+    expect(part?.state).toBe('approval-requested');
+  });
+
+  it('leaves a part that ALREADY declares an approval state alone', () => {
+    // Assistant rows are not always ModelMessage `tool-call` entries:
+    // `contentToParts` passes a persisted UIMessage part through verbatim, so a
+    // part can arrive already carrying the approval state the server snapshotted.
+    // A later `tool` row must not overwrite it either.
+    const responded = mergedCallPart(
+      {
+        type: 'tool-action_delete_task',
+        toolCallId: 'c1',
+        toolName: 'action_delete_task',
+        state: 'approval-responded',
+      },
+      {
+        type: 'tool-result',
+        toolCallId: 'c1',
+        toolName: 'action_delete_task',
+        output: { ok: true },
+      },
+    );
+    expect(responded?.state).toBe('approval-responded');
+
+    const requested = mergedCallPart(
+      {
+        type: 'tool-action_delete_task',
+        toolCallId: 'c1',
+        toolName: 'action_delete_task',
+        state: 'approval-requested',
+      },
+      {
+        type: 'tool-result',
+        toolCallId: 'c1',
+        toolName: 'action_delete_task',
+        output: { ok: true },
+      },
+    );
+    expect(requested?.state).toBe('approval-requested');
+  });
+
+  it('still lets an ERROR result win over a pending envelope', () => {
+    // Mirrors the live mapper's `baseState !== 'output-error'` guard: a failed
+    // call is not awaiting anybody, and rendering Approve / Reject over it would
+    // offer a decision that cannot be carried out.
+    const part = mergedCallPart(
+      { type: 'tool-call', toolCallId: 'c1', toolName: 'action_delete_task', input: {} },
+      {
+        type: 'tool-result',
+        toolCallId: 'c1',
+        toolName: 'action_delete_task',
+        output: pendingEnvelope,
+        errorText: 'boom',
+      },
+    );
+    expect(part?.state).toBe('output-error');
+    expect(part?.errorText).toBe('boom');
+  });
+
+  it('STILL collapses a dangling input state when the result is ordinary', () => {
+    // The load-bearing half, pinned so the narrowing above cannot widen into
+    // "stop rewriting the state": without this collapse a reloaded conversation
+    // shows every tool "Running" forever.
+    const part = mergedCallPart(
+      {
+        type: 'tool-add_field',
+        toolCallId: 'c1',
+        toolName: 'add_field',
+        state: 'input-streaming',
+      },
+      {
+        type: 'tool-result',
+        toolCallId: 'c1',
+        toolName: 'add_field',
+        output: { status: 'drafted', drafted: [] },
+      },
+    );
+    expect(part?.state).toBe('output-available');
+  });
+});
+
 describe('aiMessageRowsToServerMessages — flat share rows → ModelMessage shape', () => {
   // The public share endpoint (`/s/:token/messages`) returns the raw, FLAT
   // `ai_messages` columns: an assistant turn's tool CALLS sit in a separate

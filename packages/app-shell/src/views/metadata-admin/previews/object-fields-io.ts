@@ -209,9 +209,18 @@ export function writeFields(view: FieldsView): Record<string, unknown> | Array<R
   if (view.shape === 'array') {
     return view.entries.map((e) => ({ name: e.name, ...e.def }));
   }
-  const out: Record<string, unknown> = {};
-  for (const e of view.entries) out[e.name] = e.def;
-  return out;
+  // ⛔ NEVER assign into a literal here (objectui#9237). `out[e.name] = e.def`
+  // with `e.name === '__proto__'` invokes `Object.prototype`'s ONE accessor
+  // instead of creating an own property, so the entry `readFields` just read
+  // back vanishes before `JSON.stringify` sees it. `__proto__` is a spec-legal
+  // stored field key (`ObjectSchema.fields`' grammar is `/^[a-z_][a-z0-9_]*$/`),
+  // so the PUT body that results is ACCEPTED and the server stores the object
+  // WITHOUT the field — silent destruction of stored metadata by an edit that
+  // never touched it, not a recoverable 422. `Object.fromEntries` defines an
+  // own property, which is the same reason `MetadataService.toFieldsMap` uses
+  // it. `__proto__` is the only name that reproduces: every other
+  // `Object.prototype` member is a data property that assignment shadows.
+  return Object.fromEntries(view.entries.map((e) => [e.name, e.def]));
 }
 
 /** Find the index of a field by name. Returns -1 if not found. */

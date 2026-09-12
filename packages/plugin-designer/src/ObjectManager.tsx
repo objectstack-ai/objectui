@@ -135,8 +135,39 @@ export function ObjectManager({
     }
   }, [objects]);
 
+  /**
+   * [objectui#9219] What THIS row may be asked to do — the per-row narrowing
+   * objectui#8674 added to `ObjectGrid`, applied to the sibling component the
+   * same defect lived in.
+   *
+   * `operations` and the `onDelete` wiring below are grid-level and identical
+   * for every row, so the refusal for a system object used to live in
+   * `handleDelete` and fire AFTER the entry had been drawn and clicked: no
+   * dialog, no toast, no console message. `readOnly` was honest in the same
+   * component (the callback is withheld, so nothing is drawn); `isSystem` drew
+   * the entry and swallowed the click, and system objects are on screen by
+   * DEFAULT (`showSystemObjects` defaults to true), so that row is reachable
+   * without the caller doing anything unusual.
+   *
+   * `delete` only. `isSystem` disables `name` in the edit form; it has never
+   * meant "this row is untouchable", and withholding Edit here would be a
+   * capability regression wearing a bug fix's clothes.
+   *
+   * An unresolvable row is withheld for the same reason and not as a
+   * defensive flourish: `handleDelete` returns early when the lookup misses,
+   * so offering delete for such a row would reproduce this very defect.
+   */
+  const rowOperations = useCallback((record: Record<string, unknown>) => {
+    const obj = objects.find((o) => o.name === record.name);
+    return { delete: !!obj && !obj.isSystem };
+  }, [objects]);
+
   const handleDelete = useCallback(async (record: Record<string, unknown>) => {
     const obj = objects.find((o) => o.name === record.name);
+    // Unreachable through the grid now that `rowOperations` withholds the
+    // action for exactly these two cases — kept because this callback is a
+    // published prop value and nothing stops a future caller invoking it
+    // directly. It must never become the ONLY refusal again.
     if (!obj || obj.isSystem) return;
     const confirmed = await confirmDialog.confirm(
       t('appDesigner.objectManager.deleteConfirmTitle'),
@@ -255,6 +286,7 @@ export function ObjectManager({
         onRowClick={handleRowClick}
         onEdit={readOnly ? undefined : handleEdit}
         onDelete={readOnly ? undefined : handleDelete}
+        rowOperations={rowOperations}
         onAddRecord={readOnly ? undefined : handleAddObject}
       />
 

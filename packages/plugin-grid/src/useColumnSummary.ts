@@ -9,7 +9,8 @@
 import { useMemo } from 'react';
 import type { ListColumn } from '@object-ui/types';
 import type { ColumnSummary } from '@objectstack/spec/ui';
-import { useLocalization, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
+import { useLocalization, useDisplayLocale, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
+import { formatPercent } from '@object-ui/fields';
 
 /**
  * Aggregation functions for the column footer — the spec's `ColumnSummary`
@@ -288,6 +289,15 @@ function formatSummaryLabel(
   t: SummaryTranslate,
   column?: { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: { defaultCurrency?: string }; precision?: number | null; scale?: number | null },
   tenantDefault?: string,
+  // The BCP-47 tag from `useDisplayLocale()`, threaded for the percent arm
+  // (objectui#9269). ⚠️ Scope note, so the asymmetry below reads as a bounded
+  // repair rather than an oversight: the other arms still hand `Intl` an
+  // `undefined` locale, i.e. the MACHINE's, which is the thing
+  // `useDisplayLocale`'s own doc comment tells callers not to do. That is a
+  // different defect from this one (it is about which locale, not about which
+  // source owns the percent rule) and is filed separately rather than folded
+  // in here.
+  displayLocale?: string,
 ): string {
   if (value === null) return '';
   const labelKey = TYPE_LABEL_KEYS[type as ColumnSummaryType];
@@ -328,9 +338,37 @@ function formatSummaryLabel(
       formatted = value.toLocaleString();
     }
   } else if (colType === 'percent') {
+    // objectui#9269 — the percent decision is NOT made here any more.
+    //
+    // This arm held a hand-inlined copy of `percentDisplayValue`'s body plus a
+    // literal ASCII sign:
+    //
+    //   const pct = (value > -1 && value < 1) ? value * 100 : value;
+    //   formatted = `${pct.toFixed(decimals)}%`;
+    //
+    // Line 1 is `percentDisplayValue` in `@object-ui/core` character for
+    // character, so the SCALING agreed by DUPLICATION rather than by
+    // reference. The CONVENTION was not taken at all, and that is the half a
+    // reader saw: measured against the list cell in the same run, a stored
+    // `0.25` read `25%` in this footer and `25 %` in the cell directly above
+    // it in a German session, and `%25` in a Turkish one — where the sign sits
+    // on the OTHER SIDE of the number. A four-digit value read `1235%` against
+    // `1,235%` even in `en`.
+    //
+    // `formatPercent` is the list-cell path (`PercentCellRenderer`), and it
+    // carries BOTH halves `percentDisplayValue`'s doc comment demands of a
+    // third surface: the SCALING, so the fraction/points boundary has one
+    // home, and the CONVENTION, via `style: 'percentPoints'`, so the affix is
+    // the LOCALE's rather than a literal. Taking only the first is precisely
+    // the drift objectui#4576 already paid for once.
+    //
+    // ⚠️ `decimals` still reads `precision`, NOT `scale`. Whether that is the
+    // right member here is a separate and deliberately unmeasured question —
+    // the currency arm above reads `scale` for the reason #2131 records — and
+    // this card's own table had precision agreeing on both sides (`12.3` reads
+    // `12%` either way), so it is left exactly where it was.
     const decimals = column?.precision ?? 0;
-    const pct = (value > -1 && value < 1) ? value * 100 : value;
-    formatted = `${pct.toFixed(decimals)}%`;
+    formatted = formatPercent(value, decimals, displayLocale);
   } else if (type === 'avg') {
     formatted = value.toLocaleString(undefined, { maximumFractionDigits: 2 });
   } else {
@@ -357,6 +395,11 @@ export function useColumnSummary(
   // Tenant default currency (ADR-0053) backstops a currency column that
   // declares no explicit code, so the footer agrees with the cells above it.
   const { currency: tenantCurrency } = useLocalization();
+  // The tag every field / cell / metric renderer formats `Intl` values with
+  // (tenant locale, then UI language, then `'en'`) — never `undefined`, which
+  // would be the MACHINE's locale. The percent footer goes through the same
+  // path the list cell above it does (objectui#9269).
+  const displayLocale = useDisplayLocale();
   // Aggregate-prefix bundle lookups (objectui#4024). Provider-safe: with no
   // I18nProvider this resolves the English defaults table, never a raw key.
   const { t } = useSummaryTranslation();
@@ -396,10 +439,10 @@ export function useColumnSummary(
       summaries.set(col.field, {
         field: col.field,
         value: result,
-        label: formatSummaryLabel(config.type, result, t, columnHints, tenantCurrency),
+        label: formatSummaryLabel(config.type, result, t, columnHints, tenantCurrency, displayLocale),
       });
     }
 
     return { summaries, hasSummary: summaries.size > 0 };
-  }, [columns, data, fieldMetadata, tenantCurrency, t]);
+  }, [columns, data, fieldMetadata, tenantCurrency, displayLocale, t]);
 }

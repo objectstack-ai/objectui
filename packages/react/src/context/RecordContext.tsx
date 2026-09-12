@@ -14,6 +14,7 @@
  */
 
 import React from 'react';
+import type { DataSource } from '@object-ui/types';
 
 /**
  * Shared registry of field names currently surfaced by `record:highlights`
@@ -114,8 +115,22 @@ export interface RecordContextValue<TData = any, TObjectSchema = any> {
   objectName: string;
   /** Primary key value of the record being displayed. */
   recordId: string | number | null | undefined;
-  /** Optional datasource id; mirrors the page-level datasource override. */
-  dataSource?: string;
+  /**
+   * The data adapter the page is bound to, as the host resolved it — the same
+   * object the host hands `SchemaRendererProvider`, forwarded so that
+   * `record:*` renderers can self-fetch (related lists, activity, the
+   * reference rail) without re-plumbing it through the schema tree.
+   *
+   * Typed `DataSource`, not an id: every producer has always passed the
+   * adapter, and every reader has always called adapter methods on it
+   * (objectui#9197). `getObjectSchema` is a REQUIRED member of `DataSource`,
+   * so a reader gets the compiler's answer about it instead of a cast.
+   *
+   * Optional: hosts that render a record with no adapter bound (the Studio
+   * designer and palette previews) leave it undefined, and renderers treat
+   * that as "cannot self-fetch" rather than throwing.
+   */
+  dataSource?: DataSource;
   /** Loaded record data (flat record map). Undefined while loading. */
   data?: TData;
   /** Resolved object metadata schema (fields, label, etc.). */

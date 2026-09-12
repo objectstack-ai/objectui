@@ -578,7 +578,17 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     });
   }, [t]);
 
-  const rawDataConfig = resolveRecordSourceConfig(schema);
+  // `'view-data'` — the arm `object-gantt`'s published `data` row declares
+  // (objectui#8348). MEASURED: `@objectstack/spec` 17.4.0 has NO
+  // `ComponentPropsMap['object-gantt']` row at all, so the published row that
+  // governs this block is this repo's own `ObjectGanttSchema.data`
+  // (`@object-ui/types`), `ViewDataSchema.optional()` — the discriminated union
+  // over four strict OBJECT arms. A bare array under `data` is not on it, so it
+  // is no longer a record source and the ladder falls through to `staticData` /
+  // `objectName`; it was inert before (it carried no `provider`, so no fetch
+  // branch below ever matched it), which is why nothing a published document
+  // can express moves here.
+  const rawDataConfig = resolveRecordSourceConfig(schema, 'view-data');
   // Memoize dataConfig using deep comparison to prevent infinite loops
   const dataConfig = useMemo(() => {
     return rawDataConfig;

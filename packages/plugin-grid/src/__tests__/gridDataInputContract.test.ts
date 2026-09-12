@@ -24,8 +24,9 @@
  * one field over:
  *
  *   - an author following the published declaration wrote `data: [ …rows… ]`,
- *     which the renderer does honour (`getDataConfig`'s `Array.isArray` branch)
- *     but which `tsc` refuses (`TS2322`, measured) and `ViewDataSchema` refuses;
+ *     which the renderer honoured at the time (`getDataConfig`'s `Array.isArray`
+ *     branch, removed on objectui#8348) but which `tsc` refuses (`TS2322`,
+ *     measured) and `ViewDataSchema` refuses;
  *   - the one form that satisfies both — `{ provider: 'value', items: [...] }` —
  *     drew `type-mismatch` from this repo's own save gate, because
  *     `checkType`'s `'array'` arm (`sdui-parser/src/validate.ts`) accepts only
@@ -43,17 +44,30 @@
  * That derivation is the discipline `component-input-union-specimens.test.ts`
  * and `text-input-inputs-spec-parity.test.ts` adopted. It used to be the only
  * gate on this fact; objectui#4971 has since added the repo-wide arm direction to
- * `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`. That one
- * judges against `ComponentPropsMap['object-grid'].data`, which is `z.array()`
- * and DISAGREES with the `ViewDataSchema` this file measures — two spec
- * authorities, opposite kinds, filed as objectui#6207 and carried there as a
- * reasoned exemption. So this file stays the authority for the contract
- * `ObjectGridSchema` actually resolves to, and the two are not redundant.
+ * `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`.
  *
- * The renderer's array tolerance is NOT asserted away here. It stays as
- * back-compat and is objectui#5068's family; what this file forbids is
- * ADVERTISING it, which is the carve-out's own reasoning applied to an arm
- * instead of a key.
+ * ⛔ CORRECTED on objectui#8348 — this docblock used to say that the parity gate
+ * "judges against `ComponentPropsMap['object-grid'].data`, which is `z.array()`
+ * and DISAGREES with the `ViewDataSchema` this file measures — two spec
+ * authorities, opposite kinds, filed as objectui#6207". MEASURED on the
+ * `@objectstack/spec` this repo now resolves (17.4.0), that is no longer true:
+ * the two authorities CONVERGED. `ComponentPropsMap['object-grid'].data` is the
+ * `ViewData` union, and its own description names the refusal — "Static inline
+ * rows live at `{ provider: 'value', items: [...] }`; the bare-array shortcut is
+ * refused — see migration `object-grid-data-view-data-converged`". The two gates
+ * agree and are still not redundant: this file measures the contract
+ * `ObjectGridSchema` resolves to, the parity gate measures the repo-wide arm
+ * direction.
+ *
+ * ⭐ The renderer's array tolerance is GONE as of objectui#8348 (decision batch
+ * #83, 2026-09-08, maintainer verbatim 「8348 以协议为准」 — the contract decides).
+ * This paragraph used to read "NOT asserted away here… it stays as back-compat
+ * and is objectui#5068's family; what this file forbids is ADVERTISING it". The
+ * ruling removed the thing being un-advertised: `getDataConfig` no longer lifts
+ * a bare array, so the declaration and the read now say the same thing. This
+ * file still owns the DECLARATION half; the behaviour half — a bare array draws
+ * nothing and the block queries its object instead — is pinned next door in
+ * `gridBareArrayDataRefused-8348.test.tsx`.
  *
  * The compile-time half needs this package's `tsconfig.test.json`
  * (objectui#3181) — without it the `@ts-expect-error` below is erased before
@@ -143,10 +157,13 @@ describe('object-grid `data` — declaration matches the contract (objectui#5090
   });
 
   it.each(GRID_TAGS)('$label does not declare the array shorthand', ({ type, namespace }) => {
-    // The regression named. `data: [ …rows… ]` is honoured by the renderer as
-    // back-compat (objectui#5068's family) but refused by `ViewData`, so
+    // The regression named. `data: [ …rows… ]` is refused by `ViewData`, so
     // declaring the arm would publish a shape `tsc` and the spec both reject —
     // the same reason the objectui#4648 carve-out leaves `staticData` undeclared.
+    //
+    // ⭐ objectui#8348 — this row used to carry "…is honoured by the renderer as
+    // back-compat". It no longer is: the read was corrected to the declaration,
+    // not the other way round, so declaration and behaviour agree.
     expect(declaredArms(type, namespace)).not.toContain('array');
     expect(ViewDataSchema.safeParse([{ id: 1 }]).success).toBe(false);
   });

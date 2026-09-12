@@ -476,28 +476,31 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
  * implementation of a contract published on both faces (objectui#6939), which
  * this file used to hand-copy (objectui#7632).
  *
- * What stays here is the head above it: the bare-array `data` shorthand. It is
- * OFF-CONTRACT — `ViewData` is a `z.discriminatedUnion('provider', [...])` over
- * object variants, so an array under `data` cannot be published — and only this
- * block and `ObjectMap` normalize it inside their ladder; calendar, gantt and
- * tree return the array verbatim. So it is kept at the site rather than folded
- * into the shared rung, exactly as the objectui#7627 collapse left this file's
- * off-contract `{ provider: 'object' }` tail at the site (AGENTS.md #0.1).
+ * What used to stay here was the head above it: the bare-array `data`
+ * shorthand, which lifted `data: [...]` to `{ provider: 'value', items }`.
+ * ⛔ IT IS GONE (objectui#8348, decision batch #83, maintainer verbatim
+ * 「8348 以协议为准」 — the contract decides).
  *
- * Hoisting the check above the shared call is behaviour-neutral: an array is
- * ALWAYS truthy, `[]` included, so `if (schema.data)` could never have let one
- * fall through to `staticData` or `objectName`.
+ * MEASURED on `@objectstack/spec` 17.4.0:
+ * `ComponentPropsMap['object-grid'].data` is the `ViewData` union, and its own
+ * description names the refusal — *"Static inline rows live at
+ * `{ provider: 'value', items: [...] }`; the bare-array shortcut is refused —
+ * see migration `object-grid-data-view-data-converged`"*. This block's own
+ * registration publishes the same arm (`{ name: 'data', type: 'object' }` in
+ * `index.tsx`), and `gridDataInputContract.test.ts` has pinned that declaration
+ * since objectui#5090. The head was the last carrier of a spelling every one of
+ * those faces refuses, so `data` is honoured here on the OBJECT arm only and
+ * the shared rung is passed `'view-data'`.
+ *
+ * ⚠️ The accepted cost, stated: a stored grid authored `data: [ …rows… ]` no
+ * longer draws those rows — the ladder falls through to `staticData`, then to
+ * `objectName`, so such a grid queries its object instead of drawing the
+ * authored array (or draws nothing when it names no object). The declared
+ * spelling for inline rows is `data: { provider: 'value', items: [...] }`, and
+ * the deprecated `staticData` array still works as before.
  */
 function getDataConfig(schema: ObjectGridSchema): ViewData | null {
-  // Array shorthand -> the declared `value` provider (see docblock above).
-  if (Array.isArray(schema.data)) {
-    return {
-      provider: 'value',
-      items: schema.data,
-    };
-  }
-
-  return resolveRecordSourceConfig(schema);
+  return resolveRecordSourceConfig(schema, 'view-data');
 }
 
 /**

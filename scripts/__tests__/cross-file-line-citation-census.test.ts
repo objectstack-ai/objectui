@@ -43,6 +43,7 @@ import {
   inTestTitle,
   evaluateClassifier,
   evaluateControls,
+  finalVerdict,
   bucketOf,
   CONTROLS,
   FALSE_VERDICTS,
@@ -438,6 +439,42 @@ describe('the controls are addressed by CONTENT, and the tree still satisfies th
 
   it('keeps the false verdicts to the three that assert something', () => {
     expect([...FALSE_VERDICTS].sort()).toEqual(['drifted', 'non-substantive', 'out-of-range']);
+  });
+});
+
+type Verdict = { exit: number; certification: string | null; refusal: string[] | null };
+
+describe('a run certifies itself LAST, after every refusal has been consulted', () => {
+  const held = [{ ok: true }, { ok: true }];
+  const verdict = (controls: { ok: boolean }[], populationSize: number) =>
+    finalVerdict({ controls, classifier: held, populationSize }) as Verdict;
+
+  it('refuses an EMPTY population without certifying anything first', () => {
+    // REGRESSION objectui#9081: the `IS a reading` line was first printed under
+    // the control check and ABOVE this guard, so a blind run announced a reading
+    // and then exited 1 on the next line. A grep keying on that string took a
+    // certificate off a run that had refused — in the one script whose subject
+    // is that an instrument must not report a reading it did not take.
+    const v = verdict(held, 0);
+    expect(v.exit).toBe(1);
+    expect(v.certification).toBeNull();
+    expect(JSON.stringify(v)).not.toContain('IS a reading');
+    expect(v.refusal?.join('\n')).toContain('Empty population');
+  });
+
+  it('DOES certify a healthy population — the control leg, so the absence above is a barrier', () => {
+    const v = verdict(held, 1);
+    expect(v.exit).toBe(0);
+    expect(v.refusal).toBeNull();
+    expect(v.certification).toContain('IS a reading');
+  });
+
+  it('refuses a failed control without certifying, whatever the population', () => {
+    const v = verdict([{ ok: true }, { ok: false }], 1274);
+    expect(v.exit).toBe(1);
+    expect(v.certification).toBeNull();
+    expect(JSON.stringify(v)).not.toContain('IS a reading');
+    expect(v.refusal?.join('\n')).toContain('NOT a reading');
   });
 });
 

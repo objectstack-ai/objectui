@@ -805,6 +805,52 @@ function tally(rows, key) {
   return [...m].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
 }
 
+/**
+ * Whether a run may certify itself, and -- the part worth exporting -- in WHICH
+ * ORDER its refusals are consulted.
+ *
+ * ⚠️ CERTIFICATION IS LAST, and that is a fact this file has already got wrong
+ * once (objectui#9081). The first cut of the `IS a reading` line printed it
+ * directly under the control check and ABOVE the empty-population guard, so a
+ * blind run announced `✓ ... this run IS a reading.`, then printed
+ * `✗ Empty population ...` and exited 1. A reader -- or a grep keying on that
+ * string -- took a certificate off a run that had refused. In the one script
+ * whose whole subject is that an instrument must not report a reading it did
+ * not take, that is the unearned green arriving through the door marked "say
+ * the good news out loud".
+ *
+ * ⇒ every refusal is consulted first, and a refusing verdict carries NO
+ * certification string at all rather than a suppressed one: there is nothing
+ * for a later edit to print by accident.
+ */
+export function finalVerdict({ controls, classifier, populationSize }) {
+  const all = [...controls, ...classifier];
+  const failed = all.filter((c) => !c.ok);
+  if (failed.length > 0) {
+    return {
+      exit: 1,
+      certification: null,
+      refusal: [`\n✗ ${failed.length} of ${all.length} control(s) failed -- this run is NOT a reading.`],
+    };
+  }
+  if (populationSize === 0) {
+    return {
+      exit: 1,
+      certification: null,
+      refusal: [
+        '\n✗ Empty population. A census that reads nothing because it is blind is',
+        '  indistinguishable from a clean tree, so this exits non-zero rather than',
+        '  printing a silent zero.',
+      ],
+    };
+  }
+  return {
+    exit: 0,
+    refusal: null,
+    certification: `✓ ${all.length} of ${all.length} control(s) passed -- this run IS a reading.`,
+  };
+}
+
 function main(argv) {
   const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
   const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
@@ -954,23 +1000,17 @@ function main(argv) {
     }
   }
 
-  const allControls = [...controls, ...classifier];
-  const failedControls = allControls.filter((c) => !c.ok);
-  if (failedControls.length > 0) {
-    console.error(`\n✗ ${failedControls.length} of ${allControls.length} control(s) failed -- this run is NOT a reading.`);
-    return 1;
+  const verdict = finalVerdict({ controls, classifier, populationSize: population.length });
+  if (verdict.refusal) {
+    for (const line of verdict.refusal) console.error(line);
+    return verdict.exit;
   }
   // Said out loud rather than left to be inferred from silence: a reader who
-  // cannot tell "every control held" from "the script died before printing"
-  // has no certification, only an exit code (objectui#9081).
-  if (!asJson) console.log(`✓ ${allControls.length} of ${allControls.length} control(s) passed -- this run IS a reading.`);
-  if (population.length === 0) {
-    console.error('\n✗ Empty population. A census that reads nothing because it is blind is');
-    console.error('  indistinguishable from a clean tree, so this exits non-zero rather than');
-    console.error('  printing a silent zero.');
-    return 1;
-  }
-  return 0;
+  // cannot tell "every control held" from "the script died before printing" has
+  // no certification, only an exit code. ⛔ Printed HERE and nowhere earlier --
+  // see `finalVerdict` for why the position is the point.
+  if (!asJson) console.log(verdict.certification);
+  return verdict.exit;
 }
 
 if (isEntrypoint(import.meta.url)) {

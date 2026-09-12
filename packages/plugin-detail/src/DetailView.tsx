@@ -20,6 +20,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  renderNodeSlot,
 } from '@object-ui/components';
 import { 
   ArrowLeft, 
@@ -1437,11 +1438,19 @@ export const DetailView: React.FC<DetailViewProps> = ({
         )}
 
       {/* Custom Header */}
-      {schema.header && (
+{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
+          slot itself, so a legal authored `header: 0` — the published node union
+          carries a `z.number()` arm — painted the character "0" here. Measured
+          leaking on `origin/main` at 7d6439c4b before this change; the card's
+          census listed these two as HITS, and the probe confirmed them.
+          `renderNodeSlot` runs the wrapper only when the slot has content, so
+          the wrapping `div` disappears with it. Pinned in
+          `__tests__/DetailView.nodeSlotNumericFalsy-9162.test.tsx`. */}
+      {renderNodeSlot(schema.header, (header) => (
         <div>
-          <SchemaRenderer schema={toRenderableSchema(schema.header)} data={data} />
+          <SchemaRenderer schema={toRenderableSchema(header)} data={data} />
         </div>
-      )}
+      ))}
 
       {/* Header Highlight Area */}
       {schema.highlightFields && schema.highlightFields.length > 0 && (
@@ -1920,11 +1929,19 @@ export const DetailView: React.FC<DetailViewProps> = ({
       />
 
       {/* Custom Footer */}
-      {schema.footer && (
+{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
+          slot itself, so a legal authored `footer: 0` — the published node union
+          carries a `z.number()` arm — painted the character "0" here. Measured
+          leaking on `origin/main` at 7d6439c4b before this change; the card's
+          census listed these two as HITS, and the probe confirmed them.
+          `renderNodeSlot` runs the wrapper only when the slot has content, so
+          the wrapping `div` disappears with it. Pinned in
+          `__tests__/DetailView.nodeSlotNumericFalsy-9162.test.tsx`. */}
+      {renderNodeSlot(schema.footer, (footer) => (
         <div>
-          <SchemaRenderer schema={toRenderableSchema(schema.footer)} data={data} />
+          <SchemaRenderer schema={toRenderableSchema(footer)} data={data} />
         </div>
-      )}
+      ))}
       </div>
     </TooltipProvider>
   );

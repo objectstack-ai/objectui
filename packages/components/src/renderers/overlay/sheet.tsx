@@ -17,7 +17,7 @@ import {
   SheetTitle, 
   SheetDescription
 } from '../../ui';
-import { renderChildren } from '../../lib/utils';
+import { renderChildren, renderNodeSlot } from '../../lib/utils';
 
 ComponentRegistry.register('sheet', 
   ({ schema, className, ...props }: { schema: SheetSchema; className?: string; [key: string]: any }) => (
@@ -31,11 +31,16 @@ ComponentRegistry.register('sheet',
           {schema.description && <SheetDescription>{schema.description}</SheetDescription>}
         </SheetHeader>
         {renderChildren(schema.content)}
-        {schema.footer && (
+{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
+            slot, so a legal authored `footer: 0` painted the character "0" —
+            and it short-circuits, so `renderChildren`'s own falsy leg never
+            ran. `renderNodeSlot` runs the wrapper only when the slot has
+            content, so the chrome disappears with it. */}
+        {renderNodeSlot(schema.footer, (footer) => (
           <SheetFooter>
-            {renderChildren(schema.footer)}
+            {renderChildren(footer)}
           </SheetFooter>
-        )}
+        ))}
       </SheetContent>
     </Sheet>
   ),

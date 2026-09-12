@@ -78,10 +78,14 @@ import { DetailSection, type DetailSectionProps } from './DetailSection';
  * The section members an authored `detail-section` node carries as FLAT props,
  * i.e. exactly the names the registration declares as `inputs`.
  *
- * Single source for the fold. `detailSectionAuthoredNode-8626.test.tsx` pins
- * this list against the registration's own declared input names in BOTH
- * directions, so a ninth input declared without a fold — the shape of the
- * original defect — reds rather than arriving silently inert.
+ * THE single source for the fold, and load-bearing rather than descriptive:
+ * the component below folds by iterating THIS list, so a name removed from it
+ * is a name that stops reaching `DetailSection` — which is how the ablation
+ * for objectui#8626 reddens a per-input row.
+ * `detailSectionAuthoredNode-8626.test.tsx` additionally pins the list against
+ * the registration's own declared input names in BOTH directions, so a ninth
+ * input declared without a fold — the shape of the original defect — reds
+ * rather than arriving silently inert.
  */
 export const DETAIL_SECTION_NODE_INPUTS = [
   'title',
@@ -103,44 +107,42 @@ type DetailSectionNodeInput = (typeof DETAIL_SECTION_NODE_INPUTS)[number];
 export type DetailSectionNodeProps = Omit<DetailSectionProps, 'section'> &
   Partial<Pick<DetailViewSection, DetailSectionNodeInput>>;
 
-export const DetailSectionNode: React.FC<DetailSectionNodeProps> = ({
-  title,
-  description,
-  fields,
-  collapsible,
-  defaultCollapsed,
-  columns,
-  showBorder,
-  headerColor,
-  ...rest
-}) => {
-  /**
-   * The fold. `fields` is `required: true` on the registration, so an absent
-   * one is already an ERROR from `validateTree`; it is NOT defaulted to `[]`
-   * here — a lenient default would make the required declaration untrue in the
-   * other direction.
-   *
-   * Undefined members are left undefined rather than stripped: every read site
-   * in `DetailSection` tests the VALUE (`section.title &&`,
-   * `section.showBorder === false`, `section.defaultCollapsed ?? false`), never
-   * key presence, so an unauthored key and an absent key are the same section.
-   */
-  const section = React.useMemo(
-    () =>
-      ({
-        title,
-        description,
-        fields,
-        collapsible,
-        defaultCollapsed,
-        columns,
-        showBorder,
-        headerColor,
-      }) as DetailViewSection,
-    [title, description, fields, collapsible, defaultCollapsed, columns, showBorder, headerColor],
-  );
+const FOLDED = new Set<string>(DETAIL_SECTION_NODE_INPUTS);
 
-  return <DetailSection {...rest} section={section} />;
+export const DetailSectionNode: React.FC<DetailSectionNodeProps> = (props) => {
+  /**
+   * The fold, driven by `DETAIL_SECTION_NODE_INPUTS` rather than by a second
+   * hand-written destructure — a copy of the list is a copy that can drift out
+   * of the declaration, which is the defect this file exists to close.
+   *
+   * `fields` is `required: true` on the registration, so an absent one is
+   * already an ERROR from `validateTree`; it is NOT defaulted to `[]` here — a
+   * lenient default would make the required declaration untrue in the other
+   * direction.
+   *
+   * A key the author omitted stays omitted, and an authored `undefined` stays
+   * `undefined`: every read site in `DetailSection` tests the VALUE
+   * (`section.title &&`, `section.showBorder === false`,
+   * `section.defaultCollapsed ?? false`), never key presence, so the two are
+   * the same section.
+   *
+   * Rebuilt per render on purpose — no memo. `DetailSection` keys its own
+   * memos off section MEMBERS (`[section.fields, …]`), never off the object,
+   * so a stable identity would buy nothing and a stale one would cost
+   * correctness.
+   */
+  const section: Record<string, unknown> = {};
+  const hostProps: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(props)) {
+    (FOLDED.has(key) ? section : hostProps)[key] = value;
+  }
+
+  return (
+    <DetailSection
+      {...(hostProps as Omit<DetailSectionProps, 'section'>)}
+      section={section as unknown as DetailViewSection}
+    />
+  );
 };
 
 DetailSectionNode.displayName = 'DetailSectionNode(DetailSection)';

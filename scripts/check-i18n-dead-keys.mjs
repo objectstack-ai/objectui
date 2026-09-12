@@ -457,10 +457,31 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 /** Directories the text safety net never descends into — build output, deps,
  *  VCS metadata. Deliberately NOT the same (smaller) list as the AST walk's
  *  `SKIP_DIRS`: this pass covers the whole repo, so it also needs the
- *  top-level noise the AST walk never reaches in the first place. */
+ *  top-level noise the AST walk never reaches in the first place.
+ *
+ *  `.objectui-tmp` is here for a second reason, and it is not tidiness
+ *  (objectui#9201). It is a LIVE scratch directory: `withGeneratedApp()` in
+ *  `packages/cli/src/__tests__/app-generator.test.ts` mkdtemps a generated app
+ *  under `<repo>/.objectui-tmp/` and `rmSync`s it in a `finally`, inside the
+ *  same shard this gate runs in. A `grep -rFn` that descends into it while
+ *  that teardown runs reads a file that has just been unlinked, and GNU grep
+ *  answers a file error with exit **2** — even on a run that also matched.
+ *  The catch below absorbs only exit 1 (`no match`), deliberately, so exit 2
+ *  reaches `throw` and the gate DIES: a red shard for a reason that has
+ *  nothing to do with the code under test. ⛔ The fix for that is never to
+ *  widen the catch or to swallow exit 2 — an IO error the sweep cannot see is
+ *  how this gate would go silently empty — and never to change the producer,
+ *  which is correctly cleaning up after itself. The sweep simply has to be
+ *  told the directory is not source. `scripts/check-comment-mask-corpus.mjs`,
+ *  the sibling whole-tree sweep, has excluded it on that reasoning all along;
+ *  this was the one of the two that had not been told.
+ *
+ *  ⚠️ `.objectui-tmp` is `.gitignore`d, so no `git grep`-based tool in this
+ *  tree can see it and none of them can reproduce this. Only a filesystem
+ *  sweep reaches it, which is why the omission survived. */
 const TEXT_SWEEP_SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo',
-  '.changeset',
+  '.changeset', '.objectui-tmp',
 ]);
 
 /**

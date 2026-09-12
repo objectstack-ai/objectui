@@ -741,7 +741,14 @@ invariant at their own door:
 ```ts
 import { assertObjectMetadataWritable } from '@object-ui/data-objectstack';
 
-assertObjectMetadataWritable('object', body, 'myUploader');
+async function uploadObject(name: string, body: unknown) {
+  assertObjectMetadataWritable('object', body, 'uploadObject');
+  await fetch(`/api/v1/meta/object/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
 ```
 
 `RELATIONSHIP_TYPES_REQUIRING_REFERENCE` and `OBJECT_METADATA_TYPE` are exported

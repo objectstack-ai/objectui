@@ -105,9 +105,16 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, resolve, sep } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+// ⛔ NOT a hand-typed `process.argv[1]` comparison. Node resolves symlinks for
+// the module graph but leaves `process.argv[1]` as the caller typed it, so a
+// hand-typed guard reached through a symlink answers false and the gate does
+// NOTHING -- exit 0, no output, which a wrapper holding only `result.status`
+// cannot tell apart from a pass. `scripts/invoked-as.mjs` is the one predicate,
+// and `check:entry-guard` enforces that every `scripts/` entry goes through it.
+import { isEntrypoint } from './invoked-as.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = join(HERE, '..');
@@ -439,10 +446,9 @@ export function analyze(root = REPO_ROOT) {
 }
 
 /** `true` when this module was started as a program rather than imported. */
-const RUN_AS_CLI = process.argv[1] !== undefined
-  && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const invokedDirectly = isEntrypoint(import.meta.url);
 
-if (!RUN_AS_CLI) {
+if (!invokedDirectly) {
   // Imported by the suite that tests it; the CLI below must not run or exit.
 } else {
   const { doors, capable, findings, counters } = analyze();

@@ -1084,6 +1084,7 @@ const pt = {
     hideEmptyFields: "Ocultar campos vazios",
     noValue: "Sem valor",
     unresolvedReference: "Referência não resolvida: {{value}} não foi resolvida como um usuário",
+    unresolvedLookupReference: "Referência não resolvida: {{value}} não foi resolvida como um registro nesta tela",
     repeaterItemCount: "{{count}} itens",
     repeaterItemCount_one: "{{count}} item",
     repeaterItemCount_other: "{{count}} itens",

@@ -1124,6 +1124,7 @@ const zh = {
     hideEmptyFields: '隐藏空字段',
     noValue: '无',
     unresolvedReference: '未解析的引用：{{value}} 未能解析为用户',
+    unresolvedLookupReference: '未解析的引用：{{value}} 在本屏未能解析为记录',
     repeaterItemCount: '{{count}} 项',
     repeaterItemCount_one: '{{count}} 项',
     repeaterItemCount_other: '{{count}} 项',

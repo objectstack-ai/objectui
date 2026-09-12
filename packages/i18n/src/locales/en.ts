@@ -1241,6 +1241,7 @@ const en = {
     hideEmptyFields: 'Hide empty fields',
     noValue: 'No value',
     unresolvedReference: 'Unresolved reference: {{value}} was not resolved to a user',
+    unresolvedLookupReference: 'Unresolved reference: {{value}} was not resolved to a record on this screen',
     // Cell-level COUNT phrases for the `repeater` and file cells
     // (objectui#8441). Both were written straight into the renderer before this
     // — `repeater` as a number plus a hardcoded Chinese unit word, which every

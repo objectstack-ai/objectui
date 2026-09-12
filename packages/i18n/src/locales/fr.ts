@@ -1087,6 +1087,7 @@ const fr = {
     hideEmptyFields: "Masquer les champs vides",
     noValue: "Aucune valeur",
     unresolvedReference: "Référence non résolue : {{value}} n'a pas été résolue en utilisateur",
+    unresolvedLookupReference: "Référence non résolue : {{value}} n'a pas été résolue en enregistrement sur cet écran",
     repeaterItemCount: "{{count}} éléments",
     repeaterItemCount_one: "{{count}} élément",
     repeaterItemCount_other: "{{count}} éléments",

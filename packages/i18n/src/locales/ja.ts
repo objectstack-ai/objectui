@@ -1085,6 +1085,7 @@ const ja = {
     hideEmptyFields: "空フィールドを非表示",
     noValue: "値なし",
     unresolvedReference: "未解決の参照: {{value}} はユーザーとして解決されませんでした",
+    unresolvedLookupReference: "未解決の参照: {{value}} はこの画面でレコードとして解決されませんでした",
     repeaterItemCount: "{{count}} 件",
     repeaterItemCount_one: "{{count}} 件",
     repeaterItemCount_other: "{{count}} 件",

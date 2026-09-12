@@ -1089,6 +1089,7 @@ const es = {
     hideEmptyFields: "Ocultar campos vacíos",
     noValue: "Sin valor",
     unresolvedReference: "Referencia sin resolver: {{value}} no se resolvió como un usuario",
+    unresolvedLookupReference: "Referencia sin resolver: {{value}} no se resolvió como un registro en esta pantalla",
     repeaterItemCount: "{{count}} elementos",
     repeaterItemCount_one: "{{count}} elemento",
     repeaterItemCount_other: "{{count}} elementos",

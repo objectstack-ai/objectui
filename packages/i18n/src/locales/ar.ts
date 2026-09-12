@@ -1092,6 +1092,7 @@ const ar = {
     hideEmptyFields: "إخفاء الحقول الفارغة",
     noValue: "لا قيمة",
     unresolvedReference: "مرجع غير مُحلّل: لم يتم تحويل {{value}} إلى مستخدم",
+    unresolvedLookupReference: "مرجع غير مُحلّل: لم يتم تحويل {{value}} إلى سجل في هذه الشاشة",
     repeaterItemCount: "{{count}} عنصر (عناصر)",
     repeaterItemCount_one: "{{count}} عنصر",
     repeaterItemCount_other: "{{count}} عناصر",

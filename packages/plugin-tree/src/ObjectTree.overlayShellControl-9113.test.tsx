@@ -146,6 +146,39 @@ describe('CONTROL — ObjectTree carries the resolved mode across the shell boun
     expect(pair.mode).toBe(mode);
   });
 
+  it('⭐ SECOND READING: carrying the mode is not the same as HONOURING it', async () => {
+    // Found while establishing this control, and recorded because it prices
+    // the card's route (a) — "honour the modes in all five renderers" — quite
+    // differently from how it reads.
+    //
+    // `NavigationOverlay`'s split branch opens `if (!isOpen || !mainContent)
+    // return null`. `ObjectGrid` passes `mainContent` (it has a dedicated
+    // early-return that wraps the whole grid in the panel group);
+    // `ObjectTree` passes only `{...navigation}` + `title` + children. So the
+    // mode arrives intact — the reading above proves that — and then renders
+    // NOTHING AT ALL.
+    //
+    // The probe is the overlay's own chrome heading, which no other element
+    // on this page renders. It is a legitimate DOM read here BECAUSE the
+    // question is "did anything render", which the DOM can answer; it is
+    // still no help telling `modal` from `drawer`, which is why the readings
+    // above are on the mode value.
+    const rendered: Record<string, number> = {};
+    for (const mode of OVERLAY_MODES) {
+      await boundaryPairFor(mode);
+      rendered[mode] = screen.queryAllByText('Record Detail').length;
+    }
+    // Three of the four put an overlay on screen …
+    expect(rendered.drawer).toBeGreaterThan(0);
+    expect(rendered.modal).toBeGreaterThan(0);
+    expect(rendered.popover).toBeGreaterThan(0);
+    // … and `split` renders nothing, on a renderer this card treats as one of
+    // the two that get overlay modes RIGHT. ⛔ Not repaired here: this round
+    // is a measurement, and the fence puts `ObjectTree` out of bounds for
+    // changes. Reported so the remedy is priced against it.
+    expect(rendered.split).toBe(0);
+  });
+
   it('⭐ THE CONTROL READING: four authored modes produce FOUR distinct boundary pairs', async () => {
     // This is the number the measured half is compared against. `ObjectTree`
     // hands the shell a different mode for each authored value, so the

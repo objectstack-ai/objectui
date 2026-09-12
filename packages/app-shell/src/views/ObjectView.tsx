@@ -15,6 +15,7 @@ import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListVie
 import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
 import { buildListFilterKey, readListFilterState, writeListFilterState } from './listFilterStorage.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
+import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
 import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError } from '@object-ui/data-objectstack';
 const ObjectChart = lazy(() =>
   import('@object-ui/plugin-charts').then((m) => ({ default: m.ObjectChart })),
@@ -2086,6 +2087,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
      * to a single parent record. Emitted as ObjectQL triples (`[field, '=', value]`)
      * which matches the shape consumed by the list view's data fetcher when
      * merging base filters.
+     *
+     * Read through `drillUrlFilters` — the ONE module that owns this URL family
+     * — rather than a private regex here (objectui#9196). This route implements
+     * the EQUALITY arm only: an operator suffix it cannot execute
+     * (`?filter[amount][gte]=100`) is DROPPED, never downgraded to equality and
+     * never swallowed into the field name. The greedy capture this replaced did
+     * the last of those, emitting a condition against a field literally named
+     * `amount][gte` that no object declares — a silently wrong query, not an
+     * ignored parameter. Range operators live on the ADR-0055 `/data` surface
+     * (`parseUrlFilterTriples`); giving them to this route would widen an
+     * addressable public surface and is deliberately not done here.
      */
     // Dep on the serialized `filter[...]` entries only — `uf_*` user-filter
     // params also live in the URL and must not invalidate this memo (a new
@@ -2094,16 +2106,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         .filter(([k]) => k.startsWith('filter['))
         .map(([k, v]) => `${k}=${v}`)
         .join('&');
-    const urlFilters = useMemo(() => {
-        const out: Array<[string, string, any]> = [];
-        new URLSearchParams(filterParamsKey).forEach((value, key) => {
-            const m = /^filter\[(.+)\]$/.exec(key);
-            if (m && m[1] && value !== '') {
-                out.push([m[1], '=', value]);
-            }
-        });
-        return out;
-    }, [filterParamsKey]);
+    const urlFilters = useMemo(
+        () => parseUrlEqualityFilterTriples(new URLSearchParams(filterParamsKey)),
+        [filterParamsKey],
+    );
 
     /**
      * End-user filter selections restored from `uf_*` URL params (ADR-0047

@@ -1,7 +1,7 @@
 ---
-'@object-ui/types': patch
-'@object-ui/plugin-chatbot': patch
-'@object-ui/app-shell': patch
+'@object-ui/types': minor
+'@object-ui/plugin-chatbot': minor
+'@object-ui/app-shell': minor
 ---
 
 `ChatToolInvocation` gains an optional `approval` envelope, and the Console's
@@ -26,18 +26,27 @@ parse the live mapper uses, now exported from `@object-ui/plugin-chatbot` so the
 two paths cannot disagree about one envelope rather than growing a second
 dialect of it.
 
-**`patch`, and the reason is the chain's sequencing, not the size of the diff.**
-The lane's test — does existing stored data render differently — answers no: the
-member is optional, every value that parsed before still parses, and no chip,
-card or affordance changes for data that does not carry an envelope. The
-counter-reading is real and worth naming: two published capabilities DO land here
-(the type member, and the `detectPendingApproval` export), and this repo's own
-recent precedent bumped `minor` for "a capability a consumer can newly rely on".
-It still loses. The ruling on objectui#8426 reserves the `minor` + `**BREAKING**`
-carrier for the NARROWING half — the authoring `state` union shedding the three
-runtime-only approval states, and the `UseObjectChatOptions.initialMessages`
-narrowing. This card is deliberately the additive half that ships first; spending
-that carrier here would blur the one signal the chain uses to sequence itself.
+**`minor`, on the repo's written precedent — PM ruling, overriding the `patch`
+this was drafted at.** The lane's runtime test answers no: the member is optional,
+every value that parsed before still parses, and no chip, card or affordance
+changes for data that carries no envelope. But that test is about stored data,
+and what lands here is published SURFACE — two capabilities a consumer can newly
+rely on: the `ChatToolInvocation.approval` member, and the `detectPendingApproval`
+export. `.changeset/8214-chatbot-anypart-state-widen.md` settles that case in this
+repo in those words: *"`minor` rather than `patch` because a published signature
+accepts input it refused before, which is a capability a consumer can newly rely
+on."*
+
+The sequencing argument for `patch` was that objectui#8426's `minor` + `**BREAKING**`
+carrier should not be spent early. ⛔ It does not hold, for two measured reasons.
+**First, the level was never the signal.** This repo ships a breaking change AS
+`minor`, so what distinguishes objectui#8426's half is the `**BREAKING**` carrier,
+not the number beside the package — and that carrier is untouched by this
+declaration. **Second, `.changeset/config.json` puts every package in ONE `fixed`
+group**, so the released level is the maximum across all pending changesets
+regardless of what this file says. Declaring `patch` here therefore buys no
+smaller release and no preserved signal; it only makes the changelog line
+under-describe what shipped. ⇒ the accurate declaration is the cheap one.
 
 ⛔ Nothing is narrowed here. The envelope stays optional on purpose: an
 invocation may still declare an approval state and carry no envelope, and the

@@ -37,7 +37,7 @@ import './renderers';
 
 // Export utils
 export { cn } from './lib/utils';
-export { renderChildren } from './lib/utils';
+export { renderChildren, renderNodeSlot, isEmptyNodeSlot } from './lib/utils';
 export { cva } from 'class-variance-authority';
 export { getLazyIcon, isLucideIconName, LazyIcon, toKebabIconName } from './lib/lazy-icon';
 

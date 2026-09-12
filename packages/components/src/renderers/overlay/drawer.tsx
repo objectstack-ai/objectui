@@ -18,7 +18,7 @@ import {
   DrawerDescription,
   DrawerClose
 } from '../../ui';
-import { renderChildren } from '../../lib/utils';
+import { renderChildren, renderNodeSlot } from '../../lib/utils';
 
 ComponentRegistry.register('drawer', 
   ({ schema, className, ...props }: { schema: DrawerSchema; className?: string; [key: string]: any }) => (
@@ -32,12 +32,20 @@ ComponentRegistry.register('drawer',
           {schema.description && <DrawerDescription>{schema.description}</DrawerDescription>}
         </DrawerHeader>
         {renderChildren(schema.content)}
-        {schema.footer && (
+{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
+            slot, so a legal authored `footer: 0` painted the character "0" —
+            and it short-circuits, so `renderChildren`'s own falsy leg never
+            ran. `renderNodeSlot` runs the wrapper only when the slot has
+            content, so the chrome disappears with it. */}
+        {renderNodeSlot(schema.footer, (footer) => (
           <DrawerFooter>
-             {renderChildren(schema.footer)}
-             {schema.showClose && <DrawerClose asChild><button type="button">Close</button></DrawerClose>} 
+             {renderChildren(footer)}
+             {/* `showClose` is a declared BOOLEAN, not a node slot — its `&&`
+                 is not the objectui#9162 construct and stays. Its coupling to
+                 `footer` is pre-existing behaviour and is unchanged here. */}
+             {schema.showClose && <DrawerClose asChild><button type="button">Close</button></DrawerClose>}
           </DrawerFooter>
-        )}
+        ))}
       </DrawerContent>
     </Drawer>
   ),

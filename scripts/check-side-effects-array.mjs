@@ -158,21 +158,39 @@
  * it would never be proposed as MISSING. Silently skipping it would rebuild the
  * gate's own silent-drop failure class one level up.
  *
- * ### ⛔ What this classification DECLINES to detect, and why (objectui#9124)
+ * ### ⛔ What this classification GIVES UP, and why (objectui#9124)
  *
  * `alternate-format` is decided from the manifest's structure alone, so a
  * DANGLING form -- one the manifest declares that will never exist on disk --
- * is NOT detected when it sits under a subpath that already has a real module
- * form. This is a declared gap, not an oversight, and the reason it is accepted
- * rather than closed is that the detection it replaces was never trustworthy:
- * it fired ONLY on an unbuilt checkout. On a built tree the same dangling form
- * existed as a build artefact and classified as an `asset`, silently. So the
- * choice was never "detect it or not" -- it was "let the verdict depend on
- * whether `dist/` happens to be present, or not", and this gate must not
- * (objectui#6893, objectui#7460, objectui#7671 are the measured instances of
- * that class in this repo's own gates).
+ * is no longer DISTINGUISHABLE from a legitimate second build format when it
+ * sits under a subpath that already has a real module form. This is a declared
+ * trade, and stating it precisely matters more than stating it strongly:
  *
- * What the gap costs is bounded by the same structure that creates it: such a
+ *   - What is given up is DISCRIMINATING POWER, not visibility. A dangling form
+ *     is still LISTED in `alternateFormats`; it just no longer stands ALONE
+ *     there.
+ *   - It was a REPORTED FIELD, never a refusal. `problems` was empty either
+ *     way, so nothing that used to fail now passes.
+ *   - The discrimination existed only on a BUILT tree, which is the opposite of
+ *     what intuition suggests and is why it is written down here. Compare the
+ *     two behaviours on one manifest whose `.` publishes an `import` half and a
+ *     `require` half: with `dist/` PRESENT, a produced `require` half existed
+ *     and classified as an `asset` while a never-produced one classified as
+ *     `unmapped`, so `alternateFormats` was EXACTLY the dangling set. With
+ *     `dist/` ABSENT, neither exists, both land in `alternateFormats`, and the
+ *     field separates nothing at all.
+ *
+ * ⇒ the trade is: a verdict that depended on whether `dist/` happened to be
+ * present is exchanged for the ability to spot a dangling form sitting beside a
+ * real one. Worth it because the first is a red a contributor cannot clear --
+ * the artefact it turned on is `.gitignore`d, so the input was not in the tree
+ * at all -- and the second was never enforced (objectui#6893, objectui#7460,
+ * objectui#7671 are the measured instances of that class in this repo's own
+ * gates). The pair of cases named `the verdict does not depend on whether the
+ * tree is BUILT` in this gate's test file is what re-derives all of this; ⛔ do
+ * not trust this paragraph over them.
+ *
+ * What the trade costs is bounded by the same structure that creates it: such a
  * form adds no graph root either way, because the module form under its subpath
  * IS the root and an alternate format reaches exactly what that root reaches.
  * So a registrar cannot hide behind it -- which is the harm the refusal below

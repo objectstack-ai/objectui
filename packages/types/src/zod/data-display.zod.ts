@@ -65,7 +65,14 @@ export const AlertSchema = BaseSchema.extend({
   icon: z.string().optional().describe('Alert icon'),
   dismissible: z.boolean().optional().describe('Whether alert can be dismissed'),
   onDismiss: handlerKeyRefusal('onDismiss', 'retired', 'Dismiss handler'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  children: aliasKeyRefusal(
+    'children',
+    'body',
+    'this alert node',
+    '`alert` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/data-display/alert.tsx:22). '
+    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -88,7 +95,14 @@ export const BadgeSchema = BaseSchema.extend({
   label: z.string().optional().describe('Badge label'),
   variant: z.enum(['default', 'secondary', 'destructive', 'outline']).optional().describe('Badge variant'),
   icon: z.string().optional().describe('Badge icon'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  children: aliasKeyRefusal(
+    'children',
+    'body',
+    'this badge node',
+    '`badge` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/data-display/badge.tsx:32). '
+    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**

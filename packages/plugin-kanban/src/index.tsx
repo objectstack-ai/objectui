@@ -443,8 +443,11 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  *
  * ## Why these keys were added
  *
- * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares thirteen
- * top-level keys; this list published three until objectui#8186 added `filter`.
+ * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares FOURTEEN
+ * top-level keys on the installed 17.4.0 pin; this list published three until
+ * objectui#8186 added `filter`. ⚠️ It declared THIRTEEN when objectui#8201 was
+ * filed — 17.4.0 added `limit` (see below), and the count moved with it. Both
+ * numbers are correct about their own pin, which is why this one names its pin.
  * The gap was STRUCTURAL rather than considered — the console registers this
  * block with `ComponentRegistry.registerLazy` and `getConfig` is loaded-only by
  * design, so the block sat outside the console's reverse-parity population
@@ -529,16 +532,29 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  *
  * ## What is deliberately NOT here yet
  *
- * ONE of the thirteen keys stays undeclared, keeping its live entry in
+ * ONE of the fourteen keys stays undeclared, keeping its live entry in
  * `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`:
  *
- *   - `quickAdd` is ESCALATED, not deferred: this renderer does not honour it
- *     at all. `KanbanImpl` gates the control on `quickAdd && onQuickAdd`, and
- *     `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod twin refuses by
- *     name; nothing on the `ObjectKanban` path supplies one. Whether that is a
- *     permanent carve-out or a feature gap is a product ruling, not a
- *     measurement, so objectui#8201 hands it to the maintainer rather than
- *     writing a carve-out reason it has no standing to write.
+ *   - `quickAdd` is RULED, and the ruling is PREMATURE. This renderer does not
+ *     honour it at all: `KanbanImpl` gates the control on `quickAdd &&
+ *     onQuickAdd`, and `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod
+ *     twin refuses by name; nothing on the `ObjectKanban` path supplies one.
+ *     objectui#8201 escalated the DISPOSITION rather than guessing it, and the
+ *     PM answered (Q1 = A, 2026-09-07): PREMATURE — the renderer does not
+ *     honour it, and objectui#8285 owns the fix.
+ *     ⭐ PREMATURE commits nobody to building quick-add. It is also NOT the
+ *     stronger reading that the object-bound board is not going to grow it:
+ *     nothing measured supports that, and `KanbanRenderer` below contradicts
+ *     it by forwarding the same `quickAdd` + `onQuickAdd` pair by identity to
+ *     a React host that can supply the function.
+ *     ⛔ The exit is NOT a declaration — publishing the key would advertise
+ *     configuration this renderer drops. objectui#8285 was ruled (director
+ *     seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd`
+ *     from the spec's `ComponentPropsMap`; the day that lands, the key leaves
+ *     the accepted set and the console entry is harvested by its own dangling
+ *     and stale checks. Pinned from this side by
+ *     `__tests__/quickAddIsDiagnosedNotDropped-8285.test.ts` row 5, whose
+ *     reddening IS that day.
  *
  * The declarations are pinned per tag and per key, so removing one from this
  * list reddens a NAMED row rather than a file:

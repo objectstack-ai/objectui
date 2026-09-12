@@ -1806,3 +1806,146 @@ describe('the text sweep does not descend into `.objectui-tmp` (objectui#9201)',
     expect(String(thrown?.stderr ?? '')).toContain('No such file or directory');
   });
 });
+
+/**
+ * objectui#9126 — the pack half applies every collected dynamic head unfiltered
+ * and, until this leg, said NOTHING about which heads those were or how far
+ * each reached. The whole deliverable is that reading: `sweep()` now returns
+ * one row per applied head, and the CLI prints them.
+ *
+ * ⛔ The card's fences are what these tests are for, and the sharpest one is
+ * NEGATIVE: reporting must not become filtering. Every test below that measures
+ * a row is paired with one measuring that the candidate list did not move —
+ * a row is a description of a subtraction that already happened, never a new
+ * one. The threshold question (`MIN_HEAD_SEGMENTS`, which the DESIGNER half
+ * applies to its own corpus) is deliberately not answered here; it is a
+ * maintainer's call and no test here may smuggle one in.
+ */
+describe('the applied dynamic heads are REPORTED, not filtered (objectui#9126)', () => {
+  /** A pack with one family under a head that names a top-level namespace and
+   *  nothing else, and one under a head that names a segment of its own. */
+  const HEAD_REPORT_EN = `const en = {
+  wideNs: { alpha: 'A', beta: 'B', gamma: 'C' },
+  narrowNs: { group: { one: 'One', two: 'Two' } },
+} as const;
+export default en;
+`;
+
+  /** Builds a key under each head from a runtime value, and ALSO asks for one
+   *  leaf under the wide head by its literal name — so `leavesUnder` and
+   *  `heldLive` are different numbers for that row and the difference has a
+   *  cause a reader can point at. */
+  const HEAD_REPORT_CONSUMER = `
+import { useObjectTranslation } from '${I18N_PKG}';
+export function Widget({ id }: { id: string }) {
+  const { t } = useObjectTranslation();
+  return [t('wideNs.alpha'), t(\`wideNs.\${id}\`), t(\`narrowNs.group.\${id}\`)];
+}
+`;
+
+  function headReportRoot() {
+    return repoWith({
+      'packages/i18n/src/locales/en.ts': HEAD_REPORT_EN,
+      'packages/x/src/Widget.tsx': HEAD_REPORT_CONSUMER,
+    });
+  }
+
+  const rowFor = (root: string, head: string) => sweep(root).appliedHeads.find((row) => row.head === head);
+
+  it('reports every head it applied, including one naming only a top-level namespace', () => {
+    const heads = sweep(headReportRoot()).appliedHeads.map((row) => row.head);
+    expect(heads.sort()).toEqual(['narrowNs.group.', 'wideNs.']);
+  });
+
+  it('counts the head’s own segments, so a namespace-wide head is visible AS one', () => {
+    const root = headReportRoot();
+    // The reading the card asks for: `wideNs.` names a top-level namespace and
+    // no more. Reported as `1` — and still applied, which the next test pins.
+    expect(rowFor(root, 'wideNs.')?.ownSegments).toBe(1);
+    expect(rowFor(root, 'narrowNs.group.')?.ownSegments).toBe(2);
+  });
+
+  it('⛔ NEGATIVE CONTROL: the namespace-wide head is still APPLIED — no key under it is a candidate', () => {
+    // The fence, as a test. If a future edit turns `ownSegments` into a filter,
+    // the three `wideNs.*` leaves become candidates and this goes red.
+    const { confirmed, needsReview, candidateCount } = sweep(headReportRoot());
+    expect(candidateCount).toBe(0);
+    expect(confirmed).toEqual([]);
+    expect(needsReview).toEqual([]);
+  });
+
+  it('counts every leaf UNDER the head, whether or not another leg already holds it', () => {
+    const root = headReportRoot();
+    expect(rowFor(root, 'wideNs.')?.leavesUnder).toBe(3);
+    expect(rowFor(root, 'narrowNs.group.')?.leavesUnder).toBe(2);
+  });
+
+  it('counts as HELD only the leaves no other leg keeps live', () => {
+    // `wideNs.alpha` has a literal call site, so the head is not what takes it
+    // out of the candidate list. Reporting it as held would overstate the
+    // head's reach — the same overstatement in the opposite direction to the
+    // silence this leg closes.
+    const root = headReportRoot();
+    expect(rowFor(root, 'wideNs.')?.heldLive).toBe(2);
+    expect(rowFor(root, 'narrowNs.group.')?.heldLive).toBe(2);
+  });
+
+  it('marks where each head came from', () => {
+    const root = headReportRoot();
+    expect(rowFor(root, 'wideNs.')?.via).toBe('direct');
+    expect(rowFor(root, 'narrowNs.group.')?.via).toBe('direct');
+  });
+
+  describe('measured on THIS repository', () => {
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const result = sweep(repoRoot);
+
+    it('reports one row per head the sweep actually applied — no head goes unreported', () => {
+      const gate = analyze(repoRoot);
+      const indirect = collectIndirectTemplateHeads(repoRoot, collectEnKeys(repoRoot));
+      const applied = new Set([...gate.dynamicHeads, ...indirect.heads.keys()]);
+      expect(applied.size, 'no heads at all — the whole cross-check would be vacuous').toBeGreaterThan(0);
+      expect(result.appliedHeads.map((row) => row.head).sort()).toEqual([...applied].sort());
+    });
+
+    it('every reported row describes a REAL subtraction — no key it counts is still a candidate', () => {
+      // The report must be a reading of the candidate list, not a parallel
+      // claim about it. A row whose keys were still candidates would be worse
+      // than the silence it replaces.
+      const candidates = new Set([...result.confirmed, ...result.needsReview.map((entry) => entry.key)]);
+      const leaves = [...collectEnKeys(repoRoot).leaves];
+      for (const row of result.appliedHeads) {
+        const under = leaves.filter((key) => key.startsWith(row.head));
+        expect(under.length, `${row.head} holds no leaves — its row would be vacuous`).toBe(row.leavesUnder);
+        expect(under.filter((key) => candidates.has(key)), `${row.head} reaches a key still in a tier`).toEqual([]);
+      }
+    });
+
+    it('⛔ the reading does not move the candidate list — heads stay unfiltered at EVERY depth', () => {
+      // The card's lit control, at repository scale. The pack half applies each
+      // collected head whatever its depth; the report says so and changes
+      // nothing. `heldLive` summing to the keys held out of the tiers is the
+      // arithmetic a reviewer can redo from the printed table.
+      const leaves = [...collectEnKeys(repoRoot).leaves];
+      const heldByAHead = leaves.filter((key) => result.appliedHeads.some((row) => key.startsWith(row.head)));
+      const candidates = new Set([...result.confirmed, ...result.needsReview.map((entry) => entry.key)]);
+      expect(heldByAHead.some((key) => candidates.has(key))).toBe(false);
+      expect(result.candidateCount).toBe(result.confirmed.length + result.needsReview.length);
+    });
+
+    it('⛔ does NOT adopt the designer half’s threshold for the packs', () => {
+      // objectui#9126 fences the threshold off as a maintainer's call. A head
+      // with no segment of its own is REPORTED here and REFUSED on the designer
+      // corpus; if the packs ever start refusing one too, that is a deliberate
+      // decision and this test is where it gets re-argued.
+      const rootOnly = result.appliedHeads.filter((row) => row.ownSegments < 2);
+      expect(rootOnly.length, 'no namespace-wide head on the tree — the pin has nothing to hold').toBeGreaterThan(0);
+      const leaves = [...collectEnKeys(repoRoot).leaves];
+      const candidates = new Set([...result.confirmed, ...result.needsReview.map((entry) => entry.key)]);
+      for (const row of rootOnly) {
+        const under = leaves.filter((key) => key.startsWith(row.head));
+        expect(under.filter((key) => candidates.has(key)), `${row.head} was filtered, not merely reported`).toEqual([]);
+      }
+    });
+  });
+});

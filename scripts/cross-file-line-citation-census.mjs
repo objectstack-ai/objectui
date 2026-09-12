@@ -696,39 +696,106 @@ export function bucketOf(relPath) {
 }
 
 /**
- * The two controls, addressed BY CONTENT -- the citing file and the file it
- * cites -- and never by their own line numbers. A control pinned by line
- * address would be an instance of the defect this census measures.
+ * The two controls, addressed BY CONTENT -- the citing file, the file it cites,
+ * and a SUBJECT phrase lifted out of the citing prose -- and never by their own
+ * line numbers. A control pinned by line address would be an instance of the
+ * defect this census measures.
+ *
+ * ## Why the subject exists, and why it is the control's identity (objectui#9081)
+ *
+ * A FILE PAIR IS NOT A CITATION. Two sentences in one file may address the same
+ * file, and until objectui#9081 a control was addressed by pair alone while
+ * `evaluateControls` folded EVERY row matching that pair into one answer. Both
+ * directions of that fold were wrong, quietly and in opposite ways:
+ *
+ *   - a NON-FIRING control was sunk by any second citation between the same two
+ *     files, whatever that citation said. That is what happened. Two epitaphs in
+ *     `packages/types/src/crud.ts` address `packages/plugin-detail/src/index.tsx`
+ *     with one number between them, the number rotted, and this census answered
+ *     `exit 1 -- NOT a reading` to every run on `main` for some 580 commits.
+ *     ⭐ The refusal was CORRECT -- the pinned address really had rotted -- but
+ *     no reading could be taken downstream either, which is the outage.
+ *   - a FIRING control could be satisfied by a row that is NOT its subject. A
+ *     rotted sibling citation would report the instrument as proven while the
+ *     case the control was written for had silently stopped firing. That is the
+ *     unearned green this family exists to prevent, and it has no symptom.
+ *
+ * ⇒ a control names ONE citation. A subject matching zero rows, or more than
+ * one, is a FAILURE rather than something to fold away. ⛔ Neither direction is
+ * tolerant of a false row: this is strictly narrower than the fold it replaced.
+ *
+ * How exposed the old shape was is a number this file deliberately does not
+ * carry: run `--json --list-all` and group `rows` by `file` + `citedPath` to
+ * re-derive the share of pairs that carry more than one citation.
+ *
+ * ⚠️ `want: 'resolves'`, ⛔ NOT `not-false`. `anchor-absent` and `no-anchor` are
+ * this census DECLINING to judge, so a non-firing control that accepted them
+ * would pass on a citation whose health it never established -- and one of the
+ * two retired `crud.ts` rows judged exactly that, with its address rotted, at
+ * the moment the other one failed. A non-firing control takes positive evidence
+ * only: the anchor must sit ON the cited line.
+ *
+ * ## ⛔ When a control's subject rots, RE-PIN it -- never renumber it
+ *
+ * objectui#8875 clause 4 repairs an existing address "by converting it to a
+ * content anchor, never by moving the number to a different number". A control
+ * needs a live line address to score at all, so a converted citation leaves no
+ * row behind and the control has to move to a different citation. ⛔ It may
+ * never move to the same citation wearing a fresher number -- that is the
+ * clause, and it is why the `crud.ts` pair below was retired rather than
+ * re-addressed. Its rot stays in the population, where this census reports it.
  */
 export const CONTROLS = [
   {
     id: 'firing',
     from: 'scripts/check-doc-component-types.mjs',
     to: 'packages/core/src/actions/ActionRunner.ts',
+    subject: 'action vocabulary declared at',
     want: 'false',
     why: 'the docblock closes at the cited line and `ActionDef` opens on the next one (objectui#8875)',
   },
   {
     id: 'non-firing',
-    from: 'packages/types/src/crud.ts',
-    to: 'packages/plugin-detail/src/index.tsx',
-    want: 'not-false',
-    why: "the cited line is the `ComponentRegistry.register('detail',` call the prose names",
+    from: 'packages/components/src/__tests__/layout-containers-declare-containment.test.tsx',
+    to: 'packages/components/src/renderers/layout/page.tsx',
+    subject: 'module-private, hence the four lines here',
+    want: 'resolves',
+    why: 'the cited line declares the `getJsxManifest` the citing docblock says it mirrors',
   },
 ];
 
+/** How one row reads in a control's detail line. */
+const controlRow = (r) => `${r.file}:${r.line} -> ${r.citedPath}:${r.citedLine} [${r.verdict}]`;
+
+/**
+ * Scores each control against the ONE citation its subject names. `want: 'false'`
+ * accepts any FALSE verdict; every other `want` is the exact verdict required,
+ * so a control asking for positive evidence cannot be satisfied by a verdict
+ * this census declined to reach.
+ */
 export function evaluateControls(rows) {
   return CONTROLS.map((c) => {
-    const matches = rows.filter((r) => r.file === c.from && r.citedPath === c.to);
+    const pair = rows.filter((r) => r.file === c.from && r.citedPath === c.to);
+    const matches = pair.filter((r) => r.text.includes(c.subject));
     if (matches.length === 0) {
-      return { ...c, ok: false, detail: 'NOT FOUND -- the census did not see this citation at all' };
+      // Said separately, because "the citation is gone" and "the citation is
+      // there but no longer says this" are different repairs.
+      const others = pair.length > 0
+        ? ` (${pair.length} citation(s) do run between these two files; none carries this subject)`
+        : '';
+      return { ...c, ok: false, detail: `NOT FOUND -- the census did not see this citation at all${others}` };
     }
-    const anyFalse = matches.some((r) => FALSE_VERDICTS.has(r.verdict));
-    const ok = c.want === 'false' ? anyFalse : !anyFalse;
-    const detail = matches
-      .map((r) => `${r.file}:${r.line} -> ${r.citedPath}:${r.citedLine} [${r.verdict}]`)
-      .join('; ');
-    return { ...c, ok, detail };
+    if (matches.length > 1) {
+      return {
+        ...c,
+        ok: false,
+        detail: `AMBIGUOUS -- ${matches.length} citations carry this subject, so it names no single one: `
+          + matches.map(controlRow).join('; '),
+      };
+    }
+    const [row] = matches;
+    const ok = c.want === 'false' ? FALSE_VERDICTS.has(row.verdict) : row.verdict === c.want;
+    return { ...c, ok, detail: controlRow(row) };
   });
 }
 
@@ -887,11 +954,16 @@ function main(argv) {
     }
   }
 
-  const failedControls = [...controls, ...classifier].filter((c) => !c.ok);
+  const allControls = [...controls, ...classifier];
+  const failedControls = allControls.filter((c) => !c.ok);
   if (failedControls.length > 0) {
-    console.error(`\n✗ ${failedControls.length} control(s) failed -- this run is NOT a reading.`);
+    console.error(`\n✗ ${failedControls.length} of ${allControls.length} control(s) failed -- this run is NOT a reading.`);
     return 1;
   }
+  // Said out loud rather than left to be inferred from silence: a reader who
+  // cannot tell "every control held" from "the script died before printing"
+  // has no certification, only an exit code (objectui#9081).
+  if (!asJson) console.log(`✓ ${allControls.length} of ${allControls.length} control(s) passed -- this run IS a reading.`);
   if (population.length === 0) {
     console.error('\n✗ Empty population. A census that reads nothing because it is blind is');
     console.error('  indistinguishable from a clean tree, so this exits non-zero rather than');

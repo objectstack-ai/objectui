@@ -317,11 +317,95 @@ describe('the test-name classifier, whose zero is only a reading if it is shown 
   });
 });
 
+type Control = { id: string; from: string; to: string; subject: string; want: string };
+type Scored = { ok: boolean; detail: string };
+
+/** A row as the census hands one to `evaluateControls`, for the control `c`. */
+const rowFor = (c: Control, verdict: string, over: Partial<Record<string, unknown>> = {}) => ({
+  file: c.from,
+  citedPath: c.to,
+  line: 10,
+  citedLine: 20,
+  text: `* the prose that says ${c.subject} and cites a line`,
+  verdict,
+  ...over,
+});
+
 describe('the controls are addressed by CONTENT, and the tree still satisfies them', () => {
   it('names no line number of its own — a control pinned by line address is the defect', () => {
-    for (const c of CONTROLS as { from: string; to: string }[]) {
-      expect(`${c.from} ${c.to}`).not.toMatch(/:\d+/);
+    for (const c of CONTROLS as Control[]) {
+      expect(`${c.from} ${c.to} ${c.subject}`).not.toMatch(/:\d+/);
     }
+  });
+
+  it('gives every control a subject — a FILE PAIR is not a citation', () => {
+    // REGRESSION objectui#9081: the controls were addressed by file pair alone.
+    // `packages/types/src/crud.ts` addresses `plugin-detail/src/index.tsx` from
+    // two epitaphs, so the pair named two rows and never one citation.
+    for (const c of CONTROLS as Control[]) {
+      expect(c.subject, `${c.id} has no subject`).toBeTruthy();
+    }
+  });
+
+  it('is not sunk by a SECOND citation between the same two files', () => {
+    // REGRESSION objectui#9081: `evaluateControls` required that NO row matching
+    // the pair be false, so one unrelated rotted sentence refused every run of
+    // the whole census — for some 580 commits of `main`.
+    const nonFiring = (CONTROLS as Control[]).find((c) => c.want !== 'false') as Control;
+    const subject = rowFor(nonFiring, 'resolves');
+    const sibling = rowFor(nonFiring, 'drifted', {
+      line: 400,
+      text: '* an unrelated sentence citing the same file',
+    });
+    const scored = (evaluateControls([subject, sibling]) as Scored[])
+      .find((_, i) => (CONTROLS as Control[])[i].id === nonFiring.id) as Scored;
+    expect(scored.ok).toBe(true);
+  });
+
+  it('does not let a sibling citation satisfy a FIRING control on its behalf', () => {
+    // The other direction of the same fold, and the quieter one: `some` over the
+    // pair meant any rotted neighbour reported the instrument as proven while the
+    // case the control was written for had stopped firing.
+    const firing = (CONTROLS as Control[]).find((c) => c.want === 'false') as Control;
+    const subject = rowFor(firing, 'resolves');
+    const sibling = rowFor(firing, 'drifted', {
+      line: 700,
+      text: '* an unrelated sentence citing the same file',
+    });
+    const [scored] = evaluateControls([subject, sibling]) as Scored[];
+    expect(scored.ok).toBe(false);
+  });
+
+  it('refuses when its subject names more than one citation', () => {
+    const firing = (CONTROLS as Control[]).find((c) => c.want === 'false') as Control;
+    const [scored] = evaluateControls([
+      rowFor(firing, 'drifted'),
+      rowFor(firing, 'drifted', { line: 11 }),
+    ]) as Scored[];
+    expect(scored.ok).toBe(false);
+    expect(scored.detail).toContain('AMBIGUOUS');
+  });
+
+  it('takes positive evidence only — a verdict the census declined to reach is not a pass', () => {
+    // objectui#9081: `anchor-absent` is this census refusing to judge. The
+    // retired `crud.ts` pair carried exactly that on one of its two rows while
+    // the address was rotted, so `not-false` would have passed on it.
+    const nonFiring = (CONTROLS as Control[]).find((c) => c.want !== 'false') as Control;
+    for (const verdict of ['anchor-absent', 'no-anchor', 'drifted']) {
+      const scored = (evaluateControls([rowFor(nonFiring, verdict)]) as Scored[])
+        .find((_, i) => (CONTROLS as Control[])[i].id === nonFiring.id) as Scored;
+      expect(scored.ok, `${nonFiring.id} passed on ${verdict}`).toBe(false);
+    }
+  });
+
+  it('says so when the pair still carries citations but none of them is the subject', () => {
+    const firing = (CONTROLS as Control[]).find((c) => c.want === 'false') as Control;
+    const [scored] = evaluateControls([
+      rowFor(firing, 'drifted', { text: '* a sentence that is not this control' }),
+    ]) as Scored[];
+    expect(scored.ok).toBe(false);
+    expect(scored.detail).toContain('NOT FOUND');
+    expect(scored.detail).toContain('none carries this subject');
   });
 
   it('still reproduces the card off-by-one, verified by content rather than by number', () => {

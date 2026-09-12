@@ -140,9 +140,17 @@ const ALL_KEYS = new Set([
 const SCANNED_EXT = new Set([
   '.json', '.jsonc', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.md', '.mdx',
 ]);
+// `.objectui-tmp` is the CLI test's live scratch directory (a generated app is
+// mkdtemp'd under it and removed in a `finally`), so it is the same class as
+// `test-results` and `playwright-report` already in this list: written by
+// tooling, holds no source, and MEASURED to be reachable from here — this walk
+// starts at `--root` (default the repo root) and descends dot-directories,
+// so before this entry a planted file under `.objectui-tmp/` was reported as a
+// census hit. See objectui#9201 for the sibling sweep where the same omission
+// made a gate crash rather than merely over-report.
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo', 'out',
-  '.pnpm-store', 'playwright-report', 'test-results',
+  '.pnpm-store', 'playwright-report', 'test-results', '.objectui-tmp',
 ]);
 
 // ── Scanner ────────────────────────────────────────────────────────────────

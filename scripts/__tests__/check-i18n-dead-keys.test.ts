@@ -1745,3 +1745,64 @@ export function local({ kind }: { kind: string }) {
     });
   });
 });
+
+/**
+ * The text sweep skips `.objectui-tmp`, and skipping it is load-bearing
+ * (objectui#9201).
+ *
+ * `.objectui-tmp` is not inert clutter — it is a LIVE directory. `packages/
+ * cli/src/__tests__/app-generator.test.ts` mkdtemps a generated app under
+ * `<repo>/.objectui-tmp/` and `rmSync`s it in a `finally`, in the same shard
+ * this gate runs in. A whole-tree `grep -rFn` that descends into it can open a
+ * file that has just been unlinked, and GNU grep answers a file error with
+ * exit 2 — so the gate does not merely over-report, it THROWS (pinned by the
+ * second block below) and the shard goes red for a reason unrelated to the
+ * code under test.
+ *
+ * ⚠️ The first block is written as a TWO-SIDED probe on purpose: the same
+ * bytes are planted twice, once under `.objectui-tmp/` and once in a scanned
+ * directory. Without the lit half, "absent from the output" is
+ * indistinguishable from a sweep that found nothing at all — and a silently
+ * empty sweep is the failure mode this whole file exists to refuse.
+ */
+describe('the text sweep does not descend into `.objectui-tmp` (objectui#9201)', () => {
+  const KEY = 'common.deadLabel';
+  const PLANTED = `export const FIELD_CONFIG = [{ labelKey: '${KEY}' }];\n`;
+
+  it('skips a planted hit under `.objectui-tmp/` while the SAME bytes elsewhere are found', () => {
+    const root = repoWith({
+      'packages/i18n/src/locales/en.ts': EN_FIXTURE,
+      // The lit control. Identical bytes, a scanned location.
+      'packages/app-shell/src/scanned-control.ts': PLANTED,
+      // The excluded leg. Identical bytes, the scratch directory.
+      '.objectui-tmp/tsc-gate-0000-AAAAAA/generated.ts': PLANTED,
+    });
+
+    const found = textFootprint(root, [KEY]).get(KEY);
+
+    // Lit: the sweep ran and reached a file. An empty list here would make the
+    // assertion below vacuous, which is the whole point of asserting it.
+    expect(found).toContain('packages/app-shell/src/scanned-control.ts');
+    // Excluded: the same bytes, not reported.
+    expect(found).not.toContain('.objectui-tmp/tsc-gate-0000-AAAAAA/generated.ts');
+    expect(found?.some((file) => file.startsWith('.objectui-tmp/'))).toBe(false);
+  });
+
+  it('still re-throws a grep file error rather than swallowing exit 2', () => {
+    // ⛔ The fix for the race is the exclusion, never a wider catch. An IO
+    // error the sweep absorbed would return an empty footprint, and an empty
+    // footprint reads as "this key is dead" — the most confident possible
+    // rendering of a broken tool. Pinned so the next reader of a red shard
+    // cannot make it green here.
+    const missing = path.join(os.tmpdir(), 'check-i18n-dead-keys-no-such-root-9201');
+    let thrown: (Error & { status?: number; stderr?: string }) | undefined;
+    try {
+      textFootprint(missing, [KEY]);
+    } catch (error) {
+      thrown = error as Error & { status?: number; stderr?: string };
+    }
+    expect(thrown).toBeDefined();
+    expect(thrown?.status).toBe(2);
+    expect(String(thrown?.stderr ?? '')).toContain('No such file or directory');
+  });
+});

@@ -679,9 +679,7 @@ const ja = {
   },
   kanban: {
     uncategorized: "未分類",
-    columns: "{{count}} カラム",
-    columns_one: "{{count}} カラム",
-    columns_other: "{{count}} カラム",
+    columns: "カラム",
     addCard: "カードを追加",
     addColumn: "カラムを追加",
     moveCard: "カードを移動",

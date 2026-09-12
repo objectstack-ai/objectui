@@ -29,13 +29,8 @@ is what made it reachable.
 ## What changed
 
 The predicate asks whether there are any **cards**:
-`totalCardCount === 0`. No exported symbol moved and no schema moved.
-
-⚠️ This paragraph used to end "no published payload" as well, and that stopped
-being true inside this same pull request: making the region paint at one lane
-made `"1 columns"` reachable, so objectui#9170 pluralises `kanban.columns` across
-all ten locale packs. That is a published-payload change, and it is declared in
-its own changeset beside this one.
+`totalCardCount === 0`. Nothing else moved — no exported symbol, no schema, no
+published payload.
 
 ## ⚠️ The lane count was not guarding the loading state
 

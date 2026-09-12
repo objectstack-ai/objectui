@@ -683,11 +683,7 @@ const ar = {
   },
   kanban: {
     uncategorized: "غير مصنّف",
-    // The base serves `zero`/`two`/`few`/`many`, which Arabic reaches at
-    // everyday counts; it carries both forms the way `repeaterItemCount` does.
-    columns: "{{count}} عمود (أعمدة)",
-    columns_one: "{{count}} عمود",
-    columns_other: "{{count}} أعمدة",
+    columns: "أعمدة",
     addCard: "إضافة بطاقة",
     addColumn: "إضافة عمود",
     moveCard: "نقل بطاقة",

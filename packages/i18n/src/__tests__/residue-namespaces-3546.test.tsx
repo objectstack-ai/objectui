@@ -285,7 +285,7 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     }
   });
 
-  it('exactly two paths interpolate, and every pack carries the same hole', () => {
+  it('exactly one path interpolates, and every pack carries the same hole', () => {
     // A translator who drops `{{name}}` renders a sentence with the source name
     // missing; one who invents a second hole renders braces verbatim.
     // `all-locales-key-parity` compares placeholder shape too — this states the
@@ -295,33 +295,12 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     // `lastIndex` (slice five's own bug).
     const HOLES = /\{\{\w+\}\}/g;
     const HAS_HOLE = /\{\{\w+\}\}/;
-    //
-    // objectui#9170 added the SECOND: `kanban.columns` was a bare unit word its
-    // call site concatenated a number in front of, and is now a plural family
-    // whose members carry the count themselves. The expected hole is named PER
-    // KEY rather than shared, so a pack that swaps `{{count}}` for `{{name}}` —
-    // or drops either — is still legible here.
-    const INTERPOLATED: Record<string, string> = {
-      'empty.interfacePageSourceMissing': '{{name}}',
-      'kanban.columns': '{{count}}',
-    };
-    expect(KEYS.filter((k) => HAS_HOLE.test(at(builtInLocales.en, k) as string)).sort()).toEqual(
-      Object.keys(INTERPOLATED).sort(),
-    );
+    const INTERPOLATED = ['empty.interfacePageSourceMissing'];
+    expect(KEYS.filter((k) => HAS_HOLE.test(at(builtInLocales.en, k) as string)).sort()).toEqual(INTERPOLATED);
     for (const lang of LANGS) {
       for (const key of KEYS) {
         const holes = ((at(builtInLocales[lang], key) as string).match(HOLES) ?? []).join(',');
-        expect(holes, `${lang}.${key}`).toBe(INTERPOLATED[key] ?? '');
-      }
-    }
-    // …and every MEMBER of that family carries the same hole in every pack.
-    // `KEYS` is the slice-seven residue list — a historical set that deliberately
-    // does not grow — so the two suffixed leaves are named here instead.
-    for (const lang of LANGS) {
-      for (const member of ['kanban.columns_one', 'kanban.columns_other']) {
-        const value = at(builtInLocales[lang], member);
-        expect(typeof value, `${lang}.${member}`).toBe('string');
-        expect(((value as string).match(HOLES) ?? []).join(','), `${lang}.${member}`).toBe('{{count}}');
+        expect(holes, `${lang}.${key}`).toBe(INTERPOLATED.includes(key) ? '{{name}}' : '');
       }
     }
   });
@@ -351,10 +330,7 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
         INTERFACE_LIST,
         'This interface page references "{{name}}", which is not available.',
       ],
-      // objectui#9170 — the pack value and the inline default moved together,
-      // which is exactly what this case exists to hold. See the family case
-      // below for why there is no `defaultValue_one` beside it.
-      ['kanban.columns', KANBAN, '{{count}} columns'],
+      ['kanban.columns', KANBAN, 'columns'],
       ['layout.systemNav.administration', UNIFIED_SIDEBAR, 'Administration'],
       ['layout.systemNav.datasources', APP_SIDEBAR, 'Datasources'],
       ['layout.systemNav.documentation', UNIFIED_SIDEBAR, 'Documentation'],
@@ -702,113 +678,34 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     expect(at(builtInLocales.de, 'workspace.multiOrgDisabled')).toContain('ist auf dieser Instanz deaktiviert');
   });
 
-  it('kanban.columns is a plural family the call site resolves with a count', () => {
-    // ⭐ RE-DERIVED, ⛔ not deleted (objectui#9170). This case used to assert the
-    // OPPOSITE premise — that `en` may be plural-only here because the empty state
-    // only rendered when `boardColumns.length > 1`, so the count could never be 1
-    // and no plural family was needed. objectui#9169 removed that conjunct, which
-    // IS the accessibility fix (the region now paints at zero and one lane), and
-    // the old pin fired exactly as it was written to: the guard it named was the
-    // whole reason a bare plural was safe. What it guarded is gone, so what it
-    // asserts is now the NEW state of the world — the bare plural is safe because
-    // there is no longer a bare plural.
-    //
-    // Four legs, chosen so the defect fails here by whichever route it returns:
-    //
-    //   (1) the predicate is still lane-count-blind, so ONE LANE IS REACHABLE —
-    //       this is what makes the family load-bearing rather than decorative,
-    //       and a later card that restores a `> 1` guard lands on this comment;
-    //   (2) the description is one `t()` call carrying a `count`, and NOTHING
-    //       concatenates a lane count in front of a unit word again;
-    //   (3) all ten packs really carry a family (base + `_one` + `_other`), so
-    //       (2) has something to resolve;
-    //   (4) it RENDERS "1 column" at one lane and "2 columns" at two — the
-    //       behaviour, through the provider, so a family that exists but is never
-    //       reached still fails.
-    //
-    // ⚠️ (4) is the leg that cannot be satisfied by an assertion that merely stops
-    // checking: deleting the family, dropping `_one`, or dropping `count:` from
-    // the call site each turn one of these red.
+  it('kanban.columns is a bare unit word and follows the repo one precedent for that', () => {
+    // The call site concatenates: `` `${boardColumns.length} ${t('kanban.columns')}` ``, so
+    // the pack supplies a UNIT, not a sentence — the same structure as
+    // `preview.history.items` (slice five, which had to be corrected once for
+    // exactly this reason). `en` is plural-only and that is safe here: the empty
+    // state only renders when `boardColumns.length > 1`, so the count is never 1
+    // and no plural family is needed.
     const src = sourceOf(KANBAN);
-    // (1)
-    expect(
-      src,
-      'the lane-count blindness moved — the family below may no longer be reachable; re-read objectui#9170',
-    ).toContain('const isBoardEmpty = totalCardCount === 0;');
-    // (2)
-    expect(src, 'the lane-count description moved').toContain(
-      "description={t('kanban.columns', { count: boardColumns.length, defaultValue: '{{count}} columns' })}",
+    expect(src, 'the columns count label moved').toContain(
+      "description={`${boardColumns.length} ${t('kanban.columns', { defaultValue: 'columns' })}`}",
     );
-    // ⚠️ Shown to be non-vacuous before it is trusted: a matcher nobody proved
-    // can fire is a green assertion that checks nothing (AGENTS.md's rule for
-    // forensic regexes). Positive control is the exact shape this replaced;
-    // negative control is the shape that replaced it.
-    const CONCATENATED = /\$\{boardColumns\.length\}\s*\$\{/;
-    expect(CONCATENATED.test("description={`${boardColumns.length} ${t('kanban.columns')}`}")).toBe(true);
-    expect(CONCATENATED.test("description={t('kanban.columns', { count: boardColumns.length })}")).toBe(false);
-    expect(
-      src,
-      'a lane count is concatenated in front of a unit word again — that is the defect objectui#9170 repaired',
-    ).not.toMatch(CONCATENATED);
-    // (3) — the shape is `repeaterItemCount`'s (base + `_one` + `_other`), not
-    // `chatbot.plan.*`'s (base + `_one`), because the base is the slot every CLDR
-    // category a pack does not enumerate lands on and a kanban board's everyday
-    // lane counts 2-4 are exactly `ru`'s `few`. See the note in `en.ts`.
-    for (const lang of LANGS) {
-      for (const slot of ['kanban.columns', 'kanban.columns_one', 'kanban.columns_other']) {
-        const value = at(builtInLocales[lang], slot);
-        expect(typeof value, `${lang}.${slot}`).toBe('string');
-        expect((value as string).trim().length, `${lang}.${slot} is empty`).toBeGreaterThan(0);
-      }
-    }
-    // (4)
-    const render = (lang: LocaleCode) => {
-      window.localStorage.clear();
-      return renderHook(() => useObjectTranslation(), { wrapper: wrapperFor(lang) }).result;
-    };
-    const en = render('en');
-    expect(en.current.t('kanban.columns', { count: 0 })).toBe('0 columns');
-    expect(en.current.t('kanban.columns', { count: 1 })).toBe('1 column');
-    expect(en.current.t('kanban.columns', { count: 2 })).toBe('2 columns');
-    // ⚠️ `ru`'s BASE is deliberately NOT its `_other` form. `few` (2-4 lanes) and
-    // `many` (5+) both land on the base, and spelling the base as the numeral form
-    // "{{count}} колонок" renders "3 колонок" there — a genitive PLURAL after a
-    // numeral that governs the genitive singular. A `_few` key is not available:
-    // `en` lacks it, and `all-locales-key-parity` fails a key `en` lacks by
-    // design. So the base is category-neutral and `_other` carries the numeral
-    // form, the same device `repeaterItemCount` uses next door.
-    const ru = render('ru');
-    expect(ru.current.t('kanban.columns', { count: 1 })).toBe('1 колонка');
-    expect(ru.current.t('kanban.columns', { count: 3 })).toBe('Колонок: 3');
-    expect(at(builtInLocales.ru, 'kanban.columns')).not.toBe(at(builtInLocales.ru, 'kanban.columns_other'));
-    // ⛔ zh / ja / ko define all three slots with the SAME value. Nothing is
-    // manufactured there — those languages make no singular/plural distinction,
-    // and the `_one` key exists only because `all-locales-key-parity` requires
-    // every `en` key in every pack and reads a legitimately-absent half as a lost
-    // key. Asserted as an equality so a later "translation" of the singular is
-    // visible as the invention it would be.
-    for (const lang of ['zh', 'ja', 'ko'] as const) {
-      expect(at(builtInLocales[lang], 'kanban.columns_one'), `${lang} invented a singular`).toBe(
-        at(builtInLocales[lang], 'kanban.columns'),
-      );
-      expect(at(builtInLocales[lang], 'kanban.columns_other')).toBe(at(builtInLocales[lang], 'kanban.columns'));
-    }
-    // The precedent this key used to follow — a bare unit word with the number
-    // concatenated on at the call site — is `preview.history.items`, untouched by
-    // this card and pinned here so a reader can see which shape was LEFT rather
-    // than assume the two still agree.
+    expect(src, 'the >1 guard moved — a plural family would now be required').toContain(
+      'const isBoardEmpty = totalCardCount === 0 && boardColumns.length > 1;',
+    );
+    // The precedent's shape, per pack: unit word only, no counter particle, since
+    // the call site already inserts the space and the number.
     expect(at(builtInLocales.en, 'preview.history.items')).toBe('item(s)');
     expect(at(builtInLocales.ko, 'preview.history.items')).toBe('항목');
     expect(at(builtInLocales.ru, 'preview.history.items')).toBe('элементов');
-    // …and the WORD still comes from kanban's own column vocabulary, which is not
-    // the table's: ja says カラム here and 列 in `table.columns`, ru колонка
-    // against столбец.
+    // …and the WORD comes from kanban's own column vocabulary, which is not the
+    // table's: ja says カラム here and 列 in `table.columns`, ru колонка against
+    // столбец.
     expect(at(builtInLocales.ja, 'kanban.addColumn')).toBe('カラムを追加');
     expect(at(builtInLocales.ja, 'table.columns')).toBe('列');
-    expect(at(builtInLocales.ja, 'kanban.columns')).toBe('{{count}} カラム');
+    expect(at(builtInLocales.ja, 'kanban.columns')).toBe('カラム');
     expect(at(builtInLocales.ru, 'kanban.addColumn')).toBe('Добавить колонку');
-    expect(at(builtInLocales.ru, 'kanban.columns_one')).toBe('{{count}} колонка');
-    expect(at(builtInLocales.ko, 'kanban.columns')).toBe('열 {{count}}개');
+    expect(at(builtInLocales.ru, 'kanban.columns')).toBe('колонок');
+    expect(at(builtInLocales.ko, 'kanban.columns')).toBe('열');
   });
 
   it('detail.concurrentUpdateRecordLabel is grammatical in the sentence that embeds it', () => {
@@ -1011,10 +908,7 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       );
       expect(t('layout.systemNav.administration')).toBe('管理');
       expect(t('workspace.multiOrgDisabled')).toBe('此实例已禁用创建新组织。');
-      // Read WITH a count now that this key is a plural family: without one
-      // i18next returns the base value with its `{{count}}` unfilled, which is a
-      // reading about the lookup rather than about the Chinese.
-      expect(t('kanban.columns', { count: 2 })).toBe('2 列');
+      expect(t('kanban.columns')).toBe('列');
       expect(t('detail.deleted')).toBe('记录已删除');
     });
 

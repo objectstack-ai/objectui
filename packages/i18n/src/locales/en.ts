@@ -803,34 +803,7 @@ const en = {
     noCards: 'No cards',
     cardTitlePlaceholder: 'Enter card title…',
     uncategorized: 'Uncategorized',
-    // objectui#9170 — the board-level empty state's description. A REAL i18next
-    // plural family (base + `_one` + `_other`, the `repeaterItemCount` shape),
-    // replacing a BARE UNIT WORD the call site concatenated a number in front of.
-    //
-    // The bare word was safe only while `KanbanImpl`'s empty state required
-    // `boardColumns.length > 1`: the count could never be 1, so `columns` always
-    // agreed with it. objectui#9169 makes the region paint at zero and one lane —
-    // that widening IS the accessibility fix — and with it "1 columns" became
-    // reachable in a `role="status" aria-live="polite"` region.
-    //
-    // Why `_other` is spelled out rather than left to the base: the base is the
-    // slot every CLDR category a pack does not enumerate lands on, and on a
-    // kanban board the everyday lane counts 2-4 are exactly `ru`'s `few`.
-    // Measured on i18next 26.4.0 — with the base spelled as the `_other` form
-    // ("{{count}} колонок") `ru` renders "3 колонок" at three lanes, a genitive
-    // PLURAL after a numeral that governs the genitive singular. Giving `ru` a
-    // `_few` is not available (a key `en` lacks fails `all-locales-key-parity`
-    // by design), so `ru`'s base carries a category-neutral "Колонок: {{count}}"
-    // and its `_other` carries the numeral form — the same device
-    // `repeaterItemCount` uses, for the same reason.
-    //
-    // zh / ja / ko define all three slots with the SAME value. Nothing is
-    // invented there: those languages make no singular/plural distinction, and
-    // the `_one` key exists only because `all-locales-key-parity` requires every
-    // `en` key in every pack and reads a legitimately-absent half as a LOST key.
-    columns: '{{count}} columns',
-    columns_one: '{{count}} column',
-    columns_other: '{{count}} columns',
+    columns: 'columns',
     requiredFieldsTitle: 'Complete required fields',
     requiredFieldsDescription: 'This move makes the fields below required. Fill them in to continue.',
   },

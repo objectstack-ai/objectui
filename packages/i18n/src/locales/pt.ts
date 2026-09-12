@@ -678,9 +678,7 @@ const pt = {
   },
   kanban: {
     uncategorized: "Sem categoria",
-    columns: "{{count}} colunas",
-    columns_one: "{{count}} coluna",
-    columns_other: "{{count}} colunas",
+    columns: "colunas",
     addCard: "Adicionar cartão",
     addColumn: "Adicionar coluna",
     moveCard: "Mover cartão",

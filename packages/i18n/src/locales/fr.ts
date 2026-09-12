@@ -679,9 +679,7 @@ const fr = {
   },
   kanban: {
     uncategorized: "Non catégorisé",
-    columns: "{{count}} colonnes",
-    columns_one: "{{count}} colonne",
-    columns_other: "{{count}} colonnes",
+    columns: "colonnes",
     addCard: "Ajouter une carte",
     addColumn: "Ajouter une colonne",
     moveCard: "Déplacer la carte",

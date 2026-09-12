@@ -537,6 +537,20 @@ export const ChatToolInvocationSchema = z.object({
     ])
     .optional()
     .describe('Tool invocation state'),
+  // Mirrors `ChatToolInvocation.approval` in ../complex.ts. The AI SDK v6
+  // tool-part union requires this envelope alongside the three approval
+  // states; the pairing itself is objectui#8426's narrowing and is NOT
+  // enforced here, so this arm stays independently optional (objectui#8442).
+  approval: z
+    .object({
+      id: z.string().describe('Approval request id — the key a decision is replied on'),
+      approved: z.boolean().optional().describe('The decision, once made'),
+      reason: z.string().optional().describe('Free-text reason supplied with the decision'),
+      isAutomatic: z.boolean().optional().describe('True when policy decided without a human'),
+      signature: z.string().optional().describe('Signature over the approval, when signed'),
+    })
+    .optional()
+    .describe('AI SDK approval envelope for a tool call awaiting or carrying a human decision'),
 });
 
 export const ChatMessageSourceSchema = z.object({

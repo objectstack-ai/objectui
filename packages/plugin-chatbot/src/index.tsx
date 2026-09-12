@@ -363,6 +363,7 @@ export {
   detectReplayOutcome,
   detectAuthoringVerdict,
   detectBuiltAppPackage,
+  detectPendingApproval,
   buildProgressFromDraftReview,
 } from './mapMessages';
 export type {

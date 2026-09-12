@@ -3676,6 +3676,56 @@ export interface ObjectGallerySchema extends BaseSchema {
   imageField?: string;
   /** @deprecated Use `gallery.titleField` instead */
   titleField?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `bind`, `className`, `data`, `filter`, `gallery`, `grouping`, `imageField`,
+   * `navigation`, `objectName`, `titleField` (in
+   * `packages/plugin-list/src/ObjectGallery.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `object-gallery` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `bind`, `className`, `data`, `filter`, `gallery`, `grouping`, `imageField`,
+   * `navigation`, `objectName`, `titleField` (in
+   * `packages/plugin-list/src/ObjectGallery.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `object-gallery` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -3723,6 +3773,54 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * refuses the key by name). When present it overrides drill-to-record.
    */
   onRowClick?: (row: any) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-data-table` reads
+   * NEITHER content channel: no renderer read consumes `body` or `children` for
+   * this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`,
+   * `onRowClick` (in `packages/plugin-dashboard/src/ObjectDataTable.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `object-data-table` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-data-table` reads
+   * NEITHER content channel: no renderer read consumes `body` or `children` for
+   * this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`,
+   * `onRowClick` (in `packages/plugin-dashboard/src/ObjectDataTable.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `object-data-table` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

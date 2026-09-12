@@ -116,6 +116,22 @@ const status: SelectFieldMetadata = {
 };
 ```
 
+### A blank `label` falls back to the `value`
+
+`label` is **required** on an option and an empty string is a legal value for it —
+`@objectstack/spec`'s `SelectOptionSchema` accepts `{ "value": "low", "label": "" }`
+and refuses an option with no `label` key at all. An option authored that way (the
+field designer writes it whenever you fill only the value box) is therefore a document
+the platform stores and serves, and every option widget — `select`, `multiselect`,
+`radio`, `checkboxes` — **displays its `value`** for it rather than an empty row, on
+both the editable and the read-only path
+([objectui#9230](https://github.com/objectstack-ai/objectui/issues/9230)). A label that
+is only whitespace is treated the same way.
+
+This is a display fallback, not a repair: the stored option keeps its empty `label`.
+Author a real label whenever the value is not something you want a person to read —
+`low` is a tolerable row, `acct_st_2` is not.
+
 Cascading option lists are driven by a sibling field's value, declared with
 `dependsOn` — a `BaseFieldMetadata` member every field type inherits
 ([objectui#6153](https://github.com/objectstack-ai/objectui/issues/6153)), in the

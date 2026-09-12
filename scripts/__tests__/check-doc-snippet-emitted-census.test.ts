@@ -16,8 +16,11 @@ import {
   compileSnippets,
   declaresHolePlaceholder,
   derivePackageTypePaths,
+  deriveEmittedManifestPaths,
   emittedCensus,
   emittedCensusSummary,
+  emittedConstantTable,
+  emittedManifestDeclarations,
   emittingPackageOf,
   listEmittedSources,
   scanEmittedTemplates,
@@ -445,5 +448,307 @@ describe('wiring — a census nothing runs is not a census', () => {
       'a step the page does not declare report-only is a guardrail readers believe in',
     ).toContain('report-only');
     expect(paragraph).toContain('exits 0 regardless of what it finds');
+  });
+});
+
+/**
+ * objectui#8397 — the manifest the emitted file's READER installs.
+ *
+ * The root bound refuses a specifier that reaches a snippet only through this
+ * workspace's own installation, "not through anything the emitted file's reader
+ * installs". For a GENERATOR that premise can be false: the same generator also
+ * writes the reader's `package.json`. These pin the three properties that make
+ * reading it a narrowing of the bound's PREMISE rather than a hole in the bound:
+ * the manifest is read from the AST (not executed), it is scoped to the emitting
+ * package, and a specifier is mapped only at an identical declared range.
+ *
+ * ⛔ The one thing they must never pin: a census that reads cleaner because less
+ * of it is compiled. Every assertion here is about a block JOINING the semantic
+ * program.
+ */
+describe("objectui#8397 — the manifest the emitted file's reader installs", () => {
+  const DEP = 'fixture-only-dep';
+  /**
+   * The gate's own ROOT-DECLARED control specifier, pinned here because the
+   * fixture has to INSTALL it for the control to mean anything: a specifier that
+   * resolves nowhere would produce TS2307 whether the bound ran or not.
+   */
+  const ROOT_DECLARED_CONTROL = 'vitest';
+
+  /**
+   * A tree whose ROOT declares `fixture-only-dep` (so the bound bites) and whose
+   * `packages/emitter` generator emits a manifest declaring it too. The ranges
+   * are parameters because range equality is the whole of the mapping rule.
+   *
+   * The dev-dependency map lives in a SECOND file and arrives in the manifest by
+   * spread — the shape `packages/cli` actually has, and the one a same-file
+   * reader would drop the manifest for.
+   */
+  function generatorTree({
+    rootRange = '^1.0.0',
+    emittedRange = '^1.0.0',
+    manifestFields = "name: 'generated',\n    version: '0.1.0',",
+    secondPackage = true,
+  } = {}): string {
+    const files: Record<string, string> = {
+      'package.json': JSON.stringify({
+        name: 'fixture-root',
+        devDependencies: { [DEP]: rootRange, [ROOT_DECLARED_CONTROL]: '^4.0.0' },
+      }),
+      [`node_modules/${ROOT_DECLARED_CONTROL}/package.json`]: JSON.stringify({
+        name: ROOT_DECLARED_CONTROL,
+        version: '4.0.0',
+        types: './index.d.ts',
+      }),
+      [`node_modules/${ROOT_DECLARED_CONTROL}/index.d.ts`]: 'export declare const control: number;\n',
+      // The gate reads "is it installed?" from pnpm's virtual store, so the
+      // fixture lays one out: an UNINSTALLED control produces TS2307 whether the
+      // bound ran or not, and would pin nothing.
+      [`node_modules/.pnpm/${ROOT_DECLARED_CONTROL}@4.0.0/node_modules/${ROOT_DECLARED_CONTROL}/package.json`]:
+        JSON.stringify({ name: ROOT_DECLARED_CONTROL, version: '4.0.0', types: './index.d.ts' }),
+      [`node_modules/.pnpm/${ROOT_DECLARED_CONTROL}@4.0.0/node_modules/${ROOT_DECLARED_CONTROL}/index.d.ts`]:
+        'export declare const control: number;\n',
+      [`node_modules/${DEP}/package.json`]: JSON.stringify({
+        name: DEP,
+        version: '1.0.0',
+        types: './index.d.ts',
+      }),
+      [`node_modules/${DEP}/index.d.ts`]: 'export declare const fixture: number;\n',
+      'packages/emitter/package.json': JSON.stringify({ name: '@fixture/emitter' }),
+      'packages/emitter/src/ranges.ts':
+        `export const DEV_DEPENDENCIES: Record<string, string> = {\n  '${DEP}': '${emittedRange}'\n};\n`,
+      'packages/emitter/src/templates.ts':
+        "import { DEV_DEPENDENCIES } from './ranges';\n\n" +
+        'export function buildPackageJson(): Record<string, unknown> {\n' +
+        `  return {\n    ${manifestFields}\n    devDependencies: { ...DEV_DEPENDENCIES }\n  };\n}\n\n` +
+        'export function buildTestFile(): string {\n  return ' +
+        BACKTICK +
+        `import { fixture } from '${DEP}';\nexport const value = fixture;\n` +
+        BACKTICK +
+        ';\n}\n',
+    };
+    if (secondPackage) {
+      files['packages/other/package.json'] = JSON.stringify({ name: '@fixture/other' });
+      files['packages/other/src/templates.ts'] =
+        'export function buildOther(): string {\n  return ' +
+        BACKTICK +
+        `import { fixture } from '${DEP}';\nexport const value = fixture;\n` +
+        BACKTICK +
+        ';\n}\n';
+    }
+    return tempTree(files);
+  }
+
+  function runWithManifests(root: string) {
+    const census = emittedCensus({ root }) as unknown as { blocks: { doc: string }[] };
+    const { paths, packageDirOf } = derivePackageTypePaths(root) as unknown as {
+      paths: Record<string, string[]>;
+      packageDirOf: Record<string, string>;
+    };
+    const manifests = emittedManifestDeclarations({ root }) as unknown as {
+      byPackage: Record<string, Record<string, string>>;
+      sites: string[];
+      unreadable: { detail: string }[];
+      ambiguous: string[];
+    };
+    const mapped = deriveEmittedManifestPaths(root, manifests.byPackage, packageDirOf) as unknown as {
+      pathsByPackage: Record<string, Record<string, string[]>>;
+      anchored: { emitter: string; specifier: string; anchor: string }[];
+      unresolvable: { emitter: string; specifier: string; detail: string }[];
+    };
+    const run = compileSnippets({
+      root,
+      compiled: census.blocks,
+      paths,
+      declaredSpecifiers: [],
+      extraPathsByPackage: mapped.pathsByPackage,
+    }) as unknown as {
+      boundFailures: { block: { doc: string }; specifiers: string[] }[];
+      semanticFailures: { block: { doc: string }; diagnostics: { code: number }[] }[];
+      semanticallyJudged: number;
+      rootDeclaredDiagnostics: { code: number }[];
+      rootDeclaredControl: string;
+      rootDeclaredInstalledAt: string | null;
+    };
+    return { census, manifests, mapped, run };
+  }
+
+  it('reads a manifest a FUNCTION returns as an object — the feasibility question the card left open', () => {
+    const { manifests } = runWithManifests(generatorTree());
+    expect(
+      manifests.byPackage['packages/emitter'],
+      '`buildPackageJson` returns an object, not a template literal. That is not a blocker: the ' +
+        'census already parses these files, and the object literal is read from the same tree.',
+    ).toEqual({ [DEP]: '^1.0.0' });
+    expect(manifests.sites).toHaveLength(1);
+    expect(manifests.sites[0]).toMatch(/^packages\/emitter\/src\/templates\.ts:\d+$/);
+  });
+
+  it('follows a dependency map spread in from another file of the SAME package', () => {
+    const { manifests } = runWithManifests(generatorTree());
+    expect(Object.keys(manifests.byPackage['packages/emitter'])).toEqual([DEP]);
+  });
+
+  it('moves the refused template INTO the semantic program — the count that changes is `judged`', () => {
+    const root = generatorTree();
+    const before = (() => {
+      const census = emittedCensus({ root }) as unknown as { blocks: { doc: string }[] };
+      const { paths } = derivePackageTypePaths(root) as unknown as { paths: Record<string, string[]> };
+      return compileSnippets({ root, compiled: census.blocks, paths, declaredSpecifiers: [] }) as unknown as {
+        boundFailures: { block: { doc: string } }[];
+        semanticallyJudged: number;
+      };
+    })();
+    const after = runWithManifests(root);
+
+    expect(
+      before.boundFailures.map((f) => f.block.doc).sort(),
+      'without the emitted manifest BOTH templates are refused for a specifier the root declares',
+    ).toEqual(['packages/emitter/src/templates.ts', 'packages/other/src/templates.ts']);
+    expect(after.run.semanticallyJudged).toBe(before.semanticallyJudged + 1);
+    expect(
+      after.census.blocks.length,
+      '⛔ the standing fence: nothing may be removed from what is compiled. The recognised ' +
+        'population is identical and only the JUDGED count moved, upward.',
+    ).toBe(2);
+  });
+
+  it("is scoped to the EMITTING package — one generator's manifest does not speak for another's", () => {
+    const { run } = runWithManifests(generatorTree());
+    expect(
+      run.boundFailures.map((f) => f.block.doc),
+      'a merged map would have silenced the bound for a package that emits no manifest at all — ' +
+        'the same failure being fixed, one level up',
+    ).toEqual(['packages/other/src/templates.ts']);
+  });
+
+  it('keeps the ROOT-DECLARED control refused in the very program where the emitter resolves it', () => {
+    const { run } = runWithManifests(generatorTree());
+    expect(
+      run.rootDeclaredControl,
+      'the fixture installs this specifier on purpose; if the gate picks another one the ' +
+        'fixture must install THAT one, or this control stops proving anything',
+    ).toBe(ROOT_DECLARED_CONTROL);
+    expect(run.rootDeclaredInstalledAt, 'an uninstalled control proves nothing').toBeTruthy();
+    expect(
+      run.rootDeclaredDiagnostics.map((d) => d.code),
+      'the control file carries no emitted-manifest map, so the bound must still bite there — ' +
+        'the two facts have to hold together or the map is an exemption wearing a rule\'s clothes',
+    ).toContain(2307);
+  });
+
+  it('maps ONLY at an identical declared range, and reports the mismatch instead of guessing', () => {
+    const { mapped, run } = runWithManifests(
+      generatorTree({ rootRange: '^1.0.0', emittedRange: '^2.0.0' }),
+    );
+    expect(mapped.anchored).toEqual([]);
+    expect(mapped.unresolvable.map((u) => [u.specifier, u.detail])).toEqual([
+      [DEP, 'no manifest here declares that range'],
+    ]);
+    expect(
+      run.boundFailures.map((f) => f.block.doc).sort(),
+      'a range this repository does not declare would be judged against types the reader never ' +
+        'installs — the refusal is the honest answer, and the summary prints why',
+    ).toEqual(['packages/emitter/src/templates.ts', 'packages/other/src/templates.ts']);
+  });
+
+  it('names the anchor it mapped through, so the evidence is readable off the run', () => {
+    const { mapped } = runWithManifests(generatorTree());
+    expect(mapped.anchored).toEqual([
+      { emitter: 'packages/emitter', specifier: DEP, range: '^1.0.0', anchor: '.' },
+    ]);
+  });
+
+  it('requires `name` and `version` — narrow in the safe direction', () => {
+    const { manifests, run } = runWithManifests(
+      generatorTree({ manifestFields: "private: true," }),
+    );
+    expect(
+      manifests.byPackage,
+      'a bare `{ devDependencies: … }` is some other object. Missing a real manifest costs a ' +
+        'refusal, which is the status quo; admitting a non-manifest widens the bound.',
+    ).toEqual({});
+    expect(run.boundFailures.length).toBe(2);
+  });
+
+  it('reports a range it cannot read to a literal, and maps nothing for it', () => {
+    const root = tempTree({
+      'package.json': JSON.stringify({ name: 'fixture-root', devDependencies: { [DEP]: '^1.0.0' } }),
+      'packages/emitter/package.json': JSON.stringify({ name: '@fixture/emitter' }),
+      'packages/emitter/src/templates.ts':
+        'declare function rangeOf(name: string): string;\n' +
+        'export function buildPackageJson(): Record<string, unknown> {\n' +
+        `  return { name: 'g', version: '0.1.0', dependencies: { '${DEP}': rangeOf('x') } };\n}\n`,
+    });
+    const manifests = emittedManifestDeclarations({ root }) as unknown as {
+      byPackage: Record<string, unknown>;
+      unreadable: { detail: string; specifier?: string }[];
+    };
+    expect(manifests.byPackage).toEqual({});
+    expect(manifests.unreadable).toEqual([
+      {
+        site: expect.stringMatching(/^packages\/emitter\/src\/templates\.ts:\d+$/),
+        field: 'dependencies',
+        specifier: DEP,
+        detail: 'the range is not a literal',
+      },
+    ]);
+  });
+
+  it('follows no name a package declares twice — a guess here maps the wrong version', () => {
+    const root = tempTree({
+      'package.json': JSON.stringify({ name: 'fixture-root', devDependencies: { [DEP]: '^1.0.0' } }),
+      'packages/emitter/package.json': JSON.stringify({ name: '@fixture/emitter' }),
+      'packages/emitter/src/one.ts': `export const DEV_DEPENDENCIES = { '${DEP}': '^1.0.0' };\n`,
+      'packages/emitter/src/two.ts': `export const DEV_DEPENDENCIES = { '${DEP}': '^2.0.0' };\n`,
+      'packages/emitter/src/templates.ts':
+        "import { DEV_DEPENDENCIES } from './one';\n" +
+        'export function buildPackageJson(): Record<string, unknown> {\n' +
+        "  return { name: 'g', version: '0.1.0', devDependencies: { ...DEV_DEPENDENCIES } };\n}\n",
+    });
+    const manifests = emittedManifestDeclarations({ root }) as unknown as {
+      byPackage: Record<string, unknown>;
+      ambiguous: string[];
+      unreadable: { detail: string }[];
+    };
+    expect(manifests.ambiguous).toEqual(['packages/emitter: DEV_DEPENDENCIES']);
+    expect(
+      manifests.byPackage,
+      'a name two files define is two answers to one question, and either choice maps a range ' +
+        'the reader may not install',
+    ).toEqual({});
+    expect(manifests.unreadable.map((u) => u.detail)).toEqual([
+      'spread of `DEV_DEPENDENCIES` cannot be followed',
+    ]);
+  });
+
+  it('exposes the constant table it followed, unique names only', () => {
+    const table = emittedConstantTable([]) as unknown as { table: Map<string, unknown>; ambiguous: string[] };
+    expect(table.ambiguous).toEqual([]);
+    expect(table.table.size).toBe(0);
+  });
+
+  it('on THIS repository — reads create-plugin\'s own emitted manifest', () => {
+    const manifests = emittedManifestDeclarations({ root: repoRoot }) as unknown as {
+      byPackage: Record<string, Record<string, string>>;
+      sites: string[];
+    };
+    const emitted = manifests.byPackage['packages/create-plugin'];
+    expect(
+      emitted,
+      '`buildPackageJson` is the manifest a scaffolded plugin installs; these six specifiers are ' +
+        'exactly the ones the census used to refuse its own generator for',
+    ).toBeDefined();
+    for (const specifier of [
+      '@testing-library/jest-dom',
+      '@testing-library/react',
+      'vitest',
+      'vite',
+      'vite-plugin-dts',
+      '@vitejs/plugin-react',
+    ]) {
+      expect(emitted, `${specifier} is declared by the generated package.json`).toHaveProperty(specifier);
+    }
+    expect(manifests.sites.some((s) => s.startsWith('packages/create-plugin/src/templates.ts:'))).toBe(true);
   });
 });

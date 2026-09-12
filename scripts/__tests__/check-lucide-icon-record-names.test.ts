@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   ANCHORED_MAPS,
   DECLARED_DYNAMIC_READERS,
+  DECLARED_EAGER_DYNAMIC_IMPORTERS,
   DECLARED_RECORD_READERS,
   DISCOVERY_NEGATIVE_CONTROL,
   RECORD_READING_TYPES,
@@ -107,6 +108,7 @@ interface FixtureOptions {
   anchors?: typeof ANCHORED_MAPS;
   declaredRecordReaders?: string[];
   declaredDynamicReaders?: string[];
+  declaredEagerDynamicImporters?: string[];
   negativeControl?: string;
   recordReadingTypes?: CensusTable;
 }
@@ -146,6 +148,7 @@ function judge(label: string, options: FixtureOptions) {
     anchors: options.anchors ?? [],
     declaredRecordReaders: options.declaredRecordReaders ?? [RESOLVER_FILE],
     declaredDynamicReaders: options.declaredDynamicReaders ?? [],
+    declaredEagerDynamicImporters: options.declaredEagerDynamicImporters,
     negativeControl: options.negativeControl,
     recordReadingTypes: options.recordReadingTypes ?? FIXTURE_TYPES,
   });
@@ -721,6 +724,11 @@ describe('the surface census is re-derived on every run', () => {
     // Getting this backwards is worse than having no gate: the dynamic list
     // still carries `edit`, so a gate pointed at it would bless the exact names
     // this class is about.
+    //
+    // The static spelling is deliberate here and so is the allowance beside it:
+    // this row is about WHICH vocabulary the site reads, and the eager-import
+    // rule below is about HOW it reaches it. Keeping them apart is what lets
+    // either fail alone.
     const result = judge('dynamic', {
       files: {
         'packages/app/src/lazy.ts': [
@@ -729,11 +737,72 @@ describe('the surface census is re-derived on every run', () => {
         ].join('\n'),
       },
       declaredDynamicReaders: ['packages/app/src/lazy.ts'],
+      declaredEagerDynamicImporters: ['packages/app/src/lazy.ts'],
     });
 
     expect(result.errors).toEqual([]);
     expect(result.discovered.dynamic).toEqual(['packages/app/src/lazy.ts']);
     expect(result.discovered.record).toEqual([RESOLVER_FILE]);
+  });
+
+  // ── objectui#9204: HOW a site reaches the dynamic surface is censused too ──
+
+  it('sees the DEFERRED spelling — an `import()` still reads the vocabulary', () => {
+    // The census exists so a site cannot move between surfaces unnoticed.
+    // Moving the map behind `import()` must not read as "stopped reading it":
+    // that would retire the entry and leave the next static import undeclared
+    // AND unnoticed.
+    const result = judge('deferred', {
+      files: {
+        'packages/app/src/deferred.ts': [
+          "export const load = () => import('lucide-react/dynamic.mjs');",
+        ].join('\n'),
+      },
+      declaredDynamicReaders: ['packages/app/src/deferred.ts'],
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.discovered.dynamic).toEqual(['packages/app/src/deferred.ts']);
+    expect(result.discovered.eagerDynamic).toEqual([]);
+  });
+
+  it('sees the CATALOGUE binding — the mirror is that vocabulary', () => {
+    // `LUCIDE_ICON_NAMES` is lucide's dynamic vocabulary as data. A module
+    // reading it resolves names against that surface just as much as one
+    // importing `iconNames`, and does it without mentioning `lucide-react` at
+    // all — which is also why the prefilter has to admit the file.
+    const result = judge('catalogue', {
+      files: {
+        'packages/app/src/picker.ts': [
+          "import { LUCIDE_ICON_NAMES } from '@object-ui/components';",
+          'export const known = new Set(LUCIDE_ICON_NAMES);',
+        ].join('\n'),
+      },
+      declaredDynamicReaders: ['packages/app/src/picker.ts'],
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.discovered.dynamic).toEqual(['packages/app/src/picker.ts']);
+    expect(result.discovered.eagerDynamic).toEqual([]);
+  });
+
+  it('fails on a STATIC import of the dynamic entry — that is the 263 KB map', () => {
+    // lucide derives `iconNames` from `dynamicIconImports`, so this import puts
+    // the 1,767-entry map in the importer's chunk. Nothing else in the tree
+    // reddens: the laziness is in the source and the cost is in a bundle.
+    const result = judge('eager-dynamic', {
+      files: {
+        'packages/app/src/eager.ts': [
+          "import { iconNames } from 'lucide-react/dynamic.mjs';",
+          'export const known = new Set(iconNames as string[]);',
+        ].join('\n'),
+      },
+      declaredDynamicReaders: ['packages/app/src/eager.ts'],
+    });
+
+    expect(result.violations).toEqual([]);
+    expect(result.discovered.eagerDynamic).toEqual(['packages/app/src/eager.ts']);
+    expect(result.errors.join('\n')).toContain('EAGER `lucide-react/dynamic` import: packages/app/src/eager.ts');
   });
 
   it('matches the IMPORT, not the name — a local `icons` object is not a resolver', () => {
@@ -942,6 +1011,18 @@ describe('this repository', () => {
 
   it('keeps the dynamic surface declared and separate', () => {
     expect(repoResult.discovered.dynamic).toEqual([...DECLARED_DYNAMIC_READERS].sort());
+  });
+
+  it('has NO module importing lucide\'s dynamic entry statically', () => {
+    // objectui#9204's whole deliverable, stated where it can go red: the
+    // declared allowance is empty, and so is what discovery finds.
+    expect(DECLARED_EAGER_DYNAMIC_IMPORTERS).toEqual([]);
+    expect(repoResult.discovered.eagerDynamic).toEqual([]);
+
+    // …and the surface it guards has not evaporated. Two lists that are both
+    // empty because discovery stopped working read exactly like a clean tree,
+    // so the dynamic census is shown non-empty first.
+    expect(repoResult.discovered.dynamic.length).toBeGreaterThan(0);
   });
 
   it('does not mistake the live local-`icons` specimen for a resolver', () => {

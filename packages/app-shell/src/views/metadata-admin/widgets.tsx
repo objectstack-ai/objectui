@@ -31,6 +31,7 @@ import {
   Label,
   Switch,
   LazyIcon,
+  LUCIDE_ICON_NAMES,
   toKebabIconName,
   Popover,
   PopoverTrigger,
@@ -43,7 +44,6 @@ import {
 } from '@object-ui/components';
 import type { ComponentMeta } from '@object-ui/core';
 import { AlertTriangle, ChevronDown, ChevronsUpDown, ChevronUp, Eye, EyeOff, Plus, Search, Trash2 } from 'lucide-react';
-import { iconNames } from 'lucide-react/dynamic.mjs';
 import { toast } from 'sonner';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useMetadataLocale, t, tFormat } from './i18n.js';
@@ -1553,8 +1553,11 @@ function FieldRefMultiWidget({ value, onChange, readOnly, context, ariaLabelledB
 /* icon — searchable Lucide icon picker                                       */
 /* -------------------------------------------------------------------------- */
 
-// Lucide ships ~1500+ kebab-case icon names; freeze once for O(1) reuse.
-const LUCIDE_ICON_NAMES: readonly string[] = iconNames as string[];
+// `LUCIDE_ICON_NAMES` is the shared catalogue `@object-ui/components` publishes
+// as DATA. Read from there rather than from `lucide-react/dynamic.mjs`, whose
+// `iconNames` is `Object.keys(dynamicIconImports)` — importing the names
+// imports the 1,767-entry map with them, onto the eager path (objectui#9204).
+// Freeze the membership Set once for O(1) reuse.
 const LUCIDE_ICON_SET: Set<string> = new Set(LUCIDE_ICON_NAMES);
 // Cap the rendered grid — each cell mounts a lazily-loaded icon, so showing all
 // ~1500 at once would fire a flood of chunk requests. The search box narrows it.

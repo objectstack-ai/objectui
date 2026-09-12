@@ -1577,6 +1577,22 @@ export const ObjectGallerySchema = BaseSchema.extend({
   grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Grouping configuration for sectioned display'),
   imageField: z.string().optional().describe('DEPRECATED — use gallery.coverField'),
   titleField: z.string().optional().describe('DEPRECATED — use gallery.titleField'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `bind`, `className`, `data`, `filter`, `gallery`, `grouping`, '
+    + '`imageField`, `navigation`, `objectName`, `titleField`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `bind`, `className`, `data`, `filter`, `gallery`, `grouping`, '
+    + '`imageField`, `navigation`, `objectName`, `titleField`.',
+  ),
 });
 
 /**
@@ -1612,6 +1628,22 @@ export const ObjectDataTableSchema = BaseSchema.extend({
     'Drill-to-record: clicking a row opens that record in a detail drawer (DashboardRenderer defaults object-backed table widgets to { enabled: true, mode: record })',
   ),
   onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler (overrides drill-to-record)'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `object-data-table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`, '
+    + '`onRowClick`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `object-data-table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`, '
+    + '`onRowClick`.',
+  ),
 });
 
 /**

@@ -199,6 +199,20 @@ export const SeparatorSchema = BaseSchema.extend({
   type: z.literal('separator'),
   orientation: z.enum(['horizontal', 'vertical']).optional().describe('Separator orientation'),
   decorative: z.boolean().optional().describe('Whether decorative'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `orientation`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `orientation`.',
+  ),
 });
 
 /**
@@ -346,6 +360,20 @@ export const ResizableSchema = BaseSchema.extend({
   minHeight: z.union([z.string(), z.number()]).optional().describe('Minimum height'),
   withHandle: z.boolean().optional().describe('Show resize handle'),
   panels: z.array(ResizablePanelSchema).describe('Resizable panels'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
+  ),
 });
 
 /**

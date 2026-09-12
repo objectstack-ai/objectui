@@ -132,11 +132,33 @@ describe('objectui#6939 — `children` is no longer required on either member', 
       content: 'Helpful information',
       children: [{ type: 'button', label: 'Hover me' }],
     }).success).toBe(true);
-    expect(ContextMenuSchema.safeParse({
+    // ⚠️ `context-menu` is NO LONGER part of that widen-only half.
+    // objectui#9256 measured it into FAMILY D — its renderer reads `items`,
+    // `trigger`, `modal` and the two class-name keys, and NOTHING reads
+    // `children` — with the read-site sweep extended across all 24 registering
+    // packages plus the generic traversers, which is the measurement
+    // objectui#8284 named as the precondition for acting on a NEITHER verdict.
+    // So the spelling that used to parse here is now refused BY NAME.
+    const menuRefused = ContextMenuSchema.safeParse({
       type: 'context-menu',
       items: [{ label: 'Copy' }],
       children: { type: 'text', content: 'Right-click here' },
+    });
+    expect(menuRefused.success).toBe(false);
+    if (!menuRefused.success) {
+      expect(menuRefused.error.issues.map((i) => i.path.join('.'))).toEqual(['children']);
+      expect(menuRefused.error.issues[0]!.message).toContain('objectui#9256');
+    }
+
+    // CONTROL — the refusal is about the KEY, not about the mirror: the keys
+    // both renderers DO read still parse, so the two readings above are not a
+    // whole-schema regression.
+    expect(ContextMenuSchema.safeParse({
+      type: 'context-menu',
+      items: [{ label: 'Copy' }],
+      trigger: { type: 'text', content: 'Right-click here' },
     }).success).toBe(true);
+    expect(TooltipSchema.safeParse({ type: 'tooltip', content: 'Helpful information' }).success).toBe(true);
   });
 });
 

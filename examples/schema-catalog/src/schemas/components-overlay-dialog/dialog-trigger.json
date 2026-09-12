@@ -6,7 +6,7 @@
   },
   "title": "Dialog Title",
   "description": "Dialog description",
-  "children": [
+  "content": [
     {
       "type": "text",
       "content": "Dialog content goes here"

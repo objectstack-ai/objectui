@@ -29,6 +29,20 @@ export const LoadingSchema = BaseSchema.extend({
   size: z.enum(['sm', 'default', 'lg']).optional().describe('Loading indicator size'),
   variant: z.enum(['spinner', 'dots', 'pulse']).optional().describe('Loading variant'),
   fullscreen: z.boolean().optional().describe('Whether to show fullscreen overlay'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `loading` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fullscreen`, `size`, `text`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `loading` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fullscreen`, `size`, `text`.',
+  ),
 });
 
 /**
@@ -42,6 +56,20 @@ export const ProgressSchema = BaseSchema.extend({
   showLabel: z.boolean().optional().describe('Show progress label'),
   size: z.enum(['sm', 'default', 'lg']).optional().describe('Progress bar size'),
   indeterminate: z.boolean().optional().describe('Indeterminate progress'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `progress` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `value`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `progress` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `value`.',
+  ),
 });
 
 /**
@@ -54,6 +82,20 @@ export const SkeletonSchema = BaseSchema.extend({
   height: z.union([z.string(), z.number()]).optional().describe('Skeleton height'),
   lines: z.number().optional().describe('Number of text lines'),
   animate: z.boolean().optional().describe('Enable animation'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `skeleton` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `height`, `width`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `skeleton` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `height`, `width`.',
+  ),
 });
 
 /**
@@ -110,6 +152,22 @@ export const ToastSchema = BaseSchema.extend({
     .enum(['default', 'secondary', 'destructive', 'outline', 'ghost', 'link'])
     .optional()
     .describe('Trigger button variant'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `toast` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `buttonLabel`, `buttonVariant`, `className`, `description`, `duration`, '
+    + '`title`, `variant`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `toast` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `buttonLabel`, `buttonVariant`, `className`, `description`, `duration`, '
+    + '`title`, `variant`.',
+  ),
 });
 
 /**
@@ -126,6 +184,20 @@ export const ToasterSchema = BaseSchema.extend({
     'bottom-right',
   ]).optional().describe('Toaster position'),
   limit: z.number().optional().describe('Maximum number of toasts'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `toaster` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `limit`, `position`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `toaster` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `limit`, `position`.',
+  ),
 });
 
 /**
@@ -134,6 +206,20 @@ export const ToasterSchema = BaseSchema.extend({
 export const SpinnerSchema = BaseSchema.extend({
   type: z.literal('spinner'),
   size: z.enum(['sm', 'md', 'lg', 'xl']).optional().describe('Spinner size'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `spinner` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `size`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `spinner` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `size`.',
+  ),
 });
 
 /**
@@ -155,6 +241,20 @@ export const EmptySchema = BaseSchema.extend({
   // is neither a node object with a `type` nor a primitive is refused, where
   // before it was admitted.
   action: SchemaNodeSchema.optional().describe('Call-to-action node rendered below the description'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `empty` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `action`, `className`, `description`, `title`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `empty` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `action`, `className`, `description`, `title`.',
+  ),
 });
 
 /**
@@ -180,6 +280,22 @@ export const SonnerSchema = BaseSchema.extend({
     .enum(['default', 'secondary', 'destructive', 'outline', 'ghost', 'link'])
     .optional()
     .describe('Action button variant'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `sonner` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `buttonLabel`, `buttonVariant`, `className`, `description`, `message`, '
+    + '`title`, `variant`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `sonner` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `buttonLabel`, `buttonVariant`, `className`, `description`, `message`, '
+    + '`title`, `variant`.',
+  ),
 });
 
 /**

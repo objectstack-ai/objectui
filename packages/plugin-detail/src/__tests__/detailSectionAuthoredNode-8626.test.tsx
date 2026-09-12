@@ -144,14 +144,17 @@ describe('objectui#8626 — an authored detail-section node renders its declared
   });
 
   /**
-   * ⚠️ Authored `collapsible: false` ON PURPOSE, and the reason is a defect
-   * this card did NOT fix: `DetailSection`'s collapsible branch renders a bare
-   * `<Card>` and never reads `section.showBorder`, so the key is honoured only
-   * on the non-collapsible branch. That is a separate, pre-existing bug inside
-   * `DetailSection` — the component this card deliberately leaves
-   * byte-identical — filed rather than repaired here. Pinning `showBorder`
-   * against the branch that DOES read it keeps this row a reading about the
-   * fold, not about that bug.
+   * Authored `collapsible: false` ON PURPOSE, so this row stays a reading
+   * about the FOLD — that `showBorder` reaches `DetailSection` at all — and
+   * not about which branch consumes it.
+   *
+   * It originally carried a second reason: `DetailSection`'s collapsible
+   * branch rendered a bare `<Card>` and never read `section.showBorder`, so
+   * only the non-collapsible branch honoured the key. That was a separate,
+   * pre-existing bug in the component this card deliberately leaves
+   * byte-identical; it was filed rather than repaired here, and objectui#9218
+   * has since closed it. The branch axis now lives where it belongs, in
+   * `DetailSection.collapsibleShowBorder-9218.test.tsx`.
    */
   it('honours `showBorder: false` by dropping the card border', () => {
     const bordered = renderAuthored({ collapsible: false, showBorder: true }).container;

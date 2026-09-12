@@ -38,7 +38,14 @@ for (const variant of [
     category: 'view',
   });
 }
-for (const variant of ['chart', 'bar-chart', 'line-chart', 'pie-chart', 'area-chart']) {
+// ⛔ `line-chart` / `area-chart` are RETIRED here too (objectui#8760): this
+// list is a second `registerLazy` site for the same plugin, and the doc gate's
+// key universe is the UNION of every such loop. Retiring them from
+// `register-plugins.ts` alone would have left both keys blessed by
+// `check:doc-types` from THIS file, so the retirement would have changed
+// nothing an author can observe. Chart families are reached as
+// `{ "type": "chart", "chartType": "line" | "area" }`.
+for (const variant of ['chart', 'bar-chart', 'pie-chart']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), {
     namespace: 'plugin-charts',
     category: 'chart',

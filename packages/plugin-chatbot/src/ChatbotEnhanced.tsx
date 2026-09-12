@@ -235,6 +235,24 @@ export interface ChatToolInvocation {
     | 'output-error'
     | 'output-denied';
   /**
+   * AI SDK v6 approval envelope, mirrored from `@object-ui/types`'
+   * `ChatToolInvocation` (objectui#8442). The SDK requires it alongside the
+   * three approval states; it is what carries a rehydrated pending approval's
+   * identity and, once decided, the decision itself.
+   *
+   * ⚠️ Distinct from `pendingActionId` below and NOT a replacement for it:
+   * this is the SDK's own request id, while `pendingActionId` is the
+   * ObjectStack `pending_actions` row the REST approve/reject endpoints take.
+   * The approval affordance is wired on the latter.
+   */
+  approval?: {
+    id: string;
+    approved?: boolean;
+    reason?: string;
+    isAutomatic?: boolean;
+    signature?: string;
+  };
+  /**
    * ObjectStack HITL extension. When the framework's `action-tools.ts`
    * proposes a destructive action that requires human approval, the tool
    * result carries `{ status: 'pending_approval', pendingActionId: 'pa_…' }`.

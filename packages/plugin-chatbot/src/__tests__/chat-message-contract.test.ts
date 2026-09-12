@@ -471,3 +471,53 @@ describe('the barrel no longer declares a message shape of its own', () => {
     );
   });
 });
+
+describe('the approval envelope is MIRRORED, not merely present on both sides (objectui#8442)', () => {
+  it('is pinned at compile time', () => {
+    // The word "mirrored" is the whole requirement here. Two independent
+    // declarations that happen to share a NAME would satisfy a `Has<>` probe
+    // while disagreeing about what they hold — and this member crosses the
+    // adapter as an untouched spread (`toRuntimeToolInvocation` destructures
+    // `state` and passes everything else through), so a divergence would be
+    // invisible at the seam and surface as a render-side read of a member the
+    // producer never wrote that way.
+    type AuthoredTool = NonNullable<AuthoredChatMessage['toolInvocations']>[number];
+    type EnhancedTool = NonNullable<EnhancedChatMessage['toolInvocations']>[number];
+
+    type _AuthoredHasApproval = Assert<Has<AuthoredTool, 'approval'>>;
+    type _EnhancedHasApproval = Assert<Has<EnhancedTool, 'approval'>>;
+
+    // Both directions, so neither side may widen or narrow alone.
+    type _ApprovalIsTheSameType = Assert<
+      Equal<AuthoredTool['approval'], EnhancedTool['approval']>
+    >;
+
+    // And it is not an erased slot pretending to agree.
+    type _NotAny = Assert<Equal<IsAny<NonNullable<AuthoredTool['approval']>>, false>>;
+    type _NotUnknown = Assert<Equal<IsUnknown<NonNullable<AuthoredTool['approval']>>, false>>;
+
+    // `id` is required inside the envelope; everything else is optional. This
+    // is what makes the envelope repliable rather than decorative.
+    type Envelope = NonNullable<AuthoredTool['approval']>;
+    type _IdRequired = Assert<Equal<Envelope extends { id: string } ? true : false, true>>;
+    type _IdIsNotOptional = Assert<Equal<Equal<Envelope, Partial<Envelope>>, false>>;
+
+    // It reaches the seam's input and the hook's output for free — both derive
+    // from the authoring declaration — so a future narrowing of either says
+    // WHICH capability it dropped.
+    type SeamTool = NonNullable<SeamChatMessage['toolInvocations']>[number];
+    type HookTool = NonNullable<ObjectChatMessage['toolInvocations']>[number];
+    type _SeamToolHasApproval = Assert<Has<SeamTool, 'approval'>>;
+    type _HookToolHasApproval = Assert<Has<HookTool, 'approval'>>;
+
+    // ⚠️ The envelope is OPTIONAL on purpose: this card ships the widening, and
+    // objectui#8426 owns the narrowing that pairs it with the three approval
+    // states. Pinning that the member is NOT required keeps a later "tidy-up"
+    // from shipping that break under this card's name.
+    type _ApprovalIsOptional = Assert<
+      Equal<Omit<AuthoredTool, 'approval'> extends AuthoredTool ? true : false, true>
+    >;
+
+    expect(true).toBe(true);
+  });
+});

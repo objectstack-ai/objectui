@@ -127,18 +127,32 @@ function renderEmptyBoard(schema: Record<string, unknown>, language: string | nu
   return { ...result, find };
 }
 
+/** What a row reads when the board mounted and settled but announced nothing. */
+const SILENT = '(no live region)';
+
 /**
- * Settle the board and PROVE it settled, then wait for the live region to carry
- * text — a reading taken before either would be about a board mid-flight.
+ * Settle the board, PROVE it settled, then read the live region.
+ *
+ * ⚠️ The rig self-check is on the BOARD, not on the live region, and the
+ * difference is the whole diagnostic value of this helper. A missing live region
+ * is a READING — it is what a board that stopped announcing looks like, which is
+ * exactly the regression the `objectui#9045 is NOT undone` case below exists to
+ * catch — so it returns `SILENT` and lets the caller judge it. A missing BOARD is
+ * a rig failure and throws, because nothing can be read off a board that never
+ * mounted.
+ *
+ * Read as non-empty text rather than an English needle: the title comes from the
+ * pack, so a needle would make every non-`en` path fail as a rig failure instead
+ * of as the reading it is. The exact text is asserted by the caller.
  */
 async function settledAnnouncement(find: ReturnType<typeof vi.fn>): Promise<string> {
   await waitFor(() => expect(find).toHaveBeenCalled());
-  // Non-empty rather than an English needle: the title comes from the pack, so a
-  // needle would make every non-`en` leg fail as a rig failure instead of as the
-  // reading it is. The exact text is asserted by the caller.
+  const mounted = await pumpUntil(
+    () => !!document.querySelector('[role="region"][aria-label="Kanban board"]'),
+  );
+  expect(mounted, 'RIG SELF-CHECK: the board itself must be on screen').toBe(true);
   const painted = await pumpUntil(() => announcement().trim().length > 0);
-  expect(painted, 'RIG SELF-CHECK: the live region must have painted before it is read').toBe(true);
-  return announcement();
+  return painted ? announcement() : SILENT;
 }
 
 /** Read all three lane shapes in one language, one render each. */
@@ -154,53 +168,67 @@ async function readAllThree(language: string | null): Promise<Record<string, str
 
 afterEach(cleanup);
 
-describe('objectui#9170 — zero, one and two lanes announce the SAME numberless string', () => {
-  it('en, through the provider', async () => {
-    const read = await readAllThree('en');
-    // 1. today's copy, byte for byte
-    expect(read).toEqual({ ZERO: 'No cards', ONE: 'No cards', TWO: 'No cards' });
-    // 2. ⭐ the card's own claim: the same string at every lane count. Stated as
-    //    an equality rather than three literals, so it keeps holding if the copy
-    //    is reworded and stops holding the moment the rows diverge again.
-    expect(new Set(Object.values(read)).size, 'the three lane counts no longer read alike').toBe(1);
-    // 3. the leg that survives a copy change: no digit, in any spelling
-    for (const [row, text] of Object.entries(read)) {
+/**
+ * One render set per path, reused by the three claims below.
+ *
+ * ⭐ The claims are SEPARATE cases on purpose. As one case they were three
+ * assertions in a row, and the first — byte equality — aborted before the other
+ * two ran: under a mutation that swaps the description for another NUMBERLESS
+ * string, the byte pin fires and the equality and no-digit legs are never
+ * evaluated, so an ablation cannot show that they held. Assertions that share a
+ * case cannot be measured independently, and three legs whose independence is
+ * unmeasured are one leg wearing three hats.
+ *
+ * The cache is what makes that affordable: the renders happen once per path, not
+ * once per claim. Nothing is cached unless the read completed, so a rig failure
+ * re-reads rather than poisoning the later cases with a stale answer.
+ */
+const READ_CACHE = new Map<string, Record<string, string>>();
+async function readings(language: string | null): Promise<Record<string, string>> {
+  const cacheKey = language ?? '(no provider)';
+  const cached = READ_CACHE.get(cacheKey);
+  if (cached) return cached;
+  const fresh = await readAllThree(language);
+  READ_CACHE.set(cacheKey, fresh);
+  return fresh;
+}
+
+/**
+ * The three paths this has to hold on. They are not redundant:
+ *
+ *   - through the provider is what the console runs;
+ *   - provider-less is `createSafeTranslation`'s fallback, which reads its own
+ *     defaults table and never sees the pack — an embedder's path, and the one
+ *     the card's original three-lane measurement was taken on;
+ *   - `ru` is where the route this card did NOT take would have been hardest:
+ *     a plural family there reaches `few` at the everyday two-to-four lanes.
+ *     With no number in the region there is nothing for any language's plural
+ *     rules to act on, and that is shown rather than argued.
+ */
+const PATHS: Array<[label: string, language: string | null, expected: string]> = [
+  ['en, through the provider', 'en', 'No cards'],
+  ['provider-less — an embedder, and the path the card measured', null, 'No cards'],
+  ['ru — the numberless claim is language-independent', 'ru', 'Нет карточек'],
+];
+
+describe.each(PATHS)('objectui#9170 — %s', (_label, language, expected) => {
+  it('reads the same copy, byte for byte, at zero / one / two lanes', async () => {
+    expect(await readings(language)).toEqual({ ZERO: expected, ONE: expected, TWO: expected });
+  });
+
+  it('⭐ the SAME string at every lane count — the card\'s actual claim', async () => {
+    // Stated as an equality rather than three literals: it keeps holding if the
+    // copy is reworded, and stops holding the moment the rows diverge again —
+    // which is precisely what "1 columns" was.
+    const read = await readings(language);
+    expect(new Set(Object.values(read)).size, `the three lane counts no longer read alike: ${JSON.stringify(read)}`).toBe(1);
+  });
+
+  it('carries no digit in any row — the leg that survives a rewording', async () => {
+    // A count that comes back in a spelling nobody predicted is still a count.
+    for (const [row, text] of Object.entries(await readings(language))) {
       expect(/\d/.test(text), `${row} put a number back into the live region: ${text}`).toBe(false);
     }
-    // …and the exact string this card was filed on is named, so the defect is
-    // refused rather than merely absent.
-    expect(read.ONE).not.toBe('No cards1 columns');
-  });
-
-  it('provider-less — the path the card measured, and an embedder gets', async () => {
-    // ⛔ NOT a second copy of the case above: this is the `createSafeTranslation`
-    // fallback, which resolves its own defaults table and never sees the pack.
-    // Route 3 is the only one of the card's three routes that is correct on BOTH
-    // paths at once, because a path with no number needs no plural logic — and
-    // `fallbackT` has none (it reads `defaults[key]` literally and never appends
-    // a suffix; see `packages/plugin-detail/src/useDetailTranslation.ts`).
-    const read = await readAllThree(null);
-    expect(read).toEqual({ ZERO: 'No cards', ONE: 'No cards', TWO: 'No cards' });
-    expect(new Set(Object.values(read)).size).toBe(1);
-    for (const [row, text] of Object.entries(read)) {
-      expect(/\d/.test(text), `${row}: ${text}`).toBe(false);
-    }
-  });
-
-  it('ru — the numberless claim is language-independent, which is what route 3 buys', async () => {
-    // The route the ruling refused would have needed a plural family per pack,
-    // with `ru` reaching `few` at the everyday two-to-four lanes. With no number
-    // in the region there is nothing for any language's plural rules to act on,
-    // and that is visible here rather than argued: three lane counts, one string,
-    // in Russian.
-    const read = await readAllThree('ru');
-    expect(read).toEqual({ ZERO: 'Нет карточек', ONE: 'Нет карточек', TWO: 'Нет карточек' });
-    expect(new Set(Object.values(read)).size).toBe(1);
-    for (const [row, text] of Object.entries(read)) {
-      expect(/\d/.test(text), `${row}: ${text}`).toBe(false);
-    }
-    // …and it really is the pack answering, not an English fallback.
-    expect(read.ONE).not.toContain('No cards');
   });
 });
 
@@ -222,12 +250,13 @@ describe('objectui#9170 — the rows above are readings, not an empty probe', ()
   it('⛔ objectui#9045 is NOT undone — one lane still announces, it just says less', async () => {
     // Route 3 removes the NUMBER, never the announcement. A repair that restored
     // the `> 1` predicate would satisfy every "no digit" leg above by making the
-    // region vanish on the two shapes objectui#9045 exists to serve.
+    // region vanish on the two shapes objectui#9045 exists to serve — which is
+    // the ablation leg this case exists to catch.
     for (const row of ['ZERO', 'ONE'] as const) {
       const schema = SHAPES.find(([name]) => name === row)![1];
       const { find } = renderEmptyBoard(schema, 'en');
       const text = await settledAnnouncement(find);
-      expect(text, `${row} lanes: the board must still announce`).toBe('No cards');
+      expect(text, `${row} lanes: the board went silent — that is objectui#9045 undone`).toBe('No cards');
       cleanup();
     }
   });

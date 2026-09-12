@@ -154,9 +154,17 @@ describe('objectui#8674 · the row a predicate refuses does not draw the action'
     // principal's grant, the record-level verdict). A prop that could widen
     // would be the one hole in that chain, and a host could hand a user an
     // affordance the object's own policy removed.
+    //
+    // The two members are set in OPPOSITE directions on purpose, so this reads
+    // the wiring rather than a vacuous truth: the grid opens `update` and the
+    // predicate closes it (Edit must go — an assertion that dies with the
+    // wiring), while the grid closes `delete` and the predicate says `true`
+    // (Delete must stay gone — the union claim itself). A test that only made
+    // the union claim would stay green with the whole mechanism deleted,
+    // because an unconsulted predicate cannot widen anything either.
     renderGrid({
-      operations: { update: false, delete: false },
-      rowOperations: () => ({ update: true, delete: true }),
+      operations: { update: true, delete: false },
+      rowOperations: () => ({ update: false, delete: true }),
     });
     await settle();
 

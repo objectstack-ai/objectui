@@ -1155,15 +1155,31 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
  * The backlog ceiling below counts `UNPUBLISHED_EXEMPTIONS` entries on
  * `LAZY_REGISTERED_BLOCKS`, and until objectui#8201's slice 2 every one of them
  * was the same thing: a declaration someone owed. That is no longer true of
- * `object-kanban.quickAdd`, so counting it as backlog would report work that
- * nobody is going to do — and, worse, would leave the ceiling sitting one above
- * the real number, which is exactly the headroom the ratchet exists to refuse.
- * A fresh divergence on these two blocks could then be greened by writing a new
- * entry under the old ceiling, with no assertion moving.
- *
- * So the ruling is recorded HERE, as data, and subtracted from the backlog. The
- * reason text cannot carry this: the ceiling reads KEYS, and no assertion can
+ * `object-kanban.quickAdd`, so counting it as backlog reports work nobody is
+ * going to do. The ruling is therefore recorded HERE, as data, and subtracted.
+ * The reason text cannot carry it: the ceiling reads KEYS, and no assertion can
  * read prose.
+ *
+ * ## ⚠️ What moving the number 1 -> 0 does NOT buy, measured rather than argued
+ *
+ * It does NOT close a hole. The obvious story — "a ceiling one above the real
+ * number banks headroom, so a fresh divergence could be greened by writing an
+ * entry under it" — is FALSE here, and the ablation on objectui#8201's slice 2
+ * says so rather than reasoning about it. The same fresh divergence (a declared
+ * key removed from `OBJECT_KANBAN_INPUTS` and greened with a new entry) was run
+ * against BOTH shapes of this ceiling: it reddens at `expected 1 to be less
+ * than or equal to 0` on this branch, and at `expected 2 to be less than or
+ * equal to 1` on the shape that preceded it. The `toBe` half is EXACT in both
+ * directions, so growth was already refused at 1; there was never headroom to
+ * bank.
+ *
+ * ⇒ What the move buys is that the number stays TRUE. It is a MEASUREMENT of
+ * how many declarations are owed on these two blocks, and after the ruling that
+ * count is zero. Leaving it at 1 would have made this ceiling say one is owed
+ * when none is — the same stale-number-beside-a-correct-assertion drift this
+ * file has already had to correct twice (see the ladder in the ceiling's own
+ * comment). A ratchet whose number has stopped describing anything is the thing
+ * a reader stops trusting.
  *
  * ## Three things make this a record of a ruling and not a new hiding place
  *

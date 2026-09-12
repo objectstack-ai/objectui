@@ -129,6 +129,18 @@
  * declared document nothing reads is one extra run, and the cost of a missed
  * one is the defect this file exists to close.
  *
+ * ### The repository root is a tree too -- `./*` (objectui#9142)
+ *
+ * The entries above buy their whole value from INHERITANCE: a page added under
+ * `content/docs/` is on the trigger the moment it lands, because the tree was
+ * declared rather than its members. The repository root had no tree spelling,
+ * so its documents were declared one by one -- and a root document nobody had
+ * declared yet was not on the trigger at all. Adding `SECURITY.md` skipped
+ * `Test (shard N/4)`, and `check-doc-links.test.ts`, whose stated job is to
+ * fail on a root document with no `SCAN_ROOTS` row, was the test that did not
+ * run. `./*` is the root's tree spelling: depth 1, markdown only. See
+ * `matchesEntry()` for why depth 1 and not `**`.
+ *
  * ## ⛔ What this does NOT answer -- read this before citing it as coverage
  *
  *   1. **Test surfaces outside `SCAN_ROOTS`.** ⭐ RULED, objectui#9096 -- this
@@ -560,10 +572,18 @@ export const ADJUDICATED = new Map([
       walker: 'markdown-tree',
     },
   ],
+  // `./*` rather than the eight root documents it used to list, and the
+  // distinction is the whole of objectui#9142. This test does not read a list
+  // of root documents -- it runs `git ls-files -- '*.md'`, keeps the paths with
+  // no separator in them, and fails when one of them has no `SCAN_ROOTS` row.
+  // Its own words: "scans EVERY tracked root-level markdown file -- the
+  // invariant that replaces the list". Its input is therefore the root CLASS,
+  // and a list of the eight members was a declaration that went stale on the
+  // ninth -- at precisely the moment the test was written to speak.
   [
     'scripts/__tests__/check-doc-links.test.ts',
     {
-      reads: ['AGENTS.md', 'CHANGELOG.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**'],
+      reads: ['./*', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**'],
     },
   ],
   [
@@ -737,10 +757,14 @@ export const ADJUDICATED = new Map([
       walker: 'not-markdown: workspace `package.json` manifests and turbo input globs',
     },
   ],
+  // `./*` for the same reason as `check-doc-links.test.ts` above, reached by a
+  // different route: this one takes its population from `trackedFiles()` in
+  // `dollar-dialect-alias-census.mjs`, which is `git ls-files -z` -- EVERY
+  // tracked path, root documents included, with no list anywhere to update.
   [
     'scripts/__tests__/dollar-dialect-alias-census.test.ts',
     {
-      reads: ['.changeset/**', '.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'AGENTS.md', 'CHANGELOG.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
+      reads: ['./*', '.changeset/**', '.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
     },
   ],
   [
@@ -781,7 +805,7 @@ export const ADJUDICATED = new Map([
     'scripts/__tests__/markdown-test-inputs.test.ts',
     {
       reads: [],
-      notRead: ['AGENTS.md', 'README.md', 'ROADMAP.md', 'packages/plugin-dashboard/README.md'],
+      notRead: ['AGENTS.md', 'README.md', 'ROADMAP.md', 'packages/app-shell/README.md', 'packages/plugin-dashboard/README.md'],
     },
   ],
   [
@@ -823,16 +847,67 @@ export const ADJUDICATED = new Map([
 export const isMarkdown = (rel) => /\.mdx?$/.test(rel);
 
 /**
+ * Is this entry a CLASS of documents rather than one document?
+ *
+ * Two spellings, and what separates them is DEPTH:
+ *
+ *   `dir/**`   every markdown document under `dir`, at any depth.
+ *   `dir/*`    every markdown document directly IN `dir`, and none deeper.
+ *
+ * Neither names a file, so neither is something `missingDocuments()` can look
+ * for on disk -- that is the one thing this predicate is for.
+ */
+export const isClassEntry = (entry) => entry.endsWith('/**') || entry.endsWith('/*');
+
+/**
  * Does one repo-relative path match one ledger entry?
  *
  * A `…/**` entry matches every markdown document under that directory, at any
- * depth. Anything else is one exact path -- deliberately not a glob, so a new
- * document beside a declared one does not inherit its declaration by accident.
+ * depth. A `…/*` entry matches only the documents directly in it. Anything else
+ * is one exact path -- deliberately not a glob, so a new document beside a
+ * declared one does not inherit its declaration by accident.
+ *
+ * ## The repository root is spelled `./*` (objectui#9142)
+ *
+ * A document inside a declared tree inherits that tree's declaration the moment
+ * it lands -- that is what a `…/**` entry buys, and it is why a new page under
+ * `content/docs/` is on the trigger before anyone has thought about it. The
+ * repository ROOT had no tree spelling at all, so every root document was
+ * declared per file, and a root document nobody had declared yet was not on the
+ * trigger: a pull request whose only change was "add `SECURITY.md`" skipped
+ * `Test (shard N/4)`.
+ *
+ * ⇒ the test that does not run is exactly the one written to notice. Measured
+ * on `f080538813`, before this spelling existed:
+ *
+ *     LIT CONTROL  planted undeclared root doc  SECURITY.md
+ *        Test (shard N/4) step : should_run=false   matched: (none)
+ *
+ * and `scripts/__tests__/check-doc-links.test.ts` describes itself as scanning
+ * "EVERY tracked root-level markdown file -- the invariant that replaces the
+ * list", failing when a root document has no `SCAN_ROOTS` row. An invariant
+ * that replaces a list is silent at the one moment the list would have been
+ * updated. The merge queue catches it and dequeues the pull request, which is
+ * the objectui#8857 shape and the objectui#8857 cost.
+ *
+ * ⛔ `./*` is NOT a step toward "every markdown file". The depth-1 spelling is
+ * the narrowest thing that gives the root what every declared tree already has;
+ * it matches `SECURITY.md` and it does not match `docs/NOTES.md`. The resolved
+ * input list is still a resolved input list -- the fence objectui#9096 carried
+ * ("a resolved input list, ⛔ not a glob") governs this file and is intact.
  */
 export function matchesEntry(rel, entry) {
   if (entry.endsWith('/**')) {
     const prefix = `${entry.slice(0, -3)}/`;
     return rel.startsWith(prefix) && isMarkdown(rel);
+  }
+  if (entry.endsWith('/*')) {
+    // `./*` is the repository root, whose prefix is the empty string; every
+    // other `dir/*` carries its own trailing separator.
+    const dir = entry.slice(0, -2);
+    const prefix = dir === '.' ? '' : `${dir}/`;
+    if (!isMarkdown(rel) || !rel.startsWith(prefix)) return false;
+    return !rel.slice(prefix.length).includes('/');
   }
   return rel === entry;
 }
@@ -860,9 +935,24 @@ export function readersByEntry() {
  * The subset of `paths` that this repository has recorded as a test's input.
  *
  * Paths are taken as repo-relative, which is what `git diff --name-only` emits.
+ *
+ * ## Every matching entry, not the first one (objectui#9142)
+ *
+ * Entries OVERLAP, and they always have: `packages/app-shell/README.md` is one
+ * test's declared read and is also inside `packages/**`, which is another's.
+ * Reporting only the first match made the readers list an artefact of sort
+ * order -- that README reported eight readers and lost the ninth, the one whose
+ * entry names the file exactly. The root class makes the same overlap
+ * structural rather than incidental, so the union is taken here: `entries` is
+ * every rule that covers the document and `readers` is every test behind them.
+ *
+ * `should_run` does not depend on this -- one match is enough to run everything
+ * and the caller in `ci.yml` reads only the path. The readers do: they are what
+ * the log line names when it says which test is waiting on this document.
  */
 export function markdownTestInputsAmong(paths) {
   const entries = declaredEntries();
+  const readers = readersByEntry();
   const out = [];
   for (const raw of paths) {
     // `git diff --name-only` wraps a path in double quotes when it holds a byte
@@ -871,8 +961,11 @@ export function markdownTestInputsAmong(paths) {
     const unquoted = raw.trim().replace(/^"(.*)"$/, '$1');
     const rel = unquoted.replace(/^\.\//, '');
     if (!rel || !isMarkdown(rel)) continue;
-    const hit = entries.find((entry) => matchesEntry(rel, entry));
-    if (hit) out.push({ path: rel, entry: hit, readers: readersByEntry().get(hit) ?? [] });
+    const hits = entries.filter((entry) => matchesEntry(rel, entry));
+    if (!hits.length) continue;
+    const tests = new Set();
+    for (const entry of hits) for (const test of readers.get(entry) ?? []) tests.add(test);
+    out.push({ path: rel, entries: hits, readers: [...tests].sort() });
   }
   return out;
 }
@@ -1036,10 +1129,17 @@ export function auditTree(candidates) {
   return findings;
 }
 
-/** Ledger entries naming one document that is not in the tree. */
+/**
+ * Ledger entries naming one document that is not in the tree.
+ *
+ * A class entry (`…/**`, `…/*`) is skipped: it names a rule, not a file, so
+ * there is nothing to look for. objectui#9142's triage named the trap this
+ * avoids -- `missingDocuments()` reds on a declared path that is not in the
+ * tree, so a root class spelled as if it were a path would red every run.
+ */
 export function missingDocuments({ root = REPO_ROOT } = {}) {
   return declaredEntries().filter(
-    (entry) => !entry.endsWith('/**') && !existsSync(path.join(root, entry)),
+    (entry) => !isClassEntry(entry) && !existsSync(path.join(root, entry)),
   );
 }
 

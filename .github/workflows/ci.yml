@@ -334,6 +334,26 @@ jobs:
         if: steps.relevant.outputs.should_run == 'true'
         run: pnpm check:handler-key-reads
 
+      # objectui#7714 ruled one client behaviour and its PR implemented that ruling
+      # by ENUMERATING the writers it knew of. Two. objectui#8057 hit the same
+      # defect on a third in that card's own required dogfood, and objectui#8676's
+      # sweep found nine more — and, the half that outlives the count, the sweep
+      # shape the question is naturally asked in (`client.save(`) CANNOT SEE them:
+      # it returns zero over the very file objectui#8057 is about, because the call
+      # is `client.save<any>(type, ...)`. A hand list of writers is stale the next
+      # time somebody adds one, and nothing says so.
+      #
+      # So this step enumerates DOORS, not writers. The writer set is open and
+      # nobody has to announce a new member; the transport set is closed and this
+      # repo owns it. It derives every call that PUTs `/meta/:type/:name` —
+      # resolving the URL through templates, fields and helper returns, because
+      # the central door says nothing at its own call site — and requires each one
+      # that can carry an object document to reach the guard. Parses sources with
+      # `typescript`, so it needs the install and nothing built.
+      - name: Verify every object-metadata write door applies the write guard
+        if: steps.relevant.outputs.should_run == 'true'
+        run: pnpm check:metadata-write-doors
+
       # A build tsconfig that excludes tooling by FILE NAME (`*.test.ts`) stops
       # the files that happen to be named that way and nothing else. The first
       # shared helper added to a `__tests__/` directory is then a program input,

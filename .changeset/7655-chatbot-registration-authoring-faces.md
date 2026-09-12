@@ -38,11 +38,14 @@ per key on the PR's base (one `schema.KEY` read per registration body in
   plus `enableMarkdown`, `enableFileUpload`, `onClear`, and the two keys it
   declares alongside `ChatbotSchema` — `floatingConfig` (`FloatingChatbotConfig`)
   and `displayMode`. No `maxHeight`, `processVisibility` or `surface`: the
-  floating registration has no named read for any of them. (Its trailing raw
-  props spread does carry authored keys into the panel today — `processVisibility`,
-  `surface` and `showAvatars` are live there, measured through the real host;
-  that accidental channel is tracked as objectui#7708, and this face neither
-  declares nor promises it.)
+  floating registration has no named read for any of them. (At this change its
+  trailing raw props spread still carried authored keys into the panel —
+  `processVisibility`, `surface` and `showAvatars` were live there, measured
+  through the real host — and this face neither declared nor promised that
+  accidental channel, which was tracked as objectui#7708. That card has since
+  fenced the spread the way the two sibling registrations do, so those three keys
+  are dark on `chatbot-floating` now; no member this face declares depended on
+  the channel.)
 - Neither face declares `ChatbotSchema`'s six legacy members (`loading`,
   `showAvatars`, `userAvatar`, `assistantAvatar`, `markdown`, `height`) — no
   registration reads them by name — and neither redeclares `disabled`, which

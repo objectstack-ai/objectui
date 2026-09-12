@@ -14,13 +14,20 @@
  * ## Why this row exists on the html tier specifically
  *
  * The old input name was unauthorable HERE and only here it is provable in one
- * hop. `parse.ts` composes a node as `{ type: tag, ...props }` — props spread
- * LAST — so an authored `type="api"` did not set an input, it REPLACED the
- * component discriminator and the node stopped resolving to a component at all.
- * `validate.ts` cannot report that either: `type` is in `BASE_PROPS`, so it is
- * skipped before the declared-input check ever runs. Two mechanisms, one
- * outcome, no diagnostic — which is the whole reason the collision was removed
- * at the source instead of being special-cased per tier.
+ * hop. `parse.ts` used to compose a node as `{ type: tag, ...props }` — props
+ * spread LAST — so an authored `type="api"` did not set an input, it REPLACED
+ * the component discriminator and the node stopped resolving to a component at
+ * all. `validate.ts` could not report that either: `type` is in `BASE_PROPS`,
+ * so it is skipped before the declared-input check ever runs. Two mechanisms,
+ * one outcome, no diagnostic — which is the whole reason the collision was
+ * removed at the source instead of being special-cased per tier.
+ *
+ * ⚠️ UPDATED by objectui#7235: the parser now REFUSES a `type` attribute on
+ * this tier outright (`forbidden-attr`, one diagnostic naming both the tag and
+ * the attribute) and composes `{ ...props, type: tag }`. Row 3 below still
+ * fails to compile and still renders no button, but for the ruled reason
+ * instead of the accidental one, and it now asserts WHICH diagnostic — without
+ * that it would go on passing while measuring nothing.
  *
  * The renamed input has no such problem: `actionType` is an ordinary declared
  * prop, so it survives the spread, validates against the manifest built from
@@ -36,10 +43,11 @@
  *    the handler being the only one registered; with it, the value is pinned to
  *    the authored prop.
  * 3. NO ALIAS — the pre-rename spelling `type="api"` does not resurrect the old
- *    behaviour. It is the discriminator: the node's type becomes `api`, which is
- *    not a component, so the page reports `unknown-component` and no button is
- *    rendered. It states the cost the ruling accepted by name (no alias, no
- *    transition window — the standing 不渐进 rule).
+ *    behaviour. Since objectui#7235 the attribute is REFUSED at parse, so the
+ *    page reports `forbidden-attr` naming the attribute and no button is
+ *    rendered. (Before that port it was the discriminator, and the page
+ *    reported `unknown-component` naming the VALUE.) Either way it states the
+ *    cost the ruling accepted by name: no alias, no transition window.
  * 4. THE DECLARATION — rows 1-3 are about the RENDERER, and every one of them
  *    was green before this change too: the renderer already read `actionType`
  *    first (`action:bar`'s member spread has always used it), and an undeclared
@@ -155,9 +163,14 @@ describe('objectui#7415 — action:button authors its execution type on the html
   it('no alias — the pre-rename `type` spelling is still the discriminator, not an input', async () => {
     renderHtmlPage(`<action:button label="Mark done" type="api" target="${TARGET}" />`);
 
-    // `{ type: tag, ...props }` — the authored `type` wins the slot, so the node
-    // is `<api>`, which no registry entry claims.
+    // objectui#7235: the attribute is refused at parse, so the panel names the
+    // ATTRIBUTE rather than the value. Asserting the panel alone would keep
+    // passing on the old `unknown-component` reading too, which is exactly the
+    // misdirection that port removed — so the message is read, not just the
+    // fact that compilation failed.
     expect(await screen.findByText(/failed to compile/i)).toBeInTheDocument();
+    expect(screen.getByText(/Attribute "type" is not allowed on <action:button>/)).toBeInTheDocument();
+    expect(screen.queryByText(/unknown component/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Mark done' })).not.toBeInTheDocument();
     expect(api).not.toHaveBeenCalled();
   });

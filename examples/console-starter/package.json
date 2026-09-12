@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint .",
+    "test": "vitest run --root ../.. examples/console-starter/",
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
     "preview": "vite preview"
   },

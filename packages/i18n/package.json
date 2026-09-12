@@ -23,6 +23,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./locales": {
+      "types": "./dist/locales/index.d.ts",
+      "import": "./dist/locales/index.js",
+      "default": "./dist/locales/index.js"
+    },
     "./locales/*": {
       "types": "./dist/locales/*.d.ts",
       "import": "./dist/locales/*.js",

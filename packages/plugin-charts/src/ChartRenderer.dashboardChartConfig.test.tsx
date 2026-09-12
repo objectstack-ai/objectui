@@ -27,6 +27,20 @@
  * produces it is pinned in plugin-dashboard's
  * `DatasetWidget.chartConfig.test.tsx`; together the two close the loop from
  * dashboard metadata to drawn pixels.
+ *
+ * ⭐ What this file is NOT (objectui#4044). Since that card the two INLINE
+ * dashboard relays (`DashboardRenderer` and `DashboardGridLayout`, for widgets
+ * bound to inline rows or to a `provider: 'object'` aggregate rather than to an
+ * ADR-0021 dataset) lower the same keys through the same
+ * `chartConfigPresentation` whitelist onto a node of the same shape. It is
+ * tempting to read the assertions below as covering those relays too. They do
+ * not, and the difference was measured: with the forwarding deleted from BOTH
+ * relays, every test in this file still passed — because the schema above is
+ * hand-built here rather than composed by a relay. What this file pins is the
+ * CHART BLOCK: that a node carrying these keys draws them. The dashboard
+ * surface pins its own end of the chain, in plugin-dashboard's
+ * `DashboardChart.chartConfig-4044.test.tsx` (the seam) and its two
+ * end-to-end siblings `…chartConfigDom-4044` and `…chartConfigMarks-4044`.
  */
 
 import React from 'react';
@@ -191,6 +205,41 @@ describe('dashboard chartConfig — interaction (objectstack#7016)', () => {
     );
     await plotted(off);
     expect(off.querySelectorAll('.recharts-tooltip-wrapper').length).toBe(0);
+  });
+});
+
+describe('dashboard chartConfig — showLegend (objectui#4044)', () => {
+  // #3135 lowered this flag on the dataset path and objectui#4044 lowers it on
+  // the two inline relays, but it never had a DRAWN pin here — only seam ones.
+  // A pie is used because it draws one legend entry per CATEGORY, so the
+  // legend's presence is readable without a second series.
+  //
+  // Recharts registers the legend payload from a layout effect and the Legend
+  // re-renders off that store update, so the legend text arrives a tick after
+  // the surface does — hence `waitFor` rather than a read straight after
+  // `plotted`.
+  const legendText = (c: HTMLElement) => c.querySelector('.recharts-legend-wrapper')?.textContent ?? '';
+
+  it('draws the legend when undeclared (the schema default) and when explicitly on', async () => {
+    const { container: bare } = render(<ChartRenderer schema={dashboardSchema({ chartType: 'pie' }) as any} />);
+    await plotted(bare);
+    await waitFor(() => expect(legendText(bare)).toContain('open'));
+    cleanup();
+    const { container: on } = render(
+      <ChartRenderer schema={dashboardSchema({ chartType: 'pie', showLegend: true }) as any} />,
+    );
+    await plotted(on);
+    await waitFor(() => expect(legendText(on)).toContain('open'));
+  });
+
+  it('draws no legend when showLegend is false', async () => {
+    // `plotted` first: an empty legend has to mean "the plot drew and chose not
+    // to legend it", never "nothing rendered yet".
+    const { container } = render(
+      <ChartRenderer schema={dashboardSchema({ chartType: 'pie', showLegend: false }) as any} />,
+    );
+    await plotted(container);
+    expect(container.querySelector('.recharts-legend-wrapper')).toBeNull();
   });
 });
 

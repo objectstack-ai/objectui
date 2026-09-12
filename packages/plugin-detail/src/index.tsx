@@ -812,16 +812,35 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
   icon: 'triangle-alert',
   inputs: [
     { name: 'severity', type: 'enum', enum: ['info', 'warning', 'error', 'success'] },
-    // Two arms each (objectui#3832). Unlike the `page:*` specimens these two
-    // have no props schema to measure against — `ComponentPropsMap` carries no
-    // `record:alert` entry at rc.6 — so the second arm is justified by the
-    // RENDERER: `renderers/record-alert.tsx` resolves both through
-    // `pickLocalized`, which is exactly what these descriptions teach. Declaring
-    // the map arm therefore adds no shape the block does not already honour; it
-    // stops the manifest gate warning `type-mismatch` on the recommended write.
+    // Two arms each (objectui#3832). When these were declared, `ComponentPropsMap`
+    // carried no `record:alert` entry to measure against, so the second arm was
+    // justified by the RENDERER: `renderers/record-alert.tsx` resolves both
+    // through `pickLocalized`, which is exactly what these descriptions teach.
+    // Declaring the map arm therefore adds no shape the block does not already
+    // honour; it stops the manifest gate warning `type-mismatch` on the
+    // recommended write. (The row DOES exist as of the installed 17.4.0 — read
+    // for `visible` below, objectui#9100 — so the "no entry" reading is stale;
+    // these two arms are unaffected either way.)
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
     { name: 'body', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
-    { name: 'visible', type: 'string', description: 'Expression gating the banner against the current record' },
+    // objectui#9100 — the spec accepts three arms here and the renderer now
+    // resolves all three, so a single `'string'` was the declaration-narrower-
+    // than-the-contract family of objectui#4581, one layer up. Measured on the
+    // INSTALLED `@objectstack/spec` 17.4.0 (`dist/ui/index.d.ts`, the
+    // `ComponentPropsMap['record:alert']` row): `visible` is
+    // `boolean | string | { dialect: 'cel'|'cron'|'template', source?, … }`,
+    // and `renderers/record-alert.tsx` hands whichever arrives to
+    // `toPredicateInput`, which takes a boolean as a short-circuit, a bare
+    // string as the legacy spelling, and a `cel` envelope as the canonical
+    // one. The envelope arm only became reachable through `SchemaRenderer`
+    // with this card's fix, which is the order `ComponentInput.type`
+    // prescribes: teach the render site, then declare the arm.
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Gates the banner against the current record: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope',
+    },
     { name: 'icon', type: 'string', description: 'Lucide icon name; defaults to the severity icon' },
     { name: 'action', type: 'object', description: '{ actionName, label?, variant? } — the action the banner offers' },
     { name: 'dismissible', type: 'boolean' },

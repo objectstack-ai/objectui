@@ -42,6 +42,13 @@
  *                               performs a top-level REGISTRATION,
  *                               in BOTH its source and its published spelling
  *
+ * ...where "the entry graph" is the union over EVERY entry point the manifest
+ * publishes, de-duplicated into one module set. See "Which entry forms anchor
+ * the walk" below: walking only the barrel made the gate blind in exactly its
+ * own failure class, since a registrar reachable only from a secondary entry is
+ * never proposed as MISSING and, if the array names it anyway, reads as STALE --
+ * so the gate would ARGUE for deleting a correct entry (objectui#8850).
+ *
  * Both directions are checked, because a `sideEffects` array can be wrong in
  * two ways and only one of them is loud:
  *
@@ -126,12 +133,37 @@
  *     `new Set`) is read as value-producing. That is the boundary
  *     {@link walkEntryGraph} already draws, for the reason it gives: another
  *     package's load-time behaviour is that package's manifest's problem.
- *   - only the graph reachable from the SOURCE BARREL is walked, so a registrar
- *     that only a SECONDARY entry form reaches is outside the enumeration
- *     entirely -- `@object-ui/types`' `./zod` entry is the live example, and it
- *     is why fixing this classifier does not by itself change that package's
- *     count. Tracked as objectui#8850; ⛔ do not read a zero here as "this
- *     package has no load-time effects", only as "none this gate can derive".
+ *   - a registration a module performs only when something CALLS it is not a
+ *     load-time effect at all, by construction. ⛔ do not read a zero here as
+ *     "this package has no load-time effects", only as "none this gate can
+ *     derive".
+ *
+ * ## Which entry forms anchor the walk (objectui#8850)
+ *
+ * `exports` keys that start with `.` are SUBPATHS -- separate things a consumer
+ * can import, so separate graph roots. Everything below a subpath is a
+ * CONDITION or a fallback array, and those choose a build FORMAT of the same
+ * subpath. {@link classifyEntryForms} sorts every published form on that
+ * structure plus what is on disk, into `entry-point`, `duplicate-entry`,
+ * `alternate-format` and `asset`, and refuses anything that is none of them.
+ *
+ * The refusal is the load-bearing half, and it is deliberately NOT "fail when a
+ * form cannot be mapped back to a source file". Measured over this workspace:
+ * the only two packages declaring an array publish, beside their barrel, a
+ * STYLESHEET and the `require` half of the SAME entry. Both are unmappable and
+ * neither is a defect, so a gate that failed on unmappable would be red on its
+ * entire population on day one. What must be loud is a form this gate cannot
+ * CLASSIFY -- because a skipped form is a skipped root, and a registrar behind
+ * it would never be proposed as MISSING. Silently skipping it would rebuild the
+ * gate's own silent-drop failure class one level up.
+ *
+ * The genuine multi-entry population is ZERO today (a stylesheet is not a graph
+ * root; a second format of one entry reaches exactly what that entry reaches),
+ * so this widening changes no verdict in this workspace right now. It is the
+ * next package with a real second entry -- `@object-ui/types`' `./zod`, whose
+ * one load-time effect is unreachable from `src/index.ts`, is the measured
+ * demonstration, and it is out of this gate's population only because it
+ * declares `sideEffects: false` -- that the widening is for.
  *
  * ## Reachability -- naming a module is not enough
  *
@@ -705,23 +737,30 @@ export function resolveRelative(fromFile, specifier) {
 }
 
 /**
- * The barrel plus every module reachable from it by relative import: the set a
- * bundler may shake, and therefore the set the declaration is a promise about.
+ * Every ENTRY POINT plus every module reachable from any of them by relative
+ * import: the set a bundler may shake, and therefore the set the declaration is
+ * a promise about.
+ *
+ * The roots are a SET and the walk is one traversal over a shared `seen` set,
+ * so N entry points cost the union of their graphs and never N times one of
+ * them — a package whose entries mostly overlap walks barely more than its
+ * barrel does (objectui#8850, question 2).
  *
  * Bare package specifiers stop the walk — another package's manifest is that
  * package's problem.
  *
- * @param {string} entryFile absolute path to the source barrel.
+ * @param {string | string[]} entryFiles absolute path(s) to the source entry point(s).
  * @param {string} [root]
  */
-export function walkEntryGraph(entryFile, root = REPO_ROOT) {
+export function walkEntryGraph(entryFiles, root = REPO_ROOT) {
+  const entryList = Array.isArray(entryFiles) ? entryFiles : [entryFiles];
   const seen = new Set();
   /** @type {Map<string, {effects: any[], edges: any[]}>} */
   const scans = new Map();
   /** @type {Map<string, {from: string, bare: boolean}[]>} */
   const importedBy = new Map();
   const unresolved = [];
-  const stack = [entryFile];
+  const stack = [...entryList];
 
   while (stack.length > 0) {
     const file = stack.pop();
@@ -744,7 +783,7 @@ export function walkEntryGraph(entryFile, root = REPO_ROOT) {
     }
   }
 
-  return { modules: [...seen], scans, importedBy, unresolved };
+  return { modules: [...seen], scans, importedBy, unresolved, entries: [...new Set(entryList)] };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -752,38 +791,93 @@ export function walkEntryGraph(entryFile, root = REPO_ROOT) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Every module path a bundler can resolve the PACKAGE to, package-relative,
- * derived from the manifest.
+ * Every SUBPATH the manifest publishes, with the forms published under it.
  *
- * `types` is skipped: type declarations are erased and are never a bundling
- * surface. `*` patterns are skipped because they name no single file — and a
- * package that grows one while declaring an array is reported by
- * {@link evaluatePackage} rather than silently dropped.
+ * The grouping is the whole point, and it is Node's own resolution rule rather
+ * than a heuristic: a key of the `exports` map that starts with `.` names a
+ * SUBPATH — a distinct thing a consumer can import, and therefore a candidate
+ * graph root. Everything BELOW a subpath is a CONDITION (`import`, `require`,
+ * `browser`, `default`) or a fallback array, and those select a build FORMAT of
+ * the same subpath. Two forms under one subpath are one entry point published
+ * twice; two subpaths are two entry points. {@link classifyEntryForms} turns
+ * that distinction into graph roots, and nothing downstream has to guess it
+ * back out of a flat list.
+ *
+ * `main` and `module` are the pre-`exports` spelling of the root subpath `.`
+ * and are folded into it. `types` is skipped: type declarations are erased and
+ * are never a bundling surface. A `null` target publishes nothing.
  */
-export function manifestEntryForms(manifest) {
-  const found = new Set();
+export function manifestEntrySubpaths(manifest) {
+  /** @type {Map<string, Set<string>>} */
+  const bySubpath = new Map();
+  const add = (subpath, form) => {
+    const forms = bySubpath.get(subpath) ?? new Set();
+    forms.add(normalize(form));
+    bySubpath.set(subpath, forms);
+  };
+
   for (const field of [manifest.main, manifest.module]) {
-    if (typeof field === 'string') found.add(normalize(field));
+    if (typeof field === 'string') add('.', field);
   }
-  const walk = (node) => {
+
+  /** Everything below a subpath key: conditions and fallback arrays, never a new subpath. */
+  const walkTarget = (subpath, node) => {
     if (node === null || node === undefined) return;
     if (typeof node === 'string') {
-      if (node.startsWith('./')) found.add(normalize(node));
+      if (node.startsWith('./')) add(subpath, node);
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const value of node) walkTarget(subpath, value);
       return;
     }
     if (typeof node !== 'object') return;
     for (const [key, value] of Object.entries(node)) {
       if (key === 'types') continue;
-      walk(value);
+      walkTarget(subpath, value);
     }
   };
-  walk(manifest.exports);
+
+  const exportsField = manifest.exports;
+  if (typeof exportsField === 'string' || Array.isArray(exportsField)) {
+    walkTarget('.', exportsField);
+  } else if (exportsField !== null && typeof exportsField === 'object') {
+    const keys = Object.keys(exportsField);
+    // Node's rule: a map whose keys ALL start with `.` is a subpath map; any
+    // other object is a bare condition set for the root subpath.
+    const isSubpathMap = keys.length > 0 && keys.every((k) => k === '.' || k.startsWith('./'));
+    if (isSubpathMap) {
+      for (const [key, value] of Object.entries(exportsField)) walkTarget(key, value);
+    } else {
+      walkTarget('.', exportsField);
+    }
+  }
+
+  return [...bySubpath.entries()]
+    .map(([subpath, forms]) => ({ subpath, forms: [...forms].sort() }))
+    .filter((entry) => entry.forms.length > 0)
+    .sort((a, b) => a.subpath.localeCompare(b.subpath));
+}
+
+/**
+ * Every module path a bundler can resolve the PACKAGE to, package-relative —
+ * the flat view of {@link manifestEntrySubpaths}, derived from it rather than
+ * collected a second time so the two can never disagree about what is
+ * published.
+ */
+export function manifestEntryForms(manifest) {
+  const found = new Set();
+  for (const entry of manifestEntrySubpaths(manifest)) {
+    for (const form of entry.forms) found.add(form);
+  }
   return [...found].sort();
 }
 
 /**
  * The map between a package's SOURCE spelling and its PUBLISHED spelling, and
- * the source barrel both are anchored on.
+ * the source barrel both are anchored on. Both directions: {@link
+ * classifyEntryForms} needs the inverse to decide which SECONDARY forms are
+ * entry points.
  *
  * Derived, not configured: the published barrel comes from the manifest, the
  * source barrel is found on disk beside it, and the transform is whatever turns
@@ -820,6 +914,31 @@ export function deriveSpellingMap(pkg, root = REPO_ROOT) {
   const toPublished = (sourceRel) =>
     `${distRoot}/${sourceRel.slice(srcRoot.length + 1).replace(/\.(tsx|ts|mts|jsx|js|mjs)$/, publishedExt)}`;
 
+  /**
+   * The INVERSE: `dist/a/b.js` -> the `src/a/b.*` that produces it, or
+   * `undefined` when the source tree contains no module that could.
+   *
+   * It is the inverse of the transform above and not a second guess at one: the
+   * published root is swapped back for the source root, the extension is
+   * dropped, and the answer must EXIST on disk as a source module. An extension
+   * the transform above could never have produced (a `.cjs` beside a `.js`
+   * build, a stylesheet) is still tried stem-first, because a second build
+   * FORMAT of a real module is still that module — what decides is whether a
+   * source module is there, never what the form is spelled.
+   */
+  const toSource = (publishedRel) => {
+    const prefix = `${distRoot}/`;
+    if (!publishedRel.startsWith(prefix)) return undefined;
+    const rest = publishedRel.slice(prefix.length);
+    const stem = rest.endsWith(publishedExt) ? rest.slice(0, -publishedExt.length) : rest.replace(/\.[^./]+$/, '');
+    if (stem === '') return undefined;
+    for (const ext of RESOLVE_EXTENSIONS) {
+      const candidate = `${srcRoot}/${stem}${ext}`;
+      if (fs.existsSync(path.join(pkgAbs, candidate))) return candidate;
+    }
+    return undefined;
+  };
+
   if (toPublished(sourceBarrel) !== publishedBarrel) {
     return {
       error:
@@ -828,7 +947,123 @@ export function deriveSpellingMap(pkg, root = REPO_ROOT) {
     };
   }
 
-  return { forms, sourceBarrel, publishedBarrel, srcRoot, distRoot, toPublished };
+  // There is deliberately no second round-trip assertion for the inverse. It
+  // could not FAIL: `sourceBarrel` above is discovered by the same extension
+  // order `toSource` searches, so the two agree by construction, and a guard
+  // that cannot fire is not protection. The hazard it would have covered — an
+  // inverse that stops landing on source modules — is covered by a check that
+  // CAN fire: {@link classifyEntryForms} then classifies nothing, and the
+  // barrel's own subpath becomes an unclassifiable form and exits 2.
+
+  return { forms, sourceBarrel, publishedBarrel, srcRoot, distRoot, toPublished, toSource };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Which published forms are ENTRY POINTS (objectui#8850).                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Sort every published form into the three things a form can be, and refuse
+ * anything that is none of them.
+ *
+ * The walk is the check, so the question this answers is narrow and mechanical:
+ * which forms are NEW GRAPH ROOTS? A form that is not a root is not thereby
+ * uninteresting — it is one of two shapes that provably add no reachable module
+ * to the enumeration, and each has to be recognised POSITIVELY:
+ *
+ *   - `entry-point`   -- the inverse of the spelling map lands on a source
+ *     module that exists. It is a distinct thing a consumer imports, so it is
+ *     walked. A subpath whose source module another subpath already claimed is
+ *     an ALIAS of that entry: same root, no new modules, recorded as
+ *     `duplicate-entry` rather than silently merged.
+ *   - `asset`         -- the form names a file that exists in the package
+ *     exactly as published and is not a module this gate can read. A stylesheet
+ *     is a resolution target and is not a graph root: there is no import to
+ *     follow out of it. Positive evidence on both halves — the file is THERE,
+ *     and no source module produces it — never "the map returned undefined".
+ *   - `alternate-format` -- the form did not invert, but a form under the SAME
+ *     subpath did. Conditions below a subpath choose a build format, not an
+ *     entry: the `require` half of an entry whose `import` half is already a
+ *     root reaches exactly the modules that root reaches.
+ *
+ * Anything else is UNCLASSIFIED and fails the gate loudly, and that is the
+ * asymmetry this function exists for. "Could not MAP this form" must not be the
+ * error — both forms this workspace publishes beside a barrel today are
+ * unmappable and neither is a defect. "Could not CLASSIFY this form" must be,
+ * because a form quietly skipped is a graph root quietly missing, and a
+ * registrar reachable only from it would never be proposed as MISSING. That is
+ * the gate's own silent-drop failure class, one level up.
+ *
+ * ⛔ Nothing here reads the `sideEffects` array, and nothing here tests a
+ * package name or an extension allow-list. The classification is derived from
+ * the manifest's own subpath structure and from what is on disk.
+ *
+ * @typedef {{subpath: string, kind: 'entry-point' | 'duplicate-entry' | 'asset',
+ *            sources: string[], forms: string[], alternateFormats: string[]}} EntryFormVerdict
+ *
+ * @param {{name: string, dir: string, manifest: any}} pkg
+ * @param {{toSource: (form: string) => (string | undefined)}} map from {@link deriveSpellingMap}
+ * @param {string} [root]
+ * @returns {{entries: EntryFormVerdict[], problems: string[], roots: string[]}}
+ */
+export function classifyEntryForms(pkg, map, root = REPO_ROOT) {
+  const pkgAbs = path.join(root, pkg.dir);
+  const existsInPackage = (rel) => {
+    const abs = path.join(pkgAbs, rel);
+    return fs.existsSync(abs) && fs.statSync(abs).isFile();
+  };
+
+  /** @type {EntryFormVerdict[]} */
+  const entries = [];
+  /** @type {string[]} */
+  const problems = [];
+  /** @type {Map<string, string>} sourceRel -> the subpath that first claimed it as a root. */
+  const claimedBy = new Map();
+
+  for (const { subpath, forms } of manifestEntrySubpaths(pkg.manifest)) {
+    const classified = forms.map((form) => {
+      const inverted = map.toSource(form);
+      if (inverted) return { form, kind: 'module', sourceRel: inverted };
+      // A form published straight out of the source tree is its own source.
+      if (existsInPackage(form) && MODULE_FILE_RE.test(form) && !/\.d\.ts$/.test(form)) {
+        return { form, kind: 'module', sourceRel: form };
+      }
+      if (existsInPackage(form)) return { form, kind: 'asset' };
+      return { form, kind: 'unmapped' };
+    });
+
+    const moduleForms = classified.filter((c) => c.kind === 'module');
+    if (moduleForms.length > 0) {
+      const sources = [...new Set(moduleForms.map((c) => c.sourceRel))].sort();
+      const fresh = sources.filter((s) => !claimedBy.has(s));
+      for (const s of fresh) claimedBy.set(s, subpath);
+      entries.push({
+        subpath,
+        kind: fresh.length > 0 ? 'entry-point' : 'duplicate-entry',
+        sources,
+        forms,
+        alternateFormats: classified.filter((c) => c.kind === 'unmapped').map((c) => c.form),
+      });
+      continue;
+    }
+
+    if (classified.every((c) => c.kind === 'asset')) {
+      entries.push({ subpath, kind: 'asset', sources: [], forms, alternateFormats: [] });
+      continue;
+    }
+
+    const unclassified = classified.filter((c) => c.kind === 'unmapped').map((c) => `"./${c.form}"`);
+    problems.push(
+      `${pkg.name}: the manifest publishes the subpath "${subpath}", and this gate cannot CLASSIFY ` +
+        `${unclassified.join(', ')}. It is not a form the published/source spelling map inverts to a module that ` +
+        `exists, it is not a file present in the package exactly as published, and no other form under the same ` +
+        `subpath is an entry point it could be a second build format of. Teach this gate what it is — a form ` +
+        `skipped here is a graph ROOT skipped, and a registrar reachable only from it would never be proposed as ` +
+        `MISSING. That is this gate's own silent drop, one level up.`,
+    );
+  }
+
+  return { entries, problems, roots: [...claimedBy.keys()].sort() };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -837,14 +1072,23 @@ export function deriveSpellingMap(pkg, root = REPO_ROOT) {
 
 /**
  * A registering module is only retained when a RETAINED module still imports
- * it. This walks back from each registrar to an entry form through COVERED
+ * it. This walks back from each registrar to an entry point through COVERED
  * modules only, so a `barrel -> pure-helper -> registrar` chain — where the
  * shakeable helper takes the registrar's only edge with it — is a failure and
  * not a green tick.
+ *
+ * With several entry points a registrar is retained when ANY of them reaches it
+ * through covered modules: a consumer importing that entry keeps the chain
+ * alive, and it is not this gate's business which entry they picked. So this
+ * check WIDENS with the walk rather than staying anchored on the barrel
+ * (objectui#8850, question 3).
+ *
+ * @param {string | string[]} entryFiles absolute path(s) to the source entry point(s).
  */
-export function checkReachability(graph, registrars, sourceBarrelAbs, root = REPO_ROOT) {
-  const covered = new Set([sourceBarrelAbs, ...registrars]);
-  const reachable = new Set([sourceBarrelAbs]);
+export function checkReachability(graph, registrars, entryFiles, root = REPO_ROOT) {
+  const entryList = Array.isArray(entryFiles) ? entryFiles : [entryFiles];
+  const covered = new Set([...entryList, ...registrars]);
+  const reachable = new Set(entryList);
   let grew = true;
   while (grew) {
     grew = false;
@@ -867,7 +1111,7 @@ export function checkReachability(graph, registrars, sourceBarrelAbs, root = REP
  *
  * @returns {{name: string, ok: boolean, gauge: boolean, expected: string[], declared: string[],
  *            missing: string[], stale: string[], registrars: string[], problems: string[],
- *            modulesWalked: number}}
+ *            modulesWalked: number, entryPoints: string[], entryForms: EntryFormVerdict[]}}
  */
 export function evaluatePackage(pkg, root = REPO_ROOT) {
   const problems = [];
@@ -876,12 +1120,22 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
     return {
       name: pkg.name, ok: false, gauge: true, expected: [], declared: pkg.declared,
       missing: [], stale: [], registrars: [], problems: [map.error], modulesWalked: 0,
+      entryPoints: [], entryForms: [],
     };
   }
 
   const pkgAbs = path.join(root, pkg.dir);
-  const sourceBarrelAbs = path.join(pkgAbs, map.sourceBarrel);
-  const graph = walkEntryGraph(sourceBarrelAbs, root);
+
+  // Every ENTRY POINT is a graph root, not just the barrel (objectui#8850). The
+  // classification is what decides which published forms those are; a form it
+  // cannot classify is reported here rather than skipped, because skipping it
+  // would shrink the enumeration in silence.
+  const classification = classifyEntryForms(pkg, map, root);
+  problems.push(...classification.problems);
+
+  const entryPoints = [...new Set([map.sourceBarrel, ...classification.roots])].sort();
+  const entryAbs = entryPoints.map((rel) => path.join(pkgAbs, rel));
+  const graph = walkEntryGraph(entryAbs, root);
 
   for (const u of graph.unresolved) {
     problems.push(
@@ -908,8 +1162,15 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
   // A registering module needs BOTH spellings: consumers resolve the published
   // one, in-repo bundler aliases resolve the source one, and a bundler reads the
   // same manifest for both.
+  //
+  // Every entry point needs its SOURCE spelling too, for the same reason the
+  // barrel does. Its published spelling is already a manifest form by
+  // construction — it is where the entry point was derived FROM — so it is
+  // taken from `map.forms` rather than re-spelled through `toPublished`, which
+  // would invent a `dist/x.js` for an entry the manifest publishes as
+  // `dist/x.cjs` and report the invention as MISSING.
   const expected = new Set(map.forms);
-  expected.add(map.sourceBarrel);
+  for (const rel of entryPoints) expected.add(rel);
   for (const abs of registrars) {
     const rel = path.relative(pkgAbs, abs).split(path.sep).join('/');
     expected.add(rel);
@@ -929,7 +1190,7 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
     }
   }
 
-  const unreachable = checkReachability(graph, registrars, sourceBarrelAbs, root);
+  const unreachable = checkReachability(graph, registrars, entryAbs, root);
   const reachabilityProblems = unreachable.map(
     (m) =>
       `${pkg.name}: ${m} registers at load time, but no chain of \`sideEffects\`-covered modules reaches it ` +
@@ -939,7 +1200,7 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
 
   if (graph.modules.length < 2) {
     problems.push(
-      `${pkg.name}: the entry graph walked ${graph.modules.length} module(s) from ${map.sourceBarrel} — ` +
+      `${pkg.name}: the entry graph walked ${graph.modules.length} module(s) from ${entryPoints.join(', ')} — ` +
         `an enumeration over an empty graph agrees with any array at all`,
     );
   }
@@ -955,6 +1216,8 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
     registrars: registrars.map((r) => path.relative(pkgAbs, r).split(path.sep).join('/')),
     problems: [...problems, ...reachabilityProblems],
     modulesWalked: graph.modules.length,
+    entryPoints,
+    entryForms: classification.entries,
   };
 }
 
@@ -983,7 +1246,15 @@ export function main(argv = process.argv.slice(2), root = REPO_ROOT) {
 
   if (argv.includes('--list')) {
     for (const r of results) {
-      console.log(`\n${r.name} — ${r.registrars.length} module(s) with a top-level registration, ${r.modulesWalked} walked`);
+      console.log(
+        `\n${r.name} — ${r.registrars.length} module(s) with a top-level registration, ${r.modulesWalked} walked ` +
+          `from ${r.entryPoints.length} entry point(s)`,
+      );
+      for (const e of r.entryForms ?? []) {
+        const target = e.sources.length > 0 ? e.sources.join(', ') : e.forms.join(', ');
+        const alt = e.alternateFormats.length > 0 ? `  (+ alternate-format ${e.alternateFormats.join(', ')})` : '';
+        console.log(`   [${e.kind}] "${e.subpath}" -> ${target}${alt}`);
+      }
       for (const m of r.registrars) console.log(`   ${m}`);
     }
     return EXIT_OK;
@@ -1021,7 +1292,8 @@ export function main(argv = process.argv.slice(2), root = REPO_ROOT) {
     }
     console.log(
       `✅ ${r.name}: \`sideEffects\` names exactly the ${r.registrars.length} module(s) that register at load ` +
-        `time, plus its entry forms (${r.declared.length} entries, ${r.modulesWalked} modules walked).`,
+        `time, plus its entry forms (${r.declared.length} entries, ${r.modulesWalked} modules walked from ` +
+        `${r.entryPoints.length} entry point(s)).`,
     );
   }
 

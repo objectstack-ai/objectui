@@ -47,7 +47,7 @@
  * live beside the other locale-parity tests in `packages/i18n`.
  */
 import { describe, it, expect } from 'vitest';
-import { builtInLocales } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 
 import { FILTER_BUILDER_OPERATORS } from '../custom/filter-builder';
 

@@ -520,9 +520,49 @@ export interface DatasetDrillRange {
  * Each drillable dimension maps to its underlying object field, filtered by the
  * dimension's RAW grouped value (from the server's parallel `drillRawRows`, NOT
  * the visible row which carries the display LABEL — a select/lookup label would
- * mis-filter). An empty/undefined raw value normalizes to `null` (an explicit
- * "is empty" filter). The render-time `runtimeFilter` is ANDed in so the drilled
- * list stays within the same slice the aggregate was computed over.
+ * mis-filter). The render-time `runtimeFilter` is ANDed in so the drilled list
+ * stays within the same slice the aggregate was computed over.
+ *
+ * ## What the EMPTY bucket means, and why it is spelled `{ $null: true }`
+ *
+ * A drill must return exactly the rows the clicked bucket COUNTED. The empty
+ * bucket is the one the aggregate grouped rows with NO VALUE for that dimension
+ * into, so the drill means "this dimension has no value" — NOT "this dimension
+ * holds the literal value null". Those are different row sets, and the
+ * difference is measurable rather than theoretical: against `ValueDataSource`'s
+ * matcher over rows `{owner:'alice'}` / `{owner:null}` / `{}` (no `owner` key),
+ * `['owner','is_null',true]` selects the explicit-null row AND the missing-key
+ * row, while an equality test against `null` selects only the explicit-null one
+ * and drops the row that has no `owner` at all. The bucket counted both, so
+ * is-null is the one that agrees with the number the user clicked.
+ *
+ * ⇒ every empty authoring — `''`, `null` and `undefined` alike — becomes ONE
+ * spelling, `{ [field]: { $null: true } }`, which `convertFiltersToAST` lowers
+ * to `[field, 'is_null', true]`. The three are not told apart because the
+ * server already merged them into the single bucket the user clicked; there is
+ * no second bucket here for a second spelling to address.
+ *
+ * ⚠️ This value used to be a bare `null`, and that is the defect objectui#9085
+ * records: `convertFiltersToAST`'s OLDEST pinned behaviour is to SKIP a key
+ * whose value is `null` / `undefined` (pinned as "should skip null and
+ * undefined values"), so the constraint was dropped on the way to the wire and
+ * the empty-bucket drill answered with a SUPERSET — every row, silently. The
+ * repair is here at the PRODUCER and ⛔ not at that converter: the skip is
+ * relied on by other producers, and changing it would move every caller's
+ * meaning at once (objectui#9020 ruled it stays). `$null` is not a new
+ * vocabulary either — it is a declared spec operator this dialect already
+ * lowers, and the one spelling that says the same thing on BOTH of
+ * `ValueDataSource`'s routes, where a bare `null` said "only an explicit null"
+ * on the plain-object route and "no constraint at all" on the AST route.
+ *
+ * ⚠️ Known BOUNDARY, unchanged by this and deliberately not widened: the drill
+ * "escape hatch" (the host's `openRecordList`, which serializes a drill filter
+ * into `filter[...]` URL params) has NO spelling for is-null — its operator
+ * vocabulary is equality plus four range bounds — so it drops this condition
+ * exactly as it already dropped the bare `null`, byte-for-byte the same query
+ * string. That surface is a superset today and stays one; closing it needs a
+ * URL-dialect operator on both the write and the read side, which is its own
+ * card.
  *
  * A time-bucketed date dimension (#1752) drills by RANGE, not equality — a
  * humanized bucket ("2026-Q2") can't be exact-matched, so the server sends a
@@ -544,7 +584,12 @@ export function buildDatasetDrillFilter(
   const drillFilter: Record<string, unknown> = {};
   for (const d of drillDims) {
     const raw = rawRow?.[d];
-    drillFilter[dimensionFields[d]] = raw === '' || raw === undefined ? null : raw;
+    // `null` is in this test, not only `''` / `undefined`: JSON cannot carry
+    // `undefined`, so a SQL NULL grouped value arrives over the wire AS `null`
+    // — it is the empty bucket's most common shape, and leaving it out would
+    // fix the defect for the spellings the wire rarely uses.
+    drillFilter[dimensionFields[d]] =
+      raw === '' || raw === null || raw === undefined ? { $null: true } : raw;
   }
   if (rawRanges) {
     for (const r of Object.values(rawRanges)) {

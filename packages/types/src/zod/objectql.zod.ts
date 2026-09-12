@@ -95,7 +95,9 @@ export const HttpMethodSchema = stripImportedDefaults(SpecHttpMethodSubsetSchema
  * HTTP Request Schema — `@objectstack/spec/ui` schema re-exported by reference
  * (issue #2231; formerly a hand-written mirror). Differences vs the old mirror:
  * `body` is the spec's `z.unknown()` (a superset of the old record/string/FormData/
- * Blob union) and `method` now defaults to `'GET'` on parse.
+ * Blob union). `method` is declared and accepted but NOT defaulted on parse:
+ * the spec's `.default('GET')` is stripped at the import boundary above, so a
+ * request that omits `method` comes back without it.
  */
 export const HttpRequestSchema = stripImportedDefaults(SpecHttpRequestSchema);
 
@@ -118,22 +120,27 @@ export const ViewDataSchema = stripImportedDefaults(SpecViewDataSchema);
  * and `prefix` is the spec's `ColumnPrefixSchema`. With both upstream the
  * extension collapses to the plain re-export it always said it would become.
  *
- * One behavior change rides along: the spec's `prefix.type` defaults to `'text'`
- * on parse instead of staying `undefined`, so the renderer always gets a value.
+ * The spec declares `prefix.type` with a `.default('text')`. That default is
+ * stripped at the import boundary above, so the key is declared and accepted but
+ * NOT defaulted on parse: a column omitting `prefix.type` comes back without it,
+ * and a renderer reading it cannot assume a value is present.
  */
 export const ListColumnSchema = stripImportedDefaults(SpecListColumnSchema);
 
 /**
  * Selection Config Schema — `@objectstack/spec/ui` schema re-exported by reference
- * (issue #2231; formerly a hand-written mirror). `type` now defaults to `'none'`
- * on parse instead of staying undefined.
+ * (issue #2231; formerly a hand-written mirror). `type` is declared and accepted
+ * but NOT defaulted on parse: the spec's `.default('none')` is stripped at the
+ * import boundary above, so an omitted `type` stays omitted.
  */
 export const SelectionConfigSchema = stripImportedDefaults(SpecSelectionConfigSchema);
 
 /**
  * Pagination Config Schema — `@objectstack/spec/ui` schema re-exported by reference
- * (issue #2231; formerly a hand-written mirror). `pageSize` is now the spec's
- * positive-int with a default of 25 on parse.
+ * (issue #2231; formerly a hand-written mirror). `pageSize` is the spec's
+ * positive-int, declared and accepted but NOT defaulted on parse: the spec's
+ * `.default(25)` is stripped at the import boundary above, so an omitted
+ * `pageSize` stays omitted.
  */
 export const PaginationConfigSchema = stripImportedDefaults(SpecPaginationConfigSchema);
 

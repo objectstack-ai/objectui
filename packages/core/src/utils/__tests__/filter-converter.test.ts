@@ -138,15 +138,19 @@ describe('Filter Converter Utilities', () => {
       expect(result).toEqual(['name', '=', 'John']);
     });
 
-    it('should return original filter if empty after filtering', () => {
+    it('should answer "no constraint" when every key was skipped', () => {
+      // UPDATED by objectui#9020. This used to pin the caller's ORIGINAL OBJECT
+      // coming back, which is what made one filter mean two things on the two
+      // `find()` routes of `@object-ui/data-objectstack`: the plain route
+      // dropped it (every row) while the `$expand` route shipped it as
+      // `filter={"age":null}`, a real predicate. The skip itself is unchanged —
+      // the case above still pins it — so the only thing this key can mean once
+      // it is alone is what it already means beside a sibling: nothing.
       const result = convertFiltersToAST({
         age: null,
         email: undefined
       });
-      expect(result).toEqual({
-        age: null,
-        email: undefined
-      });
+      expect(result).toBeUndefined();
     });
   });
 });

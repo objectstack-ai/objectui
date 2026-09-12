@@ -673,10 +673,13 @@ describe('STANDALONE readonly widgets are unchanged (objectui#3990)', () => {
   });
 
   it('the shared options-empty box emits nothing for a widget that is not group-labelled', () => {
-    // The positive control for `OptionsEmptyState`'s new prop. The single
-    // `SelectField` is NOT in `FIELD_WIDGET_LABELLING` — its label keeps a
-    // plain, working `for` — so the shared box must stay attribute-for-attribute
-    // what it was: no `role`, no IDREF, no host id.
+    // The positive control for `OptionsEmptyState`'s group prop. The single
+    // `SelectField` is the one option widget `FIELD_WIDGET_LABELLING` declares
+    // `'control'` rather than `'group'` — its label keeps a plain `for`, which
+    // objectui#8803 made resolve by rendering the box as a labelable
+    // `<output>`. Either way the GROUP channel must stay off it, and standalone
+    // rendering hands down no host keys at all: no `role`, no IDREF, no host
+    // id, no description.
     render(
       <SelectField
         value={undefined}
@@ -689,5 +692,6 @@ describe('STANDALONE readonly widgets are unchanged (objectui#3990)', () => {
     expect(box).not.toHaveAttribute('role');
     expect(box).not.toHaveAttribute('aria-labelledby');
     expect(box).not.toHaveAttribute('id');
+    expect(box).not.toHaveAttribute('aria-describedby');
   });
 });

@@ -60,7 +60,40 @@ export interface RecordDetailsComponentProps {
    * against the installed spec.
    */
   columns?: '1' | '2' | '3' | '4';
-  /** Detail layout mode */
+  /**
+   * ⛔ RETIRED UPSTREAM — the contract REFUSES this key by name. Do not author
+   * it; `tsc` accepting it here is the defect, not permission.
+   *
+   * `@objectstack/spec` declares the same top-level key as an ADR-0087 D2
+   * tombstone: removed in 17.0.0 (objectstack#6946) because the published
+   * `auto` | `custom` semantics were never implemented. Measured on the
+   * installed pin (17.4.0): `RecordDetailsProps.safeParse({ layout: 'compact' })`
+   * is RED with `invalid_type` at `layout`, and the message is the removal
+   * prescription itself. The control on the same instrument fired as it should
+   * — every other top-level key here accepts a plausible value, and an
+   * undeclared key is refused with a DIFFERENT code (`unrecognized_keys`), so
+   * the refusal is about this key by name rather than a schema that refuses
+   * everything.
+   *
+   * ⚠️ Note the third spelling: this face offers `stacked` | `inline` |
+   * `compact`, which is not even the `auto` | `custom` the spec published
+   * before removing it. No value of either set parses.
+   *
+   * Every other layer has already withdrawn it — objectui#3818 removed the
+   * renderer's dead branch, and `@object-ui/plugin-detail`'s registry manifest
+   * deliberately publishes no `layout` input and says so at the site. This
+   * declaration is the last live holdout of the spelling.
+   *
+   * ⚠️ It is still here ON PURPOSE, and this is a ledger of an OPEN divergence,
+   * not an endorsement: removing it is a published-surface RETIREMENT that
+   * breaks an in-repo consumer (`__tests__/p1-spec-alignment.test.ts` declares
+   * `layout: 'stacked'` on this interface and reads it back), and triage on
+   * objectui#9040 ruled that consumer out of that card's scope. The removal
+   * needs its own change: delete the key, move that consumer, and ship the
+   * `minor` retirement changeset — `.changeset/retire-record-details-section-collapsed.md`
+   * is the in-repo shape to copy. `__tests__/record-details-top-level-9040.test.ts`
+   * pins both halves of this paragraph so it cannot rot into a stale comment.
+   */
   layout?: 'stacked' | 'inline' | 'compact';
   /** Sections to organize fields */
   sections?: Array<{
@@ -148,6 +181,51 @@ export interface RecordDetailsComponentProps {
   }>;
   /** Specific fields to display (overrides auto-detection from object) */
   fields?: string[];
+  /**
+   * Field names to OMIT from the body — applied to `fields` above and to every
+   * section's `fields` (`@objectstack/spec` `RecordDetailsProps.hideFields`,
+   * `z.array(z.string())`). It is how a page stops repeating the fields already
+   * shown in `record:highlights` or as the page title.
+   *
+   * Bare field NAMES only, deliberately. `RecordDetailsRenderer` also tolerates
+   * `{name}` / `{field}` entries at its read site, but the contract declares
+   * `z.array(z.string())` and refuses those values on parse — declaring them
+   * here would publish a second dialect the contract rejects (Commandment
+   * #0.1). The registry manifest holds the same fence.
+   *
+   * Declared here since objectui#9040. Every other layer already declared it —
+   * the spec, `RecordDetailsRenderer` (`renderers/record-details.tsx`, in the
+   * highlight-dedup path) and `@object-ui/plugin-detail`'s registry manifest
+   * (objectui#3808) — so this published TypeScript face was the one layer that
+   * gave a spec-valid, renderer-honoured, registry-published document `TS2353`.
+   */
+  hideFields?: string[];
+  /**
+   * Allow inline field editing in the detail body
+   * (`@objectstack/spec` `RecordDetailsProps.inlineEdit`, `z.boolean()`).
+   *
+   * There is no schema default: the RENDERER's default is on, ANDed with the
+   * object's own editability and with the server's effective `apiOperations`,
+   * so `undefined` is not the same fact as `false`. `false` force-disables the
+   * affordance whatever the object permits (`schema.inlineEdit ?? true` at
+   * `renderers/record-details.tsx`).
+   *
+   * Declared here since objectui#9040, with `showHeader` below — the two keys
+   * `@objectstack/spec` 17.0.0 GA added to this block, already declared by the
+   * registry manifest under objectui#4668.
+   */
+  inlineEdit?: boolean;
+  /**
+   * Render the detail body's OWN heading
+   * (`@objectstack/spec` `RecordDetailsProps.showHeader`, `z.boolean()`).
+   *
+   * Renderer default off (`schema.showHeader ?? false`), because a
+   * `record:details` composed under a `page:header` would otherwise draw a
+   * second title/star/copy chip beside the page's own.
+   *
+   * Declared here since objectui#9040 (see `inlineEdit` above).
+   */
+  showHeader?: boolean;
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }

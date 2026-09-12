@@ -17,7 +17,10 @@
  * spec-rejected keys `object-fields-io` strips on read
  * (`RETIRED_FIELD_KEYS`). The same holds one level down for a picklist
  * option: `readOptions` carries the keys the option editor has no control
- * for and `patchOptions` writes them back (objectui#7540).
+ * for and `patchOptions` writes them back (objectui#7540), and an option the
+ * editor cannot represent AT ALL is reported on its own row and written back
+ * verbatim rather than shown blank and dropped (objectui#8632 — see
+ * `classifyOption`).
  *
  * There is deliberately no `Indexed` control here (objectui#4644): the
  * spec has no field-level index flag, `FieldSchema.safeParse` rejects
@@ -46,7 +49,7 @@ import {
   moveArray,
 } from './_shared.js';
 import { Button, Input, Label, Badge } from '@object-ui/components';
-import { Plus, X, ArrowUp, ArrowDown, Copy } from 'lucide-react';
+import { Plus, X, ArrowUp, ArrowDown, Copy, AlertTriangle } from 'lucide-react';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import {
@@ -103,6 +106,125 @@ interface Option {
 /* ─────────────── Helpers ─────────────── */
 
 /**
+ * Why an option this editor cannot represent is REPORTED rather than coerced
+ * (objectui#8632).
+ *
+ * `MalformedOption` is the other half of `Option`: one authored entry of
+ * `def.options` that this editor has no faithful representation for. It is not
+ * an error state of a row — it is a row of its own kind, and the two travel
+ * together in `OptionRow` so a malformed entry keeps its POSITION in the list.
+ *
+ * `raw` is the authored entry verbatim, and it is what `patchOptions` writes
+ * back. That is the whole repair: the reader stops inventing a value it was
+ * never given, and the writer stops deleting what it cannot read.
+ */
+type MalformedReason =
+  /** The entry is not an option object at all — a bare string, `null`, a number, an array. */
+  | 'not-an-object'
+  /** `value` is absent, or present with a non-string type. */
+  | 'value-not-text'
+  /** `value` is a string but blank — authored, so NOT this editor's own trailing blank row. */
+  | 'value-empty'
+  /** `label` is present with a non-string type. */
+  | 'label-not-text'
+  /** `color` is present with a non-string type. */
+  | 'color-not-text';
+
+interface MalformedOption {
+  /** The authored entry, untouched. Written back byte-for-byte on commit. */
+  raw: unknown;
+  reason: MalformedReason;
+}
+
+/**
+ * One row of the option editor: either an option it owns, or an entry it
+ * refuses to represent. `kind` is an explicit tag rather than a `'malformed' in
+ * row` test so every consumer has to answer the question.
+ */
+type OptionRow =
+  | { kind: 'option'; option: Option }
+  | { kind: 'malformed'; malformed: MalformedOption };
+
+/**
+ * Why the reader stays STRICT — the ruling this function is the subject of.
+ *
+ * This reader used to open with `value: String(o?.value ?? '')`. That single
+ * expression is consumer-side tolerance (AGENTS.md #0.1) and it produced BOTH
+ * halves of objectui#8632, in two different directions, each measured on the
+ * unfixed reader:
+ *
+ *   • It manufactured an empty value for every entry it could not read — a bare
+ *     string, `null`, `5`, `true`, `{}`, `{ label }` with no `value`. The author
+ *     saw a BLANK row: three authored options rendered as three empty boxes.
+ *     Then `OptionsEditor.commit` — which persists only rows with a non-empty
+ *     `value` — DELETED them. Measured trigger: one click on "Add value", with
+ *     nothing typed, wrote `options: []` over three authored options.
+ *   • It silently REWROTE every entry whose `value` it could stringify into
+ *     something else: `{ value: 5 }` was written back as `"5"`, `{ value: true }`
+ *     as `"true"`, `{ value: ['alpha'] }` as `"alpha"` (indistinguishable on
+ *     screen from a well-formed option), `{ value: { a: 1 } }` as
+ *     `"[object Object]"`. Same for the other two keys this editor owns:
+ *     `label: 5` was written back as `label: ''`, and a non-string `color` was
+ *     dropped from the document entirely.
+ *
+ * A repair that only caught the first family would have looked complete and
+ * left the second one deleting authored content exactly as before, so the rule
+ * here is one rule, not a list of shapes: an entry this editor cannot represent
+ * FAITHFULLY is not represented. It is reported on its own row and carried
+ * through verbatim, and the author removes or repairs it deliberately.
+ *
+ * Two boundaries this classifier deliberately does NOT cross, because both are
+ * prior rulings in this file rather than oversights:
+ *
+ *   • A MISSING `label` is not malformed. `patchOptions` emits `label: ''` for
+ *     it, which is the objectui#7014 Q2 ruling: `''` is what the Label box has
+ *     been showing the author all along, and the spec accepts it. A present but
+ *     non-string `label` is a different fact — there are authored bytes being
+ *     destroyed — and that one IS malformed.
+ *   • A `value` this editor can represent but the SPEC rejects (`'a'` — the
+ *     select option's two-character minimum) stays an ordinary editable row.
+ *     The author can see it and fix it in place, and the draft validator is the
+ *     surface that names it. This reader reports only what it cannot show.
+ */
+function classifyOption(raw: unknown): OptionRow {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { kind: 'malformed', malformed: { raw, reason: 'not-an-object' } };
+  }
+  const o = raw as Record<string, unknown>;
+  if (typeof o.value !== 'string') {
+    return { kind: 'malformed', malformed: { raw, reason: 'value-not-text' } };
+  }
+  if (o.value.trim() === '') {
+    return { kind: 'malformed', malformed: { raw, reason: 'value-empty' } };
+  }
+  if (o.label !== undefined && typeof o.label !== 'string') {
+    return { kind: 'malformed', malformed: { raw, reason: 'label-not-text' } };
+  }
+  if (o.color !== undefined && typeof o.color !== 'string') {
+    return { kind: 'malformed', malformed: { raw, reason: 'color-not-text' } };
+  }
+  // Representable. Everything below is the projection this reader has always
+  // produced for a well-formed option, unchanged — see the round-trip control
+  // in `ObjectFieldInspector.malformedOptions.test.tsx`.
+  const rest: Record<string, unknown> = { ...o };
+  // The keys the editor owns live in their own named slots. Removing them
+  // here is what keeps `patchOptions` from having two sources for one key.
+  delete rest.value;
+  delete rest.label;
+  delete rest.color;
+  const option: Option = {
+    value: o.value,
+    label: typeof o.label === 'string' ? o.label : undefined,
+    color: typeof o.color === 'string' ? o.color : undefined,
+  };
+  // Only attach the carrier when there is something to carry, so an option
+  // with nothing extra stays byte-identical to what this reader used to
+  // produce.
+  if (Object.keys(rest).length > 0) option.rest = rest;
+  return { kind: 'option', option };
+}
+
+/**
  * Read `def.options` into editor rows, keeping the WHOLE authored option.
  *
  * The three displayed keys are normalized exactly as before; everything else
@@ -114,6 +236,11 @@ interface Option {
  * only carry what this function handed it, and this function handed it three
  * keys. The reader is where `default` and `visibleWhen` disappeared.
  *
+ * It is the loss site a second time for objectui#8632, and in the same shape:
+ * an entry it could not read was handed on as an empty row and deleted by the
+ * writer. Both repairs are the same move — hand on WHAT WAS AUTHORED — which is
+ * why the classifier above lives here and not in `OptionsEditor`.
+ *
  * The shape mirrors the field-level door one level up: `readFields` in
  * `previews/object-fields-io.ts` preserves unknown keys on a field definition
  * the same way (its `...rest`), stripping only the named keys a shipped build
@@ -122,31 +249,15 @@ interface Option {
  * only ever written `value` / `label` / `color`, so no key it authored can
  * come back as one the spec rejects.
  */
-function readOptions(def: Record<string, unknown>): Option[] {
+function readOptions(def: Record<string, unknown>): OptionRow[] {
   const raw = def.options;
   if (!Array.isArray(raw)) return [];
-  return raw.map((o: any) => {
-    // A non-object entry (e.g. a bare string in a hand-written `options: []`)
-    // has no keys to carry — it already collapses to an empty `value` below,
-    // and an empty-valued row is dropped on commit.
-    const rest: Record<string, unknown> =
-      o && typeof o === 'object' && !Array.isArray(o) ? { ...o } : {};
-    // The keys the editor owns live in their own named slots. Removing them
-    // here is what keeps `patchOptions` from having two sources for one key.
-    delete rest.value;
-    delete rest.label;
-    delete rest.color;
-    const row: Option = {
-      value: String(o?.value ?? ''),
-      label: typeof o?.label === 'string' ? o.label : undefined,
-      color: typeof o?.color === 'string' ? o.color : undefined,
-    };
-    // Only attach the carrier when there is something to carry, so an option
-    // with nothing extra stays byte-identical to what this reader used to
-    // produce.
-    if (Object.keys(rest).length > 0) row.rest = rest;
-    return row;
-  });
+  return raw.map(classifyOption);
+}
+
+/** The rows the rest of the inspector can offer as real choices. */
+function representableOptions(rows: OptionRow[]): Option[] {
+  return rows.flatMap((row) => (row.kind === 'option' ? [row.option] : []));
 }
 
 function isPicklist(type: string): boolean {
@@ -518,9 +629,19 @@ export function ObjectFieldInspector({
 
   /* ─── Option editor ─── */
 
-  const options = readOptions(def);
-  const patchOptions = (next: Option[]) => {
-    const clean = next.map((o) => {
+  const optionRows = readOptions(def);
+  const options = representableOptions(optionRows);
+  const patchOptions = (next: OptionRow[]) => {
+    const clean = next.map((row) => {
+      // An entry this editor refuses to represent is written back EXACTLY as it
+      // was authored (objectui#8632). It was never shown, so there is nothing
+      // the author could have meant by "keep it" or "drop it" — and the writer
+      // that used to drop it did so on the strength of an empty `value` this
+      // reader had invented. Carrying it verbatim is what makes the inline
+      // report on its row honest: the row says "this is what is in your
+      // document", and the document still says it after the next edit.
+      if (row.kind === 'malformed') return row.malformed.raw;
+      const o = row.option;
       // `label` is REQUIRED by the spec's select option, and an EMPTY label is
       // a document it accepts: measured on `@objectstack/spec` 17.2.0,
       // `{ value: 'alpha', label: '' }` -> ACCEPT, while `{ value: 'alpha' }`
@@ -533,9 +654,11 @@ export function ObjectFieldInspector({
       //
       // So emit what the author holds, empty string included. `??` rather than
       // `||` is load-bearing: `||` is the same truthiness bug spelled shorter.
-      // The `?? ''` arm also covers the option that arrived without a usable
-      // label at all (`readOptions` maps a missing or non-string `label` to
-      // `undefined`) -- there is no legal document that omits the key, and ''
+      // The `?? ''` arm also covers the option that arrived without a `label`
+      // key at all (`readOptions` maps a MISSING label to `undefined`; since
+      // objectui#8632 a PRESENT non-string label is a malformed row instead,
+      // and never reaches here) -- there is no legal document that omits the
+      // key, and ''
       // is precisely what the Label input has been showing the author for that
       // option all along (`value={o.label ?? ''}`), so this emits what they
       // see rather than inventing content.
@@ -696,7 +819,7 @@ export function ObjectFieldInspector({
           {isPicklist(type) && (
             <OptionsEditor
               key={entry.name}
-              options={options}
+              rows={optionRows}
               onChange={patchOptions}
               disabled={readOnly}
               locale={locale}
@@ -1085,14 +1208,36 @@ function ObjectPicker({
   );
 }
 
+/** The i18n key naming each refusal, one static literal per reason. */
+const MALFORMED_REASON_KEY: Record<MalformedReason, string> = {
+  'not-an-object': 'designer.field.optMalformed.notAnObject',
+  'value-not-text': 'designer.field.optMalformed.valueNotText',
+  'value-empty': 'designer.field.optMalformed.valueEmpty',
+  'label-not-text': 'designer.field.optMalformed.labelNotText',
+  'color-not-text': 'designer.field.optMalformed.colorNotText',
+};
+
+/** The authored entry, rendered for a human, with a ceiling so one bad row cannot own the panel. */
+function describeMalformed(raw: unknown): string {
+  let text: string;
+  try {
+    text = JSON.stringify(raw) ?? String(raw);
+  } catch {
+    // A document that came off the wire cannot be cyclic, but this reader is
+    // handed whatever the draft holds and must not be the thing that throws.
+    text = String(raw);
+  }
+  return text.length > 120 ? `${text.slice(0, 119)}…` : text;
+}
+
 function OptionsEditor({
-  options,
+  rows: incoming,
   onChange,
   disabled,
   locale,
 }: {
-  options: Option[];
-  onChange: (next: Option[]) => void;
+  rows: OptionRow[];
+  onChange: (next: OptionRow[]) => void;
   disabled?: boolean;
   locale?: string;
 }) {
@@ -1100,22 +1245,71 @@ function OptionsEditor({
   // only PERSIST rows whose `value` is non-empty — otherwise the blank row
   // fails the spec identifier rule ("System identifier must be at least 2
   // characters") and shows a confusing error mid-edit. The editor is remounted
-  // per field (key={entry.name}), so seeding from `options` once is correct.
-  const [rows, setRows] = React.useState<Option[]>(
-    () => (options.length > 0 ? options : [{ value: '', label: '' }]),
+  // per field (key={entry.name}), so seeding from `incoming` once is correct.
+  //
+  // ⚠️ That `value`-is-empty filter is HALF of objectui#8632, and the half that
+  // did the damage. It is correct for the row it was written for — the trailing
+  // blank this editor creates — and it was catastrophic for an AUTHORED entry
+  // the old reader had collapsed into the same shape: one click on "Add value",
+  // with nothing typed, wrote `options: []` over three authored options. The
+  // fix is upstream, in `classifyOption`: an authored entry never arrives here
+  // wearing the blank row's shape any more, so the filter below can go on
+  // meaning exactly what it says. It is deliberately unchanged.
+  const [rows, setRows] = React.useState<OptionRow[]>(
+    () => (incoming.length > 0 ? incoming : [{ kind: 'option', option: { value: '', label: '' } }]),
   );
-  const commit = (next: Option[]) => {
+  const commit = (next: OptionRow[]) => {
     setRows(next);
-    onChange(next.filter((o) => o.value.trim() !== ''));
+    onChange(next.filter((r) => r.kind === 'malformed' || r.option.value.trim() !== ''));
   };
   const update = (i: number, patch: Partial<Option>) => {
     const next = [...rows];
-    next[i] = { ...next[i], ...patch };
+    const row = next[i];
+    // Only an `option` row has editable controls, so this is unreachable for a
+    // malformed one; narrowing rather than asserting keeps it that way.
+    if (row.kind !== 'option') return;
+    next[i] = { kind: 'option', option: { ...row.option, ...patch } };
     commit(next);
   };
   const remove = (i: number) => commit(rows.filter((_, j) => j !== i));
   const move = (i: number, to: number) => commit(moveArray(rows, i, to));
-  const add = () => commit([...rows, { value: '', label: '' }]);
+  const add = () => commit([...rows, { kind: 'option', option: { value: '', label: '' } }]);
+
+  /** Reorder + remove — identical for both row kinds, so an unreadable row is still movable and removable. */
+  const rowControls = (i: number) => (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 w-6 p-0"
+        onClick={() => move(i, i - 1)}
+        disabled={disabled || i === 0}
+        aria-label={t('designer.field.moveUp', locale)}
+      >
+        <ArrowUp className="h-3 w-3" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 w-6 p-0"
+        onClick={() => move(i, i + 1)}
+        disabled={disabled || i === rows.length - 1}
+        aria-label={t('designer.field.moveDown', locale)}
+      >
+        <ArrowDown className="h-3 w-3" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 w-6 p-0 text-destructive"
+        onClick={() => remove(i)}
+        disabled={disabled}
+        aria-label={t('designer.field.removeValue', locale)}
+      >
+        <X className="h-3 w-3" />
+      </Button>
+    </>
+  );
 
   return (
     <div className="space-y-1.5">
@@ -1127,73 +1321,80 @@ function OptionsEditor({
         <div className="text-[11px] italic text-muted-foreground px-1">{t('designer.field.noValues', locale)}</div>
       ) : (
         <div className="space-y-1.5">
-          {rows.map((o, i) => (
-            // Two rows per option: the value/label inputs get the full panel
-            // width (min-w-0 lets them shrink cleanly instead of clipping their
-            // own placeholders), while the color swatch and reorder/remove
-            // controls sit on a compact strip below — previously all six
-            // controls shared one line, squeezing the inputs until "Value" /
-            // "Label" and CJK option labels truncated (framework#2615 P3).
-            <div key={i} className="rounded-md border border-border/60 p-1.5 space-y-1">
-              <div className="flex items-center gap-1">
-                <Input
-                  value={o.value}
-                  onChange={(e) => update(i, { value: e.target.value })}
-                  placeholder={t('designer.field.optValue', locale)}
-                  disabled={disabled}
-                  className="h-7 min-w-0 flex-1 text-xs font-mono"
-                />
-                <Input
-                  value={o.label ?? ''}
-                  onChange={(e) => update(i, { label: e.target.value })}
-                  placeholder={t('designer.field.optLabel', locale)}
-                  disabled={disabled}
-                  className="h-7 min-w-0 flex-1 text-xs"
-                />
+          {rows.map((row, i) =>
+            row.kind === 'malformed' ? (
+              // An entry this editor cannot represent. It gets a row of its own
+              // rather than the two blank inputs the old reader produced: the
+              // reason, the authored entry verbatim, and the same reorder/remove
+              // strip as any other row — so removing it stays available and
+              // stays DELIBERATE (objectui#8632).
+              <div
+                key={i}
+                role="alert"
+                data-testid="option-malformed"
+                className="rounded-md border border-destructive/60 bg-destructive/5 p-1.5 space-y-1"
+              >
+                <div className="flex items-start gap-1.5">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="text-[11px] font-medium text-destructive">
+                      {t('designer.field.optMalformed', locale)}
+                    </div>
+                    <div className="text-[11px] text-destructive">
+                      {t(MALFORMED_REASON_KEY[row.malformed.reason], locale)}
+                    </div>
+                    <code className="block truncate rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+                      {describeMalformed(row.malformed.raw)}
+                    </code>
+                    <div className="text-[10px] text-muted-foreground">
+                      {t('designer.field.optMalformedHint', locale)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="flex-1" />
+                  {rowControls(i)}
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <input
-                  type="color"
-                  value={o.color ?? '#cccccc'}
-                  onChange={(e) => update(i, { color: e.target.value })}
-                  disabled={disabled}
-                  className="h-6 w-6 rounded border bg-background cursor-pointer p-0.5"
-                  title={t('designer.field.optColor', locale)}
-                />
-                <span className="flex-1" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => move(i, i - 1)}
-                  disabled={disabled || i === 0}
-                  aria-label={t('designer.field.moveUp', locale)}
-                >
-                  <ArrowUp className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => move(i, i + 1)}
-                  disabled={disabled || i === rows.length - 1}
-                  aria-label={t('designer.field.moveDown', locale)}
-                >
-                  <ArrowDown className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-destructive"
-                  onClick={() => remove(i)}
-                  disabled={disabled}
-                  aria-label={t('designer.field.removeValue', locale)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+            ) : (
+              // Two rows per option: the value/label inputs get the full panel
+              // width (min-w-0 lets them shrink cleanly instead of clipping their
+              // own placeholders), while the color swatch and reorder/remove
+              // controls sit on a compact strip below — previously all six
+              // controls shared one line, squeezing the inputs until "Value" /
+              // "Label" and CJK option labels truncated (framework#2615 P3).
+              <div key={i} className="rounded-md border border-border/60 p-1.5 space-y-1">
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={row.option.value}
+                    onChange={(e) => update(i, { value: e.target.value })}
+                    placeholder={t('designer.field.optValue', locale)}
+                    disabled={disabled}
+                    className="h-7 min-w-0 flex-1 text-xs font-mono"
+                  />
+                  <Input
+                    value={row.option.label ?? ''}
+                    onChange={(e) => update(i, { label: e.target.value })}
+                    placeholder={t('designer.field.optLabel', locale)}
+                    disabled={disabled}
+                    className="h-7 min-w-0 flex-1 text-xs"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="color"
+                    value={row.option.color ?? '#cccccc'}
+                    onChange={(e) => update(i, { color: e.target.value })}
+                    disabled={disabled}
+                    className="h-6 w-6 rounded border bg-background cursor-pointer p-0.5"
+                    title={t('designer.field.optColor', locale)}
+                  />
+                  <span className="flex-1" />
+                  {rowControls(i)}
+                </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       )}
       {!disabled && (

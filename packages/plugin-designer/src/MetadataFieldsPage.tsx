@@ -505,6 +505,23 @@ const RELATIONSHIP_TYPES_REQUIRING_REFERENCE = ['lookup', 'master_detail'];
  * `MetadataService.ts` is word-for-word the same, and both pins assert all four
  * states so the copies cannot drift silently.
  *
+ * ⭐ THAT SENTENCE IS CHECKABLE NOW, AND IT WAS NOT WHEN IT WAS WRITTEN. The
+ * two pins are the `objectui#7714 · the refusal message distinguishes the four
+ * states` blocks in `MetadataFieldsPage.specKeyReference.test.tsx` (this
+ * writer) and `MetadataService.specKeyReference.test.ts` (the sibling). Before
+ * objectui#8925 only the sibling had one: mutating this function's `absent`,
+ * `non-string` or `empty` branch left the whole `plugin-designer` package
+ * green, so three of the four states here were free to drift while this
+ * paragraph read as a guarantee. The `whitespace-only` row was the lone
+ * exception, and only incidentally — pinned by
+ * `MetadataFieldsPage.carriedThroughReference-8896.test.tsx`, a card about a
+ * different subject.
+ *
+ * ⛔ Do not restate this parity claim anywhere without naming the files that
+ * would go red. It had been restated three times — objectui#8897's card text,
+ * that card's triage comment, and both docblocks — and not one of the three
+ * was a reading. Repetition is what kept it alive while it was false.
+ *
  * Measured for objectui#7714 on `@objectstack/spec` 17.3.0, at field level and
  * again through `ObjectSchema`, which agree on every row:
  *

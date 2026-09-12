@@ -763,9 +763,51 @@ jobs:
           if [ -n "$CHANGED" ]; then
             echo 'should_run=true' >> "$GITHUB_OUTPUT"
             echo "$CHANGED"
+            exit 0
+          fi
+          # Everything that changed is on the exclusion list above, and for the
+          # `type-check` and `e2e` jobs that is the end of it. It is not the end
+          # of it HERE, and objectui#8857 paid for the difference: a markdown
+          # document can be a TEST'S INPUT. That pull request changed exactly one
+          # file, `packages/plugin-dashboard/README.md`; the test that reads that
+          # README extracts its fences and evaluates them. `Test (shard 1/4)`
+          # reported success on the pull request page in ten seconds having run
+          # nothing, the merge_group build then failed the same shard in 907
+          # seconds, and the pull request was dequeued. The queue did its job;
+          # the cost is that the signal arrived after review had concluded on a
+          # green page.
+          #
+          # So this job asks one more question of the markdown the exclusions
+          # above dropped: does a test READ it? `markdown-test-inputs.mjs` holds
+          # the derived class -- which documents, and which test reads each --
+          # and audits itself against the tree. The widening is deliberately
+          # narrow: a markdown-only change no test reads still skips, which is
+          # the whole point of the exclusions. Only THIS job carries the extra
+          # stage, because only this job runs the tests that read markdown
+          # (measured: `type-check` reads no document, and no e2e spec does).
+          #
+          # Same failure posture as the diff above -- a question that cannot be
+          # answered means RUN. The script needs nothing but the checkout and
+          # the runner's own node, so it is reachable here, before pnpm and
+          # before install.
+          if ! CHANGED=$(git diff --name-only \
+            '${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}'); then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Could not diff against the merge base. Running everything rather than skipping silently.'
+            exit 0
+          fi
+          if ! TEST_INPUTS=$(printf '%s\n' "$CHANGED" | node scripts/markdown-test-inputs.mjs --changed -); then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Could not tell whether the changed markdown is a test input. Running everything rather than skipping silently.'
+            exit 0
+          fi
+          if [ -n "$TEST_INPUTS" ]; then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Markdown changed that a test reads as its input. Running everything:'
+            echo "$TEST_INPUTS"
           else
             echo 'should_run=false' >> "$GITHUB_OUTPUT"
-            echo 'Only ignored paths changed. Skipping the steps below; this check still reports.'
+            echo 'Only ignored paths changed, and no test reads the markdown among them. Skipping the steps below; this check still reports.'
           fi
 
       - name: Enable Corepack and download the pinned pnpm
@@ -1402,11 +1444,11 @@ jobs:
       # `playwright-report/` keeps working if the HTML reporter is ever enabled
       # on CI. upload-artifact only warns when NO path matches, so the absent
       # one costs nothing.
-      - name: Upload Playwright report
+      - name: Upload failure artefacts
         uses: actions/upload-artifact@v7
         if: ${{ steps.relevant.outputs.should_run == 'true' && !cancelled() && failure() }}
         with:
-          name: playwright-report
+          name: e2e-failure-artifacts
           path: |
             playwright-report/
             test-results/

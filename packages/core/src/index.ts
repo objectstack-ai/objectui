@@ -125,6 +125,10 @@ export * from './utils/reference-keys.js';
 // `toPredicateRecord` for why an unnormalized one gives the same predicate
 // different verdicts on different surfaces.
 export * from './utils/predicate-record.js';
+// The parent-relationship condition a detail-page related list is scoped by.
+// One implementation, imported by BOTH the row query and the tab-badge count
+// probe — objectui#8882 is what two of them cost.
+export * from './utils/parent-scope.js';
 // The other half of a view's field appetite: the fields its PREDICATES read,
 // which the column-derived `$select` never asked the server for.
 export * from './utils/predicate-fields.js';

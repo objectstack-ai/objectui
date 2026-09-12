@@ -16,12 +16,62 @@
  * `RecordContext`. We deliberately query with `$top` only — this rail is
  * a snapshot, not a paginated list — and silently degrade to "—" on
  * failure so a misconfigured entry never blanks the whole rail.
+ *
+ * ## The parent scope is compiled by the relationship field's ARITY
+ *
+ * An entry names a `relationshipField` on the child object and nothing about
+ * how that field STORES the link. A `multiple: true` relationship
+ * (`Field.user({ multiple: true })` is the platform's own shape) persists an
+ * ARRAY of parent ids, so the question is MEMBERSHIP and not equality —
+ * equality asks whether that whole stored array IS one id, which `driver-sql`
+ * refuses with `400 INVALID_FILTER` while prescribing `$contains`.
+ *
+ * The condition is therefore composed by `@object-ui/core`'s
+ * `composeParentScopeFilter` (objectui#8883), the ONE compiler the related
+ * list's rows and the tab badge already share (objectui#7299, objectui#8882).
+ * ⛔ Do not add a local arity rule here, however small. The seam's verdict is
+ * `@objectstack/spec/data`'s own `isMultiValueField`, and a local
+ * approximation is wrong against it in BOTH directions, not merely incomplete:
+ * `multiselect` / `checkboxes` / `tags` persist an array with no flag at all,
+ * and `multiple: true` is INERT on a type outside the spec's multi-capable
+ * set. Two readers of one question, drifted, is the entire defect class.
+ *
+ * ⚠️ The QUERY rule and the STORAGE rule are two rules, and ⛔ this file does
+ * not claim they are one predicate. Measured at source: the spec asks
+ * `MULTI_OPTION_TYPES.has(type) || (MULTI_CAPABLE_TYPES.has(type) && multiple
+ * === true)`, while the SQL driver's own `isJsonField` asks
+ * `JSON_COLUMN_TYPES.has(type) || !!field.multiple` — the flag on ANY type. So
+ * `{ type: 'master_detail', multiple: true }` answers `false` to the spec and
+ * `true` to the driver, and the two part company for exactly the
+ * flag-on-a-non-multi-capable-type case. ⛔ Nothing here decides which is
+ * right: that divergence is owned upstream by objectstack#17469. This renderer
+ * follows the SPEC, because the spec is what the authoring surface is
+ * validated against and what the seam already compiles on — and a second
+ * opinion at this call site would be the defect above, one layer up.
+ *
+ * ## The "View All" link cannot follow the rows there
+ *
+ * The link builds a `filter[<field>]=<value>` URL into the console's object
+ * list. That grammar has no membership operator and no third spelling: the
+ * ADR-0055 data surface recognises `gte`/`lte`/`gt`/`lt` and DROPS any other
+ * suffix, and the route this link actually targets parses equality only. A
+ * hopeful `[contains]` suffix therefore does not narrow the destination at
+ * all. Rather than send the user to an unscoped child table dressed as this
+ * parent's related records, the link is SUPPRESSED on a multi-value
+ * relationship and the reason is logged once — the same "empty and loud beats
+ * wider and quiet" posture `RelatedList`'s raw-URL fallback takes for the same
+ * grammar. Losing the affordance there is the COST of the repair.
  */
 
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useRecordContext, useSafeFieldLabel } from '@object-ui/react';
 import { cn, Card, CardHeader, CardTitle, CardContent, Badge, Skeleton } from '@object-ui/components';
+import {
+  composeParentScopeFilter,
+  isMultiValueRelationship,
+  type FieldContainerLike,
+} from '@object-ui/core';
 import { ChevronRight } from 'lucide-react';
 import type { ReferenceRailEntry } from '@objectstack/spec/ui';
 import { useDetailTranslation } from '../useDetailTranslation';
@@ -158,6 +208,18 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
     return () => obs.disconnect();
   }, [railVisible]);
 
+  // The CHILD objects' field defs, keyed by object name — the METADATA the
+  // parent-scope seam draws its arity verdict from. Filled by the fetch effect
+  // below BEFORE it reads any rows, and read a second time at render time by
+  // the "View All" link, so both halves of an entry answer from one source.
+  // Empty until a schema proves otherwise: the seam then compiles equality,
+  // which is byte for byte the wire this rail has always sent.
+  const [entryFields, setEntryFields] = React.useState<Record<string, FieldContainerLike>>({});
+  // One warning per (object, field) per mounted rail — the link suppression
+  // below is silent on screen by construction, so the developer channel is the
+  // only place it can be said at all. Fired from the effect, never from render.
+  const warnedSuppressedLinks = React.useRef<Set<string>>(new Set());
+
   const entriesSig = JSON.stringify(entries.map((e) => `${e.objectName}:${e.relationshipField}:${e.limit ?? 3}`));
   React.useEffect(() => {
     if (!railVisible) return;
@@ -180,11 +242,16 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       }
       return next;
     });
-    const fetchEntry = async (entry: ReferenceRailEntry) => {
+    const fetchEntry = async (entry: ReferenceRailEntry, fields: FieldContainerLike) => {
       const key = entry.objectName;
       try {
         const res: any = await dataSource.find(entry.objectName, {
-          $filter: { [entry.relationshipField]: parentId },
+          // The parent-relationship condition, compiled to match the field's
+          // ARITY by the one seam the rows and the tab badge already use
+          // (objectui#8883). With no `fields` it compiles equality — the
+          // historical wire — so an adapter that cannot serve metadata is no
+          // worse off than before this card.
+          $filter: composeParentScopeFilter(entry.relationshipField, parentId, fields),
           $top: entry.limit ?? 3,
           $count: true,
         });
@@ -206,22 +273,70 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
         }));
       }
     };
-    // Concurrency-capped pool: drain the entries a few at a time instead of
-    // firing all N at once, so the rail never floods the backend in a burst.
-    const MAX_CONCURRENCY = 3;
-    const queue = [...entries];
-    const runWorker = async () => {
-      while (mountedRef.current) {
-        const entry = queue.shift();
-        if (!entry) return;
-        await fetchEntry(entry);
+    void (async () => {
+      // ARITY FIRST, then the reads — and the rail's reason for that order is
+      // its OWN, not the tab badge's.
+      //
+      // `RelatedList` deliberately attempts equality, is refused, and refetches
+      // once the arity lands; it can, because its fetch effect re-runs on the
+      // verdict. This rail cannot: `fetchedSigRef` above latches on
+      // (parentId + entries), and the arity is in NEITHER — so a probe-then-
+      // correct design would make the refused first attempt the ONLY attempt,
+      // and the entry would sit on its error state until the user navigated to
+      // another record. The link half compounds it: the destination href is
+      // decided by the same verdict, so deferring it would ship exactly the
+      // disagreement this card exists to prevent — right rows, wrong link.
+      //
+      // ⛔ NOT gated on "a schema loaded", which is a different thing: an
+      // adapter without `getObjectSchema`, or one whose fetch rejects, still
+      // reads rows, with the equality wire it has always sent. Gating would
+      // trade this card's loud 400 on one relationship shape for a silently
+      // empty rail on every entry in the app.
+      const fieldsFor = new Map<string, FieldContainerLike>();
+      if (typeof dataSource.getObjectSchema === 'function') {
+        await Promise.all(
+          Array.from(new Set(entries.map((e) => e.objectName))).map(async (name) => {
+            try {
+              fieldsFor.set(name, (await dataSource.getObjectSchema(name))?.fields);
+            } catch {
+              // Equality it is — the wire this rail has always sent.
+            }
+          }),
+        );
       }
-    };
-    const workers = Array.from(
-      { length: Math.min(MAX_CONCURRENCY, queue.length) },
-      () => runWorker(),
-    );
-    void Promise.all(workers);
+      if (!mountedRef.current) return;
+      setEntryFields(Object.fromEntries(fieldsFor));
+      for (const entry of entries) {
+        if (!isMultiValueRelationship(fieldsFor.get(entry.objectName), entry.relationshipField)) {
+          continue;
+        }
+        const warnKey = `${entry.objectName}.${entry.relationshipField}`;
+        if (warnedSuppressedLinks.current.has(warnKey)) continue;
+        warnedSuppressedLinks.current.add(warnKey);
+        console.warn(
+          `[RecordReferenceRail] "${entry.objectName}" relates through the multi-value field ` +
+            `"${entry.relationshipField}", so the "View All" link is suppressed for it. The ` +
+            'console list URL\'s `filter[<field>]=<value>` grammar has no membership operator ' +
+            'and no unrecognised suffix narrows it, so the link would open the entire child ' +
+            "table dressed as this parent's related records. The rail's own rows are still " +
+            'scoped correctly.',
+        );
+      }
+      // Concurrency-capped pool: drain the entries a few at a time instead of
+      // firing all N at once, so the rail never floods the backend in a burst.
+      const MAX_CONCURRENCY = 3;
+      const queue = [...entries];
+      const runWorker = async () => {
+        while (mountedRef.current) {
+          const entry = queue.shift();
+          if (!entry) return;
+          await fetchEntry(entry, fieldsFor.get(entry.objectName));
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(MAX_CONCURRENCY, queue.length) }, () => runWorker()),
+      );
+    })();
   }, [railVisible, dataSource, parentId, entriesSig]);
 
   // useState must run unconditionally — declared above the empty-entries early
@@ -262,6 +377,18 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       {visibleEntries.map((entry) => {
         const key = entry.objectName;
         const state = states[key] || { loading: true, total: 0, items: [] };
+        // The link's URL grammar cannot express MEMBERSHIP (see the file
+        // header), so on a multi-value relationship the only honest "View All"
+        // is no "View All": the href below would drop the parent scope
+        // entirely and open the whole child table. The verdict is the same
+        // seam's, off the same metadata the rows were scoped with, and it is
+        // `false` until a schema PROVES otherwise — a single-value entry and
+        // an entry whose schema never resolved both keep today's link, href
+        // byte for byte.
+        const suppressViewAll = isMultiValueRelationship(
+          entryFields[key],
+          entry.relationshipField,
+        );
         const title =
           entry.title ||
           (i18n?.objectLabel
@@ -280,7 +407,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
                     {state.total}
                   </Badge>
                 )}
-                {appName && parentId && (
+                {appName && parentId && !suppressViewAll && (
                   <Link
                     to={`/apps/${appName}/${entry.objectName}?filter%5B${entry.relationshipField}%5D=${encodeURIComponent(String(parentId))}`}
                     className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"

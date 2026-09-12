@@ -39,6 +39,10 @@ on:
       # the root vitest `unit` project. `published-dist-gate.yml` and
       # `spec-range-floors.yml` draw the same line.
       - 'scripts/check-eager-closure-budget.mjs'
+      # The COMPOSITION half (objectui#7479). Same rule as its neighbour: this
+      # job runs it, so an edit to it must be able to red this gate on its own
+      # pull request rather than on somebody else's next `packages/**` change.
+      - 'scripts/check-eager-locale-catalogues.mjs'
       - 'scripts/render-budget-comment.mjs'
       - 'scripts/invoked-as.mjs'
       # The SDUI registration pins (objectui#6683) and their two dependencies.
@@ -87,6 +91,10 @@ on:
       # the root vitest `unit` project. `published-dist-gate.yml` and
       # `spec-range-floors.yml` draw the same line.
       - 'scripts/check-eager-closure-budget.mjs'
+      # The COMPOSITION half (objectui#7479). Same rule as its neighbour: this
+      # job runs it, so an edit to it must be able to red this gate on its own
+      # pull request rather than on somebody else's next `packages/**` change.
+      - 'scripts/check-eager-locale-catalogues.mjs'
       - 'scripts/render-budget-comment.mjs'
       - 'scripts/invoked-as.mjs'
       # The SDUI registration pins (objectui#6683) and their two dependencies.
@@ -426,8 +434,34 @@ jobs:
             exit 1
           fi
 
+          # The COMPOSITION half (objectui#7479): WHICH locale catalogues a page
+          # load pulls, which no byte ceiling can answer. The catalogues could
+          # return to the eager closure one at a time, each arrival small enough
+          # to fit inside a ceiling's headroom, and every run above would be
+          # green until the last one — and they could be routed into a roomier
+          # chunk without a single byte leaving the browser's request list,
+          # which objectui#7399 named and refused. Same three exit codes and the
+          # same reading of them: 2 is about the GAUGE, never a softer 1.
+          set +e
+          node scripts/check-eager-locale-catalogues.mjs
+          CATALOGUE_CODE=$?
+          set -e
+
+          if [ "$CATALOGUE_CODE" -eq 2 ]; then
+            echo "budget_status=error" >> "$GITHUB_OUTPUT"
+            echo "budget_message=The byte budgets passed, but the locale-catalogue composition half returned no trustworthy VERDICT: the eager-closure report could not be read, a catalogue was emitted under no chunk of its own, or the resident catalogue is not in the eager closure at all. The step log says which. This is not a passing budget — and it is not a size regression either." >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          if [ "$CATALOGUE_CODE" -ne 0 ]; then
+            echo ""
+            echo "❌ NON-RESIDENT LOCALE CATALOGUES ARE IN THE EAGER CLOSURE"
+            echo "budget_status=fail" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
           echo ""
-          echo "✅ Budget OK: entry chunk and eager closure are both within budget"
+          echo "✅ Budget OK: entry chunk and eager closure are both within budget, and one locale catalogue is eager"
           echo "budget_status=pass" >> "$GITHUB_OUTPUT"
 
       # The ARTIFACT half of the `sideEffects` contract (objectui#6683). The

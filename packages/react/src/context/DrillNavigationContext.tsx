@@ -30,6 +30,19 @@ export interface DrillNavigationValue {
    * Open the full list page for `objectName`, scoped by `filter` (an object
    * FIELD name → raw stored value map). Implemented by the app shell as a
    * SPA navigation to the object's list route. Absent when no host wired it.
+   *
+   * ⚠️ `filter` is the widget's AUTHORED filter composed with the click
+   * context, so it may still carry unresolved placeholders — `{current_user_id}`,
+   * `{current_org_id}`, and the relative-date macros. **Resolving them is the
+   * host implementation's job**: call `resolveFilterPlaceholders(filter, scope)`
+   * from `@object-ui/core` with the session scope the host holds
+   * (`useFilterScope`), exactly once, before the value reaches a query or a URL.
+   *
+   * A host that skips it gives ONE drill TWO scopes: the in-place drawer arm is
+   * already scoped by the resolved value, because the `object-data-table` it
+   * renders resolves `schema.filter` in its own fetch, so only the navigate arm
+   * would carry the literal — and a literal placeholder matches no record
+   * (objectui#9022).
    */
   openRecordList?: (objectName: string, filter?: Record<string, unknown>) => void;
 }

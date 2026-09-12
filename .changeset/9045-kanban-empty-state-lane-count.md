@@ -32,6 +32,12 @@ The predicate asks whether there are any **cards**:
 `totalCardCount === 0`. Nothing else moved — no exported symbol, no schema, no
 published payload.
 
+⚠️ One consequence did land in the same pull request, and it has its own
+changeset beside this one: making the region paint at one lane made the
+description's `"1 columns"` reachable, so objectui#9170 removes the lane count
+from that description. That change edits no locale pack either, so the sentence
+above still holds for both halves.
+
 ## ⚠️ The lane count was not guarding the loading state
 
 The plausible reading — that `> 1` separated "still loading" from "genuinely

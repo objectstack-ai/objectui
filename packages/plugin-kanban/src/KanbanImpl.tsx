@@ -910,7 +910,23 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
             showIcon={false}
             className="rounded-lg border border-dashed border-border/60 bg-muted/10 py-8 gap-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:text-foreground/80"
             title={t('kanban.noCards')}
-            description={`${boardColumns.length} ${t('kanban.columns', { defaultValue: 'columns' })}`}
+            // ⛔ NO DESCRIPTION, deliberately (objectui#9170, maintainer ruling
+            // 2026-09-12). This region's job is "no cards"; the lane count is
+            // already on screen, and read aloud it is noise.
+            //
+            // It used to be composed by CONCATENATION — the lane count, a space,
+            // then the pack's `kanban.columns` unit word, which is a bare plural
+            // with no singular form. That was safe only while this region required
+            // more than one lane, because the count could then never be 1.
+            // Widening `isBoardEmpty` above is what made "1 columns" reachable
+            // here, and this region is announced rather than merely printed.
+            //
+            // ⭐ Removing the number is what makes the bare plural safe BY
+            // CONSTRUCTION, rather than by a predicate objectui#9169 had to remove
+            // for the announcement to exist at all. ⛔ Do not put a count back in
+            // any spelling: a number in this region needs a plural family across
+            // ten packs, and that decision was taken the other way.
+            // `residue-namespaces-3546.test.tsx` fails if one returns.
           />
         </div>
       )}

@@ -6629,6 +6629,17 @@ export { MetadataClient, readSaveAdvisories } from './metadata-client';
 // `getDraft` that produces the envelope, because the unwrap-and-strip is part
 // of that method's contract rather than a detail of any one view.
 export { extractDraftBody } from './draft-envelope';
+// objectui#8676 - the object-metadata write invariant, exported so the two DOORS
+// that do not run through `MetadataClient.save` can apply the same one. It is
+// exported for DOORS, not for writers: a writer that calls it by hand is a
+// writer that can forget to, which is the enumeration failure this closes.
+// `scripts/check-object-metadata-write-doors.mjs` derives the door set and
+// fails when a door does not reach this function.
+export {
+  assertObjectMetadataWritable,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+  OBJECT_METADATA_TYPE,
+} from './object-metadata-write-guard';
 export type {
   RuntimeAuthoringIssue,
   MetadataSaveAdvisoryEvent,

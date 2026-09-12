@@ -77,6 +77,7 @@ import {
   detectProposedChanges,
   detectReplayOutcome,
   detectBuiltAppPackage,
+  detectPendingApproval,
   buildProgressFromDraftReview,
   // The authoring/honest -> runtime message seam (objectui#4399 / PR #4416),
   // consumed here one hop up from the plugin's own renderers (objectui#4437).
@@ -131,6 +132,31 @@ const DEFAULT_AI_PATH = '/api/v1/ai';
 function partString(part: HydratedUIMessagePart, key: string): string | undefined {
   const value = part[key];
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/**
+ * The AI SDK approval envelope as the server persisted it on a tool part.
+ *
+ * `HydratedUIMessagePart` is an open record, so the envelope is REACHABLE here
+ * but unverified. This narrows it to the declared shape and drops what does not
+ * match rather than asserting a cast: `id` is the envelope's only required
+ * member, so a value without a usable one is not an envelope at all.
+ */
+function partApproval(
+  part: HydratedUIMessagePart,
+): NonNullable<ChatbotEnhancedToolInvocation['approval']> | undefined {
+  const raw = part.approval;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const envelope = raw as Record<string, unknown>;
+  const id = envelope.id;
+  if (typeof id !== 'string' || id.length === 0) return undefined;
+  return {
+    id,
+    ...(typeof envelope.approved === 'boolean' ? { approved: envelope.approved } : {}),
+    ...(typeof envelope.reason === 'string' ? { reason: envelope.reason } : {}),
+    ...(typeof envelope.isAutomatic === 'boolean' ? { isAutomatic: envelope.isAutomatic } : {}),
+    ...(typeof envelope.signature === 'string' ? { signature: envelope.signature } : {}),
+  };
 }
 
 function partToolState(part: HydratedUIMessagePart): ChatbotEnhancedToolInvocation['state'] | undefined {
@@ -203,11 +229,26 @@ export function hydratedMessagesToChatMessages(messages: HydratedUIMessage[]): C
         // draft card (a rolled-back publish would get a live Publish button).
         // Mirrors the live mapper's suppression exactly.
         const replayOutcome = detectReplayOutcome(toolCallId, result);
+        // objectui#8442 — the two halves of an actionable approval, dropped
+        // here until now, and they arrive from DIFFERENT places:
+        //   * the AI SDK's `approval` envelope rides the persisted PART (the
+        //     SDK's tool-part union requires it alongside the three approval
+        //     states this mapper already carries through);
+        //   * the ObjectStack `pendingActionId` rides the tool RESULT and is
+        //     never persisted as a part key, so it is derived with the same
+        //     detector the live mapper uses — one parse, so the hydrated path
+        //     cannot disagree with the live one about the same envelope.
+        // Without the id, `useHitlInChat` never indexes the invocation and the
+        // operator's Approve / Reject has nothing to call.
+        const approval = partApproval(part);
+        const pendingActionId = detectPendingApproval(result)?.pendingActionId;
         toolInvocations.push({
           toolCallId,
           toolName,
           ...(state ? { state } : {}),
           ...(result !== undefined ? { result } : {}),
+          ...(approval ? { approval } : {}),
+          ...(pendingActionId ? { pendingActionId } : {}),
           ...(draftReview && !replayOutcome ? { draftReview } : {}),
           ...(proposedPlan ? { proposedPlan } : {}),
           ...(builderHandoff ? { builderHandoff } : {}),

@@ -831,6 +831,34 @@ export interface ChatToolInvocation {
     | 'output-available'
     | 'output-error'
     | 'output-denied';
+  /**
+   * AI SDK v6 approval envelope — the data a human decision on this tool call
+   * is carried by, and the piece that makes the three approval states
+   * ACTIONABLE rather than merely displayable (objectui#8442).
+   *
+   * The SDK's own tool-part union makes this envelope REQUIRED alongside
+   * `approval-requested`, `approval-responded` and `output-denied`: a value
+   * that claims one of those states without it is not a constructible SDK
+   * part. Carrying it here is what lets a mapper hand a rehydrated pending
+   * approval to a chat surface without the surface re-parsing the tool result.
+   *
+   * Optional because the other seven states never carry one. Pairing the
+   * envelope with the states that require it is objectui#8426's narrowing of
+   * the `state` union above, deliberately NOT done here — this member is
+   * purely additive, so nothing an author writes today stops parsing.
+   */
+  approval?: {
+    /** Approval request id — the key a decision is replied on. */
+    id: string;
+    /** The decision, once made. Absent while the request is outstanding. */
+    approved?: boolean;
+    /** Free-text reason supplied with the decision. */
+    reason?: string;
+    /** True when policy decided without asking a human. */
+    isAutomatic?: boolean;
+    /** Signature over the approval, when the transport signs decisions. */
+    signature?: string;
+  };
 }
 
 /**

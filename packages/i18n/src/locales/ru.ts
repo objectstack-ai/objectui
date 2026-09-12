@@ -1095,6 +1095,7 @@ const ru = {
     hideEmptyFields: "Скрыть пустые поля",
     noValue: "Нет значения",
     unresolvedReference: "Неразрешённая ссылка: {{value}} не удалось сопоставить с пользователем",
+    unresolvedLookupReference: "Неразрешённая ссылка: {{value}} не удалось сопоставить с записью на этом экране",
     repeaterItemCount: "Элементов: {{count}}",
     repeaterItemCount_one: "{{count}} элемент",
     repeaterItemCount_other: "{{count}} элементов",

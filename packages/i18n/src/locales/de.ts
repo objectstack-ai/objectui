@@ -1085,6 +1085,7 @@ const de = {
     hideEmptyFields: "Leere Felder ausblenden",
     noValue: "Kein Wert",
     unresolvedReference: "Nicht aufgelöste Referenz: {{value}} wurde keinem Benutzer zugeordnet",
+    unresolvedLookupReference: "Nicht aufgelöste Referenz: {{value}} wurde auf dieser Ansicht keinem Datensatz zugeordnet",
     repeaterItemCount: "{{count}} Einträge",
     repeaterItemCount_one: "{{count}} Eintrag",
     repeaterItemCount_other: "{{count}} Einträge",

@@ -81,6 +81,34 @@ describe('the population this gate looks for', () => {
     expect(catalogueCodeOfFileName(`assets/${CATALOGUE_CHUNK_PREFIX}zh-Bx9f1.js`)).toBe('zh');
   });
 
+  it('reads a hash that CONTAINS a hyphen — rolldown names chunks in base64url', () => {
+    // ⛔ Not invented fixtures. These three file names were emitted by one
+    // console build (objectui#9078's head) alongside seven siblings whose
+    // hashes drew no `-`, and the previous matcher read exactly these three as
+    // null — so the gate announced that zh, de and fr "were emitted under no
+    // `i18n-locale-<code>` chunk at all" while all three sat in `assets/`.
+    // Every fixture above this line is hyphen-free, which is why the defect
+    // shipped: the suite could not tell the two spellings apart.
+    expect(catalogueCodeOfFileName('assets/i18n-locale-de-cTrdGXD-.js')).toBe('de');
+    expect(catalogueCodeOfFileName('assets/i18n-locale-fr-CH3jagZ-.js')).toBe('fr');
+    expect(catalogueCodeOfFileName('assets/i18n-locale-zh-Ixe-DTac.js')).toBe('zh');
+    // An underscore is in the same alphabet and was never exercised either.
+    expect(catalogueCodeOfFileName('assets/i18n-locale-ja-Ab_c-1D2.js')).toBe('ja');
+  });
+
+  it('still refuses to read one code as another, which is what the old matcher bought', () => {
+    // The retired spelling constrained the hash in order to keep
+    // `i18n-locale-en-*.js` from being read as some other code's chunk. That
+    // ambiguity is about the CODE, not the hash, so it is answered by matching
+    // the declared codes longest-first — and it must keep being answered.
+    for (const code of BUILT_IN_LANGUAGE_CODES) {
+      expect(catalogueCodeOfFileName(`assets/${CATALOGUE_CHUNK_PREFIX}${code}-Ab-cD.js`)).toBe(code);
+    }
+    // A hash has to actually follow the code.
+    expect(catalogueCodeOfFileName(`assets/${CATALOGUE_CHUNK_PREFIX}zh.js`)).toBeNull();
+    expect(catalogueCodeOfFileName(`assets/${CATALOGUE_CHUNK_PREFIX}zh-.js`)).toBeNull();
+  });
+
   it('claims nothing it should not — the matcher must be able to say no', () => {
     // Without these the verdicts below are statements about a matcher that
     // matches everything, which agrees with every bundle.

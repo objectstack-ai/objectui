@@ -9,9 +9,9 @@
  * kebab-casing, the same memo, the same `Database` fallback — differing only in
  * that it skipped the name check and let lucide log "Name in Lucide DynamicIcon
  * not found" for an off-catalog name. Its `lucide-react/dynamic` import put
- * lucide's 1,767-entry dynamic-import map on the console's eager path, which is
- * the cost this card removes; the shared resolver keeps the icon NAMES as data
- * and fetches the map through `import()` on first use.
+ * lucide's 2,025-entry dynamic-import map on the console's eager path; the
+ * shared resolver keeps the icon NAMES as data and fetches the map through
+ * `import()` on first use.
  *
  * The result is memoised per name inside that resolver, so call sites still get
  * a *stable* component reference across renders — nothing is created during

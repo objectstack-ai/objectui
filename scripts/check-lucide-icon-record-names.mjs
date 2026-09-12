@@ -43,8 +43,8 @@
  *
  * ── HOW a site reaches DYNAMIC is also censused (objectui#9204) ─────────────
  * lucide derives `iconNames` as `Object.keys(dynamicIconImports)`, so importing
- * the names imports the 1,767-entry dynamic-import map with them. Four modules
- * did, and the map — 263,547 B rendered — sat in the console's eager
+ * the names imports the 2,025-entry dynamic-import map with them. Four modules
+ * did, and the map — 8,253 B gzipped, measured — sat in the console's eager
  * `ui-components` chunk on every page load. Two of those were transcriptions of
  * `getLazyIcon` and are now delegations; the surviving pair reads the names from
  * `LUCIDE_ICON_NAMES`, a generated mirror of that same vocabulary, and reaches
@@ -339,11 +339,11 @@ export const isDynamicEntrySpecifier = (specifier) => specifier.startsWith('luci
  *
  * ⛔ Empty, and that is the assertion (objectui#9204). lucide derives
  * `iconNames` as `Object.keys(dynamicIconImports)`, so a static import of
- * EITHER export puts the 1,767-entry dynamic-import map in the importer's chunk
- * — 263,547 B rendered in the console's eager `ui-components` chunk, measured on
- * the emitted artifact. Four modules imported it that way and the map rode every
- * page load; the names now ship as data and the map loads through `import()` on
- * the first icon that renders.
+ * EITHER export puts the 2,025-entry dynamic-import map in the importer's chunk
+ * — 8,253 B gzipped of the console's eager `ui-components` chunk, measured on
+ * the emitted artifact across three builds. Four modules imported it that way;
+ * the names now ship as data and the map loads through `import()` on the first
+ * icon that renders.
  *
  * Nothing else in the tree goes red when that regresses: the laziness is in the
  * source, the cost is in a bundle, and the eager-closure budget only reports the
@@ -1158,7 +1158,7 @@ export function analyze(root, {
     errors.push(
       `EAGER \`lucide-react/dynamic\` import: ${file}\n`
       + '      lucide derives `iconNames` from `dynamicIconImports`, so a STATIC import of either name puts the\n'
-      + '      1,767-entry dynamic-import map in this module\'s chunk — 263,547 B rendered on the console\'s eager\n'
+      + '      2,025-entry dynamic-import map in this module\'s chunk — 8,253 B gzipped on the console\'s eager\n'
       + '      path (objectui#9204). Read the names from `LUCIDE_ICON_NAMES` (@object-ui/components) and reach the\n'
       + '      map through `import(\'lucide-react/dynamic.mjs\')`, the way `packages/components/src/lib/lazy-icon.tsx` does.',
     );

@@ -10,13 +10,19 @@
  * ## Why a mirror exists at all (objectui#9204)
  *
  * `iconNames` is `Object.keys(dynamicIconImports)` — lucide derives it FROM the
- * 1,767-entry dynamic-import map, so importing the names imports the map, and
- * the map is 263,547 B rendered in the console's eager `ui-components` chunk.
+ * 2,025-entry dynamic-import map, so importing the names imports the map.
  * `getLazyIcon`/`isLucideIconName` need only the membership answer, and they
  * need it SYNCHRONOUSLY (`notificationIcon` picks between the authored icon and
  * the severity glyph during render). So the names ship as data and the map —
  * the part that is only ever CALLED, and only after a name has already been
  * accepted — moves behind an `import()`.
+ *
+ * ⚠️ Measured on `91facaef6`, and the measurement is why this file is only half
+ * a fix: the map costs 8,253 B gzipped of the eager `ui-components` chunk, and
+ * this catalogue — the same names, without the map — costs 9,176 B in the same
+ * chunk. Deferring the map while keeping the names eager is net +923 B. The
+ * names are the cost; lucide's map is a cheaper container for them than a list
+ * is. See the PR for the three builds.
  *
  * ## Why it cannot age silently
  *
@@ -96,12 +102,15 @@ export function renderCatalogue(names) {
  *
  * lucide derives \`iconNames\` as \`Object.keys(dynamicIconImports)\`, so
  * \`import { iconNames } from 'lucide-react/dynamic.mjs'\` drags the whole
- * 1,767-entry dynamic-import map into whatever chunk holds the importer —
- * measured at 263,547 B rendered / 45,749 B gzipped of the console's eager
- * \`ui-components\` chunk. The membership answer is needed synchronously
- * (\`notificationIcon\` chooses between the authored icon and the severity glyph
- * during render); the map is needed only AFTER a name has been accepted, and
- * \`lazy-icon.tsx\` reaches it through \`import()\` for that.
+ * 2,025-entry dynamic-import map into whatever chunk holds the importer —
+ * measured at 8,253 B gzipped of the console's eager \`ui-components\` chunk. The
+ * membership answer is needed synchronously (\`notificationIcon\` chooses between
+ * the authored icon and the severity glyph during render); the map is needed
+ * only AFTER a name has been accepted, and \`lazy-icon.tsx\` reaches it through
+ * \`import()\` for that.
+ *
+ * ⚠️ This list is not free: it costs 9,176 B gzipped in that same chunk, MORE
+ * than the map whose keys these names were. See \`gen-lucide-icon-names.mjs\`.
  *
  * ## Why it cannot age silently
  *

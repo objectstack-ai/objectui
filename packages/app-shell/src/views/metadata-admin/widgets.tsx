@@ -1556,7 +1556,7 @@ function FieldRefMultiWidget({ value, onChange, readOnly, context, ariaLabelledB
 // `LUCIDE_ICON_NAMES` is the shared catalogue `@object-ui/components` publishes
 // as DATA. Read from there rather than from `lucide-react/dynamic.mjs`, whose
 // `iconNames` is `Object.keys(dynamicIconImports)` — importing the names
-// imports the 1,767-entry map with them, onto the eager path (objectui#9204).
+// imports the 2,025-entry map with them, onto the eager path (objectui#9204).
 // Freeze the membership Set once for O(1) reuse.
 const LUCIDE_ICON_SET: Set<string> = new Set(LUCIDE_ICON_NAMES);
 // Cap the rendered grid — each cell mounts a lazily-loaded icon, so showing all

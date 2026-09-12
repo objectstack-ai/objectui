@@ -13,8 +13,8 @@
  * `lazy-icon.tsx` answers `isLucideIconName` from a generated mirror instead of
  * importing `iconNames` from `lucide-react/dynamic.mjs`, because lucide derives
  * those names as `Object.keys(dynamicIconImports)` — importing them imports the
- * 1,767-entry dynamic-import map, which is what put 263,547 B of rendered map on
- * the console's eager path.
+ * 2,025-entry dynamic-import map, which is what put that map on the console's
+ * eager path.
  *
  * The mirror buys that with an ageing risk, and it is the risk
  * `scripts/check-lucide-icon-record-names.mjs` names in its own header: "a

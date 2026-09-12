@@ -786,9 +786,9 @@ describe('the surface census is re-derived on every run', () => {
     expect(result.discovered.eagerDynamic).toEqual([]);
   });
 
-  it('fails on a STATIC import of the dynamic entry — that is the 263 KB map', () => {
+  it('fails on a STATIC import of the dynamic entry — that is the whole map', () => {
     // lucide derives `iconNames` from `dynamicIconImports`, so this import puts
-    // the 1,767-entry map in the importer's chunk. Nothing else in the tree
+    // the 2,025-entry map in the importer's chunk. Nothing else in the tree
     // reddens: the laziness is in the source and the cost is in a bundle.
     const result = judge('eager-dynamic', {
       files: {

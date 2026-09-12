@@ -22,9 +22,16 @@
  *
  * That entry hands out two things this file needs, and lucide derives one from
  * the other: `iconNames` is `Object.keys(dynamicIconImports)`. So a static
- * import of EITHER name drags the 1,767-entry dynamic-import map into whatever
+ * import of EITHER name drags the 2,025-entry dynamic-import map into whatever
  * chunk holds this module — the console's eager `ui-components` chunk, where it
- * was measured at 263,547 B rendered (objectui#9204).
+ * costs 8,253 B gzipped (measured, objectui#9204).
+ *
+ * ⚠️ Deferring it does NOT bank those 8,253 B, and the number below is why this
+ * file is not the whole fix. The map's KEYS are the names, so they have to ship
+ * anyway, and a bare list of them costs 9,176 B gzipped in that same chunk —
+ * more than the map that carried them. The saving arrives only when the NAMES
+ * can leave too, which is a question about `isLucideIconName`'s contract, not
+ * about this import.
  *
  * The two halves are needed at different times:
  *

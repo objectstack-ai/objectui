@@ -22,8 +22,8 @@
  * for two reasons that are the same reason:
  *
  *   - the membership Set was built from `iconNames`, and lucide derives that
- *     from its 1,767-entry dynamic-import map — so this module's import alone
- *     put 263,547 B of rendered map on the console's eager path;
+ *     from its 2,025-entry dynamic-import map — so this module's import alone
+ *     put that whole map on the console's eager path;
  *   - two transcriptions of one lookup are two chances to disagree about which
  *     lucide vocabulary a name is judged against, which is precisely what
  *     `scripts/check-lucide-icon-record-names.mjs` censuses.

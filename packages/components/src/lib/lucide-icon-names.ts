@@ -21,12 +21,15 @@
  *
  * lucide derives `iconNames` as `Object.keys(dynamicIconImports)`, so
  * `import { iconNames } from 'lucide-react/dynamic.mjs'` drags the whole
- * 1,767-entry dynamic-import map into whatever chunk holds the importer —
- * measured at 263,547 B rendered / 45,749 B gzipped of the console's eager
- * `ui-components` chunk. The membership answer is needed synchronously
- * (`notificationIcon` chooses between the authored icon and the severity glyph
- * during render); the map is needed only AFTER a name has been accepted, and
- * `lazy-icon.tsx` reaches it through `import()` for that.
+ * 2,025-entry dynamic-import map into whatever chunk holds the importer —
+ * measured at 8,253 B gzipped of the console's eager `ui-components` chunk. The
+ * membership answer is needed synchronously (`notificationIcon` chooses between
+ * the authored icon and the severity glyph during render); the map is needed
+ * only AFTER a name has been accepted, and `lazy-icon.tsx` reaches it through
+ * `import()` for that.
+ *
+ * ⚠️ This list is not free: it costs 9,176 B gzipped in that same chunk, MORE
+ * than the map whose keys these names were. See `gen-lucide-icon-names.mjs`.
  *
  * ## Why it cannot age silently
  *

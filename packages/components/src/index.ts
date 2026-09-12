@@ -43,7 +43,7 @@ export { getLazyIcon, isLucideIconName, LazyIcon, toKebabIconName } from './lib/
 // lucide's DYNAMIC icon vocabulary as data. Published because the metadata
 // designer's icon picker needs the whole list to search, and importing
 // `iconNames` from `lucide-react/dynamic.mjs` to get it drags lucide's
-// 1,767-entry dynamic-import map onto the eager path (objectui#9204).
+// 2,025-entry dynamic-import map in with them (objectui#9204).
 export { LUCIDE_ICON_NAMES } from './lib/lucide-icon-names';
 
 // The member-action visibility gate — "did this action DECLARE a `visible` gate

@@ -38,7 +38,7 @@ export { useGroupReorder } from './useGroupReorder';
 export { useColumnSummary } from './useColumnSummary';
 export { FormulaBar } from './FormulaBar';
 export { SplitPaneGrid } from './SplitPaneGrid';
-export type { ObjectGridComponentProps, ObjectGridExternalPaginationProps, ObjectGridColumnState } from './ObjectGrid';
+export type { ObjectGridComponentProps, ObjectGridExternalPaginationProps, ObjectGridColumnState, ObjectGridRowOperations } from './ObjectGrid';
 
 /**
  * @deprecated Use `ObjectGridComponentProps`. Renamed in objectui#4650 because

@@ -118,6 +118,16 @@ declare const schema: BaseSchema
 </SchemaRendererProvider>
 ```
 
+`dataSource` carries the host's adapter as the published `DataSource` contract
+(`@object-ui/types`), typed `DataSource | null | undefined`: a host either hands
+over an adapter or states that it has none — a Studio preview, a page rendered
+before the host's adapter has connected, or a widget probe driving `apiFetch`
+alone. Both spellings of "none" are accepted because every reader in the tree
+guards for it. The prop used to be typed `any`, so a string passed where the
+adapter belongs — the shape of a config value read from the wrong place —
+raised nothing until the first `find()` at runtime (objectui#7912).
+`useSchemaContext()` hands the same type back to every consumer.
+
 Nested providers inherit `apiFetch` from their parent when they don't supply
 their own, so re-wrapped subtrees (embedded pages, preview surfaces) keep the
 host's authentication.

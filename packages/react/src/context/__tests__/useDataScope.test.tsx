@@ -6,11 +6,23 @@ import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import React from 'react';
 import { SchemaRendererProvider, useDataScope } from '../SchemaRendererContext';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * `useDataScope` walks the injected value BY PATH, so a probe for it injects a
+ * bag rather than an adapter.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 describe('useDataScope', () => {
   it('returns undefined when no path is provided', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SchemaRendererProvider dataSource={{ users: [1, 2, 3] }}>
+      <SchemaRendererProvider dataSource={{ users: [1, 2, 3] } as unknown as DataSource}>
         {children}
       </SchemaRendererProvider>
     );
@@ -22,7 +34,7 @@ describe('useDataScope', () => {
 
   it('returns undefined when path is empty string', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SchemaRendererProvider dataSource={{ users: [1, 2, 3] }}>
+      <SchemaRendererProvider dataSource={{ users: [1, 2, 3] } as unknown as DataSource}>
         {children}
       </SchemaRendererProvider>
     );
@@ -34,7 +46,7 @@ describe('useDataScope', () => {
 
   it('returns scoped data when a valid path is given', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SchemaRendererProvider dataSource={{ users: [{ name: 'Alice' }] }}>
+      <SchemaRendererProvider dataSource={{ users: [{ name: 'Alice' }] } as unknown as DataSource}>
         {children}
       </SchemaRendererProvider>
     );
@@ -46,7 +58,7 @@ describe('useDataScope', () => {
 
   it('resolves nested paths', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SchemaRendererProvider dataSource={{ app: { settings: { theme: 'dark' } } }}>
+      <SchemaRendererProvider dataSource={{ app: { settings: { theme: 'dark' } } } as unknown as DataSource}>
         {children}
       </SchemaRendererProvider>
     );
@@ -58,7 +70,7 @@ describe('useDataScope', () => {
 
   it('returns undefined for non-existent path', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SchemaRendererProvider dataSource={{ users: [] }}>
+      <SchemaRendererProvider dataSource={{ users: [] } as unknown as DataSource}>
         {children}
       </SchemaRendererProvider>
     );
@@ -78,7 +90,7 @@ describe('useDataScope', () => {
     // Simulate the real scenario: dataSource is a service adapter with methods
     const adapter = { find: () => {}, create: () => {}, update: () => {} };
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SchemaRendererProvider dataSource={adapter}>
+      <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
         {children}
       </SchemaRendererProvider>
     );

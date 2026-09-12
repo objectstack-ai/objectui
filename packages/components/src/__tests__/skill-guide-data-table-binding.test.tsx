@@ -75,6 +75,19 @@ import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 // package self-import (`scripts/check-package-self-import.mjs`).
 import '../renderers';
 import { DATA_TABLE_BIND_DIAGNOSTIC_PREFIX } from '../renderers/complex/dataTableBindDiagnostic';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../../..');
@@ -152,7 +165,7 @@ function bindWarnings(): string[] {
 
 function renderNode(schema: unknown, dataSource: unknown) {
   return render(
-    <SchemaRendererProvider dataSource={dataSource}>
+    <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
       <SchemaRenderer schema={schema as never} />
     </SchemaRendererProvider>,
   );

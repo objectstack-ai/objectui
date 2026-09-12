@@ -105,16 +105,27 @@ function buildComponentScope(dataSource: unknown): Record<string, React.Componen
 }
 
 /**
- * Stand-in for "no adapter yet" — the window before the host's AdapterProvider
- * finishes connecting, and any surface that renders a react page without one.
+ * "No adapter yet" — the window before the host's AdapterProvider finishes
+ * connecting, and any surface that renders a react page without one — is now
+ * expressed by handing the seam the absent adapter ITSELF (objectui#7912).
  *
- * A module constant, not an inline `?? {}`: this is a context value, and
- * SchemaRendererProvider memoises on its identity. A fresh object per render
- * would break that memo for every block inside the page, re-cloning each
- * block's schema and re-running its expressions on every render of the page —
- * the same defect the SchemaRenderer fallback had (objectui#2954).
+ * This replaced a module-level stand-in constant holding an empty object. That
+ * constant existed for a real reason and the reason still holds:
+ * `SchemaRendererProvider` memoises its context value on the identity of what
+ * it is handed, so a fresh empty object per render defeated that memo for every
+ * block inside the page — re-cloning each block's schema and re-running its
+ * expressions on every render (objectui#2954). `useAdapter()` returns
+ * `ObjectStackAdapter | null`, and both arms are render-stable: the adapter is
+ * the host's own context value, and `null` is a primitive. So the memo keeps
+ * what it had.
+ *
+ * What is gained is that an empty object is TRUTHY: every reader downstream
+ * asks `if (!dataSource)` before it reaches for `find`, so it walked past the
+ * one guard written to catch "no adapter" and failed later, at the call. The
+ * seam declares `DataSource | null | undefined`, so the absence is now stated
+ * in the type instead of being smuggled through `any` as a value that is not
+ * an adapter.
  */
-const NO_DATA_SOURCE = {};
 
 function CapabilityDisabledNotice(): React.ReactElement {
   return (
@@ -202,7 +213,7 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
 
   const { ReactRunner } = runtime;
   return (
-    <SchemaRendererProvider dataSource={adapter ?? NO_DATA_SOURCE}>
+    <SchemaRendererProvider dataSource={adapter}>
       <ReactRunner
         code={source}
         scope={scope}

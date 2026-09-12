@@ -195,7 +195,7 @@
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "dev": "tsup --watch",
-    "test": "vitest run --passWithNoTests --root ../.. packages/vscode-extension/",
+    "test": "vitest run --root ../.. packages/vscode-extension/",
     "test:watch": "vitest --root ../.. packages/vscode-extension/",
     "package": "vsce package",
     "publish": "vsce publish"

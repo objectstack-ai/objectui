@@ -397,7 +397,14 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
   });
 
   it('CONTROL — `chatbot` still TYPE-CHECKS with `body`, the held-out key', () => {
-    const held = { type: 'chatbot', messages: [], body: { temperature: 0.2 } } satisfies ChatbotSchema;
+    // ⚠️ The VALUE differs from the mirror control above, and that difference
+    // IS the ledgered collision: the TypeScript face inherits `body` from
+    // `BaseSchema` as a content channel (`SchemaNode | SchemaNode[]`), while
+    // the mirror declares it as `Record` of unknown, "additional API body
+    // params". One key, two meanings, on the two published faces of one node —
+    // which is why objectui#9256 refuses to tombstone it on a measurement and
+    // leaves it for a ruling.
+    const held = { type: 'chatbot', messages: [], body: CONTENT } satisfies ChatbotSchema;
     expect(held.type).toBe('chatbot');
   });
 });

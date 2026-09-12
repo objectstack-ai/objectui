@@ -59,12 +59,11 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('sonner', () => {
-  const fn: any = vi.fn();
-  fn.error = vi.fn();
-  fn.success = vi.fn();
-  return { toast: fn };
-});
+// `consoleServerAction` imports sonner at module load for its popup-blocked
+// fallback. Nothing here asserts on it; the mock only keeps the import inert.
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
+}));
 
 import { ActionRunner, type ActionDef, type ActionResult } from '@object-ui/core';
 import { createConsoleServerActionHandler } from '../consoleServerAction';

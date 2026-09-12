@@ -216,6 +216,16 @@ export const ADJUDICATED = new Map([
     'packages/components/src/__tests__/guide-layout-page-buttons-7926.test.tsx',
     { reads: ['content/docs/guide/layout.md'] },
   ],
+  // The four-leg render pin for objectui#8021. Leg A is READ OFF
+  // `content/docs/guide/schema-rendering.md` rather than transcribed -- both the
+  // wiring and the expression spelling -- and the sweep arm reads the second
+  // surface the same repair covered.
+  [
+    'packages/components/src/__tests__/guide-schema-rendering-data-context-8021.test.tsx',
+    {
+      reads: ['content/docs/guide/schema-rendering.md', 'packages/react/README.md'],
+    },
+  ],
   [
     'packages/components/src/__tests__/page-body-single-node-8310.test.tsx',
     {

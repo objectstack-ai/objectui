@@ -55,9 +55,26 @@ export interface AlertSchema extends BaseSchema {
    */
   onDismiss?: never;
   /**
-   * Child content
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `alert` reads `body`, and no
+   * renderer read consumes `children`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.body` read in
+   * `packages/components/src/renderers/data-display/alert.tsx`. The same sweep finds zero `children` reads
+   * for this node type.
+   *
+   * `children` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `alert` reads — author `body`.
    */
-  children?: SchemaNode | SchemaNode[];
+  children?: never;
 }
 
 /**
@@ -106,9 +123,26 @@ export interface BadgeSchema extends BaseSchema {
    */
   icon?: string;
   /**
-   * Child content
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `badge` reads `body`, and no
+   * renderer read consumes `children`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.body` read in
+   * `packages/components/src/renderers/data-display/badge.tsx`. The same sweep finds zero `children` reads
+   * for this node type.
+   *
+   * `children` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `badge` reads — author `body`.
    */
-  children?: SchemaNode | SchemaNode[];
+  children?: never;
 }
 
 /**

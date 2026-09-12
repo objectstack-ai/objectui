@@ -124,14 +124,31 @@ describe('objectui#6939 — `children` is no longer required on either member', 
     expect(ContextMenuSchema.safeParse({ type: 'context-menu', items: [] }).success).toBe(true);
   });
 
-  it('the accept set only WIDENED — the `children` spelling still parses', () => {
-    // The ruling's patch reasoning. Nothing that validated before this change
-    // may stop validating; `children` survives as `BaseSchema`'s optional key.
-    expect(TooltipSchema.safeParse({
+  it('objectui#8284 SUPERSEDES the widen-only half for `tooltip`: `children` is now REFUSED by name', () => {
+    // This case used to assert "the accept set only WIDENED — the `children`
+    // spelling still parses", on objectui#6939's reasoning that `children`
+    // survives as `BaseSchema`'s optional key. That half is now overruled for
+    // `tooltip` by the objectui#8284 ruling (summon #17, decision batch #2,
+    // 2026-09-07): the channel a renderer does not read is tombstoned per
+    // component, so authoring it is refused at validation instead of drawing
+    // an empty tooltip. #6939's own declaration already said "nothing reads
+    // `children` here" — this is that sentence made enforceable.
+    const refused = TooltipSchema.safeParse({
       type: 'tooltip',
       content: 'Helpful information',
       children: [{ type: 'button', label: 'Hover me' }],
-    }).success).toBe(true);
+    });
+    expect(refused.success).toBe(false);
+    if (!refused.success) {
+      expect(refused.error.issues.map((i) => i.path.join('.'))).toEqual(['children']);
+      expect(refused.error.issues[0]!.message).toContain('objectui#8284');
+    }
+
+    // CONTROL, unchanged and deliberately so: `context-menu` is NOT in the
+    // family objectui#8284 narrowed (its renderer reads neither `body` nor
+    // `children`, and that verdict needs a cross-package sweep before it can
+    // be acted on). Its `children` still parses, which is what keeps the line
+    // above a reading about `tooltip` rather than about the whole mirror.
     expect(ContextMenuSchema.safeParse({
       type: 'context-menu',
       items: [{ label: 'Copy' }],

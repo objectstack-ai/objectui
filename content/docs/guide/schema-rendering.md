@@ -172,7 +172,7 @@ Use arrays for multiple items:
 ```json
 {
   "type": "container",
-  "body": [
+  "children": [
     { "type": "text", "content": "First item" },
     { "type": "text", "content": "Second item" },
     { "type": "text", "content": "Third item" }
@@ -429,7 +429,7 @@ Always type your schemas for better IDE support and fewer runtime errors.
 ```json
 {
   "type": "container",
-  "body": {
+  "children": {
     "type": "spinner",
     "visibleOn": "${loading}"
   }

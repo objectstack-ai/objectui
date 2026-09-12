@@ -54,6 +54,27 @@ export interface BoxSchema extends BaseSchema {
    * Child components
    */
   children?: SchemaNode | SchemaNode[];
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `box` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/box.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `box` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**
@@ -69,6 +90,27 @@ export interface TextSpanSchema extends BaseSchema {
    * Child components
    */
   children?: SchemaNode | SchemaNode[];
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `span` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/basic/span.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `span` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**
@@ -251,6 +293,27 @@ export interface ContainerSchema extends BaseSchema {
    * Child components
    */
   children?: SchemaNode | SchemaNode[];
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `container` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/container.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `container` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**
@@ -356,6 +419,27 @@ export interface FlexLayoutProps {
  */
 export interface FlexSchema extends BaseSchema, FlexLayoutProps {
   type: 'flex';
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `flex` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/flex.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `flex` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**
@@ -367,6 +451,27 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
  */
 export interface StackSchema extends BaseSchema, FlexLayoutProps {
   type: 'stack';
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `stack` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/stack.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `stack` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**
@@ -395,6 +500,27 @@ export interface GridSchema extends BaseSchema {
    * Child components
    */
   children?: SchemaNode | SchemaNode[];
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `grid` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/grid.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `grid` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**
@@ -552,6 +678,27 @@ export interface ScrollAreaSchema extends BaseSchema {
    * Child components
    */
   children?: SchemaNode | SchemaNode[];
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `scroll-area` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/complex/scroll-area.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `scroll-area` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**

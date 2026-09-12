@@ -21,10 +21,18 @@ import {
   specSubpathsFromLiterals,
   specSymbols,
 } from '../check-spec-range-floors.mjs';
-// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+
+// Plain-JS CI helper; its types are INFERRED from the .mjs source by
+// `tsconfig.scripts.json` (`allowJs`), so no `@ts-expect-error` here — unlike
+// the 28 package-side carriers, whose `tsconfig.test.json` has `allowJs: false`
+// and genuinely errors on this import (objectui#3494).
 import { maskComments } from '../js-comment-mask.mjs';
 
-/** Local annotation, since the import above is untyped — the call site stays checked. */
+// The annotation is NOT redundant under `allowJs`, and this was measured rather
+// than assumed: `maskComments`'s JSDoc carries no `@param` tag (its neighbour
+// `scanSource` does), so inference gives the parameter an implicit `any` and
+// `maskComments(12345)` type-checks clean. Naming the signature here is what
+// keeps the one call site below checked.
 const mask: (source: string) => string = maskComments;
 
 /**

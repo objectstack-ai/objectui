@@ -341,7 +341,7 @@ export const ToggleSchema = BaseSchema.extend({
     'body',
     'children',
     'this toggle node',
-    '`toggle` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/form/toggle.tsx:38). '
+    '`toggle` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/form/toggle.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),
@@ -696,7 +696,7 @@ export const FormSchema = BaseSchema.extend({
     'body',
     'children',
     'this form node',
-    '`form` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/form/form.tsx:1528, :1531, :1745, :1748, :3121, :3124). '
+    '`form` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/form/form.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),

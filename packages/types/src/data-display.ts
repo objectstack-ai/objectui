@@ -59,9 +59,11 @@ export interface AlertSchema extends BaseSchema {
    * renderer read consumes `children`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/data-display/alert.tsx:22`. The same sweep
-   * finds zero `children` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.body` read in
+   * `packages/components/src/renderers/data-display/alert.tsx`. The same sweep finds zero `children` reads
+   * for this node type.
    *
    * `children` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without
@@ -125,9 +127,11 @@ export interface BadgeSchema extends BaseSchema {
    * renderer read consumes `children`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/data-display/badge.tsx:32`. The same sweep
-   * finds zero `children` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.body` read in
+   * `packages/components/src/renderers/data-display/badge.tsx`. The same sweep finds zero `children` reads
+   * for this node type.
    *
    * `children` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without

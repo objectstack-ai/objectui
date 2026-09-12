@@ -80,7 +80,7 @@ export const BoxSchema = BaseSchema.extend({
     'body',
     'children',
     'this box node',
-    '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/layout/box.tsx:56). '
+    '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/box.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),
@@ -97,7 +97,7 @@ export const TextSpanSchema = BaseSchema.extend({
     'body',
     'children',
     'this span node',
-    '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/basic/span.tsx:143). '
+    '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/basic/span.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),
@@ -233,7 +233,7 @@ export const ContainerSchema = BaseSchema.extend({
     'body',
     'children',
     'this container node',
-    '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/layout/container.tsx:101). '
+    '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/container.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),
@@ -260,7 +260,7 @@ export const FlexSchema = BaseSchema.extend({
     'body',
     'children',
     'this flex node',
-    '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/layout/flex.tsx:93). '
+    '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),
@@ -281,7 +281,7 @@ export const StackSchema = BaseSchema.extend({
     'body',
     'children',
     'this stack node',
-    '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/layout/stack.tsx:99). '
+    '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/stack.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),
@@ -317,7 +317,7 @@ export const GridSchema = BaseSchema.extend({
     'body',
     'children',
     'this grid node',
-    '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/layout/grid.tsx:168). '
+    '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/grid.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),
@@ -376,7 +376,7 @@ export const ScrollAreaSchema = BaseSchema.extend({
     'body',
     'children',
     'this scroll-area node',
-    '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/complex/scroll-area.tsx:34). '
+    '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/complex/scroll-area.tsx`). '
     + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),

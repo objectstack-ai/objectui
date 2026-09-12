@@ -489,9 +489,11 @@ export interface TooltipSchema extends BaseSchema {
    * `children`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/overlay/tooltip.tsx:31`. The same sweep
-   * finds zero `children` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.body` read in
+   * `packages/components/src/renderers/overlay/tooltip.tsx`. The same sweep finds zero `children` reads
+   * for this node type.
    *
    * `children` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without

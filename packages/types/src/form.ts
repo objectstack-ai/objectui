@@ -547,9 +547,11 @@ export interface ToggleSchema extends BaseSchema {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/form/toggle.tsx:38`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/form/toggle.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without
@@ -1402,9 +1404,11 @@ export interface FormSchema extends BaseSchema {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/form/form.tsx:1528`, `:1531`, `:1745`, `:1748`, `:3121`, `:3124`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/form/form.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without

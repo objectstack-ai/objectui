@@ -31,9 +31,10 @@
  * `packages/components/src/renderers/**` (114 registrations) and the read side
  * is measured with the TypeScript TYPE CHECKER — each `body` / `children`
  * property access is filed under the TYPE of the object it is read from, so a
- * docblock mention cannot score (the control: `layout/box.tsx:34` says
- * `schema.body` in prose and `grep -l` counts it, the checker does not; the
- * card's own `17 / 17` figure came from that query).
+ * docblock mention cannot score (the control: the `BoxSchema` docblock in
+ * `renderers/layout/box.tsx` says `schema.body` in prose and `grep -l` counts
+ * it, the checker does not; the card's own `17 / 17` figure came from that
+ * query).
  *
  * The twelve rows below are the ones where the renderer reads EXACTLY ONE
  * channel, the component owns a dedicated declaration, and exactly one

@@ -59,9 +59,11 @@ export interface BoxSchema extends BaseSchema {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/layout/box.tsx:56`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/box.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without
@@ -93,9 +95,11 @@ export interface TextSpanSchema extends BaseSchema {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/basic/span.tsx:143`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/basic/span.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without
@@ -294,9 +298,11 @@ export interface ContainerSchema extends BaseSchema {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/layout/container.tsx:101`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/container.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without
@@ -418,9 +424,11 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/layout/flex.tsx:93`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/flex.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without
@@ -448,9 +456,11 @@ export interface StackSchema extends BaseSchema, FlexLayoutProps {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/layout/stack.tsx:99`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/stack.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without
@@ -495,9 +505,11 @@ export interface GridSchema extends BaseSchema {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/layout/grid.tsx:168`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/layout/grid.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without
@@ -671,9 +683,11 @@ export interface ScrollAreaSchema extends BaseSchema {
    * renderer read consumes `body`.
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
-   * docblock mention is not a read; `layout/box.tsx:34` is the control that
-   * separates the two): `packages/components/src/renderers/complex/scroll-area.tsx:34`. The same sweep
-   * finds zero `body` reads for this node type.
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/complex/scroll-area.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
    *
    * `body` is inherited-and-optional from {@link BaseSchema}, whose own
    * docblock admits "some components use `children` instead of `body`" without

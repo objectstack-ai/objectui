@@ -69,7 +69,7 @@ export const AlertSchema = BaseSchema.extend({
     'children',
     'body',
     'this alert node',
-    '`alert` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/data-display/alert.tsx:22). '
+    '`alert` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/alert.tsx`). '
     + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),
@@ -99,7 +99,7 @@ export const BadgeSchema = BaseSchema.extend({
     'children',
     'body',
     'this badge node',
-    '`badge` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/data-display/badge.tsx:32). '
+    '`badge` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/badge.tsx`). '
     + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),

@@ -267,7 +267,7 @@ export const TooltipSchema = BaseSchema.extend({
     'body',
     'this tooltip node',
     '`tooltip` reads `content` first and `body` as the fallback for that same slot, and never `children` '
-    + '(READ SITE, measured with the TypeScript type checker: packages/components/src/renderers/overlay/tooltip.tsx:31). '
+    + '(READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/overlay/tooltip.tsx`). '
     + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
     + 'an EMPTY element — no error, no warning. objectui#8284.',
   ),

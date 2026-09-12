@@ -32,11 +32,32 @@
 import * as React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
+import type { DataSource } from '@object-ui/types';
 import {
   RecordContextProvider,
   useRecordContext,
   type RecordContextValue,
 } from '../RecordContext';
+
+/**
+ * A distinct `DataSource` adapter per call. `dataSource` holds the ADAPTER the
+ * host resolved, not an id (objectui#9197) — so the "before" and "after" of the
+ * `dataSource` mutation below have to be two different adapter objects, and the
+ * re-memoization they prove is by reference, which is how the real producer
+ * (`app-shell/views/RecordDetailView`) hands it down.
+ */
+let adapterSeq = 0;
+const makeDataSource = (): DataSource => {
+  const tag = `adapter_${++adapterSeq}`;
+  return {
+    find: async () => ({ data: [], total: 0 }),
+    findOne: async () => null,
+    create: async (_r, d) => d as any,
+    update: async (_r, _id, d) => d as any,
+    delete: async () => true,
+    getObjectSchema: async () => ({ name: tag }),
+  };
+};
 
 /** The keys `RecordContextProvider`'s `useMemo` dep list names, in its order. */
 const MEMO_DEP_KEYS = [
@@ -69,7 +90,7 @@ type _EveryContextKeyIsDepListed = Expect<
 const BASE: RecordContextValue = {
   objectName: 'account',
   recordId: 'rec_1',
-  dataSource: 'ds_primary',
+  dataSource: makeDataSource(),
   data: { id: 'rec_1', name: 'Acme' },
   objectSchema: { name: 'account' },
   refresh: () => {},
@@ -83,7 +104,7 @@ const BASE: RecordContextValue = {
 const CHANGED: RecordContextValue = {
   objectName: 'contact',
   recordId: 'rec_2',
-  dataSource: 'ds_secondary',
+  dataSource: makeDataSource(),
   data: { id: 'rec_2', name: 'Globex' },
   objectSchema: { name: 'contact' },
   refresh: () => {},

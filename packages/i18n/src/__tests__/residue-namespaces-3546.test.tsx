@@ -739,10 +739,17 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     expect(src, 'the lane-count description moved').toContain(
       "description={t('kanban.columns', { count: boardColumns.length, defaultValue: '{{count}} columns' })}",
     );
+    // ⚠️ Shown to be non-vacuous before it is trusted: a matcher nobody proved
+    // can fire is a green assertion that checks nothing (AGENTS.md's rule for
+    // forensic regexes). Positive control is the exact shape this replaced;
+    // negative control is the shape that replaced it.
+    const CONCATENATED = /\$\{boardColumns\.length\}\s*\$\{/;
+    expect(CONCATENATED.test("description={`${boardColumns.length} ${t('kanban.columns')}`}")).toBe(true);
+    expect(CONCATENATED.test("description={t('kanban.columns', { count: boardColumns.length })}")).toBe(false);
     expect(
       src,
       'a lane count is concatenated in front of a unit word again — that is the defect objectui#9170 repaired',
-    ).not.toMatch(/\$\{boardColumns\.length\}\s*\$\{/);
+    ).not.toMatch(CONCATENATED);
     // (3) — the shape is `repeaterItemCount`'s (base + `_one` + `_other`), not
     // `chatbot.plan.*`'s (base + `_one`), because the base is the slot every CLDR
     // category a pack does not enumerate lands on and a kanban board's everyday

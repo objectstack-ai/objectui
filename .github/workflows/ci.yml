@@ -981,9 +981,47 @@ jobs:
       # measured, not assumed). The blob carries this shard's raw coverage as
       # well as its test results; the coverage report proper is produced once,
       # by the merge.
+      #
+      # `--reporter=default --reporter=github-actions` are here because a CLI
+      # `--reporter` REPLACES the reporter set rather than adding to it, and the
+      # set it replaced is exactly this pair. Vitest 4.1.10 resolves reporters
+      # with:
+      #
+      #     if (!resolved.reporters.length) {
+      #       resolved.reporters.push([isAgent ? "agent" : "default", {}]);
+      #       if (process.env.GITHUB_ACTIONS === "true")
+      #         resolved.reporters.push(["github-actions", {}]);
+      #     }
+      #
+      # — and this repo's vitest config sets no `reporters`, so before
+      # objectui#9177 the blob flag alone was the whole set. A red shard's log
+      # therefore ended at `blob report written to …` with no failing test name,
+      # no assertion text and no timeout message, and the shard job's only
+      # annotation was the generic `Process completed with exit code 1.` The
+      # failures existed solely inside the `coverage-blob-N` artifact, which is
+      # download-only. objectui#8545 priced that: two episodes in which ONE test
+      # file held main's coverage gate unevaluated for 84 and 87 consecutive
+      # pushes, both found by a person reading a job log by hand, days later.
+      #
+      # ⚠️ Additive on purpose — the blob stays, because the merge job below is
+      # what enforces the thresholds and it has nothing to read without it.
+      # Measured on vitest 4.1.10 with all three reporters and `--shard=N/4`:
+      # the log carries `Failed Tests`, the test names, the assertion diff and
+      # `Error: Test timed out in …`; `github-actions` emits one `::error`
+      # annotation per failing test, which is the only form of this an API
+      # reader gets without downloading an artifact; and the shard still writes
+      # `.vitest-reports/blob-N-4.json`, which merges and has the configured
+      # thresholds enforced over it exactly as before.
+      #
+      # ⛔ Do not "simplify" this back to one reporter. Dropping the blob trades
+      # an unreadable failure for an unevaluated coverage floor — the same
+      # defect wearing the other hat — and dropping the other two restores
+      # objectui#9177. `scripts/__tests__/coverage-shard-reporter-readability.test.ts`
+      # fails in both directions.
       - name: Run tests with coverage (shard ${{ matrix.shard }}/4)
         run: >-
-          pnpm test:coverage --reporter=blob --shard=${{ matrix.shard }}/4
+          pnpm test:coverage --reporter=blob --reporter=default
+          --reporter=github-actions --shard=${{ matrix.shard }}/4
           --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
           --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
 

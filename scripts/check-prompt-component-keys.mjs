@@ -394,12 +394,16 @@ export function scanPromptKeys(root) {
  * the boundary the author already writes.
  *
  * Sections with no letter headings (`## 2. Standard Contexts` in
- * `engine.prompt.md`, whose sub-headings are backticked type names) simply
- * contribute no run. ⛔ This does NOT judge the `## N.` numbers themselves —
- * that is a different vocabulary and a different claim.
+ * `engine.prompt.md`, whose sub-headings are backticked type names) are
+ * returned too, carrying an empty `entries`. They contribute no run, and the
+ * caller needs them to tell "this surface has no letter runs because it has no
+ * sections" (a fixture tree exercising the key vocabulary) apart from "this
+ * surface has sections and every run in them has vanished" (the collapse).
+ * ⛔ This does NOT judge the `## N.` numbers themselves — that is a different
+ * vocabulary and a different claim.
  */
-export function scanLetterRuns(root) {
-  const runs = [];
+export function scanPromptSections(root) {
+  const sections = [];
   for (const abs of promptFiles(root)) {
     const rel = relative(root, abs).split(sep).join('/');
     const lines = readFileSync(abs, 'utf8').split('\n');
@@ -411,7 +415,7 @@ export function scanLetterRuns(root) {
       const section = SECTION_HEADING.exec(lines[i]);
       if (section) {
         current = { file: rel, section: section[1], entries: [] };
-        runs.push(current);
+        sections.push(current);
         continue;
       }
       const letter = LETTER_HEADING.exec(lines[i]);
@@ -419,8 +423,11 @@ export function scanLetterRuns(root) {
       current.entries.push({ letter: letter[1], line: i + 1, text: lines[i].trim() });
     }
   }
-  return runs.filter((run) => run.entries.length > 0);
+  return sections;
 }
+
+/** The sections that actually carry a letter run. */
+export const lettered = (sections) => sections.filter((s) => s.entries.length > 0);
 
 /**
  * The first heading in each run whose letter is not the one its position calls
@@ -501,12 +508,13 @@ export function analyze(root, options = {}) {
     );
   }
 
-  const runs = scanLetterRuns(root);
-  if (runs.length === 0) {
+  const sections = scanPromptSections(root);
+  const runs = lettered(sections);
+  if (sections.length > 0 && runs.length === 0) {
     throw new Error(
-      `no \`### X.\` letter run was found under ${PROMPT_DIR}. The category inventories this gate ` +
-        'pins are gone or have been reformatted, and a run that reads nothing passes while asserting ' +
-        'nothing.',
+      `${sections.length} \`## N.\` section(s) under ${PROMPT_DIR} carry no \`### X.\` heading at all. ` +
+        'The category inventories this pin reads are gone or have been reformatted, and a run that ' +
+        'reads nothing passes while asserting nothing.',
     );
   }
 

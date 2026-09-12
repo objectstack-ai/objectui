@@ -34,10 +34,13 @@ import {
   PLACEHOLDER_NAMESPACE,
   PROMPT_DIR,
   analyze,
+  lettered,
+  letterRunFindings,
   partitionRegistry,
   placeholderSites,
   promptFiles,
   scanPromptKeys,
+  scanPromptSections,
 } from '../check-prompt-component-keys.mjs';
 import { INDIRECT_REGISTRATIONS, deriveRegistryKeys } from '../check-doc-component-types.mjs';
 
@@ -593,5 +596,139 @@ describe('the prompt surface this gate now reads', () => {
     for (const tombstone of ['user:profile', 'ai:chat_window', 'view:kanban']) {
       expect(prompt, `${tombstone} tombstone must still be written down`).toContain(`\`${tombstone}\``);
     }
+  });
+});
+
+// ── 8. the letter run, scoped to its section (objectui#9145) ─────────────────
+
+describe('a `## N.` section\'s `### X.` headings must run A, B, C, … without a gap', () => {
+  /** The minimum surface the earlier guards need, plus the headings under test. */
+  const runLetters = (prompt: string[]) =>
+    withTree((write) => {
+      write(PLACEHOLDER_SITE, placeholderModule(['view:kanban']));
+      write('packages/plugin-grid/src/index.tsx', "ComponentRegistry.register('grid', G, { namespace: 'view' });");
+      write(`${PROMPT_DIR}/component.prompt.md`, ['*   **Keys:** `view:grid`, etc.', '', ...prompt].join('\n'));
+    }, analyzeFixture);
+
+  it('reports the gap — the defect this card was filed for, reproduced', () => {
+    // `A B D` is the shape `component.prompt.md` §1 carried from its first
+    // commit: seven sections lettered A B D E F G H, no `### C.`.
+    const { findings } = runLetters(['## 1. Component Categories', '', '### A. One', '', '### B. Two', '', '### D. Four']);
+
+    expect(findings.map((f) => [f.key, f.reason])).toEqual([['### D.', 'letter-run-gap']]);
+    expect(findings[0].text).toContain('expected `### C.`');
+    expect(findings[0].text).toContain('heading 3 of 3');
+  });
+
+  it('reports only the FIRST mismatch in a run, not every heading after the gap', () => {
+    // A gap at C makes D, E and F wrong too. Listing all of them buries the one
+    // heading an author actually has to decide about.
+    const { findings } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '### B. Two',
+      '',
+      '### D. Four',
+      '',
+      '### E. Five',
+      '',
+      '### F. Six',
+    ]);
+
+    expect(findings.map((f) => f.key)).toEqual(['### D.']);
+  });
+
+  it('scopes the run to its section, so a second run restarting at A is not a gap', () => {
+    // The reason this is not a file-wide sequence check: `component.prompt.md`
+    // carries a second run under §2 and `engine.prompt.md` carries five, and a
+    // file-wide check would red on every correct file on this surface.
+    const { findings, counters } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '### B. Two',
+      '',
+      '## 2. API Reference',
+      '',
+      '### A. Field Widget Implementation',
+      '',
+      '### B. Dashboard Widget Implementation',
+    ]);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterRuns).toBe(2);
+    expect(counters.letterHeadings).toBe(4);
+  });
+
+  it('does not read a heading inside a fenced code block', () => {
+    const { findings, counters } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '```md',
+      '### D. An EXAMPLE of a heading, not a heading',
+      '```',
+      '',
+      '### B. Two',
+    ]);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterHeadings).toBe(2);
+  });
+
+  it('refuses to pass when every section has lost its letter headings', () => {
+    // The collapse this guard exists for: the inventories are reformatted away
+    // and a run that reads nothing reports a pass it did not earn.
+    expect(() => runLetters(['## 1. Component Categories', '', 'Prose, and no headings at all.'])).toThrow(
+      /carry no `### X\.` heading/,
+    );
+  });
+
+  it('says nothing about a surface that has no `## N.` sections at all', () => {
+    // A run only exists inside a section, so "no sections" is not a collapsed
+    // inventory — it is a document this pin makes no claim about. Every fixture
+    // in the sections above is that shape, which is why they must stay green.
+    const { findings, counters } = runLetters(['Just a Keys bullet and nothing else.']);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterRuns).toBe(0);
+  });
+});
+
+// ── 9. the live tree, under the letter-run pin ───────────────────────────────
+
+describe('the letter runs on the live prompt surface', () => {
+  const sections = () => scanPromptSections(repoRoot) as {
+    file: string;
+    section: string;
+    entries: { letter: string; line: number; text: string }[];
+  }[];
+
+  it('every run in every prompt file is contiguous from A', () => {
+    expect(letterRunFindings(lettered(sections()))).toEqual([]);
+  });
+
+  it('pins §1 of `component.prompt.md` to the seven categories, lettered A–G', () => {
+    // The corrected state. objectui#9145: this run read `A B D E F G H` — the
+    // gap was in the file's first commit, not a category that was dropped, so
+    // it is renumbered rather than filled.
+    const one = sections().find(
+      (s) => s.file === `${PROMPT_DIR}/component.prompt.md` && /^1\./.test(s.section),
+    );
+    expect(one, '§1 Component Categories must still be a `## 1.` section').toBeDefined();
+    expect(one!.entries.map((e) => e.letter)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
+  });
+
+  it('floors the surface, so a reformat cannot quietly empty it', () => {
+    const runs = lettered(sections()) as { entries: unknown[] }[];
+    expect(runs.length, 'letter runs on the live prompt surface').toBeGreaterThanOrEqual(8);
+    expect(
+      runs.reduce((n: number, run) => n + run.entries.length, 0),
+      'lettered headings on the live prompt surface',
+    ).toBeGreaterThanOrEqual(29);
   });
 });

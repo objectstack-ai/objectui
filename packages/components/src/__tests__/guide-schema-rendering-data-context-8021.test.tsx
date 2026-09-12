@@ -154,17 +154,24 @@ function schemaRendererElements(src: string): string[] {
 const FORWARDED_LOOKALIKES = /\b(data|dataSource|debug)=\{/;
 
 /**
- * The teaching surfaces this repair covers. Not a glob: each document was read
- * and repaired by hand, and a new page inheriting the pin by accident is the
- * failure mode a glob would create.
+ * The teaching surfaces this repair covers IN FULL. Not a glob: each document
+ * was read and repaired by hand, and a new page inheriting the pin by accident
+ * is the failure mode a glob would create.
+ *
+ * ⚠️ Three more documents carry the same element and are deliberately NOT here.
+ * The sweep this card's triage asked for was run BEFORE any writing, and it
+ * measured 18 `<SchemaRenderer …/>` elements across five surfaces, nine of them
+ * carrying a forwarded look-alike. On `content/docs/guide/expressions.md`,
+ * `content/docs/guide/architecture.md` and the root `README.md` the element is
+ * only half the defect: their expression spellings are bare across the whole
+ * page (about fifty sites on `expressions.md` alone), and several of those are
+ * legitimate AMBIENT `user` references rather than data-scope ones. Moving only
+ * the wiring there would produce exactly leg D — a page that reads as repaired
+ * and still prints raw source — so that population is filed as its own card
+ * with the census rather than half-moved here. The two documents below are the
+ * ones where every site in the passage moves together.
  */
-const TEACHING_SURFACES = [
-  GUIDE,
-  'content/docs/guide/expressions.md',
-  'content/docs/guide/architecture.md',
-  'README.md',
-  'packages/react/README.md',
-];
+const TEACHING_SURFACES = [GUIDE, 'packages/react/README.md'];
 
 afterEach(cleanup);
 
@@ -210,18 +217,12 @@ describe('objectui#8021 legs B–D — the controls that keep the two errors apa
   });
 });
 
-describe('objectui#8021 sweep — no teaching surface hands SchemaRenderer wiring props', () => {
-  it('the scan sees the elements at all (lit control)', () => {
-    const seen = TEACHING_SURFACES.flatMap((doc) => schemaRendererElements(readDoc(doc)));
-    // Measured on the repaired tree; a scanner that stops matching would
-    // otherwise report every document below as clean.
-    expect(seen.length).toBeGreaterThanOrEqual(9);
-  });
-
+describe('objectui#8021 sweep — no repaired surface hands SchemaRenderer wiring props', () => {
   it.each(TEACHING_SURFACES)('%s', (doc) => {
-    const offenders = schemaRendererElements(readDoc(doc)).filter((el) =>
-      FORWARDED_LOOKALIKES.test(el),
-    );
-    expect(offenders).toEqual([]);
+    const elements = schemaRendererElements(readDoc(doc));
+    // Lit control, per document: a scanner that stopped matching would report
+    // an empty offender list, which is indistinguishable from a clean page.
+    expect(elements.length, `no <SchemaRenderer …/> element found in ${doc}`).toBeGreaterThan(0);
+    expect(elements.filter((el) => FORWARDED_LOOKALIKES.test(el))).toEqual([]);
   });
 });

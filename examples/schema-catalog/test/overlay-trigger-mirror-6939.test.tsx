@@ -124,21 +124,36 @@ describe('objectui#6939 — `children` is no longer required on either member', 
     expect(ContextMenuSchema.safeParse({ type: 'context-menu', items: [] }).success).toBe(true);
   });
 
-  it('the accept set only WIDENED — the `children` spelling still parses', () => {
-    // The ruling's patch reasoning. Nothing that validated before this change
-    // may stop validating; `children` survives as `BaseSchema`'s optional key.
-    expect(TooltipSchema.safeParse({
+  it('objectui#8284 and objectui#9256 SUPERSEDE the widen-only half: `children` is REFUSED by name on BOTH members', () => {
+    // This case used to assert "the accept set only WIDENED — the `children`
+    // spelling still parses", on objectui#6939's reasoning that `children`
+    // survives as `BaseSchema`'s optional key. That half is now overruled for
+    // `tooltip` by the objectui#8284 ruling (summon #17, decision batch #2,
+    // 2026-09-07): the channel a renderer does not read is tombstoned per
+    // component, so authoring it is refused at validation instead of drawing
+    // an empty tooltip. #6939's own declaration already said "nothing reads
+    // `children` here" — this is that sentence made enforceable.
+    const refused = TooltipSchema.safeParse({
       type: 'tooltip',
       content: 'Helpful information',
       children: [{ type: 'button', label: 'Hover me' }],
-    }).success).toBe(true);
-    // ⚠️ `context-menu` is NO LONGER part of that widen-only half.
-    // objectui#9256 measured it into FAMILY D — its renderer reads `items`,
-    // `trigger`, `modal` and the two class-name keys, and NOTHING reads
-    // `children` — with the read-site sweep extended across all 24 registering
-    // packages plus the generic traversers, which is the measurement
-    // objectui#8284 named as the precondition for acting on a NEITHER verdict.
-    // So the spelling that used to parse here is now refused BY NAME.
+    });
+    expect(refused.success).toBe(false);
+    if (!refused.success) {
+      expect(refused.error.issues.map((i) => i.path.join('.'))).toEqual(['children']);
+      expect(refused.error.issues[0]!.message).toContain('objectui#8284');
+    }
+
+    // ⚠️ THE CONTROL THAT STOOD HERE IS SPENT, on its own terms. PR
+    // objectui#9254 left `context-menu` parsing `children` deliberately, and
+    // named the condition for that to change: "that verdict needs a
+    // cross-package sweep before it can be acted on". objectui#9256 IS that
+    // sweep — the read-site instrument extended across all 24 registering
+    // packages and the generic traversers — and it measured `context-menu`
+    // into FAMILY D: its renderer reads `items`, `trigger`, `modal` and the
+    // two class-name keys, and NOTHING reads `children`. So the spelling that
+    // used to parse here is refused BY NAME too, and the reading above is kept
+    // about `tooltip` by the key-scoped control below instead.
     const menuRefused = ContextMenuSchema.safeParse({
       type: 'context-menu',
       items: [{ label: 'Copy' }],

@@ -782,6 +782,27 @@ export interface ToggleSchema extends BaseSchema {
    * Child content
    */
   children?: SchemaNode | SchemaNode[];
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `toggle` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/form/toggle.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `toggle` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**
@@ -1808,6 +1829,27 @@ export interface FormSchema extends BaseSchema {
    * Child components (alternative to fields array)
    */
   children?: SchemaNode | SchemaNode[];
+  /**
+   * REFUSED BY NAME (objectui#8284, ADR-0049) — `form` reads `children`, and no
+   * renderer read consumes `body`.
+   *
+   * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
+   * docblock mention is not a read; the `BoxSchema` docblock in
+   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
+   * it): the `schema.children` read in
+   * `packages/components/src/renderers/form/form.tsx`. The same sweep finds zero `body` reads
+   * for this node type.
+   *
+   * `body` is inherited-and-optional from {@link BaseSchema}, whose own
+   * docblock admits "some components use `children` instead of `body`" without
+   * saying which — so authoring it here type-checked, parsed green through
+   * `.passthrough()`, and rendered an EMPTY element with no error and no
+   * warning. Per component, the channel a renderer does not read is now
+   * tombstoned on both published faces (maintainer ruling, summon #17 decision batch #2, 2026-09-07).
+   *
+   * @deprecated Not a channel `form` reads — author `children`.
+   */
+  body?: never;
 }
 
 /**

@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // The predicate wire shape (`string | { dialect?, source }`, #2212) was a
@@ -413,6 +413,14 @@ export const ToggleSchema = BaseSchema.extend({
   size: z.enum(['default', 'sm', 'lg']).optional().describe('Toggle size'),
   onChange: handlerKeyRefusal('onChange', 'retired', 'Change handler'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this toggle node',
+    '`toggle` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/form/toggle.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -858,6 +866,14 @@ export const FormSchema = BaseSchema.extend({
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
   onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel handler'),
   showActions: z.boolean().optional().describe('Show action buttons'),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this form node',
+    '`form` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/form/form.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**

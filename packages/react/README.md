@@ -43,7 +43,7 @@ import { SchemaRenderer } from '@object-ui/react'
 
 const schema = {
   type: 'form',
-  body: [
+  children: [
     {
       // `content` is evaluated on every component type. `input` has no row in
       // the spec's expression carriage map, so a `${…}` in ITS `value` would be

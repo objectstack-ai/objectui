@@ -19,7 +19,7 @@
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import type { MenuItem } from '../overlay.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 
 /**
  * Dialog Schema - Dialog/modal component
@@ -340,6 +340,15 @@ export const TooltipSchema = BaseSchema.extend({
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Tooltip side'),
   align: z.enum(['start', 'center', 'end']).optional().describe('Tooltip alignment'),
   delayDuration: z.number().optional().describe('Delay before showing (ms)'),
+  children: aliasKeyRefusal(
+    'children',
+    'body',
+    'this tooltip node',
+    '`tooltip` reads `content` first and `body` as the fallback for that same slot, and never `children` '
+    + '(READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/overlay/tooltip.tsx`). '
+    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**

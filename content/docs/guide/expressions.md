@@ -425,7 +425,7 @@ or author each variant and gate it with a condition key:
 ```json
 {
   "type": "form",
-  "body": [
+  "children": [
     {
       "type": "select",
       "name": "country",

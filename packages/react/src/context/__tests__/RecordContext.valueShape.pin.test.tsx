@@ -52,8 +52,8 @@ const makeDataSource = (): DataSource => {
   return {
     find: async () => ({ data: [], total: 0 }),
     findOne: async () => null,
-    create: async (_r, d) => d as any,
-    update: async (_r, _id, d) => d as any,
+    create: async (_r, d) => d,
+    update: async (_r, _id, d) => d,
     delete: async () => true,
     getObjectSchema: async () => ({ name: tag }),
   };

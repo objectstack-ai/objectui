@@ -685,7 +685,12 @@ const ru = {
   },
   kanban: {
     uncategorized: "Без категории",
-    columns: "колонок",
+    // The base is deliberately NOT the `_other` form: it is the slot `few`
+    // (2-4 lanes) and `many` (5+) land on, and "3 колонок" would be a genitive
+    // plural after a numeral that governs the genitive singular. See en.ts.
+    columns: "Колонок: {{count}}",
+    columns_one: "{{count}} колонка",
+    columns_other: "{{count}} колонок",
     addCard: "Добавить карточку",
     addColumn: "Добавить колонку",
     moveCard: "Переместить карточку",

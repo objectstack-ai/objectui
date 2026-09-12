@@ -679,7 +679,9 @@ const de = {
   },
   kanban: {
     uncategorized: "Nicht kategorisiert",
-    columns: "Spalten",
+    columns: "{{count}} Spalten",
+    columns_one: "{{count}} Spalte",
+    columns_other: "{{count}} Spalten",
     addCard: "Karte hinzufügen",
     addColumn: "Spalte hinzufügen",
     moveCard: "Karte verschieben",

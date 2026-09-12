@@ -679,7 +679,9 @@ const ko = {
   },
   kanban: {
     uncategorized: "미분류",
-    columns: "열",
+    columns: "열 {{count}}개",
+    columns_one: "열 {{count}}개",
+    columns_other: "열 {{count}}개",
     addCard: "카드 추가",
     addColumn: "열 추가",
     moveCard: "카드 이동",

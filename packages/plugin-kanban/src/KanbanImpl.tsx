@@ -910,7 +910,16 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
             showIcon={false}
             className="rounded-lg border border-dashed border-border/60 bg-muted/10 py-8 gap-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:text-foreground/80"
             title={t('kanban.noCards')}
-            description={`${boardColumns.length} ${t('kanban.columns', { defaultValue: 'columns' })}`}
+            // The lane count is RESOLVED through the pack's plural family, never
+            // concatenated in front of a unit word (objectui#9170). The bare
+            // plural was safe only while this region required more than one lane;
+            // widening `isBoardEmpty` above made "1 columns" reachable here, and
+            // this region is read aloud. `defaultValue` is byte-identical to the
+            // `en` base value so the two paths cannot be told apart; it carries no
+            // `defaultValue_one` because nothing would read one — with a provider
+            // the pack answers, and without one `createSafeTranslation`'s
+            // `fallbackT` has no plural logic at all (objectui#3865, unchanged).
+            description={t('kanban.columns', { count: boardColumns.length, defaultValue: '{{count}} columns' })}
           />
         </div>
       )}

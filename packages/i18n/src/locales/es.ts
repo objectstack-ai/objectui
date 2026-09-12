@@ -683,7 +683,9 @@ const es = {
   },
   kanban: {
     uncategorized: "Sin categoría",
-    columns: "columnas",
+    columns: "{{count}} columnas",
+    columns_one: "{{count}} columna",
+    columns_other: "{{count}} columnas",
     addCard: "Añadir tarjeta",
     addColumn: "Añadir columna",
     moveCard: "Mover tarjeta",

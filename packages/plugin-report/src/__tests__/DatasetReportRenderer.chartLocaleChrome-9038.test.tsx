@@ -16,12 +16,18 @@
  *
  * This renderer paints the chart's title itself, as its own `h3` above the
  * plot, and therefore DROPS `title` from the lowered result so the chart does
- * not draw a second one — a decision the sibling file pins. Its `h3` reads
- * `chart.title` through a plain-string narrowing of its own, so a locale-map
- * title still draws no heading on this surface. That read site is the
- * renderer's own and is outside objectui#9038's subject (the shared lowering);
- * it is reported separately rather than pinned here, because pinning it would
- * record a live defect as an expectation.
+ * not draw a second one — a decision the sibling file pins, and one this file
+ * pins again below for the map arm.
+ *
+ * When this file was written its `h3` read `chart.title` through a plain-string
+ * narrowing of its own, so a locale-map title still drew no heading on this
+ * surface — a live defect this scope note reported rather than pinned, because
+ * pinning it would have recorded the defect as an expectation. That is
+ * objectui#9150, now fixed: the heading resolves through `pickLocalized`, and
+ * `DatasetReportRenderer.chartTitleLocale-9150.test.tsx` holds its pins, in two
+ * languages and on both branches that paint it. The division of labour is
+ * unchanged — this file is the LOWERING (`subtitle`/`description` reaching the
+ * chart), that one is the renderer's OWN heading.
  *
  * ## Where these assertions stop
  *

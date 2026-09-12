@@ -91,11 +91,17 @@ const SCOPE = { user: { name: 'John', role: 'admin' }, stats: { totalUsers: 1234
 
 const textNode = (content: string) => ({ type: 'text', content });
 
-/** Leg A/B wiring: the prop the page used to teach, with no provider above it. */
+/**
+ * Leg A/B wiring: the prop the page used to teach, with no provider above it.
+ *
+ * ⭐ No cast is needed, and that is itself the measurement: `SchemaRenderer`'s
+ * declared type is `SchemaRendererProps & Record<string, any>`, the open
+ * forwarding surface. TypeScript therefore ACCEPTS `data` here — the prop is
+ * not rejected anywhere, at compile time or at runtime. It is simply handed to
+ * whatever component the schema names.
+ */
 function renderWithDataProp(content: string): string {
-  // `data` is deliberately not a declared prop — that IS the measurement.
-  const props = { schema: textNode(content), data: SCOPE } as never;
-  return render(<SchemaRenderer {...props} />).container.textContent ?? '';
+  return render(<SchemaRenderer schema={textNode(content)} data={SCOPE} />).container.textContent ?? '';
 }
 
 /** Leg C/D wiring: the provider that actually seeds the evaluator. */

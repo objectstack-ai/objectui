@@ -708,6 +708,54 @@ still succeeds, but non-atomically via the fallback above. Treat the advertised
 capability as the floor for the atomicity guarantee, not as a connection
 prerequisite.
 
+## Object-Metadata Write Guard
+
+`MetadataClient.save` refuses an `object` document whose `fields` carry a
+relationship field (`lookup`, `master_detail`) with a missing, empty or
+whitespace-only `reference`, **before** issuing the request:
+
+```ts
+import { MetadataClient } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+await client.save('object', 'account', {
+  name: 'account',
+  fields: { owner: { type: 'lookup', label: 'Owner' } },
+});
+// throws: MetadataClient.save refused this object metadata write: the field
+// `owner` is a `lookup` and carries no `reference` key at all ...
+```
+
+Nothing that previously succeeded now fails. `@objectstack/spec` refuses the same
+document at the server with a 422 on `fields.owner.reference`, and that refusal
+blocks every *later* save of the object for as long as the half-filled field
+rides along in the draft. The guard moves the identical refusal earlier, names
+the field while it is still on screen, and leaves the draft in the client. Writes
+of every other metadata type are untouched, and the guard never strips the
+offending field — a dropped field reported as saved would be a silent deletion.
+
+Hosts that write object metadata through their own transport can apply the same
+invariant at their own door:
+
+```ts
+import { assertObjectMetadataWritable } from '@object-ui/data-objectstack';
+
+async function uploadObject(name: string, body: unknown) {
+  assertObjectMetadataWritable('object', body, 'uploadObject');
+  await fetch(`/api/v1/meta/object/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+```
+
+`RELATIONSHIP_TYPES_REQUIRING_REFERENCE` and `OBJECT_METADATA_TYPE` are exported
+beside it. The relationship-type set is derived from the installed
+`@objectstack/spec` by this package's own pin, so it follows the contract rather
+than a remembered list.
+
 ## User-Scoped State Adapter
 
 In addition to the main `DataSource` adapter, this package ships

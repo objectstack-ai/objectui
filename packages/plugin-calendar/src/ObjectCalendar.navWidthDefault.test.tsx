@@ -84,10 +84,12 @@ async function openDrawer(navigation?: Record<string, unknown>) {
         type: 'object-calendar',
         objectName: 'events',
         calendar: { startDateField: 'starts_at', titleField: 'name' },
-        data: {
-          provider: 'value',
-          items: [{ id: '1', name: 'On the calendar', starts_at: eventInCurrentMonth() }],
-        },
+        // `staticData`, not `data: { provider: 'value', items }`: since
+        // objectui#8348 this block's published `data` row is `z.array(...)`,
+        // so the config object is not a record source here. `staticData` is
+        // the block's declared door for inline rows and resolves to the same
+        // `{ provider: 'value', items }` config one rung down.
+        staticData: [{ id: '1', name: 'On the calendar', starts_at: eventInCurrentMonth() }],
         ...(navigation ? { navigation } : {}),
       } as never}
     />,

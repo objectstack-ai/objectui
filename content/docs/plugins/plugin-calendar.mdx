@@ -242,7 +242,10 @@ const schema: ObjectCalendarSchema = {
   type: 'object-calendar',
   objectName?: string,              // ObjectQL object name
   staticData?: Array<any>,          // Static data array
-  data?: ViewData,                  // Advanced data configuration
+  data?: Array<any>,                // Pre-fetched records, drawn in place of the
+                                    // calendar's own query. An ARRAY — this block's
+                                    // published row refuses the `{ provider, items }`
+                                    // config object (objectui#8348)
   calendar?: CalendarConfig,        // Calendar-specific configuration
   filter?: ViewFilterRule[],        // Query filter, lowered to $filter
   sort?: SortConfig[],              // Query sort, lowered to $orderby
@@ -344,17 +347,25 @@ const valueProviderCalendar: ObjectCalendarSchema = {
 };
 ```
 
-#### API Provider — not implemented
+#### `data: { provider: … }` — refused on this block
 
-`data.provider: 'api'` has no fetch implementation in `ObjectCalendar`. A schema
-that reaches this branch logs `API provider not yet implemented for
-ObjectCalendar`, sets the record set to empty and renders a calendar with no
-events; `endpoint` and `method` have no read point anywhere in the package.
-Without a `DataSource` it fails one step earlier, with `DataSource required for
-object/api providers`.
+⚠️ Since **objectui#8348** a calendar authored with a record-source *config
+object* under `data` — `{ provider: 'value', items: [...] }`,
+`{ provider: 'object', object: … }`, `{ provider: 'api', … }` — is not honoured
+here. `object-calendar`'s published `data` row is an **array of pre-fetched
+records**, so the config object is refused by kind: `os validate` and the save
+gate reject it, and as of that card the renderer does too.
 
-Read from the database with the **Object Provider** above, or pass events you
-already hold with the **Value Provider**.
+That is a behaviour change for stored documents. A calendar written that way no
+longer draws those rows; the record-source ladder falls past `data` to
+`staticData`, then to `objectName`, so it queries its object instead — or draws
+nothing when it names neither.
+
+Read from the database with the **Object Provider** above (`objectName`), pass
+events you already hold with the **Value Provider** (`staticData`), or hand the
+block rows it already has as an array under `data`. There is no api-provider
+branch to reach on this block; `endpoint` and `method` have no read point
+anywhere in the package.
 
 ## Comparison: CalendarView vs ObjectCalendar
 

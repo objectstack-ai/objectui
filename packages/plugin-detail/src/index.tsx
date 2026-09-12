@@ -16,6 +16,7 @@ import {
 import { withFieldCarrier } from '@object-ui/fields';
 import { DetailView } from './DetailView';
 import { DetailSection } from './DetailSection';
+import { DetailSectionNode } from './DetailSectionNode';
 import { headerColorVocabulary } from './headerColor';
 import { DetailTabs } from './DetailTabs';
 import { RelatedList } from './RelatedList';
@@ -319,8 +320,21 @@ ComponentRegistry.register('detail-view', DetailViewRenderer, {
   }
 });
 
-// Register DetailSection component
-ComponentRegistry.register('detail-section', DetailSection, {
+// Register DetailSection component.
+//
+// ⚠️ Against `DetailSectionNode`, NOT `DetailSection` — and that is what makes
+// the `inputs` below true (objectui#8626). `SchemaRenderer` spreads a node's
+// non-metadata keys as React props, so an authored node arrives as `title` /
+// `fields` / … while `DetailSection` reads a single `section` OBJECT prop. Bound
+// directly, `section` arrived `undefined` and the very first
+// `section.defaultCollapsed` read THREW — measured end to end, the author's page
+// showed `SchemaErrorBoundary`'s orange "failed to render" banner in place of the
+// block. `DetailSectionNode` folds the eight declared inputs into the `section`
+// object the component reads; see that file for why the fold sits at this seam
+// rather than in `DetailSection` (which every in-repo caller uses directly), and
+// why re-declaring these eight as a nested `section` input was the repair NOT
+// taken.
+ComponentRegistry.register('detail-section', DetailSectionNode, {
   namespace: 'plugin-detail',
   label: 'Detail Section',
   category: 'Detail Components',

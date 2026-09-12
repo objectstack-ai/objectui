@@ -194,6 +194,17 @@ rewrites each bare-name registry entry without its `label`/`category` metadata
 
 ### Dashboard with Charts
 
+Charts are authored as `type: "chart"` with a `chartType` — `line`, `area`,
+`bar`, `pie`, `donut`, `radar` or `scatter`. `chartType` is what selects the
+family; there is no per-family node key for `line` or `area`.
+
+<Callout type="warn">
+This snippet used to teach `"type": "line-chart"`. That key was registered as a
+lazy stub the charts plugin never fulfilled, so a document copied from here
+resolved in the registry and then sat on `Loading line-chart…` forever
+(objectui#8760). The key is retired; `chartType` is the spelling that draws.
+</Callout>
+
 ```json
 {
   "type": "dashboard",
@@ -207,8 +218,15 @@ rewrites each bare-name registry entry without its `label`/`category` metadata
       "type": "card",
       "title": "Sales Trend",
       "body": {
-        "type": "line-chart",
-        "data": [],
+        "type": "chart",
+        "chartType": "line",
+        "data": [
+          { "month": "Jan", "revenue": 4000 },
+          { "month": "Feb", "revenue": 3000 },
+          { "month": "Mar", "revenue": 6000 }
+        ],
+        "xAxisKey": "month",
+        "series": [{ "dataKey": "revenue" }],
         "height": 300
       }
     }

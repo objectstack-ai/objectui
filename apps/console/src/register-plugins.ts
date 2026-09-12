@@ -74,7 +74,28 @@ ComponentRegistry.registerLazy('chart', () => import('@object-ui/plugin-charts')
 });
 // Additional chart variants registered by @object-ui/plugin-charts so the
 // renderer can lazy-load when any chart type appears in a schema.
-for (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart', 'scatter-chart', 'line-chart', 'area-chart', 'advanced-chart', 'chart:bar']) {
+//
+// ⛔ Every key in this list must be one `@object-ui/plugin-charts` ACTUALLY
+// REGISTERS. A stub for a key the loaded module never registers does not fail
+// — it succeeds at being useless (objectui#8760). `Registry.loadLazy` resolves
+// "whether or not the loaded module actually registered the expected type",
+// and the renderer's lazy branch re-checks `hasLazy` on every pass, so an
+// unfulfilled stub leaves `SchemaRenderer` painting `Loading <type>…` FOREVER:
+// no OBJUI-001, no error, no console warning. Meanwhile the key is in
+// `getKnownTypes()`, so `check:doc-types` and the CLI's `KNOWN_SCHEMA_TYPES`
+// snapshot both bless it and the documentation is free to teach it.
+//
+// ⛔ `line-chart`, `area-chart` and `advanced-chart` are RETIRED from this list
+// (objectui#8760) — they were stubs this package never fulfilled. Authors
+// reach those chart families the way the plugin actually registers them:
+// `{ "type": "chart", "chartType": "line" | "area" }`, which
+// `CHART_TYPE_KEYWORD_FAMILIES` resolves. `advanced-chart` was never a family
+// at all — it named `AdvancedChartImpl`, an internal module.
+// ⛔ Do not re-add a key here without a matching `ComponentRegistry.register()`
+// in `packages/plugin-charts/src`: `unfulfilled-chart-stubs-8760.test.ts`
+// drives this very list through the real loader and fails on the first key
+// that resolves to nothing.
+for (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart', 'scatter-chart', 'chart:bar']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), {
     namespace: 'plugin-charts',
     category: 'chart',

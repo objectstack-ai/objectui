@@ -51,6 +51,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SelectOptionSchema } from '@objectstack/spec/data';
+import type { FieldMetadata } from '@object-ui/types';
 import { SelectField } from './SelectField';
 import { MultiSelectField } from './MultiSelectField';
 import { CheckboxesField } from './CheckboxesField';
@@ -66,8 +67,12 @@ const OPTIONS = [
   { value: 'high', label: 'High' },
 ];
 
+// `radio` and `checkboxes` are WIDGET keys with no member of their own in the
+// `FieldMetadata` union, so one documented cast stands in for a type that does
+// not exist. Deliberately `as unknown as`, never `as any` (AGENTS.md #6): every
+// assertion below stays type-checked.
 const severityField = (type: string) =>
-  ({ name: 'sev', type, options: OPTIONS }) as unknown as Record<string, unknown>;
+  ({ name: 'sev', type, options: OPTIONS }) as unknown as FieldMetadata;
 
 /** The structural slice of a Zod schema this file needs -- no `any` (AGENTS.md #6). */
 type SpecSchema = { safeParse: (value: unknown) => { success: boolean } };
@@ -89,7 +94,7 @@ describe('option widgets · a blank option label falls back to the value (object
         value={undefined}
         onChange={vi.fn()}
         field={severityField('select')}
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     fireEvent.keyDown(screen.getByTestId('select-trigger-sev'), { key: 'Enter' });
@@ -104,7 +109,7 @@ describe('option widgets · a blank option label falls back to the value (object
         onChange={vi.fn()}
         readonly
         field={severityField('select')}
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     expect(container).toHaveTextContent('low');
@@ -116,7 +121,7 @@ describe('option widgets · a blank option label falls back to the value (object
         value={[]}
         onChange={vi.fn()}
         field={severityField('multiselect')}
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     expect(screen.getByTestId('multiselect-option-low')).toHaveTextContent('low');
@@ -130,7 +135,7 @@ describe('option widgets · a blank option label falls back to the value (object
         onChange={vi.fn()}
         readonly
         field={severityField('multiselect')}
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     expect(container).toHaveTextContent('low');
@@ -139,10 +144,12 @@ describe('option widgets · a blank option label falls back to the value (object
   it('RadioField labels the radio with the value, so the row is clickable copy', () => {
     render(
       <RadioField
-        value={undefined}
+        // `RadioField` declares `value: string` (required), so the
+        // nothing-selected state is the empty string, not `undefined`.
+        value=""
         onChange={vi.fn()}
         field={severityField('radio')}
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     // The <label for> must carry text: an empty one names nothing to a screen
@@ -158,7 +165,7 @@ describe('option widgets · a blank option label falls back to the value (object
         onChange={vi.fn()}
         readonly
         field={severityField('radio')}
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     expect(container).toHaveTextContent('low');
@@ -170,7 +177,7 @@ describe('option widgets · a blank option label falls back to the value (object
         value={[]}
         onChange={vi.fn()}
         field={severityField('checkboxes')}
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     expect(screen.getByLabelText('low')).toBe(screen.getByTestId('checkboxes-option-low'));
@@ -184,7 +191,7 @@ describe('option widgets · a blank option label falls back to the value (object
         onChange={vi.fn()}
         readonly
         field={severityField('checkboxes')}
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     expect(container).toHaveTextContent('low');
@@ -200,9 +207,9 @@ describe('option widgets · a blank option label falls back to the value (object
             name: 'sev',
             type: 'multiselect',
             options: [{ value: 'low', label: '   ' }],
-          } as unknown as Record<string, unknown>
+          } as unknown as FieldMetadata
         }
-        {...({ name: 'sev' } as Record<string, unknown>)}
+        name="sev"
       />,
     );
     expect(screen.getByTestId('multiselect-option-low')).toHaveTextContent('low');

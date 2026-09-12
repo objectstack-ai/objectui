@@ -150,10 +150,17 @@ const FLAT_MAP_CONFIG_KEYS = (Object.keys(ObjectMapConfigSchema.shape) as (keyof
  * is off that row twice over, and this block's registration declares no `data`
  * input that could say otherwise.
  *
- * ⚠️ The accepted cost, stated: a stored map authored `data: [ …rows… ]` no
- * longer draws those markers — the ladder falls through to `staticData`, then
- * to `objectName`, so such a map queries its object instead (or draws nothing
- * when it names no object). The declared spellings for inline rows are
+ * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
+ * gone". `SchemaRenderer` spreads every non-metadata node key as a React prop
+ * and `index.tsx` forwards `{...props}`, so an authored `data` array also
+ * arrives on the props channel, which outranks the schema (objectui#5003
+ * order). At the ladder the array is no longer a record source; through
+ * `SchemaRenderer` an authored `data: [ …rows… ]` still draws, from that prop.
+ * Both halves are pinned in `ObjectMap.schemaDataShorthand.test.tsx`.
+ * Collapsing the two carriers would take the host path with it and is outside
+ * objectui#8348's scope — reported on the card, not changed in passing.
+ *
+ * The declared spellings for inline rows are
  * `data: { provider: 'value', items: [...] }` and `staticData: [...]`, both
  * unchanged.
  */

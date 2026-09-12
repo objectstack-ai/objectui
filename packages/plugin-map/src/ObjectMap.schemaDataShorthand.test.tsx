@@ -28,12 +28,24 @@
  * `ViewDataSchema.optional()`, a `z.discriminatedUnion('provider', [...])` over
  * OBJECT variants with no array arm. ⇒ the lift is gone.
  *
- * ⚠️ THE ACCEPTED COST, which is what the first row below now pins: a stored map
- * authored `data: [ …rows… ]` stops drawing those markers. The ladder falls
- * through to `staticData`, then to `objectName`, so such a map queries its
- * object instead — or draws nothing when it names neither. The ruling accepts
- * that under the standing 2026-08-27 posture (no transition windows, no staged
- * deprecation).
+ * ⛔ WHAT THE REMOVAL DOES AND DOES NOT REACH — measured, per CARRIER
+ *
+ * At the LADDER (rows 1-2, driving the component directly with no `data` prop):
+ * the array is no longer a record source, so the ladder falls through to
+ * `staticData`, then to `objectName`, and such a map queries its object instead
+ * — or draws nothing when it names neither.
+ *
+ * Through `SchemaRenderer` (row 3): the array STILL DRAWS. `SchemaRenderer`
+ * spreads every non-metadata node key as a React prop and
+ * `plugin-map/src/index.tsx` forwards `{...props}`, so an authored `data` array
+ * also arrives on the props channel — the one a host such as `ListView`
+ * legitimately uses for pre-fetched rows, and which outranks the schema
+ * (objectui#5003 order, row 6). Collapsing the two carriers would take the host
+ * path with it and is outside objectui#8348; it is reported on the card.
+ *
+ * ⇒ the ruling's accepted cost lands squarely on `object-calendar`, where the
+ * off-arm spelling had exactly ONE carrier. On this block the ruling removes the
+ * second read, not the last one.
  *
  * ## Why the file keeps its name and its controls
  *
@@ -47,7 +59,10 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { ObjectMap } from './ObjectMap';
+// Registers `object-map` and its `view:map` alias — row 3 renders through it.
+import './index';
 import type { DataSource } from '@object-ui/types';
 
 vi.mock('react-map-gl/maplibre', () => ({
@@ -107,6 +122,20 @@ describe('ObjectMap — the bare-array `schema.data` shorthand is retired (objec
 
     await waitFor(() => expect(dataSource.find).toHaveBeenCalled());
     expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+  });
+
+  it('3. ⛔ REPORTED, NOT CHANGED: through `SchemaRenderer` the array still draws, from the PROPS channel', async () => {
+    const dataSource = makeDataSource();
+    render(
+      <SchemaRendererProvider dataSource={dataSource as any}>
+        <SchemaRenderer
+          schema={{ type: 'object-map', map: MAP_CONFIG, data: ROWS } as never}
+        />
+      </SchemaRendererProvider>,
+    );
+
+    await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2));
+    expect(dataSource.find).not.toHaveBeenCalled();
   });
 
   it('⛔ CONTROL: the declared `{ provider: value, items }` form still paints', async () => {

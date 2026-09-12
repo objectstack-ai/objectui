@@ -492,12 +492,26 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
  * those faces refuses, so `data` is honoured here on the OBJECT arm only and
  * the shared rung is passed `'view-data'`.
  *
- * ⚠️ The accepted cost, stated: a stored grid authored `data: [ …rows… ]` no
- * longer draws those rows — the ladder falls through to `staticData`, then to
- * `objectName`, so such a grid queries its object instead of drawing the
- * authored array (or draws nothing when it names no object). The declared
- * spelling for inline rows is `data: { provider: 'value', items: [...] }`, and
- * the deprecated `staticData` array still works as before.
+ * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
+ * gone". An authored `data` array reaches this component TWICE: as
+ * `schema.data`, which this function used to lift, and as the `data` PROP,
+ * because `SchemaRenderer` spreads every non-metadata node key and
+ * `index.tsx` forwards `{...rest}`. That prop is `passedData` below, and it
+ * lifts an array to `{ provider: 'value', items }` at HIGHER priority than this
+ * ladder — it is the channel a host such as `ListView` uses to hand down rows it
+ * already fetched, and it is indistinguishable here from an authored key.
+ *
+ * ⇒ at the ladder the array is no longer a record source; through
+ * `SchemaRenderer` an authored `data: [ …rows… ]` still draws, from the props
+ * channel. Both halves are pinned in
+ * `__tests__/gridBareArrayDataRefused-8348.test.tsx`, which had to correct its
+ * own first draft on exactly this point. Collapsing the two carriers would take
+ * the host path with it and is outside objectui#8348's scope — reported on the
+ * card, not changed in passing.
+ *
+ * The declared spelling for inline rows is
+ * `data: { provider: 'value', items: [...] }`, and the deprecated `staticData`
+ * array still works as before.
  */
 function getDataConfig(schema: ObjectGridSchema): ViewData | null {
   return resolveRecordSourceConfig(schema, 'view-data');

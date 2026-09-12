@@ -549,7 +549,7 @@
           "id": "selftest-case-count-and-derivation",
           "why": "This copy pins its own self-test's case count and records how to re-derive it, rather than leaving a number nobody re-checks.",
           "upstream": "# Self-test (51 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n",
-          "ported": "# Self-test (48 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n# 48 = 46 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback).\n# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 2, and the run's own\n# tail prints the total (\"N passed, N failed\") — keep this number equal to it.\n"
+          "ported": "# Self-test (50 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n# 50 = 46 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback)\n# + 2 hatch-message assertions (`lacks`/`says`, which are not `expect ` lines).\n# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 4, and the run's own\n# tail prints the total (\"N passed, N failed\") — keep this number equal to it.\n"
         },
         {
           "id": "unquoted-backslash-rationale",

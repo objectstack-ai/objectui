@@ -67,6 +67,63 @@
  * prompt names must exist and must render. The other direction (a new renderer
  * lands, the prompt does not mention it) leaves the prompt incomplete, never
  * WRONG, and gating it would red on every plugin that ships.
+ *
+ * ## The second reading model: LABELLED BLOCKS (objectui#9098)
+ *
+ * A `Keys:` bullet puts every key on ONE line, which is why the rule above is
+ * "the Keys LINE only". The prompt teaches component keys in four more places
+ * that are shaped differently — `Standard Components Library:` and two
+ * `Required Components:` bullets whose keys live in SUB-BULLETS, each followed
+ * by trailing prose. Widening the label set alone would have read nothing:
+ * those label lines carry no keys at all. So this gate carries a second reading
+ * model, and the token-selection rule it states is:
+ *
+ *   A GATED LABEL is a bolded bullet label drawn from a fixed set. It opens a
+ *   BLOCK: the contiguous run of lines indented strictly MORE than the label's
+ *   own bullet, ending at the first non-blank line indented at or below it (or
+ *   at end of file). Inside that block only LIST-ITEM lines are read, and from
+ *   each, every single-backticked token WITHOUT whitespace in it is taken as a
+ *   key. Fenced code is skipped everywhere.
+ *
+ * Everything else is prose and is never judged. That is four escape hatches, and
+ * the prompt surface uses all four today:
+ *
+ *   OUTSIDE THE BLOCK    a blockquote or paragraph at the section's own level
+ *                        is not in the label's sub-tree. This is where the
+ *                        tombstones live — the note naming `view:kanban` and
+ *                        `view:gantt` as retired, the one naming `user:profile`,
+ *                        the one naming `ai:chat_window` as deliberately
+ *                        unregistered. Every one of those is a key this gate
+ *                        would reject if it read it, which is precisely why a
+ *                        "do not write this" example has to stay unjudged.
+ *   NOT A LIST ITEM      a continuation paragraph indented under the label is
+ *                        skipped even though it IS in the block.
+ *   BACKTICKED PROSE     a backticked span with a space in it is a command or a
+ *                        phrase, never a key: `pnpm check:prompt-keys`,
+ *                        `objectui check`. Not one of the 650 derived keys has
+ *                        whitespace in it, so nothing real is skipped here.
+ *   NOT BACKTICKED       trailing prose on a sub-bullet — `(Lucide Wrapper)`,
+ *                        `: Standalone smart button.`, `(Sub-grid)` — carries no
+ *                        backticks and so contributes nothing. An author who
+ *                        needs to name a NON-key in that prose writes it without
+ *                        backticks, or moves the note out of the block.
+ *
+ * ## Two verdicts, because a placeholder list is a claim too
+ *
+ * `Protocol Placeholders:` is gated with the partition INVERTED: every key under
+ * it must be placeholder-only. A list of protocol placeholders is as much a
+ * factual claim as a list of components, and it drifts the same way — if
+ * `ai:input` gains a real renderer the section is stale, and if it loses its
+ * registration entirely the section names nothing at all. Without the inverted
+ * leg, "move the placeholder-only keys to a placeholder section" would have
+ * moved the drift rather than fixed it.
+ *
+ * ## Why a block that opens and reads nothing is a failure
+ *
+ * `bullets === 0` catches the `Keys:` surface disappearing. The block model's
+ * equivalent is narrower and stronger: a gated label that matches but whose
+ * block yields no keys means the section was reformatted so the keys moved out
+ * from under it — the gate would then judge nothing while printing a pass.
  */
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
@@ -102,8 +159,73 @@ const KEYS_BULLET = /^\s*[*-]\s+\*\*Keys:\*\*\s*(.*)$/;
  *  the file it reads: a Keys bullet's keys live on the Keys line. */
 const BACKTICKED = /`([^`]+)`/g;
 
+/**
+ * Any bolded bullet label, e.g. `*   **Required Components:**`. Matching every
+ * label and filtering afterwards (rather than building one regex out of the
+ * gated names) keeps the gated set readable as DATA — the thing a future
+ * retirement has to edit — instead of as regex alternation.
+ */
+const LABEL_BULLET = /^(\s*)[*+-]\s+\*\*([^*]+?):\*\*\s*(.*)$/;
+
+/** A list item at any depth — the only kind of line a gated block reads. */
+const LIST_ITEM = /^\s*(?:[*+-]|\d+\.)\s+/;
+
+/** A fenced-code delimiter. A `**Keys:**` line inside a fence is an EXAMPLE of
+ *  a bullet, not a bullet, and judging it would red on a document explaining
+ *  the convention. */
+const FENCE = /^\s*(?:```|~~~)/;
+
+/**
+ * Bullet labels whose sub-bullet BLOCK teaches keys an author may write, and
+ * whose every key must therefore be authorable.
+ *
+ * ⛔ NOT a list of key names — that is the drift this gate exists about. This is
+ * a list of LABELS: the four claims the prompt surface makes about the registry.
+ * `Required Types:` is deliberately absent and must stay absent — objectui#8929
+ * landed the reason in the prompt itself: a `Required Types` entry is a spec
+ * `type` VALUE, not a registry key, so `grid` / `kanban` / `gantt` are correct
+ * there and a registry-key gate would red on correct text. `Keys:` is absent
+ * because it has its own, narrower reading model above.
+ */
+export const AUTHORABLE_BLOCK_LABELS = ['Standard Components Library', 'Required Components'];
+
+/**
+ * Bullet labels whose block lists PROTOCOL PLACEHOLDERS. The partition is read
+ * the other way round here: every key must be answered by the placeholder
+ * module and by nothing else.
+ */
+export const PLACEHOLDER_BLOCK_LABELS = ['Protocol Placeholders'];
+
+/** What the partition must say about a key, given the label that taught it. */
+export function expectationFor(label) {
+  if (AUTHORABLE_BLOCK_LABELS.includes(label)) return 'authorable';
+  if (PLACEHOLDER_BLOCK_LABELS.includes(label)) return 'placeholder-only';
+  return null;
+}
+
 /** Files the prompt surface is made of. */
 const PROMPT_EXTENSIONS = ['.md'];
+
+/** Leading width of a line, tabs counted as four columns. */
+function indentOf(line) {
+  const expanded = line.replace(/\t/g, '    ');
+  return expanded.length - expanded.trimStart().length;
+}
+
+/** Mark every line that sits inside a fenced code block. */
+function fenceMask(lines) {
+  const mask = new Array(lines.length).fill(false);
+  let open = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (FENCE.test(lines[i])) {
+      mask[i] = true;
+      open = !open;
+      continue;
+    }
+    mask[i] = open;
+  }
+  return mask;
+}
 
 /** Which registration sites belong to the opt-in protocol placeholder. */
 export function placeholderSites(indirect = INDIRECT_REGISTRATIONS) {
@@ -134,25 +256,95 @@ export function promptFiles(root) {
     .map((name) => join(dir, name));
 }
 
-/** Every key taught on a `Keys:` bullet, with the file and bullet text. */
+/**
+ * Every single-backticked token in `text` that could be a registry key.
+ *
+ * A backticked span containing WHITESPACE is not one: the derivation produces
+ * 650 keys on this tree and not one of them has a space in it, while the prose
+ * around a vocabulary list is full of backticked commands and phrases —
+ * `pnpm check:prompt-keys`, `objectui check`. Skipping them is not a hole a bad
+ * key can hide in: a token with a space resolves to nothing under ANY spelling,
+ * so there is no registration for it to be judged against either way.
+ */
+function harvest(sites, text, { file, line, label, expect, scope }) {
+  BACKTICKED.lastIndex = 0;
+  let token;
+  let found = 0;
+  while ((token = BACKTICKED.exec(text))) {
+    if (/\s/.test(token[1])) continue;
+    found++;
+    sites.push({ file, key: token[1], text: line.trim(), label, expect, scope });
+  }
+  return found;
+}
+
+/**
+ * Every key the prompt surface teaches, under both reading models.
+ *
+ * `bullets` counts `**Keys:**` lines (the objectui#8929 model, LINE only) and
+ * `blocks` counts gated labelled blocks (the objectui#9098 model). `emptyBlocks`
+ * records a gated label whose block yielded nothing — see the header: that is a
+ * reformatted section, not an empty one, and it must not read as a pass.
+ */
 export function scanPromptKeys(root) {
   const sites = [];
   let bullets = 0;
+  let blocks = 0;
+  const emptyBlocks = [];
+
   for (const abs of promptFiles(root)) {
     const rel = relative(root, abs).split(sep).join('/');
     const lines = readFileSync(abs, 'utf8').split('\n');
-    for (const line of lines) {
+    const fenced = fenceMask(lines);
+
+    for (let i = 0; i < lines.length; i++) {
+      if (fenced[i]) continue;
+      const line = lines[i];
+
       const bullet = KEYS_BULLET.exec(line);
-      if (!bullet) continue;
-      bullets++;
-      BACKTICKED.lastIndex = 0;
-      let token;
-      while ((token = BACKTICKED.exec(bullet[1]))) {
-        sites.push({ file: rel, key: token[1], text: line.trim() });
+      if (bullet) {
+        bullets++;
+        harvest(sites, bullet[1], {
+          file: rel,
+          line,
+          label: 'Keys',
+          expect: 'authorable',
+          scope: 'keys-line',
+        });
+        continue;
       }
+
+      const labelled = LABEL_BULLET.exec(line);
+      if (!labelled) continue;
+      const [, lead, label, trailing] = labelled;
+      const expect = expectationFor(label);
+      if (!expect) continue;
+
+      blocks++;
+      const indent = indentOf(lead + '*');
+      const site = { file: rel, line, label, expect, scope: 'block' };
+      // The label line itself is read too. Today every gated label ends at its
+      // colon, but reading the trailing text costs nothing and fails SAFE: a
+      // future author who puts keys on the label line gets them judged rather
+      // than silently skipped.
+      let found = harvest(sites, trailing, site);
+
+      let j = i + 1;
+      for (; j < lines.length; j++) {
+        const body = lines[j];
+        if (body.trim() === '') continue;
+        if (indentOf(body) <= indent) break;
+        if (fenced[j]) continue;
+        if (!LIST_ITEM.test(body)) continue;
+        found += harvest(sites, body, { ...site, line: body });
+      }
+
+      if (found === 0) emptyBlocks.push(`${rel}: \`${label}:\``);
+      i = j - 1;
     }
   }
-  return { sites, bullets };
+
+  return { sites, bullets, blocks, emptyBlocks };
 }
 
 /**
@@ -190,21 +382,33 @@ export function analyze(root, options = {}) {
     throw new Error('the derivation produced no authorable keys — refusing to judge against an empty set.');
   }
 
-  const { sites: taught, bullets } = scanPromptKeys(root);
+  const { sites: taught, bullets, blocks, emptyBlocks } = scanPromptKeys(root);
   if (bullets === 0) {
     throw new Error(
       `no \`**Keys:**\` bullet was found under ${PROMPT_DIR}. The surface this gate reads is gone or ` +
         'has been reformatted, and a run that reads nothing passes while asserting nothing.',
     );
   }
+  if (emptyBlocks.length > 0) {
+    throw new Error(
+      `${emptyBlocks.length} gated label(s) opened a block that taught no key at all:\n` +
+        emptyBlocks.map((b) => `  ${b}`).join('\n') +
+        '\nA label whose keys have moved out from under it is a REFORMATTED section, not an empty one, ' +
+        'and judging\nnothing under it would report a pass this gate did not earn.',
+    );
+  }
 
   const findings = [];
   for (const site of taught) {
-    if (authorable.has(site.key)) continue;
-    findings.push({
-      ...site,
-      reason: placeholderOnly.has(site.key) ? 'placeholder-only-key' : 'unregistered-key',
-    });
+    const isAuthorable = authorable.has(site.key);
+    const isPlaceholder = placeholderOnly.has(site.key);
+    if (site.expect === 'placeholder-only') {
+      if (isPlaceholder) continue;
+      findings.push({ ...site, reason: isAuthorable ? 'not-a-placeholder-key' : 'unregistered-key' });
+      continue;
+    }
+    if (isAuthorable) continue;
+    findings.push({ ...site, reason: isPlaceholder ? 'placeholder-only-key' : 'unregistered-key' });
   }
 
   return {
@@ -212,7 +416,10 @@ export function analyze(root, options = {}) {
     counters: {
       promptFiles: promptFiles(root).length,
       bullets,
+      blocks,
       keys: taught.length,
+      blockKeys: taught.filter((s) => s.scope === 'block').length,
+      placeholderClaims: taught.filter((s) => s.expect === 'placeholder-only').length,
       registryKeys: registry.keys.size,
       authorable: authorable.size,
       placeholderOnly: placeholderOnly.size,
@@ -230,6 +437,12 @@ const HINTS = {
   'unregistered-key':
     'Nothing in this repository registers this key, so it resolves to the OBJUI-001 "Unknown ' +
     'component type" panel everywhere. Teach a registered key.',
+  'not-a-placeholder-key':
+    'This key is taught under a `Protocol Placeholders:` label, but a REAL renderer answers it — so ' +
+    'the section understates what the platform ships and steers an author away from a component that ' +
+    'works. Move it to the components list. (The same label rejects a key nothing registers at all, ' +
+    'under `unregistered-key`: a placeholder list that names a key the placeholder module dropped is ' +
+    'as wrong as a component list that names a retired one.)',
 };
 
 if (isEntrypoint(import.meta.url)) {
@@ -254,13 +467,18 @@ if (isEntrypoint(import.meta.url)) {
   const { findings, counters } = result;
   console.log(
     `Scanned ${counters.promptFiles} prompt file(s) under ${PROMPT_DIR}, ` +
-      `${counters.bullets} \`Keys:\` bullet(s), ${counters.keys} taught key(s) against ` +
+      `${counters.bullets} \`Keys:\` bullet(s) and ${counters.blocks} gated label block(s), ` +
+      `${counters.keys} taught key(s) (${counters.blockKeys} of them from blocks, ` +
+      `${counters.placeholderClaims} claimed as placeholders) against ` +
       `${counters.authorable} authorable key(s) — the ${counters.registryKeys} registered key(s) less ` +
       `the ${counters.placeholderOnly} answered only by the ${PLACEHOLDER_NAMESPACE} registration.`,
   );
 
   if (findings.length === 0) {
-    console.log('OK  Every key taught on a `Keys:` bullet is answered by a real renderer.');
+    console.log(
+      'OK  Every key taught as available is answered by a real renderer, and every key taught as a ' +
+        'protocol placeholder is answered only by the placeholder.',
+    );
     process.exit(0);
   }
 

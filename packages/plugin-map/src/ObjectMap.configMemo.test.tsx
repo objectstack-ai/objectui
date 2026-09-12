@@ -98,7 +98,13 @@ const ROWS = [
 const baseSchema = (map: Record<string, unknown>): any => ({
   type: 'object-map',
   map: { latitudeField: 'latitude', longitudeField: 'longitude', ...map },
-  data: ROWS,
+  // The DECLARED inline-rows spelling, not the bare array this file used to
+  // write. Since objectui#8348 `getDataConfig` honours `data` only on the arm
+  // this block's published row declares — `ObjectMapSchema.data` is
+  // `ViewDataSchema.optional()` — so the array shorthand is no longer lifted
+  // and would leave this map empty. The resolved config is identical, which is
+  // why this file's subject (memo identity) is untouched.
+  data: { provider: 'value', items: ROWS },
 });
 
 /** `Array.prototype.at` is outside this package's configured `lib` target. */

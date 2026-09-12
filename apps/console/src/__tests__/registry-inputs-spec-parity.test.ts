@@ -997,11 +997,15 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
 
 
   // ── objectui#8176: the two lazily-registered blocks, judged for the first ──
-  //     time. FOUR keys left of the eighteen that entered. Three of them are
-  //     still A DECLARATION SOMEONE OWES (the arm this map's docblock above
-  //     says must name itself); the fourth, `object-kanban.quickAdd`, is the
-  //     one ESCALATED entry — see the note further down. None has become a
-  //     ruled carve-out, because nobody with standing has ruled yet.
+  //     time. ONE key left of the eighteen that entered, and as of objectui#8201
+  //     slice 2 it is no longer A DECLARATION SOMEONE OWES.
+  //     `object-kanban.quickAdd` is the RULED CARVE-OUT arm of the choice this
+  //     map's docblock above requires an entry to name: the PM ruled it
+  //     PREMATURE (objectui#8201, Q1 = A, 2026-09-07), and objectui#8285 owns
+  //     the fix. `LAZY_BLOCK_RULED_CARVE_OUTS` below is where that ruling is
+  //     recorded MECHANICALLY, which is what takes the key out of the backlog
+  //     the ceiling counts — the reason text alone could not, since the ceiling
+  //     reads keys and not prose.
   //
   //     ⚠️ IT STARTED AT EIGHTEEN, and the two that left are the ledger doing
   //     its job rather than a correction to it. `object-kanban.filter` and
@@ -1067,8 +1071,12 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //   a `MEMBER_PINS` entry apiece for the two array keys (registered below,
   //   never an exemption — objectui#8212's three-part obligation). Every
   //   `object-calendar` key the spec declares is now discoverable, and with
-  //   objectui#8313's four gone too the entire remaining backlog is one key:
-  //   `object-kanban.quickAdd`, the escalated one.
+  //   objectui#8313's four gone too the entire remaining list is one key:
+  //   `object-kanban.quickAdd`, the escalated one — and objectui#8201's slice 2
+  //   then ruled THAT one (PM Q1 = A, PREMATURE, objectui#8285 owns the fix),
+  //   which empties the BACKLOG without emptying the map. The entry below is
+  //   still live cover for a key the spec still declares; what changed is that
+  //   nobody owes a declaration for it any more.
   //   ⚠️ The `loading` clause above was slice 1's REASONING and objectui#8314
   //   measured it: authored `loading: true` replaces a `data`-fed calendar with
   //   its loading placeholder and does nothing at all to a `staticData`-fed
@@ -1097,7 +1105,7 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //   and a member with no usable `field` dropped rather than invented). That
   //   is a SHARPER member claim than a pass-through, not a weaker one.
   'object-kanban.quickAdd':
-    'Newly JUDGED rather than newly missing: the console registers this block with `registerLazy`, so it sat outside the population of this gate entirely until objectui#8176 loaded it. A DECLARATION SOMEONE OWES, not a ruled carve-out — nobody has yet asked, per key, against the read sites in the renderer, whether it should be published or carved out. objectui#8201 owns that question and its answer deletes this entry. objectui#8176.',
+    'RULED CARVE-OUT — PREMATURE, not "wrong" (PM ruling on objectui#8201, Q1 = A, 2026-09-07). The renderer does not honour this key; objectui#8285 owns the fix. Measured, and re-measured at @objectstack/spec 17.4.0 rather than inherited: `KanbanImpl` gates the Quick Add control on `quickAdd && onQuickAdd`, `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod twin refuses BY NAME, and nothing on the `ObjectKanban` path supplies one — so an authored `quickAdd: true` reaches the board and changes nothing. The key is still a live `z.boolean().optional()` on the installed pin, with a control key drawing `unrecognized_keys` on the same safeParse call, so this cover is describing something. WHAT THIS ENTRY DOES NOT SAY, deliberately: it does not claim the object-bound board cannot grow quick-add. That is a strictly stronger claim than anything measured, and the sibling `KanbanRenderer` host contradicts it by honouring the same `quickAdd` + `onQuickAdd` pair by identity. Declaring the input is the one resolution FORBIDDEN here — it would publish a key the renderer cannot honour, which is the failure mode this whole gate exists to catch. THE EXIT IS NOT A DECLARATION: objectui#8285 was ruled (director seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd` from the spec ComponentPropsMap, so the day that lands the key leaves the accepted set, this entry goes dangling AND stale, and it is harvested exactly as the eight ADR-0087 tombstones above were. objectui#8176.',
 
   // ── record:reference_rail.entries — a nested collection, newly JUDGED ──────
   //                                                                   (1 key)
@@ -1140,6 +1148,73 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   'record:reference_rail.entries':
     'An array of {objectName, relationshipField, title, limit, displayField} objects; `inputs` is a flat scalar carrier and cannot express it. Newly judged rather than newly missing — @objectstack/spec 17.1.0 added record:reference_rail to ComponentPropsMap, and the registration (plugin-detail/src/index.tsx:675) has always published only `hideEmpty` — the 17.1.0 pin, objectui#5328. The flat-carrier shape limit is the entire reason: the `icon` divergence that once also blocked an entries editor was settled by Option B (maintainer 2026-08-22, objectui#5494).',
 };
+
+/**
+ * Exemption ids on a newly-judged block that have been RULED rather than owed.
+ *
+ * The backlog ceiling below counts `UNPUBLISHED_EXEMPTIONS` entries on
+ * `LAZY_REGISTERED_BLOCKS`, and until objectui#8201's slice 2 every one of them
+ * was the same thing: a declaration someone owed. That is no longer true of
+ * `object-kanban.quickAdd`, so counting it as backlog reports work nobody is
+ * going to do. The ruling is therefore recorded HERE, as data, and subtracted.
+ * The reason text cannot carry it: the ceiling reads KEYS, and no assertion can
+ * read prose.
+ *
+ * ## ⚠️ What moving the number 1 -> 0 does NOT buy, measured rather than argued
+ *
+ * It does NOT close a hole. The obvious story — "a ceiling one above the real
+ * number banks headroom, so a fresh divergence could be greened by writing an
+ * entry under it" — is FALSE here, and the ablation on objectui#8201's slice 2
+ * says so rather than reasoning about it. The same fresh divergence (a declared
+ * key removed from `OBJECT_KANBAN_INPUTS` and greened with a new entry) was run
+ * against BOTH shapes of this ceiling: it reddens at `expected 1 to be less
+ * than or equal to 0` on this branch, and at `expected 2 to be less than or
+ * equal to 1` on the shape that preceded it. The `toBe` half is EXACT in both
+ * directions, so growth was already refused at 1; there was never headroom to
+ * bank.
+ *
+ * ⇒ What the move buys is that the number stays TRUE. It is a MEASUREMENT of
+ * how many declarations are owed on these two blocks, and after the ruling that
+ * count is zero. Leaving it at 1 would have made this ceiling say one is owed
+ * when none is — the same stale-number-beside-a-correct-assertion drift this
+ * file has already had to correct twice (see the ladder in the ceiling's own
+ * comment). A ratchet whose number has stopped describing anything is the thing
+ * a reader stops trusting.
+ *
+ * ## Three things make this a record of a ruling and not a new hiding place
+ *
+ * `the one ruled carve-out on a newly judged block is real` below asserts all
+ * three, because a subtraction that licensed anything would be strictly worse
+ * than the ceiling it adjusts:
+ *
+ *   1. PINNED BY NAME. The list is asserted to equal exactly this one id. A
+ *      second entry cannot ride in on the mechanism — adding one is a visible
+ *      edit to a pinned literal, which is the same bargain
+ *      `NEWLY_JUDGED_UNPINNED_MEMBERS` makes one layer in.
+ *   2. NON-VACUOUS. Every id must really carry an `UNPUBLISHED_EXEMPTIONS`
+ *      entry on a lazy-registered block, so the list cannot claim credit for
+ *      cover that is not there, nor quietly reach a key on some other block.
+ *   3. IT NAMES ITS OWNING CARD. Every id's reason must cite objectui#8285.
+ *      ⭐ This is the mechanical difference between the ruling that was made
+ *      and the one that was refused. PREMATURE (Q1 = A) says the renderer does
+ *      not honour the key TODAY and names who owns the fix, so an owning card
+ *      must exist and stay open. The rejected reading — that the object-bound
+ *      board is not going to grow quick-add — needs no owning card at all, and
+ *      would have closed objectui#8285 as not-planned. An entry that stopped
+ *      naming the card would have quietly become the stronger claim, and this
+ *      row is what stops that happening silently.
+ *
+ * ## How this list empties
+ *
+ * ⛔ NOT by a declaration — that resolution is forbidden for this key, since
+ * the renderer cannot honour it. objectui#8285 was ruled (director seat
+ * 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd` from the
+ * spec's `ComponentPropsMap`. When that lands, the key leaves the accepted set,
+ * the exemption entry goes dangling AND stale, and deleting it is the only way
+ * back to green — at which point assertion 2 above fails until this list is
+ * emptied in the same change. The two halves cannot drift apart.
+ */
+const LAZY_BLOCK_RULED_CARVE_OUTS = ['object-kanban.quickAdd'];
 
 /**
  * Exemption entries whose KEY the installed spec is allowed not to declare yet.
@@ -2375,7 +2450,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'record:related_list.columns': {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.columnMembers.test.tsx',
-    pins: 'THE `page:header.actions` HOLE ON THIS KEY, asserted as the gap it is: the registration declares `of: \'string\'` and the block folds FIVE member spellings — a bare string, the spec-canonical `{ field }`, the legacy `{ name }` / `{ fieldName }`, and `{ key }`, a tail fallback that is this block\'s alone (`columnIdentity` REFUSES it, asserted next to it, which is the whole content of "tail"). Canonical-first is proven both ways on one mixed `{ field, name }` member, so a fold reading either key alone fails. Two rows carry the sharp edge: a member whose identity does not resolve is KEPT rather than dropped, so an entry the fold cannot name is an entry it cannot filter (`accessorKey` is the instance — excluded from `columnIdentity` on purpose, read by `RelatedList` as `accessorKey || columnIdentity`, so a redacted column authored that way is kept AND rendered: filed as objectui#8793, and this row reds when it lands), and a mixed set must come back SHORTER and in order, which is the non-vacuity a single-member array cannot give. Every positive carries its control in the same call (the member survives when a DIFFERENT field is redacted), and the instrument itself — `redactFields`, a renderer-only key on neither the spec nor `inputs` — is asserted to be undeclared so the file cannot be read as licensing it. The end-to-end half (an object member reaching the screen with VALUES) is objectui#5022\'s file, which drives `RelatedList` directly and never runs this fold (objectui#8071).',
+    pins: 'THE `page:header.actions` HOLE ON THIS KEY, asserted as the gap it is: the registration declares `of: \'string\'` and the block folds FIVE member spellings — a bare string, the spec-canonical `{ field }`, the legacy `{ name }` / `{ fieldName }`, and `{ key }`, a tail fallback that is this block\'s alone (`columnIdentity` REFUSES it, asserted next to it, which is the whole content of "tail"). Canonical-first is proven both ways on one mixed `{ field, name }` member, so a fold reading either key alone fails. Two rows carry the sharp edge: a member whose identity does not resolve is DROPPED — the fold fails closed (objectui#8793), because an entry it cannot name is an entry it cannot check, while `RelatedList` renders that entry anyway as `accessorKey || columnIdentity` (`accessorKey` is the instance, excluded from `columnIdentity` on purpose), so keeping it was a field-security bypass — ⚠️ two of the three legs of that bypass now have a SECOND gate downstream, `filterFLS` for a declared field that field security denies and, since objectui#9090, `filterRedacted` for a redacted one, both resolving the very `accessorKey || columnIdentity` pair this fold refuses, so what THIS fold alone still decides is a key the permission evaluator has no opinion about (one the child object never declares), measured by ablation on the merged base and pinned as THE RESIDUAL LEG in `RecordRelatedListRenderer.unresolvedIdentityFailClosed-8793.test.tsx`; the same row pins that the drop is by unresolvability rather than by matching the redacted name, and that an UNFILTERED list still hands the member down untouched — and a mixed set must come back SHORTER and in order, which is the non-vacuity a single-member array cannot give. Every positive carries its control in the same call (the member survives when a DIFFERENT field is redacted), and the instrument itself — `redactFields`, a renderer-only key on neither the spec nor `inputs` — is asserted to be undeclared so the file cannot be read as licensing it. The end-to-end half (an object member reaching the screen with VALUES) is objectui#5022\'s file, which drives `RelatedList` directly and never runs this fold (objectui#8071).',
   },
   'record:related_list.dataSource': {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.elementDataSource.test.tsx',
@@ -3550,10 +3625,16 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // direction — greening a fresh divergence on these two blocks by writing a
     // nineteenth entry instead of declaring the input.
     //
-    // ONE is the MEASURED backlog today, not a budget: a single
-    // undiscoverable key on `object-kanban`, and NONE on `object-calendar` —
-    // objectui#8313 emptied the board and objectui#8314 emptied the calendar,
-    // in that order. The number has come down five times and every step was
+    // ZERO is the MEASURED backlog today, not a budget. `object-calendar`
+    // publishes all nine keys its spec row declares; `object-kanban` publishes
+    // thirteen of fourteen, and the fourteenth is RULED rather than owed —
+    // objectui#8313 emptied the board, objectui#8314 emptied the calendar, and
+    // objectui#8201's slice 2 ruled what was left.
+    // ⚠️ Measured at @objectstack/spec 17.4.0, which is NOT the pin the card
+    // was filed on: 17.4.0 added `object-kanban.limit` (objectstack#16562, the
+    // option-A ruling on objectui#8172), so the block's spec row went 13 keys
+    // to 14 and the declaration followed it in the same release. A reader
+    // checking this arithmetic against the card's own 13 will not reproduce it. The number has come down five times and every step was
     // this ceiling's paired EXIT — a declaration retiring its own cover —
     // rather than a re-derivation:
     //
@@ -3568,6 +3649,16 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //        `staticData` and `loading`, paying the same three-part obligation
     //        for its two array-armed keys; `MEMBER_PIN_EXEMPTION_CEILING` did
     //        not move on either card
+    //    0  objectui#8201 slice 2 lands the PM's Q1 = A ruling on the last
+    //        entry — `object-kanban.quickAdd` becomes a RULED CARVE-OUT and
+    //        moves into `LAZY_BLOCK_RULED_CARVE_OUTS`
+    //
+    // ⚠️ THE LAST STEP IS THE ONLY ONE THAT IS NOT A DECLARATION, and reading
+    // it as one would be the wrong lesson. Every step above was this ceiling's
+    // paired exit: an input got declared and its cover went stale. The step to
+    // ZERO is a RULING — the entry is still here, still covering a real
+    // undeclared key, and it left the BACKLOG rather than the map. The backlog
+    // is what someone still owes; a ruled carve-out is owed by nobody.
     //
     // ⚠️ The prose that stood here read "Sixteen … ten on `object-kanban`, six
     // on `object-calendar`" while both assertions already read 15: objectui#8223
@@ -3580,39 +3671,94 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // A new divergence on these blocks is a plain defect and gets declared,
     // exactly as it would on any other covered block.
     //
-    // ⚠️ THE ONLY KEY LEFT MAY NOT LEAVE BY A DECLARATION AT ALL — and after
-    // objectui#8313 and objectui#8314 it is the whole of this list's
-    // remainder, not just this block's, so the next reader must not take
-    // "one key left" for "nearly done".
+    // ⚠️ THE ONE KEY LEFT MAY NOT LEAVE BY A DECLARATION AT ALL, and it is now
+    // RULED rather than pending — so the backlog this number counts is EMPTY
+    // while the map below still carries an entry. Those are two different
+    // statements and the next reader must not collapse them.
     // `object-kanban.quickAdd` is measured NOT honoured by this renderer
     // (objectui#8201): `KanbanImpl` gates the control on `quickAdd &&
     // onQuickAdd`, and no producer on the `ObjectKanban` path supplies that
-    // runtime slot. Its disposition — permanent carve-out, or a feature gap
-    // whose fix makes the key declarable — is a PRODUCT ruling that card
-    // escalated rather than guessed, so its entry is unchanged. A future card
-    // lowering this number on that entry must say which of the two happened.
+    // runtime slot. Its disposition was the PRODUCT ruling that card escalated
+    // rather than guessed, and the PM answered it: PREMATURE (Q1 = A,
+    // 2026-09-07) — the renderer does not honour it and objectui#8285 owns the
+    // fix. ⭐ Which of the two happened, as this comment used to demand of
+    // whoever lowered the number: PREMATURE, not permanent. The distinction is
+    // load-bearing rather than decorative — PREMATURE commits nobody to
+    // building quick-add, and it also refuses the stronger claim that the
+    // object-bound board is not going to grow it, which nothing measured
+    // supports and which the sibling `KanbanRenderer` host contradicts by
+    // honouring the same `quickAdd` + `onQuickAdd` pair by identity.
+    // The ruling is recorded as data in `LAZY_BLOCK_RULED_CARVE_OUTS` above,
+    // not as prose here, and `the one ruled carve-out on a newly judged block
+    // is real` keeps that record honest in three directions.
     //
     // ⚠️ BOTH assertions below carry the ceiling and BOTH must move together.
     // The `toBe` is EXACT in both directions on purpose, so the card that lands
     // a declaration lowers this number in the same change; lowering only the
     // `toBe` would leave `toBeLessThanOrEqual` banking headroom the ratchet
     // exists to refuse.
-    const backlog = Object.keys(UNPUBLISHED_EXEMPTIONS).filter((key) =>
-      LAZY_REGISTERED_BLOCKS.includes(splitExemptionKey(key)[0]),
-    );
+    const backlog = Object.keys(UNPUBLISHED_EXEMPTIONS)
+      .filter((key) => LAZY_REGISTERED_BLOCKS.includes(splitExemptionKey(key)[0]))
+      .filter((key) => !LAZY_BLOCK_RULED_CARVE_OUTS.includes(key));
     expect(
       backlog.length,
       'a new unpublished-key exemption was added on a block objectui#8176 newly ' +
         'judged — declare the input at its registration site instead; the ' +
         'backlog list is shrink-only',
-    ).toBeLessThanOrEqual(1);
+    ).toBeLessThanOrEqual(0);
     // Lower it here when the owning cards land, so the ceiling keeps ratcheting
     // rather than banking the headroom their fixes free up.
     expect(
       backlog.length,
       'the objectui#8176 backlog shrank — lower the ceiling above to match, in ' +
         'the same change that declared the input',
-    ).toBe(1);
+    ).toBe(0);
+  });
+
+  it('the one ruled carve-out on a newly judged block is real, and names its exit', () => {
+    // The three assertions `LAZY_BLOCK_RULED_CARVE_OUTS`' docblock promises.
+    // Subtracting from a ratchet is only safe if the subtrahend is itself
+    // pinned, non-vacuous, and unable to drift into the stronger claim the PM
+    // ruling refused — otherwise this list is a better hiding place than the
+    // entry it adjusts, which would make the ceiling worse than leaving it
+    // alone.
+    //
+    // 1. PINNED BY NAME. Growing the list has to be a visible edit to a
+    //    literal, never a side effect of writing one more exemption.
+    expect(
+      [...LAZY_BLOCK_RULED_CARVE_OUTS].sort(),
+      'a ruled carve-out was added on a newly judged block — a ruling is a ' +
+        'maintainer or PM decision on the record, so name it here and cite it',
+    ).toEqual(['object-kanban.quickAdd']);
+
+    for (const id of LAZY_BLOCK_RULED_CARVE_OUTS) {
+      const [type] = splitExemptionKey(id);
+      // 2. NON-VACUOUS, both halves. The id must cover a real entry, and that
+      //    entry must sit on a block this ceiling actually counts — otherwise
+      //    the subtraction reaches somewhere it was never argued for.
+      expect(
+        Object.keys(UNPUBLISHED_EXEMPTIONS),
+        `${id} is ruled but carries no exemption entry — if the entry was ` +
+          'deleted (the upstream retirement landing), empty this list in the ' +
+          'same change',
+      ).toContain(id);
+      expect(
+        LAZY_REGISTERED_BLOCKS,
+        `${id} is not on a block this ceiling counts, so ruling it here ` +
+          'subtracts from a population it was never part of',
+      ).toContain(type);
+      // 3. IT NAMES ITS OWNING CARD — the mechanical difference between
+      //    PREMATURE (an open card owns the fix) and the stronger claim the
+      //    ruling refused (which would need no card and would have closed
+      //    objectui#8285 as not-planned). An entry that stopped naming the card
+      //    would have become that stronger claim silently.
+      expect(
+        UNPUBLISHED_EXEMPTIONS[id],
+        `${id} is ruled PREMATURE but its reason no longer names objectui#8285, ` +
+          'the card that owns the fix — a premature carve-out without an owning ' +
+          'card is the permanent one, which is not what was ruled',
+      ).toContain('objectui#8285');
+    }
   });
 
   it('the eight tombstoned keys are recognised, not exempted — and not published either', () => {

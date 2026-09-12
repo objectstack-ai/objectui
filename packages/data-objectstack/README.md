@@ -386,6 +386,7 @@ const dataSource = createObjectStackAdapter({ baseUrl: 'https://api.example.com'
 const stats = dataSource.getCacheStats();
 console.log(`Cache hit rate: ${stats.hitRate * 100}%`);
 console.log(`Cache size: ${stats.size}/${stats.maxSize}`);
+console.log(`Fetches coalesced onto an in-flight request: ${stats.coalesced}`);
 
 // Manually invalidate cache entries
 dataSource.invalidateCache('users'); // Invalidate specific schema
@@ -401,7 +402,13 @@ dataSource.clearCache();
 - **TTL Expiration**: Entries expire after the configured time-to-live from creation (default: 5 minutes)
   - Note: TTL is fixed from creation time, not sliding based on access
 - **Memory Limits**: Configurable maximum cache size (default: 100 entries)
-- **Concurrent Access**: Handles async operations safely. Note that concurrent requests for the same uncached key may result in multiple fetcher calls.
+- **Request Coalescing**: Concurrent `get` calls for the same uncached key share a single
+  fetch. The first caller invokes the fetcher; every caller that arrives while that promise
+  is still in flight is handed the same promise instead of starting a second request, and
+  each one increments the `coalesced` counter in `getCacheStats()` — so the saving is
+  something you can read off the adapter, not just a claim in this page.
+  - The in-flight slot is released in a `finally`, so a rejected fetch is not cached and
+    does not poison the key: the next call starts a fresh fetch.
 
 ## Connection State Monitoring
 
@@ -700,6 +707,54 @@ ObjectUI does not hard-require it: against an older backend a master-detail save
 still succeeds, but non-atomically via the fallback above. Treat the advertised
 capability as the floor for the atomicity guarantee, not as a connection
 prerequisite.
+
+## Object-Metadata Write Guard
+
+`MetadataClient.save` refuses an `object` document whose `fields` carry a
+relationship field (`lookup`, `master_detail`) with a missing, empty or
+whitespace-only `reference`, **before** issuing the request:
+
+```ts
+import { MetadataClient } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+await client.save('object', 'account', {
+  name: 'account',
+  fields: { owner: { type: 'lookup', label: 'Owner' } },
+});
+// throws: MetadataClient.save refused this object metadata write: the field
+// `owner` is a `lookup` and carries no `reference` key at all ...
+```
+
+Nothing that previously succeeded now fails. `@objectstack/spec` refuses the same
+document at the server with a 422 on `fields.owner.reference`, and that refusal
+blocks every *later* save of the object for as long as the half-filled field
+rides along in the draft. The guard moves the identical refusal earlier, names
+the field while it is still on screen, and leaves the draft in the client. Writes
+of every other metadata type are untouched, and the guard never strips the
+offending field — a dropped field reported as saved would be a silent deletion.
+
+Hosts that write object metadata through their own transport can apply the same
+invariant at their own door:
+
+```ts
+import { assertObjectMetadataWritable } from '@object-ui/data-objectstack';
+
+async function uploadObject(name: string, body: unknown) {
+  assertObjectMetadataWritable('object', body, 'uploadObject');
+  await fetch(`/api/v1/meta/object/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+```
+
+`RELATIONSHIP_TYPES_REQUIRING_REFERENCE` and `OBJECT_METADATA_TYPE` are exported
+beside it. The relationship-type set is derived from the installed
+`@objectstack/spec` by this package's own pin, so it follows the contract rather
+than a remembered list.
 
 ## User-Scoped State Adapter
 

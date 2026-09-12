@@ -2566,7 +2566,25 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // own `columns` prop is its LANES, so passing this through verbatim built
         // lanes with undefined id/title. Map it to `cardFields` and strip the
         // vocabulary keys from the passthrough (mirrors plugin-view's adapter).
-        const { columns: kanbanCardColumns, groupByField, groupField, cardFields, titleField, ...restKanban } = kanbanCfg as Record<string, any>;
+        // ⭐ `groupBy` IS STRIPPED HERE (objectui#8365, maintainer ruling of
+        // 2026-09-12 — decision batch #117 item 5, option B). It is a THIRD
+        // spelling of the lane, and because it was NOT in this destructure it
+        // survived into `restKanban`, which the return below spreads AFTER its
+        // own `groupBy: laneField` — so an authored `kanban.groupBy` OVERRODE
+        // the lane this branch had just resolved. Measured on the card's
+        // distinguishing fixture (`options.kanban = { groupBy:
+        // 'LANE_FROM_STRAY_GROUPBY' }` against `kanban = { groupByField:
+        // 'LANE_FROM_CANONICAL' }`): the generated node carried
+        // `groupBy: 'LANE_FROM_STRAY_GROUPBY'`. Stripping it is the half that
+        // makes the CANONICAL lane win; the loud half is the read door, where
+        // the view-level `KanbanConfig` mirror (`@object-ui/types`,
+        // `zod/objectql.zod.ts`) now declares `groupBy` as an alias refusal and
+        // names `groupByField`, so the key is no longer silently accepted by
+        // that object's `.passthrough()`.
+        // ⛔ Deliberately NOT folded onto `laneField`: this branch's own read is
+        // already canonical-first (`groupByField || groupField || detect…`), so
+        // a fold would re-create the override it just closed.
+        const { columns: kanbanCardColumns, groupByField, groupField, cardFields, titleField, groupBy: _strayGroupBy, ...restKanban } = kanbanCfg as Record<string, any>;
         const laneField = groupByField || groupField || detectStatusField(objectDef) || undefined;
         // `groupBy` is the lane key and the ONLY one written here. This node
         // used to carry `groupField: laneField` alongside it — a duplicate the

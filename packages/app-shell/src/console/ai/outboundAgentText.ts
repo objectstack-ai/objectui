@@ -27,7 +27,7 @@
 // that falls back to `en` is precisely the wrong-language bug above. Here the
 // source of each string is declared, not resolved at runtime.
 
-import { en as enPack, zh as zhPack } from '@object-ui/i18n';
+import { getLoadedBuiltInLocales } from '@object-ui/i18n';
 
 /**
  * The `console.ai.*` keys that are outbound message TEXT rather than labels.
@@ -101,7 +101,17 @@ export function resolveOutboundAgentText(
   vars?: Readonly<Record<string, string>>,
 ): string {
   const lang = conversationIsZh ? 'zh' : 'en';
-  const template = packText(conversationIsZh ? zhPack : enPack, key) ?? GATE_TEXT[key][lang];
+  // The RESIDENT catalogue for that language, not a static import of it
+  // (objectui#7479): `en` is always resident, and `zh` is resident on exactly
+  // the boots where the console is running in Chinese. When it is not — an
+  // English console answering a Chinese thread — this falls through to
+  // {@link GATE_TEXT}, which `outboundAgentText.test.ts` pins BYTE-IDENTICAL to
+  // the `zh` pack's four values, so the text that leaves is the same either
+  // way. ⛔ Do not import the `zh` pack back to close that branch: it would put
+  // a second 156 KB catalogue into every page load to re-derive four strings
+  // that are already pinned equal.
+  const template =
+    packText(getLoadedBuiltInLocales()[lang], key) ?? GATE_TEXT[key][lang];
   return interpolate(template, vars);
 }
 

@@ -16,8 +16,17 @@
  * a DOM pin — and the marks below (bars, LabelList, ReferenceLine/Area, Brush)
  * only exist once Recharts has a measured box. `ResponsiveContainer` reports 0×0
  * under the headless DOM and renders no children, and `recharts` resolves inside
- * THIS package alone, so the mock that fixes its size — and therefore this half
- * of the evidence — has to live here.
+ * THIS package alone, so a `vi.mock('recharts')` can only be written here.
+ *
+ * ⚠️ That premise is true and its old conclusion — "and therefore this half of
+ * the evidence has to live here" — was not. objectui#9203 re-measured both:
+ * `require.resolve('recharts')` from `packages/plugin-dashboard` is still
+ * `MODULE_NOT_FOUND` (with `react` from the same root resolving, as the control
+ * that the resolver was answering at all), and a module mock turned out not to
+ * be needed. `ResponsiveContainer` seeds its size from `getBoundingClientRect`
+ * on its OWN element, so a stub scoped to the `recharts-responsive-container`
+ * element gives the plot a box inside plugin-dashboard. See "What this file is
+ * NOT" below for why that distinction decides what this file may be cited for.
  *
  * These render `ChartRenderer`, not `AdvancedChartImpl`: `ChartRenderer` is what
  * the ComponentRegistry resolves `type: 'chart'` to, so it is the component the
@@ -25,8 +34,37 @@
  * shape `DatasetWidget` emits (derived `chartType`/`xAxisKey`/`series` +
  * `isAnimationActive: false` + the lowered presentation keys). The seam that
  * produces it is pinned in plugin-dashboard's
- * `DatasetWidget.chartConfig.test.tsx`; together the two close the loop from
- * dashboard metadata to drawn pixels.
+ * `DatasetWidget.chartConfig.test.tsx`.
+ *
+ * ⛔ Those two do NOT close the loop from dashboard metadata to drawn pixels,
+ * and this file's own header used to say they did. "Byte-for-byte the shape
+ * `DatasetWidget` emits" is a resemblance an author maintains by hand, not a
+ * composition — nothing below ever calls `DatasetWidget`. See the next block.
+ *
+ * ⭐ What this file is NOT (objectui#4044, objectui#9203) — ⛔ it is not
+ * coverage for ANY dashboard face, and that has now been measured on both.
+ *
+ * Three dashboard surfaces lower the same keys through the same
+ * `chartConfigPresentation` whitelist onto a node of the same shape: the two
+ * INLINE relays (`DashboardRenderer` and `DashboardGridLayout`, for widgets
+ * bound to inline rows or to a `provider: 'object'` aggregate) and the DATASET
+ * face (`DatasetWidget`, for an ADR-0021 dataset). It is tempting to read the
+ * assertions below as covering them. They do not, and both readings are
+ * ablations rather than arguments — with the forwarding deleted, the dashboard
+ * files reddened and every test in THIS file still passed, for the relays under
+ * objectui#4044 (PR #9202) and for the dataset face under objectui#9203.
+ *
+ * The reason is structural, so it will not change: the schema above is
+ * hand-built in this file rather than composed by a dashboard surface, so no
+ * dashboard forwarding is on the path these assertions execute. ⭐ An assertion
+ * that stays green while the thing it names is deleted is not evidence of it.
+ * What this file pins is the CHART BLOCK: that a node carrying these keys draws
+ * them. Each dashboard surface pins its own end of the chain, in
+ * plugin-dashboard: `DashboardChart.chartConfig-4044.test.tsx` (relay seam)
+ * with `…chartConfigDom-4044` and `…chartConfigMarks-4044`, and
+ * `DatasetWidget.chartConfig.test.tsx` (dataset seam) with
+ * `DatasetWidget.chartConfig.dom.test.tsx` and
+ * `DatasetWidget.chartConfigMarks-9203.test.tsx`.
  */
 
 import React from 'react';
@@ -191,6 +229,41 @@ describe('dashboard chartConfig — interaction (objectstack#7016)', () => {
     );
     await plotted(off);
     expect(off.querySelectorAll('.recharts-tooltip-wrapper').length).toBe(0);
+  });
+});
+
+describe('dashboard chartConfig — showLegend (objectui#4044)', () => {
+  // #3135 lowered this flag on the dataset path and objectui#4044 lowers it on
+  // the two inline relays, but it never had a DRAWN pin here — only seam ones.
+  // A pie is used because it draws one legend entry per CATEGORY, so the
+  // legend's presence is readable without a second series.
+  //
+  // Recharts registers the legend payload from a layout effect and the Legend
+  // re-renders off that store update, so the legend text arrives a tick after
+  // the surface does — hence `waitFor` rather than a read straight after
+  // `plotted`.
+  const legendText = (c: HTMLElement) => c.querySelector('.recharts-legend-wrapper')?.textContent ?? '';
+
+  it('draws the legend when undeclared (the schema default) and when explicitly on', async () => {
+    const { container: bare } = render(<ChartRenderer schema={dashboardSchema({ chartType: 'pie' }) as any} />);
+    await plotted(bare);
+    await waitFor(() => expect(legendText(bare)).toContain('open'));
+    cleanup();
+    const { container: on } = render(
+      <ChartRenderer schema={dashboardSchema({ chartType: 'pie', showLegend: true }) as any} />,
+    );
+    await plotted(on);
+    await waitFor(() => expect(legendText(on)).toContain('open'));
+  });
+
+  it('draws no legend when showLegend is false', async () => {
+    // `plotted` first: an empty legend has to mean "the plot drew and chose not
+    // to legend it", never "nothing rendered yet".
+    const { container } = render(
+      <ChartRenderer schema={dashboardSchema({ chartType: 'pie', showLegend: false }) as any} />,
+    );
+    await plotted(container);
+    expect(container.querySelector('.recharts-legend-wrapper')).toBeNull();
   });
 });
 

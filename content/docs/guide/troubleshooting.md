@@ -236,6 +236,43 @@ const resources = { en: { greeting: 'Hello' }, fr: { greeting: 'Bonjour' } };
 
 3. Verify the locale code matches exactly (e.g., `en`, `fr`, `de` — not `en-US` unless your locale files use that format).
 
+## 8b. The UI paints in English first, then switches to the user's language
+
+**Symptom:** a `zh` / `ja` / `de` user sees one frame of English before the real
+strings arrive. The strings are correct in both frames — this is not the missing
+-translation symptom above, which shows raw keys like `common.save`.
+
+**Cause:** this is the documented behaviour, not a defect. Only the `en`
+catalogue ships resident; the other nine are fetched per locale, so a provider
+that boots into `zh` renders through `fallbackLng: 'en'` until the `zh`
+catalogue lands.
+
+**Fix:** resolve the catalogue before you mount. If your app already awaits
+anything before `createRoot().render()`, spend that await here:
+
+```tsx
+import { I18nProvider, preloadBootstrapLocale } from '@object-ui/i18n';
+import { createRoot } from 'react-dom/client';
+import type { FC } from 'react';
+
+declare const App: FC;
+declare const container: HTMLElement;
+
+// Pass the SAME options you pass to <I18nProvider> — otherwise the two can
+// disagree about which language this boot is in, and the preload fetches the
+// wrong catalogue. Never rejects: a catalogue that will not download must not
+// take the boot down, and the provider retries on mount.
+await preloadBootstrapLocale();
+createRoot(container).render(
+  <I18nProvider>
+    <App />
+  </I18nProvider>,
+);
+```
+
+An app that has no such seam keeps the fallback render, which is correct in both
+frames.
+
 ## 9. Performance Issues with Large Datasets
 
 **Symptom:** Grid, table, or list views become slow with 1,000+ rows.

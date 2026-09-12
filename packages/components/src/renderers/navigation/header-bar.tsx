@@ -124,7 +124,41 @@ ComponentRegistry.register('header-bar',
         {schema.actions?.map((action, idx) => (
           <SchemaRenderer key={idx} schema={toRenderableSchema(action)} />
         ))}
-        {schema.rightContent && <SchemaRenderer schema={toRenderableSchema(schema.rightContent)} />}
+        {/* The numeric-falsy JSX trap. `HeaderBarSchema.rightContent` is
+            declared `SchemaNode` on both published faces — the interface in
+            `@object-ui/types` and its zod mirror, whose node union carries a
+            `z.number()` arm — so `0` is an AUTHORABLE value here. The `&&`
+            chain this replaced evaluated to the number `0` itself, and React
+            renders numbers, so `{ type: 'header-bar', rightContent: 0 }`
+            painted a stray "0" beside the header chrome. A ternary yields
+            `null` instead. Byte-for-byte the shape objectui#8331 measured and
+            settled one slot over on `DataTableSchema.emptyAction`; ⛔ not a
+            second shape for the same trap.
+
+            ⚠️ `false` and `''` were ALREADY correct — React ignores `false` as
+            a child and `''` paints nothing — so neither can tell the two
+            worlds apart. Only the falsy NUMBERS discriminate: `0`, `-0`, and
+            `NaN`, which painted the three characters "NaN".
+
+            The TRUTHINESS leg stays; ⛔ it is not swapped for a nullish one.
+            Both land on the same rendering today — since objectui#8908
+            `toRenderableSchema` maps a falsy primitive onto nothing rather
+            than onto its `String` form — so the choice is about which rule
+            this slot STATES, and truthiness is the rule that makes the slot's
+            answer independent of the bridge. That independence is exactly what
+            kept the sibling slot out of the defect while the bridge was wrong,
+            and objectui#8331 kept the leg for that reason rather than letting
+            it vanish as tidying.
+
+            ⛔ Do not narrow the declaration to close this: objectui#7105 ruled
+            node slots RELAX THE RENDERER. A `typeof === 'object'` test here
+            would silently drop a bare string, which this slot renders as its
+            own text.
+
+            Pinned in `header-bar-right-content-numeric-falsy.test.tsx`. */}
+        {schema.rightContent ? (
+          <SchemaRenderer schema={toRenderableSchema(schema.rightContent)} />
+        ) : null}
       </div>
     </header>
   ),

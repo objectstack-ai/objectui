@@ -41,7 +41,6 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { DataSource, FieldMetadata } from '@object-ui/types';
 import type { ViewFilterRule } from '@objectstack/spec/ui';
-import { isMultiValueField, type ValueShapeFieldDef } from '@objectstack/spec/data';
 import { getCellRenderer, resolveCellRendererType, RecordPickerDialog, deriveLookupColumns } from '@object-ui/fields';
 import {
   columnIdentity,
@@ -53,6 +52,8 @@ import {
   isExpandableFieldType,
   isPlatformSortableField,
   isUnmaterializedFieldType,
+  composeParentScopeFilter,
+  isMultiValueRelationship,
   mergeFilterNodes,
   readObjectSortability,
   toFilterNode,
@@ -232,8 +233,10 @@ export interface RelatedListProps {
    *     asks whether the whole array IS one id.
    *
    * The verdict is `@objectstack/spec/data`'s own `isMultiValueField`, not a
-   * local rule — see {@link parentRelationshipFieldDef} for why that matters
-   * here of all places.
+   * local rule, and it is reached through `@object-ui/core`'s
+   * {@link composeParentScopeFilter} — the ONE compiler of this condition,
+   * shared with the tab-badge count probe that used to carry a second one
+   * (objectui#8882).
    */
   parentId?: string | number;
   /** Lucide icon name (kebab-case) to render next to the section title. */
@@ -351,44 +354,33 @@ export const RelatedToolbarButton: React.FC<{
   );
 };
 
-/**
- * Pull one field's definition out of an object schema, in either served shape.
+/*
+ * The two-shape field lookup and the ARITY VERDICT that used to live here are
+ * now `@object-ui/core`'s `parent-scope` seam (`composeParentScopeFilter` /
+ * `isMultiValueRelationship`), imported above.
  *
- * The ARITY VERDICT itself is NOT computed here — it is
- * `@objectstack/spec/data`'s `isMultiValueField`, imported above. This function
- * exists only to find the def to hand it, which is the part the spec cannot do:
- * the spec takes a `ValueShapeFieldDef`, and the metadata API serves a
- * CONTAINER of them in two shapes — the Record keyed by field name, and the
- * array of defs carrying their own `name` (the pair `FieldContainerLike` in
- * `@object-ui/core` names). A reader that knows only one of them silently
- * answers "no such field" for the other, which is this card's own bug spelled
- * as a default.
+ * They moved because this component was never the only reader of the question.
+ * The related-list tab BADGE compiles the same parent-relationship condition,
+ * it kept sending bare equality after objectui#7299 taught this file to compile
+ * by arity, and objectui#8882 is the result: a multi-value related list that
+ * renders its rows above a tab with no count at all.
  *
- * ⛔ Do not reintroduce a local arity rule here, however small. This component
- * decides `$contains` vs `=` on the answer, and the driver that refuses the
- * query decides on the spec's — two readers of one question, disagreeing, is
- * exactly the defect objectui#7299 is about, and putting it one layer up would
- * be a worse version of it. The spec's rule is BROADER than an eyeballed
- * `multiple === true` in both directions: `multiselect` / `checkboxes` / `tags`
- * persist an array with no flag at all, and `multiple: true` is INERT on a type
- * outside `MULTI_CAPABLE_TYPES` (`master_detail`, say). Both are pinned.
+ * ⛔ Do not reintroduce a local arity rule here, however small — the warning
+ * that stood at this spot still stands, and now names one more reader. This
+ * component decides `$contains` vs `=` and the badge decides too; readers of
+ * one question disagreeing is the whole defect class. Moving the decision to a
+ * shared seam is NOT "putting a local rule one layer up" — the rule is still
+ * the spec's, and there is now exactly one caller of it.
+ *
+ * ⚠️ What the seam does NOT buy is agreement with STORAGE. This spot used to
+ * add that the driver refusing the query decides on that same
+ * `isMultiValueField`. It does not (objectui#8937): `driver-sql` gates the
+ * equality family on its own storage question, which reads `multiple` as truthy
+ * on ANY type, so the two rules diverge for `master_detail` / `tree` / `text`
+ * carrying `multiple: true`. The measured rule, the divergence and the upstream
+ * card that owns which of them is right (objectstack#17469) are recorded on the
+ * seam itself — `@object-ui/core`'s `parent-scope` — so one place answers it.
  */
-function parentRelationshipFieldDef(
-  objectSchema: unknown,
-  fieldName: string | undefined,
-): ValueShapeFieldDef | undefined {
-  if (!fieldName || !objectSchema || typeof objectSchema !== 'object') return undefined;
-  const fields = (objectSchema as { fields?: unknown }).fields;
-  if (!fields || typeof fields !== 'object') return undefined;
-  const def = Array.isArray(fields)
-    ? fields.find((f) => (f as { name?: unknown } | null)?.name === fieldName)
-    : (fields as Record<string, unknown>)[fieldName];
-  if (!def || typeof def !== 'object') return undefined;
-  // `type` is the one member the spec's predicate reads besides `multiple`; a
-  // def without it answers `false` through both of the predicate's set lookups,
-  // which is the right answer for a field whose type nobody declared.
-  return def as ValueShapeFieldDef;
-}
 
 export const RelatedList: React.FC<RelatedListProps> = ({
   title,
@@ -535,10 +527,13 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   // `getObjectSchema`, or one whose schema fetch rejects, would then never fetch
   // rows at all — trading this card's loud 400 on one relationship shape for a
   // silent empty list on EVERY related list in the app.
-  const referenceFieldIsMultiValue = React.useMemo(() => {
-    const def = parentRelationshipFieldDef(objectSchema, referenceField);
-    return def !== undefined && isMultiValueField(def);
-  }, [objectSchema, referenceField]);
+  // The seam's verdict, not a second reading of the metadata: the query below
+  // and this flag must never be able to disagree about the arity, which is the
+  // defect objectui#8882 records when two call sites each decide for themselves.
+  const referenceFieldIsMultiValue = React.useMemo(
+    () => isMultiValueRelationship(objectSchema?.fields, referenceField),
+    [objectSchema, referenceField],
+  );
 
   // Add-picker target schema, fetched lazily on first open. It drives the
   // picker's display column (`add.picker.labelField` → displayField), the
@@ -619,9 +614,11 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       // `400 INVALID_FILTER` it answers the equality form with. Single-valued
       // keeps `=`, unchanged. The author never writes either: they named a
       // relationship, and its storage form is this component's business.
-      const parentScope = {
-        [referenceField!]: referenceFieldIsMultiValue ? { $contains: parentId } : parentId,
-      } as Record<string, any>;
+      const parentScope = composeParentScopeFilter(
+        referenceField!,
+        parentId!,
+        objectSchema?.fields,
+      ) as Record<string, any>;
       // Parent relationship AND the list's own scope (objectstack#7118). The
       // parent condition is never negotiable — an "additional" criterion may only
       // narrow this parent's children — and with nothing authored the query is

@@ -41,6 +41,52 @@ export interface LoadingSchema extends BaseSchema {
    * @default false
    */
   fullscreen?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `loading` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `fullscreen`, `size`, `text` (in
+   * `packages/components/src/renderers/feedback/loading.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `loading` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `loading` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `fullscreen`, `size`, `text` (in
+   * `packages/components/src/renderers/feedback/loading.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `loading` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -77,6 +123,52 @@ export interface ProgressSchema extends BaseSchema {
    * @default false
    */
   indeterminate?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `progress` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `value` (in `packages/components/src/renderers/feedback/progress.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `progress` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `progress` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `value` (in `packages/components/src/renderers/feedback/progress.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `progress` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -107,6 +199,54 @@ export interface SkeletonSchema extends BaseSchema {
    * @default true
    */
   animate?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `skeleton` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `height`, `width` (in
+   * `packages/components/src/renderers/feedback/skeleton.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `skeleton` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `skeleton` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `height`, `width` (in
+   * `packages/components/src/renderers/feedback/skeleton.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `skeleton` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -194,6 +334,54 @@ export interface ToastSchema extends BaseSchema {
    * `components/src/__tests__/toast-button-variant-parity.test.ts`.
    */
   buttonVariant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `toast` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `buttonLabel`, `buttonVariant`, `className`, `description`, `duration`,
+   * `title`, `variant` (in
+   * `packages/components/src/renderers/feedback/toast.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `toast` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `toast` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `buttonLabel`, `buttonVariant`, `className`, `description`, `duration`,
+   * `title`, `variant` (in
+   * `packages/components/src/renderers/feedback/toast.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `toast` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -211,6 +399,52 @@ export interface ToasterSchema extends BaseSchema {
    * @default 5
    */
   limit?: number;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `toaster` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `limit`, `position` (in
+   * `packages/components/src/renderers/feedback/toaster.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `toaster` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `toaster` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `limit`, `position` (in
+   * `packages/components/src/renderers/feedback/toaster.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `toaster` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -223,6 +457,52 @@ export interface SpinnerSchema extends BaseSchema {
    * @default 'md'
    */
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `spinner` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `className`, `size` (in
+   * `packages/components/src/renderers/feedback/spinner.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `spinner` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `spinner` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `className`, `size` (in
+   * `packages/components/src/renderers/feedback/spinner.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `spinner` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -281,6 +561,52 @@ export interface EmptySchema extends BaseSchema {
    * @example "Nothing here yet"
    */
   action?: SchemaNode;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `empty` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `action`, `className`, `description`, `title` (in
+   * `packages/components/src/renderers/feedback/empty.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `empty` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `empty` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `action`, `className`, `description`, `title` (in
+   * `packages/components/src/renderers/feedback/empty.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `empty` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -313,6 +639,54 @@ export interface SonnerSchema extends BaseSchema {
    * Button variant
    */
   buttonVariant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `sonner` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `buttonLabel`, `buttonVariant`, `className`, `description`, `message`,
+   * `title`, `variant` (in
+   * `packages/components/src/renderers/feedback/sonner.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `sonner` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `sonner` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `buttonLabel`, `buttonVariant`, `className`, `description`, `message`,
+   * `title`, `variant` (in
+   * `packages/components/src/renderers/feedback/sonner.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `sonner` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

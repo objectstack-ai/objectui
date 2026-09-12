@@ -8,5 +8,6 @@
     "variant": "destructive"
   },
   "cancelText": "Cancel",
-  "actionText": "Delete"
+  "actionText": "Delete",
+  "actionVariant": "destructive"
 }

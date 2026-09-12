@@ -1533,7 +1533,18 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.cancel': 'Cancel',
   'engine.studio.create': 'Create',
   'engine.studio.creating': 'Creating…',
-  'engine.studio.createDraft': 'Create (save as draft)',
+  // objectui#9231 — this is the CONFIRM control of the shared create dialog.
+  // Never give it a name that shares a leading run with the affordance that
+  // OPENS that dialog (`engine.studio.app.create`, `Create app` — and the
+  // dialog itself is titled after it, which is correct). It used to read
+  // `Create (save as draft)`, so the only handle it offered a by-name caller
+  // was `Create`, which also matched all three openers (toolbar, Interfaces
+  // empty state, Interfaces rail): nothing could address THIS control, the one
+  // that actually creates. While the dialog is open every opener is
+  // `aria-hidden` behind Radix's modal overlay, so a by-name click there
+  // dismisses the dialog with no error and nothing created. Pinned by
+  // `studio-design/StudioDesignSurface.createAppAccessibleName.test.tsx`.
+  'engine.studio.createDraft': 'Save as draft',
   'engine.studio.saveDraft': 'Save draft',
   'engine.studio.more': 'More',
   'engine.studio.autoSaving': 'Saving…',
@@ -3483,7 +3494,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.cancel': '取消',
   'engine.studio.create': '创建',
   'engine.studio.creating': '创建中…',
-  'engine.studio.createDraft': '创建(存为草稿)',
+  // objectui#9231 — see the English entry. This value must share no leading
+  // run with `engine.studio.app.create`, which opens the same dialog.
+  'engine.studio.createDraft': '存为草稿',
   'engine.studio.saveDraft': '保存草稿',
   'engine.studio.more': '更多',
   'engine.studio.autoSaving': '保存中…',

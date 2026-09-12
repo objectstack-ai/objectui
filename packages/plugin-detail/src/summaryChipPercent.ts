@@ -6,11 +6,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { percentDisplayValue } from '@object-ui/core';
+
 /**
- * The ONE rule the `summaryFields` chip scales a stored `percent` by
- * (objectui#8728).
+ * The ONE rule the `summaryFields` chip scales a stored `percent` by — and it
+ * is the repo's, not this file's (objectui#9071).
  *
- * ## The defect this function exists to make impossible
+ * ## Why this function exists at all (objectui#8728)
  *
  * The chip beside the record H1 draws a percent TWICE — as its text and as a
  * small bar — and the two halves scaled the same stored number by two
@@ -21,55 +23,67 @@
  *
  * so a stored `0.123` labelled itself `0.123%` beside a bar filled to 12.3%.
  * One control, two percentages, and neither half told the reader which one was
- * right. Both halves now read this function — which is why it is a named
- * function and not the same ternary written twice. The next reader cannot
+ * right. Both halves read this function — which is why it is a named function
+ * and not the same ternary written twice. The next reader cannot
  * re-desynchronise them without deleting a call site.
  *
- * ## Which of the two rules survived, and why it is the BAR's
+ * ## What objectui#9071 DELETED, and why aligning it would not have done
  *
- * Triage's ruling on objectui#8728: the text follows the bar, ⛔ never the
- * reverse, and ⛔ never a third rule invented for the occasion. So every bar
- * this chip has ever drawn is preserved here — a stored `12.3` still reads
- * `12.3%` beside a bar at 12.3%, a stored `250` still reads `250%` beside a
- * full one. What moved is the text, which now states the number the bar was
- * already drawing.
+ * objectui#8728 converged the chip's two halves onto the BAR's rule and
+ * recorded, rather than decided, that the rule was the chip's own. The census
+ * it asked for answered the question: the predicate that stood here —
+ * a pass-through spelled `if (raw > 1) return raw;`, i.e. the bar's original
+ * `num <= 1` written the other way round — was the only spelling of its kind on
+ * this side of the tree, and it disagreed with the declared single source of
+ * truth at EXACTLY 1 and at every value AT OR BELOW -1:
  *
- * ## ⚠️ This is NOT the repo's percent rule — measured, and filed
+ * | stored | the deleted local rule | `percentDisplayValue`, and every other band |
+ * |--------|------------------------|---------------------------------------------|
+ * | `0.25` | `25%`                  | `25%`   (the band they always agreed on)     |
+ * | `1`    | `100%`                 | `1%`                                         |
+ * | `-1`   | `-100%`                | `-1%`                                        |
+ * | `-5`   | `-500%`                | `-5%`                                        |
  *
- * The census that ruling asked for says the bar's `num <= 1` is the only
- * spelling of its kind in the tree. `percentDisplayValue` in `@object-ui/core`
- * — whose doc comment calls itself the single source of truth for percent
- * display scaling, and requires any third surface to take BOTH halves from it,
- * the scaling AND the convention — uses the symmetric `value > -1 && value < 1`,
- * and the list cell (`formatPercent`), the dashboard measure and the grid
- * column summary all reach it. Two consequences, both RECORDED on
- * objectui#9071 rather than decided here:
+ * ⛔ The repair is NOT to move the local predicate's boundary onto the shared
+ * one. That would leave two rules agreeing by coincidence — the same shape
+ * objectui#5607 removed one package over, and the shape that produced this
+ * drift in the first place. The predicate is gone; the authority is
+ * {@link percentDisplayValue} in `@object-ui/core`, whose own doc comment
+ * requires exactly this of a third surface, and which the list cell
+ * (`formatPercent` / `PercentCellRenderer`), the dashboard measure
+ * (`formatMeasure`) and the grid column summary already read.
  *
- *  - exactly `1` scales to `100` here and renders `1%` in every other band.
- *    objectui#5607 pinned that boundary in words for `plugin-dashboard` — 1 is
- *    percentage points, the convention `PercentScale` spells as `whole` — when
- *    it removed this same drift shape one package over;
- *  - a stored value at or below -1 now reads `-500%` for a stored `-5`, where
- *    the text alone used to read `-5%`. The bar is unchanged either way (any
- *    negative clamps to an empty track), so this is the drift becoming visible
- *    on the half that had been accidentally right.
+ * ## ⚠️ The half objectui#9071 did NOT take, stated rather than left silent
  *
- * Converging the chip onto `percentDisplayValue` — or onto the field's declared
- * scale, which is what the edit widget `PercentField` reads instead of guessing
- * from magnitude — is objectui#9071's decision to make, not this one's.
+ * That doc comment asks a third surface for BOTH halves — the scaling AND the
+ * convention. Only the SCALING moved here. The chip states the full number with
+ * a bare `%`; the list cell renders through the locale's percent affix at the
+ * field's precision, which is `0` by default. So a stored `12.3` still reads
+ * `12.3%` on the chip and `12%` in the cell — two spellings of one magnitude,
+ * and the two bars prove the magnitude is one. Taking the convention half would
+ * move values the chip renders correctly today, which objectui#9071's
+ * acceptance forbids; it is pinned as a fact in
+ * `__tests__/summaryChip.percentSource-9071.test.tsx` so the next card inherits
+ * a measurement instead of a silence.
  */
 export function summaryChipPercentPoints(raw: number): number {
-  // Already in percentage points: passed through untouched, so every value the
-  // chip renders correctly today is byte-identical after the repair.
-  if (raw > 1) return raw;
+  const points = percentDisplayValue(raw);
 
-  // A ratio, scaled to points. The `toPrecision` is load-bearing, not
+  // Not a second rule, and not a boundary: this asks the SOURCE whether it
+  // scaled, by comparing its answer to its input, so it cannot drift away from
+  // whatever `percentDisplayValue` decides.
+  if (points === raw) return points;
+
+  // A ratio the source scaled to points. The `toPrecision` is load-bearing, not
   // defensive: `raw * 100` is binary floating-point multiplication, and it is
-  // now the TEXT that reads the result. 246 of the 999 three-decimal ratios
+  // the TEXT that reads the result. 246 of the 999 three-decimal ratios
   // (0.001 through 0.999) carry residue when multiplied by 100 — a stored
   // `0.07` is `7.000000000000001`, a stored `0.29` is `28.999999999999996` —
   // which a CSS bar width absorbs invisibly and a label cannot. 12 significant
   // digits is far wider than any percent a human authored, and far narrower
-  // than the residue.
-  return Number((raw * 100).toPrecision(12));
+  // than the residue. It rounds a MAGNITUDE the source already chose, so it is
+  // a rendering step on this chip's text path, not a percent convention: the
+  // guard above keeps it off every value the source passed through, where
+  // trimming to 12 digits would move numbers that render correctly today.
+  return Number(points.toPrecision(12));
 }

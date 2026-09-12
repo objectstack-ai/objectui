@@ -64,7 +64,16 @@ const ROWS = [
 function renderGrid(columns: unknown[]) {
   return render(
     <ActionProvider>
-      <ObjectGrid schema={{ type: 'object-grid', data: ROWS, columns } as any} />
+      {/*
+        objectui#8348 — the DECLARED inline-rows spelling. `object-grid`'s
+        published `data` row is the `ViewData` union ("the bare-array shortcut
+        is refused"), so `getDataConfig` no longer lifts a bare array;
+        `{ provider: 'value', items }` resolves to the same config this file has
+        always exercised.
+      */}
+      <ObjectGrid
+        schema={{ type: 'object-grid', data: { provider: 'value', items: ROWS }, columns } as any}
+      />
     </ActionProvider>,
   );
 }

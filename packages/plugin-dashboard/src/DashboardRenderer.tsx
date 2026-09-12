@@ -18,6 +18,7 @@ import {
   toDomProps,
   chartCategoryKey,
   chartMeasureKey,
+  chartConfigPresentation,
 } from '@object-ui/core';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button, getLazyIcon } from '@object-ui/components';
 import { forwardRef, useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
@@ -39,7 +40,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { isObjectProvider, deriveStaticTableColumns } from './utils';
+import { isObjectProvider, deriveStaticTableColumns, humanizeFieldKey } from './utils';
 import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
@@ -318,16 +319,39 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * key like 'value' (used by count aggregations that have no real field),
      * fall back to an i18n'd aggregate name (Count / Sum / Average …) instead
      * of leaking the placeholder 'value' string into the legend / tooltip.
+     *
+     * ⭐ THREE ARMS, and only the last two derive a display string from a FIELD
+     * KEY (objectui#9055). The aggregate arm is a different vocabulary and is
+     * deliberately left alone — it is what a blind "humanize everything" here
+     * would eat, and it is pinned as a live control in
+     * `__tests__/fieldKeySpellingOutsideTable-9055.test.tsx`.
+     *
+     * The other two used to hand back the RAW key — `fieldLabel`'s fallback on
+     * the object-bound arm, and the bare `yField` on the arm a static-data
+     * chart takes — so a chart grouped on `close_date` legended it
+     * `close_date` while the table widget beside it on the same dashboard
+     * headed that column `Close Date`. That is the same fallback shape
+     * objectui#9000 removed from the table's whitelist branch, and the class
+     * objectui#5425 ruled out: one value, two spellings, one dashboard.
+     * `humanizeFieldKey` is the single home for the KEY convention
+     * (`./utils`); the i18n wrapper is untouched, a bundle entry still wins and
+     * this is only its fallback.
+     *
+     * It stays distinct from `humanizeLabel`, the VALUE prefixer in
+     * `@object-ui/core` — `utils/humanize-label.ts`'s docblock carries the
+     * per-input difference table and rules that converging the two "is a
+     * decision, not a refactor … it needs its own card".
      */
     const resolveSeriesLabel = useCallback((objectName: string | undefined, yField: string, aggFn: string | undefined) => {
       const isSynthetic = !yField || yField === 'value' || yField === 'count';
       if (aggFn && (isSynthetic || aggFn === 'count')) {
         return t(`report.aggregate.${aggFn}`, { defaultValue: aggFn });
       }
+      const humanized = humanizeFieldKey(yField);
       if (objectName) {
-        return fieldLabel(objectName, yField, yField);
+        return fieldLabel(objectName, yField, humanized);
       }
-      return yField;
+      return humanized;
     }, [t, fieldLabel]);
     const dashName = (schema as any).name as string | undefined;
 
@@ -616,6 +640,28 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 const xAxisKey = options.xField || 'name';
                 const yField = options.yField || 'value';
 
+                // The widget's declared `chartConfig`, lowered onto the chart
+                // schema — objectui#4044. `DashboardWidget.chartConfig` is
+                // declared as the spec's full `ChartConfigSchema` on EVERY
+                // dashboard widget, but until this card only the ADR-0021
+                // dataset path (`DatasetWidget`) read it: this inline path
+                // mentioned `chartConfig` zero times, so an author who wrote
+                // `chartConfig.title` / `.colors` / `.height` on a widget bound
+                // to inline rows or to a `provider: 'object'` aggregate parsed
+                // clean and got nothing.
+                //
+                // `chartConfigPresentation` is the SAME whitelist the dataset
+                // path lowers through (`@object-ui/core`), not a second copy —
+                // it admits a key only when the chart block measurably draws it
+                // (see its docblock for the two criteria and for why `aria` is
+                // refused). Spread AFTER the derived keys so an authored
+                // `colors` / `height` overrides the defaults below, and BEFORE
+                // nothing that would shadow the dataset-derived bindings: the
+                // whitelist emits no `xAxisKey` and no `series`, which is what
+                // keeps objectstack#17385's open precedence question (authored
+                // axes vs derived) out of this change.
+                const chartPresentation = chartConfigPresentation(widget.chartConfig);
+
                 // provider: 'object' — delegate to ObjectChart for async data loading.
                 // Field/aggregate config comes from the nested data provider.
                 if (isObjectProvider(widgetData)) {
@@ -660,7 +706,8 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                         // which is what `CompareToConfig` projects — so the cast
                         // that used to bridge the skew is gone.
                         compareTo: widget.compareTo,
-                        className: "h-[200px] sm:h-[250px] md:h-[300px]"
+                        className: "h-[200px] sm:h-[250px] md:h-[300px]",
+                        ...chartPresentation,
                     };
                 }
 
@@ -679,7 +726,8 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     colors: CHART_COLORS,
                     // Deterministic first paint inside the grid (#2756).
                     isAnimationActive: false,
-                    className: "h-[200px] sm:h-[250px] md:h-[300px]"
+                    className: "h-[200px] sm:h-[250px] md:h-[300px]",
+                    ...chartPresentation,
                 };
             }
 

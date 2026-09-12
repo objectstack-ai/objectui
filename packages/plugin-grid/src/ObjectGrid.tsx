@@ -453,10 +453,58 @@ export interface ObjectGridExternalPaginationProps
  * The barrel keeps `ObjectGridProps` as a deprecated alias of this type, so no
  * importer breaks. Tripwire: `__tests__/spec-symbol-4650.test.ts`.
  */
+/**
+ * The subset of the grid-level `operations` block that a row may answer for
+ * ITSELF — the vocabulary {@link ObjectGridComponentProps.rowOperations} speaks.
+ *
+ * `update` / `delete` are the two the row kebab renders, and they are spelled
+ * exactly as the authored `operations` block spells them, so one word means one
+ * thing whether it is declared for the whole grid or resolved for one row. The
+ * block's other members (`create`, `export`) are deliberately absent: neither
+ * is a row affordance, so a per-row answer for them would have nowhere to land.
+ */
+export interface ObjectGridRowOperations {
+  update?: boolean;
+  delete?: boolean;
+}
+
 export interface ObjectGridComponentProps extends ObjectGridExternalPaginationProps {
   schema: ObjectGridSchema;
   dataSource?: DataSource;
   className?: string;
+  /**
+   * [objectui#8674] Narrow ONE row's generic Edit / Delete entries — the layer
+   * that lets a host withhold an operation the record itself cannot accept.
+   *
+   * ## Why this exists
+   *
+   * `operations` and the `onEdit` / `onDelete` wiring are GRID-level: they say
+   * whether the affordance exists at all, identically for every row. A host
+   * whose refusal is per RECORD had nowhere to put it, so it put the refusal in
+   * the callback instead — `FieldDesigner`'s delete handler returned early on a
+   * system field, after the grid had already drawn the button. The two states
+   * it was distinguishing (`readOnly`, which withholds the callback, and
+   * `isSystem`, which swallowed the click) differed in the code and did not
+   * differ on screen: the author clicked a button drawn as available and got no
+   * dialog, no toast, no console message. The operation an affordance cannot
+   * perform is not offered.
+   *
+   * ## The contract
+   *
+   * Called with a row record; returns the overrides for THAT row. It is an
+   * INTERSECTION, like every layer around it (the ADR-0103 bucket, the object's
+   * `userActions`, the server's effective API operations, the principal's own
+   * grant and the record-level explain verdict): `false` WITHHOLDS, and nothing
+   * it returns can re-open what those closed. `true`, an omitted member, a
+   * `null` / `undefined` return, and an absent prop all leave the verdict
+   * exactly as the grid resolved it — so a caller that passes nothing renders
+   * what it rendered before this prop existed.
+   *
+   * Scope is the row's kebab. Bulk delete rides `onBulkDelete` and the object
+   * verdict behind the selection bar, which no per-row answer can speak for:
+   * one selected row's `false` must not silently drop the other rows' action.
+   */
+  rowOperations?: (record: any) => ObjectGridRowOperations | null | undefined;
   onRowClick?: (record: any) => void;
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
@@ -476,28 +524,45 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
  * implementation of a contract published on both faces (objectui#6939), which
  * this file used to hand-copy (objectui#7632).
  *
- * What stays here is the head above it: the bare-array `data` shorthand. It is
- * OFF-CONTRACT — `ViewData` is a `z.discriminatedUnion('provider', [...])` over
- * object variants, so an array under `data` cannot be published — and only this
- * block and `ObjectMap` normalize it inside their ladder; calendar, gantt and
- * tree return the array verbatim. So it is kept at the site rather than folded
- * into the shared rung, exactly as the objectui#7627 collapse left this file's
- * off-contract `{ provider: 'object' }` tail at the site (AGENTS.md #0.1).
+ * What used to stay here was the head above it: the bare-array `data`
+ * shorthand, which lifted `data: [...]` to `{ provider: 'value', items }`.
+ * ⛔ IT IS GONE (objectui#8348, decision batch #83, maintainer verbatim
+ * 「8348 以协议为准」 — the contract decides).
  *
- * Hoisting the check above the shared call is behaviour-neutral: an array is
- * ALWAYS truthy, `[]` included, so `if (schema.data)` could never have let one
- * fall through to `staticData` or `objectName`.
+ * MEASURED on `@objectstack/spec` 17.4.0:
+ * `ComponentPropsMap['object-grid'].data` is the `ViewData` union, and its own
+ * description names the refusal — *"Static inline rows live at
+ * `{ provider: 'value', items: [...] }`; the bare-array shortcut is refused —
+ * see migration `object-grid-data-view-data-converged`"*. This block's own
+ * registration publishes the same arm (`{ name: 'data', type: 'object' }` in
+ * `index.tsx`), and `gridDataInputContract.test.ts` has pinned that declaration
+ * since objectui#5090. The head was the last carrier of a spelling every one of
+ * those faces refuses, so `data` is honoured here on the OBJECT arm only and
+ * the shared rung is passed `'view-data'`.
+ *
+ * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
+ * gone". An authored `data` array reaches this component TWICE: as
+ * `schema.data`, which this function used to lift, and as the `data` PROP,
+ * because `SchemaRenderer` spreads every non-metadata node key and
+ * `index.tsx` forwards `{...rest}`. That prop is `passedData` below, and it
+ * lifts an array to `{ provider: 'value', items }` at HIGHER priority than this
+ * ladder — it is the channel a host such as `ListView` uses to hand down rows it
+ * already fetched, and it is indistinguishable here from an authored key.
+ *
+ * ⇒ at the ladder the array is no longer a record source; through
+ * `SchemaRenderer` an authored `data: [ …rows… ]` still draws, from the props
+ * channel. Both halves are pinned in
+ * `__tests__/gridBareArrayDataRefused-8348.test.tsx`, which had to correct its
+ * own first draft on exactly this point. Collapsing the two carriers would take
+ * the host path with it and is outside objectui#8348's scope — reported on the
+ * card, not changed in passing.
+ *
+ * The declared spelling for inline rows is
+ * `data: { provider: 'value', items: [...] }`, and the deprecated `staticData`
+ * array still works as before.
  */
 function getDataConfig(schema: ObjectGridSchema): ViewData | null {
-  // Array shorthand -> the declared `value` provider (see docblock above).
-  if (Array.isArray(schema.data)) {
-    return {
-      provider: 'value',
-      items: schema.data,
-    };
-  }
-
-  return resolveRecordSourceConfig(schema);
+  return resolveRecordSourceConfig(schema, 'view-data');
 }
 
 /**
@@ -1041,6 +1106,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   dataSource,
   onEdit,
   onDelete,
+  rowOperations,
   onBulkDelete,
   onRowSelect,
   onRowClick,
@@ -3425,61 +3491,76 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // extent and is hidden). Excluded from the frozen-column decision below so
       // this auto-pin doesn't cancel the default left-freeze of the first column.
       pinned: 'right',
-      cell: (_value: any, row: any) => (
-        <RowActionMenu
-          row={row}
-          rowActions={customRowActions}
-          rowActionDefs={resolvedRowActionDefs as any[]}
-          objectFields={objectSchema?.fields}
-          // NON-AUTHOR SURFACE — `maxInlineRowActions` is deliberately
-          // absent from `GRID_QUERY_INPUTS` (maintainer ruling, 2026-08-18,
-          // objectui#5091), so this cast read is deliberate, not missed. It is
-          // a host/internal switch for the inline-button budget before the
-          // rest fold into the "⋮" menu — an embedder's layout call, set from
-          // code (`apps/console/src/dev/DevRowActions.tsx:51`), never from a
-          // view document. `ComponentPropsMap['object-grid']` is a
-          // `strictObject` and rejects the key by name, so publishing it would
-          // advertise a key the save gate refuses. The `?? 1` default is the
-          // published behaviour and stays the one an author sees. Pinned by
-          // `__tests__/gridNonAuthorKeys.test.tsx`.
-          maxInlineActions={(schema as any).maxInlineRowActions ?? 1}
-          // [#4296] The object verdict ANDed with THIS row's record-level one.
-          // It rides the same per-row channel the #2614 predicates ride —
-          // `planRowActionMenu` conjoins `canEdit`/`canDelete` with
-          // `visibleWhen` in one expression, so the item and the "⋮" guard read
-          // one decision (#3562) and a hidden row grows no empty trigger. An
-          // unanswered row keeps the object verdict, i.e. today's rendering.
-          canEdit={resolveRowRecordCrudAffordance(canEdit, recordVerdict(rowRecordId(row), 'update'))}
-          canDelete={resolveRowRecordCrudAffordance(canDelete, recordVerdict(rowRecordId(row), 'delete'))}
-          editPredicates={editPredicates}
-          deletePredicates={deletePredicates}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onAction={(action, r) => {
-            void executeAction({ type: action, params: { record: r } }).then(res => {
-              // A successful row action typically mutated this record; refresh
-              // so the grid reflects the server state (same rationale as bulk).
-              if (res?.success) setRefreshKey(k => k + 1);
-            });
-          }}
-          onActionDef={(def, r) => {
-            // Dispatch schema-driven row action through the runner. We forward
-            // the full action def so type/target/recordIdParam/bodyShape/etc.
-            // route correctly, attach the row record under `_rowRecord` for the
-            // apiHandler row-id injection, and surface raw `params` as
-            // `actionParams` so the runner shows the param dialog when present.
-            const { params: rawParams, ...rest } = def;
-            const dispatch: any = { ...rest };
-            if (Array.isArray(rawParams) && rawParams.length > 0) {
-              dispatch.actionParams = rawParams;
-            }
-            dispatch.params = { _rowRecord: r };
-            void executeAction(dispatch).then(res => {
-              if (res?.success) setRefreshKey(k => k + 1);
-            });
-          }}
-        />
-      ),
+      cell: (_value: any, row: any) => {
+        // [objectui#8674] The CALLER's answer for this one row, resolved
+        // once per row and ANDed into the two verdicts below. A host whose
+        // refusal is per record (a system field the designer may not drop)
+        // has no other place to put it: `operations` and the `onEdit` /
+        // `onDelete` wiring are grid-level and identical for every row, so
+        // the refusal used to live in the callback and fire AFTER the button
+        // had been drawn and clicked. Narrowing only — see `rowOperations`.
+        const rowOps = rowOperations?.(row);
+        return (
+          <RowActionMenu
+            row={row}
+            rowActions={customRowActions}
+            rowActionDefs={resolvedRowActionDefs as any[]}
+            objectFields={objectSchema?.fields}
+            // NON-AUTHOR SURFACE — `maxInlineRowActions` is deliberately
+            // absent from `GRID_QUERY_INPUTS` (maintainer ruling, 2026-08-18,
+            // objectui#5091), so this cast read is deliberate, not missed. It is
+            // a host/internal switch for the inline-button budget before the
+            // rest fold into the "⋮" menu — an embedder's layout call, set from
+            // code (`apps/console/src/dev/DevRowActions.tsx:51`), never from a
+            // view document. `ComponentPropsMap['object-grid']` is a
+            // `strictObject` and rejects the key by name, so publishing it would
+            // advertise a key the save gate refuses. The `?? 1` default is the
+            // published behaviour and stays the one an author sees. Pinned by
+            // `__tests__/gridNonAuthorKeys.test.tsx`.
+            maxInlineActions={(schema as any).maxInlineRowActions ?? 1}
+            // [#4296] The object verdict ANDed with THIS row's record-level one.
+            // It rides the same per-row channel the #2614 predicates ride —
+            // `planRowActionMenu` conjoins `canEdit`/`canDelete` with
+            // `visibleWhen` in one expression, so the item and the "⋮" guard read
+            // one decision (#3562) and a hidden row grows no empty trigger. An
+            // unanswered row keeps the object verdict, i.e. today's rendering.
+            // [objectui#8674] `rowOps` is the third narrowing in this one
+            // expression, and an INTERSECTION like the two around it: only
+            // `false` removes, so a caller that passes no `rowOperations` —
+            // every caller but the field designer today — reads exactly the
+            // verdict this line carried before the prop existed.
+            canEdit={resolveRowRecordCrudAffordance(canEdit && rowOps?.update !== false, recordVerdict(rowRecordId(row), 'update'))}
+            canDelete={resolveRowRecordCrudAffordance(canDelete && rowOps?.delete !== false, recordVerdict(rowRecordId(row), 'delete'))}
+            editPredicates={editPredicates}
+            deletePredicates={deletePredicates}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onAction={(action, r) => {
+              void executeAction({ type: action, params: { record: r } }).then(res => {
+                // A successful row action typically mutated this record; refresh
+                // so the grid reflects the server state (same rationale as bulk).
+                if (res?.success) setRefreshKey(k => k + 1);
+              });
+            }}
+            onActionDef={(def, r) => {
+              // Dispatch schema-driven row action through the runner. We forward
+              // the full action def so type/target/recordIdParam/bodyShape/etc.
+              // route correctly, attach the row record under `_rowRecord` for the
+              // apiHandler row-id injection, and surface raw `params` as
+              // `actionParams` so the runner shows the param dialog when present.
+              const { params: rawParams, ...rest } = def;
+              const dispatch: any = { ...rest };
+              if (Array.isArray(rawParams) && rawParams.length > 0) {
+                dispatch.actionParams = rawParams;
+              }
+              dispatch.params = { _rowRecord: r };
+              void executeAction(dispatch).then(res => {
+                if (res?.success) setRefreshKey(k => k + 1);
+              });
+            }}
+          />
+        );
+      },
       sortable: false,
     },
   ] : persistedColumns;

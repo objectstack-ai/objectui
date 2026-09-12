@@ -149,6 +149,32 @@ import { SchemaRenderer, SchemaRendererContext, toRenderableSchema } from '@obje
 import fs from 'node:fs';
 import path from 'node:path';
 import { allExamples } from '../src/index.js';
+
+/**
+ * The repo root, derived from THIS FILE's own location — never from
+ * `process.cwd()` (objectui#7799, and the gate that closed the class,
+ * objectui#8953).
+ *
+ * What stood at the read sites below was `path.join(process.cwd(), …)`
+ * under the comment "`process.cwd()` is the repo root by construction:
+ * `scripts/vitest-invocation-guard.mjs` refuses any run whose Vitest root is
+ * not it". THAT PREMISE IS FALSE. The guard rejects a run whose VITEST root is
+ * not the repo root; this package's own `test` script — `vitest run --root ../..
+ * examples/schema-catalog/`, which is what `pnpm --filter … test` and
+ * `turbo run test` both run — sets that root correctly while leaving
+ * `process.cwd()` in the package directory. The guard passes and the cwd is the
+ * package, so `apps/site/app/components` resolved to a path that does not
+ * exist and every read below threw.
+ *
+ * Spelled in string operations, copying the landed precedent of objectui#7791
+ * (PR #7796) and objectui#7799 (PR #7806): only BARE `import.meta.url` is read
+ * here and taken apart by hand.
+ */
+const SELF_DEPTH_BELOW_REPO_ROOT = 4; // examples / schema-catalog / test / this file
+const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
+  .split('/')
+  .slice(0, -SELF_DEPTH_BELOW_REPO_ROOT)
+  .join('/');
 // Plain-JS CI helper; types are inferred from the `.mjs` source (`allowJs`), the
 // same route `scripts/__tests__/known-schema-types-derivation-5115.test.ts`
 // takes. objectui#6024 reuses this derivation rather than re-deriving: a second
@@ -732,9 +758,8 @@ describe('objectui#4616 — every catalog entry renders in the docs gallery', ()
    * reads the host and pins what the sweep assumes about it.
    */
   describe('the docs-site gallery host registers the same set', () => {
-    // `process.cwd()` is the repo root by construction: `scripts/vitest-
-    // invocation-guard.mjs` refuses any run whose Vitest root is not it.
-    const siteDir = path.join(process.cwd(), 'apps/site/app/components');
+    // Rooted at this file, never at the cwd — see `REPO_ROOT` above.
+    const siteDir = path.join(REPO_ROOT, 'apps/site/app/components');
     const read = (f: string) => fs.readFileSync(path.join(siteDir, f), 'utf8');
 
     it('loads every package this pin loads, in this pin’s order', () => {
@@ -923,10 +948,12 @@ const PLUGIN_CATEGORIES = [
 ].sort();
 
 /**
- * `process.cwd()` is the repo root by construction — `scripts/vitest-
- * invocation-guard.mjs` refuses any run whose Vitest root is not it.
+ * Rooted at this file, never at the cwd — see `REPO_ROOT` above. This one is
+ * the shape objectui#8953's gate states it cannot see: the repository path is
+ * resolved by the HELPER, on this file's behalf, so no filesystem call here
+ * carries the cwd and nothing scanning this file's own reads would find it.
  */
-const derivedRegistry = deriveRegistryKeys(process.cwd());
+const derivedRegistry = deriveRegistryKeys(REPO_ROOT);
 
 /**
  * category → the key set `packages/<category>` registers, joined on the
@@ -1332,7 +1359,7 @@ describe('objectui#6025 — the gallery DECLARES the packages its entries need',
  * this file green while the docs page went back to an empty view.
  */
 describe('objectui#5113 — the docs-site hosts supply the same fixture', () => {
-  const siteDir = path.join(process.cwd(), 'apps/site/app/components');
+  const siteDir = path.join(REPO_ROOT, 'apps/site/app/components');
   const read = (f: string) => fs.readFileSync(path.join(siteDir, f), 'utf8');
 
   it('the host fixture exposes every method this mirror implements', () => {
@@ -1486,7 +1513,7 @@ describe('objectui#6317 — a `select` field declares the options its rows use',
 
   it('the host fixture declares the SAME field surface, options included', () => {
     const hostSource = fs.readFileSync(
-      path.join(process.cwd(), 'apps/site/app/components/galleryDataSource.ts'),
+      path.join(REPO_ROOT, 'apps/site/app/components/galleryDataSource.ts'),
       'utf8',
     );
     expect(

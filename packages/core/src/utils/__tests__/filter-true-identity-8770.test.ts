@@ -228,16 +228,35 @@ describe('objectui#8770 — the non-combinator tail is untouched', () => {
     expect(convertFiltersToAST({ a: {} })).toEqual({ a: {} });
   });
 
-  it('an identity group beside a NON-combinator key returns the original object', () => {
-    // ⭐ The control for "the two folds were told apart". Each guard is keyed on
-    // "EVERY key was of MY kind": one identity group and one skipped key
-    // satisfies neither, so this filter still keeps the answer it has always
-    // had — even though both of its keys, taken alone, now fold. A single
-    // merged counter would swallow this case, which is exactly the accident
-    // objectui#9020 was fenced against. Whether it SHOULD fold is
-    // objectui#9030's open question, deliberately not answered by either card.
-    expect(convertFiltersToAST({ $and: [], a: null })).toEqual({ $and: [], a: null });
-    expect(convertFiltersToAST({ $and: [], b: undefined })).toEqual({ $and: [], b: undefined });
+  it('an identity group beside a SKIPPED key folds — answered by objectui#9030', () => {
+    // ⚠️ UPDATED. This case used to pin the original object coming back, as the
+    // control for "the two folds were told apart": each guard was keyed on
+    // "EVERY key was of MY kind", so one identity group beside one skipped key
+    // satisfied neither — even though both keys, taken alone, fold.
+    //
+    // objectui#9030 measured what that cost and answered it: the loop SKIPS a
+    // null/undefined key without incrementing anything this fold counts, while
+    // the fold's denominator counted it anyway, so a filter whose every key
+    // folds ALONE did not fold TOGETHER — adding an always-TRUE `$and: []` to a
+    // folding filter could stop it folding. The repair narrowed the denominator
+    // to the keys the loop actually PROCESSED; it did not merge the counters.
+    //
+    // ⭐ The control moved rather than vanished: the case below is what now
+    // proves the arms were not merged, because its key was PROCESSED and still
+    // produced nothing.
+    expect(convertFiltersToAST({ $and: [], a: null })).toBeUndefined();
+    expect(convertFiltersToAST({ $and: [], b: undefined })).toBeUndefined();
+  });
+
+  it('⭐ an identity group beside an EMPTY OPERATOR MAP still returns the object', () => {
+    // The control for "the two folds were told apart", restated on the boundary
+    // objectui#9030 did not move. `{ a: {} }` is a key the loop ENTERED — the
+    // operator loop simply ran zero times — so it is neither an identity group
+    // nor a skipped key, it stays in the denominator, and no arm claims it. A
+    // repair that had folded on "no conditions were produced" would swallow
+    // this; the one that landed cannot.
+    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
+    expect(convertFiltersToAST({ a: {}, b: undefined })).toEqual({ a: {}, b: undefined });
   });
 
   it('an identity group beside a key that DOES lower is unchanged', async () => {

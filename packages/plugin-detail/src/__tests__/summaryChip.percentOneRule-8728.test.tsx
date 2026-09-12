@@ -44,13 +44,23 @@
  * ## The boundary rows
  *
  * `EXACTLY 1` is the fork triage named: is a stored `1` one percent or one
- * hundred? This chip answers 100%, because that is what its bar already drew
- * and the ruling was that the text follows the bar. ⚠️ That answer is this
- * chip's alone — `percentDisplayValue` in `@object-ui/core`, and so the list
- * cell, the dashboard measure and the grid column summary, all render a stored
- * `1` as `1%`. The census and the three routes out are objectui#9071; the row
- * below exists so the answer is PINNED rather than incidental, and so that
- * card's PR has to state which way it is moving.
+ * hundred? This chip used to answer 100%, because that is what its bar already
+ * drew and the ruling here was that the text follows the bar — an answer that
+ * was this chip's alone, while `percentDisplayValue` in `@object-ui/core`, and
+ * so the list cell, the dashboard measure and the grid column summary, all
+ * rendered a stored `1` as `1%`.
+ *
+ * ⭐ objectui#9071 MOVED IT, and this is the row that recorded which way. That
+ * card took the census this one asked for, found the local predicate to be the
+ * only spelling of its kind on this side of the tree, and deleted it in favour
+ * of the declared source. A stored `1` now reads `1%` here as it always did
+ * everywhere else, and a stored `-5` reads `-5%` rather than `-500%`. The rows
+ * below carry the new answers; what did NOT move — every value inside the band
+ * the two rules always agreed on, the control among them — is the rest of this
+ * table, unchanged. The two-places pin is
+ * `summaryChip.percentSource-9071.test.tsx`; this file keeps stating the
+ * relation objectui#8728 is about, that the chip's two halves never disagree
+ * with EACH OTHER.
  *
  * ## Instruments
  *
@@ -144,9 +154,9 @@ const ROWS: Row[] = [
   // CONTROL. Already percentage points, so nothing about it may move.
   { what: 'CONTROL — a value already in points is untouched', stored: 12.3, text: '12.3%' },
   { what: 'zero', stored: 0, text: '0%' },
-  // THE FORK. See the header: this chip's answer, pinned, and objectui#9071's
-  // to move.
-  { what: 'EXACTLY 1 — this chip reads it as a ratio', stored: 1, text: '100%' },
+  // THE FORK, after objectui#9071 moved it. See the header: one percentage
+  // point, the answer every other band already gave.
+  { what: 'EXACTLY 1 — one percentage point, as everywhere else', stored: 1, text: '1%' },
   { what: 'just above 1 — the other side of the same boundary', stored: 1.5, text: '1.5%' },
   // Agreement has to survive the clamp: the text keeps the real number, the
   // bar saturates. A row that only ever tested unclamped values would let a
@@ -155,11 +165,13 @@ const ROWS: Row[] = [
   // The residue row. `0.07 * 100` is `7.000000000000001` in binary floating
   // point — invisible as a CSS width, unreadable as a label.
   { what: 'a ratio whose scaling carries float residue', stored: 0.07, text: '7%' },
-  // The drift, now visible on both halves instead of one. Before the fix the
-  // text read `-5%` here while the bar drew an empty track; the bar's rule
-  // scales it, and the ruling was that the text follows the bar. Recorded on
-  // objectui#9071 with the census that names it.
-  { what: 'a negative at or below -1 — moves with the bar\'s rule', stored: -5, text: '-500%' },
+  // The other end of the same boundary. objectui#8728 moved this text to
+  // `-500%` because the bar's rule scaled it and the ruling was that the text
+  // follows the bar; objectui#9071 then replaced that rule with the declared
+  // source, which passes a value at or below -1 straight through. The bar is
+  // unchanged across both cards — any negative clamps to an empty track — so
+  // this row only ever moved on the half that reads the number.
+  { what: 'a negative at or below -1 — passed through by the shared rule', stored: -5, text: '-5%' },
 ];
 
 describe('summary chip percent — one stored number, one percentage (objectui#8728)', () => {

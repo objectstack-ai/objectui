@@ -134,6 +134,15 @@ function clampGrid(n: number | undefined): number {
  * the robust field-width primitive is the relative `span`, NOT an absolute
  * colSpan. Precedence:
  *   1. `span: 'full'`     → whole row (grid cells).
+ *
+ * ⚠️ «Whole row» is a claim about what RENDERS, and this function only returns
+ * a number. It is kept by the form renderer's `spanLadderFor`, which turns
+ * that number into one col-span class per container-query tier. Until
+ * objectui#9244 the renderer emitted a single class for the widest tier only,
+ * so this sentence was true of the return value and false on screen at every
+ * intermediate width. ⛔ A pin under this function cannot observe that — see
+ * `__tests__/spanFullTierLadder-9244.test.tsx` for the leg that can.
+ *
  *   2. legacy `colSpan`   → honoured but CLAMPED to the grid (never overflows).
  *   3. wide widget type   → whole row (textarea/markdown/… — the `span:'auto'` default).
  *   4. section density    → grid / sectionColumns, so `sectionColumns` fields fill a row.

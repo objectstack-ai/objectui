@@ -6,7 +6,7 @@ import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
 import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
-import { chartCategoryKey, chartMeasureKey } from '@object-ui/core';
+import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
 import { isObjectProvider, deriveStaticTableColumns } from './utils';
 import { classifyWidgetType } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
@@ -246,6 +246,18 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       const xAxisKey = options.xField || 'name';
       const yField = options.yField || 'value';
 
+      // The widget's declared `chartConfig`, lowered onto the chart schema —
+      // objectui#4044, and the twin of the block in `DashboardRenderer`. This
+      // surface is the EDITABLE dashboard grid over the same stored widget
+      // metadata, so an author whose `chartConfig` drew nothing here but drew
+      // on the read-only renderer would read the difference as a bug in the
+      // editor. `isLegacyRetiredWidget` above is the settled precedent for the
+      // pair (objectui#4612): one shared implementation, imported rather than
+      // restated — here that shared implementation is core's
+      // `chartConfigPresentation`, the same whitelist `DatasetWidget` lowers
+      // through.
+      const chartPresentation = chartConfigPresentation(widget.chartConfig);
+
       // provider: 'object' — delegate to ObjectChart for async data loading.
       // Field/aggregate config comes from the nested data provider (the
       // pre-ADR-0021 top-level analytics keys were retired in framework#3320).
@@ -284,7 +296,8 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           colors: CHART_COLORS,
           // Deterministic first paint inside the grid (#2756).
           isAnimationActive: false,
-          className: "h-full"
+          className: "h-full",
+          ...chartPresentation,
         };
       }
 
@@ -299,7 +312,8 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
         colors: CHART_COLORS,
         // Deterministic first paint inside the grid (#2756).
         isAnimationActive: false,
-        className: "h-full"
+        className: "h-full",
+        ...chartPresentation,
       };
     }
 

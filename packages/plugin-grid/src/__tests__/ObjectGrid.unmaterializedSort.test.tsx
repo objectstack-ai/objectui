@@ -177,10 +177,17 @@ describe('ObjectGrid — the sort header is withheld from an unmaterialized colu
   it('keeps the formula header live where the sort never leaves the browser', async () => {
     const ds = makeDataSource();
     const { container } = renderGrid(ds, {
-      data: [
-        { id: 'a', name: 'A', amount: 10, probability: 20, expected_revenue: 2 },
-        { id: 'b', name: 'B', amount: 30, probability: 40, expected_revenue: 12 },
-      ],
+      // objectui#8348 — the DECLARED inline-rows spelling. `object-grid`'s
+      // published `data` row is the `ViewData` union ("the bare-array shortcut
+      // is refused"), so `getDataConfig` no longer lifts a bare array; this form
+      // resolves to the same config and this row still sorts in the browser.
+      data: {
+        provider: 'value',
+        items: [
+          { id: 'a', name: 'A', amount: 10, probability: 20, expected_revenue: 2 },
+          { id: 'b', name: 'B', amount: 30, probability: 40, expected_revenue: 12 },
+        ],
+      },
     });
     await waitFor(() => expect(screen.getByText('A')).toBeInTheDocument());
 

@@ -23,10 +23,18 @@ while rendering perfectly, which is how the type sat in objectui#6318's
 sites to `items` was considered and rejected: `bucketCardsIntoColumns` reads
 `col.cards || []`, so the `items` spelling buckets every column to zero cards.
 Measured through the render harness in
-`examples/schema-catalog/test/kanban-column-cards-6939.test.tsx`, the
-`basic-kanban-board` entry goes from 64 elements reading `To Do2 … Design new
-feature …` to 45 elements reading `No cards3 columnsTo Do0 …` — an empty board.
-The declaration, not the corpus, was the wrong side.
+`examples/schema-catalog/test/kanban-column-cards-6939.test.tsx` on `78a3cc238`,
+the `basic-kanban-board` entry goes from 64 elements reading `To Do2 … Design
+new feature …` to 45 elements reading `No cards3 columnsTo Do0 …` — an empty
+board. The declaration, not the corpus, was the wrong side.
+
+⚠️ The second of those two readings has since moved by one node, and this
+paragraph is anchored rather than rewritten because the finding it supports is
+unchanged: objectui#9170 removed the lane count from the board-level empty
+state, so the same entry now measures 44 elements and reads `No cardsTo Do0 …`.
+The `items` spelling still empties the board, which is the whole of the argument
+above. The harness keeps both readings side by side and asserts the subtraction
+between them.
 
 **Migration.** If you author `KanbanColumn` objects against `@object-ui/types`
 or validate them through `@object-ui/types/zod`, rename `items` to `cards`.

@@ -1,6 +1,6 @@
 import React, { useId, useEffect } from 'react';
 import { Checkbox, Label, EmptyValue, Badge } from '@object-ui/components';
-import type { OptionLike } from '@object-ui/core';
+import { optionDisplayLabel, type OptionLike } from '@object-ui/core';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
@@ -90,7 +90,7 @@ export function CheckboxesField({
           // Label from the raw set so a stored value hidden by `visibleWhen`
           // still renders its label rather than a bare id.
           const opt = rawOptions.find((o) => o.value === v);
-          return <Badge key={v} variant="outline">{opt?.label || v}</Badge>;
+          return <Badge key={v} variant="outline">{opt ? optionDisplayLabel(opt) : v}</Badge>;
         })}
       </div>
     );
@@ -164,7 +164,7 @@ export function CheckboxesField({
               aria-invalid={!!error}
               data-testid={`checkboxes-option-${value}`}
             />
-            <Label htmlFor={id} className="font-normal">{opt.label}</Label>
+            <Label htmlFor={id} className="font-normal">{optionDisplayLabel(opt)}</Label>
           </div>
         );
       })}

@@ -7,7 +7,7 @@ import {
   SelectValue,
   EmptyValue,
 } from '@object-ui/components';
-import { isValueStillOffered } from '@object-ui/core';
+import { isValueStillOffered, optionDisplayLabel } from '@object-ui/core';
 import { SelectFieldMetadata } from '@object-ui/types';
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { FieldWidgetComponentProps } from './types.js';
@@ -128,7 +128,7 @@ function SingleSelectField({
 
   if (readonly) {
     const option = rawOptions.find((o) => o.value === value);
-    const display = option?.label || value;
+    const display = option ? optionDisplayLabel(option) : value;
     return display ? <span className="text-sm">{display}</span> : <EmptyValue />;
   }
 
@@ -196,7 +196,7 @@ function SingleSelectField({
       <SelectContent position="popper">
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value} data-testid={`select-option-${option.value}`}>
-            {option.label}
+            {optionDisplayLabel(option)}
           </SelectItem>
         ))}
       </SelectContent>

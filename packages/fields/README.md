@@ -146,6 +146,10 @@ never drift). While a `dependsOn` parent is empty the control is gated; a parent
 change re-filters the list and clears a now-invalid value (scalar `select` /
 `radio` drop the value; multi-value `multiselect` / `checkboxes` prune just the
 offered-out entries).
+An option whose `label` is blank (the empty string is a legal label; an absent one is
+not) displays its `value` instead of an empty row, on the editable and the read-only
+path alike — all eight read sites across the four widgets share the one
+`optionDisplayLabel` helper in `@object-ui/core` (objectui#9230).
 Client-side hiding is UX only — gate authorization-sensitive values on the
 server too. See
 [`content/docs/fields/select.mdx`](../../content/docs/fields/select.mdx).

@@ -144,8 +144,9 @@
  * can import, so separate graph roots. Everything below a subpath is a
  * CONDITION or a fallback array, and those choose a build FORMAT of the same
  * subpath. {@link classifyEntryForms} sorts every published form on that
- * structure plus what is on disk, into `entry-point`, `duplicate-entry`,
- * `alternate-format` and `asset`, and refuses anything that is none of them.
+ * structure first and -- only where the structure does not decide -- on what is
+ * on disk, into `entry-point`, `duplicate-entry`, `alternate-format` and
+ * `asset`, and refuses anything that is none of them.
  *
  * The refusal is the load-bearing half, and it is deliberately NOT "fail when a
  * form cannot be mapped back to a source file". Measured over this workspace:
@@ -156,6 +157,32 @@
  * CLASSIFY -- because a skipped form is a skipped root, and a registrar behind
  * it would never be proposed as MISSING. Silently skipping it would rebuild the
  * gate's own silent-drop failure class one level up.
+ *
+ * ### ⛔ What this classification DECLINES to detect, and why (objectui#9124)
+ *
+ * `alternate-format` is decided from the manifest's structure alone, so a
+ * DANGLING form -- one the manifest declares that will never exist on disk --
+ * is NOT detected when it sits under a subpath that already has a real module
+ * form. This is a declared gap, not an oversight, and the reason it is accepted
+ * rather than closed is that the detection it replaces was never trustworthy:
+ * it fired ONLY on an unbuilt checkout. On a built tree the same dangling form
+ * existed as a build artefact and classified as an `asset`, silently. So the
+ * choice was never "detect it or not" -- it was "let the verdict depend on
+ * whether `dist/` happens to be present, or not", and this gate must not
+ * (objectui#6893, objectui#7460, objectui#7671 are the measured instances of
+ * that class in this repo's own gates).
+ *
+ * What the gap costs is bounded by the same structure that creates it: such a
+ * form adds no graph root either way, because the module form under its subpath
+ * IS the root and an alternate format reaches exactly what that root reaches.
+ * So a registrar cannot hide behind it -- which is the harm the refusal below
+ * exists to prevent, and it is untouched.
+ *
+ * ⛔ The gap is NOT widened to dangling forms under a subpath with no module
+ * form. There, `existsInPackage` still decides, and a form that is neither a
+ * module nor a file on disk is still refused loudly -- that is the `./ghost.js`
+ * and subpath-`*` shape, and removing the check there was MEASURED to promote
+ * such a form to a graph root and crash the walk on ENOENT.
  *
  * The genuine multi-entry population is ZERO today (a stylesheet is not a graph
  * root; a second format of one entry reaches exactly what that entry reaches),
@@ -976,15 +1003,19 @@ export function deriveSpellingMap(pkg, root = REPO_ROOT) {
  *     walked. A subpath whose source module another subpath already claimed is
  *     an ALIAS of that entry: same root, no new modules, recorded as
  *     `duplicate-entry` rather than silently merged.
- *   - `asset`         -- the form names a file that exists in the package
- *     exactly as published and is not a module this gate can read. A stylesheet
- *     is a resolution target and is not a graph root: there is no import to
- *     follow out of it. Positive evidence on both halves — the file is THERE,
- *     and no source module produces it — never "the map returned undefined".
- *   - `alternate-format` -- the form did not invert, but a form under the SAME
- *     subpath did. Conditions below a subpath choose a build format, not an
+ *   - `alternate-format` -- the form is not a module, but a form under the SAME
+ *     subpath is. Conditions below a subpath choose a build format, not an
  *     entry: the `require` half of an entry whose `import` half is already a
- *     root reaches exactly the modules that root reaches.
+ *     root reaches exactly the modules that root reaches. ⭐ Decided from the
+ *     manifest's own structure and NEVER from the filesystem (objectui#9124):
+ *     it is a fact about the DECLARATION, so it must read the same on an
+ *     unbuilt checkout as on a built one.
+ *   - `asset`         -- the form is not a module, no form under its subpath is
+ *     either, and it names a file that exists in the package exactly as
+ *     published. A stylesheet is a resolution target and is not a graph root:
+ *     there is no import to follow out of it. Positive evidence on both halves
+ *     — the file is THERE, and no source module produces it — never "the map
+ *     returned undefined".
  *
  * Anything else is UNCLASSIFIED and fails the gate loudly, and that is the
  * asymmetry this function exists for. "Could not MAP this form" must not be the
@@ -1021,6 +1052,9 @@ export function classifyEntryForms(pkg, map, root = REPO_ROOT) {
   const claimedBy = new Map();
 
   for (const { subpath, forms } of manifestEntrySubpaths(pkg.manifest)) {
+    // First pass asks ONE question of each form -- is it a module this gate can
+    // walk? -- and nothing else. Sorting the rest happens below, per SUBPATH,
+    // because what a non-module form IS depends on its siblings (objectui#9124).
     const classified = forms.map((form) => {
       const inverted = map.toSource(form);
       if (inverted) return { form, kind: 'module', sourceRel: inverted };
@@ -1028,12 +1062,21 @@ export function classifyEntryForms(pkg, map, root = REPO_ROOT) {
       if (existsInPackage(form) && MODULE_FILE_RE.test(form) && !/\.d\.ts$/.test(form)) {
         return { form, kind: 'module', sourceRel: form };
       }
-      if (existsInPackage(form)) return { form, kind: 'asset' };
-      return { form, kind: 'unmapped' };
+      return { form, kind: 'non-module' };
     });
 
     const moduleForms = classified.filter((c) => c.kind === 'module');
+    const nonModuleForms = classified.filter((c) => c.kind === 'non-module');
+
     if (moduleForms.length > 0) {
+      // ⛔ Deliberately WITHOUT asking the filesystem (objectui#9124). A
+      // non-module form under a subpath that already resolves to a module is an
+      // `alternate-format` by the manifest's OWN structure -- conditions below a
+      // subpath choose a build FORMAT, not an entry -- and that is a fact about
+      // the DECLARATION, true of an unbuilt checkout and a built one alike.
+      // Deciding it with `fs.existsSync` made the verdict depend on whether
+      // `dist/` happened to be present, on an input that is `.gitignore`d and so
+      // is not in the tree at all.
       const sources = [...new Set(moduleForms.map((c) => c.sourceRel))].sort();
       const fresh = sources.filter((s) => !claimedBy.has(s));
       for (const s of fresh) claimedBy.set(s, subpath);
@@ -1042,17 +1085,23 @@ export function classifyEntryForms(pkg, map, root = REPO_ROOT) {
         kind: fresh.length > 0 ? 'entry-point' : 'duplicate-entry',
         sources,
         forms,
-        alternateFormats: classified.filter((c) => c.kind === 'unmapped').map((c) => c.form),
+        alternateFormats: nonModuleForms.map((c) => c.form),
       });
       continue;
     }
 
-    if (classified.every((c) => c.kind === 'asset')) {
+    // No form under this subpath is a module, so nothing here can be a second
+    // build format OF anything -- there is no entry for it to be a format of.
+    // What is left must earn `asset` on POSITIVE evidence, which is the
+    // existence check, unchanged and still the only thing standing between a
+    // DANGLING declaration and a silently skipped graph root.
+    const dangling = nonModuleForms.filter((c) => !existsInPackage(c.form));
+    if (dangling.length === 0) {
       entries.push({ subpath, kind: 'asset', sources: [], forms, alternateFormats: [] });
       continue;
     }
 
-    const unclassified = classified.filter((c) => c.kind === 'unmapped').map((c) => `"./${c.form}"`);
+    const unclassified = dangling.map((c) => `"./${c.form}"`);
     problems.push(
       `${pkg.name}: the manifest publishes the subpath "${subpath}", and this gate cannot CLASSIFY ` +
         `${unclassified.join(', ')}. It is not a form the published/source spelling map inverts to a module that ` +

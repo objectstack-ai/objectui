@@ -21,6 +21,11 @@ import {
   specSubpathsFromLiterals,
   specSymbols,
 } from '../check-spec-range-floors.mjs';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /**
  * objectui#5793 — a declared `@objectstack/spec` floor must carry every symbol
@@ -379,11 +384,7 @@ describe('reading the export surface of a published version', () => {
     // that could not tell an explanation from a call site would have to choose
     // between firing on the documentation and not existing.
     const source = fs.readFileSync(path.join(repoRoot, GATE), 'utf8');
-    const code = source
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .split('\n')
-      .map((line) => line.replace(/(^|[^:])\/\/.*$/, '$1'))
-      .join('\n');
+    const code = mask(source);
     expect(code).toMatch(/loadPublishedSpec/);
     expect(code).not.toMatch(/createRequire|require\.resolve|import\.meta\.resolve/);
     expect(source).toContain('never through the installed tree');

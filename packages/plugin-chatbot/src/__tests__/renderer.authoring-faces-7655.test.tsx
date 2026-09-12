@@ -72,6 +72,11 @@ import type { ChatbotEnhancedSchema } from '@object-ui/types';
 import type { ChatbotProcessVisibility, ChatbotSurface } from '../ChatbotEnhanced';
 // Side-effect import: this is what registers the chat components.
 import '../renderer';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /* ── 2. One vocabulary, two spellings (the `tsc` channel) ────────────────── */
 
@@ -109,12 +114,12 @@ describe('the registrations type `schema` as the published faces (objectui#7655)
   it('no anonymous `ChatbotSchema & { ... }` intersection is left in the renderer', () => {
     // Code only: strip line and block comments before counting, since the
     // registrations' own comments recount the history in those exact words.
-    const code = RENDERER.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const code = mask(RENDERER);
     expect(code.match(/ChatbotSchema\s*&\s*\{/g) ?? []).toEqual([]);
   });
 
   it('`chatbot-floating` consumes the host verdict, not the raw `schema.disabled`', () => {
-    const floating = registration('chatbot-floating').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const floating = mask(registration('chatbot-floating'));
     expect(floating).toContain('disabled: hostDisabled');
     expect(floating).toContain('disabled={hostDisabled}');
     expect(floating).not.toContain('schema.disabled');

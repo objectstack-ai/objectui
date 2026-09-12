@@ -35,6 +35,11 @@ import { renderComponent } from '../../../__tests__/test-utils';
 // Module-scope side-effect import, not a `beforeAll` — see
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../../../renderers';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /* ── the renderer source, comments stripped ──────────────────────────────── */
 
@@ -43,7 +48,7 @@ import '../../../renderers';
 // resolve it.
 const RAW = readFileSync(resolve(__dirname, '../data-table.tsx'), 'utf8');
 /** Code only: a spelling named in a comment must not count as a branch. */
-const CODE = RAW.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+const CODE = mask(RAW);
 
 const DECLARED = new Set<string>(TABLE_COLUMN_TYPES);
 

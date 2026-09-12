@@ -125,6 +125,11 @@ import { dirname, join } from 'node:path';
 import { FilterBuilderSchema, FilterFieldSchema, FilterGroupSchema } from '../zod/complex.zod';
 import { safeValidateSchema } from '../zod/index.zod';
 import type { FilterField as TsFilterField, FilterGroup as TsFilterGroup } from '../complex';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -300,7 +305,7 @@ function docUnionMembers(doc: string, iface: string, key: string): string[] {
   // block, so an index taken before the strip addresses a different place
   // after it. `at` is therefore computed here, on the stripped block, and
   // never carried across from the raw one.
-  const block = docInterfaceBlock(doc, iface).replace(/\/\/[^\n]*/g, '');
+  const block = mask(docInterfaceBlock(doc, iface));
   const at = block.indexOf(`\n  ${key}:`);
   if (at === -1) throw new Error(`${DOC}: \`${iface}\` no longer declares \`${key}\``);
   const end = block.indexOf(';', at);

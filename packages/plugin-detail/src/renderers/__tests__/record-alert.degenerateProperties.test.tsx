@@ -103,6 +103,11 @@ vi.mock('@object-ui/components', async (importOriginal) => ({
 
 import { RecordAlertRenderer } from '../record-alert';
 import { readProps } from '../record-alert.readProps';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const keysOf = (schema: unknown) => Object.keys(readProps(schema));
 const indexKeys = (keys: string[]) => keys.filter((k) => /^\d+$/.test(k));
@@ -210,7 +215,7 @@ describe('objectui#6790 — the reader asks the shared predicate, and the pin th
   const renderer = readFileSync(path.resolve(here, '../record-alert.tsx'), 'utf8');
   /** Comments out first: the reader's own docblock quotes the spelling it replaced. */
   const stripComments = (s: string) =>
-    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/[^\n]*/g, '$1');
+    mask(s);
   /** `schema.properties ?? {}` / `schema?.properties || {}` — the local read objectui#6783 removed. */
   const LOCAL_BAG_READ = /\??\.\s*properties\s*(?:\?\?|\|\|)\s*\{\s*\}/;
 

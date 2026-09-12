@@ -808,8 +808,8 @@ jobs:
           # comment used to claim the opposite ("the widening is deliberately
           # narrow"). `scripts` joined the scan roots, and the gate tests under
           # `scripts/__tests__` read the documentation the way the product tests
-          # read a README -- measured by running all 45 of them under an fs
-          # trace, 1734 of 1734 tracked markdown files are opened by at least
+          # read a README -- measured by running all 46 of them under an fs
+          # trace, 1805 of 1805 tracked markdown files are opened by at least
           # one of them. ⇒ for THIS job, the markdown half of the exclusion list
           # above is now inert: any markdown-only pull request runs the shards.
           # Priced over the 513 first-parent commits available at the time: 36

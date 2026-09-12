@@ -80,10 +80,10 @@
  *
  * ### The measurement, and why the population count is the wrong unit
  *
- * Every one of the 45 candidate files under `scripts/__tests__` was run under
+ * Every one of the 46 candidate files under `scripts/__tests__` was run under
  * an `fs` trace and the markdown it opened was recorded. The union is not
  * "nearly every markdown document in the tree" -- it is EVERY one of them:
- * 1734 of 1734 tracked `.md` / `.mdx` files are opened by at least one of these
+ * 1805 of 1805 tracked `.md` / `.mdx` files are opened by at least one of these
  * tests. One file does it alone: `dollar-dialect-alias-census.test.ts` scans
  * every tracked path through a helper module, which is limit 2 below in its
  * purest form -- the scanner cannot see that read at all, and it is the read
@@ -118,7 +118,7 @@
  * derived, adjudicated, self-auditing list and never a glob. Its EFFECT is not:
  * the list's answer is now `true` for every markdown path. That tension is real
  * and is left visible on purpose rather than argued away. The two numbers a
- * reviewer needs to reverse this are above: 1734 of 1734 documents, 14 of 513
+ * reviewer needs to reverse this are above: 1805 of 1805 documents, 14 of 513
  * merges.
  *
  * ### Where the trees come from
@@ -692,6 +692,15 @@ export const ADJUDICATED = new Map([
     {
       reads: ['content/docs/**', 'packages/**'],
       walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: its `README.md` literal is sample input to a pure path-matcher
+  // assertion -- the suite is a census OF corpus walkers and keeps its own inputs literal.
+  [
+    'scripts/__tests__/coverage-red-cause-census.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
     },
   ],
   // Reads no markdown: every document literal is fixture text handed to pure functions.

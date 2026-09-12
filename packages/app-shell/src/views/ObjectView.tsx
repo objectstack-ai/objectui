@@ -412,14 +412,20 @@ export function galleryViewOptions(viewDef: any): Record<string, unknown> {
  * nestings), and neither does the render branch (`groupByField || groupField ||
  * detectStatusField(...)`).
  *
- * ⚠️ WHAT THIS CLOSES AND WHAT IT DOES NOT. `ListView`'s kanban branch
- * destructures `columns`/`groupByField`/`groupField`/`cardFields`/`titleField`
- * out of the merged config and spreads the REST *after* its own
- * `groupBy: laneField`, so a surviving `groupBy` overrides the lane it just
- * resolved. This deletion removes the only producer in this repo that fed that
- * override — it does NOT remove the override, which stays reachable from
- * author-written `kanban.groupBy` riding this repo's `.passthrough()` mirror
- * and is a `plugin-list` change on its own card.
+ * ⚠️ WHAT THIS CLOSED AND WHAT IT DID NOT — and what has since closed the rest.
+ * `ListView`'s kanban branch destructured
+ * `columns`/`groupByField`/`groupField`/`cardFields`/`titleField` out of the
+ * merged config and spread the REST *after* its own `groupBy: laneField`, so a
+ * surviving `groupBy` overrode the lane it had just resolved. This deletion
+ * removed the only producer in this repo that fed that override; the override
+ * itself stayed reachable from an author-written `kanban.groupBy` riding this
+ * repo's `.passthrough()` mirror, and was carried on its own card.
+ * ⭐ THAT CARD HAS LANDED (objectui#8365, maintainer ruling of 2026-09-12 —
+ * decision batch #117 item 5, option B): `groupBy` is now stripped in
+ * `ListView`'s destructure, so the canonical lane wins, AND the view-level
+ * `KanbanConfig` mirror (`@object-ui/types`, `zod/objectql.zod.ts`) declares it
+ * as an alias refusal naming `groupByField`, so the key is refused BY NAME at
+ * the read door instead of riding the passthrough. ⛔ Do not re-file it.
  *
  * ⚠️ `titleField` AND `cardFields` BELOW ARE ALSO OUTSIDE `KanbanConfigSchema`,
  * and are deliberately NOT swept up here. `cardFields` is a DECLARED deprecated

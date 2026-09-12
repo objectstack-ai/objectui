@@ -40,7 +40,7 @@ import {
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { DrillDownConfigSchema } from './data-display.zod.js';
 // The kanban CARD vocabulary has one authority (`./complex.zod.ts`); the
 // `object-kanban` lane below reads it rather than restating it (objectui#8913).
@@ -569,11 +569,99 @@ const LIST_VIEW_LOCAL_OVERRIDES = [
 // absent from the spec's `KanbanConfigSchema` / `TimelineConfigSchema`, so these
 // `.passthrough()`s still carry real authored values —
 // `core/src/utils/__tests__/normalize-list-view.test.ts` pins exactly those two.
+// ALIAS REFUSAL — THE READ DOOR FOR A STORED VIEW'S KANBAN CONFIG
+// (objectui#8365, maintainer ruling of 2026-09-12, decision batch #117 item 5:
+// option B, 「8365 同意」).
+//
+// `groupBy` is a THIRD spelling of the lane the spec names `groupByField` and
+// this mirror's own `groupField` aliases. It was never declared here — and
+// because this object ends `.passthrough()`, an undeclared key is not
+// dropped, it is KEPT. That is the whole defect: the surviving key rode the
+// bag into `ListView`'s kanban branch, whose `...restKanban` spread lands
+// AFTER its own `groupBy: laneField`, so an authored `kanban.groupBy`
+// OVERRODE the lane the branch had just resolved from `groupByField`.
+// Measured on the card's distinguishing fixture, not reasoned:
+// `options.kanban = { groupBy: 'LANE_FROM_STRAY_GROUPBY' }` against
+// `kanban = { groupByField: 'LANE_FROM_CANONICAL' }` produced
+// `node.groupBy === 'LANE_FROM_STRAY_GROUPBY'`.
+//
+// ⛔ HONOURING IT AS A DECLARED ALIAS IS NOT AVAILABLE. `@objectstack/spec`'s
+// `KanbanConfigSchema` is a `strictObject` of exactly
+// `columns` / `groupByField` / `summarizeField` and refuses `groupBy` BY NAME.
+// Re-measured at implementation time on the version this tree pins
+// (17.4.0 — the card measured 17.3.0), with BOTH controls firing: a lit
+// control (`zzzBogusKey` alongside a valid `groupByField`) draws
+// `unrecognized_keys` naming the bogus key, and a dark control
+// (`groupByField` alone) draws none. Upstream knows the SIBLING alias by name
+// — probing `groupField` answers "Did you mean `groupField` → `groupByField`?"
+// — and knows nothing at all about `groupBy`, which it refuses as a plain
+// unrecognized key. Legalising it is a spec change on its own objectstack
+// card, ⛔ never a renderer-side widening (AGENTS.md #0.1).
+//
+// ⇒ the key is DECLARED and unwritable, so it is refused BY NAME instead of
+// riding the passthrough in silence, and this mirror stops being more
+// permissive than the protocol it mirrors. The lead sentence is the one the
+// spec's own `strictObject({ aliases })` answers with (surface noun quoted
+// verbatim from the measurement above), so an author meets ONE remedy on both
+// faces. `z.input` is `undefined`, so the inferred TypeScript face carries
+// `groupBy?: never` and `tsc` refuses it at the authoring site too.
+//
+// ⛔ NOT A FOLD onto `groupByField`. A fold is only honest where the canonical
+// key is the READER's first limb; here the reader's first limb IS canonical
+// (`groupByField || groupField || detectStatusField(...)`), so folding the
+// alias in would re-create the very override this refusal closes.
+// ⛔ NOT the `groupField` / `cardFields` treatment above either: those two are
+// deprecated aliases the SPEC also models under its canonical names and
+// `normalize-list-view.ts` folds forward; `groupBy` is modelled nowhere and
+// folds nowhere.
+//
+// ⚠️ NODE-LOCAL vs VIEW-LEVEL, the distinction this file has to keep straight:
+// this arm is the VIEW-LEVEL `kanban` config. `groupBy` on the generated
+// `object-kanban` NODE is the live, canonical lane key that `ObjectKanban`
+// reads — untouched, and deliberately so.
+const KanbanStrayGroupByRefusal = aliasKeyRefusal(
+  'groupBy',
+  'groupByField',
+  'this kanban configuration',
+  '`groupBy` is the lane key of the generated `object-kanban` NODE, not of the view-level '
+  + 'kanban configuration (objectui#8365). `@objectstack/spec`\'s `KanbanConfigSchema` is a '
+  + 'strict object of `columns` / `groupByField` / `summarizeField` and refuses `groupBy` by '
+  + 'name, so a view carrying it never came through the validated path. Write `groupByField` '
+  + '(or the deprecated `groupField`, which folds onto it). Until this refusal the key rode '
+  + 'this object\'s `.passthrough()` into `ListView`\'s kanban branch and OVERRODE the lane '
+  + 'that branch had already resolved from `groupByField` — the board grouped by the stray '
+  + 'key, and nothing said so.',
+);
+
+/**
+ * WHERE THIS ARM IS INSTALLED — TWO NESTINGS, ONE STRING.
+ *
+ * `ListView` merges `{ ...schema.options?.kanban, ...schema.kanban }` before it
+ * reads anything, so a stored view can carry the stray key under EITHER. The
+ * declared `kanban` slot takes this arm as a DECLARED MEMBER (`invalid_type` at
+ * `kanban.groupBy`, and `groupBy?: never` on the inferred TypeScript face).
+ * The legacy `options` bag is `z.record(z.string(), z.any())` and can declare no
+ * member at all, so it takes the SAME guidance as a check (`custom` at
+ * `options.kanban.groupBy`) — see `ListViewSchema.options` below.
+ *
+ * ⚠️ Covering the legacy nesting is not optional politeness: the retired
+ * producer (`app-shell`'s `kanbanViewOptions`, objectui#8213) wrote into
+ * `options.kanban`, so that is where the stored views this ruling is ABOUT carry
+ * the key. Refusing only the declared nesting would leave exactly that
+ * population re-grouped in silence — option A, which the ruling did not take.
+ *
+ * ⛔ The two channels take ONE string, read off this arm's own `.description`,
+ * so the message an author meets cannot depend on which nesting they wrote.
+ */
+
 const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().extend({
   /** @deprecated legacy alias for the spec's `groupByField` */
   groupField: z.string().optional().describe('Deprecated alias for groupByField'),
   /** @deprecated legacy alias for the spec's `columns` (fields shown on each card) */
   cardFields: z.array(z.string()).optional().describe('Deprecated alias for columns'),
+  // ⭐ The named alias-refusal arm — objectui#8365. Declared above with the
+  // whole reading; ⛔ do not re-spell the message here, it has ONE source.
+  groupBy: KanbanStrayGroupByRefusal,
 }).passthrough();
 
 const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
@@ -708,7 +796,38 @@ export const ListViewSchema = BaseSchema
     addRecordViaForm: z.boolean().optional().describe('Add records via form dialog'),
     addDeleteRecordsInline: z.boolean().optional().describe('Enable inline add/delete'),
     collapseAllByDefault: z.boolean().optional().describe('Collapse all groups by default'),
-    options: z.record(z.string(), z.any()).optional().describe('Component overrides (legacy)'),
+    // THE LEGACY BAG, and the ONE named refusal that reaches into it
+    // (objectui#8365). Everything in here is `z.any()` and stays that way: this
+    // is the pre-#2231 "component overrides" escape hatch, not an authoring
+    // surface the protocol models, and typing it is a much larger question than
+    // this card. ⚠️ But `ListView` merges `{ ...options.kanban, ...kanban }`
+    // before it reads anything, and the retired producer objectui#8213 removed
+    // wrote the stray `groupBy` into THIS nesting — so the stored views the
+    // objectui#8365 ruling is about carry it here. A refusal that covered only
+    // the declared `kanban` slot would leave exactly that population silently
+    // re-grouped, which is option A; the ruling took option B.
+    //
+    // A record can declare no MEMBER, so this is a check rather than an arm:
+    // same guidance string, read off {@link KanbanStrayGroupByRefusal}'s own
+    // `.description` so the two channels cannot drift, reported as `custom` at
+    // `options.kanban.groupBy` (the declared slot reports `invalid_type` at
+    // `kanban.groupBy` — two codes, one message, and the pin asserts both).
+    // ⛔ Scoped to the ONE key: no other member of `options.kanban`, and nothing
+    // else under `options`, is judged here.
+    options: z.record(z.string(), z.any())
+      .check((ctx) => {
+        const bag = ctx.value as Record<string, any> | undefined;
+        const kanban = bag?.kanban;
+        if (!kanban || typeof kanban !== 'object' || Array.isArray(kanban)) return;
+        if ((kanban as Record<string, unknown>).groupBy === undefined) return;
+        ctx.issues.push({
+          code: 'custom',
+          message: KanbanStrayGroupByRefusal.description as string,
+          input: (kanban as Record<string, unknown>).groupBy,
+          path: ['kanban', 'groupBy'],
+        });
+      })
+      .optional().describe('Component overrides (legacy)'),
     operations: z.object({
       create: z.boolean().optional(),
       read: z.boolean().optional(),

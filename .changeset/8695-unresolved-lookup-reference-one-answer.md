@@ -1,6 +1,6 @@
 ---
-'@object-ui/fields': patch
-'@object-ui/i18n': patch
+'@object-ui/fields': minor
+'@object-ui/i18n': minor
 ---
 
 A `lookup` reference that resolved to nothing now gets **one** answer instead of
@@ -38,6 +38,20 @@ exist" is a boundary this renderer cannot see across. So it states only what is
 true of all of them: this screen did not resolve it. The `user` pack value ends
 "was not resolved to a user", which is false on a lookup pointing at any other
 object, hence a separate key.
+
+**Why `minor` and not `patch`.** The test this lane applies is whether EXISTING
+STORED DATA renders differently, and here some of it is not broken data.
+`LookupCellRenderer` auto-resolves only the FIRST primitive of an array
+(`primaryPrimitiveId`, and `resolveLabel` returns a name only when
+`val === primaryPrimitiveId`) — a documented cheapness policy, not a defect. So
+on a multi-value `lookup` holding perfectly clean ids, entries 2..n were never
+asked and now wear the unresolved marker where they previously printed a bare
+id or a dash. That is a visible change to a working screen over correct data,
+which is the line between the two levels; the name-shaped and opaque-shaped
+single-value cases would each have been `patch` on their own, since both were
+already wrong. `@object-ui/i18n` is `minor` for the ordinary reason: a key is
+ADDED — `detail.unresolvedLookupReference`, across all ten packs (the `user`
+sentence `detail.unresolvedReference` already shipped with objectui#8434).
 
 **Nothing else moves.** A reference resolved by an expanded record, by the
 author's `options`, or by the fetch-on-demand resolver renders exactly as before,

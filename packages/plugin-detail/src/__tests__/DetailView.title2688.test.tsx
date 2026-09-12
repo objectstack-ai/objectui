@@ -17,8 +17,42 @@
  *    derivation deliberately skips) must beat the `Record #<id>` floor.
  *  - Footer: `created_by` / `updated_by` are always user references on
  *    ObjectStack; when the fetched schema omits the audit system fields the
- *    footer must still render them through the reference renderer (which shows
- *    a resolved name or a muted placeholder) — never the raw opaque id.
+ *    footer must still render them through the REFERENCE RENDERER rather than
+ *    degrading to a `text` cell that prints `String(value)`.
+ *
+ * ## The footer assertions were re-derived at objectui#8695 (PR objectui#9078)
+ *
+ * They used to read `expect(queryByText(OPAQUE_ID)).toBeNull()` — "the raw id
+ * must not appear". ⛔ That was never objectui#2688's ask, and it is now false.
+ *
+ * objectui#2688's own expected-correct column is `创建人 Dev Admin · 47分钟前`
+ * — the RESOLVED NAME — and its card records that the id it complains about
+ * DOES exist in `sys_user` with `name = Dev Admin`. In the scenario the card
+ * describes, the id disappears because it RESOLVES, not because anything hides
+ * it. The located defect the card names is the degradation itself:
+ * `objectSchema.fields.created_by` absent ⇒ `type:'text'` ⇒ `String(value)`.
+ * So "the id is absent" was only ever a PROXY for "this went through the
+ * reference renderer", read off the placeholder that renderer happened to draw
+ * when nothing resolved.
+ *
+ * The proxy was weak even then. Measured on this fixture: the old placeholder
+ * was a muted `—`, which is byte-identical to `EmptyValue`'s glyph, and a
+ * footer rendered with NO `created_by` at all omits the actor entirely — both
+ * satisfy `queryByText(OPAQUE_ID) === null`. The assertion could not tell the
+ * reference renderer from a blank cell.
+ *
+ * objectui#8434 then ruled on that placeholder directly: the affordance for an
+ * unresolved reference must be ADDITIVE (a stated marker, not an absence),
+ * EPISTEMIC ("this screen did not resolve it", never "not found"), and it must
+ * keep the raw value VISIBLE because it "is the only clue for diagnosing
+ * existing dirty rows". objectui#8695 carried that ruling to the second
+ * renderer with the same defect — the one this footer routes through.
+ *
+ * ⇒ The assertions below now name what objectui#2688 actually asked for, and
+ * name it directly instead of through a placeholder: the footer must render
+ * the audit actor through the reference renderer's unresolved affordance, not
+ * as a bare text cell. That is STRICTLY STRONGER than the assertion it
+ * replaces, which passed for an empty cell too.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -69,7 +103,15 @@ describe('DetailView header title — record-key probe before the Record # floor
 describe('RecordMetaFooter — audit fields default to a sys_user reference (#2688)', () => {
   const OPAQUE_ID = 'g3WkZnvugj4DnYw8u5Mo6ig3ljDhiFGO';
 
-  it('never prints the raw created_by id when the schema omits the audit field', () => {
+  /**
+   * What a `text` cell would have printed: the bare string as the span's whole
+   * content, with no marker element around it. This is the degradation
+   * objectui#2688 located, and it is what these assertions refuse.
+   */
+  const renderedAsBareTextCell = (el: HTMLElement | null): boolean =>
+    el !== null && el.closest('[data-slot="unresolved-reference"]') === null;
+
+  it('routes created_by through the reference renderer when the schema omits the audit field', () => {
     render(
       <RecordMetaFooter
         data={{ created_at: '2024-06-01T00:00:00Z', created_by: OPAQUE_ID }}
@@ -78,9 +120,23 @@ describe('RecordMetaFooter — audit fields default to a sys_user reference (#26
       />,
     );
     expect(screen.getByTestId('record-meta-footer')).toBeInTheDocument();
-    // Reference renderer shows a resolved name or a muted placeholder — the
-    // opaque id itself must not leak into the footer text.
-    expect(screen.queryByText(OPAQUE_ID)).toBeNull();
+
+    // Nothing in this fixture can resolve the reference (no dataSource, no
+    // options), so the renderer reaches its unresolved arm — and that arm is
+    // the observable proof the value did NOT degrade to a `text` cell.
+    const mark = document.querySelector('[data-slot="unresolved-reference"]');
+    expect(mark).not.toBeNull();
+
+    // objectui#8434: additive and epistemic. The sentence must be reachable
+    // (it rides on `title`) and must state non-resolution, not absence.
+    expect(mark?.getAttribute('title')).toContain(OPAQUE_ID);
+    expect(mark?.getAttribute('title')).toMatch(/not resolved/i);
+
+    // objectui#8434: the raw value STAYS — it is the only clue for diagnosing
+    // an existing dirty row — and it stays INSIDE the affordance, which is
+    // exactly the distinction the retired `queryByText(...).toBeNull()` could
+    // not draw.
+    expect(renderedAsBareTextCell(screen.queryByText(OPAQUE_ID))).toBe(false);
   });
 
   it('still honours an explicit audit-field definition from the schema', () => {
@@ -93,6 +149,7 @@ describe('RecordMetaFooter — audit fields default to a sys_user reference (#26
         objectName="production_plan"
       />,
     );
-    expect(screen.queryByText(OPAQUE_ID)).toBeNull();
+    expect(document.querySelector('[data-slot="unresolved-reference"]')).not.toBeNull();
+    expect(renderedAsBareTextCell(screen.queryByText(OPAQUE_ID))).toBe(false);
   });
 });

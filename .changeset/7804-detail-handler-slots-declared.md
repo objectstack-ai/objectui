@@ -24,9 +24,11 @@ them. Measured on the unmodified arm:
 
 After this change both keys are refused BY NAME with the objectui#6124 guidance
 (issue `code: 'custom'` at the key's own path) and the message points at the
-node-type spelling. A version shipped as `minor` because this repo's 41-package
-`fixed` group makes `major` unavailable (`scripts/check-changeset-no-major.mjs`);
-the accept-set move is the breaking part.
+node-type spelling. A version shipped as `minor` because this package ships
+inside the `fixed` group `.changeset/config.json` enumerates, where any
+`major` would carry every member with it, so `major` is unavailable
+(`scripts/check-changeset-no-major.mjs`); the accept-set move is the breaking
+part.
 
 **Migration.** Nothing in the corpus has to change: no authored `'detail'`
 document in this repository, its examples or its docs writes either key — they

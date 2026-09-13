@@ -925,8 +925,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
   "objectName": "tasks",
   "groupBy": "status",
   "titleField": "title",
-  "cardFields": ["assignee", "due_date"],
-  "quickAdd": true
+  "cardFields": ["assignee", "due_date"]
 }
 ```
 
@@ -939,12 +938,12 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 | `cardFields` | `string[]` | Fields rendered on each card. |
 | `filter` | `any[]` | Query filter, forwarded verbatim as `$filter`. |
 | `limit` | `number` | Fetch window for the board (default 100). |
-| `quickAdd` | `boolean` | Show a Quick Add button at the bottom of each column. |
 | `coverImageField` | `string` | Field whose URL renders as the card cover image. |
-| `allowCollapse` | `boolean` | Allow lanes to collapse and expand. |
 | `conditionalFormatting` | `KanbanConditionalFormattingRule[]` | Card colouring rules — native `{ field, operator, value }` or spec `{ condition, style }`. |
 
 > `groupField` is refused by name (objectui#7322): the renderer reads `groupBy`.
+
+> **`quickAdd` and `allowCollapse` were rows of the table above and are not authorable on this board.** `allowCollapse` is **refused by name** by the strict authoring face, which does not declare it at all — a document carrying it fails validation rather than merely going unread, and `@object-ui/plugin-kanban` has no read site for it. `quickAdd` still parses, because the strict face does declare it, but an object-bound board never honours it: the Quick Add control is gated on an `onQuickAdd` runtime slot and no `object-kanban` path supplies one, so `@object-ui/sdui-parser` answers an authored `quickAdd: true` with an `inert-quick-add` warning. objectui#8285 ruled that key retired (director seat, decision batch 91). ⚠️ `@object-ui/types` still declares **both** on its mirror of this face, so a reader will find them there; that half is objectui#8801, not this table.
 
 > `columns` is declared on this face since objectui#8913, as the pair of array shapes `@objectstack/spec` declares — an array of `{ id, title }` lanes, **or** an array of bare value strings. A **mixed** array is refused: the renderer decides which shape it has from the first element alone, so a mix yields a blank lane and mis-bucketed cards. A lane accepts `id`, `title`, `cards`, `limit`, `className` and `collapsed`, which are the members the board implementations read; `id` is a **string** — the authored face keeps that narrowing, and since objectui#8993 a non-string lane id no longer renders every card twice: the bucketer's leftover sweep keys membership the way the injection already did (a lane `1` takes the group `'1'`). When a lane carries `cards`, each card is judged — a card with no `title` is refused. An undeclared lane key is accepted and dropped, not refused, which is this tolerant face's posture; the strict authoring face refuses it by name.
 >

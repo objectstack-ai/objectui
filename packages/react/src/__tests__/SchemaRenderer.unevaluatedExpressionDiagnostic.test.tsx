@@ -25,6 +25,7 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 import {
   collectUnevaluatedExpressions,
   findExpressionSources,
@@ -53,9 +54,11 @@ const SpreadProbe = (props: any) => (
 
 const renderWithData = (schema: any) =>
   render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA } as any}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA } as any}>
       <SchemaRenderer schema={schema} />
     </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
   );
 
 /** Only the diagnostic's own lines — never the whole console.error traffic. */
@@ -115,9 +118,11 @@ describe('SchemaRenderer — unevaluated `${…}` diagnostic (objectui#4795)', (
       const schema = { type: 'test:probe-4795', value: '${data.n}' };
       const { rerender } = renderWithData(schema);
       rerender(
+        <PredicateScopeProvider scope={{ data: DATA }}>
         <SchemaRendererContext.Provider value={{ dataSource: DATA } as any}>
           <SchemaRenderer schema={schema} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(shouts(spy)).toHaveLength(1);
     });

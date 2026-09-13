@@ -45,6 +45,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+// objectui#9239 — the PROTOCOL's own row, read directly so the pins below
+// measure it rather than restate it. `@objectstack/spec` is a declared
+// dependency of this package; `ComponentPropsMap` is its published UI surface.
+import { ComponentPropsMap } from '@objectstack/spec/ui';
+
 import { ObjectCalendarSchema, ObjectGanttSchema, safeValidateSchema } from '../zod/index.zod';
 import { BaseSchema } from '../zod/base.zod';
 import type {
@@ -80,14 +85,22 @@ export type _CalendarObjectNameIsOptionalKey =
   Expect< IsOptionalKey< TsObjectCalendarSchema, 'objectName' > >;
 
 /**
- * `data` is DECLARED, optional, and `ViewData` — not `any`. Deleting the member
- * does NOT fall through to the index signature: it lands on the INHERITED
- * `BaseSchema.data?: any` (a declared member wins over an index signature), and
- * `Equal< any, ViewData | undefined >` is false -> red. That is the whole
- * reason the member is declared here rather than left to the base.
+ * `data` is DECLARED, optional, and the ARRAY of PRE-FETCHED RECORDS the
+ * protocol's row declares — not `any`, and ⛔ no longer `ViewData`
+ * (objectui#9239). Deleting the member does NOT fall through to the index
+ * signature: it lands on the INHERITED `BaseSchema.data?: any` (a declared
+ * member wins over an index signature), and `Equal< any, … >` is false -> red.
+ * That is the whole reason the member is declared here rather than left to the
+ * base.
+ *
+ * The shape is written out rather than re-derived from the spec, deliberately:
+ * the declaration DERIVES `ComponentPropsMap['object-calendar'].data`
+ * (`z.array(z.unknown()).optional()` on `@objectstack/spec` 17.4.0), so a
+ * protocol move would silently re-shape this repository's published type. This
+ * row is what makes such a move LOUD instead.
  */
-export type _CalendarDataIsOptionalViewData =
-  Expect< Equal< TsObjectCalendarSchema['data'], ViewData | undefined > >;
+export type _CalendarDataIsOptionalRecordArray =
+  Expect< Equal< TsObjectCalendarSchema['data'], unknown[] | undefined > >;
 export type _CalendarDataIsOptionalKey =
   Expect< IsOptionalKey< TsObjectCalendarSchema, 'data' > >;
 
@@ -97,13 +110,35 @@ export type _CalendarStaticDataIsOptionalAnyArray =
 export type _CalendarStaticDataIsOptionalKey =
   Expect< IsOptionalKey< TsObjectCalendarSchema, 'staticData' > >;
 
-/** One concept, one type: the calendar's three keys are the gantt's three keys. */
-export type _CalendarDataMatchesGantt =
-  Expect< Equal< TsObjectCalendarSchema['data'], TsObjectGanttSchema['data'] > >;
+/**
+ * One concept, one type — for TWO of the three keys now. Each was RE-CHECKED
+ * individually when `data` left this set (objectui#9239), ⛔ not deleted by
+ * association with it: `staticData` is `any[] | undefined` on both members and
+ * `objectName` is `string | undefined` on both, so both rows still hold and
+ * still bite.
+ */
 export type _CalendarStaticDataMatchesGantt =
   Expect< Equal< TsObjectCalendarSchema['staticData'], TsObjectGanttSchema['staticData'] > >;
 export type _CalendarObjectNameMatchesGantt =
   Expect< Equal< TsObjectCalendarSchema['objectName'], TsObjectGanttSchema['objectName'] > >;
+
+/**
+ * ⭐ …and `data` is pinned as DIFFERENT, which is objectui#9239's whole subject.
+ * A bare deletion of the old equality would have left the divergence unwitnessed
+ * — nothing would notice the two keys silently converging again — so the row is
+ * INVERTED rather than removed, and BOTH sides are named below so the inversion
+ * cannot be satisfied by the wrong member moving.
+ *
+ * `object-calendar` carries the protocol's ARRAY arm
+ * (`ComponentPropsMap['object-calendar'].data`); `object-gantt` has no
+ * `ComponentPropsMap` row at all, so the published row that governs it is this
+ * package's own `ViewDataSchema.optional()` and it STAYS. ⛔ Do not "fix" this
+ * pin by moving the gantt.
+ */
+export type _CalendarDataDiffersFromGantt =
+  Expect< Equal< Equal< TsObjectCalendarSchema['data'], TsObjectGanttSchema['data'] >, false > >;
+export type _GanttDataIsStillOptionalViewData =
+  Expect< Equal< TsObjectGanttSchema['data'], ViewData | undefined > >;
 
 /**
  * The document the plugin page teaches under "With Static Data". It did not
@@ -116,10 +151,14 @@ export const STATIC_DATA_DOCUMENT: TsObjectCalendarSchema = {
   staticData: [{ id: 1, title: 'Team Meeting', startDate: '2024-01-15T10:00:00' }],
 };
 
-/** …and the `data`-authored one, typed against the declared `ViewData`. */
+/**
+ * …and the `data`-authored one, typed against the declared ARRAY of pre-fetched
+ * records (objectui#9239). The provider-block spelling this literal used to
+ * carry is now a compile error here, which is the declaration half of the fix.
+ */
 export const DATA_DOCUMENT: TsObjectCalendarSchema = {
   type: 'object-calendar',
-  data: { provider: 'value', items: [{ id: 1, title: 'Team Meeting' }] },
+  data: [{ id: 1, title: 'Team Meeting' }],
 };
 
 /**
@@ -134,8 +173,11 @@ export const DATA_DOCUMENT: TsObjectCalendarSchema = {
  * `tsconfig.test.json` rather than quietly meaning nothing.
  *
  * ⚠️ It is NOT the same fix as this file's own subject. `object-calendar`
- * joined the `object-map` / `object-gantt` ladder — `data` (a `ViewData`
- * provider block) → `staticData` → `objectName`, `requireRecordSource`. The
+ * joined the `object-map` / `object-gantt` ladder — `data` → `staticData` →
+ * `objectName`, `requireRecordSource`. (What `data` ADMITS diverged later:
+ * objectui#9239 put the calendar's rung on the protocol's ARRAY arm while the
+ * map's and the gantt's stay `ViewData` provider blocks. The LADDER is what is
+ * shared, not the arm.) The
  * kanban board walks its own: pre-fetched `data` prop → `bind` → an inline ROW
  * ARRAY on `data` → `objectName`, with no `staticData` rung, and objectui#7651
  * (ruled B, closed `not_planned`) refuses giving it the shared one. Its
@@ -156,13 +198,32 @@ export const KANBAN_NO_LONGER_REQUIRES_OBJECT_NAME: TsObjectKanbanSchema = {
 /* ── Runtime pins ─────────────────────────────────────────────────────────── */
 
 /**
- * The four documents the card's verdict table is written over. `data` uses
- * the value provider — the config `staticData` is folded into, so the two
- * accepted-without-`objectName` rows exercise different keys but one route.
+ * ⭐ The `data` rung's VALUE, per member — the one thing the two ladders stopped
+ * sharing (objectui#9239). The LADDER is still shared (`requireRecordSource`
+ * asks only whether a rung is present, `!== undefined`, whatever its kind); what
+ * each member's published `data` row ADMITS is not:
+ *
+ *  - `object-calendar` — `ComponentPropsMap['object-calendar'].data` is
+ *    `z.array(z.unknown()).optional()`, an ARRAY of pre-fetched records.
+ *  - `object-gantt` — no `ComponentPropsMap` row exists, so its published row is
+ *    this package's own `ViewDataSchema.optional()`: a PROVIDER BLOCK.
+ */
+const DATA_ARM = {
+  'object-calendar': [{ id: 1, title: 'Team Meeting' }],
+  'object-gantt': { provider: 'value', items: [{ id: 1, title: 'Team Meeting' }] },
+} as const;
+type LadderMember = keyof typeof DATA_ARM;
+
+/**
+ * The four documents the card's verdict table is written over, on the CALENDAR's
+ * arm. Before objectui#9239 `dataOnly` was the value-provider config — the one
+ * `staticData` is folded into — so the two accepted-without-`objectName` rows
+ * exercised different keys but one route. They still exercise different keys;
+ * the route is now literally different too, which is the point of that card.
  */
 const DOCUMENTS = {
   staticOnly: { staticData: [{ id: 1, title: 'Team Meeting', startDate: '2024-01-15T10:00:00' }] },
-  dataOnly: { data: { provider: 'value', items: [{ id: 1, title: 'Team Meeting' }] } },
+  dataOnly: { data: DATA_ARM['object-calendar'] },
   none: {},
   objectOnly: { objectName: 'events' },
 } as const;
@@ -174,6 +235,17 @@ const REFUSAL_MESSAGE = '`object-calendar` has no record source: declare one of 
 
 function withType(type: string, name: DocumentName): Record<string, unknown> {
   return { type, ...DOCUMENTS[name] };
+}
+
+/**
+ * The same four documents with the `data` rung on the arm THAT member's own
+ * published row declares (objectui#9239). Used by the gantt parity block below,
+ * which measures the LADDER — had it kept feeding one arm to both members, the
+ * gantt would refuse `dataOnly` by KIND and the comparison would read as a
+ * ladder divergence that does not exist.
+ */
+function withArm(type: LadderMember, name: DocumentName): Record<string, unknown> {
+  return name === 'dataOnly' ? { type, data: DATA_ARM[type] } : withType(type, name);
 }
 
 /** Report the issues rather than `false`, so a red run says what broke. */
@@ -229,8 +301,8 @@ describe('objectui#7313 — the four documents, through the member and the publi
 });
 
 describe('objectui#7313 — parity with `ObjectGanttSchema`, verdict for verdict', () => {
-  const verdicts = (member: { safeParse: (v: unknown) => { success: boolean } }, type: string) =>
-    DOCUMENT_NAMES.map((name) => member.safeParse(withType(type, name)).success);
+  const verdicts = (member: { safeParse: (v: unknown) => { success: boolean } }, type: LadderMember) =>
+    DOCUMENT_NAMES.map((name) => member.safeParse(withArm(type, name)).success);
 
   it('the two members agree on all four documents, and the vector is not vacuous', () => {
     const calendar = verdicts(ObjectCalendarSchema, 'object-calendar');
@@ -269,7 +341,16 @@ describe('objectui#7313 — `data` and `staticData` are DECLARED, not passthroug
     const r = ObjectCalendarSchema.safeParse({ type: 'object-calendar', objectName: 'events', data: 'nope' });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error.issues.map((i) => i.path[0])).toContain('data');
-    expect(ObjectCalendarSchema.safeParse({ type: 'object-calendar', objectName: 'events', data: { provider: 'object', object: 'events' } }).success).toBe(true);
+    // ⭐ objectui#9239 — the PROVIDER BLOCK is a wrong-typed `data` now too. This
+    // line asserted `success: true` until that card, and it was the mirror's half
+    // of the divergence: the protocol refused this document by kind while this
+    // published face called it valid. `objectName` is supplied, so the refusal
+    // below can only be the KEY's — the refinement is satisfied either way.
+    const block = ObjectCalendarSchema.safeParse({ type: 'object-calendar', objectName: 'events', data: { provider: 'object', object: 'events' } });
+    expect(block.success).toBe(false);
+    if (!block.success) expect(block.error.issues.map((i) => i.path[0])).toContain('data');
+    // …and the ARRAY of pre-fetched records is what the key admits instead.
+    expect(ObjectCalendarSchema.safeParse({ type: 'object-calendar', objectName: 'events', data: DATA_ARM['object-calendar'] }).success).toBe(true);
   });
 
   it('a wrong-typed `staticData` is refused AT the key', () => {
@@ -334,5 +415,85 @@ describe('objectui#7313 — the declaration names a live read, in the declared o
     expect(page).toContain("const valueProviderCalendar: ObjectCalendarSchema = {\n  type: 'object-calendar',\n  staticData: [");
     // No bare `object-calendar` literal is left unannotated on the page.
     expect(page.match(/^const \w+ = \{\n\s+type: 'object-calendar'/gm)).toBeNull();
+  });
+});
+
+/* ── objectui#9239 — the `data` ARM, and the face that had it wrong ────────── */
+
+/**
+ * objectui#9239 — both published faces of this package declared the `{ provider,
+ * items }` PROVIDER BLOCK under `ObjectCalendarSchema.data` while
+ * `ComponentPropsMap['object-calendar'].data` on `@objectstack/spec` declared
+ * `z.array(z.unknown()).optional()`. One key, two published shapes that refuse
+ * each other BY KIND — and after objectui#8348 put the renderer on the
+ * protocol's side, this mirror was the LONE published face still teaching a
+ * spelling the renderer, `os validate` and the save gate all refuse.
+ *
+ * The rows below measure the protocol directly rather than restating it: the
+ * mirror is asked for a verdict on the same two documents the protocol's own row
+ * is asked for, so a future protocol move breaks this file instead of quietly
+ * re-opening the divergence. That is the objectui#4631 class ("three declared
+ * surfaces that disagree") closed on this key from the runtime side; the type
+ * side is closed by the declaration DERIVING the protocol's row.
+ */
+describe('objectui#9239 — `data` is the protocol\'s ARRAY arm, on both faces', () => {
+  const PROTOCOL_ROW = ComponentPropsMap['object-calendar'];
+  const BLOCK = DATA_ARM['object-gantt'];
+  const ARRAY = DATA_ARM['object-calendar'];
+
+  it('the protocol refuses the provider block and accepts the array — measured, not assumed', () => {
+    const refused = PROTOCOL_ROW.safeParse({ objectName: 'events', data: BLOCK });
+    expect(refused.success).toBe(false);
+    if (!refused.success) {
+      expect(refused.error.issues.map((i) => i.path[0])).toContain('data');
+      expect(refused.error.issues.some((i) => (i as { expected?: string }).expected === 'array')).toBe(true);
+    }
+    expect(PROTOCOL_ROW.safeParse({ objectName: 'events', data: ARRAY }).success).toBe(true);
+  });
+
+  it('⭐ the mirror now returns the protocol\'s verdict on both documents', () => {
+    // THE ablation row. Put `ObjectCalendarSchema.data` back on
+    // `ViewDataSchema.optional()` and the first expectation flips to `true`,
+    // reddening here — the divergence cannot come back silently.
+    expect(ObjectCalendarSchema.safeParse({ type: 'object-calendar', objectName: 'events', data: BLOCK }).success).toBe(false);
+    expect(ObjectCalendarSchema.safeParse({ type: 'object-calendar', objectName: 'events', data: ARRAY }).success).toBe(true);
+
+    // Verdict-for-verdict against the protocol's own row, so neither side can
+    // drift alone. Non-vacuity is the `.size` below: a pair that agreed by
+    // accepting everything would "agree" too.
+    const documents = [BLOCK, ARRAY, 'nope', []];
+    const mirror = documents.map((d) => ObjectCalendarSchema.safeParse({ type: 'object-calendar', objectName: 'events', data: d }).success);
+    const protocol = documents.map((d) => PROTOCOL_ROW.safeParse({ objectName: 'events', data: d }).success);
+    expect(mirror).toEqual(protocol);
+    expect(new Set(mirror).size).toBe(2);
+    expect(mirror).toEqual([false, true, false, true]);
+  });
+
+  it('the two members diverge on the ARM only — each refuses the other\'s `data` document', () => {
+    // `data` is present in both, so `requireRecordSource` is satisfied and the
+    // only thing that can refuse is the KEY. Path `[]` would be the refinement.
+    const calendarOnGanttArm = ObjectCalendarSchema.safeParse({ type: 'object-calendar', data: BLOCK });
+    expect(calendarOnGanttArm.success).toBe(false);
+    if (!calendarOnGanttArm.success) expect(calendarOnGanttArm.error.issues.map((i) => i.path[0])).toContain('data');
+
+    const ganttOnCalendarArm = ObjectGanttSchema.safeParse({ type: 'object-gantt', data: ARRAY });
+    expect(ganttOnCalendarArm.success).toBe(false);
+    if (!ganttOnCalendarArm.success) expect(ganttOnCalendarArm.error.issues.map((i) => i.path[0])).toContain('data');
+
+    // ⛔ `object-gantt` was NOT moved: its own arm still validates.
+    expect(ObjectGanttSchema.safeParse({ type: 'object-gantt', data: BLOCK }).success).toBe(true);
+  });
+
+  it('the LADDER is untouched: the refinement still counts presence, whatever the arm', () => {
+    // An `object-calendar` whose `data` is on the WRONG arm is refused at the
+    // key, NOT sent down to `staticData` — the refinement never fires, because
+    // `data !== undefined`. Exactly one issue, and it is the key's.
+    const r = ObjectCalendarSchema.safeParse({ type: 'object-calendar', data: BLOCK });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues).toHaveLength(1);
+      expect(r.error.issues[0].path).toEqual(['data']);
+      expect(r.error.issues[0].message).not.toBe(REFUSAL_MESSAGE);
+    }
   });
 });

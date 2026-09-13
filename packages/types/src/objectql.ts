@@ -104,6 +104,12 @@ import type {
   ChartAggregate,
   GanttConfig as SpecGanttConfig,
   CalendarConfig as SpecCalendarConfig,
+  // objectui#9239 — `ComponentPropsMap['object-calendar']`'s author state, so
+  // `ObjectCalendarSchema.data` below DERIVES the protocol's `data` row rather
+  // than re-spelling it. Aliased because the bare name is the protocol's, and a
+  // local symbol under a `@objectstack/spec` export's name reads to the next
+  // agent as the spec's own definition (`pnpm check:spec-symbols`).
+  ObjectCalendarProps as SpecObjectCalendarProps,
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
@@ -2770,16 +2776,45 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   objectName?: string;
   /**
-   * Data source configuration. Read FIRST by `getDataConfig` — `if
-   * (schema.data) return schema.data;` — ahead of `staticData` / `objectName`.
+   * PRE-FETCHED RECORDS — an ARRAY, drawn in place of the calendar's own query.
+   * Read FIRST by the shared record-source ladder
+   * (`resolveRecordSourceConfig(schema, 'array')` in `@object-ui/core`), ahead
+   * of `staticData` / `objectName`.
    *
    * Declared by objectui#7313, in the same stroke as the mirror's `data`: until
    * then the read landed on `BaseSchema`'s index signature on this side and
    * on `.passthrough()` on the mirror's, so the record source the resolver
-   * prefers was the one neither face named. Same type as
-   * {@link ObjectMapSchema.data}.
+   * prefers was the one neither face named.
+   *
+   * ⛔ NOT `ViewData`, and NOT the same type as {@link ObjectMapSchema.data} —
+   * that is what objectui#9239 changed here, and it is a BREAKING NARROWING of
+   * a published authoring type. Until it, both published faces of this package
+   * declared the `{ provider, items }` PROVIDER BLOCK on this key while the
+   * protocol declared an array, so an author validating against
+   * `@object-ui/types` got a green verdict for metadata `os validate`, the save
+   * gate and (since objectui#8348) the renderer all refuse — `declared !==
+   * enforced` with the declaration on the wrong side, the shape AGENTS.md #0.1
+   * exists to prevent. Maintainer ruling, decision batch #83 (2026-09-08),
+   * verbatim: 「8348 以协议为准」.
+   *
+   * DERIVED from the protocol's own row rather than re-spelled, so this key
+   * cannot drift from it a second time: `ComponentPropsMap['object-calendar']`
+   * (the spec's own `ObjectCalendarPropsSchema`) declares
+   * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
+   * the internal fetch"*.
+   * MEASURED on the installed artifact at `@objectstack/spec` 17.4.0 — the
+   * version this repository's `pnpm-lock.yaml` resolves — through the published
+   * `@objectstack/spec/ui` entry point: the provider block returns
+   * `success=false` with `expected: 'array'` at `path: ['data']`, the array
+   * returns `success=true`. The same reading is written down, per block, in
+   * `packages/core/src/utils/record-source.ts`.
+   *
+   * ⛔ The sibling blocks are NOT following: `object-map` and `object-gantt`
+   * have no `ComponentPropsMap` row at all, so the published row that governs
+   * them is this package's own `ObjectMapSchema.data` / `ObjectGanttSchema.data`
+   * — `ViewData` on both, deliberately kept.
    */
-  data?: ViewData;
+  data?: SpecObjectCalendarProps['data'];
   /** Inline records, wrapped into a `{ provider: 'value' }` config by `getDataConfig`. */
   staticData?: any[];
   /** Field for event start */

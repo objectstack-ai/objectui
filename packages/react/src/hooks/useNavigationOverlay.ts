@@ -139,8 +139,23 @@ export interface UseNavigationOverlayOptions {
   objectName?: string;
   /** External onNavigate callback (e.g., from ActionProvider or parent) */
   onNavigate?: (recordId: string | number, action?: string) => void;
-  /** External onRowClick callback — if set, takes full priority */
-  onRowClick?: (record: Record<string, unknown>) => void;
+  /**
+   * External onRowClick callback — if set, takes full priority.
+   *
+   * Declares BOTH arguments `handleClick` hands it: the record, and the
+   * optional modifier payload (`HandleClickModifiers`, declared just below)
+   * that lets a host implement Cmd/Ctrl/middle-click for itself. The second
+   * argument was always delivered; until objectui#9357 this line declared only
+   * the first and `handleClick` asserted the declaration away in order to make
+   * the call — so the payload was invisible on the one line a host reads, and
+   * every consumer that passes its own handler through copied the understated
+   * spelling outward.
+   *
+   * A one-parameter handler stays assignable here, so nothing a caller already
+   * wrote has to change; what changes is that a caller who WANTS the payload
+   * can now see that it exists.
+   */
+  onRowClick?: (record: Record<string, unknown>, event?: HandleClickModifiers) => void;
 }
 
 /**
@@ -265,8 +280,14 @@ export function useNavigationOverlay(
       // External onRowClick takes full priority. Forward the modifier event
       // so parent handlers (e.g. ObjectView) can still implement Cmd/Ctrl/
       // middle-click → open in new tab.
+      //
+      // Called straight through the declaration (objectui#9357). This used to
+      // carry a type assertion widening the option to two parameters at the
+      // call — the producer paying for its own understated declaration, which
+      // AGENTS.md #0.1 sends back to the producer. The producer is this file,
+      // and the option above now declares what this line passes.
       if (onRowClick) {
-        (onRowClick as (r: Record<string, unknown>, e?: HandleClickModifiers) => void)(record, event);
+        onRowClick(record, event);
         return;
       }
 

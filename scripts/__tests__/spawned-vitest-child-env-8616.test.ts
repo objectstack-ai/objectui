@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { childVitestEnv } from './helpers/child-vitest-env';
+import { SPAWNERS } from './helpers/spawners';
 
 /**
  * A vitest a TEST spawns must not inherit this container's AGENT markers
@@ -74,9 +75,6 @@ import { childVitestEnv } from './helpers/child-vitest-env';
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-
-/** Node child-process entry points that start a program. */
-const SPAWNERS = new Set(['spawnSync', 'spawn', 'execFileSync', 'execFile', 'execSync', 'exec', 'fork']);
 
 /** Test files anywhere in the workspace — the only files this gate judges. */
 function testFiles(): string[] {

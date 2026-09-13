@@ -11,9 +11,11 @@
  * objectui#5018's precedence flip safe.
  *
  * `generateViewSchema('map')` builds an `object-map` schema by spreading the
- * CONTENTS of `options.map` at the top level (plus a `locationField` that always
- * falls back to `'location'`). The product therefore carries the flat spelling
- * and **no `map` key at all**.
+ * CONTENTS of `options.map` at the top level. The product therefore carries the
+ * flat spelling and **no `map` key at all**. (It used to add a `locationField`
+ * floored at `'location'`; that floor was deleted by objectui#8169 together
+ * with `getMapConfig`'s own coordinate guesses — bindings are never
+ * fabricated.)
  *
  * That is load-bearing, not incidental. The maintainer ruling on objectui#5018
  * (2026-08-17, 「同意」) made the `map` block outrank the flat spelling inside
@@ -109,10 +111,18 @@ describe('ObjectView flattens `options.map` and emits NO `map` key (objectui#501
     expect(schema.map).toBeUndefined();
   });
 
-  it('still emits the `locationField` default when nothing is configured', async () => {
+  it('emits NO `locationField` floor when nothing is configured (objectui#8169)', async () => {
     const schema = await renderMapView({});
 
-    expect(schema.locationField).toBe('location');
+    // Ruled 2026-09-07 「同意」 (option B): the floor and `getMapConfig`'s
+    // coordinate guesses went in one change, so an undeclared map view now
+    // produces a schema with no binding in it and `ObjectMap` refuses rather
+    // than painting an empty map. ⛔ Deleting this floor alone would have
+    // WIDENED the guess (the floor forced the component's flat branch, which
+    // carries no `latitudeField` / `longitudeField`); the joined behaviour is
+    // pinned in `plugin-map/src/ObjectMap.unboundRefusal-8169.test.tsx`.
+    expect(schema.locationField).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(schema, 'locationField')).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(schema, 'map')).toBe(false);
   });
 });

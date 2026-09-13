@@ -2840,11 +2840,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // the author actually wrote, so an undeclared `zoom`/`center` stays
         // absent and `ObjectMap` still fits the camera to the queried records
         // (objectui#5000, objectui#4941).
+        //
+        // ⛔ NO `locationField: … || 'location'` FLOOR (objectui#8169 — ruled
+        // 2026-09-07 「同意」, option B; the same correction objectui#7070 made
+        // to the gantt date axes and objectui#7029 to the calendar). It stood
+        // here as a duplicate of `getMapConfig`'s own default branch, and its
+        // real effect was to SHADOW half of it: the floor forced the flat
+        // branch, which returned that one key and no `latitudeField` /
+        // `longitudeField`, so an undeclared view invented ONE name where the
+        // component would have invented three. Both faces moved in one change:
+        // the component's guesses are gone too, and an unbound map now renders
+        // its "Map configuration required" refusal instead of an empty one.
+        // ⇒ deleting this floor no longer widens anything — it is what makes
+        // the refusal reachable from a list view at all.
         const mapConfig = resolveListMapConfig(schema);
         return {
           type: 'object-map',
           ...baseProps,
-          locationField: mapConfig.locationField || 'location',
           ...mapConfig,
         };
       }

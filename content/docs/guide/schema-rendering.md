@@ -68,7 +68,7 @@ interface BaseSchema {
   "visibleOn": "${user.role === 'admin'}",
   "body": {
     "type": "text",
-    "content": "Total Users: ${data.stats.totalUsers}"
+    "content": "Total Users: ${stats.totalUsers}"
   }
 }
 ```
@@ -79,52 +79,63 @@ Expression context does not arrive as a prop. `SchemaRenderer` declares exactly 
 `schema`, and every other prop it is handed is forwarded to the component the schema names —
 so a `data` prop written on the element reaches the evaluator through nothing. Because it is
 forwarded rather than refused, nothing throws and nothing warns; the expression simply never
-resolves. The scope comes from `SchemaRendererProvider`, which publishes its `dataSource`
-under the name `data`:
+resolves. The scope comes from `PredicateScopeProvider`, which publishes each name you give
+it as an expression root:
 
 ```tsx
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react'
+import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
 import type { BaseSchema } from '@object-ui/types'
 
 // The page schema from the first example on this page.
 declare const schema: BaseSchema
 
-const dataSource = {
+// Every name here becomes a root the schema's expressions can read.
+const scope = {
   user: { name: 'John', role: 'admin' },
   stats: { totalUsers: 1234 },
 }
 
 function App() {
   return (
-    <SchemaRendererProvider dataSource={dataSource}>
+    <PredicateScopeProvider scope={scope}>
       <SchemaRenderer schema={schema} />
-    </SchemaRendererProvider>
+    </PredicateScopeProvider>
   )
 }
 ```
 
-The scope the evaluator builds holds four names, and nothing else:
+An app built on `@object-ui/app-shell` does not mount this provider itself: the shell's
+`ExpressionProvider` already feeds the same channel with `user` (the signed-in user, also
+readable as `current_user`) and `features`.
+
+The scope the evaluator builds is what you published, plus three names the renderer supplies:
 
 | name | what it holds |
 |---|---|
-| `data` | the `dataSource` the provider above published — everything you passed in |
+| every key of `scope` | exactly what you put there — `stats`, `current_user`, whatever the page needs |
 | `page` | page-local variables, for predicates that gate on another component's state |
 | `record` | the row a record surface is bound to, when there is one |
-| `current_user` (aliased to `user`) | the signed-in user, published by the host's `ExpressionProvider` — not by anything on this page |
+| `current_user` | an alias of whatever you published as `user`; the host's `ExpressionProvider` publishes the signed-in user there |
 
 A name outside that set resolves to nothing, and an unresolvable template is not an error:
 the evaluator hands back its own source text, so the characters you typed are what the reader
 sees.
 
+> **`dataSource` is not an expression root.** `SchemaRendererProvider`'s `dataSource` carries
+> the host's `DataSource` *adapter* — the object renderers call `find()` on. The renderer used
+> to publish that adapter under the name `data`; an adapter answers no `data.*` path, so the
+> root was constant for every conformant host, and objectui#9308 removed it. A `${data.…}`
+> expression now reads whatever *you* published under `data`, and nothing if you published
+> none. At the runtime layer the row is `record` (ADR-0089).
+
 ### Accessing Data in Schemas
 
-Use expression syntax `${}` to reference the scope, and reach your own values through the
-`data.` prefix:
+Use expression syntax `${}` to reference the scope, by the name you published it under:
 
 ```json
 {
   "type": "text",
-  "content": "Welcome, ${data.user.name}!"
+  "content": "Welcome, ${user.name}!"
 }
 ```
 
@@ -409,11 +420,11 @@ const pageSchema = {
 
 ### 2. Use Data Context Effectively
 
-Put everything the schema's expressions need on one `dataSource`, mounted above the tree —
-not on the renderer, which does not read it:
+Put everything the schema's expressions need on one scope, mounted above the tree — not on
+the renderer, which does not read it:
 
 ```tsx
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react'
+import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
 import type { BaseSchema } from '@object-ui/types'
 
 // The reader's own values.
@@ -422,8 +433,8 @@ declare const userData: { name: string }
 declare const userSettings: { theme: string }
 declare const dashboardStats: { totalUsers: number }
 
-// ✅ Good — one provider, and every expression reaches it through `data.`
-const dataSource = {
+// ✅ Good — one provider, and every expression reads a name published on it
+const scope = {
   user: userData,
   settings: userSettings,
   stats: dashboardStats,
@@ -431,9 +442,9 @@ const dataSource = {
 
 function Dashboard() {
   return (
-    <SchemaRendererProvider dataSource={dataSource}>
+    <PredicateScopeProvider scope={scope}>
       <SchemaRenderer schema={schema} />
-    </SchemaRendererProvider>
+    </PredicateScopeProvider>
   )
 }
 ```

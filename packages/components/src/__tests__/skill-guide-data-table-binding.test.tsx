@@ -66,7 +66,7 @@ import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 
 // The REAL renderers, imported at module scope so `data-table` / `list` are in
 // the registry before the first render (AGENTS.md §测试纪律 — never behind a
@@ -165,9 +165,11 @@ function bindWarnings(): string[] {
 
 function renderNode(schema: unknown, dataSource: unknown) {
   return render(
-    <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
+    <PredicateScopeProvider scope={(dataSource ?? {}) as Record<string, unknown>}>
+      <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererProvider>,
+    </SchemaRendererProvider>
+    </PredicateScopeProvider>,
   );
 }
 

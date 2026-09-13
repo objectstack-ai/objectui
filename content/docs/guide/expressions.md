@@ -15,12 +15,13 @@ Expressions are JavaScript-like code snippets embedded in schemas using the `${}
 }
 ```
 
-With data:
+With this published as the expression scope:
 ```tsx
-const data = { user: { name: "Alice" } }
+const scope = { user: { name: "Alice" } }
 ```
 
-This renders: **"Hello, Alice!"**
+This renders: **"Hello, Alice!"** — `user` is a root because the host published a key by that
+name. [Data Context](#data-context) below shows the provider that publishes one.
 
 ## Basic Syntax
 
@@ -145,25 +146,44 @@ Disable component when expression is true:
 {
   "type": "button",
   "label": "Submit",
-  "disabledOn": "${form.submitting || !form.isValid}"
+  "disabledOn": "${record.status === 'submitted'}"
 }
 ```
 
 ## Data Context
 
-### Accessing Root Data
+### Where the names come from
 
-The root data object is available directly:
+Expression scope does **not** arrive as a prop. `SchemaRenderer` declares exactly one prop,
+`schema`, and forwards every other prop it is handed straight through to the component the
+schema names — so a `data`, `dataSource` or `debug` written on the element is neither read nor
+refused. Nothing throws and nothing warns; the expression simply never resolves, and an
+unresolvable template is returned as its own source text, so the characters you typed are what
+the reader sees.
 
-<!-- doc-snippet: fragment — closes on a bare `<SchemaRenderer />` tag whose `schema` is the reader's own document, so the block is a data shape followed by a tag rather than a program -->
+The host publishes its values with `PredicateScopeProvider`, and every key it publishes becomes
+a root:
 
 ```tsx
-const data = {
-  user: { name: "Alice" },
-  settings: { theme: "dark" }
+import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+// The page schema — your own document.
+declare const schema: BaseSchema
+
+// Every name here becomes a root the schema's expressions can read.
+const scope = {
+  user: { name: 'Alice' },
+  settings: { theme: 'dark' },
 }
 
-<SchemaRenderer schema={schema} data={data} />
+function App() {
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
 ```
 
 ```json
@@ -172,6 +192,29 @@ const data = {
   "content": "Theme: ${settings.theme}"
 }
 ```
+
+The scope the evaluator builds is what you published, plus two names the renderer supplies:
+
+| name | what it holds |
+|---|---|
+| every key of `scope` | exactly what you put there — `user`, `settings`, whatever the page needs |
+| `record` | the row a record surface is bound to, when there is one |
+| `page` | page-local variables, for predicates that gate on another component's state |
+
+`current_user` is an alias of whatever you published as `user`; an app built on
+`@object-ui/app-shell` does not mount the provider itself, because the shell's
+`ExpressionProvider` already feeds the same channel with the signed-in `user` and `features`.
+
+> **`dataSource` is not an expression root.** `SchemaRendererProvider`'s `dataSource` carries
+> the host's `DataSource` *adapter* — the object renderers call `find()` on. The renderer used
+> to publish that adapter under the name `data`; an adapter answers no `data.*` path, so the
+> root was constant for every conformant host, and objectui#9308 removed it. A `${data.…}`
+> expression now reads whatever *you* published under `data`, and nothing if you published
+> none. **This changes the verdict of a gate already in the field**: `visible: "${data.x}"`
+> used to resolve to `undefined` and HIDE its node on every row; with no `data` key at all it
+> is unevaluable, this surface fails soft, and the node is SHOWN. At the runtime layer the row
+> is `record` (ADR-0089 D3) — rewrite such a gate to `record.*` rather than re-publishing a
+> `data` key.
 
 ### Scoped Data
 
@@ -420,6 +463,12 @@ or author each variant and gate it with a condition key:
 
 ## Form Expressions
 
+A form's own values are the **row under edit**, and the row is bound as `record` and nothing
+else — the bare shorthand (`country`) and the wrong-layer `data.country` were both retired on
+runtime record surfaces (objectui#5330 phase 2), and `record` is the canonical runtime-layer
+root (ADR-0089 D3). There is no `form` root: a predicate written against one is unevaluable,
+and a fail-soft surface answers it by showing the field on every row.
+
 ### Dependent Fields
 
 ```json
@@ -436,7 +485,7 @@ or author each variant and gate it with a condition key:
       "type": "select",
       "name": "state",
       "label": "State/Province",
-      "visibleOn": "${form.country === 'USA'}",
+      "visibleOn": "${record.country === 'USA'}",
       "options": ["CA", "NY", "TX"]
     }
   ]
@@ -467,7 +516,7 @@ evaluated on every component type:
 ```json
 {
   "type": "text",
-  "content": "Total: ${form.price * form.quantity}"
+  "content": "Total: ${record.price * record.quantity}"
 }
 ```
 
@@ -484,13 +533,13 @@ Expressions are re-evaluated when data changes. Avoid expensive operations:
   "content": "${users.map(u => expensiveOperation(u)).join(', ')}"
 }
 
-// ✅ Good: Pre-compute in data
+// ✅ Good: Pre-compute, and publish the result
 ```
 
 <!-- doc-snippet: fragment — the good half of a bad/good contrast: `users` and `expensiveOperation` are the reader's own rows and function, shown only to place the computation outside the expression -->
 
 ```tsx
-const data = {
+const scope = {
   processedUsers: users.map(u => expensiveOperation(u))
 }
 ```
@@ -521,7 +570,8 @@ All expression outputs are automatically sanitized to prevent XSS attacks.
 
 ### Expression Errors
 
-Invalid expressions show helpful error messages:
+An expression that cannot be resolved is **not** an error the reader sees, and it is not the
+same failure in both directions. Measured on the built evaluator:
 
 ```json
 {
@@ -530,23 +580,32 @@ Invalid expressions show helpful error messages:
 }
 ```
 
-Error: "Cannot read property 'invalidProperty' of undefined"
+| the scope | what the evaluator returns |
+|---|---|
+| `user` is published, `invalidProperty` is not a member of it | `undefined` — nothing is thrown |
+| no `user` root at all | the template's own **source text**, and one line on the console |
+
+So a missing member renders as nothing, and a missing root renders as the characters you
+typed. Neither raises, and neither stops the render — which is why the scope a page publishes
+has to be stated rather than assumed.
 
 ### Debug Mode
 
-Enable debug mode to see expression evaluation:
+`debug` is read off the same provider context as `dataSource`
+(`context?.debug || context?.debugFlags?.enabled`), never off the element — a `debug` written
+on `SchemaRenderer` is forwarded to the component the schema names, exactly like a `data` prop,
+and turns nothing on. Mount the provider instead:
 
-<!-- doc-snippet: fragment — a bare `<SchemaRenderer />` tag shown for the `debug` prop alone; `schema` and `data` are the reader's own -->
+<!-- doc-snippet: fragment — the provider pair shown for the `debug` flag alone; `schema` is the reader's own document, and `dataSource` is `null` because this mount is about the flag rather than about an adapter -->
 
 ```tsx
-<SchemaRenderer 
-  schema={schema} 
-  data={data}
-  debug={true}
-/>
+<SchemaRendererProvider dataSource={null} debug>
+  <SchemaRenderer schema={schema} />
+</SchemaRendererProvider>
 ```
 
-This logs all expression evaluations to the console.
+This logs all expression evaluations to the console. It is orthogonal to the expression scope:
+wrap this pair in a `PredicateScopeProvider` as well when you want both.
 
 ## Advanced Usage
 
@@ -567,12 +626,12 @@ const formatCurrency = (value: number) =>
 evaluateExpression('${formatCurrency(price)}', { formatCurrency, price: 1234.5 })
 ```
 
-That is the direct-evaluation path. A component expression rendered by
-`SchemaRenderer` resolves against the scope the renderer itself builds — the
-provider's data source (as `data`), the host scope (`user` / `current_user`) and
-page variables — so a function you registered elsewhere is not reachable from a
-schema expression. Compute the value before it reaches the schema, and bind the
-result.
+That is the direct-evaluation path, and `formatCurrency` is a root there because this call
+hands the evaluator its own context. A component expression rendered by `SchemaRenderer`
+resolves against a different scope — the names the host published through
+`PredicateScopeProvider`, plus `record` and `page` — so a function you registered elsewhere is
+not reachable from a schema expression. Compute the value before it reaches the schema, and
+bind the result.
 
 Hold an evaluator when you want one context reused — construct it, then call
 `evaluate`:
@@ -643,12 +702,12 @@ language's own. A membership test is written with the array method:
 
 ### 4. Use TypeScript
 
-Define your data types:
+Define the type of the scope you publish:
 
-<!-- doc-snippet: fragment — the typed data is followed by a bare `<SchemaRenderer />` tag and the literal is written as an elided `{ /* ... */ }`, so the block states a type rather than compiling -->
+<!-- doc-snippet: fragment — the typed scope is followed by a bare provider pair and the literal is written as an elided `{ /* ... */ }`, so the block states a type rather than compiling -->
 
 ```tsx
-interface UserData {
+interface AppScope {
   user: {
     name: string
     role: 'admin' | 'user'
@@ -656,8 +715,10 @@ interface UserData {
   }
 }
 
-const data: UserData = { /* ... */ }
-<SchemaRenderer schema={schema} data={data} />
+const scope: AppScope = { /* ... */ }
+<PredicateScopeProvider scope={scope}>
+  <SchemaRenderer schema={schema} />
+</PredicateScopeProvider>
 ```
 
 ## Next Steps

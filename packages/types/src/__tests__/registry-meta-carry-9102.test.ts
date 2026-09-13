@@ -60,7 +60,12 @@ import {
   cloneWithDef,
 } from '../zod/node-derivation.js';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
-import { deriveStrictAuthoringSchema } from '../strict-authoring-face.js';
+// ⚠️ THROUGH THE BARREL, deliberately. `../strict-authoring-face.ts` is the deep
+// module of a declared module cycle, and `strict-authoring-face-8345.test.ts`
+// pins the barrel as its SOLE entry — a direct specifier here turns that pin
+// red, which is how this import was caught. The source-reading assertions at
+// the bottom of this file address that module by PATH, never by specifier.
+import { deriveStrictAuthoringSchema } from '../zod/index.zod.js';
 import { SchemaNodeSchema } from '../zod/base.zod.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -88,6 +93,15 @@ const isZod = (v: unknown): v is z.ZodType =>
   v !== null && (typeof v === 'object' || typeof v === 'function') && '_zod' in (v as object);
 const metaOf = (node: z.ZodType): Record<string, unknown> | undefined =>
   z.globalRegistry.get(node) as Record<string, unknown> | undefined;
+/**
+ * Is this node one of zod's CALLABLE `$ZodObjectJIT` instances?
+ *
+ * ⚠️ Spelled as a helper so TypeScript does not narrow the argument to `never`
+ * at the call site: `z.ZodType` is not declared callable, so an inline
+ * `typeof n === 'function'` makes every later property read an error on a
+ * node that answers the guard perfectly well at runtime.
+ */
+const isCallableNode = (node: z.ZodType): boolean => typeof node === 'function';
 
 /** Children of a node, labelled so a derived twin's matching child can be found. */
 const childrenOf = (s: z.ZodType): [string, z.ZodType][] => {
@@ -226,7 +240,7 @@ const buildCensus = async (): Promise<Census> => {
       for (const key of Object.keys(meta)) keyPopulation.set(key, (keyPopulation.get(key) ?? 0) + 1);
       if (Object.keys(meta).some((k) => k !== 'description')) {
         nonDescriptionNodes.push(path);
-        if (typeof node === 'function') callableNonDescriptionNodes.push(path);
+        if (isCallableNode(node)) callableNonDescriptionNodes.push(path);
       }
     }
     for (const [label, c] of childrenOf(node)) censusKeys(c, `${path}${label}`, depth + 1);
@@ -355,7 +369,7 @@ describe('the zod 4 facts the carry rests on (objectui#9102)', () => {
     const walk = (n: z.ZodType, depth: number): void => {
       if (depth > 40 || seen.has(n)) return;
       seen.add(n);
-      if (typeof n === 'function' && n.description !== undefined && metaOf(n) === undefined) split.push(n);
+      if (isCallableNode(n) && n.description !== undefined && metaOf(n) === undefined) split.push(n);
       for (const [, c] of childrenOf(n)) walk(c, depth + 1);
     };
     walk(SchemaNodeSchema as unknown as z.ZodType, 0);

@@ -20,6 +20,7 @@ import {
   VIEW_FILTER_PAIR_VALUE_OPERATORS,
 } from '@objectstack/spec/ui';
 import { isAcceptedFilterComparand, ACCEPTED_FILTER_COMPARAND_TYPES_SENTENCE } from '@objectstack/spec/data';
+import { isRefusedTextComparand, textComparandRefusalReason } from './text-comparand.js';
 
 /**
  * FilterNode AST type definition
@@ -310,34 +311,6 @@ function describeExoticComparand(value: object): string {
 }
 
 /**
- * A comparand as it appears INSIDE a refusal message.
- *
- * `JSON.stringify` alone is not safe here even though it is what the message
- * wants: it THROWS on a BigInt and on a cyclic object. On THIS face that is not
- * merely noisy, it would REPLACE the refusal — the call sits inside a
- * `throw new FilterOperatorError(...)` expression, so a `TypeError` raised while
- * the message is being built escapes in the refusal's place, and
- * `classifyLoadError` reads a bare `TypeError` as a network fault: the author
- * would be told to check their connection about a filter this layer had already
- * judged. Ported from `ValueDataSource`'s twin (objectui#8748), where the same
- * call is unsafe for the mirror-image reason — a refusal that throws while
- * explaining itself turns the one path that stays quiet into the one path that
- * takes the caller down.
- *
- * No JSON-sourced filter can carry either shape, so this is about the in-memory
- * callers who hand a literal to `convertFiltersToAST`. `?? String(target)` keeps
- * `undefined` and a symbol readable — `JSON.stringify` returns `undefined` for
- * both.
- */
-function describeComparand(target: unknown): string {
-  try {
-    return JSON.stringify(target) ?? String(target);
-  } catch {
-    return String(target);
-  }
-}
-
-/**
  * An `$icontains` comparand that is not a NON-EMPTY STRING —
  * `{ name: { $icontains: '' } }`, `{ name: { $icontains: 42 } }` (objectui#9001).
  *
@@ -376,13 +349,18 @@ function describeComparand(target: unknown): string {
  *
  * ## What transfers from the sibling, and what cannot
  *
- * The DISCRIMINATION (`typeof target !== 'string' || target === ''`) and the
- * MESSAGE transfer verbatim, and the message is load-bearing rather than
- * cosmetic: `mustMention: ['$icontains']` means a differently-worded refusal is
- * a different failure to honour the same contract, not a stylistic variant.
+ * The DISCRIMINATION and the MESSAGE transfer verbatim, and the message is
+ * load-bearing rather than cosmetic: `mustMention: ['$icontains']` means a
+ * differently-worded refusal is a different failure to honour the same
+ * contract, not a stylistic variant.
  * `filter-text-comparand-9001.test.ts` pins the two messages against each other
  * by DRIVING both faces and asserting this one contains the sibling's refusal
  * text, so the mirror cannot drift in silence.
+ *
+ * ⭐ Since objectui#9048 "transfer verbatim" is no longer a claim about two
+ * copies agreeing: both halves are ONE implementation in `text-comparand.ts`,
+ * and this function is the envelope that seats it. The pin above is kept, and
+ * is now a pin on the SEATING rather than on a transcription.
  *
  * The DELIVERY cannot transfer, and that is the card's own Q1 answered by the
  * two call sites rather than by a fresh ruling. `ValueDataSource`
@@ -405,25 +383,11 @@ function describeComparand(target: unknown): string {
  * oversight.
  */
 function refuseTextComparand(field: string, operator: string, target: unknown): never {
-  const declared =
-    `@objectstack/spec's FILTER_TEXT_CASES declares this shape refused `
-    + `(INVALID_FILTER); the declared comparand for '${operator}' is a NON-EMPTY STRING`;
   const ported =
     `It is refused here rather than lowered onto the wire (objectui#9001; ported from `
     + `ValueDataSource's refuseTextComparand, objectui#8748).`;
-  if (target === '') {
-    throw new FilterOperatorError(
-      `[ObjectUI] The filter comparand for field '${field}' on operator '${operator}' is the EMPTY `
-      + `STRING. Every value contains the empty substring, so evaluating it is a `
-      + `predicate that constrains nothing. ${declared}. Drop the condition instead `
-      + `of sending an empty comparand. ${ported}`
-    );
-  }
   throw new FilterOperatorError(
-    `[ObjectUI] The filter comparand for field '${field}' on operator '${operator}' is `
-    + `${target === null ? 'null' : typeof target} (${describeComparand(target)}), `
-    + `not a string. Coercing it would answer a query nobody wrote. ${declared}. `
-    + `Write the comparand as a string. ${ported}`
+    `[ObjectUI] The ${textComparandRefusalReason(field, operator, target)}. ${ported}`
   );
 }
 
@@ -485,6 +449,14 @@ function refuseTextComparand(field: string, operator: string, target: unknown): 
  * // constrains nothing — the same answer this function already gives that key
  * // when a sibling survives (objectui#9020). Callers skip the slot.
  * convertFiltersToAST({ a: null })
+ * // => undefined
+ *
+ * @example
+ * // … and a filter that MIXES the two constrains nothing either, because the
+ * // identity fold counts only the keys the loop actually PROCESSED
+ * // (objectui#9030). A skipped key used to be counted against that fold, so a
+ * // filter whose every key folds alone did not fold together.
+ * convertFiltersToAST({ $and: [], b: undefined })
  * // => undefined
  */
 export function convertFiltersToAST(
@@ -722,16 +694,16 @@ export function convertFiltersToAST(
           // objectui#9001 — the comparand door, at the ONE place this function
           // reads a comparand. It runs before the push, so the refused node is
           // never built; there is no `continue` and no key is skipped, which is
-          // what keeps the TRUE-identity tail's `Object.keys(filter).length`
-          // comparison (objectui#8770, and the counting question objectui#9030
-          // is open on) reading exactly what it read before.
+          // what keeps the TRUE-identity tail's key-count comparison
+          // (objectui#8770, and the denominator objectui#9030 narrowed to the
+          // keys the loop processes) reading exactly what it read before.
           //
           // Keyed on the LOWERED operator rather than on the `$` spelling: the
           // rule belongs to `icontains` itself, and `ValueDataSource`'s AST arm
           // is keyed the same way. The `$` spelling the AUTHOR wrote is what
           // travels into the message, which is what `FILTER_TEXT_CASES`'
           // `mustMention: ['$icontains']` is about.
-          if (astOperator === 'icontains' && (typeof operatorValue !== 'string' || operatorValue === '')) {
+          if (astOperator === 'icontains' && isRefusedTextComparand(operatorValue)) {
             refuseTextComparand(field, operator, operatorValue);
           }
           conditions.push([field, astOperator, operatorValue]);
@@ -797,12 +769,31 @@ export function convertFiltersToAST(
     // site of this function already acts on it: `lowerLogicalGroup` above tests
     // `Array.isArray`, the other three test for `undefined` or falsiness.
     //
-    // ⛔ Scoped to a filter whose EVERY key is such a group, which is why the
-    // count above is compared with the key count instead of being a flag. The
+    // ⛔ Scoped to a filter whose every PROCESSED key is such a group, which is
+    // why the count above is compared with a count instead of being a flag. The
     // `return filter` below still serves inputs that are not combinators at all
-    // — `{}`, an empty operator map, and a MIXTURE of an identity group with a
-    // skipped key — and they are NOT this case.
-    if (trueIdentityGroups > 0 && trueIdentityGroups === Object.keys(filter).length) {
+    // — `{}` and an empty operator map — and they are NOT this case.
+    //
+    // ⭐ The denominator is the number of keys the LOOP ACTUALLY PROCESSED, not
+    // `Object.keys(filter).length` — objectui#9030. Those differ by exactly the
+    // keys the loop's own first statement skipped, and counting a skipped key
+    // against this fold made the fold's answer depend on a key that, by this
+    // function's oldest ruling, contributes nothing: `{ $and: [] }` folded and
+    // `{ $and: [], b: undefined }` did not, though `JSON.stringify` drops the
+    // second key entirely and the two reach either wire route as the same
+    // bytes. Both `null` and `undefined` are subtracted, because the loop skips
+    // them with one statement and the guard below already gives that whole
+    // class the same `undefined` when it is alone — leaving the MIXTURE out
+    // would mean adding an always-TRUE `$and: []` to a filter that folds could
+    // stop it folding, which is the sibling-dependence hazard objectui#8555
+    // named on this file.
+    //
+    // ⚠ Subtraction, not a merged counter. `trueIdentityGroups > 0` still
+    // gates this arm and the skipped count still has its own arm below, so the
+    // two states stay told apart — what changed is only which keys this one
+    // is measured against.
+    const keysTheLoopProcessed = Object.keys(filter).length - skippedNullKeys;
+    if (trueIdentityGroups > 0 && trueIdentityGroups === keysTheLoopProcessed) {
       return undefined;
     }
 
@@ -851,11 +842,16 @@ export function convertFiltersToAST(
     // one is this file's own tolerance made consistent with itself. They
     // coincide because "no constraint" has exactly ONE expressible spelling in
     // this dialect — the absence of the slot — not because the two inputs are
-    // the same kind of thing. Keeping the counts apart is also what keeps each
-    // fence readable: a filter that MIXES the two (`{ $and: [], a: null }`,
-    // `{ $and: [], b: undefined }`) satisfies neither guard and still returns the
-    // object, which is objectui#9030's open question and deliberately not
-    // answered here.
+    // the same kind of thing.
+    //
+    // A filter that MIXES the two kinds (`{ $and: [], a: null }`,
+    // `{ $and: [], b: undefined }`) is answered by the fold ABOVE, since
+    // subtracting the skipped keys leaves a filter whose every processed key is
+    // an identity group — objectui#9030. It used to satisfy neither guard and
+    // come back as the object, so a filter each of whose keys folds ALONE did
+    // not fold TOGETHER. That is why the counts staying apart is a statement
+    // about the two STATES and never about the two ARMS being unreachable from
+    // one input.
     //
     // ⛔ `{}` is not this case either — `skippedNullKeys > 0` excludes it. An
     // empty filter has no key to skip, `toFilterNode` already folds it one level
@@ -926,8 +922,16 @@ function isViewFilterRule(value: unknown): value is ViewFilterRuleLike {
  * single-value operator is refused rather than passed through. See the arm
  * itself for the reasoning and for why the refusal is a throw (objectui#8557).
  *
+ * Its COMPARAND is checked on one operator, `icontains`, whose two refused
+ * shapes `@objectstack/spec`'s `FILTER_TEXT_CASES` declares (objectui#9048).
+ * That arm reads the same shared refusal `convertFiltersToAST` and
+ * `ValueDataSource` read, and the arm itself carries the weighing for a SAVED
+ * view — which is a different input from objectui#8557's and was redone rather
+ * than inherited.
+ *
  * @throws {FilterOperatorError} If the rule carries an ARRAY on an operator the
- * spec declares single-valued.
+ * spec declares single-valued, or an empty / non-string comparand on
+ * `icontains`.
  */
 /**
  * The view-filter operators whose `value` is legitimately an ARRAY.
@@ -1047,6 +1051,125 @@ function viewFilterRuleToNode(rule: ViewFilterRuleLike): FilterNode {
       `'not_in', or a range as { operator: 'between', value: [min, max] } — the ` +
       `three operators the spec declares array-valued, which are untouched ` +
       `(objectui#8557; the same ruling objectui#8530 applied to the object arm).`
+    );
+  }
+
+  // The `icontains` COMPARAND door, on the STORED VIEW rule vocabulary —
+  // objectui#9048. Same two shapes `FILTER_TEXT_CASES` declares refused, same
+  // discrimination and same words as `convertFiltersToAST` and
+  // `ValueDataSource`, because all three now read ONE implementation
+  // (`text-comparand.ts`) rather than three copies of it. Triage ruled exactly
+  // that: "three implementations of one refusal, of which one is correct ⇒ the
+  // useful dispatch is not 'add a third guard' but 'make the dialects share the
+  // one that works'".
+  //
+  // ## Placed AFTER the arity arm, deliberately
+  //
+  // An ARRAY comparand on `icontains` is refused by objectui#8557 above, with
+  // its message about `in` / `not_in` / `between`. Running this door first would
+  // answer the same input with "not a string" — a true sentence that prescribes
+  // the wrong repair, and a silent change to a shipped ruling this card is
+  // fenced away from.
+  //
+  // ## An ABSENT comparand is left alone, and that is a boundary not an omission
+  //
+  // `isRefusedTextComparand(undefined)` is true, so the `!== undefined` test is
+  // load-bearing. The `$` dialect has no "absent" — `{ $icontains: undefined }`
+  // still HAS the key — but this vocabulary does, and the tail below already
+  // encodes it: a rule with no `value` lowers to the 2-tuple `[field, operator]`
+  // because the valueless operators (`is_null` and friends) take their direction
+  // from the operator NAME. Measured on today's tree, that 2-tuple is already
+  // refused downstream with THIS card's code: `parseFilterAST(['name',
+  // 'icontains'])` throws `INVALID_FILTER` / 400 naming
+  // `where.name.$icontains`. So the shape is loud already; moving WHERE it is
+  // refused is a separate argument nobody has made, and `FILTER_TEXT_CASES`
+  // declares two rows, not three.
+  //
+  // ## Why a THROW here, when it means a saved view fails at RENDER
+  //
+  // This is objectui#8557's weighing done again on a different input, not
+  // inherited from it — the card says so, and the inputs really do differ.
+  // Measured on `origin/main` `6df26f025` with `@objectstack/spec` 17.4.0, one
+  // authored view rule `{ field: 'name', operator: 'icontains', value: '' }`:
+  //
+  //   - it lowers to `['name','icontains','']`, which `isFilterAST` ACCEPTS, so
+  //     it is sent rather than stopped at any door;
+  //   - `parseFilterAST` reads it as `{ name: { $icontains: '' } }`;
+  //   - against the in-memory matchers that condition selects ZERO of the
+  //     spec's own nine `FILTER_TEXT_ROWS` (`@objectstack/formula`'s
+  //     `matchesFilterCondition`, and `ValueDataSource` since objectui#8748,
+  //     which also prints a refusal);
+  //   - and on the wire the published table states the other answer in its own
+  //     words — "Every row contains the empty substring, so evaluating it is a
+  //     predicate that constrains nothing".
+  //
+  // So the pre-fix answer is not one behaviour but TWO, chosen by which data
+  // source the saved view happens to render against: silently-empty on the
+  // in-memory faces, constrains-nothing on the wire. That is the acceptance-set
+  // split this card family exists to close, and neither half is "a view that
+  // renders correctly today". objectui#8557's conclusion (loud beats
+  // silently-empty) covers the first half unchanged; the second half is the
+  // WIDENING direction this file's own arity arm names as the one it exists to
+  // avoid — "a stored view's whole purpose can be to hide rows". Both halves
+  // point the same way, which is why the weighing survives the different input.
+  //
+  // The blast radius is also smaller than the shape suggests, measured rather
+  // than assumed. The Console cannot author this rule: `foldFilterGroupToSpecRules`
+  // (`@object-ui/app-shell`, objectui#4155) DROPS a condition whose value is
+  // `null` / `''` / `[]` before it is persisted, precisely so an incomplete row
+  // never reaches storage. And nothing in this tree authors the shape: over
+  // every tracked file, an `operator: 'icontains'` rule appears only in this
+  // card's own test, changeset and comment — lit control, 40 tracked files
+  // mention the operator at all.
+  //
+  // ## ⚠️ Where the throw LANDS is a second question, and it is NOT settled here
+  //
+  // Two of the sinks catch it: `plugin-list`'s `buildEffectiveFilter` runs
+  // inside `ListView`'s load `try` and `plugin-view`'s `ObjectView` inside its
+  // own, and `classifyLoadError` reads this error's `INVALID_FILTER` / `400`, so
+  // there the user sees the "filter is malformed" panel naming their field and
+  // operator. FOUR more entries do not: `plugin-grid`'s `ObjectGrid` (twice),
+  // `plugin-detail`'s `RelatedList` and `plugin-form`'s `LineItemsPanel` all
+  // call `toFilterNode` inside a RENDER-time `useMemo`, where a throw
+  // propagates as a render error with no `classifyLoadError` in the path.
+  // `ObjectGrid` feeds it `schema.filter`, which the spec declares as
+  // `z.array(ViewFilterRuleSchema)` — i.e. exactly the shape this arm judges.
+  //
+  // That is objectui#9050, an OPEN card on the DELIVERY axis, and this arm
+  // deliberately does not pre-empt it. It is not a class this card creates or
+  // even joins first: objectui#8557's array-arity refusal directly above throws
+  // from this same function through those same four entries and has shipped
+  // that way, and objectui#9050 counts eleven pre-existing throw sites reachable
+  // the same way. ⛔ The alternatives are worse in the direction this whole card
+  // family exists to close — dropping the rule widens the result set, lowering
+  // it keeps the two-answers split. So the refusal lands and WHERE it surfaces
+  // stays objectui#9050's decision to make for all thirteen at once.
+  if (
+    operator === 'icontains'
+    && rule.value !== undefined
+    && isRefusedTextComparand(rule.value)
+  ) {
+    // The spelling that ARRIVED, never `$icontains` substituted for it. The
+    // published rows spell the operator `$icontains` because their filters are
+    // written in the `$` dialect; a view rule spells the same operator
+    // `icontains`, and `ValueDataSource` already answers this question the same
+    // way on today's tree — its `$` arm names `$icontains`, its AST arm names
+    // `icontains`, each from the node in hand. Prescribing a spelling this
+    // vocabulary does not have would send a view author looking for a `$` key
+    // their metadata cannot contain, so the `$` twin is NAMED in the tail below
+    // instead of substituted for what they wrote.
+    const arrived = typeof rule.operator === 'string' && rule.operator !== ''
+      ? rule.operator
+      : operator;
+    const tail =
+      `This is a STORED VIEW rule, so it is refused as the filter is BUILT rather `
+      + `than lowered onto the wire: the spelling @objectstack/spec's `
+      + `FILTER_TEXT_CASES uses for this operator is the $-dialect '$icontains', `
+      + `which this vocabulary spells '${arrived}'. Remove the condition from the `
+      + `view, or give it a non-empty string comparand (objectui#9048; the same `
+      + `refusal ValueDataSource and convertFiltersToAST already share).`;
+    throw new FilterOperatorError(
+      `[ObjectUI] The ${textComparandRefusalReason(rule.field, arrived, rule.value)}. ${tail}`
     );
   }
 

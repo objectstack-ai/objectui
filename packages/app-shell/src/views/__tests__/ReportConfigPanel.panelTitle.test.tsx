@@ -35,7 +35,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { I18nProvider, en, zh } from '@object-ui/i18n';
+import { I18nProvider } from '@object-ui/i18n';
+import { en, zh } from '@object-ui/i18n/locales';
 import { ReportConfigPanel } from '../ReportConfigPanel';
 
 // The panel's own chrome is what is under test. The spec-driven inspector and

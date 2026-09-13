@@ -125,6 +125,11 @@ import { dirname, join } from 'node:path';
 import { FilterBuilderSchema, FilterFieldSchema, FilterGroupSchema } from '../zod/complex.zod';
 import { safeValidateSchema } from '../zod/index.zod';
 import type { FilterField as TsFilterField, FilterGroup as TsFilterGroup } from '../complex';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -284,16 +289,28 @@ function docInterfaceBlock(doc: string, iface: string): string {
  * Every quoted member of the union `<iface>.<key>` declares, in the doc's own
  * order. The union may span LINES — the doc lays `type?:` out over five rows —
  * so the slice runs to the terminating `;`, not to the end of the line. Line
- * comments are stripped first: `// Field type` sits inside that slice, and an
- * apostrophe in some future one would otherwise mint a phantom member.
+ * comments are stripped first: `// Field type` sits inside that slice, an
+ * apostrophe in some future one would otherwise mint a phantom member, and a
+ * `;` in one would otherwise be mistaken for the terminator (objectui#9073).
  */
 function docUnionMembers(doc: string, iface: string, key: string): string[] {
-  const block = docInterfaceBlock(doc, iface);
+  // ⛔ Comments come off FIRST, and everything after this line addresses the
+  // stripped block only (objectui#9073). Locating the terminating `;` in the
+  // raw block and stripping afterwards let a `;` inside a union-row comment
+  // end the slice early: the fourteen-member union read as eight, and the
+  // mirror/doc pin then announced a widening that had not happened — a
+  // confident lie, which is worse than silence.
+  //
+  // ⚠️ And it is a two-sided fix, not a one-line one: stripping SHORTENS the
+  // block, so an index taken before the strip addresses a different place
+  // after it. `at` is therefore computed here, on the stripped block, and
+  // never carried across from the raw one.
+  const block = mask(docInterfaceBlock(doc, iface));
   const at = block.indexOf(`\n  ${key}:`);
   if (at === -1) throw new Error(`${DOC}: \`${iface}\` no longer declares \`${key}\``);
   const end = block.indexOf(';', at);
   if (end === -1) throw new Error(`${DOC}: \`${iface}.${key}\` is unterminated`);
-  const body = block.slice(at, end).replace(/\/\/[^\n]*/g, '');
+  const body = block.slice(at, end);
   const members = [...body.matchAll(/'([^']*)'/g)].map((m) => m[1]);
   if (members.length === 0) {
     throw new Error(`${DOC}: \`${iface}.${key}\` parsed to ZERO members`);
@@ -315,6 +332,23 @@ function docUnionMembers(doc: string, iface: string, key: string): string[] {
  */
 function documentedTypes(): string[] {
   return docUnionMembers(publishedDoc(), 'FilterField', 'type?');
+}
+
+/**
+ * The "the mirror widened past the authority" verdict, as a function and a
+ * sentence rather than an expression buried in one assertion (objectui#9073).
+ *
+ * It is lifted out because a controlled input has to be pushed through THE SAME
+ * comparison and THE SAME sentence the pin renders — a copy of either could
+ * drift away from the thing it is there to vouch for, and this diagnosis is
+ * exactly the one that was observed to fire falsely.
+ */
+const WIDENED_MESSAGE =
+  `this mirror accepts \`type\` members ${DOC} never published — the mirror widened ` +
+  `past the authority.`;
+
+function widenedPastTheDoc(documented: string[]): string[] {
+  return mirrorTypeMembers().filter((t) => !documented.includes(t));
 }
 
 /** The enum this mirror actually declares, behind `.optional()`. */
@@ -421,19 +455,21 @@ describe('objectui#6939 — the type vocabulary', () => {
     const documented = documentedTypes();
     expect(
       documented.filter((t) => !declared.includes(t)),
+      // ⚠️ This message used to say "a LATER ruling", which is wrong about the
+      // example it cites and was corrected in objectui#9073: objectui#4814
+      // retired `owner` on 2026-08-16/17, and batch #88 is 2026-09-02 — so the
+      // retirement PREDATES the batch it was offered as an exception to. The
+      // exception does not depend on the order anyway: a spelling ANY ruling
+      // has retired does not come back through the doc.
       `the published doc offers \`type\` members this mirror refuses. Under decision ` +
         `batch #88 the DOC is the authority and the MIRROR follows — widen ` +
         `FilterFieldSchema.type and FilterField['type'] to match, as its own reviewable ` +
         `change. ⛔ Do NOT narrow ${DOC} to match the mirror. The one exception to ` +
-        `"the mirror follows": a spelling a LATER ruling RETIRED from this doc — the ` +
+        `"the mirror follows": a spelling ANY ruling RETIRED from this doc — the ` +
         `way objectui#4814 retired \`owner\` — reappearing in it is a doc REGRESSION, ` +
         `not a widening, and the doc edit is what gets reverted.`,
     ).toEqual([]);
-    expect(
-      declared.filter((t) => !documented.includes(t)),
-      `this mirror accepts \`type\` members ${DOC} never published — the mirror widened ` +
-        `past the authority.`,
-    ).toEqual([]);
+    expect(widenedPastTheDoc(documented), WIDENED_MESSAGE).toEqual([]);
     expect([...declared].sort()).toEqual([...documented].sort());
   });
 
@@ -459,11 +495,22 @@ describe('objectui#6939 — the type vocabulary', () => {
     const doc = publishedDoc();
     // (1) CONTROL — the same reader, the same file, a DIFFERENT block whose
     //     answer is fixed by the ruling at exactly two members. It can fire in
-    //     the region under test: a reader that matched nothing, matched the
-    //     wrong interface, or stopped at the first line of a multi-line union
-    //     returns something that is not `['and','or']`, and this reddens. And
-    //     it is independent of the `type?:` block it vouches for, so the thing
-    //     being measured cannot be what satisfies it.
+    //     the region under test: a reader that matched nothing, or matched the
+    //     wrong interface, returns something that is not `['and','or']`, and
+    //     this reddens. And it is independent of the `type?:` block it vouches
+    //     for, so the thing being measured cannot be what satisfies it.
+    //     ⛔ One mode this control does NOT cover, corrected in objectui#9073
+    //     after it was claimed here: a reader that stops at the FIRST LINE of a
+    //     multi-line union. `logic` is itself single-line, so such a reader
+    //     reads it correctly and this leg stays green.
+    //     That mode IS covered — measured, by mutating this reader into a
+    //     line-bounded one: `type?:` then parses to zero members, the
+    //     zero-members throw fires out of `documentedTypes()`, and six tests in
+    //     this file redden, this one among them at leg (2) rather than here.
+    //     So the guard exists; it is the THROW below plus the equality pin, not
+    //     this control. ⚠️ A control that names a mode it cannot catch is the
+    //     same class of defect as the reader objectui#9073 repaired: a
+    //     confident claim that sends the next reader to the wrong place.
     expect(docUnionMembers(doc, 'FilterGroup', 'logic')).toEqual(['and', 'or']);
     // (2) The population itself is non-empty and duplicate-free — a duplicated
     //     member would make the sorted-equality above pass on unequal sets.
@@ -496,6 +543,116 @@ describe('objectui#6939 — the type vocabulary', () => {
     // required `type` reddens here as well — the wrong direction, both ways.
     expect(doc).toContain('type?:');
     expect(FilterFieldSchema.safeParse({ value: 'a', label: 'A' }).success).toBe(true);
+  });
+});
+
+/* ── objectui#9073 — the reader's comment/terminator ORDER ────────────────── */
+
+/**
+ * The fixtures below are CONTROLLED INPUTS, not declarations found in this
+ * tree, and that is the shape of the card: objectui#9073 is a defect in a
+ * test-embedded READER, so nothing in the shipped surface is wrong and there is
+ * nothing to find. No comment anywhere in the published doc carries a `;`
+ * today — a fixture claiming to have found one would be describing a tree that
+ * does not exist.
+ *
+ * So each one is the REAL doc with exactly one comment rewritten, anchored to a
+ * literal row rather than hand-written, so that the fixture cannot quietly
+ * become a straw man when the doc moves: a vanished anchor THROWS.
+ */
+const UNION_ROW = "    | 'date' | 'datetime' | 'time'\n";
+const EARLIER_ROW = "  value: string;                         // Field identifier\n";
+
+function docWith(anchor: string, replacement: string): string {
+  const doc = publishedDoc();
+  if (!doc.includes(anchor)) {
+    throw new Error(
+      `${DOC}: objectui#9073 fixture anchor ${JSON.stringify(anchor)} is gone — ` +
+        `the fixture no longer perturbs the doc it claims to perturb`,
+    );
+  }
+  // Function replacement: a literal `$&`/`$1` in the text would otherwise be a
+  // substitution pattern rather than the bytes written here.
+  return doc.replace(anchor, () => replacement);
+}
+
+describe('objectui#9073 — the doc reader strips comments BEFORE it locates the terminator', () => {
+  it('a `;` inside a union-row comment no longer truncates the union — nor reports a widening that never happened', () => {
+    // ⭐ What this card is about is the FALSE POSITIVE, not the under-count.
+    // The reader used to locate the terminating `;` in the RAW block and strip
+    // comments only afterwards, so the `;` in the comment injected below ended
+    // the slice EIGHT members in. The mirror's fourteen then read as six
+    // members the doc "never published", and the pin above rendered
+    // WIDENED_MESSAGE — announcing a widening nobody had made and sending
+    // whoever read it to look for a change that does not exist. A reader that
+    // under-counts a mirror does not stay quiet; it lies confidently.
+    const poisoned = docWith(
+      UNION_ROW,
+      "    | 'date' | 'datetime' | 'time'   // dates; and date-times\n",
+    );
+    const documented = docUnionMembers(poisoned, 'FilterField', 'type?');
+    // The DIAGNOSIS first, deliberately: through the same function and the
+    // same sentence the pin renders rather than a copy of either, so the red
+    // run prints the false verdict itself and not a symptom of it.
+    expect(widenedPastTheDoc(documented), WIDENED_MESSAGE).toEqual([]);
+    // …and the read underneath it, seeded from the authority rather than from
+    // a count kept here — the reason objectui#8774 deleted this file's
+    // hand-kept `DOCUMENTED_FOURTEEN`.
+    expect(documented).toEqual(documentedTypes());
+  });
+
+  it('a `;` in a comment BEFORE the key keeps the anchor in ONE coordinate system', () => {
+    // ⚠️ The trap in the one-line reading of this repair. Stripping comments
+    // SHORTENS the block, so an index computed on the raw block addresses a
+    // different place in the stripped one. An implementation that strips the
+    // comments but carries the old `at` across starts its slice INSIDE the
+    // union and silently drops the LEADING members — a second wrong answer
+    // reached from the same fix, and one the test above cannot see.
+    //
+    // The comment rewritten here sits BEFORE `type?:`, so it never enters the
+    // slice at all and cannot affect the terminator search either. It can only
+    // be caught by that coordinate shift, which is why it is a separate leg.
+    const shifted = docWith(
+      EARLIER_ROW,
+      "  value: string;                         // Field identifier; never the label\n",
+    );
+    expect(docUnionMembers(shifted, 'FilterField', 'type?')).toEqual(documentedTypes());
+  });
+
+  it('CONTROL — a doc with no `;` in any comment reads identically in both worlds', () => {
+    // ⚠️ Named a control because it CANNOT tell the two worlds apart: the
+    // published doc carries no `;` inside a comment, so this is green before
+    // the repair and green after it. It is here so the two legs above are
+    // readable as perturbations of a known-good answer — ⛔ it is not evidence
+    // that the repair works, and it must not be counted as any.
+    expect(docUnionMembers(publishedDoc(), 'FilterGroup', 'logic')).toEqual(['and', 'or']);
+    expect(widenedPastTheDoc(documentedTypes()), WIDENED_MESSAGE).toEqual([]);
+  });
+
+  it('a union whose only `;` is inside a comment is UNTERMINATED — loudly, not truncated silently', () => {
+    // The ONE existing branch this repair moves, recorded here rather than
+    // discovered by somebody later. Before: the comment's `;` was accepted as
+    // the terminator and the reader returned a truncated set in silence.
+    // After: the comment is gone before the search runs, the block genuinely
+    // has no terminator past the key, and `is unterminated` fires — the throw
+    // that was already here, wording untouched. Silent-and-wrong → loud is the
+    // direction this file already declares for its readers ("absence is LOUD
+    // here"); the two throws pinned in the floor test are not moved at all.
+    //
+    // Hand-written rather than doc-anchored, and it has to be: the real block
+    // carries further `;` after the union (`options?: Array<{ … }>;`), so no
+    // edit to a COMMENT can leave the real block unterminated.
+    const handWritten = [
+      'interface FilterField {',
+      '  type?:',
+      "    | 'text'",
+      "    | 'number'   // no terminator past here; only this comment has one",
+      '}',
+      '',
+    ].join('\n');
+    expect(() => docUnionMembers(handWritten, 'FilterField', 'type?')).toThrow(
+      '`FilterField.type?` is unterminated',
+    );
   });
 });
 

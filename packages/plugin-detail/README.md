@@ -329,9 +329,16 @@ filter can express).
 
 The node's `filter` (spec `RecordRelatedListProps.filter`, "additional filter
 criteria") narrows the list beyond the parent relationship: it is
-**AND-combined** with `{ [relationshipField]: parentId }`, never substituted for
+**AND-combined** with the parent-relationship condition, never substituted for
 it, so a related list stays scoped to the record it appears on and an additional
-criterion can only ever narrow that set. Authors write it in the spec's own
+criterion can only ever narrow that set. That condition is **not one fixed
+spelling** — it is compiled to match the relationship field's ARITY on the
+child object (`objectui#7299`). A single-valued relationship gets the equality
+form `{ [relationshipField]: parentId }`; a multi-valued one gets the membership
+form `{ [relationshipField]: { $contains: parentId } }`, because the stored
+value is an array of ids and equality would ask whether the whole array *is* one
+id. The arity verdict is `@objectstack/spec/data`'s own `isMultiValueField`,
+never a rule this package keeps locally. Authors write `filter` in the spec's own
 vocabulary (`[{ field, operator, value }]`); a `dataSource` binding's composed
 filter (component AND saved view AND binding) lands on the same key. Both are
 lowered to ObjectQL through the repo's single filter sink, so no second dialect

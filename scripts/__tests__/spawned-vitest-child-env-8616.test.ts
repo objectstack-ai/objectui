@@ -51,7 +51,23 @@ import { childVitestEnv } from './helpers/child-vitest-env';
  *  3. Spawns are found by AST with identifiers RESOLVED to their declarations,
  *     because both halves of what is judged — which program is started, and
  *     which env it is given — are naturally written as named constants.
- *  4. ⭐ And the helper is MEASURED, not trusted: a real child process reports
+ *  4. ⭐ The environment is judged by what it IS, never by whether the
+ *     helper's NAME occurs in its text. Measured for objectui#9013, while the
+ *     judgement was `env.includes('childVitestEnv')`: two probe files differing
+ *     by one COMMENT line and nothing else — `// childVitestEnv() would be the
+ *     right thing to use here.` sitting above a hand-rolled
+ *     `{ ...process.env, CI: 'true' }` — split `1 failed | 4 passed` from
+ *     `5 passed`. A comment lives inside the declaration's span, so it was part
+ *     of the text being compared, and the accepted spelling was exactly the one
+ *     the sibling gate's header calls out as the thing to refuse: a call site
+ *     somebody EXPLAINED instead of fixing.
+ *     ⛔ Narrower than objectui#8712's hole one gate over, and ⛔ not the same
+ *     defect. There, presence was the wrong test in BOTH directions because the
+ *     goal was REMOVAL — a tree that SET the variable passed a gate that existed
+ *     to remove it, and the idiomatic scrub was refused. Here presence of the
+ *     helper IS the goal, so the only reachable hole is text that names it
+ *     without calling it. ⭐ It was reachable.
+ *  5. ⭐ And the helper is MEASURED, not trusted: a real child process reports
  *     `std-env`'s own `isAgent` back, once under the helper's env and once
  *     under an env the helper produced and a caller then re-marked. A helper
  *     that silently stopped scrubbing would pass every static check above.
@@ -129,11 +145,84 @@ function namesAVitest(node: ts.CallExpression, source: ts.SourceFile): boolean {
   return tokens.some((t) => /vitest/i.test(t.replace(/vitest[.\-\w]*config[.\w]*/gi, '')));
 }
 
+/** The one shared spelling of the child environment (`helpers/child-vitest-env.ts`). */
+const HELPER = 'childVitestEnv';
+
+/**
+ * What the `env:` an individual spawn passes IS — never what its text contains.
+ *
+ * `helper`  — it IS a call to `childVitestEnv()`, or an object literal that
+ *   SPREADS one (`{ ...childVitestEnv(), NO_COLOR: '1' }`), reached directly or
+ *   through the name the spawn hands the child.
+ * `foreign` — there is an `env:` and it is not that: a hand-rolled copy of
+ *   `process.env`, a scrub of some other key, or a comment ABOUT the helper.
+ *   All three hand the child this container's agent markers.
+ * `absent`  — no `env:` property at all, so the child inherits this worker's
+ *   environment outright, markers included.
+ */
+type EnvVerdict = 'helper' | 'foreign' | 'absent';
+
+/** `childVitestEnv(...)` — the helper, actually CALLED. */
+function callsHelper(node: ts.Node): boolean {
+  if (!ts.isCallExpression(node)) return false;
+  const callee = node.expression;
+  if (ts.isIdentifier(callee)) return callee.text === HELPER;
+  return ts.isPropertyAccessExpression(callee) && callee.name.text === HELPER;
+}
+
+/** The initializer of a `const`/`let` named `name` in this file, as a NODE. */
+function declarationInitializer(source: ts.SourceFile, name: string): ts.Expression | null {
+  let found: ts.Expression | null = null;
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === name &&
+      node.initializer !== undefined
+    ) {
+      found = node.initializer;
+    }
+    node.forEachChild(visit);
+  };
+  visit(source);
+  return found;
+}
+
+/**
+ * Where an `env:` expression's value COMES FROM.
+ *
+ * ⚠️ This is the judgement, and it is made on NODES. The text of the resolved
+ * declaration is never consulted, because a comment sitting inside that
+ * declaration's span is part of its text and answers "does this name the
+ * helper" exactly as well as a line calling it does (objectui#9013).
+ *
+ * ⛔ The resolution stays deliberately narrow — the declaration of the name the
+ * spawn passes, and the names spread into it, never the whole file. Anything
+ * wider answers "does this FILE mention `childVitestEnv`", which is the same
+ * question by a longer route.
+ */
+function envVerdict(value: ts.Expression, source: ts.SourceFile, seen: Set<string>): EnvVerdict {
+  if (ts.isIdentifier(value)) {
+    if (seen.has(value.text)) return 'foreign';
+    seen.add(value.text);
+    const initializer = declarationInitializer(source, value.text);
+    return initializer === null ? 'foreign' : envVerdict(initializer, source, seen);
+  }
+  if (callsHelper(value)) return 'helper';
+  if (ts.isObjectLiteralExpression(value)) {
+    for (const property of value.properties) {
+      if (!ts.isSpreadAssignment(property)) continue;
+      if (envVerdict(property.expression, source, seen) === 'helper') return 'helper';
+    }
+  }
+  return 'foreign';
+}
+
 interface VitestSpawn {
   readonly file: string;
   readonly line: number;
-  /** Text of the `env:` value passed in the options object, if any — IDENTIFIER resolved. */
-  readonly env: string | null;
+  /** What the `env:` this spawn passes IS — decided on the AST, never on text. */
+  readonly verdict: EnvVerdict;
 }
 
 /** Every call in `file` that starts a child vitest. */
@@ -155,23 +244,23 @@ function vitestSpawns(file: string): VitestSpawn[] {
           : '';
       if (SPAWNERS.has(callee) && namesAVitest(node, source)) {
         const options = node.arguments.find(ts.isObjectLiteralExpression.bind(ts));
-        let env: string | null = null;
+        let verdict: EnvVerdict = 'absent';
         if (options !== undefined) {
           for (const property of options.properties) {
             const key =
               property.name !== undefined && ts.isIdentifier(property.name) ? property.name.text : '';
             if (key !== 'env') continue;
             if (ts.isShorthandPropertyAssignment(property)) {
-              env = declarationText(source, property.name.text) ?? property.name.text;
+              verdict = envVerdict(property.name, source, new Set<string>());
             } else if (ts.isPropertyAssignment(property)) {
-              env = resolved(property.initializer, source);
+              verdict = envVerdict(property.initializer, source, new Set<string>());
             }
           }
         }
         found.push({
           file,
           line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
-          env,
+          verdict,
         });
       }
     }
@@ -200,8 +289,13 @@ describe(`objectui#8616 — ${SPAWNS.length} vitest spawn(s) in the test tree`, 
   });
 
   it('every one of them builds the child environment with childVitestEnv()', () => {
-    const leaking = SPAWNS.filter((s) => s.env === null || !s.env.includes('childVitestEnv')).map(
-      (s) => `${s.file}:${s.line}`,
+    const leaking = SPAWNS.filter((s) => s.verdict !== 'helper').map(
+      (s) =>
+        `${s.file}:${s.line} — ${
+          s.verdict === 'absent'
+            ? 'no `env:` at all'
+            : 'this `env:` is not `childVitestEnv()` and does not spread one'
+        }`,
     );
 
     expect(
@@ -213,7 +307,9 @@ describe(`objectui#8616 — ${SPAWNS.length} vitest spawn(s) in the test tree`, 
         'byte stream CI never produces, and the assertion is verified against the wrong ' +
         'thing forever (objectui#8616). ⛔ Imitating CI with `CI=true` does not expose ' +
         'it, and neither does `FORCE_COLOR=1`. Use `childVitestEnv()` from ' +
-        '`scripts/__tests__/helpers/child-vitest-env.ts`:\n  ' +
+        '`scripts/__tests__/helpers/child-vitest-env.ts`. ⚠️ NAMING the helper is not ' +
+        'using it — this is read off the AST, so a comment about `childVitestEnv()` ' +
+        'beside a hand-rolled environment resolves to nothing (objectui#9013):\n  ' +
         leaking.join('\n  '),
     ).toEqual([]);
   });

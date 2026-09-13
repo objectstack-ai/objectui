@@ -161,3 +161,188 @@ describe('shared-conversation render — flat ai_messages rows → proposed-plan
     });
   });
 });
+
+describe('AiChatPage hydration — the approval envelope and the pending-action id (objectui#8442)', () => {
+  // The mapper used to build an invocation from six things and neither of these
+  // was one of them, so a rehydrated pending approval arrived carrying a state
+  // that says "a human must decide" and nothing a decision could be made WITH.
+  //
+  // The two halves arrive from different places, which is why they are pinned
+  // separately: the AI SDK's `approval` envelope is persisted ON THE PART, and
+  // the ObjectStack `pendingActionId` lives only inside the tool RESULT — it is
+  // never a part key — so it is derived by the same detector the live mapper
+  // (`mapMessages.extractToolInvocations`) uses.
+
+  it('carries the AI SDK approval envelope persisted on the part', () => {
+    const [msg] = hydratedMessagesToChatMessages(
+      assistantWith([
+        {
+          type: 'tool-action_delete_task',
+          toolCallId: 't1',
+          toolName: 'action_delete_task',
+          state: 'approval-requested',
+          approval: { id: 'apr_1', isAutomatic: false },
+        },
+      ]),
+    );
+    expect(msg.toolInvocations?.[0]).toMatchObject({
+      state: 'approval-requested',
+      approval: { id: 'apr_1', isAutomatic: false },
+    });
+  });
+
+  it('keeps every declared member of a full envelope and drops nothing declared', () => {
+    const [msg] = hydratedMessagesToChatMessages(
+      assistantWith([
+        {
+          type: 'tool-action_delete_task',
+          toolCallId: 't1',
+          toolName: 'action_delete_task',
+          state: 'approval-responded',
+          approval: {
+            id: 'apr_2',
+            approved: true,
+            reason: 'operator confirmed',
+            isAutomatic: false,
+            signature: 'sig_abc',
+          },
+        },
+      ]),
+    );
+    expect(msg.toolInvocations?.[0]?.approval).toEqual({
+      id: 'apr_2',
+      approved: true,
+      reason: 'operator confirmed',
+      isAutomatic: false,
+      signature: 'sig_abc',
+    });
+  });
+
+  it('REFUSES an envelope with no usable id rather than passing the shape through', () => {
+    // `HydratedUIMessagePart` is an open record: whatever the server wrote is
+    // reachable and UNVERIFIED. An `approval` without an `id` cannot be replied
+    // on, so carrying it would hand the UI a half-envelope to guess at.
+    const [msg] = hydratedMessagesToChatMessages(
+      assistantWith([
+        { type: 'tool-x', toolCallId: 't1', toolName: 'x', approval: { approved: true } },
+        { type: 'tool-y', toolCallId: 't2', toolName: 'y', approval: 'apr_3' },
+        { type: 'tool-z', toolCallId: 't3', toolName: 'z', approval: { id: '' } },
+      ]),
+    );
+    expect(msg.toolInvocations?.map((t) => t.approval)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('lifts pendingActionId out of the persisted HITL result envelope', () => {
+    const [msg] = hydratedMessagesToChatMessages(
+      assistantWith([
+        {
+          type: 'tool-call',
+          toolCallId: 't1',
+          toolName: 'action_delete_task',
+          output: { status: 'pending_approval', pendingActionId: 'pa_42' },
+        },
+      ]),
+    );
+    // Without this the invocation reaches `useHitlInChat` un-indexed — the hook
+    // keys its map on `pendingActionId` and skips any invocation without one,
+    // so Approve / Reject has no id to POST.
+    expect(msg.toolInvocations?.[0]?.pendingActionId).toBe('pa_42');
+  });
+
+  it('lifts it through the persisted {type:text,value} wrapper too', () => {
+    // The shape the server really persists for a tool result on this path.
+    const [msg] = hydratedMessagesToChatMessages(
+      assistantWith([
+        {
+          type: 'tool-call',
+          toolCallId: 't1',
+          toolName: 'action_delete_task',
+          output: {
+            type: 'text',
+            value: JSON.stringify({ status: 'pending_approval', pendingActionId: 'pa_43' }),
+          },
+        },
+      ]),
+    );
+    expect(msg.toolInvocations?.[0]?.pendingActionId).toBe('pa_43');
+  });
+
+  it('leaves pendingActionId absent when the result is not a HITL proposal', () => {
+    const [msg] = hydratedMessagesToChatMessages(
+      assistantWith([
+        {
+          type: 'tool-call',
+          toolCallId: 't1',
+          toolName: 'verify_build',
+          output: { status: 'ok' },
+        },
+      ]),
+    );
+    expect(msg.toolInvocations?.[0]?.pendingActionId).toBeUndefined();
+    expect('pendingActionId' in (msg.toolInvocations?.[0] ?? {})).toBe(false);
+  });
+
+  it('lifts it through the full ModelMessage round trip (call row + separate tool-result row)', () => {
+    // The server-backed shape: the CALL and its RESULT are different rows, and
+    // `toUIMessages` merges the result onto the call part.
+    const chat = hydratedMessagesToChatMessages(
+      toUIMessages(
+        aiMessageRowsToServerMessages([
+          { id: 'u1', role: 'user', content: 'delete the task' },
+          {
+            id: 'a1',
+            role: 'assistant',
+            content: 'This needs your approval.',
+            tool_calls: JSON.stringify([
+              {
+                type: 'tool-call',
+                toolCallId: 'c1',
+                toolName: 'action_delete_task',
+                input: {},
+              },
+            ]),
+          },
+          {
+            id: 't1',
+            role: 'tool',
+            tool_call_id: 'c1',
+            content: JSON.stringify([
+              {
+                type: 'tool-result',
+                toolCallId: 'c1',
+                toolName: 'action_delete_task',
+                output: {
+                  type: 'text',
+                  value: JSON.stringify({
+                    status: 'pending_approval',
+                    pendingActionId: 'pa_44',
+                  }),
+                },
+              },
+            ]),
+          },
+        ]),
+      ),
+    );
+    const tool = chat[1]?.toolInvocations?.[0];
+    expect(tool?.pendingActionId).toBe('pa_44');
+    // TURNED OVER by objectui#9233, in place and deliberately: this line used
+    // to assert `output-available` — not because that was right, but because it
+    // was what the pipeline DID. objectui#8442 pinned the defective reading
+    // rather than describing it, precisely so the card that fixed it would meet
+    // a red line here instead of a stale sentence. This is that red line, paid.
+    //
+    // What changed: `mergeToolResultsInto` (useChatConversation.ts) no longer
+    // overwrites the state when the merged result carries the HITL pending
+    // envelope — it promotes to `approval-requested`, exactly as the live mapper
+    // (`mapMessages.extractToolInvocations`) already did. So both halves of an
+    // actionable approval now survive the ModelMessage sub-path: the id the hook
+    // indexes on, and the state `ChatbotEnhanced`'s `isAwaitingApproval` gate
+    // reads. The operator gets a real Approve / Reject card after a reload.
+    expect(tool?.state).toBe('approval-requested');
+  });
+});

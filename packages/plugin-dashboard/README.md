@@ -170,6 +170,26 @@ const card: MetricCardNode = {
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
 
+#### Percent `format` patterns (`'0%'`, `'0.00%'`)
+
+A numeral pattern ending in `%` is handed whole to `formatPercent`
+(`@object-ui/fields`), the same call the list-view percent cell and this
+package's own record-field renderer already make. Two consequences, both of
+them shared with every other percent surface in the console rather than decided
+by the tile:
+
+- **Magnitude** follows `percentDisplayValue` in `@object-ui/core` — a stored
+  value strictly between `-1` and `1` is a fraction and is scaled (`0.25` reads
+  `25%`); anything at or outside that band is already in percentage points and
+  passes through (`1` reads `1%`, `-5` reads `-5%`, `12.3` reads `12%`).
+- **The percent sign is the locale's**, not a literal `%`: a `de-DE` session
+  gets the no-break space German writes before the sign, and grouping follows
+  the locale (`1234.5` reads `1,235%` in `en`).
+
+The pattern's decimal count still belongs to the tile — `'0.00%'` renders two
+decimals — because that is an author declaration on the widget rather than a
+guess about the value.
+
 ## Examples
 
 ### Basic Dashboard

@@ -265,6 +265,22 @@ export const CalendarViewSchema = BaseSchema.extend({
   // `onViewChange` below.
   onEventClick: handlerKeyRefusal('onEventClick', 'runtime-slot', 'Host-only event click handler'),
   onViewChange: handlerKeyRefusal('onViewChange', 'runtime-slot', 'Host-only view change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
+    + '`titleField`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
+    + '`titleField`.',
+  ),
 });
 
 /**
@@ -482,6 +498,20 @@ export const FilterBuilderSchema = BaseSchema.extend({
   maxDepth: z.number().optional().describe('Maximum nesting depth'),
   // Applied at renderers/complex/filter-builder.tsx:37 as `className={schema.wrapperClass || ''}`.
   wrapperClass: z.string().optional().describe('Outer wrapper classes for the filter builder (objectui#6150)'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
+  ),
 });
 
 /**
@@ -511,6 +541,20 @@ export const CarouselSchema = BaseSchema.extend({
   itemsPerView: z.number().optional().describe('Items per view'),
   gap: z.number().optional().describe('Gap between items'),
   onSlideChange: handlerKeyRefusal('onSlideChange', 'retired', 'Slide change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
+  ),
 });
 
 /**
@@ -537,6 +581,20 @@ export const ChatToolInvocationSchema = z.object({
     ])
     .optional()
     .describe('Tool invocation state'),
+  // Mirrors `ChatToolInvocation.approval` in ../complex.ts. The AI SDK v6
+  // tool-part union requires this envelope alongside the three approval
+  // states; the pairing itself is objectui#8426's narrowing and is NOT
+  // enforced here, so this arm stays independently optional (objectui#8442).
+  approval: z
+    .object({
+      id: z.string().describe('Approval request id — the key a decision is replied on'),
+      approved: z.boolean().optional().describe('The decision, once made'),
+      reason: z.string().optional().describe('Free-text reason supplied with the decision'),
+      isAutomatic: z.boolean().optional().describe('True when policy decided without a human'),
+      signature: z.string().optional().describe('Signature over the approval, when signed'),
+    })
+    .optional()
+    .describe('AI SDK approval envelope for a tool call awaiting or carrying a human decision'),
 });
 
 export const ChatMessageSourceSchema = z.object({
@@ -644,6 +702,16 @@ export const ChatbotSchema = BaseSchema.extend({
   autoResponseText: z.string().optional().describe('Text of the local auto-response'),
   autoResponseDelay: z.number().optional().describe('Delay in milliseconds before the local auto-response is sent'),
   onSend: handlerKeyRefusal('onSend', 'runtime-slot', 'Called after a message is sent, in both API and local auto-response mode'),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
+    + '`maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
+    + '`showTimestamp`, `streamingEnabled`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -712,6 +780,17 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
   surface: z.enum(['card', 'plain']).optional()
     .describe("Visual chrome for the chat surface: 'card' bordered panel (default) or 'plain' frameless full-page workspace (objectui#6687)"),
   onClear: chatbotOnClearArm(),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
+    + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -746,6 +825,17 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
+    + '`userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -1051,6 +1141,22 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
     defaultRange: z.string().optional(),
     allowCustomRange: z.boolean().optional(),
   }).optional().describe('Built-in date range filter'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
+    + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
+    + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
+  ),
 });
 
 /**

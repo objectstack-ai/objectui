@@ -25,12 +25,21 @@
  *           is not a reconstruction: `ci.yml` carries three copies of this step
  *           and the other two are untouched by this change, so the "before"
  *           answer is a real one taken from the file rather than from history.
- *   inert   a markdown document nothing reads still yields `should_run=false`,
+ *   inert   an excluded change nothing reads still yields `should_run=false`,
  *           through the WIDENED step. Without this leg, deleting the exclusions
  *           entirely would pass every other assertion in this file.
  *
- * The inert leg uses a markdown document the pull request ADDS, which is inert by
- * construction: nothing in the tree can read a file that did not exist.
+ * ## ⚠️ objectui#9096 moved the inert leg off markdown, and that is the ruling
+ *
+ * The inert leg used to add a markdown document nothing reads. That leg is gone,
+ * because after objectui#9096 added `scripts` to the scan roots there is no such
+ * document: 1734 of 1734 tracked markdown files are opened by at least one test
+ * under `scripts/__tests__`. ⛔ So this file does NOT pretend the class stayed
+ * narrow. It pins the opposite — `every markdown path is an input` is asserted
+ * outright below, so the day that stops being true someone is told — and it
+ * moves the inert leg to what the exclusion list still buys: a NON-markdown
+ * change under `apps/site/**`, which is the shape of the one commit in the
+ * measured 513-merge window that still skips and should.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
@@ -41,10 +50,12 @@ import { fileURLToPath } from 'node:url';
 
 import {
   ADJUDICATED,
+  SCAN_ROOTS,
   auditTree,
   declaredEntries,
   deriveCandidates,
   markdownTestInputsAmong,
+  matchesEntry,
   missingDocuments,
 } from '../markdown-test-inputs.mjs';
 
@@ -218,14 +229,34 @@ describe('the objectui#8857 pull request shape', () => {
     expect(outcome.shouldRun).toBe('false');
   });
 
-  it('INERT: a markdown document nothing reads still skips, through the WIDENED step', () => {
-    // Added by the pull request, so inert by construction. Without this leg a
+  it('INERT: an excluded NON-markdown change still skips, through the WIDENED step', () => {
+    // objectui#9096 took markdown off this leg — see the header. What is left
+    // is the half of the exclusion list that still pays: `apps/site/**` and the
+    // non-markdown files under `content/**` and `docs/**`. Without this leg a
     // step that answered `true` unconditionally would pass everything above.
+    //
+    // This is not a hypothetical shape: `8011852dc` ("fix(site): drop the
+    // count-based claims from the homepage") is exactly it, and it is the one
+    // commit of the 36 that reached this stage in the measured window which
+    // still skips after the widening.
     const outcome = runStep(TEST_STEP, {
-      'packages/plugin-grid/NOTES.md': '# Notes\n\nNothing reads this.\n',
-      '.changeset/quiet-owls-tickle.md': '---\n---\n\nNo release.\n',
+      'apps/site/src/app/page.tsx': 'export default function Page() { return null; }\n',
+      'docs/diagrams/architecture.svg': '<svg/>\n',
     });
     expect(outcome.shouldRun).toBe('false');
+  });
+
+  it('FIRES on the objectui#9096 shape: a root document only `scripts/__tests__` reads', () => {
+    // The card's own named instance, re-run as a fixture: the commit whose
+    // subject begins `docs(agents): narrow the package-level test claim`
+    // changed only `AGENTS.md`, three tests under `scripts/__tests__` read it,
+    // and the shards skipped. `AGENTS.md` is in no product test's class, so
+    // this leg fires ONLY because `scripts` is a scan root.
+    const files = { 'AGENTS.md': '# AGENTS\n\nA sentence a gate test reads.\n' };
+    expect(runStep(TEST_STEP, files).shouldRun).toBe('true');
+    // …and the unwidened copy of the same step, untouched by this change, is
+    // the "before" reading for it.
+    expect(runStep(TYPE_CHECK_STEP, files).shouldRun).toBe('false');
   });
 
   it('CONTROL: the widened step still runs everything for an ordinary source change', () => {
@@ -275,10 +306,181 @@ describe('the derived class', () => {
     expect(findings.map((finding) => finding.kind)).toContain('unadjudicated-document');
   });
 
-  it('a declared tree covers a document added inside it, and nothing outside it', () => {
+  it('a declared tree covers a document added inside it, and never a non-markdown sibling', () => {
     expect(declaredEntries()).toContain('content/docs/**');
     expect(markdownTestInputsAmong(['content/docs/guide/a-page-added-today.md'])).toHaveLength(1);
+    // The extension is the discriminator that survives objectui#9096: the class
+    // is total over markdown and empty over everything else, so a JSON file
+    // beside a declared document is still not an input.
     expect(markdownTestInputsAmong(['content/docs/guide/a-page-added-today.json'])).toHaveLength(0);
-    expect(markdownTestInputsAmong(['packages/plugin-grid/README.md'])).toHaveLength(0);
+    expect(markdownTestInputsAmong(['apps/site/src/app/page.tsx'])).toHaveLength(0);
+  });
+});
+
+/* ── objectui#9096: the ruling, stated as an assertion ───────────────────── */
+
+describe('objectui#9096 — `scripts` is a scan root, and the class is now total', () => {
+  it('scans `scripts`, and the scan is what finds those tests', () => {
+    expect(SCAN_ROOTS).toContain('scripts');
+    const candidates = deriveCandidates();
+    const fromScripts = [...candidates.keys()].filter((file) => file.startsWith('scripts/'));
+    // A floor, not an exact count: the point is that the root is producing
+    // candidates at all, so a root that silently stopped resolving is caught.
+    // 45 files the day the root landed.
+    expect(fromScripts.length).toBeGreaterThanOrEqual(40);
+  });
+
+  it('names the card\'s instance: three gate tests read `AGENTS.md`, so it is an input', () => {
+    const hits = markdownTestInputsAmong(['AGENTS.md']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].readers.length).toBeGreaterThanOrEqual(3);
+    for (const reader of hits[0].readers) expect(reader.startsWith('scripts/')).toBe(true);
+  });
+
+  it('EVERY tracked markdown document is an input — the cost of the ruling, pinned', () => {
+    // ⚠️ This is not a target, it is a CONFESSION kept honest. objectui#9096
+    // widened the class until it covered the whole tree, and the header argues
+    // why that is acceptable (14 extra runs per 513 merges). An assertion is
+    // the only form of that statement which cannot quietly stop being true:
+    // if a future change re-narrows the class, this fails and the person doing
+    // it has to come here and say so.
+    const tracked = execFileSync('git', ['ls-files', '--', '*.md', '*.mdx'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split('\n')
+      .filter((line) => line.trim() !== '');
+
+    // Floor under the floor: an empty `git ls-files` would pass the next
+    // assertion while proving nothing (objectui#8468).
+    expect(tracked.length).toBeGreaterThanOrEqual(300);
+
+    const uncovered = tracked.filter((file) => markdownTestInputsAmong([file]).length === 0);
+    expect(
+      uncovered,
+      'the class is declared TOTAL over markdown; a document outside it means the ledger lost a tree',
+    ).toEqual([]);
+  });
+});
+
+/* ── objectui#9142: the repository root is a tree too ─────────────────────── */
+
+describe('objectui#9142 — a root-level markdown file a pull request ADDS', () => {
+  /**
+   * The document this card is about: a root-level markdown file that exists in
+   * no ledger entry, because nobody has written it down yet. `SECURITY.md` is
+   * the card's own example and is deliberately NOT in this tree — a planted
+   * document that already existed would prove nothing about the next one.
+   */
+  const PLANTED_ROOT_DOCUMENT = 'SECURITY.md';
+
+  it('is not in the tree — the planted document has to be absent to be a control', () => {
+    // If someone adds `SECURITY.md` for real, this fails and the next reader
+    // picks a different name rather than silently testing a declared document.
+    const tracked = execFileSync('git', ['ls-files', '--', '*.md'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter((line) => line.trim() !== '');
+    expect(tracked).not.toContain(PLANTED_ROOT_DOCUMENT);
+  });
+
+  it('FIRES: the planted root document runs the shards, and the step says so', () => {
+    // The lit control, through the REAL step out of `ci.yml` — not through the
+    // class derivation, which cannot tell a correct class from a step that
+    // never asks it. Before the `./*` spelling this read `should_run=false`
+    // with no matched line at all, which is the whole defect: the pull request
+    // page went green having run nothing, and `check-doc-links.test.ts` — the
+    // test whose stated job is to fail on a root document with no `SCAN_ROOTS`
+    // row — is the one that did not run.
+    const files = { [PLANTED_ROOT_DOCUMENT]: '# Security\n\nA root document nobody declared.\n' };
+    const outcome = runStep(TEST_STEP, files);
+    expect(outcome.shouldRun).toBe('true');
+    expect(outcome.log).toContain(PLANTED_ROOT_DOCUMENT);
+    // …and the unwidened copy of the same step, untouched by this change, is
+    // the "before" reading taken from the file rather than from history.
+    expect(runStep(TYPE_CHECK_STEP, files).shouldRun).toBe('false');
+  });
+
+  it('names the reader that is waiting on it — the invariant that replaces the list', () => {
+    const hits = markdownTestInputsAmong([PLANTED_ROOT_DOCUMENT]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].entries).toContain('./*');
+    expect(hits[0].readers).toContain('scripts/__tests__/check-doc-links.test.ts');
+  });
+
+  it('the per-file spelling CANNOT express it — which is why a new spelling exists', () => {
+    // The pre-fix vocabulary, asserted directly: an exact entry matches one
+    // path and a `…/**` entry needs a directory above the document. A root
+    // document has neither, so no combination of the two covers the NEXT one.
+    for (const rootDocument of ['AGENTS.md', 'README.md', 'ROADMAP.md']) {
+      expect(matchesEntry(PLANTED_ROOT_DOCUMENT, rootDocument)).toBe(false);
+    }
+    expect(matchesEntry(PLANTED_ROOT_DOCUMENT, './*')).toBe(true);
+  });
+
+  it('⛔ does NOT widen to every markdown file — `./*` is depth 1, markdown only', () => {
+    // The fence objectui#9096 set and objectui#9142's triage carried: the
+    // deliverable is the documents these tests actually read, ⛔ not a glob.
+    // `./*` reaches the root and stops there.
+    for (const deeper of ['docs/NOTES.md', 'packages/plugin-grid/NOTES.md', 'a/b/SECURITY.md']) {
+      expect(matchesEntry(deeper, './*')).toBe(false);
+    }
+    for (const notMarkdown of ['SECURITY.txt', 'pnpm-lock.yaml', 'turbo.json']) {
+      expect(matchesEntry(notMarkdown, './*')).toBe(false);
+    }
+    // And through the real step: a root file that is not markdown never reaches
+    // the markdown stage at all — it is not on the exclusion list, so the first
+    // diff already runs everything. Both copies agree, which is what makes this
+    // a statement about the exclusions rather than about the markdown class.
+    const notMarkdown = { 'SECURITY.txt': 'not markdown\n' };
+    expect(runStep(TEST_STEP, notMarkdown).shouldRun).toBe('true');
+    expect(runStep(TYPE_CHECK_STEP, notMarkdown).shouldRun).toBe('true');
+  });
+
+  it('the declared population is unchanged — every tracked root document is still an input', () => {
+    const rootDocuments = execFileSync('git', ['ls-files', '--', '*.md', '*.mdx'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split('\n')
+      .filter((line) => line.trim() !== '' && !line.includes('/'))
+      .sort();
+
+    // Floor under the floor: an empty enumeration would satisfy the next
+    // assertion while proving nothing (objectui#8468).
+    expect(rootDocuments.length).toBeGreaterThanOrEqual(8);
+    expect(rootDocuments.filter((file) => markdownTestInputsAmong([file]).length === 0)).toEqual([]);
+  });
+
+  it('`missingDocuments()` does not red on a class entry — the trap triage named', () => {
+    // The ledger reds on a declared path that is not in the tree. `./*` names a
+    // rule, not a path, so it must be skipped the way `…/**` already is —
+    // otherwise every run of the audit reports a missing document that cannot
+    // exist.
+    expect(declaredEntries()).toContain('./*');
+    expect(missingDocuments()).toEqual([]);
+    expect(missingDocuments()).not.toContain('./*');
+  });
+
+  it('reports EVERY entry that covers a document, so the class costs no reader', () => {
+    // Entries overlap, and the root class makes that structural: `AGENTS.md` is
+    // covered by `./*` and by its own exact entry. Reporting the first match
+    // only would attribute it to whichever sorted first and drop the rest —
+    // `should_run` would be unaffected, the readers named in the log would not.
+    const hits = markdownTestInputsAmong(['AGENTS.md']);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].entries).toEqual(expect.arrayContaining(['./*', 'AGENTS.md']));
+    expect(hits[0].readers.length).toBeGreaterThanOrEqual(4);
+    // The same overlap outside the root, which predates this card: a package
+    // README declared exactly AND inside `packages/**`.
+    const nested = markdownTestInputsAmong(['packages/app-shell/README.md']);
+    expect(nested[0].entries).toEqual(expect.arrayContaining(['packages/**', 'packages/app-shell/README.md']));
+    expect(nested[0].readers).toContain(
+      'packages/app-shell/src/views/metadata-admin/previews/readme-flow-canvas-draft.test.ts',
+    );
   });
 });

@@ -118,7 +118,7 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
         data={ctx?.data}
         objectName={ctx?.objectName}
         objectSchema={ctx?.objectSchema as any}
-        dataSource={ctx?.dataSource as any}
+        dataSource={ctx?.dataSource}
       />
     </div>
   );

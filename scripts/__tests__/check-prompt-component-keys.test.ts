@@ -34,10 +34,13 @@ import {
   PLACEHOLDER_NAMESPACE,
   PROMPT_DIR,
   analyze,
+  lettered,
+  letterRunFindings,
   partitionRegistry,
   placeholderSites,
   promptFiles,
   scanPromptKeys,
+  scanPromptSections,
 } from '../check-prompt-component-keys.mjs';
 import { INDIRECT_REGISTRATIONS, deriveRegistryKeys } from '../check-doc-component-types.mjs';
 
@@ -341,5 +344,391 @@ describe('wiring', () => {
 
     expect(seen.size, 'the import walk read only the gate itself — it followed nothing').toBeGreaterThan(1);
     expect(external, `the gate's import graph reaches a package, so it needs an install: ${external}`).toEqual([]);
+  });
+});
+
+// ── 5. the LABELLED BLOCK reading model (objectui#9098) ──────────────────────
+
+/**
+ * The `Keys:` model above reads ONE line. The prompt teaches keys in four more
+ * places shaped the other way round — a bolded label with nothing after it, and
+ * the keys one per SUB-BULLET with trailing prose. So the card's "add a label to
+ * the set it scans is a one-line change" is false, and the case below that
+ * matters most is the CONTROL: the same sub-bullets under an ungated label are
+ * read as nothing at all.
+ */
+describe('a gated label opens a block, and only the block is judged', () => {
+  /** One authorable key, one placeholder-only key — enough for every verdict. */
+  const registryTree = (write: (rel: string, contents: string) => void) => {
+    write(PLACEHOLDER_SITE, placeholderModule(['view:kanban', 'ai:input']));
+    write('packages/plugin-grid/src/index.tsx', "ComponentRegistry.register('grid', G, { namespace: 'view' });");
+  };
+  const KEYS_LINE = '*   **Keys:** `view:grid`, etc.';
+  const prompt = (...body: string[]) => [KEYS_LINE, ...body].join('\n');
+
+  const run = (body: string[]) =>
+    withTree((write) => {
+      registryTree(write);
+      write(`${PROMPT_DIR}/component.prompt.md`, prompt(...body));
+    }, analyzeFixture);
+
+  it('reads one key per sub-bullet — the shape the Keys model cannot see', () => {
+    const { findings, counters } = run([
+      '*   **Required Components:**',
+      '    *   `view:grid`: a real renderer answers this one.',
+      '    *   `view:kanban` (placeholder only).',
+    ]);
+
+    expect(counters.blockKeys).toBe(2);
+    expect(findings.map((f) => [f.key, f.reason])).toEqual([['view:kanban', 'placeholder-only-key']]);
+  });
+
+  it('reads NOTHING under an ungated label — the control that makes the case above mean something', () => {
+    // Byte-identical sub-bullets, one word changed on the label line. Without
+    // this leg the case above would also pass against a gate that judged every
+    // backticked token in the file, which is the failure triage warned about.
+    const { findings, counters } = run([
+      '*   **Required Library:**',
+      '    *   `view:grid`: a real renderer answers this one.',
+      '    *   `view:kanban` (placeholder only).',
+    ]);
+
+    expect(counters.blocks).toBe(0);
+    expect(counters.blockKeys).toBe(0);
+    expect(findings).toEqual([]);
+  });
+
+  it('leaves `Required Types:` alone — it is a spec `type` vocabulary, not a registry one', () => {
+    // objectui#8929 landed that distinction in the prompt itself. A registry-key
+    // gate reaching into it would red on `grid` / `kanban` / `gantt`, which are
+    // spec-valid by design, so the label must stay OUT of the gated set.
+    const { findings, counters } = run([
+      '*   **Required Types (Ref: `src/ui/view.zod.ts`):** `grid`, `kanban`, `gantt`.',
+      '*   **Required Types (Ref: `src/data/field.zod.ts`):**',
+      '    *   **Textual:** `text`, `textarea`.',
+    ]);
+
+    expect(counters.blocks).toBe(0);
+    expect(findings).toEqual([]);
+  });
+
+  it('never judges a tombstone in prose OUTSIDE the block — the whole point of scoping', () => {
+    // The live file names `view:kanban`, `view:gantt`, `user:profile` and
+    // `ai:chat_window` precisely so an author does NOT write them. Every one is
+    // a key this gate rejects when it reads it, so "do not write this" prose has
+    // to stay unread or the file cannot say it.
+    const { findings } = run([
+      '*   **Required Components:**',
+      '    *   `view:grid`: the only key taught here.',
+      '',
+      '> ⛔ Retired — do not write it: `view:kanban` no longer renders.',
+      '',
+      'And a plain paragraph naming `view:kanban` again.',
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it('never judges a continuation line inside the block that is not a list item', () => {
+    const { findings, counters } = run([
+      '*   **Required Components:**',
+      '    this line sits IN the block and names `view:kanban`, but it is prose, not a list item.',
+      '    *   `view:grid`: the only key taught here.',
+    ]);
+
+    expect(counters.blockKeys).toBe(1);
+    expect(findings).toEqual([]);
+  });
+
+  it('never judges a backticked span with a space in it — that is a command, not a key', () => {
+    // The label lines in the live file end in prose that backticks
+    // `pnpm check:prompt-keys`. No key the derivation produces has whitespace in
+    // it (650 of 650 measured), so this skips nothing a bad key could hide in.
+    const { findings, counters } = run([
+      '*   **Required Components:** — held to this by `pnpm check:prompt-keys`, see `objectui check`.',
+      '    *   `view:grid`: the only key taught here.',
+    ]);
+
+    expect(counters.blockKeys).toBe(1);
+    expect(findings).toEqual([]);
+  });
+
+  it('never judges trailing text on a sub-bullet unless it is backticked', () => {
+    const { findings, counters } = run([
+      '*   **Required Components:**',
+      '    *   `view:grid`: a Standalone smart button, the view:kanban spelling is dead, see notes.',
+    ]);
+
+    expect(counters.blockKeys).toBe(1);
+    expect(findings).toEqual([]);
+  });
+
+  it('ends the block at a sibling bullet indented at the label`s own level', () => {
+    const { findings, counters } = run([
+      '*   **Required Components:**',
+      '    *   `view:grid`',
+      '*   **Contract:** the retired `view:kanban` is discussed on an ungated sibling bullet.',
+    ]);
+
+    expect(counters.blockKeys).toBe(1);
+    expect(findings).toEqual([]);
+  });
+
+  it('skips fenced code, so a document EXPLAINING the convention is not judged by it', () => {
+    const { findings, counters } = run([
+      '',
+      '```markdown',
+      '*   **Required Components:**',
+      '    *   `view:kanban`',
+      '```',
+    ]);
+
+    expect(counters.blocks).toBe(0);
+    expect(findings).toEqual([]);
+  });
+
+  it('refuses to run when a gated label opens a block that teaches no key', () => {
+    // The block model's equivalent of the `bullets === 0` collapse: the label is
+    // still there, the keys moved out from under it, and a gate that reads
+    // nothing under a live label would print a pass it did not earn.
+    expect(() =>
+      run([
+        '*   **Required Components:**',
+        '    *   see the table below for the current list.',
+      ]),
+    ).toThrow(/taught no key at all/);
+  });
+});
+
+// ── 6. the INVERTED leg: a placeholder list is a factual claim too ───────────
+
+describe('`Protocol Placeholders:` is judged the other way round', () => {
+  const run = (body: string[], placeholderKeys: string[] = ['view:kanban', 'ai:input']) =>
+    withTree((write) => {
+      write(PLACEHOLDER_SITE, placeholderModule(placeholderKeys));
+      write('packages/plugin-grid/src/index.tsx', "ComponentRegistry.register('grid', G, { namespace: 'view' });");
+      write(`${PROMPT_DIR}/component.prompt.md`, ['*   **Keys:** `view:grid`, etc.', ...body].join('\n'));
+    }, analyzeFixture);
+
+  const BLOCK = ['*   **Protocol Placeholders:**', '    *   `ai:input`: prompt input.'];
+
+  it('accepts a key the placeholder module alone registers', () => {
+    const { findings, counters } = run(BLOCK);
+    expect(counters.placeholderClaims).toBe(1);
+    expect(findings).toEqual([]);
+  });
+
+  it('rejects a key a REAL renderer answers — the section would understate the platform', () => {
+    // Same block, and the only change is that `ai:input` now has a real
+    // renderer. Without this leg, "move the placeholder-only keys into a
+    // placeholder section" would have moved the drift instead of fixing it.
+    const { findings } = withTree((write) => {
+      write(PLACEHOLDER_SITE, placeholderModule(['view:kanban', 'ai:input']));
+      write(
+        'packages/plugin-grid/src/index.tsx',
+        [
+          "ComponentRegistry.register('grid', G, { namespace: 'view' });",
+          "ComponentRegistry.register('input', AiInput, { namespace: 'ai' });",
+        ].join('\n'),
+      );
+      write(`${PROMPT_DIR}/component.prompt.md`, ['*   **Keys:** `view:grid`, etc.', ...BLOCK].join('\n'));
+    }, analyzeFixture);
+
+    expect(findings.map((f) => [f.key, f.reason])).toEqual([['ai:input', 'not-a-placeholder-key']]);
+  });
+
+  it('rejects a key the placeholder module has stopped registering', () => {
+    const { findings } = run(BLOCK, ['view:kanban']);
+    expect(findings.map((f) => [f.key, f.reason])).toEqual([['ai:input', 'unregistered-key']]);
+  });
+});
+
+// ── 7. the live tree, under the widened model ────────────────────────────────
+
+describe('the prompt surface this gate now reads', () => {
+  const scan = () => scanPromptKeys(repoRoot) as {
+    sites: { key: string; label: string; expect: string; scope: string }[];
+    bullets: number;
+    blocks: number;
+    emptyBlocks: string[];
+  };
+
+  it('really does reach the labelled blocks — floors, so a reformat cannot quietly empty them', () => {
+    const { blocks, sites, emptyBlocks } = scan();
+    expect(emptyBlocks).toEqual([]);
+    expect(blocks, 'gated label blocks on the live prompt surface').toBeGreaterThanOrEqual(4);
+    expect(sites.filter((s) => s.scope === 'block').length, 'keys read from blocks').toBeGreaterThanOrEqual(24);
+    expect(
+      sites.filter((s) => s.expect === 'placeholder-only').length,
+      'keys claimed as protocol placeholders',
+    ).toBeGreaterThanOrEqual(4);
+  });
+
+  it('still reads objectui#8929`s two `Keys:` bullets, and reads them the old way', () => {
+    // The widening must not have moved them: they are correct and already gated,
+    // and their sub-bullet prose (the `formType` values) must stay unjudged.
+    const { bullets, sites } = scan();
+    expect(bullets).toBe(2);
+    expect(sites.filter((s) => s.scope === 'keys-line').map((s) => s.key)).toEqual([
+      'view:grid',
+      'object-kanban',
+      'view:map',
+      'view:calendar',
+      'object-gantt',
+      'view:simple',
+      'view:form',
+      'view:detail',
+    ]);
+  });
+
+  it('teaches no key at all under a `Required Types` label', () => {
+    expect(scan().sites.filter((s) => /^Required Types/.test(s.label))).toEqual([]);
+  });
+
+  it('names the retired and deliberately-unregistered keys ONLY in prose', () => {
+    // Each of these appears in the file, and each would be a finding if the gate
+    // read it. That they are absent from the scan IS the prose-safety proof.
+    const taught = new Set(scan().sites.map((s) => s.key));
+    for (const tombstone of ['user:profile', 'ai:chat_window', 'view:kanban', 'view:gantt']) {
+      expect(taught.has(tombstone), `${tombstone} must stay in prose, never in a judged list`).toBe(false);
+    }
+    const prompt = fs.readFileSync(path.join(repoRoot, PROMPT_DIR, 'component.prompt.md'), 'utf8');
+    for (const tombstone of ['user:profile', 'ai:chat_window', 'view:kanban']) {
+      expect(prompt, `${tombstone} tombstone must still be written down`).toContain(`\`${tombstone}\``);
+    }
+  });
+});
+
+// ── 8. the letter run, scoped to its section (objectui#9145) ─────────────────
+
+describe('a `## N.` section\'s `### X.` headings must run A, B, C, … without a gap', () => {
+  /** The minimum surface the earlier guards need, plus the headings under test. */
+  const runLetters = (prompt: string[]) =>
+    withTree((write) => {
+      write(PLACEHOLDER_SITE, placeholderModule(['view:kanban']));
+      write('packages/plugin-grid/src/index.tsx', "ComponentRegistry.register('grid', G, { namespace: 'view' });");
+      write(`${PROMPT_DIR}/component.prompt.md`, ['*   **Keys:** `view:grid`, etc.', '', ...prompt].join('\n'));
+    }, analyzeFixture);
+
+  it('reports the gap — the defect this card was filed for, reproduced', () => {
+    // `A B D` is the shape `component.prompt.md` §1 carried from its first
+    // commit: seven sections lettered A B D E F G H, no `### C.`.
+    const { findings } = runLetters(['## 1. Component Categories', '', '### A. One', '', '### B. Two', '', '### D. Four']);
+
+    expect(findings.map((f) => [f.key, f.reason])).toEqual([['### D.', 'letter-run-gap']]);
+    expect(findings[0].text).toContain('expected `### C.`');
+    expect(findings[0].text).toContain('heading 3 of 3');
+  });
+
+  it('reports only the FIRST mismatch in a run, not every heading after the gap', () => {
+    // A gap at C makes D, E and F wrong too. Listing all of them buries the one
+    // heading an author actually has to decide about.
+    const { findings } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '### B. Two',
+      '',
+      '### D. Four',
+      '',
+      '### E. Five',
+      '',
+      '### F. Six',
+    ]);
+
+    expect(findings.map((f) => f.key)).toEqual(['### D.']);
+  });
+
+  it('scopes the run to its section, so a second run restarting at A is not a gap', () => {
+    // The reason this is not a file-wide sequence check: `component.prompt.md`
+    // carries a second run under §2 and `engine.prompt.md` carries five, and a
+    // file-wide check would red on every correct file on this surface.
+    const { findings, counters } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '### B. Two',
+      '',
+      '## 2. API Reference',
+      '',
+      '### A. Field Widget Implementation',
+      '',
+      '### B. Dashboard Widget Implementation',
+    ]);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterRuns).toBe(2);
+    expect(counters.letterHeadings).toBe(4);
+  });
+
+  it('does not read a heading inside a fenced code block', () => {
+    const { findings, counters } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '```md',
+      '### D. An EXAMPLE of a heading, not a heading',
+      '```',
+      '',
+      '### B. Two',
+    ]);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterHeadings).toBe(2);
+  });
+
+  it('refuses to pass when every section has lost its letter headings', () => {
+    // The collapse this guard exists for: the inventories are reformatted away
+    // and a run that reads nothing reports a pass it did not earn.
+    expect(() => runLetters(['## 1. Component Categories', '', 'Prose, and no headings at all.'])).toThrow(
+      /carry no `### X\.` heading/,
+    );
+  });
+
+  it('says nothing about a surface that has no `## N.` sections at all', () => {
+    // A run only exists inside a section, so "no sections" is not a collapsed
+    // inventory — it is a document this pin makes no claim about. Every fixture
+    // in the sections above is that shape, which is why they must stay green.
+    const { findings, counters } = runLetters(['Just a Keys bullet and nothing else.']);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterRuns).toBe(0);
+  });
+});
+
+// ── 9. the live tree, under the letter-run pin ───────────────────────────────
+
+describe('the letter runs on the live prompt surface', () => {
+  const sections = () => scanPromptSections(repoRoot) as {
+    file: string;
+    section: string;
+    entries: { letter: string; line: number; text: string }[];
+  }[];
+
+  it('every run in every prompt file is contiguous from A', () => {
+    expect(letterRunFindings(lettered(sections()))).toEqual([]);
+  });
+
+  it('pins §1 of `component.prompt.md` to the seven categories, lettered A–G', () => {
+    // The corrected state. objectui#9145: this run read `A B D E F G H` — the
+    // gap was in the file's first commit, not a category that was dropped, so
+    // it is renumbered rather than filled.
+    const one = sections().find(
+      (s) => s.file === `${PROMPT_DIR}/component.prompt.md` && /^1\./.test(s.section),
+    );
+    expect(one, '§1 Component Categories must still be a `## 1.` section').toBeDefined();
+    expect(one!.entries.map((e) => e.letter)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
+  });
+
+  it('floors the surface, so a reformat cannot quietly empty it', () => {
+    const runs = lettered(sections()) as { entries: unknown[] }[];
+    expect(runs.length, 'letter runs on the live prompt surface').toBeGreaterThanOrEqual(8);
+    expect(
+      runs.reduce((n: number, run) => n + run.entries.length, 0),
+      'lettered headings on the live prompt surface',
+    ).toBeGreaterThanOrEqual(29);
   });
 });

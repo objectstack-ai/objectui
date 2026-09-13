@@ -8,7 +8,7 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import type { CardSchema } from '@object-ui/types';
-import { renderChildren, cn } from '../../lib/utils';
+import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import {
   Card,
   CardHeader,
@@ -35,6 +35,14 @@ const CardRenderer = forwardRef<HTMLDivElement, { schema: CardSchema; className?
     const isClickable = schema.clickable || !!props.onClick;
     const isHoverable = schema.hoverable || isClickable;
 
+    // Node slots are rendered THROUGH the guard, never guarded by themselves
+    // (objectui#9162). `&&` evaluates to the slot, not to `false`, and the
+    // published validator admits a number in a node slot — so
+    // `{schema.header && …}` painted a stray "0" for a legal authored
+    // `header: 0`. `renderChildren` returns `null` for every falsy slot, so
+    // `header !== null` is the honest "does this header have content" test;
+    // `title`/`description` are declared `string` and are not node slots.
+    const header = renderChildren(schema.header);
     return (
     <Card 
         ref={ref}
@@ -47,15 +55,26 @@ const CardRenderer = forwardRef<HTMLDivElement, { schema: CardSchema; className?
         // Apply designer props
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
     >
-      {(schema.title || schema.description || schema.header) && (
+      {(schema.title || schema.description || header !== null) && (
         <CardHeader>
           {schema.title && <CardTitle>{schema.title}</CardTitle>}
           {schema.description && <CardDescription>{schema.description}</CardDescription>}
-          {schema.header && renderChildren(schema.header)}
+          {header}
         </CardHeader>
       )}
-      {(schema.children || schema.body) && <CardContent>{renderChildren(schema.children || schema.body)}</CardContent>}
-      {schema.footer && <CardFooter className="flex justify-between">{renderChildren(schema.footer)}</CardFooter>}
+      {/* `||` here is ALIAS RESOLUTION — `body` is the legacy spelling of
+          `children` — and ⛔ it is no longer the guard. That distinction is
+          the whole point: `children: 0` used to be converted away by the
+          accident of `0 || undefined === undefined`, which protected nothing,
+          because the sibling `body: 0` went through `undefined || 0 === 0`
+          and leaked. `renderNodeSlot` covers both; the alias order is
+          unchanged. */}
+      {renderNodeSlot(schema.children || schema.body, (body) => (
+        <CardContent>{renderChildren(body)}</CardContent>
+      ))}
+      {renderNodeSlot(schema.footer, (footer) => (
+        <CardFooter className="flex justify-between">{renderChildren(footer)}</CardFooter>
+      ))}
     </Card>
     );
   }

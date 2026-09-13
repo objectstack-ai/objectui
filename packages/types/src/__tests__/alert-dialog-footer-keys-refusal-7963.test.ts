@@ -154,18 +154,49 @@ describe('objectui#7963 — the `alert-dialog` node REFUSES its three footer key
     expect(message).not.toBe('Invalid input: expected never, received string');
   });
 
-  it('`confirmVariant`\'s message says plainly that it has NO survivor — ⛔ it does not point at a label key', () => {
-    // ⚠️ The asymmetry this card turns on. `cancelText` / `actionText` are the
-    // footer's two LABELS; neither does a variant's job, so a message shaped like
-    // its two siblings' would hand the author a key that cannot work. The two
-    // label spellings DO appear in the text — inside the sentence that rules them
-    // OUT — so the assertion is on the ruling-out, not on their absence.
+  it('`confirmVariant`\'s message names the remedy objectui#8978 declared — and still rules the two LABEL keys out', () => {
+    // ⚠️ RE-DERIVED, ⛔ not deleted. The pre-#8978 form of this leg asserted
+    // `NO surviving spelling` and `its own card`, because at the time there was
+    // no key that did this job and the retirement said so plainly. objectui#8978
+    // IS that card, and it answered: `actionVariant`. So the leg flips to the
+    // other side of the same question — the message must now NAME the remedy —
+    // while the asymmetry the original turned on is untouched and still asserted:
+    // `cancelText` / `actionText` are the footer's two LABELS, neither does a
+    // variant's job, and the message still rules them out by name.
+    //
+    // ⛔ What did NOT change is the key's own verdict: `confirmVariant` still
+    // REDS, with the same `invalid_type` code as its two siblings (asserted
+    // above). A published spelling that refuses an author today must not accept
+    // one tomorrow — objectui#8978 took a new spelling precisely so that this
+    // stays true.
     const message = issueFor(RETIRED_DOC, 'confirmVariant')?.message ?? '';
     expect(message).toContain('confirmVariant');
-    expect(message).toContain('NO surviving spelling');
-    expect(message).toContain('not a variant');
-    expect(message).toMatch(/`cancelText` \/ `actionText` are NOT it/);
-    expect(message).toContain('its own card');
+    expect(message).toContain('RETIRED');
+    expect(message).toContain('objectui#7963');
+    expect(message).toContain('actionVariant');
+    expect(message).toContain('objectui#8978');
+    expect(message).toMatch(/`cancelText` \/ `actionText` are NOT/);
+    expect(message).not.toBe('Invalid input: expected never, received string');
+  });
+
+  it('the remedy THAT message names actually parses — and the confirm button it styles is a real reading elsewhere', () => {
+    // The other half of the leg above: a message is only a remedy if the key it
+    // names works. ⛔ This asserts the AUTHORING face only; that the value moves
+    // the confirm button's class is a DOM reading and lives where a DOM exists
+    // (`packages/components/src/__tests__/alert-dialog-action-variant-8978.test.tsx`).
+    const result = AlertDialogZod.safeParse({ ...REMEDY_DOC, actionVariant: 'destructive' });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.actionVariant).toBe('destructive');
+  });
+
+  it('CONTROL — the remedy key is a NARROW enum, so the leg above is not just passthrough admitting anything', () => {
+    // Without this, the leg above passes identically against a mirror that never
+    // declared `actionVariant` at all: `BaseSchemaCore` is `.passthrough()`, so
+    // an UNDECLARED key survives a parse with its value intact. Membership plus a
+    // refused value is the reading `.success` cannot give.
+    expect(Object.keys(AlertDialogZod.shape)).toContain('actionVariant');
+    expect(AlertDialogZod.safeParse({ ...REMEDY_DOC, actionVariant: 'ghost' }).success).toBe(false);
   });
 
   it('POSITIVE CONTROL — the same document with the three keys dropped parses green', () => {

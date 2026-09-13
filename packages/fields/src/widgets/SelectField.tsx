@@ -7,13 +7,14 @@ import {
   SelectValue,
   EmptyValue,
 } from '@object-ui/components';
-import { isValueStillOffered } from '@object-ui/core';
+import { isValueStillOffered, optionDisplayLabel } from '@object-ui/core';
 import { SelectFieldMetadata } from '@object-ui/types';
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { MultiSelectField } from './MultiSelectField.js';
 import { OptionsEmptyState } from './OptionsEmptyState.js';
+import { toHostControlProps } from './toHostGroupProps.js';
 import { useCascadingOptions } from './useCascadingOptions.js';
 
 /**
@@ -127,7 +128,7 @@ function SingleSelectField({
 
   if (readonly) {
     const option = rawOptions.find((o) => o.value === value);
-    const display = option?.label || value;
+    const display = option ? optionDisplayLabel(option) : value;
     return display ? <span className="text-sm">{display}</span> : <EmptyValue />;
   }
 
@@ -144,6 +145,14 @@ function SingleSelectField({
         dependsOnFields={dependsOnFields}
         testId={fieldName ? `select-empty-${fieldName}` : undefined}
         className="h-9"
+        // This widget declares `labelling: 'control'`, so the host emits a
+        // plain `<label for>` and expects a LABELABLE element to be there.
+        // Returning early used to answer that with nothing: the host id
+        // reached no element and the `for` dangled (objectui#8803, the
+        // registered-widget half of objectui#3991). Handing the box this bag
+        // makes it an `<output>` carrying that id — see `OptionsEmptyState`
+        // for the readings that ruled out the alternatives.
+        hostControlProps={toHostControlProps(props)}
       />
     );
   }
@@ -187,7 +196,7 @@ function SingleSelectField({
       <SelectContent position="popper">
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value} data-testid={`select-option-${option.value}`}>
-            {option.label}
+            {optionDisplayLabel(option)}
           </SelectItem>
         ))}
       </SelectContent>

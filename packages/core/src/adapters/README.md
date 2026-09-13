@@ -56,6 +56,17 @@ For `provider: 'value'`. Everything runs against an in-memory array, which is
 deep-cloned on construction so the caller's array is never mutated. Useful for
 static content, fixtures, and previews.
 
+The clone is a **`structuredClone`**, not a JSON round-trip (objectui#9175). It
+is an aliasing barrier and nothing more: `ViewData.items` is
+`z.array(z.unknown())` in `@objectstack/spec`, so **an inline row does not have
+to be serializable** (objectui#6018). A `Date` arrives as a `Date`, a key whose
+value is `undefined` keeps its key, `Map` / `Set` / `RegExp` / `BigInt` /
+`NaN` / a cyclic record graph all survive as themselves. What
+`structuredClone` cannot copy — a function, a DOM node — throws
+`DataCloneError` at construction: **loud, on purpose**, and there is no
+fallback to the round-trip, because a fallback would restore the silent
+flattening this replaced.
+
 ```typescript
 import { ValueDataSource } from '@object-ui/core';
 
@@ -75,8 +86,9 @@ const { data, total } = await dataSource.find('people', {
 
 It implements `$filter` (both MongoDB-style objects and FilterNode AST arrays),
 `$search`, `$orderby`, `$skip`, `$top` and `$select` locally, plus `bulk()`,
-`aggregate()` and `onMutation()`. `getAll()` returns a cloned snapshot and
-`count` the current length.
+`aggregate()` and `onMutation()`. `getAll()` returns a cloned snapshot — the
+same `structuredClone` rule as the constructor — and `count` the current
+length.
 
 #### What `$filter` executes, and what it refuses
 

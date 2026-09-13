@@ -23,8 +23,15 @@ and the grid never got it. `renderCellEditor` now passes
 `dependentValues={ctx.row}`, supplying that missing input; no cascade is
 re-implemented.
 
-⚠️ Interim, and deliberately labelled as such in the code (#7165): `ctx.row` is
-the **saved** record, so a parent edited but not yet saved in the same row does
-not re-scope the child — it stays scoped by the persisted value. Matching the
-form's live-record semantics needs a new member on `renderCellEditor`'s
-published context type and is tracked as #7188.
+⚠️ Interim at this change, and deliberately labelled as such in the code
+(#7165): `ctx.row` is the **saved** record, so a parent edited but not yet saved
+in the same row did not re-scope the child — it stayed scoped by the persisted
+value. Matching the form's live-record semantics needed a new member on
+`renderCellEditor`'s published context type, tracked as #7188.
+
+✅ **#7188 has since landed, and that limitation is gone.** `renderCellEditor`'s
+context now carries the row twice — `row` is still the persisted record and
+`pendingRow` is that record with the row's staged, unsaved edits merged over it —
+and the grid passes `dependentValues={ctx.pendingRow ?? ctx.row}`. A parent
+picked but not yet saved re-scopes the child immediately, which is the form's
+semantics.

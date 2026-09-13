@@ -301,7 +301,20 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     enabled: !!dataSource && !!schema.objectName,
   });
 
-  const dataConfig = useMemo(() => resolveRecordSourceConfig(schema), [
+  // `'array'` — the arm `object-calendar`'s published `data` row declares
+  // (objectui#8348, decision batch #83, 「8348 以协议为准」). MEASURED on
+  // `@objectstack/spec` 17.4.0: `ComponentPropsMap['object-calendar'].data` is
+  // `z.array(z.unknown()).optional()`, *"Pre-fetched records — skips the
+  // internal fetch"*, and this package's own registration publishes the same
+  // arm (`{ name: 'data', type: 'array' }` in `index.tsx`). So the
+  // `{ provider, items }` config object — which that row refuses by KIND, and
+  // which `os validate` and the save gate therefore refuse — is no longer a
+  // record source here either. An authored ARRAY is unchanged: it still reaches
+  // this ladder verbatim (so `staticData` and `objectName` stay unreached, as
+  // the registration's description promises) AND reaches the component as the
+  // `data` PROP through `index.tsx`'s `resolveExternalData`, which is what
+  // actually draws it.
+  const dataConfig = useMemo(() => resolveRecordSourceConfig(schema, 'array'), [
     (schema as any).data,
     (schema as any).staticData,
     schema.objectName,

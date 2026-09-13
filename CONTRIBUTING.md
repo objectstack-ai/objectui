@@ -596,8 +596,22 @@ Write clear, user-facing descriptions:
 The release process is automated:
 
 1. **Create PR with changes** → Include a changeset file
-2. **PR is merged** → Changeset bot creates/updates a "Version Packages" PR
-3. **Version PR is merged** → Packages are automatically published to npm
+2. **PR is merged** → The Changesets bot opens or refreshes the **release PR**
+3. **The release PR is merged** → Packages are automatically published to npm
+
+**The release PR is identified by its head branch, `changeset-release/main`, never
+by its title.** The [Changesets action](https://github.com/changesets/action)
+derives that branch from the base branch, so it is a stable convention that holds
+across repositories. The title is not: it is the `title:` input this repository
+passes to the action in
+[`.github/workflows/changeset-release.yml`](.github/workflows/changeset-release.yml),
+it is repository-local configuration, and it differs from repository to
+repository. To locate the current release PR — its number and its title included
+— search the head branch:
+
+```text
+is:pr is:open head:changeset-release
+```
 
 You don't need to manually:
 - Update version numbers

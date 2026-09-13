@@ -11,9 +11,15 @@
  * conversion `ObjectGantt` / `ObjectMap` / `ObjectCalendar` each inline.
  *
  * Two of the cases below pin the two places this function is deliberately MORE
- * faithful to the declared contract than those copies: `SortConfig.order` is
- * optional (an entry without it means ascending, not "drop this key"), and
- * nothing usable yields `undefined` rather than a truthy-but-empty `{}`.
+ * faithful to the declared contract than those copies: an entry with no `order`
+ * is READ as ascending rather than dropped, and nothing usable yields
+ * `undefined` rather than a truthy-but-empty `{}`.
+ *
+ * ⚠️ That first one is a RUNTIME tolerance, not an optional key. This header
+ * used to call `SortConfig.order` "optional"; it is required on the interface,
+ * on its zod counterpart and on `@objectstack/spec`'s `SortItemSchema`. Corrected
+ * under objectui#9031, whose subject is the third copy of that same sentence —
+ * the one the refusal diagnostic printed at authors.
  *
  * The rest pin objectui#8221 (director ruling, decision batch #77, option B):
  * the legacy string clause is RETIRED, and — this is the load-bearing half —
@@ -27,6 +33,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// The INSTALLED published artifact, not a local mirror of it — this is the judge
+// a publish actually uses, and objectui#9031 is about the diagnostic disagreeing
+// with it. No `resolve.alias` entry covers `@objectstack/*`, so this specifier
+// resolves to `node_modules`, which is the whole point of reading it here.
+import { SortItemSchema } from '@objectstack/spec/shared';
 import { convertSortToQueryParams, normalizeSortEntries, resetRetiredSortSpellingReports } from '../sort-query';
 
 /** The retired spelling, reached the only way it still can be: at runtime. */
@@ -151,6 +162,113 @@ describe('convertSortToQueryParams — the retired string clause (objectui#8221)
     // disconnected mock.
     expect(convertSortToQueryParams(asRuntimeValue('   '))).toBeUndefined();
     expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** Every `{ … }` entry the diagnostic quotes as the form the author must write. */
+function entriesPrescribedBy(message: string): Array<Record<string, string>> {
+  return (message.match(/\{[^{}]*\}/g) ?? []).map((literal) => {
+    const entry: Record<string, string> = {};
+    for (const [, key, value] of literal.matchAll(/(\w+)\s*:\s*'([^']*)'/g)) entry[key] = value;
+    return entry;
+  });
+}
+
+/**
+ * objectui#9031 — what the refusal PRESCRIBES has to survive a publish.
+ *
+ * This text is read at the moment the author is ALREADY being corrected. It used
+ * to end "`order` is optional and means `'asc'`" — a RUNTIME tolerance stated as
+ * an AUTHORING permission — so an author who followed the correction verbatim was
+ * refused a second time, at publish, by a different door, with no hint that the
+ * advice itself was wrong.
+ *
+ * The judge here is `SortItemSchema` from the INSTALLED `@objectstack/spec`, and
+ * it is fed the message's OWN prescription, parsed back out of the emitted
+ * string. Re-typing the example into the test would only pin the test's copy of
+ * it; the way this regresses is somebody shortening the example the diagnostic
+ * quotes, and only reading the real message catches that.
+ *
+ * Every leg runs against a live refusal produced in the same run. That control
+ * is not bookkeeping: without it, "the wrong sentence is gone" is satisfied just
+ * as well by a diagnostic that stopped firing.
+ */
+describe('the refusal prescribes metadata `@objectstack/spec` ACCEPTS (objectui#9031)', () => {
+  /** Drive one real refusal and hand back exactly what it printed. */
+  const captureRefusal = (spelling = 'name desc'): string => {
+    resetRetiredSortSpellingReports();
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(convertSortToQueryParams(asRuntimeValue(spelling))).toBeUndefined();
+      // LIVE CONTROL — the diagnostic FIRED, on this spy, in this run.
+      expect(spy).toHaveBeenCalledTimes(1);
+      return String(spy.mock.calls[0][0]);
+    } finally {
+      spy.mockRestore();
+    }
+  };
+
+  it('every entry it tells the author to write is ACCEPTED by the installed spec', () => {
+    const prescribed = entriesPrescribedBy(captureRefusal());
+    // Anti-vacuity: a message quoting no entry at all would otherwise pass.
+    expect(prescribed.length).toBeGreaterThan(0);
+    for (const entry of prescribed) {
+      const verdict = SortItemSchema.safeParse(entry);
+      expect(verdict.success, `prescribed entry rejected by SortItemSchema: ${JSON.stringify(entry)}`).toBe(true);
+    }
+  });
+
+  it('CONTROL — the judge can say no, and names the key it is judging', () => {
+    // `{ field: 'name' }` is precisely what "`order` is optional" told authors to
+    // write. The SAME schema refuses it, so the ACCEPT above is a reading and not
+    // a schema that says yes to whatever it is handed.
+    const noOrder = SortItemSchema.safeParse({ field: 'name' });
+    expect(noOrder.success).toBe(false);
+    expect(noOrder.error?.issues[0]?.path).toEqual(['order']);
+
+    // …and it names `field` when `field` is the missing one, so it judges keys
+    // rather than refusing every object.
+    const noField = SortItemSchema.safeParse({ order: 'desc' });
+    expect(noField.success).toBe(false);
+    expect(noField.error?.issues[0]?.path).toEqual(['field']);
+  });
+
+  it('states the tolerance as a tolerance, never as an authoring permission', () => {
+    const message = captureRefusal();
+    // The defect, spelled out. ("is not optional" does not contain this.)
+    expect(message).not.toContain('is optional');
+    expect(message).toMatch(/`order` is required/);
+    expect(message).toContain('SortItemSchema');
+
+    // …and the other truth still stands. "Delete the sentence" was rejected by
+    // name: a missing `order` really is read as ascending here, and a message
+    // that denies it sends the author hunting a key nothing ever dropped.
+    expect(message).toContain("`'asc'`");
+    expect(message).toMatch(/runtime tolerance/);
+  });
+
+  it('BEHAVIOUR — the rewording moved nothing: same inputs refused, same channel', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      for (const spelling of ['name desc', 'name asc', 'name', 'name DESC']) {
+        resetRetiredSortSpellingReports();
+        expect(convertSortToQueryParams(asRuntimeValue(spelling))).toBeUndefined();
+      }
+      // Same severity channel: `console.error`, never `console.warn`. A rewording
+      // that also downgraded the channel would pass every text assertion above.
+      expect(errorSpy).toHaveBeenCalledTimes(4);
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      // CONTROL — the arm that still works lowers unchanged, and silently, so
+      // the four refusals are a refusal of the string and not a dead sink.
+      expect(convertSortToQueryParams([{ field: 'name', order: 'desc' }])).toEqual({ name: 'desc' });
+      expect(convertSortToQueryParams([{ field: 'name' }])).toEqual({ name: 'asc' });
+      expect(errorSpy).toHaveBeenCalledTimes(4);
+    } finally {
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
   });
 });
 

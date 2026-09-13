@@ -59,7 +59,7 @@ export const RecordAttachmentsRenderer: React.FC<RecordAttachmentsRendererProps>
       <RecordAttachmentsPanel
         objectName={objectName}
         recordId={recordId}
-        dataSource={ctx?.dataSource as any}
+        dataSource={ctx?.dataSource}
         currentUserId={user?.id}
       />
     </div>

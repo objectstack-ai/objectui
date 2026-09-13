@@ -786,7 +786,43 @@ export default defineConfig({
             // magnitude smaller. It is rolldown's behaviour, not a choice
             // available here: `framework` cannot be lifted above these two
             // without re-absorbing the catalogue, which is the whole defect.
-            { name: 'i18n-locales', test: /[\\/]packages[\\/]i18n[\\/]/, priority: 84 },
+            //
+            // ## Why there are ELEVEN i18n groups and not one (objectui#7479)
+            //
+            // objectui#7399 gave the catalogues one `i18n-locales` chunk so the
+            // `framework` ceiling stopped budgeting them. That chunk held all
+            // ten, and all ten were EAGER because `packages/i18n`'s entry
+            // re-exported every pack statically. objectui#7479 made nine of
+            // them `import()`ed on demand — and a single group would have
+            // silently undone that: `advancedChunks` groups by MODULE, not by
+            // reachability, so ten catalogues sharing one group are one chunk,
+            // and one eager member makes that whole chunk eager. The laziness
+            // would be real in the source and absent in the bundle, which is
+            // the failure mode this whole card exists to avoid.
+            //
+            // So: one group per catalogue, ten single-module chunks, plus a
+            // group for the i18n RUNTIME (provider, hooks, formatters) which
+            // stays eager and is a hundredth of the size. The names are the
+            // gate's handle — `scripts/check-eager-locale-catalogues.mjs` reads
+            // `i18n-locale-<code>` out of the BUILT `eager-closure.json` and
+            // fails if any code but the active one is eager.
+            //
+            // ⛔ Spelled out, one literal per line, for the same reason the
+            // marketplace co-tenants below are: each entry is a measured fact,
+            // and a computed table would also defeat the parse in
+            // `scripts/__tests__/check-eager-closure-budget.test.ts` that pins
+            // this attribution.
+            { name: 'i18n-locale-en', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]en\.ts$/, priority: 84 },
+            { name: 'i18n-locale-zh', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]zh\.ts$/, priority: 84 },
+            { name: 'i18n-locale-ja', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ja\.ts$/, priority: 84 },
+            { name: 'i18n-locale-ko', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ko\.ts$/, priority: 84 },
+            { name: 'i18n-locale-de', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]de\.ts$/, priority: 84 },
+            { name: 'i18n-locale-fr', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]fr\.ts$/, priority: 84 },
+            { name: 'i18n-locale-es', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]es\.ts$/, priority: 84 },
+            { name: 'i18n-locale-pt', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]pt\.ts$/, priority: 84 },
+            { name: 'i18n-locale-ru', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ru\.ts$/, priority: 84 },
+            { name: 'i18n-locale-ar', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ar\.ts$/, priority: 84 },
+            { name: 'i18n-runtime', test: /[\\/]packages[\\/]i18n[\\/]/, priority: 83 },
             { name: 'data-adapter', test: /[\\/]packages[\\/]data-objectstack[\\/]/, priority: 84 },
             { name: 'framework', test: /[\\/]packages[\\/](core|react|types)[\\/]/, priority: 80 },
             { name: 'ui-components', test: /[\\/]packages[\\/](components|fields)[\\/]/, priority: 80 },

@@ -310,6 +310,13 @@ interface RuntimeField {
   // `displayField` / `descriptionField` / `lookupFilters` and REFUSES every
   // snake twin below with `unrecognized_keys`, controls lit in the same run.
   //
+  // ⭐ objectui#7435 second slice — `lookupColumns` and `lookupPageSize` join
+  // them on the same measurement, re-taken on the pin this tree resolves:
+  // `FieldSchema.safeParse` ACCEPTS both camel spellings and REFUSES
+  // `lookup_columns` / `lookup_page_size` with `unrecognized_keys`, with the
+  // minimal lookup def ACCEPTED and `zzz_not_a_real_key` REJECTED as controls
+  // in the same run.
+  //
   // ⛔ `id_field` and `title_format` deliberately gain NO camel twin. Measured
   // on that same pin, `FieldSchema` refuses `idField` exactly as it refuses
   // `id_field` (the spec's only `idField` is on `InlineGridColumnSchema`, a
@@ -317,6 +324,10 @@ interface RuntimeField {
   // target carries an ADR-0079 deprecation toward `nameField`. Declaring either
   // camel spelling here would fossilise a spelling no contract declares —
   // the exact defect this family exists to stop. Routed to objectui#7650.
+  //
+  // ⛔ `depends_on` gains no camel twin either, and its reason is the opposite
+  // shape: `FieldSchema` DOES declare `dependsOn`, so the omission is not
+  // contractual but MEASURED. See the read site below.
   reference_to?: string;
   reference?: string;
   displayField?: string;
@@ -326,9 +337,11 @@ interface RuntimeField {
   descriptionField?: string;
   description_field?: string;
   title_format?: string;
+  lookupColumns?: unknown[];
   lookup_columns?: unknown[];
   lookupFilters?: unknown[];
   lookup_filters?: unknown[];
+  lookupPageSize?: number;
   lookup_page_size?: number;
   depends_on?: unknown[];
 }
@@ -562,7 +575,8 @@ export function resolveActionParam(
         // serve path runs no parse, so retiring a snake read deletes the only read
         // of an authorable key. (That census sentence used to add "and none of the
         // four reads below has a camel leg" — objectui#7435 made that half false for
-        // three of them; the KEEP verdict it supports is unchanged.)
+        // three of them, and its second slice for `lookup_columns` and
+        // `lookup_page_size` too; the KEEP verdict it supports is unchanged.)
         //
         // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST on the three
         // keys that have one. Every read here used to be snake-only, so the
@@ -575,22 +589,42 @@ export function resolveActionParam(
         // parse — objectui#7650) and a host adapter outside this repo. Dropping
         // a leg is a retirement with its own evidence, not a side effect here.
         //
+        // ⭐ objectui#7435 second slice — `lookupColumns` and `lookupPageSize`
+        // get the same treatment, on the same re-taken measurement. Both are
+        // pure picker CONFIG: the value they carry changes what the picker
+        // shows, never whether it can be opened.
+        //
         // ⛔ `idField` and `titleFormat` keep their snake-only reads on purpose
         // — see {@link RuntimeField}. Neither has a `FieldSchema` spelling to
         // rank first, so there is nothing to add that would not fossilise an
-        // undeclared key. `lookupColumns` / `lookupPageSize` / `dependsOn` ARE
-        // declared and DO still read snake-only; they are outside this card's
-        // three-key scope and stay recorded on objectui#7435 rather than being
-        // swept in silently.
+        // undeclared key.
+        //
+        // ⛔ `dependsOn` is the third declared key of that slice and it keeps
+        // its snake-only read for a MEASURED reason, not a contractual one.
+        // Adding `field.dependsOn ?? field.depends_on` was built and rendered
+        // before being refused: a field-backed lookup param whose def declares
+        // the spec spelling then renders `lookup-trigger-gated` and DISABLED,
+        // where the same def renders an enabled trigger today (control: an
+        // otherwise identical lookup without the key, enabled in both runs).
+        // The gate never lifts — this dialog supplies `dependentValues` only to
+        // `CASCADE_OPTION_WIDGET_TYPES`, which excludes `lookup`, so
+        // `LookupField`'s `dependenciesMissing` can never clear. That is pinned,
+        // with a keystroke witness, by leg A of
+        // `views/ActionParamDialog.lookupDependsOnReach-8672.test.tsx`, and leg
+        // C of the same file pins the `undefined` this read produces today.
+        // ⇒ ranking the declared spelling first here would trade a config-loss
+        // bug for an unusable picker on every spec-valid def that declares the
+        // cascade. Which of objectui#8672's three dispositions to take — wire
+        // it, refuse it, declare the limit — is that card's ruling to make.
         referenceTo: param.reference ?? field.reference,
         displayField:
           field.displayField ?? field.display_field ?? field.reference_field,
         idField: field.id_field,
         descriptionField: field.descriptionField ?? field.description_field,
         titleFormat: field.title_format,
-        lookupColumns: field.lookup_columns,
+        lookupColumns: field.lookupColumns ?? field.lookup_columns,
         lookupFilters: field.lookupFilters ?? field.lookup_filters,
-        lookupPageSize: field.lookup_page_size,
+        lookupPageSize: field.lookupPageSize ?? field.lookup_page_size,
         dependsOn: field.depends_on,
       }
     : {};

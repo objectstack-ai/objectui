@@ -295,20 +295,37 @@ describe('objectui#7313 — `data` and `staticData` are DECLARED, not passthroug
 });
 
 describe('objectui#7313 — the declaration names a live read, in the declared order', () => {
-  it('the renderer resolves its records through the shared ladder', () => {
+  it('the renderer resolves its records through the shared ladder, on the ARRAY arm', () => {
     const src = readFileSync(join(REPO_ROOT, RENDERER), 'utf8');
-    expect(src, `${RENDERER} no longer calls resolveRecordSourceConfig(schema)`).toContain('resolveRecordSourceConfig(schema)');
+    // ⭐ objectui#8348 — the arm is part of the call now, and asserting it here
+    // is what keeps this row honest. The previous spelling looked for the bare
+    // `resolveRecordSourceConfig(schema)`, which this file's own renderer
+    // satisfies from a DOCBLOCK line that merely names the function — so it
+    // would have stayed green through a call site that had stopped existing.
+    expect(src, `${RENDERER} no longer calls the shared ladder with its declared arm`).toContain(
+      "resolveRecordSourceConfig(schema, 'array')",
+    );
+    // The arm is the one `ComponentPropsMap['object-calendar'].data` declares
+    // (`z.array(z.unknown())`, "Pre-fetched records"), which is why it is
+    // `'array'` here and `'view-data'` on `object-grid` / `object-map` /
+    // `object-gantt`.
+    expect(src).not.toContain("resolveRecordSourceConfig(schema, 'view-data')");
   });
 
   it('the ladder reads `data`, then `staticData`, then `objectName` — the order the refinement rests on', () => {
     const src = readFileSync(join(REPO_ROOT, LADDER), 'utf8');
     const body = src.slice(src.indexOf('export function resolveRecordSourceConfig'));
-    const data = body.indexOf('if (schema.data)');
+    // Rung 1 is no longer a bare `if (schema.data)`: objectui#8348 gates it on
+    // the arm the calling block's published `data` row declares. The ORDER — the
+    // thing `requireRecordSource` actually rests on — is unchanged, and is what
+    // this row still measures.
+    const data = body.indexOf('schema.data');
     const staticData = body.indexOf('if (schema.staticData)');
     const objectName = body.indexOf('if (schema.objectName)');
     expect(data).toBeGreaterThan(-1);
     expect(staticData).toBeGreaterThan(data);
     expect(objectName).toBeGreaterThan(staticData);
+    expect(body).toContain('authoredDataIsOnTheDeclaredArm(schema.data, dataArm)');
   });
 
   it('the two static-data examples on the plugin page carry the annotation (the card\'s completion signal)', () => {

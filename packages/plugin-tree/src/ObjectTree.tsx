@@ -487,7 +487,18 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const dataConfig = useMemo(() => resolveRecordSourceConfig(schema), [schema]);
+  // `'undeclared'` — and that is a finding, not a shrug (objectui#8348).
+  // MEASURED: NO published face declares a `data` row for `object-tree`.
+  // `@objectstack/spec` 17.4.0 has no `ComponentPropsMap['object-tree']` entry;
+  // `ObjectTreeSchema` (`@object-ui/types`) declares `objectName` REQUIRED and
+  // no `data` / `staticData`; and this package's registration declares no
+  // `data` input. Decision batch #83 rules by reference to the block's own
+  // published row — "the row decides" — so with no row on any face, neither arm
+  // of that ruling reaches this block and rung 1 keeps its pre-8348 verbatim
+  // behaviour here. ⛔ Do NOT copy this arm to a block that HAS a row: it is
+  // the honest answer for an unruled block, reported on the card rather than
+  // guessed at.
+  const dataConfig = useMemo(() => resolveRecordSourceConfig(schema, 'undeclared'), [schema]);
 
   /**
    * The object THIS render is bound to, as a plain string — so the resolution

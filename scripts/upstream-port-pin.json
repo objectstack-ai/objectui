@@ -158,6 +158,616 @@
           "ported": "# to stop (#7259). The pair of DEPTHS is what makes the section discriminating, and the\n"
         }
       ]
+    },
+    {
+      "ported": "scripts/check-bash32-floor.mjs",
+      "upstreamPath": "scripts/check-bash32-floor.mjs",
+      "ref": "61362932b5ad4c85b39169e70cf9be64d4332ce5",
+      "upstreamSha256": "0da45049c680c2b2d58d52d637f17f7c45421a46a92a8dd0e6385dadb384dffa",
+      "divergences": [
+        {
+          "id": "header-card-and-ported-banner",
+          "why": "The header names this repository's card and carries the PORTED provenance banner; upstream's names upstream's. ⚠️ Its \"Deliberately NOT registered\" clause is stale the moment this entry lands — correcting it edits the ported file and is a follow-up card, not a silent fix here.",
+          "upstream": "/**\n * The bash-3.2 floor, repo-wide (#12221).\n *\n",
+          "ported": "/**\n * The bash-3.2 floor, repo-wide (objectui#7692).\n *\n * ⚠️ PORTED from objectstack-ai/objectstack `scripts/check-bash32-floor.mjs` at\n * commit `6136293`, which is where the class, the construct table and the\n * exemption rules were worked out. This header states which claims are\n * upstream's and which were re-measured HERE; ⛔ do not read an inherited\n * measurement as a reading about this tree. Deliberately NOT registered in\n * `scripts/upstream-port-pin.json` — the reason is at \"## Why this port is not\n * pinned\" below.\n *\n"
+        },
+        {
+          "id": "incidents-are-upstreams-and-local-coverage-census",
+          "why": "The two incidents that established the class are UPSTREAM's, and this repository's own pre-gate coverage was re-measured here (zero, each zero with a live control) instead of inheriting upstream's sentence.",
+          "upstream": " *\n * A sweep found and fixed all four. Nothing stopped a fifth being typed. Today's\n * coverage before this gate was two FILE-SCOPED scans living inside two\n * unrelated gates' self-tests — which is the arrangement that let the class\n * survive in the first place.\n *\n",
+          "ported": " *\n * Both incidents are UPSTREAM's, and they are what established the class. A\n * sweep found and fixed all four sites there. Nothing stopped a fifth being\n * typed, in either repository.\n *\n * ## The coverage this repository had before this gate: none\n *\n * Measured on `origin/main` `28cfff4`, with a live control beside each zero —\n * a zero taken with no control is not a reading:\n *\n *   - tracked files whose name carries `bash32` / `bash-32` / `bash3`: 0.\n *     Control, same listing: 47 `scripts/check-*.mjs` gates exist. So the\n *     absence is the tree's, not the grep's.\n *   - the two neighbours that look closest are neither, by their own verdicts:\n *       `check-control-bytes` — \"scanned 6443 tracked text file(s); skipped 85\n *         binary\". It judges BYTES, in every text file, and says nothing about\n *         shell grammar.\n *       `check-shell-escape-residue` — \"206 file(s) and 1309 fenced block(s)\n *         examined in total\". Its population is markdown FENCES in `AGENTS.md`,\n *         `CLAUDE.md`, `skills`, `.claude/skills` and `content/docs`: prose\n *         about shell, not shell programs.\n *\n * Upstream additionally retains two FILE-SCOPED simulated runs that this\n * repository does not have (`enable -n mapfile readarray` via `BASH_ENV`, plus\n * `unset` of the bash-5 variables). That difference matters for what the\n * \"Known limit\" section below can promise, and it is stated there rather than\n * left to be discovered.\n *\n"
+        },
+        {
+          "id": "what-this-gate-is-not-no-simulated-runs-here",
+          "why": "Upstream keeps two FILE-SCOPED simulated runs beside this scan and forbids retiring them; this repository has no such pair, so the same sentence has to be read forwards and a green verdict here carries less than upstream's.",
+          "upstream": " *\n * ⛔ It does not supersede those two scans and must not be used to retire them.\n * A static scan sees parse-level constructs a simulated run cannot reach; a\n * simulated run (`enable -n mapfile readarray` via `BASH_ENV`, plus `unset` of\n * the bash-5 variables) proves the real code path COMPLETES without them, and\n * reaches constructs assembled at runtime that no static scan can see. They\n * catch different things. This gate is the repo-wide third leg — defence in\n * depth over the class, at the price of a regex — and the blind spot named\n * under \"Known limit\" below is exactly the half the simulation harness holds.\n *\n",
+          "ported": " *\n * ⛔ Upstream carries this scan as the THIRD leg beside those two simulated\n * runs, and its header forbids using it to retire them. Here there is no such\n * pair to retire — so the same sentence has to be read forwards instead: a\n * static scan sees parse-level constructs a simulated run cannot reach, and a\n * simulated run reaches constructs assembled at runtime that no static scan can\n * see. This repository now holds the first half only. ⛔ Do not read a green\n * verdict here as the coverage upstream's green verdict carries.\n *\n"
+        },
+        {
+          "id": "exemption-rule-remeasured-zero-suppressions",
+          "why": "Upstream's 8 false positives are upstream's measurement. Re-measured here the exemptions suppress nothing today; carrying the number across would have been inventing a reading about this tree.",
+          "upstream": " * The hard part of a repo-wide scan is that the files which document this floor\n * have to NAME the constructs they refuse in order to explain why, and the\n * lock's own self-test has to name them in order to hunt them. A scan that\n * cannot tell a mention from a use reddens itself on day one. Measured on this\n * tree with the tree's existing rule (full-line comments exempt, everything\n * else a use): 8 findings, every one of them a false positive, all in one file.\n *\n",
+          "ported": " * The hard part of a repo-wide scan is that the files which document this floor\n * have to NAME the constructs they refuse in order to explain why, and a\n * self-test hunting these tokens has to name them in order to hunt them. A scan\n * that cannot tell a mention from a use reddens itself on day one. Upstream met\n * exactly that: 8 findings there, every one a false positive, all in one file.\n *\n * ⚠️ Re-measured HERE, and the answer is different — recorded because carrying\n * upstream's number across would be inventing a reading. Over the 12 shell\n * files in this population, with E1 (full-line comments) AND E3 (command\n * position) both switched OFF, the 19 patterns match on **0 lines**. So on this\n * tree today the exemptions suppress NOTHING, and none of them is load-bearing\n * yet. They are carried anyway, and that is a decision rather than inertia:\n * the doctrine this repository is acquiring — this file, its wiring comment in\n * `.github/workflows/lint.yml`, and any hook that later refuses one of these\n * tokens — has to name the constructs in order to refuse them, which is the\n * arrangement that produced upstream's 8. An exemption rule invented on the day\n * it is first needed is invented under pressure to make a red gate green.\n *\n"
+        },
+        {
+          "id": "dynamic-construct-hole-is-uncovered-here",
+          "why": "Upstream can call the dynamically-built-construct hole \"precisely what the retained SIMULATED runs cover\"; this repository retains none, so here the hole is simply UNCOVERED — a smaller claim than upstream's identical-looking sentence.",
+          "upstream": " * parser, and widening E3 instead would re-red the tree on the very files that\n * hunt these tokens. The hole is precisely what the retained SIMULATED runs\n * cover: they execute the real path with the builtin disabled, so a dynamically\n * built `mapfile` fails there and nowhere else. Two instruments, one class.\n *\n",
+          "ported": " * parser, and widening E3 instead would re-red the tree on the very files that\n * hunt these tokens.\n *\n * ⚠️ Upstream can say the hole is \"precisely what the retained SIMULATED runs\n * cover\" — it keeps two of them. THIS repository has none, so here the hole is\n * simply UNCOVERED, and that is a smaller claim than upstream's identical-\n * looking sentence. Said plainly rather than inherited: after this gate lands,\n * an `eval \"mapfile -t x < f\"` in this tree is refused by nothing. Closing it\n * is a separate card, not a line to loosen here.\n *\n"
+        },
+        {
+          "id": "why-this-port-is-not-yet-pinned-section",
+          "why": "A port-local rationale section with no upstream counterpart. ⚠️ This entry is what makes it false; rewriting it would edit the ported file and change this divergence, so it is tracked as a follow-up card rather than folded in.",
+          "upstream": " *\n * ## Population\n",
+          "ported": " *\n * ## Why this port is not YET pinned in `scripts/upstream-port-pin.json`\n *\n * That ledger is how this repository stops a ported copy drifting into a\n * confident-but-stale report — `scripts/pm/check-half-states.mjs` reached a\n * 4,637-line diff from upstream while reporting greenly. The same argument\n * applies to this file with force: its whole subject is that \"an absence from a\n * denylist reads as an approval\", and upstream actively sweeps the table.\n *\n * It is still NOT registered, but the blocker that kept it out was structural\n * and is GONE. The pin used to carry ONE ledger-wide `upstream.ref` beside\n * per-file digests, and `--resync` rewrote that global field on every run. So\n * registering this port at the revision it was actually taken from meant one of\n * two bad trades: port from the older revision the ledger happened to name —\n * deliberately shipping a WEAKER construct table so a provenance field stayed\n * true, which inverts the point of the gate — or drag every other pinned file\n * to a new ref, an unrelated rewrite of other ported tooling. A third route,\n * pinning this file's digest while the global ref named a different revision,\n * was the one that must never be taken: the digest would verify and the\n * provenance line would be false.\n *\n * objectui#8288 retired the field and all three trades with it. Read off\n * `check-upstream-port-parity.mjs`: `ref` is now a REQUIRED key on each\n * `files[]` entry beside the digest it was taken with, `validatePin` REFUSES a\n * pin that still carries `upstream.ref`, and `resyncedPin` writes only the\n * re-synced entry's own `ref` and digest while returning every other entry\n * untouched. `upstream` keeps `repo` alone. Entries at different refs now\n * coexist by design, so this file can be registered at its own revision without\n * disturbing anything already pinned.\n *\n * ⛔ Do not write a revision into this prose. A port's ref lives on that port's\n * entry in `scripts/upstream-port-pin.json`; read it from there, where\n * `--resync` keeps it correct. This section has already gone stale TWICE by\n * naming one: objectui#7749 moved the global ref out from under the sentence\n * describing it, and objectui#8288 then deleted the field that sentence named.\n * Both times the prose stayed confident and wrong — which is this file's own\n * subject, aimed at itself.\n *\n * What registration still costs is per-file work rather than a schema change,\n * which is why it did not ride along with objectui#8288 and is a card of its\n * own: read the upstream blob at a named ref, compute its SHA-256, and declare\n * every divergence as an exact `upstream`/`ported` text pair with a stated\n * `why`. The same unblocking reaches the ported `.claude/hooks/**` files that\n * objectui#7953 recorded from the other direction — a per-file ref can name a\n * revision where each of them exists — with one extra cost there and not here:\n * those are GOVERNED surface, so `--resync` refuses to write them without\n * `--rewrite-governed-file`.\n *\n * Consequence, stated so it is inherited rather than rediscovered: until that\n * registration lands, this file has NO drift gate. Upstream improvements to\n * `CONSTRUCTS` arrive here only if someone carries them by hand. That cost was\n * once accepted because paying it meant weakening a gate; it is now simply\n * unpaid, and the work to pay it is ordinary.\n *\n * ## Population\n"
+        },
+        {
+          "id": "population-shebang-census-is-zero-here",
+          "why": "Upstream measures 2 shebang-only scripts and calls the shebang half load-bearing; every shell file in this population is `.sh`, so the census is 0 here and upstream's sentence would be the false half of the port.",
+          "upstream": " * Tracked files under `POPULATION_ROOTS` that are shell: a `.sh` name, or a\n * `sh`/`bash`/`dash`/`ksh`/`zsh` shebang whatever the name. The shebang half is\n * not decoration — measured on this tree it adds `.githooks/pre-commit` and\n * `.githooks/pre-push`, two `#!/bin/sh` scripts a `*.sh` glob does not see and\n * whose floor is TIGHTER than bash 3.2, not looser. An extension-only census\n * would have called this population complete at 18 while running past both.\n *\n",
+          "ported": " * Tracked files under `POPULATION_ROOTS` that are shell: a `.sh` name, or a\n * `sh`/`bash`/`dash`/`ksh`/`zsh` shebang whatever the name.\n *\n * ⚠️ The shebang half's STATUS DIFFERS from upstream's, and inheriting\n * upstream's sentence would have been the false half of this port. Upstream\n * measures 2 shebang-only scripts (`.githooks/pre-commit`, `.githooks/pre-push`)\n * and calls the half load-bearing. Measured HERE on `origin/main` `28cfff4`:\n * every one of the 12 shell files in this population carries a `.sh` name, so\n * the shebang census is **0** and the half catches nothing TODAY. It is kept\n * because it is the half that would catch the first extension-less script\n * someone adds — and because dropping it would make a future re-sync with\n * upstream a semantic merge rather than a textual one. Its mechanism is\n * therefore pinned where it can actually be exercised: the end-to-end fixture\n * in `--self-test` plants a shebang-only script under a walked root and\n * requires the census to see it. ⛔ The real-tree leg must NOT assert\n * `byShebang > 0` here; upstream's does, and it would be red on day one.\n *\n"
+        },
+        {
+          "id": "population-roots-docblock-e2e-root",
+          "why": "The roots docblock records the port's one substantive change (`e2e/**`) and separates upstream's reason for source literals — a watch hint no tool here reads — from the local one the self-test can actually check.",
+          "upstream": "/**\n * The population, declared as SUBTREE GLOBS — the one spelling that is both a\n * watch hint the dispatch derivation can read and a claim narrow enough to be\n * true.\n *\n * ⛔ These must stay SOURCE LITERALS. A root assembled at runtime\n * (`` `${r}/**` ``) builds no watch hint at all, which is the invisible half of\n * the bare-root species: a gate nameable by no dispatch brief, leaving no\n * residue saying so. And the glob form is what keeps this out of the\n * `escapable-literal` species too — the extractor admits any literal carrying a\n * separator, and refuses a bare single-segment word.\n *\n",
+          "ported": "/**\n * The population, declared as SUBTREE GLOBS.\n *\n * ⭐ `e2e/**` IS THE PORT'S ONE SUBSTANTIVE CHANGE, and it is the reason\n * objectui#7692 exists rather than being closed by a copy. Upstream declares\n * `scripts/**`, `.claude/hooks/**`, `.githooks/**`. This repository has no\n * `.githooks/` at all, and TWO of the four shell files it wrote itself —\n * `e2e/live/ci/start-backend.sh` and `e2e/live/ci/stop-backend.sh` — live under\n * `e2e/`. Copying upstream's roots verbatim would have walked past half of the\n * population this card is about while printing a confident green line, which is\n * the failure mode this whole file is built to refuse. ⛔ Do not \"restore\" the\n * upstream list.\n *\n * ⛔ These must stay SOURCE LITERALS in the glob form. Two independent reasons,\n * one of them upstream's and one of them local:\n *\n *   - upstream's: a root assembled at runtime (`` `${r}/**` ``) builds no watch\n *     hint for its dispatch derivation, and a bare single-segment word is\n *     refused by its literal extractor. Neither tool runs in THIS repository —\n *     said so it is not mistaken for a live local mechanism — but the shape is\n *     kept so a re-sync stays textual.\n *   - local, and load-bearing on its own: the shape is what `--self-test` can\n *     actually check. A declaration it cannot read is a declaration nothing\n *     pins.\n *\n"
+        },
+        {
+          "id": "population-roots-literal",
+          "why": "This repository has no `.githooks/` and two of the four shell files it wrote itself live under `e2e/`; copying upstream's roots verbatim would walk past half the population while printing a confident green line.",
+          "upstream": " */\nexport const POPULATION_ROOTS = ['scripts/**', '.claude/hooks/**', '.githooks/**'];\n\n",
+          "ported": " */\nexport const POPULATION_ROOTS = ['scripts/**', '.claude/hooks/**', 'e2e/**'];\n\n"
+        },
+        {
+          "id": "battery-roster-floors-and-host-premise-battery",
+          "why": "Two battery floors GREW because upstream's `byShebang > 0` leg is false here and the clean-tree fixture now asserts both census halves by number, plus objectui#8404's host-premise battery which upstream does not have.",
+          "upstream": "  '⭐ the declaration, and the two obligations it makes unreachable': 5,\n  '⭐ end to end, through the real discovery path': 5,\n  '⭐ the instrument is real: the flagged construct really does break': 4,\n  'the real tree': 2,\n});\n",
+          "ported": "  '⭐ the declaration, and the two obligations it makes unreachable': 5,\n  // ⚠️ Two floors differ from upstream's, and the difference is the port:\n  //   end to end   5 -> 6  the clean-tree fixture now asserts BOTH census\n  //                        halves by number instead of matching the word\n  //                        \"shebang\", which the green line prints regardless.\n  //   the real tree 2 -> 3  upstream's `byShebang > 0` is false in this\n  //                         repository (12 shell files, all `.sh`); it is\n  //                         replaced by the partition and the really-read legs.\n  // ⛔ Neither is a floor LOWERED: both batteries grew. A future re-sync that\n  // restores upstream's numbers here will red, which is the intent.\n  '⭐ end to end, through the real discovery path': 6,\n  '⭐ the instrument is real: the flagged construct really does break': 4,\n  'the real tree': 3,\n  // objectui#8404. Declared LAST because its third case reads `narrowed`, which\n  // only has its final value once every host-dependent leg above has run.\n  '⭐ objectui#8404: the self-test declares its own host premise': 5,\n});\n"
+        },
+        {
+          "id": "battery-roster-size-floor",
+          "why": "The roster's own size floor follows the extra battery declared above it — deleting an entry silences a floor exactly as effectively as zeroing it.",
+          "upstream": "// zeroing it, so the roster's own size is pinned too.\nconst SELF_TEST_BATTERY_FLOOR = 17;\n\n",
+          "ported": "// zeroing it, so the roster's own size is pinned too.\nconst SELF_TEST_BATTERY_FLOOR = 18;\n\n"
+        },
+        {
+          "id": "host-premise-probes-and-narrowing-helper",
+          "why": "objectui#8404: every bash-4 leg below drives the HOST's bash, and the host this gate exists for is bash 3.2, so the self-test detects the premise by capability probe and narrows those cases instead of failing. Upstream has no such host premise.",
+          "upstream": "\n  console.log('check-bash32-floor --self-test\\n');\n",
+          "ported": "\n  // ── objectui#8404: the self-test's own host premise, made explicit ───────\n  //\n  // ⭐ A floor gate whose battery cannot run ON the floor it declares is a gate\n  // asserting something it has never demonstrated. That was this file: every\n  // probe, harness and `bash -n` leg below drives a bash-4+ construct through\n  // the HOST's bash, and the host this gate exists for is macOS, which ships\n  // 3.2.57 and no bash 4+. There, `coproc`, `|&` and `&>>` are syntax errors\n  // `bash -n` refuses, `mapfile` is not a builtin there is anything to disable,\n  // and `[[ -v ]]` is a conditional operator `bash -n` also refuses (this\n  // file's `has-v` row already records that `bash -n` judges `[[` operators).\n  // So `--self-test` exited non-zero on the one host whose behaviour the whole\n  // gate is about, and `bash32-floor-wiring.test.ts` reported it as a red test.\n  //\n  // ⛔ The production scan is NOT affected and is not narrowed: `scanText` is\n  // pure JS, so `node scripts/check-bash32-floor.mjs` judges a 3.2 host exactly\n  // as it judges CI. Only `--self-test` needs the newer parser.\n  //\n  // The premise is detected by CAPABILITY and never by platform name — a\n  // `process.platform === 'darwin'` branch would red again on the next non-GNU\n  // host, which is the very species this gate is about. Two probes, because the\n  // legs below need two different things from the host: a parser that accepts\n  // bash-4 GRAMMAR, and a runtime that has a bash-4 BUILTIN to disable.\n  const HOST_PROBES = [\n    // The canonical bash-4.0 operator. A shell at the floor answers with a\n    // syntax error near the `&`.\n    { need: 'grammar', probe: 'echo a |& cat', run: () => spawnSync('bash', ['-n'], { input: 'echo a |& cat\\n', encoding: 'utf8' }) },\n    // The canonical bash-4.0 builtin. A shell at the floor answers 127.\n    { need: 'builtin', probe: 'mapfile -t x < /dev/null', run: () => spawnSync('bash', ['-c', 'mapfile -t x < /dev/null'], { encoding: 'utf8' }) },\n  ];\n  const hostCan = Object.fromEntries(HOST_PROBES.map((h) => [h.need, h.run().status === 0]));\n  const HOST_JUDGES_BASH4 = HOST_PROBES.every((h) => hostCan[h.need]);\n  const NARROWING = HOST_PROBES.filter((h) => !hostCan[h.need]).map((h) => `\\`${h.probe}\\``).join(' and ');\n  let narrowed = 0;\n\n  /**\n   * An assertion whose SUBJECT is a bash-4 construct run through the host bash.\n   *\n   * Where the host can judge bash-4, this is `t` unchanged — CI and every\n   * bash-4+ host lose nothing. Where it cannot, the case still REGISTERS (so\n   * its battery floor still holds and a battery that stops running still names\n   * itself) but is reported as NARROWED rather than passed, and the verdict\n   * line carries the count. ⛔ A narrowed case is a real coverage loss and is\n   * printed as one: at the floor a typo and a bash-4 construct are the same\n   * syntax error, so \"the probe is not a typo\" is genuinely unmeasurable there.\n   */\n  const tHostBash4 = (label, ok, detail = '') => {\n    if (HOST_JUDGES_BASH4) {\n      t(label, ok, detail);\n      return;\n    }\n    registerCase();\n    cases += 1;\n    narrowed += 1;\n    console.log(`  \\u2298 ${label} — NARROWED: this host's bash refuses ${NARROWING}, so it is at or below the 3.2 floor this gate declares and cannot judge the case.`);\n  };\n\n  console.log('check-bash32-floor --self-test\\n');\n"
+        },
+        {
+          "id": "constructs-probe-leg-narrowed",
+          "why": "The per-construct probe is parsed by the host bash, so at the 3.2 floor a bash-4 probe and a typo are the same syntax error; the leg narrows rather than reading as a false measurement.",
+          "upstream": "    const parse = spawnSync('bash', ['-n'], { input: `${c.probe}\\n`, encoding: 'utf8' });\n    t(`${c.id}: the probe is shell this host can parse`, parse.status === 0, (parse.stderr || '').trim());\n  }\n",
+          "ported": "    const parse = spawnSync('bash', ['-n'], { input: `${c.probe}\\n`, encoding: 'utf8' });\n    tHostBash4(`${c.id}: the probe is shell a bash-4 parser accepts`, parse.status === 0, (parse.stderr || '').trim());\n  }\n"
+        },
+        {
+          "id": "has-v-parse-leg-narrowed",
+          "why": "Same reason as the constructs probe leg: `bash -n` at the floor refuses the `[[ -v ]]` operator this row is about, so the parse leg is unmeasurable there.",
+          "upstream": "    const vParse = spawnSync('bash', ['-n'], { input: `${line}\\n`, encoding: 'utf8' });\n    t(`\\`${label}\\` is shell this host can parse`, vParse.status === 0, (vParse.stderr || '').trim());\n  }\n",
+          "ported": "    const vParse = spawnSync('bash', ['-n'], { input: `${line}\\n`, encoding: 'utf8' });\n    tHostBash4(`\\`${label}\\` is shell a bash-4 parser accepts`, vParse.status === 0, (vParse.stderr || '').trim());\n  }\n"
+        },
+        {
+          "id": "population-membership-fixture-paths",
+          "why": "`isShell` never touches the filesystem, so upstream's `.githooks/` fixture paths would \"work\" while naming a directory this gate does not walk — coverage of a population that is not scanned.",
+          "upstream": "  t('a .sh name is shell', isShell('scripts/x.sh', 'echo hi').by === 'extension');\n  t(\n    'a shebang-only script is shell — the half a *.sh glob misses',\n    isShell('.githooks/pre-push', '#!/bin/sh\\necho hi').by === 'shebang',\n  );\n  t('`#!/usr/bin/env bash` counts', isShell('.githooks/pre-commit', '#!/usr/bin/env bash\\n').by === 'shebang');\n  t('a node script is not shell', isShell('scripts/x.mjs', '#!/usr/bin/env node\\n').shell === false);\n",
+          "ported": "  t('a .sh name is shell', isShell('scripts/x.sh', 'echo hi').by === 'extension');\n  // ⚠️ These fixture paths are under THIS repository's roots, not upstream's\n  // `.githooks/`. `isShell` never touches the filesystem, so any string would\n  // \"work\" — and that is the trap: a fixture naming a directory this gate does\n  // not walk reads as coverage of a population that is not scanned.\n  t(\n    'a shebang-only script is shell — the half a *.sh glob misses',\n    isShell('e2e/live/ci/pre-push', '#!/bin/sh\\necho hi').by === 'shebang',\n  );\n  t('`#!/usr/bin/env bash` counts', isShell('scripts/release-helper', '#!/usr/bin/env bash\\n').by === 'shebang');\n  t('a node script is not shell', isShell('scripts/x.mjs', '#!/usr/bin/env node\\n').shell === false);\n"
+        },
+        {
+          "id": "clean-tree-fixture-shebang-member-root",
+          "why": "The end-to-end fixture's shebang-only member has to sit under a root THIS gate walks (`e2e/**`); under upstream's `.githooks/` it would never be discovered and the census leg would have passed anyway.",
+          "upstream": "\n  const cleanRepo = fixtureRepo({\n    'scripts/ok.sh': '#!/usr/bin/env bash\\n# no mapfile, no declare -A\\nwhile IFS= read -r l; do :; done < f\\n',\n    '.githooks/pre-push': '#!/bin/sh\\nnow=\"${EPOCHSECONDS:-$(date +%s)}\"\\n',\n  });\n",
+          "ported": "\n  // ⭐ The shebang-only member sits under `e2e/**` — a root THIS gate walks.\n  // Upstream's fixture puts it under `.githooks/`, which is in upstream's roots\n  // and not in these; carried across unchanged it would never be discovered,\n  // and the census leg below would have passed anyway (see its own note).\n  const cleanRepo = fixtureRepo({\n    'scripts/ok.sh': '#!/usr/bin/env bash\\n# no mapfile, no declare -A\\nwhile IFS= read -r l; do :; done < f\\n',\n    'e2e/live/ci/pre-push': '#!/bin/sh\\nnow=\"${EPOCHSECONDS:-$(date +%s)}\"\\n',\n  });\n"
+        },
+        {
+          "id": "clean-tree-census-asserted-by-count",
+          "why": "Upstream asserts the word `shebang` on the output, which the green line prints unconditionally — it passes on a discovery path that found nothing. The counts are what carry the claim, so both halves are asserted by number.",
+          "upstream": "  );\n  t(\n    'and its green line reports the shebang half of the census separately',\n    /shebang/.test(cleanRun.stdout),\n    cleanRun.stdout,\n",
+          "ported": "  );\n  // ⚠️ Upstream asserts `/shebang/` on this output. That word is in the green\n  // line UNCONDITIONALLY — it is printed even when the count is 0 — so the leg\n  // passes on a discovery path that found nothing, which is the species this\n  // file exists to refuse. The COUNTS are what carry the claim, so they are\n  // what is asserted: this fixture has exactly one `.sh` member and exactly one\n  // shebang-only member, and both halves of the census must say so.\n  t(\n    'and its green line reports the census as 1 by extension and 1 by shebang alone',\n    /census: 1 by \\.sh extension, 1 by shebang alone/.test(cleanRun.stdout),\n    cleanRun.stdout,\n  );\n  t(\n    'so the shebang half really is reachable under THIS repository\\'s roots',\n    / 2 tracked shell file\\(s\\) /.test(cleanRun.stdout),\n    cleanRun.stdout,\n"
+        },
+        {
+          "id": "simulated-harness-leg-narrowed",
+          "why": "objectui#8404: both harness legs need a host that HAS `mapfile` to remove. At the floor the first leg is false for the wrong reason and the second passes for the wrong one, so they narrow together.",
+          "upstream": "  const sim = spawnSync('bash', [probe], { encoding: 'utf8', env: { ...process.env, BASH_ENV: noBash4 } });\n  t(\n    'the simulated-3.2 harness really removes the builtin (else the next leg proves nothing)',\n",
+          "ported": "  const sim = spawnSync('bash', [probe], { encoding: 'utf8', env: { ...process.env, BASH_ENV: noBash4 } });\n  // ⚠️ objectui#8404: both legs need a host that HAS `mapfile` to remove. At\n  // the 3.2 floor `plain` never prints MAPFILE-WORKS either, so the first leg\n  // is false for the wrong reason and the second passes for the wrong one —\n  // 127 there is the absent builtin, not the harness. Narrowed together,\n  // because the second leg's meaning is carried by the first.\n  tHostBash4(\n    'the simulated-3.2 harness really removes the builtin (else the next leg proves nothing)',\n"
+        },
+        {
+          "id": "harness-127-leg-narrowed",
+          "why": "The second harness leg's meaning is carried by the first, so it narrows with it rather than passing on a 127 that is the absent builtin instead of the harness.",
+          "upstream": "  );\n  t(\n    'and a script this gate flags really does die at 127 under it',\n",
+          "ported": "  );\n  tHostBash4(\n    'and a script this gate flags really does die at 127 under it',\n"
+        },
+        {
+          "id": "real-tree-legs-replace-byshebang-floor",
+          "why": "Upstream's `live.byShebang > 0` would be RED here on the day this landed (every shell file is `.sh`). It is replaced by two legs that are true here and could break silently: the census PARTITIONS the population, and every member was really READ.",
+          "upstream": "  );\n  t(\n    'and the shebang half of the census is non-empty, so it is not decoration',\n    live.byShebang > 0,\n    `${live.byShebang} shebang-only file(s)`,\n  );\n",
+          "ported": "  );\n  // ⛔ Upstream's second leg here is `live.byShebang > 0`, and it CANNOT be\n  // carried: measured on `origin/main` `28cfff4` this repository has 12 shell\n  // files and every one of them ends in `.sh`, so the shebang census is 0 and\n  // upstream's leg would be red on the day this landed. The temptation is then\n  // to drop the shebang half of discovery, which is the wrong repair — see the\n  // \"## Population\" note above. What replaces it are the two things that ARE\n  // true here and that a future edit could break silently:\n  //\n  //   - the census PARTITIONS the population. If a member is ever counted in\n  //     neither half (or in both), the totals the green line prints stop\n  //     describing what was scanned, and that is the arithmetic upstream's\n  //     `> 0` never checked at all.\n  //   - every member really was READ. `listPopulation` skips a path it cannot\n  //     open, so a population of empty texts is a walk that discovered names\n  //     and judged nothing — green, over nothing.\n  //\n  // The shebang half's own MECHANISM is pinned end to end in the clean-tree\n  // fixture above, where it is exercised rather than merely counted.\n  t(\n    'the census partitions the population — every file counted in exactly one half',\n    live.byExtension + live.byShebang === live.population.length,\n    `${live.byExtension} + ${live.byShebang} != ${live.population.length}`,\n  );\n  t(\n    'and every member was actually read, not merely named',\n    live.population.every((f) => typeof f.text === 'string' && f.text.length > 0),\n    `${live.population.filter((f) => !f.text).length} member(s) came back empty`,\n  );\n"
+        },
+        {
+          "id": "host-premise-battery-block",
+          "why": "The narrowing mechanism is itself a place a gate can go quiet, so it is pinned in both directions — a host that can judge bash-4 must narrow nothing, one that cannot must narrow something. Upstream has no narrowing to pin.",
+          "upstream": "\n  // ── The floor: every declared battery RAN, and ran its cases (#13489) ───\n",
+          "ported": "\n  // --- ⭐ objectui#8404: the self-test declares its own host premise -------\n  //\n  // The narrowing mechanism above is itself a place a gate can go quiet, so it\n  // is pinned in both directions: a host that CAN judge bash-4 must narrow\n  // nothing, and a host that cannot must narrow something. A mechanism that\n  // narrowed on every host would read as green while measuring nothing.\n  battery('⭐ objectui#8404: the self-test declares its own host premise');\n  // ⚠️ E1 again, and for E1's reason: this file has to NAME the branch it\n  // refuses in order to explain why, and a check hunting that name has to name\n  // it too. So the needle is assembled from parts rather than written as a\n  // literal, and the prose lines are dropped before the search — exactly the\n  // mention-versus-use rule the CONSTRUCTS table is built on. A real branch\n  // lives on a code line, which is what survives the filter.\n  const PLATFORM_BRANCH = new RegExp(['process', 'platform'].join('\\\\.'));\n  const codeLines = readFileSync(SELF, 'utf8')\n    .split('\\n')\n    .filter((l) => !/^\\s*(\\/\\/|\\*|\\/\\*)/.test(l))\n    .join('\\n');\n  t(\n    '⛔ the premise is a capability, never a platform name — a `darwin` branch reds again on the next non-GNU host',\n    !PLATFORM_BRANCH.test(codeLines),\n    'a code line here branches on the platform name; the host premise must be measured instead',\n  );\n  t(\n    'and the filter that allows the prose above is not blanket permission — a code line IS searched',\n    PLATFORM_BRANCH.test(codeLines + '\\nconst x = process' + '.platform;'),\n    'the mention/use filter matched nothing at all, so the leg above proves nothing',\n  );\n  t(\n    'and the two capability probes are constructs THIS gate declares above the floor',\n    ids(HOST_PROBES[0].probe).includes('pipe-both') && ids(HOST_PROBES[1].probe).includes('mapfile'),\n    `got ${JSON.stringify(HOST_PROBES.map((h) => ids(h.probe)))}`,\n  );\n  t(\n    'judging and narrowing are exclusive: a host that judges bash-4 narrowed nothing',\n    !HOST_JUDGES_BASH4 || narrowed === 0,\n    `HOST_JUDGES_BASH4=${HOST_JUDGES_BASH4} narrowed=${narrowed}`,\n  );\n  t(\n    'and a host that does NOT judge bash-4 really did narrow — a narrowing nobody takes is a claim nobody made',\n    HOST_JUDGES_BASH4 || narrowed > 0,\n    `HOST_JUDGES_BASH4=${HOST_JUDGES_BASH4} narrowed=${narrowed}`,\n  );\n\n  // ── The floor: every declared battery RAN, and ran its cases (#13489) ───\n"
+        },
+        {
+          "id": "self-test-verdict-reports-narrowed-cases",
+          "why": "A narrowed case is a real coverage loss and the verdict prints it as one, naming what this host refused and that the SCAN itself is not narrowed. Upstream never narrows, so it prints one line.",
+          "upstream": "  }\n  console.log(`\\n✓ check-bash32-floor self-test: ${cases} cases pass.`);\n  selfTestReachedVerdict = true;\n",
+          "ported": "  }\n  if (narrowed > 0) {\n    console.log(\n      `\\n✓ check-bash32-floor self-test: ${cases - narrowed} cases pass, ${narrowed} NARROWED.\\n`\n      + `  This host's bash refuses ${NARROWING}, so it is at or below the bash 3.2 floor this\\n`\n      + '  gate declares and cannot judge a bash-4 construct. Those cases did not run here:\\n'\n      + '  a real coverage loss, stated rather than hidden. CI runs bash 5 and runs them.\\n'\n      + '  ⛔ The SCAN is not narrowed — `node scripts/check-bash32-floor.mjs` is pure JS and\\n'\n      + '  judges this host exactly as it judges CI (objectui#8404).',\n    );\n  } else {\n    console.log(`\\n✓ check-bash32-floor self-test: ${cases} cases pass.`);\n  }\n  selfTestReachedVerdict = true;\n"
+        }
+      ]
+    },
+    {
+      "ported": ".claude/hooks/guard-main-checkout.sh",
+      "upstreamPath": ".claude/hooks/guard-main-checkout.sh",
+      "ref": "c2520416cff04575dd3def789dd04a5745e3912b",
+      "upstreamSha256": "a9847d494d97aa9eddb4d3bc890d3a59d7aea62f8032fb8f7d4e58f8c085d9b0",
+      "divergences": [
+        {
+          "id": "linked-worktree-card-ref",
+          "why": "The linked-worktree spelling fix is objectui#7259 in this tree; upstream's twin is objectstack#11809, and a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "# `worktrees` read as a linked worktree and went unguarded (#11809). --git-common-dir prints\n",
+          "ported": "# `worktrees` read as a linked worktree and went unguarded (#7259). --git-common-dir prints\n"
+        },
+        {
+          "id": "no-prime-directive-recipe-note",
+          "why": "This repo's AGENTS.md has no numbered Prime Directives, so upstream's note about keeping this recipe aligned with PD#11 has no referent here.",
+          "upstream": "name=\"$(basename \"$root\")\"\n# ⭐ The recipe printed below is the HIGHEST-leverage copy of AGENTS.md PD#11's worktree\n# recipe: it reaches an agent at the exact moment it is about to create one, so an agent\n# following it lands wherever this string points. Keep it aligned with the prescribed form\n# there — both halves are adjudicated, and this copy carried NEITHER until #13663:\n#   `git fetch origin main` first — an unfetched local `main` bases the new tree on a stale\n#     commit (the ui#6208 class).\n#   `--no-track` on the add — plain `-b` writes branch.NAME.remote/merge into the .git/config\n#     that every worktree of this repo SHARES (the #13052 / ui#6880 class).\ncat >&2 <<EOF\n",
+          "ported": "name=\"$(basename \"$root\")\"\ncat >&2 <<EOF\n"
+        }
+      ]
+    },
+    {
+      "ported": ".claude/hooks/guard-main-checkout-bash.sh",
+      "upstreamPath": ".claude/hooks/guard-main-checkout-bash.sh",
+      "ref": "924f0fed152781868739b66a3376f6b21d9dffe0",
+      "upstreamSha256": "138594f3955ed1145437709ae917eeb7e9b561c91cfd46c2665a80bbc8260afd",
+      "divergences": [
+        {
+          "id": "example-edit-path",
+          "why": "The illustrative edit path names a package this repo actually has (`packages/fields`), not objectstack's `packages/spec`.",
+          "upstream": "# command never reaches it — `sed -i 's/foo/bar/' packages/spec/src/x.ts`,\n",
+          "ported": "# command never reaches it — `sed -i 's/foo/bar/' packages/fields/src/x.tsx`,\n"
+        },
+        {
+          "id": "enforcement-gap-card-and-provenance",
+          "why": "This repo's AGENTS.md numbers no Prime Directive, and the mirror-provenance paragraph runs the other way here: objectui is the repo the hook was ported FROM, so this copy cites objectui#3435 instead of restating the port.",
+          "upstream": "# silence, while CLAUDE.md and AGENTS.md Prime Directive #11 tell every agent that \"a\n# PreToolUse hook enforces this rule\". Declared enforcement scope > actual enforcement\n# scope (#5790). This hook closes the Bash half.\n#\n# Ported from objectui's hook of the same name (objectstack-ai/objectui#3452, filed there\n# as objectui#3435) — the logic below is deliberately kept case-for-case identical to it so\n# the two repos' guards cannot drift; only issue references, example paths and the package\n# name in the self-test are localised. The Bash matcher this hook created is now shared\n# with guard-shared-stash.sh, mirrored here from objectui in the same way (#5742) — the\n# gap #5790's closing observation recorded is closed; both hooks run on this one matcher.\n",
+          "ported": "# silence, while CLAUDE.md and AGENTS.md tell every agent that \"a PreToolUse hook enforces\n# this rule\". Declared enforcement scope > actual enforcement scope (objectui#3435, same\n# family as #3430). This hook closes the Bash half.\n"
+        },
+        {
+          "id": "indirection-boundary-wording",
+          "why": "This copy states the same known boundary by pointing at its sibling hook rather than re-arguing the indirection, keeping one statement of it in the tree.",
+          "upstream": "#     writes (the target is one indirection away from any token this hook can see);\n",
+          "ported": "#     writes (same known boundary guard-shared-stash.sh documents for itself);\n"
+        },
+        {
+          "id": "card-ref-writing-about-the-ban",
+          "why": "`#4890` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "# Writing ABOUT the ban must never trip the ban (#4890's lesson). Four layers:\n",
+          "ported": "# Writing ABOUT the ban must never trip the ban (objectstack#4890's lesson). Four layers:\n"
+        },
+        {
+          "id": "card-ref-non-ascii-operator",
+          "why": "`#10247` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "#      following JS fragment as a write \"target\" and blocked a pure-read command (#10247).\n",
+          "ported": "#      following JS fragment as a write \"target\" and blocked a pure-read command (objectstack#10247).\n"
+        },
+        {
+          "id": "card-ref-unquoted-backslash",
+          "why": "`#11131` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "#      false block above (#11131). The two passes now share the rule in both directions.\n",
+          "ported": "#      false block above (objectstack#11131). The two passes now share the rule in both directions.\n"
+        },
+        {
+          "id": "card-ref-shell-comment",
+          "why": "`#10570` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "#      `#` that starts a WORD and resume at the next newline (#10570). A comment cannot\n",
+          "ported": "#      `#` that starts a WORD and resume at the next newline (objectstack#10570). A comment cannot\n"
+        },
+        {
+          "id": "non-ascii-specimen",
+          "why": "The non-ASCII specimen is drawn from prose this repo actually contains — the arrows running through its AGENTS.md — instead of objectstack's CLI boot-banner glyph.",
+          "upstream": "# because `➜` is in this repo's own CLI boot banner (`➜  API:`, `➜  Console:`), so echoing\n# or grepping a banner must stay allowed. The self-test pins both directions.\n",
+          "ported": "# because `→` runs all through this repo's own AGENTS.md — one per Prime Directive clause,\n# and again in the state-classification rules — so echoing or grepping that prose must stay\n# allowed. The self-test pins both directions.\n"
+        },
+        {
+          "id": "exit-contract-sibling-count",
+          "why": "This repo has two sibling guards sharing the exit-code contract, so the sentence names both where upstream names one.",
+          "upstream": "# Exit-code contract, mirroring guard-main-checkout.sh: 0 = allow, 2 = block with the reason\n# on stderr.\n",
+          "ported": "# Exit-code contract, mirroring both sibling hooks: 0 = allow, 2 = block with the reason on\n# stderr.\n"
+        },
+        {
+          "id": "jq-fallback-sibling-note",
+          "why": "This copy records that the no-jq fallback is identical to guard-shared-stash.sh's, the sibling-anchored mirroring discipline it applies at every shared block.",
+          "upstream": "  # embedded \\\" does not truncate the command), then unescape what matters for shell text.\n  cmd=\"$(printf '%s' \"$input\" \\\n",
+          "ported": "  # embedded \\\" does not truncate the command), then unescape what matters for shell text.\n  # Identical to guard-shared-stash.sh's fallback.\n  cmd=\"$(printf '%s' \"$input\" \\\n"
+        },
+        {
+          "id": "card-ref-heredoc-prose",
+          "why": "`#11133` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "# before either quote-aware pass could see it (#11133).\n",
+          "ported": "# before either quote-aware pass could see it (objectstack#11133).\n"
+        },
+        {
+          "id": "card-ref-comment-rule-owner",
+          "why": "`#10570` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card (second occurrence, in the comment-rule note).",
+          "upstream": "# untouched, because both quote-aware passes already own that rule (#10570) and a second\n",
+          "ported": "# untouched, because both quote-aware passes already own that rule (objectstack#10570) and a second\n"
+        },
+        {
+          "id": "card-ref-heredoc-introducer",
+          "why": "`#11133` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card (second occurrence, at the introducer branch).",
+          "upstream": "    # A `<<WORD` behind an unquoted word-start `#` is prose, not an introducer (#11133).\n",
+          "ported": "    # A `<<WORD` behind an unquoted word-start `#` is prose, not an introducer (objectstack#11133).\n"
+        },
+        {
+          "id": "segmentation-verbatim-note",
+          "why": "This copy says out loud that the segmentation pass is verbatim from guard-shared-stash.sh; upstream leaves the shared origin implicit.",
+          "upstream": "# A separator inside '…' or \"…\" does NOT split, so writing *about* the ban is never caught\n# by the ban. The same goes for a separator inside a COMMENT: `word` tracks whether the\n# next character would open a new WORD, which is the only position where an unquoted `#`\n# begins a comment — the comment then runs to the next newline and never splits, tokenises\n# or contributes a target (#10570).\n",
+          "ported": "# Verbatim from guard-shared-stash.sh. A separator inside '…' or \"…\" does NOT split, so\n# writing *about* the ban is never caught by the ban. The same goes for a separator inside\n# a COMMENT: `word` tracks whether the next character would open a new WORD, which is the\n# only position where an unquoted `#` begins a comment — the comment then runs to the next\n# newline and never splits, tokenises or contributes a target (objectstack#10570).\n"
+        },
+        {
+          "id": "card-ref-split-segments-escape",
+          "why": "`#11131` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card (second occurrence, at the escape branch).",
+          "upstream": "        # argument (#11131). Both characters are kept verbatim — this pass only SPLITS, and\n",
+          "ported": "        # argument (objectstack#11131). Both characters are kept verbatim — this pass only SPLITS, and\n"
+        },
+        {
+          "id": "tokeniser-contrast-with-sibling",
+          "why": "This copy opens the tokeniser note by contrasting it with guard-shared-stash.sh, which reads only a segment's head word — the same sibling-anchored framing it uses throughout.",
+          "upstream": "# The whole argument list matters here, and `read -r -a` would promote a QUOTED \">\" or\n# \"sed -i\" to a real operator/command — exactly the false positive that makes a guard get\n# disabled. So: quotes are stripped and their contents are inert.\n",
+          "ported": "# guard-shared-stash.sh only ever reads a segment's first word, so plain word splitting is\n# enough there. Here the whole argument list matters, and `read -r -a` would promote a\n# QUOTED \">\" or \"sed -i\" to a real operator/command — exactly the false positive that makes\n# a guard get disabled. So: quotes are stripped and their contents are inert.\n"
+        },
+        {
+          "id": "card-ref-word-start-comment",
+          "why": "`#10570` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card (third occurrence, at the word-start rule).",
+          "upstream": "# `#` with have=0 is at word start and begins a comment (#10570). `foo#bar` and `${x#y}`\n# reach this point with have=1 and stay part of the token.\n",
+          "ported": "# `#` with have=0 is at word start and begins a comment (objectstack#10570). `foo#bar` and\n# `${x#y}` reach this point with have=1 and stay part of the token.\n"
+        },
+        {
+          "id": "linked-worktree-card-ref",
+          "why": "The linked-worktree structural rule is objectui#7259 in this tree; `#11809` is upstream's card for the same fix.",
+          "upstream": "  # did not (#11809). --git-common-dir prints RELATIVE to $d, so resolve it against $d first or\n",
+          "ported": "  # did not (#7259). --git-common-dir prints RELATIVE to $d, so resolve it against $d first or\n"
+        },
+        {
+          "id": "shared-checkout-path",
+          "why": "The example shared-checkout path is this repo's own `/home/user/objectui`.",
+          "upstream": "# `cd /home/user/objectstack && tee packages/a.ts` writes to the shared checkout even though\n",
+          "ported": "# `cd /home/user/objectui && tee packages/a.ts` writes to the shared checkout even though\n"
+        },
+        {
+          "id": "no-prime-directive-recipe-note",
+          "why": "This repo's AGENTS.md has no numbered Prime Directives, so upstream's keep-it-aligned note about PD#11's recipe has no referent here.",
+          "upstream": "      name=\"$(basename \"$root\")\"\n      # ⭐ The recipe printed below is the HIGHEST-leverage copy of AGENTS.md PD#11's\n      # worktree recipe: it reaches an agent at the exact moment it is about to create one,\n      # so an agent following it lands wherever this string points. Keep it aligned with the\n      # prescribed form there — both halves are adjudicated, and this copy carried NEITHER\n      # until #13663: `git fetch origin main` first (an unfetched local `main` bases the new\n      # tree on a stale commit — the ui#6208 class), and `--no-track` on the add (plain `-b`\n      # writes branch.NAME.remote/merge into the .git/config that every worktree of this repo\n      # SHARES — the #13052 / ui#6880 class). Its twin lives in guard-main-checkout.sh.\n      cat >&2 <<EOF\n",
+          "ported": "      name=\"$(basename \"$root\")\"\n      cat >&2 <<EOF\n"
+        },
+        {
+          "id": "worktree-rule-card-ref",
+          "why": "The worktree-first rule is objectui#3435 in this tree; `#5790` is the objectstack card for the same enforcement gap.",
+          "upstream": "(#5790). This repo is edited by multiple agents at once: the shared checkout gets its HEAD\nswitched and its tree reset under you, clobbering uncommitted work. A feature branch on\nthe shared checkout is NOT enough; you need a dedicated worktree:\n",
+          "ported": "(objectui#3435). This repo is edited by multiple agents at once: the shared checkout gets\nits HEAD switched and its tree reset under you, clobbering uncommitted work. A feature\nbranch on the shared checkout is NOT enough; you need a dedicated worktree:\n"
+        }
+      ]
+    },
+    {
+      "ported": ".claude/hooks/guard-main-checkout-bash.selftest.sh",
+      "upstreamPath": ".claude/hooks/guard-main-checkout-bash.selftest.sh",
+      "ref": "924f0fed152781868739b66a3376f6b21d9dffe0",
+      "upstreamSha256": "8c6d3d3984419f746424417269f3398ddca1950c71ccc683e945d994539c97e7",
+      "divergences": [
+        {
+          "id": "matrix-provenance",
+          "why": "The provenance note runs the other way here: this repo is where the matrix originated, so its copy points at the sibling self-test it mirrors in shape.",
+          "upstream": "# Ported case-for-case from objectui's matrix of the same name (objectui#3452); only the\n# `pnpm --filter` package name is localised to this repo.\n",
+          "ported": "# Mirrors .claude/hooks/guard-shared-stash.selftest.sh case-for-case in shape.\n"
+        },
+        {
+          "id": "linked-worktree-card-ref-intro",
+          "why": "The linked-worktree structural rule is objectui#7259 in this tree; `#11809` is upstream's card for the same fix.",
+          "upstream": "# git-common-dir structure, never from the spelling of the path (#11809). $WT is its positive\n",
+          "ported": "# git-common-dir structure, never from the spelling of the path (#7259). $WT is its positive\n"
+        },
+        {
+          "id": "linked-worktree-card-ref-depth",
+          "why": "The same requalification at the depth-verdict case: the card is objectui#7259 here, not objectstack's #11809.",
+          "upstream": "# opposite verdicts by depth (#11809). The structural test is spelling-independent.\n",
+          "ported": "# opposite verdicts by depth (#7259). The structural test is spelling-independent.\n"
+        },
+        {
+          "id": "package-filter-specimen",
+          "why": "The untouched-command specimen names a package this repo has, `@object-ui/app-shell`.",
+          "upstream": "expect allow 'pnpm --filter @objectstack/spec test'\n",
+          "ported": "expect allow 'pnpm --filter @object-ui/app-shell test'\n"
+        },
+        {
+          "id": "card-ref-non-ascii-operator",
+          "why": "`#10247` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "echo \"== non-ASCII codepoints are never operators; ASCII redirects still are (#10247) ==\"\n",
+          "ported": "echo \"== non-ASCII codepoints are never operators; ASCII redirects still are (objectstack#10247) ==\"\n"
+        },
+        {
+          "id": "non-ascii-specimen",
+          "why": "The non-ASCII allow-case is drawn from this repo's own prose (the arrows in its AGENTS.md) rather than objectstack's CLI boot-banner glyph.",
+          "upstream": "expect allow \"grep -n '$(printf '\\xe2\\x9e\\x9c')  API:' boot.log\"          # the CLI banner glyph\n",
+          "ported": "expect allow \"grep -n '$(printf '\\xe2\\x86\\x92') the URL' AGENTS.md\"     # arrows fill this repo's prose\n"
+        },
+        {
+          "id": "card-ref-in-quote-backslash",
+          "why": "`#10247` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card (second occurrence, at the in-quote case).",
+          "upstream": "echo \"== \\\\\\\" inside a double-quoted word does not end the quote (#10247 real cause) ==\"\n",
+          "ported": "echo \"== \\\\\\\" inside a double-quoted word does not end the quote (objectstack#10247 real cause) ==\"\n"
+        },
+        {
+          "id": "card-ref-unquoted-backslash",
+          "why": "`#11131` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "echo \"== an UNQUOTED \\\\\\\" opens no quote, so the write behind it is still seen (#11131) ==\"\n",
+          "ported": "echo \"== an UNQUOTED \\\\\\\" opens no quote, so the write behind it is still seen (objectstack#11131) ==\"\n"
+        },
+        {
+          "id": "card-ref-shell-comment",
+          "why": "`#10570` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "echo \"== a shell COMMENT is text, not a command (#10570) ==\"\n",
+          "ported": "echo \"== a shell COMMENT is text, not a command (objectstack#10570) ==\"\n"
+        },
+        {
+          "id": "card-ref-heredoc-in-comment",
+          "why": "`#11133` is an objectstack card number and is qualified here because a bare `#` number in this tree resolves to an objectui card.",
+          "upstream": "echo \"== a heredoc introducer NAMED in a comment introduces nothing (#11133) ==\"\n",
+          "ported": "echo \"== a heredoc introducer NAMED in a comment introduces nothing (objectstack#11133) ==\"\n"
+        }
+      ]
+    },
+    {
+      "ported": ".claude/hooks/guard-shared-stash.sh",
+      "upstreamPath": ".claude/hooks/guard-shared-stash.sh",
+      "ref": "2b9f5810b777ee9d0211d9d6273d854bd8e2d5bd",
+      "upstreamSha256": "44e187d2df28e65bae514ff044a9bb9573bb7d29597681d8e2243dc61cf0c998",
+      "divergences": [
+        {
+          "id": "no-prime-directive-citation",
+          "why": "This repo's AGENTS.md numbers no Prime Directive #11, so the sentence states the worktree mandate without the reference.",
+          "upstream": "# Prime Directive #11 mandates — and guard-main-checkout.sh enforces — does NOT extend to\n# stash. Two agents stashing in their own worktrees operate on the same stack: A's pop\n# restores whatever B pushed a moment earlier, and A's own changes stay on the stack for\n# B to take.\n",
+          "ported": "# mandates — and guard-main-checkout.sh enforces — does NOT extend to stash. Two agents\n# stashing in their own worktrees operate on the same stack: A's pop restores whatever B\n# pushed a moment earlier, and A's own changes stay on the stack for B to take.\n"
+        },
+        {
+          "id": "recovery-scrollback-paragraph",
+          "why": "Upstream carries a recovery-by-scrollback paragraph this copy does not: un-ported upstream prose, declared so the ledger names it instead of the gate reporting a clean copy.",
+          "upstream": "# simply appear in your git status. Recovery worked only because the dropped SHA was still\n# in scrollback — once the stack empties, refs/stash and logs/refs/stash are both gone and\n# `git reflog refs/stash` answers `fatal: ambiguous argument`; a `git gc` in between makes\n# the loss permanent. Reverse verification is routine here and stash is the handiest tool\n# for it, so the collision probability is not small.\n",
+          "ported": "# simply appear in your git status. Reverse verification is routine here and stash is the\n# handiest tool for it, so the collision probability is not small.\n"
+        },
+        {
+          "id": "provenance-and-alternatives-list",
+          "why": "The mirror-provenance paragraph runs the other way here (this repo is the origin, objectui#3430), and the alternatives list is this copy's three-item form — upstream's fourth item, the commit-first reverse-verification recipe, is not ported here.",
+          "upstream": "# Ported from objectui's hook of the same name (objectui#3430 / objectui PR #3433), filed\n# for this repo as objectstack#5742. The verdict logic below is deliberately kept\n# case-for-case identical to objectui's so the two repos' guards cannot drift; only issue\n# references, example paths and the package name in the self-test are localised — the same\n# mirroring discipline guard-main-checkout-bash.sh already documents.\n#\n# Alternatives — no shared state, all of these work inside your own worktree:\n#   1. temporary commit  git commit -am wip                (git reset --soft HEAD~1)\n#   2. patch file        git diff > /tmp/wip.patch && git checkout -- <paths>\n#                        git apply /tmp/wip.patch          (git apply -R to undo again)\n#   3. reverse verification: COMMIT THE FIX FIRST, then take it out with\n#                        git checkout origin/main -- <path>\n#                        git checkout <your-branch> -- <path>   (restore from the commit)\n#      Against an UNCOMMITTED edit that same checkout silently DISCARDS the only copy at\n#      exit 0 — the working tree is the only place the change exists, and this hook has\n#      already ruled out the stash. Commit first; the restore then pulls the file back\n#      out of a commit that really exists (AGENTS.md carries the same rule).\n#   4. a second worktree for the comparison checkout\n",
+          "ported": "# Alternatives — no shared state, all three work inside your own worktree:\n#   1. patch file       git diff > /tmp/wip.patch && git checkout -- <paths>\n#                       git apply /tmp/wip.patch          (git apply -R to undo again)\n#   2. temporary commit git commit -am wip                (git reset --soft HEAD~1)\n#   3. a second worktree for the comparison checkout\n"
+        },
+        {
+          "id": "selftest-case-count-and-derivation",
+          "why": "This copy pins its own self-test's case count and records how to re-derive it, rather than leaving a number nobody re-checks.",
+          "upstream": "# Self-test (51 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n",
+          "ported": "# Self-test (48 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n# 48 = 46 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback).\n# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 2, and the run's own\n# tail prints the total (\"N passed, N failed\") — keep this number equal to it.\n"
+        },
+        {
+          "id": "unquoted-backslash-rationale",
+          "why": "This copy argues the fail-open in terms of the rule whose breach corrupts another agent's work and cites both repos' cards (objectstack#11131, objectui#6042); upstream's text cites its own measurement instead.",
+          "upstream": "# region at all. Without that branch this pass read the `\"` as opening a region that never\n# closed, went inert for every separator behind it, collapsed the whole command into one\n# segment whose head word was the harmless one, and let a real `git stash pop` ride through\n# as a mere argument of `echo` (#11738). Measured on this repo's copy before the fix:\n# `echo \\\" ; git stash pop` was ALLOWED while a bare `git stash pop` was blocked.\n",
+          "ported": "# region at all. Without a branch for it this pass read that `\"` as OPENING a region that\n# never closed, went inert for every separator behind it, collapsed the whole command into\n# one segment whose head word was the harmless one, and waved a real `git stash` through as\n# a mere argument of `echo`. That is a fail-OPEN in the backstop for the one rule whose\n# breach silently corrupts ANOTHER agent's work (objectstack#11131, the same defect the\n# sibling hook guard-main-checkout-bash.sh carried; objectui#6042).\n"
+        },
+        {
+          "id": "in-quote-backslash-rationale",
+          "why": "Same section, same shape: this copy states the in-quote half of the backslash rule without upstream's per-card before/after measurement narrative.",
+          "upstream": "# escaped `\\\"` is a literal quote that leaves the region OPEN. Without that branch this pass\n# read it as CLOSING, so it went \"outside quotes\" while bash was still inside and separators\n# behind it split where bash would not — the tail of a pure READ became a segment of its own\n# and was judged on its own head word (#11804, the #10406 half). Measured on this repo's copy\n# before the fix: `grep -rn \"he said \\\"cd x && git stash pop\\\" once\" .claude/` was BLOCKED\n# while the single-level `grep -rn \"cd x && git stash pop\" .claude/` next to it was allowed.\n# That is a false BLOCK on a command that touches no stash — precisely the failure the\n# paragraph at the top of this section says must never happen. The same missing rule also\n# fails OPEN once the escapes pair up: `echo \"he said \\\"x\\\"\" && git stash pop` left the\n# region hanging and rode through. Inside '…' nothing is special, hence the q='\"' gate.\n#\n# These are the same two repairs guard-main-checkout-bash.sh's split_segments() took in\n# #11131 (outside) and #10406 (inside), in the same shape and with the same escapee list;\n# that guard's `word` bookkeeping has no analogue here because this pass has no comment rule\n# to track word starts for. Both characters are kept verbatim — this pass only SPLITS, and\n# check_segment() re-reads the words afterwards.\n",
+          "ported": "# escaped `\\\"` is a literal quote that leaves the region OPEN. A pass that reads it as\n# CLOSING goes outside quotes while bash is still inside, so separators behind it split\n# where bash would not: the tail of a pure READ becomes a segment of its own, judged on its\n# own head word — a false BLOCK on a command that touches no stash, which is exactly what\n# the paragraph at the top of this section promises can never happen. The same gap fails\n# OPEN in the other direction: once the escapes pair up the quoted region is left hanging\n# and a real `git stash` behind it rides through as a mere argument. Inside '…' nothing is\n# special, hence the q='\"' gate. This is the in-quote half of the backslash rule, in the\n# same shape and with the same escapee list as guard-main-checkout-bash.sh's\n# split_segments() carries; that guard's `word` bookkeeping has no analogue here because\n# this pass has no comment rule to track word starts for.\n"
+        },
+        {
+          "id": "escape-branch-comment",
+          "why": "This copy carries the why-verbatim argument as an inline comment on the escape branch; upstream states it in the block comment above instead.",
+          "upstream": "      '\\')\n        seg+=\"$ch\"\n",
+          "ported": "      '\\')\n        # An escaped character opens no quote and separates nothing: consume BOTH characters\n        # and keep scanning outside quotes, so the separator behind a `\\\"` still splits\n        # (objectstack#11131). Both are kept verbatim because this pass only SPLITS —\n        # check_segment() re-reads the segment with `read -r -a`, and `-r` leaves the\n        # backslash literal, exactly as a real shell argument would carry it.\n        seg+=\"$ch\"\n"
+        },
+        {
+          "id": "no-prime-directive-citation-remedy",
+          "why": "The printed remedy likewise cites no numbered Prime Directive, because this repo's AGENTS.md does not number them.",
+          "upstream": "repo mandates (AGENTS.md Prime Directive #11) does NOT cover the stash stack. Another\nagent's pop takes YOUR entry and yours takes theirs — pop reports success and their files\nshow up in your git status, which is why objectui#3430 swapped two agents' in-flight\nchanges without an error.\n",
+          "ported": "repo mandates does NOT cover the stash stack. Another agent's pop takes YOUR entry and\nyours takes theirs — pop reports success and their files show up in your git status,\nwhich is why objectui#3430 swapped two agents' in-flight changes without an error.\n"
+        },
+        {
+          "id": "alternatives-order-remedy",
+          "why": "The remedy's alternatives are in this copy's order, patch-file first.",
+          "upstream": "Use instead — no shared state, all inside your own worktree:\n  1. temporary commit git commit -am wip                # git reset --soft HEAD~1\n  2. patch file       git diff > /tmp/wip.patch && git checkout -- <paths>\n                      git apply /tmp/wip.patch          # git apply -R to undo again\n",
+          "ported": "Use instead — no shared state, all inside your own worktree:\n  1. patch file       git diff > /tmp/wip.patch && git checkout -- <paths>\n                      git apply /tmp/wip.patch          # git apply -R to undo again\n"
+        },
+        {
+          "id": "alternatives-tail-remedy",
+          "why": "This copy's remedy stops at three alternatives; upstream's fourth, the commit-first reverse-verification recipe, is not ported here.",
+          "upstream": "  3. reverse verification: COMMIT THE FIX FIRST, then\n                      git checkout origin/main -- <path>\n                      git checkout <your-branch> -- <path>   # restore from the commit\n     (against an UNCOMMITTED edit that checkout silently discards the only copy, exit 0)\n  4. a second worktree for the comparison checkout\n",
+          "ported": "  2. temporary commit git commit -am wip                # git reset --soft HEAD~1\n  3. a second worktree for the comparison checkout\n"
+        }
+      ]
+    },
+    {
+      "ported": ".claude/hooks/guard-shared-stash.selftest.sh",
+      "upstreamPath": ".claude/hooks/guard-shared-stash.selftest.sh",
+      "ref": "2b9f5810b777ee9d0211d9d6273d854bd8e2d5bd",
+      "upstreamSha256": "2274f808dc89a1cb8df5431bfa2fd115b3171256136b7d1410ac7dccb08f5022",
+      "divergences": [
+        {
+          "id": "matrix-provenance",
+          "why": "The provenance note runs the other way here: this repo is where the matrix originated (objectui#3430), so its copy carries no mirrored-from-objectui paragraph.",
+          "upstream": "# else: no install, no build, no network. Exit 0 = all cases hold.\n#\n# Mirrored from objectui's self-test of the same name (objectui#3430 / PR #3433) alongside\n# the hook itself; the case matrix is kept one-for-one so the two repos' guards cannot\n# drift, and only the example paths, worktree names and package name are localised.\n\n",
+          "ported": "# else: no install, no build, no network. Exit 0 = all cases hold.\n\n"
+        },
+        {
+          "id": "stash-push-path-specimen",
+          "why": "The `git stash push` specimen names a file this repo actually has.",
+          "upstream": "expect block 'git stash push -- packages/spec/src/kernel/metadata-plugin.zod.ts'\n",
+          "ported": "expect block 'git stash push -- packages/fields/src/RecordPickerDialog.tsx'\n"
+        },
+        {
+          "id": "checkout-and-worktree-paths",
+          "why": "The shared-checkout and `git -C` specimens are this repo's own path and worktree naming.",
+          "upstream": "expect block 'cd /home/user/objectstack && git stash pop'\nexpect block 'git -C ../objectstack-issue-5742 stash pop'\n",
+          "ported": "expect block 'cd /home/user/objectui && git stash pop'\nexpect block 'git -C ../objectui-issue-3422 stash pop'\n"
+        },
+        {
+          "id": "stash-store-label",
+          "why": "The SHA-pinned `store` specimen carries this repo's card number in its message.",
+          "upstream": "expect allow 'git stash store -m \"WIP issue-5742\" b52e3aa1234567'\n",
+          "ported": "expect allow 'git stash store -m \"WIP issue-3430\" b52e3aa1234567'\n"
+        },
+        {
+          "id": "package-filter-specimen",
+          "why": "The untouched-command specimen names a package this repo has, `@object-ui/app-shell`.",
+          "upstream": "expect allow 'pnpm --filter @objectstack/spec test'\n",
+          "ported": "expect allow 'pnpm --filter @object-ui/app-shell test'\n"
+        },
+        {
+          "id": "checkout-path-specimen",
+          "why": "The patch-file alternative's specimen names a directory this repo has, `packages/fields`.",
+          "upstream": "expect allow 'git diff > /tmp/wip.patch && git checkout -- packages/spec'\n",
+          "ported": "expect allow 'git diff > /tmp/wip.patch && git checkout -- packages/fields'\n"
+        },
+        {
+          "id": "card-ref-unquoted-backslash-header",
+          "why": "The section header cites objectstack#11131 qualified, because a bare `#` number in this tree resolves to an objectui card; upstream's `#11738` is its own card for the same measurement.",
+          "upstream": "echo \"== an UNQUOTED \\\\\\\" opens no quote, so the stash behind it is still seen (#11738) ==\"\n",
+          "ported": "echo \"== an UNQUOTED \\\\\\\" opens no quote, so the stash behind it is still seen (objectstack#11131) ==\"\n"
+        },
+        {
+          "id": "unquoted-backslash-rationale",
+          "why": "This copy states the measured hole without upstream's before/after control narrative, which records measurements taken on upstream's own copy.",
+          "upstream": "# closed. Every separator behind it went inert, the whole command collapsed into a single\n# `echo` segment, and the real `git stash pop` was just another argument. Same repair\n# guard-main-checkout-bash.sh's split_segments() took in #11131. Every case below was\n# ALLOWED before that branch existed; the bare forms next door are the controls that say\n# the guard was reached at all.\n",
+          "ported": "# closed. Every separator behind it went inert, the command collapsed into one `echo`\n# segment, and the real `git stash` was just another argument.\n"
+        },
+        {
+          "id": "unquoted-backslash-case-and",
+          "why": "Upstream carries an `&&` twin of the escaped-quote block case that this matrix does not: an un-ported upstream case, declared so the ledger names it.",
+          "upstream": "expect block 'echo \\\" ; git stash pop'\nexpect block 'echo \\\" && git stash pop'\nexpect block 'printf \\\" ; git stash drop'\n",
+          "ported": "expect block 'echo \\\" ; git stash pop'\nexpect block 'printf \\\" ; git stash drop'\n"
+        },
+        {
+          "id": "unquoted-backslash-case-git-c",
+          "why": "Upstream's `git -C <worktree>` twin of the escaped-quote case names an objectstack worktree and is not carried here.",
+          "upstream": "expect block 'printf \\\" ; git stash drop'\nexpect block 'echo \\\" ; git -C ../objectstack-issue-11738 stash pop'\nexpect block \"$(printf 'echo \\\\\"\\ngit stash pop\\n')\"\n",
+          "ported": "expect block 'printf \\\" ; git stash drop'\nexpect block \"$(printf 'echo \\\\\"\\ngit stash pop\\n')\"\n"
+        },
+        {
+          "id": "precision-twin-rationale",
+          "why": "This copy explains the precision twins in terms of the allow-list this hook actually has, and says why upstream's linked-worktree twin has no analogue in a hook that reads no cwd.",
+          "upstream": "# Precision twins: the escape must not manufacture a block where nothing touches the stack,\n# and the read-only and SHA-pinned forms stay allowed behind one.\n",
+          "ported": "# Precision twins: the escape must not manufacture a stash where none is run, and the forms\n# this guard deliberately allows stay allowed when reached through the same escape. (Upstream's\n# twin aims the command at a linked worktree; this hook reads no cwd, so the SHA-pinned and\n# read-only allow-list is the analogous precision surface.)\n"
+        },
+        {
+          "id": "precision-twin-allow-cases",
+          "why": "The allow-side twins are this repo's specimens — a README read and a `grep` — where upstream uses `git status`.",
+          "upstream": "expect allow 'echo \\\" ; git status'\n",
+          "ported": "expect allow 'echo \\\" ; cat README.md'\nexpect allow 'echo a\\ b'\nexpect allow 'echo \\\\ ; grep -n worktree README.md'\n"
+        },
+        {
+          "id": "precision-twin-allow-tail",
+          "why": "Upstream's `git stash apply <sha>` allow-twin and its `git status` tail are not carried here; this matrix keeps the `stash list` read as its allow control.",
+          "upstream": "expect allow 'echo \\\" ; git stash list'\nexpect allow 'echo \\\" ; git stash apply abc1234'\nexpect allow 'echo a\\ b'\nexpect allow 'echo \\\\ ; git status'\n\n",
+          "ported": "expect allow 'echo \\\" ; git stash list'\n\n"
+        },
+        {
+          "id": "in-quote-header-and-rationale",
+          "why": "The in-quote section header carries no card number here, and the rationale is stated as the rule rather than as upstream's before/after measurement.",
+          "upstream": "echo \"== an escaped \\\\\\\" INSIDE a double-quoted word does NOT close it (#10406 half) ==\"\n# The other direction of the same missing rule. Inside \"…\" a `\\\"` is a literal quote and the\n# quoted region stays OPEN; reading it as closing flipped the pass to \"outside quotes\" while\n# bash was still inside, so separators behind it split where bash would not and the tail of a\n# pure READ became a segment of its own — a false BLOCK on a command that touches no stash.\n# Both allow-cases below were BLOCKED before the in-quote branch existed, while the\n# single-level control next door (`grep -rn \"cd x && git stash pop\" .claude/`) passed\n# throughout: the guard was reached and the nested escape alone is the difference.\n",
+          "ported": "echo \"== an escaped \\\\\\\" INSIDE a double-quoted word does NOT close it ==\"\n# Inside \"…\" a backslash is special only before \" \\ $ ` — so an escaped `\\\"` is a literal\n# quote and the quoted region stays OPEN. A pass that reads it as closing goes \"outside\n# quotes\" while bash is still inside: separators behind it split where bash would not, and\n# the tail of a pure READ becomes a segment of its own, judged on its own head word. The\n# single-level control above (`grep -rn \"cd x && git stash pop\" .claude/`) is the same\n# command without the nested escape, so it isolates that escape as the only difference.\n"
+        },
+        {
+          "id": "precision-twin-in-quote-rationale",
+          "why": "Same treatment on the in-quote precision twins: the rule, not upstream's per-case before/after record.",
+          "upstream": "# Precision twins — the branch must not become a blanket \"ignore whatever follows a backslash\".\n# Once the quoted region really is closed, the stash behind it is still caught. The first two\n# were ALLOWED before the branch existed (the same missing rule fails OPEN once the escapes\n# pair up and the region is left hanging); the rest were blocked before and stay blocked.\n",
+          "ported": "# Precision twins — this is not a blanket \"ignore whatever follows a backslash\". Once the\n# escapes pair up the region really is closed, and the stash behind it is still caught.\n"
+        },
+        {
+          "id": "escaped-backslash-wording",
+          "why": "A one-sentence rewording of the escaped-backslash note; the case it guards is identical.",
+          "upstream": "# `\\\\` inside \"…\" is an escaped backslash, so the NEXT `\"` still closes the region. Without the\n# `\\` arm of the case list that closing quote is eaten as an escapee and the stash rides through.\n",
+          "ported": "# `\\\\` inside \"…\" is an escaped backslash, so the NEXT `\"` still closes the region; without\n# the `\\` arm of the escapee list that closing quote is eaten and the stash rides through.\n"
+        },
+        {
+          "id": "single-quote-gate-wording",
+          "why": "A one-sentence rewording of the single-quote asymmetry note; the case it guards is identical.",
+          "upstream": "# Inside '…' nothing is special, which is why the branch is gated on q='\"'. Applied to single\n# quotes it would swallow the closing `'` and let the stash behind it through.\n",
+          "ported": "# Inside '…' nothing is special — that asymmetry is what the q='\"' gate pins. Applied to\n# single quotes the branch would swallow the closing `'` and pass the stash behind it.\n"
+        }
+      ]
+    },
+    {
+      "ported": ".claude/hooks/guard-tree-enum.sh",
+      "upstreamPath": ".claude/hooks/guard-tree-enum.sh",
+      "ref": "c074c57e452734821caf6f43329a20e873926f16",
+      "upstreamSha256": "add7e5615359e336df722873924055829ea40b34ab106a73d2ae2a1abc8ce2f3",
+      "divergences": [
+        {
+          "id": "incident-first-person",
+          "why": "The measured incident is this repository's, so it reads in the first person here rather than naming objectui from outside.",
+          "upstream": "# Live incident, objectui (2026-08-29), filed as objectstack#13305: a seat ran exactly the\n# loop above to decide whether flipping a batch of draft PRs to ready would trigger any CI.\n",
+          "ported": "# Live incident, THIS repository (2026-08-29), filed as objectstack#13305: a seat ran exactly\n# the loop above to decide whether flipping a batch of draft PRs to ready would trigger any CI.\n"
+        },
+        {
+          "id": "mirror-provenance-note",
+          "why": "This copy records that it is mirrored FROM objectstack, a direction upstream's copy cannot state about itself.",
+          "upstream": "#     trip the rule it writes.\n#\n",
+          "ported": "#     trip the rule it writes.\n#\n# Mirrored from objectstack's hook of the same name (objectstack#13305), the same discipline\n# guard-shared-stash.sh and guard-main-checkout-bash.sh already document: the verdict logic\n# below is kept case-for-case identical to objectstack's so the two repos' guards cannot\n# drift; only the incident's framing and the self-test's example paths are localised. The\n# measured incident is THIS repository's, so it reads in the first person here.\n#\n"
+        },
+        {
+          "id": "remedy-incident-first-person",
+          "why": "The printed remedy uses the same first-person framing, because the measurement was taken here.",
+          "upstream": "Measured on objectui, 2026-08-29 (objectstack#13305): working tree 30 workflow files,\n",
+          "ported": "Measured HERE, 2026-08-29 (objectstack#13305): working tree 30 workflow files,\n"
+        }
+      ]
+    },
+    {
+      "ported": ".claude/hooks/guard-tree-enum.selftest.sh",
+      "upstreamPath": ".claude/hooks/guard-tree-enum.selftest.sh",
+      "ref": "c074c57e452734821caf6f43329a20e873926f16",
+      "upstreamSha256": "6690dd40321eb00c8680f694fb3f48725c666291c524b668e6b161ca39d12aa9",
+      "divergences": [
+        {
+          "id": "incident-first-person",
+          "why": "The measured incident is this repository's, so the header reads in the first person.",
+          "upstream": "# The first case is the measured objectui incident of 2026-08-29 (objectstack#13305)\n",
+          "ported": "# The first case is THIS repository's measured incident of 2026-08-29 (objectstack#13305)\n"
+        },
+        {
+          "id": "mirror-direction",
+          "why": "The mirroring note points the other way: this copy is mirrored FROM objectstack's self-test.",
+          "upstream": "# Mirrored one-for-one into objectui's self-test of the same name alongside the hook, so\n",
+          "ported": "# Mirrored one-for-one from objectstack's self-test of the same name alongside the hook, so\n"
+        },
+        {
+          "id": "glob-specimen-path",
+          "why": "The glob specimen names a package this repo has, `packages/components`.",
+          "upstream": "expect block 'for f in packages/spec/src/*.ts; do git grep -q PATTERN origin/main -- \"$f\"; done'\n",
+          "ported": "expect block 'for f in packages/components/src/*.ts; do git grep -q PATTERN origin/main -- \"$f\"; done'\n"
+        },
+        {
+          "id": "shared-checkout-path",
+          "why": "The shared-checkout specimen is this repo's own `/home/user/objectui`.",
+          "upstream": "expect block 'cd /home/user/objectstack && for f in .claude/hooks/*.sh; do git show \"origin/main:$f\"; done'\n",
+          "ported": "expect block 'cd /home/user/objectui && for f in .claude/hooks/*.sh; do git show \"origin/main:$f\"; done'\n"
+        },
+        {
+          "id": "package-filter-specimen",
+          "why": "The untouched-command specimen names a package this repo has, `@object-ui/components`.",
+          "upstream": "expect allow 'pnpm --filter @objectstack/spec test'\n",
+          "ported": "expect allow 'pnpm --filter @object-ui/components test'\n"
+        },
+        {
+          "id": "allow-case-specimens",
+          "why": "The allow cases name a script this repo actually has and a worktree path under this repo's own name; objectstack's `dispatch-gates.mjs` does not exist here.",
+          "upstream": "expect allow 'node scripts/pm/dispatch-gates.mjs --repo objectstack-ai/objectstack'\nexpect allow 'git worktree add ../objectstack-issue-13305 -b claude/issue-13305 origin/main'\n",
+          "ported": "expect allow 'node scripts/check-changeset-presence.mjs'\nexpect allow 'git worktree add ../objectui-issue-13305 -b claude/issue-13305 origin/main'\n"
+        }
+      ]
     }
   ]
 }

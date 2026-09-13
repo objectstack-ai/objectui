@@ -17,12 +17,14 @@ import {
   listDocuments,
   loadCarriage,
   parseFence,
+  parseFenceDialect,
   RENDERER_SOURCE,
   ROOT_PAGES,
   runControls,
   sanitizeFence,
   splitTopLevel,
   SURFACE_LABEL,
+  toJsonDialect,
 } from '../check-doc-expression-carriage.mjs';
 import {
   APP_DOCS as TYPES_APP_DOCS,
@@ -142,6 +144,49 @@ describe('check-doc-expression-carriage: the controls can see, and can fail', ()
     expect(CONTROL_FIXTURES.positive).toContain('"type": "badge"');
     expect(CONTROL_FIXTURES.positive).toContain('"text"');
   });
+
+  /**
+   * objectui#8334 — the DIALECT controls, both directions.
+   *
+   * The positive proves the leg can see a node tree spelled as a JS object
+   * literal. The negative proves it still refuses a TS `interface` body, which is
+   * what the great majority of these pages' ```plaintext fences hold: a leg that
+   * accepted those would flood the coverage line with type DECLARATIONS and be
+   * useless in the opposite direction.
+   */
+  it('sees the object-literal fixture and stays silent on a TS interface body', async () => {
+    const controls = runControls({ channels: deriveChannels(ROOT), carriage: await loadCarriage() });
+    expect(controls.failures).toEqual([]);
+    expect(controls.dialectPositive).toEqual(['filter-ui', 'text']);
+    expect(controls.dialectNegative).toEqual([]);
+  });
+
+  /**
+   * ⭐ The regression itself, pinned as a DIFFERENCE rather than described: run
+   * the OLD predicate — a strict `parseFence` — over the very fixture the corpus
+   * supplied, and it sees nothing. That silent nothing is what the summary used
+   * to print `✅ Dialect blind spot: none` on top of.
+   */
+  it('is a leg that CAN fail: the pre-objectui#8334 predicate is blind to this fixture', () => {
+    const before = parseFence(CONTROL_FIXTURES.dialectPositive);
+    expect(before.ok, 'the object-literal fixture must NOT parse as strict JSON').toBe(false);
+    expect(before.values.flatMap((value: unknown) => collectNodes(value))).toEqual([]);
+
+    const after = parseFenceDialect(CONTROL_FIXTURES.dialectPositive);
+    expect(after.ok).toBe(true);
+    expect(after.values.flatMap((value: unknown) => collectNodes(value)).map((n: { type: string }) => n.type)).toEqual([
+      'filter-ui',
+      'text',
+    ]);
+  });
+
+  it('keeps the dialect fixtures the shapes the corpus actually uses', () => {
+    // Unquoted key + single-quoted value: the spelling the five measured pages use.
+    expect(CONTROL_FIXTURES.dialectPositive).toContain("type: 'filter-ui'");
+    // ...and the negative must stay a TS declaration, or it stops excluding anything.
+    expect(CONTROL_FIXTURES.dialectNegative).toContain('interface');
+    expect(CONTROL_FIXTURES.dialectNegative).toContain('type: ');
+  });
 });
 
 describe('check-doc-expression-carriage: the parse surface', () => {
@@ -200,6 +245,44 @@ describe('check-doc-expression-carriage: the parse surface', () => {
   it('finds a node wherever it sits, including inside a bag', () => {
     const nodes = collectNodes({ type: 'page', properties: { child: { type: 'badge' } } });
     expect(nodes.map((n) => n.type)).toEqual(['page', 'badge']);
+  });
+
+  /**
+   * objectui#8334 — `toJsonDialect`, the object-literal normalization. It is a
+   * REMOVAL of dialect and ⛔ must never be able to invent a member: the
+   * blind-spot list it feeds is read as a coverage figure, and an invented key
+   * would inflate it with fences that hold no node at all.
+   */
+  it('quotes a bare key and re-spells a single-quoted string, inventing nothing', () => {
+    const parsed = JSON.parse(toJsonDialect("{ type: 'badge', label: 'a', variant: 'x' }"));
+    expect(Object.keys(parsed)).toEqual(['type', 'label', 'variant']);
+    expect(parsed).toEqual({ type: 'badge', label: 'a', variant: 'x' });
+  });
+
+  it('quotes an identifier only in a MEMBER position, so `type: string` stays unparseable', () => {
+    // A TS interface body: `string` is a value-position identifier and must NOT
+    // be quoted, or every type declaration in the corpus becomes a "node".
+    expect(parseFenceDialect('interface P {\n  type: string;\n}').ok).toBe(false);
+    expect(parseFenceDialect("{ kind: 'a', mode: 'b' }").ok).toBe(true);
+  });
+
+  it('survives an apostrophe inside a comment, which would otherwise open a string', () => {
+    const parsed = parseFenceDialect("{\n  // don't let this open a string\n  type: 'badge'\n}");
+    expect(parsed.ok).toBe(true);
+    expect(parsed.values).toEqual([{ type: 'badge' }]);
+  });
+
+  it('keeps a `//` and a quote that are DATA inside a string', () => {
+    // A raw `"` inside a single-quoted string, and a `//` that is a URL. The
+    // normalization must escape the first and leave the second alone.
+    const parsed = parseFenceDialect(`{ type: 'link', href: 'https://a.example', note: 'he said "hi"' }`);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.values).toEqual([{ type: 'link', href: 'https://a.example', note: 'he said "hi"' }]);
+  });
+
+  it('leaves a strict-JSON body byte-identical — the normalization is a no-op on JSON', () => {
+    const body = '{ "type": "badge", "label": "a//b" }';
+    expect(toJsonDialect(body)).toBe(body);
   });
 });
 
@@ -446,16 +529,84 @@ describe('check-doc-expression-carriage: the real tree, and the posture', () => 
     expect(page.every((fence: { lang: string; ok: boolean }) => fence.lang === 'jsonc' && fence.ok)).toBe(true);
   });
 
-  it('measures the DIALECT blind spot instead of asserting there is none', async () => {
+  /**
+   * objectui#8334. ⚠️ This pin used to read `expect(census.unscannedJsonLike).toEqual([])`
+   * — and it PASSED, for the worst possible reason: the leg it pinned required a
+   * strict JSON parse, so an entire dialect was invisible to it and the empty
+   * list was a blindness rather than a clean corpus.
+   *
+   * ⛔ Its failure message was worse than the pin. It instructed the next reader
+   * to "Widen `JSON_FENCE_LANGUAGES` deliberately" — the one fix PR objectui#8324
+   * REJECTED by content, because `plaintext` is not a JSON dialect and admitting
+   * it lets every future JSON-in-plaintext block through unjudged. A defect
+   * reasoned from written prose reproduces itself while the prose stands, so the
+   * prose is corrected here and not only in the gate.
+   *
+   * What replaces it is the opposite shape: a FLOOR proving the measurement can
+   * see the class, ⛔ per file rather than one summed total — a summed floor
+   * cannot tell "every page still measured" from "one page the matcher quietly
+   * stopped matching, and another that grew two blocks".
+   */
+  it('SEES the JS object-literal dialect the coverage line used to lie about', async () => {
+    const census = analyze(ROOT, { channels: deriveChannels(ROOT), carriage: await loadCarriage() });
+    const literals = census.unscannedJsonLike.filter(
+      (fence: { dialect: string }) => fence.dialect === 'object-literal',
+    );
+    // ⛔ Per file. Each of the five the card measured must still be SEEN; a zero
+    // on any one of them is the blindness this card exists to remove, and the
+    // summary would print `none` over it again.
+    for (const file of [
+      `${DOCS_ROOT}/components/complex/filter-ui.mdx`,
+      `${DOCS_ROOT}/components/complex/sort-ui.mdx`,
+      `${DOCS_ROOT}/components/complex/view-switcher.mdx`,
+      `${DOCS_ROOT}/components/feedback/toaster.mdx`,
+      `${DOCS_ROOT}/components/navigation/header-bar.mdx`,
+    ]) {
+      expect(
+        literals.filter((fence: { file: string }) => fence.file === file).length,
+        `${file} authors a node tree as a JS object literal in an unscanned fence. The blind-spot ` +
+          'measurement must REPORT it. If this page was legitimately retagged ```json, it has moved ' +
+          'into the judged population — drop it from this list; do NOT delete the list.',
+      ).toBeGreaterThan(0);
+    }
+    // ⛔ NOT an equality on the total: that number moves with every docs page and
+    // pinning it would make a report-only gate blocking through the back door.
+    // A floor is what distinguishes a measurement from a snapshot.
+    expect(
+      literals.length,
+      'the object-literal leg reported nothing at all on a corpus that demonstrably holds this ' +
+        'dialect — the leg has stopped matching and its zero is not readable.',
+    ).toBeGreaterThanOrEqual(5);
+  });
+
+  /**
+   * Triage's binding fence on objectui#8334, pinned mechanically rather than
+   * trusted: ⛔ "Do not fix this by widening the census." The blind-spot leg is a
+   * MEASUREMENT; if it ever starts feeding the judged population, this goes red.
+   */
+  it('judges exactly what it judged before the dialect leg existed', async () => {
     const census = analyze(ROOT, { channels: deriveChannels(ROOT), carriage: await loadCarriage() });
     expect(
-      census.unscannedJsonLike,
-      'a fence OUTSIDE ' +
-        JSON_FENCE_LANGUAGES.join('/') +
-        ' parses as a JSON document holding a typed node, so the census is missing a dialect. Widen ' +
-        '`JSON_FENCE_LANGUAGES` deliberately — the alternative is a human finding it by reading the ' +
-        'page, which is the detection mechanism objectui#7851 exists to replace.',
-    ).toEqual([]);
+      JSON_FENCE_LANGUAGES,
+      '⛔ `plaintext` is not a JSON dialect. Admitting it lets every future JSON-in-plaintext block ' +
+        'through UNJUDGED — rejected by content on PR objectui#8324, and the exact blind spot this ' +
+        'gate exists to close.',
+    ).not.toContain('plaintext');
+    // Every fence the census counted is in a scanned language, and every fence in
+    // the blind-spot list is NOT. The two sets are disjoint by construction, and
+    // that disjointness is the whole of triage's fence.
+    const judged = new Set(census.fences.map((fence: { lang: string }) => fence.lang));
+    expect([...judged].sort()).toEqual([...JSON_FENCE_LANGUAGES].sort());
+    for (const fence of census.unscannedJsonLike) {
+      expect(JSON_FENCE_LANGUAGES).not.toContain(fence.lang);
+    }
+  });
+
+  it('reports the strict-JSON and object-literal spellings as distinguishable dialects', async () => {
+    const census = analyze(ROOT, { channels: deriveChannels(ROOT), carriage: await loadCarriage() });
+    for (const fence of census.unscannedJsonLike) {
+      expect(['json', 'object-literal']).toContain(fence.dialect);
+    }
   });
 
   /**
@@ -513,13 +664,20 @@ describe('check-doc-expression-carriage: the real tree, and the posture', () => 
     // having looked at nothing.
     const orphan = fs.mkdtempSync(path.join(os.tmpdir(), 'carriage-orphan-'));
     fs.mkdirSync(path.join(orphan, 'scripts'));
-    // Three files, not two: objectui#7878 made the gate IMPORT its scan surface
+    // Four files, not two: objectui#7878 made the gate IMPORT its scan surface
     // from `check-doc-component-types.mjs` rather than carry a fourth copy of it,
-    // so the orphan needs that module for the import to resolve at all. If this
-    // list ever falls behind the gate's imports the failure is a module-resolution
-    // stack trace rather than the message below, which is why the message is
-    // asserted and not merely the exit code.
-    for (const file of ['check-doc-expression-carriage.mjs', 'check-doc-component-types.mjs', 'invoked-as.mjs']) {
+    // and objectui#9194 made both gates IMPORT the opening-fence predicate from
+    // `markdown-fence-scan.mjs` rather than carry a copy each, so the orphan needs
+    // those modules for the imports to resolve at all. If this list ever falls
+    // behind the gate's imports the failure is a module-resolution stack trace
+    // rather than the message below, which is why the message is asserted and not
+    // merely the exit code.
+    for (const file of [
+      'check-doc-expression-carriage.mjs',
+      'check-doc-component-types.mjs',
+      'invoked-as.mjs',
+      'markdown-fence-scan.mjs',
+    ]) {
       fs.copyFileSync(path.join(ROOT, 'scripts', file), path.join(orphan, 'scripts', file));
     }
     const run = spawnSync(process.execPath, ['scripts/check-doc-expression-carriage.mjs'], {

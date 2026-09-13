@@ -123,10 +123,17 @@ flattened.
 - **The `data.*` half.** Dropping `'data'` from `ROW_PREDICATE_ROOTS` stops
   *recommending* it; it does not stop the lint *accepting* it.
   `@objectstack/formula`'s `SCOPE_ROOTS` lists `data`, so `data.status == 'x'` still
-  lints clean at `scope:'record'` while resolving against the host's ambient `data`
-  rather than the row — constant-false, silently. Pinned here as a characterization
-  test, tracked as objectui#8166. This changeset closes the **bare-field** half of the
-  retirement only.
+  lints clean at `scope:'record'` — and at this change it also still RESOLVED, against
+  the host's ambient `data` rather than the row, constant-false and silently. Pinned
+  here as a characterization test, tracked as objectui#8166. This changeset closes the
+  **bare-field** half of the retirement only.
+
+  ⚠️ **objectui#8166 has since closed the half this repo owns.** `buildExpressionScope`
+  no longer binds an ambient `data` on record surfaces, so such a condition now FAULTS
+  with the engine's own `Unknown variable: data` instead of resolving constant-false.
+  The lint still accepts the spelling — narrowing `SCOPE_ROOTS` is the producer-side
+  half and lives in `@objectstack/formula` — so what moved is the silence, not the
+  accept set.
 
 ⛔ And this editor is **not** the last authoring site still on the flattened default —
 `ConditionBuilder` reaches it by passing no `scope` at all, which is why a grep for the

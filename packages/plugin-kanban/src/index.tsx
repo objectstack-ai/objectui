@@ -67,20 +67,42 @@ export function bucketCardsIntoColumns(
 
   // Build label→id mapping so data values (labels like "In Progress") match
   // column IDs (option values like "in_progress").
-  const labelToColumnId: Record<string, string> = {};
+  // ⚠️ Null prototype, not `{}` (objectui#9043). This map and `groups` below are
+  // keyed by RECORD DATA, which no schema guards — `@objectstack/spec` narrows the
+  // lane `id` (objectui#8913), not the values stored in the grouped field — so a
+  // stored value like 'constructor' or '__proto__' would otherwise be answered by
+  // `Object.prototype` instead of by what this function actually put here:
+  //   - the READ below is `labelToColumnId[k] ?? rawKey`, and `??` only falls back
+  //     on null/undefined, so an INHERITED member is returned as if it were a
+  //     declared lane id;
+  //   - the WRITE `labelToColumnId['__proto__'] = col.id` on a prototype-bearing
+  //     object invokes the `__proto__` setter, which silently ignores a string —
+  //     so a lane legitimately declared with that option value loses its mapping.
+  // `Object.prototype.hasOwnProperty.call(...)` would close the READ only; the
+  // write hazard needs the null prototype, which is why both maps take that route.
+  const labelToColumnId: Record<string, string> = Object.create(null);
   columns.forEach((col: any) => {
     if (col.id) labelToColumnId[String(col.id).toLowerCase()] = col.id;
     if (col.title) labelToColumnId[String(col.title).toLowerCase()] = col.id;
   });
 
   // 1. Group data by key, normalizing via label→id mapping.
+  // ⚠️ Null prototype for the same reason (objectui#9043), and this is the leg that
+  // CRASHES: on a `{}` accumulator `acc['toString']` is the inherited METHOD, which
+  // is truthy, so the array is never created and the next line calls `.push` on a
+  // function — thrown during render, so the user sees a blank board with nothing
+  // naming the record. `acc['__proto__'] = []` would likewise hit the setter and be
+  // dropped, and step 2's `groups[col.id]` read would answer `Object.prototype` for
+  // a lane declared `{ id: '__proto__' }`, which spreads as "not iterable".
+  // ⚠️ The repair keeps every record: an offending one keeps its own value as its
+  // group key and still surfaces in the trailing lane, never discarded (#2792).
   const groups = data.reduce((acc, item) => {
     const rawKey = String(item[groupBy] ?? '');
     const key = labelToColumnId[rawKey.toLowerCase()] ?? rawKey;
     if (!acc[key]) acc[key] = [];
     acc[key].push(mapCoverImage(item));
     return acc;
-  }, {} as Record<string, any[]>);
+  }, Object.create(null) as Record<string, any[]>);
 
   // 2. Inject into declared columns.
   const mapped = columns.map((col: any) => ({
@@ -421,8 +443,11 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  *
  * ## Why these keys were added
  *
- * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares thirteen
- * top-level keys; this list published three until objectui#8186 added `filter`.
+ * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares FOURTEEN
+ * top-level keys on the installed 17.4.0 pin; this list published three until
+ * objectui#8186 added `filter`. ⚠️ It declared THIRTEEN when objectui#8201 was
+ * filed — 17.4.0 added `limit` (see below), and the count moved with it. Both
+ * numbers are correct about their own pin, which is why this one names its pin.
  * The gap was STRUCTURAL rather than considered — the console registers this
  * block with `ComponentRegistry.registerLazy` and `getConfig` is loaded-only by
  * design, so the block sat outside the console's reverse-parity population
@@ -507,16 +532,29 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  *
  * ## What is deliberately NOT here yet
  *
- * ONE of the thirteen keys stays undeclared, keeping its live entry in
+ * ONE of the fourteen keys stays undeclared, keeping its live entry in
  * `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`:
  *
- *   - `quickAdd` is ESCALATED, not deferred: this renderer does not honour it
- *     at all. `KanbanImpl` gates the control on `quickAdd && onQuickAdd`, and
- *     `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod twin refuses by
- *     name; nothing on the `ObjectKanban` path supplies one. Whether that is a
- *     permanent carve-out or a feature gap is a product ruling, not a
- *     measurement, so objectui#8201 hands it to the maintainer rather than
- *     writing a carve-out reason it has no standing to write.
+ *   - `quickAdd` is RULED, and the ruling is PREMATURE. This renderer does not
+ *     honour it at all: `KanbanImpl` gates the control on `quickAdd &&
+ *     onQuickAdd`, and `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod
+ *     twin refuses by name; nothing on the `ObjectKanban` path supplies one.
+ *     objectui#8201 escalated the DISPOSITION rather than guessing it, and the
+ *     PM answered (Q1 = A, 2026-09-07): PREMATURE — the renderer does not
+ *     honour it, and objectui#8285 owns the fix.
+ *     ⭐ PREMATURE commits nobody to building quick-add. It is also NOT the
+ *     stronger reading that the object-bound board is not going to grow it:
+ *     nothing measured supports that, and `KanbanRenderer` below contradicts
+ *     it by forwarding the same `quickAdd` + `onQuickAdd` pair by identity to
+ *     a React host that can supply the function.
+ *     ⛔ The exit is NOT a declaration — publishing the key would advertise
+ *     configuration this renderer drops. objectui#8285 was ruled (director
+ *     seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd`
+ *     from the spec's `ComponentPropsMap`; the day that lands, the key leaves
+ *     the accepted set and the console entry is harvested by its own dangling
+ *     and stale checks. Pinned from this side by
+ *     `__tests__/quickAddIsDiagnosedNotDropped-8285.test.ts` row 5, whose
+ *     reddening IS that day.
  *
  * The declarations are pinned per tag and per key, so removing one from this
  * list reddens a NAMED row rather than a file:

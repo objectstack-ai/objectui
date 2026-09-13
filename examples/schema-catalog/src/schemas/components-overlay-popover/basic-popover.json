@@ -4,7 +4,7 @@
     "type": "button",
     "label": "Open Popover"
   },
-  "children": [
+  "content": [
     {
       "type": "text",
       "content": "Popover content"

@@ -16,6 +16,7 @@ import {
   resolveVisibleOptions,
   isValueStillOffered,
   resolveCascadingOptions,
+  optionDisplayLabel,
   type OptionLike,
 } from '../optionRules';
 
@@ -163,5 +164,44 @@ describe('resolveCascadingOptions — one-shot resolution', () => {
       current_user: { positions: ['admin'] },
     });
     expect(admin.options.map((o) => o.value)).toEqual(['standard', 'admin_only']);
+  });
+});
+
+
+describe('optionDisplayLabel — a blank label falls back to the value (objectui#9230)', () => {
+  it('returns the label when there is one', () => {
+    expect(optionDisplayLabel({ label: 'High', value: 'high' })).toBe('High');
+  });
+
+  it('falls back to the value when the label is the empty string', () => {
+    // The shape the field designer writes when the author fills only the
+    // value box. It is a LEGAL document (the spec requires the key and
+    // accepts ''), so the fallback is display, never a rewrite of metadata.
+    expect(optionDisplayLabel({ label: '', value: 'low' })).toBe('low');
+  });
+
+  it('falls back when the label is only whitespace — the same invisible row', () => {
+    expect(optionDisplayLabel({ label: '   ', value: 'low' })).toBe('low');
+    expect(optionDisplayLabel({ label: '\n\t', value: 'low' })).toBe('low');
+  });
+
+  it('keeps a label whose text merely has surrounding space', () => {
+    // Trim decides EMPTINESS only; it never edits the text that is shown.
+    expect(optionDisplayLabel({ label: ' High ', value: 'high' })).toBe(' High ');
+  });
+
+  it('stringifies a non-string value for the fallback (#3090-widened values)', () => {
+    expect(optionDisplayLabel({ label: '', value: 5 })).toBe('5');
+    expect(optionDisplayLabel({ label: '', value: true })).toBe('true');
+  });
+
+  it('falls back rather than throwing on unvalidated runtime metadata', () => {
+    // `label` is typed required, but renderers are handed raw metadata. The
+    // old `{opt.label}` rendered nothing here; a `.trim()` with no guard would
+    // throw and take the whole form down, which is strictly worse than blank.
+    const absent = { value: 'low' } as unknown as OptionLike;
+    expect(optionDisplayLabel(absent)).toBe('low');
+    const wrongType = { label: 5, value: 'low' } as unknown as OptionLike;
+    expect(optionDisplayLabel(wrongType)).toBe('low');
   });
 });

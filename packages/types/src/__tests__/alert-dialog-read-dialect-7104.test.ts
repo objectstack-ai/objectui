@@ -146,6 +146,13 @@ type KeepsFunction<T> = [Extract<NonNullable<T>, (...args: never[]) => unknown>]
 export type _Content = Expect<Equal<AlertDialogSchema['content'], SchemaNode | SchemaNode[]>>;
 export type _CancelText = Expect<Equal<AlertDialogSchema['cancelText'], string | undefined>>;
 export type _ActionText = Expect<Equal<AlertDialogSchema['actionText'], string | undefined>>;
+// objectui#8978 — the capability the retired `confirmVariant` was supposed to
+// carry, on a spelling in the `action*` dialect this node already uses for that
+// button. Two values, and the DOM reading that earns the narrowness lives in
+// `packages/components/src/__tests__/alert-dialog-action-variant-8978.test.tsx`.
+export type _ActionVariant = Expect<
+  Equal<AlertDialogSchema['actionVariant'], 'default' | 'destructive' | undefined>
+>;
 export type _OnAction = Expect<Equal<AlertDialogSchema['onAction'], (() => void) | undefined>>;
 export type _OnActionCallable = Expect<KeepsFunction<AlertDialogSchema['onAction']>>;
 
@@ -342,7 +349,11 @@ describe('the trio is RETIRED — the objectui#7104 pin re-derived onto the othe
     // The prong-2 reading the follow-up judged, re-derived: the three `@default`
     // tags were the shipped type telling authors a value would be supplied when
     // nothing read the key at all. They are gone, and each docblock names the
-    // card. ⛔ The `confirmVariant` block deliberately names NO substitute.
+    // card. ⚠️ The `confirmVariant` block named NO substitute until
+    // objectui#8978 answered the separate question the retirement pointed at; it
+    // now names `actionVariant`, and the KEY is still `?: never` (the leg above
+    // is what holds that, and the `@ts-expect-error` at the top of this file is
+    // what holds it at an authoring site).
     const iface = declaredInterface();
     expect(iface).not.toMatch(/@default 'Cancel'/);
     expect(iface).not.toMatch(/@default 'Confirm'/);
@@ -367,9 +378,20 @@ describe('the docs page publishes the read dialect (objectui#7104)', () => {
     ['content', 'SchemaNode | SchemaNode[]'],
     ['cancelText', 'string'],
     ['actionText', 'string'],
+    ['actionVariant', "'default' | 'destructive'"],
   ])('row `%s` is published as `%s`, optional — the declaration\'s own spelling', (key, typeText) => {
     expect(rows().get(key)).toEqual({ optional: true, typeText });
   });
+
+  it.each(['content', 'cancelText', 'actionText', 'actionVariant'])(
+    'and the page says what the DECLARATION says for `%s` — neither face can drift alone',
+    (key) => {
+      // The row texts above are literals, so on their own they pin the page to a
+      // string rather than to the type. This leg is the other half: the same row
+      // read off `packages/types/src/overlay.ts`.
+      expect(rows().get(key)).toEqual(members(declaredInterface()).get(key));
+    },
+  );
 
   it('the phantom `actions` row is gone — no surface ever carried it', () => {
     expect(rows().has('actions')).toBe(false);

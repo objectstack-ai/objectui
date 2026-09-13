@@ -210,7 +210,10 @@ describe('DatasetWidget — a bucket drills to ITS OWN rows (objectui#4508)', ()
     expect(chartRows()[1]).toEqual({ owner_name: NULL_CATEGORY_LABEL, deals: 3 });
 
     clickBar(1);
-    await waitFor(() => expect(lastFilter()).toEqual({ owner_id: null }));
+    // objectui#9085: the empty bucket's is-empty predicate, not a bare `null`
+    // the converter would drop. What this BOUNDARY case pins is unchanged —
+    // that the null bucket drills by the OWNER FIELD at all.
+    await waitFor(() => expect(lastFilter()).toEqual({ owner_id: { $null: true } }));
   });
 
   it('BOUNDARY — an ordinary category drills by its stored id, rows untouched', async () => {
@@ -252,6 +255,7 @@ describe('DatasetWidget — a bucket drills to ITS OWN rows (objectui#4508)', ()
 
     await waitFor(() => expect(chartRows().length).toBe(2));
     capturedChartProps.onSegmentClick({ category: NULL_CATEGORY_LABEL });
-    await waitFor(() => expect(lastFilter()).toEqual({ owner_id: null }));
+    // objectui#9085 spelling; the identity-free fallback path itself is unchanged.
+    await waitFor(() => expect(lastFilter()).toEqual({ owner_id: { $null: true } }));
   });
 });

@@ -257,10 +257,77 @@ type VisibilityChainKey =
  * The same six legs as a lookup, so the config-bag evaluation loops below can
  * ask "is this key a visibility predicate?" off the SAME declaration the chain
  * is built from rather than a second list that can drift from it.
+ *
+ * Since objectui#9107 those loops ask {@link PREDICATE_CHAIN_KEYS} — this set
+ * unioned with the enablement chain's — so this one is the VISIBILITY HALF of
+ * that union rather than the whole of it. Each chain still has exactly one
+ * declaration, which is the property this constant was added for.
  */
 const VISIBILITY_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
   ...VISIBILITY_SHOW_KEYS,
   ...VISIBILITY_HIDE_KEYS,
+]);
+
+/**
+ * The ENABLEMENT-chain keys — the SECOND predicate chain this file carries, and
+ * deliberately not a seventh leg of the visibility chain above (objectui#9107).
+ *
+ * Split the way this file actually consults them, which is not a polarity split:
+ *
+ *   * {@link ENABLEMENT_NODE_GATE_KEYS} are the two legs
+ *     {@link evaluateEnablementPredicate} consults HERE, in this precedence
+ *     order, as one early-return chain — the enablement counterpart of
+ *     `shouldHide`. Their `true` means DISABLED, un-negated.
+ *   * {@link ENABLEMENT_RENDERER_KEYS} is the legacy, non-spec `enabled` alias.
+ *     This component never evaluates it: the node gate does not consult it at
+ *     all, and the action renderers (`action:button`, `action:icon`) read it one
+ *     layer down off the schema and NEGATE it (`disabled = !isEnabled`). It is
+ *     declared here because the config-bag loops below flatten it exactly like
+ *     the other two — which is the whole defect — not because anything in this
+ *     file decides with it.
+ *
+ * ## Why a second declaration instead of widening the visibility chain
+ *
+ * {@link VisibilityChainKey} exists "so a seventh cannot be added to the chain
+ * without also being classified below", and {@link visibilityGateKind} is that
+ * classification — it hands each leg the consequence copy for ITS polarity.
+ * These three keys have neither property: they route through
+ * {@link evaluateEnablementPredicate}, which states `'enablement'` at its own
+ * call site, and `enabled` is not consulted here at all. Adding them to
+ * {@link VISIBILITY_SHOW_KEYS} / {@link VISIBILITY_HIDE_KEYS} to reach the
+ * guard would make that closed type assert something false about them, and
+ * would silently enrol them in `shouldHide`'s early-return chain and in the
+ * visibility consequence copy as a side effect of a config-bag repair.
+ *
+ * So the two chains stay two declarations, and the GUARD takes their union
+ * ({@link PREDICATE_CHAIN_KEYS}) — one lookup, derived, declared nowhere twice.
+ * The alternative shape (one flat predicate-chain set that both chains derive
+ * FROM) was rejected for the opposite reason: the chains do not share an order,
+ * a declared-test or a consequence, so the thing they genuinely share is only
+ * the guard's question, and that is exactly what a derived union expresses.
+ */
+const ENABLEMENT_NODE_GATE_KEYS = ['disabled', 'disabledOn'] as const;
+const ENABLEMENT_RENDERER_KEYS = ['enabled'] as const;
+
+/**
+ * The two legs the node gate itself consults, as ONE closed type — the
+ * enablement counterpart of {@link VisibilityChainKey}, load-bearing for the
+ * same reason: a third node-gate leg cannot be handed to
+ * {@link evaluateEnablementPredicate} without being declared above, which is
+ * the same edit that puts it into the config-bag guard below.
+ */
+type EnablementNodeGateKey = (typeof ENABLEMENT_NODE_GATE_KEYS)[number];
+
+/**
+ * Every key either predicate chain owns, as ONE lookup for the config-bag
+ * evaluation loops. DERIVED from the four declarations above and declared
+ * nowhere else, so a leg added to either chain is covered by the guard in the
+ * same edit that adds it.
+ */
+const PREDICATE_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
+  ...VISIBILITY_CHAIN_KEYS,
+  ...ENABLEMENT_NODE_GATE_KEYS,
+  ...ENABLEMENT_RENDERER_KEYS,
 ]);
 
 /**
@@ -333,20 +400,54 @@ const isCelEnvelope = (value: unknown): boolean =>
  * `record:alert` `properties.visible` is a TOP-LEVEL bag key and is hit
  * head-on. Same normalizer, different depth.
  *
+ * ## The enablement chain carries the identical defect (objectui#9107)
+ *
+ * `disabled` / `disabledOn` / `enabled` sit in the same two bags and are
+ * flattened by the same two loops, but they are NOT visibility legs — they
+ * route through {@link evaluateEnablementPredicate} and the action renderers'
+ * own `useCondition` call. Measured on the pre-fix tree through this component,
+ * with a CEL stdlib predicate authored at `properties` top level, and the two
+ * halves fail in OPPOSITE directions just as the visibility polarities do:
+ *
+ *   * `disabled` / `disabledOn` — BOTH a holding and a failing predicate left
+ *     the control DISABLED. The flattened source faults on the legacy engine
+ *     and `evaluateCondition`'s fail-soft `true` is un-negated here, so every
+ *     CEL-authored enablement gate greyed its control out on every row, with
+ *     no predicate an author could write to re-enable it.
+ *   * `enabled` — BOTH left the control ENABLED, because the renderers negate
+ *     that leg (`disabled = !isEnabled`), so the same fail-soft `true` lands on
+ *     "not disabled": a control the author disabled stayed pressable.
+ *
+ * ⇒ neither polarity alone detects this. A disabled-only suite is green on the
+ * broken `disabled` legs; an enabled-only suite is green on the broken
+ * `enabled` leg. Both are pinned, per key, in
+ * `__tests__/SchemaRenderer.enablementEnvelopeConfigBag.test.tsx`.
+ *
  * ## Scope
  *
- * Restricted to {@link VISIBILITY_CHAIN_KEYS} — the closed set this file
- * already declares and `shouldHide` / {@link winningVisibilityKey} already
- * consult. Every consumer of those six keys takes the envelope by contract
- * (`evaluateCondition`, `toPredicateInput`), and the metadata destructure near
- * `createElement` strips all six, so no object value can reach the DOM through
- * this. A non-predicate key keeps the flattening it has always had.
+ * Restricted to {@link PREDICATE_CHAIN_KEYS} — the union of the two closed
+ * chain declarations this file already carries, which `shouldHide` /
+ * {@link winningVisibilityKey} and {@link evaluateEnablementPredicate} already
+ * consult. Every consumer of those nine keys takes the envelope by contract
+ * (`evaluateCondition`, `toPredicateInput`). A non-predicate key keeps the
+ * flattening it has always had.
+ *
+ * Eight of the nine are stripped by the metadata destructure near
+ * `createElement`, so no object value can reach the DOM through them. The
+ * ninth, the legacy `enabled` alias, is not stripped — the action renderers
+ * read it off the schema, not off React props. Measured on a renderer that
+ * spreads what it is handed onto a DOM node: that attribute already carried the
+ * raw CEL SOURCE TEXT before this change and carries `[object Object]` after
+ * it, which is the same inert shape the `properties` bag itself already puts on
+ * every such node, with no React warning in either direction. Both spellings
+ * are meaningless to the DOM; the leak is pre-existing and is deliberately NOT
+ * repaired here.
  */
 const preservePredicateEnvelope = (
   key: string,
   value: unknown,
   evaluate: (v: unknown) => unknown,
-): unknown => (VISIBILITY_CHAIN_KEYS.has(key) && isCelEnvelope(value) ? value : evaluate(value));
+): unknown => (PREDICATE_CHAIN_KEYS.has(key) && isCelEnvelope(value) ? value : evaluate(value));
 
 /**
  * Which CONSEQUENCE the diagnostic should print for a faulting predicate on
@@ -935,6 +1036,15 @@ export const SchemaRenderer: ForwardRefExoticComponent<
      * that copy, and it carries the same #5330 dissolution pointer #5687's
      * entry does: both legs retire together when that window closes.
      *
+     * ## The `key` parameter is CLOSED (objectui#9107)
+     *
+     * Typed {@link EnablementNodeGateKey} rather than `string`, mirroring what
+     * {@link VisibilityChainKey} does for the sibling chain: the two legs this
+     * function serves are declared in ONE place, and the config-bag guard
+     * ({@link preservePredicateEnvelope}) reads that same declaration, so a
+     * third leg cannot arrive here without the same edit also carrying its CEL
+     * envelope through the bag loops.
+     *
      * Reachable only on the branch where the predicate evaluated CLEANLY —
      * `faulted` mirrors {@link evaluateVisibilityPredicate}'s try/catch split
      * without paying for a second (`throwOnError`) engine call: `onFault` is
@@ -943,7 +1053,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
      * re-deriving it. A predicate that faults is the OTHER reporter's case,
      * immediately above, in the same way it already is on the visibility leg.
      */
-    const evaluateEnablementPredicate = (raw: VisibilityPredicate, key: string): boolean => {
+    const evaluateEnablementPredicate = (raw: VisibilityPredicate, key: EnablementNodeGateKey): boolean => {
       let faulted = false;
       const verdict = evaluator.evaluateCondition(raw, {
         onFault: (reason) => {

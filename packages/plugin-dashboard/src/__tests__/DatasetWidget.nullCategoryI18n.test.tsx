@@ -190,7 +190,9 @@ describe('DatasetWidget — the null-category bucket reads the locale bundle (ob
     await waitFor(() => expect(drillFilters.length).toBeGreaterThan(0));
     // Index 1 of `drillRawRows`: an explicit "is empty" filter on the OBJECT
     // field, never the display label and never Ada's row.
-    expect(drillFilters[drillFilters.length - 1]).toEqual({ owner_id: null });
+    // objectui#9085 spelling. The PAIRING this test measures — that the
+    // localized bucket bar drills to ITS row — is unchanged.
+    expect(drillFilters[drillFilters.length - 1]).toEqual({ owner_id: { $null: true } });
   });
 
   it('BOUNDARY — the non-null group is byte-identical', async () => {

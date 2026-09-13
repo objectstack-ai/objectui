@@ -570,7 +570,8 @@ All expression outputs are automatically sanitized to prevent XSS attacks.
 
 ### Expression Errors
 
-Invalid expressions show helpful error messages:
+An expression that cannot be resolved is **not** an error the reader sees, and it is not the
+same failure in both directions. Measured on the built evaluator:
 
 ```json
 {
@@ -579,7 +580,14 @@ Invalid expressions show helpful error messages:
 }
 ```
 
-Error: "Cannot read property 'invalidProperty' of undefined"
+| the scope | what the evaluator returns |
+|---|---|
+| `user` is published, `invalidProperty` is not a member of it | `undefined` — nothing is thrown |
+| no `user` root at all | the template's own **source text**, and one line on the console |
+
+So a missing member renders as nothing, and a missing root renders as the characters you
+typed. Neither raises, and neither stops the render — which is why the scope a page publishes
+has to be stated rather than assumed.
 
 ### Debug Mode
 

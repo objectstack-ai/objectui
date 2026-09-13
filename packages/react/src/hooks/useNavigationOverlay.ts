@@ -151,9 +151,19 @@ export interface UseNavigationOverlayOptions {
    * every consumer that passes its own handler through copied the understated
    * spelling outward.
    *
-   * A one-parameter handler stays assignable here, so nothing a caller already
-   * wrote has to change; what changes is that a caller who WANTS the payload
-   * can now see that it exists.
+   * A one-parameter handler stays assignable here, and so does one that leaves
+   * its second parameter unannotated. The exception, and the one class that has
+   * to change: a handler whose second parameter is annotated NARROWER than
+   * `HandleClickModifiers` — React's `MouseEvent` is the shape this hits in
+   * practice, because the payload used to be discoverable only from the
+   * implementation — is refused from this card on with TS2322. The parameter is
+   * checked contravariantly, so the annotation has to ADMIT
+   * `HandleClickModifiers`. The fix is one line at that call site: annotate the
+   * parameter `HandleClickModifiers` (exported from this module, and from
+   * `@object-ui/react`), or drop the annotation and let it be inferred; either
+   * way the handler keeps receiving exactly what it received before. What the
+   * widening buys everyone else is that a caller who WANTS the payload can now
+   * see, from the published type, that it exists.
    */
   onRowClick?: (record: Record<string, unknown>, event?: HandleClickModifiers) => void;
 }

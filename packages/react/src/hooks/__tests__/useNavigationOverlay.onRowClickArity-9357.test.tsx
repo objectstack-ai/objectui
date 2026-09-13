@@ -29,8 +29,10 @@
  * one-parameter handler stays assignable to a two-parameter optional
  * signature, and a two-parameter optional handler stays assignable to the
  * one-parameter spelling (its minimum argument count is still 1). That is the
- * measurement `SOURCE COMPATIBILITY` below makes, and it is good news for
- * consumers: nothing breaks either way.
+ * measurement `SOURCE COMPATIBILITY` below makes. It is a statement about those
+ * two spellings and nothing wider: one class of consumer IS refused by the
+ * widening — a handler whose second parameter is annotated narrower than
+ * `HandleClickModifiers` — and `THE ACCEPT-SET BOUNDARY` below pins it.
  *
  * It is also exactly why an `extends` / assignability pin would assert
  * NOTHING here. Both spellings satisfy each other, so such a pin is green on
@@ -103,8 +105,9 @@ type _OptionAgreesWithHandleClick = Expect<
 
 /**
  * SOURCE COMPATIBILITY — the measurement, reported as a result rather than
- * assumed. Both directions hold, so no consumer is broken by the widening in
- * either direction of assignment...
+ * assumed. Both directions hold between these two spellings, so assigning
+ * either to the other breaks nobody (the class that IS broken is annotation-
+ * shaped, and is pinned under `THE ACCEPT-SET BOUNDARY` below)...
  */
 type _NarrowIsAssignableToWide = Expect<NarrowOnRowClick extends OnRowClick ? true : false>;
 type _WideIsAssignableToNarrow = Expect<OnRowClick extends NarrowOnRowClick ? true : false>;

@@ -1343,6 +1343,18 @@ export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE = 0.1;
  * ⇒ that reading is also why these figures are NOT compared at the byte. See
  * {@link EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE}, which is the unit
  * the comparison is made in and the reason a red here is a red a reader can see.
+ *
+ * ⚠️ The `@type` is load-bearing now that the table can be EMPTY. Its shape used
+ * to be inferred from the one entry it carried, so `Object.values(...)` was
+ * `number[]` for free; an empty literal infers nothing and the same expression
+ * becomes `unknown[]`, which fails `tsc -p tsconfig.scripts.json` in the unit
+ * suite that reads it — a leg no per-package `type-check` and no
+ * `turbo run type-check` covers, because `scripts/` is not a workspace package.
+ * ⛔ The fix belongs HERE, on the declaration, and not as a cast at the reader:
+ * chunk name to allowance bytes is what this table IS, whether or not it
+ * currently holds a row.
+ *
+ * @type {Readonly<Record<string, number>>}
  */
 export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
   // ⭐ EMPTY, and that is a state this table is allowed to be in: it is a ledger

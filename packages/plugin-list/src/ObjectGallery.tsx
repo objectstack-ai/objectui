@@ -11,7 +11,7 @@ import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeField
 import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue } from '@object-ui/core';
 import { cn, Card, CardContent, NavigationOverlay } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
-import type { GalleryConfig, ObjectGallerySchema } from '@object-ui/types';
+import type { DataSource, GalleryConfig, ObjectGallerySchema, QueryParams } from '@object-ui/types';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { getCellRenderer, resolveCellRendererType, readFileValues } from '@object-ui/fields';
 
@@ -23,7 +23,15 @@ export interface ObjectGalleryProps {
      */
     schema: ObjectGallerySchema;
     data?: Record<string, unknown>[];
-    dataSource?: { find: (name: string, query: unknown) => Promise<unknown> };
+    /**
+     * The host's adapter. Declared as the published `DataSource` contract
+     * (objectui#7912) — this used to be a hand-rolled `{ find(name, query:
+     * unknown): Promise<unknown> }` stand-in, which is a second, weaker
+     * spelling of a type this repo already publishes: it accepted any object
+     * with a `find`, and it erased `find`'s real parameter and return types at
+     * every call below.
+     */
+    dataSource?: DataSource;
     onCardClick?: (record: Record<string, unknown>) => void;
     /** Callback when a row/item is clicked (overrides NavigationConfig) */
     onRowClick?: (record: Record<string, unknown>) => void;
@@ -291,7 +299,10 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
      */
     const { ready: objectDefReady, def: objectDef } = useSettledSchema<any>(
         schema.objectName ?? '',
-        dataSource as any,
+        // No cast: `useSettledSchema` declares `DataSource<any> | null |
+        // undefined` and, since objectui#7912, that is exactly what the seam
+        // hands over.
+        dataSource,
     );
 
     // Permissions context, read here rather than inside the fetch effect below:
@@ -428,15 +439,35 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
                   ? expandable
                   : expandable.filter((f) => perms.checkField(schema.objectName as string, f, 'read'));
                 const results = await dataSource.find(schema.objectName, {
-                    $filter: schema.filter,
+                    // `ObjectGallerySchema.filter` is declared `unknown` — the
+                    // one view schema in `@object-ui/types` whose `filter` is
+                    // not `any[]` — and its docblock says it is "forwarded
+                    // verbatim as `$filter`". Typing the adapter above makes
+                    // `find`'s parameter real, so the verbatim forward has to
+                    // name the parameter's own type instead of riding on
+                    // `unknown`. Asserted, not coerced: the value is passed
+                    // through byte-for-byte, exactly as before.
+                    $filter: schema.filter as QueryParams['$filter'],
                     ...(expand.length > 0 ? { $expand: expand } : {}),
                 });
 
+                // `find` now DECLARES `QueryResult<any>`, whose only required
+                // member is `data` (objectui#7912 typed the adapter). This
+                // block predates that declaration and sniffs three envelopes:
+                // a bare array, `{ records }`, and the declared `{ data }`.
+                //
+                // Every branch is kept and every runtime path is unchanged. The
+                // declared value is widened ONCE, here, so the existing checks
+                // keep doing their own narrowing instead of being deleted on
+                // the strength of a declaration: whether any adapter really
+                // answers with the two UNDECLARED envelopes is a question about
+                // the adapters, and answering it is not this card's business.
+                const envelope: unknown = results;
                 let data: Record<string, unknown>[] = [];
-                if (Array.isArray(results)) {
-                    data = results;
-                } else if (results && typeof results === 'object') {
-                    const r = results as Record<string, unknown>;
+                if (Array.isArray(envelope)) {
+                    data = envelope;
+                } else if (envelope && typeof envelope === 'object') {
+                    const r = envelope as Record<string, unknown>;
                     if (Array.isArray(r.records)) {
                         data = r.records as Record<string, unknown>[];
                     } else if (Array.isArray(r.data)) {

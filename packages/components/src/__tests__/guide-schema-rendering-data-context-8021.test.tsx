@@ -66,6 +66,20 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import '../renderers';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * `SCOPE` is the `data` ROOT of the expression scope, which is exactly what
+ * this document's Data Context passage teaches and what legs A/C/D measure:
+ * the renderer binds `SchemaRendererContext.dataSource` as `data` for every
+ * predicate, the second meaning this one key carries (objectui#9308).
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 /**
  * Anchored on this file's own naked `import.meta.url`, never on
@@ -108,7 +122,7 @@ function renderWithDataProp(content: string): string {
 function renderWithProvider(content: string): string {
   return (
     render(
-      <SchemaRendererProvider dataSource={SCOPE}>
+      <SchemaRendererProvider dataSource={SCOPE as unknown as DataSource}>
         <SchemaRenderer schema={textNode(content)} />
       </SchemaRendererProvider>,
     ).container.textContent ?? ''

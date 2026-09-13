@@ -18,6 +18,19 @@ import { render, cleanup, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRendererProvider, type ApiFetch } from '@object-ui/react';
 import { DatasetWidget } from '../DatasetWidget';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are partial stubs carrying only the members the path under test calls;
+ * completing them would change which capability probes fire, and so would
+ * change what these tests measure.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 let capturedChartSchema: any = null;
 beforeAll(() => {
@@ -191,7 +204,7 @@ describe('DatasetWidget option-color / dimension-label probe routing (objectui#4
     const host = makeMetaFetchRecorder();
 
     render(
-      <SchemaRendererProvider dataSource={valueKeyedSource()} apiFetch={host.fn}>
+      <SchemaRendererProvider dataSource={valueKeyedSource() as unknown as DataSource} apiFetch={host.fn}>
         <DatasetWidget widget={WIDGET} dataSource={valueKeyedSource()} />
       </SchemaRendererProvider>,
     );
@@ -232,7 +245,7 @@ describe('DatasetWidget option-color / dimension-label probe routing (objectui#4
     // provider is not presence of a channel, so this must stay on the fallback
     // rather than resolve to `undefined` and skip the read.
     render(
-      <SchemaRendererProvider dataSource={valueKeyedSource()}>
+      <SchemaRendererProvider dataSource={valueKeyedSource() as unknown as DataSource}>
         <DatasetWidget widget={WIDGET} dataSource={valueKeyedSource()} />
       </SchemaRendererProvider>,
     );

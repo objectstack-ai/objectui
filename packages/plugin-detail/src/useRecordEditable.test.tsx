@@ -24,6 +24,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { useRecordEditable, __clearRecordEditableCache } from './useRecordEditable';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are placeholders for a provider that merely has to EXIST, and one probe
+ * that pins the empty-object case by name.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 function mockExplain(body: unknown, ok = true) {
   return vi.fn(async () => ({ ok, json: async () => body })) as any;
@@ -105,7 +117,7 @@ describe('useRecordEditable', () => {
     vi.stubGlobal('fetch', globalFetch);
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SchemaRendererProvider dataSource={{}} apiFetch={hostFetch}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource} apiFetch={hostFetch}>
         {children}
       </SchemaRendererProvider>
     );

@@ -23,6 +23,19 @@ import { SchemaRenderer } from '../SchemaRenderer';
 // the same reason), and the two casts are gone. The `BaseSchema` import went
 // with them — nothing in this file needs the name any more.
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 // Simple test component
 const TestComponent = (props: any) => (
@@ -53,7 +66,7 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('evaluates visible expression string', () => {
       render(
-        <SchemaRendererContext.Provider value={{ dataSource: { role: 'admin' } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { role: 'admin' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visible: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
       );
@@ -62,7 +75,7 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('hides when visible expression evaluates to false', () => {
       const { container } = render(
-        <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visible: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
       );
@@ -81,7 +94,7 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('hides with hiddenOn expression', () => {
       const { container } = render(
-        <SchemaRendererContext.Provider value={{ dataSource: { status: 'draft' } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { status: 'draft' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', hiddenOn: '${data.status === "draft"}' }} />
         </SchemaRendererContext.Provider>
       );
@@ -99,7 +112,7 @@ describe('SchemaRenderer Expression Integration', () => {
   describe('visibleWhen (ADR-0089 canonical)', () => {
     it('shows when the visibleWhen predicate is truthy', () => {
       render(
-        <SchemaRendererContext.Provider value={{ dataSource: { role: 'admin' } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { role: 'admin' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visibleWhen: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
       );
@@ -108,7 +121,7 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('hides when the visibleWhen predicate is falsy', () => {
       const { container } = render(
-        <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visibleWhen: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
       );
@@ -117,7 +130,7 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('still honors the deprecated `visibility` alias', () => {
       const { container } = render(
-        <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visibility: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
       );
@@ -133,7 +146,7 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('evaluates disabled expression string', () => {
       render(
-        <SchemaRendererContext.Provider value={{ dataSource: { status: 'locked' } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { status: 'locked' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', disabled: '${data.status === "locked"}' }} />
         </SchemaRendererContext.Provider>
       );
@@ -142,7 +155,7 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('does not set disabled when expression is false', () => {
       render(
-        <SchemaRendererContext.Provider value={{ dataSource: { status: 'active' } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { status: 'active' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', disabled: '${data.status === "locked"}' }} />
         </SchemaRendererContext.Provider>
       );
@@ -151,7 +164,7 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('evaluates disabledOn expression', () => {
       render(
-        <SchemaRendererContext.Provider value={{ dataSource: { readOnly: true } }}>
+        <SchemaRendererContext.Provider value={{ dataSource: { readOnly: true } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', disabledOn: '${data.readOnly}' }} />
         </SchemaRendererContext.Provider>
       );

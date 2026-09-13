@@ -51,7 +51,19 @@ import { ComponentRegistry } from '@object-ui/core';
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
-import type { ListViewSchema } from '@object-ui/types';
+import type { DataSource, ListViewSchema } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are partial stubs carrying only the members the path under test calls;
+ * completing them would change which capability probes fire, and so would
+ * change what these tests measure.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const rows = [{ id: '1', name: 'Alice' }];
 
@@ -89,7 +101,7 @@ afterEach(() => cleanup());
 function renderListIn(language: string, schemaExtra: Partial<ListViewSchema>) {
   return render(
     <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }}>
-      <SchemaRendererProvider dataSource={mockDataSource}>
+      <SchemaRendererProvider dataSource={mockDataSource as unknown as DataSource}>
         <ListView
           schema={{
             type: 'list-view',
@@ -168,7 +180,7 @@ describe('ListView record-detail overlay heading (objectui#3426)', () => {
   it('reuses detail.recordDetail when the schema names nothing', async () => {
     render(
       <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }}>
-        <SchemaRendererProvider dataSource={mockDataSource}>
+        <SchemaRendererProvider dataSource={mockDataSource as unknown as DataSource}>
           <ListView
             schema={{
               type: 'list-view',

@@ -130,7 +130,9 @@ async function fetchRefObjectSchema(dataSource: any, referenceTo: string): Promi
  */
 function useRefObjectSchema(referenceTo: string | undefined): any {
   const ctx = React.useContext(_SchemaRendererContext);
-  const dataSource = ctx?.dataSource as any;
+  // No cast: the context declares `DataSource | null | undefined` since
+  // objectui#7912, and this read has no second channel to merge with.
+  const dataSource = ctx?.dataSource;
   const [, force] = React.useState(0);
   const canFetch =
     !!referenceTo && !!dataSource && typeof dataSource.getObjectSchema === 'function';

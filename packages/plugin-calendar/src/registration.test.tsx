@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import * as ObjectUIReact from '@object-ui/react';
 import { ObjectCalendarRenderer } from './index';
+import type { DataSource } from '@object-ui/types';
 
 // Partial mock — override ONLY what this test controls, keep every other real
 // export (objectui#3219).
@@ -38,7 +39,11 @@ import { ObjectCalendarRenderer } from './index';
 vi.mock(import('@object-ui/react'), async (importOriginal) => ({
   ...(await importOriginal()),
   // Only the pieces this test drives:
-  useSchemaContext: vi.fn(() => ({ dataSource: { type: 'mock-datasource' } })),
+  // The marker object below is NOT an adapter: the stubbed widget prints
+  // `dataSource.type`, which is the whole point of this registration probe.
+  // `useSchemaContext` declares the published `DataSource` contract since
+  // objectui#7912, so the crossing is explicit; the value is unchanged.
+  useSchemaContext: vi.fn(() => ({ dataSource: { type: 'mock-datasource' } as unknown as DataSource })),
 }));
 
 // Mock the implementation. Deliberate whole-module replacement of a LOCAL

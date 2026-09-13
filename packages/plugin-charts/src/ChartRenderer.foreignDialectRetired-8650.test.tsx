@@ -33,11 +33,22 @@
  *
  * ## The failure mode the retirement degrades to — measured, not assumed
  *
- * Dropping the axis aliases does not produce a silently wrong picture:
- * `AdvancedChartImpl` REFUSES a chart whose category axis binds to no column
- * and says so on screen (objectui#8168's family). The refusal is what these
- * cases observe structurally — no plot surface — rather than by its wording,
+ * ⚠️ It is CONDITIONAL on the rows, and an earlier reading of it here was too
+ * strong. With no `xAxisKey` bound, `AdvancedChartImpl` falls back to its
+ * default category key `name`: rows carrying no `name` column — `DATA` below
+ * — hit its on-screen `missing-category-key` refusal (objectui#8168's family),
+ * but rows that DO carry one plot SILENTLY against `name`. The cases below pin
+ * the refusing half, and read the refusal by its `data-chart-error` CODE — the
+ * machine-readable half that sibling suites already pin — never by its wording,
  * which no consumer parses.
+ *
+ * ⛔ The negative form these cases used to take — sleep a fixed window, then
+ * assert no plot surface YET — is gone and must not come back. It was a race in
+ * the FALSE-GREEN direction: warm time-to-surface for the canonical control was
+ * measured at 97–168 ms (cold 578 ms) against a 150 ms window, so on a loaded
+ * runner a re-added alias that plotted LATE would satisfy it — a pin that
+ * cannot fail. A `waitFor` on the POSITIVE signal fails the other way: a slow
+ * runner makes it slower, never green.
  *
  * ⭐ Every refusal below is read against the CANONICAL control in the same
  * file: the same data and the same chart, written with `xAxisKey` / `series`,
@@ -85,10 +96,18 @@ const plotted = async (c: HTMLElement) => {
   return marks(c);
 };
 
-/** The negative reading: give the lazy chunk the same chance, then assert it never plotted. */
-const neverPlots = async (c: HTMLElement) => {
-  await new Promise((r) => setTimeout(r, 150));
-  return c.querySelector('.recharts-surface') === null;
+/**
+ * The positive reading for a retired AXIS alias: wait for the refusal
+ * `AdvancedChartImpl` renders when nothing binds the category axis. Re-add the
+ * alias and the chart plots instead, no refusal ever arrives, and this
+ * `waitFor` reddens on timeout.
+ */
+const expectCategoryAxisRefusal = async (c: HTMLElement) => {
+  await waitFor(() =>
+    expect(c.querySelector('[data-chart-error="missing-category-key"]')).not.toBeNull(),
+  );
+  // The refusal REPLACES the chart, so no plot surface may coexist with it.
+  expect(c.querySelector('.recharts-surface')).toBeNull();
 };
 
 const renderChart = (schema: Record<string, unknown>) =>
@@ -166,7 +185,7 @@ describe('objectui#8650 — the foreign dialect is retired', () => {
       series: [{ dataKey: 'revenue' }, { dataKey: 'margin' }],
       isAnimationActive: false,
     });
-    expect(await neverPlots(container)).toBe(true);
+    await expectCategoryAxisRefusal(container);
   });
 
   it('`category` no longer binds the category axis', async () => {
@@ -178,7 +197,7 @@ describe('objectui#8650 — the foreign dialect is retired', () => {
       series: [{ dataKey: 'revenue' }, { dataKey: 'margin' }],
       isAnimationActive: false,
     });
-    expect(await neverPlots(container)).toBe(true);
+    await expectCategoryAxisRefusal(container);
   });
 
   it('`value` no longer becomes a single series', async () => {
@@ -190,11 +209,11 @@ describe('objectui#8650 — the foreign dialect is retired', () => {
       value: 'revenue',
       isAnimationActive: false,
     });
-    // The axis IS bound here, so this case isolates the series half: the chart
-    // may still reach the plot surface, but nothing is plotted from `value`.
-    const surface = await new Promise<HTMLElement | null>((r) =>
-      setTimeout(() => r(container.querySelector('.recharts-surface')), 150),
-    );
-    expect(surface ? marks(container) : { bars: 0, lines: 0 }).toEqual({ bars: 0, lines: 0 });
+    // The axis IS bound here, so this case isolates the series half — and the
+    // reading is positive: a bar with an empty series list reaches the plot
+    // surface with no refusal, so `plotted` waits for that surface to ARRIVE
+    // rather than for a fixed window to elapse, and then counts. Re-add the
+    // `value` read and a bar appears on it.
+    expect(await plotted(container)).toEqual({ bars: 0, lines: 0 });
   });
 });

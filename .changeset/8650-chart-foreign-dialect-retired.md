@@ -35,9 +35,13 @@ share one verdict:
 **Migration.** Write the canonical spellings, which every producer in the
 measured corpora already writes: `xAxisKey` (or the spec's `xAxis: { field }`)
 for the category axis, and `series` (or `categories`) for the plotted columns.
-A chart that still writes `index` / `category` binds no category axis and hits
-`AdvancedChartImpl`'s existing on-screen refusal rather than drawing a wrong
-picture; one that still writes `value` plots nothing.
+A chart that still writes `index` / `category` binds no category axis, so
+`AdvancedChartImpl` falls back to its default category key, `name`. What that
+degrades to depends on the rows, and only one half of it is a refusal: rows
+carrying no `name` column hit its existing on-screen `missing-category-key`
+refusal, while rows that DO carry one plot silently against `name` instead of
+the column the author named — a wrong picture rather than a refusal. One that
+still writes `value` plots nothing.
 
 Also deletes six `(schema as any)` casts that the published declarations had
 already made unnecessary — `colors`, `categoryColors` and `categoryOrder` on

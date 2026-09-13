@@ -81,8 +81,11 @@
  *             own call sites — `evaluator.evaluate(newSchema.<key>)` (the
  *             `content` leg), `isConfigBag(newSchema.<key>)` (the `properties`
  *             and `props` bags), and
- *             `evaluate{Visibility,Enablement}Predicate(newSchema.<key>, …)`
- *             (the eight condition keys). Read from `run`-shaped call sites,
+ *             `evaluate{Visibility,Enablement}Predicate(VALUE, 'KEY')`
+ *             (the eight condition keys, read off the declared KEY literal
+ *             rather than off VALUE, which objectui#9108 moved — see the
+ *             pattern's own note in `deriveChannels`). Read from `run`-shaped
+ *             call sites,
  *             never from the surrounding comments: that file's prose names
  *             `visibleOn`, `disabled` and the bags many times over, and a scan
  *             of the raw text would be describing its own docblocks.
@@ -291,8 +294,39 @@ export function deriveChannels(root = repoRoot) {
 
   const direct = collect(/evaluator\.evaluate\(newSchema\.([A-Za-z_$][\w$]*)\)/g, 'direct-evaluate');
   const bags = collect(/isConfigBag\(newSchema\.([A-Za-z_$][\w$]*)\)/g, 'config-bag');
+  // Anchored on the key literal each call site DECLARES — its SECOND argument —
+  // not on whatever expression its first argument happens to be spelled with.
+  //
+  // objectui#9108 moved that first argument and nothing else: a predicate value
+  // now resolves through a reader that consults the legacy `props` bag as a last
+  // resort, so the eight sites read `evaluateVisibilityPredicate(hidden,
+  // 'hidden')` where they used to read `…(newSchema.hidden, 'hidden')`. A
+  // derivation anchored on `newSchema.` therefore matched NOTHING the day that
+  // landed — the refusal above fired, correctly, and this is the "teach it the
+  // new shape" it asks for.
+  //
+  // The literal is the stabler anchor because it is the key's own identity, not
+  // one incidental way of fetching its value: it is what the renderer types as
+  // `VisibilityChainKey` / `EnablementNodeGateKey` and what it reports in its
+  // diagnostics, so it cannot drift from the key without the gate's meaning
+  // drifting with it. Where the old anchor tracked the plumbing, this one tracks
+  // the contract.
+  //
+  // ⛔ Still TIGHT, not "match anything" — that would be the silent shrink's
+  // mirror image, a universe that grows on noise. A call whose second argument
+  // is not a single-quoted identifier does not count, which is exactly what
+  // keeps the diagnostic leg's computed
+  // `evaluateVisibilityPredicate(rawWinningValue as VisibilityPredicate, winningKey)`
+  // out of the universe — as it was before, since it never had a `newSchema.`
+  // first argument either. The first argument stays fenced off `(` `)` `,` and
+  // newlines so a match cannot leap out of one call into the next.
+  //
+  // Measured across the change rather than asserted: the same eight keys on
+  // `origin/main` (where the old pattern also found eight — so this is a strict
+  // generalization, not a different answer) and on the objectui#9108 head (where
+  // the old pattern found zero).
   const conditions = collect(
-    /evaluate(?:Visibility|Enablement)Predicate\(newSchema\.([A-Za-z_$][\w$]*)\s*,/g,
+    /evaluate(?:Visibility|Enablement)Predicate\([ \t]*[^,()\n]+,[ \t]*'([A-Za-z_$][\w$]*)'[ \t]*\)/g,
     'condition-predicate',
   );
 

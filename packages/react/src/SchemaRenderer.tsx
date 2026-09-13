@@ -538,10 +538,20 @@ const visibilityGateKind = (key: VisibilityChainKey): PredicateGateKind =>
 function winningVisibilityKey(node: Record<string, unknown>): VisibilityChainKey | undefined {
   const propertiesBag = node.properties;
   const hasPropertiesBag = isConfigBag(propertiesBag);
-  const effective = (key: string): unknown =>
-    hasPropertiesBag && Object.prototype.hasOwnProperty.call(propertiesBag, key)
-      ? (propertiesBag as Record<string, unknown>)[key]
-      : node[key];
+  // The legacy `props` alias, as the LAST resort only — the same third leg the
+  // node gates grew at objectui#9108, read from the same declaration
+  // ({@link propsWithoutCanonicalKeys}) so the canonical bag still wins here
+  // exactly as it wins there. Without this leg the diagnostic and `shouldHide`
+  // would disagree about which key decides whenever a predicate arrived under
+  // the alias, and the agreement stated above is what this function is for.
+  const aliasBag = propsWithoutCanonicalKeys(node.props, propertiesBag);
+  const effective = (key: string): unknown => {
+    if (hasPropertiesBag && Object.prototype.hasOwnProperty.call(propertiesBag, key)) {
+      return (propertiesBag as Record<string, unknown>)[key];
+    }
+    const own = node[key];
+    return own !== undefined ? own : aliasBag[key];
+  };
   for (const key of VISIBILITY_SHOW_KEYS) {
     if (effective(key) !== undefined) return key;
   }
@@ -1382,6 +1392,61 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       newSchema.props = newProps;
     }
 
+    /**
+     * What a PREDICATE-CHAIN key resolves to for the two node gates below, with
+     * the legacy `props` alias as the LAST resort (objectui#9108).
+     *
+     * ## The gap this closes
+     *
+     * A node may spell its config bag `properties` (the spec spelling) or
+     * `props` (the annotated legacy alias). The hoist above copies
+     * `properties.*` onto the node; NOTHING copies `props.*`. Both gates below
+     * read the post-hoist node, so a predicate that arrived under the alias was
+     * never one of the keys either gate could see. Measured at node level on
+     * `1e0e46af9`, four rows, both spellings and both polarities:
+     * `props: { visible: false }` RENDERED and `props: { hidden: true }`
+     * RENDERED, while `properties: { visible: false }` and
+     * `properties: { hidden: true }` each hid correctly. Fail-OPEN and silent
+     * by construction: a gate that never bit renders exactly like a gate that
+     * said yes, so nobody can find it by looking at a page.
+     *
+     * ## Why the alias is HONOURED here rather than refused
+     *
+     * The cheaper-looking repair — make a predicate under `props` refuse
+     * loudly — would overturn the maintainer ruling of 2026-08-18 recorded on
+     * {@link propsWithoutCanonicalKeys}, whose scope paragraph states that "a
+     * key only `props` declares is untouched (the alias keeps working)". A
+     * predicate authored only under `props` is exactly such a key. The producer
+     * census run for objectui#9108 swept every tracked document and found ZERO
+     * authoring a predicate key inside a `props` bag, so no document in this
+     * repository changes verdict in either direction; the standing ruling is
+     * what picks the arm, not the count.
+     *
+     * ## Why this is NOT a second hoist
+     *
+     * Nothing is written onto the node. The bag is READ, as a last resort, so
+     * every other statement this tree makes about the alias stays true: `props`
+     * is still not hoisted, `schema.<KEY>` is still undefined for a renderer
+     * declared as `({ schema })`, and the objectui#6708 dropped-bag warning
+     * still says exactly what it said. A renderer sees no key it did not see
+     * before.
+     *
+     * ## Precedence is unchanged in BOTH directions, and declared once
+     *
+     * {@link propsWithoutCanonicalKeys} already subtracts every key the
+     * canonical bag declares, so `properties` still wins (objectui#5123) and
+     * that rule keeps its single declaration. The reader consults the alias
+     * only where the post-hoist node holds `undefined`, so a key the node
+     * itself declares — or one the canonical bag hoisted onto it — still
+     * decides, unchanged. The chain ORDER below is untouched.
+     */
+    const aliasGateBag = propsWithoutCanonicalKeys(newSchema.props, newSchema.properties);
+    // Typed as the predicate evaluators' own parameter, which is what every
+    // caller below hands it — and as wide as the bare `newSchema.<KEY>` read it
+    // replaces, since `BaseSchema`'s index signature admits anything.
+    const gateValue = (key: VisibilityChainKey | EnablementNodeGateKey): VisibilityPredicate =>
+      newSchema[key] !== undefined ? newSchema[key] : aliasGateBag[key];
+
     // Evaluate visibility: visibleWhen / visible / visibleOn / visibility / hidden / hiddenOn
     const shouldHide = (() => {
       // `visibleWhen` is the single canonical conditional-visibility predicate
@@ -1403,26 +1468,30 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       // the one key the spec tells authors to write was the one key that could
       // be silently ignored. A declared node predicate now outranks a hoisted
       // renderer prop; when both resolve to "show", both still have to.
-      if (newSchema.visibleWhen !== undefined) {
-        return !evaluateVisibilityPredicate(newSchema.visibleWhen, 'visibleWhen');
+      const visibleWhen = gateValue('visibleWhen');
+      if (visibleWhen !== undefined) {
+        return !evaluateVisibilityPredicate(visibleWhen, 'visibleWhen');
       }
       // `visible` — objectui's own `BaseSchema` tier (`@object-ui/types`), and
       // the landing spot of a hoisted `properties.visible`. Kept ABOVE the two
       // deprecated aliases: they normalize into `visibleWhen` at parse, so a
       // spec-parsed page never reaches them, and re-ranking them would move
       // verdicts for raw metadata that objectui#5454 did not rule on.
-      if (newSchema.visible !== undefined) {
-        return !evaluateVisibilityPredicate(newSchema.visible, 'visible');
+      const visible = gateValue('visible');
+      if (visible !== undefined) {
+        return !evaluateVisibilityPredicate(visible, 'visible');
       }
       // @deprecated ADR-0089 → `visibleWhen`. Defensive read for raw /
       // un-normalized metadata reaching the renderer.
-      if (newSchema.visibleOn !== undefined) {
-        return !evaluateVisibilityPredicate(newSchema.visibleOn, 'visibleOn');
+      const visibleOn = gateValue('visibleOn');
+      if (visibleOn !== undefined) {
+        return !evaluateVisibilityPredicate(visibleOn, 'visibleOn');
       }
       // @deprecated ADR-0089 → `visibleWhen` (was PageNodeSchema.visibility,
       // an ExpressionInput) — show-when-truthy, same semantics as `visibleOn`.
-      if (newSchema.visibility !== undefined) {
-        return !evaluateVisibilityPredicate(newSchema.visibility, 'visibility');
+      const visibility = gateValue('visibility');
+      if (visibility !== undefined) {
+        return !evaluateVisibilityPredicate(visibility, 'visibility');
       }
       // Ask "is a `hidden` gate DECLARED?" — not "is the key present?"
       // (objectui#3955). These two legs are the only ones in this chain whose
@@ -1442,11 +1511,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       // the RAW value; only the gate in front of it narrowed. Not an
       // equivalence, and pinned as a behaviour change: an UNDECLARED `hidden` no
       // longer short-circuits, so a declared `hiddenOn` is finally consulted.
-      if (hasDeclaredPredicate(newSchema.hidden)) {
-        return evaluateVisibilityPredicate(newSchema.hidden, 'hidden');
+      const hidden = gateValue('hidden');
+      if (hasDeclaredPredicate(hidden)) {
+        return evaluateVisibilityPredicate(hidden, 'hidden');
       }
-      if (hasDeclaredPredicate(newSchema.hiddenOn)) {
-        return evaluateVisibilityPredicate(newSchema.hiddenOn, 'hiddenOn');
+      const hiddenOn = gateValue('hiddenOn');
+      if (hasDeclaredPredicate(hiddenOn)) {
+        return evaluateVisibilityPredicate(hiddenOn, 'hiddenOn');
       }
       return false;
     })();
@@ -1495,11 +1566,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // earlier, which is what keeps the objectui#3862 empty-shape rows silent
     // as well as enabled.
     const isDisabled = (() => {
-      if (hasDeclaredPredicate(newSchema.disabled)) {
-        return evaluateEnablementPredicate(newSchema.disabled, 'disabled');
+      const disabled = gateValue('disabled');
+      if (hasDeclaredPredicate(disabled)) {
+        return evaluateEnablementPredicate(disabled, 'disabled');
       }
-      if (hasDeclaredPredicate(newSchema.disabledOn)) {
-        return evaluateEnablementPredicate(newSchema.disabledOn, 'disabledOn');
+      const disabledOn = gateValue('disabledOn');
+      if (hasDeclaredPredicate(disabledOn)) {
+        return evaluateEnablementPredicate(disabledOn, 'disabledOn');
       }
       return false;
     })();

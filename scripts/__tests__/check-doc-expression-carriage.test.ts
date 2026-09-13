@@ -64,7 +64,9 @@ describe('check-doc-expression-carriage: the evaluated-channel universe is deriv
   /**
    * The enumeration and the reading come from DIFFERENT places on purpose
    * (AGENTS.md §9's rule for exactly this): the gate derives the condition keys
-   * from the `evaluate*Predicate(newSchema.<key>, …)` CALL SITES, and this test
+   * from the KEY LITERAL each `evaluate*Predicate(VALUE, 'KEY')` CALL SITE
+   * declares — objectui#9108 moved VALUE, which is why the anchor is the literal
+   * and not the expression — and this test
    * checks that answer against the two `const` ARRAYS the same file declares for
    * the visibility chain. A single source read twice proves nothing.
    */

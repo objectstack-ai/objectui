@@ -75,8 +75,9 @@ const Probe = (props: { schema?: { props?: Record<string, unknown> } }) => (
     data-testid="probe"
     // What the `props`-bag value still IS by the time a renderer reads it.
     // `@object-ui/components`' `readProps` merges `{ ...schema.props,
-    // ...schema.properties }`, so this bag is a real consumer surface even
-    // though the node gate never consults it (see the `props` group below).
+    // ...schema.properties }`, so this bag is a real consumer surface — and
+    // since objectui#9108 the node gate consults it as a last resort too,
+    // which is a verdict rather than a value and is pinned in its own file.
     data-props-visible-kind={
       props.schema?.props?.visible && typeof props.schema.props.visible === 'object'
         ? `envelope:${String((props.schema.props.visible as { dialect?: unknown }).dialect)}`
@@ -151,14 +152,18 @@ describe('#9100 — a CEL envelope in the config bag reaches the CEL engine', ()
    * to: objectui#5123 ruled "one answer per key, whichever channel reads it",
    * and `@object-ui/components`' `readProps` merges `{ ...schema.props,
    * ...schema.properties }`, so a renderer really can read a predicate from
-   * this bag. What it CANNOT do is drive the node gate — the hoist copies
-   * `properties` onto the node and nothing copies `props` — so the assertion
-   * here is on the value a renderer receives, not on a verdict.
+   * this bag. The assertion HERE is on the value such a renderer receives, not
+   * on a verdict — this file is about the envelope surviving the config-bag
+   * channel, and that is a different question from which bag the gate reads.
    *
-   * ⚠️ That gap is PRE-EXISTING and independent of this card: measured on the
-   * same tree, a plain `props: { visible: false }` renders and a plain
-   * `props: { hidden: true }` renders too, while the `properties` spelling of
-   * either decides correctly. Filed separately; ⛔ not repaired here.
+   * ⚠️ When this was written the alias could not drive the node gate at all —
+   * the hoist copies `properties` onto the node and nothing copies `props` —
+   * and this docblock recorded that gap as PRE-EXISTING and filed separately.
+   * objectui#9108 closed it: the gate now consults the alias as a last resort,
+   * with `properties` still winning. ⛔ Still nothing is hoisted, so the value
+   * this test reads off the bag is unchanged and this assertion is unaffected.
+   * The four-row verdict table lives in
+   * `SchemaRenderer.propsBagNodeGate.test.tsx`, not here.
    */
   it('props.visible keeps its envelope for the renderer that reads that bag', () => {
     mount({ type: 'probe-9100', props: { visible: HOLDS } });

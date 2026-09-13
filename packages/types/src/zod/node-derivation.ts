@@ -95,13 +95,20 @@ export const internals = (schema: z.ZodType): ZodInternals => schema as unknown 
  * Is this a zod schema node?
  *
  * ⚠️ `typeof value === 'object'` is NOT the test, and writing it that way is a
- * measured coverage hole rather than a style slip. Zod 4.4.3 builds some
- * objects through `$ZodObjectJIT`, whose instances are CALLABLE — they answer
- * `typeof 'function'` and parse exactly like any other object. On both faces
- * those nodes arrive through `@objectstack/spec`-derived subtrees, so an
+ * measured coverage hole rather than a style slip — but ⛔ NOT for the reason
+ * both walkers used to give. They each blamed zod's `$ZodObjectJIT`, whose
+ * instances are indeed callable. On the surface these walkers actually cross
+ * there are NO such nodes: the callables are `@objectstack/spec`'s own lazy
+ * cross-module wrappers, `new Proxy(functionTarget, …)` around a factory, so
+ * they answer `typeof 'function'` because the proxy TARGET is a function.
+ *
+ * The consequence is the same and it is why the guard admits functions: an
  * object-only guard hands each of them straight back along with the ENTIRE
  * subtree beneath it, with no symptom other than a residue count that will not
- * fall. Both walkers learnt this the hard way, separately.
+ * fall. The mechanism is re-derived in
+ * `../__tests__/registry-meta-carry-9102.test.ts` — including the probe that
+ * tells the two apart, since `Object.getOwnPropertyNames` on one of these
+ * proxies THROWS rather than answering.
  */
 export const isZodType = (value: unknown): value is z.ZodType =>
   value !== null && (typeof value === 'object' || typeof value === 'function') && '_zod' in value;
@@ -122,6 +129,11 @@ export const isZodType = (value: unknown): value is z.ZodType =>
  * defect objectui#9102 exists to close, one key later. Pairing the list with a
  * census that fails on an unclassified key converts the silent drop into a
  * failing gate, so the bound costs boundedness and not fidelity.
+ *
+ * ⚠️ That census reads the surface through `.meta()`, the same route
+ * {@link carryRegistryMeta} carries through. A census keyed on
+ * `z.globalRegistry.get(node)` is BLIND to every proxied node's own entry and
+ * would report a clean vocabulary it never actually looked at.
  */
 export const CARRIED_REGISTRY_META_KEYS: readonly string[] = Object.freeze([
   'description',
@@ -159,37 +171,40 @@ export const REFUSED_REGISTRY_META_KEYS: readonly string[] = Object.freeze(['id'
  * safe to call on an arm whose population is empty today.
  */
 export const carryRegistryMeta = (source: z.ZodType, derived: z.ZodType): z.ZodType => {
-  const carried: Record<string, unknown> = {};
+  // ⭐ `source.meta()` AND ⛔ NOT `z.globalRegistry.get(source)`, which is a
+  // DIFFERENT READING on a large part of this surface.
+  //
+  // `@objectstack/spec` publishes most of its schemas as lazy cross-module
+  // `new Proxy(functionTarget, …)` wrappers. The proxy's `get` trap resolves the
+  // real schema and binds any function it hands back, so `source.meta()` runs
+  // `real.meta()` and returns the REAL's registry entry. A registry lookup keyed
+  // by the proxy object cannot: nothing ever registered the proxy, and the map's
+  // parent-chain walk reaches only the real's ANCESTORS. Re-derived in
+  // `../__tests__/registry-meta-carry-9102.test.ts`: on the published spec
+  // surface the two readings disagree for the overwhelming majority of
+  // metadata-bearing proxies, and the accessor route is the one that sees what
+  // the protocol actually declared.
+  //
+  // ⚠️ Today every metadata-bearing proxy carries `description` only, so the map
+  // route would lose nothing VISIBLE — which is exactly why this is worth a
+  // sentence. The day the spec puts a `title` on a proxied node, the map route
+  // drops it silently, and that is the defect class this module exists to close.
+  //
+  // ⛔ There is no separate `description` fallback any more, and its absence is
+  // structural rather than lucky: zod's `description` getter is
+  // `globalRegistry.get(inst)?.description` for the instance it was installed
+  // on, so for a plain node it IS `.meta()?.description`, and through a proxy
+  // both resolve to the real. The pin file measures that the fallback would have
+  // zero occasions to fire.
+  const meta = source.meta() as Record<string, unknown> | undefined;
+  if (meta === undefined) return derived;
 
-  const meta = z.globalRegistry.get(source);
-  if (meta !== undefined) {
-    for (const key of CARRIED_REGISTRY_META_KEYS) {
-      if (Object.prototype.hasOwnProperty.call(meta, key) && meta[key] !== undefined) {
-        carried[key] = meta[key];
-      }
+  const carried: Record<string, unknown> = {};
+  for (const key of CARRIED_REGISTRY_META_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(meta, key) && meta[key] !== undefined) {
+      carried[key] = meta[key];
     }
   }
-
-  // ⭐ `.description` IS NOT ALWAYS `z.globalRegistry.get(node).description`, and
-  // the gap is the callable-JIT family again. Zod 4.4.3 defines `description` as
-  // an accessor that closes over the instance it was installed on, and a
-  // `$ZodObjectJIT` node is a callable FUNCTION that received a COPY of that
-  // accessor — so the copy still reads the registry entry of the object it was
-  // copied from, while a registry lookup keyed by the callable node itself finds
-  // nothing. Measured on the strict authoring face: described objects whose
-  // registry entry reads back as `undefined` through the map and as a real
-  // string through the published getter.
-  //
-  // The published accessor is the authority for `description`, so it fills in
-  // where the map is silent. ⛔ There is no equivalent route for any other key —
-  // zod publishes a getter for this one only — which is why the pin file asserts
-  // that no node carrying non-`description` metadata is a callable: the day one
-  // is, this carry loses it and the assertion is where that shows up, rather
-  // than in a consumer's emitted schema.
-  if (carried.description === undefined && source.description !== undefined) {
-    carried.description = source.description;
-  }
-
   if (Object.keys(carried).length === 0) return derived;
 
   // `.meta()` clones, so `derived` is left exactly as it was found — including
@@ -213,10 +228,14 @@ export const carryRegistryMeta = (source: z.ZodType, derived: z.ZodType): z.ZodT
  * And the node's registry metadata with it, via {@link carryRegistryMeta} —
  * which is the half `def` copying never covered.
  *
- * A callable JIT instance clones through its own bound constructor and comes
- * back as an ordinary object-typed instance of the same class. That is a
- * difference in representation, not in behaviour, and behaviour is what the
- * pins measure.
+ * ⚠️ A CALLABLE source clones into a non-callable node, and that is fine. These
+ * callables are `@objectstack/spec`'s lazy proxies; `internals(schema)` and
+ * `.constructor` both travel the proxy's `get` trap to the real schema, so the
+ * clone is an ordinary instance of the real's class built from the real's def.
+ * A difference in representation, not in behaviour — and behaviour is what the
+ * pins measure. ⛔ It is NOT zod's `$ZodObjectJIT`: the two are told apart in
+ * `../__tests__/registry-meta-carry-9102.test.ts`, and a first round of
+ * objectui#9102 shipped that misdiagnosis in this file's prose.
  */
 export const cloneWithDef = (schema: z.ZodType, patch: Partial<WalkableDef>): z.ZodType => {
   const Ctor = internals(schema).constructor;

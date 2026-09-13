@@ -50,7 +50,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -91,17 +91,50 @@ interface ZodDef {
 const defOf = (node: z.ZodType): ZodDef => (node as unknown as { _zod: { def: ZodDef } })._zod.def;
 const isZod = (v: unknown): v is z.ZodType =>
   v !== null && (typeof v === 'object' || typeof v === 'function') && '_zod' in (v as object);
-const metaOf = (node: z.ZodType): Record<string, unknown> | undefined =>
-  z.globalRegistry.get(node) as Record<string, unknown> | undefined;
 /**
- * Is this node one of zod's CALLABLE `$ZodObjectJIT` instances?
+ * The node's registry metadata AS THE CARRY READS IT — through the published
+ * accessor, ⛔ never through a registry lookup keyed by the node object.
  *
- * ⚠️ Spelled as a helper so TypeScript does not narrow the argument to `never`
- * at the call site: `z.ZodType` is not declared callable, so an inline
- * `typeof n === 'function'` makes every later property read an error on a
- * node that answers the guard perfectly well at runtime.
+ * ⭐ The two are different readings on this surface, and that is the whole of
+ * objectui#9102's second round. `@objectstack/spec` publishes most schemas as
+ * lazy cross-module `new Proxy(functionTarget, …)` wrappers; the proxy's `get`
+ * trap resolves the real schema and BINDS any function it returns, so
+ * `node.meta()` runs `real.meta()` and answers the real's entry, while
+ * `z.globalRegistry.get(proxy)` answers only the real's ANCESTORS — nothing
+ * ever registered the proxy itself. A census written on the map route is blind
+ * to every proxied node's own metadata and reports a clean surface it never
+ * looked at.
  */
-const isCallableNode = (node: z.ZodType): boolean => typeof node === 'function';
+const metaOf = (node: z.ZodType): Record<string, unknown> | undefined =>
+  node.meta() as Record<string, unknown> | undefined;
+
+/** The map route, kept ONLY so the differential between the two can be asserted. */
+const metaViaRegistryMap = (node: z.ZodType): Record<string, unknown> | undefined =>
+  z.globalRegistry.get(node) as Record<string, unknown> | undefined;
+
+/**
+ * Is this node one of `@objectstack/spec`'s lazy cross-module proxies?
+ *
+ * ⛔ NOT a `typeof === 'function'` test, which these share with zod's own
+ * `$ZodObjectJIT` instances and would conflate the two. The probe is the proxy
+ * invariant: the wrapper installs an `ownKeys` trap over a FUNCTION target, so
+ * `Object.getOwnPropertyNames` cannot satisfy the invariant and THROWS. A JIT
+ * instance answers normally.
+ *
+ * ⚠️ Also spelled as a helper so TypeScript does not narrow the argument to
+ * `never` at the call site: `z.ZodType` is not declared callable, so an inline
+ * `typeof n === 'function'` makes every later property read an error on a node
+ * that answers the guard perfectly well at runtime.
+ */
+const isSpecLazyProxy = (node: z.ZodType): boolean => {
+  if (typeof node !== 'function') return false;
+  try {
+    Object.getOwnPropertyNames(node);
+    return false;
+  } catch {
+    return true;
+  }
+};
 
 /** Children of a node, labelled so a derived twin's matching child can be found. */
 const childrenOf = (s: z.ZodType): [string, z.ZodType][] => {
@@ -178,12 +211,26 @@ interface Census {
   subpathsLoaded: number;
   loadFailures: string[];
   roots: [string, z.ZodType][];
-  /** Every registry key seen on the surface -> how many distinct nodes carry it. */
+  /** Every registry key seen on the surface (accessor route) -> distinct nodes carrying it. */
   keyPopulation: Map<string, number>;
+  /** The same census taken on the registry-map route, so the blind spot is measurable. */
+  keyPopulationViaMap: Map<string, number>;
   /** Nodes carrying a key other than `description`, by the path they were found at. */
   nonDescriptionNodes: string[];
-  /** Nodes carrying a non-`description` key that are CALLABLE — see the carry's fallback note. */
-  callableNonDescriptionNodes: string[];
+  /** `@objectstack/spec` lazy proxies reached on this surface. */
+  proxyNodes: number;
+  /** Proxies whose accessor route answers metadata at all. */
+  proxiesWithMeta: number;
+  /** Of those, how many the registry-map route reads IDENTICALLY, and how many it does not. */
+  proxyMetaMapAgrees: number;
+  proxyMetaMapDisagrees: number;
+  /** Proxies carrying non-`description` metadata — the population the map route would silently drop. */
+  proxyNonDescriptionNodes: string[];
+  /** Nodes where `.description` answers but `.meta()?.description` does not — the retired fallback's occasions. */
+  descriptionFallbackOccasions: string[];
+  /** Registry entry + parent + def snapshots that MOVED across both derivations. */
+  mutatedNodes: string[];
+  snapshottedNodes: number;
   /** Rebuilt nodes whose carried keys survived, and those that did not. */
   rebuiltWithMeta: number;
   rebuiltWithMetaKept: number;
@@ -226,23 +273,60 @@ const buildCensus = async (): Promise<Census> => {
   }
 
   const keyPopulation = new Map<string, number>();
+  const keyPopulationViaMap = new Map<string, number>();
   const nonDescriptionNodes: string[] = [];
-  const callableNonDescriptionNodes: string[] = [];
+  const proxyNonDescriptionNodes: string[] = [];
+  const descriptionFallbackOccasions: string[] = [];
+  let proxyNodes = 0;
+  let proxiesWithMeta = 0;
+  let proxyMetaMapAgrees = 0;
+  let proxyMetaMapDisagrees = 0;
   const seenKeys = new Set<z.ZodType>();
   let nodesVisited = 0;
+
+  // Every node's registry entry, `_zod.parent` and def identity BEFORE either
+  // derivation runs, so "the spec's graph is left as it was found" can be
+  // asserted as a real differential instead of proxied through a side effect.
+  const snapshot = new Map<z.ZodType, string>();
+  const stateOf = (node: z.ZodType): string =>
+    JSON.stringify({
+      meta: metaOf(node) ?? null,
+      map: metaViaRegistryMap(node) ?? null,
+      hasParent: (node as unknown as { _zod: { parent?: unknown } })._zod.parent !== undefined,
+      type: defOf(node).type,
+      keys: defOf(node).shape ? Object.keys(defOf(node).shape!).join(',') : null,
+    });
 
   const censusKeys = (node: z.ZodType, path: string, depth: number): void => {
     if (depth > 60 || seenKeys.has(node)) return;
     seenKeys.add(node);
     nodesVisited++;
+    snapshot.set(node, stateOf(node));
+
     const meta = metaOf(node);
+    const viaMap = metaViaRegistryMap(node);
+    const proxy = isSpecLazyProxy(node);
+    if (proxy) proxyNodes++;
+
     if (meta) {
       for (const key of Object.keys(meta)) keyPopulation.set(key, (keyPopulation.get(key) ?? 0) + 1);
       if (Object.keys(meta).some((k) => k !== 'description')) {
         nonDescriptionNodes.push(path);
-        if (isCallableNode(node)) callableNonDescriptionNodes.push(path);
+        if (proxy) proxyNonDescriptionNodes.push(path);
+      }
+      if (proxy) {
+        proxiesWithMeta++;
+        if (JSON.stringify(viaMap ?? null) === JSON.stringify(meta)) proxyMetaMapAgrees++;
+        else proxyMetaMapDisagrees++;
       }
     }
+    if (viaMap) {
+      for (const key of Object.keys(viaMap)) keyPopulationViaMap.set(key, (keyPopulationViaMap.get(key) ?? 0) + 1);
+    }
+    if (node.description !== undefined && meta?.description === undefined) {
+      descriptionFallbackOccasions.push(path);
+    }
+
     for (const [label, c] of childrenOf(node)) censusKeys(c, `${path}${label}`, depth + 1);
   };
   for (const [name, root] of roots) censusKeys(root, name, 0);
@@ -283,14 +367,34 @@ const buildCensus = async (): Promise<Census> => {
   };
   for (const [name, root] of roots) pair(root, stripImportedDefaults(root), name, 0);
 
+  // ⛔ THE NON-MUTATION DIFFERENTIAL, taken AFTER both derivations have run over
+  // every root. The snapshot above was taken before either did, so a carry that
+  // wrote metadata in place — rather than onto a clone — moves a value here.
+  // The previous spelling of this pin watched a SIDE EFFECT (does the source
+  // still hold a default?) and stayed green under a mutating carry, because a
+  // mutating carry does not remove defaults. This one reads the thing it names.
+  for (const [, root] of roots) deriveStrictAuthoringSchema(root);
+  const mutatedNodes: string[] = [];
+  for (const [node, before] of snapshot) {
+    if (stateOf(node) !== before) mutatedNodes.push(`${defOf(node).type} :: ${before}`);
+  }
+
   return {
     subpathsDeclared: subpaths.length,
     subpathsLoaded,
     loadFailures,
     roots,
     keyPopulation,
+    keyPopulationViaMap,
     nonDescriptionNodes,
-    callableNonDescriptionNodes,
+    proxyNodes,
+    proxiesWithMeta,
+    proxyMetaMapAgrees,
+    proxyMetaMapDisagrees,
+    proxyNonDescriptionNodes,
+    descriptionFallbackOccasions,
+    mutatedNodes,
+    snapshottedNodes: snapshot.size,
     rebuiltWithMeta,
     rebuiltWithMetaKept,
     rebuiltWithMetaLost,
@@ -357,28 +461,58 @@ describe('the zod 4 facts the carry rests on (objectui#9102)', () => {
     ).toBeUndefined();
   });
 
-  it('⚠️ `.description` and a registry lookup DISAGREE on callable JIT nodes', () => {
-    // Why `carryRegistryMeta` falls back to the published accessor. A
-    // `$ZodObjectJIT` node is a callable FUNCTION holding a COPY of zod's
-    // `description` accessor, and that copy still reads the registry entry of
-    // the object it was copied from — so a lookup keyed by the callable finds
-    // nothing while the getter answers a real string. Measured on the live face
-    // rather than hand-built, because the JIT path is zod's choice, not ours.
-    const split: z.ZodType[] = [];
-    const seen = new Set<z.ZodType>();
-    const walk = (n: z.ZodType, depth: number): void => {
-      if (depth > 40 || seen.has(n)) return;
-      seen.add(n);
-      if (isCallableNode(n) && n.description !== undefined && metaOf(n) === undefined) split.push(n);
-      for (const [, c] of childrenOf(n)) walk(c, depth + 1);
-    };
-    walk(SchemaNodeSchema as unknown as z.ZodType, 0);
+  it('⭐ the callables on this surface are SPEC PROXIES, not zod `$ZodObjectJIT` instances', () => {
+    // objectui#9102's first round blamed `$ZodObjectJIT` for the callables it
+    // met. That diagnosis was wrong and this is the probe that separates them:
+    // `@objectstack/spec` wraps schemas in `new Proxy(functionTarget, …)`, and
+    // that wrapper's `ownKeys` trap cannot satisfy the proxy invariant over a
+    // function target, so `Object.getOwnPropertyNames` THROWS. A real JIT
+    // instance answers normally — asserted here as the firing control, so
+    // `isSpecLazyProxy` cannot be passing by answering `true` to everything.
+    const plainObject = z.object({ k: z.string() });
+    expect(Object.getOwnPropertyNames(plainObject), 'the control node is not inspectable').toBeInstanceOf(Array);
+    expect(isSpecLazyProxy(plainObject), 'the probe answers `true` for an ordinary node').toBe(false);
+
+    const proxies = census.roots.filter(([, r]) => isSpecLazyProxy(r));
     expect(
-      split.length,
-      'no callable node shows the accessor/registry split any more — the `description` fallback in ' +
-        '`carryRegistryMeta` may be redundant, and this control no longer fires',
+      proxies.length,
+      'no spec root is a lazy proxy any more — either the spec stopped wrapping, or this probe broke. ' +
+        'Everything below about the accessor route rests on this population.',
     ).toBeGreaterThan(0);
-    expect(split[0]!.description).toEqual(expect.any(String));
+    expect(() => Object.getOwnPropertyNames(proxies[0]![1])).toThrow(/ownKeys/);
+  });
+
+  it('⭐ `.meta()` and a registry lookup DISAGREE through a spec proxy, and `.meta()` is the true one', () => {
+    // Why `carryRegistryMeta` reads `source.meta()`. The proxy's `get` trap
+    // resolves the real schema and BINDS the function it hands back, so
+    // `proxy.meta()` runs `real.meta()`. A registry lookup keyed by the proxy
+    // cannot reach that: nothing registered the proxy, and the map's
+    // parent-chain walk arrives only at the real's ANCESTORS.
+    expect(
+      census.proxiesWithMeta,
+      'no proxy on the published spec surface carries metadata — the accessor route is untested here',
+    ).toBeGreaterThan(0);
+    expect(
+      census.proxyMetaMapDisagrees,
+      'the registry-map route now agrees with the accessor on every proxy — the spec may have stopped ' +
+        'wrapping, and `carryRegistryMeta` reading `.meta()` would no longer be load-bearing. Re-measure.',
+    ).toBeGreaterThan(0);
+    // The map route is not merely different, it is POORER: it sees strictly
+    // fewer descriptions than the accessor over the same walk.
+    expect(
+      (census.keyPopulation.get('description') ?? 0) - (census.keyPopulationViaMap.get('description') ?? 0),
+      'the two routes now see the same number of descriptions — the blind spot this file measures is gone',
+    ).toBeGreaterThan(0);
+  });
+
+  it('the retired `.description` fallback would have no occasion to fire', () => {
+    // The first round carried `source.description` when the registry view was
+    // silent. Once the carry reads `.meta()`, that branch is dead — and dead
+    // structurally, not by luck: zod's `description` getter IS
+    // `globalRegistry.get(inst)?.description` for the instance it was installed
+    // on, and through a proxy both routes resolve to the same real. Measured
+    // rather than argued, so re-adding the branch has to answer this number.
+    expect(census.descriptionFallbackOccasions.slice(0, 10)).toEqual([]);
   });
 });
 
@@ -412,6 +546,13 @@ describe('⭐ the carry set is bounded AND complete for the protocol (objectui#9
     // a failing gate: the day `@objectstack/spec` carries a key on neither
     // list, someone decides deliberately whether it belongs in
     // CARRIED_REGISTRY_META_KEYS.
+    //
+    // ⚠️ Read through `.meta()` — the same route the carry reads. The first
+    // round took this census on `z.globalRegistry.get(node)`, which cannot see
+    // a spec proxy's own entry at all, so it reported a vocabulary it had never
+    // looked at for most of the surface. The proxy population is asserted
+    // non-empty above, which is what stops this from silently reverting to the
+    // narrower reading.
     const classified = new Set([...CARRIED_REGISTRY_META_KEYS, ...REFUSED_REGISTRY_META_KEYS]);
     const unclassified = [...census.keyPopulation.keys()].filter((k) => !classified.has(k)).sort();
     expect(
@@ -419,6 +560,12 @@ describe('⭐ the carry set is bounded AND complete for the protocol (objectui#9
       'the protocol publishes a registry key this package neither carries nor refuses. Decide which it is ' +
         'and add it to CARRIED_REGISTRY_META_KEYS or REFUSED_REGISTRY_META_KEYS in `../zod/node-derivation.ts`.',
     ).toEqual([]);
+    // The map route would have missed nodes outright, not just keys. Stated as
+    // a differential so "the census looked at everything" is measured.
+    expect(
+      (census.keyPopulation.get('description') ?? 0),
+      'the accessor census sees no more than the map census — the blind spot is unmeasured here',
+    ).toBeGreaterThan(census.keyPopulationViaMap.get('description') ?? 0);
   });
 
   it('⛔ `id` is refused rather than merely absent, and every carried key is really used', () => {
@@ -434,15 +581,25 @@ describe('⭐ the carry set is bounded AND complete for the protocol (objectui#9
     ).toEqual([]);
   });
 
-  it('⚠️ no node carrying non-`description` metadata is a callable, so the map route reaches all of it', () => {
-    // The stated limit of the carry: the published accessor covers
-    // `description` only, so a callable node carrying a `title` would lose it.
-    // Zero such nodes today; this is where that stops being true.
+  it('⚠️ every proxied node carrying non-`description` metadata is CARRIED, not dropped', () => {
+    // ⛔ This is NOT "zero such nodes, therefore safe" — that was the first
+    // round's assertion and it could never be non-empty, because it asked the
+    // registry map about an object the registry has never heard of. It now asks
+    // the accessor route, which is the one that answers, and it names what
+    // happens when the population grows: these nodes are carried.
+    //
+    // The population is empty TODAY (every metadata-bearing proxy carries
+    // `description` only), so this assertion alone would still be zero-hit.
+    // What makes it real is the hand-built proxy control further down, which
+    // puts a `title` on a proxied node and measures that the carry reproduces
+    // it — and would have failed on the map route.
+    for (const path of census.proxyNonDescriptionNodes.slice(0, 10)) {
+      expect(typeof path, 'the census produced a malformed path').toBe('string');
+    }
     expect(
-      census.callableNonDescriptionNodes.slice(0, 10),
-      'a CALLABLE node carries non-`description` registry metadata, which `carryRegistryMeta` reads through ' +
-        'the registry map only — that metadata is being dropped. See the fallback note in `../zod/node-derivation.ts`.',
-    ).toEqual([]);
+      census.proxyNodes,
+      'no proxy was reached at all — this assertion and the one above it are both vacuous',
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -515,6 +672,38 @@ describe('hand-built controls — each fires on the region it tests', () => {
     expect(metaOf(stripImportedDefaults(src))).toMatchObject({ title: 'IDENTITY' });
   });
 
+  it('⭐ a PROXIED node\'s metadata survives the carry — and the map route would have dropped it', () => {
+    // The control that makes the proxy half of this file real rather than
+    // descriptive. `@objectstack/spec`'s wrapper shape, reduced to the two traps
+    // that matter: `get` resolves the real and BINDS functions to it, `ownKeys`
+    // reflects the real. Everything the carry relies on is in those two lines.
+    const real = z.object({ k: z.string() }).meta({ description: 'REAL-D', title: 'REAL-T' });
+    const proxied = new Proxy(function lazyZod() {} as unknown as object, {
+      get: (_t, prop) => {
+        const value = (real as unknown as Record<string | symbol, unknown>)[prop];
+        return typeof value === 'function' ? value.bind(real) : value;
+      },
+      has: (_t, prop) => prop in (real as unknown as object),
+      ownKeys: () => Reflect.ownKeys(real as unknown as object),
+      getOwnPropertyDescriptor: (_t, prop) =>
+        Reflect.getOwnPropertyDescriptor(real as unknown as object, prop),
+      getPrototypeOf: () => Reflect.getPrototypeOf(real as unknown as object),
+    }) as unknown as z.ZodType;
+
+    // The control fires only if the two routes really do disagree here.
+    expect(isSpecLazyProxy(proxied), 'the hand-built wrapper is not proxy-shaped').toBe(true);
+    expect(metaOf(proxied), 'the accessor route did not reach the real').toMatchObject({ title: 'REAL-T' });
+    expect(
+      metaViaRegistryMap(proxied)?.title,
+      'the registry map can now see a proxy\'s own entry — the whole reason the carry reads `.meta()` is gone',
+    ).toBeUndefined();
+
+    // ⭐ And the carry reproduces it. On the map route this assertion fails.
+    const carried = carryRegistryMeta(proxied, z.object({ k: z.string() }));
+    expect(carried.description).toBe('REAL-D');
+    expect(metaOf(carried)).toMatchObject({ description: 'REAL-D', title: 'REAL-T' });
+  });
+
   it('⛔ `cloneWithDef` still preserves `def.checks` — the rule it existed for first', () => {
     const src = z.object({ k: z.string() }).refine((v) => v.k !== 'no', { message: 'refused' });
     const cloned = cloneWithDef(src, {});
@@ -534,6 +723,12 @@ describe('site ① — the import boundary conveys the protocol\'s metadata', ()
   });
 
   it('⭐ not one rebuilt node loses a carried key', () => {
+    // ⚠️ Both sides of this differential are read through `.meta()`. On the
+    // registry-map route it was blind to every proxied node, which is why the
+    // first round's version of this assertion stayed green with the carry's
+    // accessor handling removed — the nodes that would have gone red were not
+    // in its population. They are now: the proxy count is asserted non-empty,
+    // and the accessor/map description gap is asserted positive.
     expect(census.rebuiltWithMetaLost.slice(0, 10)).toEqual([]);
     expect(census.rebuiltWithMetaKept).toBe(census.rebuiltWithMeta);
   });
@@ -576,14 +771,31 @@ describe('site ① — the import boundary conveys the protocol\'s metadata', ()
     ).toEqual([]);
   });
 
-  it('⛔ the spec\'s own graph is left exactly as it was found', () => {
+  it('⛔ the spec\'s own graph is left exactly as it was found — every node, both derivations', () => {
+    // ⭐ A WHOLE-SURFACE DIFFERENTIAL, and the first round's version was not.
+    // That one watched a side effect — "does the source still hold a default?"
+    // — which a MUTATING carry does not disturb, so it stayed green under the
+    // exact hazard it was named for. This compares each node's registry entry
+    // (both routes), its `_zod.parent` and its def shape, snapshotted before
+    // either derivation ran and re-read after both have run over every root.
+    expect(
+      census.snapshottedNodes,
+      'nothing was snapshotted — this assertion is vacuous',
+    ).toBeGreaterThan(5_000);
+    expect(
+      census.mutatedNodes.slice(0, 10),
+      'a node of `@objectstack/spec`\'s own graph changed across a derivation. Every other consumer in the ' +
+        'workspace shares these objects; a carry must clone, never write in place.',
+    ).toEqual([]);
+
+    // The side-effect reading is kept as a SEPARATE, weaker statement rather
+    // than deleted, because "the defaults are still there" is worth saying and
+    // is not what the sentence above claims.
     const carriers = census.roots.filter(([, s]) => reaches(s, 'default'));
     expect(carriers.length, 'nothing to check — this control does not fire').toBeGreaterThan(50);
     for (const [name, schema] of carriers.slice(0, 200)) {
-      const before = JSON.stringify(metaOf(schema) ?? null);
       stripImportedDefaults(schema);
       expect(reaches(schema, 'default'), `${name} was stripped IN PLACE — every other consumer sees it`).toBe(true);
-      expect(JSON.stringify(metaOf(schema) ?? null), `${name} was relabelled IN PLACE`).toBe(before);
     }
   });
 });
@@ -670,7 +882,31 @@ describe('⭐ both sites derive through ONE helper (objectui#9102)', () => {
     ).toBeNull();
   });
 
-  it('the shared helper is the only declaration of it in the package', () => {
-    expect(read('zod/node-derivation.ts')).toMatch(/export const cloneWithDef\b/);
+  it('⭐ the shared helper is the ONLY declaration of it in the package — scanned, not assumed', () => {
+    // The first round read one file and asserted the declaration EXISTS, under
+    // a name that promised absence everywhere else. Absence is a property of
+    // the tree, so the tree is what gets walked.
+    const DECL = /^\s*(?:export\s+)?(?:const|function)\s+cloneWithDef\b/m;
+    const SKIP = new Set(['node_modules', 'dist', '.turbo', 'coverage']);
+    const declarers: string[] = [];
+    let scanned = 0;
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (SKIP.has(entry.name)) continue;
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) { walk(full); continue; }
+        if (!/\.(ts|tsx|mts|cts)$/.test(entry.name)) continue;
+        scanned += 1;
+        if (DECL.test(readFileSync(full, 'utf8'))) declarers.push(full.slice(SRC_DIR.length + 1));
+      }
+    };
+    walk(SRC_DIR);
+
+    expect(scanned, 'the scan found almost no source files — it is pointed at the wrong tree').toBeGreaterThan(100);
+    expect(
+      declarers.sort(),
+      'there is more than one `cloneWithDef` declaration in this package, or the shared one has moved. ' +
+        'A second copy is invisible at every call site and loses the metadata carry with no symptom.',
+    ).toEqual(['zod/node-derivation.ts']);
   });
 });

@@ -219,22 +219,50 @@ async function boardPropsViaSchemaRenderer(schema: Record<string, unknown>) {
 }
 
 describe('which authored handler keys reach a registered kanban board (objectui#7664)', () => {
-  it('KanbanRenderer forwards onCardClick, onCardMove and onQuickAdd by identity', async () => {
+  it('KanbanRenderer forwards onCardClick and onQuickAdd off the schema bag by identity', async () => {
     // ⚠️ Driven DIRECTLY rather than through a registry key: `kanban-ui`
     // retired (objectui#8257). The component is unchanged and still live —
     // `ObjectKanban` renders it — so the forward block this leg measures is the
     // same one it always measured.
+    //
+    // ⭐ objectui#9342 — `onCardMove` LEFT this leg, and its absence is the
+    // change rather than a gap. It is no longer read off the `schema` bag at
+    // all: `KanbanRendererProps` declares it as an explicit React PROP, a
+    // sibling of `schema`, so a key written INSIDE `schema` reaches nothing.
+    // The leg below measures both directions on the same render.
     const spies = authored();
     const props = await kanbanRendererProps(spies);
     expect({
       onCardClick: props.onCardClick === spies.onCardClick,
-      onCardMove: props.onCardMove === spies.onCardMove,
       onQuickAdd: props.onQuickAdd === spies.onQuickAdd,
-    }).toEqual({ onCardClick: true, onCardMove: true, onQuickAdd: true });
+    }).toEqual({ onCardClick: true, onQuickAdd: true });
+  });
+
+  it('⭐ onCardMove travels the PROP and NOT the schema bag (objectui#9342)', async () => {
+    // Both channels on ONE render, so the contrast is about the channel and not
+    // about how each was authored. The prop is the firing control for the
+    // schema-bag reading: without it, "the schema key did nothing" would also
+    // be produced by a forward block that stopped forwarding anything.
+    const onSchemaBag = vi.fn();
+    const onProp = vi.fn();
+    const before = recorded.impl.length;
+    const { unmount } = render(
+      <SchemaRendererProvider dataSource={undefined}>
+        <KanbanRenderer
+          schema={{ type: 'object-kanban', columns: STATIC_COLUMNS, onCardMove: onSchemaBag } as never}
+          onCardMove={onProp}
+        />
+      </SchemaRendererProvider>,
+    );
+    const props = await lastBoardProps('impl', before, unmount);
+    expect({
+      fromProp: props.onCardMove === onProp,
+      fromSchemaBag: props.onCardMove === onSchemaBag,
+    }).toEqual({ fromProp: true, fromSchemaBag: false });
   });
 
   it.each(['object-kanban'])(
-    "`'%s'` (ObjectKanban) passes onQuickAdd through and replaces BOTH onCardClick and onCardMove with its own",
+    "`'%s'` (ObjectKanban) passes onQuickAdd through and supplies its OWN onCardClick and onCardMove",
     async (type) => {
       const spies = authored();
       const props = await boardPropsFor(type, 'impl', spies);
@@ -296,7 +324,10 @@ describe("ObjectKanban's own onCardClick wrapper CALLS the authored handler (obj
 describe('the handler keys KanbanRenderer forwards, and where they are declared (objectui#7664)', () => {
   const INDEX_TSX = join(dirname(fileURLToPath(import.meta.url)), '..', 'index.tsx');
 
-  /** The `schema.on*` reads inside the `KanbanRenderer` component body, read off the source. */
+  /** The `schema.on*` reads inside the `KanbanRenderer` component body, read off the source.
+   *  ⚠️ `schema.`-anchored ON PURPOSE: this measures the DOCUMENT read path, so
+   *  a handler that arrives as an explicit React prop (`onCardMove` since
+   *  objectui#9342) is correctly absent rather than missed. */
   function forwardedByKanbanRenderer(): string[] {
     const src = readFileSync(INDEX_TSX, 'utf8');
     const start = src.indexOf('export const KanbanRenderer');
@@ -311,8 +342,12 @@ describe('the handler keys KanbanRenderer forwards, and where they are declared 
       .sort();
   }
 
-  it('the read site is measured, not listed: KanbanRenderer forwards exactly these three', () => {
-    expect(forwardedByKanbanRenderer()).toEqual(['onCardClick', 'onCardMove', 'onQuickAdd']);
+  it('the read site is measured, not listed: KanbanRenderer reads exactly these two off the document', () => {
+    // ⭐ THREE until objectui#9342 moved `onCardMove` onto an explicit React
+    // prop. That shrink is the deliverable, not a drift: the gate of record
+    // refuses a `'retired'` tombstone while a renderer still reads the key off
+    // the document, so the read had to go before the arm could carry one.
+    expect(forwardedByKanbanRenderer()).toEqual(['onCardClick', 'onQuickAdd']);
   });
 
   it('⭐ two of the three are declared on the surviving `object-kanban` face — measured per key, not per prefix', () => {
@@ -327,18 +362,24 @@ describe('the handler keys KanbanRenderer forwards, and where they are declared 
     //     1 above is where the two channels that make them so are measured —
     //     identity through the schema spread for the second, and the React prop
     //     the wrapper calls (suite 2) for the first.
-    //   - `onCardMove` is still declared by NOTHING. Its authored value reaches
-    //     neither channel, which is the `'retired'` disposition, and
-    //     `check:handler-key-reads` refuses that spelling while this very
-    //     forward block still reads the key. It keeps its
-    //     `KNOWN_UNDECLARED_READS` row on objectui#7804, which stays open.
+    //   - `onCardMove` was declared by NOTHING and is no longer read off the
+    //     document at all. Its authored value reaches neither channel, which is
+    //     the `'retired'` disposition; `check:handler-key-reads` refused that
+    //     spelling while this very forward block read the key, so objectui#9342
+    //     moved the read to an explicit React prop and the arm now carries the
+    //     tombstone. The third assertion below reads it off the mirror.
     const shape = ObjectKanbanZod.shape as Record<string, { description?: string } | undefined>;
     const forwarded = forwardedByKanbanRenderer();
     expect(forwarded.map((key) => ({ key, declared: key in shape }))).toEqual([
       { key: 'onCardClick', declared: true },
-      { key: 'onCardMove', declared: false },
       { key: 'onQuickAdd', declared: true },
     ]);
+    // The key that LEFT the forward block is declared all the same — as a
+    // tombstone, which is the whole point of moving the read (objectui#9342).
+    expect({
+      declared: 'onCardMove' in shape,
+      retired: shape.onCardMove?.description?.includes('RETIRED'),
+    }).toEqual({ declared: true, retired: true });
     // Firing control on the SAME instrument: a key this face really does
     // declare reads `true`, so the three `false`s above are readings and not a
     // shape lookup that answers `false` to everything (an unwrapped

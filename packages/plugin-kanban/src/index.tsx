@@ -181,7 +181,6 @@ export interface KanbanRendererProps {
     data?: Array<any>;
     groupBy?: string;
     swimlaneField?: string;
-    onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void;
     onCardClick?: (card: any) => void;
     quickAdd?: boolean;
     onQuickAdd?: (columnId: string, title: string) => void;
@@ -243,13 +242,43 @@ export interface KanbanRendererProps {
    * rather than fixed here.
    */
   objectFields?: unknown;
+
+  /**
+   * The board's card-move callback, injected by the host that owns the write.
+   *
+   * ⛔ A React PROP, a sibling of `schema`, and deliberately NOT a member of the
+   * `schema` bag (objectui#9342, executing the ruling on PR objectui#9338; the
+   * objectui#7742 remedy `objectFields` above already took, one member over,
+   * under maintainer decision batch #70).
+   *
+   * Inside `schema` the key was reachable by an AUTHOR and reached NOTHING.
+   * `BaseSchema` is `.passthrough()`, so `onCardMove` was accepted and KEPT on
+   * an `object-kanban` document, and then dropped: `ObjectKanban` substitutes
+   * its own `handleCardMove` on the schema it hands down — that wrapper owns the
+   * optimistic write, the required-fields dialog and the rollback — and declares
+   * no `onCardMove` React prop of its own (its rest parameter is discarded), so
+   * neither channel delivered. Measured, driven rather than inferred, with
+   * `onCardClick` as the lit control on the same document and the same render
+   * (`__tests__/handlerKeyDispositionsMeasured-7804.test.tsx`).
+   *
+   * Moving the READ here is what lets the `object-kanban` arm tombstone the key
+   * with `handlerKeyRefusal(…, 'retired', …)` and still satisfy
+   * `check:handler-key-reads`, whose contract is that a tombstone "has no read
+   * site BY CONSTRUCTION". What that gate could not see is that the value at the
+   * old read was substituted one hop earlier.
+   *
+   * ⚠️ NARROWS A PUBLISHED PROPS SURFACE. A host that rendered `KanbanRenderer`
+   * directly and wrote the key inside `schema` gets a TS error if it is typed
+   * and a silent drop if it is not; it must move the function to this prop.
+   */
+  onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void;
 }
 
 /**
  * KanbanRenderer - The public API for the kanban board component
  * This wrapper handles lazy loading internally using React.Suspense
  */
-export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields }) => {
+export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields, onCardMove }) => {
   const { t } = useUncolumnedT();
   // ⚡️ Adapter: Map flat 'data' + 'groupBy' to nested 'cards' structure.
   const processedColumns = React.useMemo(
@@ -268,7 +297,7 @@ export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFi
     <Suspense fallback={<Skeleton className="w-full h-[600px]" />}>
       <LazyKanban
         columns={processedColumns}
-        onCardMove={schema.onCardMove}
+        onCardMove={onCardMove}
         onCardClick={schema.onCardClick}
         className={schema.className}
         quickAdd={schema.quickAdd}

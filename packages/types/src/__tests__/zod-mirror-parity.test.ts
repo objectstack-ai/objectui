@@ -1516,11 +1516,12 @@ interface KnownDrift {
    * refused BY NAME by `RetiredKanbanNodeSchema`, pinned in
    * `./bare-kanban-node-key-retired-8802.test.ts`.
    *
-   * ⚠️ Recorded rather than repaired: `KanbanRenderer` still forwards all three,
-   * and the SURVIVING `objectql.zod.ts#ObjectKanbanSchema` pair declares none of
-   * them, so they are read-but-undeclared on the surviving face. Declaring them
-   * there would WIDEN a published accept set, which is a ruling and not a
-   * repair — reported on the retirement PR.
+   * ⚠️ Recorded rather than repaired AT THE TIME: `KanbanRenderer` forwarded
+   * all three and the SURVIVING `objectql.zod.ts#ObjectKanbanSchema` pair
+   * declared none, so they were read-but-undeclared on the surviving face.
+   * Both halves of that have since landed — objectui#7804 declared the two
+   * live slots, and objectui#9342 moved the `onCardMove` READ to an explicit
+   * React prop and tombstoned the key on both faces.
    */
   /**
    * RUNTIME SLOT (objectui#7344): `register('detail', DetailView)` — `DetailView`'s
@@ -1655,12 +1656,18 @@ interface KnownDrift {
    * spread — arrives instead as the React PROP `ObjectKanbanComponentProps`
    * declares, which `ObjectKanban`'s own wrapper CALLS.
    *
-   * ⚠️ The THIRD key, `onCardMove`, is deliberately NOT here and is not drift:
-   * neither face declares it, so `undefined` meets `undefined`. Its authored
-   * value reaches nothing on this entry — the `'retired'` disposition — and
-   * `check:handler-key-reads` refuses that spelling while the renderer still
-   * reads the key, so it keeps its `KNOWN_UNDECLARED_READS` row on
-   * objectui#7804 rather than joining either face.
+   * ⚠️ The THIRD key, `onCardMove`, is still NOT here, and the reason CHANGED
+   * with objectui#9342 — it is not drift either way. It used to be absent
+   * because NEITHER face declared it (`undefined` meeting `undefined`); since
+   * objectui#9342 BOTH faces declare it as a tombstone — `?: never` on the
+   * TypeScript twin, `handlerKeyRefusal(…, 'retired', …)` on this mirror — and
+   * a matched pair of tombstones is the shape `complex.zod.ts#CarouselSchema`
+   * already carries for `onSlideChange`, which is likewise not in this ledger.
+   * Its `'retired'` reading is objectui#7804's measurement (an authored value
+   * reaches nothing: `ObjectKanban` substitutes its own mover and declares no
+   * `onCardMove` React prop); what was missing was the precondition, and
+   * objectui#9342 supplied it by moving `KanbanRenderer`'s read onto an
+   * explicit React prop so `check:handler-key-reads` would accept a tombstone.
    */
   'objectql.zod.ts#ObjectKanbanSchema': 'onCardClick' | 'onQuickAdd';
   /**

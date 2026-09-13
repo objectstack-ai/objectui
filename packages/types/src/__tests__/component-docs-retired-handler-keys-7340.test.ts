@@ -291,10 +291,18 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // `.passthrough()`, is KEPT. What separates this one is that the whole ARM
     // went: a `{ "type": "kanban" }` document is refused BY NAME before any
     // member is examined (`./bare-kanban-node-key-retired-8802.test.ts`).
+    //
+    // ⭐ 26 → 27, and `objectql.ts` enters this census for the first time:
+    // objectui#9342 tombstoned `ObjectKanbanSchema.onCardMove` on both faces.
+    // Its `'retired'` reading is objectui#7804's measurement, unchanged — an
+    // authored value reaches nothing because `ObjectKanban` substitutes its own
+    // mover; what objectui#9342 supplied is the missing precondition, moving
+    // `KanbanRenderer`'s read onto an explicit React prop so that
+    // `check:handler-key-reads` would accept the tombstone at all.
     const split: Record<string, number> = {};
     for (const m of RETIRED) split[m.file] = (split[m.file] ?? 0) + 1;
     expect({ total: RETIRED.length, split }).toEqual({
-      total: 26,
+      total: 27,
       split: {
         'app.ts': 1,
         'complex.ts': 2,
@@ -303,6 +311,7 @@ describe('the retired population is measured off the shipped tree (objectui#7340
         'feedback.ts': 1,
         'form.ts': 8,
         'navigation.ts': 3,
+        'objectql.ts': 1,
         'overlay.ts': 2,
         'reports.ts': 2,
       },
@@ -324,6 +333,11 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // to classify. They are not "live again": the document that could have
     // carried them is refused at its `type`.
     expect(UNAMBIGUOUSLY_RETIRED_NAMES).toEqual([
+      // objectui#9342 — no shipped interface declares an `onCardMove` callable
+      // any more. `KanbanRendererProps.onCardMove` is a React prop on
+      // `@object-ui/plugin-kanban`, not a member of a `@object-ui/types`
+      // document interface, so it is not in this census's population.
+      'onCardMove',
       'onClose',
       'onCollapsedChange',
       'onConfirm',

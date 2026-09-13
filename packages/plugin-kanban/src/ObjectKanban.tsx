@@ -1428,6 +1428,15 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // definition, never an authoring surface. On the schema bag it was
         // reachable by an author through `BaseSchema`'s passthrough.
         objectFields={objectDef?.fields}
+        // A PROP, not a schema key (objectui#9342, executing the ruling on PR
+        // objectui#9338) — the same remedy `objectFields` above took one card
+        // earlier. `handleCardMove` owns the optimistic write, the
+        // required-fields dialog and the objectui#4138 rollback, so it is this
+        // board's mover and never an authored one. While it rode the `schema`
+        // bag below, an authored `onCardMove` was accepted by the passthrough,
+        // substituted here, and silently dropped; the arm can only tombstone the
+        // key once no renderer reads it off the document.
+        onCardMove={handleCardMove}
         schema={{
           ...effectiveSchema,
           // objectui#8307 — the lane headers count rows that came back, so when
@@ -1455,7 +1464,6 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             captureAnchor(event);
             navigation.handleClick(card, event);
           },
-          onCardMove: handleCardMove,
         }}
       />
       </KanbanRecordsSettledContext.Provider>

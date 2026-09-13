@@ -303,13 +303,15 @@ jobs:
       # the other 9 a measurement instead of an assumption, and what stops the
       # first violation being typed.
       #
-      # Ported from objectstack `scripts/check-bash32-floor.mjs` at `6136293`
-      # and deliberately NOT registered in `scripts/upstream-port-pin.json` —
-      # that ledger carries ONE global `upstream.ref` (`bf10deb` today) which
-      # `--resync` rewrites for every entry, so registering this file would mean
-      # either shipping `bf10deb`'s older, weaker construct table or re-syncing
-      # three unrelated ported files. The gate's own header carries the full
-      # argument and names the follow-up.
+      # Ported from objectstack `scripts/check-bash32-floor.mjs` and REGISTERED
+      # in `scripts/upstream-port-pin.json` (objectui#8694), so drift from
+      # upstream reds here instead of arriving as a confident green report.
+      # ⛔ The ref this copy was taken at is deliberately not named in this
+      # comment: it lives on that file's ledger entry, beside the digest it was
+      # taken with, where `--resync` keeps it correct. There is no ledger-wide
+      # ref to quote instead — objectui#8288 retired that field, and
+      # `check-upstream-port-parity` now refuses a pin still carrying one. The
+      # gate's own header carries the full argument.
       #
       # Runs before install, next to the three gates above and for the same
       # reason: node builtins, `scripts/invoked-as.mjs` and `git ls-files` only,

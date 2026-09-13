@@ -433,7 +433,7 @@ export function __resetVisibilityPredicateWarnings(): void {
  * that is not there.
  */
 export const ADAPTER_ONLY_DATA_PREDICATE_PREFIX =
-  '[ObjectUI] A visibility predicate resolved `data.*` against the data-source adapter';
+  '[ObjectUI] A visibility predicate read `data.*` that the bound `data` does not answer';
 
 /**
  * The `disabled` / `disabledOn` sibling of the prefix above (objectui#6504,
@@ -445,7 +445,7 @@ export const ADAPTER_ONLY_DATA_PREDICATE_PREFIX =
  * both read.
  */
 export const ADAPTER_ONLY_ENABLEMENT_PREDICATE_PREFIX =
-  '[ObjectUI] An enablement predicate resolved `data.*` against the data-source adapter';
+  '[ObjectUI] An enablement predicate read `data.*` that the bound `data` does not answer';
 
 /**
  * Which gates the objectui#5687 constant-predicate diagnostic is wired to
@@ -471,7 +471,7 @@ export type AdapterOnlyPredicateGateKind = Extract<PredicateGateKind, 'visibilit
  * {@link GATE_KIND_COPY}'s machinery (#6445) for this SIBLING diagnostic —
  * same discipline (indexed without a `??` fallback; the default lives on the
  * parameter), a separate table because the message TEMPLATE differs (this one
- * carries an "Undefined on the adapter:" line and no {@link SCOPE_TIER_ADVICE}
+ * carries an "Unanswered by the bound `data`:" line and no {@link SCOPE_TIER_ADVICE}
  * tail; see {@link formatAdapterOnlyDataMessage}).
  *
  * ⛔⛔ BINDING INHERITANCE CLAUSE (2026-08-27 ruling, objectui#6504, verbatim
@@ -494,9 +494,11 @@ const ADAPTER_ONLY_GATE_COPY: Record<AdapterOnlyPredicateGateKind, { prefix: str
   visibility: {
     prefix: ADAPTER_ONLY_DATA_PREDICATE_PREFIX,
     consequence:
-      'At the node tier `data` is the DATA-SOURCE ADAPTER - the object\n' +
-      '`${data.total}` in a props bag reads - and it is NOT the row. The reads\n' +
-      'above are undefined on it, so this predicate is a CONSTANT: it does not\n' +
+      'At the node tier `data` is whatever the HOST published under that name\n' +
+      'in the ambient predicate scope, and it is NOT the row. Since\n' +
+      'objectui#9308 it is not the data-source adapter either - the renderer\n' +
+      'binds no `data` of its own. The reads above are undefined on it, so\n' +
+      'this predicate is a CONSTANT: it does not\n' +
       'depend on the row at all, and on this surface a constant `false` hides the\n' +
       'node on every row while looking exactly like a gate that said no.\n' +
       'Write the row as `record.*` (e.g. `record.status`), which page-component\n' +
@@ -514,9 +516,11 @@ const ADAPTER_ONLY_GATE_COPY: Record<AdapterOnlyPredicateGateKind, { prefix: str
   enablement: {
     prefix: ADAPTER_ONLY_ENABLEMENT_PREDICATE_PREFIX,
     consequence:
-      'At the node tier `data` is the DATA-SOURCE ADAPTER - the object\n' +
-      '`${data.total}` in a props bag reads - and it is NOT the row. The reads\n' +
-      'above are undefined on it, so this predicate is a CONSTANT: it does not\n' +
+      'At the node tier `data` is whatever the HOST published under that name\n' +
+      'in the ambient predicate scope, and it is NOT the row. Since\n' +
+      'objectui#9308 it is not the data-source adapter either - the renderer\n' +
+      'binds no `data` of its own. The reads above are undefined on it, so\n' +
+      'this predicate is a CONSTANT: it does not\n' +
       'depend on the row at all, and on THIS gate the dangerous polarity is a\n' +
       'constant `true`: the node renders DISABLED - on screen, greyed out,\n' +
       'refusing input - on every row, in every build, while looking exactly\n' +
@@ -595,8 +599,26 @@ const DATA_ROOT_PATH_RE =
  * the shapes an author could have meant.
  *
  * The walk mirrors `useDataScope`'s own `path.split('.').reduce(…)` resolution
- * of a `data.*` path, so "undefined here" means what it means everywhere else
- * this repo resolves against the adapter.
+ * of a path, so "undefined here" means what it means everywhere else this repo
+ * resolves a path against a scope.
+ *
+ * ⭐ WHAT `boundData` IS, since objectui#9308. It used to be the injected
+ * ADAPTER (`SchemaRendererContext.dataSource`), because the renderer bound that
+ * object as the `data` root. It no longer binds one: `boundData` is now the
+ * `data` the HOST published in the ambient predicate scope, i.e. the exact
+ * object the evaluator resolved `data.*` against. Passing the adapter after
+ * that ruling would have inverted this diagnostic — silent for the hosts whose
+ * predicates actually broke (their bag still answers), and loud for hosts whose
+ * scope-channel `data` answers perfectly.
+ *
+ * ⚠️ Reachability, stated rather than assumed: when the host publishes NO
+ * `data` root, a `data.*` predicate does not evaluate cleanly at all — it
+ * throws `data is not defined`, which is objectui#5454's leg, reported by
+ * {@link reportUnresolvableVisibilityPredicate} with a message that is true for
+ * it. Both call sites of this function sit on the NON-throwing branch, so this
+ * leg is reached only for a host that published a `data` root which does not
+ * answer the read. That is the population it can still speak for, and the one
+ * it now speaks about accurately.
  */
 function unresolvedDataPaths(source: string, boundData: unknown): string[] {
   const scannable = stripStringLiterals(source);
@@ -650,7 +672,7 @@ export function formatAdapterOnlyDataMessage(
   return (
     copy.prefix + ' - node ' + node + where + '\n' +
     '  ' + key + ': ' + JSON.stringify(predicateSourceText(raw)) + '\n' +
-    '  Undefined on the adapter: ' + unresolved.join(', ') + '\n' +
+    '  Unanswered by the bound `data`: ' + unresolved.join(', ') + '\n' +
     copy.consequence
   );
 }

@@ -54,6 +54,7 @@ import {
 } from '@objectstack/spec/ui';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 
 const DATA = { total: 99, name: 'Widgets', note: 'since last week' };
 
@@ -92,9 +93,11 @@ afterEach(() => {
 
 const renderNode = (schema: any) =>
   render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA } as any}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA } as any}>
       <SchemaRenderer schema={schema} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
   );
 
 const read = (key: string) => screen.getByTestId('probe').getAttribute(`data-${key}`);

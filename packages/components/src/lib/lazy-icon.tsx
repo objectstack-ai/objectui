@@ -23,12 +23,44 @@ import React from 'react';
 import { Database } from 'lucide-react';
 import { DynamicIcon, iconNames } from 'lucide-react/dynamic.mjs';
 
-/** Convert PascalCase / camelCase / mixed names to kebab-case for DynamicIcon. */
+/**
+ * Convert PascalCase / camelCase / mixed names to kebab-case for DynamicIcon.
+ *
+ * The transform is the INVERSE of lucide's own `toPascalCase`, which is what
+ * builds every exported component name out of a canonical icon name: it drops
+ * each hyphen and upper-cases the character that followed it. So the job here
+ * is to put a boundary back wherever `toPascalCase` removed one, and nowhere
+ * else. Three rules do it, and each one answers a different shape of boundary:
+ *
+ *  1. `lower-or-digit -> Upper` — the ordinary word boundary (`ChevronRight`).
+ *  2. `acronym-run -> Word` — a run of capitals followed by a word
+ *     (`SVGIcon`), where rule 1 would swallow the last capital.
+ *  3. `letter -> digit` — the boundary a digit-suffixed name carries
+ *     (`Building2` -> `building-2`). ⚠️ It is NOT unconditional: the negative
+ *     lookbehind holds the rule off when the letter is itself preceded by a
+ *     digit, because that is lucide's grid spelling — `Grid2x2` is the Pascal
+ *     form of `grid-2x2`, where the `x` sits INSIDE a segment rather than
+ *     starting one. Splitting there produces `grid-2x-2`, which is not a name.
+ *
+ * ⛔ Rule 3 is the boundary the seam went without until objectui#9414, and the
+ * cost was not visible anywhere: `Building2` — the spelling `lucide-react`
+ * exports and lucide's own site shows — tokenised to `building2`, matched no
+ * canonical name, and `getLazyIcon` degraded it to the `Database` glyph with no
+ * error, no warning and no log. The author saw *an* icon and no signal that it
+ * was not theirs.
+ *
+ * ⛔ Do not write down how many names rule 3 recovers. The property that matters
+ * is re-derived from the installed lucide on every run by
+ * `__tests__/lazy-icon-digit-boundary-9414.test.ts`: every canonical icon name
+ * is reachable from its own exported PascalCase spelling, and every name the
+ * pre-#9414 tokeniser resolved still resolves to the byte-identical result.
+ */
 export function toKebabIconName(name: string): string {
   if (name.includes('-')) return name.toLowerCase();
   return name
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .replace(/(?<![0-9])([A-Za-z])([0-9])/g, '$1-$2')
     .toLowerCase();
 }
 

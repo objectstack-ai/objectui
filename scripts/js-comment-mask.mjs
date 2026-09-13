@@ -217,7 +217,11 @@ const REGEX_AFTER_KEYWORD = new Set([
  * regex and comment branches -- and its bytes are flagged literal at the end.
  *
  * @param {string} source
- * @returns {{ comment: Uint8Array, literal: Uint8Array }}
+ * @returns {{ comment: Uint8Array, literal: Uint8Array, interpolation: Uint8Array }}
+ *   Three same-length flag arrays over `source`: comment content, literal
+ *   content, and the code bytes inside `${...}` -- that last one with the
+ *   span's own `${` and `}` left unflagged, so a caller slicing statements
+ *   still sees those delimiters (see the closing block of this function).
  */
 export function scanSource(source) {
   const n = source.length;

@@ -63,6 +63,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import { z } from 'zod';
 
 // Mutable so a case can publish a server `configSchema` for one node type and
 // exercise the ONLINE field derivation, which is the other writer of
@@ -84,10 +85,16 @@ import type { MetadataSelection } from '../preview-registry';
 // #6620 rows below compare the RENDERED control against the installed contract
 // instead of against a literal this file would then own a second copy of.
 // `ApprovalNodeConfigSchema` and `FlowNodeSchema` serve the objectui#9277 rows
-// the same way, for `config.lockRecord` and `boundaryConfig.interrupting`.
+// the same way, for `config.lockRecord` and `boundaryConfig.interrupting`, and
+// `EndConfigSchema` serves the objectui#9278 rows for `end.outcome`.
 // ⛔ The subpath is load bearing: `ApprovalEscalationSchema` is NOT on the
 // package root, where it reads `undefined` and any `.parse` on it throws.
-import { ApprovalEscalationSchema, ApprovalNodeConfigSchema, FlowNodeSchema } from '@objectstack/spec/automation';
+import {
+  ApprovalEscalationSchema,
+  ApprovalNodeConfigSchema,
+  EndConfigSchema,
+  FlowNodeSchema,
+} from '@objectstack/spec/automation';
 
 /* ── The `meta/*` double (objectui#7307) ───────────────────────────────
  * `FlowNodeInspector` renders `FlowReferenceField` for every reference-kind key
@@ -323,8 +330,24 @@ describe('boolean: a declared defaultValue seeds the control (objectui#8451, arm
   it('boolean: a field declaring NO default still draws unchecked when unset', () => {
     // The seed belongs to the DECLARATION, not to the control: a boolean with
     // nothing declared must not acquire a default from the repair. Measured on
-    // the online writer because the offline table has no undeclared boolean to
-    // measure — it carries exactly two boolean fields and both declare one.
+    // the ONLINE writer, whose schema this row spells out inline, so the claim
+    // rests on a fixture this file owns outright.
+    //
+    // ⚠️ The reason that used to stand here — "the offline table has no
+    // undeclared boolean to measure — it carries exactly two boolean fields
+    // and both declare one" — was false when written and is still false.
+    // Swept off `FLOW_NODE_CONFIG` over the same node types the pin below
+    // sweeps, the offline table carries FIVE boolean fields, not two:
+    // `approval.escalation.enabled`, `approval.escalation.notifySubmitter`,
+    // `approval.lockRecord`, `boundary_event.boundaryConfig.interrupting` and
+    // `screen.waitForInput`. Two of them declared a default when that sentence
+    // was written (objectui#8586) and four do now, objectui#9277 having
+    // declared the middle two — so the count it reported was the DECLARING
+    // booleans mislabelled as the whole boolean surface.
+    // ⇒ `screen.waitForInput` is the offline undeclared boolean that sentence
+    // says does not exist. An offline twin of this row is therefore writable
+    // today; it is deliberately NOT written here, because that is a new
+    // assertion rather than the merge this file is being changed for.
     stubs.configSchemas = {
       approval: {
         type: 'object',
@@ -707,16 +730,23 @@ describe('non-regression — a change that deletes the control must not pass thi
 
 describe('the declaration surface this card names', () => {
   /**
-   * The twelve declaring fields, as `<node type>.<field id>`. Triage named this
-   * list the acceptance surface, so it is pinned: a PR that retires the
-   * property, or that adds a thirteenth declaration, moves this line.
+   * The thirteen declaring fields, as `<node type>.<field id>`. Triage named
+   * this list the acceptance surface, so it is pinned: a PR that retires the
+   * property, or that adds a fourteenth declaration, moves this line.
    *
-   * ⚠️ The count is a LIVE base plus this card's additions, never a constant
-   * carried over from a card's own arithmetic: objectui#9277 added two
-   * (`approval.lockRecord`, `boundary_event.boundaryConfig.interrupting`) on
-   * top of the ten this line read on `origin/main`, and objectui#9278 was in
-   * flight against the same line with an eleventh of its own. Whoever lands
-   * next re-reads this number here before adding to it.
+   * ⚠️ The number is NOT a constant to copy, and it is not one card's
+   * arithmetic either. objectui#9278 and objectui#9277 were both in flight
+   * against this line from the same base of TEN, each written assuming the
+   * other does not exist: #9278 landed first and wrote eleven (`end.outcome`,
+   * select-kind), then #9277 merged it and wrote THIRTEEN after adding two
+   * boolean-kind declarations (`approval.lockRecord`,
+   * `boundary_event.boundaryConfig.interrupting`).
+   *
+   * That thirteen was RE-DERIVED on the merged tree — swept off
+   * `FLOW_NODE_CONFIG` through `fieldsForNodeType`, exactly as the body below
+   * does it — and not obtained by adding `11 + 2`. The two happened to agree
+   * here; that is a result, not a method. Whoever lands next re-reads the
+   * number the same way rather than trusting this sentence.
    *
    * Swept over the picker's node types plus the four that carry config but are
    * not offered in the picker (ADR-0031 import/export-only, and the legacy
@@ -725,7 +755,7 @@ describe('the declaration surface this card names', () => {
    */
   const OFF_PICKER_TYPES = ['boundary_event', 'parallel_gateway', 'join_gateway', 'legacy_action', 'notify'];
 
-  it('exactly twelve fields declare a defaultValue, and these are they', () => {
+  it('exactly thirteen fields declare a defaultValue, and these are they', () => {
     const swept = [...FLOW_NODE_TYPE_OPTIONS, ...OFF_PICKER_TYPES];
     expect(
       FLOW_NODE_TYPE_OPTIONS.every((t) => swept.includes(t)),
@@ -748,6 +778,7 @@ describe('the declaration surface this card names', () => {
       'approval.onEmptyApprovers',
       'boundary_event.boundaryConfig.eventType',
       'boundary_event.boundaryConfig.interrupting',
+      'end.outcome',
       'http_request.method',
       'screen.mode',
       'wait.waitEventConfig.eventType',
@@ -788,12 +819,13 @@ describe('the declaration surface this card names', () => {
 
     expect(
       cases.map((c) => c.id).sort(),
-      'the select-kind half of the declaration surface — seven of the twelve',
+      'the select-kind half of the declaration surface — eight of the thirteen',
     ).toEqual([
       'approval.behavior',
       'approval.escalation.action',
       'approval.onEmptyApprovers',
       'boundary_event.boundaryConfig.eventType',
+      'end.outcome',
       'http_request.method',
       'screen.mode',
       'wait.waitEventConfig.eventType',
@@ -811,5 +843,108 @@ describe('the declaration surface this card names', () => {
       ).toBe(true);
       cleanup();
     }
+  });
+});
+
+/* ── objectui#9278: the `end` node's Outcome vocabulary ───────────────────────
+ * `end.config.outcome` was a free-text box whose placeholder printed
+ * `success · failure`. `FlowNodeSchema` discriminates an `end` node's config
+ * through `EndConfigSchema`, whose `outcome` is a CLOSED enum of
+ * `completed | refused` — so BOTH printed words are refused at the door. On a
+ * key with no dropdown that placeholder was the only vocabulary the form
+ * offered, so the author's most likely action was to type one of the two words
+ * in the box, and the flow then failed to load. Commandment #0 one level down:
+ * the VALUES are part of the contract too.
+ *
+ * Every expectation below is DERIVED from the installed spec, through zod's
+ * public `toJSONSchema` rather than any wrapper internals — the `defaultValue`
+ * doc comment requires a declaration outside the escalation ledger to be
+ * derived from the spec rather than from taste, and a row that respelled the
+ * two words here would agree with itself while the form drifted.
+ *
+ * The parse rows are what make that derivation a READING rather than a dead
+ * probe, and they carry both signs in one output: every derived option is
+ * accepted at the door, and the two words the deleted placeholder printed are
+ * refused there. An accept-only loop would pass just as well against a schema
+ * that accepts everything.
+ * ─────────────────────────────────────────────────────────────────────────── */
+describe('the end node offers the outcomes the spec accepts (objectui#9278)', () => {
+  /** `{ enum, default }` for `EndConfigSchema.outcome`, read off the installed spec. */
+  const outcomeSchema = (
+    z.toJSONSchema(EndConfigSchema) as {
+      properties?: Record<string, { enum?: unknown[]; default?: unknown }>;
+    }
+  ).properties?.outcome;
+  const specOutcomes = (outcomeSchema?.enum ?? []) as string[];
+  const specDefault = outcomeSchema?.default as string | undefined;
+
+  /**
+   * The sibling an option requires, so an option's own row measures the OPTION.
+   * `refused` carries a cross-field rule — it requires a `message` — and a row
+   * that sent the bare key would read that refusal as "the enum rejects
+   * `refused`" and delete a value the contract declares.
+   */
+  const siblingFor = (outcome: string) =>
+    outcome === 'refused' ? { message: 'Refused: {record.name} is a confirmed duplicate' } : {};
+
+  const outcomeField = () => fieldsForNodeType('end').find((f) => f.id === 'outcome');
+
+  it('the spec still publishes the closed enum and the default this field derives from', () => {
+    // THE VACUITY GUARD. Every row below iterates `specOutcomes`; a spec that
+    // stopped publishing the enum — or a `toJSONSchema` shape this reader stops
+    // understanding — would make each of them pass over an EMPTY list, which is
+    // exactly the shape a derived expectation fails silently in.
+    expect(specOutcomes.length, 'EndConfigSchema.outcome publishes a closed enum').toBeGreaterThan(1);
+    expect(specOutcomes, 'and the default it applies to an omitted key is one of them').toContain(specDefault);
+  });
+
+  it('and FlowNodeSchema judges an end node through it — both signs, one reading', () => {
+    const verdict = (outcome: string) =>
+      FlowNodeSchema.safeParse({
+        id: 'e',
+        type: 'end',
+        label: 'E',
+        config: { outcome, ...siblingFor(outcome) },
+      }).success;
+
+    for (const outcome of specOutcomes) {
+      expect(verdict(outcome), `${outcome}: a derived option is accepted at the door`).toBe(true);
+    }
+    // The negative half, in the same reading — the two words the deleted
+    // placeholder printed, which is the whole defect this card is about.
+    expect(verdict('success'), '`success` — the old placeholder’s first word — is refused').toBe(false);
+    expect(verdict('failure'), '`failure` — its second — is refused').toBe(false);
+  });
+
+  it('the Outcome control is a select over exactly those outcomes, stating the spec default', () => {
+    const field = outcomeField();
+    expect(field, 'the end node still has an Outcome field').toBeDefined();
+    expect(field!.kind, 'an enum key is not authored as a free-text box').toBe('select');
+    expect(
+      field!.options?.map((o) => o.value),
+      'the offered vocabulary IS the spec enum, in the spec’s own order',
+    ).toEqual([...specOutcomes]);
+    expect(field!.defaultValue, 'and the form states the default the spec applies').toBe(specDefault);
+    // The invented vocabulary is gone rather than merely outvoted. A select
+    // needs no placeholder — the declared default draws in that slot — so any
+    // surviving string here would be a second, unchecked vocabulary.
+    expect(field!.placeholder, 'no invented placeholder survives on this field').toBeUndefined();
+  });
+
+  it('and it RENDERS as a combobox on an end node, stating that default on the trigger', () => {
+    // The non-regression half this file keeps beside every table claim: the
+    // three rows above are all satisfied by an inspector that renders nothing.
+    renderInspector(draftWith('end', { config: {} }));
+    expect(
+      screen.queryByRole('combobox', { name: 'Outcome' }),
+      'the Outcome control is rendered at all',
+    ).not.toBeNull();
+    const declared = outcomeField()!.options?.find((o) => o.value === specDefault);
+    expect(declared, 'the declared default must be one of the offered options').toBeDefined();
+    expect(triggerText('Outcome'), 'an unset key states the declared default').toBe(declared!.label);
+    expect(
+      triggerIsPlaceholder('Outcome'),
+      'and states it as a placeholder, never as a selection the author made',
+    ).toBe(true);
   });
 });

@@ -130,8 +130,8 @@ function pair(
 let errorSpy: ReturnType<typeof vi.spyOn>;
 const refusals = (): string[] =>
   errorSpy.mock.calls
-    .map(args => String(args[0]))
-    .filter(line => line.startsWith(REFUSED_PROPS_PREDICATE_PREFIX));
+    .map((args: unknown[]) => String(args[0]))
+    .filter((line: string) => line.startsWith(REFUSED_PROPS_PREDICATE_PREFIX));
 
 beforeEach(() => {
   ComponentRegistry.register(TYPE, Probe as never);

@@ -21,6 +21,18 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererProvider, useSchemaContext } from '../context/SchemaRendererContext';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are placeholders for a provider that merely has to EXIST, and one probe
+ * that pins the empty-object case by name.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 // Suppress console.error from React error boundary during tests
 const originalConsoleError = console.error;
@@ -46,7 +58,7 @@ describe('useSchemaContext provider requirement', () => {
 
   it('should not throw when used inside SchemaRendererProvider', () => {
     render(
-      <SchemaRendererProvider dataSource={{ test: true }}>
+      <SchemaRendererProvider dataSource={{ test: true } as unknown as DataSource}>
         <ContextConsumer schema={{}} />
       </SchemaRendererProvider>
     );
@@ -55,7 +67,7 @@ describe('useSchemaContext provider requirement', () => {
 
   it('should fall back to empty dataSource when provider has empty object', () => {
     render(
-      <SchemaRendererProvider dataSource={{}}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
         <ContextConsumer schema={{}} />
       </SchemaRendererProvider>
     );
@@ -77,8 +89,8 @@ describe('SchemaRendererProvider apiFetch inheritance (#2725)', () => {
 
   it('nested provider without apiFetch inherits the parent host fetch', () => {
     render(
-      <SchemaRendererProvider dataSource={{}} apiFetch={namedFetch('host')}>
-        <SchemaRendererProvider dataSource={{ inner: true }}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource} apiFetch={namedFetch('host')}>
+        <SchemaRendererProvider dataSource={{ inner: true } as unknown as DataSource}>
           <ApiFetchProbe />
         </SchemaRendererProvider>
       </SchemaRendererProvider>
@@ -88,8 +100,8 @@ describe('SchemaRendererProvider apiFetch inheritance (#2725)', () => {
 
   it('nested provider with its own apiFetch overrides the parent', () => {
     render(
-      <SchemaRendererProvider dataSource={{}} apiFetch={namedFetch('host')}>
-        <SchemaRendererProvider dataSource={{}} apiFetch={namedFetch('inner')}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource} apiFetch={namedFetch('host')}>
+        <SchemaRendererProvider dataSource={{} as unknown as DataSource} apiFetch={namedFetch('inner')}>
           <ApiFetchProbe />
         </SchemaRendererProvider>
       </SchemaRendererProvider>
@@ -99,7 +111,7 @@ describe('SchemaRendererProvider apiFetch inheritance (#2725)', () => {
 
   it('apiFetch stays undefined when no provider supplies one', () => {
     render(
-      <SchemaRendererProvider dataSource={{}}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
         <ApiFetchProbe />
       </SchemaRendererProvider>
     );
@@ -118,7 +130,7 @@ describe('SchemaRenderer + SchemaRendererProvider integration', () => {
 
   it('should render a component that calls useSchemaContext without error when provider wraps the tree', () => {
     render(
-      <SchemaRendererProvider dataSource={{ foo: 'bar' }}>
+      <SchemaRendererProvider dataSource={{ foo: 'bar' } as unknown as DataSource}>
         <SchemaRenderer schema={{ type: 'test-ctx-consumer' }} />
       </SchemaRendererProvider>
     );
@@ -160,7 +172,7 @@ describe('Plugin component types render inside provider', () => {
 
       // Render via SchemaRenderer inside provider
       const { container } = render(
-        <SchemaRendererProvider dataSource={{}}>
+        <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
           <SchemaRenderer schema={{ type }} />
         </SchemaRendererProvider>
       );

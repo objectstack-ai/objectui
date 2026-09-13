@@ -129,7 +129,18 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **40 entries** in `KnownDrift`, **61 keys** across them — 41 / 64 until
+ *   - **41 entries** in `KnownDrift`, **63 keys** across them — 40 / 61 until
+ *     objectui#7804 DECLARED `objectql.zod.ts#ObjectKanbanSchema`'s
+ *     `onCardClick` and `onQuickAdd` (director seat, decision batch #69), a new
+ *     entry carrying TWO of the three keys the retirement below stranded on the
+ *     surviving face. ⭐ The first entry this ledger has gained from an arm
+ *     RETIREMENT leaving reads behind on a sibling: the keys did not move and
+ *     no face drifted — the face that used to declare them stopped existing,
+ *     and a different one picked up the obligation. ⚠️ TWO of the three, not
+ *     three: `onCardMove` is measured `'retired'` on this face and
+ *     `check:handler-key-reads` refuses that spelling while the renderer still
+ *     reads the key, so neither face declares it and it is not drift at all.
+ *     It was 40 / 61 until then, because
  *     objectui#8802 RETIRED the bare `kanban` node type key (maintainer ruling
  *     2026-09-09) and the `complex.zod.ts#KanbanSchema` pair with it, taking that
  *     entry's three RUNTIME SLOT keys (`onCardMove` / `onCardClick` /
@@ -365,7 +376,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 40 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 41 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -1627,6 +1638,31 @@ interface KnownDrift {
    * pre-#6124 state of that file, not a rule for new mirrors.
    */
   'objectql.zod.ts#ObjectDataTableSchema': 'onRowClick';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×2 — the
+   * SECOND handler entry on this mirror, and the first anywhere in this ledger
+   * that was born from an ARM RETIREMENT rather than from a mirror or a
+   * declaration moving. The three keys `KanbanRenderer` forwards off `schema.*`
+   * sat on the `complex.zod.ts#KanbanSchema` entry until objectui#8802 retired
+   * the bare `kanban` node type key; the reads stayed, on the surviving
+   * `object-kanban` face, declared by neither side.
+   *
+   * The two here are declared because their function value REACHES the board on
+   * that face, measured one channel at a time and NOT shared across the prefix
+   * (`plugin-kanban`'s `__tests__/handlerKeyDispositionsMeasured-7804.test.tsx`):
+   * `onQuickAdd` arrives at the board implementation BY IDENTITY through
+   * `ObjectKanban`'s schema spread, and `onCardClick` — substituted on that
+   * spread — arrives instead as the React PROP `ObjectKanbanComponentProps`
+   * declares, which `ObjectKanban`'s own wrapper CALLS.
+   *
+   * ⚠️ The THIRD key, `onCardMove`, is deliberately NOT here and is not drift:
+   * neither face declares it, so `undefined` meets `undefined`. Its authored
+   * value reaches nothing on this entry — the `'retired'` disposition — and
+   * `check:handler-key-reads` refuses that spelling while the renderer still
+   * reads the key, so it keeps its `KNOWN_UNDECLARED_READS` row on
+   * objectui#7804 rather than joining either face.
+   */
+  'objectql.zod.ts#ObjectKanbanSchema': 'onCardClick' | 'onQuickAdd';
   /**
    * RUNTIME SLOT (objectui#6124): the `alert-dialog` renderer spreads leftover props
    * onto the Radix `AlertDialog` root (`onOpenChange`). `onAction` joined with

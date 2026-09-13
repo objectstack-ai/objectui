@@ -38,6 +38,7 @@ import {
   getRecordDisplayName,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
+  ValueDataSource,
 } from '@object-ui/core';
 import MapGL, { NavigationControl, Marker, Popup } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
@@ -548,8 +549,14 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    * Did the platform row ceiling bite, and how large was the whole filtered
    * result set (objectui#7210)? Carried from the response that knew it —
    * `data.length === NON_GRID_ROW_CEILING` cannot tell a capped result set
-   * apart from one that is exactly that size. A host `data` prop and an inline
-   * `value` set are never truncated by us, so both reset it.
+   * apart from one that is exactly that size.
+   *
+   * ⚠️ The exempt path is the HOST `data` prop and only it — rows a host
+   * component handed down are not ours to cap, and we issued no query whose
+   * total a footnote could name. An inline `value` set IS capped
+   * (objectui#9061, porting objectui#8769): it goes through the same adapter
+   * query as every other provider, so the ceiling arrives with the same `$top`
+   * and the same footnote. This docblock used to say both paths were exempt.
    */
   const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
     truncated: false,
@@ -721,8 +728,61 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         }
 
         if (hasInlineData && dataProvider === 'value') {
-          setData(dataItems as any[]);
-          setRowCeiling({ truncated: false });
+          // THE INLINE PROVIDER NO LONGER EXITS BEFORE THE QUERY
+          // (objectui#9061, porting objectui#8769's repair off `ObjectGantt`).
+          //
+          // This branch used to be `setData(dataItems); return;` — taken
+          // BEFORE the `find` below, which is the ONE site in this file that
+          // lowers `schema.filter` onto `$filter`, `schema.sort` onto
+          // `$orderby` (via `convertSortToQueryParams`) and the objectui#7210
+          // ceiling onto `$top`. So an authored `filter` reached nothing and
+          // every authored row was plotted: the fail-OPEN direction, because
+          // the key that was dropped is the key that NARROWS. Accepting a
+          // declared key one cannot honour is the defect, and `ValueDataSource`
+          // honours all three over its own array, so they are honoured here.
+          //
+          // ⚠️ NOT a literal transplant of the gantt's diff, and the difference
+          // is structural rather than cosmetic. `ObjectGantt` resolves ONE
+          // `effectiveDataSource` for every provider, so its repair was to
+          // delete the branch and let the inline case fall through to the
+          // shared query. This effect's `find` sits INSIDE the
+          // `dataProvider === 'object'` arm, behind an `$expand` projection an
+          // inline set has no metadata to build. Falling through here would
+          // therefore throw `DataSource required for object/api providers` on a
+          // map that needs no DataSource at all. So the adapter is resolved for
+          // the inline provider ONLY — `api` keeps exactly the behaviour it had
+          // — and the same three keys are lowered onto the same query shape.
+          //
+          // Built here rather than memoised at render scope so this effect goes
+          // on reading only the primitive fields objectui#6592 named
+          // (`dataProvider`, `dataObjectName`, `dataItems`): no dependency is
+          // added or removed, so nothing about WHEN this effect re-runs changes
+          // with this repair.
+          //
+          // `ValueDataSource` ignores the resource name — it queries its own
+          // array — so this branch needs none of the object-name ladder the
+          // `object` arm below resolves.
+          const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
+          const result = await inlineSource.find('', {
+            $filter: schema.filter,
+            $orderby: convertSortToQueryParams(schema.sort),
+            // The same platform ceiling the `object` arm sends, on the same
+            // probe-row convention (objectui#7210, ruling a′). The ruling's
+            // budget is measured in DOM elements PER RECORD and its own
+            // measurement table was taken over the inline `value` provider, so
+            // an inline marker costs the browser exactly what a fetched one
+            // costs and the ruling text carves out no provider.
+            // ⛔ Still not authorable: no view key reaches this `$top`.
+            $top: NON_GRID_ROW_CEILING_TOP,
+          });
+          // Filter first, ceiling second — `ValueDataSource` applies `$filter`
+          // before `$top`, which is what the fetching path gets for free from
+          // every backend. A large inline array that an authored `filter` cuts
+          // below the ceiling therefore plots every matching row and stays
+          // quiet.
+          const capped = applyNonGridRowCeiling(result);
+          setData(capped.rows);
+          setRowCeiling({ truncated: capped.truncated, total: capped.total });
           setLoading(false);
           return;
         }

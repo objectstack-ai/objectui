@@ -58,6 +58,19 @@ import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '
 // the import phase, not under a hook timeout.
 import '../action-button';
 import '../action-icon';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const DATA = { status: 'draft' };
 
@@ -67,7 +80,7 @@ const FAILS = { dialect: 'cel', source: 'has(data.status) && data.status == "pub
 
 function mountAction(type: 'action:button' | 'action:icon', properties: Record<string, unknown>) {
   return render(
-    <SchemaRendererProvider dataSource={DATA}>
+    <SchemaRendererProvider dataSource={DATA as unknown as DataSource}>
       <PredicateScopeProvider scope={{ data: DATA }}>
         <SchemaRenderer
           schema={

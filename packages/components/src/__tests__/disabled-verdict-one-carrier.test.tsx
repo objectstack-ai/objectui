@@ -30,7 +30,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
-import { SchemaRenderer, SchemaRendererContext } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererContext, PredicateScopeProvider } from '@object-ui/react';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout` (objectui#3010/#3021).
 import '../renderers';
@@ -38,9 +38,11 @@ import '../renderers';
 /** `${data.locked}` resolves against this — the `dataSource` on the context. */
 function renderNode(schema: Record<string, unknown>, locked: boolean) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: { locked } } as never}>
+    <PredicateScopeProvider scope={{ data: { locked } }}>
+      <SchemaRendererContext.Provider value={{ dataSource: { locked } } as never}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+    </PredicateScopeProvider>,
   );
 }
 

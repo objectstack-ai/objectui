@@ -12,6 +12,18 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererProvider } from '../context/SchemaRendererContext';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are placeholders for a provider that merely has to EXIST, and one probe
+ * that pins the empty-object case by name.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const PassthroughDiv: React.FC<any> = (props) => {
   const { schema, ...rest } = props;
@@ -37,7 +49,7 @@ describe('SchemaRenderer — dev-mode validation', () => {
 
   it('does not warn for a well-formed schema', () => {
     render(
-      <SchemaRendererProvider dataSource={{}}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
         <SchemaRenderer schema={{ type: 'valid-host', id: 'ok' }} />
       </SchemaRendererProvider>
     );
@@ -58,7 +70,7 @@ describe('SchemaRenderer — dev-mode validation', () => {
     ComponentRegistry.register('host-wrap', HostWithChild);
 
     render(
-      <SchemaRendererProvider dataSource={{}}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
         <SchemaRenderer
           schema={{
             type: 'host-wrap',
@@ -90,7 +102,7 @@ describe('SchemaRenderer — dev-mode validation', () => {
       children: [bad],
     };
     const { getByTestId } = render(
-      <SchemaRendererProvider dataSource={{}}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
         <SchemaRenderer schema={schema} />
       </SchemaRendererProvider>
     );
@@ -106,7 +118,7 @@ describe('SchemaRenderer — dev-mode validation', () => {
     };
 
     const { rerender } = render(
-      <SchemaRendererProvider dataSource={{}}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
         <SchemaRenderer schema={schema} />
       </SchemaRendererProvider>
     );
@@ -115,7 +127,7 @@ describe('SchemaRenderer — dev-mode validation', () => {
     ).length;
 
     rerender(
-      <SchemaRendererProvider dataSource={{ tick: 1 }}>
+      <SchemaRendererProvider dataSource={{ tick: 1 } as unknown as DataSource}>
         <SchemaRenderer schema={schema} />
       </SchemaRendererProvider>
     );

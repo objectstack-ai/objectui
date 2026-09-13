@@ -10,7 +10,12 @@
  * Two of the three handler keys `KanbanRenderer` reads off the authored
  * document are now JUDGED by the `object-kanban` arm, and each one's
  * objectui#6124 disposition is MEASURED here rather than shared across the
- * prefix (objectui#7804, the `plugin-kanban` slice of the 39-row finding;
+ * prefix (objectui#7804, the `plugin-kanban` slice of the
+ * `KNOWN_UNDECLARED_READS` finding — ⛔ its row count is NOT written down here.
+ * This file reads that ledger live, through the import below, and
+ * `node scripts/check-handler-key-read-sites.mjs` prints the count while its
+ * `--list` enumerates the rows. AGENTS.md #9: the figure this line used to
+ * hard-code has since been overtaken by the population it described;
  * director seat ruling of 2026-09-07, decision batch #69).
  *
  * ## The exposure this closes

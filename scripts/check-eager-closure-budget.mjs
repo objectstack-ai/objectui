@@ -537,6 +537,47 @@ export const BASELINE = Object.freeze({
   chunks: 51,
   totalChunks: 528,
   commit: '755d34a5f',
+
+  /**
+   * The squash merge that carried that branch onto `main` — recorded here so
+   * the provenance above is checkable with `git` and nothing else
+   * (objectui#9355).
+   *
+   * ⛔ NOT a correction, and ⛔ never a substitute for the field above. The
+   * PROVENANCE paragraph's ruling stands exactly as written: the field above
+   * names the tree the reading was taken on, that is the whole point of the
+   * convention, and no commit on `main` has that tree. This is the OTHER half
+   * — a sha that resolves — so a reader who tries to re-check the measurement
+   * gets a handle rather than the dead end that paragraph describes. Both legs,
+   * taken in a checkout where `git rev-parse --is-shallow-repository` answers
+   * `false`, so the absence is GENUINE and ⛔ not a shallow-clone artefact:
+   *
+   *     git cat-file -t 77b2a18a16  ->  commit
+   *     git cat-file -t 755d34a5f   ->  fatal: Not a valid object name
+   *
+   * ⚠️ The two name DIFFERENT TREES, and the distance between them is measured
+   * rather than assumed. 22 further commits of that branch separate them, worth
+   * 191 gzipped bytes on the aggregate this constant pins — 3,165,008 read on
+   * the merge against the 3,164,817 recorded above, 0.0021x the regression this
+   * gate must catch. ⛔ That figure is a CITATION of objectui#9209's round on
+   * these two trees and is ⛔ not re-measured here; it is a fact about THIS
+   * pair and says nothing about the next one.
+   *
+   * ⚠️ This field can only ever be BACK-FILLED, which is the one thing a future
+   * re-baseline has to know about it. A squash sha does not exist until the
+   * pull request merges, so the change that re-pins the field above ⛔ cannot
+   * write its own here. ⛔ Do not guess one, and ⛔ do not carry this one
+   * forward onto a reading it was not taken with: a wrong sha in this position
+   * is worse than an absent one, because unlike the field above it RESOLVES,
+   * and a reader who builds the wrong tree gets a plausible number instead of
+   * an error. Write `null` and let a follow-up name the merge once it exists.
+   * That reds the ledger case in
+   * `scripts/__tests__/check-eager-closure-budget.test.ts` which records what
+   * this constant carries as data, and redding there is the intended signal —
+   * the ledger is re-pinned deliberately, ⛔ never widened to accept either
+   * shape.
+   */
+  squashMerge: '77b2a18a16',
 });
 
 /**

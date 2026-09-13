@@ -49,10 +49,17 @@
  *
  * ## DIRECTION, predicted before running
  *
- * On the unmodified tree the four CANONICAL rows (`is_empty`, `is_not_empty`,
- * `is_null`, `is_not_null`) are RED — each draws 1 value input where 0 is
- * required. Everything else is GREEN in both directions and is carried for a
- * named reason, not for coverage:
+ * On the unmodified tree every spelling of a value-less operator that is NOT
+ * literally a member of the exported set is RED — each draws 1 value input
+ * where 0 is required. ⛔ That population is not written down here: the derived
+ * table below walks `VIEW_FILTER_OPERATORS` and `VIEW_FILTER_OPERATOR_ALIASES`
+ * and `--reporter=verbose` names each row it measured. Writing the count down
+ * is what went wrong the first time — the literal table named the canonical
+ * spellings and missed the all-lowercase alias rows, which move exactly the
+ * same way and had nothing pinning them (objectui#9358).
+ *
+ * Everything else is GREEN in both directions and is carried for a named
+ * reason, not for coverage:
  *
  *   - the six DROPDOWN ids draw 0 today and must keep drawing 0 — the
  *     over-reach guard. A repair that folded only one direction, or that
@@ -67,9 +74,13 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { normalizeFilterOperator } from '@objectstack/spec/ui';
+import {
+  normalizeFilterOperator,
+  VIEW_FILTER_OPERATORS,
+  VIEW_FILTER_OPERATOR_ALIASES,
+} from '@objectstack/spec/ui';
 import {
   FilterBuilder,
   VALUELESS_FILTER_BUILDER_OPERATORS,
@@ -167,6 +178,134 @@ const ROWS: ReadonlyArray<{
   { operator: 'equals', label: 'Equals', inputs: 1, dialect: 'control' },
 ];
 
+/**
+ * ## The DERIVED table — the instrument, not a second literal list
+ *
+ * `ROWS` above is a hand-written table, and a hand-written table is exactly how
+ * a spelling goes unmeasured: the first pass of this pin named four canonical
+ * rows and stopped there, while the repair moves every spelling the spec
+ * publishes for those operators (objectui#9358). So the row set below is not
+ * listed — it is re-derived on every run from the two published tables, and
+ * whatever they hold on the day of the run is what gets measured.
+ *
+ *   - `VIEW_FILTER_OPERATORS` — the spec's canonical vocabulary. Intersected
+ *     with the exported set folded onto it, this yields the canonical spellings
+ *     THIS builder leaves value-less. Nothing here decides which those are; the
+ *     builder's own export does, and the fold carries it across.
+ *   - `VIEW_FILTER_OPERATOR_ALIASES` — every other spelling the spec accepts
+ *     for one of those canonical members. The camelCase rows of this table are
+ *     the builder's own dropdown ids; the rest (today: the all-lowercase rows)
+ *     are spellings no literal table here ever named.
+ *
+ * ⛔ Do not replace this with the list it currently produces. The count is not
+ * written down anywhere in this file on purpose — `--reporter=verbose` names
+ * each case it ran, and the guards below fail rather than run zero cases.
+ */
+const foldedExportedSet: ReadonlySet<string> = new Set(
+  [...VALUELESS_FILTER_BUILDER_OPERATORS].map(normalizeFilterOperator),
+);
+
+/** The canonical spellings this builder leaves value-less — derived, not listed. */
+const CANONICAL_VALUELESS: readonly string[] = (
+  VIEW_FILTER_OPERATORS as readonly string[]
+).filter((op) => foldedExportedSet.has(op));
+
+/**
+ * The dropdown id that folds onto a canonical spelling — that row's TWIN, and
+ * the anchor each derived case is read against. `exists` / `notExists` have no
+ * canonical member to fold to, so they never appear here; they stay in `ROWS`.
+ */
+const dropdownTwin = (canonical: string): string | undefined =>
+  [...VALUELESS_FILTER_BUILDER_OPERATORS].find(
+    (id) => normalizeFilterOperator(id) === canonical,
+  );
+
+/** Every spelling the spec publishes for one of those operators. */
+const SPEC_SPELLINGS: ReadonlyArray<{
+  spelling: string;
+  canonical: string;
+  dialect: 'canonical' | 'alias(dropdown id)' | 'alias';
+}> = [
+  ...CANONICAL_VALUELESS.map(
+    (canonical) => ({ spelling: canonical, canonical, dialect: 'canonical' }) as const,
+  ),
+  ...Object.entries(VIEW_FILTER_OPERATOR_ALIASES)
+    .filter(([, canonical]) => CANONICAL_VALUELESS.includes(canonical))
+    .map(([spelling, canonical]) => ({
+      spelling,
+      canonical: canonical as string,
+      dialect: VALUELESS_FILTER_BUILDER_OPERATORS.has(spelling)
+        ? ('alias(dropdown id)' as const)
+        : ('alias' as const),
+    })),
+];
+
+describe('objectui#9358 — every spelling the spec publishes for these operators, derived', () => {
+  it.each(SPEC_SPELLINGS)(
+    '$dialect `$spelling` folds to `$canonical` and draws its twin row with 0 value inputs',
+    ({ spelling, canonical }) => {
+      const twin = dropdownTwin(canonical);
+      expect(twin, `no dropdown id folds onto \`${canonical}\``).toBeDefined();
+
+      // The twin is this reading's anchor, so read it first and refuse a
+      // degenerate one: a BLANK trigger, or one echoing the raw id, would make
+      // "draws the same row" vacuously true for every spelling at once.
+      const twinRender = renderRow(twin as string);
+      const twinTrigger = operatorTriggerText();
+      expect(twinTrigger, `the twin \`${twin}\` drew a blank trigger`).toMatch(/\S/);
+      expect(twinTrigger, `the twin \`${twin}\` echoed its raw id`).not.toBe(twin);
+      expect(valueInputCount(twinRender.container)).toBe(0);
+      cleanup();
+
+      const { container } = renderRow(spelling);
+      expect(operatorTriggerText()).toBe(twinTrigger);
+      expect(
+        valueInputCount(container),
+        `the builder drew ${valueInputCount(container)} value input(s) for "${spelling}" `
+          + `but the row reads "${twinTrigger}". Two spellings of one operator must draw one row`,
+      ).toBe(0);
+    },
+  );
+
+  it('⛔ the derived table is not vacuous, and it reaches past the literal one', () => {
+    // An `it.each` over an empty or mis-derived array runs ZERO cases and is
+    // green, so the derivation is guarded here rather than trusted. These are
+    // FLOORS, deliberately not a census — they fail when the derivation breaks
+    // and stay quiet when the spec grows a spelling (which is the point).
+    expect(CANONICAL_VALUELESS.length).toBeGreaterThanOrEqual(4);
+    expect(SPEC_SPELLINGS.length).toBeGreaterThan(CANONICAL_VALUELESS.length);
+
+    // Every canonical row has a twin to be read against and at least one alias,
+    // so no canonical is measured alone and no case silently skips its anchor.
+    for (const canonical of CANONICAL_VALUELESS) {
+      expect(dropdownTwin(canonical), canonical).toBeDefined();
+      expect(
+        SPEC_SPELLINGS.filter((r) => r.dialect !== 'canonical' && r.canonical === canonical).length,
+        canonical,
+      ).toBeGreaterThanOrEqual(1);
+    }
+
+    // The instrument reaches spellings `ROWS` never named — the objectui#9358
+    // gap. Without this the derived table could quietly shrink to the literal
+    // one and still be green.
+    const literal = new Set(ROWS.map((r) => r.operator));
+    const beyond = SPEC_SPELLINGS.filter((r) => !literal.has(r.spelling));
+    expect(beyond.length, 'the derived table adds nothing over the literal one').toBeGreaterThanOrEqual(4);
+
+    // …and it never drifts BEHIND it: every literal row the spec knows is
+    // derived too, so the two tables cannot disagree about a shared spelling.
+    const derived = new Set(SPEC_SPELLINGS.map((r) => r.spelling));
+    for (const op of literal) {
+      const specKnows =
+        (VIEW_FILTER_OPERATORS as readonly string[]).includes(op)
+        || Object.prototype.hasOwnProperty.call(VIEW_FILTER_OPERATOR_ALIASES, op);
+      if (specKnows && foldedExportedSet.has(normalizeFilterOperator(op))) {
+        expect(derived.has(op), op).toBe(true);
+      }
+    }
+  });
+});
+
 describe('objectui#9302 — one operator, one row, whichever spelling it arrives in', () => {
   it.each(ROWS)(
     '$dialect `$operator` draws "$label" and $inputs value input(s)',
@@ -187,20 +326,26 @@ describe('objectui#9302 — one operator, one row, whichever spelling it arrives
   it('the firing cases really can fire — they are outside the exported set', () => {
     // The instrument standard: a table built only on spellings the raw `has()`
     // already matched would be green before ANY fix and would measure nothing.
-    const canonical = ROWS.filter((r) => r.dialect === 'canonical');
-    expect(canonical.length).toBeGreaterThanOrEqual(4);
-    for (const row of canonical) {
+    //
+    // Read off the DERIVED table, not a literal one, so the answer to "which
+    // rows actually fire" comes from the published tables too. The firing rows
+    // are exactly those the raw `has()` could not match literally — today that
+    // is every canonical member plus every alias that is not itself a dropdown
+    // id (objectui#9358; the first pass of this pin saw only half of them).
+    const firing = SPEC_SPELLINGS.filter(
+      (r) => !VALUELESS_FILTER_BUILDER_OPERATORS.has(r.spelling),
+    );
+    expect(firing.length).toBeGreaterThan(CANONICAL_VALUELESS.length);
+    for (const row of firing) {
       // Not a member — so the raw lookup could not have matched it literally…
-      expect(VALUELESS_FILTER_BUILDER_OPERATORS.has(row.operator)).toBe(false);
+      expect(VALUELESS_FILTER_BUILDER_OPERATORS.has(row.spelling), row.spelling).toBe(false);
       // …and it folds ONTO a member, which is what makes the repair reach it.
-      const foldedMembers = new Set(
-        [...VALUELESS_FILTER_BUILDER_OPERATORS].map(normalizeFilterOperator),
-      );
-      expect(foldedMembers.has(normalizeFilterOperator(row.operator))).toBe(true);
+      expect(foldedExportedSet.has(normalizeFilterOperator(row.spelling)), row.spelling).toBe(true);
     }
     // …and the control is in neither, which is why it keeps its input.
     expect(VALUELESS_FILTER_BUILDER_OPERATORS.has('equals')).toBe(false);
     expect(normalizeFilterOperator('equals')).toBe('equals');
+    expect(foldedExportedSet.has(normalizeFilterOperator('equals'))).toBe(false);
   });
 });
 

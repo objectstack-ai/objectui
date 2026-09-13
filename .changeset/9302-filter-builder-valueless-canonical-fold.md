@@ -5,14 +5,23 @@
 fix(components): `FilterBuilder`'s value-input gate folds the operator, so one operator draws one row whichever spelling it arrives in (objectui#9302)
 
 `needsValueInput` did a raw `has()` against `VALUELESS_FILTER_BUILDER_OPERATORS`,
-whose members are this builder's six camelCase dropdown ids. A row carrying the
-spec's CANONICAL spelling — `is_null`, `is_empty`, `is_not_null`,
-`is_not_empty`, which is what `foldFilterGroupToSpecRules` persists and what any
-spec-side producer emits — missed the set and was treated as value-taking. The
-row drew a box to type a value into, directly beside a trigger reading
-`Is null`. Measured through the real builder on one `text` column: the canonical
-spelling drew **1** value input where its camelCase twin drew **0**, with
-`equals` drawing 1 in both (it really does take a value).
+whose members are this builder's six camelCase dropdown ids. Every OTHER
+spelling the spec publishes for those same operators missed the set and was
+treated as value-taking — the canonical members of `VIEW_FILTER_OPERATORS` that
+those ids fold onto, which is what `foldFilterGroupToSpecRules` persists and what
+any spec-side producer emits, and every row of `VIEW_FILTER_OPERATOR_ALIASES`
+pointing at one of them. The row drew a box to type a value into, directly beside
+a trigger reading `Is null`.
+
+Which spellings those are is deliberately not listed here. The pin walks those
+two published tables and names every row it measured, so the population is
+re-derived on each run rather than restated in prose that cannot move with it —
+the first pass of this changeset named four and the behaviour covered twice that
+(objectui#9358). Measured through the real builder on one `text` column: every
+spelling the pin enumerates drew **1** value input where its camelCase dropdown
+twin drew **0**, with `equals` drawing 1 in both arms (it really does take a
+value) — the firing control that makes a uniform zero a reading rather than a
+dead harness.
 
 Both sides of the lookup now fold through the spec's `normalizeFilterOperator`.
 That is the same fold `filterValueArity` and `reconcileOperatorForField` in this

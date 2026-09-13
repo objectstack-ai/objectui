@@ -10,8 +10,10 @@
  *   node scripts/check-upstream-port-parity.mjs --resync <upstream-file> --ref <sha>
  *                                                            # the deliberate re-sync act
  *   …the same, plus --rewrite-governed-file                   # …when the ported file is
- *                                                            # GOVERNED SURFACE and you are
- *                                                            # the human merging it
+ *                                                            # GOVERNED SURFACE — for whoever
+ *                                                            # can PROVE the re-sync
+ *                                                            # content-neutral BEFOREHAND, and
+ *                                                            # for the merging human otherwise
  *
  * ## What this gate is for
  *
@@ -126,8 +128,23 @@
  * So the write path asks `check-governed-queue-guard.mjs` — the repository's own
  * definition of that surface, reused rather than re-listed, so the two can never
  * disagree — and refuses, naming the path, its surface and the flag that
- * proceeds anyway. `--rewrite-governed-file` is spelled long on purpose: it is
- * for the human doing the merge, and it reads as what it does at the call site.
+ * proceeds anyway. `--rewrite-governed-file` is spelled long on purpose: it
+ * reads as what it does at the call site, and it is typed by whoever can PROVE
+ * the re-sync content-neutral beforehand — digests computed independently
+ * before the run, equal to what the pin holds after it — and by the merging
+ * human otherwise.
+ *
+ * The worked example is PR #9300: six pinned hook entries had drifted, the
+ * gate's own `--resync` was the required act, and before it ran every new
+ * `upstreamSha256` was shown to equal the sha256 of `git show origin/main:PATH`
+ * taken in the objectstack checkout. Every re-synced file then came back
+ * byte-identical to the committed one, so the rewrite moved no governed byte —
+ * which is the whole content of the permission. ⛔ The same digests computed
+ * AFTERWARDS do not qualify: by then the bytes are written, and a rewrite that
+ * turns out to have been content-neutral is still a rewrite nobody chose.
+ * What the reservation was always aiming at is a SILENT rewrite from another
+ * repository's bytes, not the identity of the person at the keyboard
+ * (objectui#9303, ruled 2026-09-13).
  *
  * ⛔ The CHECK path is NOT governed by any of this. A drifted governed port reds
  * exactly like any other, with no flag and no exemption — the refusal is about
@@ -360,8 +377,10 @@ function resyncCommand(pin, entry) {
 }
 
 /**
- * The flag that lets `--resync` write a GOVERNED file. Long on purpose: it is
- * typed by the human doing the merge, and it has to read as what it does.
+ * The flag that lets `--resync` write a GOVERNED file. Long on purpose: it has
+ * to read as what it does at the call site. It is typed by whoever can PROVE
+ * the re-sync content-neutral beforehand, and by the merging human otherwise —
+ * that condition, and the worked example behind it, are in this file's header.
  */
 export const RESYNC_GOVERNED_FLAG = '--rewrite-governed-file';
 
@@ -400,7 +419,9 @@ export function resyncWriteVerdict(portedPath, { allowGoverned = false } = {}) {
       `A re-sync would replace it with another repository's bytes, which is a governed-surface`,
       `edit nobody chose. The pin is unchanged and nothing was written.`,
       `  • To see what a re-sync WOULD do, diff the upstream file against this one by hand.`,
-      `  • To do it anyway — as the human doing that merge — pass ${RESYNC_GOVERNED_FLAG}.`,
+      `  • To do it anyway, PROVE it content-neutral FIRST: compute the upstream digest`,
+      `    independently and require it to equal what the pin will hold afterwards. With`,
+      `    that proof — or as the merging human — pass ${RESYNC_GOVERNED_FLAG}.`,
       `  • Registering this file in the pin is NOT affected: checking is not writing, and a`,
       `    drifted governed port reds this gate with no flag and no exemption.`,
     ],

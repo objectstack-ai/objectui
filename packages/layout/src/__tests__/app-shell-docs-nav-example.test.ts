@@ -75,6 +75,11 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { Folder, Home, LayoutDashboard, Settings, Users } from 'lucide-react';
 import type { NavItem, SidebarNavProps } from '../SidebarNav';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /** Repo root — four levels up from `packages/layout/src/__tests__`. */
 const REPO_ROOT = resolve(__dirname, '../../../..');
@@ -216,7 +221,7 @@ interface DeclaredProp {
 
 /** Drop block and line comments, so a trailing `// …` never lands in a type. */
 function stripComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  return mask(text);
 }
 
 /**

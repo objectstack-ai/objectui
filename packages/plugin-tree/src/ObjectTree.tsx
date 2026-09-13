@@ -907,11 +907,16 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         {(record) => {
           const rec = record as Record<string, any>;
           const recordId = rec.id ?? rec._id;
-          if (!overlayObjectName || recordId == null) {
-            // No addressable record behind this row — the payload needs an
-            // object and an id to render field widgets against. Falling back to
-            // the plain reading of what the row carries is honest; inventing an
-            // id would not be.
+          // ⚠️ DECLARED-FIELDS GATE — the same reading `ObjectGrid` carries, for
+          // the same measured reason: the shared payload renders the object's
+          // DECLARED fields, so a tree with no object schema has nothing for it
+          // to render typed and the plain reading of the row is the better
+          // answer.
+          const hasDeclaredFields = !!objectSchema?.fields
+            && Object.keys(objectSchema.fields as Record<string, unknown>).length > 0;
+          if (!overlayObjectName || recordId == null || !hasDeclaredFields) {
+            // No addressable record, or nothing declared to render against —
+            // the plain reading of what the row carries is the honest answer.
             return (
               <div className="space-y-3 p-4">
                 {Object.entries(rec).map(([key, value]) => (

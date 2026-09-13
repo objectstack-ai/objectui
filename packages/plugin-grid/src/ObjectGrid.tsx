@@ -4655,8 +4655,25 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // and this renderer has no per-field write path to hand the panel. What
     // changes is the FIDELITY of the reading (declared labels, typed widgets,
     // honoured `hidden`, the object's own field order), not the ability to edit.
+    // ⚠️ DECLARED-FIELDS GATE, measured rather than assumed. The shared payload
+    // renders the object's DECLARED fields: `RecordDetailPanel` derives widgets
+    // from `objectSchema.fields[name].type`. The panel below renders the same
+    // values by INFERRING from them — a date-shaped string on a `*_date` key,
+    // a number on an `amount`-ish key — which is what objectui#4541 (locale-
+    // aware date fallback), objectui#8491 (the localized `Empty` placeholder)
+    // and objectui#8920 (the `format` hint) put here. A grid with no object
+    // schema — inline `value` rows, or a DataSource with no `getObjectSchema`
+    // — has NOTHING declared, so handing it to the shared payload renders raw
+    // ISO strings where a localized date used to be. Measured on this branch:
+    // `recordDetailDateLocale` read back `close_date2024-03-15` in a zh
+    // session. So the shared payload takes every grid that HAS declared
+    // fields — every console surface — and the inference reading stands where
+    // there is nothing to declare. ⛔ Not a preference: it is which of the two
+    // can render the value at all.
     const panelRecordId = rowRecordId(record);
-    if (schema.objectName && panelRecordId != null) {
+    const hasDeclaredFields = !!objectSchema?.fields
+      && Object.keys(objectSchema.fields as Record<string, unknown>).length > 0;
+    if (schema.objectName && panelRecordId != null && hasDeclaredFields) {
       return (
         <div className="px-6 pt-6 pb-6" data-testid="record-detail-panel">
           <RecordDetailPanel
@@ -5279,8 +5296,23 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     />
   );
 
-  // For split mode, wrap the grid in the ResizablePanelGroup
-  if (navigation.isOverlay && navigation.mode === 'split') {
+  // For split mode, wrap the grid in the ResizablePanelGroup.
+  //
+  // ⭐ objectui#9299, MEASURED WHILE REPAIRING THIS CARD and repaired here.
+  // This branch used to be entered on the authored mode alone, and the shell's
+  // split branch opens `if (!isOpen || !mainContent) return null` — so a grid
+  // authored `split` rendered NOTHING until a record was selected, and a record
+  // could never be selected because there was no grid to click. Same defect
+  // class as the `ObjectTree` blank the card names, on the renderer the card
+  // calls correct; the card's measurement read only that `mainContent` is
+  // PASSED here, never that the closed state renders. Ruling item 2 requires
+  // `split` to work on all five, so the guard joins the open state.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
     return (
       <>
         <NavigationOverlay

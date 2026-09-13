@@ -243,6 +243,61 @@ does not. The set and the measurement behind it are
 
 ## Components
 
+### RecordDetailPanel
+
+The record overlay's **payload**, with no shell of its own: one
+`InlineEditProvider` session wrapping `DetailView` plus the record-level
+`InlineEditSaveBar`, and the `objectSchema` → typed-field derivation that feeds
+them.
+
+All five list-type renderers (`ObjectGrid`, `ObjectTree`, `ObjectGantt`,
+`ObjectKanban`, `ObjectCalendar`) mount this component through
+`NavigationOverlay` from `@object-ui/components`, so an authored
+`navigation.mode` of `drawer` / `modal` / `split` / `popover` means the same
+thing on every view type (objectui#9299). ⛔ Do not re-wrap it in a shell of
+your own — that is exactly the fork this component exists to remove.
+
+```tsx
+import { NavigationOverlay } from '@object-ui/components';
+import { RecordDetailPanel } from '@object-ui/plugin-detail';
+
+<NavigationOverlay {...navigation} title="Record Detail" mainContent={myView}>
+  {(record) => (
+    <RecordDetailPanel
+      record={record}
+      objectName="contacts"
+      recordId={record.id}
+      dataSource={dataSource}
+      objectSchema={objectSchema}
+      onFieldSave={saveField}   // omit → strictly read-only
+      onDelete={deleteRecord}   // omit → no delete action
+      onClose={navigation.close}
+    />
+  )}
+</NavigationOverlay>
+```
+
+**Capability is handler presence, not a boolean.** A caller that omits
+`onFieldSave` gets a read-only panel and one that omits `onDelete` gets no
+delete action — which is what lets a row locked through a renderer's `lockField`
+open read-only without the panel knowing what a lock is.
+
+`RECORD_OVERLAY_DEFAULT_WIDTH` is exported alongside it and is the single code
+home of the default overlay width repo-wide. ⛔ Do not re-spell the literal at a
+call site.
+
+### RecordDetailDrawer
+
+The same payload in the drawer shell — a published convenience wrapper that
+delegates to `NavigationOverlay` in `mode="drawer"`. It no longer owns a
+`Sheet`, a drag-resize implementation, or a chrome header of its own
+(objectui#9299).
+
+A width a user had already dragged is persisted by the shell under
+`ov:drawer-width:<objectName>`; a width left by the retired implementation under
+`objectui.drawerWidth.<objectName>` is read once, moved forward and removed, so
+existing widths carry over rather than reset.
+
 ### DetailSection
 
 Renders a group of fields with optional collapsing.

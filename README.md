@@ -72,7 +72,7 @@ npm install @object-ui/react @object-ui/components
 
 ```tsx
 import React from 'react'
-import { SchemaRenderer } from '@object-ui/react'
+import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
 // Importing the package registers every default renderer as a side effect —
 // there is no separate registration call.
 import '@object-ui/components'
@@ -92,15 +92,27 @@ const schema = {
 }
 
 function App() {
-  const data = {
+  // Every key of this object becomes a root the schema's expressions can read —
+  // `stats` here is what answers `${stats.users}`.
+  const scope = {
     stats: { users: 1234, revenue: "$56,789", orders: 432 }
   }
 
-  return <SchemaRenderer schema={schema} data={data} />
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
 }
 
 export default App
 ```
+
+Expression scope reaches the renderer through the provider, never through a prop on the
+element. `SchemaRenderer` declares exactly one prop, `schema`, and forwards every other prop
+it is handed to the component the schema names — so a value passed as `data={…}` is neither
+read nor refused, and the expression that wanted it is returned as its own source text, with
+nothing thrown and nothing logged.
 
 ### Bring your own backend
 
@@ -170,6 +182,10 @@ Vite/Next.js app. `schema-catalog` is a data package — the canonical JSON sche
 docs render, a smoke test mounts, and AI agents use as a few-shot corpus.
 
 ## Copy-Paste Schemas
+
+A `${name.…}` in any of these reads the root `name` off the scope the host published — see
+["Basic Usage"](#basic-usage) for the provider that publishes one. A head name nothing
+published is not an error: the expression is returned as its own source text.
 
 #### 📝 Contact Form
 
@@ -258,9 +274,9 @@ Object UI talks to any backend through one `DataSource` interface.
 npm install @object-ui/data-objectstack
 ```
 
-```typescript
+```tsx
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import type { BaseSchema } from '@object-ui/types';
 
 // Your page schema — "Render a schema" above writes one out in full.
@@ -271,9 +287,17 @@ const dataSource = createObjectStackAdapter({
   token: 'your-auth-token'
 });
 
-// Use with any component
-<SchemaRenderer schema={schema} dataSource={dataSource} />
+// The adapter is injected through the provider — `SchemaRenderer` does not read
+// a `dataSource` prop, it forwards it to the component the schema names.
+<SchemaRendererProvider dataSource={dataSource}>
+  <SchemaRenderer schema={schema} />
+</SchemaRendererProvider>
 ```
+
+⛔ `dataSource` is the **adapter** — the object data renderers call `find()` on — and not an
+expression root. It is a different channel from the expression scope above: publish the values
+your `${…}` expressions read with `PredicateScopeProvider`, and inject the adapter your data
+components query with `SchemaRendererProvider`.
 
 ### Custom Data Sources
 

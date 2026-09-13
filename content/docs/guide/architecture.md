@@ -52,7 +52,7 @@ ObjectUI is organized as a PNPM monorepo with clear separation of concerns:
 - **Contains**: Schema validation, expression evaluation, registries
 - **Constraint**: No UI library dependencies, logic only
 - **Features**: 
-  - Expression engine (`visible: "${data.age > 18}"`)
+  - Expression engine (`visible: "${record.age > 18}"`)
   - Schema registry and validation
   - Event system
 
@@ -132,14 +132,19 @@ A backend system sends a JSON schema:
 
 The `SchemaRenderer` component:
 
-1. Receives the schema + data context
+1. Receives the schema, and reads the expression scope off the context above it
 2. Evaluates expressions (`${user.name}`)
 3. Looks up the component type in the registry
 4. Recursively renders child schemas
 5. Handles events and state updates
 
+The scope does **not** arrive as a prop. `SchemaRenderer` declares exactly one prop, `schema`,
+and forwards everything else it is handed to the component the schema names — so a `data={…}`
+written on the element is neither read nor refused. The host publishes its values with
+`PredicateScopeProvider`, and every key it publishes becomes a root the expressions can read:
+
 ```tsx
-import { SchemaRenderer } from '@object-ui/react'
+import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
 import type { BaseSchema } from '@object-ui/types'
 
 // The schema from step 1, as the object the renderer receives.
@@ -153,11 +158,24 @@ const schema: BaseSchema = {
 }
 
 function App() {
-  const data = { user: { name: 'Alice' } }
+  const scope = { user: { name: 'Alice' } }
 
-  return <SchemaRenderer schema={schema} data={data} />
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
 }
 ```
+
+An app built on `@object-ui/app-shell` does not mount this provider itself: the shell's
+`ExpressionProvider` already feeds the same channel with the signed-in `user` (also readable as
+`current_user`) and `features`. On top of what the host published, the renderer supplies
+`record` — the row a record surface is bound to — and `page`, the page-local variables.
+
+⛔ `SchemaRendererProvider`'s `dataSource` is **not** an expression root. It carries the host's
+`DataSource` *adapter*, the object data renderers call `find()` on; the two are different
+channels on purpose.
 
 ### 3. Component Registry Lookup
 
@@ -244,10 +262,16 @@ ObjectUI includes a powerful expression engine for dynamic UIs:
 {
   "type": "button",
   "label": "Submit",
-  "visible": "${form.isValid && !form.isSubmitting}",
-  "disabled": "${form.isSubmitting}"
+  "visible": "${current_user.role === 'admin'}",
+  "disabled": "${record.status === 'locked'}"
 }
 ```
+
+`current_user` is the signed-in user the host's `ExpressionProvider` publishes; `record` is the
+row a record surface is bound to, and is the only spelling a row field has — the bare shorthand
+(`status`) and the wrong-layer `data.status` were both retired on runtime record surfaces
+(objectui#5330 phase 2). A head name outside the scope is not refused: the predicate is
+unevaluable, this surface fails soft, and the node is shown on every row.
 
 A button's text key is `label`, and `text` is not a `ButtonSchema` key at all. Nothing
 refuses the misspelling either: `BaseSchema` is `.passthrough()`, so the validator KEEPS

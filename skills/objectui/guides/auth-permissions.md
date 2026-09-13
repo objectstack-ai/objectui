@@ -35,6 +35,8 @@ function App() {
 
 ### useAuth hook
 
+Guard `user` on its own, not through `isAuthenticated`: in guest mode (`enabled: false`) and in preview mode, `AuthProvider` hardcodes `isAuthenticated` to `true` while `user` stays `null`, so a signed-in-looking context can still carry no user. The shipped `UserMenu` guards both members the same way.
+
 ```typescript
 import { useAuth } from '@object-ui/auth';
 
@@ -42,7 +44,7 @@ function UserBadge() {
   const { user, isAuthenticated, isLoading, error, signOut } = useAuth();
 
   if (isLoading) return <Spinner />;
-  if (!isAuthenticated) return <LoginButton />;
+  if (!isAuthenticated || !user) return <LoginButton />;
 
   return (
     <div>

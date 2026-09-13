@@ -414,6 +414,140 @@ ComponentRegistry.register('button', ({ schema }: any) => <b onClick={schema.onC
   });
 });
 
+/**
+ * objectui#9344 — a cast ERASES the receiver, and this census read the AST
+ * literally enough to lose the read along with it.
+ *
+ * `(schema as any).onTabChange` and `schema.onTabChange` emit the same property
+ * access on the same object: the cast is gone before anything runs. So this is
+ * not a channel the gate had declared itself out of — the docblock lists five of
+ * those and a cast is none of them — it was an undeclared hole, and two LIVE
+ * reads sat in it while the census count that missed them was quoted as a
+ * population in one ruling and six dispatches (objectui#7804's "39").
+ *
+ * ⚠️ The first leg is the FIRING NEGATIVE CONTROL, and it is what makes every
+ * other green in this file mean something. Before the fix this exact fixture was
+ * GREEN. Without a leg that reddens on a cast-hidden read, a green gate cannot
+ * distinguish "now covered" from "still blind" — which is the whole failure
+ * objectui#9344 measured.
+ */
+describe('check-handler-key-read-sites — a cast does not hide a read (objectui#9344)', () => {
+  // ⚠️ The fixture key is `onTabSwap`, not the live `onTabChange`, and that is
+  // load-bearing rather than cosmetic: `KNOWN_UNDECLARED_READS` is global, so a
+  // fixture naming the same `type::Schema.key` as a real ledger row is EXEMPTED
+  // and reports no finding. Spelled `onTabChange`, the negative control below
+  // went green for that reason alone — a green that says nothing about whether
+  // the gate can see a cast.
+  const behindCast = (members: string[], read: string) => ({
+    'packages/types/src/zod/base.zod.ts': BASE,
+    'packages/types/src/zod/layout.zod.ts': arm('tabs', 'TabsSchema', members),
+    'packages/plugin-tabs/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+export const TabsRenderer = ({ schema }: { schema: any }) => (
+  <Tabs onValueChange={${read}} />
+);
+ComponentRegistry.register('tabs', TabsRenderer, { namespace: 'view' });
+`,
+  });
+
+  // ⭐ THE FIRING NEGATIVE CONTROL. A handler read deliberately hidden behind a
+  // cast, on an arm that declares nothing, must turn the gate RED. This leg
+  // fails on the gate as it stood before objectui#9344 — that is its job.
+  it('goes RED on a handler read hidden behind an `as any` cast', () => {
+    const result = analyze(tree('cast-red', behindCast([], '(schema as any).onTabSwap')));
+    expect(
+      result.findings.map((f) => `${f.kind} ${f.key}`),
+      'a cast-hidden read of a key no arm declares must be a FINDING — a green here is the ' +
+        'objectui#9344 blindness, not a clean tree',
+    ).toEqual(['undeclared tabs::TabsSchema.onTabSwap']);
+    expect(result.counters.reads).toBe(1);
+  });
+
+  // The optional-chained spelling, which is how `packages/components`' layout
+  // `containers.tsx` writes the live one. `?.` puts the cast under a
+  // PropertyAccessExpression with a questionDotToken; the receiver is the same
+  // parenthesised cast either way, so losing one spelling and not the other
+  // would be a half-fix.
+  it('goes RED on the optional-chained cast spelling too', () => {
+    const result = analyze(tree('cast-red-optional', behindCast([], '(schema as any)?.onTabSwap')));
+    expect(result.findings.map((f) => f.key)).toEqual(['tabs::TabsSchema.onTabSwap']);
+  });
+
+  // The other type-only wrappers that erase the same way. Each is asserted for
+  // the READ being seen, so a future narrowing that drops one is caught here
+  // rather than by the next census that quietly shrinks.
+  it.each([
+    ['non-null assertion', 'schema!.onTabSwap'],
+    ['satisfies expression', '(schema satisfies any).onTabSwap'],
+    ['a cast under a cast', '((schema as any) as any).onTabSwap'],
+  ])('sees the read through a %s', (_label, read) => {
+    const result = analyze(tree(`cast-red-${_label.replace(/\W+/g, '-')}`, behindCast([], read)));
+    expect(result.findings.map((f) => f.key)).toEqual(['tabs::TabsSchema.onTabSwap']);
+  });
+
+  // ⚠️ The angle-bracket assertion is the one erasing form this gate CANNOT see,
+  // and that is a property of the parse rather than of the walk: `parseSource`
+  // hard-codes `ts.ScriptKind.TSX`, under which `<any>schema` is JSX and the
+  // property access never exists. Asserted rather than left out, so the day the
+  // gate stops parsing as TSX this leg says what changed.
+  it('cannot see the angle-bracket assertion, because TSX parses it as JSX', () => {
+    const result = analyze(tree('cast-angle', behindCast([], '(<any>schema).onTabSwap')));
+    expect(result.findings).toEqual([]);
+    expect(result.counters.reads).toBe(0);
+    // FIRING CONTROL for that zero: the identical fixture with the `as any`
+    // spelling DOES produce the read, so this zero is about the parse of one
+    // form and not a fixture the walk never reached.
+    const asAny = analyze(tree('cast-angle-control', behindCast([], '(schema as any).onTabSwap')));
+    expect(asAny.counters.reads).toBe(1);
+    expect(asAny.findings.map((f) => f.key)).toEqual(['tabs::TabsSchema.onTabSwap']);
+  });
+
+  // The control ON the negative control: the same cast-hidden read, DECLARED.
+  // Green here has to be a green about the declaration — so the read counter is
+  // asserted non-zero, because a green that walked nothing would satisfy the
+  // findings assertion identically.
+  it('stays GREEN when the arm declares the key the cast hides', () => {
+    const result = analyze(
+      tree('cast-green', behindCast([RUNTIME_SLOT('onTabSwap')], '(schema as any).onTabSwap')),
+    );
+    expect(result.findings).toEqual([]);
+    expect(
+      result.counters.reads,
+      'the green above must be a judgement on a read that was FOUND, not a walk that found none',
+    ).toBe(1);
+    expect(result.counters.judged).toBe(1);
+  });
+
+  // ⚠️ The widening is about what the gate SEES, never about what it JUDGES.
+  // Peeling the wrapper still leaves an identifier that has to be the document
+  // or the component's own props parameter — so a cast on an unrelated local
+  // stays invisible, exactly as the uncast form of the same read does.
+  it('still ignores a cast on an object that is not the document or the props', () => {
+    const result = analyze(
+      tree('cast-unrelated', {
+        'packages/types/src/zod/base.zod.ts': BASE,
+        'packages/types/src/zod/layout.zod.ts': arm('tabs', 'TabsSchema', []),
+        'packages/plugin-tabs/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+import { useToolbar } from './toolbar';
+export const TabsRenderer = ({ schema }: { schema: any }) => {
+  const toolbar = useToolbar();
+  return <Tabs label={schema.title} onValueChange={(toolbar as any).onTabSwap} />;
+};
+ComponentRegistry.register('tabs', TabsRenderer, { namespace: 'view' });
+`,
+      }),
+    );
+    expect(result.findings).toEqual([]);
+    // FIRING CONTROL for that zero: the same fixture shape DOES produce a read
+    // when the receiver is the document, one leg above. A zero with no such
+    // control would also be produced by a walk that never ran.
+    expect(result.counters.reads).toBe(0);
+    expect(result.counters.registrations).toBe(1);
+    expect(result.counters.armed).toBe(1);
+  });
+});
+
 describe('check-handler-key-read-sites — this repository', () => {
   const result = analyze(repoRoot);
 
@@ -483,6 +617,41 @@ describe('check-handler-key-read-sites — this repository', () => {
     const chatbotSend = result.census.find((c) => c.type === 'chatbot' && c.key === 'onSend');
     expect(chatbotSend?.declared).toBe(true);
     expect(chatbotSend?.disposition).toBe('runtime-slot');
+  });
+
+  /**
+   * objectui#9344's REPRODUCTION-IS-ACCEPTANCE leg, pinned on the real tree.
+   *
+   * Two live `(schema as any).onTabChange` reads were outside this census
+   * entirely — not exempted, not judged, not counted. They are the measured
+   * instance of the cast blindness, so they are named here rather than left to a
+   * count: a count moves for any reason, and the reason these two moved is the
+   * one thing this leg exists to hold.
+   */
+  it('counts the two cast-hidden `onTabChange` reads objectui#9344 measured', () => {
+    const census = (type: string, key: string) => result.census.find((c) => c.type === type && c.key === key);
+
+    // Both are JUDGED members of the census — the state before objectui#9344 was
+    // absence, which no assertion about declaration could have caught.
+    expect(census('tabs', 'onTabChange')?.file).toBe('packages/components/src/renderers/layout/containers.tsx');
+    expect(census('detail', 'onTabChange')?.file).toBe('packages/plugin-detail/src/DetailView.tsx');
+
+    // Neither arm declares the key, which is why both carry a ledger row. ⚠️ The
+    // two are NOT co-judgeable and this leg deliberately asserts nothing about
+    // which disposition either should get: `TabsSchema` declares a DIFFERENT
+    // spelling for what looks like the same event, so `'tabs'` may be an ALIAS
+    // question rather than a declaration one. That is objectui#9344's item ②.
+    expect(census('tabs', 'onTabChange')?.declared).toBe(false);
+    expect(census('detail', 'onTabChange')?.declared).toBe(false);
+    expect(KNOWN_UNDECLARED_READS.has('tabs::TabsSchema.onTabChange')).toBe(true);
+    expect(KNOWN_UNDECLARED_READS.has('detail::DetailSchema.onTabChange')).toBe(true);
+
+    // FIRING CONTROL for the two `false`s: the SAME arm that fails to declare
+    // `onTabChange` does declare `onValueChange`, so `declared: false` above is a
+    // reading about that one key and not an arm the resolver failed to read.
+    const { arms } = collectArms(repoRoot);
+    expect(arms.get('tabs')?.members.has('onValueChange')).toBe(true);
+    expect(arms.get('tabs')?.members.has('onTabChange')).toBe(false);
   });
 
   /**

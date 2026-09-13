@@ -247,7 +247,13 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
   // reason an authored string could land on a function-typed prop.
   ...rest
 }) => {
-  const { dataSource } = useSchemaContext() || {};
+  // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
+  // bound spells absence either way, and the seam declares both
+  // (`DataSource | null | undefined`, objectui#7912). The widget below
+  // declares the single spelling `dataSource?: DataSource`, so collapse the
+  // two absences into that one here rather than widening the widget.
+  const { dataSource: contextDataSource } = useSchemaContext() || {};
+  const dataSource = contextDataSource ?? undefined;
 
   // The declared host hatches, each kept only at its declared type. Read out of
   // `rest`; `rest` itself never reaches `ObjectCalendar`.

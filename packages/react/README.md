@@ -38,13 +38,18 @@ function App() {
 
 ### With Data
 
-Expression scope reaches the renderer through `SchemaRendererProvider`, never through a prop
+Expression scope reaches the renderer through `PredicateScopeProvider`, never through a prop
 on the element: `SchemaRenderer` declares only `schema`, so anything else is forwarded to the
-component the schema names (see the open forwarding surface below). The provider's
-`dataSource` is what the evaluator sees under the name `data`.
+component the schema names (see the open forwarding surface below). Every key of the `scope`
+you publish becomes a root the evaluator can read.
+
+⛔ `SchemaRendererProvider`'s `dataSource` is **not** an expression root. It carries the
+host's `DataSource` adapter, and objectui#9308 removed the binding that used to publish that
+adapter under the name `data` — an adapter answers no `data.*` path, so the root was constant
+for every conformant host.
 
 ```tsx
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react'
+import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
 
 const schema = {
   type: 'form',
@@ -54,7 +59,7 @@ const schema = {
       // the spec's expression carriage map, so a `${…}` in ITS `value` would be
       // rendered as those characters rather than resolved.
       type: 'text',
-      content: 'Editing ${data.user.name}'
+      content: 'Editing ${user.name}'
     },
     {
       type: 'input',
@@ -64,15 +69,15 @@ const schema = {
   ]
 }
 
-const dataSource = {
+const scope = {
   user: { name: 'John Doe' }
 }
 
 function App() {
   return (
-    <SchemaRendererProvider dataSource={dataSource}>
+    <PredicateScopeProvider scope={scope}>
       <SchemaRenderer schema={schema} />
-    </SchemaRendererProvider>
+    </PredicateScopeProvider>
   )
 }
 ```
@@ -127,6 +132,16 @@ declare const schema: BaseSchema
 </SchemaRendererProvider>
 ```
 
+`dataSource` carries the host's adapter as the published `DataSource` contract
+(`@object-ui/types`), typed `DataSource | null | undefined`: a host either hands
+over an adapter or states that it has none — a Studio preview, a page rendered
+before the host's adapter has connected, or a widget probe driving `apiFetch`
+alone. Both spellings of "none" are accepted because every reader in the tree
+guards for it. The prop used to be typed `any`, so a string passed where the
+adapter belongs — the shape of a config value read from the wrong place —
+raised nothing until the first `find()` at runtime (objectui#7912).
+`useSchemaContext()` hands the same type back to every consumer.
+
 Nested providers inherit `apiFetch` from their parent when they don't supply
 their own, so re-wrapped subtrees (embedded pages, preview surfaces) keep the
 host's authentication.
@@ -136,14 +151,18 @@ host's authentication.
 ### useSchemaContext
 
 Access what `SchemaRendererProvider` injected — `dataSource`, `debug`,
-`debugFlags` and `apiFetch`. It does **not** carry the record data: read that
-with `useDataScope`, which addresses the current data scope by path.
+`debugFlags` and `apiFetch`. It does **not** carry the page's values: read those
+with `useDataScope`, which addresses the ambient expression scope by path. The
+two are different channels on purpose — `dataSource` is the adapter a renderer
+queries, `useDataScope` is what a node's `bind` resolves against
+(objectui#9308).
 
 ```tsx
 import { useDataScope, useSchemaContext } from '@object-ui/react'
 
 function MyComponent() {
   const { dataSource, debug } = useSchemaContext()
+  // Resolves `scope.value` from the nearest PredicateScopeProvider above.
   const value = useDataScope('value')
 
   if (!dataSource) return null

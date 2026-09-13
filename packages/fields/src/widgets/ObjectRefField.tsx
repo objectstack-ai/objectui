@@ -37,7 +37,11 @@ export function ObjectRefField({
 }: FieldWidgetComponentProps<string>) {
   const ctx = React.useContext(SchemaRendererContext);
   const { t } = useFieldTranslation();
-  const dataSource: any = props.dataSource ?? (ctx as any)?.dataSource ?? null;
+  // The context read is cast-free since objectui#7912 typed the seam. The
+  // local stays `any` because the OTHER channel, `FieldWidgetProps.dataSource`,
+  // is declared `unknown` in this package — that is the declaration that
+  // launders the merged value now, not the renderer context.
+  const dataSource: any = props.dataSource ?? ctx?.dataSource ?? null;
   const disabled = props.disabled;
 
   const [objects, setObjects] = React.useState<ObjectHeader[] | null>(null);

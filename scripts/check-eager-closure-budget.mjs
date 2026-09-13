@@ -246,10 +246,14 @@
  * The three halves above all read this file's constants and take them as given.
  * None of them can ask whether the constants THEMSELVES are current, and on a
  * `pull_request` run that question has a wrong answer that is invisible from
- * inside the checkout: `Bundle Analysis` is a required context, GitHub does not
- * re-run a PR's checks when the base branch moves, so a green verdict can be
- * computed against ceilings `main` has since replaced — and the merge is gated
- * on it. Measured, not inferred: run 32804357171 started 6m50s AFTER
+ * inside the checkout: GitHub does not re-run a PR's checks when the base
+ * branch moves, so a green verdict can be computed against ceilings `main` has
+ * since replaced, and nothing downstream can tell that green from a fresh one.
+ * ⛔ How far that green GATES is deliberately not stated here. See
+ * {@link evaluateCeilingFreshness}, which carries the two readings this tree
+ * can re-derive about this check's blocking power — and the reason the sentence
+ * that used to stand in this spot could not be re-derived by anyone
+ * (objectui#9155). Measured, not inferred: run 32804357171 started 6m50s AFTER
  * `0409b766d` lowered the aggregate ceiling to 3,345,000 and published
  * `BUDGET_CLOSURE_BUDGET_KB: 3990.2` — the retired 4,086,000 — as a success.
  *
@@ -2134,12 +2138,47 @@ export function extractCeilingDeclarations(source, names = VERDICT_CEILING_CONST
  *
  * ## The race
  *
- * `Bundle Analysis` is a required context, and a `pull_request` run checks out
- * the MERGE REF — a merge of the PR head with the base branch as GitHub last
- * computed it. GitHub does not re-run a PR's checks when the base branch moves,
- * so a green verdict can be computed against ceiling constants that `main` has
- * since replaced, and the merge is then gated on a verdict about a ceiling that
- * no longer exists.
+ * A `pull_request` run checks out the MERGE REF — a merge of the PR head with
+ * the base branch as GitHub last computed it. GitHub does not re-run a PR's
+ * checks when the base branch moves, so a green verdict can be computed against
+ * ceiling constants that `main` has since replaced, and what this job then
+ * publishes is a verdict about a ceiling that no longer exists.
+ *
+ * ## This check's blocking power — and ⛔ what is NOT claimed about it
+ *
+ * This paragraph, and seven more across this file, its test and
+ * `.github/workflows/performance-budget.yml`, used to open by classifying
+ * `Bundle Analysis` against the branch-protection set (objectui#9155). ⛔ No
+ * sentence here does that any more, in either direction. That set is not
+ * readable from inside a checkout — AGENTS.md says so — so neither the claim
+ * nor its negation can be re-derived by a reader, and a classification nobody
+ * can re-derive drifts silently while nothing goes red: the same shape as the
+ * stale figures objectui#7528 and objectui#8964 each caught one column over.
+ * ⛔ The retired sentence is not quoted back here either, for the reason the
+ * objectui#8964 note gives — a reader cannot tell a quotation from a claim. It
+ * lives in the card.
+ *
+ * Two readings the tree DOES answer, cited rather than restated:
+ *
+ *   - `scripts/dependabot-merge-gate.mjs` lists `Bundle Analysis` under
+ *     `OPTIONAL_CONTEXTS`, and spells its own reason there: this workflow
+ *     filters at the TRIGGER, so the check is simply absent on a pull request
+ *     touching none of those paths. Read that constant's docblock for what the
+ *     classification governs and what it does not — it is that gate's own
+ *     admission rule for Dependabot merges, ⛔ not a mirror of branch
+ *     protection, and its header says which in as many words.
+ *   - `.github/workflows/performance-budget.yml` subscribes `push` and
+ *     `pull_request` and nothing else: there is no `merge_group` leg in its
+ *     `on:` block, so this job cannot hold the merge queue the way `Lint` can.
+ *     Re-derive it by reading that block; that workflow's job-ceiling comment
+ *     already did, and disagreed with the sentence four lines above itself.
+ *
+ * ⚠️ Neither reading weakens the race above, which is why they are stated here
+ * rather than the sentence simply deleted: `OPTIONAL_CONTEXTS` membership means
+ * present ⇒ must be `success`, absent ⇒ ignored, so this check is blocking
+ * WHENEVER IT RUNS on either reading — and a stale green is exactly a run that
+ * happened. The freshness half below is owed on the measurement, ⛔ never on the
+ * classification.
  *
  * Observed live rather than reasoned about: run 32804357171 started at
  * 03:13:27Z, six minutes and fifty seconds after `0409b766d` lowered

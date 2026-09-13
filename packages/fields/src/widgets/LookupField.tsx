@@ -56,8 +56,17 @@ const LOOKUP_PAGE_SIZE = 50;
 /**
  * SchemaRendererContext is created by @object-ui/react.
  * Using a static import to be compatible with Next.js Turbopack SSR.
+ *
+ * ⚠️ This used to re-declare the imported context as `React.Context<any>`.
+ * That widening was invisible at the read sites — every `ctx?.…` below read as
+ * `any` while looking perfectly typed — so it also laundered the `dataSource`
+ * read, which is precisely the consumer face objectui#7912 typed. The import
+ * is now used AS DECLARED; the one read that needs members the context does
+ * not declare takes a local widened VIEW of the value (see the
+ * `resolvedDependentValues` note), so the widening is visible where it happens
+ * and reaches nothing else.
  */
-const SchemaRendererContext: React.Context<any> = ImportedSchemaRendererContext;
+const SchemaRendererContext = ImportedSchemaRendererContext;
 
 /**
  * A relation whose picker should offer inline "create the referenced record" by
@@ -354,6 +363,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // Resolve DataSource: explicit prop > field-level > wrapper field > SchemaRendererContext > none
   const ctx = useContext(SchemaRendererContext);
   const contextDataSource = ctx?.dataSource ?? null;
+  /** A deliberately widened VIEW of the same context value, for the two reads
+   *  below that name members `SchemaRendererContextType` does not declare. It
+   *  exists so that widening cannot reach the `dataSource` read above; the
+   *  reads themselves are unchanged, and objectui#7206 still owns whether that
+   *  channel becomes real or is retired. */
+  const untypedCtx = ctx as unknown as
+    | { formValues?: Record<string, any>; data?: Record<string, any> }
+    | null;
   const dataSource: DataSource | null =
     (props.dataSource as DataSource | null | undefined) ?? lookupField?.dataSource ?? fieldMeta?.dataSource ?? contextDataSource;
 
@@ -380,8 +397,8 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    *  read this note as either outcome. */
   const resolvedDependentValues: Record<string, any> = useMemo(() => {
     if (dependentValuesProp) return dependentValuesProp;
-    return (ctx?.formValues ?? ctx?.data ?? {}) as Record<string, any>;
-  }, [dependentValuesProp, ctx?.formValues, ctx?.data]);
+    return (untypedCtx?.formValues ?? untypedCtx?.data ?? {}) as Record<string, any>;
+  }, [dependentValuesProp, untypedCtx?.formValues, untypedCtx?.data]);
 
   /** True when at least one dependency is missing (empty). The picker is gated
    *  in that state so we never issue an unfiltered query that ignores the

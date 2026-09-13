@@ -187,8 +187,15 @@ export interface BaseSchema {
    * Data-scope path this node draws its rows/value from — the SDUI data-binding
    * vocabulary, resolved by `useDataScope()` (`@object-ui/react`).
    *
+   * The path is resolved against the AMBIENT SCOPE a host publishes through
+   * `PredicateScopeProvider` — the channel app-shell's `ExpressionProvider`
+   * already feeds — and ⛔ not against the injected `DataSource` adapter
+   * (objectui#9308, maintainer ruling 2026-09-13 option B). An adapter answers
+   * no member a `bind` path names, so the old walk resolved `undefined` for
+   * every conformant host and each reader below ran its fallback.
+   *
    * ```json
-   * { "type": "list", "bind": "customerNames" }   // → dataSource.customerNames
+   * { "type": "list", "bind": "customerNames" }   // → scope.customerNames
    * { "type": "object-kanban", "bind": "app.settings.users" }
    * ```
    *

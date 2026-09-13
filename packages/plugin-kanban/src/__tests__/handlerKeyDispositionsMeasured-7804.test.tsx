@@ -114,15 +114,22 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { ObjectKanbanSchema as ObjectKanbanZod } from '@object-ui/types/zod';
+// The gate of record's own ledger, read rather than restated: suite 4 asks
+// whether the rows this slice landed are gone and the one it did not is still
+// there, and a copy of the list here could answer that about itself.
+// @ts-expect-error — plain-JS shared gate, intentionally untyped (`allowJs: false`)
 import { KNOWN_UNDECLARED_READS } from '../../../../scripts/check-handler-key-read-sites.mjs';
 // Prose is not source. Without the mask a docblock naming a member spelling
 // would be read as a declaration, and this file's TS-face leg would report a
 // disposition nobody wrote (`scripts/js-comment-mask.mjs`, kept honest by
 // `check:comment-mask-corpus`).
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
 import '../index';
 
+/** Local annotations, since both imports above are untyped — the call sites stay checked. */
 const mask: (source: string) => string = maskComments;
+const ledger: Map<string, string> = KNOWN_UNDECLARED_READS;
 
 /** The three keys this slice owns, in the ledger's own spelling. */
 const KEYS = ['onCardClick', 'onCardMove', 'onQuickAdd'] as const;
@@ -378,7 +385,7 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
 
 describe('suite 4 — the ledger drained with the fix (objectui#7804)', () => {
   it('the two landed rows are gone, and the one this slice did not close is still named', () => {
-    const rows = [...(KNOWN_UNDECLARED_READS as Map<string, string>).keys()].filter((row) =>
+    const rows = [...ledger.keys()].filter((row) =>
       row.startsWith('object-kanban::'),
     );
     expect(
@@ -387,16 +394,14 @@ describe('suite 4 — the ledger drained with the fix (objectui#7804)', () => {
         'read that is still undeclared must keep its row or the gate loses it',
     ).toEqual(['object-kanban::ObjectKanbanSchema.onCardMove']);
     expect(
-      (KNOWN_UNDECLARED_READS as Map<string, string>).get(
-        'object-kanban::ObjectKanbanSchema.onCardMove',
-      ),
+      ledger.get('object-kanban::ObjectKanbanSchema.onCardMove'),
     ).toBe('objectui#7804');
   });
 
   it('CONTROL — the ledger still carries the rows this slice did NOT take', () => {
     // objectui#7804 stays the parent and lands per package. A drained ledger
     // would mean this leg is reading an empty map rather than a shrinking one.
-    const remaining = [...(KNOWN_UNDECLARED_READS as Map<string, string>).keys()];
+    const remaining = [...ledger.keys()];
     expect(remaining.length).toBeGreaterThan(0);
     expect(remaining).toContain('detail::DetailSchema.onNavigate');
   });

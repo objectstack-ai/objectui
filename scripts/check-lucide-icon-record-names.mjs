@@ -1234,6 +1234,7 @@ function judgeAnchoredMaps(root, anchors) {
  *   declaredDynamicReaders?: readonly string[],
  *   negativeControl?: string,
  *   recordReadingTypes?: Record<string, RecordReadingType>,
+ *   generatedNameListRoot?: string,
  * }} AnalyzeOptions
  *
  * @param {string} root
@@ -1245,6 +1246,13 @@ export function analyze(root, {
   declaredDynamicReaders = DECLARED_DYNAMIC_READERS,
   negativeControl = DISCOVERY_NEGATIVE_CONTROL,
   recordReadingTypes = RECORD_READING_TYPES,
+  // ⚠️ Deliberately NOT `root`. Parts 1-3 judge whatever tree they are pointed
+  // at, which is what lets the unit suite drive them with synthetic fixtures.
+  // Part 4 judges THIS repository's own generator, generated list and seam —
+  // three fixed paths, none of which a fixture tree has — so it is anchored to
+  // the gate's own root and a fixture run exercises it against the real files.
+  // Passing `null` turns it off for a caller that only wants parts 1-3.
+  generatedNameListRoot = gateRoot,
 } = {}) {
   const errors = [...selfTest(), ...censusResolverProblems()];
   const { sources, documents } = collectFiles(root);
@@ -1276,7 +1284,8 @@ export function analyze(root, {
 
   const authored = judgeAuthoredNodes(root, { sources, documents }, recordReadingTypes);
   const anchored = judgeAnchoredMaps(root, anchors);
-  errors.push(...authored.errors, ...anchored.errors, ...judgeGeneratedNameList(root));
+  errors.push(...authored.errors, ...anchored.errors);
+  if (generatedNameListRoot) errors.push(...judgeGeneratedNameList(generatedNameListRoot));
 
   return {
     discovered,

@@ -153,23 +153,29 @@ template iteration" below.
 > conformant host, and objectui#9308 removed it (maintainer ruling 2026-09-13).
 >
 > **Re-check every gate you authored from an older copy of this page: the
-> verdict moved.** Measured on the built evaluator, a root that is MISSING and a
-> root that is PRESENT-but-empty are not the same thing:
+> verdict moved.** A root that is MISSING and a root that is PRESENT-but-empty
+> are not the same thing, and the two layers that read `${…}` answer a missing
+> root differently. Measured on the built evaluator with `data.status == 'draft'`:
 >
-> | what the scope holds | `${data.status == 'draft'}` |
-> |---|---|
-> | `data` bound to the adapter, which has no `status` member | `false` |
-> | `data` present and `undefined` | `false` |
-> | no `data` root at all — what you get now unless you publish one | the condition path fail-softs to `true`; a text key renders the raw `${…}` characters, and objectui#5454's reporter warns |
+> | what the scope holds | as a predicate (`visible` / `hidden`) | interpolated into a text key (`content`) |
+> |---|---|---|
+> | `data` bound to the adapter, which has no `status` member | `false` | `false` |
+> | `data` present and `undefined` | `false` | `false` |
+> | no `data` root at all — what you get now unless you publish one | **fails soft to `true`** | **the template's own source characters are printed on screen** |
 >
-> So `"visible": "${data.status == 'draft'}"` written against the old wiring was
-> **hidden on every row**, and is now **shown on every row**. The same gate
-> spelled `"hidden"` flips the other way. Re-publishing `data` through
-> `PredicateScopeProvider` restores the old, always-`false` verdict — it does
-> not make the gate work. Give the gate a root that actually holds the row: at
-> the runtime layer that root is **`record`** (ADR-0089 D3, whose
-> `CANONICAL_ROOT_BY_LAYER` puts `record` at the runtime layer and `data` at the
-> metadata layer).
+> Read both columns. The predicate layer fails soft, so
+> `"visible": "${data.status == 'draft'}"` written against the old wiring was
+> **hidden on every row** and is now **shown on every row**; spelled `"hidden"`
+> it flips the other way. The interpolation layer does not fail soft to
+> anything — it hands back the characters you typed, so a `content` built from
+> a missing root renders the literal text `${data.status == 'draft'}` to the
+> user. objectui#5454's reporter warns about the predicate case.
+>
+> ⛔ Re-publishing `data` through `PredicateScopeProvider` restores the old,
+> always-`false` verdict — it does not make the gate work. Give the gate a root
+> that actually holds the row: at the runtime layer that root is **`record`**
+> (ADR-0089 D3, whose `CANONICAL_ROOT_BY_LAYER` puts `record` at the runtime
+> layer and `data` at the metadata layer).
 
 ### Safe globals (always available)
 - `Math` — `${Math.round(price)}`, `${Math.max(a, b)}`

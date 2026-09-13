@@ -511,16 +511,22 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
   /**
    * The other direction's register: the spec APPLIES a default and the form
    * field for that key declares none — the #6794 shape exactly, found by this
-   * widening in two places the escalation-only walk could never reach.
-   * Filed separately; ⛔ not fixed here, because adding a declaration moves the
-   * ten-field acceptance pin objectui#6830 deliberately placed in
-   * `FlowNodeInspector.declaredDefault.test.tsx` and creates an on-screen claim,
-   * neither of which is this card's to decide.
+   * widening in places the escalation-only walk could never reach.
+   *
+   * ⭐ A row here is an EXCEPTION, and an exception is meant to be repaid.
+   * The two this register opened with — `approval:config.lockRecord` and
+   * `boundary_event:boundaryConfig.interrupting` — were repaid at the form by
+   * objectui#9339, which declared both from the installed spec. They are
+   * therefore RETIRED, not carried: a row that outlives its divergence asserts
+   * something false about the contract, which is worse than no row at all.
+   *
+   * ⛔ Read what this register holds from the declaration below, never from a
+   * count restated in prose (AGENTS.md #9) — and never from the SHAPE of the
+   * test that walks it. That test iterates `SCOPES`, not this array, exactly so
+   * that an empty register still states its claim region by region instead of
+   * contributing no case and reporting green.
    */
-  const UNDECLARED_REGISTER: ReadonlyArray<{ region: string; key: string }> = [
-    { region: 'approval:config', key: 'lockRecord' },
-    { region: 'boundary_event:boundaryConfig', key: 'interrupting' },
-  ];
+  const UNDECLARED_REGISTER: ReadonlyArray<{ region: string; key: string }> = [];
 
   // ⚠️ `region`, not `scope`: vitest reads `$a.$b` in an `it.each` title as the
   // PATH `a.$b`, so a dotted pair of placeholders renders `undefined` and every
@@ -655,20 +661,39 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
     },
   );
 
-  it.each(UNDECLARED_REGISTER)(
-    'register row $region · $key still measures as spec-applies-form-declares-none',
-    ({ region: id, key }) => {
-      const scope = SCOPES.find((s) => scopeId(s.type, s.prefix) === id)!;
+  // ⛔ THE REGISTER'S RE-MEASUREMENT, and it walks `SCOPES` rather than
+  // `UNDECLARED_REGISTER` on purpose. Written as `it.each(UNDECLARED_REGISTER)`
+  // it contributed one case per row — so a register that empties contributes NO
+  // case, runs nothing, and still reports green, leaving a reader to see a
+  // re-measured register where nothing whatever was measured. The scope table is
+  // this file's fixed population (the vacuity guard above reddens if it stops
+  // materialising defaults), so every region answers for itself, and a region
+  // carrying no row answers with the positive statement: nothing here is left
+  // undeclared. A row is still an ASSERTION, never a waiver — one whose key has
+  // since been declared drops out of its region's walk and reddens here.
+  // (A row naming a region outside `SCOPES` would be unreachable from this walk;
+  // the table-wide equality above compares the register whole and fails on it.)
+  it.each(SCOPES.map((s) => ({ scope: s, region: scopeId(s.type, s.prefix) })))(
+    'region $region leaves no spec default undeclared beyond its register rows',
+    ({ scope, region }) => {
+      const fields = fieldsInScope(scope);
+      const undeclared = Object.keys(specDefaults(scope))
+        .filter((key) => {
+          // A key the form offers no field for at all is a key-set hole,
+          // asserted on its own above; this register is only ever about a key
+          // the form OFFERS and then declares nothing for.
+          const field = fields.get(key);
+          return field !== undefined && field.defaultValue === undefined;
+        })
+        .sort();
       expect(
-        key in specDefaults(scope),
-        `${id}.${key}: the spec must still materialise this key`,
-      ).toBe(true);
-      const field = fieldsInScope(scope).get(key);
-      expect(field, `${id}.${key}: the form must still offer a field for it`).toBeDefined();
-      expect(
-        field!.defaultValue,
-        `${id}.${key}: declare it (and drop this row) rather than leaving the register stale`,
-      ).toBeUndefined();
+        undeclared,
+        `${region}: declare it on the form field, or carry it as a register row with the reason`,
+      ).toEqual(
+        UNDECLARED_REGISTER.filter((r) => r.region === region)
+          .map((r) => r.key)
+          .sort(),
+      );
     },
   );
 });

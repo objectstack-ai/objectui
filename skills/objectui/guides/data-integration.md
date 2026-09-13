@@ -9,7 +9,7 @@ Connecting schema-driven rendering to a real or mock data backend. The DataSourc
 │  Schema-Driven UI Layer     │
 │  (SchemaRenderer, Plugins)  │
 ├─────────────────────────────┤
-│  SchemaRendererProvider     │  ← dataSource prop
+│  SchemaRendererProvider     │  ← dataSource prop (the ADAPTER)
 ├─────────────────────────────┤
 │  DataSource Interface       │  ← universal API contract
 ├─────────────────────────────┤
@@ -18,7 +18,15 @@ Connecting schema-driven rendering to a real or mock data backend. The DataSourc
 └─────────────────────────────┘
 ```
 
-Components never import fetch libraries directly. They access data through `useDataScope(path)` or the DataSource methods from context.
+⚠️ That column is the FETCH channel and nothing else. The **values a page's
+`${…}` expressions and `bind` paths read** arrive on a second, independent
+channel — the ambient scope a host publishes with `PredicateScopeProvider`
+(objectui#9308). `dataSource` publishes no expression root and answers no `bind`
+path; keep the two apart when you wire a page.
+
+Components never import fetch libraries directly. They call the DataSource
+methods from context for CRUD, and read the ambient scope through
+`useDataScope(path)`.
 
 ## DataSource interface
 
@@ -151,9 +159,16 @@ const dataSource = new ObjectStackAdapter({
 
 ### Static data (no backend)
 
-For prototypes or static pages, pass a plain object as dataSource:
+For prototypes or static pages there is no adapter to inject. Publish the values
+as an ambient **scope** instead — that is the channel `bind` and `${…}` read:
 
-```typescript
+<!-- os:check -->
+```tsx
+import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+declare const schema: BaseSchema
+
 const staticData = {
   customers: [
     { id: 1, name: 'Alice', email: 'alice@example.com' },
@@ -161,15 +176,25 @@ const staticData = {
   ],
   metrics: { total: 2, active: 1 },
   userRole: 'admin',
-};
+}
 
-<SchemaRendererProvider dataSource={staticData}>
-  <SchemaRenderer schema={schema} />
-</SchemaRendererProvider>
+function Prototype() {
+  return (
+    <PredicateScopeProvider scope={staticData}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
 ```
 
 Components that read `bind` (see "Via `bind` + `useDataScope`" below) will then
 access `staticData.customers` when given `bind: "customers"`.
+
+⛔ Passing that same object as `SchemaRendererProvider`'s `dataSource` does
+**not** work and never warns: `dataSource` declares the `DataSource` adapter
+contract, it publishes no expression root, and `useDataScope` stopped walking it
+in objectui#9308. Every `bind` resolves `undefined` and every `${…}` on the
+page renders as its own source characters.
 
 ## ObjectStackAdapter
 
@@ -217,8 +242,10 @@ A component reads the `bind` field only if it calls `useDataScope`:
 }
 ```
 
-Inside the component: `const data = useDataScope("customerNames")` resolves to
-the `customerNames` array from the dataSource.
+Inside the component: `const data = useDataScope("customerNames")` resolves the
+`customerNames` array **from the ambient scope** a host published with
+`PredicateScopeProvider` — not from `SchemaRendererProvider`'s `dataSource`
+(objectui#9308).
 
 `useDataScope` is called by `list` and `tree-view` in `@object-ui/components`,
 and by the `object-*` widgets the plugin packages register (`object-grid`,
@@ -254,8 +281,9 @@ through is measured, with its open-question caveat, in
 ### Via expressions on the node
 
 Computed values go through the expression system. `content` is the text key that
-is both expression-evaluated and read back by the renderer, and the provider's
-`dataSource` is reachable under the `data` root:
+is both expression-evaluated and read back by the renderer. The roots it reads
+are the ones the host published on `PredicateScopeProvider`, so the example below
+assumes a scope carrying `data: { metrics: { total: … } }`:
 
 <!-- os:check -->
 ```json

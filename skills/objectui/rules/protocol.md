@@ -134,7 +134,10 @@ dropped.** The rule above is about `props`. `properties` is the spec spelling of
 the same bag, and `SchemaRenderer` evaluates it and then **hoists every key onto
 the node** (`type` / `id` excepted) before the renderer runs — so it is read by
 every namespace, not just `element:*`. Measured on `origin/main` `f1c27f037`
-with `dataSource = { label: "Evaluated Title" }`:
+with a host scope carrying `data = { label: "Evaluated Title" }` (published
+through `PredicateScopeProvider`). objectui#9308 retired the `dataSource`
+wiring this was first measured through; the envelope readings below are
+unchanged by that:
 
 | node | rendered card header |
 |---|---|
@@ -208,17 +211,27 @@ The `bind` field is NOT expression-evaluated. It's a path string resolved by `us
 ```jsonc
 {
   "type": "list",
-  "bind": "customerNames"  // Resolved as dataSource.customerNames
+  "bind": "customerNames"  // Resolved against the ambient scope
 }
 ```
 
-**Nested paths work:** `"bind": "app.settings.users"` resolves `dataSource.app.settings.users`.
+**Nested paths work:** `"bind": "app.settings.users"` resolves `scope.app.settings.users`.
+
+⛔ **The scope `bind` resolves against is the one a host publishes with
+`PredicateScopeProvider`, not `SchemaRendererProvider`'s `dataSource`.** That
+prop carries the `DataSource` **adapter** — it answers no `bind` path — and
+objectui#9308 retired the walk over it. The same ruling stopped the renderer
+publishing that adapter as the expression root `data`, so a `${data.*}` gate
+authored before it now reads whatever the HOST published under `data`, and
+nothing at all if the host published none. See "Available scope variables" in
+[`../guides/schema-expressions.md`](../guides/schema-expressions.md) for the
+verdict that move flips.
 
 **Readers only.** `list` and `tree-view` (`@object-ui/components`) and the `object-*` plugin widgets call `useDataScope`. `data-table` does NOT: it reads its rows from an inline `data` array on the node, so a `bind` on it is ignored and the table renders its header over an empty body — no error, no warning.
 
 **Provider rows into a `data-table`.** Measured on `origin/main` `f1c27f037`,
-real `SchemaRenderer` inside a `SchemaRendererProvider` holding
-`{ customers: [ 2 records ] }`, identical `columns` in every leg, reading
+real `SchemaRenderer` under a host scope publishing
+`data = { customers: [ 2 records ] }`, identical `columns` in every leg, reading
 `tbody td`:
 
 | node | rendered body cells |

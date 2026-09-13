@@ -766,26 +766,6 @@ describe('the surface census is re-derived on every run', () => {
     expect(result.discovered.eagerDynamic).toEqual([]);
   });
 
-  it('sees the CATALOGUE binding — the mirror is that vocabulary', () => {
-    // `LUCIDE_ICON_NAMES` is lucide's dynamic vocabulary as data. A module
-    // reading it resolves names against that surface just as much as one
-    // importing `iconNames`, and does it without mentioning `lucide-react` at
-    // all — which is also why the prefilter has to admit the file.
-    const result = judge('catalogue', {
-      files: {
-        'packages/app/src/picker.ts': [
-          "import { LUCIDE_ICON_NAMES } from '@object-ui/components';",
-          'export const known = new Set(LUCIDE_ICON_NAMES);',
-        ].join('\n'),
-      },
-      declaredDynamicReaders: ['packages/app/src/picker.ts'],
-    });
-
-    expect(result.errors).toEqual([]);
-    expect(result.discovered.dynamic).toEqual(['packages/app/src/picker.ts']);
-    expect(result.discovered.eagerDynamic).toEqual([]);
-  });
-
   it('fails on a STATIC import of the dynamic entry — that is the whole map', () => {
     // lucide derives `iconNames` from `dynamicIconImports`, so this import puts
     // the 2,025-entry map in the importer's chunk. Nothing else in the tree

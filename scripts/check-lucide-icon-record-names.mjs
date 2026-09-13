@@ -43,15 +43,23 @@
  *
  * ── HOW a site reaches DYNAMIC is also censused (objectui#9204) ─────────────
  * lucide derives `iconNames` as `Object.keys(dynamicIconImports)`, so importing
- * the names imports the 2,025-entry dynamic-import map with them. Four modules
- * did, and the map — 8,253 B gzipped, measured — sat in the console's eager
- * `ui-components` chunk on every page load. Two of those were transcriptions of
- * `getLazyIcon` and are now delegations; the surviving pair reads the names from
- * `LUCIDE_ICON_NAMES`, a generated mirror of that same vocabulary, and reaches
+ * the names imports the dynamic-import map with them. Four modules did, and the
+ * map — 8,253 B gzipped, measured — sat in the console's eager `ui-components`
+ * chunk on every page load. All four are gone: two were transcriptions of
+ * `getLazyIcon` and are now delegations, the icon picker asks
+ * `@object-ui/components` for the vocabulary, and the one module left reaches
  * the map through `import()`.
  *
- * That makes three spellings discovery has to see — a static import, an
- * `import()`, and the catalogue binding — and gives this gate a second census:
+ * ⚠️ A GENERATED MIRROR OF THE NAMES IS NOT THE FIX, and the number is why: the
+ * map's KEYS are the names, so a bare catalogue of them measured 9,176 B gzipped
+ * spliced into that same chunk against the 8,253 B map it replaced (a
+ * front-coded encoding probed and rejected at 8,397 B). The names left the eager
+ * path by being ANSWERED FROM THE RECORD instead — the maintainer ruling of
+ * 2026-09-13, which also retires the 254 spellings the two vocabularies disagree
+ * about.
+ *
+ * That makes two spellings discovery has to see — a static import and an
+ * `import()` — and gives this gate a second census:
  * `DECLARED_EAGER_DYNAMIC_IMPORTERS`, which is EMPTY. A static import restores
  * the map to the first payload while every other check stays green, because the
  * laziness lives in the source and the cost lives in a bundle. Here they meet.
@@ -312,24 +320,19 @@ export const DECLARED_RECORD_READERS = [
   'packages/components/src/renderers/action/resolve-icon.ts',
 ];
 
+/**
+ * ⭐ ONE entry, and the one is the module that OWNS the deferred map.
+ *
+ * Until objectui#9204 this list had four. Two were transcriptions of
+ * `getLazyIcon` and are now delegations to it; the fourth, the metadata
+ * designer's icon picker, asks `@object-ui/components` for the vocabulary
+ * instead of importing `iconNames` itself. What is left reaches the surface
+ * only through `import('lucide-react/dynamic.mjs')`, and it reads it for the
+ * SPELLINGS — which glyph is LIVE is answered by the record, above.
+ */
 export const DECLARED_DYNAMIC_READERS = [
-  'packages/app-shell/src/views/metadata-admin/widgets.tsx',
   'packages/components/src/lib/lazy-icon.tsx',
 ];
-
-/**
- * The DYNAMIC surface reaches source two ways, and discovery has to see both.
- *
- *   - `lucide-react/dynamic.mjs` itself, statically or through `import()`;
- *   - `LUCIDE_ICON_NAMES`, the catalogue `@object-ui/components` publishes.
- *
- * The catalogue is that vocabulary as DATA — generated from the installed
- * lucide by `scripts/gen-lucide-icon-names.mjs` and re-derived from the same
- * install by `packages/components/src/__tests__/lucide-icon-names-mirror-9204.test.ts`,
- * so it is a mirror rather than the hand-kept list this gate's header warns
- * about. Reading it is reading the dynamic surface, and the census says so.
- */
-export const DYNAMIC_CATALOGUE_BINDING = 'LUCIDE_ICON_NAMES';
 
 /** `lucide-react/dynamic`, `lucide-react/dynamic.mjs`, `…/dynamic.js`. */
 export const isDynamicEntrySpecifier = (specifier) => specifier.startsWith('lucide-react/dynamic');
@@ -339,11 +342,11 @@ export const isDynamicEntrySpecifier = (specifier) => specifier.startsWith('luci
  *
  * ⛔ Empty, and that is the assertion (objectui#9204). lucide derives
  * `iconNames` as `Object.keys(dynamicIconImports)`, so a static import of
- * EITHER export puts the 2,025-entry dynamic-import map in the importer's chunk
+ * EITHER export puts the whole dynamic-import map in the importer's chunk
  * — 8,253 B gzipped of the console's eager `ui-components` chunk, measured on
  * the emitted artifact across three builds. Four modules imported it that way;
- * the names now ship as data and the map loads through `import()` on the first
- * icon that renders.
+ * membership now comes from the `icons` record and the map loads through
+ * `import()` on the first icon that renders.
  *
  * Nothing else in the tree goes red when that regresses: the laziness is in the
  * source, the cost is in a bundle, and the eager-closure budget only reports the
@@ -839,10 +842,7 @@ export function discoverResolvers(root, files) {
   for (const file of files) {
     if (isTestPath(file)) continue;
     const text = readFileSync(join(root, file), 'utf8');
-    // Both spellings of the dynamic surface have to survive this prefilter: a
-    // module that reads the vocabulary ONLY through the published catalogue
-    // need not mention `lucide-react` at all.
-    if (!text.includes('lucide-react') && !text.includes(DYNAMIC_CATALOGUE_BINDING)) continue;
+    if (!text.includes('lucide-react')) continue;
     const sf = parseSource(root, file);
     let recordLocal = null;
     let readsDynamic = false;
@@ -858,11 +858,6 @@ export function discoverResolvers(root, files) {
       if (!bindings || !ts.isNamedImports(bindings)) return;
       for (const element of bindings.elements) {
         const imported = (element.propertyName ?? element.name).text;
-        // The catalogue IS the dynamic vocabulary, so importing it is reading
-        // that surface — by binding rather than by specifier, because the same
-        // names arrive over three spellings (a relative path inside
-        // `packages/components`, the package entry, a deep path from a test).
-        if (imported === DYNAMIC_CATALOGUE_BINDING) readsDynamic = true;
         if (specifier === 'lucide-react' && imported === 'icons') recordLocal = element.name.text;
       }
     });
@@ -1158,9 +1153,10 @@ export function analyze(root, {
     errors.push(
       `EAGER \`lucide-react/dynamic\` import: ${file}\n`
       + '      lucide derives `iconNames` from `dynamicIconImports`, so a STATIC import of either name puts the\n'
-      + '      2,025-entry dynamic-import map in this module\'s chunk — 8,253 B gzipped on the console\'s eager\n'
-      + '      path (objectui#9204). Read the names from `LUCIDE_ICON_NAMES` (@object-ui/components) and reach the\n'
-      + '      map through `import(\'lucide-react/dynamic.mjs\')`, the way `packages/components/src/lib/lazy-icon.tsx` does.',
+      + '      whole dynamic-import map in this module\'s chunk — 8,253 B gzipped on the console\'s eager\n'
+      + '      path (objectui#9204). Ask `isLucideIconName` / `loadLucideIconNames` (@object-ui/components) instead:\n'
+      + '      membership comes from the `icons` record and the map loads through `import()`, the way\n'
+      + '      `packages/components/src/lib/lazy-icon.tsx` does.',
     );
   }
 

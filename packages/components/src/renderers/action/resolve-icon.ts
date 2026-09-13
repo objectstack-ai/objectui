@@ -130,3 +130,57 @@ export function resolveIcon(name: string | undefined): LucideIcon | null {
   if (!name) return null;
   return (icons as Record<string, LucideIcon>)[describeIconLookup(name).key] ?? null;
 }
+
+/**
+ * The live record key whose component is `icon`, for DIAGNOSTICS only.
+ *
+ * ## Why this exists, and why it is a search rather than a table
+ *
+ * lucide retires a spelling by dropping it from the runtime `icons` record
+ * while keeping the deprecated named export — and the retired export and its
+ * live spelling are THE SAME OBJECT (`Smile === FaceSlightlySmiling` is
+ * `true`). So the replacement for a retired name is derivable by identity, and
+ * `scripts/check-lucide-icon-record-names.mjs` already derives it that way at
+ * gate time, in as many words: "When it has to name a replacement it derives
+ * one, by identity: the retired export and its live spelling are the same
+ * object, so the live key is looked up in the record rather than remembered."
+ *
+ * objectui#9204 needs the same answer at RUNTIME, because a retired spelling is
+ * now refused rather than silently degraded and the refusal has to name the
+ * current spelling. ⛔ A hand-kept retired-to-live table is not the way to get
+ * it: it is the same defect one level up — it ages the moment lucide retires
+ * the next name, it ages SILENTLY, and in this package it would also land on
+ * the eager path the same card is emptying. This searches the record the caller
+ * already pays for.
+ *
+ * ## ⚠️ Identity is the FIRST answer, not the only one — measured
+ *
+ * Identity holds only while both halves came from the same module instance, and
+ * that is not guaranteed: reached through `lucide-react/dynamic.mjs` the icon
+ * module can resolve into a DIFFERENT graph from the one `icons` came from, and
+ * then `===` is false for two components that are the same icon. Measured under
+ * this repo's vitest: `icons.FaceSlightlySmiling === (await
+ * dynamicIconImports['smile']()).default` is `false`, while both carry
+ * `displayName: 'FaceSlightlySmiling'`.
+ *
+ * So the fallback is lucide's own `displayName`, which `createLucideIcon` sets
+ * from the icon's file name — still DERIVED from lucide and still not a table.
+ * ⛔ It is not trusted blindly: a name is returned only after it is confirmed to
+ * be a live key of the record, so an unknown component cannot name itself into
+ * an answer.
+ *
+ * ⛔ It decides nothing. Nothing resolves differently because of it; `null` here
+ * only means the diagnostic omits a replacement.
+ */
+export function liveIconNameOf(icon: unknown): string | null {
+  if (!icon) return null;
+  const record = icons as Record<string, LucideIcon>;
+  for (const [key, component] of Object.entries(record)) {
+    if (component === icon) return key;
+  }
+  const declared = (icon as { displayName?: unknown }).displayName;
+  if (typeof declared === 'string' && Object.prototype.hasOwnProperty.call(record, declared)) {
+    return declared;
+  }
+  return null;
+}

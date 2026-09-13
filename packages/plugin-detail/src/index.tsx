@@ -637,7 +637,7 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   // un-gated (pinned as `MULTI_KIND_MEMBER_CONTRACTS` in the repo-wide parity
   // gate). objectui#3407 / objectstack#5176.
   inputs: [
-    { name: 'fields', type: 'array', required: true, description: 'Key fields to highlight (1-7), bare names or {name,label?,icon?,type?,readonly?}. Set readonly: true on an entry to render that chip read-only — it suppresses the inline-edit affordance and the HeaderHighlight editability gate enforces it. Use it for hook/automation-maintained columns that must not be hand-edited from the record header; marking the OBJECT field readonly instead would also strip the hook\'s own write-back.' },
+    { name: 'fields', type: 'array', required: true, description: 'Key fields to highlight (1-7), bare names or {name,label?,type?,readonly?}. Set readonly: true on an entry to render that chip read-only — it suppresses the inline-edit affordance and the HeaderHighlight editability gate enforces it. Use it for hook/automation-maintained columns that must not be hand-edited from the record header; marking the OBJECT field readonly instead would also strip the hook\'s own write-back.' },
     { name: 'layout', type: 'enum', enum: ['horizontal', 'vertical'], description: 'Layout orientation for highlight fields' },
   ],
 });

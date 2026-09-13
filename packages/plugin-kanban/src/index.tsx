@@ -412,7 +412,13 @@ const OBJECT_KANBAN_DATA_SOURCE: ElementDataSourceMapping = {
 
 // Register object-kanban for ListView integration
 export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => {
-  const { dataSource } = useSchemaContext() || {};
+  // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
+  // bound spells absence either way, and the seam declares both
+  // (`DataSource | null | undefined`, objectui#7912). The widget below
+  // declares the single spelling `dataSource?: DataSource`, so collapse the
+  // two absences into that one here rather than widening the widget.
+  const { dataSource: contextDataSource } = useSchemaContext() || {};
+  const dataSource = contextDataSource ?? undefined;
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#6953):
   // before this, a board authored with `dataSource: { object, view }` and no
   // `objectName` never fetched — the effect is gated on `schema.objectName` —

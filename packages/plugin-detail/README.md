@@ -258,24 +258,54 @@ thing on every view type (objectui#9299). ⛔ Do not re-wrap it in a shell of
 your own — that is exactly the fork this component exists to remove.
 
 ```tsx
-import { NavigationOverlay } from '@object-ui/components';
+import type { ReactNode } from 'react';
+import { NavigationOverlay, useOverlayAnchor } from '@object-ui/components';
 import { RecordDetailPanel } from '@object-ui/plugin-detail';
+import { useNavigationOverlay } from '@object-ui/react';
+import type { DataSource } from '@object-ui/types';
 
-<NavigationOverlay {...navigation} title="Record Detail" mainContent={myView}>
-  {(record) => (
-    <RecordDetailPanel
-      record={record}
-      objectName="contacts"
-      recordId={record.id}
-      dataSource={dataSource}
-      objectSchema={objectSchema}
-      onFieldSave={saveField}   // omit → strictly read-only
-      onDelete={deleteRecord}   // omit → no delete action
-      onClose={navigation.close}
-    />
-  )}
-</NavigationOverlay>
+declare const dataSource: DataSource;
+declare const objectSchema: { fields?: Record<string, unknown> };
+declare const myView: ReactNode;
+declare function saveField(field: string, value: unknown): Promise<void>;
+declare function deleteRecord(): Promise<void>;
+
+function ContactsOverlay() {
+  const navigation = useNavigationOverlay({
+    navigation: { mode: 'drawer' },
+    objectName: 'contacts',
+  });
+  // `popover` anchors to the element the click landed on; spread
+  // `anchorCaptureProps` on your own container, or call `captureAnchor(event)`
+  // at a click site that already has one.
+  const { anchorRef } = useOverlayAnchor();
+
+  return (
+    <NavigationOverlay
+      {...navigation}
+      title="Record Detail"
+      mainContent={myView}
+      popoverAnchorRef={anchorRef}
+    >
+      {(record) => (
+        <RecordDetailPanel
+          record={record}
+          objectName="contacts"
+          recordId={String(record.id)}
+          dataSource={dataSource}
+          objectSchema={objectSchema}
+          onFieldSave={saveField}
+          onDelete={deleteRecord}
+          onClose={navigation.close}
+        />
+      )}
+    </NavigationOverlay>
+  );
+}
 ```
+
+Omit `onFieldSave` for a strictly read-only panel; omit `onDelete` for no
+delete action.
 
 **Capability is handler presence, not a boolean.** A caller that omits
 `onFieldSave` gets a read-only panel and one that omits `onDelete` gets no

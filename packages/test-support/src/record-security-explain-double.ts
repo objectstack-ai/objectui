@@ -42,8 +42,16 @@
  * produced are the same value at every read site — installing this changes no
  * assertion, it only stops the socket.
  *
- * @example
- * ```ts
+ * ## Usage
+ *
+ * ⚠️ The block below is fenced `text`, not `ts`, deliberately:
+ * `check:doc-examples` compiles every ts-fenced `@example` on an exported
+ * symbol against the BUILT declarations, and this package is `private: true`
+ * with no build — `@object-ui/test-support` resolves only through the
+ * repository root manifest, which that gate refuses by design. A ts fence here
+ * would be a block the gate can never judge rather than one it judges green.
+ *
+ * ```text
  * import {
  *   assertNoOtherNetworkEscape,
  *   installRecordSecurityExplainDouble,

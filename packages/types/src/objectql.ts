@@ -668,9 +668,21 @@ export interface ObjectGridSchema extends BaseSchema {
   name?: string;
   
   /**
-   * Display label override
+   * Display label override.
+   *
+   * `string | I18nLabel` — the spec's INLINE locale map, resolved against a
+   * BCP-47 display locale by `resolveI18nLabel(label, locale)`. Plain `string`
+   * until objectui#9092: a NARROWING override of `BaseSchema.label`, which
+   * objectui#4580's revised Q1 ruling (option A) widened. The mirror
+   * (`zod/objectql.zod.ts`'s `ObjectGridSchema`) never restates the key, so it
+   * inherits the zod `BaseSchema`'s `I18nLabelSchema` and accepted the map all
+   * along while `tsc` refused it.
+   *
+   * ⚠️ NOT the KEYED `{ key, defaultValue?, params? }` vocabulary that
+   * {@link BaseSchema.ariaLabel} carries; the two are structurally confusable
+   * and neither resolver accepts the other's shape.
    */
-  label?: string;
+  label?: string | I18nLabel;
   
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
@@ -845,10 +857,24 @@ export interface ObjectGridSchema extends BaseSchema {
   title?: string;
 
   /**
+   * Legacy description field.
+   *
+   * `string | I18nLabel` — the spec's INLINE locale map, resolved against a
+   * BCP-47 display locale by `resolveI18nLabel(label, locale)`. Plain `string`
+   * until objectui#9092: a NARROWING override of `BaseSchema.description`,
+   * which objectui#4580's revised Q1 ruling (option A) widened. The mirror
+   * (`zod/objectql.zod.ts`'s `ObjectGridSchema`) never restates the key, so it
+   * inherits the zod `BaseSchema`'s `I18nLabelSchema`.
+   *
+   * ⚠️ The `@deprecated` tag below is NOT a reason to leave the declaration
+   * narrow: deprecated-but-declared is still an authoring face, and an author
+   * on it was refused by `tsc` for writing the form the contract publishes.
+   * Whether the key should exist at all is the ADR-0049 liveness question, not
+   * this one.
+   *
    * @deprecated No direct replacement (consider using label with additional context)
-   * Legacy description field
    */
-  description?: string;
+  description?: string | I18nLabel;
   
   /**
    * Enable/disable built-in operations
@@ -3326,7 +3352,16 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * spelling. Kept callable here because the function REACHES the board and
    * RUNS: `SchemaRenderer` spreads every non-metadata schema key as a React
    * prop, `ObjectKanbanComponentProps` declares an `onCardClick` prop, and
-   * `ObjectKanban`'s own click wrapper calls it.
+   * `ObjectKanban` forwards that prop into `useNavigationOverlay` as its
+   * `onRowClick` — where `handleClick` gives it FULL PRIORITY and calls it.
+   *
+   * ⭐ CORRECTED, NOT QUIETLY EDITED (objectui#9341). This paragraph used to
+   * end "and `ObjectKanban`'s own click wrapper calls it", which was true and
+   * was ALSO the defect: the wrapper called the authored function a SECOND
+   * time, on top of the `handleClick` call above, so one card click ran it
+   * twice. The wrapper's call is gone; the CHANNEL and every word of the
+   * argument below survive, because the prop still reaches the hook and the
+   * hook still runs it. Only the identity of the call SITE moved.
    *
    * ⚠️ It is NOT the function the board implementation receives — `ObjectKanban`
    * substitutes its own wrapper on the schema it hands down, because that
@@ -3338,8 +3373,24 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * parameter — so an authored one reaches nothing, which is a `'retired'`
    * reading that `check:handler-key-reads` refuses while `KanbanRenderer` still
    * reads the key. It keeps its `KNOWN_UNDECLARED_READS` row on objectui#7804.
+   *
+   * ⚠️ TWO PARAMETERS since objectui#9341, and the second is what the surviving
+   * channel actually delivers: `handleClick` forwards `onRowClick(record,
+   * event)` so a host can implement Cmd/Ctrl/middle-click. The call this
+   * declaration used to describe — one argument — is the one that was deleted;
+   * declaring one here would have described only the dropped call.
+   *
+   * ⛔ `event` is `any` rather than `HandleClickModifiers`, and that is a
+   * MEASURED constraint, not a shortcut: that interface lives in
+   * `@object-ui/react`, which depends on THIS package and which this package's
+   * manifest does not name in any dependency field — so naming it here is a
+   * phantom dependency (`check:phantom-deps`) and closes a cycle. Re-declaring its three fields inline would
+   * put a second copy of one contract on a published face. `event?: any` is the
+   * spelling `BaseSchema`'s own `onClick` / `onChange` / `onSubmit` already use
+   * for exactly this situation, one file over. What actually arrives is the DOM
+   * click event `KanbanImpl` forwards, typed `React.MouseEvent` there.
    */
-  onCardClick?: (card: any) => void;
+  onCardClick?: (card: any, event?: any) => void;
 
   /**
    * Quick Add handler.

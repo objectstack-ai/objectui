@@ -193,6 +193,22 @@ export const KNOWN_UNDECLARED_READS = new Map([
   ['object-gallery::ObjectGallerySchema.onCardClick', 'objectui#7804'],
   ['object-gallery::ObjectGallerySchema.onRowClick', 'objectui#7804'],
   ['object-view::ObjectViewSchema.onNavigate', 'objectui#7804'],
+  // ⭐ objectui#9344 — the two rows this ledger could not have held before, and
+  // the reason its population was never a total. Both reads are spelled
+  // `(schema as any).onTabChange`, and a cast receiver was invisible to the
+  // census until objectui#9344 taught `handlerReadsIn` to read through one. They
+  // are the SAME defect as every row above — a registered renderer reading a key
+  // its arm never declared, accepted and KEPT by the passthrough — so they name
+  // the same parent, which owns the per-key disposition.
+  //
+  // ⚠️ The two are NOT co-judgeable, and objectui#9344 ruled that they must not
+  // be disposed alike without measuring: `TabsSchema` already declares a
+  // DIFFERENT spelling, `onValueChange`, for what looks like the same event, so
+  // the `'tabs'` row may be an ALIAS question rather than a declaration one,
+  // while `DetailSchema` declares neither spelling. Deciding either is
+  // objectui#9344's item ②, which lands in the zod arms and not in this file.
+  ['tabs::TabsSchema.onTabChange', 'objectui#7804'],
+  ['detail::DetailSchema.onTabChange', 'objectui#7804'],
 ]);
 
 /**
@@ -601,11 +617,59 @@ export function relativeImportsIn(sourceFile) {
 }
 
 /**
+ * The name a receiver expression denotes once every TYPE-ONLY wrapper is peeled
+ * off it, or `null` when what is left is not a plain identifier.
+ *
+ * A cast is erasure: `(schema as any).onTabChange` and `schema.onTabChange` emit
+ * the same property access on the same object, so a census that sees one and not
+ * the other is not describing the runtime. This gate saw only the second until
+ * objectui#9344 measured two live reads it had never counted — the
+ * `(schema as any).onTabChange` in `plugin-detail`'s `DetailView` (registered
+ * `detail` / `detail-view`) and the `(schema as any)?.onTabChange` in
+ * `components`' layout `containers` (registered `tabs`). Both are the exact
+ * passthrough exposure this file exists to find, and neither was among the
+ * boundaries above: the five things this gate declares it does not answer are
+ * about channels it cannot DERIVE a read site from, and a cast is not one of
+ * them — the read site is right there in the AST, one node deeper.
+ *
+ * Only wrappers that vanish at runtime are peeled, so this widens what the gate
+ * SEES without widening what it JUDGES: the identifier underneath still has to
+ * be `schema` or the component's own props parameter.
+ */
+function erasedReceiverName(expression) {
+  let current = expression;
+  // Bounded rather than `while (true)`: these nest (`((schema as any)!)`), but a
+  // real source never stacks them deeply, and a bound cannot loop on a cycle.
+  for (let hop = 0; hop < 8; hop += 1) {
+    if (ts.isIdentifier(current)) return current.text;
+    // ⚠️ The angle-bracket assertion `(<any>schema).onX` is deliberately NOT
+    // here, and its absence is measured rather than assumed: `parseSource`
+    // hard-codes `ts.ScriptKind.TSX` for EVERY file, and under TSX `<any>schema`
+    // parses as JSX — the property access does not survive the parse at all, in
+    // a `.ts` source as much as a `.tsx` one. A branch for it would be dead
+    // code, not coverage.
+    if (
+      ts.isParenthesizedExpression(current) ||
+      ts.isAsExpression(current) ||
+      ts.isNonNullExpression(current) ||
+      ts.isSatisfiesExpression(current)
+    ) {
+      current = current.expression;
+      continue;
+    }
+    return null;
+  }
+  return null;
+}
+
+/**
  * The `schema.onX` / `<props>.onX` property accesses inside one node.
  *
  * `schema` is the authored document as every renderer in this repository spells
  * it; the second half is the props parameter's own name, so a renderer written
  * `(props) => props.onChange(…)` counts and an unrelated local object does not.
+ * The receiver is read through type-only wrappers (see `erasedReceiverName`), so
+ * a cast does not hide a read from this census.
  */
 export function handlerReadsIn(node) {
   const objects = new Set(['schema', ...propsParameterNames(node)]);
@@ -613,8 +677,7 @@ export function handlerReadsIn(node) {
   const walk = (current) => {
     if (
       ts.isPropertyAccessExpression(current) &&
-      ts.isIdentifier(current.expression) &&
-      objects.has(current.expression.text) &&
+      objects.has(erasedReceiverName(current.expression)) &&
       isHandlerKey(current.name.text)
     ) {
       const line = current.getSourceFile().getLineAndCharacterOfPosition(current.getStart()).line + 1;

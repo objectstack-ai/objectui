@@ -58,7 +58,7 @@ import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 
 // The REAL renderers, at module scope so `data-table` / `card` are registered
 // before the first render (AGENTS.md §测试纪律). Relative, not the bare
@@ -103,9 +103,11 @@ const EMPTY_STATE = 'No results foundTry adjusting your filters or search query.
 
 function renderNode(schema: unknown) {
   return render(
-    <SchemaRendererProvider dataSource={PROVIDER as unknown as DataSource}>
+    <PredicateScopeProvider scope={{ data: PROVIDER }}>
+      <SchemaRendererProvider dataSource={PROVIDER as unknown as DataSource}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererProvider>,
+    </SchemaRendererProvider>
+    </PredicateScopeProvider>,
   );
 }
 

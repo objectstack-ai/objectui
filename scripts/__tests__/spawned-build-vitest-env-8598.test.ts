@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { SPAWNERS } from './helpers/spawners';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '../../..');
 
@@ -61,9 +62,6 @@ const ROOT = path.resolve(fileURLToPath(import.meta.url), '../../..');
  *     call sites. Presence of the token was the wrong question in both
  *     directions at once. Removal is the property, so removal is what is read.
  */
-
-/** Node child-process entry points that start a program. */
-const SPAWNERS = new Set(['spawnSync', 'spawn', 'execFileSync', 'execFile', 'execSync', 'exec']);
 
 /** Test files anywhere in the workspace — the only files this gate judges. */
 function testFiles(): string[] {
@@ -284,6 +282,23 @@ function buildSpawns(file: string): BuildSpawn[] {
 const SPAWNS = testFiles().flatMap(buildSpawns);
 
 /**
+ * The gate's verdict on a set of spawns, rendered — one line per spawn that
+ * does NOT remove `VITEST`. This is the list the assertion below requires to be
+ * empty, so the fixture case at the bottom of this file can drive the REAL
+ * judgement rather than a paraphrase of it.
+ */
+function leakingIn(spawns: readonly BuildSpawn[]): string[] {
+  return spawns
+    .filter((s) => s.verdict !== 'scrubbed')
+    .map(
+      (s) =>
+        `${s.file}:${s.line} — this environment ${
+          s.verdict === 'sets' ? 'SETS `VITEST`' : 'hands the child `VITEST` unchanged'
+        }`,
+    );
+}
+
+/**
  * The floor, plus a named member.
  *
  * Two build spawns exist today, both in `cli-bin.test.ts`. The floor is set at
@@ -301,12 +316,7 @@ describe(`objectui#8598 — ${SPAWNS.length} build spawn(s) in the test tree`, (
   });
 
   it('every one of them scrubs VITEST from the child environment', () => {
-    const leaking = SPAWNS.filter((s) => s.verdict !== 'scrubbed').map(
-      (s) =>
-        `${s.file}:${s.line} — this environment ${
-          s.verdict === 'sets' ? 'SETS `VITEST`' : 'hands the child `VITEST` unchanged'
-        }`,
-    );
+    const leaking = leakingIn(SPAWNS);
 
     expect(
       leaking,
@@ -318,5 +328,69 @@ describe(`objectui#8598 — ${SPAWNS.length} build spawn(s) in the test tree`, (
         '`{ VITEST: _v, ...env }` rest pattern; both are accepted. See `BUILD_ENV` in ' +
         `${NAMED_MEMBER}:\n  ` + leaking.join('\n  '),
     ).toEqual([]);
+  });
+});
+
+/**
+ * ⭐ That this gate can see a `fork()` build at all (objectui#9211).
+ *
+ * `fork` was missing from this gate's spawner set while its objectui#8616
+ * sibling had it, and both sets were hand-maintained copies. objectui#9211
+ * replaced the two copies with one — `helpers/spawners.ts` — converging UPWARD,
+ * onto the set that includes `fork`.
+ *
+ * ⚠️ This case is not decoration, it is the only thing that measures the
+ * change. The LIVE population of `fork(` call sites across `packages`, `apps`,
+ * `scripts` and `examples` is ZERO — re-measured on this branch's base, with
+ * `spawnSync(` at 35 in the same run as the control that proves the zero is a
+ * reading and not a broken command. So against the real tree, a run with `fork`
+ * in the set and a run without it produce byte-identical results, and the whole
+ * suite going green says nothing whatsoever about whether `fork` is covered.
+ * The fixtures below supply the population the tree does not have.
+ *
+ * They are a PAIR differing only in the `env:`, so what is demonstrated is the
+ * gate judging the environment of a `fork` — not merely noticing the call:
+ *
+ *   - `fork-build-inherits.fixture.ts` hands the child `{ ...process.env }`.
+ *     The gate must report it — RED.
+ *   - `fork-build-scrubbed.fixture.ts` binds `VITEST` away with a rest pattern.
+ *     The gate must clear it — GREEN.
+ *
+ * Both legs read the population count as well as the verdict: drop `fork` from
+ * `SPAWNERS` and neither file resolves to a spawn at all, so the leaking list
+ * for the first fixture goes EMPTY and this case fails on a count of 0 rather
+ * than passing vacuously. ⛔ That is the failure mode a verdict-only assertion
+ * would have: "nothing leaks" and "nothing was looked at" are the same string.
+ *
+ * ⚠️ The fixtures carry `.fixture.ts`, which `testFiles()` does not match, so
+ * the deliberate leak in the first one is invisible to the live census above
+ * and cannot turn the real gate red.
+ */
+const FIXTURES = 'scripts/__tests__/fixtures/spawned-build-vitest-env-8598';
+
+describe('objectui#9211 — the population includes fork()', () => {
+  it('a fork() build handed the environment unchanged is SEEN, and is reported', () => {
+    const spawns = buildSpawns(`${FIXTURES}/fork-build-inherits.fixture.ts`);
+
+    expect(
+      spawns.length,
+      'The fixture holds exactly one `fork(…, [\'build\'], { env })`. A count of 0 means this ' +
+        'gate no longer treats `fork` as a spawner — check `SPAWNERS` in `helpers/spawners.ts` ' +
+        '(objectui#9211). Every assertion below would pass vacuously on an empty population.',
+    ).toBe(1);
+    expect(spawns.map((s) => s.verdict)).toEqual(['inherits']);
+    expect(leakingIn(spawns)).toEqual([
+      `${FIXTURES}/fork-build-inherits.fixture.ts:${spawns[0].line} — this environment hands the child \`VITEST\` unchanged`,
+    ]);
+  });
+
+  it('control — the same fork() with VITEST scrubbed is SEEN, and is cleared', () => {
+    const spawns = buildSpawns(`${FIXTURES}/fork-build-scrubbed.fixture.ts`);
+
+    // Same count assertion, same reason: an empty population would clear this
+    // fixture too, and for the wrong reason.
+    expect(spawns.length, 'see the sibling case — a count of 0 measures nothing').toBe(1);
+    expect(spawns.map((s) => s.verdict)).toEqual(['scrubbed']);
+    expect(leakingIn(spawns)).toEqual([]);
   });
 });

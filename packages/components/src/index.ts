@@ -40,6 +40,11 @@ export { cn } from './lib/utils';
 export { renderChildren, renderNodeSlot, isEmptyNodeSlot } from './lib/utils';
 export { cva } from 'class-variance-authority';
 export { getLazyIcon, isLucideIconName, LazyIcon, toKebabIconName } from './lib/lazy-icon';
+// The renderable icon vocabulary, loaded on demand. Published because the
+// metadata designer's icon picker needs the whole list to search, and reading
+// `iconNames` from `lucide-react/dynamic.mjs` to get it drags lucide's
+// 2,039-entry dynamic-import map onto the eager path with them (objectui#9204).
+export { loadLucideIconNames } from './lib/lazy-icon';
 
 // The member-action visibility gate — "did this action DECLARE a `visible` gate
 // at all?", the single definition objectui#3492 established and PR #3816 /

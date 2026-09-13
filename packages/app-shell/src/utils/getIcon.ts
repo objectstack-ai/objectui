@@ -1,65 +1,35 @@
 /**
+ * ObjectUI
+ * Copyright (c) 2024-present ObjectStack Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
  * Icon utilities
  *
  * Helpers for resolving Lucide icons by name.
  *
- * Implementation: instead of statically importing every icon (~1500
- * components, ~568 KB raw / 140 KB gz), we wrap lucide-react's built-in
- * `DynamicIcon` so each icon is fetched as its own tiny chunk on first use.
- *
  * The exported `getIcon(name)` API stays synchronous and returns a React
  * component, preserving call sites that do `const Icon = getIcon(name); <Icon />`.
+ *
+ * ## One resolver, not a second copy (objectui#9204)
+ *
+ * This file used to carry its own transcription of `@object-ui/components`'
+ * `getLazyIcon`: the same kebab-casing, the same name-membership Set, the same
+ * per-name memo, the same `Database` fallback. The copy is now a delegation,
+ * for two reasons that are the same reason:
+ *
+ *   - the membership Set was built from `iconNames`, and lucide derives that
+ *     from its 2,025-entry dynamic-import map — so this module's import alone
+ *     put that whole map on the console's eager path;
+ *   - two transcriptions of one lookup are two chances to disagree about which
+ *     lucide vocabulary a name is judged against, which is precisely what
+ *     `scripts/check-lucide-icon-record-names.mjs` censuses.
+ *
+ * The shared resolver keeps the names as data and reaches the map through
+ * `import()`. Behaviour here is unchanged: same normalisation, same fallback.
  */
 
-import React from 'react';
-import { Database } from 'lucide-react';
-import { DynamicIcon, iconNames } from 'lucide-react/dynamic.mjs';
-
-/** Convert PascalCase / camelCase / mixed names to kebab-case for DynamicIcon. */
-function toKebab(name: string): string {
-  if (name.includes('-')) return name.toLowerCase();
-  return name
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
-    .toLowerCase();
-}
-
-// Lucide ships ~3900 icon names; storing as a Set keeps lookups O(1).
-const VALID_ICON_NAMES: Set<string> = new Set(iconNames as string[]);
-
-const cache = new Map<string, React.ElementType>();
-
-/**
- * Resolve a Lucide icon by name (kebab-case or PascalCase).
- *
- * Returns a React component that lazy-loads the underlying SVG icon on
- * mount. Falls back to the `Database` icon (statically imported) when no
- * `name` is given, or when the requested name is not a valid Lucide icon
- * — server-driven metadata frequently references icons from other libraries
- * (e.g. `box-open` from Font Awesome), and we silently degrade to the
- * fallback rather than letting Lucide log a console error.
- *
- * The returned component is memoised per `name` so repeated calls with the
- * same name yield the same component reference (stable for React.memo).
- */
-export function getIcon(name?: string): React.ElementType {
-  if (!name) return Database;
-  const cached = cache.get(name);
-  if (cached) return cached;
-
-  const kebab = toKebab(name);
-  if (!VALID_ICON_NAMES.has(kebab)) {
-    cache.set(name, Database);
-    return Database;
-  }
-
-  const Wrapped: React.FC<any> = (props) =>
-    React.createElement(DynamicIcon as any, {
-      name: kebab,
-      fallback: Database,
-      ...props,
-    });
-  Wrapped.displayName = `LucideIcon(${name})`;
-  cache.set(name, Wrapped);
-  return Wrapped;
-}
+export { getLazyIcon as getIcon } from '@object-ui/components';

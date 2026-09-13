@@ -30,7 +30,9 @@ import {
   Button,
   Label,
   Switch,
+  isLucideIconName,
   LazyIcon,
+  loadLucideIconNames,
   toKebabIconName,
   Popover,
   PopoverTrigger,
@@ -43,7 +45,6 @@ import {
 } from '@object-ui/components';
 import type { ComponentMeta } from '@object-ui/core';
 import { AlertTriangle, ChevronDown, ChevronsUpDown, ChevronUp, Eye, EyeOff, Plus, Search, Trash2 } from 'lucide-react';
-import { iconNames } from 'lucide-react/dynamic.mjs';
 import { toast } from 'sonner';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useMetadataLocale, t, tFormat } from './i18n.js';
@@ -1553,12 +1554,21 @@ function FieldRefMultiWidget({ value, onChange, readOnly, context, ariaLabelledB
 /* icon — searchable Lucide icon picker                                       */
 /* -------------------------------------------------------------------------- */
 
-// Lucide ships ~1500+ kebab-case icon names; freeze once for O(1) reuse.
-const LUCIDE_ICON_NAMES: readonly string[] = iconNames as string[];
-const LUCIDE_ICON_SET: Set<string> = new Set(LUCIDE_ICON_NAMES);
+// ⛔ No module-scope catalogue. The vocabulary arrives from
+// `loadLucideIconNames()` (@object-ui/components) when the dialog opens: it is
+// the LIVE `icons` record intersected with lucide's dynamic spellings, derived
+// from the installed lucide rather than kept as a list. Importing `iconNames`
+// from `lucide-react/dynamic.mjs` to get the same strings drags lucide's
+// 2,039-entry dynamic-import map onto the console's eager path, and a generated
+// mirror of those strings measured DEARER than the map it replaced
+// (objectui#9204). Membership of a single name is `isLucideIconName`, which
+// reads the record synchronously and needs nothing loaded.
 // Cap the rendered grid — each cell mounts a lazily-loaded icon, so showing all
 // ~1500 at once would fire a flood of chunk requests. The search box narrows it.
 const ICON_RESULT_LIMIT = 120;
+// A stable empty array, so the `useMemo` below does not see a new identity on
+// every render before the catalogue lands.
+const EMPTY_CATALOGUE: readonly string[] = [];
 
 /**
  * Searchable icon picker for `widget: 'icon'` string fields (page/app/object
@@ -1582,12 +1592,25 @@ export function IconPickerWidget({ id, value, onChange, readOnly }: WidgetProps)
   const [query, setQuery] = React.useState('');
 
   const currentKebab = current ? toKebabIconName(current) : '';
-  const inCatalog = !current || LUCIDE_ICON_SET.has(currentKebab);
+  const inCatalog = !current || isLucideIconName(current);
+
+  // Fetched when the dialog first opens, then kept — `loadLucideIconNames`
+  // memoises the underlying `import()`, so re-opening costs nothing.
+  const [catalogue, setCatalogue] = React.useState<readonly string[]>(EMPTY_CATALOGUE);
+  React.useEffect(() => {
+    if (!open || catalogue.length) return undefined;
+    let alive = true;
+    loadLucideIconNames().then(
+      (names) => { if (alive) setCatalogue(names); },
+      (error) => { console.error('[metadata-admin] failed to load the lucide icon catalogue', error); },
+    );
+    return () => { alive = false; };
+  }, [open, catalogue.length]);
 
   const q = toKebabIconName(query.trim());
   const allMatches = React.useMemo(
-    () => (q ? LUCIDE_ICON_NAMES.filter((n) => n.includes(q)) : LUCIDE_ICON_NAMES),
-    [q],
+    () => (q ? catalogue.filter((n) => n.includes(q)) : catalogue),
+    [q, catalogue],
   );
   const results = allMatches.slice(0, ICON_RESULT_LIMIT);
   const truncated = allMatches.length > results.length;

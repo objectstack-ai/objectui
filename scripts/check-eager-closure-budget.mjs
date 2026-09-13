@@ -1182,7 +1182,27 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // BASELINE's. Moved with the ceiling in the same commit, per the maintainer
   // ruling of 2026-09-08 and the rule stated under "Raising one".
   framework: 72_245,
-  'ui-components': 391_095,
+  // ⭐ RE-PINNED DOWN by objectui#9204, on its OWN console build at `0ebb1bf1c`
+  // — ⛔ not with a ceiling move, and that exception is the whole reason this
+  // line has a comment. It supersedes `2c8474c04`'s 391,095 (objectui#5490).
+  //
+  // The ceiling did NOT move and must not: 399,000 still stands over this row,
+  // unchanged since #5490. What moved is the PAYLOAD — lucide's dynamic-import
+  // map left the eager path when icon-name membership moved onto the `icons`
+  // record this chunk already carries (maintainer ruling of 2026-09-13). The
+  // row went 397,090 -> 388,494 gzipped, measured on two console builds in one
+  // container, and the aggregate fell 8,637 against the row's 8,596, which is
+  // what makes it bytes LEAVING the page load rather than moving between
+  // columns.
+  //
+  // ⚠️ Re-pinning was not optional here, and ⛔ not cosmetic. This constant is
+  // what the unit test builds its sensitivity reports from, so leaving it at
+  // 391,095 while `ui-components` left {@link EXHAUSTED_HEADROOM_ALLOWANCES}
+  // would have made the gate's own fixtures assert a row 1,209 bytes UNDER the
+  // floor that the live build clears — the allowance and this figure are the
+  // pair that has to move in one commit, exactly as a ceiling and its baseline
+  // do under "Raising one".
+  'ui-components': 388_494,
 });
 
 /**
@@ -1290,16 +1310,38 @@ export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE = 0.1;
  * the comparison is made in and the reason a red here is a red a reader can see.
  */
 export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
-  // ⭐ `i18n-locales: 8_804` stood here until objectui#7479. It is REMOVED, not
-  // lowered, and the distinction is the whole of why that is allowed: the rule
-  // above forbids LOWERING a figure, because a lowered figure is headroom
-  // supplied to a row that still exists. This row's chunk does not exist any
-  // more — nine of the ten catalogues it weighed are `import()`ed on demand, and
-  // the one that stays is budgeted under its own key at a headroom of 0.11x,
-  // ABOVE the floor and needing no allowance at all. That is the debt PAID, in
-  // the only currency this table takes: the row cleared the floor on its own.
-  // ⛔ Re-adding a locale row here would mean the catalogues came back.
-  'ui-components': 4_289,
+  // ⭐ EMPTY, and both rows that stood here left the same way — REMOVED, never
+  // lowered. The rule above forbids lowering a figure because a lowered figure
+  // is headroom supplied to a row that still exists; a removal is the opposite,
+  // because the row it excused now clears the floor on its own and goes back to
+  // being judged at 0.10x like every other.
+  //
+  // `i18n-locales: 8_804` left in objectui#7479: nine of the ten catalogues it
+  // weighed became `import()`ed on demand, and the one that stays is budgeted
+  // under `i18n-locale-en` at 0.11x. ⛔ Re-adding a locale row would mean the
+  // catalogues came back.
+  //
+  // `ui-components: 4_289` left in objectui#9204, and this is the case the
+  // paragraph above was written for — the debt PAID in the only currency this
+  // table takes. lucide's dynamic-import map left the console's eager path when
+  // icon-name membership moved onto the `icons` record that chunk already
+  // carries (maintainer ruling of 2026-09-13), taking the row from 397,090 to
+  // 388,494 gzipped and its headroom from 1,910 B (0.02x) to 10,506 B (0.12x),
+  // measured on two console builds in one container at `0ebb1bf1c`.
+  //
+  // ⚠️ ⭐ Removal was the ONLY legal move once that landed, and the unit test
+  // says so rather than this comment: "every entry is real debt — strictly
+  // under the floor it excuses". A figure at or above the floor is not debt, it
+  // is a second floor for one row — and a WEAKER one, since this row's declared
+  // trip point was 3,378 B against the floor's 9,114 B. Paying the row down and
+  // leaving the entry would have LOOSENED the gate on the chunk the payment was
+  // for, while the verdict text kept printing "under the 0.10x floor" about a
+  // row at 0.12x.
+  //
+  // ⛔ Nothing here was raised, ⛔ no ceiling moved, and ⛔ the table is not a
+  // supply of headroom now that it is empty: an undeclared row reds at 0.10x,
+  // which is what `ui-components` is judged at from here on — with 1,392 B of
+  // margin over the floor, a figure this card reports rather than pads.
 });
 
 /**

@@ -100,6 +100,29 @@ export interface FilterTokenScope {
 const WHOLE_TOKEN_RE = /^\$?\{([a-zA-Z0-9_]+)\}$/;
 
 /**
+ * A null-prototype copy of the spec's near-miss suggestion map (objectui#9129).
+ *
+ * `CONTEXT_TOKEN_SUGGESTIONS` is a plain object, so indexing it with an
+ * author-controlled, lower-cased string reaches `Object.prototype` for any
+ * spelling that happens to be an inherited member name — `constructor` and
+ * `__proto__` today, and, silently, whichever future member is added in
+ * lower case (see the lookup below). This is a read-only console hint, never
+ * an assignment, so no filter value is ever widened, narrowed or mismatched
+ * by it; the only externally visible effect of the underlying bug is a
+ * confusing suggestion string in a `warn()` call.
+ *
+ * Copying into an `Object.create(null)` base closes the whole class rather
+ * than special-casing the two spellings measured today: this object has no
+ * prototype at all, so *no* key — known or future — can resolve through it.
+ * `@objectstack/spec`'s own map is left untouched (out of scope here; the
+ * identical shape in its `classifyFilterToken` is objectstack#17762).
+ */
+const NEAR_MISS_SUGGESTIONS: Readonly<Record<string, ContextTokenName>> = Object.assign(
+  Object.create(null),
+  CONTEXT_TOKEN_SUGGESTIONS,
+);
+
+/**
  * Expand `{current_user_id}` / `{current_org_id}` inside a filter.
  *
  * Walks arrays and plain objects recursively, which is what makes one
@@ -174,7 +197,7 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
       // `organization_id` is a real column name. The map only makes the runtime
       // warning actionable; the authoring-time gate (`validateFilterTokens` in
       // `@objectstack/lint`) is what actually prevents these from shipping.
-      const suggestion = CONTEXT_TOKEN_SUGGESTIONS[token.toLowerCase()];
+      const suggestion = NEAR_MISS_SUGGESTIONS[token.toLowerCase()];
       if (suggestion) {
         warn(
           `Filter placeholder "{${token}}" is not a recognised token — did you mean ` +

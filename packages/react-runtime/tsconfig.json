@@ -1,6 +1,18 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src", "noEmit": false, "declaration": true, "composite": true, "jsx": "react-jsx", "lib": ["ES2020", "DOM"] },
+  // `tsBuildInfoFile` pins the incremental build RECORD outside the published
+  // build output in every composite package here; see the longer note in
+  // packages/components/tsconfig.json for what happens without it (objectui#9189).
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "noEmit": false,
+    "declaration": true,
+    "composite": true,
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
+    "jsx": "react-jsx",
+    "lib": ["ES2020", "DOM"]
+  },
   "include": ["src"],
   // Tooling is excluded by DIRECTORY, not just by file NAME. A helper under
   // `__tests__/` that is not itself called `*.test.ts` is otherwise a program

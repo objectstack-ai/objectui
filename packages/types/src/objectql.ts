@@ -3281,6 +3281,48 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * Cards are colored based on field values matching conditions.
    */
   conditionalFormatting?: KanbanConditionalFormattingRule[];
+
+  /**
+   * Card click handler.
+   *
+   * RUNTIME SLOT (objectui#6124 shape; declared by objectui#7804) — a
+   * host-supplied function, NOT authorable metadata: JSON has no function
+   * value, so the zod twin refuses this key by name and points at the node-type
+   * spelling. Kept callable here because the function REACHES the board and
+   * RUNS: `SchemaRenderer` spreads every non-metadata schema key as a React
+   * prop, `ObjectKanbanComponentProps` declares an `onCardClick` prop, and
+   * `ObjectKanban`'s own click wrapper calls it.
+   *
+   * ⚠️ It is NOT the function the board implementation receives — `ObjectKanban`
+   * substitutes its own wrapper on the schema it hands down, because that
+   * wrapper also owns the record-detail overlay. Reachability here is the PROP
+   * channel, and that is the whole difference between this key and the sibling
+   * `onCardMove`, which this face still does NOT declare: "the wrapper
+   * overrides it" is true of both and separates neither. `onCardMove` has no
+   * prop channel — `ObjectKanban` declares no such prop and discards its rest
+   * parameter — so an authored one reaches nothing, which is a `'retired'`
+   * reading that `check:handler-key-reads` refuses while `KanbanRenderer` still
+   * reads the key. It keeps its `KNOWN_UNDECLARED_READS` row on objectui#7804.
+   */
+  onCardClick?: (card: any) => void;
+
+  /**
+   * Quick Add handler.
+   *
+   * RUNTIME SLOT (objectui#6124 shape; declared by objectui#7804) — a
+   * host-supplied function, NOT authorable metadata: JSON has no function
+   * value, so the zod twin refuses this key by name. Kept callable here because
+   * it rides `ObjectKanban`'s schema spread untouched and arrives at the board
+   * implementation BY IDENTITY, where it is half of the pair the Quick Add
+   * control is gated on.
+   *
+   * ⚠️ The other half, `quickAdd`, is deliberately undeclared on this face
+   * pending objectui#8285, and an object-bound board supplies no handler of its
+   * own — so a JSON author gets no control. That is a statement about the
+   * document, not about this slot: the slot is live, which is why it keeps its
+   * function type rather than a tombstone.
+   */
+  onQuickAdd?: (columnId: string, title: string) => void;
 }
 
 /**

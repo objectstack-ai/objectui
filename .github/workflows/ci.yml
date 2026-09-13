@@ -180,6 +180,16 @@ jobs:
       # objectui#3723. `scripts/__tests__/merge-queue-reporting.test.ts` holds
       # every `CHANGED=$(git diff …)` in this file and in `lint.yml` to the
       # fail-open form, so a new gate cannot be added in the closed spelling.
+      #
+      # ⛔ This job has NO markdown second stage, and objectui#9241 measured
+      # what that costs rather than asserting it away: traced under the `fs`
+      # harness objectui#9096 built, this job's population DOES open markdown --
+      # `pnpm check:spec-symbols` reads every page under `content/docs/**`,
+      # which the pathspec below excludes. ⇒ a documentation-only pull request
+      # skips the gate that reads that documentation. The reading, and the fence
+      # around acting on it, are on the `test` job's decide step below; the
+      # widening is objectui#9241's to grade, ⛔ not a thing to add here on
+      # sight.
       - name: Decide whether this change needs a full run
         id: relevant
         run: |
@@ -801,8 +811,44 @@ jobs:
           # above dropped: does a test READ it? `markdown-test-inputs.mjs` holds
           # the derived class -- which documents, and which test reads each --
           # and audits itself against the tree. Only THIS job carries the extra
-          # stage, because only this job runs the tests that read markdown
-          # (measured: `type-check` reads no document, and no e2e spec does).
+          # stage.
+          #
+          # ⚠️ objectui#9241: the reason that used to stand here was an
+          # ASSERTION -- "only this job runs the tests that read markdown
+          # (measured: `type-check` reads no document, and no e2e spec does)".
+          # Nothing had measured it. Both populations have now been run under
+          # the same `fs` trace objectui#9096 used -- every `readFileSync` /
+          # `openSync` / `promises.readFile` door recorded, the opened markdown
+          # written out -- and the two answers differ:
+          #
+          #   e2e         ZERO. That job's Playwright suite opens no markdown
+          #               document at all. Stable across two runs, and in a run
+          #               of the same suite the same harness -- extension filter
+          #               moved off `.md` -- recorded reads from inside the
+          #               Playwright worker process, so the zero is a reading
+          #               and not a harness that never fired. ⚠️ The bound on
+          #               it: 23 of that job's 46 tests skip for want of a docs
+          #               site and a backend, in CI exactly as when this was
+          #               taken (`DOCS_BASE_URL` is set nowhere in this file and
+          #               that job starts no backend), so their bodies are
+          #               outside the reading. Static complement: no spec under
+          #               `e2e/` outside `record-header-title-width.spec.ts`
+          #               names `node:fs` at all, and that one ran.
+          #   type-check  ⛔ NOT zero. Its `check:spec-symbols` gate reads EVERY
+          #               page under `content/docs/**` -- objectui#7995 widened
+          #               that gate onto published prose deliberately, after a
+          #               wrong spec claim shipped in
+          #               `content/docs/fields/lookup.mdx` (objectui#7537).
+          #               Those pages are excluded by the very pathspec above,
+          #               so a documentation-only pull request skips the gate
+          #               whose input it just edited -- the objectui#8857 shape,
+          #               one job over.
+          #
+          # ⛔ The second reading is a FINDING, not a licence to widen anything
+          # here: objectui#9241 returns it for re-grading before a markdown
+          # stage is wired into `type-check`, and this job's stage is unchanged
+          # by it. Both readings are a SNAPSHOT -- re-take them with the trace,
+          # do not trust this block.
           #
           # ⚠️ objectui#9096: that class is now TOTAL over markdown, and this
           # comment used to claim the opposite ("the widening is deliberately
@@ -1326,6 +1372,13 @@ jobs:
       # `type-check` job above (objectui#3523). The exclusion list must stay
       # identical across the gated jobs of this workflow;
       # `scripts/__tests__/merge-queue-reporting.test.ts` fails if it drifts.
+      #
+      # This job has no markdown second stage and, unlike `type-check`, that is
+      # now a MEASUREMENT: objectui#9241 ran this job's suite under the `fs`
+      # trace objectui#9096 built and it opened no markdown document, twice, in
+      # a run where the same harness recorded non-markdown reads from inside the
+      # Playwright worker. The bound on that zero, and the `type-check` reading
+      # that did NOT come back zero, are on the `test` job's decide step above.
       - name: Decide whether this change needs a full run
         id: relevant
         run: |

@@ -35,7 +35,7 @@ import React from 'react';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
-import { ActionProvider, SchemaRendererProvider } from '@object-ui/react';
+import { ActionProvider, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 
 registerAllFields();
 
@@ -63,7 +63,14 @@ function renderGrid(
   render(
     <ActionProvider>
       {options.scopeData !== undefined
-        ? <SchemaRendererProvider dataSource={options.scopeData as any}>{grid}</SchemaRendererProvider>
+        ? (
+          // objectui#9308 — `bind` resolves the ambient predicate scope, not the
+          // injected adapter. The adapter seam is still crossed (it is what a
+          // real host mounts) and is inert for this assertion.
+          <PredicateScopeProvider scope={options.scopeData as Record<string, unknown>}>
+            <SchemaRendererProvider dataSource={options.scopeData as any}>{grid}</SchemaRendererProvider>
+          </PredicateScopeProvider>
+        )
         : grid}
     </ActionProvider>,
   );

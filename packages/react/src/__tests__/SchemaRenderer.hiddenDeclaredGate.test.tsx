@@ -92,6 +92,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import type { BaseSchema, DataSource } from '@object-ui/types';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
@@ -120,9 +121,11 @@ const DATA = { status: 'draft', archived: true, published: false };
 
 function renderNode(schema: Record<string, unknown>) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
       <SchemaRenderer schema={{ type: 'probe-3955', ...schema } as never} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
   );
 }
 
@@ -151,9 +154,11 @@ function renderNode(schema: Record<string, unknown>) {
  */
 function renderDeclaredNode(schema: BaseSchema) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
       <SchemaRenderer schema={schema} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
   );
 }
 

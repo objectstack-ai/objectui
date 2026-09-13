@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import type { DebugFlags } from '@object-ui/core';
 import type { DataSource } from '@object-ui/types';
+import { usePredicateScope } from '../hooks/useExpression.js';
 
 /**
  * Host-provided fetch used for `provider: 'api'` view data sources so custom
@@ -81,26 +82,43 @@ export const useSchemaContext = () => {
   return context;
 };
 
+/**
+ * Resolve a `bind` path against the ambient predicate scope.
+ *
+ * ## What it reads, and what it deliberately does not (objectui#9308)
+ *
+ * The scope a host publishes through `PredicateScopeProvider` — the same
+ * channel `useCondition` / `useExpression` merge under a locally-passed
+ * context, and the one app-shell's `ExpressionProvider` already feeds. It is
+ * NOT `SchemaRendererContext.dataSource`.
+ *
+ * `dataSource` is the host's injected ADAPTER, declared as the published
+ * `DataSource` contract (objectui#7912). An adapter has no `users` member, no
+ * `value` member, no member a `bind` path names — so walking it resolved
+ * `undefined` for every conformant host, and the nine production readers of
+ * this hook have all been running their fallback (`boundData || schema.items`,
+ * `|| schema.nodes`, or a fall-through to their own fetch chain) ever since.
+ * The only hosts it answered were ones injecting a data bag through a key the
+ * contract says is an adapter, which has been a compile error since
+ * objectui#7912.
+ *
+ * Maintainer ruling 2026-09-13 (option B) points it at the channel that can
+ * actually answer it. No published key is added: the provider, the hook and
+ * the host wiring all already exist.
+ *
+ * Returns `undefined` for an absent or empty path, and for any path the scope
+ * does not carry — the readers' fallbacks are what run then, exactly as
+ * before.
+ */
 export const useDataScope = (path?: string) => {
-  const context = useContext(SchemaRendererContext);
-  const dataSource = context?.dataSource;
+  const scope = usePredicateScope();
   if (!path) return undefined;
-  if (!dataSource) return undefined;
+  if (!scope) return undefined;
   // Simple path resolution for now. In real app might be more complex.
   //
-  // The accumulator is `any` BY DECLARATION, not by inheritance: this walk
-  // addresses arbitrary member names on the injected value, and `DataSource`
-  // declares none of them, so indexing it by a path segment is an error the
-  // moment the seam above stops being `any` (objectui#7912). The hook's
-  // published return type is unchanged — it was `any` before this annotation
-  // and it is `any` after it, so no reader of `useDataScope` moves.
-  //
-  // ⚠️ What the type now makes visible: against a REAL adapter every path
-  // resolves to `undefined`, because an adapter has no `users`/`value` member
-  // to walk. Hosts that get data out of this hook are injecting a data bag
-  // through a key the contract says is an adapter. Whether that second meaning
-  // becomes real or is retired is NOT decided here — same shape, and the same
-  // deliberate non-decision, as the `ctx?.formValues ?? ctx?.data` tail on
-  // objectui#7206.
-  return path.split('.').reduce<any>((acc, part) => acc && acc[part], dataSource);
+  // The accumulator is `any` BY DECLARATION: this walk addresses arbitrary
+  // member names on a host-published bag, and `Record<string, any>` declares
+  // none of them beyond the first segment. The hook's published return type is
+  // unchanged — `any` before and after — so no reader of `useDataScope` moves.
+  return path.split('.').reduce<any>((acc, part) => acc && acc[part], scope);
 }

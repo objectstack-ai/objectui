@@ -996,6 +996,12 @@ export function ObjectFieldInspector({
             fieldNames={view.entries.map((e) => e.name)}
             scope="record"
             roots={FIELD_RULE_ROOTS}
+            // The authored key, so the wrong-layer advisory reads the
+            // platform's published per-slot verdict (objectui#9318). Sound
+            // here because `FIELD_RULE_ROOTS` above IS that helper's
+            // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
+            // names no slot, because `FORMULA_ROOTS` is not.
+            slot="visibleWhen"
             t={tr}
           />
           <CelPredicateField
@@ -1010,6 +1016,12 @@ export function ObjectFieldInspector({
             fieldNames={view.entries.map((e) => e.name)}
             scope="record"
             roots={FIELD_RULE_ROOTS}
+            // The authored key, so the wrong-layer advisory reads the
+            // platform's published per-slot verdict (objectui#9318). Sound
+            // here because `FIELD_RULE_ROOTS` above IS that helper's
+            // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
+            // names no slot, because `FORMULA_ROOTS` is not.
+            slot="readonlyWhen"
             t={tr}
           />
           <CelPredicateField
@@ -1024,6 +1036,12 @@ export function ObjectFieldInspector({
             fieldNames={view.entries.map((e) => e.name)}
             scope="record"
             roots={FIELD_RULE_ROOTS}
+            // The authored key, so the wrong-layer advisory reads the
+            // platform's published per-slot verdict (objectui#9318). Sound
+            // here because `FIELD_RULE_ROOTS` above IS that helper's
+            // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
+            // names no slot, because `FORMULA_ROOTS` is not.
+            slot="requiredWhen"
             t={tr}
           />
           <p className="text-[11px] text-muted-foreground/80 px-0.5 leading-snug">

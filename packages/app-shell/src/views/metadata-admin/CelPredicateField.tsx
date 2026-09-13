@@ -88,6 +88,14 @@ export interface CelPredicateFieldProps {
   /** Override the scope roots offered by autocomplete (see CelSchemaHint.roots). */
   roots?: string[];
   /**
+   * The authored key this editor writes (`visibleWhen`, `readonlyWhen`,
+   * `requiredWhen`) — see `CelSchemaHint.slot`. Naming it lets the wrong-layer
+   * advisory take the platform's published per-slot verdict (objectui#9318);
+   * leaving it unset keeps the local one, which is the right answer for the
+   * surfaces whose bound roots are not the field-rule set.
+   */
+  slot?: string;
+  /**
    * Engine field role (see CelSchemaHint.role). `'predicate'` (default) for
    * boolean conditions; `'value'` for formula expressions — which also turns
    * on the inferred-result-type affordance.
@@ -118,6 +126,7 @@ export function CelPredicateField({
   clause,
   scope,
   roots,
+  slot,
   role,
   onLintChange,
   onInferredTypeChange,
@@ -168,7 +177,7 @@ export function CelPredicateField({
   React.useEffect(() => {
     let cancelled = false;
     const handle = setTimeout(() => {
-      const hint = { objectName, fields: fieldNames, clause, scope, role };
+      const hint = { objectName, fields: fieldNames, clause, scope, slot, role };
       lintCelPredicate(value, hint).then((res) => {
         if (cancelled) return;
         setIssues(res);
@@ -188,7 +197,7 @@ export function CelPredicateField({
       clearTimeout(handle);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, objectName, fieldsKey, clause, scope, role]);
+  }, [value, objectName, fieldsKey, clause, scope, slot, role]);
 
   /* Report "clean" upward when the field empties (no debounce needed). */
   React.useEffect(() => {

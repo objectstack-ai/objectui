@@ -69,6 +69,19 @@ export interface CelSchemaHint {
    */
   roots?: string[];
   /**
+   * The authored KEY this source is the value of — `visibleWhen`,
+   * `readonlyWhen`, `requiredWhen` (objectui#9318). Naming it lets the
+   * wrong-layer advisory take its verdict from `@objectstack/lint`'s published
+   * `fieldRuleRootIssue`, which judges per SLOT, instead of from a second copy
+   * of that judgement maintained here.
+   *
+   * Optional, and an unrecognised value is not an error: a surface that does
+   * not name a slot — or names one the published helper's vocabulary does not
+   * cover — keeps the local fallback. See {@link FIELD_RULE_VERDICT_SLOTS} for
+   * why that is a real set and not a formality.
+   */
+  slot?: string;
+  /**
    * The engine field role of the authoring site (mirrors `FieldRole` minus
    * `template`, which no CEL editor hosts):
    *  - `'predicate'` (default) — bare CEL expected to return bool (RLS
@@ -194,6 +207,65 @@ interface RowCanonModule {
 
 let rowCanonCached: Promise<RowCanonModule | null> | null = null;
 
+/** `@objectstack/lint`'s published per-slot verdict (objectui#9318). */
+type FieldRuleRootIssue = (slot: string, source: string) => { root: string; message: string } | null;
+
+let fieldRuleVerdictCached: Promise<FieldRuleRootIssue | null> | null = null;
+
+/**
+ * Feature-detect `fieldRuleRootIssue` on the installed `@objectstack/lint`.
+ *
+ * The `import()` must stay DYNAMIC for the same reason `securityPostureLint.ts`
+ * keeps its own dynamic — `@objectstack/lint` is the one `@objectstack/*`
+ * package the console's `vendor-objectstack` chunk group does not claim
+ * (objectui#5266), so a static import would pull the whole lint bundle onto the
+ * eager graph. Progressive enhancement, like every other entry point in this
+ * module: a lint package without the export degrades to the local fallback,
+ * never to an exception and never to silence.
+ */
+function loadFieldRuleVerdict(): Promise<FieldRuleRootIssue | null> {
+  if (!fieldRuleVerdictCached) {
+    fieldRuleVerdictCached = import('@objectstack/lint')
+      .then((m) => {
+        const fn = (m as unknown as Record<string, unknown>)?.fieldRuleRootIssue;
+        return typeof fn === 'function' ? (fn as FieldRuleRootIssue) : null;
+      })
+      .catch(() => null);
+  }
+  return fieldRuleVerdictCached;
+}
+
+/**
+ * The authored slots whose bound-root set IS the platform's field-rule set, so
+ * `fieldRuleRootIssue`'s verdict answers THIS surface's question (objectui#9318).
+ *
+ * ⚠️ This is a list of objectui's own surfaces, not a copy of the platform's
+ * judgement — the judgement itself is read from `@objectstack/lint` at call
+ * time. Membership is measured, not assumed: `ObjectFieldInspector` offers
+ * exactly `FIELD_RULE_ROOTS` (`record` / `previous` / `parent`) on these three
+ * editors, which is `FIELD_RULE_BOUND_ROOTS` verbatim.
+ *
+ * ## What is deliberately NOT here, and why the local fallback stays
+ *
+ * The helper's vocabulary does not cover every surface this advisory guards,
+ * and the two it misses differ from the field-rule set in OPPOSITE directions:
+ *
+ *  - a `formula` field's `expression` binds `FORMULA_ROOTS` — `['record']`,
+ *    strictly NARROWER. Taking the field-rule verdict there would stop advising
+ *    `previous.*` / `parent.*` on a surface that binds neither;
+ *  - a conditional-formatting `condition` binds `ROW_PREDICATE_ROOTS` —
+ *    `record`, `current_user`, `user`, `features`, `os`, `ctx`, strictly WIDER.
+ *    Taking the field-rule verdict there would tell an author to rewrite a
+ *    predicate that works.
+ *
+ * So those keep the local instrument. ⛔ Do not extend this list to "tidy up"
+ * the branch below without re-measuring the surface's bound roots first —
+ * narrowing a consumer to fit the API it adopted is the drift objectui#9318
+ * exists to stop, and `celAuthoring.fieldRuleVerdict-9318.test.ts` pins both
+ * uncovered surfaces as live controls against exactly that edit.
+ */
+const FIELD_RULE_VERDICT_SLOTS: readonly string[] = ['visibleWhen', 'readonlyWhen', 'requiredWhen'];
+
 /**
  * Load `@object-ui/core`'s row-spelling detector the same way the engine is
  * loaded: lazily, feature-detected, swallowing every failure. The detector
@@ -267,13 +339,52 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  * (ADR-0089 D3) is `views/metadata-admin/SchemaForm.tsx`, which evaluates through
  * `views/metadata-admin/predicate.ts` and never reaches this function — which is
  * why the gate below is `scope === 'record'` and not a source pattern.
+ *
+ * ## Where the VERDICT comes from since objectui#9318
+ *
+ * "Is this root bound on this surface?" is a judgement the platform publishes:
+ * `@objectstack/lint` exports `fieldRuleRootIssue` / `FIELD_RULE_BOUND_ROOTS`,
+ * pinned upstream by a test named for rejecting `data` — the LEGAL root of the
+ * same key one layer over. objectui derived the same answer independently, from
+ * `ROW_PREDICATE_ROOTS` / `FIELD_RULE_ROOTS` / `FORMULA_ROOTS` plus the single
+ * root `@object-ui/core`'s detector hard-codes. Two hand-maintained copies of
+ * one judgement: they agree today, and the next root the platform binds or
+ * unbinds moves one and not the other, silently, in the direction objectui#8166
+ * already paid for once.
+ *
+ * So on the slots the published vocabulary covers ({@link FIELD_RULE_VERDICT_SLOTS})
+ * the verdict is ASKED, not re-derived — and the engine's own message ships with
+ * it, because that message is per-root correct where objectui's single sentence
+ * is not: "Re-root the reference on `record`" is right for `data` and actively
+ * wrong for `current_user` or `app`, which are not fields of the record at all.
+ * ⛔ Exactly one message ships per finding; the two are never concatenated.
+ *
+ * Two consequences, both deliberate and both pinned:
+ *
+ *  - the covered slots now advise on EVERY root the field level leaves unbound,
+ *    not only `data` — a widening, and the substance of adopting the published
+ *    verdict. Still `warning`, so no save gate's accept set moves;
+ *  - the surfaces the vocabulary does NOT cover keep this function's own
+ *    reading, unchanged. ⛔ Their coverage is not shrunk to match the helper.
+ *
+ * Severity is the one thing that stays objectui's: `warning`, never `error`.
  */
-function rowCanonAdvisory(finding: {
-  kind: string;
-  identifier: string;
-  canonical: string;
-}): CelLintIssue | null {
-  if (finding.kind !== 'metadata-layer-root') return null;
+async function rowCanonAdvisory(source: string, slot: string | undefined): Promise<CelLintIssue | null> {
+  if (slot !== undefined && FIELD_RULE_VERDICT_SLOTS.includes(slot)) {
+    const fieldRuleRootIssue = await loadFieldRuleVerdict();
+    if (fieldRuleRootIssue) {
+      const issue = fieldRuleRootIssue(slot, source);
+      // `null` = the source does not parse, or every root it reads is bound
+      // here. Both are "nothing to report" upstream and here.
+      return issue ? { severity: 'warning', message: issue.message } : null;
+    }
+    // An older/absent `@objectstack/lint` has no verdict to give. Fall through
+    // to the local instrument rather than going quiet — progressive
+    // enhancement never costs an author a diagnostic they had yesterday.
+  }
+  const canon = await loadRowCanon();
+  const finding = canon?.detectNonCanonicalRowSpelling?.(source, null, true);
+  if (!finding || finding.kind !== 'metadata-layer-root') return null;
   return {
     severity: 'warning',
     message:
@@ -302,8 +413,10 @@ function rowCanonAdvisory(finding: {
  * expression (usually paired with `scope: 'record'`, where a bare field ref IS
  * a hard error — it silently evaluates to null at runtime).
  *
- * At `scope: 'record'` one finding comes from outside the engine: the
- * wrong-layer `data.*` advisory described on {@link rowCanonAdvisory}. It is
+ * At `scope: 'record'` one finding comes from outside `validateExpression`: the
+ * wrong-layer root advisory described on {@link rowCanonAdvisory}, whose verdict
+ * comes from `@objectstack/lint` when {@link CelSchemaHint.slot} names a slot
+ * that helper's vocabulary covers and from the local instrument otherwise. It is
  * always a `warning`, so it never narrows what this surface accepts.
  *
  * Empty input is always clean.
@@ -352,13 +465,12 @@ export async function lintCelPredicate(
         /* advisory only — never let it break the lint */
       }
     }
-    // Wrong-layer `data.*` advisory (objectui#8972) — see `rowCanonAdvisory`.
-    // Only in `record` scope, only once the predicate parses, only a WARNING.
+    // Wrong-layer root advisory (objectui#8972, verdict re-homed by objectui#9318)
+    // — see `rowCanonAdvisory`. Only in `record` scope, only once the predicate
+    // parses, only a WARNING.
     if (issues.every((i) => i.severity !== 'error') && hint.scope === 'record') {
       try {
-        const canon = await loadRowCanon();
-        const finding = canon?.detectNonCanonicalRowSpelling?.(source, null, true);
-        const advisory = finding ? rowCanonAdvisory(finding) : null;
+        const advisory = await rowCanonAdvisory(source, hint.slot);
         if (advisory) issues.push(advisory);
       } catch {
         /* advisory only — never let it break the lint */

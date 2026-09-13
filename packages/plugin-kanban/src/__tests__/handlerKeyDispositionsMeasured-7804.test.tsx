@@ -401,8 +401,18 @@ describe('suite 4 — the ledger drained with the fix (objectui#7804)', () => {
   it('CONTROL — the ledger still carries the rows this slice did NOT take', () => {
     // objectui#7804 stays the parent and lands per package. A drained ledger
     // would mean this leg is reading an empty map rather than a shrinking one.
+    //
+    // ⚠️ The WITNESS is re-derived, not decorative. This leg named
+    // `detail::DetailSchema.onNavigate` until the `plugin-detail` slice of the
+    // same card declared it and drained the row — a row this slice did not
+    // take, taken by a sibling slice that landed after it. That is the shape
+    // to expect here: the witness is only ever a row no LANDED slice has
+    // closed yet, so when its own slice lands, re-derive it against
+    // `KNOWN_UNDECLARED_READS` rather than dropping the name and leaving the
+    // length check alone — the length alone passes on a map holding one stale
+    // row, which is the reading this control exists to refuse.
     const remaining = [...ledger.keys()];
     expect(remaining.length).toBeGreaterThan(0);
-    expect(remaining).toContain('detail::DetailSchema.onNavigate');
+    expect(remaining).toContain('button::ButtonSchema.onSuccess');
   });
 });

@@ -533,9 +533,21 @@ describe('P1.5 Record Components', () => {
     // card was filed for. `sections[].columns` one level down keeps `number`
     // (`z.number().int().min(1).max(4)`); the two are pinned side by side in
     // `record-details-columns-8604.test.ts`.
+    //
+    // `layout` USED TO BE ON THIS LITERAL and was removed with the key in
+    // objectui#9040 item 1 — a stated migration, not a green-keeping edit. The
+    // contract retired `record:details`'s `layout` in `@objectstack/spec`
+    // 17.0.0 (ADR-0087 D2, objectstack#6946) and refuses it BY NAME, so this
+    // literal was asserting that a document the platform rejects type-checks.
+    // There is no replacement key: the body is chosen by what you author
+    // (`sections` renders explicit groups, omitting it falls back to the
+    // object's highlightFields). The retirement's own assertions — that the key
+    // is gone from this face and still refused by the contract — live in
+    // `record-details-top-level-9040.test.ts`; this leg keeps only keys the
+    // contract accepts. The `layout` on `RecordHighlightsComponentProps` below
+    // is a DIFFERENT key on a different face and deliberately stays.
     const props: RecordDetailsComponentProps = {
       columns: '2',
-      layout: 'stacked',
       sections: [
         { label: 'Basic Info', fields: ['name', 'email', 'phone'], collapsible: true },
         { label: 'Address', fields: ['street', 'city', 'state'], defaultCollapsed: true },
@@ -545,7 +557,9 @@ describe('P1.5 Record Components', () => {
     };
     expect(props.columns).toBe('2');
     expect(props.sections).toHaveLength(2);
-    expect(props.layout).toBe('stacked');
+    // Replaces the `props.layout` read-back this leg lost to the retirement, so
+    // the migration does not quietly shrink what the literal is checked for.
+    expect(props.fields).toEqual(['name', 'email']);
   });
 
   it('accepts the `sections[].group` REFERENCE form, and `fields` without it (objectui#8497)', () => {

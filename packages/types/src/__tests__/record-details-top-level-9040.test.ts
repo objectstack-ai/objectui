@@ -20,31 +20,48 @@
  * except this published TypeScript face, so a spec-valid, renderer-honoured,
  * registry-published document was refused by `tsc` with `TS2353`.
  *
- * Direction 2 — the RETIRED `layout` (NOT fixed here; ledgered). The contract
- * refuses it by name. Removing it from this interface is a published-surface
- * retirement that breaks an in-repo consumer (`p1-spec-alignment.test.ts`),
- * and triage on objectui#9040 ruled that consumer out of this card's scope.
- * So this file pins the divergence as OPEN rather than pretending it is shut:
- * the legs below fail when the key is removed, which is how the remover finds
- * the rest of the work (move the consumer, ship the `minor` retirement
- * changeset) instead of discovering it from CI.
+ * Direction 2 — the RETIRED `layout` (DONE, item 1 of the same card). The
+ * contract refuses it by name; this face offered a third spelling of it. The
+ * key is now GONE from this interface, which is a published-surface
+ * retirement — `.changeset/9040-retire-record-details-layout.md` carries its
+ * FROM/TO. The legs below no longer ledger an open divergence; they assert the
+ * removal and go red if the member is re-added.
  *
- * ── Two instruments, and only ONE of them can see direction 1 ───────────────
+ * ⚠️ The consumer survey that removal needed is the reason this file gained a
+ * SOURCE-TEXT leg. `tsc` named two consumer files; it is structurally blind to
+ * the third (`record-highlights-layout-9187.test.ts` read this declaration as
+ * TEXT), and vitest is blind to the two. Neither instrument alone enumerates
+ * the consumers of a published type — that reading is recorded here so the
+ * next retirement on this interface does not re-learn it from CI.
+ *
+ * ── Three instruments, and no one of them sees the whole change ─────────────
  *   - `tsc` sees the `@ts-expect-error` legs and the `Equal` assertions. That
- *     is the ONLY half that discriminates the fix from the defect, because the
- *     defect was a TypeScript-only refusal. It means nothing unless
- *     `type-check` runs — vitest strips types.
+ *     is the ONLY half that discriminates direction 1's fix from its defect,
+ *     because that defect was a TypeScript-only refusal. It means nothing
+ *     unless `type-check` runs — vitest strips types.
  *   - vitest runs the `safeParse` legs against the INSTALLED published spec
- *     artifact (17.4.0 at the time of writing), each with a control that would
- *     have fired. ⚠️ Those legs read the SPEC ONLY: they were green before this
- *     change and are green after, so they are the PREMISE, never the evidence.
- *     They are labelled PREMISE below so nobody counts them as the fix.
+ *     artifact (the version `check:installed-pin-claims` re-derives), each with
+ *     a control that would have fired. ⚠️ Those legs read the SPEC ONLY: they
+ *     were green before this card and are green after, so they are the PREMISE,
+ *     never the evidence. They are labelled PREMISE below so nobody counts them
+ *     as the fix.
+ *   - vitest ALSO reads this package's own declaration as TEXT, so a
+ *     re-introduced `layout` is caught by a run that never type-checks. Its
+ *     control is the sibling interface, whose `layout` the contract DOES
+ *     declare: the same matcher finds that one.
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import type { z } from 'zod';
 import { RecordDetailsProps } from '@objectstack/spec/ui';
 import type { RecordDetailsComponentProps } from '../record-components';
+
+/** Rooted at THIS file, never at `process.cwd()` — the two differ per invocation. */
+const HERE = dirname(fileURLToPath(import.meta.url));
+const DECLARATION_PATH = join(HERE, '..', 'record-components.ts');
 
 /** What an author writes for the spec's `record:details` props bag. */
 type SpecProps = z.input<typeof RecordDetailsProps>;
@@ -125,34 +142,46 @@ const inlineEditRefusesStrings: RecordDetailsComponentProps = {
   inlineEdit: 'yes',
 };
 
-/* ── Direction 2: the retired `layout`, ledgered as an OPEN divergence ─────── */
+/* ── Direction 2: the retired `layout`, REMOVED from this face ───────────── */
 
 /**
- * The TS face still declares `layout`; the contract's face accepts nothing
- * there (`z.never()` under its optional wrapper, so the authoring type is
- * `undefined`). The two faces DISAGREE, and that is the defect this asserts —
- * it is a ledger entry, ⛔ not an endorsement.
+ * The key is GONE. The two faces used to DISAGREE: the contract's tombstone
+ * accepts nothing there (`z.never()` under its optional wrapper, so the
+ * authoring type is `undefined`) while this one offered
+ * `stacked` | `inline` | `compact` — a third spelling, no value of which ever
+ * parsed. They now agree by removal.
  *
- * Remove the key and this line stops compiling (`TS2339`), which is the point:
- * the removal is a retirement with its own obligations, and this is where its
- * checklist lives.
+ * Written as a `keyof` absence rather than as an index, because indexing a key
+ * that no longer exists is itself a compile error: this form stays readable AND
+ * turns red the moment the member is re-added.
  */
-type _LayoutFacesDisagree = Expect<
-  Equal<Equal<RecordDetailsComponentProps['layout'], SpecProps['layout']>, false>
+type _LayoutIsNoLongerDeclared = Expect<
+  Equal<'layout' extends keyof RecordDetailsComponentProps ? true : false, false>
 >;
 
-/** What each face actually says, so "disagree" is not satisfied by two unknowns. */
-type _LayoutOnTheTsFace = Expect<
-  Equal<RecordDetailsComponentProps['layout'], 'stacked' | 'inline' | 'compact' | undefined>
+/**
+ * THE CONTROL for the line above, on the same instrument: a key that IS
+ * declared reads `true` through the identical form. Without it,
+ * `_LayoutIsNoLongerDeclared` would also be satisfied by a `keyof` that had
+ * stopped resolving anything at all — an interface emptied by a bad revert
+ * would read as a successful retirement.
+ */
+type _KeyofStillResolvesOnThisInterface = Expect<
+  Equal<'columns' extends keyof RecordDetailsComponentProps ? true : false, true>
 >;
+
+/** The contract's face, untouched by this removal: the tombstone accepts nothing. */
 type _LayoutOnTheContractFace = Expect<Equal<SpecProps['layout'], undefined>>;
 
 /**
- * The trap, as a literal: `tsc` is green on a document the contract refuses.
- * ⛔ Do not author this. When the retirement lands, this `const` is deleted
- * together with the key.
+ * The retirement, as a literal: authoring `layout` is `TS2353` here now, so
+ * `tsc` and the contract finally refuse the same document. The live `columns`
+ * beside it is what makes the directive specific — a literal whose ONLY member
+ * were the retired key would also error if the whole interface disappeared.
  */
-const layoutCompilesButIsRefusedAtPublish: RecordDetailsComponentProps = {
+const layoutIsRefusedByTsc: RecordDetailsComponentProps = {
+  columns: '2',
+  // @ts-expect-error objectui#9040 — `layout` is RETIRED from this face. `@objectstack/spec` removed it in 17.0.0 (ADR-0087 D2) and refuses it by name; there is no replacement key.
   layout: 'stacked',
 };
 
@@ -252,7 +281,43 @@ describe('objectui#9040 — record:details top level, against the installed spec
     expect(omittedKeysAccepted.showHeader).toBe(true);
     expect(hideFieldsRefusesTheTolerantDialect.hideFields as unknown).toEqual([{ name: 'amount' }]);
     expect(inlineEditRefusesStrings.inlineEdit as unknown).toBe('yes');
-    expect(layoutCompilesButIsRefusedAtPublish.layout).toBe('stacked');
+    // `layout` is no longer a member, so this reads the literal's runtime keys
+    // rather than the property: the point is that the `@ts-expect-error` above
+    // guards a shape an author really writes, not an emptied-out object.
+    expect(Object.keys(layoutIsRefusedByTsc)).toContain('layout');
+    expect(layoutIsRefusedByTsc.columns).toBe('2');
+  });
+
+  it('the DECLARATION no longer carries `layout` (objectui#9040 item 1)', () => {
+    // The instrument `tsc` cannot be: a source-text read, so a re-introduced
+    // member is caught even by a run that never type-checks. It is also the
+    // instrument that FOUND the third consumer of this key during the
+    // retirement survey — `record-highlights-layout-9187.test.ts` read this
+    // same declaration as text, and no type checker could see that.
+    const source = readFileSync(DECLARATION_PATH, 'utf8');
+
+    // Anchored on the interface AND bounded by the next one, so the read cannot
+    // wander onto the `layout` that legitimately lives on the sibling below.
+    const start = source.indexOf('interface RecordDetailsComponentProps');
+    const end = source.indexOf('interface RecordHighlightsComponentProps');
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const block = source.slice(start, end);
+
+    expect(/^\s*layout\?:/m.test(block)).toBe(false);
+
+    // ⭐ THE LIT CONTROL for this instrument: the SAME matcher, run over the
+    // sibling block, FINDS a `layout?:` there. That one is a different key on a
+    // different face — `@objectstack/spec` declares
+    // `RecordHighlightsProps.layout` and this retirement does not touch it
+    // (objectui#9187 pins its two values). So the absence above is a reading,
+    // not a matcher that can never match.
+    expect(/^\s*layout\?:/m.test(source.slice(end))).toBe(true);
+
+    // CONTROL B — the block is the real one and still carries its live members,
+    // so the absence is not an empty slice satisfying every negative.
+    expect(block).toContain("columns?: '1' | '2' | '3' | '4';");
+    expect(block).toContain('hideFields?: string[];');
   });
 
   it('the whole document the three keys make possible is accepted by the contract', () => {

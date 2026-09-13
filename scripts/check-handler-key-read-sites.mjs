@@ -147,8 +147,6 @@ export const KNOWN_UNDECLARED_READS = new Map([
   ['data-table::DataTableSchema.onRowClick', 'objectui#7804'],
   ['data-table::DataTableSchema.onRowSave', 'objectui#7804'],
   ['tree-view::TreeViewSchema.onNodeClick', 'objectui#7804'],
-  ['detail::DetailSchema.onAddComment', 'objectui#7804'],
-  ['detail::DetailSchema.onNavigate', 'objectui#7804'],
   ['object-form::ObjectFormSchema.onCancel', 'objectui#7804'],
   ['object-form::ObjectFormSchema.onError', 'objectui#7804'],
   ['object-form::ObjectFormSchema.onOpenChange', 'objectui#7804'],

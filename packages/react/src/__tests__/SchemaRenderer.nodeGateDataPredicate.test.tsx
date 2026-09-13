@@ -49,6 +49,23 @@
  * guard instead turns RED the silence cases (2a/2b/2c/3a/3b) while group 1 stays
  * green, which is the false-positive direction the ruling refuses.
  *
+ * ## objectui#9308 — WHICH object `data` names moved; the triple did not
+ *
+ * The 2026-08-22 ruling above said the node tier "keeps its documented
+ * `data` = adapter semantics". The 2026-09-13 ruling on objectui#9308 retired
+ * exactly that: the renderer binds no `data` root, and the only `data` at this
+ * tier is one a HOST published through `PredicateScopeProvider`. The three
+ * cases this docblock names are unchanged in SHAPE — repro reports, `record.*`
+ * stays silent, an answered read stays silent — but the object that answers,
+ * and the object the diagnostic resolves against, is now that host `data`.
+ * `ADAPTER` is still injected on every mount and is inert; group 2c is what
+ * keeps the re-aim honest, because it moves a key the adapter never has.
+ *
+ * The population with NO `data` anywhere — the real app-shell shape — does not
+ * reach this file's diagnostic at all: the predicate throws `data is not
+ * defined` and objectui#5454's reporter takes it. That leg, and the verdict
+ * move it carries, is pinned in `SchemaRenderer.dataRootUnbound-9308.test.tsx`.
+ *
  * ## objectui#5756 — the KNOWN LIMIT below is now FIXED, not pinned as a gap
  *
  * The 2026-08-22 "no interpolation changes" ruling quoted above was **this
@@ -84,29 +101,50 @@ const Probe = (props: { content?: unknown }) => (
 );
 
 /**
- * The data-source ADAPTER — what `SchemaRendererContext` carries and what
- * `${data.total}` resolves against. It has `total` and deliberately has NO
- * `status`: `status` is a ROW field, and the whole card is that the node tier
- * never bound the row over `data`.
+ * The data-source ADAPTER — what `SchemaRendererContext` carries.
+ *
+ * ⭐ Since objectui#9308 it is INERT for every assertion in this file: the
+ * renderer no longer publishes it as the `data` root. It is still injected on
+ * every mount below, and that is the point — the groups that stay silent do so
+ * because the SCOPE answers, never because this object does. Note it carries
+ * `total` while group 2's scope carries `total` too: if the re-aim were ever
+ * reverted, group 2 would go on passing for the wrong reason, which is why
+ * group 2c moves `status` and this object deliberately never gains one.
  */
 const ADAPTER = { total: 99 };
-/** Same adapter, plus the key the predicate asks for. Group 2c's other half. */
-const ADAPTER_WITH_STATUS = { total: 99, status: 'draft' };
+/** The host-published `data` group 2c asks for. */
+const DATA_WITH_STATUS = { total: 99, status: 'draft' };
 /** …and the polarity that makes group 2c's `false` a verdict, not an absence. */
-const ADAPTER_WITH_OTHER_STATUS = { total: 99, status: 'published' };
+const DATA_WITH_OTHER_STATUS = { total: 99, status: 'published' };
 
 const DRAFT = { id: 'r1', status: 'draft' };
 const PUBLISHED = { id: 'r2', status: 'published' };
 
 const cel = (source: string) => ({ dialect: 'cel', source });
 
-/** The ambient scope app-shell's `ExpressionProvider` really mounts. */
+/**
+ * A HOST scope that publishes its own `data` root through the documented
+ * channel (`PredicateScopeProvider`).
+ *
+ * ⚠️ This is NOT what app-shell's `ExpressionProvider` mounts, and the comment
+ * that used to say so was stale: `buildExpressionScope` returns
+ * `{ current_user, user, ctx, os, features }` and has published no `data` since
+ * objectui#8166. Keeping an (empty) `data` here is deliberate — since
+ * objectui#9308 the renderer binds no `data` of its own, so a host publication
+ * is the ONLY way this file's subject (a `data.*` read the bound `data` cannot
+ * answer) is reachable at all. The other population — no `data` anywhere, the
+ * real app-shell shape — is objectui#5454's leg and is pinned in
+ * `SchemaRenderer.dataRootUnbound-9308.test.tsx` leg 7.
+ */
 const APP_SCOPE = {
   current_user: { id: 'u1', email_verified: true },
   user: { id: 'u1', email_verified: true },
   data: {},
   features: {},
 };
+
+/** The same host scope, publishing a `data` root that DOES answer. */
+const scopeWithData = (data: Record<string, unknown>) => ({ ...APP_SCOPE, data });
 
 function mount(
   schema: Record<string, unknown>,
@@ -280,24 +318,24 @@ describe('#5687 group 1 — the card\'s reproduction shape is reported', () => {
 
 describe('#5687 group 2 — a genuine adapter read stays SILENT', () => {
   it('2a: `${data.total}` in a props bag still interpolates, and says nothing', () => {
-    // The docblock's pinned binding, restated: `data` is the adapter, and this
-    // card does not touch it. A props-bag interpolation never reaches the
-    // visibility chain at all — asserted here so the claim is measured, not
-    // inferred from where the call site happens to sit.
+    // A props-bag interpolation never reaches the visibility chain at all —
+    // asserted here so the claim is measured, not inferred from where the call
+    // site happens to sit. objectui#9308: the object it interpolates from is
+    // the host's scope `data`, not the adapter.
     const warn = spyWarn();
-    mount({ properties: { content: '${data.total}' } }, DRAFT);
+    mount({ properties: { content: '${data.total}' } }, DRAFT, ADAPTER, scopeWithData({ total: 99 }));
     expect(screen.getByTestId('probe')).toHaveAttribute('data-content', '99');
     expect(reports(warn)).toHaveLength(0);
   });
 
-  it('2b: a `data.*` VISIBILITY gate the adapter answers is silent, on both polarities', () => {
+  it('2b: a `data.*` VISIBILITY gate the host scope answers is silent, on both polarities', () => {
     // The harder half of 2a: this one DOES reach the reporter's call site, and
-    // is silent because the adapter answers the read.
+    // is silent because the bound `data` answers the read.
     const warn = spyWarn();
-    mount({ properties: { visible: 'data.total > 0' } }, DRAFT);
+    mount({ properties: { visible: 'data.total > 0' } }, DRAFT, ADAPTER, scopeWithData({ total: 99 }));
     expect(shown()).toBe(true);
     cleanup();
-    mount({ properties: { visible: 'data.total > 100' } }, DRAFT);
+    mount({ properties: { visible: 'data.total > 100' } }, DRAFT, ADAPTER, scopeWithData({ total: 99 }));
     // A correctly-hiding gate. This is also the case that DISQUALIFIES a
     // "the predicate is constant-false" trigger: the verdict here is `false`,
     // exactly as in group 1, and it must stay silent.
@@ -305,13 +343,14 @@ describe('#5687 group 2 — a genuine adapter read stays SILENT', () => {
     expect(reports(warn)).toHaveLength(0);
   });
 
-  it('2c: SAME predicate text, SAME `false` verdict — silent once the adapter has the key', () => {
-    // The control that picks the discriminator. Only the adapter moves.
+  it('2c: SAME predicate text, SAME `false` verdict — silent once the bound `data` has the key', () => {
+    // The control that picks the discriminator. Only the bound `data` moves;
+    // the adapter is the same object in both halves and in group 1.
     const warn = spyWarn();
-    mount({ properties: { visible: "data.status == 'draft'" } }, DRAFT, ADAPTER_WITH_STATUS);
+    mount({ properties: { visible: "data.status == 'draft'" } }, DRAFT, ADAPTER, scopeWithData(DATA_WITH_STATUS));
     expect(shown()).toBe(true);
     cleanup();
-    mount({ properties: { visible: "data.status == 'draft'" } }, DRAFT, ADAPTER_WITH_OTHER_STATUS);
+    mount({ properties: { visible: "data.status == 'draft'" } }, DRAFT, ADAPTER, scopeWithData(DATA_WITH_OTHER_STATUS));
     expect(shown()).toBe(false); // a real verdict, from a real read
     expect(reports(warn)).toHaveLength(0);
   });
@@ -423,8 +462,12 @@ describe('#5687 group 4 — production is untouched', () => {
         import('../hooks/useExpression'),
       ]);
       core.ComponentRegistry.register(NAME, Probe as never, { namespace: 'element', skipFallback: true } as never);
-      const mountProd = (schema: Record<string, unknown>, record: Record<string, unknown>) => render(
-        <expr.PredicateScopeProvider scope={APP_SCOPE}>
+      const mountProd = (
+        schema: Record<string, unknown>,
+        record: Record<string, unknown>,
+        scope: Record<string, unknown> = APP_SCOPE,
+      ) => render(
+        <expr.PredicateScopeProvider scope={scope}>
           <ctx.SchemaRendererContext.Provider value={{ dataSource: ADAPTER } as never}>
             <rec.RecordContextProvider objectName="showcase_task" recordId={String(record.id)} data={record}>
               <prod.SchemaRenderer schema={{ type: TYPE, ...schema } as never} />
@@ -437,8 +480,9 @@ describe('#5687 group 4 — production is untouched', () => {
       mountProd({ properties: { visible: "data.status == 'draft'" } }, DRAFT);
       expect(shown()).toBe(false);
       cleanup();
-      // The genuine adapter read: same interpolation.
-      mountProd({ properties: { content: '${data.total}' } }, DRAFT);
+      // The genuine answered read: same interpolation (objectui#9308 — from the
+      // host-published `data`, not from the adapter).
+      mountProd({ properties: { content: '${data.total}' } }, DRAFT, scopeWithData({ total: 99 }));
       expect(screen.getByTestId('probe')).toHaveAttribute('data-content', '99');
       cleanup();
       // The canonical spelling: same two verdicts.
@@ -493,15 +537,15 @@ describe('#5756 group 5 — the design points this card left open', () => {
     expect(reports(warn)).toHaveLength(0);
   });
 
-  it('5b: a GENUINE adapter read spelled as a `properties` TEMPLATE stays silent, on both polarities', () => {
+  it('5b: a GENUINE answered read spelled as a `properties` TEMPLATE stays silent, on both polarities', () => {
     // The template-dialect sibling of group 2b — extending that silence to
     // the spelling this card's diagnostic newly reaches, so the new call site
     // does not turn every properties-authored template gate into noise.
     const warn = spyWarn();
-    mount({ properties: { visible: '${data.total > 0}' } }, DRAFT);
+    mount({ properties: { visible: '${data.total > 0}' } }, DRAFT, ADAPTER, scopeWithData({ total: 99 }));
     expect(shown()).toBe(true); // 99 > 0
     cleanup();
-    mount({ properties: { visible: '${data.total > 100}' } }, DRAFT);
+    mount({ properties: { visible: '${data.total > 100}' } }, DRAFT, ADAPTER, scopeWithData({ total: 99 }));
     expect(shown()).toBe(false); // 99 > 100 is a REAL verdict, not an absence
     expect(reports(warn)).toHaveLength(0);
   });

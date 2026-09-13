@@ -57,6 +57,7 @@ import { ComponentRegistry, ExpressionEvaluator } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
 import type { DataSource } from '@object-ui/types';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
@@ -93,9 +94,11 @@ const FAILS = { dialect: 'cel', source: 'has(data.status) && data.status == "pub
 
 function mount(schema: unknown) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
   );
 }
 

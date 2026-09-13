@@ -28,6 +28,7 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 
 const DATA = { total: 99, label: 'Widgets' };
 
@@ -65,9 +66,11 @@ const PlainProbe = (props: any) => (
 
 const renderWithData = (schema: any) =>
   render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA } as any}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA } as any}>
       <SchemaRenderer schema={schema} />
     </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
   );
 
 describe('SchemaRenderer — expression evaluation of `properties` (objectui#4799)', () => {

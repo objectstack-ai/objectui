@@ -50,7 +50,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
-import { SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 import React from 'react';
 
 const captured = vi.hoisted(() => ({ schemas: [] as any[] }));
@@ -114,9 +114,13 @@ const BOUND_SCHEMA = {
 function renderBound() {
   return render(
     <I18nProvider config={I18N_CONFIG}>
-      <SchemaRendererProvider dataSource={{ customers: ROWS } as unknown as DataSource}>
-        <ObjectDataTable schema={BOUND_SCHEMA} />
-      </SchemaRendererProvider>
+      {/* objectui#9308 — `bind` resolves the ambient predicate scope. The
+          adapter seam stays mounted, and is inert for these three legs. */}
+      <PredicateScopeProvider scope={{ customers: ROWS }}>
+        <SchemaRendererProvider dataSource={{ customers: ROWS } as unknown as DataSource}>
+          <ObjectDataTable schema={BOUND_SCHEMA} />
+        </SchemaRendererProvider>
+      </PredicateScopeProvider>
     </I18nProvider>,
   );
 }

@@ -45,8 +45,19 @@
  * F1 (`5597569641`), a delta commit carrying the eight barrel lines was
  * prepared, and the review then PASSed the deferral "on the surface-widening
  * reason alone" (`5598263402`). ⛔ So this is NOT `d908a82f4` recurring: no
- * one forgot, and the four rows below say "a decision is owed", not "someone
- * slipped".
+ * one forgot — the barrel was left alone on a reason, and the decision that
+ * reason deferred has since been TAKEN.
+ *
+ * ⭐ objectui#9067 settled it and split the four (director seat, decision batch
+ * #121 item 5, maintainer 2026-09-12). The barrel means one name, one node type:
+ * `InputShorthandSchema` (two `type` literals) and `UiCalendarSchema` (one) fit
+ * that meaning and are now exported by name; `SemanticElementSchema` and
+ * `HtmlElementSchema` are `z.enum` families keyed by a tag, do not, and are the
+ * two `ABSENT_BY_DECISION` rows below carrying the reason. Splitting the families
+ * into per-tag schemas was ruled out in the same record as expansion for a
+ * consumer nobody has measured. ⛔ So no row below says "a decision is owed" any
+ * more, and the card's own framing — that these were unnamed by accident — is
+ * corrected by that record: the omission was declared, reviewed and passed.
  *
  * ⚠️ It is still exactly what this pin is for, and the reason is where the
  * declaration LIVES. A `.changeset/*.md` is consumed and deleted at release —
@@ -128,9 +139,9 @@ import * as viewsZod from '../zod/views.zod.js';
 /* ── The ledger ──────────────────────────────────────────────────────────────
  *
  * ⛔ NOT a claim that every arm must be exported — only that the answer is
- * DECLARED, in the tree, where it is re-read on every run. Neither row below
- * records a slip: one is a decision taken and four are a decision deferred with
- * its reason on the record. A row is keyed by ONE `type` literal of the
+ * DECLARED, in the tree, where it is re-read on every run. ⛔ No row below
+ * records a slip — every one is a decision taken, with its reason. A row is
+ * keyed by ONE `type` literal of the
  * arm, because an arm with no barrel export has, by definition, no barrel name
  * to key on; `every ledger row still names an arm` below fails if that literal
  * stops existing, so the key cannot rot into a comment.
@@ -143,39 +154,47 @@ const ABSENT_BY_DECISION: Readonly<Record<string, string>> = {
     + 'The decision is written on the barrel itself, beside the `complex.zod.js` block: '
     + '"it is deliberately NOT exported — nothing outside this package parses against a '
     + 'refusal arm" (objectui#8802, maintainer ruling 2026-09-09).',
+
+  // ⭐ The two rows objectui#9067 moved here out of ABSENT_PENDING_DECISION. They
+  // quote `.changeset/8499-node-slot-registered-arms.md` rather than cite it,
+  // because that file is consumed and deleted at release and the reason has to
+  // outlive it — which is the whole point of ledgering them (see the docblock
+  // above). Both are FAMILY schemas keyed by a tag `z.enum`: a name bound to
+  // either hands a consumer a schema accepting every tag in the family, not the
+  // one node type every other name on this barrel stands for.
+  aside:
+    'layout.zod.ts#SemanticElementSchema — a `z.enum` family of HTML sectioning tags, not one '
+    + 'node type. NOT named on the barrel by the objectui#9067 ruling (director seat, decision '
+    + 'batch #121 item 5, maintainer 2026-09-12), on the reason objectui#8499 recorded when it '
+    + 'armed the arm and deferred the naming: exporting a `SemanticElementSchema` / '
+    + '`HtmlElementSchema` pair "would publish a NAMED authoring surface (`z.enum` families, not '
+    + 'per-tag schemas) that this card\'s ruling does not cover". Splitting the family into '
+    + 'per-tag schemas was ruled out in the same record as expansion for a consumer nobody has '
+    + 'measured. The non-export is also written on the barrel, beside the `layout.zod.js` block.',
+  h1:
+    'layout.zod.ts#HtmlElementSchema — the same ruling, the same reason, the other family: a '
+    + '`z.enum` of the safe flow/inline tags `renderers/basic/html-elements.tsx` registers. '
+    + 'objectui#8499\'s changeset names this pair together — exporting them "would publish a '
+    + 'NAMED authoring surface (`z.enum` families, not per-tag schemas)" — and objectui#9067 '
+    + 'ruled the pair absent by decision rather than split into per-tag schemas.',
 };
 
 /**
- * Arms whose absence from the barrel was DEFERRED, with the decision still owed.
+ * Arms whose absence from the barrel is DEFERRED, with the decision still owed.
  *
- * ⛔ These are not oversights, and reading them as oversights is the mistake
- * this comment exists to prevent. All four were armed by `507b61bf7`
- * (objectui#8499), which left the barrel alone deliberately: its changeset,
- * `.changeset/8499-node-slot-registered-arms.md`, declares the omission, states
- * that exporting a `SemanticElementSchema` / `HtmlElementSchema` pair "would
- * publish a NAMED authoring surface (`z.enum` families, not per-tag schemas)
- * that this card's ruling does not cover", and closes by saying "whoever wants
- * the number back down should treat naming these families as its own decision".
- * The objectui#8499 ceiling review raised the omission as blocking F1
- * (`5597569641`) and then PASSed the deferral "on the surface-widening reason
- * alone" (`5598263402`).
+ * ⭐ Empty on purpose, and kept rather than deleted: it is one of the three
+ * answers the failure message below offers, so a card that arms an arm it has no
+ * ruling to name has somewhere to say so instead of leaving the answer to be
+ * inferred from an absence. ⛔ Do not repurpose it as a second
+ * `ABSENT_BY_DECISION` — a row here means "nobody has decided yet", and `states
+ * each absence once` below refuses a literal that claims to be both.
  *
- * ⇒ The state is "a decision is owed", which is what these rows record, and the
- * argument AGAINST naming them is on the record too. objectui#9067 carries the
- * decision; anyone acting on it should read the changeset passage first, not
- * only the case for exporting.
- *
- * ⚠️ They are ledgered anyway rather than left to that changeset, because a
- * `.changeset/*.md` is consumed and deleted at release (measured: `59f61cfb8`
- * "chore: release packages (#4655)" removes the batch it versioned). The rows
- * keep the reason next to the state it explains.
+ * It last held four rows, all four armed by `507b61bf7` (objectui#8499) and all
+ * four settled by objectui#9067: two are exported by name from `index.zod.ts`
+ * now, two moved to `ABSENT_BY_DECISION` above with the reason. See the file
+ * docblock for that split and why the reason had to leave the changeset.
  */
-const ABSENT_PENDING_DECISION: Readonly<Record<string, string>> = {
-  aside: 'layout.zod.ts#SemanticElementSchema — deferred by objectui#8499, decision owed on objectui#9067',
-  h1: 'layout.zod.ts#HtmlElementSchema — deferred by objectui#8499, decision owed on objectui#9067',
-  email: 'form.zod.ts#InputShorthandSchema — deferred by objectui#8499, decision owed on objectui#9067',
-  'ui:calendar': 'form.zod.ts#UiCalendarSchema — deferred by objectui#8499, decision owed on objectui#9067',
-};
+const ABSENT_PENDING_DECISION: Readonly<Record<string, string>> = {};
 
 const LEDGER: Readonly<Record<string, string>> = { ...ABSENT_BY_DECISION, ...ABSENT_PENDING_DECISION };
 

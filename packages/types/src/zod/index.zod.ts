@@ -117,6 +117,17 @@ export {
   PageTypeSchema,
   PageNodeSchema,
   LayoutSchema,
+  // ⛔ `SemanticElementSchema` and `HtmlElementSchema` are deliberately NOT
+  // exported (objectui#9067, decision batch #121 item 5, maintainer 2026-09-12).
+  // Both are FAMILY schemas keyed by a tag `z.enum`, so a name bound to either
+  // would hand a consumer a schema accepting every tag in the family rather than
+  // the one node type every other name on this barrel stands for. objectui#8499's
+  // changeset stated the reason when it armed them and deferred the naming:
+  // exporting the pair "would publish a NAMED authoring surface (`z.enum`
+  // families, not per-tag schemas)". Splitting them into per-tag schemas was
+  // ruled out in the same breath — expansion for a consumer nobody has measured.
+  // `__tests__/arm-named-export-8784.test.ts` carries the rows that re-read this
+  // on every run; that ledger, not this comment, is what fails if it stops being true.
 } from './layout.zod.js';
 
 // ============================================================================
@@ -132,6 +143,10 @@ export {
   FieldConditionSchema,
   ButtonSchema,
   InputSchema,
+  // The `email` / `password` shorthand arm, named here by the objectui#9067
+  // ruling (decision batch #121 item 5): it stands for two `type` literals, so
+  // naming it keeps this barrel's meaning — one name, one node type.
+  InputShorthandSchema,
   TextareaSchema,
   SelectSchema,
   CheckboxSchema,
@@ -142,6 +157,10 @@ export {
   FileUploadSchema,
   DatePickerSchema,
   CalendarSchema,
+  // `ui:calendar` — the date-picker primitive `renderers/form/calendar.tsx`
+  // registers, a different component from the `calendar` plugin VIEW above.
+  // One `type` literal, so the same objectui#9067 ruling names it.
+  UiCalendarSchema,
   InputOTPSchema,
   ComboboxSchema,
   LabelSchema,

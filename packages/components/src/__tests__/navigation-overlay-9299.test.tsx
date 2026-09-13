@@ -41,7 +41,12 @@ import {
 
 const RECORD = { id: '1', name: 'Ada' };
 
-function renderOverlay(props: Record<string, unknown>) {
+/**
+ * `any` on the overrides bag, deliberately: each case varies a different
+ * subset of the shell's props (a mode, a ref, two storage keys), and a
+ * `Record<string, unknown>` cannot be spread into JSX at all (TS2698).
+ */
+function renderOverlay(props: Record<string, any>) {
   return render(
     <NavigationOverlay
       isOpen
@@ -51,7 +56,7 @@ function renderOverlay(props: Record<string, unknown>) {
       close={() => {}}
       setIsOpen={() => {}}
       title="Record Detail"
-      {...(props as never)}
+      {...props}
     >
       {(record) => <div data-testid="payload">{String((record as { name: string }).name)}</div>}
     </NavigationOverlay>,

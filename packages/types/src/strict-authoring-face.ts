@@ -82,6 +82,7 @@ import { SchemaNodeSchema } from './zod/base.zod.js';
 // recursion-point fill is installed. The pin file asserts that end state from
 // the published barrel rather than trusting this paragraph.
 import { AnyComponentSchema } from './zod/index.zod.js';
+import { carryRegistryMeta, cloneWithDef, internals, isZodType } from './zod/node-derivation.js';
 
 /**
  * One shape the strict walker could not close, reported as it is met.
@@ -108,79 +109,30 @@ export interface DeriveStrictAuthoringOptions {
 }
 
 /**
- * The subset of a zod def this walker reads. Zod does not publish `_zod.def`
- * in its public types, and the alternative — a chain of `instanceof` narrowings
- * against 15 concrete classes — would have to be rewritten whenever zod adds a
- * wrapper. Sibling precedent for reading it: `defineNodeComponentUnion` in
- * `zod/base.zod.ts` reads the same field to verify its own install.
+ * ⭐ THE DEF READER, THE GUARD AND THE CLONE RULE LIVE IN
+ * `./zod/node-derivation.ts`, NOT HERE (objectui#9102).
+ *
+ * They were three near-identical local copies of what the import boundary
+ * already had, and the copy is how they drifted: objectui#9086 taught the
+ * boundary's `cloneWithDef` to carry a node's registry metadata, this file's
+ * copy was deliberately not widened at the time, and objectui#9102 measured
+ * what that cost — `deriveStrictAuthoringSchema` rebuilds every container it
+ * walks, so every description this repository's own mirrors declare was
+ * dropped from the derived twin, and any `title` or `externalVocabulary` on an
+ * imported subtree with it.
+ *
+ * ⛔ A local re-spelling is the defect, not the fix. The metadata carry is
+ * invisible at the call site — a derived node with no description parses
+ * identically to one with — so a second copy loses it again with no symptom.
+ * `__tests__/registry-meta-carry-9102.test.ts` measures both faces through the
+ * one helper.
+ *
+ * ⚠️ What is NOT shared: the arms. This walker closes objects with
+ * `catchall: z.never()` and reports opaque shapes; the boundary strips defaults
+ * and holds an identity property this face deliberately does not have (it
+ * rebuilds unconditionally, because "strict" is a property every node must
+ * acquire). Only the three primitives above are common, and only they moved.
  */
-interface WalkableDef {
-  type: string;
-  shape?: Record<string, z.ZodType>;
-  options?: z.ZodType[];
-  items?: z.ZodType[];
-  element?: z.ZodType;
-  rest?: z.ZodType;
-  valueType?: z.ZodType;
-  left?: z.ZodType;
-  right?: z.ZodType;
-  in?: z.ZodType;
-  innerType?: z.ZodType;
-  out?: z.ZodType;
-  catchall?: z.ZodType;
-  getter?: () => z.ZodType;
-}
-
-interface ZodInternals {
-  _zod: { def: WalkableDef };
-  constructor: new (def: WalkableDef) => z.ZodType;
-}
-
-const internals = (schema: z.ZodType): ZodInternals => schema as unknown as ZodInternals;
-
-/**
- * Is this a zod schema node?
- *
- * ⚠️ `typeof value === 'object'` is NOT the test, and writing it that way is a
- * silent, measured coverage hole rather than a style slip. Zod 4.4.3 builds
- * some objects through `$ZodObjectJIT`, whose instances are CALLABLE — they
- * answer `typeof 'function'`, their constructor prints as a bound `ZodObject`,
- * their traits read `ZodObject/$ZodObjectJIT/$ZodObject/$ZodType`, and they
- * parse exactly like any other object. On this face, 20 such nodes are
- * reachable, all of them arriving through `@objectstack/spec`-derived subtrees.
- *
- * An object-only guard hands each of them straight back, so the ENTIRE subtree
- * beneath it goes unwalked. Measured, before this test admitted functions: 6
- * objects under those nodes stayed open on the twin, and a document with an
- * invented key inside one of them — `page.interfaceConfig.sort[]` is the
- * shortest — was ACCEPTED by the strict face and the key silently dropped,
- * while the same key at the root was correctly refused and named.
- *
- * ⛔ Nothing in the corpus could catch that: no document among the 556 carries
- * an undeclared key inside those 6 objects, so every corpus reading is
- * identical whichever guard is written here. The population pin in
- * `__tests__/strict-authoring-face-8345.test.ts` — every reachable object on
- * the twin has `catchall: never`, with the function-typed count asserted
- * non-zero — is what actually holds this line, and it too had to be taught the
- * same lesson: its own census started `typeof node !== 'object'` and shared the
- * blind spot with the thing it was measuring.
- */
-const isZodType = (value: unknown): value is z.ZodType =>
-  value !== null && (typeof value === 'object' || typeof value === 'function') && '_zod' in value;
-
-/**
- * Clone one schema with a patched def, PRESERVING everything else in it —
- * `def.checks` above all, which is where `.refine()` / `.superRefine()` live.
- *
- * A callable JIT instance clones through its own bound constructor and comes
- * back as an ordinary object-typed instance of the same class. That is a
- * difference in representation, not in behaviour, and behaviour is what the
- * pins measure: the clone parses, closes, and leaves the original untouched.
- */
-const cloneWithDef = (schema: z.ZodType, patch: Partial<WalkableDef>): z.ZodType => {
-  const Ctor = internals(schema).constructor;
-  return new Ctor({ ...internals(schema)._zod.def, ...patch });
-};
 
 /**
  * A walker with ONE memo. Two schemas derived through the same walker share
@@ -199,8 +151,20 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
     // `lazy` first, and memoised BEFORE the getter can re-enter: the node face
     // is self-referential through every child slot, so a walker that recursed
     // into the getter eagerly would not terminate.
+    //
+    // ⚠️ A FRESH `z.lazy` and not `cloneWithDef`, unlike the import boundary:
+    // this arm has to re-enter the getter it is replacing, and the boundary's
+    // clone spelling would keep the ORIGINAL getter alongside the patched one.
+    // It goes through `carryRegistryMeta` for the same reason every other arm
+    // does — a fresh node carries none of this one's registry state. The
+    // population of described `z.lazy` nodes on this face is empty today, so
+    // this is guarded by a hand-built control in the pin file rather than by a
+    // census that would assert nothing (objectui#9102).
     if (def.type === 'lazy') {
-      const out: z.ZodType = z.lazy(() => walk(def.getter!(), `${path}/lazy`));
+      const out: z.ZodType = carryRegistryMeta(
+        schema,
+        z.lazy(() => walk(def.getter!(), `${path}/lazy`)),
+      );
       memo.set(schema, out);
       return out;
     }

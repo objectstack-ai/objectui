@@ -2,12 +2,12 @@
 '@object-ui/plugin-list': patch
 ---
 
-fix(plugin-list): `convertFilterGroupToAST` folds the operator, so a saved view spelled canonically queries the filter it shows (objectui#9359)
+fix(plugin-list): `convertFilterGroupToAST` folds the operator, so a canonical value-less row emits its node instead of being dropped (objectui#9359)
 
-NOT cosmetic, and not a new defect: a list view whose stored filter used the
-spec's canonical operator spelling QUERIED WITH NO FILTER AT ALL and returned
-every record, while the filter panel showed the condition applied. Nothing
-errored and the result set looked plausible.
+NOT cosmetic, and not a new defect: a filter row carrying the spec's canonical
+operator spelling QUERIED WITH NO FILTER AT ALL and returned every record,
+while the filter panel showed the condition applied. Nothing errored and the
+result set looked plausible.
 
 `convertFilterGroupToAST` read the row's operator RAW, against
 `VALUELESS_FILTER_BUILDER_OPERATORS` — the FilterBuilder's six camelCase
@@ -22,10 +22,22 @@ row, and was dropped. Measured through the real converter on one `text` column:
     is_null  (canonical)     ->  []                        <- the defect
     equals + value "acme"    ->  ["title","=","acme"]      <- control, fires
 
-The canonical spelling is not exotic — it is what `foldFilterGroupToSpecRules`
-persists when the user saves the panel's group as a view, and what any
-spec-side producer emits. So a saved view could PERSIST correctly and still
-QUERY as though it had no filter.
+WHO REACHES THIS READER — measured, not assumed. Its one production caller is
+`buildEffectiveFilter`, and the argument it converts is the list toolbar's own
+FilterBuilder group: live in the session, or restored per browser by
+`writeListFilterState`. Both carry the dropdown's camelCase ids, so the
+canonical spelling has no measured producer into this reader today. A SAVED
+view does NOT arrive here — its stored `ViewFilterRule[]` travels
+`schema.filter` into the base-filter argument of that same call and is lowered
+by `@object-ui/core`'s `toFilterNode` / `viewFilterRuleToNode`, which already
+folds: `{ field: 'closed_at', operator: 'is_null', value: '' }` lowers to
+`["closed_at","is_null",""]`, accepted by `isFilterAST`. So what is repaired is
+not a live saved-view outage. It is a reader that contradicted its OWN declared
+contract — the comment above it states it accepts both the FilterBuilder
+vocabulary and the `@objectstack/spec` `ViewFilterRule` vocabulary, and it
+dropped a COMPLETE row of the second one, emitting no filter rather than an
+error. A reader that drops a complete row is a defect whether or not today's
+saved-view path happens to pre-fold.
 
 This is the same failure objectui#4744 repaired for the dropdown's own
 spellings, reached by the other vocabulary. Both raw reads in this function now

@@ -13,6 +13,7 @@ import {
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, ArrowLeft, Save, Trash2, ClipboardPaste, Download, Undo2 } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/react';
 import { sanitizeFileNameBase } from '@object-ui/core';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES } from './importCoercionContract';
 import type {
   DataSource,
@@ -1428,12 +1429,27 @@ const IMPORT_JOB_STATUS_VARIANT: Record<ImportJobStatus, 'default' | 'secondary'
 };
 
 /** Format an ISO timestamp compactly for the history table; falls back to the
- *  raw string (or a dash) when it isn't a parseable date. */
-function formatImportJobTime(iso?: string): string {
+ *  raw string (or a dash) when it isn't a parseable date.
+ *
+ *  `locale` is the BCP-47 tag from `useDisplayLocale()`, and it is REQUIRED and
+ *  non-optional on purpose (objectui#9327). Under a `locale?:` spelling a
+ *  caller could drop the argument, still type-check, and render a *plausible
+ *  date* rather than an error: an omitted tag means the MACHINE's locale, which
+ *  is neither of this renderer's two locale channels. On a date that moves the
+ *  FIELD ORDER — `04/03/2026` under `en-GB` is `3/4/2026` under `en-US` — and a
+ *  history reader working out *which run was which* has no unit marker to catch
+ *  the misreading. `iso` is therefore spelled `string | undefined` rather than
+ *  `iso?:`: a required parameter cannot follow an optional one, and it is
+ *  `locale` that must stay required.
+ *
+ *  ⛔ No `?? 'en'` backstop here. That would be a renderer-side default
+ *  papering over an absent channel; `useDisplayLocale` already owns the last
+ *  resort and always returns a concrete tag. */
+function formatImportJobTime(iso: string | undefined, locale: string): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return d.toLocaleString(locale);
 }
 
 /**
@@ -1446,6 +1462,11 @@ const ImportHistoryPanel: React.FC<{
   dataSource: unknown;
   t: (key: string, vars?: Record<string, unknown>) => string;
 }> = ({ objectName, dataSource, t }) => {
+  // The one date/number locale resolver: tenant regional default -> active UI
+  // language -> 'en'. Read unconditionally at component level, then handed to
+  // `formatImportJobTime` as an argument — the helper stays a module-level pure
+  // function rather than being inlined here just to reach the hook.
+  const displayLocale = useDisplayLocale();
   const [jobs, setJobs] = useState<ImportJobSummaryInfo[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1543,7 +1564,7 @@ const ImportHistoryPanel: React.FC<{
                   {job.skipped > 0 && <span className="text-muted-foreground"> · {t('grid.import.skippedCount', { count: job.skipped })}</span>}
                   {job.errors > 0 && <span className="text-destructive"> · {t('grid.import.errorCount', { count: job.errors })}</span>}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{formatImportJobTime(job.completedAt ?? job.createdAt)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{formatImportJobTime(job.completedAt ?? job.createdAt, displayLocale)}</TableCell>
                 <TableCell className="text-right">
                   {isImportJobActive(job.status) && typeof ds?.cancelImportJob === 'function' && (
                     <Button

@@ -1574,6 +1574,15 @@ reject while `BaseSchema` carries an index signature and its Zod mirror is `.pas
 exports the name. Run it locally with `pnpm check:readme-exports` after a build, or
 `node scripts/check-readme-exports.mjs --list` to see every self-import it judged.
 
+`--list` is the diagnostic you reach for in the state where the gate just failed, so it answers in
+that state rather than dying in it (objectui#9220): on a tree where a tracked package is unbuilt it
+prints every row and the census it *could* derive, then `PRECONDITION NOT MET (exit 2)` naming the
+unbuilt packages and a build command scoped to them. The separate exit code is the point — exit 1
+means "a verdict was read and a README is wrong", exit 2 means "nothing above is a verdict". Before
+that card the same state was an uncaught `TypeError` in the row formatter, which printed no census,
+no row past the first unjudgeable declaration, and left exit 1, indistinguishable from the
+fabricated-name failure the gate exists to report.
+
 ## Docs Route Eager Closure (`docs-route-eager-closure.yml`)
 
 **Triggers:** Push and PR to `main`/`develop`, merge-queue builds, plus manual dispatch — with **no

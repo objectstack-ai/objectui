@@ -106,6 +106,13 @@ export interface MasterDetailFormSchema {
    *  Defaults to `tax_rate`; the stack only appears if the field is present. */
   taxRateField?: string;
   onSuccess?: (parent: any) => void | Promise<void>;
+  /**
+   * Called after a refused save, for bookkeeping only (logging, custom focus
+   * handling, …) — NOT for showing the failure to the user. The form
+   * renderer already toasts every rejected write for any host `submitHandler`
+   * (objectui#7354); a host that also toasts here puts the same refusal on
+   * screen twice.
+   */
   onError?: (err: Error) => void;
   onCancel?: () => void;
   className?: string;

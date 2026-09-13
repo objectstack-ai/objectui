@@ -1076,9 +1076,25 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // the eager path. Indexing that namespace object put 1,781 icon module
   // definitions in this chunk; membership now comes from a build-generated
   // static name list and the glyphs arrive through lucide's dynamic-import map,
-  // so 259 of those 1,781 raw KB left the chunk: 397,091 -> 265,937 gzipped,
-  // 1,535,917 -> 997,293 raw, on the two console builds recorded under "Why
-  // this number came DOWN" on {@link MAX_EAGER_CLOSURE_GZIP_BYTES}.
+  // so the chunk went 397,091 -> 265,937 gzipped, on the two console builds
+  // recorded under "Why this number came DOWN" on
+  // {@link MAX_EAGER_CLOSURE_GZIP_BYTES}.
+  //
+  // ⛔ The RAW pair those same builds recorded is NOT restated here, and the
+  // omission is the repair rather than an oversight. It was restated, the head
+  // leg was wrong by 32,857 bytes, and the KB claim beside it matched neither
+  // that figure nor the right one — and nothing here could have caught either:
+  // no constant in this file reads raw bytes, no test weighs them, and a figure
+  // written into a comment is re-derived never. A ceiling-tier contract review
+  // re-measuring the head leg by hand is what found it (review 5654270820 on
+  // objectui#9399); the old figures are not quoted back, for the reason the
+  // objectui#7528 pin gives — a reader cannot tell a quotation from a claim.
+  // ⇒ Read raw off the instrument this gate already consumes: the `bytes`
+  // field beside `gzipBytes` for this key in
+  // `apps/console/dist/eager-closure.json`, on your own build. ⚠️ That answers
+  // the HEAD leg only — the control leg is a build of `ac05d4f4d`, which no
+  // checkout re-derives — which is why the drop above is stated in gzipped
+  // bytes, the unit this ceiling is weighed in.
   //
   // ⛔ A TIGHTENING. No build that passed before this edit and measures under
   // 289,000 fails after it. Headroom 23,063 bytes = 0.25x

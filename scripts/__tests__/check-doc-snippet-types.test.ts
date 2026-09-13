@@ -1071,6 +1071,17 @@ describe('objectui#7308 — the nested package READMEs are in the scan set, ledg
         path.join(root, 'packages/beta/node_modules/@object-ui/alpha'),
         'dir',
       );
+      // ⚠️ The guard is written at TWO levels — once on each package's own
+      // directory entries, once inside the recursive descent — and only the
+      // second one covers a `node_modules` that is not a package's own. Without
+      // this deeper cycle the fixture ablates green when the inner guard is
+      // removed, which would make this assertion a pin on half the guard.
+      fs.mkdirSync(path.join(root, 'packages/alpha/src/node_modules/@object-ui'), { recursive: true });
+      fs.symlinkSync(
+        path.join(root, 'packages/beta'),
+        path.join(root, 'packages/alpha/src/node_modules/@object-ui/beta'),
+        'dir',
+      );
       // Terminates, and yields the authored pages only — each exactly once.
       expect(nestedPackageReadmePages(root)).toEqual([
         'packages/alpha/src/zod/README.md',

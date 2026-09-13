@@ -782,10 +782,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       // Since we don't have a Layout component in @object-ui/components yet, we generate a simple one.
 
       const layoutCode = `
-import type { ComponentType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import * as LucideIcons from 'lucide-react';
-import { Moon, Sun } from "lucide-react"
+import { ChevronsUpDown, Monitor, Moon, Sun } from "lucide-react"
 import { useTheme } from "./theme-provider"
 import {
   DropdownMenu,
@@ -810,7 +809,9 @@ import {
   Separator,
   Collapsible,
   CollapsibleTrigger,
-  CollapsibleContent
+  CollapsibleContent,
+  LazyIcon,
+  isLucideIconName
 } from '@object-ui/components';
 
 /** One entry of \`app.json\`'s \`menu\`, as this layout reads it. */
@@ -828,21 +829,20 @@ type AppConfig = {
   menu?: MenuItem[];
 };
 
-// Lucide publishes every icon as a named export, and a menu entry names one as
-// a string — so the lookup is a runtime index into the namespace object, which
-// has no index signature. Narrowing it to the component-by-name shape this file
-// actually uses keeps that honest without an \`any\` or a \`@ts-expect-error\`; the
-// \`undefined\` arm is real, since the namespace also exports helpers that are not
-// components and a schema may name an icon that does not exist.
-const lucideIcons = LucideIcons as unknown as Record<
-  string,
-  ComponentType<{ className?: string }> | undefined
->;
-
+// An authored \`icon\` name is resolved by the platform seam
+// (\`@object-ui/components\`), never by a lookup this template rolls itself.
+// That is objectui#5935's ruling — one tokeniser and one icon-name vocabulary
+// for every container — and this generated layout is a container like any
+// other, even though it runs in the user's app rather than in this repo.
+//
+// \`isLucideIconName\` is asked FIRST because this call site has a better
+// fallback than the seam's: a sidebar entry with an unresolvable icon renders
+// no glyph at all, where \`LazyIcon\` alone would substitute a stray database
+// icon. The seam exports the predicate for exactly this ("ask first, then
+// choose"), so preferring it costs no second vocabulary.
 const DynamicIcon = ({ name, className }: { name: string; className?: string }) => {
-  const Icon = lucideIcons[name];
-  if (!Icon) return null;
-  return <Icon className={className} />;
+  if (!isLucideIconName(name)) return null;
+  return <LazyIcon name={name} className={className} />;
 };
 
 export function ModeToggle() {
@@ -860,20 +860,20 @@ export function ModeToggle() {
             <span className="truncate font-semibold">Switch Theme</span>
             <span className="truncate text-xs">Light / Dark</span>
           </div>
-          <LucideIcons.ChevronsUpDown className="ml-auto size-4" />
+          <ChevronsUpDown className="ml-auto size-4" />
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg" side="bottom" align="end" sideOffset={4}>
         <DropdownMenuItem onClick={() => setTheme("light")}>
-          <LucideIcons.Sun className="mr-2 size-4" />
+          <Sun className="mr-2 size-4" />
           Light
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
-          <LucideIcons.Moon className="mr-2 size-4" />
+          <Moon className="mr-2 size-4" />
           Dark
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")}>
-          <LucideIcons.Monitor className="mr-2 size-4" />
+          <Monitor className="mr-2 size-4" />
           System
         </DropdownMenuItem>
       </DropdownMenuContent>

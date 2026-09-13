@@ -424,6 +424,12 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
       schema: () => unwrapped(flowNodeShape?.boundaryConfig),
       supplied: { attachedToNodeId: 'n1', eventType: 'error' },
     },
+    // objectui#9337 turned `end.config.outcome` into a spec-derived select that
+    // DECLARES `'completed'`, which made it a declaring field — and a declaring
+    // field sitting outside every scope is precisely what the ratchet above
+    // refuses. `EndConfigSchema` is the schema that governs the region, so the
+    // ledger can now check the declaration instead of stepping around it.
+    { type: 'end', prefix: ['config'], schema: () => spec.EndConfigSchema, supplied: {} },
   ];
 
   const scopeId = (type: string, prefix: readonly string[]) => `${type}:${prefix.join('.')}`;

@@ -105,18 +105,71 @@ When the entire string is a single `${expression}`, the result preserves its typ
 
 ## Available scope variables
 
-When expressions are evaluated, these variables are in scope:
+Expression scope is published by the **host**, through `PredicateScopeProvider`.
+Every key of the `scope` you hand it becomes a root the evaluator can read:
+
+<!-- os:check -->
+```tsx
+import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+declare const schema: BaseSchema
+
+// Every name here becomes a root this page's expressions can read — `data`
+// included, which is now a name YOU publish rather than one the renderer binds.
+const scope = {
+  users: [{ id: 1, name: 'Ada Lovelace' }],
+  metrics: { total: 42 },
+  data: { fieldName: 'Ada Lovelace' },
+}
+
+function Page() {
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
+```
 
 | Variable | Source | Example |
 |----------|--------|---------|
-| Top-level data fields | `SchemaRendererProvider dataSource` | `${users}`, `${metrics.total}` |
-| `data` | Alias for dataSource root | `${data.fieldName}` |
-| `current_user` / `user` | Host predicate scope | `${current_user.email}` |
+| every key of `scope` | the host's `PredicateScopeProvider` | `${users}`, `${metrics.total}` |
+| `data` | a key of `scope` like any other — every `${data.*}` example on this page assumes a host that published one, as above | `${data.fieldName}` |
+| `current_user` / `user` | the same channel; an app-shell host's `ExpressionProvider` already feeds it | `${current_user.email}` |
+| `record` | the row a record surface is bound to, when there is one | `${record.status}` |
 | `page` | Page-local state (`PageSchema.variables`) | `${page.selectedId}` |
 
 That is the whole scope. There is **no `item` and no `index`** — the evaluator
 context is built once per node, not once per array element. See "No per-item
 template iteration" below.
+
+> ### ⛔ `dataSource` is not an expression root, and this is not a renaming
+>
+> `SchemaRendererProvider`'s `dataSource` carries the host's `DataSource`
+> **adapter** — the object a renderer calls `find()` on. The renderer used to
+> publish that adapter under the name `data`. An adapter answers no `data.*`
+> path an author would write, so that root was silently constant for every
+> conformant host, and objectui#9308 removed it (maintainer ruling 2026-09-13).
+>
+> **Re-check every gate you authored from an older copy of this page: the
+> verdict moved.** Measured on the built evaluator, a root that is MISSING and a
+> root that is PRESENT-but-empty are not the same thing:
+>
+> | what the scope holds | `${data.status == 'draft'}` |
+> |---|---|
+> | `data` bound to the adapter, which has no `status` member | `false` |
+> | `data` present and `undefined` | `false` |
+> | no `data` root at all — what you get now unless you publish one | the condition path fail-softs to `true`; a text key renders the raw `${…}` characters, and objectui#5454's reporter warns |
+>
+> So `"visible": "${data.status == 'draft'}"` written against the old wiring was
+> **hidden on every row**, and is now **shown on every row**. The same gate
+> spelled `"hidden"` flips the other way. Re-publishing `data` through
+> `PredicateScopeProvider` restores the old, always-`false` verdict — it does
+> not make the gate work. Give the gate a root that actually holds the row: at
+> the runtime layer that root is **`record`** (ADR-0089 D3, whose
+> `CANONICAL_ROOT_BY_LAYER` puts `record` at the runtime layer and `data` at the
+> metadata layer).
 
 ### Safe globals (always available)
 - `Math` — `${Math.round(price)}`, `${Math.max(a, b)}`
@@ -298,11 +351,18 @@ The `bind` field is NOT expression-evaluated. It's a path string resolved by
 }
 ```
 
-When `SchemaRendererProvider` receives
-`dataSource = { customerNames: ["Ada Lovelace", "Grace Hopper"] }`, `list` calls
-`useDataScope("customerNames")` and renders one entry per array element.
+When the host publishes
+`scope = { customerNames: ["Ada Lovelace", "Grace Hopper"] }` through
+`PredicateScopeProvider`, `list` calls `useDataScope("customerNames")` and
+renders one entry per array element.
 
-**Nested paths work:** `"bind": "app.settings.users"` resolves `dataSource.app.settings.users`.
+⛔ `bind` resolves against that same ambient scope — **not** against
+`SchemaRendererProvider`'s `dataSource`. That prop is the `DataSource` adapter,
+it has no member a `bind` path names, and objectui#9308 retired the walk over
+it. A `bind` on a page with no scope published above it resolves `undefined`,
+and each reader falls back to its own empty state.
+
+**Nested paths work:** `"bind": "app.settings.users"` resolves `scope.app.settings.users`.
 
 ### Which components read `bind`
 
@@ -390,7 +450,7 @@ section exists to close: binding `list` to ordinary records produces one empty
 
 <!-- os:check -->
 ```jsonc
-// ✅ Bound data, already node-shaped: dataSource = { rows: [{ "content": "Ada" }, { "content": "Linus" }] }
+// ✅ Bound data, already node-shaped: scope = { rows: [{ "content": "Ada" }, { "content": "Linus" }] }
 { "type": "list", "bind": "rows" }
 ```
 
@@ -563,7 +623,7 @@ When an expression isn't working:
 
 1. **Which key is it on, and does that type declare the key?** `content` and the predicate keys are evaluated and read on every type. `title` / `label` / `value` / `description` are evaluated **only on the types that declare them** — `statistic` (`label` / `value` / `description`), `card` (`title` / `description`), `button` (`label`) — and read raw everywhere else, including on a namespaced spelling such as `ui:statistic`. A `${...}` inside a `props` envelope is evaluated and then discarded. (A `properties` envelope is the one that is evaluated *and* hoisted onto the node — see [`rules/protocol.md`](../rules/protocol.md) for why that is recorded, not recommended.)
 2. Is the `${}` syntax correct? Check for unmatched braces.
-3. Is the data actually available in scope? Check `SchemaRendererProvider dataSource`.
+3. Is the data actually available in scope? Check what the host published on `PredicateScopeProvider` — ⛔ not `SchemaRendererProvider`'s `dataSource`, which publishes no expression root.
 4. For conditions: are you using `On` suffix correctly? (`hiddenOn` takes raw expression, `hidden` needs `${}` if it's a string).
 5. Does the expression use a blocked pattern? Check for constructors, `eval`, `window`, etc.
 6. Is type coercion causing issues? `${0 && "yes"}` returns `0`, not `false`.

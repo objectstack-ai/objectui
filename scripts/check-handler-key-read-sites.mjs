@@ -158,9 +158,26 @@ export const KNOWN_UNDECLARED_READS = new Map([
   ['form::FormSchema.onSuccess', 'objectui#7804'],
   ['object-grid::ObjectGridSchema.onNavigate', 'objectui#7804'],
   ['grid::GridSchema.onNavigate', 'objectui#7804'],
-  ['object-kanban::ObjectKanbanSchema.onCardClick', 'objectui#7804'],
+  // ⭐ TWO of the three `object-kanban::ObjectKanbanSchema` rows LANDED and are
+  // gone (objectui#7804's `plugin-kanban` slice): `onCardClick` and
+  // `onQuickAdd` are now objectui#6124 RUNTIME SLOTS on the arm, each measured
+  // at its own channel — the first by the React PROP `ObjectKanban` declares
+  // and its click wrapper CALLS, the second by identity through the schema
+  // spread. Draining them is part of the landing, not cleanup after it: a row
+  // that outlived its read reddens `staleExemptions()` below.
+  //
+  // ⚠️ `onCardMove` STAYS, and the row is not a leftover. Measured on the same
+  // instrument and driven rather than inferred, an authored `onCardMove` on an
+  // `object-kanban` document reaches NOTHING — `ObjectKanban` substitutes its
+  // own mover on the schema it hands down and declares no `onCardMove` React
+  // prop — so the objectui#6124 disposition is `'retired'`, and THIS GATE
+  // refuses that spelling while `KanbanRenderer` still reads the key
+  // (`retired-but-read`). The exit is to move the READ to an explicit React
+  // prop, the objectui#7742 remedy already applied to `objectFields` one file
+  // over, which narrows a published component's props and is a ruling rather
+  // than a repair. So the key stays undeclared, accepted and KEPT, and the row
+  // keeps naming objectui#7804 — which stays open and stays the parent.
   ['object-kanban::ObjectKanbanSchema.onCardMove', 'objectui#7804'],
-  ['object-kanban::ObjectKanbanSchema.onQuickAdd', 'objectui#7804'],
   ['list-view::ListViewSchema.onAddRecord', 'objectui#7804'],
   ['list-view::ListViewSchema.onBulkAction', 'objectui#7804'],
   ['list-view::ListViewSchema.onDensityChange', 'objectui#7804'],

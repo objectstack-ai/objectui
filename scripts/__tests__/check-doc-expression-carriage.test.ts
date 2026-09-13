@@ -664,13 +664,20 @@ describe('check-doc-expression-carriage: the real tree, and the posture', () => 
     // having looked at nothing.
     const orphan = fs.mkdtempSync(path.join(os.tmpdir(), 'carriage-orphan-'));
     fs.mkdirSync(path.join(orphan, 'scripts'));
-    // Three files, not two: objectui#7878 made the gate IMPORT its scan surface
+    // Four files, not two: objectui#7878 made the gate IMPORT its scan surface
     // from `check-doc-component-types.mjs` rather than carry a fourth copy of it,
-    // so the orphan needs that module for the import to resolve at all. If this
-    // list ever falls behind the gate's imports the failure is a module-resolution
-    // stack trace rather than the message below, which is why the message is
-    // asserted and not merely the exit code.
-    for (const file of ['check-doc-expression-carriage.mjs', 'check-doc-component-types.mjs', 'invoked-as.mjs']) {
+    // and objectui#9194 made both gates IMPORT the opening-fence predicate from
+    // `markdown-fence-scan.mjs` rather than carry a copy each, so the orphan needs
+    // those modules for the imports to resolve at all. If this list ever falls
+    // behind the gate's imports the failure is a module-resolution stack trace
+    // rather than the message below, which is why the message is asserted and not
+    // merely the exit code.
+    for (const file of [
+      'check-doc-expression-carriage.mjs',
+      'check-doc-component-types.mjs',
+      'invoked-as.mjs',
+      'markdown-fence-scan.mjs',
+    ]) {
       fs.copyFileSync(path.join(ROOT, 'scripts', file), path.join(orphan, 'scripts', file));
     }
     const run = spawnSync(process.execPath, ['scripts/check-doc-expression-carriage.mjs'], {

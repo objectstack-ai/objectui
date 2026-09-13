@@ -31,7 +31,7 @@ import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLoc
 // objectui's keyed `{ key, defaultValue, params }` ref — that vocabulary lives
 // on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead
 // (objectui#5134).
-import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator } from '@objectstack/spec/ui';
 import { usePermissions } from '@object-ui/permissions';
 
 /**
@@ -300,6 +300,63 @@ export interface ListViewProps {
 // Helper to convert FilterBuilder group to ObjectStack AST.
 // Accepts both the FilterBuilder vocabulary (camelCase) and the
 // @objectstack/spec ViewFilterRule vocabulary (snake_case).
+
+/**
+ * The shared value-less set, re-keyed by the spelling
+ * `normalizeFilterOperator` folds each member to — the lookup table
+ * `convertFilterGroupToAST` reads (objectui#9359).
+ *
+ * DERIVED, never a second literal: a hand-kept canonical copy beside the
+ * exported set is exactly how the two would come to disagree, and the
+ * disagreement is invisible — a filter the panel shows and the query does not
+ * carry.
+ *
+ * Why it exists here instead of the export being widened: the exported set
+ * states a fact about what the BUILDER'S DROPDOWN draws, and its members are
+ * that dropdown's own camelCase ids. Two other layers read it — this function
+ * (what the live grid QUERIES) and `app-shell`'s `foldFilterGroupToSpecRules`
+ * (what a saved view PERSISTS, already documented as this set PLUS the
+ * canonical spellings only that layer sees). Folding the canonical spellings
+ * INTO the export would make that layer's deliberate compensation redundant by
+ * side effect, in a file nobody is editing. The defect was never a set missing
+ * members; it was a reader that forgot to normalize its input, so the reader is
+ * what is repaired. Same shape the sibling repair used at the builder's own
+ * value-input gate (objectui#9302).
+ *
+ * `exists` / `notExists` fold to themselves — the spec's vocabulary has no
+ * existence operator and `VIEW_FILTER_OPERATOR_ALIASES` deliberately has no row
+ * for either — so this set is the same SIZE as the one it derives from.
+ */
+const VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL: ReadonlySet<string> = new Set(
+  [...VALUELESS_FILTER_BUILDER_OPERATORS].map(op => String(normalizeFilterOperator(op))),
+);
+
+/**
+ * Is this row COMPLETE without a value — asked of whichever spelling the row
+ * actually carries (objectui#9359).
+ *
+ * The two halves of one predicate used to speak different vocabularies. The
+ * value-less short-circuit did a raw `has()` on the exported set's camelCase
+ * ids, while the completeness test it falls through to
+ * (`isFilterValueComplete`) DOES fold, through this same
+ * `normalizeFilterOperator`, to decide arity. So a row spelled `is_null` — the
+ * spec's canonical form, which is what `foldFilterGroupToSpecRules` persists
+ * and what any spec-side producer emits — missed the short-circuit, landed on
+ * `scalar`, had its `value: ''` read as an unfinished row and was DROPPED. The
+ * function returned `[]`, the grid queried with no filter at all, and every
+ * record came back while the panel showed a filter applied. Silent.
+ *
+ * That is the same failure objectui#4744 repaired for the dropdown's own
+ * spellings — recorded in the exported set's docblock — reached by the other
+ * vocabulary. Folding here is one more site joining a fold this file already
+ * performs (`mapOperator` already matches case- and underscore-insensitively,
+ * and `isFilterValueComplete` folds through the spec's map) rather than a new
+ * dialect.
+ */
+function isValuelessFilterOperator(operator: string): boolean {
+  return VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL.has(String(normalizeFilterOperator(operator)));
+}
+
 /**
  * Filter-builder / view operator → filter-AST operator.
  *
@@ -591,7 +648,14 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       // `value: ''` by `addCondition`, and left that way because the operator
       // dropdown preserves `value` — was dropped as unfinished. The grid then
       // applied NO filter while the panel showed one.
-      if (VALUELESS_FILTER_BUILDER_OPERATORS.has(c.operator)) return true;
+      //
+      // Read through `isValuelessFilterOperator`, which folds the row's
+      // spelling before the lookup (objectui#9359): the set's members are the
+      // dropdown's camelCase ids, so a stored `is_null` — the canonical form a
+      // saved view carries — used to miss this short-circuit entirely and be
+      // dropped by the completeness test below, which folds. Same silent
+      // outcome as the #4744 defect, reached by the other vocabulary.
+      if (isValuelessFilterOperator(c.operator)) return true;
       // Skip incomplete rows (no value entered yet). Emitting `[field, op, '']`
       // would be a silently-wrong filter (matches only empty) rather than
       // "no filter", excluding all rows. Matches groupToCondition in
@@ -609,8 +673,14 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       return isFilterValueComplete(c.operator, c.value);
     })
     .map(c => {
-      if (c.operator === 'isEmpty') return [c.field, '=', null];
-      if (c.operator === 'isNotEmpty') return [c.field, '!=', null];
+      // Folded, not compared raw (objectui#9359). These two arms resolve to a
+      // null comparison BEFORE `mapOperator` is consulted, so leaving them on
+      // literal camelCase ids would have made the repair below reach `is_null`
+      // and not `is_empty` — trading one spelling-dependent answer for another,
+      // which is the defect this card is about rather than a fix for it.
+      const canonicalOperator = String(normalizeFilterOperator(c.operator));
+      if (canonicalOperator === 'is_empty') return [c.field, '=', null];
+      if (canonicalOperator === 'is_not_empty') return [c.field, '!=', null];
       // A value-less row's third slot is emitted as `null` rather than as
       // whatever `c.value` still holds: the operator dropdown PRESERVES the
       // previous operator's value, so an `Is null` row can carry a leftover
@@ -619,7 +689,13 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       // for `isnull`/`isnotnull` — it emits `{ [field]: { $null: true|false } }`
       // — so `null` is inert on the wire and keeps the emission a function of
       // the operator alone. Same shape the `isEmpty` arms above already use.
-      if (VALUELESS_FILTER_BUILDER_OPERATORS.has(c.operator)) {
+      // The same fold as the short-circuit above (objectui#9359): a row kept
+      // BECAUSE it is value-less must also be EMITTED as value-less, or the
+      // canonical spelling would carry its stale `value` into the third slot
+      // while the camelCase one carried `null` — one operator, two nodes.
+      // `mapOperator` already collapses case and underscores, so `is_null`
+      // lands on the same `isnull` its dropdown twin does.
+      if (isValuelessFilterOperator(c.operator)) {
         return [c.field, mapOperator(c.operator), null];
       }
       return [c.field, mapOperator(c.operator), c.value];

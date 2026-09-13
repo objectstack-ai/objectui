@@ -1086,9 +1086,11 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // that figure nor the right one — and nothing here could have caught either:
   // no constant in this file reads raw bytes, no test weighs them, and a figure
   // written into a comment is re-derived never. A ceiling-tier contract review
-  // re-measuring the head leg by hand is what found it (review 5654270820 on
-  // objectui#9399); the old figures are not quoted back, for the reason the
-  // objectui#7528 pin gives — a reader cannot tell a quotation from a claim.
+  // re-measuring the head leg by hand is what found it — comment 5654270820 on
+  // objectui#9399, an ISSUE comment rather than a pull request review, which is
+  // where a reader looks it up. ⛔ The old figures are not quoted back, for the
+  // reason the objectui#7528 pin gives: a reader cannot tell a quotation from a
+  // claim.
   // ⇒ Read raw off the instrument this gate already consumes: the `bytes`
   // field beside `gzipBytes` for this key in
   // `apps/console/dist/eager-closure.json`, on your own build. ⚠️ That answers

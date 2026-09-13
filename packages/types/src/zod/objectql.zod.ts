@@ -1452,6 +1452,40 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   coverImageField: z.string().optional().describe('Field name for cover image on cards'),
   allowCollapse: z.boolean().optional().describe('Allow columns to collapse/expand'),
   conditionalFormatting: z.array(KanbanConditionalFormattingRuleSchema).optional().describe('Card conditional formatting rules'),
+  // ── objectui#7804 — the three handler keys `KanbanRenderer` reads off the
+  // document this arm judges, MEASURED one at a time (director seat ruling of
+  // 2026-09-07, decision batch #69: the arm a `type` selects is the contract
+  // for what renders under it, and a registered renderer may not read a key the
+  // arm does not declare).
+  //
+  // Until here they were declared by NOTHING. `BaseSchema` is `.passthrough()`,
+  // so an authored `onCardClick: { action: 'toast' }` was not refused — it
+  // stopped being judged, the value was KEPT, and it was handed to a call site
+  // expecting a function. That is objectui#7664's measured transition; the
+  // three sat on the bare `kanban` arm as objectui#6124 RUNTIME SLOTS until
+  // objectui#8802 retired that arm, and the surviving `object-kanban` face
+  // inherited the reads without the declarations.
+  //
+  // ⛔ The three do NOT share a disposition, and sharing one because they share
+  // a prefix is the error this ruling forbids. The per-key channel readings and
+  // the drive that separates them are in `@object-ui/plugin-kanban`'s
+  // `__tests__/handlerKeyDispositionsMeasured-7804.test.tsx`; the twin
+  // docblocks in `../objectql.ts` carry the reasons member by member.
+  //
+  // ⚠️ TWO of the three land here. `onCardMove` is the third and it is NOT
+  // declared, deliberately: its authored value is measured to reach NOTHING on
+  // this entry (`ObjectKanban` substitutes its own mover and declares no
+  // `onCardMove` React prop), which is the `'retired'` disposition — and
+  // `check:handler-key-reads` REFUSES that spelling while `KanbanRenderer`
+  // still reads the key off the document it is handed, printing
+  // `declares it RETIRED, but a renderer still reads it`. Closing that needs
+  // the READ to move to an explicit React prop — the objectui#7742 remedy this
+  // same file already applied to `objectFields` — which narrows a published
+  // component's props and is a ruling, not a repair. So the key keeps its
+  // `KNOWN_UNDECLARED_READS` row naming objectui#7804, which stays open and
+  // stays the parent, and this arm does not pretend to judge it.
+  onCardClick: handlerKeyRefusal('onCardClick', 'runtime-slot', 'Card click handler'),
+  onQuickAdd: handlerKeyRefusal('onQuickAdd', 'runtime-slot', 'Quick Add handler'),
 }).superRefine(requireKanbanRecordSource);
 
 /**

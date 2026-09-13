@@ -30,12 +30,15 @@
  * the sibling-block panels run against every spec version this repo supports.
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import * as Automation from '@objectstack/spec/automation';
 // The Zod wrapper-key vocabulary — one list, read by the `.mjs` CI gates that
 // walk the same internals (objectui#6923, ruled 2026-08-31).
 import { ZOD_WRAPPER_KEYS } from '@object-ui/test-support';
-import { fieldsForNodeType, type FlowConfigField } from './flow-node-config';
+import { fieldsForNodeType, FLOW_NODE_TYPE_OPTIONS, type FlowConfigField } from './flow-node-config';
 
 // Feature-detected exports — absent on a spec that predates framework#4278.
 // (Truthiness alone never resolves a lazySchema proxy.)
@@ -284,7 +287,8 @@ describe('sibling-block forms ↔ FlowNodeSchema blocks (framework#4278 ratchet)
 });
 
 /**
- * **Declared defaults ↔ spec defaults — the whole escalation block** (#6794, #6620).
+ * **Declared defaults ↔ spec defaults — EVERY declaring field** (#6794, #6620,
+ * objectui#9109).
  *
  * Everything above is a KEY-set ledger: it proves the form edits exactly the
  * keys the executor reads. The default a field DECLARES is the other axis, and
@@ -292,113 +296,379 @@ describe('sibling-block forms ↔ FlowNodeSchema blocks (framework#4278 ratchet)
  * no `defaultValue` at all while the spec defaults the key to `true` (#6794),
  * then `escalation.enabled`, which declared `'false'` against a spec that had
  * flipped to `.default(true)` (#6620). Not cosmetic: `defaultValue` is what
- * `controllerAdmits` resolves an unset controller against and what a `boolean`
- * control seeds from, and it is what the ONLINE half of this form already
- * carries (a published `configSchema` sends `default: true`, which
- * `json-schema-to-fields` turns into `defaultValue: 'true'`) — so offline and
+ * `controllerAdmits` resolves an unset controller against, what a `boolean`
+ * control seeds from, and (since objectui#6830 arm A) what a `select` control
+ * states as its placeholder — and it is what the ONLINE half of this form
+ * already carries (a published `configSchema` sends `default: true`, which
+ * `json-schema-to-fields` turns into `defaultValue: 'true'`), so offline and
  * online rendered the same node from two different claims about the spec.
  *
- * ⭐ **Why this is now block-wide, and why it is the point of #6620.** The
- * previous revision scoped this to `notifySubmitter` ALONE and said so, to avoid
- * arming an on-hold card from an unrelated PR. The cost of that scoping was the
- * card's real defect: `escalation.enabled` had a "tripwire" in
- * `flow-node-config.inactiveRetained.test.ts` that reads only the TABLE, so a
- * spec bump could never redden anything — the divergence went live and stayed
- * invisible until a human happened to re-read the spec. A one-directional check
- * is not a check. This ledger walks whatever the installed spec materialises, so
- * the NEXT flip, on any key in the block, reddens here on the bump itself.
+ * ⭐ **Why this is now table-wide, and why that is objectui#9109.** The previous
+ * revision walked `field.path[1] === 'escalation'` ALONE, and said so: the
+ * scoping was deliberate while objectui#6620 was on hold. objectui#6620 closed
+ * on 2026-09-08 and the reason is spent — but the cost of that scoping had
+ * already been paid, because FOUR declarations outside the escalation block
+ * were claiming a default the installed spec applies none of, and nothing
+ * reddened. A ledger that stops one block short is the same defect as no
+ * ledger, one block later. This walks every node type in `FLOW_NODE_CONFIG`
+ * against its OWN spec schema, so a declaration cannot sit outside it.
  *
  * The expected values are READ FROM THE INSTALLED SPEC, never spelled out here:
  * objectui is the consumer, and a literal restates exactly the claim that
  * drifts — it would pass just as happily on the next upstream flip.
+ *
+ * ⛔ **What this file does NOT decide.** Both registers below record live
+ * divergences rather than asserting them away, and neither register is a
+ * waiver: every entry re-measures the spec state it claims, and the register
+ * sets must match the measured divergence sets EXACTLY, so an entry cannot
+ * outlive the divergence and a new divergence cannot hide behind one. Which END
+ * of each divergence to move — delete the declaration, or back it upstream — is
+ * a product call this repo cannot make alone (objectui#9109 triage fence 2), and
+ * a test is the wrong place to make it.
  */
-describe('approval escalation: declared defaults ↔ ApprovalEscalationSchema (#6794, #6620)', () => {
+describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, objectui#9109)', () => {
   // ⛔ The subpath is load bearing. `ApprovalEscalationSchema` is NOT on the
   // package root: `require('@objectstack/spec').ApprovalEscalationSchema` is
   // `undefined`, so a probe written that way dies with `Cannot read properties
   // of undefined` — a failure that reads as "the spec does not have it yet" and
   // sends the reader back to waiting. #6620 sat on hold behind exactly that
   // misreading. This file's own `import * as Automation` is the working spelling.
-  const EscalationSchema = spec.ApprovalEscalationSchema as
-    | { safeParse: (value: unknown) => { success: boolean; data?: Record<string, unknown> } }
-    | undefined;
-
-  /** The block's only REQUIRED key. Supplied as input, so never a default. */
-  const SUPPLIED: Record<string, unknown> = { timeoutHours: 24 };
+  const flowNodeShape = objectShape(spec.FlowNodeSchema);
 
   /**
-   * Every key the spec MATERIALISES from an omitted-key block, with its value —
-   * the runtime's own answer to "what does this node actually do", read fresh.
+   * The node-type universe, read from the TABLE'S OWN SOURCE rather than from a
+   * hand-kept list.
    *
-   * Keys we supplied are subtracted: `timeoutHours` comes back only because we
-   * sent it, and counting it would demand the form declare a default for a
-   * required key that has none.
+   * `FLOW_NODE_CONFIG` is module-private and `fieldsForNodeType` answers `[]`
+   * for a type it has never heard of, so a type added to the table but missing
+   * from a hand-kept list contributes zero fields and the ledger reports a
+   * confident nothing — which is precisely how the four declarations this card
+   * is about stayed invisible. Enumerating from the source makes the TOTAL come
+   * from the same place the readings come from (AGENTS.md: "当一次扫描的「总体」
+   * 和「逐项读取」来自不同来源时,对照必须取自总体那一侧").
+   *
+   * Rooted at `import.meta.url`, never `process.cwd()` — the cwd differs between
+   * the repo-root and package-level invocations (objectui#7791/#7799).
    */
-  function specDefaults(): Record<string, unknown> {
-    expect(
-      EscalationSchema,
-      '@objectstack/spec/automation must export ApprovalEscalationSchema',
-    ).toBeDefined();
-    const parsed = EscalationSchema!.safeParse({ ...SUPPLIED });
-    expect(parsed.success, 'a minimal escalation block must parse').toBe(true);
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(parsed.data ?? {})) if (!(k in SUPPLIED)) out[k] = v;
-    return out;
+  function nodeTypesFromSource(): string[] {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const src = fs.readFileSync(path.join(here, 'flow-node-config.ts'), 'utf8');
+    const open = src.indexOf('const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {');
+    expect(open, 'FLOW_NODE_CONFIG must still be declared with this signature').toBeGreaterThan(-1);
+    const close = src.indexOf('\n};', open);
+    expect(close, 'FLOW_NODE_CONFIG must still close at column 0').toBeGreaterThan(open);
+    return [...src.slice(open, close).matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_]*):/gm)].map((m) => m[1]!);
   }
 
-  /** The approval form's escalation fields, keyed by the spec key each edits. */
-  function escalationFields(): Map<string, FlowConfigField> {
-    const out = new Map<string, FlowConfigField>();
-    for (const f of fieldsForNodeType('approval')) {
-      if (f.path[0] === 'config' && f.path[1] === 'escalation' && f.path[2]) out.set(f.path[2], f);
+  const NODE_TYPES = nodeTypesFromSource();
+
+  it('the node-type enumeration is live, not an empty regex', () => {
+    // The positive control for the scan above. A regex that stopped matching
+    // returns `[]`, and every walk below would then pass over nothing — the
+    // vacuous-green shape this whole file exists to prevent. Aliases need no
+    // sweep of their own: `fieldsForNodeType` resolves every alias to one of
+    // these canonical tables, so walking the table keys walks every field.
+    expect(NODE_TYPES.length, 'FLOW_NODE_CONFIG declares node types').toBeGreaterThan(20);
+    expect(NODE_TYPES, 'and the picker types are among them').toEqual(
+      expect.arrayContaining([...FLOW_NODE_TYPE_OPTIONS]),
+    );
+    expect(NODE_TYPES, 'including the off-picker tables a picker-only sweep would miss').toEqual(
+      expect.arrayContaining(['boundary_event', 'notify', 'legacy_action', 'join_gateway']),
+    );
+  });
+
+  /**
+   * One reconcilable region of the form: the fields under `prefix`, and the
+   * spec schema that decides what an omitted key there actually does.
+   *
+   * `supplied` names the region's REQUIRED keys. They are sent as input so the
+   * parse can succeed, then subtracted from the materialised result — counting
+   * them would demand the form declare a default for a key that has none.
+   */
+  interface DefaultScope {
+    readonly type: string;
+    readonly prefix: readonly string[];
+    readonly schema: () => unknown;
+    readonly supplied: Record<string, unknown>;
+  }
+
+  const SCOPES: readonly DefaultScope[] = [
+    {
+      type: 'approval',
+      prefix: ['config'],
+      schema: () => spec.ApprovalNodeConfigSchema,
+      supplied: { approvers: [{ type: 'user', value: 'u1' }] },
+    },
+    {
+      type: 'approval',
+      prefix: ['config', 'escalation'],
+      schema: () => spec.ApprovalEscalationSchema,
+      supplied: { timeoutHours: 24 },
+    },
+    {
+      type: 'http_request',
+      prefix: ['config'],
+      schema: () => spec.HttpConfigSchema,
+      supplied: { url: 'https://example.invalid/x' },
+    },
+    { type: 'screen', prefix: ['config'], schema: () => spec.ScreenConfigSchema, supplied: {} },
+    {
+      type: 'wait',
+      prefix: ['waitEventConfig'],
+      schema: () => unwrapped(flowNodeShape?.waitEventConfig),
+      supplied: { eventType: 'timer' },
+    },
+    {
+      type: 'boundary_event',
+      prefix: ['boundaryConfig'],
+      schema: () => unwrapped(flowNodeShape?.boundaryConfig),
+      supplied: { attachedToNodeId: 'n1', eventType: 'error' },
+    },
+  ];
+
+  const scopeId = (type: string, prefix: readonly string[]) => `${type}:${prefix.join('.')}`;
+
+  /** Every field in the table that DECLARES a default, with the scope it sits in. */
+  function declaringFields(): Array<{ scope: string; key: string; field: FlowConfigField }> {
+    const out: Array<{ scope: string; key: string; field: FlowConfigField }> = [];
+    for (const type of NODE_TYPES) {
+      for (const field of fieldsForNodeType(type)) {
+        if (field.defaultValue === undefined) continue;
+        out.push({
+          scope: scopeId(type, field.path.slice(0, -1)),
+          key: field.path[field.path.length - 1]!,
+          field,
+        });
+      }
     }
     return out;
   }
 
+  /** The form fields inside one scope, keyed by the spec key each edits. */
+  function fieldsInScope(scope: DefaultScope): Map<string, FlowConfigField> {
+    const out = new Map<string, FlowConfigField>();
+    for (const f of fieldsForNodeType(scope.type)) {
+      if (f.path.length !== scope.prefix.length + 1) continue;
+      if (!scope.prefix.every((seg, i) => f.path[i] === seg)) continue;
+      out.set(f.path[f.path.length - 1]!, f);
+    }
+    return out;
+  }
+
+  /**
+   * Every key the spec MATERIALISES from an omitted-key region, with its value —
+   * the runtime's own answer to "what does this node actually do", read fresh.
+   */
+  function specDefaults(scope: DefaultScope): Record<string, unknown> {
+    const schema = scope.schema() as
+      | { safeParse: (v: unknown) => { success: boolean; data?: Record<string, unknown> } }
+      | undefined;
+    expect(
+      schema?.safeParse,
+      `@objectstack/spec/automation must expose a parseable schema for ${scopeId(scope.type, scope.prefix)}`,
+    ).toBeTypeOf('function');
+    const parsed = schema!.safeParse({ ...scope.supplied });
+    expect(parsed.success, `a minimal ${scopeId(scope.type, scope.prefix)} region must parse`).toBe(true);
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(parsed.data ?? {})) if (!(k in scope.supplied)) out[k] = v;
+    return out;
+  }
+
+  /**
+   * ⛔ **The two registers — live divergences, recorded, not waived.**
+   *
+   * ⭐ The four unbacked declarations are NOT one class, and a register that
+   * recorded them as one would be wrong about half of them (objectui#9109
+   * measurement comment, 2026-09-11). Each entry therefore carries the spec
+   * state it claims, and `state` is RE-MEASURED below — an entry whose claim
+   * stops being true reddens as loudly as an unregistered divergence.
+   *
+   * - `required-no-default` — the spec key is REQUIRED. There is no runtime
+   *   default to state: an omitted key does not behave as the declared value,
+   *   it FAILS TO PARSE. "Unset behaves as X" is not merely unbacked here, it
+   *   is the wrong SHAPE of statement, and both of these already have on-screen
+   *   effect — each gates siblings through `controllerAdmits` on a node that
+   *   stored no value at all.
+   * - `optional-no-default` — the spec key is OPTIONAL and the installed Zod
+   *   materialises nothing for it. ⚠️ That is a statement about SCHEMA
+   *   DEFAULTING and nothing else: the flow EXECUTOR lives in `objectstack`,
+   *   `@objectstack/spec` is only the parse contract, so whether the engine
+   *   applies `GET` / create-mode when it runs the node is **NOT MEASURED**
+   *   here — ⛔ not "measured false". If it does, the fix is upstream and this
+   *   register entry is how the two ends stay connected.
+   */
+  const UNBACKED_REGISTER: ReadonlyArray<{
+    region: string;
+    key: string;
+    state: 'required-no-default' | 'optional-no-default';
+  }> = [
+    { region: 'wait:waitEventConfig', key: 'eventType', state: 'required-no-default' },
+    { region: 'boundary_event:boundaryConfig', key: 'eventType', state: 'required-no-default' },
+    { region: 'http_request:config', key: 'method', state: 'optional-no-default' },
+    { region: 'screen:config', key: 'mode', state: 'optional-no-default' },
+  ];
+
+  /**
+   * The other direction's register: the spec APPLIES a default and the form
+   * field for that key declares none — the #6794 shape exactly, found by this
+   * widening in two places the escalation-only walk could never reach.
+   * Filed separately; ⛔ not fixed here, because adding a declaration moves the
+   * ten-field acceptance pin objectui#6830 deliberately placed in
+   * `FlowNodeInspector.declaredDefault.test.tsx` and creates an on-screen claim,
+   * neither of which is this card's to decide.
+   */
+  const UNDECLARED_REGISTER: ReadonlyArray<{ region: string; key: string }> = [
+    { region: 'approval:config', key: 'lockRecord' },
+    { region: 'boundary_event:boundaryConfig', key: 'interrupting' },
+  ];
+
+  // ⚠️ `region`, not `scope`: vitest reads `$a.$b` in an `it.each` title as the
+  // PATH `a.$b`, so a dotted pair of placeholders renders `undefined` and every
+  // register row gets the same nameless title. The separator below keeps both
+  // halves addressable.
+  const rowId = (r: { region: string; key: string }) => `${r.region}.${r.key}`;
+
   it('the gate `enabled` is inside the ledger — and the ledger is not empty', () => {
-    // THE VACUITY GUARD, and the reason it names a key. Both assertions below
-    // iterate `specDefaults()`; a spec that stopped materialising anything would
-    // make each of them pass over an empty collection, which is the shape #6620's
-    // old tripwire failed in. This row fails instead — and it names `enabled`
-    // because that is the key the card was about, so the ledger's coverage of it
-    // is visible in a test name rather than only inferable from a loop.
-    const defaults = specDefaults();
+    // THE VACUITY GUARD, and the reason it names a key. Every walk below
+    // iterates materialised defaults; a spec that stopped materialising
+    // anything would make each of them pass over an empty collection, which is
+    // the shape #6620's old tripwire failed in. This row fails instead — and it
+    // names `enabled` because that is the key that card was about, so the
+    // ledger's coverage of it is visible in a test name rather than only
+    // inferable from a loop.
+    const escalation = SCOPES.find((s) => scopeId(s.type, s.prefix) === 'approval:config.escalation')!;
+    const defaults = specDefaults(escalation);
     expect(Object.keys(defaults).length, 'the spec materialises at least one default here').toBeGreaterThan(0);
     expect(typeof defaults.enabled, 'the spec materialises `enabled` from an omitted key').toBe('boolean');
+
+    const everything = SCOPES.flatMap((s) => Object.keys(specDefaults(s)));
+    expect(everything.length, 'and the table-wide walk materialises defaults in more than one scope').toBeGreaterThan(
+      Object.keys(defaults).length,
+    );
+  });
+
+  it('every declaring field in the whole table sits inside a scope', () => {
+    // ⭐ THE RATCHET, and the whole point of objectui#9109. The old walk was
+    // `field.path[1] === 'escalation'`, so four declarations sat outside it and
+    // nothing reddened. A declaration added anywhere the `SCOPES` table does not
+    // cover now fails HERE, naming itself — it can no longer go unchecked by
+    // being somewhere nobody looked.
+    const uncovered = declaringFields()
+      .filter((d) => !SCOPES.some((s) => scopeId(s.type, s.prefix) === d.scope))
+      .map((d) => `${d.scope}.${d.key} declares ${JSON.stringify(d.field.defaultValue)} with no spec scope to check it against`);
+    expect(uncovered, 'add a DefaultScope for this region, with the spec schema that governs it').toEqual([]);
+    // …and the scopes are not all empty, which is the way the line above lies.
+    expect(declaringFields().length, 'the table still declares defaults at all').toBeGreaterThan(5);
   });
 
   it('every default the spec applies is declared by the form, with the same value', () => {
-    const fields = escalationFields();
     const mismatches: string[] = [];
-    for (const [key, value] of Object.entries(specDefaults())) {
-      const field = fields.get(key);
-      if (!field) {
-        mismatches.push(`${key}: the spec defaults it, the form offers no field for it`);
-        continue;
-      }
-      // Defaults are strings in this table — booleans spelled 'true' / 'false',
-      // the spelling `controllerAdmits` compares a controller against.
-      if (field.defaultValue !== String(value)) {
-        mismatches.push(
-          `${key}: the form declares ${JSON.stringify(field.defaultValue)}, the spec applies ${JSON.stringify(String(value))}`,
-        );
+    const noField: string[] = [];
+    const undeclared: string[] = [];
+    for (const scope of SCOPES) {
+      const id = scopeId(scope.type, scope.prefix);
+      const fields = fieldsInScope(scope);
+      for (const [key, value] of Object.entries(specDefaults(scope))) {
+        const field = fields.get(key);
+        if (!field) {
+          noField.push(`${id}.${key}: the spec defaults it, the form offers no field for it`);
+        } else if (field.defaultValue === undefined) {
+          undeclared.push(`${id}.${key}`);
+        } else if (field.defaultValue !== String(value)) {
+          // Defaults are strings in this table — booleans spelled 'true' /
+          // 'false', the spelling `controllerAdmits` compares a controller
+          // against.
+          mismatches.push(
+            `${id}.${key}: the form declares ${JSON.stringify(field.defaultValue)}, the spec applies ${JSON.stringify(String(value))}`,
+          );
+        }
       }
     }
     expect(
       mismatches,
       'the hand-written table must state what an omitted key actually does at runtime',
     ).toEqual([]);
+    expect(
+      noField,
+      'a spec default with no field at all is a key-set hole, never a registerable divergence',
+    ).toEqual([]);
+    expect(
+      undeclared.sort(),
+      'the spec applies a default the form states nowhere — register it or declare it',
+    ).toEqual(UNDECLARED_REGISTER.map(rowId).sort());
   });
 
   it('and the form declares no default the spec does not apply', () => {
-    // The other direction, and not symmetric decoration: a `defaultValue` with no
-    // spec counterpart is a claim about the contract with nothing behind it, and
-    // it is ACTED ON — it resolves a `showWhen` controller and seeds a boolean
-    // control off a value the runtime never applies.
-    const defaults = specDefaults();
-    const invented = [...escalationFields()]
-      .filter(([key, f]) => f.defaultValue !== undefined && !(key in defaults))
-      .map(([key, f]) => `${key}: the form declares ${JSON.stringify(f.defaultValue)}, the spec applies none`);
-    expect(invented, 'a declared default with no spec counterpart').toEqual([]);
+    // The other direction, and not symmetric decoration: a `defaultValue` with
+    // no spec counterpart is a claim about the contract with nothing behind it,
+    // and it is ACTED ON — it resolves a `showWhen` controller, seeds a boolean
+    // control, and states itself as a select trigger's placeholder, off a value
+    // the runtime never applies.
+    const byScope = new Map(SCOPES.map((s) => [scopeId(s.type, s.prefix), specDefaults(s)]));
+    const invented = declaringFields()
+      .filter((d) => byScope.has(d.scope) && !(d.key in byScope.get(d.scope)!))
+      .map((d) => rowId({ region: d.scope, key: d.key }));
+    expect(
+      invented.sort(),
+      'a declared default with no spec counterpart — register it or remove it',
+    ).toEqual(UNBACKED_REGISTER.map(rowId).sort());
   });
+
+  it.each(UNBACKED_REGISTER)(
+    'register row $region · $key still measures as $state',
+    ({ region: id, key, state }) => {
+      // ⛔ A register entry is an ASSERTION, never a waiver: it re-measures the
+      // spec state it claims. An entry that outlives its divergence (the key
+      // gained a `.default()`, or turned optional) reddens here, which is what
+      // keeps the register shrinking rather than accumulating.
+      const scope = SCOPES.find((s) => scopeId(s.type, s.prefix) === id)!;
+      const withoutKey = Object.fromEntries(
+        Object.entries(scope.supplied).filter(([k]) => k !== key),
+      );
+      const schema = scope.schema() as {
+        safeParse: (v: unknown) => {
+          success: boolean;
+          data?: Record<string, unknown>;
+          error?: { issues: Array<{ path: PropertyKey[] }> };
+        };
+      };
+      const parsed = schema.safeParse(withoutKey);
+
+      if (state === 'required-no-default') {
+        // The sharper of the two, and it needs no executor: an omitted key does
+        // not behave as the declared value, it is REFUSED at the door.
+        expect(parsed.success, `${id}.${key}: a REQUIRED key must refuse an omitted value`).toBe(false);
+        expect(
+          parsed.error?.issues.map((i) => i.path.join('.')),
+          `${id}.${key}: and the refusal must name this key`,
+        ).toContain(key);
+      } else {
+        // Optional, and the installed Zod materialises nothing. ⚠️ Evidence
+        // about SCHEMA DEFAULTING only — the executor is in `objectstack` and
+        // is NOT MEASURED by this repo.
+        expect(parsed.success, `${id}.${key}: an OPTIONAL key must parse when omitted`).toBe(true);
+        expect(
+          parsed.data && key in parsed.data,
+          `${id}.${key}: and the spec must materialise nothing for it`,
+        ).toBe(false);
+      }
+    },
+  );
+
+  it.each(UNDECLARED_REGISTER)(
+    'register row $region · $key still measures as spec-applies-form-declares-none',
+    ({ region: id, key }) => {
+      const scope = SCOPES.find((s) => scopeId(s.type, s.prefix) === id)!;
+      expect(
+        key in specDefaults(scope),
+        `${id}.${key}: the spec must still materialise this key`,
+      ).toBe(true);
+      const field = fieldsInScope(scope).get(key);
+      expect(field, `${id}.${key}: the form must still offer a field for it`).toBeDefined();
+      expect(
+        field!.defaultValue,
+        `${id}.${key}: declare it (and drop this row) rather than leaving the register stale`,
+      ).toBeUndefined();
+    },
+  );
 });

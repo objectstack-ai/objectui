@@ -4103,7 +4103,11 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     criteria: { label: '进入条件(旧)', help: '旧字段 —— 建议使用“进入条件”(condition)。' },
   },
   end: {
-    outcome: { label: '结果' },
+    outcome: {
+      label: '结果',
+      help: '运行在此处如何结束。“已完成”是普通终态,也是省略该键时的取值。“已拒绝”把拒绝记为一等结果 —— 它是一次成功的评估,只是结论为否 —— 并要求给出拒绝理由 message({token} 模板),在“高级”中填写。',
+      opts: { completed: '已完成', refused: '已拒绝' },
+    },
     outputVariable: { label: '输出变量' },
   },
   decision: {

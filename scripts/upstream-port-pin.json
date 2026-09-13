@@ -322,8 +322,8 @@
     {
       "ported": ".claude/hooks/guard-main-checkout-bash.sh",
       "upstreamPath": ".claude/hooks/guard-main-checkout-bash.sh",
-      "ref": "924f0fed152781868739b66a3376f6b21d9dffe0",
-      "upstreamSha256": "138594f3955ed1145437709ae917eeb7e9b561c91cfd46c2665a80bbc8260afd",
+      "ref": "7c2c5aedd94d7b0d94c91432bc607862e9c83c6c",
+      "upstreamSha256": "bedf697936506b9943a9471224c9cc60e513cc4d801729c1df2eb83a8123625c",
       "divergences": [
         {
           "id": "example-edit-path",
@@ -456,8 +456,8 @@
     {
       "ported": ".claude/hooks/guard-main-checkout-bash.selftest.sh",
       "upstreamPath": ".claude/hooks/guard-main-checkout-bash.selftest.sh",
-      "ref": "924f0fed152781868739b66a3376f6b21d9dffe0",
-      "upstreamSha256": "8c6d3d3984419f746424417269f3398ddca1950c71ccc683e945d994539c97e7",
+      "ref": "7c2c5aedd94d7b0d94c91432bc607862e9c83c6c",
+      "upstreamSha256": "fab5ec59b0855373bbc1c498af7f791af3c26e9b1894244a2ded2e1b9ac75b38",
       "divergences": [
         {
           "id": "matrix-provenance",
@@ -524,8 +524,8 @@
     {
       "ported": ".claude/hooks/guard-shared-stash.sh",
       "upstreamPath": ".claude/hooks/guard-shared-stash.sh",
-      "ref": "2b9f5810b777ee9d0211d9d6273d854bd8e2d5bd",
-      "upstreamSha256": "44e187d2df28e65bae514ff044a9bb9573bb7d29597681d8e2243dc61cf0c998",
+      "ref": "7c2c5aedd94d7b0d94c91432bc607862e9c83c6c",
+      "upstreamSha256": "374e7008e7281f44d4dd62efcf2bbb0bd6c3155c5ee5fd68f1202b46a06639b9",
       "divergences": [
         {
           "id": "no-prime-directive-citation",
@@ -549,7 +549,7 @@
           "id": "selftest-case-count-and-derivation",
           "why": "This copy pins its own self-test's case count and records how to re-derive it, rather than leaving a number nobody re-checks.",
           "upstream": "# Self-test (51 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n",
-          "ported": "# Self-test (48 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n# 48 = 46 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback).\n# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 2, and the run's own\n# tail prints the total (\"N passed, N failed\") — keep this number equal to it.\n"
+          "ported": "# Self-test (50 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n# 50 = 46 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback)\n# + 2 hatch-message assertions (`lacks`/`says`, which are not `expect ` lines).\n# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 4, and the run's own\n# tail prints the total (\"N passed, N failed\") — keep this number equal to it.\n"
         },
         {
           "id": "unquoted-backslash-rationale",
@@ -592,8 +592,8 @@
     {
       "ported": ".claude/hooks/guard-shared-stash.selftest.sh",
       "upstreamPath": ".claude/hooks/guard-shared-stash.selftest.sh",
-      "ref": "2b9f5810b777ee9d0211d9d6273d854bd8e2d5bd",
-      "upstreamSha256": "2274f808dc89a1cb8df5431bfa2fd115b3171256136b7d1410ac7dccb08f5022",
+      "ref": "7c2c5aedd94d7b0d94c91432bc607862e9c83c6c",
+      "upstreamSha256": "fe747fb161f7f0031dc5ca56af76a62a32d3d9d046d9445e0369e923d0d91c69",
       "divergences": [
         {
           "id": "matrix-provenance",
@@ -702,8 +702,8 @@
     {
       "ported": ".claude/hooks/guard-tree-enum.sh",
       "upstreamPath": ".claude/hooks/guard-tree-enum.sh",
-      "ref": "c074c57e452734821caf6f43329a20e873926f16",
-      "upstreamSha256": "add7e5615359e336df722873924055829ea40b34ab106a73d2ae2a1abc8ce2f3",
+      "ref": "7c2c5aedd94d7b0d94c91432bc607862e9c83c6c",
+      "upstreamSha256": "8dd823052c8b276a7d8ee9bd183ef7aaee2f187b15f6ddd4f832684107ff29fe",
       "divergences": [
         {
           "id": "incident-first-person",
@@ -728,8 +728,8 @@
     {
       "ported": ".claude/hooks/guard-tree-enum.selftest.sh",
       "upstreamPath": ".claude/hooks/guard-tree-enum.selftest.sh",
-      "ref": "c074c57e452734821caf6f43329a20e873926f16",
-      "upstreamSha256": "6690dd40321eb00c8680f694fb3f48725c666291c524b668e6b161ca39d12aa9",
+      "ref": "7c2c5aedd94d7b0d94c91432bc607862e9c83c6c",
+      "upstreamSha256": "e19872688753c34743a0ee35cd0e9672d8d46a2773daa72928c19510d38c6a59",
       "divergences": [
         {
           "id": "incident-first-person",

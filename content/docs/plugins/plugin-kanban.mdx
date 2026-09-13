@@ -82,6 +82,17 @@ const onCardMove = (cardId: string, fromCol: string, toCol: string, index: numbe
 has no function value), never a member of the schema object below —
 `packages/plugin-kanban/README.md` documents this the same way.
 
+Neither are `onCardClick` and `onQuickAdd`, and since objectui#7804 the
+`object-kanban` validator **says so by name**: both are declared as
+objectui#6124 **runtime slots**, so an authored `onCardClick: { "action":
+"toast" }` is now refused with a message pointing at the node-type spelling,
+where before it parsed green and was handed to a call site expecting a function.
+A React host still supplies either function through the TypeScript interface or
+as a React prop; only the JSON face refuses them. ⚠️ `onCardMove` itself is
+still *undeclared* on that validator — an authored one is accepted and silently
+dropped, because an object-bound board substitutes its own mover — and that gap
+is open on objectui#7804.
+
 `columns` are the board's **swimlanes**, not a field projection — the fields drawn
 on a card are `cardFields`. It is **one of two array shapes**, the pair
 `@objectstack/spec` declares: an array of `{ id, title }` lanes (one per `groupBy`

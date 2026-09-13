@@ -10,7 +10,10 @@
  * Which authored `on*` keys reach the registered `'detail'` renderer — measured
  * per key, driven through the real `SchemaRenderer` — and the guard that a bare
  * deletion of either declaration goes red (objectui#7804, the `plugin-detail`
- * slice of the 39-row `KNOWN_UNDECLARED_READS` ledger).
+ * slice of the `KNOWN_UNDECLARED_READS` ledger — ⛔ that ledger's size is NOT
+ * written down here: it is whatever `node scripts/check-handler-key-read-sites.mjs`
+ * prints, and the hard-coded figure this line used to carry went stale inside
+ * the life of this branch. AGENTS.md #9).
  *
  * ## The exposure
  *
@@ -242,13 +245,28 @@ describe('the declaration is derived from the read site, not from a list (object
     expect(plainReads).toEqual(['onAddComment', 'onNavigate']);
   });
 
-  it('records the ONE read a cast hides from the repo gate (filed separately, NOT repaired here)', () => {
+  it('records the ONE cast-spelled read DetailView still has — ledgered here, dispositioned elsewhere', () => {
     // `DetailView.tsx` reads `(schema as any).onTabChange` in its `autoTabs`
-    // branch and forwards it into the `<Tabs onValueChange>` it renders. The
-    // repo gate reads the AST and never sees a read behind that cast, so the
-    // key is absent from `KNOWN_UNDECLARED_READS` and from this card's 39 rows.
-    // Recorded here as a reading, deliberately NOT declared: that is a
-    // different card's scope.
+    // branch and forwards it into the `<Tabs onValueChange>` it renders.
+    //
+    // ⚠️ This leg USED TO say that the repo gate could not see a read behind
+    // that cast, and that the key was therefore absent from the ledger. Both
+    // halves stopped being true inside the life of this branch: the gate now
+    // unwraps `as` / `!` / `satisfies` / parens before it names the receiver,
+    // so this read IS judged and the key IS carried as a
+    // `KNOWN_UNDECLARED_READS` row attributed to objectui#7804. Kept as a
+    // record rather than smoothed away, because the assertion below never
+    // moved — it was a GREEN assertion narrating a fact that had died, which is
+    // the shape AGENTS.md #9 exists to name. ⛔ Neither the row's position nor
+    // the ledger's size is written down here; the gate's own
+    // `check-handler-key-read-sites.mjs --list` enumerates both.
+    //
+    // So what this leg measures is the SOURCE spelling, not the gate's reach:
+    // that `(schema as any)` is still how `DetailView` reads the key, and that
+    // there is exactly ONE such read. Deciding the key's objectui#6124
+    // disposition is objectui#9344's item ② — it lands in the zod arms, not
+    // here, and `DetailSchema` today declares neither `onTabChange` nor the
+    // `onValueChange` spelling `TabsSchema` carries for the same event.
     expect(castReads).toEqual(['onTabChange']);
   });
 });

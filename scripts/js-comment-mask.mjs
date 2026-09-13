@@ -436,7 +436,13 @@ export function scanSource(source) {
   return { comment, literal, interpolation };
 }
 
-/** Replace every flagged character with a space, keeping newlines and offsets. */
+/**
+ * Replace every flagged character with a space, keeping newlines and offsets.
+ *
+ * @param {string} source
+ * @param {Uint8Array} flags One byte per character of `source`; non-zero blanks it.
+ * @returns {string}
+ */
 export function blank(source, flags) {
   const out = source.split('');
   for (let k = 0; k < out.length; k++) if (flags[k] && out[k] !== '\n') out[k] = ' ';
@@ -465,6 +471,9 @@ export function blank(source, flags) {
  * Pick by what the caller does with the result: reports a LINE or an offset
  * into the original text -> `maskComments`; feeds a scanner and reports neither
  * -> `stripComments`.
+ *
+ * @param {string} source
+ * @returns {string}
  */
 export function stripComments(source) {
   const { comment } = scanSource(source);
@@ -481,6 +490,9 @@ export function stripComments(source) {
  * Strings, templates and regex literals are left INTACT: a gate's signal is
  * usually itself a string literal, so "drop everything quoted" would erase the
  * thing being looked for. Only prose goes.
+ *
+ * @param {string} source
+ * @returns {string}
  */
 export function maskComments(source) {
   return blank(source, scanSource(source).comment);

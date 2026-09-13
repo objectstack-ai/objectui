@@ -17,7 +17,8 @@ hid correctly. Fail-**open** and silent by construction — a gate that never bi
 renders exactly like a gate that said yes — so it could not be found by looking
 at a page, only by counting.
 
-**Breaking, deliberately, and narrowly.** A node whose author wrote a falsy
+**BREAKING (scored `minor` per this repo's version-alignment convention)** — deliberately,
+and narrowly. A node whose author wrote a falsy
 visibility predicate (or a truthy `disabled`) inside a `props` bag rendered
 before and is now gated. That is the whole point of the repair, and it is the
 only verdict that moves: the alias is consulted **only** where the post-hoist

@@ -30,6 +30,19 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { UserFilters } from '../UserFilters';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are partial stubs carrying only the members the path under test calls;
+ * completing them would change which capability probes fire, and so would
+ * change what these tests measure.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 afterEach(() => {
   cleanup();
@@ -211,7 +224,7 @@ describe('UserFilters tabs — adding a tab writes nothing (ADR-0047)', () => {
     setItem.mockClear();
 
     render(
-      <SchemaRendererProvider dataSource={dataSource}>
+      <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
         <UserFilters
           config={{ ...tabsConfig, allowAddTab: true }}
           data={[]}

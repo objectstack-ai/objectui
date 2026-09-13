@@ -51,9 +51,22 @@ import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 // self-import (`scripts/check-package-self-import.mjs`).
 import '../renderers';
 import {
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
   DATA_TABLE_BIND_DIAGNOSTIC_PREFIX,
   DATA_TABLE_DATA_DIAGNOSTIC_PREFIX,
 } from '../renderers/complex/dataTableBindDiagnostic';
+import type { DataSource } from '@object-ui/types';
 
 /** Identical in every leg, so the only variable is where `data` was written. */
 const COLUMNS = [
@@ -101,7 +114,7 @@ function warningsOn(prefix: string): string[] {
 
 function tree(schema: unknown) {
   return (
-    <SchemaRendererProvider dataSource={SCOPE}>
+    <SchemaRendererProvider dataSource={SCOPE as unknown as DataSource}>
       <SchemaRenderer schema={schema as never} />
     </SchemaRendererProvider>
   );

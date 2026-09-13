@@ -59,7 +59,9 @@ export function RecipientPickerField({
 }: FieldWidgetComponentProps<string>) {
   const ctx = React.useContext(SchemaRendererContext);
   const { t } = useFieldTranslation();
-  const dataSource: any = props.dataSource ?? (ctx as any)?.dataSource ?? null;
+  // Cast-free context read (objectui#7912); the local stays `any` for the
+  // `FieldWidgetProps.dataSource?: unknown` channel it merges with.
+  const dataSource: any = props.dataSource ?? ctx?.dataSource ?? null;
   const disabled = props.disabled;
   const dependentValues: Record<string, any> = (props as any).dependentValues ?? {};
   const recipientType = String(dependentValues.recipient_type ?? '');

@@ -89,9 +89,21 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import type { BaseSchema } from '@object-ui/types';
+import type { BaseSchema, DataSource } from '@object-ui/types';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 /**
  * Records the `hidden` prop exactly as it arrives, so "the node rendered" and
@@ -108,7 +120,7 @@ const DATA = { status: 'draft', archived: true, published: false };
 
 function renderNode(schema: Record<string, unknown>) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA }}>
+    <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
       <SchemaRenderer schema={{ type: 'probe-3955', ...schema } as never} />
     </SchemaRendererContext.Provider>,
   );
@@ -139,7 +151,7 @@ function renderNode(schema: Record<string, unknown>) {
  */
 function renderDeclaredNode(schema: BaseSchema) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA }}>
+    <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
       <SchemaRenderer schema={schema} />
     </SchemaRendererContext.Provider>,
   );

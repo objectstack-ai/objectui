@@ -56,6 +56,19 @@ import React from 'react';
 import { ComponentRegistry, ExpressionEvaluator } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const Probe = (props: { schema?: { props?: Record<string, unknown> } }) => (
   <div
@@ -81,7 +94,7 @@ const FAILS = { dialect: 'cel', source: 'has(data.status) && data.status == "pub
 
 function mount(schema: unknown) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA }}>
+    <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
       <SchemaRenderer schema={schema as never} />
     </SchemaRendererContext.Provider>,
   );

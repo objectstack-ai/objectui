@@ -109,7 +109,7 @@ const schema: CardSchema = {
 function App() {
   return (
     <div className="min-h-screen bg-background p-8 text-foreground">
-      <SchemaRendererProvider dataSource={{}}>
+      <SchemaRendererProvider dataSource={undefined}>
         <SchemaRenderer schema={schema} />
       </SchemaRendererProvider>
     </div>
@@ -119,7 +119,9 @@ function App() {
 export default App;
 ```
 
-Importing `@object-ui/components` and `@object-ui/fields` registers their renderers with the shared `ComponentRegistry`. `SchemaRendererProvider` supplies the data scope used by expressions, smart fields, and data-aware plugins.
+Importing `@object-ui/components` and `@object-ui/fields` registers their renderers with the shared `ComponentRegistry`. `SchemaRendererProvider` injects the host's data adapter, and everything below it — expressions, smart fields, data-aware plugins — reads it back from there.
+
+This app renders inline `data`, so it has no adapter to inject and says so with `undefined`. That is a real state of the contract, not a placeholder: `dataSource` is typed `DataSource | null | undefined` (`@object-ui/types`), so a host either hands over an adapter or states that it has none. It used to be typed `any` and this example passed an empty object, which no renderer can do anything with (objectui#7912).
 
 ## Step 5: Run the App
 
@@ -134,7 +136,7 @@ Open [http://localhost:5173](http://localhost:5173). You should see a card and d
 1. **Schema** - the UI was described as JSON with `type`, visual props, and nested `body`.
 2. **Registry** - importing the component packages registered renderers for `card` and `data-table`.
 3. **Renderer** - `SchemaRenderer` resolved each `type` and rendered React components.
-4. **Provider** - `SchemaRendererProvider` made a data scope available for expressions and plugins.
+4. **Provider** - `SchemaRendererProvider` is where a host injects its `DataSource`; this app has none, so it passes `undefined`.
 
 ## Next Steps
 

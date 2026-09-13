@@ -51,8 +51,20 @@ vi.mock('react-map-gl/maplibre', () => ({
   Popup: ({ children }: any) => <div data-testid="map-popup">{children}</div>,
 }));
 
-/** Rows whose coordinates live under NON-default field names. */
-const ROWS = [{ id: '1', name: 'HQ', lat: 40, lng: -74 }];
+/**
+ * Rows whose coordinates live under NON-default field names.
+ *
+ * ⭐ `owner: 'me'` is LOAD-BEARING since objectui#9061, and only since then.
+ * Describe (d) authors `filter: [['owner', '=', 'me']]` beside the map config;
+ * that filter used to be inert on an inline `value` set (the very fail-OPEN bug
+ * #9061 repairs), so the row survived it by accident. Now the inline path
+ * lowers `schema.filter` onto `$filter` exactly as the fetching path does, so a
+ * row that does not satisfy the authored filter is correctly dropped and the
+ * config assertion below would be measuring an empty set instead of the config.
+ * Satisfying the filter — rather than removing it — keeps BOTH readings: the
+ * filter is honoured AND it did not eat `schema.map`.
+ */
+const ROWS = [{ id: '1', name: 'HQ', lat: 40, lng: -74, owner: 'me' }];
 /** The same place, spelled the way the DEFAULT config expects. */
 const ROWS_DEFAULT_SPELLING = [{ id: '1', name: 'HQ', latitude: 40, longitude: -74 }];
 
@@ -69,8 +81,24 @@ afterEach(() => {
   warnSpy.mockRestore();
 });
 
-const renderMap = async (schema: Record<string, unknown>) => {
-  const utils = render(<ObjectMap schema={schema as any} />);
+/**
+ * `hostRows`, when given, hands the records down the `data` PROP — the path a
+ * host component (`ListView`) uses, which bypasses this component's own query
+ * and is therefore exempt from `filter` / `sort` / the row ceiling by design.
+ *
+ * ⭐ Why describe (a) needs it, post-objectui#9061: the legacy shape under test
+ * there is authored under `filter`, and `filter` is the QUERY FILTER and nothing
+ * else (objectui#4034) — so `{ map: DECLARED_MAP }` is now read as "the field
+ * named `map` equals that object", which no row satisfies, and the inline set
+ * comes back EMPTY. That is correct behaviour and the same thing the fetching
+ * path has always sent on the wire; but it makes a marker count unable to say
+ * anything about CONFIG resolution, which is the only thing this file grades.
+ * Handing those rows down the exempt prop puts the config back as the single
+ * variable. `filter` still reaches the query verbatim — describe (c) grades
+ * that separately, against a mock adapter.
+ */
+const renderMap = async (schema: Record<string, unknown>, hostRows?: any[]) => {
+  const utils = render(<ObjectMap schema={schema as any} data={hostRows} />);
   await waitFor(() => expect(screen.queryByText('Loading map...')).toBeNull());
   return utils;
 };
@@ -82,23 +110,33 @@ const warnings = () => warnSpy.mock.calls.map((c: unknown[]) => String(c[0])).jo
 // ---------------------------------------------------------------------------
 describe('legacy `filter.map` is not map configuration (objectui#4034)', () => {
   it('ignores a MapConfig stashed under `filter.map` and falls to the default config', async () => {
-    await renderMap({
-      type: 'object-map',
-      data: { provider: 'value', items: ROWS },
-      filter: { map: DECLARED_MAP },
-    });
+    await renderMap(
+      {
+        type: 'object-map',
+        filter: { map: DECLARED_MAP },
+      },
+      ROWS,
+    );
 
     // The stash named `lat`/`lng`; it is not read, so the default config
     // (`latitude`/`longitude`) applies and finds no coordinates on these rows.
+    //
+    // ⚠️ The rows come down the exempt host prop deliberately. Read as an
+    // inline `value` set this row would still assert 0 — but for the WRONG
+    // reason (the stash-as-query-filter selecting nothing), and it would go on
+    // passing with config resolution completely broken. Its whole job is to be
+    // the 0 half of a 0/1 pair with the row below.
     expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
   });
 
   it('really is the DEFAULT config that applies, not "no config at all"', async () => {
-    await renderMap({
-      type: 'object-map',
-      data: { provider: 'value', items: ROWS_DEFAULT_SPELLING },
-      filter: { map: { latitudeField: 'lat', longitudeField: 'lng' } },
-    });
+    await renderMap(
+      {
+        type: 'object-map',
+        filter: { map: { latitudeField: 'lat', longitudeField: 'lng' } },
+      },
+      ROWS_DEFAULT_SPELLING,
+    );
 
     // Same legacy stash, rows spelled the default way: the default config is
     // live and places the marker. (Pre-fix this rendered nothing — the stash

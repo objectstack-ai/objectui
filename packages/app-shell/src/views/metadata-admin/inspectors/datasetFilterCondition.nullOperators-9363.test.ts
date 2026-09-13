@@ -108,13 +108,14 @@ describe('groupToCondition — the null predicates this inspector offers (object
   });
 
   it('still drops an operator it does not map, rather than emitting a wrong filter', () => {
-    // Deliberate, and kept: see this file's header. These four are OFFERED by
-    // the menu and dropped, which erases the same way — tracked as its own
-    // finding, not widened here on the way past.
-    expect(groupToCondition(row('notContains', 'a'))).toBeUndefined();
+    // Deliberate, and kept: see this file's header.
+    //
+    // objectui#9372 took the other three of the four this listed — the
+    // `notContains` / `startsWith` / `endsWith` rows are asserted as EMITTED
+    // in `datasetFilterCondition.unmappedInert-9372`, with the conformance
+    // reading behind each — and made the remaining drop inert. `between` is
+    // what is left: still offered, still dropped, and no longer destructive.
     expect(groupToCondition(row('between', [1, 5]))).toBeUndefined();
-    expect(groupToCondition(row('startsWith', 'a'))).toBeUndefined();
-    expect(groupToCondition(row('endsWith', 'a'))).toBeUndefined();
   });
 
   it('an empty group is still `undefined` — that is the author CLEARING the filter', () => {
@@ -191,15 +192,21 @@ const OFFERED = offeredAcrossBuckets([]);
 /**
  * Offered, and deliberately NOT expressible by this bridge today.
  *
- * Each one drops on commit, and a drop of the last surviving row erases the
- * stored filter — the same mechanism objectui#9363 fixed for the null pair.
- * They are listed rather than fixed here because mapping them is a separate
- * decision per operator (`between` needs a both-bounds-present rule before it
- * can be emitted at all), and a blanket "stop dropping" would emit filters that
- * mean something else. Mapping one is what makes this list shrink — and this
- * assertion go red until it is updated.
+ * Each one drops on commit. ⚠️ That drop used to ERASE the stored filter when
+ * no other row survived — the same mechanism objectui#9363 fixed for the null
+ * pair — and objectui#9372 ended that: the caller now tells "nothing survived"
+ * apart from "the author cleared", so a drop is inert
+ * (`datasetFilterCondition.unmappedInert-9372`). Being on this list is now a
+ * missing capability, not data loss.
+ *
+ * objectui#9372 also took three of the four this listed. `between` is what
+ * remains, and it remains for a reason that is about THIS bridge rather than
+ * the spec's vocabulary: the builder pads a half-typed pair with `''` and the
+ * spec's comparand door accepts `[1, '']`, so it needs a both-bounds-present
+ * rule before it can be emitted at all. Mapping it is what makes this list
+ * shrink — and this assertion go red until it is updated.
  */
-const DECLARED_UNEXPRESSIBLE = ['between', 'endsWith', 'notContains', 'startsWith'];
+const DECLARED_UNEXPRESSIBLE = ['between'];
 
 /** A value that keeps a row from being dropped as INCOMPLETE, per operator. */
 function probeValue(operator: string): unknown {

@@ -16,6 +16,10 @@
  * draws no input for them, so the row is complete without one. Both pairs the
  * spec's vocabulary carries — `$exists` (is empty) and `$null` (is null) — are
  * bridged here, in {@link VALUELESS_TO_MONGO}.
+ *
+ * An operator that is NOT bridged is dropped, and dropping is where the danger
+ * used to be: see {@link isClearedGroup} for why an unmapped operator is now
+ * inert rather than destructive (objectui#9372).
  */
 
 /** FilterBuilder camelCase operator → FilterCondition Mongo operator. */
@@ -24,11 +28,19 @@ const OP_TO_MONGO: Record<string, string> = {
   greaterThan: '$gt', greaterOrEqual: '$gte', lessThan: '$lt', lessOrEqual: '$lte',
   after: '$gt', before: '$lt',
   contains: '$contains', in: '$in', notIn: '$nin',
+  // objectui#9372. The builder offers these three only on its TEXT bucket,
+  // which is the side the spec's declared-type door passes them on
+  // (`TEXT_OPERATOR_DOOR_CASES`: `passes` over `text`, `door-refusal` over
+  // `number` / `date` / `boolean`), and every filter backend answers them
+  // against the same canonical table (`FILTER_TEXT_CASES`). So mapping them is
+  // a bridge to a predicate the platform already agrees on, not a new claim.
+  notContains: '$notContains', startsWith: '$startsWith', endsWith: '$endsWith',
 };
 const MONGO_TO_OP: Record<string, string> = {
   $eq: 'equals', $ne: 'notEquals',
   $gt: 'greaterThan', $gte: 'greaterOrEqual', $lt: 'lessThan', $lte: 'lessOrEqual',
   $contains: 'contains', $in: 'in', $nin: 'notIn',
+  $notContains: 'notContains', $startsWith: 'startsWith', $endsWith: 'endsWith',
 };
 
 /**
@@ -79,21 +91,81 @@ export type { FilterCondition } from '@objectstack/spec/data';
 
 import type { FilterCondition } from '@objectstack/spec/data';
 
+/**
+ * The rows this bridge will even look at. A row with no field picked is not
+ * yet a row — the builder seeds one the moment "Add condition" is clicked —
+ * so it is neither serialized nor counted as something the author typed.
+ *
+ * One definition, two readers: {@link groupToCondition} filters by it and
+ * {@link isClearedGroup} counts it. Two copies of this predicate is exactly
+ * how "the group is empty" and "the group serialized to nothing" could drift
+ * apart again.
+ */
+function liveRows(group: BuilderGroup | undefined): BuilderCondition[] {
+  return (group?.conditions ?? []).filter((c) => c && c.field);
+}
+
+/**
+ * Is an `undefined` answer from {@link groupToCondition} the author CLEARING
+ * the filter (objectui#9372)?
+ *
+ * ## The conflation this exists to end
+ *
+ * `undefined` out of {@link groupToCondition} meant two different things —
+ * *"the author cleared the filter"* and *"nothing survived serialization"* —
+ * and the only caller treated both as clear. Since the inspector commits on
+ * every change, and the host applies patches as `{ ...draft, ...patch }`, that
+ * commit SETS `filter` to `undefined`: the same patch shape
+ * `objectChangePatch` uses deliberately to erase it. So a serialization that
+ * produced nothing destroyed the author's stored filter.
+ *
+ * Reachable two ways, and both are the same defect:
+ *
+ *  - switching the only row to an operator this bridge does not map
+ *    (objectui#9363 closed `isNull` / `isNotNull`; `between` is still one);
+ *  - blanking the VALUE of the only row, which needs no operator at all — the
+ *    incomplete-row `continue` drops it and the last part goes with it.
+ *
+ * ## What the caller does with the answer
+ *
+ * `false` means "rows are still on screen": the caller must patch NOTHING and
+ * leave the stored value alone. `true` — no rows at all, i.e. Clear all, or
+ * the last row removed — is the author's own gesture and still commits
+ * `undefined`.
+ *
+ * ⛔ Deliberately not "emit something for the unmapped operator". A filter
+ * emitted in a spelling that means something else is worse than a dropped one,
+ * which is the whole reason the unmapped arm exists; this makes the drop inert,
+ * it does not stop it dropping.
+ */
+export function isClearedGroup(group: BuilderGroup | undefined): boolean {
+  return liveRows(group).length === 0;
+}
+
 /** Serialize the visual group → a spec FilterCondition (flat `$and`). */
 export function groupToCondition(group: BuilderGroup | undefined): FilterCondition | undefined {
-  const conds = (group?.conditions ?? []).filter((c) => c && c.field);
+  const conds = liveRows(group);
   const parts: FilterCondition[] = [];
   for (const c of conds) {
     const valueless = VALUELESS_TO_MONGO[c.operator];
     if (valueless) { parts.push({ [c.field]: { ...valueless } }); continue; }
     const mop = OP_TO_MONGO[c.operator];
     // Still dropped rather than emitted in a spelling that means something
-    // else. ⚠️ The drop is not free: it is what erases the stored filter when
-    // no other row survives (see VALUELESS_TO_MONGO), and this menu offers
-    // `notContains` / `between` / `startsWith` / `endsWith`, none of which this
-    // table maps. Mapping one is a per-operator decision — `between` needs a
-    // both-bounds-present rule before it can be emitted at all — so they are
-    // declared, and pinned, in `datasetFilterCondition.nullOperators-9363`.
+    // else — that decision is the reason this arm exists and it is unchanged.
+    //
+    // What changed (objectui#9372) is the COST of the drop. It used to erase
+    // the author's stored filter whenever no other row survived; now
+    // {@link isClearedGroup} lets the caller tell that apart from a real clear,
+    // so an unmapped operator is inert. ⚠️ Do not read the drop as "this
+    // dialect cannot express it": the spec's `FILTER_OPERATORS` carries
+    // `$notContains`, `$startsWith`, `$endsWith` AND `$between`. The three text
+    // ones are mapped above. `between` is the one still offered here (on the
+    // date bucket) and still unmapped, for a reason that is about THIS bridge
+    // rather than the vocabulary: the builder pads a half-typed pair with `''`
+    // and the spec's comparand door accepts `[1, '']`, so emitting it needs a
+    // both-bounds-present rule first. The partition is pinned in
+    // `datasetFilterCondition.nullOperators-9363`, the inertness in
+    // `datasetFilterCondition.unmappedInert-9372`.
     if (!mop) continue;
     // Skip incomplete rows (no value typed yet) — emitting `{field:{$op:''}}` would
     // be a silently-wrong filter (matches only empty), not "no filter".

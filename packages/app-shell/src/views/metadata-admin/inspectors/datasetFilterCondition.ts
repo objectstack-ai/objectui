@@ -11,6 +11,11 @@
  * (nested groups, `$or`, multi-operator objects, unmapped operators) is reported
  * as NOT representable so the caller can fall back to the source editor instead
  * of silently corrupting the author's filter.
+ *
+ * The value-less operators are the exception to "field op value": the builder
+ * draws no input for them, so the row is complete without one. Both pairs the
+ * spec's vocabulary carries — `$exists` (is empty) and `$null` (is null) — are
+ * bridged here, in {@link VALUELESS_TO_MONGO}.
  */
 
 /** FilterBuilder camelCase operator → FilterCondition Mongo operator. */
@@ -24,6 +29,32 @@ const MONGO_TO_OP: Record<string, string> = {
   $eq: 'equals', $ne: 'notEquals',
   $gt: 'greaterThan', $gte: 'greaterOrEqual', $lt: 'lessThan', $lte: 'lessOrEqual',
   $contains: 'contains', $in: 'in', $nin: 'notIn',
+};
+
+/**
+ * Value-less builder operators, and the predicate each one lowers to.
+ *
+ * A row carrying one of these is COMPLETE without a value — the builder draws
+ * no input for it — so they are matched ahead of the value-completeness check
+ * in {@link groupToCondition}, not after it.
+ *
+ * `isNull` / `isNotNull` are not a spelling of `isEmpty` / `isNotEmpty`. The
+ * dropdown offers both pairs as their own rows and the spec's filter vocabulary
+ * carries both `$null` and `$exists`, so they stay distinct in both directions;
+ * collapsing them would draw two labels for one wire predicate and rewrite the
+ * author's choice when the filter is read back.
+ *
+ * objectui#9363: the null pair was missing here, so an `Is null` row — an
+ * ordinary entry in this inspector's menu, drawn as a finished row — fell
+ * through to the unmapped-operator `continue` below and was dropped. Dropping
+ * the last surviving row makes this function return `undefined`, and the
+ * inspector commits that as `{ filter: undefined }`, the same patch shape used
+ * to CLEAR the filter. So picking the entry erased the author's stored filter,
+ * with no error and the condition still on screen.
+ */
+const VALUELESS_TO_MONGO: Record<string, Record<string, boolean>> = {
+  isEmpty: { $exists: false }, isNotEmpty: { $exists: true },
+  isNull: { $null: true }, isNotNull: { $null: false },
 };
 
 export interface BuilderCondition { id?: string; field: string; operator: string; value?: unknown }
@@ -53,10 +84,17 @@ export function groupToCondition(group: BuilderGroup | undefined): FilterConditi
   const conds = (group?.conditions ?? []).filter((c) => c && c.field);
   const parts: FilterCondition[] = [];
   for (const c of conds) {
-    if (c.operator === 'isEmpty') { parts.push({ [c.field]: { $exists: false } }); continue; }
-    if (c.operator === 'isNotEmpty') { parts.push({ [c.field]: { $exists: true } }); continue; }
+    const valueless = VALUELESS_TO_MONGO[c.operator];
+    if (valueless) { parts.push({ [c.field]: { ...valueless } }); continue; }
     const mop = OP_TO_MONGO[c.operator];
-    if (!mop) continue; // unmapped (e.g. notContains/between) — drop rather than emit a bad filter
+    // Still dropped rather than emitted in a spelling that means something
+    // else. ⚠️ The drop is not free: it is what erases the stored filter when
+    // no other row survives (see VALUELESS_TO_MONGO), and this menu offers
+    // `notContains` / `between` / `startsWith` / `endsWith`, none of which this
+    // table maps. Mapping one is a per-operator decision — `between` needs a
+    // both-bounds-present rule before it can be emitted at all — so they are
+    // declared, and pinned, in `datasetFilterCondition.nullOperators-9363`.
+    if (!mop) continue;
     // Skip incomplete rows (no value typed yet) — emitting `{field:{$op:''}}` would
     // be a silently-wrong filter (matches only empty), not "no filter".
     const v = c.value;
@@ -96,6 +134,13 @@ export function conditionToGroup(cond: FilterCondition | undefined | null): { gr
       const mop = opKeys[0];
       if (mop === '$exists') {
         conditions.push({ id: `c${i}`, field, operator: v.$exists ? 'isNotEmpty' : 'isEmpty', value: '' });
+      } else if (mop === '$null') {
+        // The inverse of the write half: `$null: false` is "is not null", so
+        // the boolean picks the operator rather than becoming the row's value.
+        // Without this arm a filter this bridge now WRITES would read back as
+        // non-representable, sending the author to the Source tab for a row the
+        // builder can draw.
+        conditions.push({ id: `c${i}`, field, operator: v.$null ? 'isNull' : 'isNotNull', value: '' });
       } else {
         const op = MONGO_TO_OP[mop];
         if (!op) return { group: empty, representable: false };

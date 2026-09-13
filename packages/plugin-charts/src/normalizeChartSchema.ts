@@ -378,8 +378,15 @@ function normalizeAxis(raw: unknown, language: string | null | undefined): Norma
  */
 function normalizeSeries(raw: unknown, language: string | null | undefined): NormalizedSeries | undefined {
   if (!isRec(raw)) {
-    // A bare string is accepted as a shorthand for `{ name }` — the Tremor-ish
-    // `categories: ['a','b']` form ChartRenderer already adapts.
+    // A bare string is accepted as a shorthand for `{ name }` — the entry form
+    // the Tremor-ish `categories: ['a','b']` series list feeds in, one entry at
+    // a time (the branch that reads `categories` is below, in this file).
+    // ⚠️ THIS FILE is the only place that adapts it: `ChartRenderer` carried a
+    // second, un-normalized read of `categories` until objectui#8650 retired
+    // that branch, which leaves `normalizeChartSchema` the one translation
+    // point it was always meant to be (objectui#2880 S1). ⛔ Do not restore a
+    // reader-side `categories` branch to "help" — that is the second de-facto
+    // contract AGENTS.md #0.1 exists to refuse.
     const bare = str(raw);
     return bare ? { dataKey: bare } : undefined;
   }

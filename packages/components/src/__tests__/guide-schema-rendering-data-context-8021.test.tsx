@@ -14,32 +14,44 @@
  * `SchemaRendererProps` declares exactly ONE prop, `schema`
  * (`packages/react/src/SchemaRenderer.tsx`). The docblock beside it names the
  * mechanism: the renderer "passes every prop it does not itself read straight
- * through to the component the schema names". So a `data={…}` written on a
- * `SchemaRenderer` element is not ignored and does not warn — it is FORWARDED,
- * and the evaluator never sees it.
+ * through to the component the schema names". So a `data={…}` or `scope={…}`
+ * written on a `SchemaRenderer` element is not ignored and does not warn — it
+ * is FORWARDED, and the evaluator never sees it.
  *
- * The evaluator's scope is built from `usePredicateScope()` plus
- * `current_user`, an optional `record`, `data: dataSource` and
- * `page: pageVariables`, where `dataSource` comes from
- * `SchemaRendererProvider`. So a host's own values are reachable only under the
- * `data.` prefix, and a bare `${user.…}` addresses the AMBIENT signed-in user
- * an `ExpressionProvider` publishes — never the object the page handed over.
+ * The evaluator's scope is `usePredicateScope()` plus `current_user`, an
+ * optional `record` and `page: pageVariables`. So a host's own values are
+ * reachable under whatever NAME it published them through
+ * `PredicateScopeProvider`, and a `${data.…}` addresses a root the renderer no
+ * longer binds at all.
  *
  * Two coordinates, and the page had both wrong. A repair that moves only one
- * leaves it broken, which is why legs B and D below are LIT CONTROLS rather
+ * leaves it broken, which is why legs B, D and E below are LIT CONTROLS rather
  * than commentary:
  *
- *   | leg | wiring                | expression            | rendered                |
- *   |-----|-----------------------|-----------------------|-------------------------|
- *   | A   | what the page teaches | what the page teaches | must be `Welcome, John!`|
- *   | B   | `data` prop           | `data.` prefix        | `Welcome, !`            |
- *   | C   | provider `dataSource` | `data.` prefix        | `Welcome, John!`        |
- *   | D   | provider `dataSource` | bare `user.`          | the raw source text     |
+ *   | leg | wiring                  | expression            | rendered                |
+ *   |-----|-------------------------|-----------------------|-------------------------|
+ *   | A   | what the page teaches   | what the page teaches | must be `Welcome, John!`|
+ *   | B   | `scope` prop on element | the page's expression | the raw source text     |
+ *   | C   | `PredicateScopeProvider`| `${user.…}`           | `Welcome, John!`        |
+ *   | D   | `PredicateScopeProvider`| `${data.user.…}`      | the raw source text     |
+ *   | E   | provider `dataSource`   | `${data.user.…}`      | the raw source text     |
  *
  * B proves the prop supplies nothing even when the expression is right; D
- * proves the prefix is needed even when the wiring is right. Leg A is not
- * transcribed from the page — it is READ OFF the page on every run, so it can
- * only go green when both coordinates have moved.
+ * proves the name matters even when the wiring is right; E is objectui#9308's
+ * own coordinate — the ADAPTER seam is not an expression root, so the wiring
+ * this page used to teach now renders the characters the author typed. Leg A
+ * is not transcribed from the page — it is READ OFF the page on every run, so
+ * it can only go green when both coordinates have moved.
+ *
+ * ## objectui#9308 — what moved here, and why this file had to move with it
+ *
+ * The maintainer ruling of 2026-09-13 (option B) removed `data: dataSource`
+ * from the evaluator scope and pointed `useDataScope` at the scope channel.
+ * The teaching this file pins was meaning 2 of that one key — publish page
+ * values through `dataSource`, read them back under `data.*` — so the pages
+ * moved and this pin was RE-DERIVED to the new teaching rather than relaxed.
+ * Leg C's wiring and leg D's expression are the two halves that swapped; leg E
+ * is new and is the direct pin on the removal.
  *
  * ## Why leg A is derived rather than listed
  *
@@ -65,21 +77,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import '../renderers';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 import type { DataSource } from '@object-ui/types';
-
-/**
- * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
- * it feeds — declare the published `DataSource` adapter contract. The values
- * this file injects are deliberately NOT adapters —
- * `SCOPE` is the `data` ROOT of the expression scope, which is exactly what
- * this document's Data Context passage teaches and what legs A/C/D measure:
- * the renderer binds `SchemaRendererContext.dataSource` as `data` for every
- * predicate, the second meaning this one key carries (objectui#9308).
- * Each injection therefore crosses the contract with an explicit
- * `as unknown as DataSource`. Every injected value is byte-for-byte what it
- * was before: this marks the crossing, it changes no assertion.
- */
 
 /**
  * Anchored on this file's own naked `import.meta.url`, never on
@@ -100,26 +99,49 @@ const ROOT = repoRoot();
 const GUIDE = 'content/docs/guide/schema-rendering.md';
 const readDoc = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
 
-/** The host scope every leg is given: as a `dataSource`, or as the `data` prop. */
+/**
+ * The host values every leg is given, published under the names the guide now
+ * teaches: as a `scope`, as the `scope` prop, or as a `dataSource`.
+ */
 const SCOPE = { user: { name: 'John', role: 'admin' }, stats: { totalUsers: 1234 } };
 
 const textNode = (content: string) => ({ type: 'text', content });
 
 /**
- * Leg A/B wiring: the prop the page used to teach, with no provider above it.
+ * Leg B wiring: the prop written on the element, with no provider above it.
  *
  * ⭐ No cast is needed, and that is itself the measurement: `SchemaRenderer`'s
  * declared type is `SchemaRendererProps & Record<string, any>`, the open
- * forwarding surface. TypeScript therefore ACCEPTS `data` here — the prop is
+ * forwarding surface. TypeScript therefore ACCEPTS `scope` here — the prop is
  * not rejected anywhere, at compile time or at runtime. It is simply handed to
  * whatever component the schema names.
  */
-function renderWithDataProp(content: string): string {
-  return render(<SchemaRenderer schema={textNode(content)} data={SCOPE} />).container.textContent ?? '';
+function renderWithScopeProp(content: string): string {
+  return render(<SchemaRenderer schema={textNode(content)} scope={SCOPE} />).container.textContent ?? '';
 }
 
 /** Leg C/D wiring: the provider that actually seeds the evaluator. */
-function renderWithProvider(content: string): string {
+function renderWithScopeProvider(content: string): string {
+  return (
+    render(
+      <PredicateScopeProvider scope={SCOPE}>
+        <SchemaRenderer schema={textNode(content)} />
+      </PredicateScopeProvider>,
+    ).container.textContent ?? ''
+  );
+}
+
+/**
+ * Leg E wiring: the ADAPTER seam.
+ *
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` declares the
+ * published `DataSource` adapter contract, and the value below is deliberately
+ * NOT an adapter — it is the page-values bag the guide used to teach putting
+ * there. The crossing is explicit, and it is the subject of this leg rather
+ * than an inconvenience: objectui#9308 is exactly the ruling that this seam is
+ * an adapter injection point and not an expression root.
+ */
+function renderWithAdapter(content: string): string {
   return (
     render(
       <SchemaRendererProvider dataSource={SCOPE as unknown as DataSource}>
@@ -156,22 +178,24 @@ function firstFence(src: string, lang: string): string {
  *
  * `\b` after the name is what keeps `SchemaRendererProvider` out of the set:
  * the character after `SchemaRenderer` there is `P`, a word character, so the
- * boundary does not match. The provider is the CORRECT carrier for these props
- * and must not be counted as an offender.
+ * boundary does not match. The providers are the CORRECT carriers for these
+ * props and must not be counted as offenders.
  */
 function schemaRendererElements(src: string): string[] {
   return src.match(/<SchemaRenderer\b[\s\S]*?\/>/g) ?? [];
 }
 
 /**
- * The three props that LOOK like evaluator wiring and are not: `SchemaRenderer`
- * reads none of them. `data` and `dataSource` reach the evaluator only through
- * `SchemaRendererProvider`; `debug` is read off the same context
- * (`SchemaRenderer.tsx`: `context?.debug || context?.debugFlags?.enabled`).
- * Written on the element they are forwarded to whatever component the schema
- * names — silently.
+ * The four props that LOOK like evaluator wiring and are not: `SchemaRenderer`
+ * reads none of them. `scope` reaches the evaluator only through
+ * `PredicateScopeProvider`; `data` and `dataSource` reach nothing at all on
+ * this element (`dataSource` on `SchemaRendererProvider` is the host's ADAPTER
+ * and, since objectui#9308, not an expression root anywhere); `debug` is read
+ * off the renderer context (`SchemaRenderer.tsx`:
+ * `context?.debug || context?.debugFlags?.enabled`). Written on the element
+ * they are forwarded to whatever component the schema names — silently.
  */
-const FORWARDED_LOOKALIKES = /\b(data|dataSource|debug)=\{/;
+const FORWARDED_LOOKALIKES = /\b(data|dataSource|debug|scope)=\{/;
 
 /**
  * The teaching surfaces this repair covers IN FULL. Not a glob: each document
@@ -212,28 +236,43 @@ describe('objectui#8021 leg A — the guide’s own pair, read off the page', ()
       'SchemaRenderer',
     );
 
-    const teachesProvider = /<SchemaRendererProvider[\s\S]*?\bdataSource=\{/.test(wiringFence);
-    const rendered = teachesProvider
-      ? renderWithProvider(node.content as string)
-      : renderWithDataProp(node.content as string);
+    // Which carrier does the page teach? The branch is what makes this leg a
+    // reading of the page rather than a transcription of it: move the fence
+    // back to either of the other two carriers and the render below changes
+    // with it.
+    const teachesScope = /<PredicateScopeProvider[\s\S]*?\bscope=\{/.test(wiringFence);
+    const teachesAdapter = /<SchemaRendererProvider[\s\S]*?\bdataSource=\{/.test(wiringFence);
+    const rendered = teachesScope
+      ? renderWithScopeProvider(node.content as string)
+      : teachesAdapter
+        ? renderWithAdapter(node.content as string)
+        : renderWithScopeProp(node.content as string);
 
     expect(rendered).toBe('Welcome, John!');
   });
 });
 
-describe('objectui#8021 legs B–D — the controls that keep the two errors apart', () => {
-  it('leg B: the `data` prop supplies nothing even with the `data.` prefix', () => {
-    expect(renderWithDataProp('Welcome, ${data.user.name}!')).toBe('Welcome, !');
+describe('objectui#8021 legs B–E — the controls that keep the errors apart', () => {
+  it('leg B: a `scope` prop on the element supplies nothing', () => {
+    // Unresolvable, so the evaluator hands back its own SOURCE TEXT — which is
+    // the failure the reader actually sees on the page.
+    expect(renderWithScopeProp('Welcome, ${user.name}!')).toBe('Welcome, ${user.name}!');
   });
 
-  it('leg C: provider `dataSource` plus the `data.` prefix is the green wiring', () => {
-    expect(renderWithProvider('Welcome, ${data.user.name}!')).toBe('Welcome, John!');
+  it('leg C: the provider plus a published name is the green wiring', () => {
+    expect(renderWithScopeProvider('Welcome, ${user.name}!')).toBe('Welcome, John!');
   });
 
-  it('leg D: the right wiring still prints raw source for a bare `${user.…}`', () => {
-    // Nothing published `user` here, so the template is unresolvable and the
-    // evaluator hands back its own SOURCE TEXT — the failure the reader sees.
-    expect(renderWithProvider('Welcome, ${user.name}!')).toBe('Welcome, ${user.name}!');
+  it('leg D: the right wiring still prints raw source for a `${data.…}` read', () => {
+    // Nothing published `data` here, and since objectui#9308 the renderer
+    // publishes none of its own, so the template is unresolvable.
+    expect(renderWithScopeProvider('Welcome, ${data.user.name}!')).toBe('Welcome, ${data.user.name}!');
+  });
+
+  it('leg E: the ADAPTER seam is not an expression root (objectui#9308)', () => {
+    // The wiring this page used to teach, with the expression it used to teach.
+    // Both were moved by the same ruling, and this is the leg that says so.
+    expect(renderWithAdapter('Welcome, ${data.user.name}!')).toBe('Welcome, ${data.user.name}!');
   });
 });
 

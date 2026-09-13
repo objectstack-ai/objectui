@@ -50,10 +50,20 @@
  *
  * It changes NO behaviour. `data-table` still does not read `bind`, and the
  * ruling is explicit that it must not start: making it a `useDataScope` reader
- * (option B) is a separate published-surface question needing its own ruling,
- * including a `data`-vs-`bind` precedence. Refusing the key at parse (option C)
- * stays blocked on the `.passthrough()` ceiling (objectui#5155 / objectui#6269).
- * So the trap stops being silent; it does not stop being a trap.
+ * (option B) is a separate published-surface question needing its own ruling.
+ * Refusing the key at parse (option C) stays blocked on the `.passthrough()`
+ * ceiling (objectui#5155 / objectui#6269). So the trap stops being silent; it
+ * does not stop being a trap.
+ *
+ * ⭐ The `data`-vs-`bind` PRECEDENCE half of that open question DISSOLVED at
+ * objectui#9308 rather than being answered. While `useDataScope` walked the
+ * injected adapter, `bind` and the node's own `data` were two spellings of one
+ * idea — "where this table's rows come from" — and a reader of both would have
+ * needed a rule. Since that ruling `bind` resolves a path in the ambient
+ * predicate scope and `data` is an inline array on the node: different
+ * channels, different questions, no precedence to decide. objectui#6575's
+ * ruling that `data-table` must not read `bind` is untouched by that, and this
+ * diagnostic's job is unchanged.
  *
  * ## Why a console warning, and only a console warning
  *

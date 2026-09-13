@@ -345,9 +345,17 @@ describe('boolean: a declared defaultValue seeds the control (objectui#8451, arm
     // declared the middle two — so the count it reported was the DECLARING
     // booleans mislabelled as the whole boolean surface.
     // ⇒ `screen.waitForInput` is the offline undeclared boolean that sentence
-    // says does not exist. An offline twin of this row is therefore writable
-    // today; it is deliberately NOT written here, because that is a new
-    // assertion rather than the merge this file is being changed for.
+    // says does not exist — and it is undeclared CORRECTLY, so ⛔ do not read
+    // this as an objectui#9277-class omission waiting to be declared. Measured
+    // on the installed `@objectstack/spec` (17.4.0): `waitForInput` is typed
+    // `z.boolean().optional()` with no `.default(...)`, so an omitted key
+    // materialises nothing and there is no spec answer for a declaration to
+    // mirror. Declaring one here would invent a default the runtime does not
+    // apply — the opposite of what objectui#9277 did for `lockRecord` and
+    // `interrupting`, where the spec DOES materialise `true`.
+    // An offline twin of this row is therefore writable today; it is
+    // deliberately NOT written here, because that is a new assertion rather
+    // than the merge this file is being changed for.
     stubs.configSchemas = {
       approval: {
         type: 'object',

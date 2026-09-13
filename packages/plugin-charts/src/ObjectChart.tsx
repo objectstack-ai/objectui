@@ -559,8 +559,8 @@ export const ObjectChart = (props: ObjectChartProps) => {
     [schema.filter],
   );
   const compareToKey = useMemo(
-    () => ((schema as any).compareTo ? JSON.stringify((schema as any).compareTo) : ''),
-    [(schema as any).compareTo],
+    () => (schema.compareTo ? JSON.stringify(schema.compareTo) : ''),
+    [schema.compareTo],
   );
   // ADR-0021 (#1890): a chart can bind to a semantic-layer `dataset` instead of
   // the legacy inline `objectName` + `aggregate` query. Stable key over the
@@ -811,7 +811,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
           // value apart from its presence: the ONE discriminator (`.kind`) is
           // read where the shift is computed — `shiftFilterByCompareTo` — so
           // this file has no second copy of the branch table to drift from it.
-          const compareTo: CompareToConfig | undefined = (schema as any).compareTo;
+          const compareTo: CompareToConfig | undefined = schema.compareTo;
           const wantsComparison = !!compareTo && supportsCompareTo(schema.chartType);
           // shiftFilterByCompareTo expects the raw filter (with date macros)
           // so it can substitute `{current_*}` tokens or re-resolve macros
@@ -1102,7 +1102,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // Merge data if not provided in schema. When `compareTo` is configured
   // for a supported chart type, also synthesize a second series so the
   // chart implementation renders the comparison overlay (dashed / muted).
-  const compareToConfig: CompareToConfig | undefined = (schema as any).compareTo;
+  const compareToConfig: CompareToConfig | undefined = schema.compareTo;
   // The result column this aggregate projects its value under, and the column
   // the comparison overlay arrives in (framework#3701).
   const valueKey = schema.aggregate ? aggregateValueKey(schema.aggregate) : undefined;
@@ -1114,7 +1114,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
     finalData.some((row: Record<string, any>) => row[comparisonKey] != null);
 
   const augmentedSeries = useMemo(() => {
-    const existing = Array.isArray((schema as any).series) ? (schema as any).series : null;
+    const existing = Array.isArray(schema.series) ? schema.series : null;
     if (!enableComparisonSeries) return existing;
     const primary = existing || [{ dataKey: valueKey }];
     const labelMap: Record<string, string> = {
@@ -1135,7 +1135,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
         variant: 'comparison',
       },
     ];
-  }, [enableComparisonSeries, (schema as any).series, valueKey, comparisonKey, schema.filter, compareToConfig]);
+  }, [enableComparisonSeries, schema.series, valueKey, comparisonKey, schema.filter, compareToConfig]);
 
   // ADR-0021 (#1759): when the chart binds to a dataset, derive data/xAxisKey/
   // series from its dimensions/measures via the shared buildChartSeries helper —
@@ -1182,11 +1182,11 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // over the field's option colors. We split the two and pass the palette as
   // `colors` and the merged map as `categoryColors`.
   const explicitColorMap: Record<string, string> | null =
-    (schema as any).colors && !Array.isArray((schema as any).colors) && typeof (schema as any).colors === 'object'
-      ? ((schema as any).colors as Record<string, string>)
+    schema.colors && !Array.isArray(schema.colors) && typeof schema.colors === 'object'
+      ? schema.colors
       : null;
   const paletteColors: string[] | undefined =
-    Array.isArray((schema as any).colors) ? ((schema as any).colors as string[]) : undefined;
+    Array.isArray(schema.colors) ? schema.colors : undefined;
   const mergedCategoryColors = (fieldOptionColors || explicitColorMap)
     ? { ...(fieldOptionColors || {}), ...(explicitColorMap || {}) }
     : undefined;

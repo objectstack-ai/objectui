@@ -84,9 +84,17 @@ import type { MetadataSelection } from '../preview-registry';
 // The runtime's own answer for an omitted `escalation` key. Imported so the
 // #6620 rows below compare the RENDERED control against the installed contract
 // instead of against a literal this file would then own a second copy of.
+// `ApprovalNodeConfigSchema` and `FlowNodeSchema` serve the objectui#9277 rows
+// the same way, for `config.lockRecord` and `boundaryConfig.interrupting`, and
+// `EndConfigSchema` serves the objectui#9278 rows for `end.outcome`.
 // ⛔ The subpath is load bearing: `ApprovalEscalationSchema` is NOT on the
 // package root, where it reads `undefined` and any `.parse` on it throws.
-import { ApprovalEscalationSchema, EndConfigSchema, FlowNodeSchema } from '@objectstack/spec/automation';
+import {
+  ApprovalEscalationSchema,
+  ApprovalNodeConfigSchema,
+  EndConfigSchema,
+  FlowNodeSchema,
+} from '@objectstack/spec/automation';
 
 /* ── The `meta/*` double (objectui#7307) ───────────────────────────────
  * `FlowNodeInspector` renders `FlowReferenceField` for every reference-kind key
@@ -322,8 +330,32 @@ describe('boolean: a declared defaultValue seeds the control (objectui#8451, arm
   it('boolean: a field declaring NO default still draws unchecked when unset', () => {
     // The seed belongs to the DECLARATION, not to the control: a boolean with
     // nothing declared must not acquire a default from the repair. Measured on
-    // the online writer because the offline table has no undeclared boolean to
-    // measure — it carries exactly two boolean fields and both declare one.
+    // the ONLINE writer, whose schema this row spells out inline, so the claim
+    // rests on a fixture this file owns outright.
+    //
+    // ⚠️ The reason that used to stand here — "the offline table has no
+    // undeclared boolean to measure — it carries exactly two boolean fields
+    // and both declare one" — was false when written and is still false.
+    // Swept off `FLOW_NODE_CONFIG` over the same node types the pin below
+    // sweeps, the offline table carries FIVE boolean fields, not two:
+    // `approval.escalation.enabled`, `approval.escalation.notifySubmitter`,
+    // `approval.lockRecord`, `boundary_event.boundaryConfig.interrupting` and
+    // `screen.waitForInput`. Two of them declared a default when that sentence
+    // was written (objectui#8586) and four do now, objectui#9277 having
+    // declared the middle two — so the count it reported was the DECLARING
+    // booleans mislabelled as the whole boolean surface.
+    // ⇒ `screen.waitForInput` is the offline undeclared boolean that sentence
+    // says does not exist — and it is undeclared CORRECTLY, so ⛔ do not read
+    // this as an objectui#9277-class omission waiting to be declared. Measured
+    // on the installed `@objectstack/spec` (17.4.0): `waitForInput` is typed
+    // `z.boolean().optional()` with no `.default(...)`, so an omitted key
+    // materialises nothing and there is no spec answer for a declaration to
+    // mirror. Declaring one here would invent a default the runtime does not
+    // apply — the opposite of what objectui#9277 did for `lockRecord` and
+    // `interrupting`, where the spec DOES materialise `true`.
+    // An offline twin of this row is therefore writable today; it is
+    // deliberately NOT written here, because that is a new assertion rather
+    // than the merge this file is being changed for.
     stubs.configSchemas = {
       approval: {
         type: 'object',
@@ -382,6 +414,123 @@ describe('boolean: a declared defaultValue seeds the control (objectui#8451, arm
       box!.closest('label')?.textContent,
       'the control carries its label and nothing else — no caption naming a default',
     ).toBe('SLA escalation');
+  });
+
+  /* ── objectui#9277: the other direction of the same ledger, twice ─────────
+   * `approval.config.lockRecord` and `boundary_event.boundaryConfig.interrupting`
+   * declared NOTHING while the installed spec materialises `true` for both.
+   *
+   * Since objectui#8451 that is not a missing claim — it is a WRONG one: a
+   * boolean control seeds its checked state from `defaultValue`, so an absent
+   * declaration draws an UNCHECKED box. The author read `Lock record` unchecked
+   * and believed the record stayed editable while the node was pending, and
+   * read `Interrupting` unchecked and believed the boundary event would leave
+   * its host activity running. The runtime does the opposite of both.
+   *
+   * ⭐ Every expectation below is DERIVED from the installed spec, never the
+   * literal `true`, for the reason the #6620 row above states: a literal
+   * restates the very claim that drifted and passes just as happily on the next
+   * upstream flip. Each derivation carries the same vacuity guard — a spec that
+   * stopped materialising the key would otherwise turn both sides into
+   * `undefined` and the comparison into a tautology.
+   *
+   * Three rows per field, and they are not interchangeable: the DECLARATION row
+   * pins the table against the contract, the SEEDING row pins the control the
+   * author actually sees (it reads the spec directly, so it reddens on its own
+   * when the declaration is dropped), and the STORED-FALSE row is the only one
+   * an always-checked control — an implementation strictly worse than the bug —
+   * fails.
+   * ──────────────────────────────────────────────────────────────── */
+
+  /** The `lockRecord` the installed spec applies to an approval config that omits it. */
+  function specLockRecord(): boolean {
+    const parsed = ApprovalNodeConfigSchema.safeParse({ approvers: [{ type: 'user', value: 'u1' }] });
+    expect(parsed.success, 'a minimal approval config must parse').toBe(true);
+    const value = (parsed.data as { lockRecord?: unknown } | undefined)?.lockRecord;
+    expect(typeof value, 'the spec still materialises `lockRecord` from an omitted key').toBe('boolean');
+    return value as boolean;
+  }
+
+  /** The `interrupting` the installed spec applies to a boundaryConfig that omits it. */
+  function specInterrupting(): boolean {
+    const parsed = FlowNodeSchema.safeParse({
+      id: 'n1',
+      type: 'boundary_event',
+      label: 'Node',
+      boundaryConfig: { attachedToNodeId: 'host', eventType: 'error' },
+    });
+    expect(parsed.success, 'a minimal boundary_event node must parse').toBe(true);
+    const value = (parsed.data as { boundaryConfig?: { interrupting?: unknown } } | undefined)
+      ?.boundaryConfig?.interrupting;
+    expect(typeof value, 'the spec still materialises `interrupting` from an omitted key').toBe('boolean');
+    return value as boolean;
+  }
+
+  /** A boundary_event node whose `boundaryConfig` carries only its required keys. */
+  const boundaryDraft = (extra: Record<string, unknown> = {}) =>
+    draftWith('boundary_event', { boundaryConfig: { attachedToNodeId: 'host', eventType: 'error', ...extra } });
+
+  it('boolean: approval.lockRecord declares the default the spec applies (objectui#9277)', () => {
+    const field = fieldsForNodeType('approval').find((f) => f.id === 'lockRecord');
+    expect(field?.kind, 'lockRecord is a boolean control').toBe('boolean');
+    // Defaults are strings in this table — the spelling `controllerAdmits` compares.
+    expect(
+      field?.defaultValue,
+      'the table declares the default the spec applies, and it used to declare nothing',
+    ).toBe(String(specLockRecord()));
+  });
+
+  it('boolean: approval.lockRecord draws a CHECKED box for an unset key (objectui#9277)', () => {
+    // The seeding half, and the ablation target: this row reads the SPEC, not
+    // the table, so dropping the declaration reddens it here on the rendered
+    // control rather than only on the row above.
+    const expected = specLockRecord();
+    renderInspector(draftWith('approval', { config: {} }));
+    const box = checkbox('Lock record');
+    expect(box, 'the Lock record control is on screen').not.toBeNull();
+    expect(
+      box!.checked,
+      'the RENDERED box carries the state the runtime applies — the defect was that it drew the opposite',
+    ).toBe(expected);
+  });
+
+  it('boolean: a stored `false` still beats lockRecord\'s declaration (objectui#9277)', () => {
+    // ⛔ Load bearing, and not interchangeable with the row above: an
+    // ALWAYS-CHECKED control satisfies "an absent key shows checked" and is
+    // refused only here.
+    renderInspector(draftWith('approval', { config: { lockRecord: false } }));
+    expect(
+      checkbox('Lock record')!.checked,
+      'a deliberate false is the author\'s answer and outranks the declaration',
+    ).toBe(false);
+  });
+
+  it('boolean: boundaryConfig.interrupting declares the default the spec applies (objectui#9277)', () => {
+    const field = fieldsForNodeType('boundary_event').find((f) => f.id === 'boundaryConfig.interrupting');
+    expect(field?.kind, 'interrupting is a boolean control').toBe('boolean');
+    expect(
+      field?.defaultValue,
+      'the table declares the default the spec applies, and it used to declare nothing',
+    ).toBe(String(specInterrupting()));
+  });
+
+  it('boolean: boundaryConfig.interrupting draws a CHECKED box for an unset key (objectui#9277)', () => {
+    const expected = specInterrupting();
+    renderInspector(boundaryDraft());
+    const box = checkbox('Interrupting');
+    expect(box, 'the Interrupting control is on screen').not.toBeNull();
+    expect(
+      box!.checked,
+      'the RENDERED box says the host activity IS cancelled, which is what the runtime does',
+    ).toBe(expected);
+  });
+
+  it('boolean: a stored `false` still beats interrupting\'s declaration (objectui#9277)', () => {
+    renderInspector(boundaryDraft({ interrupting: false }));
+    expect(
+      checkbox('Interrupting')!.checked,
+      'a non-interrupting boundary event is authorable, and the declaration must not overwrite it',
+    ).toBe(false);
   });
 });
 
@@ -589,15 +738,23 @@ describe('non-regression — a change that deletes the control must not pass thi
 
 describe('the declaration surface this card names', () => {
   /**
-   * The eleven declaring fields, as `<node type>.<field id>`. Triage named
+   * The thirteen declaring fields, as `<node type>.<field id>`. Triage named
    * this list the acceptance surface, so it is pinned: a PR that retires the
-   * property, or that adds a twelfth declaration, moves this line.
+   * property, or that adds a fourteenth declaration, moves this line.
    *
-   * ⚠️ The number is NOT a constant to copy. objectui#9278 and objectui#9277
-   * both move this line from the same base, so each computed it as the value
-   * standing here when it landed PLUS its own additions, and said in its PR
-   * body where it read the base from. Do the same rather than trusting either
-   * card's arithmetic — both were done assuming the other does not exist.
+   * ⚠️ The number is NOT a constant to copy, and it is not one card's
+   * arithmetic either. objectui#9278 and objectui#9277 were both in flight
+   * against this line from the same base of TEN, each written assuming the
+   * other does not exist: #9278 landed first and wrote eleven (`end.outcome`,
+   * select-kind), then #9277 merged it and wrote THIRTEEN after adding two
+   * boolean-kind declarations (`approval.lockRecord`,
+   * `boundary_event.boundaryConfig.interrupting`).
+   *
+   * That thirteen was RE-DERIVED on the merged tree — swept off
+   * `FLOW_NODE_CONFIG` through `fieldsForNodeType`, exactly as the body below
+   * does it — and not obtained by adding `11 + 2`. The two happened to agree
+   * here; that is a result, not a method. Whoever lands next re-reads the
+   * number the same way rather than trusting this sentence.
    *
    * Swept over the picker's node types plus the four that carry config but are
    * not offered in the picker (ADR-0031 import/export-only, and the legacy
@@ -606,7 +763,7 @@ describe('the declaration surface this card names', () => {
    */
   const OFF_PICKER_TYPES = ['boundary_event', 'parallel_gateway', 'join_gateway', 'legacy_action', 'notify'];
 
-  it('exactly eleven fields declare a defaultValue, and these are they', () => {
+  it('exactly thirteen fields declare a defaultValue, and these are they', () => {
     const swept = [...FLOW_NODE_TYPE_OPTIONS, ...OFF_PICKER_TYPES];
     expect(
       FLOW_NODE_TYPE_OPTIONS.every((t) => swept.includes(t)),
@@ -624,9 +781,11 @@ describe('the declaration surface this card names', () => {
       'approval.escalation.enabled',
       'approval.escalation.notifySubmitter',
       'approval.behavior',
+      'approval.lockRecord',
       'approval.maxRevisions',
       'approval.onEmptyApprovers',
       'boundary_event.boundaryConfig.eventType',
+      'boundary_event.boundaryConfig.interrupting',
       'end.outcome',
       'http_request.method',
       'screen.mode',
@@ -668,7 +827,7 @@ describe('the declaration surface this card names', () => {
 
     expect(
       cases.map((c) => c.id).sort(),
-      'the select-kind half of the declaration surface — eight of the eleven',
+      'the select-kind half of the declaration surface — eight of the thirteen',
     ).toEqual([
       'approval.behavior',
       'approval.escalation.action',

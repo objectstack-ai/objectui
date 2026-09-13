@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { ObjectKanbanRenderer } from './index';
+import type { DataSource } from '@object-ui/types';
 
 // Partial mock — override ONLY what this test controls, keep every other real
 // export. Same conversion `plugin-calendar/src/registration.test.tsx` already
@@ -14,7 +15,11 @@ import { ObjectKanbanRenderer } from './index';
 vi.mock(import('@object-ui/react'), async (importOriginal) => ({
   ...(await importOriginal()),
   // Only the piece this test drives:
-  useSchemaContext: vi.fn(() => ({ dataSource: { type: 'mock-datasource' } })),
+  // The marker object below is NOT an adapter: the stubbed widget prints
+  // `dataSource.type`, which is the whole point of this registration probe.
+  // `useSchemaContext` declares the published `DataSource` contract since
+  // objectui#7912, so the crossing is explicit; the value is unchanged.
+  useSchemaContext: vi.fn(() => ({ dataSource: { type: 'mock-datasource' } as unknown as DataSource })),
 }));
 
 // Mock the implementation

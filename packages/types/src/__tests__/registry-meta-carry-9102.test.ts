@@ -112,14 +112,26 @@ const metaOf = (node: z.ZodType): Record<string, unknown> | undefined =>
 const metaViaRegistryMap = (node: z.ZodType): Record<string, unknown> | undefined =>
   z.globalRegistry.get(node) as Record<string, unknown> | undefined;
 
+/** A node's zod traits — the set `$constructor` stamps on every instance. */
+const traitsOf = (node: z.ZodType): string[] => [
+  ...(node as unknown as { _zod: { traits: Set<string> } })._zod.traits,
+];
+
 /**
  * Is this node one of `@objectstack/spec`'s lazy cross-module proxies?
  *
- * ⛔ NOT a `typeof === 'function'` test, which these share with zod's own
- * `$ZodObjectJIT` instances and would conflate the two. The probe is the proxy
- * invariant: the wrapper installs an `ownKeys` trap over a FUNCTION target, so
- * `Object.getOwnPropertyNames` cannot satisfy the invariant and THROWS. A JIT
- * instance answers normally.
+ * ⛔ NOT a `typeof === 'function'` test ALONE. That test opens the probe below,
+ * but as a cheap pre-filter rather than as the discriminator — nothing zod
+ * builds is callable, so it is also the step that already answers `false` for a
+ * `$ZodObjectJIT` instance. Such an instance is an ORDINARY OBJECT, EVERY `z.object()` carries
+ * that trait, and the "JIT" names eval-compiled PARSE CODE; the trait is
+ * therefore no discriminator either, since the wrapper forwards `_zod` — traits
+ * included — to the real schema behind it and answers `$ZodObjectJIT` right
+ * along with it. ⭐ The discriminating probe is the proxy invariant: the wrapper
+ * installs an `ownKeys` trap over a FUNCTION target, so
+ * `Object.getOwnPropertyNames` cannot satisfy the invariant and THROWS, where
+ * an ordinary node answers normally. Both halves are re-derived below rather
+ * than asserted here, in the control this docblock's claims rest on.
  *
  * ⚠️ Also spelled as a helper so TypeScript does not narrow the argument to
  * `never` at the call site: `z.ZodType` is not declared callable, so an inline
@@ -461,15 +473,31 @@ describe('the zod 4 facts the carry rests on (objectui#9102)', () => {
     ).toBeUndefined();
   });
 
-  it('⭐ the callables on this surface are SPEC PROXIES, not zod `$ZodObjectJIT` instances', () => {
+  it('⭐ nothing zod builds is callable — the callables on this surface are SPEC PROXIES', () => {
     // objectui#9102's first round blamed `$ZodObjectJIT` for the callables it
-    // met. That diagnosis was wrong and this is the probe that separates them:
-    // `@objectstack/spec` wraps schemas in `new Proxy(functionTarget, …)`, and
-    // that wrapper's `ownKeys` trap cannot satisfy the proxy invariant over a
-    // function target, so `Object.getOwnPropertyNames` THROWS. A real JIT
-    // instance answers normally — asserted here as the firing control, so
-    // `isSpecLazyProxy` cannot be passing by answering `true` to everything.
+    // met, and a second round then said the trait was ABSENT here. Both clauses
+    // are false, so the fact is RE-DERIVED here rather than asserted: it is the
+    // sentence `../zod/node-derivation.ts` rests its guard's rationale on, and
+    // a docblock that diagnoses the wrong mechanism is what this card exists to
+    // stop. A `$ZodObjectJIT` instance is an ordinary object, every `z.object()`
+    // carries the trait, and the "JIT" names eval-compiled parse code.
+    //
+    // The separator is the proxy invariant instead: `@objectstack/spec` wraps
+    // schemas in `new Proxy(functionTarget, …)`, and that wrapper's `ownKeys`
+    // trap cannot satisfy the proxy invariant over a function target, so
+    // `Object.getOwnPropertyNames` THROWS. An ordinary node answers normally —
+    // asserted here as the firing control, so `isSpecLazyProxy` cannot be
+    // passing by answering `true` to everything.
     const plainObject = z.object({ k: z.string() });
+    expect(
+      typeof plainObject,
+      'a `z.object()` is callable after all — every docblock here that calls the callables PROXIES is stale',
+    ).toBe('object');
+    expect(
+      traitsOf(plainObject),
+      'a plain `z.object()` no longer carries the `$ZodObjectJIT` trait — the claim that EVERY one does, ' +
+        'and with it the reason the trait cannot separate proxies from ordinary nodes, no longer holds',
+    ).toContain('$ZodObjectJIT');
     expect(Object.getOwnPropertyNames(plainObject), 'the control node is not inspectable').toBeInstanceOf(Array);
     expect(isSpecLazyProxy(plainObject), 'the probe answers `true` for an ordinary node').toBe(false);
 
@@ -480,6 +508,11 @@ describe('the zod 4 facts the carry rests on (objectui#9102)', () => {
         'Everything below about the accessor route rests on this population.',
     ).toBeGreaterThan(0);
     expect(() => Object.getOwnPropertyNames(proxies[0]![1])).toThrow(/ownKeys/);
+    expect(
+      proxies.some(([, r]) => traitsOf(r).includes('$ZodObjectJIT')),
+      'no spec proxy forwards the real\'s `$ZodObjectJIT` trait any more — the trait would then separate ' +
+        'proxies from ordinary nodes after all, and both docblocks understate what the probe is for',
+    ).toBe(true);
   });
 
   it('⭐ `.meta()` and a registry lookup DISAGREE through a spec proxy, and `.meta()` is the true one', () => {
@@ -581,18 +614,23 @@ describe('⭐ the carry set is bounded AND complete for the protocol (objectui#9
     ).toEqual([]);
   });
 
-  it('⚠️ every proxied node carrying non-`description` metadata is CARRIED, not dropped', () => {
+  it('⚠️ the accessor census REACHES the proxies — carriage itself is pinned by the control below', () => {
     // ⛔ This is NOT "zero such nodes, therefore safe" — that was the first
     // round's assertion and it could never be non-empty, because it asked the
     // registry map about an object the registry has never heard of. It now asks
-    // the accessor route, which is the one that answers, and it names what
-    // happens when the population grows: these nodes are carried.
+    // the accessor route, which is the one that answers.
     //
-    // The population is empty TODAY (every metadata-bearing proxy carries
-    // `description` only), so this assertion alone would still be zero-hit.
-    // What makes it real is the hand-built proxy control further down, which
-    // puts a `title` on a proxied node and measures that the carry reproduces
-    // it — and would have failed on the map route.
+    // ⚠️ What the two assertions below provide is that the census REACHES
+    // proxies at all, and that the paths it produced for the non-`description`
+    // population are well formed. They do ⛔ NOT provide carriage, and this
+    // test's title used to claim they did: the population is empty TODAY (every
+    // metadata-bearing proxy carries `description` only), so an assertion over
+    // it would assert over nothing and stay green whatever the carry did.
+    //
+    // Carriage is pinned by the hand-built proxy control further down —
+    // `⭐ a PROXIED node's metadata survives the carry — and the map route would
+    // have dropped it` — which puts a `title` on a proxied node and measures
+    // that the carry reproduces it, and would have failed on the map route.
     for (const path of census.proxyNonDescriptionNodes.slice(0, 10)) {
       expect(typeof path, 'the census produced a malformed path').toBe('string');
     }

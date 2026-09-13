@@ -96,19 +96,27 @@ export const internals = (schema: z.ZodType): ZodInternals => schema as unknown 
  *
  * ⚠️ `typeof value === 'object'` is NOT the test, and writing it that way is a
  * measured coverage hole rather than a style slip — but ⛔ NOT for the reason
- * both walkers used to give. They each blamed zod's `$ZodObjectJIT`, whose
- * instances are indeed callable. On the surface these walkers actually cross
- * there are NO such nodes: the callables are `@objectstack/spec`'s own lazy
- * cross-module wrappers, `new Proxy(functionTarget, …)` around a factory, so
- * they answer `typeof 'function'` because the proxy TARGET is a function.
+ * both walkers used to give. They each blamed zod's `$ZodObjectJIT`, and that
+ * diagnosis is wrong in both halves. A `$ZodObjectJIT` instance is an ORDINARY
+ * OBJECT — `typeof 'object'`, ⛔ never callable: zod's `$constructor` returns
+ * plain objects, and the "JIT" names eval-compiled PARSE CODE, not a callable
+ * node. Nor is the trait absent here — EVERY `z.object()` carries it, so this
+ * surface is covered in them and an object-only guard would not miss one.
  *
- * The consequence is the same and it is why the guard admits functions: an
- * object-only guard hands each of them straight back along with the ENTIRE
- * subtree beneath it, with no symptom other than a residue count that will not
- * fall. The mechanism is re-derived in
- * `../__tests__/registry-meta-carry-9102.test.ts` — including the probe that
- * tells the two apart, since `Object.getOwnPropertyNames` on one of these
- * proxies THROWS rather than answering.
+ * What such a guard WOULD miss is `@objectstack/spec`'s own lazy cross-module
+ * wrappers, `new Proxy(functionTarget, …)` around a factory: those answer
+ * `typeof 'function'` because the proxy TARGET is a function, while forwarding
+ * `_zod` — the `$ZodObjectJIT` trait along with it — to the real schema behind
+ * them. ⭐ So the trait separates nothing in either direction; callability is
+ * the signal, and it belongs to the proxy rather than to anything zod built.
+ *
+ * That is why the guard admits functions: an object-only guard hands each of
+ * those proxies straight back along with the ENTIRE subtree beneath it, with no
+ * symptom other than a residue count that will not fall. The mechanism is
+ * re-derived in `../__tests__/registry-meta-carry-9102.test.ts` — including the
+ * probe that tells a proxy from an ordinary node, since
+ * `Object.getOwnPropertyNames` on one of these proxies THROWS rather than
+ * answering.
  */
 export const isZodType = (value: unknown): value is z.ZodType =>
   value !== null && (typeof value === 'object' || typeof value === 'function') && '_zod' in value;
@@ -233,9 +241,11 @@ export const carryRegistryMeta = (source: z.ZodType, derived: z.ZodType): z.ZodT
  * `.constructor` both travel the proxy's `get` trap to the real schema, so the
  * clone is an ordinary instance of the real's class built from the real's def.
  * A difference in representation, not in behaviour — and behaviour is what the
- * pins measure. ⛔ It is NOT zod's `$ZodObjectJIT`: the two are told apart in
- * `../__tests__/registry-meta-carry-9102.test.ts`, and a first round of
- * objectui#9102 shipped that misdiagnosis in this file's prose.
+ * pins measure. ⛔ The callability is NOT zod's `$ZodObjectJIT`: that trait
+ * sits on every `z.object()` — the real behind this proxy included — and makes
+ * nothing callable, so it tells these two apart in neither direction. The probe
+ * that does is in `../__tests__/registry-meta-carry-9102.test.ts`, and a first
+ * round of objectui#9102 shipped the opposite claim in this file's prose.
  */
 export const cloneWithDef = (schema: z.ZodType, patch: Partial<WalkableDef>): z.ZodType => {
   const Ctor = internals(schema).constructor;

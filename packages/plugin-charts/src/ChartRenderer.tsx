@@ -163,29 +163,49 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
     // `normalizeSeries` could not translate at all (no `dataKey` and no `name`
     // on any entry).
     const authored = Array.isArray(schema.series) ? schema.series : undefined;
-    let series: any[] | undefined = spec.series ?? authored;
-    let xAxisKey = schema.xAxisKey ?? spec.xAxisKey;
+    const series: any[] | undefined = spec.series ?? authored;
+    const xAxisKey = schema.xAxisKey ?? spec.xAxisKey;
     let config = schema.config;
 
-    // Adapt the Tremor/simple format (categories -> series, index -> xAxisKey)
-    if (!xAxisKey) {
-       if ((schema as any).index) xAxisKey = (schema as any).index;
-       else if ((schema as any).category) xAxisKey = (schema as any).category; // Support Pie/Donut category
-    }
-
-    if (!series) {
-       if ((schema as any).categories) {
-          series = (schema as any).categories.map((cat: string) => ({ dataKey: cat }));
-       } else if ((schema as any).value) {
-          // Single value adapter (for Pie/Simple charts)
-          series = [{ dataKey: (schema as any).value }];
-       }
-    }
+    // ⛔ The "Tremor/simple format" adapter that used to sit here is RETIRED
+    // (objectui#8650). It read four keys off `schema` behind `as any` casts --
+    // `index` / `category` (-> `xAxisKey`) and `categories` / `value`
+    // (-> `series`) -- and the census that ruled on it found the four do NOT
+    // share one verdict:
+    //
+    //   - `categories` was never a foreign spelling at all. It is a declared
+    //     member of the published `ChartSchema` and of its zod mirror,
+    //     documented in the schema reference as an ALTERNATIVE SERIES LIST, and
+    //     ruled LIVE by objectui#6896 (maintainer ruling 2026-08-31, prose
+    //     follows machine). `normalizeChartSchema` -- the ONE translation point
+    //     (objectui#2880 S1) -- already consumes it, so `spec.series` above is
+    //     populated before the old branch could be reached. That branch was a
+    //     SECOND, un-normalized read of a key the normalizer owns: the shape
+    //     objectui#7681 removed for `series`. It was unreachable for every
+    //     well-formed chart, and on malformed input it was WORSE than nothing
+    //     (`categories: 'revenue'` reached `.map` on a string and threw; a
+    //     `categories` whose entries the normalizer rejects produced
+    //     `[{ dataKey: '' }]`). The capability is untouched and stays pinned in
+    //     `normalizeChartSchema.test.ts`.
+    //   - `index`, `category` and `value` WERE a second authoring vocabulary:
+    //     declared on no published face (not `ChartSchema`, not its zod mirror,
+    //     not `ChartRendererProps.schema` above), advertised by no registry
+    //     `inputs`, taught by no doc, guide or skill, and written by ZERO
+    //     producers anywhere in this repo. AGENTS.md #0.1 puts the remedy at
+    //     the producer; with no producer to route, the read was tolerance for a
+    //     dialect nobody speaks. The canonical spellings are `xAxisKey` /
+    //     `xAxis` for the category axis and `series` / `categories` for the
+    //     plotted columns.
+    //
+    // ⛔ Do not re-add a key-aliasing branch here. A new inbound spelling is
+    // translated in `normalizeChartSchema`, which is where every other dialect
+    // this renderer accepts already resolves -- a second site here is how this
+    // one became invisible to the normalizer's own tests.
 
     // Auto-generate config/colors if missing. A spec `series[].color` is an
     // explicit author choice, so it wins over the positional palette.
     if (!config && series) {
-       const colors = (schema as any).colors || ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))'];
+       const colors = schema.colors || ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))'];
        const newConfig: ChartContainerConfig = {};
        series.forEach((s: any, idx: number) => {
          newConfig[s.dataKey] = { label: s.label || s.dataKey, color: s.color || colors[idx % colors.length] };
@@ -213,9 +233,9 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
         xAxisKey={props.xAxisKey}
         series={props.series}
         className={props.className}
-        colors={Array.isArray((schema as any).colors) ? (schema as any).colors : undefined}
-        categoryColors={(schema as any).categoryColors}
-        categoryOrder={(schema as any).categoryOrder}
+        colors={Array.isArray(schema.colors) ? schema.colors : undefined}
+        categoryColors={schema.categoryColors}
+        categoryOrder={schema.categoryOrder}
         isAnimationActive={schema.isAnimationActive}
         onChartClick={onChartClick}
         xAxis={props.spec.xAxis}

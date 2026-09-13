@@ -451,10 +451,16 @@ const HINTS = {
     'in objectui#4836. If the file loses its type coverage with the emit, name it in the package\'s ' +
     '`tsconfig.test.json` (PR #4845 did exactly this for `core.bench.ts`). If the file is a ' +
     '`*.tsbuildinfo` BUILD RECORD the remedy is a different one, because it has no tooling source ' +
-    'and no `exclude` can stop it: point that package\'s `tsBuildInfoFile` outside the published ' +
-    'build output, or leave it at its default (the package root), since `files: ["dist", …]` ' +
-    'publishes that directory whole and the record names every input path on the machine that ' +
-    'produced it (objectui#7003).',
+    'and no `exclude` can stop it: set that package\'s `tsBuildInfoFile` EXPLICITLY, to a path ' +
+    'outside the published build output. Do not leave it unset: the default is DERIVED, and it is ' +
+    'not the package root. TypeScript takes the tsconfig\'s own path, swaps in the `.tsbuildinfo` ' +
+    'extension, and remaps it from `rootDir` into `outDir` — so a package that sets an `outDir` and ' +
+    'no `rootDir` derives its record to `outDir/` plus the config\'s own basename, i.e. INSIDE the ' +
+    'directory this finding is about. The default lands at the package root only when the package ' +
+    'sets no `outDir` at all, or when its `rootDir` happens to rebase the path back out of `outDir` ' +
+    '— neither of which is a property a build record\'s location should depend on ' +
+    '(objectui#9189, objectui#9329). `files: ["dist", …]` publishes that directory whole and the ' +
+    'record names every input path on the machine that produced it (objectui#7003).',
   'no-build-output':
     'A published package produced nothing this gate could inspect. Either its build did not run ' +
     '(re-run without `--no-build`), or it now emits outside BUILD_OUTPUT_DIRS, or its `files` field ' +

@@ -50,7 +50,8 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
     required.every((p) => perms.can(objectName, p as any));
 
   const rawFields: any[] = Array.isArray(schema.fields) ? schema.fields : [];
-  // Normalize: accepts either bare strings or { name, label?, icon?, type?, readonly? }.
+  // Normalize: accepts either bare strings or { name, label?, type?, readonly? }
+  // — the four keys the contract's object arm declares, and no fifth.
   //
   // `readonly` is copied through deliberately: HeaderHighlight's editability
   // gate has always consulted `field.readonly`, but this map used to rebuild
@@ -59,13 +60,21 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
   // never fire from authored metadata (objectstack#5077). Rebuilding key-by-key
   // rather than spreading keeps the entry shape closed — an undeclared key is
   // still not silently forwarded to the strip.
+  //
+  // `icon` was copied through here until objectui#9280 and that read was
+  // UNREACHABLE, not merely unused: `@objectstack/spec`
+  // `RecordHighlightsProps.fields[]`'s object arm is `$strict` (a `never`
+  // catchall over `name`/`label`/`type`/`readonly`), so a document carrying
+  // `icon` is refused WHOLE at publish and no author could ever feed this
+  // branch. `HeaderHighlight` renders no `.icon` either, so the copy also had
+  // no consumer on the far side. Retired in both directions rather than left
+  // standing as a read for a key nothing can author.
   const normalized = rawFields.map((f) =>
     typeof f === 'string'
       ? { name: f }
       : {
           name: f?.name,
           label: f?.label,
-          icon: f?.icon,
           type: f?.type,
           readonly: f?.readonly === true,
         },

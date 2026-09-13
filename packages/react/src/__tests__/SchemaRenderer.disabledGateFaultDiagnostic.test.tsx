@@ -85,13 +85,30 @@ const Probe = (props: { disabled?: unknown }) => (
   />
 );
 
-/** The ambient scope app-shell's `ExpressionProvider` really mounts. */
+/**
+ * A HOST scope that publishes its own `data` root through
+ * `PredicateScopeProvider`.
+ *
+ * ⚠️ NOT what app-shell's `ExpressionProvider` mounts — the comment that said
+ * so was stale: `buildExpressionScope` has published no `data` since
+ * objectui#8166. Since objectui#9308 the renderer binds no `data` either, so a
+ * host publication is the only way the adapter-only leg is reachable at all
+ * (with no `data` anywhere the predicate throws and objectui#5454's reporter
+ * takes it instead).
+ */
 const APP_SCOPE = {
   current_user: { id: 'u1' },
   user: { id: 'u1' },
   data: {},
   features: {},
 };
+/** The same host scope, publishing a `data` root that DOES answer. */
+const scopeWithData = (data: Record<string, unknown>) => ({ ...APP_SCOPE, data });
+/**
+ * The injected adapter. Inert since objectui#9308 — kept so every mount still
+ * crosses the real seam, and so a reverted re-aim would be visible rather than
+ * silently green.
+ */
 const ADAPTER = { total: 99 };
 const ROW = { id: 'r1', status: 'open' };
 
@@ -188,7 +205,7 @@ const nonValidatorWarnings = (warn: WarnSpy): string[] =>
  * measuring the previous case's leakage rather than this case's behaviour.
  */
 async function inProduction(
-  fn: (mount: (schemas: Record<string, unknown>[]) => void) => void | Promise<void>,
+  fn: (mount: (schemas: Record<string, unknown>[], scope?: Record<string, unknown>) => void) => void | Promise<void>,
 ): Promise<void> {
   vi.resetModules();
   vi.stubEnv('NODE_ENV', 'production');
@@ -206,9 +223,9 @@ async function inProduction(
       namespace: 'element',
       skipFallback: true,
     } as never);
-    const mount = (schemas: Record<string, unknown>[]) =>
+    const mount = (schemas: Record<string, unknown>[], scope: Record<string, unknown> = APP_SCOPE) =>
       render(
-        <expr.PredicateScopeProvider scope={APP_SCOPE}>
+        <expr.PredicateScopeProvider scope={scope}>
           <ctx.SchemaRendererContext.Provider value={{ dataSource: ADAPTER } as never}>
             <rec.RecordContextProvider objectName="showcase_task" recordId={ROW.id} data={ROW}>
               {schemas.map((s, i) => (
@@ -229,7 +246,7 @@ async function inProduction(
 
 /** Mount one schema in the ordinary (development) module graph. */
 async function inDevelopment(
-  fn: (mount: (schemas: Record<string, unknown>[]) => void) => void | Promise<void>,
+  fn: (mount: (schemas: Record<string, unknown>[], scope?: Record<string, unknown>) => void) => void | Promise<void>,
 ): Promise<void> {
   const [core, dev, ctx, rec, expr, diag] = await Promise.all([
     import('@object-ui/core'),
@@ -245,9 +262,9 @@ async function inDevelopment(
     skipFallback: true,
   } as never);
   try {
-    const mount = (schemas: Record<string, unknown>[]) =>
+    const mount = (schemas: Record<string, unknown>[], scope: Record<string, unknown> = APP_SCOPE) =>
       render(
-        <expr.PredicateScopeProvider scope={APP_SCOPE}>
+        <expr.PredicateScopeProvider scope={scope}>
           <ctx.SchemaRendererContext.Provider value={{ dataSource: ADAPTER } as never}>
             <rec.RecordContextProvider objectName="showcase_task" recordId={ROW.id} data={ROW}>
               {schemas.map((s, i) => (
@@ -668,10 +685,11 @@ describe('#6504 group 6 — the adapter-only diagnostic, extended to `disabled` 
     });
   });
 
-  it('a GENUINE adapter read on `disabled` stays silent — the half that makes the noise mean something', async () => {
+  it('a GENUINE answered read on `disabled` stays silent — the half that makes the noise mean something', async () => {
     await inDevelopment((mount) => {
       const warn = spyWarn();
-      mount([{ id: 'n1', disabled: 'data.total > 0' }]); // ADAPTER.total === 99
+      // objectui#9308 — answered by the HOST-published `data`, not the adapter.
+      mount([{ id: 'n1', disabled: 'data.total > 0' }], scopeWithData({ total: 99 }));
       expect(disabledProp()).toBe('true'); // a REAL verdict, from a real read
       expect(adapterOnlyReports(warn)).toHaveLength(0);
     });

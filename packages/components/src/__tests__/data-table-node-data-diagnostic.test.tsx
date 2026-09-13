@@ -42,7 +42,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 
 // The REAL renderers, imported at module scope so `data-table` is in the
 // registry before the first render (AGENTS.md §测试纪律 — never behind a lazy
@@ -114,9 +114,11 @@ function warningsOn(prefix: string): string[] {
 
 function tree(schema: unknown) {
   return (
-    <SchemaRendererProvider dataSource={SCOPE as unknown as DataSource}>
+    <PredicateScopeProvider scope={{ data: SCOPE }}>
+      <SchemaRendererProvider dataSource={SCOPE as unknown as DataSource}>
       <SchemaRenderer schema={schema as never} />
     </SchemaRendererProvider>
+    </PredicateScopeProvider>
   );
 }
 

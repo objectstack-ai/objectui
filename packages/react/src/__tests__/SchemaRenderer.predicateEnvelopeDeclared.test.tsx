@@ -65,6 +65,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import type { BaseSchema, DataSource, ExpressionWire } from '@object-ui/types';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
@@ -94,9 +95,11 @@ const DATA = { status: 'draft', published: false };
 /** The DECLARED path -- `BaseSchema`, nothing wider, no cast. */
 function mount(schema: BaseSchema) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>
       <SchemaRenderer schema={schema} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
   );
 }
 

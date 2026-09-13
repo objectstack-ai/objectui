@@ -24,6 +24,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 // with them — nothing in this file needs the name any more.
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
 import type { DataSource } from '@object-ui/types';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
@@ -66,18 +67,22 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('evaluates visible expression string', () => {
       render(
+        <PredicateScopeProvider scope={{ data: { role: 'admin' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { role: 'admin' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visible: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(screen.getByTestId('test-component')).toBeInTheDocument();
     });
 
     it('hides when visible expression evaluates to false', () => {
       const { container } = render(
+        <PredicateScopeProvider scope={{ data: { role: 'viewer' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visible: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(container.innerHTML).toBe('');
     });
@@ -94,9 +99,11 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('hides with hiddenOn expression', () => {
       const { container } = render(
+        <PredicateScopeProvider scope={{ data: { status: 'draft' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { status: 'draft' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', hiddenOn: '${data.status === "draft"}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(container.innerHTML).toBe('');
     });
@@ -112,27 +119,33 @@ describe('SchemaRenderer Expression Integration', () => {
   describe('visibleWhen (ADR-0089 canonical)', () => {
     it('shows when the visibleWhen predicate is truthy', () => {
       render(
+        <PredicateScopeProvider scope={{ data: { role: 'admin' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { role: 'admin' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visibleWhen: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(screen.getByTestId('test-component')).toBeInTheDocument();
     });
 
     it('hides when the visibleWhen predicate is falsy', () => {
       const { container } = render(
+        <PredicateScopeProvider scope={{ data: { role: 'viewer' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visibleWhen: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(container.innerHTML).toBe('');
     });
 
     it('still honors the deprecated `visibility` alias', () => {
       const { container } = render(
+        <PredicateScopeProvider scope={{ data: { role: 'viewer' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', visibility: '${data.role === "admin"}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(container.innerHTML).toBe('');
     });
@@ -146,27 +159,33 @@ describe('SchemaRenderer Expression Integration', () => {
 
     it('evaluates disabled expression string', () => {
       render(
+        <PredicateScopeProvider scope={{ data: { status: 'locked' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { status: 'locked' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', disabled: '${data.status === "locked"}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(screen.getByTestId('test-component')).toHaveAttribute('data-disabled', 'true');
     });
 
     it('does not set disabled when expression is false', () => {
       render(
+        <PredicateScopeProvider scope={{ data: { status: 'active' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { status: 'active' } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', disabled: '${data.status === "locked"}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(screen.getByTestId('test-component')).not.toHaveAttribute('data-disabled');
     });
 
     it('evaluates disabledOn expression', () => {
       render(
+        <PredicateScopeProvider scope={{ data: { readOnly: true } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { readOnly: true } as unknown as DataSource }}>
           <SchemaRenderer schema={{ type: 'test-component', disabledOn: '${data.readOnly}' }} />
         </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>
       );
       expect(screen.getByTestId('test-component')).toHaveAttribute('data-disabled', 'true');
     });

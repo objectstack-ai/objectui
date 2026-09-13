@@ -79,15 +79,13 @@ composes the node; the view also skips the `sys_comment` read for such an
 object, and the server rejects comment writes against it with
 `403 FEEDS_DISABLED`. `enable.feeds` is opt-**out**: absent means on.
 
-<Callout type="warn">
-  **Upgrading (objectui#7298).** A record page used to get a discussion panel
-  appended below its content whenever its tree placed no discussion node, and
-  the only way out was an `assignedPage.disableDiscussion` flag that `PageSchema`
-  — a `strictObject` — refuses, so no author could ever write it. Both are gone.
-  If one of your **authored full pages** relied on that automatic panel, add one
-  `record:discussion` node where you want it. Synthesized and slotted pages need
-  no change.
-</Callout>
+> **Upgrading (objectui#7298).** A record page used to get a discussion panel
+> appended below its content whenever its tree placed no discussion node, and
+> the only way out was an `assignedPage.disableDiscussion` flag that `PageSchema`
+> — a `strictObject` — refuses, so no author could ever write it. Both are gone.
+> If one of your **authored full pages** relied on that automatic panel, add one
+> `record:discussion` node where you want it. Synthesized and slotted pages need
+> no change.
 
 ## Example: customize only the header
 

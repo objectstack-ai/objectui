@@ -93,7 +93,9 @@ export function stripDiscussionNodes(root: unknown): unknown {
     if (active.has(node)) return node;
     active.add(node);
 
-    let result: any = node;
+    // Assigned in both branches below; left uninitialised so a branch that
+    // forgot to set it is a type error rather than a silent pass-through.
+    let result: any;
 
     if (Array.isArray(node)) {
       const next: any[] = [];

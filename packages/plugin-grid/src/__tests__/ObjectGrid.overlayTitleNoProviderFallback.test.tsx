@@ -30,6 +30,16 @@
  * it red by rendering the raw key `detail.recordDetailWithLabel`, which is
  * precisely the regression it exists to catch.
  *
+ * ── The second describe block has the opposite direction (objectui#9092) ──
+ * The `inline locale map label` block below was RED before objectui#9092's grid
+ * fix and is GREEN after. It belongs in THIS file rather than in a third one
+ * because the defect is path-specific: a map label reaches `[object Object]`
+ * through TWO different interpolators, i18next's and this file's provider-less
+ * `interpolateFallback` (`i18n/src/fallbackInterpolation.ts`, `String(v)`), and
+ * a pin that exercised only the provider path would leave the `String(v)` arm
+ * unmeasured. The file-splitting rule below is what makes this arm reachable at
+ * all, so it is a reason to keep that rule, not an exception to it.
+ *
  * ── Why this is its own FILE, not a describe block ────────────────────────
  * `createI18n` calls `instance.use(initReactI18next)`, and `initReactI18next`
  * registers that instance as **react-i18next's module-global default**. The
@@ -49,9 +59,13 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import '@testing-library/jest-dom';
 import { registerAllFields } from '@object-ui/fields';
 import { ActionProvider } from '@object-ui/react';
+import type { ObjectGridSchema } from '@object-ui/types';
 import { ObjectGrid } from '../ObjectGrid';
 
 registerAllFields();
+
+/** Typed against the DECLARED face — see the sibling file's note on why. */
+type GridLabel = NonNullable<ObjectGridSchema['label']>;
 
 const rows = [
   { id: '1', name: 'Alice' },
@@ -104,5 +118,36 @@ describe('ObjectGrid overlay heading — English fallback with no provider (obje
 
     expect(screen.getByText('Record Detail')).toBeInTheDocument();
     expect(screen.queryByText('detail.recordDetail')).toBeNull();
+  });
+});
+
+describe('ObjectGrid overlay heading — inline locale map label, no provider (objectui#9092)', () => {
+  it('resolves the map before interpolation, never `String(v)`s it', async () => {
+    const label: GridLabel = { en: 'Accounts', zh: '联系人' };
+    renderGrid({ objectName: 'contacts', label });
+    await openOverlay();
+
+    // `interpolateFallback` runs each value through `String(v)`. Unresolved,
+    // this heading reads `[object Object] Detail` — user-visible chrome.
+    expect(screen.getByText('Accounts Detail')).toBeInTheDocument();
+    expect(screen.queryByText('[object Object] Detail')).toBeNull();
+    expect(screen.queryByText('detail.recordDetailWithLabel')).toBeNull();
+  });
+
+  it('CONTROL — a plain-string label renders the same bytes it always did', async () => {
+    const label: GridLabel = 'Accounts';
+    renderGrid({ objectName: 'contacts', label });
+    await openOverlay();
+
+    expect(screen.getByText('Accounts Detail')).toBeInTheDocument();
+    expect(screen.queryByText('[object Object] Detail')).toBeNull();
+  });
+
+  it('falls through to the capitalized objectName when the map resolves to nothing', async () => {
+    const label: GridLabel = {};
+    renderGrid({ objectName: 'contacts', label });
+    await openOverlay();
+
+    expect(screen.getByText('Contacts Detail')).toBeInTheDocument();
   });
 });

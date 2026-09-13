@@ -668,9 +668,21 @@ export interface ObjectGridSchema extends BaseSchema {
   name?: string;
   
   /**
-   * Display label override
+   * Display label override.
+   *
+   * `string | I18nLabel` — the spec's INLINE locale map, resolved against a
+   * BCP-47 display locale by `resolveI18nLabel(label, locale)`. Plain `string`
+   * until objectui#9092: a NARROWING override of `BaseSchema.label`, which
+   * objectui#4580's revised Q1 ruling (option A) widened. The mirror
+   * (`zod/objectql.zod.ts`'s `ObjectGridSchema`) never restates the key, so it
+   * inherits the zod `BaseSchema`'s `I18nLabelSchema` and accepted the map all
+   * along while `tsc` refused it.
+   *
+   * ⚠️ NOT the KEYED `{ key, defaultValue?, params? }` vocabulary that
+   * {@link BaseSchema.ariaLabel} carries; the two are structurally confusable
+   * and neither resolver accepts the other's shape.
    */
-  label?: string;
+  label?: string | I18nLabel;
   
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
@@ -845,10 +857,24 @@ export interface ObjectGridSchema extends BaseSchema {
   title?: string;
 
   /**
+   * Legacy description field.
+   *
+   * `string | I18nLabel` — the spec's INLINE locale map, resolved against a
+   * BCP-47 display locale by `resolveI18nLabel(label, locale)`. Plain `string`
+   * until objectui#9092: a NARROWING override of `BaseSchema.description`,
+   * which objectui#4580's revised Q1 ruling (option A) widened. The mirror
+   * (`zod/objectql.zod.ts`'s `ObjectGridSchema`) never restates the key, so it
+   * inherits the zod `BaseSchema`'s `I18nLabelSchema`.
+   *
+   * ⚠️ The `@deprecated` tag below is NOT a reason to leave the declaration
+   * narrow: deprecated-but-declared is still an authoring face, and an author
+   * on it was refused by `tsc` for writing the form the contract publishes.
+   * Whether the key should exist at all is the ADR-0049 liveness question, not
+   * this one.
+   *
    * @deprecated No direct replacement (consider using label with additional context)
-   * Legacy description field
    */
-  description?: string;
+  description?: string | I18nLabel;
   
   /**
    * Enable/disable built-in operations

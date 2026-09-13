@@ -242,10 +242,12 @@ const schema: ObjectCalendarSchema = {
   type: 'object-calendar',
   objectName?: string,              // ObjectQL object name
   staticData?: Array<any>,          // Static data array
-  data?: Array<any>,                // Pre-fetched records, drawn in place of the
+  data?: Array<unknown>,            // Pre-fetched records, drawn in place of the
                                     // calendar's own query. An ARRAY — this block's
                                     // published row refuses the `{ provider, items }`
-                                    // config object (objectui#8348)
+                                    // config object (objectui#8348). `@object-ui/types`
+                                    // declares it as that array too since
+                                    // objectui#9239, derived from the protocol's row
   calendar?: CalendarConfig,        // Calendar-specific configuration
   filter?: ViewFilterRule[],        // Query filter, lowered to $filter
   sort?: SortConfig[],              // Query sort, lowered to $orderby
@@ -366,10 +368,19 @@ here. `object-calendar`'s published `data` row is an **array of pre-fetched
 records**, so the config object is refused by kind: `os validate` and the save
 gate reject it, and as of that card the renderer does too.
 
-That is a behaviour change for stored documents. A calendar written that way no
-longer draws those rows; the record-source ladder falls past `data` to
-`staticData`, then to `objectName`, so it queries its object instead — or draws
-nothing when it names neither.
+Since **objectui#9239** the `@object-ui/types` declaration refuses it as well —
+both the `ObjectCalendarSchema` interface and the zod mirror `safeValidateSchema`
+runs. Until that card this package was the one published face that still
+accepted the config object, so a document validated *here* could pass while every
+other surface rejected it; the annotated examples on this page are checked
+against the narrowed declaration.
+
+That is a behaviour change for stored documents, and a **breaking narrowing** of
+the authoring type. A calendar written that way no longer draws those rows; the
+record-source ladder falls past `data` to `staticData`, then to `objectName`, so
+it queries its object instead — or draws nothing when it names neither. In
+TypeScript the same document is now a compile error at `data` rather than a
+silent pass.
 
 Read from the database with the **Object Provider** above (`objectName`), pass
 events you already hold with the **Value Provider** (`staticData`), or hand the

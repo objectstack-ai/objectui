@@ -54,6 +54,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -114,6 +115,41 @@ type _WideIsAssignableToNarrow = Expect<OnRowClick extends NarrowOnRowClick ? tr
  * the broken one. Exact identity can, and does.
  */
 type _IdentityStillSeparatesThem = Expect<Equal<Equal<OnRowClick, NarrowOnRowClick>, false>>;
+
+/**
+ * THE ACCEPT-SET BOUNDARY — the one class the widening refuses, pinned rather
+ * than only described. A handler passed DIRECTLY to `useNavigationOverlay`
+ * whose second parameter is annotated NARROWER than `HandleClickModifiers`
+ * compiled before this card and is refused now. Measured on this change:
+ *
+ *     error TS2322: Type '(_record: Record<string, unknown>, _ev?:
+ *     ReactMouseEvent) => void' is not assignable to type '(record:
+ *     Record<string, unknown>, event?: HandleClickModifiers | undefined) =>
+ *     void'. … Type 'HandleClickModifiers' is missing the following properties
+ *     from type 'MouseEvent<Element, MouseEvent>': altKey, buttons, clientX,
+ *     clientY, and 26 more.
+ *
+ * It compiled before only because the old declaration had no second parameter
+ * to check the annotation against. Now the parameter is checked
+ * contravariantly, so the annotation has to ADMIT `HandleClickModifiers` —
+ * and React's mouse event, the shape a host writing against the
+ * implementation rather than the declaration reaches for, does not. The remedy
+ * at such a call site is one line: annotate the parameter
+ * `HandleClickModifiers`, or drop the annotation.
+ *
+ * ⭐ Why this is a `@ts-expect-error` and not another `Expect` row: the
+ * changeset publishes this class and that remedy, and changeset text ships
+ * verbatim into `packages/react/CHANGELOG.md`, where it cannot be corrected
+ * after release. A directive whose error stops occurring is itself an error
+ * (TS2578), so this line reds if the boundary ever moves — the option widened
+ * back to one parameter, or the payload respelled `any` — and the published
+ * sentence gets revisited instead of going quietly stale. Both readings were
+ * taken: refused against the repaired declaration, TS2578-unused against
+ * `origin/main`'s.
+ */
+type NarrowerSecondParam = (record: Record<string, unknown>, event?: ReactMouseEvent) => void;
+// @ts-expect-error a second parameter narrower than `HandleClickModifiers` is refused (TS2322)
+type _NarrowerSecondParamIsRefused = Expect<NarrowerSecondParam extends OnRowClick ? true : false>;
 
 /**
  * Control: the checker is live in this file and the parameter list really

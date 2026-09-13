@@ -8,9 +8,10 @@
  * commit `6136293`, which is where the class, the construct table and the
  * exemption rules were worked out. This header states which claims are
  * upstream's and which were re-measured HERE; ⛔ do not read an inherited
- * measurement as a reading about this tree. Deliberately NOT registered in
- * `scripts/upstream-port-pin.json` — the reason is at "## Why this port is not
- * pinned" below.
+ * measurement as a reading about this tree. REGISTERED in
+ * `scripts/upstream-port-pin.json`; that entry carries the ref this copy was
+ * taken at, its digest and every declared divergence, and the section "## The
+ * drift gate over this port" below says what follows from it.
  *
  *   node scripts/check-bash32-floor.mjs
  *   node scripts/check-bash32-floor.mjs --self-test
@@ -159,58 +160,31 @@
  * closure needed is written at the row itself rather than here, because that is
  * where a future reader tempted to loosen the pattern will be standing.
  *
- * ## Why this port is not YET pinned in `scripts/upstream-port-pin.json`
+ * ## The drift gate over this port
  *
+ * This file IS registered in `scripts/upstream-port-pin.json`, so
+ * `check-upstream-port-parity` reverses the divergences declared on its entry
+ * and compares the reconstruction's bytes against the pinned upstream digest.
  * That ledger is how this repository stops a ported copy drifting into a
  * confident-but-stale report — `scripts/pm/check-half-states.mjs` reached a
- * 4,637-line diff from upstream while reporting greenly. The same argument
- * applies to this file with force: its whole subject is that "an absence from a
+ * 4,637-line diff from upstream while reporting greenly. The argument applies
+ * to this file with force: its whole subject is that "an absence from a
  * denylist reads as an approval", and upstream actively sweeps the table.
  *
- * It is still NOT registered, but the blocker that kept it out was structural
- * and is GONE. The pin used to carry ONE ledger-wide `upstream.ref` beside
- * per-file digests, and `--resync` rewrote that global field on every run. So
- * registering this port at the revision it was actually taken from meant one of
- * two bad trades: port from the older revision the ledger happened to name —
- * deliberately shipping a WEAKER construct table so a provenance field stayed
- * true, which inverts the point of the gate — or drag every other pinned file
- * to a new ref, an unrelated rewrite of other ported tooling. A third route,
- * pinning this file's digest while the global ref named a different revision,
- * was the one that must never be taken: the digest would verify and the
- * provenance line would be false.
- *
- * objectui#8288 retired the field and all three trades with it. Read off
- * `check-upstream-port-parity.mjs`: `ref` is now a REQUIRED key on each
- * `files[]` entry beside the digest it was taken with, `validatePin` REFUSES a
- * pin that still carries `upstream.ref`, and `resyncedPin` writes only the
- * re-synced entry's own `ref` and digest while returning every other entry
- * untouched. `upstream` keeps `repo` alone. Entries at different refs now
- * coexist by design, so this file can be registered at its own revision without
- * disturbing anything already pinned.
+ * ⚠️ So these bytes are PINNED, and this prose pays that cost too. An edit
+ * anywhere inside a declared region — this paragraph included — has to move
+ * that divergence's `ported` side in the SAME change, or the gate reds with
+ * `expected its ported text exactly once, found 0`. That is the intended
+ * failure direction: loud, and naming the divergence it could not reverse.
  *
  * ⛔ Do not write a revision into this prose. A port's ref lives on that port's
- * entry in `scripts/upstream-port-pin.json`; read it from there, where
- * `--resync` keeps it correct. This section has already gone stale TWICE by
- * naming one: objectui#7749 moved the global ref out from under the sentence
- * describing it, and objectui#8288 then deleted the field that sentence named.
- * Both times the prose stayed confident and wrong — which is this file's own
- * subject, aimed at itself.
- *
- * What registration still costs is per-file work rather than a schema change,
- * which is why it did not ride along with objectui#8288 and is a card of its
- * own: read the upstream blob at a named ref, compute its SHA-256, and declare
- * every divergence as an exact `upstream`/`ported` text pair with a stated
- * `why`. The same unblocking reaches the ported `.claude/hooks/**` files that
- * objectui#7953 recorded from the other direction — a per-file ref can name a
- * revision where each of them exists — with one extra cost there and not here:
- * those are GOVERNED surface, so `--resync` refuses to write them without
- * `--rewrite-governed-file`.
- *
- * Consequence, stated so it is inherited rather than rediscovered: until that
- * registration lands, this file has NO drift gate. Upstream improvements to
- * `CONSTRUCTS` arrive here only if someone carries them by hand. That cost was
- * once accepted because paying it meant weakening a gate; it is now simply
- * unpaid, and the work to pay it is ordinary.
+ * entry in the ledger, beside the digest it was taken with, where `--resync`
+ * keeps it correct. This section has gone stale THREE times for want of that
+ * rule: objectui#7749 moved a then-ledger-wide ref out from under the sentence
+ * describing it, objectui#8288 deleted the field that sentence named, and
+ * objectui#8694 registered this file while the section went on arguing it was
+ * unregistered. Each time the prose stayed confident and wrong — which is this
+ * file's own subject, aimed at itself.
  *
  * ## Population
  *

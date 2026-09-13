@@ -29,14 +29,23 @@
  * be falsified rather than out-voted. Four measurements did it, and the pins
  * below are what keeps each of them from rotting:
  *
- * 1. **The pack already distinguishes the positions, correctly.** Three values
- *    keep the yāʾ and all three are in positions that require it —
- *    `console.ai.connectionStalled` and `empty.appNotAvailableDescription` are
- *    the khabar of لا يزال / ما زال, hence accusative, hence `جاريًا` / `جارياً`;
- *    `marketplace.installedAdditiveNote` is attributive on a definite noun,
- *    hence `الجارية`. A pack that were simply yāʾ-blind could not have got these
- *    right, so `جارٍ` elsewhere is a position-sensitive choice, not a house tic.
- *    They are pinned by name below so a later sweep cannot "normalise" them too.
+ * 1. **The pack already distinguishes the positions, correctly.** Values that
+ *    keep the yāʾ are in positions that require it —
+ *    `console.ai.connectionStalled` is the khabar of لا يزال, hence accusative,
+ *    hence `جاريًا`; `marketplace.installedAdditiveNote` is attributive on a
+ *    definite noun, hence `الجارية`. A pack that were simply yāʾ-blind could not
+ *    have got these right, so `جارٍ` elsewhere is a position-sensitive choice,
+ *    not a house tic. They are pinned by name below so a later sweep cannot
+ *    "normalise" them too.
+ *
+ *    ⚠️ There were THREE. `empty.appNotAvailableDescription` was the khabar of
+ *    ما زال (`جارياً`, the tanwīn written on the alef) — and objectui#9262
+ *    retired the clause it sat in, because that clause asserted a publish this
+ *    screen had never measured. The row went with the sentence, not with the
+ *    rule: nothing about the orthography changed, and a value that reintroduces
+ *    an accusative participle belongs back in `YA_IS_CORRECT` with its reason.
+ *    ⛔ Do NOT "restore" it by editing the `ar` value — the English it
+ *    translates no longer says it.
  *
  * 2. **None of the 8 was in such a position.** All eight opened their string —
  *    nothing governed them into the accusative — none carried ال, and in none
@@ -239,7 +248,6 @@ const CONVERGED: Array<[string, string]> = [
  */
 const YA_IS_CORRECT: Array<[string, string, string]> = [
   ['console.ai.connectionStalled', 'جاريًا', 'khabar of لا يزال → accusative → tanwīn fatḥ on a kept yāʾ'],
-  ['empty.appNotAvailableDescription', 'جارياً', 'khabar of ما زال → accusative (tanwīn written on the alef)'],
   ['marketplace.installedAdditiveNote', 'الجارية', 'attributive on a definite noun (النواة) → definite → yāʾ kept'],
 ];
 
@@ -326,12 +334,12 @@ describe('objectui#6610 — the ar pack spells the منقوص participle جار�
     expect(at(builtInLocales.ar, 'list.refreshing')).toBe(`${JAARIN} التحديث…`);
   });
 
-  it('pins the three occurrences where the yāʾ is CORRECT, so a later sweep cannot flatten them', () => {
+  it('pins the occurrences where the yāʾ is CORRECT, so a later sweep cannot flatten them', () => {
     // The mirror of the rule above, and the more important half. The scan is
     // built to leave these alone; this is what notices if someone "fixes" them
     // by hand — replacing an orthographic inconsistency with an actual
     // grammatical error, which the card was explicit is strictly worse.
-    expect(YA_IS_CORRECT).toHaveLength(3);
+    expect(YA_IS_CORRECT).toHaveLength(2);
 
     for (const [key, token, why] of YA_IS_CORRECT) {
       const value = at(builtInLocales.ar, key);

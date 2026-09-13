@@ -157,9 +157,9 @@ Disable component when expression is true:
 Expression scope does **not** arrive as a prop. `SchemaRenderer` declares exactly one prop,
 `schema`, and forwards every other prop it is handed straight through to the component the
 schema names — so a `data`, `dataSource` or `debug` written on the element is neither read nor
-refused. Nothing throws and nothing warns; the expression simply never resolves, and an
-unresolvable template is returned as its own source text, so the characters you typed are what
-the reader sees.
+refused. Nothing throws, and there is one line on the console; the expression simply never
+resolves, and an unresolvable template is returned as its own source text, so the characters
+you typed are what the reader sees.
 
 The host publishes its values with `PredicateScopeProvider`, and every key it publishes becomes
 a root:

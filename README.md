@@ -112,7 +112,7 @@ Expression scope reaches the renderer through the provider, never through a prop
 element. `SchemaRenderer` declares exactly one prop, `schema`, and forwards every other prop
 it is handed to the component the schema names — so a value passed as `data={…}` is neither
 read nor refused, and the expression that wanted it is returned as its own source text, with
-nothing thrown and nothing logged.
+nothing thrown and one line on the console.
 
 ### Bring your own backend
 

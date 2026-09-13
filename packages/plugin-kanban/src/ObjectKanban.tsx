@@ -252,7 +252,18 @@ export interface ObjectKanbanComponentProps {
   /** Loading state propagated from a parent. Respected only when `data` is also provided. */
   loading?: boolean;
   onRowClick?: (record: any) => void;
-  onCardClick?: (record: any) => void;
+  /**
+   * ⚠️ TWO parameters, and the second one is not decoration: this prop is the
+   * `onCardClick` arm of `externalClick` below, which is handed to
+   * `useNavigationOverlay` as its `onRowClick` and invoked as
+   * `onRowClick(record, event)` — the modifier payload a host needs for
+   * Cmd/Ctrl/middle-click. Spelled `any` because `packages/types` declares the
+   * published twin of this key and may not name `HandleClickModifiers` (it lives
+   * in `@object-ui/react`, which depends on `@object-ui/types`), and the two
+   * faces must not disagree. `KanbanImpl` types the same channel as
+   * `React.MouseEvent`, which is what actually arrives.
+   */
+  onCardClick?: (record: any, event?: any) => void;
 }
 
 export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
@@ -1329,9 +1340,24 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           // objectui#8307 — the lane headers count rows that came back, so when
           // the fetch saturated its window they must say `77+`, not `77`.
           countsAreWindowed,
+          // ⛔ Calls `handleClick` and NOTHING ELSE. An authored `onCardClick`
+          // already travels this one line: it is the `onCardClick` arm of
+          // `externalClick` above, which is `handleClick`'s `onRowClick`, and
+          // that arm has FULL PRIORITY inside the hook — it is called and the
+          // hook returns. A second `onCardClick?.(card)` here therefore ran the
+          // SAME function again, twice per card click (objectui#9341, measured
+          // 2 by objectui#9338's pin before it was relaxed).
+          //
+          // Of the two calls the DELETED one was the poorer: `handleClick`
+          // forwards `onRowClick(record, event)`, so the host can implement
+          // Cmd/Ctrl/middle-click, while the second call passed the record
+          // only. Dropping it also leaves `onRowClick ?? onCardClick` untouched
+          // — a board inside an `ObjectView` still gives the parent's handler
+          // priority, and now gives it OUTRIGHT rather than also running the
+          // authored one. `ObjectGallery` has written exactly this shape, with
+          // no second call, all along.
           onCardClick: (card: any, event?: any) => {
             navigation.handleClick(card, event);
-            onCardClick?.(card);
           },
           onCardMove: handleCardMove,
         }}

@@ -74,89 +74,32 @@
  */
 
 import { z } from 'zod';
+import { carryRegistryMeta, cloneWithDef, internals, isZodType } from './node-derivation.js';
 
 /**
- * The subset of a zod def this walker reads. Zod does not publish `_zod.def` in
- * its public types, and the alternative — a chain of `instanceof` narrowings
- * against 15 concrete classes — would have to be rewritten whenever zod adds a
- * wrapper. Same field set, and the same reason, as `../strict-authoring-face.ts`.
- */
-interface WalkableDef {
-  type: string;
-  shape?: Record<string, z.ZodType>;
-  options?: z.ZodType[];
-  items?: z.ZodType[];
-  element?: z.ZodType;
-  rest?: z.ZodType;
-  valueType?: z.ZodType;
-  keyType?: z.ZodType;
-  left?: z.ZodType;
-  right?: z.ZodType;
-  in?: z.ZodType;
-  out?: z.ZodType;
-  innerType?: z.ZodType;
-  catchall?: z.ZodType;
-  getter?: () => z.ZodType;
-}
-
-interface ZodInternals {
-  _zod: { def: WalkableDef; optin?: string };
-  constructor: new (def: WalkableDef) => z.ZodType;
-}
-
-const internals = (schema: z.ZodType): ZodInternals => schema as unknown as ZodInternals;
-
-/**
- * Is this a zod schema node?
+ * ⭐ THE METADATA CARRY LIVES IN `./node-derivation.ts`, NOT HERE (objectui#9102).
  *
- * ⚠️ `typeof value === 'object'` is NOT the test, and writing it that way is a
- * measured coverage hole rather than a style slip. Zod 4.4.3 builds some
- * objects through `$ZodObjectJIT`, whose instances are CALLABLE — they answer
- * `typeof 'function'` and parse exactly like any other object. On this face
- * those nodes arrive through `@objectstack/spec`-derived subtrees, which is
- * precisely the population this module walks: an object-only guard hands each
- * of them straight back and the entire subtree beneath it — defaults included —
- * goes unwalked, with no symptom other than a residue count that will not fall.
- * `../strict-authoring-face.ts` records the same lesson, learnt the hard way.
- */
-const isZodType = (value: unknown): value is z.ZodType =>
-  value !== null && (typeof value === 'object' || typeof value === 'function') && '_zod' in value;
-
-/**
- * Carry a source node's `.describe()` onto a node derived from it — THE ONE
- * DESCRIPTION RULE, used by every derivation below.
+ * This module used to hold its own `cloneWithDef` and its own one-key carry,
+ * spelled THE ONE DESCRIPTION RULE and defended in a sentence about `id`. Both
+ * halves of that sentence were wrong about this surface, and objectui#9102
+ * measured how: `id` does not occur in the spec's registry metadata here at all,
+ * while `title` and `externalVocabulary` sit on nodes this walker rebuilds —
+ * so the rule guarded a key that was never present and dropped the ones that
+ * were. `@objectstack/spec` emits `{default, description, title, type}` for a
+ * datasource `host`; this boundary emitted `{description, type}`.
  *
- * ⚠️ A description is NOT part of `def`, so nothing here carries it by accident.
- * Measured on zod 4.4.3: `.describe(d)` stores `{ description: d }` in
- * `z.globalRegistry`, a WeakMap keyed by the NODE, and `description` reads back
- * through `_zod.parent`, which only zod's own `clone()` sets. So any node this
- * module builds with `new Ctor(def)` — every `cloneWithDef` below — starts with
- * NO description however faithfully it copies `def`, and `.removeDefault()`
- * hands back an inner node that never had the outer's description to begin with.
- * Both are the same silent loss, and this is the one place that repairs it.
+ * ⛔ The trade-off is NOT "description versus everything". It is a bounded,
+ * enumerated carry set versus a blanket spread, and the bound is written down
+ * as `CARRIED_REGISTRY_META_KEYS` with `id` refused by name in
+ * `REFUSED_REGISTRY_META_KEYS` — `id` for the `_idmap` mutation it would cause,
+ * which is the one part of the old sentence that was correct. The census that
+ * fails when the protocol grows a key outside either list is
+ * `../__tests__/registry-meta-carry-9102.test.ts`.
  *
- * ⛔ `.describe()` and not a write to `_zod.parent`: it CLONES, so the derived
- * node can safely be one of `@objectstack/spec`'s own objects — which it is on
- * the `default` arm's already-optional branch, 267 times across spec 17.4.0.
- * Poking `parent` there would mutate the spec's shared graph, which the header's
- * last paragraph forbids.
- *
- * ⛔ The description and nothing else. `z.globalRegistry.get(...)` would also
- * hand back `id`, and re-registering an `id` rewrites the registry's `_idmap`
- * entry to point at THIS package's derivation — a mutation of shared global
- * state, off a surface that promises it mutates nothing.
+ * ⛔ And it is SHARED, because the identical rebuild in
+ * `../strict-authoring-face.ts` carried the identical loss. A local copy is how
+ * the two drifted apart in the first place.
  */
-const withDescriptionOf = (source: z.ZodType, derived: z.ZodType): z.ZodType =>
-  source.description === undefined ? derived : derived.describe(source.description);
-
-/**
- * Clone one schema with a patched def, PRESERVING everything else — `def.checks`
- * above all, and the node's own description with it (see `withDescriptionOf`).
- */
-const cloneWithDef = (schema: z.ZodType, patch: Partial<WalkableDef>): z.ZodType => {
-  const Ctor = internals(schema).constructor;
-  return withDescriptionOf(schema, new Ctor({ ...internals(schema)._zod.def, ...patch }));
-};
 
 /** Does this node already answer "omissible" to an enclosing object? */
 const isAlreadyOptional = (schema: z.ZodType): boolean =>
@@ -193,12 +136,13 @@ const walk = (schema: z.ZodType): z.ZodType => {
   // goes red if it moves, rather than trusting this sentence.
   //
   // ⛔ Rebuilt through `cloneWithDef`, not `z.lazy(…)`: a fresh `z.lazy` would
-  // be a different class with none of this node's own `def.checks` or
-  // description, which is the same silent-loss shape the clone rule exists for.
-  // ⚠️ `cloneWithDef` carries the description only because it now asks
-  // `withDescriptionOf` to; a description lives in `z.globalRegistry`, not in
+  // be a different class with none of this node's own `def.checks` or registry
+  // metadata, which is the same silent-loss shape the clone rule exists for.
+  // ⚠️ `cloneWithDef` carries that metadata only because it asks
+  // `carryRegistryMeta` to; registry state lives in `z.globalRegistry`, not in
   // `def`, so copying `def` never carried it. This sentence read as though it
-  // did until objectui#9034 measured otherwise.
+  // did until objectui#9034 measured the description half and objectui#9102 the
+  // rest of the vocabulary.
   if (def.type === 'lazy') {
     const out = cloneWithDef(schema, { getter: () => walk(def.getter!()) });
     memo.set(schema, out);
@@ -231,19 +175,22 @@ const walk = (schema: z.ZodType): z.ZodType => {
      * member and is made optional again, because its omissibility was the
      * default's doing and removing it must not narrow what this package accepts.
      *
-     * `withDescriptionOf` is the documentation half, and it is the same one rule
-     * the `lazy` arm above invokes. The protocol spells its guidance
-     * `.default(v).describe(d)`, so `d` sits on the OUTER node — the very node
-     * `.removeDefault()` discards. Without the carry, 2024 of the 2024 described
-     * `ZodDefault` nodes reachable from spec 17.4.0 arrive on this side with no
-     * description at all, and this boundary would convey strictly LESS than the
+     * `carryRegistryMeta` is the documentation half, and it is the same one rule
+     * `cloneWithDef` invokes on every other arm. The protocol spells its
+     * guidance on the OUTER node — `.default(v).describe(d)`, and
+     * `.default(v).meta({title})` on the datasource configs — which is the very
+     * node `.removeDefault()` discards. Without the carry, every described
+     * `ZodDefault` reachable from the spec arrives on this side with no
+     * description, and every one carrying a `title` or an `externalVocabulary`
+     * arrives without it: this boundary would convey strictly LESS than the
      * protocol it mirrors. `__tests__/imported-defaults-describe-9034.test.ts`
-     * re-derives that population rather than trusting this paragraph.
+     * and `__tests__/registry-meta-carry-9102.test.ts` re-derive those
+     * populations rather than trusting this paragraph.
      */
     case 'default': {
       const inner = walk((schema as unknown as { removeDefault: () => z.ZodType }).removeDefault());
       const next = isAlreadyOptional(inner) ? inner : z.optional(inner);
-      out = withDescriptionOf(schema, next);
+      out = carryRegistryMeta(schema, next);
       break;
     }
     case 'object': {
@@ -331,13 +278,16 @@ const walk = (schema: z.ZodType): z.ZodType => {
  * schema, at this package's import boundary.
  *
  * Returns a schema with the same TypeScript type, the same keys, the same
- * checks, the same descriptions and the same accept set — differing only in
- * that a key the author omitted stays omitted in `parse` output instead of
+ * checks, the same registry metadata and the same accept set — differing only
+ * in that a key the author omitted stays omitted in `parse` output instead of
  * being written for them. The input is left untouched.
  *
- * ⚠️ "the same descriptions" is carried deliberately and is not free — see
- * `withDescriptionOf`. A description is registry state keyed by the node, so
- * every derivation here has to re-attach it explicitly (objectui#9034).
+ * ⚠️ "the same registry metadata" is carried deliberately and is not free — see
+ * `carryRegistryMeta` in `./node-derivation.ts`. A description, a `title` and an
+ * `externalVocabulary` are all registry state keyed by the node, so every
+ * derivation here has to re-attach them explicitly (objectui#9034 for the
+ * description, objectui#9102 for the rest). The carry set is bounded and
+ * enumerated there; `id` is refused by name.
  *
  * ⚠️ A schema that HAD a default in it is not reference-equal to the spec's
  * afterwards: a mirror member re-exporting one of these re-exports this

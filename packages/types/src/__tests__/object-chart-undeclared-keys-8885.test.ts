@@ -75,6 +75,11 @@ import { dirname, join } from 'node:path';
 import type { ChartDrillDown, I18nLabel, DashboardWidget as SpecDashboardWidget } from '@objectstack/spec/ui';
 import type { ObjectChartSchema } from '../objectql.js';
 import { ObjectChartSchema as ObjectChartMirror } from '../zod/objectql.zod.js';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -226,7 +231,7 @@ describe('the zod mirror declares the same three keys (objectui#8885)', () => {
  * phantom.
  */
 function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  return mask(src);
 }
 
 /**

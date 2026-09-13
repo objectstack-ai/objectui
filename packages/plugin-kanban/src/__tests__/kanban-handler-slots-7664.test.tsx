@@ -85,9 +85,17 @@
  * `createElement` call), and `ObjectKanbanComponentProps` DECLARES
  * `onCardClick` — there is no `onCardMove` prop. So on the `'object-kanban'` key an
  * authored `onCardClick` is not merely overridden: `ObjectKanban`'s own
- * wrapper CALLS it. Suite 2 invokes the function the board was handed and
+ * wrapper RUNS it. Suite 2 invokes the function the board was handed and
  * measures that the authored one runs, with the identity check from suite 1 as
  * the control that the wrapper is genuinely interposed.
+ *
+ * ⚠️ Since objectui#9341 the wrapper reaches it INDIRECTLY — it calls
+ * `useNavigationOverlay`'s `handleClick`, which gives the same function full
+ * priority as its `onRowClick` and calls it with `(record, event)`. The wrapper
+ * used to ALSO call it directly with the record alone, which ran one authored
+ * handler twice per click; that second call is gone. Nothing about the CHANNEL
+ * this file measures changed: the prop still reaches, and the authored function
+ * still runs.
  *
  * ⇒ On every channel measured, `onCardClick` is at least as live as
  * `onCardMove`. Its #6124 disposition is RUNTIME SLOT, not `?: never`.
@@ -274,7 +282,14 @@ describe("ObjectKanban's own onCardClick wrapper CALLS the authored handler (obj
     // have arrived through it.
     expect(props.onCardClick).not.toBe(onCardClick);
     (props.onCardClick as (c: unknown, e?: unknown) => void)(card);
-    expect(onCardClick).toHaveBeenCalledWith(card);
+    // ⭐ objectui#9341 — this leg's SUBJECT is unchanged (the wrapper still
+    // runs the authored handler), but the call it runs it through moved. Two
+    // calls used to reach the spy; `toHaveBeenCalledWith(card)` matched the
+    // one-argument one, which is the call that card deleted as the poorer of
+    // the pair. The survivor is `useNavigationOverlay`'s
+    // `onRowClick(record, event)`, which carries the modifier payload. Read as
+    // the whole call list so the count is part of the reading.
+    expect(onCardClick.mock.calls).toEqual([[card, undefined]]);
   });
 });
 

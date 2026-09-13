@@ -148,3 +148,44 @@ export function setLocalized(
   const o = value as Record<string, unknown>;
   return { ...o, [localeWriteKey(o, language)]: next };
 }
+
+/**
+ * Remove the `language` entry from a possibly-localized value — the CLEAR arm
+ * of the same editor {@link setLocalized} serves, and the reason it cannot be
+ * spelled as `setLocalized(value, language, '')`.
+ *
+ * A single-line authoring input has three actions, not two: type, retype, and
+ * clear. `setLocalized` answers the first two. Answering the third with "write
+ * the empty string" stores `{ en: '' }` — an entry that claims "English has a
+ * title and it is blank", which then SHADOWS every display fallback: a viewer
+ * in `en` sees nothing where the map's other locales would have been offered.
+ * Answering it with "drop the whole value" is the objectui#9274 data loss
+ * itself, arriving through the clearing door instead of the typing door.
+ *
+ * So clearing removes exactly one entry — the same entry {@link setLocalized}
+ * would have written, chosen by the same {@link localeWriteKey} limbs, which is
+ * what keeps the cleared entry the one the author was actually looking at.
+ *
+ * - Plain string / `null` / `undefined` / array: there is no map, so there is
+ *   nothing localized left — `undefined`. The caller decides how its own field
+ *   spells empty (`undefined` for an optional key, `''` for a required one).
+ * - Map with the active entry present: that entry is removed and every other
+ *   locale is carried across untouched. When it was the LAST entry the result
+ *   is `undefined` rather than `{}`, because an empty map is not a title.
+ * - Map WITHOUT an entry for the active locale: returned unchanged. The box was
+ *   showing a display fallback borrowed from another locale, and clearing a
+ *   borrowed string must not delete the locale it was borrowed from — the same
+ *   refusal {@link localeWriteKey} enforces on the write side, which is why
+ *   both read the same limbs from the same file.
+ */
+export function clearLocalized(
+  value: unknown,
+  language: string | undefined | null,
+): Record<string, unknown> | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const o = value as Record<string, unknown>;
+  const key = localeWriteKey(o, language);
+  if (!Object.prototype.hasOwnProperty.call(o, key)) return o;
+  const rest = Object.fromEntries(Object.entries(o).filter(([k]) => k !== key));
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}

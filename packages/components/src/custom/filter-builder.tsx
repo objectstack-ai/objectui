@@ -225,14 +225,26 @@ export const FILTER_BUILDER_OPERATORS = defaultOperators.map(o => o.value)
 export type FilterBuilderOperator = (typeof defaultOperators)[number]['value']
 
 /**
- * Operator ids for which this builder renders NO value input — so "no value"
- * is the row's FINISHED state, not an unfinished one (objectui#4744).
+ * Operator ids — this dropdown's OWN camelCase ids — for which this builder
+ * renders no value input, so "no value" is the row's FINISHED state, not an
+ * unfinished one (objectui#4744).
  *
  * This is the source of truth for that distinction, and it lives here because
- * this component is the thing that decides it: `needsValueInput` below is
- * defined as the complement of this set, so the two cannot say different
- * things. Every consumer that has to tell a complete value-less row from a
- * half-filled one reads it FROM here rather than restating it:
+ * this component is the thing that decides it. But membership here is not the
+ * whole question: `needsValueInput` below is the complement of this set's
+ * FOLD-CLOSURE under the spec's `normalizeFilterOperator`, not of this set
+ * itself (objectui#9302), so the gate answers "no value" for spellings that
+ * are NOT members — the canonical form `foldFilterGroupToSpecRules` persists,
+ * and the alias rows the spec publishes for those same operators. A consumer
+ * holding a spelling that did not come from this dropdown must therefore fold
+ * it through `normalizeFilterOperator` before asking this set, exactly as that
+ * gate does. How much wider the gate's preimage is is NOT restated here: the
+ * pin `filter-builder-valueless-canonical-spelling-9302.test.tsx` walks the
+ * spec's two published tables and names every row it measures, which is the
+ * only form of that answer that moves when those tables do (AGENTS.md #9).
+ *
+ * Every consumer that has to tell a complete value-less row from a half-filled
+ * one reads the membership FROM here rather than restating it:
  *
  *   - `plugin-list`'s `convertFilterGroupToAST` — what the live grid QUERIES;
  *   - `app-shell`'s `foldFilterGroupToSpecRules` — what a saved view PERSISTS
@@ -1304,7 +1316,8 @@ function FilterBuilder({
     })
   }
 
-  // The complement of the exported set, never a second literal beside it:
+  // The complement of the exported set's FOLD-CLOSURE, never a second literal
+  // beside it:
   // that set's whole job is to let other layers know which rows this builder
   // leaves value-less, and a hand-kept copy here is how they drifted apart.
   //

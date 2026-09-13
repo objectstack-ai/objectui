@@ -25,10 +25,33 @@
  * `BaseSchema.ariaLabel` is the KEYED form (`{ key, defaultValue?, params? }`,
  * resolved by `resolveKeyedI18nLabel`), and objectui#4580 Q2-B withdrew the
  * `I18nLabel` spelling there as measured-wrong. The NESTED `aria.ariaLabel`
- * asserted here is the INLINE form — the spec's own `AriaPropsSchema` spelling,
- * and the one objectui#5134 made `ListView` resolve with `resolveI18nLabel`.
- * The two shapes are structurally confusable and each accepts the other
- * vacuously, so both are asserted here, each against its own vocabulary.
+ * asserted below is the INLINE form — the spec's own `AriaPropsSchema`
+ * spelling, and the one objectui#5134 made `ListView` resolve with
+ * `resolveI18nLabel`.
+ *
+ * ⚠️ What this file asserts about the FLAT key, exactly. Only that an inline
+ * map is REFUSED there. The four widening cases are the three NESTED/INLINE
+ * members plus the `BaseSchema` reference face, and that reference case asserts
+ * `label` and `description` — `BaseSchema.ariaLabel` has no positive assertion
+ * anywhere in this file. An earlier draft of this header said "both are
+ * asserted here, each against its own vocabulary"; it overstated what is here.
+ *
+ * ⚠️ And neither vocabulary admits the other. An earlier draft said the two
+ * shapes "each accept the other vacuously" — quoted from objectui#4580 Q2-B,
+ * true when that was written and measured FALSE on the installed pin.
+ * `InlineLocaleMapSchema` types its map with `key?: never; defaultValue?: never`
+ * and its own `INLINE_LOCALE_KEY` pattern excludes both names, so the cross
+ * assignment is refused at `tsc` AND at parse. The last describe block below is
+ * the instrument that re-derives that on every run — read it rather than this
+ * sentence. What a wrong slot still costs is a wrong ANSWER, not a silent
+ * acceptance: `resolveI18nLabel` hands a keyed ref back as its own `key` string.
+ * So the advice is unchanged — check which resolver owns a slot before writing
+ * an object into it.
+ *
+ * ⚠️ Two halves, two runners. Every `@ts-expect-error` and every typed
+ * assignment below is read ONLY by `tsc -p packages/types/tsconfig.test.json`
+ * (the package `type-check` script, and CI's Type Check job). `vitest` strips
+ * types, so a vitest-only run is a FALSE GREEN on that half of this file.
  */
 import { describe, it, expect } from 'vitest';
 import type { I18nLabel } from '@objectstack/spec/ui';
@@ -111,5 +134,65 @@ describe('objectui#9092 — the zod mirrors already accepted what tsc refused', 
     expect(ObjectGridMirror.safeParse({ type: 'object-grid', objectName: 'accounts', label: 42 }).success).toBe(false);
     expect(ObjectGridMirror.safeParse({ type: 'object-grid', objectName: 'accounts', description: 42 }).success).toBe(false);
     expect(PageNodeMirror.safeParse({ type: 'page', name: 'home', aria: { ariaLabel: 42 } }).success).toBe(false);
+  });
+});
+
+/**
+ * objectui#9092 — the two vocabularies do not admit each other, on either face.
+ *
+ * This block exists because the header used to ASSERT that in prose, in words
+ * ("each accepts the other vacuously") that an instrument now refutes. AGENTS.md
+ * #9: point at the thing that re-derives the claim instead of writing the answer
+ * down. So the claim lives here, where every run re-derives it, and the header
+ * points at this block.
+ *
+ * ⚠️ The `tsc` half and the `safeParse` half are read by DIFFERENT runners —
+ * see the header. Both are needed: the type face and the parse face are
+ * separate contracts, and this pair is precisely where they were once believed
+ * to disagree.
+ */
+describe('objectui#9092 — the INLINE and KEYED vocabularies refuse each other', () => {
+  /** objectui's KEYED reference — legal on the FLAT `BaseSchema.ariaLabel`, nowhere below. */
+  const KEYED_REF = { key: 'grid.accounts', defaultValue: 'Accounts' };
+
+  it('tsc: a keyed ref is refused by every member this card widened', () => {
+    // @ts-expect-error `label` is `string | I18nLabel`; `key`/`defaultValue` are `never` on the map arm.
+    const grid: ObjectGridSchema = { type: 'object-grid', objectName: 'accounts', label: KEYED_REF };
+    // @ts-expect-error same arm, same refusal.
+    const app: AppComponentSchema = { type: 'app', label: KEYED_REF };
+    // @ts-expect-error the NESTED aria slot is the inline vocabulary too.
+    const page: PageNodeSchema = { type: 'page', aria: { ariaLabel: KEYED_REF } };
+
+    expect(grid.label).toEqual(KEYED_REF);
+    expect(app.label).toEqual(KEYED_REF);
+    expect(page.aria?.ariaLabel).toEqual(KEYED_REF);
+  });
+
+  it('tsc: an inline map is refused by the FLAT `BaseSchema.ariaLabel`, which the keyed ref owns', () => {
+    // @ts-expect-error `ariaLabel` is `string | KeyedI18nLabel`; an inline map is excess there.
+    const refused: BaseSchema = { type: 'text', ariaLabel: LOCALE_MAP };
+
+    // CONTROL — the keyed ref IS legal here. Without this the negative above
+    // would also pass on a slot that refused every object, which would say
+    // nothing about the two vocabularies.
+    const accepted: BaseSchema = { type: 'text', ariaLabel: KEYED_REF };
+
+    expect(refused.ariaLabel).toEqual(LOCALE_MAP);
+    expect(accepted.ariaLabel).toEqual(KEYED_REF);
+  });
+
+  it('parse: the mirrors refuse a keyed ref on the same keys that take the map', () => {
+    expect(AppComponentMirror.safeParse({ type: 'app', label: KEYED_REF }).success).toBe(false);
+    expect(ObjectGridMirror.safeParse({ type: 'object-grid', objectName: 'accounts', label: KEYED_REF }).success).toBe(false);
+    expect(ObjectGridMirror.safeParse({ type: 'object-grid', objectName: 'accounts', description: KEYED_REF }).success).toBe(false);
+    expect(PageNodeMirror.safeParse({ type: 'page', name: 'home', aria: { ariaLabel: KEYED_REF } }).success).toBe(false);
+  });
+
+  it('parse CONTROL — the keyed ref is a legal value on the FLAT `ariaLabel`', () => {
+    // The refusals above are about the SLOT, not about the value: the same
+    // object parses green one property away, on the key that owns it.
+    expect(ObjectGridMirror.safeParse({ type: 'object-grid', objectName: 'accounts', ariaLabel: KEYED_REF }).success).toBe(true);
+    // …and the inline map is refused THERE, the other direction of the same split.
+    expect(ObjectGridMirror.safeParse({ type: 'object-grid', objectName: 'accounts', ariaLabel: LOCALE_MAP }).success).toBe(false);
   });
 });

@@ -401,8 +401,17 @@ export interface AppComponentSchema extends BaseSchema {
    * `string | KeyedI18nLabel` (`{ key, defaultValue?, params? }`, resolved by
    * `resolveKeyedI18nLabel`) — objectui#4580 Q2-B withdrew the `I18nLabel`
    * spelling there as measured-wrong. The two object shapes are structurally
-   * confusable and each accepts the other vacuously, so check which resolver
-   * owns a slot before writing an object into it.
+   * confusable to a READER, but neither vocabulary admits the other:
+   * `InlineLocaleMapSchema` types its map with `key?: never; defaultValue?:
+   * never`, and its `INLINE_LOCALE_KEY` pattern excludes both names, so writing
+   * one into the other's slot is refused at `tsc` AND at parse. Asserted both
+   * ways in `__tests__/inline-locale-declared-face-9092.test.ts`; an earlier
+   * draft of this docblock said the two shapes "each accept the other
+   * vacuously", which was true when objectui#4580 Q2-B wrote it and is false
+   * against the installed pin. What a wrong slot costs is a wrong ANSWER rather
+   * than a silent acceptance — `resolveI18nLabel` hands a keyed reference back
+   * as its own `key` string — so still check which resolver owns a slot before
+   * writing an object into it.
    */
   label?: string | I18nLabel;
 

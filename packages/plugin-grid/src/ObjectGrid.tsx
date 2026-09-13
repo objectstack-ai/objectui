@@ -4575,8 +4575,25 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `Contacts Detail` / `Record Detail`), including with no `I18nProvider`
   // mounted — `createSafeTranslation`'s fallback interpolates `{{label}}` from
   // `GRID_DEFAULT_TRANSLATIONS`.
-  const detailTitle = schema.label
-    ? t('detail.recordDetailWithLabel', { label: schema.label })
+  //
+  // ⚠️ The label is RESOLVED before it reaches `t()` (objectui#9092). This is an
+  // UNTYPED sink: `t`'s options are `Record<string, unknown>`, so when
+  // `ObjectGridSchema.label` was restored to `string | I18nLabel` the compiler
+  // named the two `string`-typed reads above and said nothing about this one.
+  // Unresolved, an inline locale map interpolates as `[object Object]` on BOTH
+  // paths — i18next substitutes the raw value, and the provider-less
+  // `interpolateFallback` runs it through `String(v)` — and this value IS the
+  // overlay's visible heading (`NavigationOverlay title=`, below), so the
+  // failure is user-facing rather than diagnostic.
+  //
+  // The fallthrough is deliberate: `resolveI18nLabel` answers `undefined` for an
+  // entry-less map and `''` for an empty entry, and both are falsy, so a label
+  // that resolves to nothing lands on the `objectName` branch exactly as a
+  // missing label always did. Testing `schema.label` itself could not do that —
+  // every object is truthy, so an entry-less map used to take the label branch.
+  const resolvedDetailLabel = resolveInlineI18nLabel(schema.label, displayLocale);
+  const detailTitle = resolvedDetailLabel
+    ? t('detail.recordDetailWithLabel', { label: resolvedDetailLabel })
     : schema.objectName
       ? t('detail.recordDetailWithLabel', {
           label: schema.objectName.charAt(0).toUpperCase() + schema.objectName.slice(1),

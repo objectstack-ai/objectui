@@ -796,6 +796,16 @@ export const ADJUDICATED = new Map([
       reads: ['content/docs/guide/ci-cd-pipeline.md'],
     },
   ],
+  // objectui#9194. Names one page -- the one that legitimately teaches nested
+  // fences -- to pin that a block quoted inside a longer run stays that run's
+  // body. The whole scan surface is reached too, but through the two gates' own
+  // scanners rather than a walk of its own, which is why no `walker` is declared.
+  // Its odd-marker control is written into a temp directory and is ⛔ not a
+  // document in this tree.
+  [
+    'scripts/__tests__/markdown-fence-scan.test.ts',
+    { reads: ['content/docs/plugins/plugin-markdown.mdx'] },
+  ],
   // Reads no markdown: drives the decision step against fixture repositories it
   // writes in a temp directory, so every document literal here is a fixture path
   // rather than a file in this tree -- `AGENTS.md` included, which is the

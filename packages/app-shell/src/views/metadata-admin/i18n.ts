@@ -4105,8 +4105,14 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   end: {
     outcome: {
       label: '结果',
-      help: '运行在此处如何结束。“已完成”是普通终态,也是省略该键时的取值。“已拒绝”把拒绝记为一等结果 —— 它是一次成功的评估,只是结论为否 —— 并要求给出拒绝理由 message({token} 模板),在“高级”中填写。',
+      help: '运行在此处如何结束。“已完成”是普通终态,也是省略该键时的取值。“已拒绝”把拒绝记为一等结果 —— 它是一次成功的评估,只是结论为否 —— 并要求在下方字段中给出拒绝理由 message({token} 模板)。',
       opts: { completed: '已完成', refused: '已拒绝' },
+    },
+    // objectui#9336 —— 仅在“结果”选为“已拒绝”时出现(见 flow-node-config 的
+    // `showWhen`);契约两个方向都校验:已拒绝必须有 message,已完成则拒收它。
+    message: {
+      label: '拒绝原因',
+      help: '当结果为“已拒绝”时必填;结果为“已完成”时则被拒收 —— 已完成的结束节点不渲染任何文本,该键会成为静默的空操作。支持 {token} 模板(如 {record.name}),与屏幕节点的“描述”一致。',
     },
     outputVariable: { label: '输出变量' },
   },

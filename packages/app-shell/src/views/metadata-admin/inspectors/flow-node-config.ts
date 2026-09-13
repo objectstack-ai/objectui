@@ -491,7 +491,42 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       // no typed control for yet: it REQUIRES a `message` saying why, as a
       // {token} template. Named here so picking it is not a one-click route to
       // a flow that will not load; the key itself stays authorable in Advanced.
-      help: 'How the run ends here. "Completed" is the ordinary terminal and is what an omitted key applies. "Refused" records a first-class refusal — a successful evaluation that says no — and requires a message saying why (a {token} template), which is set in Advanced.',
+      help: 'How the run ends here. "Completed" is the ordinary terminal and is what an omitted key applies. "Refused" records a first-class refusal — a successful evaluation that says no — and requires a message saying why (a {token} template), authored in the field below.',
+    }),
+    // objectui#9336 — the other half of that cross-field rule, which
+    // `EndConfigSchema` enforces in BOTH directions via a `superRefine`:
+    // `refused` REQUIRES `message`, `completed` (including an omitted key,
+    // which the declared default resolves to `completed`) REFUSES it. With no
+    // typed control, picking `refused` in this form was a blocked authoring
+    // path — the one key the chosen outcome requires was reachable only through
+    // Advanced JSON, so the most direct route through the repaired dropdown
+    // produced a flow that fails to load.
+    //
+    // `textarea` is derived, not chosen: the spec's own `message` description
+    // says it is "interpolated at run time exactly like a screen `description`",
+    // and that field IS a `textarea` in this table — as is the sibling
+    // `message` key on `notify`. The label and placeholder are the spec's own
+    // words (its describe opens "Why the run was refused", and both the
+    // describe and the refusal message give this exact example), so the form
+    // states the contract rather than a second vocabulary.
+    //
+    // ⛔ No `defaultValue`: `message` is `z.string().min(1).optional()` with no
+    // `.default()`, and a declaration here is read as a claim about the
+    // installed spec (see the `defaultValue` doc comment above).
+    //
+    // The gate is what makes the pair authorable in both directions. An unset
+    // `outcome` resolves through the declared `completed` default, so the field
+    // stays off screen until the author actually picks `refused`; a STORED
+    // `message` re-shows it regardless (`isFieldVisible`'s stored-value rule),
+    // which is what lets an author clear a stale message after switching back
+    // to `completed` — the case the contract's other direction refuses. The
+    // clearing itself lands: `setAtPath` deletes the leaf on an empty commit,
+    // so the key goes away rather than becoming `''`, which this schema refuses
+    // under BOTH outcomes (`min(1)`, and the completed-forbids-message rule).
+    cfg('message', 'Why the run was refused', 'textarea', {
+      placeholder: 'Refused: {record.name} is a confirmed duplicate',
+      help: 'Required when the outcome is "Refused", and refused on a completed end — a completion renders nothing, so the key would be a silent no-op. A {token} template interpolated at run time (e.g. {record.name}), exactly like a screen Description.',
+      showWhen: { field: 'outcome', equals: ['refused'] },
     }),
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'result' }),
   ],

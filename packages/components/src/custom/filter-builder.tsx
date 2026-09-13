@@ -267,6 +267,34 @@ export const VALUELESS_FILTER_BUILDER_OPERATORS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * The same six operators, keyed by the spelling `normalizeFilterOperator`
+ * folds each of them to — the lookup table the value-input gate below reads
+ * (objectui#9302).
+ *
+ * DERIVED, never a second literal: a hand-kept canonical copy beside the
+ * exported set is exactly how the two could come to disagree, and the
+ * disagreement would be invisible — a row that draws an input the label says
+ * it does not take.
+ *
+ * Why it exists separately instead of widening the export: the exported set
+ * states a fact about what THIS DROPDOWN draws, and its members are this
+ * builder's own camelCase ids. Two other layers read it — `plugin-list`'s
+ * `convertFilterGroupToAST` and `app-shell`'s `foldFilterGroupToSpecRules`,
+ * the latter already documented as this set PLUS the canonical spellings only
+ * that layer sees. Folding the canonical spellings INTO the export would make
+ * that layer's deliberate compensation redundant by side effect, in a file
+ * nobody is editing. The defect was never a set missing members; it was a
+ * reader that forgot to normalize its input.
+ *
+ * `exists` / `notExists` fold to themselves — the spec's vocabulary has no
+ * member for either and its alias table deliberately has no row for them — so
+ * this set is the same size as the one it derives from.
+ */
+const VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL: ReadonlySet<string> = new Set(
+  [...VALUELESS_FILTER_BUILDER_OPERATORS].map(normalizeFilterOperator),
+)
+
+/**
  * The SHAPE an operator's `value` must have — the question
  * `ViewFilterRuleSchema` asks, asked here in the one place that decides what
  * input the user is given (objectui#3958).
@@ -1279,8 +1307,19 @@ function FilterBuilder({
   // The complement of the exported set, never a second literal beside it:
   // that set's whole job is to let other layers know which rows this builder
   // leaves value-less, and a hand-kept copy here is how they drifted apart.
+  //
+  // BOTH sides are folded through the spec's `normalizeFilterOperator` — the
+  // same fold `filterValueArity` and `reconcileOperatorForField` already
+  // perform, so this is one more site joining a fold this file does rather
+  // than a new dialect. The gate used to do a raw `has()` on whatever spelling
+  // the row carried, and the set's members are the dropdown's camelCase ids:
+  // a stored rule spelled `is_null` — the spec's CANONICAL form, which is what
+  // `foldFilterGroupToSpecRules` persists and what any spec-side producer
+  // emits — missed the set and was treated as value-taking. The row then drew
+  // a box to type a value into, directly beside a trigger reading `Is null`
+  // (objectui#9302). One operator, two spellings, two different rows.
   const needsValueInput = (operator: string) => {
-    return !VALUELESS_FILTER_BUILDER_OPERATORS.has(operator)
+    return !VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL.has(normalizeFilterOperator(operator))
   }
 
   // Derived from the value FAMILY rather than from a second branch ladder over

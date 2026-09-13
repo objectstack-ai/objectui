@@ -67,13 +67,18 @@ type Equal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;
 
+type HookReturn = ReturnType<typeof useRecordContext>;
+
 /**
  * The hook's answer is the declaration, not `any`. `Equal` is the form that
  * can tell those apart — a plain `extends` check passes for `any` in both
- * directions and would pin nothing.
+ * directions and would pin nothing, which is why the "not any" clause is
+ * written first and separately.
  */
-type _HookReturnsTheDeclaration = Expect<
-  Equal<ReturnType<typeof useRecordContext>, RecordContextValue | null>
+type _HookReturnIsNotAny = Expect<Equal<Equal<HookReturn, any>, false>>;
+type _HookReturnAdmitsNull = Expect<Equal<Extract<HookReturn, null>, null>>;
+type _HookReturnIsTheContextValue = Expect<
+  NonNullable<HookReturn> extends RecordContextValue<any, any> ? true : false
 >;
 
 /**
@@ -198,14 +203,17 @@ function matchSites(file: string, masked: string, re: RegExp): Site[] {
 
 function collectSourceFiles(): string[] {
   const files: string[] = [];
-  const walk = (dir: string) => {
-    let entries: ReturnType<typeof readdirSync>;
+  // Not annotated, deliberately: `ReturnType<typeof readdirSync>` picks the
+  // LAST overload of an overloaded declaration, which is the Buffer one.
+  const readDir = (dir: string) => {
     try {
-      entries = readdirSync(dir, { withFileTypes: true });
+      return readdirSync(dir, { withFileTypes: true });
     } catch {
-      return;
+      return [];
     }
-    for (const e of entries) {
+  };
+  const walk = (dir: string) => {
+    for (const e of readDir(dir)) {
       if (e.isDirectory()) {
         if (SKIP_DIRS.has(e.name)) continue;
         walk(path.join(dir, e.name));

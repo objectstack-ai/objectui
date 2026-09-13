@@ -129,8 +129,22 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **41 entries** in `KnownDrift`, **63 keys** across them — 40 / 61 until
- *     objectui#7804 DECLARED `objectql.zod.ts#ObjectKanbanSchema`'s
+ *   - **41 entries** in `KnownDrift`, **65 keys** across them — 41 / 63 until
+ *     objectui#7804's `plugin-detail` slice (batch #69) DECLARED `onNavigate`
+ *     and `onAddComment` on `crud.zod.ts#DetailSchema`, an existing entry (so
+ *     the entry count did not move). ⭐ The first keys this ledger has gained
+ *     from a pair that declared them on NEITHER face: the TypeScript side typed
+ *     them `any` through `BaseSchema`'s index signature and the mirror kept
+ *     them through `.passthrough()`, while the registered renderer read and RAN
+ *     them — so the pair was not "in parity", it was mutually silent, and
+ *     declaring the callable twin against the mirror's named refusal is what
+ *     makes the drift visible. Growth by REPAIR, in a ledger whose entries
+ *     usually shrink by it. ⚠️ Two slices of objectui#7804 land in this bullet
+ *     back to back and both are real, and neither is a copy-paste of the other:
+ *     the `plugin-detail` one here, the `plugin-kanban` one directly below.
+ *     It was 40 / 61 until
+ *     objectui#7804's `plugin-kanban` slice DECLARED
+ *     `objectql.zod.ts#ObjectKanbanSchema`'s
  *     `onCardClick` and `onQuickAdd` (director seat, decision batch #69), a new
  *     entry carrying TWO of the three keys the retirement below stranded on the
  *     surviving face. ⭐ The first entry this ledger has gained from an arm
@@ -1526,8 +1540,19 @@ interface KnownDrift {
    * RUNTIME SLOT (objectui#7344): `register('detail', DetailView)` — `DetailView`'s
    * `handleBack` calls `onBack()` when set. The mirror was `z.any()` (wider than
    * the declared callable, objectui#7069's direction); it now refuses by name.
+   *
+   * `onNavigate` and `onAddComment` joined with objectui#7804 (batch #69), and
+   * they drift for the SAME reason `onBack` does — a callable twin against a
+   * named refusal — but they reach that state from the opposite side. `onBack`
+   * was declared on both faces and the mirror was too WIDE. These two were
+   * declared on NEITHER: the TypeScript face typed them `any` through
+   * `BaseSchema`'s index signature and the mirror kept them through
+   * `.passthrough()`, while `DetailView` read and ran them. ⇒ this entry
+   * GREW by a repair, which is the direction this ledger's drift entries
+   * normally shrink in; the growth is the declaration arriving, not a
+   * regression.
    */
-  'crud.zod.ts#DetailSchema': 'onBack';
+  'crud.zod.ts#DetailSchema': 'onBack' | 'onNavigate' | 'onAddComment';
   /**
    * `rowActions` was the FIFTH key here until objectui#6940 settled the ruling
    * this entry was explicitly waiting on. It read: DISJOINT — TS declares

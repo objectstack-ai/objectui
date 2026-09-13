@@ -47,6 +47,27 @@
  *     now declares what the renderer invokes.
  *   - `crud.zod.ts#DetailSchema.onBack` — `ComponentRegistry.register('detail',
  *     DetailView)` (`plugin-detail/src/index.tsx`), the same `handleBack`.
+ *   - `crud.zod.ts#DetailSchema.onNavigate` and `.onAddComment` — objectui#7804,
+ *     added on the batch #69 ruling. ⚠️ They do NOT belong to this file's
+ *     origin story: neither was ever `z.string()` or `z.any()`, so #7339's
+ *     anchor could not have missed them — they were declared on NEITHER face,
+ *     which is why `.passthrough()` KEPT them and the repo gate
+ *     `check:handler-key-reads` carried them as `KNOWN_UNDECLARED_READS` rows.
+ *     They are ledgered here because this file owns the `crud.zod.ts#DetailSchema`
+ *     pair, and its per-key assertions are exactly what they need.
+ *     Measured per key, and the two channels are NOT the same one:
+ *       - `onNavigate` — `DetailView` reads it in its OWN body and CALLS it
+ *         (`handleBack`, `handleEdit`, the post-delete redirect). The `'detail'`
+ *         registration is the RAW component, so the authored value arrives by
+ *         identity with nothing interposed.
+ *       - `onAddComment` — `DetailView` never calls it; it FORWARDS it as a
+ *         React prop into `<RecordComments>`, whose submit handler awaits it,
+ *         behind a `schema.comments` gate that the same passthrough keeps alive.
+ *     Both driven through the real `SchemaRenderer` in
+ *     `plugin-detail/src/__tests__/detail-handler-slots-7804.test.tsx`, where
+ *     the base reading was: an authored `{ action: 'toast' }` parsed GREEN on
+ *     both keys and survived into the parsed output, while `onBack` — the lit
+ *     control on the same arm — was refused.
  *   - `crud.zod.ts#ActionSchema.onClick` — `ActionRunner.ts` `await
  *     action.onClick()` (two sites); `action-menu.tsx`, `containers.tsx`,
  *     `record-quick-actions.tsx` all `typeof action.onClick === 'function'`.
@@ -174,11 +195,17 @@ const objectOf = (mirror: z.ZodType, key: string): z.ZodObject<z.ZodRawShape> =>
   return obj;
 };
 
-/** The four keys whose function value REACHES a renderer (channels above). */
+/** The six keys whose function value REACHES a renderer (channels above). */
 const RUNTIME_SLOT: readonly Site[] = [
   ['views.zod.ts', 'DetailViewSchema', 'onBack', DetailViewZod],
   ['crud.zod.ts', 'ActionSchema', 'onClick', ActionZod],
   ['crud.zod.ts', 'DetailSchema', 'onBack', DetailZod],
+  // objectui#7804 — the two keys `DetailView` reads off a `'detail'` document
+  // that its arm never declared. They arrive by a DIFFERENT route from the four
+  // above (never `z.string()` / `z.any()`, simply absent), and on two different
+  // channels from each other; see the docblock's objectui#7804 section.
+  ['crud.zod.ts', 'DetailSchema', 'onNavigate', DetailZod],
+  ['crud.zod.ts', 'DetailSchema', 'onAddComment', DetailZod],
   ['complex.zod.ts', 'CalendarViewSchema', 'onEventClick', CalendarViewZod],
 ];
 
@@ -284,11 +311,15 @@ describe('census: the only on*: z.(function|string|any) lines left in packages/t
     expect(MIRROR_FILES.length).toBeGreaterThanOrEqual(12);
   });
 
-  it('8 sites are ledgered, 4 runtime slots + 4 retired, with no key filed twice', () => {
-    expect(RUNTIME_SLOT).toHaveLength(4);
+  it('10 sites are ledgered, 6 runtime slots + 4 retired, with no key filed twice', () => {
+    // 8 at objectui#7344; 10 since objectui#7804 declared the two keys
+    // `DetailView` reads off a `'detail'` document undeclared. ⛔ A ledger
+    // GROWS here by a declaration landing, never by a key being reclassified
+    // in place — the shrink direction is the failure this family guards.
+    expect(RUNTIME_SLOT).toHaveLength(6);
     expect(RETIRED).toHaveLength(4);
     const ids = ALL_SITES.map(([file, schema, key]) => `${file}#${schema}.${key}`);
-    expect(new Set(ids).size).toBe(8);
+    expect(new Set(ids).size).toBe(10);
   });
 
   it.each(ALL_SITES)('%s %s.%s is DECLARED on the mirror shape, with the objectui#6124 guidance as its description', (_file, _schema, key, mirror) => {
@@ -752,6 +783,15 @@ export type assertionRetiredKeysAreTombstoned = [
 export type assertionRuntimeSlotsKeepTheirFunctionType = [
   Expect<KeepsFunction<DetailViewSchema['onBack']>>,
   Expect<KeepsFunction<DetailSchema['onBack']>>,
+  // objectui#7804, listed here for uniformity but ⛔ NOT the assertion that
+  // holds them: these two were UNDECLARED, not `string` / `any`, so their base
+  // state was `BaseSchema`'s index signature — and `KeepsFunction<any>` is
+  // `true` (`[any] extends [never]` is false). On this pair the helper CANNOT
+  // FAIL, which is exactly the reason `RetiredIsNever` above is spelled with
+  // `Equal`. `assertionDetailSlotsAreDECLARED` below is the one with a control
+  // that fires.
+  Expect<KeepsFunction<DetailSchema['onNavigate']>>,
+  Expect<KeepsFunction<DetailSchema['onAddComment']>>,
   Expect<KeepsFunction<ActionSchema['onClick']>>,
   Expect<KeepsFunction<CalendarViewSchema['onEventClick']>>,
 ];
@@ -764,7 +804,33 @@ export type assertionStringTwinsStopDeclaringString = [
   Expect<StringIsGone<DetailViewSchema['onBack']>>,
 ];
 
-// The three helpers must be able to FAIL — synthetic controls, both directions.
+/**
+ * The member is DECLARED on the interface, not inherited from `BaseSchema`'s
+ * `[key: string]: any` index signature.
+ *
+ * ⚠️ This exists because objectui#7804's two keys enter this ledger from a base
+ * state the other four never had: ABSENT. `Extract`-based helpers read an
+ * absent member as `any` and answer `true` for it, so a one-way check would
+ * have passed on the unmodified tree and asserted nothing. `Equal` separates
+ * `any` from a real declaration, which is the same reason `RetiredIsNever` is
+ * spelled with it.
+ */
+type DeclaresExactly<T, Shape> = Equal<T, Shape | undefined>;
+
+/** objectui#7804 — the two `'detail'` slots declare the signature their call
+ *  site builds, and the control proves the check can fail on an ABSENT member. */
+export type assertionDetailSlotsAreDECLARED = [
+  Expect<DeclaresExactly<DetailSchema['onNavigate'], (url: string, options?: { replace?: boolean; newTab?: boolean }) => void>>,
+  Expect<DeclaresExactly<DetailSchema['onAddComment'], (text: string) => void | Promise<void>>>,
+];
+
+// The four helpers must be able to FAIL — synthetic controls, both directions.
+export type assertionDeclaresExactlyCanFail = [
+  // an ABSENT member, as `BaseSchema`'s index signature types it
+  Expect<Equal<DeclaresExactly<any, () => void>, false>>,
+  // a DECLARED member with the wrong signature
+  Expect<Equal<DeclaresExactly<((n: number) => void) | undefined, () => void>, false>>,
+];
 export type assertionRetiredIsNeverCanFail = Expect<Equal<RetiredIsNever<(() => void) | undefined>, false>>;
 export type assertionKeepsFunctionCanFail = Expect<Equal<KeepsFunction<string | undefined>, false>>;
 export type assertionStringIsGoneCanFail = Expect<Equal<StringIsGone<string | undefined>, false>>;

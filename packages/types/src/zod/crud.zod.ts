@@ -175,6 +175,51 @@ export const DetailSchema = BaseSchema.extend({
   // RUNTIME SLOT (objectui#7344): `register('detail', DetailView)` — the same
   // `handleBack` that calls `onBack()` for `detail-view`. Was `z.any()`.
   onBack: handlerKeyRefusal('onBack', 'runtime-slot', 'Custom back action'),
+  /**
+   * RUNTIME SLOT (objectui#7804, the objectui#6124 shape, batch #69 ruling) —
+   * DECLARED here for the first time; it was never on this arm at all, so
+   * `BaseSchemaCore`'s `.passthrough()` KEPT an authored value instead of
+   * refusing it and handed it to a call site expecting a function.
+   *
+   * ## The channel, measured — not the same one `onAddComment` uses
+   *
+   * `ComponentRegistry.register('detail', DetailView)` registers `DetailView`
+   * RAW (no wrapper, unlike `'detail-view'`), so nothing is interposed: an
+   * authored value arrives at `schema.onNavigate` BY IDENTITY, and `DetailView`
+   * CALLS it in its own body — `handleBack`, `handleEdit`, and the post-delete
+   * redirect. Driven through the real `SchemaRenderer` in
+   * `plugin-detail/src/__tests__/detail-handler-slots-7804.test.tsx`: the
+   * authored function runs, with the arguments the call site builds.
+   *
+   * The base reading that made this a defect, measured on the unmodified arm:
+   * `{ type: 'detail', onNavigate: { action: 'toast' } }` parsed GREEN with
+   * `{"action":"toast"}` surviving into the parsed output, and clicking Back
+   * then reported `TypeError: schema.onNavigate is not a function`. The sibling
+   * `onBack` above — already a named refusal — was the lit control and was
+   * refused on the same document.
+   *
+   * The signature the TypeScript twin declares is the one the call site builds:
+   * `(url, { replace })`. Same spelling as `views.ts#DetailViewSchema.onNavigate`,
+   * because it is the same component reading it under the other registration.
+   */
+  onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'SPA navigation callback'),
+  /**
+   * RUNTIME SLOT (objectui#7804), and a DIFFERENT channel from `onNavigate`
+   * above — which is why the ruling demands a measurement per key rather than
+   * per prefix.
+   *
+   * `DetailView` never calls this one. It FORWARDS it as a React prop into the
+   * `<RecordComments>` it renders, whose submit handler awaits it; the forward
+   * is itself gated by `schema.comments`, an undeclared key the same
+   * passthrough keeps alive. Driven end to end in the same probe: the composer
+   * is typed into, the send button clicked, and the authored function runs with
+   * the text.
+   *
+   * ⚠️ `comments` is deliberately NOT declared here. It is not a handler key,
+   * declaring it is an accept-set decision of its own, and objectui#7804's rows
+   * are the handler keys — noted on that card instead of ridden in on this one.
+   */
+  onAddComment: handlerKeyRefusal('onAddComment', 'runtime-slot', 'New comment callback'),
   loading: z.boolean().optional().describe('Whether to show loading state'),
 });
 

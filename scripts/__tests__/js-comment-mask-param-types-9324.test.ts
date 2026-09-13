@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -34,7 +33,6 @@ import ts from 'typescript';
  */
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const configPath = path.join(repoRoot, 'tsconfig.scripts.json');
-const maskerPath = path.join(repoRoot, 'scripts/js-comment-mask.mjs');
 
 /** The real options `pnpm type-check:scripts` runs with, parsed by tsc itself. */
 function scriptsCompilerOptions(): ts.CompilerOptions {

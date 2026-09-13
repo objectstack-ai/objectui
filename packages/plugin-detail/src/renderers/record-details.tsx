@@ -28,6 +28,49 @@ import { deriveFieldGroupDetailSections } from '../synth/buildDefaultPageSchema'
 /** Normalize a field entry (string | {field} | {name}) to its machine name. */
 const fieldName = (entry: any): string | null => columnIdentity(entry) ?? null;
 
+/**
+ * The ONE boundary between `record:details`' authored body width and the
+ * internal detail node (objectui#9056).
+ *
+ * `@objectstack/spec`'s `RecordDetailsProps.columns` is a STRING enum
+ * (`z.enum(['1','2','3','4'])`, default `'2'`). Everything this renderer hands
+ * it to is a NUMBER: `DetailViewSchema.columns` and `DetailViewSection.columns`
+ * in `@object-ui/types`, the `columns` parameter of `applyDetailAutoLayout` /
+ * `applyAutoSpan`, and the `DetailViewField.span` that `applyAutoSpan` writes
+ * FROM it. Handing the authored value straight through left every one of those
+ * declared-`number` slots carrying the string `'2'` at runtime — measured, on
+ * the real render: `span` came out `typeof 'string'`.
+ *
+ * TypeScript could not see it because `synthesized` below is annotated `any`,
+ * which launders the assignment. (Measured three ways: the same value written
+ * into a `DetailViewSchema` directly is `TS2322`, from this renderer's own prop
+ * type AND from the bare `RecordDetailsComponentProps` — only the `any` hides
+ * it.)
+ *
+ * ⛔ The direction is contract-first (AGENTS.md #0.1): the protocol keeps its
+ * string enum, `@object-ui/types` keeps `number`, and neither is widened to
+ * meet the other. This function is the TRANSLATION between two declared types,
+ * not a tolerant reader — its parameter is spelled as the contract's own type
+ * so a protocol change arrives here as a compile error rather than as another
+ * silent string.
+ *
+ * ⚠️ NOT `sections[].columns`, one level down. That key is
+ * `z.number().int().min(1).max(4)` — already a number, and correct as one;
+ * objectui#8604 measured that copying either declaration onto the other is
+ * refused at publish. A section's width never passes through here.
+ *
+ * ⚠️ The `undefined` arm is load-bearing, not defensive. `applyDetailAutoLayout`
+ * treats `undefined` as "author said nothing" and infers the width from the
+ * field count; `Number(undefined)` is `NaN`, which is NOT `undefined`, so a
+ * bare `Number(...)` here would silently replace inference with a `NaN` width
+ * on every unauthored body.
+ */
+function detailBodyColumns(
+  columns: RecordDetailsComponentProps['columns'],
+): number | undefined {
+  return columns === undefined ? undefined : Number(columns);
+}
+
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
   return { designer: { 'data-obj-id': id, 'data-obj-type': type, style }, rest };
@@ -535,7 +578,12 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     // explicit groups, omitting it falls back to the object's highlightFields
     // (see `filteredSections` / `filteredFields` above). objectui#3818.
     layout: 'vertical',
-    columns: schema.columns,
+    // objectui#9056 — the protocol's STRING width becomes the internal node's
+    // NUMBER here, and only here. See `detailBodyColumns` above for why the
+    // coercion belongs on this side of the boundary rather than in
+    // `applyAutoSpan` (which would be a tolerant reader) or in the published
+    // `@object-ui/types` declaration (which would be a surface widening).
+    columns: detailBodyColumns(schema.columns),
     sections: filteredSections,
     fields: filteredFields,
     showBack: false,
@@ -555,7 +603,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     <div className={className} {...designer}>
       <DetailView
         schema={synthesized}
-        dataSource={ctx.dataSource as any}
+        dataSource={ctx.dataSource}
         inlineEdit={inlineEditDefault}
       />
     </div>

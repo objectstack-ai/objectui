@@ -118,6 +118,18 @@
  * an object (`"dependencies": { … }`, a package.json excerpt) is retried
  * wrapped in braces.
  *
+ * And one normalization that is NOT on the judged path at all — `toJsonDialect`,
+ * which de-dialects a JS object literal (unquoted keys, single-quoted strings)
+ * so the BLIND-SPOT measurement can ask its question of that spelling too
+ * (objectui#8334). ⛔ It never runs on a judged fence: `analyze` reaches it only
+ * from the `!fence.scanned` branch, so the judged population is byte-for-byte
+ * what it was before that card. ⛔ And it is emphatically NOT a step toward
+ * adding `plaintext` to `JSON_FENCE_LANGUAGES` — that was considered and
+ * REJECTED by content on PR objectui#8324, because `plaintext` is not a JSON
+ * dialect and admitting it lets every future JSON-in-plaintext block through
+ * unjudged. The fix for a blind measurement is to make it see, not to make the
+ * census swallow what it cannot judge.
+ *
  * ## What it does not see, stated so nobody mistakes it for coverage
  *
  *   - A `${…}` inside an ARRAY on a node key (`"items": ["${a}"]`). Only string
@@ -130,8 +142,13 @@
  *     it; ⛔ this file changes no other gate's population. The LANGUAGE SET is its
  *     own blind spot and is measured rather than asserted: every run prints the
  *     per-language counts, and every fence in a language this gate does not scan
- *     is still parsed, purely to report whether it would have been a JSON
- *     document holding a typed node.
+ *     is still read, purely to report whether it holds a typed node.
+ *     ⚠️ objectui#8334: "read" used to mean `JSON.parse`, and that made the
+ *     measurement blind to the JS OBJECT-LITERAL spelling — a fence authoring a
+ *     real node tree with unquoted keys landed in NEITHER the judged population
+ *     nor the blind-spot list, and the summary printed `none` over it. Both
+ *     spellings are asked now; see `toJsonDialect`. ⛔ This did not widen the
+ *     census: the judged population is still `json` / `jsonc` and nothing else.
  *   - The repository-root `docs/` tree, and therefore `docs/ARCHITECTURE.md` —
  *     objectui#7838's site. ⚠️ objectui#7878 was filed expecting this widening to
  *     reach that file; it does not, and the card's premise was corrected before
@@ -199,6 +216,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_DOCS, appDocsDirs, ROOT_PAGES } from './check-doc-component-types.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
+import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
@@ -541,6 +559,115 @@ export function parseFence(body) {
   return wrapped.ok ? { ...wrapped, wrapped: true } : first;
 }
 
+/**
+ * The JS OBJECT-LITERAL dialect, normalized to JSON — for the BLIND-SPOT
+ * MEASUREMENT ONLY (objectui#8334). ⛔ Never on the judged path: `analyze` still
+ * judges `fence.scanned` fences and nothing else, and this function is not
+ * reachable from that branch.
+ *
+ * The blind-spot leg asks one question — *does this unscanned fence hold a typed
+ * node?* — and before this existed it could only ask it of a body that survived
+ * `JSON.parse`. A page authoring a real node tree the way JavaScript spells it
+ * (unquoted keys, single-quoted strings) answered NOTHING, was counted in neither
+ * the judged population nor the blind-spot list, and the summary then printed
+ * `Dialect blind spot: none` over a class it could not see. That is the worst
+ * shape a detector takes: full coverage reported precisely where there is none.
+ *
+ * Two REMOVALS of dialect, nothing else — like the four tolerances above, ⛔
+ * neither can invent a key:
+ *
+ *   1. Single-quoted strings become double-quoted, with any interior `"`
+ *      escaped. A quote character is re-spelled; no member is added or dropped.
+ *   2. A bare identifier in a MEMBER position — immediately after `{` or `,` and
+ *      followed by `:` — is quoted. The position is what makes it a key, which is
+ *      the same predicate `dropElisionStrings` uses; an identifier anywhere else
+ *      (a bare `string` in `type: string;`) is left alone and goes on failing to
+ *      parse, which is how a TS `interface` body stays OUT of this measurement.
+ *
+ * The pass is comment-aware for the same reason `sanitizeFence` is: an
+ * apostrophe inside `// don't` would otherwise open a string and corrupt the rest
+ * of the body. Comments are dropped here rather than deferred, so the text handed
+ * on is already free of them.
+ */
+export function toJsonDialect(source) {
+  let out = '';
+  let quote = null;
+  let escaped = false;
+  // The last significant character outside a string, which is what makes an
+  // identifier a KEY rather than a value: only `{` and `,` introduce a member.
+  let prev = '';
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (quote) {
+      if (escaped) {
+        out += ch;
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        out += ch;
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        out += '"';
+        quote = null;
+        continue;
+      }
+      // A `"` inside a single-quoted string is data; re-spelling the delimiter
+      // would otherwise end the string early and change what the body says.
+      if (quote === "'" && ch === '"') {
+        out += '\\"';
+        continue;
+      }
+      out += ch;
+      continue;
+    }
+    if (ch === '/' && source[i + 1] === '/') {
+      while (i < source.length && source[i] !== '\n') i++;
+      out += '\n';
+      continue;
+    }
+    if (ch === '/' && source[i + 1] === '*') {
+      i += 2;
+      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) i++;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += '"';
+      prev = '"';
+      continue;
+    }
+    if (/[A-Za-z_$]/.test(ch) && (prev === '{' || prev === ',')) {
+      let j = i;
+      while (j < source.length && /[A-Za-z0-9_$]/.test(source[j])) j++;
+      let k = j;
+      while (k < source.length && /\s/.test(source[k])) k++;
+      if (source[k] === ':') {
+        out += `"${source.slice(i, j)}"`;
+        i = j - 1;
+        prev = 'x';
+        continue;
+      }
+    }
+    out += ch;
+    if (!/\s/.test(ch)) prev = ch;
+  }
+  return out;
+}
+
+/**
+ * `parseFence`, asked of the object-literal dialect. Same parser, same
+ * tolerances, same "a fence that is an object BODY" retry — the ONE difference is
+ * that the body is de-dialected first, so the blind-spot leg asks its question of
+ * both spellings instead of only the one that happens to be JSON.
+ */
+export function parseFenceDialect(body) {
+  return parseFence(toJsonDialect(body));
+}
+
 /** Every `json` / `jsonc` fence on the scan surface, parsed or not. */
 export function scanFences(root) {
   const files = listDocuments(root);
@@ -551,9 +678,13 @@ export function scanFences(root) {
     let open = null;
     let body = [];
     for (let i = 0; i < lines.length; i++) {
-      const fence = /^\s*```(\S*)\s*$/.exec(lines[i]);
-      if (fence) {
-        if (open) {
+      // ⛔ Never re-spell the fence predicate here. `markdown-fence-scan.mjs` is
+      // its one authority, and it is one because the local spelling this line
+      // used to hold read a four-backtick opener as a three-backtick fence in a
+      // language named with a leading backtick, which then counted two phantom
+      // fences as successfully parsed (objectui#9194).
+      if (open) {
+        if (closesFence(lines[i], open)) {
           const scanned = JSON_FENCE_LANGUAGES.includes(open.lang);
           fences.push({
             file: rel,
@@ -567,10 +698,14 @@ export function scanFences(root) {
           });
           open = null;
           body = [];
-        } else {
-          open = { lang: (fence[1] || 'plaintext').toLowerCase(), line: i + 1 };
+          continue;
         }
-        continue;
+      } else {
+        const opened = openFence(lines[i]);
+        if (opened) {
+          open = { ...opened, lang: (opened.lang || 'plaintext').toLowerCase(), line: i + 1 };
+          continue;
+        }
       }
       if (open) body.push(lines[i]);
     }
@@ -657,18 +792,30 @@ export function analyze(root, { channels, carriage }) {
   const unparsed = [];
   const inventory = [];
   /**
-   * The DIALECT blind spot: a fence outside the scanned languages whose body is
-   * a JSON document holding a typed node. Counted, never judged — a `jsonc`
-   * spelling was invisible to an earlier draft of this gate, and the way that
-   * was found was a human reading a page, which is the detection mechanism this
-   * whole card exists to replace.
+   * The DIALECT blind spot: a fence outside the scanned languages whose body
+   * holds a typed node. Counted, never judged — a `jsonc` spelling was invisible
+   * to an earlier draft of this gate, and the way that was found was a human
+   * reading a page, which is the detection mechanism this whole card exists to
+   * replace.
+   *
+   * ⚠️ objectui#8334: this leg used to require `fence.ok` — a strict JSON parse —
+   * which made the measurement whose job is to report what the census cannot see
+   * blind to the JS OBJECT-LITERAL spelling. Such a fence was counted in neither
+   * the judged population nor here, and the summary printed `none` over it. Both
+   * spellings are asked the same question now; the DIALECT is recorded so the
+   * reader can tell the two apart.
    */
   const unscannedJsonLike = [];
 
   for (const fence of scan.fences) {
     if (!fence.scanned) {
-      if (fence.ok && fence.values.some((value) => collectNodes(value).length > 0)) {
-        unscannedJsonLike.push({ file: fence.file, line: fence.line, lang: fence.lang });
+      // ⛔ Measurement only. The judged population is `fence.scanned` and is not
+      // reached from this branch — widening the census is explicitly NOT the fix
+      // for objectui#8334, and ⛔ `plaintext` is still not a JSON dialect.
+      const dialect = fence.ok ? 'json' : 'object-literal';
+      const jsonLike = fence.ok ? fence : parseFenceDialect(fence.body.join('\n'));
+      if (jsonLike.ok && jsonLike.values.some((value) => collectNodes(value).length > 0)) {
+        unscannedJsonLike.push({ file: fence.file, line: fence.line, lang: fence.lang, dialect });
       }
       continue;
     }
@@ -743,6 +890,26 @@ export const CONTROL_FIXTURES = {
   "properties": { "className": "\${theme.card}" },
   "visibleOn": "\${item.active}"
 }`,
+  /**
+   * The DIALECT controls (objectui#8334). The positive fixture is the shape the
+   * corpus actually uses — `content/docs/components/complex/filter-ui.mdx:10`,
+   * trimmed — a real node tree spelled as a JS object literal. The negative is a
+   * TS `interface` BODY, which is what the great majority of these pages'
+   * ```plaintext fences hold and which must stay OUT of the measurement: it
+   * declares types, it does not author a node.
+   */
+  dialectPositive: `{
+  type: 'filter-ui',
+  layout: 'popover',
+  filters: [
+    { field: 'name', label: 'Name', type: 'text', placeholder: "Search name" }
+  ]
+}`,
+  dialectNegative: `interface FilterUIProps {
+  type: 'filter-ui';
+  layout?: 'popover' | 'inline';
+  showApply?: boolean;
+}`,
 };
 
 export function runControls({ channels, carriage }) {
@@ -778,7 +945,52 @@ export function runControls({ channels, carriage }) {
         'reporting carried channels as findings, which is a false-positive gate.',
     );
   }
-  return { positive: positive.found ?? [], negative: negative.found ?? [], failures };
+
+  /**
+   * The DIALECT leg's own two-sided control (objectui#8334), run on every run for
+   * the reason the whole file exists: `Dialect blind spot: none` is a sentence
+   * about coverage, and a measurement that has silently stopped matching prints
+   * that sentence and looks identical to a clean corpus. ⛔ Per counter, not one
+   * total — a leg that sees the object literal but has stopped rejecting
+   * interface bodies is broken in the direction that produces false findings, and
+   * the reverse is broken in the direction that produces a false green.
+   */
+  const dialectNodes = (source) => {
+    const parsed = parseFenceDialect(source);
+    if (!parsed.ok) return { ok: false, reason: parsed.reason, nodes: [] };
+    return { ok: true, reason: null, nodes: parsed.values.flatMap((value) => collectNodes(value)) };
+  };
+  const dialectPositive = dialectNodes(CONTROL_FIXTURES.dialectPositive);
+  const dialectNegative = dialectNodes(CONTROL_FIXTURES.dialectNegative);
+  const dialectTypes = dialectPositive.nodes.map((node) => node.type).sort();
+  if (!dialectPositive.ok) {
+    failures.push(
+      `dialect positive control: the object-literal fixture did not normalize (${dialectPositive.reason}). ` +
+        'The blind-spot leg cannot see the class objectui#8334 filed, and this run would have printed ' +
+        '"Dialect blind spot: none" over it.',
+    );
+  } else if (dialectTypes.join(',') !== 'filter-ui,text') {
+    failures.push(
+      `dialect positive control: expected the two typed nodes [filter-ui, text], got ` +
+        `[${dialectTypes.join(', ')}]. The object-literal measurement has stopped matching the shape the ` +
+        'corpus actually uses, so its zero would be a blindness, not a clean corpus.',
+    );
+  }
+  if (dialectNegative.ok && dialectNegative.nodes.length > 0) {
+    failures.push(
+      `dialect negative control: a TS \`interface\` body reported ` +
+        `[${dialectNegative.nodes.map((node) => node.type).join(', ')}] as typed node(s). The dialect leg is ` +
+        'reading type DECLARATIONS as authored nodes, which floods the blind-spot list with false entries.',
+    );
+  }
+
+  return {
+    positive: positive.found ?? [],
+    negative: negative.found ?? [],
+    dialectPositive: dialectTypes,
+    dialectNegative: dialectNegative.ok ? dialectNegative.nodes.map((node) => node.type) : [],
+    failures,
+  };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
@@ -818,6 +1030,12 @@ if (isEntrypoint(import.meta.url)) {
       `negative fixture reported ${controls.negative.length === 0 ? 'nothing' : `[${controls.negative.join(', ')}]`} ` +
       '(expected nothing).',
   );
+  console.log(
+    `Dialect controls: the object-literal fixture yielded [${controls.dialectPositive.join(', ')}] ` +
+      '(expected filter-ui, text); the TS interface body yielded ' +
+      `${controls.dialectNegative.length === 0 ? 'nothing' : `[${controls.dialectNegative.join(', ')}]`} ` +
+      '(expected nothing).',
+  );
   if (controls.failures.length > 0) {
     console.error(`\n❌  The instrument failed its own controls:\n${controls.failures.map((f) => `      ${f}`).join('\n')}`);
     process.exit(1);
@@ -854,18 +1072,28 @@ if (isEntrypoint(import.meta.url)) {
       .map((row) => `${row.lang} ${row.fences} (${row.parsed} parsed, ${row.unparsed} unparsed)`)
       .join('; ')}`,
   );
+  // objectui#8334: BOTH spellings, counted separately. The `none` branch used to
+  // be reachable while an entire dialect was invisible to the measurement behind
+  // it, which is a detector reporting full coverage precisely where it has none.
+  const byDialect = (name) => unscannedJsonLike.filter((fence) => fence.dialect === name).length;
   if (unscannedJsonLike.length === 0) {
     console.log(
-      `✅  Dialect blind spot: none — no fence OUTSIDE ${JSON_FENCE_LANGUAGES.join('/')} parses as a JSON ` +
-        'document holding a typed node.',
+      `✅  Dialect blind spot: none — no fence OUTSIDE ${JSON_FENCE_LANGUAGES.join('/')} holds a typed node, ` +
+        'in EITHER the strict-JSON or the\n    JS object-literal spelling. Both were asked; the dialect ' +
+        'controls above are what make this line readable.',
     );
   } else {
     console.log(
-      `\n⚠️  ${unscannedJsonLike.length} fence(s) outside ${JSON_FENCE_LANGUAGES.join('/')} parse as a JSON ` +
-        'document holding a typed node. NOT judged — reported so the language set can be widened\n' +
-        '    deliberately rather than discovered by a human reading a page:',
+      `\n⚠️  ${unscannedJsonLike.length} fence(s) outside ${JSON_FENCE_LANGUAGES.join('/')} hold a typed node ` +
+        `(${byDialect('json')} as strict JSON, ${byDialect('object-literal')} as a JS object literal).\n` +
+        '    NOT judged, and ⛔ NOT a request to widen the census: `plaintext` is not a JSON dialect, and\n' +
+        '    admitting it would let every future JSON-in-plaintext block through UNJUDGED (rejected by\n' +
+        '    content on PR objectui#8324). This list is the coverage line telling the truth about what the\n' +
+        '    census does not read — repair a page by retagging it ```json, or leave it and know the number:',
     );
-    for (const fence of unscannedJsonLike) console.log(`      ${fence.file}:${fence.line}  (${fence.lang})`);
+    for (const fence of unscannedJsonLike) {
+      console.log(`      ${fence.file}:${fence.line}  (${fence.lang}, ${fence.dialect})`);
+    }
   }
 
   // The blind spot is printed on every run, in both directions. A census that

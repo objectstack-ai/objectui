@@ -59,6 +59,8 @@
  *    the code that reads it.
  */
 
+import type { I18nLabel } from '@objectstack/spec/ui';
+
 import type { ChartSeriesBinding } from './chart-series.js';
 
 /** Authored spec `ChartSeries` presentation, in the renderer's internal spelling. */
@@ -97,6 +99,66 @@ function labelText(v: unknown): string | undefined {
   if (isRecord(v)) {
     const first = Object.values(v).find((x) => typeof x === 'string' && x);
     return first as string | undefined;
+  }
+  return undefined;
+}
+
+/**
+ * An authored `I18nLabel` that travels to the renderer **unresolved** — the
+ * chart's own `title` / `subtitle` / `description` (objectui#9038).
+ *
+ * ## Why this does not resolve, and why that is not {@link labelText}'s answer
+ *
+ * These three keys are lowered onto a chart SCHEMA slot that already declares
+ * the union: `normalizeChartSchema` (`@object-ui/plugin-charts`) resolves
+ * `title`/`subtitle`/`description` through `pickLocalized` with the viewer's
+ * language, which `ChartRenderer` reads from `useObjectTranslation` and hands
+ * down (objectui#8943), and `ObjectChart` reads `schema.title` through the same
+ * resolver for its drill heading. So the value's one resolution point is
+ * already downstream of here, holding the one thing this package does not have
+ * — the viewer. Forwarding is what lets that resolver see the value at all.
+ *
+ * Resolving here is not merely unnecessary, it is unavailable: `pickLocalized`
+ * lives in `@object-ui/i18n`, which DEPENDS on this package. Declaring the
+ * reverse edge makes the build graph cyclic (measured: `turbo run build
+ * --filter=@object-ui/core` refuses with `Cyclic dependency detected`), and
+ * that package's entry point is a React provider plus hooks — the layering
+ * this file's header states, arrived at from the other side.
+ *
+ * ⛔ Do NOT "fix" this by reusing {@link labelText}. The two answer different
+ * questions and only one of them is a choice:
+ *
+ *  - `labelText` is a locale-unaware PICK for a slot whose consumer takes a
+ *    plain string. It is wrong for a zh console and is ledgered as such
+ *    (objectui#4020) because a caller that CAN resolve the language overrides
+ *    the merged label — the mitigation depends on the value still existing.
+ *  - The guard this replaced (`typeof v === 'string' && v ? v : undefined`)
+ *    offered no such route: it ERASED the map arm, the `if (title)` guard then
+ *    skipped the assignment, and the chart drew **no heading at all**, in every
+ *    language, with no diagnostic. Nothing downstream could override a key that
+ *    never arrived.
+ *
+ * ## The admission test, and what it deliberately does not decide
+ *
+ * A plain string, or a record carrying at least one usable string entry. That
+ * is the same "is there anything here" question the `if (title)` truthiness
+ * guard always asked, extended to the map arm — it does NOT decide which limb
+ * wins, which stays `pickLocalized`'s alone. Everything else (a number, a
+ * boolean, an array, `''`, `{}`, a record with no string value) is refused
+ * exactly as before, so no key reaches the caller that cannot render, and the
+ * `@returns` contract below — only keys that resolved — still holds.
+ *
+ * The map is forwarded VERBATIM: `InlineLocaleMapSchema` is
+ * `z.record(<tag>, z.string())` and enforcing that belongs at the parse, not in
+ * a renderer-side coercion (AGENTS.md #0.1). A non-string entry falls through
+ * `pickLocalized`'s limbs exactly as an absent one does, which is why admitting
+ * the record on the strength of one usable entry cannot paint `[object
+ * Object]`.
+ */
+function forwardedI18nLabel(v: unknown): I18nLabel | undefined {
+  if (typeof v === 'string') return v || undefined;
+  if (isRecord(v) && Object.values(v).some((x) => typeof x === 'string' && x)) {
+    return v as I18nLabel;
   }
   return undefined;
 }
@@ -296,6 +358,31 @@ export function mergeAuthoredPresentation(
  * renderer's own `h3` above the chart) must drop it from the result, or the
  * chart draws a second one.
  *
+ * ## `title` / `subtitle` / `description` are `I18nLabel`, and travel as such
+ *
+ * `ChartConfigSchema` types all three as the spec's `I18nLabel` union — a plain
+ * string OR an inline locale map — so all three are lowered by
+ * {@link forwardedI18nLabel}, which hands the authored value on untouched for
+ * the renderer to resolve against the viewer's language. Read that helper for
+ * why resolving cannot happen in this package.
+ *
+ * ⚠️ LEDGERED, by name, as still unresolved after objectui#9038 — not in
+ * that card's scope and not reached by the change above:
+ *
+ *  - **A series `label` and an axis `title`** still go through
+ *    {@link labelText}'s first-string-wins pick, the design objectui#4020
+ *    ledgered and a caller can override. Not reopened here.
+ *
+ * ✓ CLEARED, objectui#9150 — **the report renderer's own heading.**
+ * `DatasetReportChart` (`@object-ui/plugin-report`) still drops `title` from
+ * this result and still paints its own `h3`, but that read site no longer
+ * narrows `chart.title` to a plain string: it resolves the union through
+ * `pickLocalized` against the viewer's language, like every other `I18nLabel`
+ * on that surface. Kept here rather than deleted because the ledger entry is
+ * what the fixing card was dispatched from, and because the FIRST half of it —
+ * that a caller painting the title itself must drop `title` from this result —
+ * is a live constraint on this whitelist, stated above.
+ *
  * @param raw the authored chart config (anything, incl. absent)
  * @param fieldCategoryColors per-category colours resolved from the category
  *   dimension's own select/lookup option colours, merged UNDER an explicit
@@ -310,15 +397,16 @@ export function chartConfigPresentation(
   const config: Record<string, unknown> = isRecord(raw) ? raw : {};
   const out: Record<string, unknown> = {};
 
-  const text = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
-
   if (typeof config.showLegend === 'boolean') out.showLegend = config.showLegend;
   if (typeof config.showDataLabels === 'boolean') out.showDataLabels = config.showDataLabels;
-  const title = text(config.title);
+  // The three `I18nLabel` slots, carried through unresolved — see
+  // {@link forwardedI18nLabel} for why this package forwards rather than picks,
+  // and for what is still ledgered as unresolved on purpose.
+  const title = forwardedI18nLabel(config.title);
   if (title) out.title = title;
-  const subtitle = text(config.subtitle);
+  const subtitle = forwardedI18nLabel(config.subtitle);
   if (subtitle) out.subtitle = subtitle;
-  const description = text(config.description);
+  const description = forwardedI18nLabel(config.description);
   if (description) out.description = description;
   // A non-positive height would collapse the plot; the container default is the
   // more honest answer than an invisible chart.

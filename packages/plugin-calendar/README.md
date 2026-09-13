@@ -149,11 +149,20 @@ ComponentRegistry.register('my-calendar', ObjectCalendarRenderer);
 ### CalendarView
 
 Display a calendar computed from the node's `data` records. This is the full
-authored surface: `CalendarViewSchema` in `@object-ui/types` declares 13 keys of
-its own, converged on what the registered `calendar-view` renderer actually
-reads (objectui#5667). Two of them — `data` and `className` — refine common
-`BaseSchema` keys; the rest of `BaseSchema` (`id`, `visible`, ...) applies as on
-any node.
+authored surface: `CalendarViewSchema` in `@object-ui/types` declares 15 keys of
+its own. **13 of them are authorable**, converged on what the registered
+`calendar-view` renderer actually reads (objectui#5667), and they are the ones
+listed below. Two of them — `data` and `className` — refine common `BaseSchema`
+keys; the rest of `BaseSchema` (`id`, `visible`, ...) applies as on any node.
+
+**The other two are REFUSALS, not keys you can write.** `body` and `children`
+are declared `never` (objectui#9256): a read-site sweep of every package that
+registers a component measured that no renderer read consumes either content
+channel for a `calendar-view` node — it renders events computed from `data`, not
+child nodes — so authoring one is now refused at `tsc` and at validation instead
+of silently rendering nothing. They are counted above because the interface
+declares them; they are absent from the listing below because the listing is the
+*authorable* surface.
 
 ```typescript
 import type { CalendarViewSchema, CalendarViewMode, CalendarEvent } from '@object-ui/types';

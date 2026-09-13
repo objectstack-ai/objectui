@@ -24,6 +24,11 @@ import {
   RETIRED_FILTER_OPERATORS,
 } from '@objectstack/spec/data';
 import { emulateBatchTransaction } from './batchTransaction.js';
+import {
+  describeComparand,
+  isRefusedTextComparand,
+  textComparandRefusalReason,
+} from '../utils/text-comparand.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -192,51 +197,24 @@ function refuseArrayComparand(
  * the one outcome worse than the bug.
  */
 /**
- * A comparand as it appears INSIDE a refusal message.
+ * ⚠️ The DISCRIMINATION and the MESSAGE moved to `utils/text-comparand.ts`
+ * (objectui#9048). Nothing about this face's answer changed — the reason string
+ * is the same bytes it has been since objectui#8748, and the pins that drive
+ * both faces and compare their wording verify that without transcribing it.
  *
- * `JSON.stringify` alone is not safe here even though it is what the message
- * wants: it THROWS on a BigInt and on a cyclic object, and this is an
- * exclude-and-log face — a refusal that throws while explaining itself would
- * turn the one path that stays quiet about a bad filter into the one path that
- * takes the caller down. No JSON-sourced filter can carry either shape, so this
- * is about the in-memory callers who hand `find()` a literal.
- *
- * `?? String(target)` keeps `undefined` and a symbol readable — `JSON.stringify`
- * returns `undefined` for both — which is the idiom this file already used.
+ * What stayed here is the ENVELOPE, which is the half that does NOT transfer:
+ * this matcher is deciding about one ROW and HAS a row to exclude, so it
+ * excludes-and-logs (objectui#7349). Its two siblings each seat the same reason
+ * in their own envelope — `filter-converter` throws `FilterOperatorError`
+ * because it is a PRODUCER with no row to exclude.
  */
-function describeComparand(target: unknown): string {
-  try {
-    return JSON.stringify(target) ?? String(target);
-  } catch {
-    return String(target);
-  }
-}
-
 function refuseTextComparand(
   refusals: Set<string>,
   field: string,
   operator: string,
   target: unknown,
 ): false {
-  const declared =
-    `@objectstack/spec's FILTER_TEXT_CASES declares this shape refused `
-    + `(INVALID_FILTER); the declared comparand for '${operator}' is a NON-EMPTY STRING`;
-  if (target === '') {
-    return refuseFilterNode(
-      refusals,
-      `filter comparand for field '${field}' on operator '${operator}' is the EMPTY `
-      + `STRING. Every value contains the empty substring, so evaluating it is a `
-      + `predicate that constrains nothing. ${declared}. Drop the condition instead `
-      + `of sending an empty comparand`,
-    );
-  }
-  return refuseFilterNode(
-    refusals,
-    `filter comparand for field '${field}' on operator '${operator}' is `
-    + `${target === null ? 'null' : typeof target} (${describeComparand(target)}), `
-    + `not a string. Coercing it would answer a query nobody wrote. ${declared}. `
-    + `Write the comparand as a string`,
-  );
+  return refuseFilterNode(refusals, textComparandRefusalReason(field, operator, target));
 }
 
 /**
@@ -513,7 +491,7 @@ function matchesComparisonNode(
     // after a `String()` coercion nobody wrote. Both are refusals in
     // `FILTER_TEXT_CASES`; see {@link refuseTextComparand}.
     case 'icontains':
-      if (typeof target !== 'string' || target === '') {
+      if (isRefusedTextComparand(target)) {
         return refuseTextComparand(refusals, field, String(rawOperator), target);
       }
       return typeof value === 'string' && asciiCaseInsensitiveContains(value, target);
@@ -732,7 +710,7 @@ function matchesDollarOperator(
     // object, so a door on one side only is a result that changes with the
     // SHAPE of the filter rather than with its meaning (objectui#8447).
     case '$icontains':
-      if (typeof target !== 'string' || target === '') {
+      if (isRefusedTextComparand(target)) {
         return refuseTextComparand(refusals, field, operator, target);
       }
       return typeof value === 'string' && asciiCaseInsensitiveContains(value, target);
@@ -1073,8 +1051,27 @@ export class ValueDataSource<T = any> implements DataSource<T> {
   private mutationListeners = new Set<(event: DataSourceMutationEvent<T>) => void>();
 
   constructor(config: ValueDataSourceConfig<T>) {
-    // Deep clone to prevent external mutation
-    this.items = JSON.parse(JSON.stringify(config.items));
+    // Deep clone to prevent external mutation.
+    //
+    // `structuredClone`, NOT a `JSON.parse(JSON.stringify(...))` round-trip
+    // (objectui#9175, maintainer ruling A on objectui#9061). The clone exists
+    // only to stop a caller mutating rows this read-only query source already
+    // handed out; it was never a serialization boundary, and the round-trip
+    // quietly made it one. Everything routed through `provider: 'value'` had to
+    // survive `JSON.stringify` — so a `Date` came back as a string, keys whose
+    // value was `undefined` disappeared, a cycle threw, and objectui#6018's
+    // pinned guarantee ("an inline value never has to be serializable at all")
+    // became false the moment a renderer routed its inline rows through this
+    // adapter to honour `filter` / `sort` / the objectui#7210 ceiling.
+    //
+    // `structuredClone` handles cycles, `Date`, `Map`/`Set`, `BigInt` and typed
+    // arrays, and is already an unguarded runtime requirement of published
+    // ObjectUI packages (`@object-ui/app-shell`, `@object-ui/plugin-designer`).
+    // It still throws `DataCloneError` on a function or a DOM node — that is
+    // deliberate and stays LOUD: ⛔ no `try`/`catch` fallback here, because
+    // falling back to the round-trip would restore exactly the silent
+    // flattening this replaces.
+    this.items = structuredClone(config.items);
     this.idField = config.idField;
   }
 
@@ -1313,8 +1310,13 @@ export class ValueDataSource<T = any> implements DataSource<T> {
     return this.items.length;
   }
 
-  /** Get a snapshot of all items (cloned) */
+  /**
+   * Get a snapshot of all items (cloned).
+   *
+   * Same clone as the constructor and for the same reason — see the note
+   * there: `structuredClone`, never a JSON round-trip (objectui#9175).
+   */
   getAll(): T[] {
-    return JSON.parse(JSON.stringify(this.items));
+    return structuredClone(this.items);
   }
 }

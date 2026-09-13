@@ -262,6 +262,103 @@
  * land; see that function for the rule and for the residual window it cannot
  * close.
  *
+ * ## What a re-baseline ABSORBS — objectui#7848
+ *
+ * Every entry above re-pins {@link BASELINE} by an ABSOLUTE fresh reading of a
+ * named tree, ⛔ never by applying a delta to the constant it replaces. That is
+ * the right construction and the record depends on it: a delta chain compounds
+ * whatever each link got wrong, and a fresh reading cannot. But it has a
+ * consequence stated nowhere else here, and the consequence is the whole of
+ * objectui#7848. A fresh reading is SILENT ABOUT ITS OWN COMPOSITION. Every byte
+ * that arrived between one baseline and the next and was not removed in between
+ * is inside the new constant with no name on it, while the record written above
+ * that constant names only the cause that MOTIVATED the move. Those are two
+ * different sets, nothing separates them, and ⛔ nothing goes red when they
+ * differ — the same shape as the stale comment objectui#7528 and objectui#8964
+ * each caught one column over.
+ *
+ * ⇒ read every "measured N on `<commit>`" entry above as exactly what it is: a
+ * true total for that tree, and ⛔ NOT a claim that the change described beside
+ * it is what put the bytes there.
+ *
+ * ### The one entry whose record can be audited, and what makes it auditable
+ *
+ * objectui#7479's is the only re-baseline here that publishes enough to close
+ * its own accounting — and it closes. Read off the table under "Why
+ * `i18n-locales` became `i18n-locale-en`": control `d8b4739d4`, after
+ * `755d34a5f`, one container, one instrument.
+ *
+ *   | claimant                                  |    bytes |
+ *   |-------------------------------------------|---------:|
+ *   | aggregate fall                            | -410,553 |
+ *   | the catalogue chunk alone                 | -415,781 |
+ *   | ⚠️ `i18n-runtime`, a NEW eager member      |   +5,329 |
+ *   | ⇒ the i18n family, net                    | -410,452 |
+ *   | ⇒ residual — everything that is not i18n  |     -101 |
+ *
+ * ⚠️ The third row is what a reader loses by subtracting two figures instead of
+ * reading the table, and losing it inverts the conclusion. 415,781 against
+ * 410,553 leaves 5,228 bytes that look like non-locale content absorbed under
+ * cover of a locale change. They are not: `i18n-runtime` — the provider, hooks
+ * and formatters, which stay eager — is a chunk that does not exist in the
+ * control column at all, it is i18n, and it accounts for 5,329 of those 5,228,
+ * leaving 101 bytes that moved the OTHER way. The eager chunk counts say the
+ * same thing without the byte figures: `d8b4739d4` weighed 50 of 518 chunks and
+ * `755d34a5f` 51 of 528 chunks, so of the ten chunks that appeared exactly one
+ * is eager, and `i18n-runtime` is it.
+ *
+ * ⇒ that re-baseline absorbed essentially nothing, and the ONLY reason anyone
+ * can say so is that its record carries three unmoved control rows and both
+ * chunk counts. ⛔ A record that publishes just the new constant cannot be
+ * audited at all — not because its number is wrong, but because nothing in it
+ * is falsifiable. That, and not a house style, is why the entries above are the
+ * length they are.
+ *
+ * ### What was carried in anyway, and how much of it may honestly be claimed
+ *
+ * objectui#7848 measured the closure at 3,263,896 gzipped bytes on `52cac3886`
+ * against the baseline then in force, 3,222,314 on `3d257c85a`, and named the
+ * difference: 41,582 bytes that had arrived in six days with no card explaining
+ * any of them. `52cac3886` is an ancestor of `755d34a5f` — GitHub compare
+ * reports `ahead_by=627, behind_by=0` — and because the constant below is an
+ * absolute reading of that descendant tree, every one of those bytes that was
+ * not removed in between is inside it, unattributed and unnamed. THAT is the
+ * absorption this section exists to record, and it is why the card stayed open
+ * after its headline figure was overtaken.
+ *
+ * ⛔ What may NOT be written is a floor — "at least 41,582 of them" — and this
+ * file's own record is the reason. The one large removal inside that span is
+ * the catalogue change itself, and the catalogue was GROWING across the drift
+ * window: `i18n-locales` measured 446,076 on `177afeba1` and 454,602 on
+ * `bbe285ee7`, +8,526 bytes, a window that contains `52cac3886`. Drift that is
+ * UNATTRIBUTED cannot also be asserted disjoint from the chunk that left, and
+ * no reading of the catalogue exists on `3d257c85a` or on `52cac3886` to
+ * separate the two. ⇒ a large part of the 41,582 is inside the constant below;
+ * how large is NOT established, and a floor written here would be one more
+ * unbound figure of exactly the class objectui#8964 exists to refuse.
+ *
+ * ### ⚠️ The tree that was measured is not the tree that landed
+ *
+ * The control/after pair above is a clean A/B — one commit apart, one container
+ * — but it is an A/B of the FIRST commit of objectui#7479's branch, not of the
+ * pull request that carried it. After `755d34a5f` that branch took 22 more
+ * commits before it was squash-merged onto `main` as `77b2a18a16`, and one of
+ * them (`bf268c3723`) merged 15 further commits of `main` in. Three of the 22
+ * edit non-test source inside `framework`'s own group,
+ * `packages/(core|react|types)` — `packages/core/src/utils/filter-tokens.ts`,
+ * `packages/react/src/SchemaRenderer.tsx` and
+ * `packages/react/src/hooks/usePageAssignment.ts`, 175 added lines against 47
+ * removed.
+ *
+ * ⛔ None of that is weighed by the constant below, and what it costs gzipped is
+ * UNMEASURED rather than small — nobody has built `77b2a18a16`. The docblock on
+ * {@link BASELINE} already warns that CI weighs the pull request's MERGE ref
+ * while this is the branch tree, "so the two differ by whatever has landed on
+ * `main` since". The half it does not cover is that they also differ by
+ * whatever landed on the BRANCH after the reading was taken. ⇒ take the reading
+ * on the tree you are about to merge, or name here the commits that arrived
+ * after it.
+ *
  * ## Raising it
  *
  * Re-baselining is legitimate — it is how a ratchet advances — but it is a
@@ -269,6 +366,12 @@
  * in the prose attached to it, and say in the PR what the added bytes buy.
  * Silently bumping the number to make CI green reproduces the gate this file
  * replaced.
+ *
+ * ⇒ and publish the ROWS, not only the total, for the reason the section above
+ * gives: the unmoved chunks beside the moved one are what let the next reader
+ * tell the bytes your change is accountable for from the drift riding in with
+ * them. ⛔ "What the added bytes buy" answered with a cause and no control is
+ * the form that has absorbed every byte this file cannot now attribute.
  */
 
 import fs from 'node:fs';
@@ -278,9 +381,10 @@ import { isEntrypoint } from './invoked-as.mjs';
 
 /**
  * Ceiling for the console eager closure, in gzipped bytes. See the header for
- * how this number was chosen; measured 3,551,191 on `34a1578ef`.
+ * how this number was chosen; {@link BASELINE} names the measurement and the
+ * commit it was taken on.
  *
- * Re-baselined DOWNWARD three times, each time toward a measurement the payload
+ * Re-baselined DOWNWARD four times, each time toward a measurement the payload
  * had already fallen to:
  *
  *   - objectui#5924, from 4,086,000 (derived from the 4,005,911 reading on
@@ -299,8 +403,17 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     3,300,000 ceiling was measured carrying 75.9 KB of headroom afterwards —
  *     0.85x the regression this gate must catch, the blind band reopening — and
  *     the 2026-08-30 ruling made moving it part of the same change.
+ *   - objectui#7479, from 3,597,000 to 3,210,000 over 3,164,817. Nine of the
+ *     ten locale catalogues left the eager closure for `import()`ed chunks of
+ *     their own: −410,553 gzipped bytes, 4.5x the regression this gate must
+ *     catch, so the old ceiling would have stood 432,183 bytes (4.74x) above
+ *     the payload and {@link evaluateHeadroomSensitivity} would have called the
+ *     gauge blind — an exit 2 about the instrument, in the same run that earned
+ *     the shrink. See "Why `i18n-locales` became `i18n-locale-en`" in the
+ *     header for both builds and the three control rows that show the bytes
+ *     LEFT rather than moved.
  *
- * Headroom above {@link BASELINE} is 45,809 bytes — 0.50x
+ * Headroom above {@link BASELINE} is 45,183 bytes — 0.50x
  * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. ⚠️ That is arithmetic on two
  * constants in this file, so it stays true while they do — it is NOT what the
  * closure has left today, which is smaller by every byte the payload has
@@ -358,7 +471,7 @@ import { isEntrypoint } from './invoked-as.mjs';
  * ceiling was moved — the three per-chunk lines that still pass were left
  * exactly as they are.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_597_000;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_210_000;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -371,26 +484,55 @@ export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
    *
-   * `34a1578ef` is this branch's last commit before the one that edits this
-   * file, so the two trees differ only by this file, its unit test and this
-   * change's changeset — none of them a console build input. That is the argument
-   * the previous baseline (`3d257c85a`, and `bd2a7ec50` before it) made, and
-   * it holds for the same reason: the console build's turbo `inputs` cover
-   * `scripts/vite-*.ts`, not `scripts/check-*.mjs` or `scripts/__tests__/`, so
-   * nothing in either file reaches the bundler. Checked rather than hoped on this bump — the
-   * `pnpm build` that produced the report these numbers were read from
-   * reported 43/43 tasks CACHED on `34a1578ef`, which is that invariant
-   * observed rather than argued.
+   * ⚠️ `755d34a5f` is NOT "this branch's last commit before the one that edits
+   * this file" — the argument every earlier entry here made. objectui#7479's
+   * change IS a console build input (`packages/i18n/src/**` and
+   * `apps/console/vite.config.ts`), so the commit named below is the one that
+   * CARRIES it and the reading is of that tree. The
+   * `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` half of the argument
+   * the previous baseline made (`34a1578ef`, and `3d257c85a` / `bd2a7ec50`
+   * before it) still holds, and is why the two can share one branch: nothing in
+   * this file or its unit test reaches the bundler, so the ceiling edit cannot
+   * have moved the figure it pins.
    *
-   * Measured by `pnpm build` (exit 0, 43/43) reading
+   * The reading it is SUBTRACTED from is the control build of `origin/main`
+   * `d8b4739d4` in the same container with the same instrument — 3,575,370
+   * bytes across 50 of 518 chunks. Both builds are recorded under "Why
+   * `i18n-locales` became `i18n-locale-en`" in the header, with the three
+   * unmoved chunks that make the delta readable as bytes LEAVING rather than
+   * bytes moving.
+   *
+   * Measured by `pnpm --filter @object-ui/console build` (exit 0) reading
    * `apps/console/dist/eager-closure.json`. ⛔ Not taken from CI's report and
    * not extrapolated: CI weighs the pull-request MERGE ref and this is the
    * branch tree, so the two differ by whatever has landed on `main` since.
+   *
+   * ⚠️ PROVENANCE — what a reader can and cannot check, because a reader who
+   * tries the obvious thing gets nothing and currently learns nothing from it.
+   * The commit named below is a BRANCH TIP and this repository squash-merges,
+   * so it is not reachable from `main` and cannot be fetched by sha:
+   * `git fetch origin 755d34a5f1` answers "couldn't find remote ref", and
+   * `git merge-base --is-ancestor` cannot resolve the object at all (exit 128,
+   * ⛔ not the exit 1 that would mean "resolved, and not an ancestor"). The
+   * previous baseline `34a1578ef` does resolve and is genuinely not an ancestor
+   * — exit 1, read against a control leg `d9580f4647` of the same age that
+   * exits 0 in the same checkout, because an exit 1 from a shallow clone means
+   * nothing without one. ⛔ This is the convention working rather than a defect:
+   * naming the tree the reading was taken on is the point, and no commit on
+   * `main` has that tree.
+   *
+   * ⇒ the CONSEQUENCE, which nobody had written down: the provenance of this
+   * constant ⛔ cannot be checked from a `main` checkout with git alone. It is
+   * checkable — the GitHub compare API resolves these shas when a clone cannot,
+   * and every ancestry figure in "What a re-baseline ABSORBS" above came from
+   * it. The squash merge that carried this branch onto `main` is `77b2a18a16`,
+   * which is reachable; ⚠️ its tree is 22 commits PAST the one measured here,
+   * so it is a handle on what LANDED and ⛔ never a substitute for the reading.
    */
-  gzipBytes: 3_551_191,
-  chunks: 50,
-  totalChunks: 518,
-  commit: '34a1578ef',
+  gzipBytes: 3_164_817,
+  chunks: 51,
+  totalChunks: 528,
+  commit: '755d34a5f',
 });
 
 /**
@@ -810,6 +952,54 @@ export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES = 89 * 1024;
  * it, so it never objected and there is nothing to re-pin. One ceiling and its
  * baseline, in one commit.
  *
+ * ## Why `i18n-locales` became `i18n-locale-en` — objectui#7479
+ *
+ * ⭐ The structural answer the section above named as the only thing that
+ * retires that line — "taking the catalogues OUT of the eager closure is what
+ * retires this line instead of moving it" — has landed. `@object-ui/i18n` no
+ * longer re-exports ten catalogues from its entry; `en` stays statically
+ * resident as `fallbackLng` and as the app-shell splash's synchronous
+ * dictionary, and the other nine are `import()`ed per locale.
+ * `apps/console/vite.config.ts` gives each catalogue its own `advancedChunks`
+ * group, because ten catalogues in ONE group are one chunk and one eager member
+ * would make all ten eager again.
+ *
+ * Two full console builds in one container, same instrument, the second
+ * differing from the first only by that change:
+ *
+ *   | reading                         |   control |     after |     delta |
+ *   |---------------------------------|----------:|----------:|----------:|
+ *   | aggregate eager closure         | 3,575,370 | 3,164,817 |  -410,553 |
+ *   | eager chunks / total            |    50/518 |    51/528 |           |
+ *   | `i18n-locales` (retired key)    |   456,196 |         - |           |
+ *   | `i18n-locale-en` (this key)     |         - |    40,415 |           |
+ *   | `i18n-runtime` (provider/hooks) |         - |     5,329 |           |
+ *   | `vendor-objectstack`            | 1,236,315 | 1,236,315 |         0 |
+ *   | `ui-components`                 |   394,726 |   394,718 |        -8 |
+ *   | `framework`                     |    80,414 |    80,430 |       +16 |
+ *
+ * The last three rows are the control that makes the first one readable: the
+ * bytes did not MOVE to a roomier chunk — objectui#7399 named that route and
+ * refused it — they left the eager closure. The nine deferred catalogues weigh
+ * 405.5 KB gzipped, and the browser fetches exactly one of them, only when the
+ * viewer's locale is not `en`.
+ *
+ * ⛔ Two things this is NOT. It is not a raise: every constant this card moved
+ * moved DOWN or was replaced by a tighter one, and no build that passed before
+ * it and measures under the new figures fails after it. And it is not a
+ * re-chunking — `scripts/check-eager-locale-catalogues.mjs` is the half that
+ * makes that checkable, weighing WHICH catalogues a page load pulls rather than
+ * what they cost, because a byte ceiling cannot tell "left the closure" from
+ * "moved to a chunk with more room".
+ *
+ * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} moved in the same commit and had to:
+ * with the aggregate ceiling left at 3,597,000 over a 3,164,817 payload the
+ * headroom would have been 432,183 bytes — 4.74x the regression this gate must
+ * catch — and {@link evaluateHeadroomSensitivity} calls anything above 1.00x an
+ * ERROR about the gauge. That is the blind band this file opens on every large
+ * shrink, and closing it in the same change is what "drift in the SHRINKING
+ * direction is no longer free" asks for.
+ *
  * ## Raising one
  *
  * Same discipline as {@link MAX_EAGER_CLOSURE_GZIP_BYTES}, and the same two
@@ -829,19 +1019,20 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // Headroom 18,971 bytes = 0.21x REGRESSION_THIS_GATE_MUST_CATCH_BYTES, the
   // proportion the retiring pair carried (18,539 = 0.20x).
   'vendor-objectstack': 1_254_000,
-  // Raised by objectui#8816 on a MAINTAINER RULING — director seat summon #21,
-  // decision batch #110 item 3, comment 5615808548 of 2026-09-10, on the
-  // maintainer's own reply to the recommendation of route A at 5615318265 —
-  // and ⛔ not a precedent, in that ruling's own words: the next change that
-  // meets this line returns to the decision box. ⚠️ It landed BEFORE that
-  // ruling, as a rider inside objectui#8901 (`fffa30d3f`) rather than in the
-  // dedicated pull request the ruling asks for; "Why `i18n-locales` moved UP"
-  // above records that sequence and quotes the ruling. Sized by the four
-  // console builds in "Why `i18n-locales` moved UP" above — ⛔ not by the
-  // overage, which is the one size that card's own evidence rules out. Headroom
-  // 8,804 bytes = 0.10x REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the baseline
-  // below, marginally tighter than the 8,924 (0.10x) the retired pair carried.
-  'i18n-locales': 465_000,
+  // ⭐ LOWERED, and RE-KEYED, by objectui#7479 — this line used to read
+  // `'i18n-locales': 465_000` and budget TEN catalogues. Nine of them are
+  // `import()`ed on demand now, so the chunk that name pointed at no longer
+  // exists and the eager catalogue is `en` alone: 456,196 -> 40,415 gzipped
+  // bytes, measured on the two console builds recorded under "Why
+  // `i18n-locales` became `i18n-locale-en`" above. ⛔ This is a TIGHTENING and
+  // must not be read as the raise the retired key kept needing: no build that
+  // passed before this edit and measures under 50,000 fails after it, and the
+  // ~9.5 KB of runway left here is `en`'s alone rather than ten packs' shared.
+  // Headroom 9,585 bytes = 0.11x REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the
+  // baseline below — just above the 0.10x floor, this file's own convention for
+  // a deliberate re-pin, and the first time this key has cleared that floor
+  // without a declared allowance holding it open.
+  'i18n-locale-en': 50_000,
   // Raised by the maintainer ruling of 2026-09-08, ⛔ not by a measurement here:
   // `main` had been red on this line since `f76f43628`. The bytes that put it
   // there were UNATTRIBUTED when this moved and have since been measured to
@@ -861,8 +1052,11 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  *
  *   - `vendor-objectstack` — `34a1578ef` (objectui#7122), re-measured when the
  *     `@objectstack/spec` 17.3.0 family bump moved this chunk and its ceiling
- *     was raised with the aggregate. Same build as {@link BASELINE}, so the
- *     two are directly comparable; it superseded `2c8474c04` (objectui#5490).
+ *     was raised with the aggregate. ⚠️ It shared {@link BASELINE}'s build until
+ *     objectui#7479 moved the aggregate onto a later commit; it superseded
+ *     `2c8474c04` (objectui#5490). Its value is unmoved and both console builds
+ *     objectui#7479 took re-measured it at 1,236,315 — a CONTROL for that
+ *     card's delta, not a re-baseline.
  *   - `ui-components` — `2c8474c04` (objectui#5490).
  *   - `framework` — `3f775eeb8`, the `main` tip this raise's branch was cut
  *     from, read out of the `apps/console/dist/eager-closure.json` written by
@@ -876,11 +1070,16 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  *     file, and `scripts/check-*.mjs` is not a console build input — so the
  *     {@link BASELINE} argument DOES cover it, and it is ⛔ NOT comparable to
  *     the `i18n-locales` figure below, which is an older build on another commit.
- *   - `i18n-locales` — `ba20b0bc0` (objectui#8816), a local merge of `main`
- *     `bbe285ee7` with BOTH pull requests the raise admits. It supersedes
- *     objectui#7399's `e307c9896` reading, and it is read from the same
- *     instrument and container as the three trees it is compared against, which
- *     is what makes those deltas subtractable.
+ *   - `i18n-locale-en` — `755d34a5f` (objectui#7479), the commit that carries
+ *     the lazy-catalogue change, read from its own console build. It REPLACES
+ *     the retired `i18n-locales` key, whose last reading was `ba20b0bc0`
+ *     (objectui#8816) and `e307c9896` (objectui#7399) before that. ⚠️ Unlike
+ *     every other entry here it shares BASELINE's commit exactly, and that is
+ *     the point rather than a coincidence: the aggregate and this key moved for
+ *     the SAME reason, in the same commit, off the same pair of builds, so the
+ *     -410,553 aggregate delta and the 456,196 -> 40,415 catalogue delta are
+ *     subtractable against each other. The control build they are subtracted
+ *     from is `origin/main` `d8b4739d4`, same container, same instrument.
  *
  *     ⚠️ It WAS a FORWARD reading — the only entry here that ever has been —
  *     and it is not one any more. It names the state `main` reaches once
@@ -910,13 +1109,13 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * in this comment.
  *
  * ⚠️ These readings are on DIFFERENT commits from {@link BASELINE} above —
- * except `vendor-objectstack`, which as of objectui#7122 shares BASELINE's
- * commit exactly — and WHICH ONE IS LATER flips every time either side is
+ * except `i18n-locale-en`, which as of objectui#7479 shares BASELINE's commit
+ * exactly — and WHICH ONE IS LATER flips every time either side is
  * re-baselined, so read the commit names, never a direction asserted here. As
- * of objectui#7122 the AGGREGATE is the later reading: BASELINE's `34a1578ef`
- * is dated 2026-09-06 against `2c8474c04` on 2026-08-25 for `ui-components`
- * here, and `a64e96ca8` was recorded by objectui#6759, which landed
- * 2026-08-29. This paragraph asserted the reverse,
+ * of objectui#7479 the AGGREGATE is the later reading: BASELINE's `755d34a5f`
+ * is dated 2026-09-11 against `2c8474c04` on 2026-08-25 for `ui-components`
+ * here, and `34a1578ef` (2026-09-06, objectui#7122) for `vendor-objectstack`.
+ * This paragraph asserted the reverse,
  * in the present tense, from objectui#5490 until objectui#6778 — true when it
  * was written, then left standing while three aggregate re-baselines moved
  * {@link BASELINE} out from under it.
@@ -974,12 +1173,11 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
 export const PER_CHUNK_BASELINE = Object.freeze({
   // `34a1578ef`, the same build as BASELINE above (objectui#7122).
   'vendor-objectstack': 1_235_029,
-  // `ba20b0bc0` (objectui#8816) — `main` `bbe285ee7` with BOTH admitted pull
-  // requests merged in. It WAS a FORWARD reading; `main` has since reached that
-  // state (`fffa30d3f` and `8ea3beee4`, both 2026-09-10, three seconds apart),
-  // so the gap the provenance note above describes is closed. ⛔ The figure in
-  // force is still the one the gate prints on your own build.
-  'i18n-locales': 456_196,
+  // `755d34a5f` (objectui#7479) — the SAME console build as
+  // BASELINE above, so the two are directly comparable, and the same instrument
+  // and container as the control build it is subtracted from. It supersedes
+  // objectui#8816's `ba20b0bc0` reading of the retired `i18n-locales` key.
+  'i18n-locale-en': 40_415,
   // `3f775eeb8`, its OWN console build — ⛔ not the one above it and not
   // BASELINE's. Moved with the ceiling in the same commit, per the maintainer
   // ruling of 2026-09-08 and the rule stated under "Raising one".
@@ -1092,7 +1290,15 @@ export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE = 0.1;
  * the comparison is made in and the reason a red here is a red a reader can see.
  */
 export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
-  'i18n-locales': 8_804,
+  // ⭐ `i18n-locales: 8_804` stood here until objectui#7479. It is REMOVED, not
+  // lowered, and the distinction is the whole of why that is allowed: the rule
+  // above forbids LOWERING a figure, because a lowered figure is headroom
+  // supplied to a row that still exists. This row's chunk does not exist any
+  // more — nine of the ten catalogues it weighed are `import()`ed on demand, and
+  // the one that stays is budgeted under its own key at a headroom of 0.11x,
+  // ABOVE the floor and needing no allowance at all. That is the debt PAID, in
+  // the only currency this table takes: the row cleared the floor on its own.
+  // ⛔ Re-adding a locale row here would mean the catalogues came back.
   'ui-components': 4_289,
 });
 
@@ -2147,6 +2353,84 @@ export function readReport(reportPath) {
   }
 }
 
+/**
+ * Every status the four halves are declared to produce, and the only ones
+ * {@link foldHalfStatuses} knows how to weigh.
+ *
+ * DERIVED, not invented: it is the union of the four `@returns` unions above —
+ * {@link evaluateClosureBudget} and {@link evaluatePerChunkBudgets}
+ * (`pass | fail | error`), {@link evaluateHeadroomSensitivity}
+ * (`pass | error`), and {@link evaluateCeilingFreshness}
+ * (`pass | error | not-applicable`). `scripts/__tests__/` re-derives that union
+ * from this file's own text and reds when the two disagree, so a half that
+ * gains a FIFTH status cannot gain it without also being given a code here.
+ * That test is the reason this list may be written down at all (AGENTS.md #9):
+ * an instrument re-derives it.
+ */
+export const RECOGNISED_HALF_STATUSES = Object.freeze([
+  'pass',
+  'fail',
+  'error',
+  'not-applicable',
+]);
+
+/**
+ * Folds the halves' verdicts into one exit code, and names every half whose
+ * status this file does not recognise.
+ *
+ * objectui#9006 — the fold this replaces enumerated only the statuses that
+ * FAIL (`includes('error')`, then `includes('fail')`) and returned `0` for
+ * everything else. `pass` and `not-applicable` were meant to land there; a
+ * status NOBODY enumerated landed there too, while the printer above — which
+ * asks a different question, `status === 'pass'` — rendered that same value as
+ * ❌. A run could print a red cross and exit 0.
+ *
+ * ⛔ The repair is a DISTINCTION, not a tightening. Nothing that exists today
+ * moves: `pass` → 0, `fail` → 1, `error` → 2, and `not-applicable` stays
+ * exactly as INERT as the paragraph below says it must be — it is the absence
+ * of a question, not the answer `pass`, and it still contributes nothing.
+ * Only the unrecognised class changes, from silence to 2.
+ *
+ * WHY 2, AND WHY NOT A `throw`. Both were on the table (objectui#9006 lists
+ * four candidate shapes); the measurement that decides between them is what
+ * Node does with an uncaught exception:
+ *
+ *   - An uncaught `throw` exits Node with **1** — this file's "over budget"
+ *     code. A gauge that produced nothing would then be reported as a size
+ *     regression, which is the exact collapse the paragraph below refuses. A
+ *     `throw` is not louder; in the only unit a workflow reads, it is
+ *     MIS-LABELLED. It would also break `main`'s contract of RETURNING a code,
+ *     which both this file's entrypoint (`process.exit(main())`) and every
+ *     caller in the test file depend on.
+ *   - `2` is this file's own "no trustworthy verdict" code, and an
+ *     unrecognised status is precisely a check that measured nothing. The rule
+ *     stated below — a check that passes by measuring nothing must be LOUDER
+ *     than one that fails by measuring something, never quieter — is satisfied
+ *     by the ordering that already exists, rather than by inventing a rank
+ *     outside it.
+ *
+ * @param {Record<string, string>} halves  half name -> the status it declared
+ * @returns {{ code: number, unrecognised: { half: string, status: string }[] }}
+ *          `code` is 0, 1 or 2; `unrecognised` is empty on every run whose
+ *          halves all declared a recognised status.
+ */
+export function foldHalfStatuses(halves) {
+  const entries = Object.entries(halves);
+  const unrecognised = entries
+    .filter(([, status]) => !RECOGNISED_HALF_STATUSES.includes(status))
+    .map(([half, status]) => ({ half, status }));
+
+  // Ahead of the `error` test on purpose. Both return 2, so the ORDER cannot
+  // change an exit code — what it changes is whether the caller is told. A
+  // sibling half erroring in the same run must not be allowed to absorb the
+  // one signal that a status nobody enumerated exists at all.
+  if (unrecognised.length > 0) return { code: 2, unrecognised };
+
+  const statuses = entries.map(([, status]) => status);
+  if (statuses.includes('error')) return { code: 2, unrecognised };
+  return { code: statuses.includes('fail') ? 1 : 0, unrecognised };
+}
+
 /** Appends `name=value` lines to $GITHUB_OUTPUT when running in Actions. */
 function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
   if (!outputPath) return;
@@ -2258,9 +2542,30 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   // added the third and objectui#6245 the fourth, each under the same rule
   // rather than taking a code of its own. `not-applicable` is inert in the
   // fold: it is the absence of a question, not the answer `pass`.
-  const statuses = [result.status, perChunk.status, sensitivity.status, freshness.status];
-  if (statuses.includes('error')) return 2;
-  return statuses.includes('fail') ? 1 : 0;
+  //
+  // objectui#9006 — the fold itself lives in {@link foldHalfStatuses}, which
+  // recognises those four statuses BY NAME and refuses to weigh any other. The
+  // halves are passed as a NAMED map rather than an array so the refusal can
+  // say which half produced the status nobody enumerated.
+  const { code, unrecognised } = foldHalfStatuses({
+    closure: result.status,
+    'per-chunk': perChunk.status,
+    sensitivity: sensitivity.status,
+    freshness: freshness.status,
+  });
+  for (const { half, status } of unrecognised) {
+    // A ❌, matching what the printer above already rendered for this value:
+    // the two predicates now agree, which is the whole of objectui#9006.
+    console.error(
+      `❌ The \`${half}\` half declared an UNRECOGNISED status ${JSON.stringify(status)}, ` +
+        `so this run has no verdict to give and exits 2 rather than 0.\n` +
+        `Recognised statuses are ` +
+        `${RECOGNISED_HALF_STATUSES.map((s) => `\`${s}\``).join(', ')}. A half that gained a ` +
+        `fifth one must be given a code in RECOGNISED_HALF_STATUSES and in foldHalfStatuses — ` +
+        `until it is, this gate refuses to read its silence as a pass.`,
+    );
+  }
+  return code;
 }
 
 if (isEntrypoint(import.meta.url)) {

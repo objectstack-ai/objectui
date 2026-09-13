@@ -644,3 +644,116 @@ describe('objectui#8058 · a lookup whose target survives only as `referenceTo`'
     expect('referenceTo' in wire.moved_id).toBe(false);
   });
 });
+
+/**
+ * objectui#7714 - the refusal DIAGNOSES the state it found, on THIS writer too.
+ *
+ * The sibling block of the same name lives in
+ * `packages/app-shell/src/services/MetadataService.specKeyReference.test.ts`.
+ * The two assert the SAME four states deliberately: what both
+ * `describeUnusableTarget` docblocks claim is specifically PARITY, so a partial
+ * pin would leave that sentence false in a subtler way than no pin at all.
+ *
+ * ## Why this block exists - the measurement, not the intuition (objectui#8925)
+ *
+ * Both docblocks said the two copies "cannot drift" because each pin asserts
+ * the same four states. That had never been measured on this side. Replacing
+ * ONE branch of this page's `describeUnusableTarget` with a marker sentence and
+ * running the whole package, on `6214db63f`, gave:
+ *
+ *   absent           mutated -> 19 files / 149 tests passed   UNPINNED
+ *   non-string       mutated -> 19 files / 149 tests passed   UNPINNED
+ *   empty            mutated -> 19 files / 149 tests passed   UNPINNED
+ *   whitespace-only  mutated -> 1 failed                      pinned, but by
+ *       `MetadataFieldsPage.carriedThroughReference-8896.test.tsx` and only
+ *       through the words "whitespace names no object" - a card about a
+ *       different subject, which is why it covered one row and no other.
+ *
+ * The same four mutations on the sibling writer turned its pin red every time.
+ * So the parity sentence was false on three rows out of four while being read
+ * as a guarantee.
+ *
+ * ⛔ The lesson worth carrying, because it is what made this survive: the claim
+ * had been restated in THREE places - objectui#8897's card text, that card's
+ * triage comment, and both docblocks - and not one of the three was a reading.
+ * Repetition is not measurement. A parity claim is only worth its words when
+ * the files that would go red are named and can be re-run.
+ *
+ * ## Why the page, and not the function
+ *
+ * `describeUnusableTarget` is module-private, and pinning it directly would pin
+ * a string builder instead of what an author is shown. These cases drive the
+ * page the way the author does - through the fire-and-forget `onFieldsChange`
+ * the designer calls - and read the text back out of the page's error surface,
+ * so a correct sentence that never reaches the banner cannot pass here.
+ */
+describe('objectui#7714 · the refusal message distinguishes the four states', () => {
+  /**
+   * Drive one unusable target through the page and hand back what the author
+   * reads. Re-entrant on purpose: the non-string row takes two probes inside
+   * one case, and a second `render` without `cleanup` would leave two error
+   * surfaces in the document for `getByTestId` to choose between.
+   */
+  const refusalFor = async (reference: unknown): Promise<string> => {
+    cleanup();
+    designerProps = null;
+    puts = [];
+    await renderPage();
+    const next = [
+      ...designerProps!.fields,
+      { id: 'fld_x', name: 'x_id', label: 'X', type: 'lookup', referenceTo: reference },
+    ] as DesignerFieldDefinition[];
+    await act(async () => {
+      designerProps!.onFieldsChange!(next);
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('metadata-fields-page-error').textContent,
+        `reference=${JSON.stringify(reference)} should be refused`,
+      ).toMatch(/needs a `reference` naming the object it links to/),
+    );
+    // A diagnosed message is only worth anything if it also stopped the write.
+    expect(puts, `reference=${JSON.stringify(reference)} must issue no PUT`).toEqual([]);
+    return screen.getByTestId('metadata-fields-page-error').textContent ?? '';
+  };
+
+  it('absent → "has none", and names the 422 consequence', async () => {
+    const m = await refusalFor(undefined);
+    expect(m).toMatch(/has none/);
+    expect(m).toMatch(/blocks EVERY later save of this object/);
+  });
+
+  it('empty string → "is empty", not "has none"', async () => {
+    const m = await refusalFor('');
+    expect(m).toMatch(/is empty/);
+    expect(m).not.toMatch(/has none/);
+  });
+
+  it('non-string → names the KIND and `invalid_type`, and does not prescribe "supply a target"', async () => {
+    const m = await refusalFor(42);
+    expect(m).toMatch(/holds a number instead of an object name/);
+    expect(m).toMatch(/invalid_type/);
+    expect(m).not.toMatch(/has none/);
+    // `null` is typeof 'object'; spelling it as "null" is the accurate word.
+    expect(await refusalFor(null)).toMatch(/holds null instead of an object name/);
+  });
+
+  it('whitespace-only → names the TRIM the contract applies, and is not the "is empty" sentence', async () => {
+    const m = await refusalFor('   ');
+    expect(m).toMatch(/is blank/);
+    // What replaced "the spec ACCEPTS this value": since 17.4.0 the contract
+    // applies its non-empty test to the trimmed value, so this writer can now
+    // promise the 422 it used to have to withhold here.
+    expect(m).toMatch(/TRIMMED value/);
+    expect(m).toMatch(/422/);
+    expect(m).toMatch(/objectstack#16920/);
+    // Falsification, and the reason the four-state split survives the merge of
+    // the two refusals: blank must still not be rendered as either of the
+    // states that carry a different repair.
+    expect(m).not.toMatch(/is empty/);
+    expect(m).not.toMatch(/has none/);
+    // The retired claim must be GONE, not merely out-ranked by a new match.
+    expect(m).not.toMatch(/ACCEPTS this value/);
+    expect(m).not.toMatch(/would succeed/);
+  });
+});

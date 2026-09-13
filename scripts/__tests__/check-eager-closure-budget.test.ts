@@ -29,6 +29,8 @@ import {
   evaluateHeadroomSensitivity,
   evaluatePerChunkBudgets,
   extractCeilingDeclarations,
+  RECOGNISED_HALF_STATUSES,
+  foldHalfStatuses,
   main,
   measureChunksByName,
   renderTopChunks,
@@ -457,7 +459,13 @@ describe('chunk attribution (objectui#7399)', () => {
   /** Rolldown matches group tests against REALPATHS, measured on objectui#7399. */
   const moduleId = (relative: string) => path.join(repoRoot, relative);
 
-  const LOCALE_MODULE = moduleId('packages/i18n/src/locales/zh-CN.ts');
+  // ⚠️ A REAL catalogue path, not the invented `zh-CN.ts` this line carried
+  // until objectui#7479. The groups are per-code now
+  // (`i18n-locale-<code>`), so a probe id that matches no catalogue file would
+  // match no group and every case below would fail closed for the wrong reason.
+  const LOCALE_MODULE = moduleId('packages/i18n/src/locales/zh.ts');
+  const RESIDENT_LOCALE_MODULE = moduleId('packages/i18n/src/locales/en.ts');
+  const I18N_RUNTIME_MODULE = moduleId('packages/i18n/src/provider.tsx');
   const DATA_MODULE = moduleId('packages/data-objectstack/src/index.ts');
   const CORE_MODULE = moduleId('packages/core/src/index.ts');
 
@@ -475,7 +483,9 @@ describe('chunk attribution (objectui#7399)', () => {
       expect(groups.length).toBeGreaterThan(20);
       expect(groups.map((g) => g.name)).toEqual(expect.arrayContaining([
         'framework',
-        'i18n-locales',
+        'i18n-locale-en',
+        'i18n-locale-zh',
+        'i18n-runtime',
         'data-adapter',
         'ui-components',
         'infrastructure',
@@ -504,7 +514,9 @@ describe('chunk attribution (objectui#7399)', () => {
     });
 
     it.each([
-      ['the locale catalogue', LOCALE_MODULE, 'i18n-locales'],
+      ['the lazy locale catalogue', LOCALE_MODULE, 'i18n-locale-zh'],
+      ['the resident locale catalogue', RESIDENT_LOCALE_MODULE, 'i18n-locale-en'],
+      ['the i18n runtime', I18N_RUNTIME_MODULE, 'i18n-runtime'],
       ['the ObjectStack data adapter', DATA_MODULE, 'data-adapter'],
     ])('routes %s to `%s` at a priority `framework` cannot tie', (_what, id, expected) => {
       const framework = groups.find((g) => g.name === 'framework');
@@ -521,7 +533,7 @@ describe('chunk attribution (objectui#7399)', () => {
     });
 
     it('leaves no second claimant at the winner`s priority', () => {
-      for (const id of [LOCALE_MODULE, DATA_MODULE]) {
+      for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE]) {
         const claiming = claimants(id);
         const top = claiming[0].priority;
         expect(claiming.filter((g) => g.priority === top)).toHaveLength(1);
@@ -529,12 +541,41 @@ describe('chunk attribution (objectui#7399)', () => {
     });
   });
 
-  it('budgets the chunk the catalogue now lands in', () => {
-    // A re-attribution that moved 446 KB into a chunk with no ceiling would
-    // pass every case above while weakening the gate: the aggregate is the only
-    // line left over those bytes, and it is the loosest one.
-    expect(PER_CHUNK_GZIP_CEILINGS).toHaveProperty('i18n-locales');
-    expect(claimants(LOCALE_MODULE)[0].name).toBe('i18n-locales');
+  it('budgets the chunk the RESIDENT catalogue lands in', () => {
+    // A re-attribution that moved the catalogue into a chunk with no ceiling
+    // would pass every case above while weakening the gate: the aggregate is
+    // the only line left over those bytes, and it is the loosest one.
+    expect(PER_CHUNK_GZIP_CEILINGS).toHaveProperty('i18n-locale-en');
+    expect(claimants(RESIDENT_LOCALE_MODULE)[0].name).toBe('i18n-locale-en');
+  });
+
+  /**
+   * The half objectui#7479 added, and the reason the ten groups are ten rather
+   * than one: `advancedChunks` groups by MODULE. Ten catalogues in one group
+   * are one chunk, and a chunk is eager as soon as ANY of its members is — so a
+   * single shared group would have turned nine `import()` boundaries into
+   * nothing at all, with every source file still reading correctly.
+   *
+   * ⚠️ This pins the CONFIG. The bundle-level half is
+   * `scripts/check-eager-locale-catalogues.mjs`, which reads the built
+   * `eager-closure.json`; neither substitutes for the other, because this one
+   * cannot see a bundler that stops honouring the boundary and that one cannot
+   * run without a full build.
+   */
+  it('gives every catalogue a chunk of its OWN — a shared group would re-merge them', () => {
+    const CODES = ['en', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'pt', 'ru', 'ar'];
+    const winners = new Map<string, string>();
+    for (const code of CODES) {
+      const claiming = claimants(moduleId(`packages/i18n/src/locales/${code}.ts`));
+      // Fails closed: a catalogue no group claims would be chunked by
+      // reachability, which is not a fact this pin may assume.
+      expect(claiming.length).toBeGreaterThan(0);
+      winners.set(code, claiming[0].name);
+    }
+    expect([...winners.values()]).toEqual(CODES.map((code) => `i18n-locale-${code}`));
+    // The property that matters, stated as itself: ten codes, ten DISTINCT
+    // chunk names. Any collision is the shared-group defect above.
+    expect(new Set(winners.values()).size).toBe(CODES.length);
   });
 });
 
@@ -621,10 +662,11 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     // ceiling drift upward sees it coming rather than the day it reds. The
     // literal is `BASELINE.gzipBytes` rendered, re-taken each time the baseline
     // moves (objectui#6683 down to 3177.7, objectui#6776 down to 3146.8,
-    // objectui#7122 UP to 3468.0 on the authorised raise) — a
+    // objectui#7122 UP to 3468.0 on the authorised raise, objectui#7479 down to
+    // 3090.6 when nine locale catalogues left the eager closure) — a
     // rendering derived in the test would agree with the renderer by
     // construction and pin nothing.
-    expect(result.message).toContain('3468.0');
+    expect(result.message).toContain('3090.6');
   });
 
   it('is exactly one regression wide, from either side of the line', () => {
@@ -918,8 +960,12 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
      */
     describe('the allowance table is a ratchet, pinned', () => {
       it('holds exactly the rows measured under the floor on the day it landed', () => {
+        // ⚠️ `i18n-locales: 8_804` was here until objectui#7479 and is REMOVED,
+        // not lowered: its chunk ceased to exist when nine of the ten
+        // catalogues became `import()`ed, and the one that stays is budgeted
+        // under `i18n-locale-en` at a headroom ABOVE the floor, needing no
+        // allowance. That is the only way a row leaves this table.
         expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({
-          'i18n-locales': 8_804,
           'ui-components': 4_289,
         });
       });
@@ -1061,7 +1107,7 @@ describe('main', () => {
     // about the FIXTURE while the gate under test behaved correctly. The number
     // this case is actually about is "the report's chunk count, echoed".
     expect(outputs.closure_chunks).toBe(String(fixture.files.length));
-    expect(outputs.closure_gzip_kb).toBe('3468.0');
+    expect(outputs.closure_gzip_kb).toBe('3090.6');
   });
 
   it('exits 1 — a verdict about the BUNDLE — when over budget', () => {
@@ -1240,6 +1286,139 @@ describe('main', () => {
     // number here would render as a verdict about a bundle nobody weighed.
     expect(outputs.closure_gzip_kb).toBe('');
     expect(outputs.closure_chunks).toBe('');
+  });
+
+  /**
+   * objectui#9006 — the fold used to enumerate only the statuses that FAIL:
+   *
+   *     if (statuses.includes('error')) return 2;
+   *     return statuses.includes('fail') ? 1 : 0;
+   *
+   * so a status NEITHER test names fell through to `0` — while the printer,
+   * which asks a different question (`status === 'pass'`), rendered that same
+   * value as ❌. A run could print a red cross and exit 0, which is quieter
+   * than either half of the rule this file argues for: a check that passes by
+   * measuring nothing must be LOUDER than one that fails by measuring
+   * something, never quieter.
+   *
+   * ⚠️ These cases live HERE, and not only in the gate's own workflows, on
+   * purpose. `docs-route-eager-closure.yml` and `performance-budget.yml` are
+   * not among this repo's required merge-queue contexts, so a regression in
+   * the fold would not block a merge through the gate's own job. This file
+   * runs inside `Test (shard N/4)`, which is required (objectui#9098 landed
+   * the same reasoning one card earlier).
+   */
+  describe('the fold recognises exactly the statuses the halves declare (objectui#9006)', () => {
+    const checker = fs.readFileSync(checkerPath, 'utf8');
+
+    /** Both places this file states a half's status: the assignments, and the JSDoc unions. */
+    function declaredStatuses(source: string) {
+      const found = new Set<string>();
+      for (const m of source.matchAll(/\bstatus: '([a-z-]+)',/g)) found.add(m[1]);
+      for (const m of source.matchAll(/@returns \{\{ status: ([^,]+),/g)) {
+        for (const q of m[1].matchAll(/'([a-z-]+)'/g)) found.add(q[1]);
+      }
+      return found;
+    }
+
+    /**
+     * ⛔ The fence, and it is the half that is easy to get wrong: this card is
+     * a DISTINCTION, not a tightening. Every status that exists today keeps the
+     * code it has — `not-applicable` above all, which is inert BY DESIGN ("the
+     * absence of a question, not the answer `pass`") and must stay inert.
+     */
+    it.each([
+      ['every half passing', { closure: 'pass', perChunk: 'pass', sensitivity: 'pass', freshness: 'pass' }, 0],
+      ['freshness not-applicable, the rest passing', { closure: 'pass', perChunk: 'pass', sensitivity: 'pass', freshness: 'not-applicable' }, 0],
+      ['one half failing', { closure: 'fail', perChunk: 'pass', sensitivity: 'pass', freshness: 'not-applicable' }, 1],
+      ['one half erroring', { closure: 'pass', perChunk: 'pass', sensitivity: 'error', freshness: 'not-applicable' }, 2],
+      ['error outranking fail', { closure: 'fail', perChunk: 'pass', sensitivity: 'error', freshness: 'pass' }, 2],
+    ])('leaves %s at its existing exit code', (_label, halves, expected) => {
+      const { code, unrecognised } = foldHalfStatuses(halves as Record<string, string>);
+      expect(code).toBe(expected);
+      expect(unrecognised).toEqual([]);
+    });
+
+    it('is LOUD about a status no half declares, instead of folding it into 0', () => {
+      // 'errror' rather than an obviously-fake token: the realistic arrival of
+      // this class is a typo or a fifth status added to one half without
+      // editing the fold, not a hostile input.
+      const { code, unrecognised } = foldHalfStatuses({
+        closure: 'errror',
+        perChunk: 'pass',
+        sensitivity: 'pass',
+        freshness: 'not-applicable',
+      });
+      // 2, not 1 and not a throw: an unrecognised status is a check that
+      // measured nothing, which is this file's exit 2. An uncaught throw would
+      // exit Node with 1 — the "over budget" code — labelling a broken gauge
+      // as a size regression, the one collapse `main`'s own comment refuses.
+      expect(code).toBe(2);
+      expect(unrecognised).toEqual([{ half: 'closure', status: 'errror' }]);
+    });
+
+    it('names the offending half even when a sibling half independently errors', () => {
+      // Both paths return 2, so this is not about the exit code: it is about
+      // the run that could reveal a status nobody enumerated not being the run
+      // that hides it behind an unrelated error.
+      const { code, unrecognised } = foldHalfStatuses({
+        closure: 'error',
+        perChunk: 'pass',
+        sensitivity: 'wobbly',
+        freshness: 'not-applicable',
+      });
+      expect(code).toBe(2);
+      expect(unrecognised).toEqual([{ half: 'sensitivity', status: 'wobbly' }]);
+    });
+
+    it('keeps `not-applicable` inert in the very run an unrecognised status is loud', () => {
+      // The control of known direction. One run, two classes that both fall
+      // through today: only ONE of them moves.
+      const { unrecognised } = foldHalfStatuses({
+        closure: 'pass',
+        perChunk: 'pass',
+        sensitivity: 'nearly-pass',
+        freshness: 'not-applicable',
+      });
+      expect(unrecognised.map((u) => u.half)).toEqual(['sensitivity']);
+      expect(unrecognised.map((u) => u.status)).not.toContain('not-applicable');
+      // And alone, it is still worth 0 — unchanged from before this card.
+      expect(
+        foldHalfStatuses({ closure: 'pass', perChunk: 'pass', sensitivity: 'pass', freshness: 'not-applicable' }).code,
+      ).toBe(0);
+    });
+
+    /**
+     * The tripwire for the case the card is actually about: a half gaining a
+     * FIFTH status. `RECOGNISED_HALF_STATUSES` is a written-down list, so
+     * AGENTS.md #9 requires an instrument that re-derives it — this is that
+     * instrument, reading the checker's own text rather than a copy.
+     */
+    it('recognises exactly the statuses this file declares, re-derived from its source', () => {
+      expect([...declaredStatuses(checker)].sort()).toEqual([...RECOGNISED_HALF_STATUSES].sort());
+    });
+
+    it('extracts statuses at all — a matcher that matches nothing agrees with everything', () => {
+      // Without this control the assertion above passes for the wrong reason
+      // the moment the shape it reads changes.
+      expect([...declaredStatuses(checker)].length).toBe(RECOGNISED_HALF_STATUSES.length);
+      expect([...declaredStatuses("      status: 'wobbly',")]).toEqual(['wobbly']);
+      expect([...declaredStatuses(" * @returns {{ status: 'pass' | 'wobbly', message: string,")].sort()).toEqual(
+        ['pass', 'wobbly'],
+      );
+    });
+
+    /**
+     * The floor above is only a floor while `main` actually routes through the
+     * function it tests. Re-inlining the two membership tests would leave these
+     * cases green against a function nothing calls.
+     */
+    it('is the fold `main` itself uses, not a parallel copy', () => {
+      const mainBody = checker.slice(checker.indexOf('export function main('));
+      expect(mainBody).toContain('evaluateCeilingFreshness({');
+      expect(mainBody).toContain('foldHalfStatuses({');
+      expect(mainBody).not.toMatch(/statuses\.includes\(/);
+    });
   });
 });
 
@@ -1719,7 +1898,7 @@ describe('the prose attached to the baselines (objectui#7046)', () => {
 
     // ...and the neighbours are not swept in. Each baseline sits directly under
     // the ceiling it was measured for, whose block is much the larger of the two.
-    expect(baseline.prose).not.toContain('Re-baselined DOWNWARD three times');
+    expect(baseline.prose).not.toContain('Re-baselined DOWNWARD four times');
     expect(perChunk.prose).not.toContain('## Raising one');
 
     // The code is not prose. Without this the positive pin below would be

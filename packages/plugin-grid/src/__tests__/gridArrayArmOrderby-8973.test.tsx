@@ -67,6 +67,36 @@ import { resetRetiredSortSpellingReports } from '@object-ui/core';
 // Registers `object-grid` and its `view:grid` alias.
 import '../index';
 
+/**
+ * The repo root, derived from THIS FILE's own location — never from
+ * `process.cwd()` (objectui#7799, and the gate that closed the class,
+ * objectui#8953).
+ *
+ * The read below stood on `join(process.cwd(), …)` under the comment "Read off
+ * the vitest root — this project's `import.meta.url` is not a file URL, so the
+ * sibling `import.meta`-relative idiom does not work here". BOTH HALVES OF THAT
+ * ARE FALSE, and each had already been falsified before this file was written:
+ *
+ *  - `import.meta.url` IS a `file:` URL in this project. objectui#7800
+ *    (comment 5555131785) measured it across three packages and both cwds; the
+ *    sibling `packages/plugin-grid/src/__tests__/groupedPartialDisclosure-7189.test.tsx`
+ *    has derived its root this way since PR #7806. What Vite rewrites is the
+ *    TWO-ARGUMENT `new URL(rel, import.meta.url)`, which is why only the bare
+ *    form is read here and taken apart by hand.
+ *  - "the vitest root" and `process.cwd()` are not the same directory. This
+ *    package's own `test` script — `vitest run --root ../.. packages/plugin-grid/`,
+ *    which is what `pnpm --filter @object-ui/plugin-grid test` and
+ *    `turbo run test` both run — sets the VITEST root to the repo root and
+ *    leaves the cwd in `packages/plugin-grid/`, so the path below resolved to
+ *    `packages/plugin-grid/packages/plugin-grid/src/ObjectGrid.tsx` and the read
+ *    threw (objectui#7791, objectui#7799).
+ */
+const SELF_DEPTH_BELOW_REPO_ROOT = 5; // packages / plugin-grid / src / __tests__ / this file
+const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
+  .split('/')
+  .slice(0, -SELF_DEPTH_BELOW_REPO_ROOT)
+  .join('/');
+
 function makeAdapter() {
   return {
     find: vi.fn().mockResolvedValue({
@@ -191,9 +221,8 @@ describe('object-grid — the arms this card deliberately does NOT move', () => 
     // documented at the read site as deliberate — it is the shape the server
     // names in its own error messages and it survives a field name containing
     // a space. Both shapes are accepted by `normalizeSortNodes`.
-    // Read off the vitest root — this project's `import.meta.url` is not a
-    // file URL, so the sibling `import.meta`-relative idiom does not work here.
-    const src = readFileSync(join(process.cwd(), 'packages/plugin-grid/src/ObjectGrid.tsx'), 'utf8');
+    // Rooted at this file, never at the cwd — see `REPO_ROOT` above.
+    const src = readFileSync(join(REPO_ROOT, 'packages/plugin-grid/src/ObjectGrid.tsx'), 'utf8');
 
     // Instrument check FIRST, in both directions: a probe that silently read
     // the wrong file (or an empty one) would make every `toContain` below a

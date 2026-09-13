@@ -110,6 +110,72 @@ export function resolveVisibleOptions<T extends OptionLike>(
 }
 
 /**
+ * The text an option widget SHOWS for one option: its `label`, or its `value`
+ * when the label is blank (objectui#9230).
+ *
+ * ## Why a blank label reaches a renderer at all — it is a LEGAL document
+ *
+ * This is deliberately NOT the lenient renderer fallback AGENTS.md #0.1
+ * forbids. That rule governs metadata the contract REFUSES ("if the metadata
+ * is off-spec, fix it at the producer"); an empty label is metadata the
+ * contract ACCEPTS. Measured on the installed `@objectstack/spec` 17.4.0,
+ * `SelectOptionSchema`:
+ *
+ *   { value: 'low', label: 'Low' } -> ACCEPT   (lit control)
+ *   { value: 'low', label: '' }    -> ACCEPT   <- the key reading
+ *   { value: 'low' }               -> REJECT invalid_type at [label]
+ *
+ * `@object-ui/types` mirrors that reading in prose on `SelectOptionBase`:
+ * "An empty string is a valid label; an ABSENT one is not." So the producer
+ * is right to emit `label: ''` — the field designer's `patchOptions` does,
+ * under the objectui#7014 Q2 ruling, and a pin
+ * (`ObjectFieldInspector.optionLabel.test.tsx`) fails if it ever invents
+ * content to fill the hole instead. A document every layer calls legal has to
+ * render as something a person can click.
+ *
+ * ## What the contract does NOT say, and who had already answered it
+ *
+ * The spec states no display default for a legal-but-blank label, so nothing
+ * upstream decides this. objectui had nevertheless already decided it — on
+ * HALF its read sites. Measured across the four option widgets before this
+ * helper existed, with `{ value: 'low', label: '' }` authored and
+ * `{ value: 'high', label: 'High' }` beside it as the lit control:
+ *
+ *   | widget      | readonly path      | interactive path |
+ *   | select      | "low"              | ""               |
+ *   | multiselect | "low"              | ""               |
+ *   | radio       | "low"              | ""               |
+ *   | checkboxes  | "low"              | ""               |
+ *
+ * Four summary paths spelled `opt?.label || value` and fell back; the four
+ * interactive paths spelled `{opt.label}` and rendered nothing. So the same
+ * option read "low" in a read-only form and blank in the editable one — the
+ * bug was never "tolerate or refuse", it was a widget family disagreeing with
+ * itself, and the blank half is the one a person has to click.
+ *
+ * This function is that decision written ONCE, the same "one definition, N
+ * surfaces" move as {@link CASCADE_OPTION_WIDGET_TYPES} below. All eight sites
+ * call it, so the two halves cannot drift apart again.
+ *
+ * ## Boundaries
+ *
+ * - Blank means TRIM-empty, so a whitespace-only label falls back too: it is
+ *   the same invisible row to the person looking at it, and it is the
+ *   spelling the producer's own reader already uses to call an authored
+ *   `value` blank (`classifyOption`, `o.value.trim() === ''`).
+ * - `label` is typed required, but this reads defensively because renderers
+ *   are handed unvalidated runtime metadata: a non-string label must fall back
+ *   rather than throw where `{opt.label}` merely rendered nothing.
+ * - This changes DISPLAY only. It writes nothing, and it is not a licence to
+ *   author blank labels — whether the contract should refuse them outright is
+ *   a `packages/spec` question, not a renderer one.
+ */
+export function optionDisplayLabel(option: OptionLike): string {
+  const { label } = option;
+  return typeof label === 'string' && label.trim() !== '' ? label : String(option.value);
+}
+
+/**
  * Whether a scalar field value is still valid given the currently-visible
  * options — used to decide a cascade clear (parent changed, child's old choice
  * no longer offered). An empty value is always "valid" (nothing to clear).

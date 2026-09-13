@@ -301,11 +301,19 @@ describe('objectui#8827 — the per-lane placeholder is the same claim and takes
   /**
    * `KanbanColumnView` renders the SAME `kanban.noCards` string inside any lane
    * with no cards, suppressed only when the board-level empty state is already
-   * saying it. On a SINGLE-lane board `isBoardEmpty` is false — it requires
-   * `boardColumns.length > 1` — so the board-level gate never runs there and
-   * the placeholder was the only thing on screen, still claiming "No cards"
-   * over rows in flight. Gating only the live region would have left the false
-   * claim alive on exactly the boards the live region never covered.
+   * saying it. When this was written, `isBoardEmpty` additionally required
+   * `boardColumns.length > 1`, so on a SINGLE-lane board the board-level gate
+   * never ran and the placeholder was the only thing on screen, still claiming
+   * "No cards" over rows in flight. Gating only the live region would have left
+   * the false claim alive on exactly the boards the live region never covered.
+   *
+   * ⚠️ objectui#9045 has since made `isBoardEmpty` blind to the lane count, so
+   * a settled single-lane empty board now reaches the BOARD-level region and
+   * the placeholder gives way to it. ⭐ Both legs below are unchanged and both
+   * still measure what they always did: nothing may say "No cards" while the
+   * rows are in flight, and something must say it once they settle with none.
+   * ⛔ What changed is which element says it, which neither leg reads —
+   * `emptyStateLaneCountBlind-9045.test.tsx` is where that is pinned.
    */
   const ONE_LANE = [{ id: 'todo', title: 'To Do' }];
 

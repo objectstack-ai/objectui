@@ -23,6 +23,7 @@ import type { PercentScale } from '@objectstack/spec/data';
 import { formatDisplayNumber, type DisplayNumberFormatOptions } from './number-display.js';
 import { formatDate, formatDateTime, formatRelativeDate } from './date-display.js';
 import { resolveMeasureLabel, type BuiltinAggregateLabels } from './chart-series.js';
+import { composeDrillFilter } from './drill-down.js';
 
 /**
  * Column metadata the analytics server returns alongside the rows — the spec's
@@ -520,9 +521,49 @@ export interface DatasetDrillRange {
  * Each drillable dimension maps to its underlying object field, filtered by the
  * dimension's RAW grouped value (from the server's parallel `drillRawRows`, NOT
  * the visible row which carries the display LABEL — a select/lookup label would
- * mis-filter). An empty/undefined raw value normalizes to `null` (an explicit
- * "is empty" filter). The render-time `runtimeFilter` is ANDed in so the drilled
- * list stays within the same slice the aggregate was computed over.
+ * mis-filter). The render-time `runtimeFilter` is ANDed in so the drilled list
+ * stays within the same slice the aggregate was computed over.
+ *
+ * ## What the EMPTY bucket means, and why it is spelled `{ $null: true }`
+ *
+ * A drill must return exactly the rows the clicked bucket COUNTED. The empty
+ * bucket is the one the aggregate grouped rows with NO VALUE for that dimension
+ * into, so the drill means "this dimension has no value" — NOT "this dimension
+ * holds the literal value null". Those are different row sets, and the
+ * difference is measurable rather than theoretical: against `ValueDataSource`'s
+ * matcher over rows `{owner:'alice'}` / `{owner:null}` / `{}` (no `owner` key),
+ * `['owner','is_null',true]` selects the explicit-null row AND the missing-key
+ * row, while an equality test against `null` selects only the explicit-null one
+ * and drops the row that has no `owner` at all. The bucket counted both, so
+ * is-null is the one that agrees with the number the user clicked.
+ *
+ * ⇒ every empty authoring — `''`, `null` and `undefined` alike — becomes ONE
+ * spelling, `{ [field]: { $null: true } }`, which `convertFiltersToAST` lowers
+ * to `[field, 'is_null', true]`. The three are not told apart because the
+ * server already merged them into the single bucket the user clicked; there is
+ * no second bucket here for a second spelling to address.
+ *
+ * ⚠️ This value used to be a bare `null`, and that is the defect objectui#9085
+ * records: `convertFiltersToAST`'s OLDEST pinned behaviour is to SKIP a key
+ * whose value is `null` / `undefined` (pinned as "should skip null and
+ * undefined values"), so the constraint was dropped on the way to the wire and
+ * the empty-bucket drill answered with a SUPERSET — every row, silently. The
+ * repair is here at the PRODUCER and ⛔ not at that converter: the skip is
+ * relied on by other producers, and changing it would move every caller's
+ * meaning at once (objectui#9020 ruled it stays). `$null` is not a new
+ * vocabulary either — it is a declared spec operator this dialect already
+ * lowers, and the one spelling that says the same thing on BOTH of
+ * `ValueDataSource`'s routes, where a bare `null` said "only an explicit null"
+ * on the plain-object route and "no constraint at all" on the AST route.
+ *
+ * ⚠️ Known BOUNDARY, unchanged by this and deliberately not widened: the drill
+ * "escape hatch" (the host's `openRecordList`, which serializes a drill filter
+ * into `filter[...]` URL params) has NO spelling for is-null — its operator
+ * vocabulary is equality plus four range bounds — so it drops this condition
+ * exactly as it already dropped the bare `null`, byte-for-byte the same query
+ * string. That surface is a superset today and stays one; closing it needs a
+ * URL-dialect operator on both the write and the read side, which is its own
+ * card.
  *
  * A time-bucketed date dimension (#1752) drills by RANGE, not equality — a
  * humanized bucket ("2026-Q2") can't be exact-matched, so the server sends a
@@ -531,6 +572,75 @@ export interface DatasetDrillRange {
  * scopes the list to the clicked time bucket instead of every bucket (which the
  * old date-dim skip degraded to — a superset).
  *
+ * ## The widget filter is CONJOINED, not spread (objectui#9137)
+ *
+ * ⛔ `runtimeFilter` is composed through {@link composeDrillFilter}, never by
+ * spreading it into the object literal below. Spreading is correct only for the
+ * OBJECT arm; this parameter's declared producer sends the ARRAY arm. The
+ * dashboard's `DashboardWidgetSchema.filter` docblock states it outright —
+ * "objectui passes an ObjectQL FilterNode array here, not the spec's
+ * `FilterCondition` envelope" — and `DatasetWidget`'s guard admits it
+ * (`typeof [] === 'object'` and `Object.keys(['x']).length === 1` are both
+ * true), so the array arm reached this line unfiltered. Spreading an ARRAY
+ * yields INDEX keys: `[['region','=','emea']]` became
+ * `{ '0': ['region','=','emea'] }`, which is not a condition anyone can honour.
+ *
+ * ⚠️ MEASURED, and it is NOT the silent superset the sibling sites had. An
+ * index key is not dropped on the way to the wire — every sink in circulation
+ * refuses it LOUDLY, because a bare array is not a legal equality comparand
+ * (objectui#8530 / objectui#8514): `convertFiltersToAST` THROWS
+ * `FilterOperatorError`, `driver-sql` answers `400 INVALID_FILTER`, and
+ * `ValueDataSource`'s matcher selects NOTHING. Against rows scoped
+ * `region = 'emea'`, drilling the `stage = 'won'` bucket returned `(none)`
+ * where the widget alone returned three rows and the conjunction returns the
+ * right two. So the widget's conditions were not merely lost — the drill was
+ * dead in the array arm. The failure is fail-CLOSED here, and this is the third
+ * site of the class objectui#8944 (chart) and objectui#9024 (pivot) removed.
+ *
+ * Three properties of THIS site, each confirmed rather than assumed — it is not
+ * a copy-paste of the other two:
+ *
+ * 1. The return stays a NON-optional `Record<string, unknown>`, because callers
+ *    do not expect `undefined`. `composeDrillFilter` answers `undefined` when
+ *    both sources are empty, so that one case is spelled `?? {}` — the same
+ *    empty object this function already returned for a bucket with no dims.
+ * 2. Range operators SURVIVE. A time-bucketed dim contributes
+ *    `{ $gte, $lt }`, and the composition re-spells it as two `$and` children
+ *    on the same field (`[{d:{$gte}},{d:{$lt}}]`) rather than losing a bound;
+ *    the selected rows are identical, and `serializeDrillFilterParams` walks
+ *    `$and` (objectui#8944) so both bounds still reach `filter[d][gte|lt]`.
+ * 3. `runtimeFilter` is declared `unknown`, which is what the two consumers
+ *    actually hand it — `any` from the dashboard, `Record<string, unknown>`
+ *    from `DatasetReportRenderer`. Widening the PARAMETER is what admits both
+ *    without a cast; ⛔ neither consumer's own type is changed by this.
+ *
+ * ⚠️ Conjunction changes one behaviour deliberately: a field named by BOTH the
+ * widget filter and the clicked bucket used to be overwritten by the bucket,
+ * and now both conditions apply. That is the point — a drill may narrow the
+ * widget's scope and may never widen it — and it is the posture the chart and
+ * pivot sites already ship.
+ *
+ * ## ⭐ Only the COMPOSING leg moves; the identity leg is left byte-identical
+ *
+ * The sink is asked only when there IS a second source. That is this site's
+ * one departure from `ObjectChart` / `ObjectPivotTable`, which call it
+ * unconditionally, and it is deliberate rather than a shortcut: the spread
+ * this replaces only ever ran when `runtimeFilter` was present, so the
+ * no-widget-filter path carries no defect to repair.
+ *
+ * ⚠️ Routing it anyway was MEASURED and rejected. `composeDrillFilter`'s own
+ * note — "a lone surviving source lowers back to exactly the flat object the
+ * spread produced" — holds only for a source of ONE condition; with two it
+ * lowers to `$and`, because `convertFiltersToAST` emits one node per condition
+ * and `parseFilterAST` cannot fold two nodes back onto one key. A `{ $gte,
+ * $lt }` range is two conditions on its own, so even a single date bucket
+ * re-spells. Sending the identity leg through the sink therefore re-shaped
+ * every multi-condition dataset drill — including the controls objectui#9085,
+ * objectui#4056, objectstack#5473 and #1752 pin on paths this card does not
+ * touch — for ZERO change in the rows selected or the `filter[...]` params
+ * emitted. ⛔ Do not "simplify" this to an unconditional call without redoing
+ * that measurement.
+ *
  * Shared by the dashboard `DatasetWidget` and the report renderer so a drill
  * filters identically (and correctly, including lookups) on both surfaces.
  */
@@ -538,18 +648,26 @@ export function buildDatasetDrillFilter(
   rawRow: Record<string, unknown> | undefined,
   drillDims: string[],
   dimensionFields: Record<string, string>,
-  runtimeFilter?: Record<string, unknown>,
+  runtimeFilter?: unknown,
   rawRanges?: Record<string, DatasetDrillRange>,
 ): Record<string, unknown> {
   const drillFilter: Record<string, unknown> = {};
   for (const d of drillDims) {
     const raw = rawRow?.[d];
-    drillFilter[dimensionFields[d]] = raw === '' || raw === undefined ? null : raw;
+    // `null` is in this test, not only `''` / `undefined`: JSON cannot carry
+    // `undefined`, so a SQL NULL grouped value arrives over the wire AS `null`
+    // — it is the empty bucket's most common shape, and leaving it out would
+    // fix the defect for the spellings the wire rarely uses.
+    drillFilter[dimensionFields[d]] =
+      raw === '' || raw === null || raw === undefined ? { $null: true } : raw;
   }
   if (rawRanges) {
     for (const r of Object.values(rawRanges)) {
       if (r && r.field) drillFilter[r.field] = { $gte: r.gte, $lt: r.lt };
     }
   }
-  return runtimeFilter ? { ...runtimeFilter, ...drillFilter } : drillFilter;
+  // ⛔ The composition is `composeDrillFilter`'s, never a spread. The identity
+  // leg is deliberately left alone — see "only the composing leg moves" above.
+  // `?? {}` is property 1: the empty/empty answer stays an empty object.
+  return runtimeFilter ? composeDrillFilter(runtimeFilter, drillFilter) ?? {} : drillFilter;
 }

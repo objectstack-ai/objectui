@@ -96,7 +96,14 @@ const StackRenderer = forwardRef<HTMLDivElement, { schema: StackSchema; classNam
         className={stackClass} 
         style={style}
       >
-        {schema.children && renderChildren(schema.children)}
+        {/* ⛔ No `&&` guard: the slot IS the left operand, so a legal
+            authored `children: 0` would render the character (objectui#9162).
+            `renderChildren` is the guard — its `isEmptyNodeSlot` first leg
+            answers every falsy input with `null`, and it is reachable only
+            because nothing short-circuits ahead of it. Pinned in
+            `renderers/__tests__/node-slot-numeric-falsy.test.tsx`; the
+            spelling is held by `object-ui/no-bare-node-slot-guard`. */}
+        {renderChildren(schema.children)}
       </div>
     );
   }

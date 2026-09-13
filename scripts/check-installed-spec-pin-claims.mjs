@@ -506,9 +506,9 @@ export const LEDGER = [
     file: "packages/app-shell/src/services/MetadataService.ts",
     package: "@objectstack/spec",
     version: "17.2.0",
-    sites: 3,
+    sites: 2,
     class: "stale",
-    why: "Three sites in one docblock family, all stamping `unrecognized_keys` behaviour \"measured against the installed @objectstack/spec 17.2.0 (ESM build)\".",
+    why: "Two sites in one docblock family, both stamping `unrecognized_keys` behaviour \"measured against the installed @objectstack/spec 17.2.0 (ESM build)\". Was three until objectui#8676: the third sat on the relationship-type list's docblock, which moved to `@object-ui/data-objectstack`'s `object-metadata-write-guard.ts` \u2014 and did NOT take the version stamp with it. The claim it stamped is now re-measured on every run by that module's derivation pin instead of recalled at a version, which is what this ledger wants of a citation rather than one more row.",
   },
   {
     file: "packages/app-shell/src/views/RecordDetailView.relatedListFilter-4664.test.tsx",

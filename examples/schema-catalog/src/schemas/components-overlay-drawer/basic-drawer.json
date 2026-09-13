@@ -5,7 +5,7 @@
     "label": "Open Drawer"
   },
   "title": "Drawer Title",
-  "children": [
+  "content": [
     {
       "type": "text",
       "content": "Drawer content"

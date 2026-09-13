@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
@@ -76,6 +76,14 @@ export const DivSchema = BaseSchema.extend({
 export const BoxSchema = BaseSchema.extend({
   type: z.literal('box'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this box node',
+    '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/box.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -85,6 +93,14 @@ export const TextSpanSchema = BaseSchema.extend({
   type: z.literal('span'),
   value: z.string().optional().describe('Text content'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this span node',
+    '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/basic/span.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -199,6 +215,20 @@ export const SeparatorSchema = BaseSchema.extend({
   type: z.literal('separator'),
   orientation: z.enum(['horizontal', 'vertical']).optional().describe('Separator orientation'),
   decorative: z.boolean().optional().describe('Whether decorative'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `orientation`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `orientation`.',
+  ),
 });
 
 /**
@@ -213,6 +243,14 @@ export const ContainerSchema = BaseSchema.extend({
   centered: z.boolean().optional().describe('Center the container'),
   padding: z.number().optional().describe('Padding value'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this container node',
+    '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/container.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -232,6 +270,14 @@ export const FlexSchema = BaseSchema.extend({
   gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
   wrap: z.boolean().optional().describe('Allow items to wrap'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this flex node',
+    '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -245,6 +291,14 @@ export const StackSchema = BaseSchema.extend({
   gap: z.number().optional(),
   wrap: z.boolean().optional(),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this stack node',
+    '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/stack.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -273,6 +327,14 @@ export const GridSchema = BaseSchema.extend({
   ]).optional().describe('Number of columns (responsive)'),
   gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this grid node',
+    '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/grid.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -324,6 +386,14 @@ export const ScrollAreaSchema = BaseSchema.extend({
   width: z.union([z.string(), z.number()]).optional().describe('Width of scroll container'),
   orientation: z.enum(['vertical', 'horizontal', 'both']).optional().describe('Scrollbar orientation'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this scroll-area node',
+    '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/complex/scroll-area.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -346,6 +416,20 @@ export const ResizableSchema = BaseSchema.extend({
   minHeight: z.union([z.string(), z.number()]).optional().describe('Minimum height'),
   withHandle: z.boolean().optional().describe('Show resize handle'),
   panels: z.array(ResizablePanelSchema).describe('Resizable panels'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
+  ),
 });
 
 /**

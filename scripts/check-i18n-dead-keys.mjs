@@ -63,7 +63,14 @@
  *     at all, therefore invisible to every leg here at once) now marks its
  *     family live. See that gate's header, "Key-building helpers".
  *
- * A key not covered by any of the three is a CANDIDATE. Two things this
+ * A FOURTH source of heads was added by objectui#8754 and does not come out of
+ * `analyze()` at all: `collectIndirectTemplateHeads()` in THIS file reads a
+ * template assigned to a local ONE HOP before `t()` — the shape that put eight
+ * keys a shipping screen renders into CONFIRMED. It feeds reachability only,
+ * never the call-site gate's family registry; its own docstring says why, and
+ * what it still cannot see.
+ *
+ * A key not covered by any of the four is a CANDIDATE. Two things this
  * mechanism does NOT see, both false-positive sources by construction, both
  * closed by the text safety net below rather than by widening the AST walk:
  *
@@ -160,9 +167,32 @@
  * import edge:
  *
  *   grep -rn --include=*.ts --include=*.tsx -E \
- *     "import \{[^}]*\b(en|zh|builtInLocales|ja|ko|de|fr|es|pt|ru|ar)\b[^}]*\}" \
+ *     "import \{[^}]*\b(en|zh|builtInLocales|getLoadedBuiltInLocales|ja|ko|de|fr|es|pt|ru|ar)\b[^}]*\}" \
  *     packages apps examples e2e \
  *     | grep "@object-ui/i18n" | grep -v '^packages/i18n/'
+ *
+ * ⭐ `getLoadedBuiltInLocales` joined that alternation with objectui#7479, and
+ * the reason is the whole point of deriving the population rather than listing
+ * it. That card made nine of the ten catalogues lazy, so a module that holds a
+ * pack OBJECT and indexes into it no longer has to NAME a pack in its import —
+ * it asks the registry for whatever is resident. `outboundAgentText.ts` is
+ * exactly that module and it changed in precisely that way: same dynamic
+ * `ai?.[key]` read, same four keys kept alive, and it fell straight out of a
+ * derivation keyed on pack NAMES. ⇒ the class this leg covers is "reaches a
+ * pack object and indexes into it", ⛔ never "writes a pack's name in an
+ * import"; a widening here is the correct response to a new way of reaching
+ * one, and a bullet quietly disappearing is not.
+ *
+ * ⚠️ THE WIDENING HAS TWO HALVES, and objectui#7479 shipped only one of them
+ * the first time. The alternation above selects the POPULATION; the binding
+ * walk below decides what each member is read as. Widening the first alone put
+ * two files in the population that bound nothing — and a member with no read
+ * row is precisely what this suite's own assertion calls a file the report says
+ * nothing about. It passed on the branch and failed in the merge queue, because
+ * the assertion arrived on `main` from objectui#9046 after the branch last
+ * built: neither change is wrong alone, and together they are. ⇒ ⛔ never widen
+ * the alternation without asking what the binding walk does with the shape it
+ * just admitted.
  *
  * NO MATCH COUNT IS STATED IN THIS SECTION, and the absence is the fix rather
  * than an omission (objectui#8752). It used to open with one — "19 matches
@@ -200,10 +230,22 @@
  *     above them — BY LUCK, NOT BY DESIGN. Do NOT read this file as covered by
  *     the leg. Replace that union with anything generated and all four keys
  *     drop to CONFIRMED with a live consumer still reading them.
+ *     ⚠️ Since objectui#7479 it reaches the pack through
+ *     `getLoadedBuiltInLocales()` rather than a static `zh`/`en` import. NOTHING
+ *     about the reading above changed — same dynamic index, same four keys, same
+ *     luck — but the DERIVATION had to be widened to keep seeing it (see the
+ *     alternation above). It is the one importer in this list whose membership
+ *     depends on that widening, which is why it is said here as well as there.
  *   - `packages/plugin-grid/demo/main.tsx` and
  *     `packages/plugin-grid/demo/bulk-actions.tsx` — whole-pack `resources`
  *     wiring only, no per-key property reads: nothing for the leg to see and
  *     nothing at risk.
+ *     ⚠️ Since objectui#7479 `main.tsx` names the pack SUBPATH, the published
+ *     all-ten door, because the entry no longer re-exports nine of them. The
+ *     wiring above is unchanged to the byte; only the specifier moved. The
+ *     population grep matches a subpath already (it tests the line for the
+ *     package name), so the binding walk had to match one too — see the two
+ *     halves warning above.
  *   - `packages/react/src/utils/nonGridRowCeiling.tsx` — the importer this
  *     section was missing when objectui#8752 was filed, and the one worth
  *     reading twice: it is the first instance in this tree of class 4 below.
@@ -302,6 +344,32 @@
  *      by a builder shape the key-builder leg does not read: anything but one
  *      returned template literal, and anything that composes the head across
  *      modules.
+ *      ⇒ NARROWED since objectui#8754, and the narrowing is one sub-shape, not
+ *      the class. The one-hop ASSIGNMENT — a template built into a local and
+ *      handed to `t()` as a bare identifier — is now read by
+ *      `collectIndirectTemplateHeads()` above. It was this class's costliest
+ *      instance in the tree: eight keys a shipping screen renders, in CONFIRMED,
+ *      whose deletion from all ten packs turned nothing red (measured,
+ *      objectui#8754).
+ *      ⛔ The class is NOT closed, and objectui#7844 states the real boundary:
+ *      「the boundary is not 「resolver」 or 「array」; it is that the key
+ *      expression is not at the call site」. Two sub-shapes of it are on `main`
+ *      today and are DARK to every leg here, measured after the narrowing
+ *      landed rather than assumed:
+ *        - a template passed as an ARGUMENT to a same-module resolver —
+ *          `apps/console/src/pages/settings/useSettingsLabel.ts`, head
+ *          `actions.`. Not an assignment, so the hop above does not reach it.
+ *        - a template as one ELEMENT of a returned ARRAY of candidate keys —
+ *          `packages/i18n/src/useObjectLabel.ts`, head `fields.`. Same.
+ *      Neither head is collected by any leg in this file; today neither holds a
+ *      CONFIRMED key, so nothing is at RISK through them — but that is a fact
+ *      about what else happens to spell those keys, not a guarantee, and it is
+ *      the same "by luck, not by design" state class 1 records. Widening to
+ *      reach them is objectui#7844's subject, and objectui#7592 measured why it
+ *      is a separate decision: "any template literal whose head resolves"
+ *      matches 28 heads repo-wide, 25 already declared, and fires
+ *      `undeclared-dynamic-family` — a RED gate — on both of these at once, one
+ *      of them inside the excluded metadata-admin tree.
  *   3. A consumer outside the AST walk's `packages/`+`apps/` scope that also
  *      never spells the key as text (gap 1 above).
  *   4. A pack-object property reader of a TWO-SEGMENT key (objectui#8701). The
@@ -381,7 +449,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { analyze, collectEnKeys, collectSourceFiles } from './check-i18n-call-site-keys.mjs';
+import { EXCLUDED_TRANSLATORS, analyze, collectEnKeys, collectSourceFiles } from './check-i18n-call-site-keys.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -389,10 +457,31 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 /** Directories the text safety net never descends into — build output, deps,
  *  VCS metadata. Deliberately NOT the same (smaller) list as the AST walk's
  *  `SKIP_DIRS`: this pass covers the whole repo, so it also needs the
- *  top-level noise the AST walk never reaches in the first place. */
+ *  top-level noise the AST walk never reaches in the first place.
+ *
+ *  `.objectui-tmp` is here for a second reason, and it is not tidiness
+ *  (objectui#9201). It is a LIVE scratch directory: `withGeneratedApp()` in
+ *  `packages/cli/src/__tests__/app-generator.test.ts` mkdtemps a generated app
+ *  under `<repo>/.objectui-tmp/` and `rmSync`s it in a `finally`, inside the
+ *  same shard this gate runs in. A `grep -rFn` that descends into it while
+ *  that teardown runs reads a file that has just been unlinked, and GNU grep
+ *  answers a file error with exit **2** — even on a run that also matched.
+ *  The catch below absorbs only exit 1 (`no match`), deliberately, so exit 2
+ *  reaches `throw` and the gate DIES: a red shard for a reason that has
+ *  nothing to do with the code under test. ⛔ The fix for that is never to
+ *  widen the catch or to swallow exit 2 — an IO error the sweep cannot see is
+ *  how this gate would go silently empty — and never to change the producer,
+ *  which is correctly cleaning up after itself. The sweep simply has to be
+ *  told the directory is not source. `scripts/check-comment-mask-corpus.mjs`,
+ *  the sibling whole-tree sweep, has excluded it on that reasoning all along;
+ *  this was the one of the two that had not been told.
+ *
+ *  ⚠️ `.objectui-tmp` is `.gitignore`d, so no `git grep`-based tool in this
+ *  tree can see it and none of them can reproduce this. Only a filesystem
+ *  sweep reaches it, which is why the omission survived. */
 const TEXT_SWEEP_SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo',
-  '.changeset',
+  '.changeset', '.objectui-tmp',
 ]);
 
 /**
@@ -699,7 +788,7 @@ export function derivePackObjectImporters(root) {
     '--include=*.tsx',
     ...[...TEXT_SWEEP_SKIP_DIRS].flatMap((dir) => ['--exclude-dir', dir]),
     '-E',
-    String.raw`import \{[^}]*\b(en|zh|builtInLocales|ja|ko|de|fr|es|pt|ru|ar)\b[^}]*\}`,
+    String.raw`import \{[^}]*\b(en|zh|builtInLocales|getLoadedBuiltInLocales|ja|ko|de|fr|es|pt|ru|ar)\b[^}]*\}`,
     '--',
     ...dirs,
   ];
@@ -741,6 +830,35 @@ const PACK_EXPORT_NAMES = new Set(['en', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'pt
 const PACK_MAP_EXPORT_NAME = 'builtInLocales';
 
 /**
+ * The pack package's named export that RETURNS the locale-tag map rather than
+ * being it — `getLoadedBuiltInLocales()`. The call's result has the same shape
+ * as {@link PACK_MAP_EXPORT_NAME}, so a chain read off the CALL opens with a
+ * locale tag and resolves exactly as a chain off the map does.
+ */
+const PACK_MAP_ACCESSOR_EXPORT_NAME = 'getLoadedBuiltInLocales';
+
+/**
+ * Whether an import's module specifier is the pack package — the entry, or one
+ * of its published subpaths.
+ *
+ * ⚠️ SUBPATHS COUNT, and this predicate exists because leaving them out split
+ * the instrument in half. `derivePackObjectImporters()` selects its population
+ * with a SUBSTRING test over the grep line (`line.includes(...)`), so
+ * `@object-ui/i18n/locales` has always been an importer; the binding walk below
+ * compared for EQUALITY, so the same file bound nothing and reported no reads.
+ * A file in the population with no row is the one thing the enumeration's own
+ * assertions call a broken walk, and the two halves disagreeing is how you get
+ * there without either half looking wrong on its own.
+ *
+ * Named pack exports come from `.` and `./locales` only (`packages/i18n`'s
+ * `exports` map), and both of them really are packs, so accepting the whole
+ * subpath space cannot admit a non-pack `en`.
+ */
+function isPackModuleSpecifier(text) {
+  return text === PACK_IMPORT_SPECIFIER || text.startsWith(`${PACK_IMPORT_SPECIFIER}/`);
+}
+
+/**
  * Resolve the local bindings a file binds locale pack objects to.
  *
  * The binding name is whatever the importer chose, so nothing downstream may
@@ -757,7 +875,7 @@ function packBindingsOf(source) {
     if (
       ts.isImportDeclaration(node) &&
       ts.isStringLiteral(node.moduleSpecifier) &&
-      node.moduleSpecifier.text === PACK_IMPORT_SPECIFIER &&
+      isPackModuleSpecifier(node.moduleSpecifier.text) &&
       node.importClause?.namedBindings &&
       ts.isNamedImports(node.importClause.namedBindings)
     ) {
@@ -766,6 +884,40 @@ function packBindingsOf(source) {
         if (PACK_EXPORT_NAMES.has(exported) || exported === PACK_MAP_EXPORT_NAME) {
           bindings.set(element.name.text, exported);
         }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return bindings;
+}
+
+/**
+ * Resolve the local names a file binds the RESIDENT-CATALOGUE ACCESSOR to.
+ *
+ * Kept in its own map rather than folded into {@link packBindingsOf} because
+ * the two are not the same kind of name: a pack binding IS a pack, so a chain
+ * climbs straight off the identifier, while this one is a FUNCTION and the map
+ * is its call's result. Reading `getLoadedBuiltInLocales.console` would be a
+ * read of a function property, not of a catalogue, and putting it in the same
+ * map is how that row would get written.
+ *
+ * @returns {Map<string, string>} local binding name -> the export it is bound
+ *   to (always {@link PACK_MAP_ACCESSOR_EXPORT_NAME}).
+ */
+function packMapAccessorBindingsOf(source) {
+  const bindings = new Map();
+  const visit = (node) => {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      isPackModuleSpecifier(node.moduleSpecifier.text) &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings)
+    ) {
+      for (const element of node.importClause.namedBindings.elements) {
+        const exported = (element.propertyName ?? element.name).text;
+        if (exported === PACK_MAP_ACCESSOR_EXPORT_NAME) bindings.set(element.name.text, exported);
       }
     }
     ts.forEachChild(node, visit);
@@ -950,8 +1102,9 @@ function isNonReferenceIdentifier(identifier) {
  *   local alias of a pack subtree.
  * @property {string} file Repo-relative path of the importer.
  * @property {string} binding The identifier the FILE actually spells.
- * @property {string | null} via For an alias, the chain it stands for; `null`
- *   for a direct reference to the import binding.
+ * @property {string | null} via For an alias, the chain it stands for; the
+ *   call spelling for a read off the resident-catalogue accessor's RESULT;
+ *   `null` for a direct reference to the import binding.
  * @property {string} pack The pack export the binding descends from — a locale
  *   tag, or the locale-tag map.
  * @property {string[]} chain The pack path this read reaches, alias prefix
@@ -1027,13 +1180,34 @@ export function derivePackObjectPropertyReads(root, files) {
     const text = readFileSync(full, 'utf8');
     const source = ts.createSourceFile(full, text, ts.ScriptTarget.Latest, true);
     const bindings = packBindingsOf(source);
-    if (bindings.size === 0) continue;
+    const mapAccessors = packMapAccessorBindingsOf(source);
+    if (bindings.size === 0 && mapAccessors.size === 0) continue;
     const aliases = packAliasesOf(source, bindings);
 
     const visit = (node) => {
       // A pack name inside a TYPE (`keyof typeof builtInLocales`) reads no
       // key at run time; collecting it would put a phantom row on an importer.
       if (ts.isTypeNode(node)) return;
+      // A CALL of the resident-catalogue accessor IS the locale-tag map, so the
+      // chain climbs off the CALL and resolves exactly as a chain off
+      // `builtInLocales` does — one locale tag, then pack path. Reaching a pack
+      // this way is a read like any other, and a walk keyed only on names a
+      // file IMPORTS cannot see it: the name imported here is a function.
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && mapAccessors.has(node.expression.text)) {
+        const { chain, dynamic } = propertyChainAt(node);
+        const spelling = `${node.expression.text}()`;
+        rows.push({
+          file,
+          binding: node.expression.text,
+          via: spelling,
+          pack: PACK_MAP_EXPORT_NAME,
+          chain,
+          depth: chain.length,
+          dynamic,
+          line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+          text: [spelling, ...chain].join('.') + (dynamic ? '[…]' : ''),
+        });
+      }
       const alias = ts.isIdentifier(node) ? aliases.get(node.text) : undefined;
       const isBinding = ts.isIdentifier(node) && bindings.has(node.text);
       if ((isBinding || alias) && !isNonReferenceIdentifier(node)) {
@@ -1204,6 +1378,209 @@ function namespaceOf(key) {
   return parts.length >= 3 ? parts.slice(0, 2).join('.') : parts[0];
 }
 
+/** The translator-call pre-filter, spelled exactly as the call-site gate's own
+ *  `hasTranslatorCall` is (`?\.` included, objectui#4117: a file whose `t` is an
+ *  optional prop holds no `t(` at all). It is the ONLY pre-filter this leg
+ *  uses — see `collectIndirectTemplateHeads()` for why `.${` is not. */
+const TRANSLATOR_CALL_TEXT = /\btt?\s*(?:\?\.)?\s*\(/;
+
+/** `(x)`, `x as T`, `x!` — the wrappers a key argument or a template
+ *  initializer can carry without changing what it is. Same unwrapping the
+ *  call-site gate does before reading a head, and the reason it does: the cast
+ *  is there to satisfy a key type. */
+function unwrapKeyExpression(node) {
+  let current = node;
+  while (
+    current &&
+    (ts.isParenthesizedExpression(current) || ts.isAsExpression(current) || ts.isNonNullExpression(current))
+  ) {
+    current = current.expression;
+  }
+  return current ?? null;
+}
+
+/**
+ * The ONE-HOP INDIRECT TEMPLATE LEG (objectui#8754).
+ *
+ * ## The shape, and why every other leg is blind to it at once
+ *
+ * A component builds the key into a LOCAL and passes the bare identifier:
+ *
+ *   const someKey = `ns.family${Cap(kind)}s`;
+ *   // …
+ *   t(someKey)
+ *
+ * Nothing here is exotic, and nothing here is visible:
+ *
+ *   - the ARGUMENT position sees an identifier, not a template, so `staticHead()`
+ *     returns `''` and the site is counted as a headless dynamic key — gap 2 of
+ *     this header, and class 2 of "What CONFIRMED does NOT guarantee";
+ *   - the KEY-BUILDER leg (objectui#7592) needs a function whose whole body is
+ *     one returned template. A `const` in the middle of a render is not one;
+ *   - the PROPERTY-CHAIN leg needs three segments, and this shape's keys are
+ *     routinely two — class 4;
+ *   - the TEXT safety net sees only the HEAD spelled in that file, and
+ *     `occursAtKeyBoundary()` correctly refuses a prefix as evidence about a
+ *     longer key. That refusal is right, and it is what leaves the tier silent.
+ *
+ * ⇒ every leaf under the head lands in CONFIRMED — the top tier — while a
+ * shipping screen renders it. Measured on this tree when objectui#8754 was
+ * ruled: eight such keys sat in CONFIRMED, deleting them from all ten packs
+ * turned NOTHING red, and this script reported the shorter list without
+ * complaint. That is the measurement this leg exists to answer.
+ *
+ * ## Why the pre-filter is NOT the key-builder leg's `.${`
+ *
+ * objectui#7592's leg pre-filters on `.${`, "the adjacency a dotted key
+ * template always has". A KEY FAMILY head always ends at a segment boundary, so
+ * that holds for a family. It does NOT hold for this shape, whose head ends
+ * MID-SEGMENT (`ns.family` + a capitalised discriminator + a literal suffix).
+ * Measured on the file that hid the eight: `grep -c '\.\${'` returns 0 for the
+ * whole file — the key-builder pre-filter would not have parsed it even if the
+ * shape had matched. So this leg pre-filters on the translator call alone, and
+ * pays for it in parses: 322 files of the 1572 walked, against 51 for `.${`.
+ *
+ * ## The three boundaries, each load-bearing
+ *
+ *   1. ONE HOP, and the declaration must be in the SAME FILE. A key composed
+ *      across modules needs a type checker, not a syntax walk, and inventing a
+ *      head from a name resolved by guess is how a leg starts marking whole
+ *      namespaces live (`wideHeads`, in another costume).
+ *   2. The head must RESOLVE against `en`, the same test objectui#7592's
+ *      boundary 2 applies for the same reason: without it this is a census of
+ *      every templated local in the repo, not a key probe. The consequence is
+ *      the same too, and it is why the PIN in
+ *      `scripts/__tests__/check-i18n-dead-keys.test.ts` exists: delete the keys
+ *      and the head stops resolving, so the leg stops seeing the site — a
+ *      detection leg that degrades to a no-op exactly when it is needed. The
+ *      leg cannot notice that about itself; a test that knows the site can.
+ *   3. The registered module-local tables are skipped, the same scope rule the
+ *      call-site classifier and the key-builder leg use.
+ *
+ * ## What it deliberately does NOT do: feed `dynamicFamilies`
+ *
+ * `analyze()`'s argument position records a template head in TWO places —
+ * `dynamicHeads` (reachability, which is all this reverse sweep consumes) and
+ * `dynamicFamilies` (the registry census, whose undeclared branch raises
+ * `undeclared-dynamic-family`, a RED finding of `check:i18n-keys`). This leg
+ * feeds the FIRST only, and lives in this file rather than in the gate for that
+ * reason: it buys reachability for a deletion sweep, and buying it must not
+ * enrol two new heads in a registry. objectui#7592 measured the cost of the
+ * wider version (28 heads repo-wide, 25 already declared, both new ones firing
+ * the red) and objectui#7844 calls the entry itself "a registry decision with
+ * its own blast radius". Whether these heads become declared families is that
+ * decision, and it is not this leg's to take.
+ *
+ * ⚠️ The consequence is worth saying plainly rather than leaving to the
+ * asymmetry: a head this leg collects is NOT member-checked. `missing-member`
+ * never fires for it, so a fifth discriminator that no pack defines is still
+ * invisible. What this leg buys is that the four that DO exist stop reading as
+ * dead.
+ *
+ * ## What it still does not see — the class is NOT closed (objectui#7844)
+ *
+ * The boundary is not "variable", and objectui#7844 states it better than any
+ * enumeration: the key expression is simply not at the call site. Two further
+ * sub-shapes of that same class are on `main` today and stay dark after this
+ * leg — measured, not assumed, and listed in class 2 below:
+ *
+ *   - a template passed as an ARGUMENT to a same-module resolver
+ *     (`apps/console/src/pages/settings/useSettingsLabel.ts`);
+ *   - a template as one ELEMENT of a returned ARRAY of candidate keys
+ *     (`packages/i18n/src/useObjectLabel.ts`).
+ *
+ * Both are one hop too, and neither hop is an assignment. Widening to cover
+ * them is objectui#7844's subject and fires the red gate above on two heads at
+ * once; this leg is bounded to the assignment hop on purpose.
+ *
+ * @param {string} root
+ * @param {{ leaves: Set<string>, branches: Set<string> }} [packKeys]
+ * @returns {{ heads: Map<string, Array<{ file: string, line: number, column: number }>>,
+ *   counters: { filesWalked: number, filesParsed: number, bareIdentifierArguments: number,
+ *     resolvedOneHop: number, headsRecorded: number } }}
+ */
+export function collectIndirectTemplateHeads(root, packKeys = collectEnKeys(root)) {
+  const everyPath = [...packKeys.leaves, ...packKeys.branches];
+  const headMatches = (head) => everyPath.some((key) => key.startsWith(head));
+  const registeredModules = new Set(EXCLUDED_TRANSLATORS.map((entry) => entry.module));
+
+  /** @type {Map<string, Array<{ file: string, line: number, column: number }>>} */
+  const heads = new Map();
+  const counters = {
+    filesWalked: 0,
+    filesParsed: 0,
+    bareIdentifierArguments: 0,
+    resolvedOneHop: 0,
+    headsRecorded: 0,
+  };
+
+  for (const file of collectSourceFiles(root)) {
+    counters.filesWalked += 1;
+    const rel = relative(root, file).split('\\').join('/');
+    if (registeredModules.has(rel)) continue;
+    const text = readFileSync(file, 'utf8');
+    if (!TRANSLATOR_CALL_TEXT.test(text)) continue;
+    counters.filesParsed += 1;
+    const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+    // Pass one: every `const|let|var <name> = <template>` in the file, by name.
+    // File-scoped rather than scope-resolved, and that is the recall-over-
+    // precision direction every other leg here is deliberately wrong in: two
+    // declarations of one name mark BOTH heads reachable, which costs a key
+    // nobody deletes, where missing one costs a rendered key.
+    /** @type {Map<string, ts.TemplateExpression[]>} */
+    const templateLocals = new Map();
+    const index = (node) => {
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+        const initializer = unwrapKeyExpression(node.initializer);
+        if (initializer && ts.isTemplateExpression(initializer)) {
+          const existing = templateLocals.get(node.name.text);
+          if (existing) existing.push(initializer);
+          else templateLocals.set(node.name.text, [initializer]);
+        }
+      }
+      ts.forEachChild(node, index);
+    };
+    ts.forEachChild(source, index);
+    if (templateLocals.size === 0) continue;
+
+    // Pass two: every `t(<identifier>)` / `tt(<identifier>)`, resolved one hop.
+    const visit = (node) => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.arguments.length > 0) {
+        const callee = node.expression.text;
+        if (callee === 't' || callee === 'tt') {
+          const argument = unwrapKeyExpression(node.arguments[0]);
+          if (argument && ts.isIdentifier(argument)) {
+            counters.bareIdentifierArguments += 1;
+            const declarations = templateLocals.get(argument.text);
+            if (declarations) {
+              counters.resolvedOneHop += 1;
+              const { line, character } = source.getLineAndCharacterOfPosition(node.getStart(source));
+              for (const template of declarations) {
+                const head = template.head.text;
+                // Boundary 2. An empty head (`` `${ns}.settings.${suffix}` ``)
+                // is not a head at all, and a head that resolves to nothing is
+                // not a key template — judging it would make every templated
+                // local in the repo a reachability claim.
+                if (!head || !headMatches(head)) continue;
+                counters.headsRecorded += 1;
+                const sites = heads.get(head);
+                const site = { file: rel, line: line + 1, column: character + 1 };
+                if (sites) sites.push(site);
+                else heads.set(head, [site]);
+              }
+            }
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    ts.forEachChild(source, visit);
+  }
+
+  return { heads, counters };
+}
+
 /**
  * @returns {{
  *   totalPackKeys: number,
@@ -1212,11 +1589,19 @@ function namespaceOf(key) {
  *   confirmed: string[],
  *   needsReview: Array<{ key: string, hits: string[] }>,
  *   byNamespace: Map<string, { confirmed: string[], needsReview: string[] }>,
+ *   indirectTemplateHeads: ReturnType<typeof collectIndirectTemplateHeads>,
+ *   appliedHeads: Array<{
+ *     head: string, ownSegments: number, leavesUnder: number, heldLive: number, via: string,
+ *   }>,
  * }}
  */
 export function sweep(root) {
-  const { leaves } = collectEnKeys(root);
+  const packKeys = collectEnKeys(root);
+  const { leaves } = packKeys;
   const { referencedKeys, referencedBranches, dynamicHeads } = analyze(root);
+  // objectui#8754 — the one-hop indirect template leg. Reachability only; see
+  // `collectIndirectTemplateHeads()` for why it does not reach `dynamicFamilies`.
+  const indirect = collectIndirectTemplateHeads(root, packKeys);
 
   // No collapse guard here, deliberately — unlike the CLI block below, `sweep()`
   // itself is exercised directly against small synthetic fixtures in this
@@ -1226,7 +1611,7 @@ export function sweep(root) {
   // gate uses: `analyze()` is unguarded, its `invokedDirectly` block checks).
 
   const branchPrefixes = [...referencedBranches].map((branch) => `${branch}.`);
-  const heads = [...dynamicHeads];
+  const heads = [...new Set([...dynamicHeads, ...indirect.heads.keys()])];
 
   const candidates = [...leaves]
     .filter((key) => {
@@ -1236,6 +1621,46 @@ export function sweep(root) {
       return true;
     })
     .sort();
+
+  // objectui#9126 — what the head leg above ACTUALLY applied, as a reading.
+  //
+  // REPORT ONLY, and the ORDER of these two statements is the whole guarantee:
+  // `candidates` is already computed, from `heads` unfiltered, exactly as
+  // before. Nothing below feeds back into it — this block only measures a
+  // subtraction that was already made, so the candidate list is byte-identical
+  // with and without it. That is deliberate and fenced: the sibling corpus
+  // below DOES refuse a head with no segment of its own (`MIN_HEAD_SEGMENTS`),
+  // and whether the packs should adopt a threshold of their own is a
+  // maintainer's call this script does not make. What it can do without any
+  // threshold decision is stop being SILENT about it — a reader who sees only
+  // the candidate count has no way to learn how many keys were never offered,
+  // nor that a handful of heads account for nearly all of them.
+  //
+  // `ownSegments` is that reading, not a filter: the head minus its trailing
+  // dot, counted in segments, so a head naming ONLY a top-level namespace
+  // (`someNamespace.` -> 1) is visible as such in the report while still being
+  // applied in full.
+  //
+  // `heldLive` is the designer half's `headHeldCounts` definition, mirrored: of
+  // the leaves under this head, how many NO OTHER leg here already holds — i.e.
+  // exactly the keys this head alone keeps out of `candidates`. Heads do not
+  // nest today, but if two ever did, a leaf under both counts in both rows;
+  // the sibling counts the same way, and a per-head row that quietly dropped
+  // shared keys would under-report the same way this block exists to fix.
+  const appliedHeads = heads
+    .map((head) => {
+      const under = [...leaves].filter((key) => key.startsWith(head));
+      return {
+        head,
+        ownSegments: head.replace(/\.$/, '').split('.').length,
+        leavesUnder: under.length,
+        heldLive: under.filter(
+          (key) => !referencedKeys.has(key) && !branchPrefixes.some((prefix) => key.startsWith(prefix)),
+        ).length,
+        via: dynamicHeads.has(head) ? (indirect.heads.has(head) ? 'direct+indirect' : 'direct') : 'indirect',
+      };
+    })
+    .sort((a, b) => b.leavesUnder - a.leavesUnder || a.head.localeCompare(b.head));
 
   const footprints = textFootprint(root, candidates);
   const confirmed = candidates.filter((key) => footprints.get(key).length === 0);
@@ -1262,6 +1687,8 @@ export function sweep(root) {
     confirmed,
     needsReview,
     byNamespace,
+    indirectTemplateHeads: indirect,
+    appliedHeads,
   };
 }
 
@@ -1735,6 +2162,21 @@ if (invokedDirectly) {
           candidateCount: result.candidateCount,
           confirmed: result.confirmed,
           needsReview: result.needsReview,
+          // objectui#9126 — every head the pack half applied, and what each
+          // holds. Reporting only: `candidateCount` above is unchanged by it.
+          appliedDynamicHeads: result.appliedHeads,
+          indirectTemplateHeads: {
+            counters: result.indirectTemplateHeads.counters,
+            heads: Object.fromEntries(
+              [...result.indirectTemplateHeads.heads].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([head, sites]) => [
+                head,
+                {
+                  leavesUnder: [...packKeys.leaves].filter((key) => key.startsWith(head)).sort(),
+                  sites: sites.map((site) => `${site.file}:${site.line}:${site.column}`),
+                },
+              ]),
+            ),
+          },
           packObjectImporters: {
             nonTest: importers.nonTest,
             testCount: importers.test.length,
@@ -1822,6 +2264,91 @@ if (invokedDirectly) {
         for (const hit of hits.slice(0, 5)) console.log(`    ${hit}`);
         if (hits.length > 5) console.log(`    … and ${hits.length - 5} more`);
       }
+    }
+
+    // ── the dynamic heads this half APPLIED (objectui#9126) ─────────────────
+    // Every head the candidate list above was computed against, printed
+    // because until now it was not: this half applies each collected head
+    // unfiltered, so a key is held live by merely starting with one, and the
+    // report said nothing at all about which heads those were or how much each
+    // reached. The counts read as a candidate list that is simply short.
+    //
+    // ⛔ This block changes no verdict. The sibling corpus below REFUSES a head
+    // with no segment of its own; whether the packs want a threshold of their
+    // own is a maintainer's call and is deliberately not made here. Reporting
+    // needs no such decision — it only turns the silence into a reading.
+    {
+      const rows = result.appliedHeads;
+      const totalUnder = rows.reduce((sum, row) => sum + row.leavesUnder, 0);
+      const totalHeld = rows.reduce((sum, row) => sum + row.heldLive, 0);
+      const rootOnly = rows.filter((row) => row.ownSegments < 2);
+      const rootOnlyUnder = rootOnly.reduce((sum, row) => sum + row.leavesUnder, 0);
+      const rootOnlyHeld = rootOnly.reduce((sum, row) => sum + row.heldLive, 0);
+      console.log(
+        `\n${'='.repeat(78)}\ndynamic template heads APPLIED to the pack corpus — all ${rows.length}, ` +
+          'none filtered' +
+          `\n\n"under" is every en leaf sharing the head. "held" is how many of those NO other leg here ` +
+          `already keeps live — i.e. exactly the keys this head alone takes out of the candidate list, ` +
+          `so ${result.candidateCount} candidate(s) is a reading of the pack MINUS ${totalHeld} key(s) ` +
+          `across ${rows.length} head(s) (${totalUnder} leaves fall under a head in total; the ` +
+          'difference is leaves a literal call site holds anyway). "own" is how many segments the head ' +
+          'names beyond nothing: 1 means it names a top-level namespace and no more. Each head comes ' +
+          'from a real call site building a key from a runtime value — the row measures its REACH, and ' +
+          'says nothing about whether the head is right:',
+      );
+      console.log(`\n  ${'head'.padEnd(40)} ${'own'.padStart(3)} ${'under'.padStart(5)} ${'held'.padStart(5)}   via`);
+      for (const row of rows) {
+        console.log(
+          `  ${row.head.padEnd(40)} ${String(row.ownSegments).padStart(3)} ` +
+            `${String(row.leavesUnder).padStart(5)} ${String(row.heldLive).padStart(5)}   ${row.via}`,
+        );
+      }
+      if (rootOnly.length > 0) {
+        console.log(
+          `\n  ⚠️ ${rootOnly.length} of those head(s) name a top-level namespace and nothing else ` +
+            `(${rootOnly.map((row) => row.head).join(', ')}), together reaching ${rootOnlyUnder} leaf/leaves ` +
+            `and holding ${rootOnlyHeld} key(s) out of the candidate list on their own. That is the class ` +
+            'the designer half below refuses outright and this half applies in full. Both are reported; ' +
+            'only one is a decision, and it is not this one.',
+        );
+      }
+    }
+
+    // ── the one-hop indirect template leg (objectui#8754) ───────────────────
+    // Printed for the same reason the property-read rows above are: the leg
+    // subtracts keys from the candidate set, so the tiers are shorter than they
+    // would otherwise be, and a subtraction nobody can see is indistinguishable
+    // from a tier that was always that length. Each row is also the reading a
+    // human needs to check it: the head, how many `en` leaves it holds live,
+    // and where the assignment-hop call site is.
+    {
+      const indirect = result.indirectTemplateHeads;
+      const rows = [...indirect.heads].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+      const held = rows.reduce(
+        (sum, [head]) => sum + [...packKeys.leaves].filter((key) => key.startsWith(head)).length,
+        0,
+      );
+      console.log(
+        `\n${'='.repeat(78)}\nindirect template heads — a key assigned to a local ONE HOP before t()` +
+          `\n${rows.length} head(s) over ${indirect.counters.resolvedOneHop} resolved hop(s), holding ` +
+          `${held} en leaf/leaves live that no other leg here can see. ` +
+          `${indirect.counters.bareIdentifierArguments} bare-identifier t() argument(s) in files that hold ` +
+          `at least one templated local were examined, across ${indirect.counters.filesParsed} parsed ` +
+          `file(s) of ${indirect.counters.filesWalked} walked.`,
+      );
+      for (const [head, sites] of rows) {
+        const leaves = [...packKeys.leaves].filter((key) => key.startsWith(head)).length;
+        console.log(
+          `  ${head.padEnd(32)} ${String(leaves).padStart(4)} leaf/leaves   ` +
+            sites.map((site) => `${site.file}:${site.line}`).join(', '),
+        );
+      }
+      console.log(
+        '  ⛔ Reachability only — these heads are NOT member-checked and NOT registered as dynamic\n' +
+          '     families, so `undeclared-dynamic-family` and `missing-member` say nothing about them.\n' +
+          '     The shapes still dark are class 2 below: a template in a resolver ARGUMENT, and a\n' +
+          '     template as an ELEMENT of a returned array (objectui#7844).',
+      );
     }
 
     // ── the pack-object importer population, DERIVED (objectui#8752) ────────

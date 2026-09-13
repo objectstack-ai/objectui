@@ -106,7 +106,7 @@ export function PluginDisclosure({ version }: { version?: MarketplacePackageVers
       {hasAny ? (
         <div className="space-y-2">
           <div className="text-xs text-muted-foreground">
-            {t('marketplace.disclosure.grantsIntro', { defaultValue: 'On install, this package will be granted:' })}
+            {t('marketplace.disclosure.grantsIntro', { defaultValue: 'This package requests:' })}
           </div>
           <PermissionGroup
             icon={Boxes}
@@ -128,6 +128,26 @@ export function PluginDisclosure({ version }: { version?: MarketplacePackageVers
             label={t('marketplace.disclosure.fs', { defaultValue: 'Filesystem access' })}
             items={perms.fs ?? undefined}
           />
+          {/*
+            objectstack#17147 — say what this list DOES, because a permission
+            panel that only lists grants is read as a confinement promise.
+            Measured on objectstack `9bd4344e4`: the consented set is persisted
+            (`sys_package_installation.granted_permissions`), re-confirmed on a
+            widening upgrade (cloud returns 409 without `reconsent`), and
+            REGISTERED on the runtime's `PluginPermissionEnforcer` at load — and
+            queried by nothing, because `SecurePluginContext` has no production
+            construction site. So the list is real and auditable; it is not yet a
+            gate. ⛔ Delete this line only together with the framework pin
+            `granted-permissions-not-enforced.pin.test.ts`, which goes red the
+            day the ADR-0025 materialize seam makes it a gate.
+          */}
+          <div className="text-[11px] text-muted-foreground/80 leading-snug">
+            {t('marketplace.disclosure.notEnforced', {
+              // One string literal, not a concatenation, so `check:i18n-keys`
+              // compares it against the en pack byte for byte.
+              defaultValue: 'Recorded at install, and re-confirmed if a later version asks for more — but the runtime does not yet restrict the package to this list.',
+            })}
+          </div>
         </div>
       ) : (
         <div className="text-xs text-muted-foreground">

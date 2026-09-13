@@ -32,7 +32,14 @@
  */
 
 // Core i18n setup
-export { createI18n, getDirection, getAvailableLanguages, type I18nConfig, type TranslationKeys } from './i18n.js';
+export {
+  createI18n,
+  getDirection,
+  getAvailableLanguages,
+  pickInitialLanguage,
+  type I18nConfig,
+  type TranslationKeys,
+} from './i18n.js';
 
 // React integration
 export {
@@ -50,6 +57,13 @@ export {
   LOCALE_SEED_STORAGE_KEY,
   readCachedLanguageSeed,
   cacheLanguageSeed,
+  // Resolve the boot language, and fetch its catalogue, BEFORE first render
+  // (objectui#7479). A host with an await before `createRoot().render()` spends
+  // it here and paints in the user's language; a host without one gets the
+  // documented `en`-while-loading render instead.
+  resolveBootstrapLanguage,
+  preloadBootstrapLocale,
+  type BootstrapLocaleOptions,
   type I18nProviderProps,
 } from './provider.js';
 
@@ -63,18 +77,42 @@ export { builtinAggregateLabels, type SafeTranslate } from './builtinAggregateLa
 // Convention-based object/field label i18n
 export { useObjectLabel, useSafeFieldLabel } from './useObjectLabel.js';
 
-// Locale packs
-export { builtInLocales, isRTL, RTL_LANGUAGES } from './locales/index.js';
+// Locale packs — ⛔ ONE catalogue is statically re-exported here, not ten
+// (objectui#7479).
+//
+// This entry used to re-export all ten packs and `builtInLocales`, which made
+// every one of them statically reachable from any import of this package. The
+// console measured the result: ~450 KB gzipped of translation data in the EAGER
+// closure, ten catalogues fetched before first paint for a viewer who reads
+// one, and every new key paid for by every visitor in every language.
+//
+// ⛔ Do not restore a static re-export of a second catalogue here, and do not
+// re-export `builtInLocales` from this entry. Both put all ten back:
+// `builtInLocales` names every pack in one object literal, so nothing can shake
+// it. `scripts/check-eager-locale-catalogues.mjs` fails the build if a
+// non-active catalogue reappears in the console's eager closure, and
+// `src/__tests__/entry-locale-shape-7479.test.ts` fails on the SOURCE shape so
+// the reason is legible without a console build.
+//
+// What replaced them:
+//   - `en` stays — it is `fallbackLng`, the source of `TranslationKeys`, and
+//     the synchronous dictionary the app-shell splash renders from before i18n
+//     is usable. See `./locales/registry.js` for the full argument.
+//   - `loadBuiltInLocale(code)` fetches any of the ten on demand.
+//   - `BUILT_IN_LANGUAGE_CODES` enumerates them at zero payload.
+//   - `@object-ui/i18n/locales` is the explicit, published door to all ten for
+//     a caller that genuinely wants them all resident (the parity suites do).
+export { isRTL, RTL_LANGUAGES } from './locales/rtl.js';
+export {
+  BUILT_IN_LANGUAGE_CODES,
+  DEFAULT_BUILT_IN_LANGUAGE,
+  getLoadedBuiltInLocales,
+  isBuiltInLanguage,
+  isBuiltInLocaleLoaded,
+  loadBuiltInLocale,
+  type LocaleCatalogue,
+} from './locales/registry.js';
 export { default as en } from './locales/en.js';
-export { default as zh } from './locales/zh.js';
-export { default as ja } from './locales/ja.js';
-export { default as ko } from './locales/ko.js';
-export { default as de } from './locales/de.js';
-export { default as fr } from './locales/fr.js';
-export { default as es } from './locales/es.js';
-export { default as pt } from './locales/pt.js';
-export { default as ru } from './locales/ru.js';
-export { default as ar } from './locales/ar.js';
 
 // Formatting utilities
 export {
@@ -109,7 +147,7 @@ export {
   type SpecTranslationData,
 } from './utils/index.js';
 
-export { pickLocalized, setLocalized } from './pickLocalized.js';
+export { pickLocalized, setLocalized, clearLocalized } from './pickLocalized.js';
 export { LocalizationProvider, useLocalization, type LocalizationValue } from './LocalizationContext.js';
 export { resolveFieldCurrency } from './currency.js';
 

@@ -86,6 +86,11 @@ import * as Automation from '@objectstack/spec/automation';
 import { FlowCanvas } from './FlowCanvas';
 import { FlowPreview } from './FlowPreview';
 import { buildFlowSkeleton } from '../../studio-design/skeletons';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 afterEach(cleanup);
 
@@ -248,9 +253,7 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
 
 /** Blank out comments so prose about `label` cannot answer for the code. */
 function stripComments(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
-    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p1: string) => p1 + ' '.repeat(m.length - p1.length));
+  return mask(src);
 }
 
 /** Index of the bracket closing the one opened at `open`. */

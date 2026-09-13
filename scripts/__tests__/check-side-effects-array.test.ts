@@ -700,6 +700,82 @@ describe('classifying a published form — entry point, or provably not a root',
   });
 });
 
+describe('the verdict does not depend on whether the tree is BUILT (objectui#9124)', () => {
+  // The defect this pins: `alternateFormats` was decided with `fs.existsSync`,
+  // so `@object-ui/layout`'s `require` half classified as an `asset` on a built
+  // tree and as an alternate format on an unbuilt one — and the file it turned
+  // on (`packages/layout/dist/index.umd.cjs`) is `.gitignore`d, so the input was
+  // not in the tree at all. A contributor who built the workspace got a red
+  // their own diff could never clear.
+  //
+  // The fixture is `@object-ui/layout`'s real shape, run TWICE against the same
+  // manifest: once with the build output materialised on disk, once without.
+  // The two verdicts must be identical. This pins the INVARIANCE; the case
+  // below still asserts the real-workspace population, which is what it exists
+  // to prove and is not replaced here.
+  const LAYOUT_SHAPED = {
+    ...SOURCES,
+    'packages/pkg/package.json': JSON.stringify({
+      name: '@fixture/pkg',
+      main: 'dist/index.umd.cjs',
+      module: 'dist/index.js',
+      exports: { '.': { types: './dist/index.d.ts', import: './dist/index.js', require: './dist/index.umd.cjs' } },
+      sideEffects: [...HONEST_ARRAY, './dist/index.umd.cjs'],
+    }),
+  };
+  /** What `pnpm turbo run build` leaves behind, and nothing else. */
+  const BUILD_OUTPUT: Files = {
+    'packages/pkg/dist/index.js': "import './registrar.js';\nexport { pure } from './pure.js';\n",
+    'packages/pkg/dist/index.umd.cjs': "'use strict';\nrequire('./registrar.js');\n",
+  };
+
+  it('classifies a second build FORMAT the same way built and unbuilt', () => {
+    const unbuilt = run(LAYOUT_SHAPED);
+    const built = run({ ...LAYOUT_SHAPED, ...BUILD_OUTPUT });
+
+    // Anti-vacuity FIRST: two empty sets agree with each other, so an
+    // agreement between them would pin nothing. The alternate format must
+    // actually be found, in BOTH states, before the agreement means anything.
+    expect(unbuilt.entryForms.flatMap((e) => e.alternateFormats)).toEqual(['dist/index.umd.cjs']);
+    expect(built.entryForms.flatMap((e) => e.alternateFormats)).toEqual(['dist/index.umd.cjs']);
+
+    // ...and then the invariance itself, over the whole classification rather
+    // than the one field, so a future decision that reads the filesystem
+    // somewhere else in this function is caught here too.
+    expect(built.entryForms).toEqual(unbuilt.entryForms);
+    expect(built.entryPoints).toEqual(unbuilt.entryPoints);
+    expect(built.problems).toEqual(unbuilt.problems);
+    expect(built.ok).toBe(unbuilt.ok);
+    expect(built.ok).toBe(true);
+  });
+
+  it('still refuses a DANGLING form built and unbuilt — the gap is bounded, not global', () => {
+    // The partner that keeps the pin above from being satisfied by a gate that
+    // simply stopped classifying. `./ghost` has NO module form under it, so the
+    // existence check still decides there and the refusal must survive both
+    // states — including a built tree, where `dist/index.js` exists and only
+    // `dist/ghost.js` does not.
+    const withGhost = {
+      ...SOURCES,
+      'packages/pkg/package.json': JSON.stringify({
+        name: '@fixture/pkg',
+        main: './dist/index.js',
+        exports: { '.': './dist/index.js', './ghost': './dist/ghost.js' },
+        sideEffects: HONEST_ARRAY,
+      }),
+    };
+    for (const [state, files] of [
+      ['unbuilt', withGhost],
+      ['built', { ...withGhost, 'packages/pkg/dist/index.js': "import './registrar.js';\n" }],
+    ] as const) {
+      const verdict = run(files);
+      expect(verdict.gauge, state).toBe(true);
+      expect(verdict.problems.join('\n'), state).toContain('cannot CLASSIFY');
+      expect(verdict.problems.join('\n'), state).toContain('"./dist/ghost.js"');
+    }
+  });
+});
+
 describe('the real workspace — the population this widening was measured against', () => {
   // The two shapes above are not hypotheticals: they are the only two forms
   // this workspace publishes beside a barrel today. Pinning them keeps the

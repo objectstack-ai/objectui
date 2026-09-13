@@ -105,28 +105,58 @@ describe('ObjectCalendar navigation URL follows the record source (objectui#7638
     expect(open).toHaveBeenCalledWith(`/${DECOY}/record/e1`, '_blank');
   });
 
-  it('navigates to the object the ROWS came from, not the top-level key', async () => {
+  it('⭐ objectui#8348 — an off-arm `data` no longer re-points this block, so rung three answers', async () => {
+    // ⚠️ THE RULED CHANGE, and the accepted cost stated as a row. Decision batch
+    // #83 (2026-09-08, maintainer verbatim 「8348 以协议为准」): a block honours the
+    // `data` spelling its published row declares, and
+    // `ComponentPropsMap['object-calendar'].data` is `z.array(z.unknown())` —
+    // it refuses `{ provider, object }` by KIND, with `os validate` and the save
+    // gate refusing it too. So on THIS block the config object is not a record
+    // source at all, and the URL names the top-level key.
+    //
+    // ⛔ Before the ruling this same document answered `/clinic_visit/record/e1`.
+    // objectui#7638's finding is untouched — the URL still follows whatever the
+    // ladder RESOLVES; what moved is what this block's ladder resolves.
     renderCalendar({
       objectName: DECOY,
       data: { provider: 'object', object: RECORD_SOURCE },
     });
 
     const url = await clickEventAndReadUrl(open);
-    expect(url).toBe(`/${RECORD_SOURCE}/record/e1`);
-    // The whole finding in one line: before objectui#7638 this was the answer,
-    // while the drawer on the very same click resolved `clinic_visit`.
-    expect(url).not.toBe(`/${DECOY}/record/e1`);
+    expect(url).toBe(`/${DECOY}/record/e1`);
+    // The named regression, in the direction the ruling moved it: the object the
+    // off-arm `data` block names is NOT what the URL resolves any more.
+    expect(url).not.toBe(`/${RECORD_SOURCE}/record/e1`);
   });
 
-  it('builds a routed URL for a data-only block, which previously had no name to use', async () => {
-    // No top-level `objectName` at all, so `schema.objectName` was `undefined`
-    // and the hook took its `/${encodedId}` leg — an unrouted path that paints
-    // a blank page.
+  it('⭐ objectui#8348 — a `data`-only block has NO record source here, and the URL says so', async () => {
+    // The second half of the accepted cost, and the sharper one. A calendar
+    // whose only binding is `data: { provider, object }` resolves NOTHING once
+    // the off-arm rung is gone: no `staticData`, no `objectName`, so
+    // `resolveRecordSourceConfig` returns `null` and the hook takes its
+    // `/${encodedId}` leg again — the unrouted path objectui#7638 removed for
+    // this shape.
+    //
+    // ⛔ NOT a regression of objectui#7638: that card's fix reads whatever the
+    // ladder resolves, and this document no longer resolves anything. It is
+    // also not publishable — `ComponentPropsMap['object-calendar']` refuses the
+    // object under `data` by kind, so `os validate` and the save gate reject it
+    // — which is exactly the reasoning batch #83 accepted the cost on. Rows
+    // still draw, because they arrive on the props channel.
     renderCalendar({ data: { provider: 'object', object: RECORD_SOURCE } });
 
     const url = await clickEventAndReadUrl(open);
-    expect(url).toBe(`/${RECORD_SOURCE}/record/e1`);
-    expect(url).not.toBe('/e1');
+    expect(url).toBe('/e1');
+    expect(url).not.toBe(`/${RECORD_SOURCE}/record/e1`);
+  });
+
+  it('…and the DECLARED spellings still route: `objectName`, and `staticData` beside it', async () => {
+    // ⛔ The control that stops the two rows above from reading as "navigation
+    // broke". Both of this block's published record-source doors still build a
+    // routed URL.
+    renderCalendar({ objectName: RECORD_SOURCE, staticData: ROWS });
+
+    expect(await clickEventAndReadUrl(open)).toBe(`/${RECORD_SOURCE}/record/e1`);
   });
 
   it('keeps the `?? schema.objectName` tail for the OFF-CONTRACT `{ provider: "object" }`', async () => {

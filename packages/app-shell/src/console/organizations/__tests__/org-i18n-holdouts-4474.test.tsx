@@ -49,7 +49,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { I18nProvider } from '@object-ui/i18n';
-import { builtInLocales } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 
 // ── Mocks: everything EXCEPT i18n ────────────────────────────────────────────
 

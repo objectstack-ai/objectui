@@ -24,11 +24,13 @@
  *    wrong set.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { afterAll, describe, it, expect } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 import {
+  census,
   scanNodes,
   keepFencedCodeOnly,
   BODY_ONLY,
@@ -216,5 +218,46 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     expect(read('packages/cli/src/commands/init.ts')).toMatch(/^\s*body:/m);
     expect(read('packages/vscode-extension/src/extension.ts')).toMatch(/^\s*body:/m);
     expect(read('packages/components/src/renderers/complex/carousel.tsx')).toContain("body: [{ type: 'text'");
+  });
+});
+
+/**
+ * The census walk does not descend into `.objectui-tmp` (objectui#9201).
+ *
+ * This walk starts at `--root` (default the repo root) and descends
+ * dot-directories — it reports hits inside `.changeset/`, which is how the
+ * reach was measured rather than assumed. `.objectui-tmp` is the CLI test's
+ * LIVE scratch directory: a generated app is mkdtemp'd under it and removed in
+ * a `finally`, so anything found there is tooling output that exists for the
+ * span of one test, never corpus. Same class as `test-results` and
+ * `playwright-report`, which this skip list already carries.
+ *
+ * ⚠️ Two-sided on purpose. The same bytes are planted twice, and the lit half
+ * is not decoration: a census that walked NOTHING would satisfy the exclusion
+ * assertion on its own, and a silent zero with exit 0 is the exact failure
+ * this file's first block was written against.
+ */
+describe('the census skips `.objectui-tmp` (objectui#9201)', () => {
+  const roots: string[] = [];
+  afterAll(() => {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  });
+
+  const NODE = JSON.stringify({ type: 'page', body: [{ type: 'text', text: 'x' }] }, null, 2) + '\n';
+
+  it('finds a planted node in a scanned directory and NOT the same bytes under `.objectui-tmp/`', () => {
+    const root = mkdtempSync(join(tmpdir(), 'body-dialect-census-9201-'));
+    roots.push(root);
+    for (const rel of ['packages/scanned-control/page.json', '.objectui-tmp/tsc-gate-0000-AAAAAA/page.json']) {
+      const full = join(root, rel);
+      mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, NODE);
+    }
+
+    const files = census(root).hits.map((hit) => hit.file.split('\\').join('/'));
+
+    // Lit control — without this the assertion below passes on an empty walk.
+    expect(files).toContain('packages/scanned-control/page.json');
+    expect(files.some((file) => file.startsWith('.objectui-tmp/'))).toBe(false);
   });
 });

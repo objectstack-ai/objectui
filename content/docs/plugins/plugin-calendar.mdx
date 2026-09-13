@@ -242,7 +242,10 @@ const schema: ObjectCalendarSchema = {
   type: 'object-calendar',
   objectName?: string,              // ObjectQL object name
   staticData?: Array<any>,          // Static data array
-  data?: ViewData,                  // Advanced data configuration
+  data?: Array<any>,                // Pre-fetched records, drawn in place of the
+                                    // calendar's own query. An ARRAY — this block's
+                                    // published row refuses the `{ provider, items }`
+                                    // config object (objectui#8348)
   calendar?: CalendarConfig,        // Calendar-specific configuration
   filter?: ViewFilterRule[],        // Query filter, lowered to $filter
   sort?: SortConfig[],              // Query sort, lowered to $orderby
@@ -263,12 +266,30 @@ const schema: ObjectCalendarSchema = {
 }
 ```
 
-`CalendarConfig` is `@objectstack/spec`'s `CalendarConfigSchema`, and that schema
-is **strict**: these four are the whole of it, and a fifth key is rejected rather
-than ignored. `ObjectCalendar` destructures exactly
-`{ startDateField, endDateField, titleField, colorField }`
-(`ObjectCalendar.tsx`), so the list above is also the whole of what the renderer
-reads.
+`CalendarConfig` is a re-export of `@objectstack/spec`'s `CalendarConfigSchema`,
+and that schema is **strict**: the four keys above are the whole of *the spec
+type*, and it refuses a fifth by name with an `unrecognized_keys` diagnostic.
+That is a statement about the type — not about what this renderer reads, and not
+about what reaches it.
+
+`ObjectCalendar` (`ObjectCalendar.tsx`) reads **five** keys off the `calendar`
+block: the four above plus objectui's own `allDayField`, honoured since
+objectui#8026.
+
+`{ startDateField, endDateField, titleField, colorField, allDayField }`
+
+`allDayField` names the record field carrying the all-day flag. It is
+objectui-local by design — the spec refuses the name — and this renderer gives it
+**no** default field name, so a calendar that never declares it draws exactly as
+before, with the all-day flag inferred from the absence of an end date.
+
+Nor is a fifth key rejected on the way in. Neither published face of
+`ObjectCalendarSchema` declares the `calendar` container, so whatever you write
+inside it reaches the renderer unexamined; on the list-view path the container
+*is* declared — as objectui's own mirror of the spec schema, which keeps
+`.passthrough()` for exactly this. Annotating the block `CalendarConfig` is what
+narrows it to the spec's four: under that annotation `allDayField` does not
+compile.
 
 ## Configuration
 
@@ -326,17 +347,25 @@ const valueProviderCalendar: ObjectCalendarSchema = {
 };
 ```
 
-#### API Provider — not implemented
+#### `data: { provider: … }` — refused on this block
 
-`data.provider: 'api'` has no fetch implementation in `ObjectCalendar`. A schema
-that reaches this branch logs `API provider not yet implemented for
-ObjectCalendar`, sets the record set to empty and renders a calendar with no
-events; `endpoint` and `method` have no read point anywhere in the package.
-Without a `DataSource` it fails one step earlier, with `DataSource required for
-object/api providers`.
+⚠️ Since **objectui#8348** a calendar authored with a record-source *config
+object* under `data` — `{ provider: 'value', items: [...] }`,
+`{ provider: 'object', object: … }`, `{ provider: 'api', … }` — is not honoured
+here. `object-calendar`'s published `data` row is an **array of pre-fetched
+records**, so the config object is refused by kind: `os validate` and the save
+gate reject it, and as of that card the renderer does too.
 
-Read from the database with the **Object Provider** above, or pass events you
-already hold with the **Value Provider**.
+That is a behaviour change for stored documents. A calendar written that way no
+longer draws those rows; the record-source ladder falls past `data` to
+`staticData`, then to `objectName`, so it queries its object instead — or draws
+nothing when it names neither.
+
+Read from the database with the **Object Provider** above (`objectName`), pass
+events you already hold with the **Value Provider** (`staticData`), or hand the
+block rows it already has as an array under `data`. There is no api-provider
+branch to reach on this block; `endpoint` and `method` have no read point
+anywhere in the package.
 
 ## Comparison: CalendarView vs ObjectCalendar
 

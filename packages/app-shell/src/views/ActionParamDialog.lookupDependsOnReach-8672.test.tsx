@@ -345,6 +345,9 @@ describe('objectui#8672 leg C — the field-backed route reads the spelling `Fie
 /* Leg D — end to end, the route the repo points authors to    CONTRACT       */
 /* ────────────────────────────────────────────────────────────────────────── */
 
+/** Only the two members these assertions read; the picker passes more. */
+type QueryParams = { $filter?: Record<string, unknown> };
+
 const CONTACTS = [
   { id: 'k1', name: 'Ada (acme)', account_id: 'acme' },
   { id: 'k2', name: 'Bo (other)', account_id: 'other' },
@@ -353,10 +356,10 @@ const CONTACTS = [
 /** Honours the `$filter` record, so the cascade is observable as RENDERED ROWS
  *  and not only as call arguments. */
 function makeDataSource() {
-  const queries: any[] = [];
+  const queries: Array<{ objectName: string; params: QueryParams }> = [];
   return {
     queries,
-    find: vi.fn(async (objectName: string, params: any) => {
+    find: vi.fn(async (objectName: string, params: QueryParams) => {
       queries.push({ objectName, params });
       let recs = CONTACTS;
       const filter = params?.$filter;

@@ -34,8 +34,11 @@
  *     untouched and arrives at the board implementation BY IDENTITY.
  *   - `onCardClick` — RUNTIME SLOT. `ObjectKanban` replaces the schema key with
  *     its own wrapper, but `SchemaRenderer` also spreads the authored key as a
- *     React PROP, `ObjectKanbanComponentProps` declares that prop, and the
- *     wrapper CALLS it. The authored function runs.
+ *     React PROP, `ObjectKanbanComponentProps` declares that prop, and
+ *     `ObjectKanban` forwards it into `useNavigationOverlay` as `onRowClick`,
+ *     where `handleClick` gives it full priority and calls it. The authored
+ *     function runs. (Until objectui#9341 the wrapper ALSO called it directly,
+ *     which is why it ran twice — see the correction at the end of this block.)
  *   - `onCardMove` — the reading is `'retired'` and it does NOT land here.
  *     `ObjectKanban` replaces the schema key with `handleCardMove` and declares
  *     NO `onCardMove` prop (its rest parameter is discarded), so neither
@@ -101,9 +104,20 @@
  * output), but the dead-read leg of suite 2 also failed — on its lit CONTROL,
  * not on its subject. `onCardMove` was already measured dead; `onCardClick` ran
  * TWICE rather than once. That count is a defect in `ObjectKanban`'s click
- * wiring, not in this card's subject, so the control now asserts that the
- * authored handler RAN and the count is reported on its own card instead of
- * being pinned here.
+ * wiring, not in this card's subject, so the control asserted that the authored
+ * handler RAN and the count was reported on its own card instead of being
+ * pinned here.
+ *
+ * ⭐ THAT CARD LANDED (objectui#9341, maintainer ruling 2026-09-13): the
+ * wrapper's second, one-argument call is gone, the authored handler runs ONCE
+ * through `handleClick`, and the relaxed control here is TIGHTENED BACK to the
+ * exact count in that same diff — the handoff this relaxation was written for.
+ * Two readings in suite 2 and suite 3 moved with it, each for the same reason
+ * and each noted at the assertion: the surviving call carries the modifier
+ * event, so it is `(record, event)` rather than `(record)`, and the TypeScript
+ * face declares the second parameter. The exact-count reading and the modifier
+ * channel have their own file, `cardClickFiresOnce-9341.test.tsx`; what is
+ * here stays the LIT CONTROL for the dead-read leg beside it.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -255,7 +269,14 @@ describe('suite 2 — the channels, per key, on the one surviving registration (
     // spy can only have arrived through it.
     expect(props.onCardClick).not.toBe(onCardClick);
     (props.onCardClick as (c: unknown, e?: unknown) => void)(card);
-    expect(onCardClick).toHaveBeenCalledWith(card);
+    // ⭐ Reads the WHOLE call list, not one matching call (objectui#9341). The
+    // old spelling was `toHaveBeenCalledWith(card)`, which passed on the base
+    // tree because the SECOND, one-argument call matched it — the very call
+    // that card deleted. What survives is `handleClick`'s
+    // `onRowClick(record, event)`, so the authored handler is reached once and
+    // with the event slot present. This is the channel, still measured, now
+    // measured as it actually is.
+    expect(onCardClick.mock.calls).toEqual([[card, undefined]]);
   });
 
   it('⭐ `onCardMove` reaches NOTHING — driven, not inferred, with `onCardClick` as the lit control', async () => {
@@ -280,17 +301,20 @@ describe('suite 2 — the channels, per key, on the one surviving registration (
     );
     (props.onCardClick as (c: unknown, e?: unknown) => void)(card);
 
-    // ⚠️ The control asserts that `onCardClick` RAN, deliberately not how many
-    // times. Measured on the base tree it runs TWICE per click on this path:
-    // `ObjectKanban` passes the same function to `useNavigationOverlay` as
-    // `onRowClick` — whose `handleClick` forwards to it and returns — and then
-    // calls it again itself. That is a separate defect on a separate card; a
-    // count pinned here would make fixing it red on a file that is not about
-    // it, and the control needs only to be able to fire.
+    // ⭐ TIGHTENED BACK TO THE EXACT COUNT (objectui#9341, the card this control
+    // was relaxed FOR). It read `cardClickRan: … > 0` while the base tree ran
+    // the authored handler TWICE per click — `ObjectKanban` passed the same
+    // function to `useNavigationOverlay` as `onRowClick`, whose `handleClick`
+    // forwards to it and returns, and then called it again itself. That defect
+    // is fixed in the same diff that restores this count, so the relaxation has
+    // no subject any more; leaving it would let the double fire return in
+    // silence. The exact count owns its own file
+    // (`cardClickFiresOnce-9341.test.tsx`) — here it is still just the LIT
+    // CONTROL for the dead-read reading beside it.
     expect(
-      { cardMove: onCardMove.mock.calls.length, cardClickRan: onCardClick.mock.calls.length > 0 },
+      { cardMove: onCardMove.mock.calls.length, cardClick: onCardClick.mock.calls.length },
       'the lit control `onCardClick` must run — a run where NEITHER fires measures nothing',
-    ).toEqual({ cardMove: 0, cardClickRan: true });
+    ).toEqual({ cardMove: 0, cardClick: 1 });
   });
 
   it("the prop channel is the difference: `ObjectKanbanComponentProps` declares `onCardClick` and no `onCardMove`", () => {
@@ -367,7 +391,12 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
       onCardMove: member('onCardMove'),
       onQuickAdd: member('onQuickAdd'),
     }).toEqual({
-      onCardClick: '(card: any) => void',
+      // ⚠️ Two parameters since objectui#9341: the call that survives the
+      // double-fire repair is `handleClick`'s `onRowClick(record, event)`, and
+      // the one-argument spelling this pin used to read described only the
+      // deleted call. A signature pin read off disk, so it moves WITH the
+      // declaration and cannot drift from it.
+      onCardClick: '(card: any, event?: any) => void',
       // ⚠️ `undefined` is the reading, not a gap in the regex — the firing
       // control below reads a member this interface has always had. A
       // `?: never` tombstone here is what the measurement asks for and what

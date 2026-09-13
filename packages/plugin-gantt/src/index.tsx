@@ -88,7 +88,13 @@ const OBJECT_GANTT_DATA_SOURCE: ElementDataSourceMapping = {
 
 // Register component
 export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceBlock(({ schema }) => {
-  const { dataSource } = useSchemaContext() || {};
+  // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
+  // bound spells absence either way, and the seam declares both
+  // (`DataSource | null | undefined`, objectui#7912). The widget below
+  // declares the single spelling `dataSource?: DataSource`, so collapse the
+  // two absences into that one here rather than widening the widget.
+  const { dataSource: contextDataSource } = useSchemaContext() || {};
+  const dataSource = contextDataSource ?? undefined;
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121). A
   // gantt authored with the binding and no flat `objectName` produced no data
   // config at all, so `resolveDataSource` had nothing to fetch through: an empty

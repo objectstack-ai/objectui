@@ -39,6 +39,7 @@ import { describe, expect, it } from 'vitest';
 import { REQUIRED_CONTEXTS } from '../dependabot-merge-gate.mjs';
 import {
   CODE_LANGS,
+  EXIT_CODES,
   FLOORS,
   MIN_PARTIAL_REASON,
   PARTIAL_EXCERPTS,
@@ -50,6 +51,7 @@ import {
   findPartialMarkers,
   packageDirOf,
   parseReadmeOverrides,
+  renderList,
   scan,
   summarise,
   typeEntryOf,
@@ -1248,6 +1250,156 @@ describe('the --readme override, which is what keeps the self-test off the worki
 
   it('refuses a bare path rather than guessing which README it replaces', () => {
     expect(() => parseReadmeOverrides(['--readme', '/tmp/x.md'])).toThrow(/readmePath/);
+  });
+});
+
+/**
+ * `--list` on an UNBUILT tree (objectui#9220).
+ *
+ * ## Why this block exists and what the ablation leg is
+ *
+ * `--list` is this gate's own documented diagnostic and the only state a
+ * developer reaches for it in is the state where the gate just failed. It used
+ * to CRASH there: the row formatter read `t.fabricated.length` behind a guard
+ * that whitelisted two literal verdicts, `unjudgeable-type` was not one of
+ * them, and the run died on the first declaration it could not judge —
+ * `TypeError: Cannot read properties of undefined (reading 'length')`, with no
+ * census, no row past that one, and exit 1, the same code the gate uses to
+ * report a genuinely fabricated name.
+ *
+ * ⭐ THE ABLATION LEG, and the reason this block asserts a SHAPE and not only
+ * the absence of a throw: back `documentedTypeRow` out of the
+ * `unjudgeable-type` push in `check-readme-exports.mjs` — restore the bare
+ * `documentedTypes.push({ ...site, verdict: 'unjudgeable-type' })` — and
+ * `renderList` throws again on the fixture below. Both the "prints every row"
+ * case and the identical-key-set case go red; the exit-code cases go red too,
+ * because nothing returns at all. Measured, not predicted, on this branch —
+ * the numbers are in the pull request.
+ *
+ * The whitelist is NOT the repair, and this block is written so that re-adding
+ * one would not satisfy it: a third verdict string would make TODAY's row safe
+ * and leave the construct — a field-access guard enumerated by verdict — intact
+ * for the next verdict anyone adds. What is asserted below is that EVERY row
+ * carries the same key set, which is a fact about fields rather than about the
+ * membership of a list.
+ */
+describe('`--list` REFUSES on an unbuilt tree instead of dying in it (objectui#9220)', () => {
+  const UNBUILT_README = 'packages/unbuilt/README.md';
+  const root = fixtureTree({
+    ...PIN_FIXTURE,
+    'packages/pin/README.md': '# @fix/pin\n',
+    // Declares a type entry, and that entry is not on disk. This is the card's
+    // `mv packages/plugin-kanban/dist /tmp/parked` as a fixture: the one state
+    // the gate's own failure text sends a developer to inspect.
+    'packages/unbuilt/package.json': manifest('@fix/unbuilt', './dist/index.d.ts'),
+    [`packages/unbuilt/README.md`]: '# @fix/unbuilt\n',
+  });
+
+  /**
+   * The unbuilt package's README is walked FIRST on purpose. The defect was not
+   * only "it throws" — it was "no row past the first bad one", so a listing that
+   * hit the unjudgeable declaration last would have looked almost healthy.
+   */
+  const run = () =>
+    scan(root, {
+      readmes: [UNBUILT_README, PIN_README],
+      packageDirs: ['packages/unbuilt', ...PIN_PACKAGES],
+      readmeOverrides: {
+        [UNBUILT_README]: writeReadme(root, '# @fix/unbuilt\n\n```ts\ninterface Parked {\n  id: string;\n}\n```\n'),
+        [PIN_README]: writeReadme(root, '# @fix/pin\n\n```ts\ninterface Widget {\n  id: string;\n  label?: string;\n  hidden?: boolean;\n}\n```\n'),
+      },
+      floors: {},
+    });
+
+  it('CONTROL: the fixture really is in the state under test', () => {
+    // Without this leg every assertion below could be green because the walk
+    // found nothing — the failure mode this gate itself exists to catch.
+    const result = run();
+    expect(result.census.packagesUnbuilt).toBe(1);
+    expect(result.census.typesUnjudgeable).toBe(1);
+    expect(result.documentedTypes.map((t) => t.verdict)).toEqual(['unjudgeable-type', 'matches']);
+  });
+
+  it('does NOT throw, and prints every row — including the ones AFTER the unjudgeable one', () => {
+    const rendered = renderList(run());
+    const rows = rendered.rows.filter((r) => r !== '');
+    expect(rows.some((r) => r.startsWith('unjudgeable-type') && r.includes('interface Parked'))).toBe(true);
+    expect(rows.some((r) => r.startsWith('matches') && r.includes('interface Widget'))).toBe(true);
+    // The census is the other half of what the crash destroyed.
+    expect(rendered.rows.at(-1)).toContain('documented type(s)');
+  });
+
+  it('leaves through a DEDICATED exit code, which is NOT the fabricated-name code', () => {
+    expect(renderList(run()).exitCode).toBe(EXIT_CODES.couldNotRun);
+    expect(EXIT_CODES.couldNotRun).not.toBe(EXIT_CODES.readmesFailed);
+    expect(EXIT_CODES.couldNotRun).not.toBe(EXIT_CODES.verified);
+  });
+
+  it('names the precondition, the unbuilt package, and a build command scoped to it', () => {
+    const notices = renderList(run()).notices.join('\n');
+    expect(notices).toContain(`PRECONDITION NOT MET (exit ${EXIT_CODES.couldNotRun})`);
+    expect(notices).toContain('@fix/unbuilt');
+    expect(notices).toContain('--filter @fix/unbuilt');
+    // Scoped: the package that IS built must not be in the build command.
+    expect(notices).not.toContain('--filter @fix/pin');
+  });
+
+  it('CONTROL, known direction: with nothing unbuilt it exits 0 and issues no notice', () => {
+    // The same renderer over the same fixture minus the unbuilt package. If this
+    // leg ever goes green-by-accident alongside the ones above, the refusal is
+    // firing unconditionally and `--list` has stopped being usable at all.
+    const result = scan(root, {
+      readmes: [PIN_README],
+      packageDirs: PIN_PACKAGES,
+      readmeOverrides: {
+        [PIN_README]: writeReadme(root, '# @fix/pin\n\n```ts\ninterface Widget {\n  id: string;\n  label?: string;\n  hidden?: boolean;\n}\n```\n'),
+      },
+      floors: {},
+    });
+    expect(result.census.packagesUnbuilt).toBe(0);
+    const rendered = renderList(result);
+    expect(rendered.exitCode).toBe(EXIT_CODES.verified);
+    expect(rendered.notices).toEqual([]);
+  });
+
+  it('gives EVERY row the same key set, whatever its verdict — the field guard is not a verdict list', () => {
+    // ⭐ The assertion the whitelist repair cannot satisfy. `unjudgeable-type`,
+    // `local-declaration`, `not-a-property-type` and a COMPARED row all come out
+    // of one factory, so a verdict added tomorrow is safe to format without
+    // anyone remembering to touch `renderList`.
+    const result = scan(root, {
+      readmes: [UNBUILT_README, PIN_README],
+      packageDirs: ['packages/unbuilt', ...PIN_PACKAGES],
+      readmeOverrides: {
+        [UNBUILT_README]: writeReadme(root, '# @fix/unbuilt\n\n```ts\ninterface Parked {\n  id: string;\n}\n```\n'),
+        [PIN_README]: writeReadme(
+          root,
+          '# @fix/pin\n\n```ts\ninterface Widget {\n  id: string;\n  label?: string;\n  hidden?: boolean;\n}\n' +
+            'interface Local {\n  only: string;\n}\ntype Mode = \'a\' | \'b\';\n```\n',
+        ),
+      },
+      floors: {},
+    });
+    const verdicts = result.documentedTypes.map((t) => t.verdict);
+    expect(verdicts).toContain('unjudgeable-type');
+    expect(verdicts).toContain('local-declaration');
+    expect(verdicts).toContain('matches');
+    const keySets = result.documentedTypes.map((t) => Object.keys(t).sort().join(','));
+    expect(new Set(keySets).size).toBe(1);
+    for (const row of result.documentedTypes) {
+      expect(Array.isArray(row.fabricated)).toBe(true);
+      expect(Array.isArray(row.omitted)).toBe(true);
+    }
+  });
+
+  it('prints the census detail ONLY where a comparison happened — safety and presentation are separate', () => {
+    const rows = renderList(run()).rows;
+    const unjudgeable = rows.find((r) => r.startsWith('unjudgeable-type'));
+    const compared = rows.find((r) => r.startsWith('matches'));
+    // Not "0 key(s) vs own 0 of 0", which would state a comparison that never
+    // ran — the same defect one level up from the crash.
+    expect(unjudgeable).not.toContain('key(s)');
+    expect(compared).toContain('doc 3 key(s) + 0 method(s) vs own 3 of 3');
   });
 });
 

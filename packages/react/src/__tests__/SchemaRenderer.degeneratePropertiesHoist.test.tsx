@@ -79,15 +79,18 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 
 /** The provider really does hold the path the object-bag case spells. */
 const DATA = { customers: ['ada', 'grace'] };
 
 const renderWithData = (schema: unknown) =>
   render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA } as never}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA } as never}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
   );
 
 const snap = (v: unknown) => JSON.parse(JSON.stringify(v ?? null));

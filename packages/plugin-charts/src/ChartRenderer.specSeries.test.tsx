@@ -152,14 +152,22 @@ describe('ChartRenderer — the spec `series` shape', () => {
     expect(await plotted(container)).toEqual({ bars: 2, lines: 0 });
   });
 
-  it('still adapts the Tremor-ish `categories` form', async () => {
+  it('still plots the `categories` series list', async () => {
+    // `categories` is a declared member of the published `ChartSchema` and its
+    // zod mirror, ruled LIVE by objectui#6896 — not a foreign spelling. This
+    // case used to prove `ChartRenderer`'s OWN `(schema as any).categories`
+    // branch; objectui#8650 removed that second read and the key still plots,
+    // because `normalizeChartSchema` — the one translation point — has always
+    // consumed it. The axis is written in the canonical `xAxisKey`: the
+    // Tremor-ish `index` alias that stood here is retired, and its pin lives in
+    // `ChartRenderer.foreignDialectRetired-8650.test.tsx`.
     const { container } = render(
       <ChartRenderer
         schema={{
           type: 'chart',
           chartType: 'bar',
           data: DATA,
-          index: 'month',
+          xAxisKey: 'month',
           categories: ['revenue', 'margin'],
           isAnimationActive: false,
         } as any}

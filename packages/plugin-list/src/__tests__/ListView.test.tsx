@@ -10,8 +10,20 @@ import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vites
 import { ComponentRegistry } from '@object-ui/core';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ListView, evaluateConditionalFormatting } from '../ListView';
-import type { ListViewSchema } from '@object-ui/types';
+import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { SchemaRendererProvider } from '@object-ui/react';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are partial stubs carrying only the members the path under test calls;
+ * completing them would change which capability probes fire, and so would
+ * change what these tests measure.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -34,7 +46,7 @@ const mockDataSource = {
 
 const renderWithProvider = (component: React.ReactNode) => {
   return render(
-    <SchemaRendererProvider dataSource={mockDataSource}>
+    <SchemaRendererProvider dataSource={mockDataSource as unknown as DataSource}>
       {component}
     </SchemaRendererProvider>
   );

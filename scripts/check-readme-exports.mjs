@@ -6,11 +6,17 @@
  * name that package really exports.
  *
  * Run:  node scripts/check-readme-exports.mjs        (also `pnpm check:readme-exports`)
- *       node scripts/check-readme-exports.mjs --list  # every self-binding judged
+ *       node scripts/check-readme-exports.mjs --list  # every self-binding judged (exit 2 if unbuilt)
  *       node scripts/check-readme-exports.mjs --json
  *       node scripts/check-readme-exports.mjs --readme packages/plugin-gantt/README.md=/tmp/x.md
  * Exit: 0 = every self-import names a real export, 1 = a fabricated name, a
  *       wrong-path name, a package that cannot be judged, or a collapsed scan.
+ *       `--list` adds 2 = PRECONDITION NOT MET: a tracked package is unbuilt, so
+ *       the rows it printed are what this run could SEE and not a verdict. 1 and
+ *       2 are separate because a caller that reads only the status otherwise
+ *       cannot tell "the gate caught a fabricated name" from "the gate could not
+ *       look" -- and before objectui#9220 that second state was not even an exit
+ *       code, it was an uncaught TypeError in the formatter, which also left 1.
  *
  * ## The defect (objectui#5043, the root cause of the #5010-#5016 family)
  *
@@ -832,6 +838,86 @@ function readJson(path) {
 }
 
 /**
+ * The gate's exit codes, named so that callers and tests can talk about them.
+ * `couldNotRun` is the convention this repository already declared, in
+ * `check-doc-snippet-types.mjs` and `check-skill-examples.mjs`, and it is here
+ * for the reason it is there: a crash and "the gate read a verdict" both leave
+ * through a non-zero exit, so the exit code stops discriminating exactly where
+ * a caller needs it to (objectui#9220).
+ *
+ * ⛔ `readmesFailed` is NOT re-derived by anything; `main()` spells `1` out
+ * literally and this member does not reach it. Read it as documentation of
+ * that number, never as the thing that produces it -- AGENTS.md #9. What IS
+ * mechanical is the one claim that matters here: `couldNotRun` must differ from
+ * it, which `check-readme-exports.test.ts` asserts.
+ */
+export const EXIT_CODES = Object.freeze({
+  /** Every judged binding and declaration held, and the population is real. */
+  verified: 0,
+  /** The gate RAN. A README or the ledger is at fault -- a verdict was read. */
+  readmesFailed: 1,
+  /** The gate COULD NOT RUN. Nothing it printed is a verdict about a README. */
+  couldNotRun: 2,
+});
+
+/**
+ * ONE row shape for `documentedTypes`, whatever the verdict (objectui#9220).
+ *
+ * Four call sites push into that array and three of them used to push a bare
+ * `{ ...site, verdict }`, so whether a consumer could read `row.fabricated`
+ * depended on which branch produced the row. `--list` guarded that read with a
+ * whitelist of two literal verdicts -- and a whitelist enumerated by verdict
+ * cannot express a fact about FIELDS: the third bare shape, `unjudgeable-type`,
+ * was not in it and the formatter died reading `undefined.length` on precisely
+ * the unbuilt tree the gate's own failure text sends a developer to inspect.
+ *
+ * So the repair is not another string in that whitelist. Every row carries
+ * every field, and the verdict goes back to governing PRESENTATION -- whether
+ * this census detail is worth printing -- instead of SAFETY. `compared` is what
+ * the presentation side reads, and it is the honest question: a row that
+ * compared nothing has zeroes and empty arrays, and printing "0 of 0" for it
+ * would state a comparison that never happened.
+ *
+ * @typedef {{ file: string, line: number, package: string | null, typeName: string, kind: string }} DocumentedTypeSite
+ * @typedef {DocumentedTypeSite & {
+ *   verdict: string,
+ *   compared: boolean,
+ *   documented: number,
+ *   documentedMethods: number,
+ *   otherMembers: number,
+ *   shippedOwn: number,
+ *   shippedAll: number,
+ *   fabricated: string[],
+ *   omitted: string[],
+ *   excerpt: string | null,
+ * }} DocumentedTypeRow
+ *
+ * @param {DocumentedTypeSite} site The README site: file, line, package, typeName, kind.
+ * @param {string} verdict
+ * @param {Partial<DocumentedTypeRow>} [detail] The measured half, at the ONE call site that compares.
+ * @returns {DocumentedTypeRow}
+ */
+function documentedTypeRow(site, verdict, detail = undefined) {
+  return {
+    ...site,
+    verdict,
+    // `compared: false` and the zeroes below are not placeholders for a
+    // measurement that is coming -- they are the measurement. Nothing was
+    // compared, so nothing was documented against, fabricated or omitted.
+    compared: detail !== undefined,
+    documented: 0,
+    documentedMethods: 0,
+    otherMembers: 0,
+    shippedOwn: 0,
+    shippedAll: 0,
+    fabricated: [],
+    omitted: [],
+    excerpt: null,
+    ...detail,
+  };
+}
+
+/**
  * The one scan. `main()`, `--list`, `--json` and the test suite all go through
  * here, so the tests exercise the real code path rather than an imitation.
  *
@@ -1036,7 +1122,7 @@ export function scan(
           // only fails where the missing surface would have changed a verdict,
           // which is precisely "this block declares a type".
           counters.typesUnjudgeable++;
-          documentedTypes.push({ ...site, verdict: 'unjudgeable-type' });
+          documentedTypes.push(documentedTypeRow(site, 'unjudgeable-type'));
           findings.push({ ...site, verdict: 'unjudgeable-type', reason: record.state, declaredEntry: record.declaredEntry });
           // AND the shrink-only rule is suspended for whatever declared this
           // declaration an excerpt. An entry or a marker here suppressed nothing
@@ -1070,12 +1156,12 @@ export function scan(
           // a failure. (Whether a name owned by ANOTHER package should be
           // judged here is measured in the header and deliberately not done.)
           counters.typesLocal++;
-          documentedTypes.push({ ...site, verdict: 'local-declaration' });
+          documentedTypes.push(documentedTypeRow(site, 'local-declaration'));
           continue;
         }
         if (!hit.shape) {
           counters.typesNotAShape++;
-          documentedTypes.push({ ...site, verdict: 'not-a-property-type' });
+          documentedTypes.push(documentedTypeRow(site, 'not-a-property-type'));
           continue;
         }
         counters.typesResolved++;
@@ -1116,18 +1202,22 @@ export function scan(
             usedExcerpts.add(ledgerKey);
           }
         }
-        documentedTypes.push({
-          ...site,
-          verdict: fabricated.length > 0 ? 'fabricated-key' : omitted.length === 0 ? 'matches' : excerpt === null ? 'stale-omission' : `partial-${excerpt.source}`,
-          documented: declared.keys.length,
-          documentedMethods: declared.methods.length,
-          otherMembers: declared.other,
-          shippedOwn: hit.shape.own.size,
-          shippedAll: hit.shape.all.size,
-          fabricated,
-          omitted,
-          excerpt: excerpt === null ? null : excerpt.source,
-        });
+        documentedTypes.push(
+          documentedTypeRow(
+            site,
+            fabricated.length > 0 ? 'fabricated-key' : omitted.length === 0 ? 'matches' : excerpt === null ? 'stale-omission' : `partial-${excerpt.source}`,
+            {
+              documented: declared.keys.length,
+              documentedMethods: declared.methods.length,
+              otherMembers: declared.other,
+              shippedOwn: hit.shape.own.size,
+              shippedAll: hit.shape.all.size,
+              fabricated,
+              omitted,
+              excerpt: excerpt === null ? null : excerpt.source,
+            },
+          ),
+        );
       }
 
       for (const binding of findImportBindings(block.body, { jsx: block.jsx })) {
@@ -1259,6 +1349,91 @@ export function scan(
   }
 
   return { census, packages: [...packages.values()], orphans, bindings, documentedTypes, findings, vacuous };
+}
+
+/**
+ * `--list`, as data: the rows it prints, the notices it prints to stderr, and
+ * the code it leaves through. Split out of the entry point so the pin tests can
+ * drive it over a FIXTURE tree -- the entry point can only ever scan
+ * `repoRoot()`, and a build state is not something a test may arrange there.
+ *
+ * ## The two jobs the old formatter had jammed into one ternary (objectui#9220)
+ *
+ * SAFETY -- may these fields be read at all -- is now settled for every row by
+ * `documentedTypeRow`, upstream of here and independent of the verdict.
+ * PRESENTATION -- is this census detail worth printing -- is what is left, and
+ * it reads `compared`, which is the fact it is actually asking about.
+ *
+ * ## Why a listing can refuse
+ *
+ * `--list` is this gate's own documented diagnostic, and the state a developer
+ * reaches for it in is the state where the gate just failed. On an unbuilt tree
+ * it used to die on the first declaration it could not judge: no rows past that
+ * one, no census, and nothing naming the precondition -- while its exit code,
+ * 1, was the same code the gate uses to report a genuinely fabricated name.
+ *
+ * So it prints everything it has AND THEN refuses, the way
+ * `check-doc-snippet-types.mjs` already does for the same state: the rows are
+ * what this run could see, the notice says they are not a verdict, and
+ * `EXIT_CODES.couldNotRun` carries that difference to a caller that only reads
+ * the status.
+ *
+ * @param {ReturnType<typeof scan>} result
+ * @returns {{ rows: string[], notices: string[], exitCode: number }}
+ */
+export function renderList(result) {
+  const rows = [];
+  for (const b of result.bindings) {
+    if (b.verdict === 'not-self') continue;
+    const mark = b.verdict.padEnd(17);
+    rows.push(`${mark}  ${b.file}:${b.line}  ${b.exportName ?? `(${b.kind})`}  <- ${b.specifier}`);
+  }
+  for (const t of result.documentedTypes) {
+    const mark = t.verdict.padEnd(17);
+    const detail = t.compared
+      ? `  doc ${t.documented} key(s) + ${t.documentedMethods} method(s) vs own ${t.shippedOwn} of ${t.shippedAll}` +
+        (t.fabricated.length > 0 ? `  fabricated: ${t.fabricated.join(', ')}` : '') +
+        (t.omitted.length > 0 ? `  omitted: ${t.omitted.join(', ')}` : '')
+      : '';
+    rows.push(`${mark}  ${t.file}:${t.line}  ${t.kind} ${t.typeName}${detail}`);
+  }
+  rows.push('');
+  rows.push(summarise(result));
+
+  // Every unbuilt package, not only the ones carrying a README. An unbuilt
+  // package contributes no names to `nameOwners`, so a README import of a name
+  // that package really does export is judged `fabricated` instead of
+  // `wrong-path` -- a package with no README of its own still moves verdicts in
+  // other packages' rows. `no-type-entry` is deliberately NOT here: no build
+  // fixes it, and it is a verdict about the manifest rather than a precondition.
+  const unbuilt = result.packages.filter((p) => p.state === 'unbuilt');
+  if (unbuilt.length === 0) return { rows, notices: [], exitCode: EXIT_CODES.verified };
+
+  const named = unbuilt.map((p) => p.name ?? p.dir);
+  // A scoped filter list stops being a scoping when it names the whole
+  // population -- at that point it is `pnpm build` spelled out at forty times
+  // the length, and a developer who has to edit the line before running it has
+  // been handed a worse command, not a more precise one.
+  const buildCommand =
+    unbuilt.length === result.packages.length
+      ? 'pnpm build'
+      : `pnpm exec turbo run build ${named.map((n) => `--filter ${n}`).join(' ')} --concurrency=2`;
+
+  const notices = [
+    `\nPRECONDITION NOT MET (exit ${EXIT_CODES.couldNotRun}) — the rows above are NOT a verdict about any README.`,
+    `${unbuilt.length} of ${result.packages.length} tracked package(s) declare a type entry that is not on disk, so ` +
+      'their export surface was never read. Every declaration owned by one of them is listed above as ' +
+      '`unjudgeable-type` with no census detail, and an import of a name one of them really does export reads ' +
+      'above as `fabricated` rather than `wrong-path`.',
+    `This is "I could not run", NOT "I ran and found a fabricated name" (exit ${EXIT_CODES.readmesFailed}). ` +
+      'Build what the gate needs, then re-run:\n\n' +
+      `  ${buildCommand}\n` +
+      '  node scripts/check-readme-exports.mjs --list\n',
+    'The package(s) that are not built:',
+    ...unbuilt.map((p) => `  ${(p.name ?? p.dir).padEnd(38)} ${p.dir}  declares \`${p.declaredEntry}\``),
+    '',
+  ];
+  return { rows, notices, exitCode: EXIT_CODES.couldNotRun };
 }
 
 function repoRoot() {
@@ -1467,22 +1642,10 @@ if (isEntrypoint(import.meta.url)) {
     );
   } else if (process.argv.includes('--list')) {
     const result = scan(repoRoot(), { readmeOverrides: overrides });
-    for (const b of result.bindings) {
-      if (b.verdict === 'not-self') continue;
-      const mark = b.verdict.padEnd(17);
-      console.log(`${mark}  ${b.file}:${b.line}  ${b.exportName ?? `(${b.kind})`}  <- ${b.specifier}`);
-    }
-    for (const t of result.documentedTypes) {
-      const mark = t.verdict.padEnd(17);
-      const detail =
-        t.verdict === 'local-declaration' || t.verdict === 'not-a-property-type'
-          ? ''
-          : `  doc ${t.documented} key(s) + ${t.documentedMethods} method(s) vs own ${t.shippedOwn} of ${t.shippedAll}` +
-            (t.fabricated.length > 0 ? `  fabricated: ${t.fabricated.join(', ')}` : '') +
-            (t.omitted.length > 0 ? `  omitted: ${t.omitted.join(', ')}` : '');
-      console.log(`${mark}  ${t.file}:${t.line}  ${t.kind} ${t.typeName}${detail}`);
-    }
-    console.log(`\n${summarise(result)}`);
+    const { rows, notices, exitCode } = renderList(result);
+    for (const row of rows) console.log(row);
+    for (const notice of notices) console.error(notice);
+    process.exit(exitCode);
   } else {
     main(overrides);
   }

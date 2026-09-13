@@ -79,7 +79,12 @@ const DONE = { id: 'r1', status: 'done' };
 
 const cel = (source: string) => ({ dialect: 'cel', source });
 
-/** The ambient scope app-shell's `ExpressionProvider` really mounts. */
+/**
+ * A host scope. ⚠️ NOT what app-shell's `ExpressionProvider` mounts — the
+ * comment that said so was stale: `buildExpressionScope` has published no
+ * `data` since objectui#8166, and since objectui#9308 the renderer publishes
+ * none either. The empty `data` here is a deliberate HOST publication.
+ */
 const APP_SCOPE = {
   current_user: { id: 'u1', email_verified: true },
   user: { id: 'u1', email_verified: true },
@@ -165,11 +170,15 @@ describe('#5454 leg 1 — node-level `visibleWhen` binds `record`', () => {
     expect(shown()).toBe(true);
   });
 
-  it('does NOT overwrite `data` with the row — `${data.*}` still reads the connector adapter', () => {
+  it('does NOT overwrite `data` with the row — a host-published `data` survives', () => {
     // The reverse-verification of the narrowest choice in the fix. Binding the
     // row over `data` (which `containers.tsx` does on its own surface) would
     // silently re-point every `${data.*}` interpolation in a props bag.
-    mount({ properties: { content: '${data.total}' } }, DONE);
+    //
+    // objectui#9308 moved WHICH `data` has to survive: the renderer no longer
+    // publishes the adapter under that name, so the one at stake is the one a
+    // host published through the scope channel. `ADAPTER` is inert here.
+    mount({ properties: { content: '${data.total}' } }, DONE, { ...APP_SCOPE, data: { total: 99 } });
     expect(screen.getByTestId('probe')).toHaveAttribute('data-content', '99');
   });
 

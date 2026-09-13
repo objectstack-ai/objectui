@@ -940,12 +940,12 @@ export const ObjectMapConfigSchema = z.object({
 });
 
 /**
- * objectui#6939 — the record-source refinement `ObjectMapSchema` and
- * `ObjectGanttSchema` below share.
+ * objectui#6939 — the record-source refinement `ObjectMapSchema`,
+ * `ObjectGanttSchema` and `ObjectCalendarSchema` below share.
  *
- * Both renderers resolve their records from ONE of three keys, in this order:
- * `data` (a spec `ViewData` config), `staticData` (inline rows, wrapped into a
- * `{ provider: 'value' }` config) or `objectName` (the bound object) —
+ * Those renderers resolve their records from ONE of three keys, in this order:
+ * `data`, `staticData` (inline rows, wrapped into a `{ provider: 'value' }`
+ * config) or `objectName` (the bound object) —
  * `getDataConfig` in `plugin-map/src/ObjectMap.tsx` and
  * `plugin-gantt/src/ObjectGantt.tsx`, each `if (schema.data) … if
  * (schema.staticData) … if (schema.objectName) … return null`. Both mirrors
@@ -972,6 +972,25 @@ export const ObjectMapConfigSchema = z.object({
  * Deliberately a `function`, not an `export const`: the parity census in
  * `__tests__/zod-mirror-parity.test.ts` reads `^export const` out of this
  * directory and would demand a registered TS counterpart for it.
+ *
+ * ⭐ WHAT `data` MEANS IS NOT SHARED, only its PRESENCE is (objectui#9239).
+ * This refinement asks one question — is any rung declared? — and `!==
+ * undefined` answers it whatever the value's kind, so the three members reach
+ * it from two different arms:
+ *
+ *  - `object-map` / `object-gantt` — `data` is a spec `ViewData` PROVIDER BLOCK
+ *    (`{ provider, … }`), the source the block will FETCH FROM. Neither has a
+ *    `ComponentPropsMap` row, so the published row that governs them is this
+ *    file's own `ViewDataSchema.optional()`.
+ *  - `object-calendar` — `data` is an ARRAY of PRE-FETCHED RECORDS, drawn in
+ *    place of the block's own query, NOT a source to fetch from.
+ *    `ComponentPropsMap['object-calendar'].data` is `z.array(z.unknown())
+ *    .optional()` on `@objectstack/spec` 17.4.0 and the renderer honours that
+ *    arm alone since objectui#8348 (`resolveRecordSourceConfig(schema,
+ *    'array')`); objectui#9239 brought this file's member onto it.
+ *
+ * ⛔ So do not read the message below as promising a fetchable source: on the
+ * calendar, declaring `data` means handing the block rows it already has.
  */
 const RECORD_SOURCE_KEYS = ['data', 'staticData', 'objectName'] as const;
 function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calendar') {
@@ -1193,7 +1212,25 @@ export const ObjectGanttSchema = BaseSchema.extend({
 export const ObjectCalendarSchema = BaseSchema.extend({
   type: z.literal('object-calendar'),
   objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present (objectui#7313)'),
-  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig; undeclared on either face until objectui#7313'),
+  // objectui#9239 — the ARRAY arm, mirroring `ComponentPropsMap['object-calendar'].data`
+  // on `@objectstack/spec` (`z.array(z.unknown()).optional()`, "Pre-fetched
+  // records — skips the internal fetch"). ⛔ NOT `ViewDataSchema`: this member
+  // declared the provider BLOCK until that card while the protocol declared an
+  // array, so `safeValidateSchema` returned a green verdict for a document the
+  // protocol, `os validate`, the save gate and (since objectui#8348) the
+  // renderer all refuse. Maintainer ruling, decision batch #83 (2026-09-08),
+  // verbatim 「8348 以协议为准」, and the standing lane arbiter 「以 objectstack
+  // 协议为准，文档应该以实际实现为准。协议不正确的应该先修改协议」.
+  //
+  // ⛔ `ObjectMapSchema.data` / `ObjectGanttSchema.data` above are NOT following:
+  // neither block has a `ComponentPropsMap` row, so the published row governing
+  // them is this file's own `ViewDataSchema.optional()` and it stays.
+  //
+  // Mirrored at the SAME requiredness as `../objectql.ts` (both optional) so the
+  // zod-mirror-parity ratchet stays at zero drift for this pair, and at the same
+  // TYPE: the TS face derives `SpecObjectCalendarProps['data']`, whose input is
+  // `unknown[]`, which is exactly what `z.array(z.unknown())` infers here.
+  data: z.array(z.unknown()).optional().describe('Pre-fetched records — an ARRAY, drawn in place of the calendar\'s own query; read FIRST by the record-source ladder. Mirrors ComponentPropsMap[\'object-calendar\'].data — the { provider, items } config object is refused by kind on this block (objectui#9239, ruling objectui#8348)'),
   staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by getDataConfig'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),

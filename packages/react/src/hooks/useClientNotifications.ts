@@ -31,6 +31,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { SchemaRendererContext } from '../context/SchemaRendererContext.js';
 import { useNotifications } from '../context/NotificationContext.js';
 import type { NotificationSeverityLevel } from '../context/NotificationContext.js';
+import type { DataSource } from '@object-ui/types';
 
 /* ------------------------------------------------------------------ */
 /*  Public types                                                      */
@@ -70,6 +71,23 @@ function toSeverity(value: unknown): NotificationSeverityLevel {
 }
 
 /**
+ * An adapter that wraps an `@objectstack/client` and hands it out.
+ *
+ * `getClient` is NOT a `DataSource` member and this declaration does not make
+ * it one: it is an ObjectStackAdapter CAPABILITY that only some adapters have,
+ * so it is declared here, next to its only reader, and probed structurally.
+ * Declaring the capability is what lets the seam keep its real type — the
+ * alternative, casting the context value back to `any` to reach a member the
+ * contract does not promise, would re-create objectui#7912's defect one line
+ * below the seam it just fixed.
+ */
+type ClientBearingDataSource = DataSource & { getClient(): unknown };
+
+function hasGetClient(dataSource: DataSource): dataSource is ClientBearingDataSource {
+  return typeof (dataSource as Partial<ClientBearingDataSource>).getClient === 'function';
+}
+
+/**
  * Resolve the ObjectStack client from explicit option or SchemaRendererContext.
  *
  * The dataSource stored in context is typically an ObjectStackAdapter which
@@ -81,7 +99,7 @@ function useResolvedClient(explicit?: any): any {
   if (explicit) return explicit;
 
   const dataSource = rendererCtx?.dataSource;
-  if (dataSource && typeof dataSource.getClient === 'function') {
+  if (dataSource && hasGetClient(dataSource)) {
     return dataSource.getClient();
   }
   return null;

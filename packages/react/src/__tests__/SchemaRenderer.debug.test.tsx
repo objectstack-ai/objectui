@@ -12,6 +12,18 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererProvider } from '../context/SchemaRendererContext';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are placeholders for a provider that merely has to EXIST, and one probe
+ * that pins the empty-object case by name.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 // Suppress console.warn from deprecated namespace registration
 const originalWarn = console.warn;
@@ -35,7 +47,7 @@ describe('SchemaRenderer debug attributes', () => {
 
   it('should NOT inject data-debug-* attributes when debug is off', () => {
     const { getByTestId } = render(
-      <SchemaRendererProvider dataSource={{}}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
         <SchemaRenderer schema={{ type: 'test-debug-div', id: 'myBtn' }} />
       </SchemaRendererProvider>,
     );
@@ -46,7 +58,7 @@ describe('SchemaRenderer debug attributes', () => {
 
   it('should inject data-debug-type when debug is enabled', () => {
     const { getByTestId } = render(
-      <SchemaRendererProvider dataSource={{}} debug={true}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource} debug={true}>
         <SchemaRenderer schema={{ type: 'test-debug-div', id: 'myBtn' }} />
       </SchemaRendererProvider>,
     );
@@ -57,7 +69,7 @@ describe('SchemaRenderer debug attributes', () => {
 
   it('should inject data-debug-type when debugFlags.enabled is true', () => {
     const { getByTestId } = render(
-      <SchemaRendererProvider dataSource={{}} debugFlags={{ enabled: true }}>
+      <SchemaRendererProvider dataSource={{} as unknown as DataSource} debugFlags={{ enabled: true }}>
         <SchemaRenderer schema={{ type: 'test-debug-div' }} />
       </SchemaRendererProvider>,
     );

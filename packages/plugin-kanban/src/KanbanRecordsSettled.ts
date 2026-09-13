@@ -14,8 +14,10 @@ import { createContext, useContext } from 'react';
  * ## What this exists to stop
  *
  * `KanbanImpl` paints `DataEmptyState` — a `role="status" aria-live="polite"`
- * live region titled "No cards" — whenever the board holds zero cards across
- * more than one lane. That predicate is an ASSERTION ABOUT THE DATA, and the
+ * live region titled "No cards" — whenever the board holds zero cards. (It
+ * also required more than one lane until objectui#9045 removed that conjunct
+ * as unreachability rather than a guard; the lane count never had anything to
+ * do with settling.) That predicate is an ASSERTION ABOUT THE DATA, and the
  * component was making it before it had the data.
  *
  * The production shape is a board whose lanes come from view metadata

@@ -160,7 +160,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       ? ((schema as any).properties.entries as ReferenceRailEntry[])
       : [];
   const parentId = ctx?.recordId;
-  const dataSource: any = (ctx as any)?.dataSource;
+  const dataSource = ctx?.dataSource;
 
   const [states, setStates] = React.useState<Record<string, EntryState>>({});
 

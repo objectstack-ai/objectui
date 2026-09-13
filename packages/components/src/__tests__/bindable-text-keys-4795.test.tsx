@@ -33,18 +33,33 @@
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 // Module scope, not a hook — the cold transform would otherwise be billed to
 // `hookTimeout` (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../renderers';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const DATA = { total: 99, caption: 'Active users', note: '+20.1% from last month' };
 
 const renderNode = (schema: any) =>
   render(
-    <SchemaRendererProvider dataSource={DATA}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+      <SchemaRendererProvider dataSource={DATA as unknown as DataSource}>
       <SchemaRenderer schema={schema} />
-    </SchemaRendererProvider>,
+    </SchemaRendererProvider>
+    </PredicateScopeProvider>,
   );
 
 describe('objectui#4795 — declared text keys are evaluated AND read back, through real renderers', () => {

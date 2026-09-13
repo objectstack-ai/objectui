@@ -366,18 +366,22 @@ export function mergeAuthoredPresentation(
  * the renderer to resolve against the viewer's language. Read that helper for
  * why resolving cannot happen in this package.
  *
- * ⚠️ LEDGERED, by name, as still unresolved after objectui#9038 — neither is in
- * that card's scope and neither is reached by the change above:
+ * ⚠️ LEDGERED, by name, as still unresolved after objectui#9038 — not in
+ * that card's scope and not reached by the change above:
  *
  *  - **A series `label` and an axis `title`** still go through
  *    {@link labelText}'s first-string-wins pick, the design objectui#4020
  *    ledgered and a caller can override. Not reopened here.
- *  - **The report renderer's own heading.** `DatasetReportChart`
- *    (`@object-ui/plugin-report`) drops `title` from this result and paints its
- *    own `h3` from a plain-string narrowing of `chart.title`, so a locale-map
- *    title still draws no heading on the REPORT surface. That read site is the
- *    renderer's, not this whitelist's; `subtitle` and `description` do reach
- *    the chart there and are fixed by this change.
+ *
+ * ✓ CLEARED, objectui#9150 — **the report renderer's own heading.**
+ * `DatasetReportChart` (`@object-ui/plugin-report`) still drops `title` from
+ * this result and still paints its own `h3`, but that read site no longer
+ * narrows `chart.title` to a plain string: it resolves the union through
+ * `pickLocalized` against the viewer's language, like every other `I18nLabel`
+ * on that surface. Kept here rather than deleted because the ledger entry is
+ * what the fixing card was dispatched from, and because the FIRST half of it —
+ * that a caller painting the title itself must drop `title` from this result —
+ * is a live constraint on this whitelist, stated above.
  *
  * @param raw the authored chart config (anything, incl. absent)
  * @param fieldCategoryColors per-category colours resolved from the category

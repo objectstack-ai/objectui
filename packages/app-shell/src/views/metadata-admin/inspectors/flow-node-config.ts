@@ -478,7 +478,29 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     }),
   ],
   end: [
-    cfg('outcome', 'Outcome', 'text', { placeholder: 'success · failure' }),
+    // objectui#9278 — `outcome` is a CLOSED enum, and `FlowNodeSchema`
+    // discriminates an `end` node's config through `EndConfigSchema`, so a
+    // value outside it is refused at the door rather than ignored at run time.
+    // It was a free-text box whose placeholder printed `success · failure`:
+    // two words the parse contract refuses, and on a key with no dropdown that
+    // placeholder was the only vocabulary the form offered — so the author's
+    // most likely action was to type one of them, and the flow then failed to
+    // load. The options and the declared default are derived from the installed
+    // spec, as the `defaultValue` doc comment above requires of a declaration
+    // outside the escalation ledger, and reconciled against `EndConfigSchema`
+    // in `FlowNodeInspector.declaredDefault.test.tsx` so the claim cannot rot.
+    cfg('outcome', 'Outcome', 'select', {
+      options: [
+        { value: 'completed', label: 'Completed' },
+        { value: 'refused', label: 'Refused' },
+      ],
+      defaultValue: 'completed',
+      // `refused` carries a cross-field rule the spec states and this form has
+      // no typed control for yet: it REQUIRES a `message` saying why, as a
+      // {token} template. Named here so picking it is not a one-click route to
+      // a flow that will not load; the key itself stays authorable in Advanced.
+      help: 'How the run ends here. "Completed" is the ordinary terminal and is what an omitted key applies. "Refused" records a first-class refusal — a successful evaluation that says no — and requires a message saying why (a {token} template), which is set in Advanced.',
+    }),
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'result' }),
   ],
   decision: [
@@ -771,7 +793,17 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       placeholder: '1',
       help: 'Approvals required — total for quorum, per group for per_group. Clamped server-side so it can never deadlock.',
     }),
+    // `defaultValue` mirrors the spec's `.default(true)` (objectui#9277): an
+    // approval config that OMITS `lockRecord` parses as LOCKED, so a table
+    // declaring nothing drew the box UNCHECKED — the inspector told the author
+    // the record stayed editable while the node was pending, and the runtime
+    // locked it. Since objectui#8451 seeded the boolean control from this
+    // property, an absent declaration is not a missing claim here; it is the
+    // wrong one. Derived from the installed `ApprovalNodeConfigSchema`, never
+    // from taste — `FlowNodeInspector.declaredDefault.test.tsx` re-derives it
+    // from that schema rather than restating the literal.
     cfg('lockRecord', 'Lock record', 'boolean', {
+      defaultValue: 'true',
       help: 'Lock the triggering record from edits while this node is pending.',
     }),
     cfg('approvalStatusField', 'Status field', 'reference', {
@@ -932,7 +964,16 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       ],
       defaultValue: 'error',
     }),
-    at('boundaryConfig', 'interrupting', 'Interrupting', 'boolean', { help: 'Cancel the host activity when this event fires.' }),
+    // `defaultValue` mirrors the spec's `.default(true)` (objectui#9277): a
+    // `boundaryConfig` that OMITS `interrupting` parses as INTERRUPTING, so a
+    // table declaring nothing drew the box UNCHECKED and told the author the
+    // host activity would keep running — it is cancelled. Same shape as
+    // `lockRecord` above, derived from the installed `FlowNodeSchema` boundary
+    // block and re-derived in `FlowNodeInspector.declaredDefault.test.tsx`.
+    at('boundaryConfig', 'interrupting', 'Interrupting', 'boolean', {
+      defaultValue: 'true',
+      help: 'Cancel the host activity when this event fires.',
+    }),
     at('boundaryConfig', 'errorCode', 'Error code', 'text', {
       placeholder: 'TIMEOUT (empty = all)',
       showWhen: { field: 'boundaryConfig.eventType', equals: ['error'] },

@@ -15,6 +15,7 @@ import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListVie
 import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
 import { buildListFilterKey, readListFilterState, writeListFilterState } from './listFilterStorage.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
+import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
 import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError } from '@object-ui/data-objectstack';
 const ObjectChart = lazy(() =>
   import('@object-ui/plugin-charts').then((m) => ({ default: m.ObjectChart })),
@@ -1026,6 +1027,31 @@ export function buildPersistedViewBody(
     // Identity is stamped LAST for the same reason `updateViewConfig` stamps
     // `object`/`name`/the marker last: nothing in the payload can shadow it.
     return viewKind === undefined ? { ...patch } : { ...patch, viewKind };
+}
+
+/**
+ * The `filter[...]` params of a URL, selected out of the full search params as
+ * their own `URLSearchParams`. Extracted for the same reason `buildViewTabs`
+ * above is: so the shape is assertable without mounting the view.
+ *
+ * Built by APPENDING onto a `URLSearchParams` rather than joining `key=value`
+ * pairs into a string by hand (objectui#9287). `searchParams.entries()` yields
+ * DECODED values, so a hand-joined key re-introduced, unescaped, the two
+ * characters that are structural in a query string: `&` TRUNCATED the value at
+ * its first occurrence (`Smith & Sons` reached the reader as `Smith `, plus a
+ * stray empty-valued param) and `+` came back as a space (`A+B` as `A B`).
+ * Neither produces an absent condition — the list renders, scoped by a silently
+ * WRONG value, and nothing anywhere says the value was cut.
+ *
+ * `toString()` percent-encodes, so the serialized form still round-trips and
+ * still ignores the unrelated `uf_*` params the memo key exists to absorb.
+ */
+export function selectFilterParams(searchParams: URLSearchParams): URLSearchParams {
+    const filterParams = new URLSearchParams();
+    searchParams.forEach((value, key) => {
+        if (key.startsWith('filter[')) filterParams.append(key, value);
+    });
+    return filterParams;
 }
 
 export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: any) {
@@ -2086,24 +2112,37 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
      * to a single parent record. Emitted as ObjectQL triples (`[field, '=', value]`)
      * which matches the shape consumed by the list view's data fetcher when
      * merging base filters.
+     *
+     * Read through `drillUrlFilters` — the ONE module that owns this URL family
+     * — rather than a private regex here (objectui#9196). This route implements
+     * the EQUALITY arm only: an operator suffix it cannot execute
+     * (`?filter[amount][gte]=100`) is DROPPED, never downgraded to equality and
+     * never swallowed into the field name. The greedy capture this replaced did
+     * the last of those, emitting a condition against a field literally named
+     * `amount][gte` that no object declares — a silently wrong query, not an
+     * ignored parameter. Range operators live on the ADR-0055 `/data` surface
+     * (`parseUrlFilterTriples`); giving them to this route would widen an
+     * addressable public surface and is deliberately not done here.
      */
     // Dep on the serialized `filter[...]` entries only — `uf_*` user-filter
     // params also live in the URL and must not invalidate this memo (a new
     // array identity here rebuilds the whole list schema and refetches).
-    const filterParamsKey = Array.from(searchParams.entries())
-        .filter(([k]) => k.startsWith('filter['))
-        .map(([k, v]) => `${k}=${v}`)
-        .join('&');
-    const urlFilters = useMemo(() => {
-        const out: Array<[string, string, any]> = [];
-        new URLSearchParams(filterParamsKey).forEach((value, key) => {
-            const m = /^filter\[(.+)\]$/.exec(key);
-            if (m && m[1] && value !== '') {
-                out.push([m[1], '=', value]);
-            }
-        });
-        return out;
-    }, [filterParamsKey]);
+    const filterParams = selectFilterParams(searchParams);
+    const filterParamsKey = filterParams.toString();
+    const urlFilters = useMemo(
+        // The params object is read DIRECTLY — nothing is serialized here and
+        // parsed back, so there is no round trip left for a character to be
+        // lost in (objectui#9287). `filterParamsKey` is the memo's identity
+        // only.
+        () => parseUrlEqualityFilterTriples(filterParams),
+        // Keyed on the SERIALIZED params, not on the object's identity:
+        // `filterParams` is rebuilt every render, so listing it would
+        // invalidate this memo on every unrelated `uf_*` write — the churn
+        // this key exists to prevent. Equal keys imply equal contents, so the
+        // captured object is never stale.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+        [filterParamsKey],
+    );
 
     /**
      * End-user filter selections restored from `uf_*` URL params (ADR-0047

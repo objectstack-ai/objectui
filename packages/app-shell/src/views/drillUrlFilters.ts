@@ -30,6 +30,16 @@ export const URL_FILTER_OPS: Record<string, string> = { gte: '>=', lte: '<=', gt
 export const RANGE_OP_PARAM: Record<string, string> = { $gte: 'gte', $lte: 'lte', $gt: 'gt', $lt: 'lt' };
 
 /**
+ * The ONE grammar for a key in this family, so the two arms below cannot drift
+ * apart on what a field name is: `filter[<field>]`, with an OPTIONAL
+ * `[<suffix>]`. The field slot excludes both brackets, so a suffix can never be
+ * swallowed into the field name — the drift objectui#9196 measured, where a
+ * greedy field capture turned `filter[amount][gte]` into a condition against a
+ * field literally named `amount][gte` that no object declares.
+ */
+const FILTER_KEY = /^filter\[([^[\]]+)\](?:\[([^[\]]+)\])?$/;
+
+/**
  * Parse `filter[<field>]=<value>` (equality) and `filter[<field>][<op>]=<value>`
  * (range/comparison) search params into ObjectQL triples. An unknown operator
  * suffix is ignored (never silently downgraded to equality).
@@ -38,15 +48,46 @@ export function parseUrlFilterTriples(searchParams: URLSearchParams): FilterTrip
   const out: FilterTriple[] = [];
   searchParams.forEach((value, key) => {
     if (value === '') return;
-    // Operator form FIRST — the field capture must not swallow the `[op]` suffix.
-    const mOp = /^filter\[([^\]]+)\]\[([a-z]+)\]$/.exec(key);
-    if (mOp) {
-      const op = URL_FILTER_OPS[mOp[2]];
-      if (op) out.push([mOp[1], op, value]);
+    const m = FILTER_KEY.exec(key);
+    if (!m) return;
+    const [, field, suffix] = m;
+    if (suffix === undefined) {
+      out.push([field, '=', value]);
       return;
     }
-    const m = /^filter\[([^\]]+)\]$/.exec(key);
-    if (m && m[1]) out.push([m[1], '=', value]);
+    const op = URL_FILTER_OPS[suffix];
+    if (op) out.push([field, op, value]);
+  });
+  return out;
+}
+
+/**
+ * The EQUALITY-ONLY arm of the same grammar, for a surface that implements
+ * `filter[<field>]=<value>` and nothing else — today the plain object route
+ * (`/apps/:app/:object`, `ObjectView`), whose related-list "View All" buttons
+ * scope a destination list to one parent record.
+ *
+ * An operator suffix is DROPPED, exactly as `parseUrlFilterTriples` drops an
+ * operator it does not know: ignored, and in particular never silently
+ * downgraded to equality. Those are two different outcomes and only one is
+ * correct — answering the narrower `amount = 100` when the URL asked for
+ * `amount >= 100` is a wrong answer wearing a right answer's shape.
+ *
+ * ⚠️ This arm deliberately does NOT execute the operator suffix (objectui#9196).
+ * Teaching this route range operators would widen the accepted set of an
+ * addressable public surface — a behaviour addition, not a repair, and one that
+ * belongs to the maintainer rather than to a bug fix. The operator arm stays
+ * where it already is: `parseUrlFilterTriples`, on the ADR-0055 `/data` surface.
+ */
+export function parseUrlEqualityFilterTriples(searchParams: URLSearchParams): FilterTriple[] {
+  const out: FilterTriple[] = [];
+  searchParams.forEach((value, key) => {
+    if (value === '') return;
+    const m = FILTER_KEY.exec(key);
+    // `m[2] !== undefined` is the suffixed form — not executable here, so the
+    // whole condition is dropped rather than answered at the wrong operator.
+    if (!m || m[2] !== undefined) return;
+    out.push([m[1], '=', value]);
   });
   return out;
 }

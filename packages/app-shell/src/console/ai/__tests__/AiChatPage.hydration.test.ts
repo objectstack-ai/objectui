@@ -330,15 +330,19 @@ describe('AiChatPage hydration — the approval envelope and the pending-action 
     );
     const tool = chat[1]?.toolInvocations?.[0];
     expect(tool?.pendingActionId).toBe('pa_44');
-    // ⚠️ MEASURED, and recorded here rather than asserted as desirable: on THIS
-    // sub-path the merge step rewrites the part's state to `output-available`
-    // whenever a result is merged, so the state never reaches this mapper as
-    // `approval-requested`. The id is what `useHitlInChat` indexes on, so the
-    // hook now sees this invocation either way — but the awaiting-approval CARD
-    // is gated on the state, so it does not render from this sub-path. That
-    // state rewrite is out of this card's scope (it lives in the hydration
-    // pipeline, not in this mapper); a card that fixes it turns this line red,
-    // which is the point of pinning the reading instead of describing it.
-    expect(tool?.state).toBe('output-available');
+    // TURNED OVER by objectui#9233, in place and deliberately: this line used
+    // to assert `output-available` — not because that was right, but because it
+    // was what the pipeline DID. objectui#8442 pinned the defective reading
+    // rather than describing it, precisely so the card that fixed it would meet
+    // a red line here instead of a stale sentence. This is that red line, paid.
+    //
+    // What changed: `mergeToolResultsInto` (useChatConversation.ts) no longer
+    // overwrites the state when the merged result carries the HITL pending
+    // envelope — it promotes to `approval-requested`, exactly as the live mapper
+    // (`mapMessages.extractToolInvocations`) already did. So both halves of an
+    // actionable approval now survive the ModelMessage sub-path: the id the hook
+    // indexes on, and the state `ChatbotEnhanced`'s `isAwaitingApproval` gate
+    // reads. The operator gets a real Approve / Reject card after a reload.
+    expect(tool?.state).toBe('approval-requested');
   });
 });

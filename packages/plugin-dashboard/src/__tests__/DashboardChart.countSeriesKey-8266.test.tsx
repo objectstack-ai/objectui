@@ -58,6 +58,19 @@ import '@object-ui/components';
 import '@object-ui/plugin-charts';
 import '../index';
 import { DashboardRenderer } from '../DashboardRenderer';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are partial stubs carrying only the members the path under test calls;
+ * completing them would change which capability probes fire, and so would
+ * change what these tests measure.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 /** Every composed chart node the relays handed the renderer, in order. */
 const composed: any[] = [];
@@ -82,7 +95,7 @@ const dataSource = { aggregate: async () => [], find: async () => [] };
 const composeVia = async (surface: 'grid' | 'renderer', widget: Record<string, unknown>) => {
   composed.length = 0;
   render(
-    <SchemaRendererProvider dataSource={dataSource}>
+    <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
       {surface === 'grid' ? (
         <SchemaRenderer schema={{ type: 'dashboard-grid', widgets: [widget] } as any} />
       ) : (

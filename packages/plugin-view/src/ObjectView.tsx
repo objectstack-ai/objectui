@@ -1361,7 +1361,38 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           (Array.isArray(kanbanCfg.columns) && kanbanCfg.columns.length > 0
             ? kanbanCfg.columns
             : baseProps.fields) || [];
-        const { columns: _kanbanColumns, groupByField: _gbf, groupField: _gf, titleField: _tf, conditionalFormatting: _kanbanCf, ...restKanban } = kanbanCfg;
+        // ⭐ `groupBy` IS STRIPPED HERE (objectui#9242, maintainer ruling of
+        // 2026-09-12 — decision batch #117 item 5, option B). It is a THIRD
+        // spelling of the lane, and because it was NOT in this destructure it
+        // survived into `restKanban`, which the return below spreads AFTER the
+        // branch's own `groupBy` — so an authored `kanban.groupBy` OVERRODE the
+        // lane this branch had just resolved from `groupByField`.
+        //
+        // THE SECOND ROUTE. objectui#8365 / PR objectui#9236 closed the same
+        // shape in `ListView`, but `generateViewSchema` runs precisely when no
+        // host supplied `renderListView` — the authored `object-view` element —
+        // so that fix does not reach here. Same distinction the `calendar`
+        // branch below records for objectui#7029.
+        //
+        // ⚠️ ONE MEASURED DIFFERENCE FROM THE TWIN, and it is not cosmetic: the
+        // lane above floors at the LITERAL `'status'`, where `ListView` floors
+        // at `detectStatusField(objectDef)`. So with the stray key ALONE this
+        // route answers `'status'` — measured, including against an object that
+        // declares no `status` field — and the twin would answer `undefined`.
+        // ⛔ Do not "align" the two by swapping in the detector: that is a
+        // behaviour change on stored views and belongs on its own card.
+        //
+        // The contract half is NOT here and must not be duplicated here: the
+        // view-level `KanbanConfig` mirror (`@object-ui/types`,
+        // `zod/objectql.zod.ts`) already declares `groupBy` as a named alias
+        // refusal pointing at `groupByField`, and it covers BOTH routes. What
+        // this line closes is the residual BEHAVIOUR gap — a stored document
+        // that never passed through a validator.
+        // ⚠️ NODE-LOCAL vs VIEW-LEVEL, as everywhere in this branch: the
+        // `kanbanCfg.groupField` alias read above is LIVE and untouched, and
+        // `groupBy` on the RETURNED node is the canonical lane key
+        // `ObjectKanban` reads. Only the stray VIEW-CONFIG spelling is stripped.
+        const { columns: _kanbanColumns, groupByField: _gbf, groupField: _gf, titleField: _tf, conditionalFormatting: _kanbanCf, groupBy: _strayGroupBy, ...restKanban } = kanbanCfg;
         // Forward conditional formatting to kanban (issue #1584): nested
         // `options.kanban.conditionalFormatting` wins, then the view-level rule.
         // Those are the two places the key is DECLARED — `ObjectKanbanSchema`

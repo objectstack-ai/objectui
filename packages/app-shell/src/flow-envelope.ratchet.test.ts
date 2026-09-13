@@ -25,6 +25,11 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appShellSrc = here;
@@ -46,9 +51,7 @@ function walk(dir: string, out: string[] = []): string[] {
  * Comments name routes freely while explaining them. Only CODE counts.
  */
 function stripComments(src: string): string {
-    return src
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    return mask(src);
 }
 
 /**

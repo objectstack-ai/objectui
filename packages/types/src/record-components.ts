@@ -242,18 +242,73 @@ export interface RecordDetailsComponentProps {
 export interface RecordHighlightsComponentProps {
   /**
    * Fields to display as highlights — bare names or
-   * `{name,label?,icon?,type?,readonly?}` for inline overrides.
+   * `{name,label?,type?,readonly?}` for inline overrides, as the CLOSED SET
+   * the contract declares.
    *
    * `readonly: true` suppresses the chip's inline-edit affordance
    * (objectstack#5077) without touching the object field, which is what
    * hook-maintained columns need: marking the object field `readonly` would
    * also strip the hook's own write-back.
+   *
+   * The object arm offered a fifth key, `icon`, until objectui#9280, and the
+   * contract never accepted it. `@objectstack/spec`
+   * `RecordHighlightsProps.fields[]`'s object arm declares exactly
+   * `name`/`label`/`type`/`readonly` and carries a `never` catchall, i.e. it is
+   * `$strict`: an unlisted key is REFUSED, not stripped, and the refusal takes
+   * the WHOLE document with it. Measured on the installed pin, 17.4.0,
+   * `RecordHighlightsProps.safeParse({ fields: [{ name: 'x', icon: 'star' }] })`
+   * is RED with `invalid_union` at `fields.0`. So `{ name: 'amount', icon:
+   * 'dollar-sign' }` type-checked here and was refused at the door — a green
+   * local build and a rejection at the only layer that matters. Three controls
+   * on the same instrument fired as they should: a declared key
+   * (`{ name, label }`) parses green, so the arm is not refusing everything; an
+   * arbitrary key (`zzzNonsense`) is refused with the SAME `invalid_union`
+   * code, so `icon` was not special-cased; and the bare-string arm parses
+   * green, so only the object arm moved. Contract-first (Commandment #0.1):
+   * the declaration moves to the contract, the contract is not widened.
+   *
+   * ⚠️ Whether a highlight chip SHOULD be able to carry an icon is a separate
+   * question this narrowing does not answer. The route for it is an upstream
+   * spec widening (an `@objectstack/spec` decision, on its own card), ⛔ never
+   * a redeclaration here.
+   *
+   * ⚠️ Do NOT copy this retirement onto `sections[].icon` one screen up. That
+   * is a DIFFERENT key on a different face — `DetailSection` genuinely draws
+   * it and the contract declares it — the same word, not the same member.
+   * `__tests__/record-highlights-fields-icon-9280.test.ts` pins this arm
+   * against the installed spec in both directions.
    */
   fields: Array<
-    string | { name: string; label?: string; icon?: string; type?: string; readonly?: boolean }
+    string | { name: string; label?: string; type?: string; readonly?: boolean }
   >;
-  /** Layout mode for highlights display */
-  layout?: 'horizontal' | 'vertical' | 'grid';
+  /**
+   * Layout mode for the highlights strip, as the CLOSED SET the contract
+   * declares (`@objectstack/spec` `RecordHighlightsProps.layout` is
+   * `z.enum(['horizontal','vertical'])` behind a `.default('horizontal')`).
+   *
+   * It offered a third value, `grid`, until objectui#9187, and the contract
+   * never accepted it: measured on the installed pin, 17.4.0,
+   * `RecordHighlightsProps.safeParse({ fields: ['name'], layout: 'grid' })` is
+   * RED with `invalid_value` at `layout`. So `{ layout: 'grid' }` type-checked
+   * here and was refused at the door — a green local build and a rejection at
+   * the only layer that matters. Two controls on the same instrument fired as
+   * they should: an arbitrary value is refused with the SAME code, so `grid`
+   * was not special-cased, and omitting the key parses green, so the schema is
+   * not refusing everything. Contract-first (Commandment #0.1): the
+   * declaration moves to the contract, the contract is not widened.
+   *
+   * Every other layer already agreed with the contract — `@object-ui/plugin-detail`
+   * publishes `enum: ['horizontal', 'vertical']` for this input in its registry
+   * manifest, and `RecordHighlightsRenderer` reads no `layout` at all. This
+   * declaration was the last live holdout of the spelling.
+   *
+   * ⚠️ Do NOT copy this set onto the `layout` one interface up. That one is a
+   * tombstone the contract refuses BY NAME (objectui#9040, still open) — the
+   * same word, a different divergence, a different repair.
+   * `__tests__/record-highlights-layout-9187.test.ts` pins this union against
+   * the installed spec in both directions.
+   */
+  layout?: 'horizontal' | 'vertical';
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }

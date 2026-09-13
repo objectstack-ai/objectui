@@ -393,6 +393,64 @@ export function reconcileOperatorForField(
 }
 
 /**
+ * The offered id the operator trigger COMPARES against — the last site in this
+ * component that read the operator literally instead of through the spec's
+ * fold (objectui#7561).
+ *
+ * Radix matches `SelectValue` against the `SelectItem`s actually MOUNTED, and
+ * the mounted ids are this builder's own camelCase vocabulary. A row can hold
+ * the operator under another spelling of the SAME operator and still be
+ * perfectly valid:
+ *
+ *   - the spec's canonical `greater_than`, which is what `FilterOperatorSchema`
+ *     accepts and what `foldFilterGroupToSpecRules` persists;
+ *   - the spec's alias table `gt` / `lt` / `eq`, which three schema-catalog
+ *     entries author today.
+ *
+ * Neither matched `greaterThan` literally, so the trigger drew BLANK over a row
+ * that filtered correctly — the user's own operator, invisible and unreachable.
+ * Everywhere the operator's MEANING matters this component already folds first
+ * ({@link filterValueArity}, {@link reconcileOperatorForField}); this was the
+ * one place it did not, and that omission — not the vocabulary divergence — is
+ * what produced the blank.
+ *
+ * So the comparison is made canonically and the MOUNTED spelling is handed to
+ * the trigger. Three things this deliberately does NOT do, each of them a
+ * separate ruling (objectui#7561):
+ *
+ *   1. it does not rewrite `condition.operator` — the row keeps the spelling it
+ *      arrived with, exactly as {@link reconcileOperatorForField} keeps it, and
+ *      nothing is written back on render;
+ *   2. it does not mount a new `SelectItem`, so the vocabulary the dropdown
+ *      EMITS is byte-identical — contrast the value select above, where
+ *      objectui#4874 ruling C mounts the outside-options value as its own
+ *      option. That answer is right there and wrong here: the value's domain is
+ *      the author's data, while the operator's domain is a declared vocabulary,
+ *      and mounting a foreign spelling would admit a second one;
+ *   3. it does not widen what any schema ACCEPTS.
+ *
+ * Safe to compare through because the fold is INJECTIVE over this builder's
+ * vocabulary — all 22 ids in `defaultOperators` normalize to 22 distinct
+ * canonical operators, pinned in `filter-builder-field-switch-operator.test.tsx`
+ * — so no two OFFERED operators can collapse onto one another and the match is
+ * unambiguous. An operator no offered id folds onto falls through to the row's
+ * own spelling and still draws blank: inventing a label for a word this
+ * vocabulary does not contain would be a claim, not a repair.
+ *
+ * @internal exported for tests
+ */
+export function mountedOperatorValue(
+  operator: string,
+  offeredOperators: ReadonlyArray<{ value: string }>,
+): string {
+  const canonical = normalizeFilterOperator(operator)
+  const mounted = offeredOperators.find(
+    (op) => normalizeFilterOperator(op.value) === canonical,
+  )
+  return mounted?.value ?? operator
+}
+
+/**
  * The value FAMILY a field type edits in — the same six branches
  * {@link getInputType} draws its `<input type>` from, named once so the type a
  * value is CONVERTED to and the input it is EDITED in cannot disagree
@@ -1591,7 +1649,13 @@ function FilterBuilder({
 
               <div className="col-span-4">
                 <Select
-                  value={condition.operator}
+                  // The row's operator, resolved to the id actually MOUNTED
+                  // below — see {@link mountedOperatorValue}. The row itself
+                  // keeps its own spelling; only this comparison is folded.
+                  value={mountedOperatorValue(
+                    condition.operator,
+                    getOperatorsForField(condition.field),
+                  )}
                   onValueChange={(value) => changeOperator(condition.id, value)}
                 >
                   <SelectTrigger className="h-9 text-sm">

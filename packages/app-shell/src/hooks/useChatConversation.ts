@@ -10,6 +10,13 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+// One parse for one contract. `detectPendingApproval` is the live mapper's own
+// reader of the framework HITL envelope, exported (objectui#8442) so this
+// hydration path cannot grow a second dialect of it (Commandment #0.1).
+// `@object-ui/plugin-chatbot` is already a static member of this package's
+// barrel closure (`index.ts` re-exports `AiChatPage`, which imports it), so
+// this adds no package edge and no eager bundle weight.
+import { detectPendingApproval } from '@object-ui/plugin-chatbot';
 
 /** Minimal UIMessage shape compatible with `@ai-sdk/react`'s `useChat`. */
 export interface HydratedUIMessagePart {
@@ -446,6 +453,9 @@ function contentToParts(content: unknown): HydratedUIMessagePart[] {
   return [];
 }
 
+/** Tool-part states that mean "a human still owes this call a decision". */
+const APPROVAL_STATES = new Set(['approval-requested', 'approval-responded']);
+
 /**
  * Merge a `tool`-role message's tool-result outputs back onto the assistant
  * tool-call parts that requested them. The server persists conversations in
@@ -455,6 +465,19 @@ function contentToParts(content: unknown): HydratedUIMessagePart[] {
  * affordances after a reload — otherwise the result, and the whole `tool` row
  * (which the UI never renders directly), is dropped and the build card + publish
  * button vanish on refresh.
+ *
+ * ⚠️ The state rewrite below is deliberately NARROW (objectui#9233). Collapsing
+ * a dangling `input-streaming` / `input-available` into a terminal state is why
+ * the rewrite exists and it stays: a snapshot that never recorded the terminal
+ * state otherwise shows every tool "Running" forever after a reload. But an
+ * APPROVAL state is not a dangling one — it is the state the awaiting-approval
+ * card renders on (`isAwaitingApproval` in `ChatbotEnhanced`). Rewriting it here
+ * meant a rehydrated pending approval reached the chat as Completed, so the
+ * operator got no Approve / Reject card at all even though `useHitlInChat` had
+ * the id and `decide()` was live. The arms below are the live mapper's
+ * (`mapMessages.extractToolInvocations`), not a second predicate: a pending
+ * envelope promotes, an error still wins over it, everything else terminalizes
+ * exactly as before.
  */
 function mergeToolResultsInto(
   content: unknown,
@@ -471,7 +494,13 @@ function mergeToolResultsInto(
     target.output = output;
     const errorText = (part as { errorText?: unknown }).errorText;
     const isError = Boolean((part as { isError?: unknown }).isError) || typeof errorText === 'string';
-    target.state = isError ? 'output-error' : 'output-available';
+    const baseState = isError ? 'output-error' : 'output-available';
+    const heldApproval =
+      typeof target.state === 'string' && APPROVAL_STATES.has(target.state)
+        ? target.state
+        : undefined;
+    const approval = detectPendingApproval(output) ? 'approval-requested' : heldApproval;
+    target.state = approval && baseState !== 'output-error' ? approval : baseState;
     if (typeof errorText === 'string') target.errorText = errorText;
   }
 }

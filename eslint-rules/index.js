@@ -11,6 +11,7 @@ import buttonHasType from './button-has-type.js';
 import noUnpairedBadgeColorClasses from './no-unpaired-badge-color-classes.js';
 import noUnusedImports from './no-unused-imports.js';
 import noLineAddressInTestName from './no-line-address-in-test-name.js';
+import noBareNodeSlotGuard from './no-bare-node-slot-guard.js';
 
 export default {
   rules: {
@@ -24,5 +25,6 @@ export default {
     'no-unpaired-badge-color-classes': noUnpairedBadgeColorClasses,
     'no-unused-imports': noUnusedImports,
     'no-line-address-in-test-name': noLineAddressInTestName,
+    'no-bare-node-slot-guard': noBareNodeSlotGuard,
   },
 };

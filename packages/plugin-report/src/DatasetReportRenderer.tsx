@@ -924,7 +924,33 @@ function DatasetReportChart({
     };
   }, [dimensionMeta, fieldOptionLabel]);
 
-  const title = typeof chart.title === 'string' ? chart.title : undefined;
+  // objectui#9150 — the heading BOTH branches below paint, resolved through
+  // `pickLocalized`, this repo's one resolver for the `I18nLabel` union.
+  //
+  // `ReportChartSchema.title` is that union — a plain string OR an inline
+  // locale map — and the plain-string narrowing this replaced dropped the map
+  // arm silently: a title authored `{ en: 'Pricing', 'zh-CN': <the zh limb> }`
+  // is metadata the contract ACCEPTS, and the `h3` simply did not render, in
+  // every language, with no diagnostic. Not the wrong language — NO heading at
+  // all, which is why no "does the heading match the locale" check could see
+  // it. `subtitle` and `description` on this same surface were fixed by
+  // objectui#9038; `title` was not, because it is read HERE and not through
+  // that lowering.
+  //
+  // `language` is the UI language (`useObjectTranslation` above), deliberately
+  // not `displayLocale` — the same division `authoredSeriesLabel` makes, for
+  // the same reason. The `|| undefined` keeps the `{title ? … : null}` guards
+  // below meaningful: `pickLocalized` spells a miss `''`, and an empty heading
+  // element is not the absence those guards encode. The resolution order
+  // (exact tag -> base -> region-qualified sibling -> `default` -> `en` ->
+  // first entry) is the RESOLVER's and is not re-decided here, so a map with no
+  // limb for the active language falls back to another limb rather than
+  // vanishing, and only a map with no usable string at all draws nothing.
+  //
+  // ⚠️ `chart.title` is still DROPPED from the lowered chrome (see
+  // `_chartOwnTitle` below): the chart must not draw a SECOND heading inside
+  // its own frame.
+  const title = pickLocalized(chart.title, language) || undefined;
 
   // `table` / `pivot`: the grouped table rendered beneath this slot IS the
   // tabular presentation — a duplicate chart would say nothing new.

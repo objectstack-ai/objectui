@@ -124,7 +124,7 @@ describe('objectui#6939 — `children` is no longer required on either member', 
     expect(ContextMenuSchema.safeParse({ type: 'context-menu', items: [] }).success).toBe(true);
   });
 
-  it('objectui#8284 SUPERSEDES the widen-only half for `tooltip`: `children` is now REFUSED by name', () => {
+  it('objectui#8284 and objectui#9256 SUPERSEDE the widen-only half: `children` is REFUSED by name on BOTH members', () => {
     // This case used to assert "the accept set only WIDENED — the `children`
     // spelling still parses", on objectui#6939's reasoning that `children`
     // survives as `BaseSchema`'s optional key. That half is now overruled for
@@ -144,16 +144,36 @@ describe('objectui#6939 — `children` is no longer required on either member', 
       expect(refused.error.issues[0]!.message).toContain('objectui#8284');
     }
 
-    // CONTROL, unchanged and deliberately so: `context-menu` is NOT in the
-    // family objectui#8284 narrowed (its renderer reads neither `body` nor
-    // `children`, and that verdict needs a cross-package sweep before it can
-    // be acted on). Its `children` still parses, which is what keeps the line
-    // above a reading about `tooltip` rather than about the whole mirror.
-    expect(ContextMenuSchema.safeParse({
+    // ⚠️ THE CONTROL THAT STOOD HERE IS SPENT, on its own terms. PR
+    // objectui#9254 left `context-menu` parsing `children` deliberately, and
+    // named the condition for that to change: "that verdict needs a
+    // cross-package sweep before it can be acted on". objectui#9256 IS that
+    // sweep — the read-site instrument extended across all 24 registering
+    // packages and the generic traversers — and it measured `context-menu`
+    // into FAMILY D: its renderer reads `items`, `trigger`, `modal` and the
+    // two class-name keys, and NOTHING reads `children`. So the spelling that
+    // used to parse here is refused BY NAME too, and the reading above is kept
+    // about `tooltip` by the key-scoped control below instead.
+    const menuRefused = ContextMenuSchema.safeParse({
       type: 'context-menu',
       items: [{ label: 'Copy' }],
       children: { type: 'text', content: 'Right-click here' },
+    });
+    expect(menuRefused.success).toBe(false);
+    if (!menuRefused.success) {
+      expect(menuRefused.error.issues.map((i) => i.path.join('.'))).toEqual(['children']);
+      expect(menuRefused.error.issues[0]!.message).toContain('objectui#9256');
+    }
+
+    // CONTROL — the refusal is about the KEY, not about the mirror: the keys
+    // both renderers DO read still parse, so the two readings above are not a
+    // whole-schema regression.
+    expect(ContextMenuSchema.safeParse({
+      type: 'context-menu',
+      items: [{ label: 'Copy' }],
+      trigger: { type: 'text', content: 'Right-click here' },
     }).success).toBe(true);
+    expect(TooltipSchema.safeParse({ type: 'tooltip', content: 'Helpful information' }).success).toBe(true);
   });
 });
 

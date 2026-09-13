@@ -291,7 +291,15 @@ different envelope and behaves differently; see
 
 ### Via DataSource methods (in plugin code)
 
-Plugin components that need CRUD operations access the DataSource from context:
+Plugin components that need CRUD operations access the DataSource from context
+— and must guard it before calling. `useSchemaContext()` throws only when there
+is **no provider** above the component; a provider with **no adapter bound** is
+an ordinary, supported state (a Studio preview, a page that renders before the
+host connects its adapter, a widget test that drives `apiFetch` alone). The
+renderer itself already reads the member that way — `useDataScope` returns
+`undefined` when nothing is bound — so an unguarded call throws on its first use
+in exactly those places. Decide what the component shows while the adapter is
+absent (objectui#7912):
 
 <!-- os:check -->
 ```typescript
@@ -301,6 +309,9 @@ function MyPlugin() {
   const { dataSource } = useSchemaContext();
 
   const loadData = async () => {
+    // No adapter bound is a real state, not an error — see above.
+    if (!dataSource) return [];
+
     const result = await dataSource.find('contacts', {
       $filter: { active: true },
       $orderby: [{ field: 'name', order: 'asc' }],

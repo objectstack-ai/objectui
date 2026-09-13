@@ -43,7 +43,19 @@ const PRESET_LABELS: Record<(typeof PRESET_IDS)[number], string> = {
   'components-complex-table/basic-table': 'Table',
 };
 
-const defaultCtx = { dataSource: {} };
+/**
+ * The provider value these demos render under. Every preset in `PRESET_IDS` is
+ * a STATIC schema — the object-bound examples live in `InteractiveDemo` /
+ * `SchemaThumbnail`, which inject `galleryDataSource` — so this surface has no
+ * adapter to hand over and says so with `undefined` (objectui#7912).
+ *
+ * It used to say `{}`. An empty object is TRUTHY, so it walked past the
+ * `if (!dataSource)` guard every reader writes for exactly this state; the seam
+ * now declares `DataSource | null | undefined`, so the absence is stated rather
+ * than smuggled. Still a module constant, for the same reason as before: the
+ * memo below keys on its identity, and `undefined` is render-stable.
+ */
+const defaultCtx = { dataSource: undefined };
 
 class PreviewErrorBoundary extends Component<
   { children: ReactNode; signal: unknown },

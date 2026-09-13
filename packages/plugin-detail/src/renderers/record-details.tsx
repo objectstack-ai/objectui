@@ -603,7 +603,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     <div className={className} {...designer}>
       <DetailView
         schema={synthesized}
-        dataSource={ctx.dataSource as any}
+        dataSource={ctx.dataSource}
         inlineEdit={inlineEditDefault}
       />
     </div>

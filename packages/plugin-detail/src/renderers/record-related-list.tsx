@@ -245,7 +245,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         // `ElementDataSourceGate` wrote it here, which is only legitimate now
         // that the value is read.
         filter={schema.filter}
-        dataSource={ctx?.dataSource as any}
+        dataSource={ctx?.dataSource}
         add={
           (schema as any).add
             ? {
@@ -299,7 +299,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
             : (schema as any).add && ctx?.dataSource
               ? async (row: any) => {
                   const id = row?.id ?? row?._id;
-                  if (id != null) await (ctx!.dataSource as any).delete?.(objectName, String(id));
+                  if (id != null) await ctx?.dataSource?.delete?.(objectName, String(id));
                 }
               : undefined
         }

@@ -51,6 +51,7 @@ import {
 import { getReportForm, getReportSchema } from '../report-schema.js';
 import { mergeServerFields } from '../mergeServerFields.js';
 import { t } from '../i18n.js';
+import { pickLocalized, setLocalized, clearLocalized } from '@object-ui/i18n';
 
 /**
  * Top-level report fields this inspector renders with its own dedicated
@@ -238,7 +239,12 @@ export function ReportDefaultInspector({
     typeof draft.type === 'string' ? (draft.type as string) : 'tabular';
   const typeOptions = useTypeOptions(locale);
 
-  const labelValue = typeof draft.label === 'string' ? (draft.label as string) : '';
+  // `ReportSchema.label` is an `I18nLabel` — a plain string OR an inline
+  // per-locale map (measured on @objectstack/spec 17.4.0). Narrowing it to the
+  // string arm painted an EMPTY Label box over a report that has a label, and
+  // the empty box is what invites the retype that flattens the map
+  // (objectui#9274). READ through the repo's one resolver for the union.
+  const labelValue = pickLocalized(draft.label, locale);
   const datasetName =
     typeof draft.dataset === 'string' ? (draft.dataset as string) : '';
   const values = React.useMemo(() => readNames(draft.values), [draft.values]);
@@ -299,7 +305,7 @@ export function ReportDefaultInspector({
   const chartType = typeof chart.type === 'string' ? (chart.type as string) : '';
   const chartX = typeof chart.xAxis === 'string' ? (chart.xAxis as string) : '';
   const chartY = typeof chart.yAxis === 'string' ? (chart.yAxis as string) : '';
-  const chartTitle = typeof chart.title === 'string' ? (chart.title as string) : '';
+  const chartTitle = pickLocalized(chart.title, locale);
   const commitChart = (patch: Record<string, unknown>) => {
     const next = { ...chart, ...patch };
     onPatch({ chart: next.type ? next : undefined });
@@ -360,9 +366,17 @@ export function ReportDefaultInspector({
         label={tr('engine.inspector.report.label')}
         value={labelValue}
         onCommit={(v) => {
+          // Same `I18nLabel` union, same inspector, same destructive shape as
+          // the chart title (objectui#9274) — and `label` is REQUIRED on every
+          // report, so it is the more reachable of the two. A required key
+          // spells "empty" as `''`, not as an absent key, so the clear arm's
+          // `undefined` (nothing localized left) is mapped back onto it.
+          const patch: Record<string, unknown> = {
+            label: v ? setLocalized(draft.label, locale, v) : (clearLocalized(draft.label, locale) ?? ''),
+          };
           // Live-derive the snake_case name from the label until the author
-          // edits the Name field directly (create mode only).
-          const patch: Record<string, unknown> = { label: v };
+          // edits the Name field directly (create mode only). `v` is the plain
+          // string the author just typed, which is what the slug must read.
           if (createMode && !nameTouched.current) patch.name = toFieldName(v);
           onPatch(patch);
         }}
@@ -452,7 +466,18 @@ export function ReportDefaultInspector({
                 <InspectorTextField
                   label={tr('engine.inspector.report.chartTitle')}
                   value={chartTitle}
-                  onCommit={(v) => commitChart({ title: v || undefined })}
+                  onCommit={(v) =>
+                    // ⛔ Never `{ title: v }` — with a stored locale map that is
+                    // the flattening write objectui#9274 exists to remove. The
+                    // clear arm removes ONLY this locale's entry (and drops the
+                    // key once nothing localized is left, which is exactly what
+                    // clearing a plain-string title has always done).
+                    commitChart({
+                      title: v
+                        ? setLocalized(chart.title, locale, v)
+                        : clearLocalized(chart.title, locale),
+                    })
+                  }
                   disabled={readOnly}
                 />
                 <InspectorSelectField

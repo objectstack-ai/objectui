@@ -215,6 +215,20 @@ export const ReportViewerSchema = BaseSchema.extend({
   allowExport: z.boolean().optional().describe('Allow export'),
   allowPrint: z.boolean().optional().describe('Allow print'),
   loading: z.boolean().optional().describe('Loading state'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `report-viewer` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'It takes its configuration from the props bag `SchemaRenderer` spreads, not from `schema.*`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `report-viewer` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'It takes its configuration from the props bag `SchemaRenderer` spreads, not from `schema.*`.',
+  ),
 });
 
 /**

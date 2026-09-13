@@ -24,6 +24,11 @@ import { dirname, join } from 'node:path';
 // eslint-disable-next-line no-restricted-imports
 import * as SpecUI from '@objectstack/spec/ui';
 import * as Types from '../index';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const SRC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -191,9 +196,7 @@ describe('spec/ui …Schema re-exports (#2561, decision (a))', () => {
         /export type \{([^}]*)\} from '@objectstack\/spec\/ui'/g,
       );
       for (const [, body] of blocks) {
-        const sourceNames = body
-          .replace(/\/\/[^\n]*/g, '')
-          .replace(/\/\*[\s\S]*?\*\//g, '')
+        const sourceNames = mask(body)
           .split(',')
           .map((entry) => entry.trim())
           .filter(Boolean)

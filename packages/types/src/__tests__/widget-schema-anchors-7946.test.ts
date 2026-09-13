@@ -79,6 +79,11 @@ import type { BaseSchema } from '../base.js';
 import type { ObjectChartSchema } from '../objectql.js';
 import { ObjectChartSchema as ObjectChartMirror } from '../zod/objectql.zod.js';
 import type { ExpressionWire } from '../expression';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -313,7 +318,7 @@ const LEDGERED_UNDECLARED_READS = [
  * clear it are to declare a dead key or to ledger a phantom.
  */
 function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  return mask(src);
 }
 
 /** Every key read off `schema`, cast-aware: `schema.x`, `schema?.x`, `(schema as T).x`, `schema['x']`. */

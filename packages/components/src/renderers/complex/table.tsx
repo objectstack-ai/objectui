@@ -14,7 +14,7 @@ import { ComponentRegistry } from '@object-ui/core';
 // key declared live there must be read here; the pairing is pinned by
 // `__tests__/table-declared-equals-enforced.test.tsx`.
 import type { StaticTableColumn, TableSchema } from '@object-ui/types';
-import { renderChildren } from '../../lib/utils';
+import { renderChildren, renderNodeSlot } from '../../lib/utils';
 import { 
   Table, 
   TableHeader, 
@@ -51,16 +51,22 @@ ComponentRegistry.register('table',
           </TableRow>
         ))}
       </TableBody>
-      {schema.footer && (
+      {/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to
+          the slot, so a legal authored `footer: 0` painted "0" into the footer
+          cell. `renderNodeSlot` runs the wrapper only when the slot has
+          content, so the whole footer row disappears with it — which is what
+          the `&&` was there for. The `typeof === 'string'` branch is gone
+          because `renderChildren` already returns a string slot as its own
+          text; the branch was a second spelling of the same answer. */}
+      {renderNodeSlot(schema.footer, (footer) => (
           <TableFooter>
               <TableRow>
                    <TableCell colSpan={schema.columns?.length}>
-                     {/* Use renderChildren to handle SchemaNode potentially being an object */}
-                     {typeof schema.footer === 'string' ? schema.footer : renderChildren(schema.footer)}
+                     {renderChildren(footer)}
                    </TableCell>
               </TableRow>
           </TableFooter>
-      )}
+      ))}
     </Table>
   ),
   {

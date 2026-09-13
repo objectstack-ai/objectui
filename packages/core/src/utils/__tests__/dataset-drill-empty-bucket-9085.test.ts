@@ -176,7 +176,12 @@ describe('empty-bucket drill (objectui#9085)', () => {
       DIMENSION_FIELDS,
       { stage: 'lost' },
     );
-    expect(composed).toEqual({ stage: 'lost', owner: 'bob' });
+    // objectui#9137 re-spelled the COMPOSITION (the widget filter is conjoined
+    // through `composeDrillFilter` instead of spread into the drill filter), so
+    // the shape moved while the row set below — this test's actual claim — did
+    // not. Only the composing leg moved: the no-runtime-filter control below is
+    // byte-identical to what objectui#9085 pinned.
+    expect(composed).toEqual({ $and: [{ stage: 'lost' }, { owner: 'bob' }] });
     expect(await drilledIds(composed)).toEqual([LOST_BOB.id]);
     // …and the runtime filter is a real constraint here, not decoration: drop
     // it and a second row would qualify on the drill condition alone.

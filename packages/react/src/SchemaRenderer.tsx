@@ -823,11 +823,33 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // an object spread.
     if (!schema || typeof schema !== 'object') return schema;
 
-    // `data` (record/datasource) plus the ambient host scope. `current_user`
-    // is aliased to `user` so both `user.email` and `current_user.email`
-    // resolve in component `visible`/`visibleOn` expressions. `page` exposes
-    // page-local state so predicates can gate on `page.<var>` (e.g. a record
-    // picker's selection toggling another component's visibility).
+    // The ambient host scope, plus the roots this tier can answer itself.
+    // `current_user` is aliased to `user` so both `user.email` and
+    // `current_user.email` resolve in component `visible`/`visibleOn`
+    // expressions. `page` exposes page-local state so predicates can gate on
+    // `page.<var>` (e.g. a record picker's selection toggling another
+    // component's visibility).
+    //
+    // ⛔ `data` is NOT here, and the absence is the decision (objectui#9308,
+    // maintainer ruling 2026-09-13 option B). This used to read
+    // `data: dataSource` — the host's injected ADAPTER, published as an
+    // expression root. `ExpressionProvider` states the governing principle for
+    // the tier above: "Every root below is one the engine accepts AND one this
+    // tier can actually answer", and objectui#8155 (`app`) and objectui#8166
+    // (`data`) applied it there. Against a conformant `DataSource` adapter
+    // every `data.*` path resolves `undefined`, so this tier could not answer
+    // the root it bound: it published a name that was silently constant on
+    // every row. ADR-0089 D3 puts `data` at the METADATA layer
+    // (`CANONICAL_ROOT_BY_LAYER = { runtime: 'record', metadata: 'data' }`) and
+    // the engine's per-surface `FIELD_RULE_BOUND_ROOTS` is
+    // `['record','previous','parent']`. The row is `record`.
+    //
+    // ⭐ Ordering consequence, and the second half of the same ruling: the
+    // spread below used to be followed by `data: dataSource`, so a host that
+    // legitimately published `data` through the documented scope channel
+    // (`PredicateScopeProvider`) was silently OVERWRITTEN by the adapter.
+    // Removing the line un-shadows that channel — a host root named `data` now
+    // survives, like every other root a host publishes.
     //
     // `record` is written AFTER the ambient spread so a page's own row wins
     // over anything a host put in the scope — the same precedence
@@ -844,7 +866,6 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
         ? { record: boundRecord }
         : null),
-      data: dataSource,
       page: pageVariables,
     });
     // Shallow copy
@@ -959,7 +980,19 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         // `false`. Verdict untouched — `verdict` is returned exactly as
         // computed, which is what keeps the ruling's "no verdict changes" true
         // by construction rather than by review.
-        reportAdapterOnlyDataPredicate(newSchema.type, newSchema.id, key, raw, dataSource);
+        //
+        // objectui#9308: the object handed over is the `data` the HOST
+        // published in the ambient scope — the one the evaluator above
+        // actually resolved `data.*` against — and no longer the adapter. The
+        // renderer binds no `data` of its own, so passing the adapter here
+        // would report reads the evaluator never made against it.
+        reportAdapterOnlyDataPredicate(
+          newSchema.type,
+          newSchema.id,
+          key,
+          raw,
+          (predicateScope as any)?.data,
+        );
         return verdict;
       } catch (err) {
         reportUnresolvableVisibilityPredicate(
@@ -1073,7 +1106,15 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         },
       });
       if (__DEV__ && !faulted) {
-        reportAdapterOnlyDataPredicate(newSchema.type, newSchema.id, key, raw, dataSource, 'enablement');
+        // objectui#9308 — same re-aim as the visibility leg above.
+        reportAdapterOnlyDataPredicate(
+          newSchema.type,
+          newSchema.id,
+          key,
+          raw,
+          (predicateScope as any)?.data,
+          'enablement',
+        );
       }
       return verdict;
     };

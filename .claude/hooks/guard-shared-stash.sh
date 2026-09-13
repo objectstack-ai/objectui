@@ -46,9 +46,10 @@
 # for anyone who means it. Widening it to string-match anywhere in the command would block
 # every `grep "git stash"` run against this very file.
 #
-# Self-test (48 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh
-# 48 = 46 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback).
-# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 2, and the run's own
+# Self-test (50 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh
+# 50 = 46 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback)
+# + 2 hatch-message assertions (`lacks`/`says`, which are not `expect ` lines).
+# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 4, and the run's own
 # tail prints the total ("N passed, N failed") — keep this number equal to it.
 
 set -uo pipefail
@@ -203,7 +204,10 @@ Already allowed, no flag needed:
   git stash list | git stash show | git stash create
   git stash apply <sha> | git stash store <sha>    # literal hex id, never stash@{N}
 
-Deliberate exception (the stack really is yours alone): re-run with OS_ALLOW_STASH=1.
+Deliberate exception (the stack really is yours alone): set OS_ALLOW_STASH=1 in the
+environment this hook itself runs in — a local settings "env" entry, or whatever this
+agent process was started with. A VAR=1 prefix on a command sets it for that command
+only, and this hook is not that command, so a prefix never reaches it.
 EOF
   exit 2
 done

@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal } from './tombstone.zod.js';
+import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 
 /**
@@ -54,6 +54,20 @@ export const CollapsibleSchema = BaseSchema.extend({
   defaultOpen: z.boolean().optional().describe('Default open state'),
   open: z.boolean().optional().describe('Controlled open state'),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `collapsible` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `content`, `defaultOpen`, `trigger`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `collapsible` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `content`, `defaultOpen`, `trigger`.',
+  ),
 });
 
 /**
@@ -77,6 +91,20 @@ export const ToggleGroupSchema = BaseSchema.extend({
   defaultValue: z.union([z.string(), z.array(z.string())]).optional().describe('Default value(s)'),
   value: z.union([z.string(), z.array(z.string())]).optional().describe('Controlled value(s)'),
   onValueChange: handlerKeyRefusal('onValueChange', 'runtime-slot', 'Value change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `toggle-group` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `items`, `selectionType`, `size`, `value`, `variant`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `toggle-group` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `items`, `selectionType`, `size`, `value`, `variant`.',
+  ),
 });
 
 /**

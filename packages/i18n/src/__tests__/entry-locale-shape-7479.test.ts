@@ -35,6 +35,11 @@ import { fileURLToPath } from 'node:url';
 
 import * as entry from '../index.js';
 import { BUILT_IN_LANGUAGE_CODES, DEFAULT_BUILT_IN_LANGUAGE } from '../locales/registry.js';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 // Rooted on THIS FILE, never on `process.cwd()` — the same assertion would read
 // a different tree under a package-scoped vitest run (AGENTS.md; objectui#7791,
@@ -50,7 +55,7 @@ const entrySource = fs.readFileSync(path.join(packageRoot, 'src/index.ts'), 'utf
  * substring check against the raw file reds on the explanation and cannot tell
  * it apart from the defect. The assertions below are about CODE.
  */
-const entryCode = entrySource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const entryCode = mask(entrySource);
 
 /** Every `from './locales/<something>.js'` specifier the entry names. */
 function localeSpecifiersInEntry(): string[] {

@@ -129,6 +129,54 @@ export interface CollapsibleSchema extends BaseSchema {
    * spread onto the Radix `Collapsible` root by the renderer's `{...props}`.
    */
   onOpenChange?: (open: boolean) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `collapsible` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `content`, `defaultOpen`, `trigger` (in
+   * `packages/components/src/renderers/disclosure/collapsible.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `collapsible` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `collapsible` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `content`, `defaultOpen`, `trigger` (in
+   * `packages/components/src/renderers/disclosure/collapsible.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `collapsible` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -195,6 +243,54 @@ export interface ToggleGroupSchema extends BaseSchema {
    * `{...toggleGroupProps}`.
    */
   onValueChange?: (value: string | string[]) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `toggle-group` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `className`, `items`, `selectionType`, `size`, `value`, `variant` (in
+   * `packages/components/src/renderers/disclosure/toggle-group.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `toggle-group` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `toggle-group` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `className`, `items`, `selectionType`, `size`, `value`, `variant` (in
+   * `packages/components/src/renderers/disclosure/toggle-group.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `toggle-group` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

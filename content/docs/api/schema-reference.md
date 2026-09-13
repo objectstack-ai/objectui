@@ -78,8 +78,8 @@ One row per declared member, in declaration order, so the list can be checked ag
 | `style` | `Record<string, string \| number>` | Inline CSS styles. Use sparingly — prefer `className`. |
 | `data` | `any` | Arbitrary data attached to the node. `any` because the shape is defined by the consuming component rather than by `BaseSchema`. |
 | `bind` | `string` | Data-scope path this node draws its rows or value from, resolved by `useDataScope()`. Honoured only by components that call it. |
-| `body` | `SchemaNode \| SchemaNode[]` | Child components rendered inside this component. |
-| `children` | `SchemaNode \| SchemaNode[]` | Alias for `body`. |
+| `body` | `SchemaNode \| SchemaNode[]` | Child components rendered inside this component — **as `BaseSchema` declares it**. Which of the two channels a given node type actually renders is per component; see the note below. |
+| `children` | `SchemaNode \| SchemaNode[]` | A second content channel `BaseSchema` declares beside `body`. ⚠️ **Not an alias** — nothing folds one into the other at runtime, and this row used to say it was. See the note below. |
 | `visible` | `boolean \| string \| { dialect?: string; source: string }` | Visibility control. Accepts a boolean, a predicate expression string, **or** the CEL envelope object (`{ dialect: 'cel', source }` — what `objectstack build` emits for every authored predicate) — the renderer evaluates this key rather than reading it as a boolean. The string-or-envelope half is `ExpressionWire`, the one wire type `visibleWhen` on form fields already carries. |
 | `visibleWhen` | `string` | Canonical conditional-visibility predicate (ADR-0089); the element is shown when it evaluates truthy. Evaluated **before** `visible` and `visibleOn`, and outranks both. |
 | `visibleOn` | `string` | Expression for conditional visibility. **Deprecated** (ADR-0089) — use `visibleWhen`. |
@@ -93,6 +93,7 @@ One row per declared member, in declaration order, so the list can be checked ag
 Two things the table cannot show in a cell:
 
 - **A concrete schema may narrow an inherited member, and its own declaration wins.** Many component schemas restate `label`, `description` or `disabled` more narrowly than `BaseSchema` declares them, so the unions above are what a node gets when its own schema does not restate the key. Check the component's own property table before writing a predicate string or a locale map into an inherited slot.
+- **⚠️ `body` and `children` are TWO channels, not one key with two spellings, and which one a node type renders is decided PER COMPONENT.** Each renderer reads one, the other, both, or neither, and `SchemaRenderer` strips both out of the props bag it spreads — so writing the channel a renderer does not read rendered an EMPTY element, with no error at authoring time, none at validation time and none at render time. That is the defect objectui#8284 named after seven cards had repaired one page of it each. It is being closed per component, by measurement: each schema narrows to the channel its renderer actually reads and **tombstones the other as `never`**, refused by name on both published faces (objectui#9254 for the components that read exactly one channel, objectui#9256 for the ones that read neither). ⇒ check the component's own section before writing either key; the types in this row are `BaseSchema`'s, and a concrete schema's own declaration wins.
 - **This list is exhaustive for *declared* members, not for *accepted* keys.** `BaseSchema` carries an index signature (`[key: string]: any`) and its Zod mirror is `.passthrough()`, so an undeclared key — a misspelling included — is still accepted by both halves. Absence from this table does not mean a key is rejected.
 
 ---
@@ -924,8 +925,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
   "objectName": "tasks",
   "groupBy": "status",
   "titleField": "title",
-  "cardFields": ["assignee", "due_date"],
-  "quickAdd": true
+  "cardFields": ["assignee", "due_date"]
 }
 ```
 
@@ -938,18 +938,20 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 | `cardFields` | `string[]` | Fields rendered on each card. |
 | `filter` | `any[]` | Query filter, forwarded verbatim as `$filter`. |
 | `limit` | `number` | Fetch window for the board (default 100). |
-| `quickAdd` | `boolean` | Show a Quick Add button at the bottom of each column. |
 | `coverImageField` | `string` | Field whose URL renders as the card cover image. |
-| `allowCollapse` | `boolean` | Allow lanes to collapse and expand. |
 | `conditionalFormatting` | `KanbanConditionalFormattingRule[]` | Card colouring rules — native `{ field, operator, value }` or spec `{ condition, style }`. |
 
 > `groupField` is refused by name (objectui#7322): the renderer reads `groupBy`.
+
+> **`quickAdd` and `allowCollapse` were rows of the table above and are not authorable on this board.** `allowCollapse` is **refused by name** by the strict authoring face, which does not declare it at all — a document carrying it fails validation rather than merely going unread, and `@object-ui/plugin-kanban` has no read site for it. `quickAdd` still parses, because the strict face does declare it, but an object-bound board never honours it: the Quick Add control is gated on an `onQuickAdd` runtime slot and no `object-kanban` path supplies one, so `@object-ui/sdui-parser` answers an authored `quickAdd: true` with an `inert-quick-add` warning. objectui#8285 ruled that key retired (director seat, decision batch 91). ⚠️ `@object-ui/types` still declares **both** on its mirror of this face, so a reader will find them there; that half is objectui#8801, not this table.
 
 > `columns` is declared on this face since objectui#8913, as the pair of array shapes `@objectstack/spec` declares — an array of `{ id, title }` lanes, **or** an array of bare value strings. A **mixed** array is refused: the renderer decides which shape it has from the first element alone, so a mix yields a blank lane and mis-bucketed cards. A lane accepts `id`, `title`, `cards`, `limit`, `className` and `collapsed`, which are the members the board implementations read; `id` is a **string** — the authored face keeps that narrowing, and since objectui#8993 a non-string lane id no longer renders every card twice: the bucketer's leftover sweep keys membership the way the injection already did (a lane `1` takes the group `'1'`). When a lane carries `cards`, each card is judged — a card with no `title` is refused. An undeclared lane key is accepted and dropped, not refused, which is this tolerant face's posture; the strict authoring face refuses it by name.
 >
 > ⚠️ The **bare-string array applies only to a board with no `groupBy`.** It is declared so this package does not refuse an authoring the protocol allows. The renderer reads a bare-string lane list only when a board has no `groupBy` — so on a board that *does* declare one the strings are ignored and the lanes come from the group field's picklist options or from the data. Since objectui#8990 made `groupBy` optional, a lane-less board is a valid authoring and this arm is live on it: the lanes are drawn, titled by the **raw strings** (a grouped board titles its lanes with the picklist *labels* instead). ⚠️ Such a board holds **no cards** — with no lane key the records are never distributed — and dragging a card writes nothing back. It is lane headings, not a populated board; to control the lanes of a working board, declare `groupBy` and write the `{ id, title }` array.
 >
-> The other keys the retired `kanban` arm alone declared — `cardTitle`, `swimlaneField`, `grouping` and `navigation` — are still undeclared on this face. The renderer reads them, so a board may carry them; they are simply not judged. The board's React host supplies `onCardMove` / `onCardClick` / `onQuickAdd` as props; none of the three is authorable in JSON.
+> The other keys the retired `kanban` arm alone declared — `cardTitle`, `swimlaneField`, `grouping` and `navigation` — are still undeclared on this face. The renderer reads them, so a board may carry them; they are simply not judged.
+
+> **Handler keys are not authorable in JSON, and two of the three now say so by name.** Since objectui#7804 this face declares `onCardClick` and `onQuickAdd` as objectui#6124 **runtime slots**: a React host supplies the function through the TypeScript interface or as a React prop, and this validator **refuses the key by name** with a message pointing at the node-type spelling (`{ "type": "toast", … }`, an `action:button` node). Until then an authored `onCardClick: { "action": "toast" }` parsed **green** — `BaseSchema` is `.passthrough()`, so a key no arm declares is not refused, it stops being judged and the value is kept, then reaches a call site expecting a function. ⚠️ `onCardMove` is the third key the board component reads and it is **still undeclared**: an authored one is accepted and dropped, because on an object-bound board the renderer substitutes its own mover. That gap is open on objectui#7804.
 
 > `data` and `bind` are [`BaseSchema`](#baseschema) members, not narrowed here, but this face requires **one of** `bind`, `data`, `objectName` — the renderer's own record-source ladder (an external `data` prop → `bind` via `useDataScope` → this schema's own `data` → a fetch keyed by `objectName`). A purely static board (lanes carrying their own cards, no record source) authors `"groupBy"` and `"data": []`. ⚠️ The record-source rule is **separate** from the lane key and is unaffected by objectui#8990: omitting `groupBy` is fine, omitting all of `bind` / `data` / `objectName` is still refused, at the refinement rather than at `groupBy`.
 

@@ -183,9 +183,21 @@ async function expectCards(container: HTMLElement, name: string) {
   await waitFor(() => expect(container.textContent).toContain(name));
 }
 
-/** Lane headings as drawn, in DOM order. */
+/**
+ * Lane headings as drawn, in DOM order.
+ *
+ * ⚠️ The `h3, h4` arms are a net, not a contract, and the board-level empty
+ * state renders its "No cards" title as an `h3` — which is NOT a lane heading.
+ * It only ever landed in this net once objectui#9045 made that region reachable
+ * on a lane-less board; before then the zero-lane leg below was reading a board
+ * that had no such region. Excluding the live region restores what this helper
+ * says it returns. ⛔ Not a loosening: the legs that assert ON lane titles
+ * compare against lane VALUES and picklist LABELS, neither of which this filter
+ * can remove.
+ */
 function laneTitles(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll('[data-slot="kanban-column-title"], h3, h4'))
+    .filter((el) => !el.closest('[role="status"][aria-live="polite"]'))
     .map((el) => (el.textContent ?? '').trim())
     .filter(Boolean);
 }
@@ -287,12 +299,15 @@ describe('objectui#8990 — the bare-string `columns` arm FIRES on a lane-less b
   });
 
   it('a lane-less board with NO `columns` renders an EMPTY board rather than crashing', async () => {
-    // ⚠️ This leg cannot settle on the objectui#8827 empty state: `KanbanImpl`
-    // gates it on `boardColumns.length > 1`, so a ZERO-lane board never paints
-    // it. (Pre-existing and independent of this card — the predicate does not
-    // read `groupBy`.) It settles on the board region instead, and takes its
-    // credibility from the paired control below, which shares the whole rig and
-    // differs only by the lane key.
+    // ⚠️ When this was written, this leg COULD NOT settle on the objectui#8827
+    // empty state: `KanbanImpl` gated it on `boardColumns.length > 1`, so a
+    // ZERO-lane board never painted it. objectui#9045 removed that conjunct and
+    // the region is now painted here too — ⛔ that is the very gap this leg's
+    // own comment recorded, not a change of subject. The settle signal is left
+    // on the board region so this leg keeps measuring what it always measured
+    // (lanes and rows, neither of which arrives), and takes its credibility
+    // from the paired control below, which shares the whole rig and differs
+    // only by the lane key.
     const laneLess = await renderBoard({ type: 'object-kanban', objectName: 'task' });
     await waitFor(() => expect(laneLess.find).toHaveBeenCalled());
     await waitFor(() =>

@@ -9,8 +9,20 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SchemaRendererProvider } from '@object-ui/react';
-import type { ListViewSchema } from '@object-ui/types';
+import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { ListView } from '../ListView';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are partial stubs carrying only the members the path under test calls;
+ * completing them would change which capability probes fire, and so would
+ * change what these tests measure.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 /**
  * What an off-spec `rowHeight` actually RENDERS — the empirical half of
@@ -53,7 +65,7 @@ const renderListView = (rowHeight?: unknown) => {
   } as ListViewSchema;
 
   return render(
-    <SchemaRendererProvider dataSource={mockDataSource}>
+    <SchemaRendererProvider dataSource={mockDataSource as unknown as DataSource}>
       <ListView schema={schema} />
     </SchemaRendererProvider>,
   );

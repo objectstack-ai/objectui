@@ -84,7 +84,25 @@ const schema: ObjectMapSchema = {
 
 `filter` and `sort` are the **query's** filter and order — they reach the data
 source as `$filter` / `$orderby`, and the spec's per-element `dataSource` binding
-is honoured as well. The map issues no row cap of its own.
+is honoured as well.
+
+**The provider does not change which query keys apply** (objectui#9061, the port
+of objectui#8769). An authored `filter` and `sort` narrow and order the rows on
+**every** provider, inline ones included — `staticData`, a bare array under
+`data`, and `data: { provider: 'value', items }` all reach the same in-memory
+adapter the other providers go through, so `filter` is evaluated with the same
+matcher. Before objectui#9061 the inline provider skipped that query and plotted
+every authored row with an authored `filter` silently dropped. The platform row
+ceiling (2,000 drawn rows, with a footnote naming both numbers — objectui#7210,
+ruling a′) applies to inline rows too, and it is applied to the **filtered** set,
+never to the raw one: a large inline array that a `filter` cuts below the ceiling
+plots every matching row and shows no footnote.
+
+⚠️ Two consequences of routing inline rows through the adapter. They reach the
+map as that adapter's own deep copy rather than as the authored array's object
+identities, so code comparing a record handed to `onMarkerClick` against the
+authored array with `===` needs `id` equality instead; and the copy is a JSON
+round-trip, so inline rows must be JSON-serializable.
 
 ## The `map` block
 

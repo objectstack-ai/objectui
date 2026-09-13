@@ -11,15 +11,41 @@
  * (`ChartRenderer`) → `AdvancedChartImpl` — with no renderer stub at all, and
  * reads the resulting DOM.
  *
- * Scope of what can be proven here: everything the chart draws OUTSIDE Recharts'
+ * Scope of THIS file: everything the chart draws OUTSIDE Recharts'
  * `ResponsiveContainer` — the ChartFrame titles, and the chart container's
  * height and accessible name. Recharts' own marks (bars, LabelList, reference
- * lines, Brush) need a measured box, which the headless DOM never provides
+ * lines, Brush) need a measured box, which this harness does not give them
  * (`ResponsiveContainer` measures 0×0 and renders no children), so asserting
- * their absence *here* would pass for the wrong reason. Those keys are pinned in
- * `packages/plugin-charts/src/ChartRenderer.dashboardChartConfig.test.tsx`,
- * which mocks `ResponsiveContainer` to a fixed size — the only place in this
- * repo that can, since `recharts` resolves inside plugin-charts alone.
+ * their absence *here* would pass for the wrong reason.
+ *
+ * ⚠️ This header used to end by saying those marks could be pinned in
+ * `packages/plugin-charts/src/ChartRenderer.dashboardChartConfig.test.tsx`
+ * alone, "the only place in this repo that can, since `recharts` resolves
+ * inside plugin-charts alone". objectui#9203 corrected that, and both halves
+ * of the correction matter:
+ *
+ *  - The premise survives — `recharts` does resolve inside `plugin-charts`
+ *    alone, so `vi.mock('recharts')` is genuinely unavailable here.
+ *  - ⭐ The conclusion was false, and worse than false: that file hand-builds
+ *    its own chart schema, so it never travels the dashboard seam at all. When
+ *    PR objectui#9202 ablated the inline relays' forwarding, **46 assertions
+ *    went red across the three dashboard files and 0 in that one**. It was
+ *    never coverage for the plot-internal keys on any dashboard face — an
+ *    assertion that stays green while the thing it names is deleted is not
+ *    evidence (objectui#7963's `confirmVariant`, same shape).
+ *
+ * No module mock is needed to close that: `ResponsiveContainer` seeds its size
+ * from `getBoundingClientRect` on its OWN element, so a stub scoped to the
+ * `recharts-responsive-container` element is enough. The dataset face's
+ * plot-internal keys (`colors`, `categoryColors`, `showDataLabels`,
+ * `annotations`, `interaction`) are pinned that way, on this seam, in
+ * `DatasetWidget.chartConfigMarks-9203.test.tsx` — the sibling to this file.
+ * ⛔ Do not cite `plugin-charts`' file as their coverage again.
+ *
+ * The assertions below are deliberately left exactly as they were: they are the
+ * LIT CONTROL for that ablation (the four keys that do redden here), and this
+ * file's own harness stays box-free so the negative `aria` pin at the bottom
+ * keeps meaning what it says.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';

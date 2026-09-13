@@ -438,10 +438,31 @@ describe('DatasetWidget', () => {
     expect(buildDrillFilter({ account: 'acc_123' }, ['account'], { account: 'account_id' })).toEqual({ account_id: 'acc_123' });
   });
 
+  // objectui#9137 — this test's NAME became true here. The widget filter used
+  // to be SPREAD into the drill filter, which is an AND only for the object
+  // arm; `DashboardWidgetSchema.filter` declares the ARRAY arm, and spreading
+  // an array yields index keys. It is now conjoined through
+  // `composeDrillFilter`, the repo's single filter confluence, so the result is
+  // a real `$and` of the two sources rather than one object overwriting the
+  // other. The nested `$and` is the drill filter's own two conditions.
   it('buildDrillFilter ANDs the widget runtime filter in', () => {
     expect(
       buildDrillFilter({ status: 'open', priority: 'high' }, ['status', 'priority'], { status: 'status', priority: 'priority' }, { archived: false }),
-    ).toEqual({ archived: false, status: 'open', priority: 'high' });
+    ).toEqual({ $and: [{ archived: false }, { $and: [{ status: 'open' }, { priority: 'high' }] }] });
+  });
+
+  // objectui#9137 — the arm the declaration names. `widget.filter` reaches
+  // `buildDrillFilter` as an ObjectQL FilterNode ARRAY (the `DatasetWidget`
+  // guard admits it: `typeof [] === 'object'` and `Object.keys(['x']).length`
+  // is 1), and spreading it produced the index key `{ '0': [...] }` — which no
+  // sink treats as a condition: `convertFiltersToAST` THROWS on a bare-array
+  // comparand, so the drill was DEAD, not merely unscoped.
+  it('buildDrillFilter conjoins the ARRAY arm of the widget filter instead of spreading it to index keys', () => {
+    const composed = buildDrillFilter({ status: 'open' }, ['status'], { status: 'status' }, [['region', '=', 'emea']]);
+    expect(composed).toEqual({ $and: [{ region: 'emea' }, { status: 'open' }] });
+    // The defect's exact signature, pinned as ABSENT: an index key from a
+    // spread array. `'0' in composed` is what failed before this card.
+    expect(Object.keys(composed)).not.toContain('0');
   });
 
   // objectui#9085: an empty bucket used to normalize to a bare `null`, which
@@ -476,10 +497,22 @@ describe('DatasetWidget', () => {
         { archived: false },
         { close_date: { field: 'close_date', gte: '2026-06-01', lt: '2026-07-01' } },
       ),
+    // objectui#9137 — conjoined, not spread. The half-open range SURVIVES the
+    // composition: `convertFiltersToAST` emits one node per bound, so the pair
+    // arrives as two `$and` children on the same field rather than one key with
+    // two operators. Same rows, and `serializeDrillFilterParams` still writes
+    // both `filter[close_date][gte]` and `[lt]`.
     ).toEqual({
-      archived: false,
-      stage: 'qualification',
-      close_date: { $gte: '2026-06-01', $lt: '2026-07-01' },
+      $and: [
+        { archived: false },
+        {
+          $and: [
+            { stage: 'qualification' },
+            { close_date: { $gte: '2026-06-01' } },
+            { close_date: { $lt: '2026-07-01' } },
+          ],
+        },
+      ],
     });
   });
 

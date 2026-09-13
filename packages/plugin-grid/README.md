@@ -282,6 +282,15 @@ A `currency` or `percent` column formats its `sum`/`avg`/`min`/`max` in that
 unit. Counts stay plain cardinalities and percentages carry their own `%`, so
 `count_unique` on a currency column reads `Unique: 3`, not `$3.00`.
 
+A `percent` column's aggregate takes both halves of the percent rule from the
+same place the list cell above it does — `percentDisplayValue` in
+`@object-ui/core` for the fraction-vs-points scaling, and the session locale's
+own percent convention for the sign — so the footer and the cells never read
+under two conventions. A stored `1234.5` renders `Sum: 1,235%` in `en`,
+`Sum: 1.235 %` in `de-DE` (no-break space before the sign) and `Sum: %1.235` in
+`tr-TR`, where the sign goes in front of the number (objectui#9269). The width
+still comes from the column's `precision`.
+
 The footer row renders only when at least one column resolves to a summary — a
 view whose columns are all `none` (or carry no `summary`) has no footer.
 

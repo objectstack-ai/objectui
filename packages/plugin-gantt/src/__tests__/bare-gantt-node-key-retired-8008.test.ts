@@ -37,6 +37,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ComponentRegistry } from '@object-ui/core';
 import '../index';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const INDEX_TSX = join(dirname(fileURLToPath(import.meta.url)), '..', 'index.tsx');
 
@@ -64,9 +69,7 @@ describe('the bare `gantt` node type key is retired (objectui#8008)', () => {
     // `ComponentRegistry.register('gantt', …)` call verbatim, so a raw scan
     // reads the retired key back out of the prose that records its removal.
     // Measured — this exact leg failed that way on its first run.
-    const src = readFileSync(INDEX_TSX, 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^[ \t]*\/\/.*$/gm, '');
+    const src = mask(readFileSync(INDEX_TSX, 'utf8'));
     const keys = [...src.matchAll(/ComponentRegistry\.register\(\s*'([^']+)'/g)].map((m) => m[1]);
     // Anti-vacuity for the extraction: a regex that matched nothing would make
     // the equality below hold forever.

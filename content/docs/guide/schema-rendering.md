@@ -68,33 +68,63 @@ interface BaseSchema {
   "visibleOn": "${user.role === 'admin'}",
   "body": {
     "type": "text",
-    "content": "Total Users: ${stats.totalUsers}"
+    "content": "Total Users: ${data.stats.totalUsers}"
   }
 }
 ```
 
 ## Data Context
 
-The `SchemaRenderer` accepts a `data` prop that provides context for expressions:
+Expression context does not arrive as a prop. `SchemaRenderer` declares exactly one prop,
+`schema`, and every other prop it is handed is forwarded to the component the schema names —
+so a `data` prop written on the element reaches the evaluator through nothing. Because it is
+forwarded rather than refused, nothing throws and nothing warns; the expression simply never
+resolves. The scope comes from `SchemaRendererProvider`, which publishes its `dataSource`
+under the name `data`:
 
-<!-- doc-snippet: fragment — continues the block above — SchemaRenderer and schema are already in scope there; the closing JSX line is the call shown in place, not a statement that parses on its own -->
 ```tsx
-const data = {
-  user: { name: "John", role: "admin" },
-  stats: { totalUsers: 1234 }
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+// The page schema from the first example on this page.
+declare const schema: BaseSchema
+
+const dataSource = {
+  user: { name: 'John', role: 'admin' },
+  stats: { totalUsers: 1234 },
 }
 
-<SchemaRenderer schema={schema} data={data} />
+function App() {
+  return (
+    <SchemaRendererProvider dataSource={dataSource}>
+      <SchemaRenderer schema={schema} />
+    </SchemaRendererProvider>
+  )
+}
 ```
+
+The scope the evaluator builds holds four names, and nothing else:
+
+| name | what it holds |
+|---|---|
+| `data` | the `dataSource` the provider above published — everything you passed in |
+| `page` | page-local variables, for predicates that gate on another component's state |
+| `record` | the row a record surface is bound to, when there is one |
+| `current_user` (aliased to `user`) | the signed-in user, published by the host's `ExpressionProvider` — not by anything on this page |
+
+A name outside that set resolves to nothing, and an unresolvable template is not an error:
+the evaluator hands back its own source text, so the characters you typed are what the reader
+sees.
 
 ### Accessing Data in Schemas
 
-Use expression syntax `${}` to reference data:
+Use expression syntax `${}` to reference the scope, and reach your own values through the
+`data.` prefix:
 
 ```json
 {
   "type": "text",
-  "content": "Welcome, ${user.name}!"
+  "content": "Welcome, ${data.user.name}!"
 }
 ```
 
@@ -172,7 +202,7 @@ Use arrays for multiple items:
 ```json
 {
   "type": "container",
-  "body": [
+  "children": [
     { "type": "text", "content": "First item" },
     { "type": "text", "content": "Second item" },
     { "type": "text", "content": "Third item" }
@@ -379,18 +409,33 @@ const pageSchema = {
 
 ### 2. Use Data Context Effectively
 
-Pass all necessary data upfront:
+Put everything the schema's expressions need on one `dataSource`, mounted above the tree —
+not on the renderer, which does not read it:
 
-<!-- doc-snippet: fragment — best-practice excerpt: userData, userSettings and dashboardStats are the reader's own values, and the closing JSX line is shown in place rather than as a parseable statement -->
 ```tsx
-// ✅ Good
-const data = {
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+// The reader's own values.
+declare const schema: BaseSchema
+declare const userData: { name: string }
+declare const userSettings: { theme: string }
+declare const dashboardStats: { totalUsers: number }
+
+// ✅ Good — one provider, and every expression reaches it through `data.`
+const dataSource = {
   user: userData,
   settings: userSettings,
-  stats: dashboardStats
+  stats: dashboardStats,
 }
 
-<SchemaRenderer schema={schema} data={data} />
+function Dashboard() {
+  return (
+    <SchemaRendererProvider dataSource={dataSource}>
+      <SchemaRenderer schema={schema} />
+    </SchemaRendererProvider>
+  )
+}
 ```
 
 ### 3. Leverage Expressions
@@ -429,7 +474,7 @@ Always type your schemas for better IDE support and fewer runtime errors.
 ```json
 {
   "type": "container",
-  "body": {
+  "children": {
     "type": "spinner",
     "visibleOn": "${loading}"
   }

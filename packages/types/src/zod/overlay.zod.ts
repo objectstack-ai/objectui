@@ -19,7 +19,7 @@
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import type { MenuItem } from '../overlay.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 
 /**
  * Dialog Schema - Dialog/modal component
@@ -35,6 +35,22 @@ export const DialogSchema = BaseSchema.extend({
   footer: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Dialog footer'),
   modal: z.boolean().optional().describe('Whether dialog is modal'),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dialog` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, `modal`, `title`, '
+    + '`trigger`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dialog` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, `modal`, `title`, '
+    + '`trigger`.',
+  ),
 });
 
 /**
@@ -179,6 +195,22 @@ export const AlertDialogSchema = BaseSchema.extend({
   onConfirm: handlerKeyRefusal('onConfirm', 'retired', 'Confirm handler'),
   onCancel: handlerKeyRefusal('onCancel', 'retired', 'Cancel handler'),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `alert-dialog` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `actionText`, `actionVariant`, `cancelText`, `content`, `defaultOpen`, '
+    + '`description`, `onAction`, `title`, `trigger`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `alert-dialog` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `actionText`, `actionVariant`, `cancelText`, `content`, `defaultOpen`, '
+    + '`description`, `onAction`, `title`, `trigger`.',
+  ),
 });
 
 /**
@@ -195,6 +227,22 @@ export const SheetSchema = BaseSchema.extend({
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Sheet position'),
   footer: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Sheet footer'),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `sheet` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, `modal`, `side`, '
+    + '`title`, `trigger`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `sheet` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, `modal`, `side`, '
+    + '`title`, `trigger`.',
+  ),
 });
 
 /**
@@ -210,6 +258,22 @@ export const DrawerSchema = BaseSchema.extend({
   open: z.boolean().optional().describe('Controlled open state'),
   direction: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Drawer direction'),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `drawer` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, '
+    + '`shouldScaleBackground`, `showClose`, `title`, `trigger`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `drawer` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, '
+    + '`shouldScaleBackground`, `showClose`, `title`, `trigger`.',
+  ),
 });
 
 /**
@@ -224,6 +288,20 @@ export const PopoverSchema = BaseSchema.extend({
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Popover side'),
   align: z.enum(['start', 'center', 'end']).optional().describe('Popover alignment'),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `popover` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `align`, `content`, `defaultOpen`, `modal`, `side`, `trigger`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `popover` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `align`, `content`, `defaultOpen`, `modal`, `side`, `trigger`.',
+  ),
 });
 
 /**
@@ -262,6 +340,15 @@ export const TooltipSchema = BaseSchema.extend({
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Tooltip side'),
   align: z.enum(['start', 'center', 'end']).optional().describe('Tooltip alignment'),
   delayDuration: z.number().optional().describe('Delay before showing (ms)'),
+  children: aliasKeyRefusal(
+    'children',
+    'body',
+    'this tooltip node',
+    '`tooltip` reads `content` first and `body` as the fallback for that same slot, and never `children` '
+    + '(READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/overlay/tooltip.tsx`). '
+    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -279,6 +366,20 @@ export const HoverCardSchema = BaseSchema.extend({
   openDelay: z.number().optional().describe('Delay before opening (ms)'),
   closeDelay: z.number().optional().describe('Delay before closing (ms)'),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `hover-card` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `hover-card` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger`.',
+  ),
 });
 
 /**
@@ -339,6 +440,20 @@ export const DropdownMenuSchema = BaseSchema.extend({
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Menu side'),
   align: z.enum(['start', 'center', 'end']).optional().describe('Menu alignment'),
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Open change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dropdown-menu` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `align`, `defaultOpen`, `items`, `label`, `modal`, `side`, `trigger`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dropdown-menu` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `align`, `defaultOpen`, `items`, `label`, `modal`, `side`, `trigger`.',
+  ),
 });
 
 /**
@@ -366,6 +481,22 @@ export const ContextMenuSchema = BaseSchema.extend({
     .describe('Classes for the menu panel, applied to the underlying `ContextMenuContent` (objectui#6939)'),
   modal: z.boolean().optional()
     .describe('Forwarded to the Radix `ContextMenu` root as `modal` (objectui#6939)'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `context-menu` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `contentClassName`, `items`, `modal`, `trigger`, '
+    + '`triggerClassName`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `context-menu` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `contentClassName`, `items`, `modal`, `trigger`, '
+    + '`triggerClassName`.',
+  ),
 });
 
 /**
@@ -382,6 +513,20 @@ export const MenubarMenuSchema = z.object({
 export const MenubarSchema = BaseSchema.extend({
   type: z.literal('menubar'),
   menus: z.array(MenubarMenuSchema).optional().describe('Menubar menus'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `menubar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `menus`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `menubar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `menus`.',
+  ),
 });
 
 /**

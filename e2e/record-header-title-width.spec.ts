@@ -310,8 +310,210 @@ const ROOMY = 1440;
 
 let css = '';
 test.beforeAll(async () => {
-  css = await tailwindFor(ALL_CANDIDATES);
+  // `CONSOLE_MAIN` is declared further down (it needs `classByPattern`), but
+  // this callback runs long after module evaluation, so its utilities are
+  // resolvable here — and they MUST be compiled, or the console pane below
+  // would be an unstyled block and its reading meaningless.
+  css = await tailwindFor([...ALL_CANDIDATES, ...CONSOLE_MAIN.split(' ')]);
 });
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * objectui#9119 — the SAME header BELOW the `sm` breakpoint.
+ *
+ * Everything above this line is about the arbitration between the title column
+ * and the action tail at and ABOVE `sm`, where the row is a ROW. Below `sm`
+ * that row is `flex-col`, and a different thing goes wrong in it:
+ *
+ *   a child's WIDTH is its CROSS size in a column container, and
+ *   `items-start` sizes a cross axis to fit-content
+ *
+ * so the title column took the h1's max-content width — measured 1201.22px
+ * inside a 320px row — and the page gained that much horizontal overflow. The
+ * three utilities that look like they should have stopped it cannot: `min-w-0`
+ * is a floor rather than a ceiling, `flex-1` acts on the main axis (height
+ * here), and the h1's `truncate` never fires because its containing block had
+ * been sized to the text.
+ *
+ * ⚠️ WHY THIS IS HERE AND NOT IN A VITEST FILE — the same reason the header
+ * above is: this is a LAYOUT fact. jsdom and happy-dom have no layout engine,
+ * so an assertion on these widths there would be vacuous and green. And a
+ * CLASS-SHAPE pin would be worse than useless on this particular defect: the
+ * broken element already carries two plausible-looking utilities that do
+ * nothing here, so "the class is present" is exactly the evidence that misled
+ * everyone. Only the geometry can tell a floor that works from one that does
+ * not.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The 98-character record title objectui#9119 measured with. Long enough to
+ * overflow the widest sub-`sm` viewport under test (639px), which is what
+ * makes `h1Clipped` a real reading at all three rather than a tautology at the
+ * narrow two.
+ */
+const LONG_TITLE =
+  'Specimen — Full · Northwind Traders Consolidated Quarterly Revenue Reconciliation Worksheet (EMEA)';
+
+/** The three sub-`sm` viewports objectui#9119 measured. */
+const BELOW_SM = [320, 375, 639];
+
+const LONG_TITLE_FIXTURE = box(
+  DETAIL.row,
+  box(
+    DETAIL.titleColumn,
+    `<button class="${DETAIL.backButton} ${ICON_BUTTON}"></button>` +
+      box(DETAIL.innerColumn, box(DETAIL.titleRow, `<h1 class="${DETAIL.h1}">${LONG_TITLE}</h1>`)),
+  ) +
+    box(DETAIL.tail, Array.from({ length: 4 }, () => box(DETAIL_TAIL_BOX)).join('')),
+);
+
+test.describe('record header below the sm breakpoint (objectui#9119)', () => {
+  for (const width of BELOW_SM) {
+    test(`DetailView: the title column cannot outgrow its row at ${width}px`, async ({ page }) => {
+      const r = await readGeometry(page, LONG_TITLE_FIXTURE, css, width);
+
+      // THE assertion — the cross-axis fact itself. Unmodified, this column
+      // measures 1045.59px here whatever the viewport is (1201.22px in the
+      // console's font metrics), because it is sized to the TEXT and not to
+      // the row.
+      expect(
+        r.titleColumnWidth,
+        `title column ${r.titleColumnWidth}px inside a ${r.rowWidth}px row — it was sized to the ` +
+          'title, not to the row, so no `min-w-0` and no `truncate` below it can bind',
+      ).toBeLessThanOrEqual(r.rowWidth + 0.5);
+
+      // The user-visible half of the same fact.
+      expect(r.documentOverflowX, 'the record header pushed the page sideways').toBe(0);
+
+      // …and the repair has to make `truncate` actually FIRE, not merely stop
+      // the overflow: a title cut off with no ellipsis is the other half of
+      // this defect, not a fix for it.
+      expect(
+        r.h1Clipped,
+        `h1 is ${r.h1Width}px wide for a ${r.h1ScrollWidth}px title but reports no clipping`,
+      ).toBe(true);
+    });
+  }
+});
+
+/* ── The open half objectui#9119 left unmeasured: clip, or page scroll? ──────
+ *
+ * The card's readings were taken with the header in an UNCONSTRAINED
+ * container, which isolates the header's own behaviour but does not say what a
+ * user sees. In the real console the header renders inside `AppShell`'s
+ * content `<main>`, and `ConsoleLayout` styles that element with
+ * `overflow-x-hidden` — so the page does NOT scroll sideways; the overflow is
+ * CLIPPED, and because the h1's own `truncate` never fires, it is clipped with
+ * no ellipsis.
+ *
+ * This reproduces that ancestor from the two real sources and measures the
+ * header inside it.
+ */
+const SHELL_FILE = 'packages/layout/src/AppShell.tsx';
+const CONSOLE_LAYOUT_FILE = 'packages/app-shell/src/layout/ConsoleLayout.tsx';
+
+/** Pull a class string out of a source with a regex, asserting a token so a drift throws. */
+function classByPattern(source: string, file: string, re: RegExp, mustContain: string[]): string {
+  const m = source.match(re);
+  if (!m) throw new Error(`${file}: no class string matched ${re}`);
+  const cls = m[1].replace(/\s+/g, ' ').trim();
+  for (const token of mustContain) {
+    if (!cls.split(' ').includes(token)) {
+      throw new Error(
+        `${file}: matched "${cls}", which does not carry "${token}" — the extraction walked onto ` +
+          'the wrong element, so this measurement would be meaningless.',
+      );
+    }
+  }
+  return cls;
+}
+
+const shellSrc = read(SHELL_FILE);
+const consoleLayoutSrc = read(CONSOLE_LAYOUT_FILE);
+
+/**
+ * `AppShell`'s content `<main>` as the console actually renders it: the base
+ * string the component writes, then the override `ConsoleLayout` passes in —
+ * in the order the real `cn()` receives them.
+ *
+ * ⚠️ The real `cn()` is `twMerge(clsx(...))`, and it COLLAPSES the pair: the
+ * base `overflow-auto` loses its x axis to the later `overflow-x-hidden`. That
+ * collapse is not re-run here (`tailwind-merge` is a `@object-ui/components`
+ * dependency and is not resolvable from the repo root, where this spec runs);
+ * instead the two strings are handed to the browser in that same order and the
+ * resulting boundary is READ back below. Measured identical either way:
+ * `overflow-x: hidden`, `overflow-y: auto`, padding 0.
+ */
+const CONSOLE_MAIN = [
+  classByPattern(shellSrc, SHELL_FILE, /<main className=\{cn\("([^"]+)"/, [
+    'flex-1',
+    'min-w-0',
+    'overflow-auto',
+  ]),
+  classByPattern(consoleLayoutSrc, CONSOLE_LAYOUT_FILE, /<AppShell[\s\S]*?className="([^"]+)"/, [
+    'overflow-x-hidden',
+  ]),
+].join(' ');
+
+test.describe("the console's own content pane (objectui#9119, the open half)", () => {
+  test('the header does not overflow the pane that clips it, at 375px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.setContent(
+      `<style>html,body{margin:0}${css}</style>` +
+        `<main id="pane" class="${CONSOLE_MAIN}">${LONG_TITLE_FIXTURE}</main>`,
+      { waitUntil: 'load' },
+    );
+    await page.waitForFunction(
+      () => {
+        const h1 = document.querySelector('h1');
+        const pane = document.getElementById('pane');
+        if (!h1 || !pane || pane.getBoundingClientRect().width <= 0) return false;
+        const w = h1.getBoundingClientRect().width;
+        const prev = (window as unknown as { __w?: number }).__w;
+        (window as unknown as { __w?: number }).__w = w;
+        return prev !== undefined && Math.abs(prev - w) < 0.01;
+      },
+      null,
+      { polling: 'raf', timeout: 10_000 },
+    );
+    await page.evaluate(() => document.fonts?.ready);
+    const r = await page.evaluate(() => {
+      const pane = document.getElementById('pane')!;
+      const h1 = document.querySelector('h1')!;
+      return {
+        paneClientWidth: pane.clientWidth,
+        paneScrollWidth: pane.scrollWidth,
+        paneOverflowX: getComputedStyle(pane).overflowX,
+        h1Width: Math.round(h1.getBoundingClientRect().width * 100) / 100,
+        h1ScrollWidth: h1.scrollWidth,
+      };
+    });
+
+    // Premise guard, read from the browser rather than assumed: this test is
+    // only ABOUT a clip while the pane actually clips. If the shell ever
+    // switches to `overflow-x: auto`, the user-visible symptom changes from
+    // "cut off with no ellipsis" into "the content pane scrolls sideways" and
+    // the open half of objectui#9119 needs re-reading — so say so loudly
+    // instead of measuring on.
+    expect(
+      r.paneOverflowX,
+      'the console content pane no longer clips — re-read objectui#9119, the symptom has changed',
+    ).toBe('hidden');
+
+    // Unmodified, this pane reports scrollWidth 1046 against clientWidth 375 —
+    // 671px of header the reader can never reach, because `overflow-x: hidden`
+    // clips it and offers no scrollbar.
+    expect(
+      r.paneScrollWidth,
+      `content pane (overflow-x: ${r.paneOverflowX}) is ${r.paneClientWidth}px wide but holds ` +
+        `${r.paneScrollWidth}px of header — ${r.paneScrollWidth - r.paneClientWidth}px of it is ` +
+        'clipped away with no scrollbar and no ellipsis',
+    ).toBeLessThanOrEqual(r.paneClientWidth);
+
+    // And what the reader gets instead of the cut-off text is the ellipsis.
+    expect(r.h1ScrollWidth).toBeGreaterThan(Math.ceil(r.h1Width));
+  });
+});
+
 
 test.describe('record header title width arbitration (objectui#7281)', () => {
   for (const [name, fixture] of [

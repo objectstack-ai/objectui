@@ -89,6 +89,11 @@ import {
 } from '../ObjectView';
 // Module scope, not a hook: this import IS the registration.
 import '../index';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 // The source is read from disk rather than imported: the claim being pinned is
 // about the READS in the file, and `import.meta.url` is not a file URL under
@@ -111,12 +116,7 @@ const REGION_CLOSE = '// #endregion object-view HOST-COMPOSITION SURFACE (object
  * Line comments are cut only where `//` is not preceded by `:`, so a URL in a
  * string literal cannot swallow the rest of its line.
  */
-const stripComments = (code: string): string =>
-  code
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .map((line) => line.replace(/(^|[^:])\/\/.*$/, '$1'))
-    .join('\n');
+const stripComments = (code: string): string => mask(code);
 
 /** Every cast read of a key off `schema` in a slice of CODE, distinct, sorted. */
 const castReadsIn = (slice: string): string[] =>

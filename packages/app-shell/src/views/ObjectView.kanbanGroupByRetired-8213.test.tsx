@@ -44,16 +44,19 @@
  * `groupBy`.
  *
  * ⚠️ NO ARM HERE ASSERTS THE `...restKanban` OVERRIDE, deliberately. `ListView`
- * spreads the rest of the merged kanban config AFTER its own `groupBy:
- * laneField`, so a surviving `groupBy` wins over the lane it just resolved.
- * That override is real, but it cannot be pinned FROM THIS PRODUCER: every bag
- * this producer can build has `groupBy` and `groupByField` holding the same
+ * spread the rest of the merged kanban config AFTER its own `groupBy:
+ * laneField`, so a surviving `groupBy` won over the lane it had just resolved.
+ * That override was real, but it could not be pinned FROM THIS PRODUCER: every
+ * bag this producer can build has `groupBy` and `groupByField` holding the same
  * value by construction, so an override row driven by it passes with or without
- * the fix — a test that cannot fail. Distinguishing the two spellings needs a
+ * the fix — a test that cannot fail. Distinguishing the two spellings needed a
  * hand-built `plugin-list` fixture (`options.kanban.groupBy: 'a'` against
- * `kanban.groupByField: 'b'`), which is a `plugin-list` change on its own card.
- * What this deletion does is remove the only producer in this repo that fed the
- * override; the override itself is untouched.
+ * `kanban.groupByField: 'b'`), which was a `plugin-list` change on its own card.
+ * ⭐ THAT FIXTURE NOW EXISTS and the override is closed — objectui#8365,
+ * `plugin-list/src/__tests__/ListView.strayGroupByRefused-8365.test.tsx`. What
+ * THIS deletion did remains what it always was: it removed the only producer in
+ * this repo that fed the override. The arms below are unchanged by that card,
+ * because they measure the producer, not the render branch.
  *
  * REVERSE VERIFICATION — direction predicted before running, then observed:
  * restore `{ groupBy: lane, groupByField: lane }` in `kanbanViewOptions` and

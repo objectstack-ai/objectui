@@ -24,7 +24,7 @@ import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
 import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate } from '@object-ui/react';
-import { renderChildren, cn } from '../../lib/utils';
+import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { RelatedCountStore, useRelatedCountVersion } from '../../hooks/related-count-store';
 import { useIsMobile } from '../../hooks/use-mobile';
@@ -508,7 +508,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //     subscriber updates with no parent re-render.
   const ctx = useRecordContext();
   const parentId = ctx?.data?.id;
-  const ds: any = ctx?.dataSource;
+  const ds = ctx?.dataSource;
 
   // Conditional tabs (framework#2606): an item-level `visibleWhen` CEL
   // predicate removes the ENTIRE tab (header + panel) when FALSE — unlike a
@@ -936,8 +936,18 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           <CardTitle>{title}</CardTitle>
         </CardHeader>
       )}
-      {body && <CardContent>{renderChildren(body)}</CardContent>}
-      {footer && <CardFooter className="flex justify-between">{renderChildren(footer)}</CardFooter>}
+      {/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to
+          the slot itself, so a legal authored `body: 0` painted the character
+          "0" — and this renderer's `schema` is `any`, which is why the card's
+          TypeScript census could not see these two while the runtime probe
+          could. `renderNodeSlot` invokes the wrapper only when the slot has
+          content, so the chrome disappears with it. */}
+      {renderNodeSlot(body, (node) => (
+        <CardContent>{renderChildren(node)}</CardContent>
+      ))}
+      {renderNodeSlot(footer, (node) => (
+        <CardFooter className="flex justify-between">{renderChildren(node)}</CardFooter>
+      ))}
     </Card>
   );
 };

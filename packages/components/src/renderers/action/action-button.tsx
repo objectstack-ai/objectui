@@ -49,6 +49,14 @@ export interface ActionButtonProps {
   className?: string;
   /** Override context for this specific action */
   context?: Record<string, any>;
+  /**
+   * The host-EVALUATED enablement verdict, declared rather than left to the
+   * index signature (objectui#9131). `SchemaRenderer` evaluates the node's
+   * `disabled` / `disabledOn` and forwards the answer under this name as
+   * `disabled: __disabled || undefined`. It is consumed by name below and
+   * therefore never reaches the DOM spread — see the destructure.
+   */
+  disabled?: boolean;
   [key: string]: any;
 }
 
@@ -72,6 +80,22 @@ const ActionButtonRenderer = forwardRef<
       'data-obj-type': dataObjType,
       style,
       data,
+      // The host's EVALUATED verdict, taken by name — and taking it OFF `rest`
+      // is the load-bearing half (objectui#9131, the repair objectui#7238 made
+      // on `ui:button` and `form`). `toFormControlDomProps` forwards `disabled`
+      // deliberately (this host IS a form control) and `pickDomProps` iterates
+      // `Object.keys`, so a `disabled` key PRESENT with the value `undefined`
+      // re-declares and wins. `SchemaRenderer` always hands down exactly that
+      // shape — `disabled: __disabled || undefined`, key unconditional, only
+      // the value conditional — so spread after the computed value it
+      // overwrote this renderer's own verdict with `undefined` on the way to
+      // the DOM. The legacy `enabled` leg took the whole loss: the node gate
+      // never consults `enabled`, so its forwarded value is `undefined` for
+      // every `enabled` shape, and a control the author declared disabled
+      // stayed pressable on the ordinary `SchemaRenderer` path — fail-OPEN.
+      // Destructuring it here removes that second writer; the gate below is now
+      // the only one, and it consumes this verdict instead of losing to it.
+      disabled: hostDisabled,
       ...rest
     } = props;
 
@@ -269,7 +293,13 @@ const ActionButtonRenderer = forwardRef<
         // shapes (derivation table in
         // `__tests__/action-disabled-declared-gate.test.tsx`) and keeps one
         // spelling of "declared" on both legs.
-        disabled={(
+        //
+        // `hostDisabled` leads the OR (objectui#9131): the host verdict is a
+        // reason to disable, never a reason to enable. `SchemaRenderer` emits
+        // `true` or `undefined` and never `false`, so OR-ing it is exactly
+        // "the node gate said disable, or this renderer's own gate did, or an
+        // execution is in flight" — one carrier, three sources, no re-declare.
+        disabled={hostDisabled || (
           hasDeclaredVisibilityGate((schema as any).disabled)
             ? isDisabled
             : hasDeclaredVisibilityGate(schema.enabled)

@@ -41,6 +41,12 @@ export interface ActionIconProps {
   schema: UIActionSchema & { type: string; className?: string; actionType?: string };
   className?: string;
   context?: Record<string, any>;
+  /**
+   * The host-EVALUATED enablement verdict — see `ActionButtonProps` for the
+   * mechanism (objectui#9131). Declared rather than left to the index
+   * signature, consumed by name below, never re-spread onto the DOM.
+   */
+  disabled?: boolean;
   [key: string]: any;
 }
 
@@ -67,6 +73,16 @@ const ActionIconRenderer = forwardRef<
       // `record.` root), and it must not reach `...rest`, which is spread onto
       // the DOM button.
       data,
+      // The host's EVALUATED verdict, taken by name — same repair, same
+      // mechanism, same card as `action:button` (objectui#9131; the sanctioned
+      // fix is objectui#7238's on `ui:button` / `form`). `SchemaRenderer`
+      // forwards `disabled: __disabled || undefined` with the key
+      // unconditional, `toFormControlDomProps` forwards `disabled` by design,
+      // and `pickDomProps` iterates `Object.keys` — so spread after the
+      // computed value, a PRESENT `undefined` re-declared it and this
+      // renderer's verdict never reached the DOM. Taking it off `rest` removes
+      // that second writer; the gate below consumes it instead.
+      disabled: hostDisabled,
       ...rest
     } = props;
 
@@ -179,7 +195,11 @@ const ActionIconRenderer = forwardRef<
         // behaviour-preserving (derivation table in
         // `__tests__/action-disabled-declared-gate.test.tsx`) and leaves one
         // spelling of "declared" on both legs.
-        disabled={(
+        //
+        // `hostDisabled` leads the OR (objectui#9131): the host verdict is a
+        // reason to disable, never a reason to enable — `SchemaRenderer` emits
+        // `true` or `undefined`, never `false`. See `action:button`.
+        disabled={hostDisabled || (
           hasDeclaredVisibilityGate((schema as any).disabled)
             ? isDisabledPred
             : hasDeclaredVisibilityGate(schema.enabled)

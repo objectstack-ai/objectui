@@ -38,18 +38,23 @@ function App() {
 
 ### With Data
 
+Expression scope reaches the renderer through `SchemaRendererProvider`, never through a prop
+on the element: `SchemaRenderer` declares only `schema`, so anything else is forwarded to the
+component the schema names (see the open forwarding surface below). The provider's
+`dataSource` is what the evaluator sees under the name `data`.
+
 ```tsx
-import { SchemaRenderer } from '@object-ui/react'
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react'
 
 const schema = {
   type: 'form',
-  body: [
+  children: [
     {
       // `content` is evaluated on every component type. `input` has no row in
       // the spec's expression carriage map, so a `${…}` in ITS `value` would be
       // rendered as those characters rather than resolved.
       type: 'text',
-      content: 'Editing ${user.name}'
+      content: 'Editing ${data.user.name}'
     },
     {
       type: 'input',
@@ -59,12 +64,16 @@ const schema = {
   ]
 }
 
-const data = {
+const dataSource = {
   user: { name: 'John Doe' }
 }
 
 function App() {
-  return <SchemaRenderer schema={schema} data={data} />
+  return (
+    <SchemaRendererProvider dataSource={dataSource}>
+      <SchemaRenderer schema={schema} />
+    </SchemaRendererProvider>
+  )
 }
 ```
 

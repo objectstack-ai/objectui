@@ -17,7 +17,12 @@
  */
 
 import { stripReadDecorations } from '@objectstack/spec/kernel';
-import { viewItemObjectName, type ObjectStackAdapter } from '@object-ui/data-objectstack';
+import {
+  assertObjectMetadataWritable,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+  viewItemObjectName,
+  type ObjectStackAdapter,
+} from '@object-ui/data-objectstack';
 import type { ObjectDefinition, DesignerFieldDefinition } from '@object-ui/types';
 // The retired-field-key tombstone registry lives at a dedicated internal
 // subpath, not the main barrel — objectui#6527 option B (maintainer ruling,
@@ -187,24 +192,21 @@ function toObjectPayload(obj: ObjectDefinition, fields?: FieldMetadataPayload[])
   };
 }
 
-/**
- * Field types whose `reference` — the target object a relationship links to —
- * `@objectstack/spec` requires to be present and non-empty.
+/*
+ * `RELATIONSHIP_TYPES_REQUIRING_REFERENCE` — the field types whose `reference`
+ * `@objectstack/spec` requires to be present and non-empty — is imported above
+ * and no longer declared here.
  *
- * Re-measured for objectui#7714 against the 17.3.0 artifact by parsing
- * `{ type, label: 'L' }` for every one of `FieldType`'s 49 declared members:
- * exactly two are refused at path `reference`, both with code `custom`, and
- * the other 47 are not refused at all on that minimal document.
- *
- * ⛔ Deliberately NOT "parse every field through `FieldSchema` before the PUT".
- * That would refuse plugin-registered keys the SERVER accepts — measured on the
- * installed 17.2.0, `x_plugin_thing` is `unrecognized_keys` to the schema while
- * the server that sent it takes it back — which is the same reason
- * {@link RETIRED_FIELD_KEYS} is a named list rather than a schema filter. This
- * guard states one invariant; it is not a client-side revalidation of the
- * document.
+ * objectui#8676: it used to be declared here AND word-for-word again in
+ * `plugin-designer`'s `MetadataFieldsPage`. Two remembered copies of one
+ * contract fact is the same hazard as a remembered list of writers, so both
+ * writers now read the single declaration in `@object-ui/data-objectstack`,
+ * beside the write doors, where a pin DERIVES the set from the installed spec
+ * on every run instead of restating a measurement. The reasoning that used to
+ * sit here — including ⛔ why this is one invariant and not a client-side
+ * revalidation of the document through `FieldSchema` — moved with it, to
+ * `object-metadata-write-guard.ts`.
  */
-const RELATIONSHIP_TYPES_REQUIRING_REFERENCE = ['lookup', 'master_detail'];
 
 /**
  * Why THIS value cannot be a target, and what the contract does about it —
@@ -628,6 +630,35 @@ export class MetadataService {
   }
 
   /**
+   * The ONE place this class puts metadata on the wire (objectui#8676).
+   *
+   * `@objectstack/client`'s `meta.saveItem` is the third of the three in-repo
+   * transports that can PUT `/meta/:type/:name`, and the only one that lives in
+   * a package this repo does not own — so the invariant cannot be pushed down
+   * into it the way it is pushed into `MetadataClient.save`. This method is the
+   * compensating seam: the SDK door is reached through it and through nothing
+   * else in this class, so the guard runs once rather than three times, and
+   * `scripts/check-object-metadata-write-doors.mjs` has one site to judge.
+   *
+   * ⚠ The guard here is a BACKSTOP, not the primary refusal for the two
+   * object-shaped callers. `saveObject` and `saveFields` both build their
+   * `fields` through {@link toFieldsMap}, which refuses the same half-filled
+   * relationship EARLIER and with the designer-facing four-state wording those
+   * writers' pins assert. Nothing here replaces that; this covers the callers
+   * that do NOT pass through a conversion — `saveMetadataItem`, whose `category`
+   * is a runtime value and can be `'object'`, and whoever calls it next.
+   */
+  private async putMetadataItem(
+    category: string,
+    name: string,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    assertObjectMetadataWritable(category, data, 'MetadataService');
+    const client = this.adapter.getClient();
+    await client.meta.saveItem(category, name, data);
+  }
+
+  /**
    * Persist a metadata item (upsert) for any category.
    *
    * `${category}:${name}` is the key the adapter's generic metadata read
@@ -649,8 +680,7 @@ export class MetadataService {
    * private copy of "which object is this?".
    */
   async saveMetadataItem(category: string, name: string, data: Record<string, unknown>): Promise<void> {
-    const client = this.adapter.getClient();
-    await client.meta.saveItem(category, name, data);
+    await this.putMetadataItem(category, name, data);
     this.adapter.invalidateCache(`${category}:${name}`);
     if (category === 'view') {
       const objectName = viewItemObjectName(data);
@@ -750,9 +780,8 @@ export class MetadataService {
    *     its own terms (ADR-0049 shape).
    */
   async saveObject(obj: ObjectDefinition, existingFields: FieldMetadataPayload[]): Promise<void> {
-    const client = this.adapter.getClient();
     const payload = toObjectPayload(obj, existingFields);
-    await client.meta.saveItem('object', obj.name, payload);
+    await this.putMetadataItem('object', obj.name, payload as unknown as Record<string, unknown>);
     this.adapter.invalidateCache(`object:${obj.name}`);
   }
 
@@ -889,7 +918,7 @@ export class MetadataService {
       fields: toFieldsMap(fields.map((field) => toFieldPayload(field, previousFieldEntry(previousFields, field.name)))),
     }) as Record<string, unknown>;
 
-    await client.meta.saveItem('object', objectName, updatedObject);
+    await this.putMetadataItem('object', objectName, updatedObject);
     this.adapter.invalidateCache(`object:${objectName}`);
   }
 

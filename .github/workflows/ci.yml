@@ -334,6 +334,26 @@ jobs:
         if: steps.relevant.outputs.should_run == 'true'
         run: pnpm check:handler-key-reads
 
+      # objectui#7714 ruled one client behaviour and its PR implemented that ruling
+      # by ENUMERATING the writers it knew of. Two. objectui#8057 hit the same
+      # defect on a third in that card's own required dogfood, and objectui#8676's
+      # sweep found nine more — and, the half that outlives the count, the sweep
+      # shape the question is naturally asked in (`client.save(`) CANNOT SEE them:
+      # it returns zero over the very file objectui#8057 is about, because the call
+      # is `client.save<any>(type, ...)`. A hand list of writers is stale the next
+      # time somebody adds one, and nothing says so.
+      #
+      # So this step enumerates DOORS, not writers. The writer set is open and
+      # nobody has to announce a new member; the transport set is closed and this
+      # repo owns it. It derives every call that PUTs `/meta/:type/:name` —
+      # resolving the URL through templates, fields and helper returns, because
+      # the central door says nothing at its own call site — and requires each one
+      # that can carry an object document to reach the guard. Parses sources with
+      # `typescript`, so it needs the install and nothing built.
+      - name: Verify every object-metadata write door applies the write guard
+        if: steps.relevant.outputs.should_run == 'true'
+        run: pnpm check:metadata-write-doors
+
       # A build tsconfig that excludes tooling by FILE NAME (`*.test.ts`) stops
       # the files that happen to be named that way and nothing else. The first
       # shared helper added to a `__tests__/` directory is then a program input,
@@ -780,11 +800,26 @@ jobs:
           # So this job asks one more question of the markdown the exclusions
           # above dropped: does a test READ it? `markdown-test-inputs.mjs` holds
           # the derived class -- which documents, and which test reads each --
-          # and audits itself against the tree. The widening is deliberately
-          # narrow: a markdown-only change no test reads still skips, which is
-          # the whole point of the exclusions. Only THIS job carries the extra
+          # and audits itself against the tree. Only THIS job carries the extra
           # stage, because only this job runs the tests that read markdown
           # (measured: `type-check` reads no document, and no e2e spec does).
+          #
+          # ⚠️ objectui#9096: that class is now TOTAL over markdown, and this
+          # comment used to claim the opposite ("the widening is deliberately
+          # narrow"). `scripts` joined the scan roots, and the gate tests under
+          # `scripts/__tests__` read the documentation the way the product tests
+          # read a README -- measured by running all 46 of them under an fs
+          # trace, 1805 of 1805 tracked markdown files are opened by at least
+          # one of them. ⇒ for THIS job, the markdown half of the exclusion list
+          # above is now inert: any markdown-only pull request runs the shards.
+          # Priced over the 513 first-parent commits available at the time: 36
+          # reached this stage, 21 already ran, and the widening moves 14 of the
+          # remaining 15 from skip to run -- 2.7pp of merges.
+          #
+          # ⛔ The rest of the exclusion list is NOT inert and must stay: a
+          # non-markdown change under `content/**`, `docs/**` or `apps/site/**`
+          # still skips. `8011852dc` is the live instance -- a site-only change
+          # carrying no markdown, which skipped then and skips now.
           #
           # Same failure posture as the diff above -- a question that cannot be
           # answered means RUN. The script needs nothing but the checkout and
@@ -961,9 +996,47 @@ jobs:
       # measured, not assumed). The blob carries this shard's raw coverage as
       # well as its test results; the coverage report proper is produced once,
       # by the merge.
+      #
+      # `--reporter=default --reporter=github-actions` are here because a CLI
+      # `--reporter` REPLACES the reporter set rather than adding to it, and the
+      # set it replaced is exactly this pair. Vitest 4.1.10 resolves reporters
+      # with:
+      #
+      #     if (!resolved.reporters.length) {
+      #       resolved.reporters.push([isAgent ? "agent" : "default", {}]);
+      #       if (process.env.GITHUB_ACTIONS === "true")
+      #         resolved.reporters.push(["github-actions", {}]);
+      #     }
+      #
+      # — and this repo's vitest config sets no `reporters`, so before
+      # objectui#9177 the blob flag alone was the whole set. A red shard's log
+      # therefore ended at `blob report written to …` with no failing test name,
+      # no assertion text and no timeout message, and the shard job's only
+      # annotation was the generic `Process completed with exit code 1.` The
+      # failures existed solely inside the `coverage-blob-N` artifact, which is
+      # download-only. objectui#8545 priced that: two episodes in which ONE test
+      # file held main's coverage gate unevaluated for 84 and 87 consecutive
+      # pushes, both found by a person reading a job log by hand, days later.
+      #
+      # ⚠️ Additive on purpose — the blob stays, because the merge job below is
+      # what enforces the thresholds and it has nothing to read without it.
+      # Measured on vitest 4.1.10 with all three reporters and `--shard=N/4`:
+      # the log carries `Failed Tests`, the test names, the assertion diff and
+      # `Error: Test timed out in …`; `github-actions` emits one `::error`
+      # annotation per failing test, which is the only form of this an API
+      # reader gets without downloading an artifact; and the shard still writes
+      # `.vitest-reports/blob-N-4.json`, which merges and has the configured
+      # thresholds enforced over it exactly as before.
+      #
+      # ⛔ Do not "simplify" this back to one reporter. Dropping the blob trades
+      # an unreadable failure for an unevaluated coverage floor — the same
+      # defect wearing the other hat — and dropping the other two restores
+      # objectui#9177. `scripts/__tests__/coverage-shard-reporter-readability.test.ts`
+      # fails in both directions.
       - name: Run tests with coverage (shard ${{ matrix.shard }}/4)
         run: >-
-          pnpm test:coverage --reporter=blob --shard=${{ matrix.shard }}/4
+          pnpm test:coverage --reporter=blob --reporter=default
+          --reporter=github-actions --shard=${{ matrix.shard }}/4
           --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
           --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
 

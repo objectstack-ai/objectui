@@ -179,7 +179,7 @@ Components should have valid DOM structure:
 it('should have valid structure', () => {
   const { container } = renderComponent({
     type: 'container',
-    body: [{ type: 'text', content: 'Content' }],
+    children: [{ type: 'text', content: 'Content' }],
   });
   
   const domCheck = checkDOMStructure(container);

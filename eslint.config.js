@@ -422,4 +422,50 @@ export default tseslint.config({
   rules: {
     'object-ui/no-unpaired-badge-color-classes': 'error',
   },
+}, {
+  // objectui#9162 ratchet — a `SchemaNode` slot may never guard itself.
+  //
+  // `{schema.footer && <CardFooter>…</CardFooter>}` does not evaluate to
+  // `false` when the slot is falsy: it evaluates to the SLOT, and React renders
+  // numbers. A node slot's published zod face carries a `z.number()` arm
+  // (`nodeUnionOptions`, `packages/types/src/zod/base.zod.ts`), so `footer: 0`
+  // is legal authored input that paints a stray "0" into the DOM. Worse, `&&`
+  // short-circuits, so `renderChildren`'s own `isEmptyNodeSlot` first leg is
+  // never reached — the objectui#8908 bridge repair cannot help either.
+  //
+  // Why it earns the ratchet: the class was patched ONE INSTANCE AT A TIME
+  // three times — objectui#8331 (`DataTableSchema.emptyAction`), objectui#9033
+  // (`header-bar`'s `rightContent`), and then objectui#9162's census found
+  // ELEVEN more, because objectui#9033's grep was keyed on the spelling of the
+  // RIGHT operand while the trap depends only on the LEFT one. Eleven ternaries
+  // would have left the error-permitting construct in the tree for the twelfth
+  // slot. Nothing else rejects it: it type-checks, it renders, and it is
+  // correct for every value except a falsy number.
+  //
+  // The rule derives its slot set PER FILE from the file's own text — an
+  // expression is a node slot here if this file hands it to `renderChildren`,
+  // `renderNodeSlot`, `toRenderableSchema` or `<SchemaRenderer schema={…}>`.
+  // ⛔ Deliberately NOT a list of slot names: a list would answer for today's
+  // names and go quiet on the twelfth, which is the objectui#9033 mistake one
+  // level up.
+  //
+  // `**/src/ui/**` is the upstream Shadcn zone, overwritten by the sync script
+  // and never hand-edited (AGENTS.md #7) — enforcing there would demand an edit
+  // the repo forbids. It reports zero today in any case. Tests are IN scope: a
+  // fixture that writes the construct is modelling the defect, and a deliberate
+  // reproduction can say so with a disable directive.
+  //
+  // Measured on 7d6439c4b: 19 reports across 8 files (the eleven sites
+  // objectui#9162 probed, plus `page:card`'s `body`/`footer`, `plugin-detail`'s
+  // `header`/`footer`, `plugin-report`'s `section.content` and
+  // `plugin-timeline`'s two `item.content`). `header-bar.tsx` — objectui#9033's
+  // ternary, already fixed — was NOT reported, which is the control that the
+  // instrument separates fixed from unfixed. All 19 are repaired in the same
+  // change, so this lints clean with no allowlist.
+  files: ['**/*.tsx'],
+  ignores: ['**/src/ui/**'],
+  plugins: { 'object-ui': objectUi },
+  rules: {
+    'object-ui/no-bare-node-slot-guard': 'error',
+  },
 });

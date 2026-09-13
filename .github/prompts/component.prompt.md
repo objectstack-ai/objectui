@@ -31,7 +31,7 @@
 
 ## 1. Component Categories
 
-You will be asked to build components in these 3 standard slots. Refer to `packages/spec` for the complete Zod definitions.
+You will be asked to build components in the standard slots below. Refer to `packages/spec` for the complete Zod definitions.
 
 > ⚠️ **Read the LABEL before you copy a token out of this file — the labels below are three different
 > vocabularies, and only two of them are things you may write as a `type`.** objectui#9098 landed the
@@ -123,7 +123,7 @@ Responsible for rendering records. The specific `type` determines the Props cont
     ```
 *   **Required Types (Ref: `src/ui/view.zod.ts`):** `simple`, `tabbed`, `wizard`, `split`, `drawer`, `modal`.
 
-### D. Page Components (`page:*`)
+### C. Page Components (`page:*`)
 Reusable UI blocks for the Drag-and-Drop Page Builder.
 *   **Contract:** Must implement `PageComponentProps`.
     ```typescript
@@ -158,7 +158,7 @@ Reusable UI blocks for the Drag-and-Drop Page Builder.
 > It is no longer a page block any author can legitimately write, under any reading of this file.
 > The shell's own profile affordance is a React slot, not a page block type.
 
-### E. Dashboard Widgets (`widget:*`)
+### D. Dashboard Widgets (`widget:*`)
 Standalone cards placed on a dashboard grid.
 *   **Contract:** Must implement `DashboardWidgetProps` (Ref: `src/ui/dashboard.zod.ts`).
     ```typescript
@@ -176,7 +176,7 @@ Standalone cards placed on a dashboard grid.
     *   **Analysis:** `pivot` (Cross-Tab Table).
     *   **Content:** `table` (List), `text` (Note), `image`, `frame` (Embed).
 
-### F. Primitive Atoms — IMPORTED, never authored
+### E. Primitive Atoms — IMPORTED, never authored
 The fundamental building blocks used by all other widgets.
 *   **Contract:** Pure UI components (No metadata dependencies).
 
@@ -196,7 +196,7 @@ The fundamental building blocks used by all other widgets.
     *   Error state (Error Boundary/Message).
     *   Badge (Status Indicators).
 
-### G. Smart Actions (`action:*`)
+### F. Smart Actions (`action:*`)
 Executable elements bound to the Action Protocol. They handle permissions, loading states, and confirmation dialogs automatically.
 *   **Contract:** Must implement `ActionComponentProps` (Ref: `src/ui/action.zod.ts`).
     ```typescript
@@ -214,7 +214,7 @@ Executable elements bound to the Action Protocol. They handle permissions, loadi
     *   `action:menu`: Dropdown menu for overflow actions.
     *   `action:icon`: Icon-only trigger (for dense lists).
 
-### H. AI Interface (`ai:*`)
+### G. AI Interface (`ai:*`)
 Conversational and Generative UI components. ⚠️ This section is PROTOCOL PLACEHOLDER surface, ⛔ not
 an available component library — read the label before you write any of it.
 *   **Protocol Placeholders:** — registered, but ONLY by the opt-in placeholder module, so each one

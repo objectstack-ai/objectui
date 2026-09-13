@@ -78,8 +78,8 @@ One row per declared member, in declaration order, so the list can be checked ag
 | `style` | `Record<string, string \| number>` | Inline CSS styles. Use sparingly — prefer `className`. |
 | `data` | `any` | Arbitrary data attached to the node. `any` because the shape is defined by the consuming component rather than by `BaseSchema`. |
 | `bind` | `string` | Data-scope path this node draws its rows or value from, resolved by `useDataScope()`. Honoured only by components that call it. |
-| `body` | `SchemaNode \| SchemaNode[]` | Child components rendered inside this component. |
-| `children` | `SchemaNode \| SchemaNode[]` | Alias for `body`. |
+| `body` | `SchemaNode \| SchemaNode[]` | Child components rendered inside this component — **as `BaseSchema` declares it**. Which of the two channels a given node type actually renders is per component; see the note below. |
+| `children` | `SchemaNode \| SchemaNode[]` | A second content channel `BaseSchema` declares beside `body`. ⚠️ **Not an alias** — nothing folds one into the other at runtime, and this row used to say it was. See the note below. |
 | `visible` | `boolean \| string \| { dialect?: string; source: string }` | Visibility control. Accepts a boolean, a predicate expression string, **or** the CEL envelope object (`{ dialect: 'cel', source }` — what `objectstack build` emits for every authored predicate) — the renderer evaluates this key rather than reading it as a boolean. The string-or-envelope half is `ExpressionWire`, the one wire type `visibleWhen` on form fields already carries. |
 | `visibleWhen` | `string` | Canonical conditional-visibility predicate (ADR-0089); the element is shown when it evaluates truthy. Evaluated **before** `visible` and `visibleOn`, and outranks both. |
 | `visibleOn` | `string` | Expression for conditional visibility. **Deprecated** (ADR-0089) — use `visibleWhen`. |
@@ -93,6 +93,7 @@ One row per declared member, in declaration order, so the list can be checked ag
 Two things the table cannot show in a cell:
 
 - **A concrete schema may narrow an inherited member, and its own declaration wins.** Many component schemas restate `label`, `description` or `disabled` more narrowly than `BaseSchema` declares them, so the unions above are what a node gets when its own schema does not restate the key. Check the component's own property table before writing a predicate string or a locale map into an inherited slot.
+- **⚠️ `body` and `children` are TWO channels, not one key with two spellings, and which one a node type renders is decided PER COMPONENT.** Each renderer reads one, the other, both, or neither, and `SchemaRenderer` strips both out of the props bag it spreads — so writing the channel a renderer does not read rendered an EMPTY element, with no error at authoring time, none at validation time and none at render time. That is the defect objectui#8284 named after seven cards had repaired one page of it each. It is being closed per component, by measurement: each schema narrows to the channel its renderer actually reads and **tombstones the other as `never`**, refused by name on both published faces (objectui#9254 for the components that read exactly one channel, objectui#9256 for the ones that read neither). ⇒ check the component's own section before writing either key; the types in this row are `BaseSchema`'s, and a concrete schema's own declaration wins.
 - **This list is exhaustive for *declared* members, not for *accepted* keys.** `BaseSchema` carries an index signature (`[key: string]: any`) and its Zod mirror is `.passthrough()`, so an undeclared key — a misspelling included — is still accepted by both halves. Absence from this table does not mean a key is rejected.
 
 ---

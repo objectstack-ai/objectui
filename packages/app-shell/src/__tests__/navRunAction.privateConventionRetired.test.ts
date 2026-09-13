@@ -46,6 +46,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NAV_RUN_ACTION_PARAM } from '@object-ui/layout';
 import { RESERVED_URL_PARAMS } from '../urlParams';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../../..');
@@ -59,7 +64,7 @@ const read = (rel: string) => readFileSync(path.join(repoRoot, rel), 'utf8');
  * would be to delete the explanation rather than the debt.
  */
 const stripComments = (src: string): string =>
-  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  mask(src);
 
 /**
  * Every file that used to hand-write the param name, plus the two that consume

@@ -20,6 +20,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  renderNodeSlot,
 } from '@object-ui/components';
 import { 
   ArrowLeft, 
@@ -1027,7 +1028,35 @@ export const DetailView: React.FC<DetailViewProps> = ({
             under a Lightning-style page) to avoid a duplicate title chip. */}
         {schema.showHeader !== false && (
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-start justify-between gap-3 sm:gap-4 pb-4 border-b">
-          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0 sm:min-w-64">
+          {/* ── Why this column carries `w-full sm:w-auto` (objectui#9119) ──
+
+              Below `sm` this row is a COLUMN flex container, so a child's
+              WIDTH is its CROSS size — and `items-start` on the row sizes a
+              cross axis to fit-content. This column therefore took the h1's
+              max-content width whatever the viewport was (1201.22px inside a
+              320px row in the console; 1045.59px for the same 98-character
+              title under the headless font metrics the e2e pin reads). The
+              `truncate` below never fired, because its containing block had
+              been sized to the text, and the header overran its row by the
+              difference on every phone-width record whose name runs past
+              roughly thirty characters. What the reader got depended on the
+              host: the console's content pane computes `overflow-x: hidden`,
+              so there the title was cut off mid-word with no ellipsis and no
+              scrollbar; a host that does not clip got a sideways page scroll
+              instead. Both are this one defect.
+
+              ⛔ Neither utility already on this line can fix that, and a
+              third one of the same kind cannot either: `min-w-0` is a FLOOR,
+              not a ceiling, and `flex-1` acts on the MAIN axis — which in a
+              column container is HEIGHT. Only a definite cross size does it.
+              (objectui#3466 / objectui#2493 were a MISSING `min-w-0` on other
+              surfaces; this is not that one.)
+
+              `sm:w-auto` hands the row straight back to the `sm:flex-row`
+              title/action arbitration objectui#7281 fixed, unchanged — the
+              action tail below spells the same pair for the same reason, and
+              the 799px row of the pin is the lit control proving it. */}
+          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0 sm:min-w-64 w-full sm:w-auto">
             {(schema.showBack ?? true) && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1409,11 +1438,19 @@ export const DetailView: React.FC<DetailViewProps> = ({
         )}
 
       {/* Custom Header */}
-      {schema.header && (
+{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
+          slot itself, so a legal authored `header: 0` — the published node union
+          carries a `z.number()` arm — painted the character "0" here. Measured
+          leaking on `origin/main` at 7d6439c4b before this change; the card's
+          census listed these two as HITS, and the probe confirmed them.
+          `renderNodeSlot` runs the wrapper only when the slot has content, so
+          the wrapping `div` disappears with it. Pinned in
+          `__tests__/DetailView.nodeSlotNumericFalsy-9162.test.tsx`. */}
+      {renderNodeSlot(schema.header, (header) => (
         <div>
-          <SchemaRenderer schema={toRenderableSchema(schema.header)} data={data} />
+          <SchemaRenderer schema={toRenderableSchema(header)} data={data} />
         </div>
-      )}
+      ))}
 
       {/* Header Highlight Area */}
       {schema.highlightFields && schema.highlightFields.length > 0 && (
@@ -1892,11 +1929,19 @@ export const DetailView: React.FC<DetailViewProps> = ({
       />
 
       {/* Custom Footer */}
-      {schema.footer && (
+{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
+          slot itself, so a legal authored `footer: 0` — the published node union
+          carries a `z.number()` arm — painted the character "0" here. Measured
+          leaking on `origin/main` at 7d6439c4b before this change; the card's
+          census listed these two as HITS, and the probe confirmed them.
+          `renderNodeSlot` runs the wrapper only when the slot has content, so
+          the wrapping `div` disappears with it. Pinned in
+          `__tests__/DetailView.nodeSlotNumericFalsy-9162.test.tsx`. */}
+      {renderNodeSlot(schema.footer, (footer) => (
         <div>
-          <SchemaRenderer schema={toRenderableSchema(schema.footer)} data={data} />
+          <SchemaRenderer schema={toRenderableSchema(footer)} data={data} />
         </div>
-      )}
+      ))}
       </div>
     </TooltipProvider>
   );

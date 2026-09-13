@@ -13,7 +13,7 @@ description: "Floating content panel"
 interface PopoverSchema {
   type: 'popover';
   trigger: SchemaNode | SchemaNode[];
-  children: SchemaNode[];
+  content?: SchemaNode | SchemaNode[];
   side?: 'top' | 'right' | 'bottom' | 'left';
 }
 ```

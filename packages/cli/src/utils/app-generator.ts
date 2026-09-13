@@ -168,9 +168,13 @@ function buildAppDependencies(): Record<string, string> {
  * one's do not: `react-router-dom` (router in `src/App.tsx`) and `lucide-react`
  * (icons in `src/Layout.tsx`).
  *
- * `lucide-react` was imported and never declared until objectui#3827 — twice
- * over, `import * as LucideIcons` plus a named `{ Moon, Sun }`, both live in
- * the generated layout. `commands/dev.ts` had been papering over it in the
+ * `lucide-react` was imported and never declared until objectui#3827 — at the
+ * time twice over, a namespace import plus a named `{ Moon, Sun }`, both live in
+ * the generated layout. (objectui#7472 retired the namespace half: the layout
+ * resolves authored icon names through `@object-ui/components`' seam now, and
+ * reaches lucide only by the named import, so this range is still load-bearing
+ * but has one consumer rather than two.) `commands/dev.ts` had been papering
+ * over it in the
  * consumer, aliasing `lucide-react` to a path resolved out of
  * `packages/components` with the comment "avoid dependency not found in temp
  * app"; that alias only runs in monorepo mode, so every other path was left

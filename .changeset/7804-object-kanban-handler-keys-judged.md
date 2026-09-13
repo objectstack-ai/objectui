@@ -18,8 +18,8 @@ call site expecting a function. That is objectui#7664's measured transition, inh
 this face when objectui#8802 retired the sibling `kanban` arm that used to carry all three as
 runtime slots.
 
-**Accept-set change on the published zod mirror — breaking, shipped as `minor` per this
-repo's version-alignment policy (majors track `@objectstack`).** A declared key is validated
+**BREAKING (scored `minor` per this repo's version-alignment convention, majors track
+`@objectstack`)** — the accept set on the published zod mirror moves. A declared key is validated
 even under `.passthrough()`, so two documents that parsed green yesterday are refused today,
 each at its own path: `onCardClick` and `onQuickAdd` carried at all. Neither is authorable
 in JSON by construction (a function has no JSON value), and `@objectstack/spec`'s

@@ -18,9 +18,19 @@ import {
   declaredUserMessage,
   useSettledSchema,
 } from '@object-ui/react';
-import { toast } from '@object-ui/components';
+import {
+  NavigationOverlay,
+  legacyRecordDrawerWidthKey,
+  recordOverlayWidthStorageKey,
+  toast,
+  useOverlayAnchor,
+} from '@object-ui/components';
 import { createSafeTranslation } from '@object-ui/i18n';
-import { RecordDetailDrawer, deriveRecordPageHref } from '@object-ui/plugin-detail';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+  deriveRecordPageHref,
+} from '@object-ui/plugin-detail';
 import {
   extractRecords,
   buildExpandFields,
@@ -1089,6 +1099,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     onRowClick: externalClick,
   });
 
+  // objectui#9299 item 3 — `popover` anchors to the CARD the user clicked.
+  // `SortableCard` already hands its click event down, so this site captures
+  // the anchor directly rather than through a container-level listener.
+  const { anchorRef, captureAnchor } = useOverlayAnchor();
+
   // Fallback heading of the record-detail drawer opened on card click, used
   // when the board declares no card-title field (or the record's is empty).
   //
@@ -1314,7 +1329,85 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     );
   }
 
-  return (
+  /**
+   * The record overlay — ONE payload in whichever shell the author declared.
+   *
+   * ⭐ objectui#9299. This used to be `<RecordDetailDrawer>`, which brought its
+   * own `Sheet` and had no `mode` parameter, so an authored `modal`, `split` or
+   * `popover` silently rendered the drawer (measured on PR objectui#9296). The
+   * payload now mounts through the shared `NavigationOverlay` — the same shell
+   * `ObjectGrid` and `ObjectTree` use — so the four declared modes mean the
+   * same thing on every view type.
+   *
+   * `mainContent` is what `split` needs: the board itself goes in the left
+   * panel beside the record panel (item 2). `popoverAnchorRef` is what
+   * `popover` needs: the card the user clicked (item 3).
+   */
+  const renderRecordOverlay = (mainContent?: React.ReactNode): React.ReactNode => {
+    if (!navigation.isOverlay || !navigation.isOpen || !navigation.selectedRecord) return null;
+    const objectName = schema.objectName;
+    const rec = navigation.selectedRecord as Record<string, any>;
+    const recordId = rec.id ?? rec._id;
+    if (!objectName || recordId == null) return null;
+    // Same resolver as the card list's `explicitTitleField` above — one
+    // read of the pair, one precedence (objectui#8308). This site used to
+    // spell the fallback `??`, which kept an authored `''` and dropped this
+    // heading to the `Record #<id>` floor on a board whose cards were
+    // titled from `titleField`.
+    const titleField = resolveKanbanTitleField(schema);
+    const titleText = titleField && rec[titleField]
+      ? String(rec[titleField])
+      : detailTitle;
+    return (
+      <NavigationOverlay
+        {...navigation}
+        title={titleText}
+        mainContent={mainContent}
+        popoverAnchorRef={anchorRef}
+        // One drag-resize implementation, one key, and a width the user had
+        // already chosen under the retired `objectui.drawerWidth.OBJECT`
+        // carries over rather than resetting (item 4).
+        storageKey={recordOverlayWidthStorageKey(objectName)}
+        legacyStorageKey={legacyRecordDrawerWidthKey(objectName)}
+        // ⛔ Not `navigation.width` alone: an unauthored width has to land on
+        // the ruled default (objectui#6584 / #6303) rather than on the shell's
+        // own `42rem` floor, which would narrow this surface.
+        width={navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH}
+      >
+        {() => (
+          <div className="px-6 pt-6 pb-6">
+            <RecordDetailPanel
+              record={rec}
+              objectName={objectName}
+              recordId={recordId}
+              dataSource={dataSource}
+              objectSchema={objectDef as any}
+              onClose={navigation.close}
+              fullPageHref={deriveRecordPageHref(objectName, recordId) ?? undefined}
+              onFieldSave={async (field, value) => {
+                if (!dataSource?.update) return;
+                await dataSource.update(objectName, String(recordId), { [field]: value });
+                setFetchedData((prev) => prev.map((r) =>
+                  String(r.id ?? r._id) === String(recordId)
+                    ? { ...r, [field]: value }
+                    : r,
+                ));
+              }}
+              onDelete={async () => {
+                if (!dataSource?.delete) return;
+                await dataSource.delete(objectName, String(recordId));
+                setFetchedData((prev) => prev.filter((r) =>
+                  String(r.id ?? r._id) !== String(recordId),
+                ));
+              }}
+            />
+          </div>
+        )}
+      </NavigationOverlay>
+    );
+  };
+
+  const boardView = (
     <>
       {/* objectui#8827 — the settle signal reaches `KanbanImpl` through a
           package-private context rather than a `KanbanRendererProps` member,
@@ -1357,6 +1450,9 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           // authored one. `ObjectGallery` has written exactly this shape, with
           // no second call, all along.
           onCardClick: (card: any, event?: any) => {
+            // Record the clicked card BEFORE opening, so `popover` mode has an
+            // anchor by the time it renders (objectui#9299 item 3).
+            captureAnchor(event);
             navigation.handleClick(card, event);
           },
           onCardMove: handleCardMove,
@@ -1391,54 +1487,30 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           }}
         />
       )}
-      {navigation.isOverlay && navigation.isOpen && navigation.selectedRecord && (() => {
-        const objectName = schema.objectName;
-        const rec = navigation.selectedRecord as Record<string, any>;
-        const recordId = rec.id ?? rec._id;
-        if (!objectName || recordId == null) return null;
-        // Same resolver as the card list's `explicitTitleField` above — one
-        // read of the pair, one precedence (objectui#8308). This site used to
-        // spell the fallback `??`, which kept an authored `''` and dropped this
-        // heading to the `Record #<id>` floor on a board whose cards were
-        // titled from `titleField`.
-        const titleField = resolveKanbanTitleField(schema);
-        const titleText = titleField && rec[titleField]
-          ? String(rec[titleField])
-          : detailTitle;
-        return (
-          <RecordDetailDrawer
-            open
-            onClose={navigation.close}
-            title={titleText}
-            record={rec}
-            objectName={objectName}
-            recordId={recordId}
-            dataSource={dataSource}
-            objectSchema={objectDef as any}
-            // No `?? 'min(960px, 60vw)'` fallback on purpose — `undefined` has
-            // to reach the drawer for its OWN identical default to apply. See
-            // the `navConfig` comment above (objectui#6303).
-            width={navigation.width as any}
-            fullPageHref={deriveRecordPageHref(objectName, recordId) ?? undefined}
-            onFieldSave={async (field, value) => {
-              if (!dataSource?.update) return;
-              await dataSource.update(objectName, String(recordId), { [field]: value });
-              setFetchedData((prev) => prev.map((r) =>
-                String(r.id ?? r._id) === String(recordId)
-                  ? { ...r, [field]: value }
-                  : r,
-              ));
-            }}
-            onDelete={async () => {
-              if (!dataSource?.delete) return;
-              await dataSource.delete(objectName, String(recordId));
-              setFetchedData((prev) => prev.filter((r) =>
-                String(r.id ?? r._id) !== String(recordId),
-              ));
-            }}
-          />
-        );
-      })()}
+    </>
+  );
+
+  // `split` (item 2): the board IS the main content — it moves into the
+  // overlay's left panel with the record panel beside it, rather than being
+  // covered by a drawer. Guarded on an OPEN overlay because the split shell
+  // renders nothing when closed; with nothing open the board renders alone,
+  // exactly as before.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
+    const splitOverlay = renderRecordOverlay(boardView);
+    // `null` means this record has no overlay at all (no object name / no id)
+    // — the board still has to render.
+    if (splitOverlay) return <>{splitOverlay}</>;
+  }
+
+  return (
+    <>
+      {boardView}
+      {renderRecordOverlay()}
     </>
   );
 }

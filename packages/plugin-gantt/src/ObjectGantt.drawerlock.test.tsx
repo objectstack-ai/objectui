@@ -29,9 +29,11 @@ vi.mock('./GanttView', () => ({
   ),
 }));
 
+// objectui#9299: the capability props now land on `RecordDetailPanel`, the
+// shell-free payload `ObjectGantt` mounts through `NavigationOverlay`.
 vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-detail')>()),
-  RecordDetailDrawer: (props: any) => (
+  RecordDetailPanel: (props: any) => (
     <div
       data-testid="drawer-probe"
       data-has-field-save={String(!!props.onFieldSave)}

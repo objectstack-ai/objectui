@@ -2086,6 +2086,9 @@ importers:
       '@object-ui/permissions':
         specifier: workspace:*
         version: link:../permissions
+      '@object-ui/plugin-detail':
+        specifier: workspace:*
+        version: link:../plugin-detail
       '@object-ui/react':
         specifier: workspace:*
         version: link:../react
@@ -2546,6 +2549,9 @@ importers:
       '@object-ui/permissions':
         specifier: workspace:*
         version: link:../permissions
+      '@object-ui/plugin-detail':
+        specifier: workspace:*
+        version: link:../plugin-detail
       '@object-ui/react':
         specifier: workspace:*
         version: link:../react

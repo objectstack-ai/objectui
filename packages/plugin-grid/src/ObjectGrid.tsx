@@ -49,12 +49,17 @@ import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui
 import { stateMachineNextValues, isFieldInlineEditable } from './inline-edit-options';
 import {
   Badge, Button, NavigationOverlay, EmptyValue,
+  legacyRecordDrawerWidthKey, recordOverlayWidthStorageKey, useOverlayAnchor,
   Popover, PopoverContent, PopoverTrigger,
   RefreshIndicator,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+} from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
 import { useGroupedData, usableGroupingFields } from './useGroupedData';
@@ -2221,6 +2226,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     onNavigate: schema.onNavigate,
     onRowClick,
   });
+
+  // objectui#9299 item 3 — `popover` anchors to the ROW the user clicked. The
+  // grid reaches `handleClick` from several places that carry no DOM event
+  // (`DataTable`'s own row handler, `LinkCell.onActivate`), so the anchor is
+  // recorded by a capture listener on this component's container.
+  const { anchorRef, anchorCaptureProps } = useOverlayAnchor();
 
   // --- Action support for action columns ---
   const { execute: executeAction, updateContext: updateActionContext } = useAction();
@@ -4600,12 +4611,69 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         })
       : t('detail.recordDetail');
 
+  /**
+   * The shell-side props every one of this component's three
+   * `NavigationOverlay` call sites shares (objectui#9299).
+   *
+   * Spelled once because three copies of a set like this is how two of them
+   * end up carrying a `popoverAnchorRef` and the third silently keeps falling
+   * back to the `Dialog` the ruling closed.
+   *
+   * - `popoverAnchorRef` (item 3): the row the user clicked. Before this card
+   *   NO renderer passed an anchor, so `popover` degraded to a `Dialog` on all
+   *   five surfaces — measured, not inferred.
+   * - `storageKey` / `legacyStorageKey` (item 4): one drag-resize
+   *   implementation, one key per object across every view type, and a width
+   *   persisted under the retired `objectui.drawerWidth.OBJECT` carries over.
+   * - `width`: an unauthored width lands on the ruled default (objectui#6584)
+   *   rather than on the shell's own `42rem` floor.
+   */
+  const recordOverlayShellProps = {
+    popoverAnchorRef: anchorRef,
+    storageKey: schema.objectName ? recordOverlayWidthStorageKey(schema.objectName) : undefined,
+    legacyStorageKey: schema.objectName ? legacyRecordDrawerWidthKey(schema.objectName) : undefined,
+    width: navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH,
+  };
+
   // Form-based record detail renderer (replaces simple key-value dump).
   // Hoisted above the mobile card-view's early return (below) so both the
   // card view's detail overlay and the desktop table's detail overlay share
   // this same type-aware renderer instead of the card view falling back to
   // a raw `String(value)` dump (which showed "[object Object]" for lookups).
   const renderRecordDetail = (record: any) => {
+    // ⭐ objectui#9299 — ONE payload on every view type.
+    //
+    // `ObjectGrid` already honoured all four `navigation.mode` values through
+    // `NavigationOverlay`, but it drew its OWN read-only key/value panel inside
+    // them while the gantt/kanban/calendar drew the rich
+    // `InlineEditProvider` -> `DetailView` -> `InlineEditSaveBar` payload. The
+    // card measured that as "nobody gets both": the renderers that honoured the
+    // mode drew the poorer body. The ruling closes it in one direction — one
+    // payload everywhere.
+    //
+    // ⚠️ READ-ONLY here, and deliberately so: capability is handler presence,
+    // and this renderer has no per-field write path to hand the panel. What
+    // changes is the FIDELITY of the reading (declared labels, typed widgets,
+    // honoured `hidden`, the object's own field order), not the ability to edit.
+    const panelRecordId = rowRecordId(record);
+    if (schema.objectName && panelRecordId != null) {
+      return (
+        <div className="px-6 pt-6 pb-6" data-testid="record-detail-panel">
+          <RecordDetailPanel
+            record={record}
+            objectName={schema.objectName}
+            recordId={panelRecordId}
+            dataSource={dataSource as any}
+            objectSchema={objectSchema as any}
+            onClose={navigation.close}
+          />
+        </div>
+      );
+    }
+    // No addressable record behind this row — a grid over inline `value` rows
+    // with no object name. The payload needs an object and an id to render
+    // field widgets against, so the plain reading of what the row carries is
+    // the honest answer; inventing an id would not be.
     const entries = Object.entries(record);
     // Honor `hidden: true` on the schema field def — internal/system fields
     // (e.g. database_url, environment_id, is_system) shouldn't leak into the
@@ -4792,7 +4860,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     return (
       <>
-        <div className="space-y-2 p-2">
+        <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
             const secondaryCols = displayColumns.slice(1, 5);
@@ -4918,7 +4986,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           })}
         </div>
         {navigation.isOverlay && (
-          <NavigationOverlay {...navigation} title={detailTitle}>
+          <NavigationOverlay
+            {...navigation}
+            title={detailTitle}
+            {...recordOverlayShellProps}
+          >
             {(record) => renderRecordDetail(record)}
           </NavigationOverlay>
         )}
@@ -5214,6 +5286,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         <NavigationOverlay
           {...navigation}
           title={detailTitle}
+          {...recordOverlayShellProps}
           mainContent={
             <div className="flex flex-col h-full">
               {gridToolbar}
@@ -5242,7 +5315,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   return (
-    <div ref={pullRef} className="relative h-full flex flex-col">
+    <div ref={pullRef} className="relative h-full flex flex-col" {...anchorCaptureProps}>
       {/* Re-fetch indicator while existing rows remain visible (filter/sort
           change). The initial-load skeleton above handles the empty case. */}
       <RefreshIndicator active={loading && data.length > 0} />
@@ -5273,6 +5346,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         <NavigationOverlay
           {...navigation}
           title={detailTitle}
+          {...recordOverlayShellProps}
         >
           {(record) => renderRecordDetail(record)}
         </NavigationOverlay>

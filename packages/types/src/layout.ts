@@ -16,7 +16,7 @@
  * @packageDocumentation
  */
 
-import type { PageType as SpecPageType } from '@objectstack/spec/ui';
+import type { I18nLabel, PageType as SpecPageType } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { BreakpointName } from './mobile.js';
 
@@ -1153,9 +1153,26 @@ export interface PageNodeSchema extends BaseSchema {
   /**
    * ARIA accessibility attributes.
    * Aligned with @objectstack/spec AriaPropsSchema.
+   *
+   * `ariaLabel` is `string | I18nLabel` — the spec's INLINE locale map. This is
+   * the spec's OWN spelling for this slot: `AriaPropsSchema.ariaLabel` is
+   * `z.union([z.string(), InlineLocaleMapSchema])`, and the spec's `PageSchema`
+   * carries that object as its own top-level `aria`, so the mirror
+   * (`zod/layout.zod.ts`'s `PageNodeSchema`) receives it BY REFERENCE through
+   * `SpecPageFields`. The restatement here stated the string arm alone until
+   * objectui#9092, so an authored locale map parsed green and `tsc` refused it.
+   *
+   * ⚠️ This is the NESTED slot, and its vocabulary is the INLINE one — the same
+   * split objectui#5134 measured on `ListView`, where the read now goes through
+   * `resolveI18nLabel` against the display locale. The FLAT
+   * {@link BaseSchema.ariaLabel} is the OTHER vocabulary (KEYED
+   * `{ key, defaultValue?, params? }`, resolved by `resolveKeyedI18nLabel` in
+   * `SchemaRenderer`), and objectui#4580 Q2-B withdrew the `I18nLabel` spelling
+   * THERE for exactly that reason. Two spellings one level apart; neither
+   * resolver accepts the other's shape.
    */
   aria?: {
-    ariaLabel?: string;
+    ariaLabel?: string | I18nLabel;
     ariaDescribedBy?: string;
     role?: string;
   };

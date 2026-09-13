@@ -33,7 +33,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 // Module scope, not a hook — the cold transform would otherwise be billed to
 // `hookTimeout` (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../renderers';
@@ -55,9 +55,11 @@ const DATA = { total: 99, caption: 'Active users', note: '+20.1% from last month
 
 const renderNode = (schema: any) =>
   render(
-    <SchemaRendererProvider dataSource={DATA as unknown as DataSource}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+      <SchemaRendererProvider dataSource={DATA as unknown as DataSource}>
       <SchemaRenderer schema={schema} />
-    </SchemaRendererProvider>,
+    </SchemaRendererProvider>
+    </PredicateScopeProvider>,
   );
 
 describe('objectui#4795 — declared text keys are evaluated AND read back, through real renderers', () => {

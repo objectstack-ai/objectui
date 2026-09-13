@@ -94,6 +94,19 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   const record = useRecordContext();
 
   const parentObject = schema.parentObject || record?.objectName;
+  // The assertion below is LOAD-BEARING, and only became so when the
+  // whole-context assertion on `record` was removed (objectui#9304). While the
+  // binding was `any` it did nothing at all; now `RecordContextValue.recordId`
+  // is declared `string | number | null | undefined` and
+  // `buildMasterDetailEditBatch` takes a `string` parent id, so dropping it is
+  // a real error rather than a tidy-up — measured: TS2345, `string | number`
+  // is not assignable to `string`.
+  //
+  // Kept rather than repaired here because both repairs move bytes on the wire
+  // for a numeric primary key (coercing with `String()` changes the id this
+  // panel sends; widening `masterDetailTx`'s parameter is that module's
+  // contract, not this one's), and this change is type-side with no runtime
+  // effect. The residue is tracked separately.
   const parentId =
     schema.parentId || schema.recordId || (record?.recordId as string | undefined);
 

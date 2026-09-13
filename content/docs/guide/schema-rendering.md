@@ -112,7 +112,7 @@ The scope the evaluator builds is what you published, plus three names the rende
 
 | name | what it holds |
 |---|---|
-| every key of `scope` | exactly what you put there — `stats`, `current_user`, whatever the page needs |
+| every key of `scope` | exactly what you put there — `user`, `stats`, whatever the page needs |
 | `page` | page-local variables, for predicates that gate on another component's state |
 | `record` | the row a record surface is bound to, when there is one |
 | `current_user` | an alias of whatever you published as `user`; the host's `ExpressionProvider` publishes the signed-in user there |

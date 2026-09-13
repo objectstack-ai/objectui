@@ -35,6 +35,17 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
+// Two resolvers, two vocabularies — the repo spells the distinction into the
+// NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
+// `resolveI18nLabel`: it resolves the INLINE per-locale map
+// (`{ en: …, 'fr-FR': … }`) that `I18nLabel` carries. It does NOT accept
+// objectui's keyed `{ key, defaultValue, params }` ref — that vocabulary lives
+// on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead.
+// Needed here since objectui#9092 restored `ObjectGridSchema.label` to the
+// `string | I18nLabel` form `BaseSchema` has carried since objectui#4580: the
+// two reads below put the label in STRING positions, so a map-valued label used
+// to reach them as an object and the compiler could not say so.
+import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 import { stateMachineNextValues, isFieldInlineEditable } from './inline-edit-options';
 import {
   Badge, Button, NavigationOverlay, EmptyValue,
@@ -3205,7 +3216,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: schema.label || schema.title,
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -4288,7 +4299,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: schema.label || schema.title,
+    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,

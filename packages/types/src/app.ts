@@ -44,6 +44,7 @@
 // `spec-derived-unions.test.ts` pins the three blockers above, each written so
 // it fails the day the spec closes it.
 import type {
+  I18nLabel,
   NavigationArea as SpecNavigationArea,
   NavigationItem as SpecNavigationItem,
   ObjectNavItem as SpecObjectNavItem,
@@ -380,9 +381,30 @@ export interface AppComponentSchema extends BaseSchema {
   title?: string;
 
   /**
-   * Display Label (used in navigation and app switcher)
+   * Display Label (used in navigation and app switcher).
+   *
+   * `string | I18nLabel` — the spec's INLINE locale map (`string |
+   * Record<string, string>`), resolved against a BCP-47 display locale by the
+   * spec's own `resolveI18nLabel(label, locale)`.
+   *
+   * This restated the key as a plain `string` until objectui#9092. That was
+   * narrower than BOTH faces it sits between: `BaseSchema.label` (which
+   * objectui#4580's revised Q1 ruling, option A, widened to
+   * `string | I18nLabel`) and this pair's own mirror — `zod/app.zod.ts`'s
+   * `AppComponentSchema` never restates `label`, so it inherits the zod
+   * `BaseSchema`'s `I18nLabelSchema`. A restatement is a NARROWING override,
+   * so the mirror accepted an authored locale map and `tsc` refused it, with
+   * the narrowing on the DECLARED side where a forward mirror-vs-declaration
+   * comparison reads it as clean.
+   *
+   * ⚠️ NOT the KEYED vocabulary. {@link BaseSchema.ariaLabel} declares
+   * `string | KeyedI18nLabel` (`{ key, defaultValue?, params? }`, resolved by
+   * `resolveKeyedI18nLabel`) — objectui#4580 Q2-B withdrew the `I18nLabel`
+   * spelling there as measured-wrong. The two object shapes are structurally
+   * confusable and each accepts the other vacuously, so check which resolver
+   * owns a slot before writing an object into it.
    */
-  label?: string;
+  label?: string | I18nLabel;
 
   /**
    * Application Description

@@ -54,6 +54,12 @@ routes untouched:
    graduates to a named view only when curated and reused (see the
    app-composition guide).
 
+   **Amended 2026-09-13:** superseded by `@objectstack/spec`'s
+   `objectNavTargetExclusivity` (17.4.0; objectui#8563 chains it on
+   `NavigationItemSchema`): `filters` is refused with `recordId` or
+   `viewName`, `runAction` with `recordId`; `recordId` + `viewName` is
+   tolerated. The precedence above no longer applies.
+
 ## Security model
 
 A view was never a security boundary, and neither is this surface. It shows

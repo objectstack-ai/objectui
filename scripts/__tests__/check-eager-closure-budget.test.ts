@@ -37,6 +37,11 @@ import {
   validateReport,
 } from '../check-eager-closure-budget.mjs';
 
+// The classifier this gate's prose now CITES instead of paraphrasing
+// (objectui#9155). Imported so the must-stay leg of that pin reads the real
+// tables rather than a copy of them. Same `allowJs` inference as above.
+import { OPTIONAL_CONTEXTS, REQUIRED_CONTEXTS } from '../dependabot-merge-gate.mjs';
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const workflowPath = path.join(repoRoot, '.github/workflows/performance-budget.yml');
 const viteConfigPath = path.join(repoRoot, 'apps/console/vite.config.ts');
@@ -1423,9 +1428,16 @@ describe('main', () => {
 });
 
 /**
- * objectui#6245 — the fourth half. `Bundle Analysis` is a required context, and
- * GitHub does not re-run a PR's checks when the base branch moves, so a green
- * verdict can be computed against ceilings `main` has since replaced.
+ * objectui#6245 — the fourth half. GitHub does not re-run a PR's checks when the
+ * base branch moves, so a green verdict can be computed against ceilings `main`
+ * has since replaced.
+ *
+ * ⛔ This docblock classified `Bundle Analysis` against the branch-protection
+ * set until objectui#9155 and no longer does, in either direction — that set is
+ * not readable from inside a checkout. `evaluateCeilingFreshness`'s own docblock
+ * carries what the tree can re-derive instead, cited to
+ * `scripts/dependabot-merge-gate.mjs` and to the workflow's `on:` block; the pin
+ * at the bottom of this file keeps all three files off the claim.
  *
  * Not hypothetical: run 32804357171 started 6m50s after `0409b766d` lowered the
  * aggregate ceiling from 4,086,000 to 3,345,000 and published
@@ -2346,5 +2358,134 @@ describe('the ceiling note states no rendered size (objectui#8964)', () => {
         'explain, for four days, why two retired numbers were consistent with each other. Name the ' +
         'constant and let the gate print the reading (objectui#8964).',
     ).toEqual([]);
+  });
+});
+
+// ── no prose here classifies this check against branch protection ───────────
+
+/**
+ * objectui#9155 — eight sentences across this gate's three prose files stated,
+ * as a fact, that `Bundle Analysis` belongs to the branch-protection set.
+ *
+ * The repo's own machine-readable classifier answered the neighbouring question
+ * differently: `scripts/dependabot-merge-gate.mjs` lists that check under
+ * `OPTIONAL_CONTEXTS`, because this workflow filters at the trigger. And the
+ * workflow contradicted ITSELF four lines apart — its job-ceiling comment had
+ * measured that the `on:` block subscribes `push` and `pull_request` and no
+ * `merge_group`, directly under a sentence that read the other way.
+ *
+ * ⛔ The fix was NOT to flip the prose to the opposite classification. The
+ * branch-protection set is not readable from inside a checkout (AGENTS.md says
+ * so), so BOTH readings are claims no reader can re-derive, and swapping one
+ * for the other buys one round before the same drift returns. The prose now
+ * cites the two things the tree does answer, and this pin is the instrument
+ * AGENTS.md #9 asks for in exchange: the claim cannot come back in either
+ * direction without going red.
+ *
+ * ⚠️ The population is COMMENT PROSE and this pin reads it deliberately, with
+ * no code/comment split at all. A code-only reader would score the whole of
+ * objectui#9155 as a no-op, because every one of the eight sites was a comment.
+ *
+ * ⚠️ The refused phrase is ASSEMBLED below rather than written out: this file
+ * is itself in the population, and a pin that spells its own trigger fails on
+ * its own source. The must-hit control is what keeps that assembly honest.
+ *
+ * ⛔ No count of either classifier table is asserted or written here. That list
+ * grows — two correct readings taken a day apart during this card's own triage
+ * disagreed — and a size baked into a test is the same defect one level up.
+ */
+describe('no prose here classifies `Bundle Analysis` against branch protection (objectui#9155)', () => {
+  /** Assembled, never spelled: this file is inside the population it scans. */
+  const REQ = `requi${'red'}`;
+
+  /**
+   * Two forms of one claim. The first catches it asserted — and, since the
+   * negation contains the positive verbatim, asserted in reverse as well; the
+   * second catches the looser denial that drops the noun.
+   */
+  const CLASSIFIES = new RegExp(String.raw`\b${REQ}\s+contexts?\b|\bis\s+not\s+${REQ}\b`, 'gi');
+
+  /** The three files objectui#9155 is about, by the name a failure prints. */
+  const POPULATION: Record<string, string> = {
+    'check-eager-closure-budget.mjs': checkerPath,
+    'check-eager-closure-budget.test.ts': fileURLToPath(import.meta.url),
+    'performance-budget.yml': workflowPath,
+  };
+
+  /**
+   * The must-HIT control, with a known direction. Without it the three zeroes
+   * below are equally consistent with a matcher that stopped matching anything
+   * — which is how a pin on absence goes quietly green forever.
+   */
+  it('sees the retired sentence when one is put in front of it', () => {
+    expect(`\`Bundle Analysis\` is a ${REQ} context, and GitHub`.match(CLASSIFIES)).toEqual([
+      `${REQ} context`,
+    ]);
+    expect(`      # a ${REQ} context turning red on someone else's diff`.match(CLASSIFIES)).toEqual([
+      `${REQ} context`,
+    ]);
+    expect(`Bundle Analysis is not ${REQ}.`.match(CLASSIFIES)).toEqual([`is not ${REQ}`]);
+    // ...and stays quiet on the citations the prose is now allowed to carry.
+    expect(
+      'lists it under `OPTIONAL_CONTEXTS`; no `merge_group` leg in the `on:` block'.match(CLASSIFIES),
+    ).toBeNull();
+  });
+
+  it('reads three files that are really there, not three empty strings', () => {
+    for (const [name, file] of Object.entries(POPULATION)) {
+      const source = fs.readFileSync(file, 'utf8');
+      expect(source.length, `${name} read as empty`).toBeGreaterThan(1000);
+      expect(source, `${name} is no longer about this gate`).toContain('Bundle Analysis');
+    }
+  });
+
+  it.each(Object.entries(POPULATION))('%s asserts no such classification', (name, file) => {
+    const hits = [...fs.readFileSync(file, 'utf8').matchAll(CLASSIFIES)].map((m) => m[0]);
+    expect(
+      hits,
+      `${name} classifies a check against the branch-protection set (${hits.join(', ')}). That set ` +
+        'is not readable from inside a checkout, so the sentence is a standing claim no reader can ' +
+        'check and nothing goes red when it drifts — which is the whole of objectui#9155. Cite what ' +
+        'the tree answers instead: the `OPTIONAL_CONTEXTS` entry in `scripts/dependabot-merge-gate.mjs` ' +
+        "with its own stated reason, and the absence of a `merge_group` leg in the workflow's `on:` block.",
+    ).toEqual([]);
+  });
+
+  /**
+   * The must-STAY half, and the reason this block is two-sided. On its own,
+   * "the eight sentences are gone" is equally consistent with someone having
+   * converged the CLASSIFIER onto the prose — moving `Bundle Analysis` into
+   * `REQUIRED_CONTEXTS` — which is a maintainer decision this card explicitly
+   * did not make, and which `dependabot-merge-gate.mjs` reserves twice in its
+   * own comments. This leg is what tells the two apart.
+   */
+  it('leaves the classifier saying what it said: `Bundle Analysis` is still OPTIONAL', () => {
+    expect(Object.hasOwn(OPTIONAL_CONTEXTS, 'Bundle Analysis')).toBe(true);
+    expect(REQUIRED_CONTEXTS).not.toContain('Bundle Analysis');
+    // Non-empty guards: both memberships are read off tables that exist, so a
+    // pair of emptied constants cannot read as agreement.
+    expect(REQUIRED_CONTEXTS.length).toBeGreaterThan(0);
+    expect(Object.keys(OPTIONAL_CONTEXTS).length).toBeGreaterThan(0);
+    // The reason travels with the entry — the prose cites it, so it has to stay.
+    expect(OPTIONAL_CONTEXTS['Bundle Analysis']).toContain('performance-budget.yml filters on paths');
+  });
+
+  /**
+   * The other cited source, re-derived rather than restated: the prose may say
+   * this job has no `merge_group` leg only for as long as that is true of the
+   * `on:` block. Guarded by locating a block that is found and substantial
+   * first, so a renamed section cannot pass by scanning nothing.
+   */
+  it('leaves the workflow without the `merge_group` leg the prose cites the absence of', () => {
+    const source = fs.readFileSync(workflowPath, 'utf8');
+    const start = source.indexOf('\non:\n');
+    const end = source.indexOf('\npermissions:\n');
+    expect(start, 'the `on:` block is not where this pin looks for it').toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const onBlock = source.slice(start, end);
+    expect(onBlock.length).toBeGreaterThan(200);
+    expect(onBlock).toContain('  push:');
+    expect(onBlock).toContain('  pull_request:');
+    expect(onBlock).not.toMatch(/^\s{2}merge_group:/m);
   });
 });

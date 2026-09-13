@@ -59,6 +59,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CalendarConfigSchema } from '@objectstack/spec/ui';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /** Walk up to the workspace root, so both sources are found by repo layout. */
 function repoRoot(): string {
@@ -77,10 +82,7 @@ const SECTION = '### CalendarConfig';
 
 /** Blank comments out but keep every newline, so nothing shifts under us. */
 function withoutComments(src: string): string {
-  const blank = (m: string) => m.replace(/[^\n]/g, ' ');
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, blank)
-    .replace(/(^|[^:])(\/\/.*)$/gm, (_m, before: string, comment: string) => before + blank(comment));
+  return mask(src);
 }
 
 /**

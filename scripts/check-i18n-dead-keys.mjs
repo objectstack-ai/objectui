@@ -457,10 +457,31 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 /** Directories the text safety net never descends into — build output, deps,
  *  VCS metadata. Deliberately NOT the same (smaller) list as the AST walk's
  *  `SKIP_DIRS`: this pass covers the whole repo, so it also needs the
- *  top-level noise the AST walk never reaches in the first place. */
+ *  top-level noise the AST walk never reaches in the first place.
+ *
+ *  `.objectui-tmp` is here for a second reason, and it is not tidiness
+ *  (objectui#9201). It is a LIVE scratch directory: `withGeneratedApp()` in
+ *  `packages/cli/src/__tests__/app-generator.test.ts` mkdtemps a generated app
+ *  under `<repo>/.objectui-tmp/` and `rmSync`s it in a `finally`, inside the
+ *  same shard this gate runs in. A `grep -rFn` that descends into it while
+ *  that teardown runs reads a file that has just been unlinked, and GNU grep
+ *  answers a file error with exit **2** — even on a run that also matched.
+ *  The catch below absorbs only exit 1 (`no match`), deliberately, so exit 2
+ *  reaches `throw` and the gate DIES: a red shard for a reason that has
+ *  nothing to do with the code under test. ⛔ The fix for that is never to
+ *  widen the catch or to swallow exit 2 — an IO error the sweep cannot see is
+ *  how this gate would go silently empty — and never to change the producer,
+ *  which is correctly cleaning up after itself. The sweep simply has to be
+ *  told the directory is not source. `scripts/check-comment-mask-corpus.mjs`,
+ *  the sibling whole-tree sweep, has excluded it on that reasoning all along;
+ *  this was the one of the two that had not been told.
+ *
+ *  ⚠️ `.objectui-tmp` is `.gitignore`d, so no `git grep`-based tool in this
+ *  tree can see it and none of them can reproduce this. Only a filesystem
+ *  sweep reaches it, which is why the omission survived. */
 const TEXT_SWEEP_SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.turbo',
-  '.changeset',
+  '.changeset', '.objectui-tmp',
 ]);
 
 /**
@@ -1569,6 +1590,9 @@ export function collectIndirectTemplateHeads(root, packKeys = collectEnKeys(root
  *   needsReview: Array<{ key: string, hits: string[] }>,
  *   byNamespace: Map<string, { confirmed: string[], needsReview: string[] }>,
  *   indirectTemplateHeads: ReturnType<typeof collectIndirectTemplateHeads>,
+ *   appliedHeads: Array<{
+ *     head: string, ownSegments: number, leavesUnder: number, heldLive: number, via: string,
+ *   }>,
  * }}
  */
 export function sweep(root) {
@@ -1598,6 +1622,46 @@ export function sweep(root) {
     })
     .sort();
 
+  // objectui#9126 — what the head leg above ACTUALLY applied, as a reading.
+  //
+  // REPORT ONLY, and the ORDER of these two statements is the whole guarantee:
+  // `candidates` is already computed, from `heads` unfiltered, exactly as
+  // before. Nothing below feeds back into it — this block only measures a
+  // subtraction that was already made, so the candidate list is byte-identical
+  // with and without it. That is deliberate and fenced: the sibling corpus
+  // below DOES refuse a head with no segment of its own (`MIN_HEAD_SEGMENTS`),
+  // and whether the packs should adopt a threshold of their own is a
+  // maintainer's call this script does not make. What it can do without any
+  // threshold decision is stop being SILENT about it — a reader who sees only
+  // the candidate count has no way to learn how many keys were never offered,
+  // nor that a handful of heads account for nearly all of them.
+  //
+  // `ownSegments` is that reading, not a filter: the head minus its trailing
+  // dot, counted in segments, so a head naming ONLY a top-level namespace
+  // (`someNamespace.` -> 1) is visible as such in the report while still being
+  // applied in full.
+  //
+  // `heldLive` is the designer half's `headHeldCounts` definition, mirrored: of
+  // the leaves under this head, how many NO OTHER leg here already holds — i.e.
+  // exactly the keys this head alone keeps out of `candidates`. Heads do not
+  // nest today, but if two ever did, a leaf under both counts in both rows;
+  // the sibling counts the same way, and a per-head row that quietly dropped
+  // shared keys would under-report the same way this block exists to fix.
+  const appliedHeads = heads
+    .map((head) => {
+      const under = [...leaves].filter((key) => key.startsWith(head));
+      return {
+        head,
+        ownSegments: head.replace(/\.$/, '').split('.').length,
+        leavesUnder: under.length,
+        heldLive: under.filter(
+          (key) => !referencedKeys.has(key) && !branchPrefixes.some((prefix) => key.startsWith(prefix)),
+        ).length,
+        via: dynamicHeads.has(head) ? (indirect.heads.has(head) ? 'direct+indirect' : 'direct') : 'indirect',
+      };
+    })
+    .sort((a, b) => b.leavesUnder - a.leavesUnder || a.head.localeCompare(b.head));
+
   const footprints = textFootprint(root, candidates);
   const confirmed = candidates.filter((key) => footprints.get(key).length === 0);
   const needsReview = candidates
@@ -1624,6 +1688,7 @@ export function sweep(root) {
     needsReview,
     byNamespace,
     indirectTemplateHeads: indirect,
+    appliedHeads,
   };
 }
 
@@ -2097,6 +2162,9 @@ if (invokedDirectly) {
           candidateCount: result.candidateCount,
           confirmed: result.confirmed,
           needsReview: result.needsReview,
+          // objectui#9126 — every head the pack half applied, and what each
+          // holds. Reporting only: `candidateCount` above is unchanged by it.
+          appliedDynamicHeads: result.appliedHeads,
           indirectTemplateHeads: {
             counters: result.indirectTemplateHeads.counters,
             heads: Object.fromEntries(
@@ -2195,6 +2263,54 @@ if (invokedDirectly) {
         console.log(`  ${key}:`);
         for (const hit of hits.slice(0, 5)) console.log(`    ${hit}`);
         if (hits.length > 5) console.log(`    … and ${hits.length - 5} more`);
+      }
+    }
+
+    // ── the dynamic heads this half APPLIED (objectui#9126) ─────────────────
+    // Every head the candidate list above was computed against, printed
+    // because until now it was not: this half applies each collected head
+    // unfiltered, so a key is held live by merely starting with one, and the
+    // report said nothing at all about which heads those were or how much each
+    // reached. The counts read as a candidate list that is simply short.
+    //
+    // ⛔ This block changes no verdict. The sibling corpus below REFUSES a head
+    // with no segment of its own; whether the packs want a threshold of their
+    // own is a maintainer's call and is deliberately not made here. Reporting
+    // needs no such decision — it only turns the silence into a reading.
+    {
+      const rows = result.appliedHeads;
+      const totalUnder = rows.reduce((sum, row) => sum + row.leavesUnder, 0);
+      const totalHeld = rows.reduce((sum, row) => sum + row.heldLive, 0);
+      const rootOnly = rows.filter((row) => row.ownSegments < 2);
+      const rootOnlyUnder = rootOnly.reduce((sum, row) => sum + row.leavesUnder, 0);
+      const rootOnlyHeld = rootOnly.reduce((sum, row) => sum + row.heldLive, 0);
+      console.log(
+        `\n${'='.repeat(78)}\ndynamic template heads APPLIED to the pack corpus — all ${rows.length}, ` +
+          'none filtered' +
+          `\n\n"under" is every en leaf sharing the head. "held" is how many of those NO other leg here ` +
+          `already keeps live — i.e. exactly the keys this head alone takes out of the candidate list, ` +
+          `so ${result.candidateCount} candidate(s) is a reading of the pack MINUS ${totalHeld} key(s) ` +
+          `across ${rows.length} head(s) (${totalUnder} leaves fall under a head in total; the ` +
+          'difference is leaves a literal call site holds anyway). "own" is how many segments the head ' +
+          'names beyond nothing: 1 means it names a top-level namespace and no more. Each head comes ' +
+          'from a real call site building a key from a runtime value — the row measures its REACH, and ' +
+          'says nothing about whether the head is right:',
+      );
+      console.log(`\n  ${'head'.padEnd(40)} ${'own'.padStart(3)} ${'under'.padStart(5)} ${'held'.padStart(5)}   via`);
+      for (const row of rows) {
+        console.log(
+          `  ${row.head.padEnd(40)} ${String(row.ownSegments).padStart(3)} ` +
+            `${String(row.leavesUnder).padStart(5)} ${String(row.heldLive).padStart(5)}   ${row.via}`,
+        );
+      }
+      if (rootOnly.length > 0) {
+        console.log(
+          `\n  ⚠️ ${rootOnly.length} of those head(s) name a top-level namespace and nothing else ` +
+            `(${rootOnly.map((row) => row.head).join(', ')}), together reaching ${rootOnlyUnder} leaf/leaves ` +
+            `and holding ${rootOnlyHeld} key(s) out of the candidate list on their own. That is the class ` +
+            'the designer half below refuses outright and this half applies in full. Both are reported; ' +
+            'only one is a decision, and it is not this one.',
+        );
       }
     }
 

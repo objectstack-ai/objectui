@@ -74,6 +74,11 @@ import { FieldType } from '@objectstack/spec/data';
 import { enumOptions } from '@object-ui/test-support';
 import { isLookupType } from '../recordFields';
 import { computeLookupExpand } from '../ObjectDataTable';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /**
  * The spec's own `FieldType` vocabulary.
@@ -201,12 +206,12 @@ describe('one relation predicate, not two that agree by coincidence (objectui#58
     // file; this half is what makes "one predicate" true of the SOURCE. Read
     // with comments stripped, so the prose that NAMES these symbols in the
     // convergence note cannot fake a hit.
-    const code = readFileSync(
-      path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ObjectDataTable.tsx'),
-      'utf8',
-    )
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\/\/[^\n]*/g, '');
+    const code = mask(
+      readFileSync(
+        path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ObjectDataTable.tsx'),
+        'utf8',
+      ),
+    );
 
     // Controls — chosen to be INVARIANT under the ablation this pin guards
     // against, so that a mis-resolved path or an over-eager stripper fails

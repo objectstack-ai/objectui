@@ -508,7 +508,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //     subscriber updates with no parent re-render.
   const ctx = useRecordContext();
   const parentId = ctx?.data?.id;
-  const ds: any = ctx?.dataSource;
+  const ds = ctx?.dataSource;
 
   // Conditional tabs (framework#2606): an item-level `visibleWhen` CEL
   // predicate removes the ENTIRE tab (header + panel) when FALSE — unlike a

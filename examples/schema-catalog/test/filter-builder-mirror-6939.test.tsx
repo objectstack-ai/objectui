@@ -71,12 +71,27 @@ type Reading = {
  * validated, while the `filter-builder` it wraps did not — and every one of the
  * five drew exactly this.
  *
- * ⚠️ The empty operator triggers in the `…Category` / `…Price` runs below are
- * NOT damage from this change and are not repaired by it: those entries author
- * `eq` / `gt` / `lt`, which no `SelectItem` in the operator dropdown carries, so
- * the trigger renders blank. It is the fourth divergence the validator half
- * reports and the ruling does not cover, and it is captured here so a later fix
- * to it has a "before" to move away from.
+ * ⚠️ ⭐ The empty operator triggers this table used to record are GONE, and
+ * that is the later fix this note was written for: objectui#7561 routed the
+ * operator `Select`'s identity comparison through `normalizeFilterOperator`,
+ * so `eq` / `gt` / `lt` — the spec's alias table, which these entries author —
+ * now resolve to the mounted `SelectItem` and the trigger names the operator.
+ * Three of the five readings moved with it, in `text` and `sha256` only:
+ *
+ *   `…Clear allCategoryRemove condition…` → `…Clear allCategoryEqualsRemove condition…`
+ *
+ * `elements` and the tag census did NOT move for any entry — the label lands
+ * in a span the trigger already mounted — which is why those two columns are
+ * untouched below and are the reading that says this was a text change, not a
+ * structural one.
+ *
+ * ⛔ The values below are therefore no longer all `3e01cb55f`: the three
+ * entries with condition rows are re-measured post-#7561 through this same
+ * `measure()`, and the two empty ones are unchanged from the original run.
+ * objectui#6939's claim is unaffected — ITS repair still moved the validator
+ * and not the renderer; what moved the renderer was a different card, and
+ * keeping a stale "before" here would only make the next reader hunt a
+ * regression that is a deliberate, ruled repair.
  */
 const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
   'components-complex-filter-builder/empty-filter-builder': {
@@ -88,14 +103,14 @@ const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
   'components-complex-filter-builder/product-search': {
     elements: 76,
     tags: { DIV: 20, LABEL: 1, SPAN: 10, BUTTON: 12, svg: 11, path: 19, INPUT: 3 },
-    text: 'Product Search FiltersWhereANDClear allCategoryRemove conditionPriceRemove conditionStock QuantityRemove conditionAdd filter',
-    sha256: '708dab4e6b4d8bd35777d4115ae86af02d44c5f1ed5ff7be8a4c50a40b4a6b7f',
+    text: 'Product Search FiltersWhereANDClear allCategoryEqualsRemove conditionPriceLess thanRemove conditionStock QuantityGreater thanRemove conditionAdd filter',
+    sha256: 'aa398c23811cc40717d632ff5feac486796e01bce738df72e3ea53e83e628d10',
   },
   'components-complex-filter-builder/search-interface': {
     elements: 65,
     tags: { DIV: 17, SPAN: 10, BUTTON: 12, svg: 9, path: 16, INPUT: 1 },
-    text: 'Advanced SearchBuild complex queries with multiple conditionsWhereANDClear allPublishedTrueRemove conditionViewsRemove conditionAdd filterApply FiltersClear',
-    sha256: '31b9cb48754fb0de14f23e7eb1b5804fa8862767cf509baed36927dd446c0062',
+    text: 'Advanced SearchBuild complex queries with multiple conditionsWhereANDClear allPublishedEqualsTrueRemove conditionViewsGreater thanRemove conditionAdd filterApply FiltersClear',
+    sha256: '17c0b9f574fe89cc80d8be92c53917be73c8a561461dbe7db5a3e0899d4c86ab',
   },
   'components-complex-filter-builder/user-filters': {
     elements: 11,
@@ -106,13 +121,17 @@ const PRE_REPAIR: Record<(typeof IDS)[number], Reading> = {
   'components-complex-filter-builder/with-conditions': {
     elements: 57,
     tags: { DIV: 15, LABEL: 1, SPAN: 7, BUTTON: 9, svg: 8, path: 15, INPUT: 2 },
-    text: 'User FiltersWhereANDClear allAgeRemove conditionDepartmentRemove conditionAdd filter',
-    sha256: '23cdc02620baca3e7f7e3b18615d0d02910e3cdc095e323e6f8a00acc835d24a',
+    text: 'User FiltersWhereANDClear allAgeGreater thanRemove conditionDepartmentEqualsRemove conditionAdd filter',
+    sha256: '685ae845f1ebc57c5054ec80da37582a3d387091f203b2c4166c4800cc110853',
   },
 };
 
 /** Render one entry the way the docs gallery does and measure what it drew. */
-function measure(schema: unknown): Reading & { inputs: (string | null)[]; triggers: (string | null)[] } {
+function measure(schema: unknown): Reading & {
+  inputs: (string | null)[];
+  triggers: (string | null)[];
+  fieldTriggers: (string | null)[];
+} {
   const { container, unmount } = render(
     <SchemaRenderer schema={toRenderableSchema(schema as never) as never} />,
   );
@@ -125,6 +144,15 @@ function measure(schema: unknown): Reading & { inputs: (string | null)[]; trigge
     sha256: createHash('sha256').update(text).digest('hex'),
     inputs: Array.from(container.querySelectorAll('input')).map((i) => i.getAttribute('type')),
     triggers: Array.from(container.querySelectorAll('[role="combobox"]')).map((e) => e.textContent),
+    // The FIELD trigger of each condition row, separately from the operator
+    // and value ones. A row's three cells are `div.col-span-4` inside the
+    // row grid, field first, so `:first-child` selects exactly the field cell.
+    // Needed since objectui#7561: the operator trigger now names the operator
+    // even on a row whose field def was lost, so "all triggers blank" no
+    // longer distinguishes "the field lookup failed" from "nothing rendered".
+    fieldTriggers: Array.from(
+      container.querySelectorAll('div.col-span-4:first-child [role="combobox"]'),
+    ).map((e) => e.textContent),
   };
   unmount();
   return out;
@@ -232,12 +260,24 @@ describe('objectui#6939 — the fixtures were the side that was right', () => {
     const corrected = measure(fieldsSpelledName(id));
     expect(corrected.text).not.toBe(authored.text);
     expect(corrected.sha256).not.toBe(authored.sha256);
-    // Every field trigger goes blank — the lookup `fields.find(f => f.value === …)`
+    // Every FIELD trigger goes blank — the lookup `fields.find(f => f.value === …)`
     // finds nothing — while the rows themselves survive, so the loss is the
     // field cell and not the whole tile (that is the NEXT probe's failure mode,
     // and the two must stay distinguishable).
-    expect(authored.triggers.some((t) => t !== '')).toBe(true);
-    expect(corrected.triggers.every((t) => t === '')).toBe(true);
+    //
+    // ⚠️ Read on `fieldTriggers`, not on every combobox on the tile. Until
+    // objectui#7561 the two were interchangeable here ONLY because the operator
+    // trigger was blank as well — and it was blank for an unrelated defect,
+    // these entries authoring `eq` / `lt` / `gt`. Now that the operator cell
+    // renders its label, an all-triggers reading would be answering about the
+    // operator repair rather than about the lost field, which is the one thing
+    // this probe exists to discriminate.
+    expect(authored.fieldTriggers.some((t) => t !== '')).toBe(true);
+    expect(corrected.fieldTriggers.every((t) => t === '')).toBe(true);
+    // Anti-vacuity for the line above: `every` over an EMPTY list is true, so
+    // a selector that matched nothing would pass it silently.
+    expect(corrected.fieldTriggers.length).toBe(authored.fieldTriggers.length);
+    expect(corrected.fieldTriggers.length).toBeGreaterThan(0);
     const rows = (r: { text: string }) => r.text.split('Remove condition').length - 1;
     expect(rows(corrected)).toBe(rows(authored));
     expect(rows(authored)).toBeGreaterThan(0);

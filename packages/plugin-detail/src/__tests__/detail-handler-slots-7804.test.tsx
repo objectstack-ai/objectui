@@ -186,20 +186,25 @@ describe('the value the passthrough keeps is handed to a call site expecting a f
 /* -- Suite 3: the zod face ------------------------------------------------ */
 
 describe('the `detail` arm declares every handler key its renderer reads (objectui#7804)', () => {
-  const DECLARED: ReadonlyArray<readonly [key: string]> = [['onNavigate'], ['onAddComment']];
+  const DECLARED = [['onNavigate'], ['onAddComment']] as const;
+  /** The same two plus `onBack` — a named refusal on this arm since
+   *  objectui#7344, so it is the LIT CONTROL: it was refused on the base tree
+   *  too, and a probe that could not see a refusal would have failed on it
+   *  first rather than reporting a clean pair of new ones. */
+  const WITH_CONTROL = [...DECLARED, ['onBack']] as const;
 
   it.each(DECLARED)('DetailSchema.%s is a DECLARED member carrying the objectui#6124 runtime-slot guidance', (key) => {
     // Deliberately `.shape`, not `safeParse`: under `.passthrough()` a DELETED
     // key still parses green, so a parse-only pin stays green through the very
     // deletion it exists to catch.
-    const member = DetailZod.shape[key as keyof typeof DetailZod.shape] as { description?: string } | undefined;
+    const member = DetailZod.shape[key] as { description?: string } | undefined;
     expect(member).toBeDefined();
     expect(member!.description).toContain('objectui#6124');
     expect(member!.description).toContain('RUNTIME SLOT');
     expect(member!.description).not.toContain('RETIRED');
   });
 
-  it.each([...DECLARED, ['onBack']])('an authored action object on DetailSchema.%s is refused BY NAME', (key) => {
+  it.each(WITH_CONTROL)('an authored action object on DetailSchema.%s is refused BY NAME', (key) => {
     const result = DetailZod.safeParse({ type: 'detail', [key]: AUTHORED_ACTION_OBJECT });
     expect(result.success).toBe(false);
     if (result.success) return;

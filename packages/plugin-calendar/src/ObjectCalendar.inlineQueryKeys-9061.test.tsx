@@ -61,13 +61,31 @@
  * per day cell), so the footnote is the whole signal and `ceilingNote` is not
  * optional.
  *
+ * ## HOW THE INLINE ROWS ARE SPELLED HERE, and why it is not the map's spelling
+ *
+ * `staticData`, on every row. Rung 1 of the record-source ladder is judged
+ * against the BLOCK's own published `data` row (objectui#8348, decision batch
+ * #83 — "the row decides"), and `object-calendar`'s row is
+ * `z.array(z.unknown()).optional()` — an ARRAY. A `{ provider, items }` config
+ * object under `data` is therefore refused BY KIND on this block, the ladder
+ * falls through to a `staticData` and an `objectName` that are not there, and
+ * the calendar is left with no record source at all. `offArmDataSpelling` pins
+ * exactly that, with a lit control beside it.
+ *
+ * ⚠️ The twin file `ObjectMap.inlineQueryKeys-9061.test.tsx` is the MIRROR
+ * IMAGE, not a copy: `object-map`'s row is `ViewData`, so there the config
+ * object is the honoured spelling and the bare array is the refused one. The
+ * two files use opposite spellings on purpose; copying either one's `data:`
+ * line into the other is the defect each file's off-arm row exists to catch.
+ *
  * REVERSE VERIFICATION — direction predicted BEFORE running, from the committed
  * fix, by restoring the short-circuit in `ObjectCalendar.tsx` ONLY (the map's
- * fix left in place): `twoSidedFilter`, `inlineSort`, `staticDataSpelling`,
- * `ceilingCap`, `ceilingNote` and `ceilingOrder` go RED; `control` and
+ * fix left in place): `twoSidedFilter`, `inlineSort`, `ceilingCap`,
+ * `ceilingNote` and `ceilingOrder` go RED; `control`, `offArmDataSpelling` and
  * `providerBackedControl` stay GREEN — the first draws the same rows in the
- * same order either way, the second never touches the inline path at all,
- * which is what makes them controls.
+ * same order either way, the second never reaches the inline branch, and the
+ * third never touches the inline path at all, which is what makes them
+ * controls.
  */
 
 import React from 'react';
@@ -158,7 +176,7 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
 
     const { unmount } = render(
       <ObjectCalendar
-        schema={{ ...base, data: { provider: 'value', items: ROWS }, filter: OPEN_FILTER }}
+        schema={{ ...base, staticData: ROWS, filter: OPEN_FILTER }}
       />,
     );
     await waitFor(() => expect(drawn().count).toBe('3'));
@@ -185,7 +203,7 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
       <ObjectCalendar
         schema={{
           ...base,
-          data: { provider: 'value', items: ROWS },
+          staticData: ROWS,
           sort: [{ field: 'rank', order: 'desc' }],
         }}
       />,
@@ -195,13 +213,30 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
     expect(drawn().ids).toBe('5,3,1,4,2');
   });
 
-  it('staticDataSpelling: the `staticData` rung reaches the same repair', async () => {
-    // `resolveRecordSourceConfig` wraps `staticData` into
-    // `{ provider: 'value', items }`, so it lands on exactly this path. It is
-    // the second spelling an author can use and it needs its own row.
-    render(<ObjectCalendar schema={{ ...base, staticData: ROWS, filter: OPEN_FILTER }} />);
-    await waitFor(() => expect(drawn().count).toBe('3'));
-    expect(drawn().ids).toBe(OPEN_IDS);
+  it('offArmDataSpelling: a `{ provider, items }` config under `data` is NOT an inline source here', async () => {
+    // ⭐ The rung ruling, pinned on the block it actually bites (objectui#8348,
+    // decision batch #83 — "the row decides"). `object-calendar`'s published
+    // `data` row is `z.array(z.unknown()).optional()`, so `resolveRecordSourceConfig`
+    // judges rung 1 on the `'array'` arm and refuses a CONFIG OBJECT by kind.
+    // With no `staticData` and no `objectName` left to fall to, the ladder
+    // returns null and the calendar has no record source at all — which is why
+    // every inline row above is spelled `staticData`, the one rung that does
+    // wrap into `{ provider: 'value', items }` on this block.
+    //
+    // ⛔ This is the row that must stay red if anyone "fixes" the reds above by
+    // teaching the `'array'` arm to also accept the config object: that is the
+    // AGENTS.md #0.1 tolerant-fallback defect, and it would re-open the drift
+    // objectui#8348 closed.
+    render(<ObjectCalendar schema={{ ...base, data: { provider: 'value', items: ROWS } }} />);
+    await waitFor(() => expect(screen.queryByText(/Loading calendar/)).toBeNull());
+    expect(screen.queryByTestId('calendar-view')).toBeNull();
+
+    // The LIT CONTROL, so the line above is a reading about the SPELLING and
+    // not about these rows, this stub or this harness: the same rows, same
+    // component, on the arm the row does declare, draw all five.
+    cleanup();
+    render(<ObjectCalendar schema={{ ...base, staticData: ROWS }} />);
+    await waitFor(() => expect(drawn().count).toBe('5'));
   });
 
   it('ceilingCap: an inline set past the ceiling draws exactly the ceiling', async () => {
@@ -209,7 +244,7 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
       <ObjectCalendar
         schema={{
           ...base,
-          data: { provider: 'value', items: makeRows(NON_GRID_ROW_CEILING_TOP + 500) },
+          staticData: makeRows(NON_GRID_ROW_CEILING_TOP + 500),
         }}
       />,
     );
@@ -219,7 +254,7 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
   it('ceilingNote: the cut is LOUD — the footnote names both numbers', async () => {
     const total = NON_GRID_ROW_CEILING_TOP + 500;
     render(
-      <ObjectCalendar schema={{ ...base, data: { provider: 'value', items: makeRows(total) } }} />,
+      <ObjectCalendar schema={{ ...base, staticData: makeRows(total) }} />,
     );
     await waitFor(() => expect(drawn().count).toBe(String(NON_GRID_ROW_CEILING)));
 
@@ -236,7 +271,7 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
     const rows = makeRows(2400, (i) => (i % 3 === 0 ? 'open' : 'closed'));
     render(
       <ObjectCalendar
-        schema={{ ...base, data: { provider: 'value', items: rows }, filter: OPEN_FILTER }}
+        schema={{ ...base, staticData: rows, filter: OPEN_FILTER }}
       />,
     );
     await waitFor(() => expect(drawn().count).toBe('800'));
@@ -246,7 +281,7 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
   it('control: an inline calendar with NO filter, NO sort and under the ceiling is unchanged', async () => {
     // ⭐ Green on BOTH ablation legs by construction. Without it a reviewer
     // cannot tell this repair from "the inline path now drops rows".
-    render(<ObjectCalendar schema={{ ...base, data: { provider: 'value', items: ROWS } }} />);
+    render(<ObjectCalendar schema={{ ...base, staticData: ROWS }} />);
     await waitFor(() => expect(drawn().count).toBe('5'));
     expect(drawn().ids).toBe('1,2,3,4,5');
     expect(screen.queryByRole('note')).toBeNull();

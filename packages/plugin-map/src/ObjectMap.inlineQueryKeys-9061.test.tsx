@@ -67,10 +67,20 @@
  * REVERSE VERIFICATION — direction predicted BEFORE running, from the committed
  * fix, by restoring the short-circuit in `ObjectMap.tsx` ONLY (the calendar's
  * fix left in place): `twoSidedFilter`, `inlineSort`, `staticDataSpelling`,
- * `arrayShorthandSpelling`, `ceilingCap`, `ceilingNote` and `ceilingOrder` go
- * RED; `control` and `providerBackedControl` stay GREEN — the first plots the
- * same rows in the same order either way, the second never touches the inline
- * path at all, which is what makes them controls.
+ * `ceilingCap`, `ceilingNote` and `ceilingOrder` go RED; `control`,
+ * `offArmDataSpelling` and `providerBackedControl` stay GREEN — the first plots
+ * the same rows in the same order either way, the second never reaches the
+ * inline branch, and the third never touches the inline path at all, which is
+ * what makes them controls.
+ *
+ * ## HOW THE INLINE ROWS ARE SPELLED HERE (objectui#8348, decision batch #83)
+ *
+ * `{ provider: 'value', items }` under `data`, or `staticData` — the two rungs
+ * `object-map`'s published `ViewData` row admits. A BARE ARRAY under `data` is
+ * refused by kind on this block and reaches no inline source at all;
+ * `offArmDataSpelling` pins that, with a lit control beside it. The twin file
+ * `ObjectCalendar.inlineQueryKeys-9061.test.tsx` is the MIRROR IMAGE — that
+ * block's row is an array, so there the spellings are swapped.
  */
 
 import React from 'react';
@@ -195,15 +205,35 @@ describe('objectui#9061 — the map honours filter / sort / the row ceiling on i
     expect(drawn().lngs).toBe(OPEN_LNGS);
   });
 
-  it('arrayShorthandSpelling: the map-only bare-array `data` rung reaches it too', async () => {
-    // ⭐ A spelling `ObjectCalendar` does NOT have: this file's `getDataConfig`
-    // normalizes a bare array under `data` into `{ provider: 'value', items }`
-    // (objectui#5305) before delegating to the shared ladder. Three author
-    // spellings reach this repair on the map against two on the calendar, and
-    // the extra one needs its own row or the normalization could regress
-    // without a red.
+  it('offArmDataSpelling: a bare ARRAY under `data` is NOT an inline source here', async () => {
+    // ⭐ The rung ruling, pinned on the block it actually bites (objectui#8348,
+    // decision batch #83 — "the row decides"). This row used to assert the
+    // opposite: that `getDataConfig` normalizes a bare array under `data` into
+    // `{ provider: 'value', items }` (objectui#5305). That normalizing head is
+    // GONE — `getDataConfig` now delegates to `resolveRecordSourceConfig(schema,
+    // 'view-data')`, and `object-map`'s published `data` row is `ViewData`, so a
+    // bare array is refused BY KIND. With no `staticData` and no `objectName`
+    // to fall to, the ladder returns null and the map has no record source.
+    //
+    // ⛔ The mirror image of `ObjectCalendar.inlineQueryKeys-9061`'s row of the
+    // same name, and deliberately so: there the ARRAY is the honoured spelling
+    // and the config object is refused. Copying either file's `data:` line into
+    // the other is the defect these two rows exist to catch.
     render(
       <ObjectMap schema={{ ...base, data: ROWS, filter: OPEN_FILTER }} enableClustering={false} />,
+    );
+    await waitFor(() => expect(screen.queryByText(/Loading map/)).toBeNull());
+    expect(drawn().count).toBe('0');
+
+    // The LIT CONTROL, so the line above is a reading about the SPELLING and
+    // not about these rows, this stub or this harness: the same rows, same
+    // filter, same component, on the arm the row does declare, plot the three.
+    cleanup();
+    render(
+      <ObjectMap
+        schema={{ ...base, data: { provider: 'value', items: ROWS }, filter: OPEN_FILTER }}
+        enableClustering={false}
+      />,
     );
     await waitFor(() => expect(drawn().count).toBe('3'));
     expect(drawn().lngs).toBe(OPEN_LNGS);

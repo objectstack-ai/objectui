@@ -263,8 +263,23 @@ export interface ListViewProps {
   onInlineEditChange?: (next: boolean) => void;
   /** Called when the user resizes/reorders columns in the underlying grid. */
   onColumnStateChange?: (state: { order?: string[]; widths?: Record<string, number> }) => void;
-  /** Callback when a row/item is clicked (overrides NavigationConfig) */
-  onRowClick?: (record: Record<string, unknown>) => void;
+  /**
+   * Callback when a row/item is clicked (overrides NavigationConfig).
+   *
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: Record<string, unknown>, event?: any) => void;
   /** Show view type switcher (Grid/Kanban/etc). Default: false (view type is fixed) */
   showViewSwitcher?: boolean;
   /** Initial user-filter selections to restore (field → values; `_tab` for the active preset). */

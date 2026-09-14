@@ -181,7 +181,17 @@ export interface KanbanRendererProps {
     data?: Array<any>;
     groupBy?: string;
     swimlaneField?: string;
-    onCardClick?: (card: any) => void;
+    /**
+     * TWO parameters since objectui#9357. `KanbanRenderer` hands this value
+     * straight to `KanbanImpl` (`onCardClick={schema.onCardClick}` below),
+     * whose `SortableCard` invokes it as `onCardClick?.(card, e)` with the DOM
+     * click event — the modifier payload a host needs for Cmd/Ctrl/middle-click.
+     * Declaring one parameter described a call this component never makes.
+     * `any` rather than `React.MouseEvent` keeps this face in agreement with its
+     * published twin `ObjectKanbanSchema.onCardClick` (objectui#9341), which may
+     * not name a React type.
+     */
+    onCardClick?: (card: any, event?: any) => void;
     quickAdd?: boolean;
     onQuickAdd?: (columnId: string, title: string) => void;
     coverImageField?: string;

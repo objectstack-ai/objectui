@@ -25,7 +25,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ViewItemSchema } from '@objectstack/spec/ui';
-import { URL_FILTER_OPS, type FilterTriple } from './drillUrlFilters';
+import { URL_FILTER_OPS, NULL_FILTER, type FilterTriple } from './drillUrlFilters';
 import { viewEnvelope } from './runtime-metadata-persistence';
 import { buildSaveAsViewSpec } from './ObjectDataPage';
 
@@ -93,11 +93,13 @@ describe('Save as view folds URL drill triples to spec rules (objectui#3419)', (
   });
 
   it('folds EVERY operator the URL contract can emit to a canonical spelling', () => {
-    // Derived from `URL_FILTER_OPS` (plus `=`, which has no `[op]` suffix form)
-    // so a range operator added to the URL contract fails HERE rather than at
-    // publish time. `parseUrlFilterTriples` emits nothing outside this set.
-    const emittable = ['=', ...Object.values(URL_FILTER_OPS)];
-    expect(emittable).toEqual(['=', '>=', '<=', '>', '<']);
+    // Derived from `URL_FILTER_OPS` (plus `=`, which has no `[op]` suffix form,
+    // and `NULL_FILTER.op`, whose param carries a FLAG rather than a comparand
+    // and so is not in that range map) so an operator added to the URL contract
+    // fails HERE rather than at publish time. `parseUrlFilterTriples` emits
+    // nothing outside this set.
+    const emittable = ['=', ...Object.values(URL_FILTER_OPS), NULL_FILTER.op];
+    expect(emittable).toEqual(['=', '>=', '<=', '>', '<', 'is_null']);
 
     const { spec, gate } = saveAsView(
       emittable.map((op, i) => ['f' + i, op, String(i)] as FilterTriple),
@@ -108,8 +110,27 @@ describe('Save as view folds URL drill triples to spec rules (objectui#3419)', (
       'less_than_or_equal',
       'greater_than',
       'less_than',
+      // objectui#9159. `is_null` is ALREADY a canonical ViewFilterRule word, so
+      // it must reach `normalizeFilterOperator` unbridged; the symbol-to-alias
+      // table is keyed on the range symbols, which this operator is not one of.
+      // Were the flag added to `URL_FILTER_OPS` instead, the bridge would hand
+      // over the alias `null`, the rule schema would refuse it, and saving the
+      // view would silently drop the condition.
+      'is_null',
     ]);
     expect(gate.success).toBe(true);
+  });
+
+  it('keeps the is-null flag intact through the fold, value and all', () => {
+    // The escape hatch's empty-bucket drill (objectui#9159) is savable as a
+    // view: `[field,'is_null',true]` is a canonical rule, and the value rides
+    // along exactly as `viewFilterFold` carries a value-less operator's value.
+    const { spec, gate } = saveAsView([['owner', NULL_FILTER.op, true]]);
+    expect(spec.filter).toEqual([{ field: 'owner', operator: 'is_null', value: true }]);
+    expect(
+      gate.success,
+      `ViewItem rejected by spec: ${JSON.stringify(gate.error?.issues)}`,
+    ).toBe(true);
   });
 
   it('carries field and value through untouched', () => {

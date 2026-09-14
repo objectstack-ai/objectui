@@ -8,7 +8,8 @@
 
 /**
  * The drill "escape hatch" and the empty bucket — the THIRD consumer of
- * `buildDatasetDrillFilter`, measured for objectui#9085.
+ * `buildDatasetDrillFilter`, measured for objectui#9085 and REPAIRED by
+ * objectui#9159.
  *
  * `buildDatasetDrillFilter`'s output has three consumers. Two of them
  * (`ObjectDataTable`, and the report drill's `SchemaRenderer` path, which wraps
@@ -18,22 +19,33 @@
  * `openRecordList`, which does NOT go through that converter — it serializes
  * the same object into `filter[...]` URL params for the bare data surface.
  *
- * ## The measured boundary, recorded rather than closed
+ * ## What objectui#9085 measured here, and why it left it open
  *
- * ⚠️ This dialect has NO spelling for is-null. Its whole operator vocabulary is
- * equality plus four range bounds (`URL_FILTER_OPS` / `RANGE_OP_PARAM` name
- * them), so there is no param shape that carries "this dimension is empty" and
- * no suffix `parseUrlFilterTriples` would read back as one. An empty-bucket
- * drill escalated to the list page has therefore ALWAYS landed on a superset,
- * and it still does.
+ * ⚠️ At that time this dialect had NO spelling for is-null. Its whole operator
+ * vocabulary was equality plus four range bounds, so there was no param shape
+ * carrying "this dimension is empty" and no suffix `parseUrlFilterTriples` would
+ * read back as one. `{ $null: true }` and the bare `null` it replaced therefore
+ * serialized BYTE-IDENTICALLY, an empty-bucket drill escalated to the list page
+ * had always landed on a superset, and objectui#9085 neither improved nor
+ * regressed that — which is exactly what this file was written to hold.
  *
- * ⇒ objectui#9085 changes NOTHING here, and that is the claim these assertions
- * exist to hold: the new spelling produces the byte-identical query string the
- * bare `null` produced, so the escape hatch neither improves nor regresses.
- * Closing it needs a URL-dialect operator on BOTH the write and the read side
- * (plus a chip rendering for it), which is a separate card — ⛔ not folded in
- * here, where it would be an unpinned new URL contract riding along with a
- * one-expression producer fix.
+ * ## What objectui#9159 changed, and why these assertions moved rather than went
+ *
+ * That card added the missing operator on BOTH sides of the dialect
+ * (`NULL_FILTER` — `filter[<field>][null]=true`), so the claim above has stopped
+ * being true, at the assertions the card said it would: the two spellings are no
+ * longer byte-identical, and an empty-bucket-only drill no longer serializes to
+ * nothing. The claim is UPDATED to the new byte-identity rather than deleted,
+ * because what this file is for is recording what the escape hatch does with an
+ * empty bucket — first that it dropped it, now that it carries it.
+ *
+ * ⇒ the surviving record: the bare `null` spelling is STILL not a condition (a
+ * producer writes it when it has nothing to say about the field), the RANGE
+ * vocabulary is still exactly the four bounds it always was, and the divergence
+ * between the two spellings is the repair. The end-to-end obligations of the new
+ * operator — the real `openRecordList`, the destination scope, the chip, and the
+ * answer for `[null]=false` — live in
+ * `drillEmptyBucketEscapeHatch-9159.test.tsx`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -43,6 +55,7 @@ import {
   parseUrlFilterTriples,
   URL_FILTER_OPS,
   RANGE_OP_PARAM,
+  NULL_FILTER,
 } from './drillUrlFilters';
 
 const DIMENSION_FIELDS = { stage: 'stage', owner: 'owner' };
@@ -50,30 +63,46 @@ const DIMENSION_FIELDS = { stage: 'stage', owner: 'owner' };
 /** What the producer wrote BEFORE objectui#9085 — the shape being replaced. */
 const PREVIOUS_EMPTY_SPELLING = null;
 
-describe('drill escape hatch vs the empty bucket (objectui#9085)', () => {
-  it('the URL dialect has no is-null operator at all', () => {
-    // Stated as the two exported maps rather than as prose, so the day someone
-    // adds one, this assertion is where the claim above stops being true.
+describe('drill escape hatch vs the empty bucket (objectui#9085, repaired by objectui#9159)', () => {
+  it('the is-null operator is its own flag and did NOT widen the range vocabulary', () => {
+    // Stated as the exported constants rather than as prose, so the day any of
+    // the three moves, this assertion is where the claim above stops being true.
+    // The two range maps are unchanged by objectui#9159 on purpose: `is_null` is
+    // already a canonical `ViewFilterRule` word, and `ObjectDataPage` inverts
+    // `URL_FILTER_OPS` to bridge triples to the spec's ALIAS spelling — an entry
+    // here would send it through that bridge and lose the condition from a saved
+    // view.
     expect(Object.keys(URL_FILTER_OPS)).toEqual(['gte', 'lte', 'gt', 'lt']);
     expect(Object.keys(RANGE_OP_PARAM)).toEqual(['$gte', '$lte', '$gt', '$lt']);
+    expect(NULL_FILTER).toEqual({ param: 'null', flag: 'true', op: 'is_null', key: '$null' });
   });
 
-  it('the new spelling serializes byte-identically to the bare null it replaced', () => {
+  it('the new spelling NO LONGER serializes identically to the bare null it replaced', () => {
     const now = buildDatasetDrillFilter({ stage: 'won', owner: '' }, ['stage', 'owner'], DIMENSION_FIELDS);
     const before = { stage: 'won', owner: PREVIOUS_EMPTY_SPELLING };
 
     expect(now).toEqual({ stage: 'won', owner: { $null: true } });
+    // objectui#9159: this pair used to be byte-identical, which is what made the
+    // escalated list a superset. The divergence IS the repair, so it is asserted
+    // as the two exact strings rather than as an inequality — the latter would
+    // also pass on a serializer that had merely started emitting garbage.
     expect(serializeDrillFilterParams(now).toString())
-      .toBe(serializeDrillFilterParams(before).toString());
-    // And the surviving condition is the NON-empty one, which is what makes
-    // this a superset rather than an empty list.
+      .toBe('filter%5Bstage%5D=won&filter%5Bowner%5D%5Bnull%5D=true');
+    expect(serializeDrillFilterParams(before).toString()).toBe('filter%5Bstage%5D=won');
+    // And BOTH conditions now reach the destination — the empty-bucket one being
+    // the one the user actually clicked.
     expect(parseUrlFilterTriples(new URLSearchParams(serializeDrillFilterParams(now).toString())))
-      .toEqual([['stage', '=', 'won']]);
+      .toEqual([
+        ['stage', '=', 'won'],
+        ['owner', 'is_null', true],
+      ]);
   });
 
-  it('an empty-bucket-only drill serializes to nothing, before and after', () => {
+  it('an empty-bucket-only drill now serializes to the flag, while a bare null still serializes to nothing', () => {
     const now = buildDatasetDrillFilter({ owner: '' }, ['owner'], DIMENSION_FIELDS);
-    expect(serializeDrillFilterParams(now).toString()).toBe('');
+    expect(serializeDrillFilterParams(now).toString()).toBe('filter%5Bowner%5D%5Bnull%5D=true');
+    // Unchanged by objectui#9159, and deliberately: a JS `null` value means the
+    // producer has nothing to say about the field, not that the field is empty.
     expect(serializeDrillFilterParams({ owner: PREVIOUS_EMPTY_SPELLING }).toString()).toBe('');
   });
 

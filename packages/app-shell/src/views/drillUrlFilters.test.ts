@@ -155,3 +155,70 @@ describe('groupFilterChips', () => {
     ]);
   });
 });
+
+/**
+ * The is-null operator (objectui#9159) — the one member of this vocabulary
+ * whose URL value is a FLAG rather than a comparand.
+ *
+ * The escape-hatch defect it closes is pinned end to end, through the real
+ * `openRecordList`, in `drillEmptyBucketEscapeHatch-9159.test.tsx`; these are
+ * the module's own write/read/chip/delete obligations for it.
+ */
+describe('the is-null operator: `filter[<field>][null]=true`', () => {
+  it('writes the flag for the `{ $null: true }` an empty-bucket drill produces', () => {
+    const qs = serializeDrillFilterParams({ owner: { $null: true } });
+    expect(qs.get('filter[owner][null]')).toBe('true');
+  });
+
+  it('reads the flag back as an is-null triple', () => {
+    expect(parse('filter[owner][null]=true')).toEqual([['owner', 'is_null', true]]);
+  });
+
+  it('survives the round-trip beside an equality condition', () => {
+    const filter = { stage: 'won', owner: { $null: true } };
+    expect(parseUrlFilterTriples(serializeDrillFilterParams(filter))).toEqual<FilterTriple[]>([
+      ['stage', '=', 'won'],
+      ['owner', 'is_null', true],
+    ]);
+  });
+
+  it('carries the flag alongside range bounds on the same field, as the AST converter does', () => {
+    // `convertFiltersToAST` emits BOTH conditions for this object, so the URL
+    // dialect emits both params rather than picking a winner.
+    const qs = serializeDrillFilterParams({ score: { $null: true, $gte: '5' } });
+    expect(parseUrlFilterTriples(qs)).toEqual<FilterTriple[]>([
+      ['score', 'is_null', true],
+      ['score', '>=', '5'],
+    ]);
+  });
+
+  it('drops `{ $null: false }` — this dialect has no "is not null" to write it to', () => {
+    // Degrading to a superset is the posture this module already takes for an
+    // operator it cannot spell; inventing the inverse operator on the read side
+    // would be a second, unpinned contract.
+    expect(serializeDrillFilterParams({ owner: { $null: false } }).toString()).toBe('');
+  });
+
+  it('drops `[null]=false` on the read side instead of inventing an operator', () => {
+    expect(parse('filter[owner][null]=false')).toEqual([]);
+    // Not an equality against the string "false" either — that is the "wrong
+    // answer wearing a right answer's shape" this module refuses elsewhere.
+    expect(parse('filter[owner][null]=false').length).toBe(0);
+  });
+
+  it('drops an empty flag value, exactly as it drops any empty value', () => {
+    expect(parse('filter[owner][null]=')).toEqual([]);
+  });
+
+  it('renders a chip that names the condition instead of `= true`', () => {
+    expect(groupFilterChips([['owner', 'is_null', true]])).toEqual([
+      { field: 'owner', text: 'is null' },
+    ]);
+  });
+
+  it('removing the chip clears the flag param', () => {
+    const params = new URLSearchParams('filter[owner][null]=true&filter[stage]=won');
+    deleteFieldFilterParams(params, 'owner');
+    expect(params.toString()).toBe('filter%5Bstage%5D=won');
+  });
+});

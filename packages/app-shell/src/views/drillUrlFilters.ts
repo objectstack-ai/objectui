@@ -16,7 +16,9 @@
  * Contract:
  *   - equality      `filter[field]=value`              → `[field, '=', value]`
  *   - range / cmp   `filter[field][gte|lte|gt|lt]=v`   → `[field, '>=' | … , v]`
- * A date-bucket drill emits `gte` + `lt` to scope a list to a time bucket.
+ *   - is-null FLAG  `filter[field][null]=true`         → `[field, 'is_null', true]`
+ * A date-bucket drill emits `gte` + `lt` to scope a list to a time bucket; an
+ * EMPTY-bucket drill emits the is-null flag (objectui#9159).
  */
 
 /** Filter triple shape shared with view metadata: [field, operator, value]. */
@@ -30,6 +32,52 @@ export const URL_FILTER_OPS: Record<string, string> = { gte: '>=', lte: '<=', gt
 export const RANGE_OP_PARAM: Record<string, string> = { $gte: 'gte', $lte: 'lte', $gt: 'gt', $lt: 'lt' };
 
 /**
+ * The is-null operator (objectui#9159), in the ONE place both sides read it
+ * from, so the write and read halves cannot drift apart on its spelling.
+ *
+ * ## Its URL value is a FLAG, not a comparand — and that is the whole design
+ *
+ * Every other member of this vocabulary carries a value the user is filtering
+ * BY. This one carries no value at all: the condition is "this dimension is
+ * empty". So the param exists to be present, and `true` is the only spelling
+ * that means it. Two consequences, both deliberate and both pinned:
+ *
+ *   - `filter[field][null]=false` is NOT a second operator. This dialect cannot
+ *     WRITE "is not null" (nothing here emits it, and inventing a read-side-only
+ *     operator would be a second contract with no producer), so the read side
+ *     drops that param exactly as it drops an unknown suffix — never downgraded
+ *     to `is_null false`, never to an equality against the string `"false"`.
+ *   - equality-to-empty-string is not a substitute: `parseUrlFilterTriples`
+ *     skips a param whose value is `''`, so `filter[owner]=` round-trips to no
+ *     condition at all. The flag's value is a non-empty literal for that reason.
+ *
+ * ⚠️ `param` is deliberately NOT an entry in {@link URL_FILTER_OPS}. That map is
+ * the RANGE vocabulary, and `ObjectDataPage` inverts it to bridge a triple's
+ * operator to the spec's own alias spelling. `op` here is already a canonical
+ * `ViewFilterRule` operator word, so bridging it would map it to the alias
+ * `'null'`, which `normalizeFilterOperator` passes through verbatim and the rule
+ * schema then rejects — a saved view that silently loses this condition. Keeping
+ * the flag out of the range map is what keeps "Save as view" correct.
+ *
+ * ⚠️ Known unspelled synonyms, recorded rather than closed: `convertFiltersToAST`
+ * also lowers `{ $exists: false }` to is-null and `{ $null: false }` /
+ * `{ $exists: true }` to `is_not_null`. This dialect spells none of those, so a
+ * drill carrying one still degrades to a superset here — the same boundary this
+ * card closed for `{ $null: true }`, for producers nothing on this path emits
+ * today.
+ */
+export const NULL_FILTER = {
+  /** URL param suffix: `filter[<field>][null]`. */
+  param: 'null',
+  /** The ONLY param value that spells the condition. */
+  flag: 'true',
+  /** ObjectQL operator it reads back as — what `convertFiltersToAST` emits for `{ $null: true }`. */
+  op: 'is_null',
+  /** ObjectQL operator-object key the WRITE side recognizes. */
+  key: '$null',
+} as const;
+
+/**
  * The ONE grammar for a key in this family, so the two arms below cannot drift
  * apart on what a field name is: `filter[<field>]`, with an OPTIONAL
  * `[<suffix>]`. The field slot excludes both brackets, so a suffix can never be
@@ -40,9 +88,10 @@ export const RANGE_OP_PARAM: Record<string, string> = { $gte: 'gte', $lte: 'lte'
 const FILTER_KEY = /^filter\[([^[\]]+)\](?:\[([^[\]]+)\])?$/;
 
 /**
- * Parse `filter[<field>]=<value>` (equality) and `filter[<field>][<op>]=<value>`
- * (range/comparison) search params into ObjectQL triples. An unknown operator
- * suffix is ignored (never silently downgraded to equality).
+ * Parse `filter[<field>]=<value>` (equality), `filter[<field>][<op>]=<value>`
+ * (range/comparison) and `filter[<field>][null]=true` ({@link NULL_FILTER}, the
+ * is-null flag) search params into ObjectQL triples. An unknown operator suffix
+ * is ignored (never silently downgraded to equality).
  */
 export function parseUrlFilterTriples(searchParams: URLSearchParams): FilterTriple[] {
   const out: FilterTriple[] = [];
@@ -53,6 +102,13 @@ export function parseUrlFilterTriples(searchParams: URLSearchParams): FilterTrip
     const [, field, suffix] = m;
     if (suffix === undefined) {
       out.push([field, '=', value]);
+      return;
+    }
+    if (suffix === NULL_FILTER.param) {
+      // A flag, so only its one spelling is the condition; anything else here
+      // (`false` included) is dropped like an unknown suffix rather than
+      // answered at an operator this dialect cannot write.
+      if (value === NULL_FILTER.flag) out.push([field, NULL_FILTER.op, true]);
       return;
     }
     const op = URL_FILTER_OPS[suffix];
@@ -72,6 +128,9 @@ export function parseUrlFilterTriples(searchParams: URLSearchParams): FilterTrip
  * downgraded to equality. Those are two different outcomes and only one is
  * correct — answering the narrower `amount = 100` when the URL asked for
  * `amount >= 100` is a wrong answer wearing a right answer's shape.
+ *
+ * The is-null flag ({@link NULL_FILTER}) is a suffixed form, so this arm drops
+ * it too — the boundary below applies to it unchanged (objectui#9159).
  *
  * ⚠️ This arm deliberately does NOT execute the operator suffix (objectui#9196).
  * Teaching this route range operators would widen the accepted set of an
@@ -94,10 +153,16 @@ export function parseUrlEqualityFilterTriples(searchParams: URLSearchParams): Fi
 
 /**
  * Serialize a drill filter object into `filter[...]` search params. An ObjectQL
- * range operator object (`{ $gte, $lt }`) becomes `filter[field][gte|lt]`; a
- * plain value becomes `filter[field]`. `null`/`undefined` values and objects
- * with no recognized operator are skipped (drill degrades to a superset) rather
- * than stringified to `"[object Object]"`.
+ * range operator object (`{ $gte, $lt }`) becomes `filter[field][gte|lt]`;
+ * `{ $null: true }` — what an EMPTY-bucket drill carries — becomes the
+ * `filter[field][null]` flag ({@link NULL_FILTER}); a plain value becomes
+ * `filter[field]`. `null`/`undefined` values and objects with no recognized
+ * operator are skipped (drill degrades to a superset) rather than stringified to
+ * `"[object Object]"`.
+ *
+ * ⚠️ A JS `null` VALUE stays "no condition", and is not the is-null spelling: it
+ * is what a producer writes when it has nothing to say about the field. The
+ * empty bucket says something, and says it as `{ $null: true }` (objectui#9085).
  *
  * ## `$and` is flattened, because this dialect's conjunction is implicit
  *
@@ -146,11 +211,22 @@ function collectFilterParams(filter: Record<string, unknown>, params: URLSearchP
       continue;
     }
     if (typeof value === 'object' && !Array.isArray(value)) {
+      const ops = value as Record<string, unknown>;
+      // The is-null FLAG (objectui#9159). Emitted BESIDE any range bound on the
+      // same object rather than instead of it, because `convertFiltersToAST`
+      // emits both conditions for that input and the two drill sinks agreeing is
+      // the point. Only `true` writes it: `{ $null: false }` is "is not null",
+      // an operator this dialect cannot spell, so it falls through and the drill
+      // degrades to a superset exactly as it does for any other operator absent
+      // from the maps above.
+      if (ops[NULL_FILTER.key] === true) {
+        params.set(`filter[${field}][${NULL_FILTER.param}]`, NULL_FILTER.flag);
+      }
       for (const [op, suffix] of Object.entries(RANGE_OP_PARAM)) {
-        const bound = (value as Record<string, unknown>)[op];
+        const bound = ops[op];
         if (bound != null) params.set(`filter[${field}][${suffix}]`, String(bound));
       }
-      continue; // handled (range ops) or skipped — never String(object)
+      continue; // handled (flag / range ops) or skipped — never String(object)
     }
     // Arrays reach here as `$in`-style comparands this dialect cannot spell;
     // skipping keeps the promise above (never `String(array)`).
@@ -160,8 +236,11 @@ function collectFilterParams(filter: Record<string, unknown>, params: URLSearchP
 }
 
 /**
- * Delete the equality param AND every operator param (both range bounds) for a
- * field, so removing a date-range chip drops the whole range together (#1752).
+ * Delete the equality param AND every operator param (both range bounds, and the
+ * is-null flag) for a field, so removing a date-range chip drops the whole range
+ * together (#1752) and removing an empty-bucket chip drops its flag
+ * (objectui#9159). Prefix-based, so it covers a suffix by construction rather
+ * than by listing one — a new operator is removable the day it is writable.
  * Mutates and returns `params`.
  */
 export function deleteFieldFilterParams(params: URLSearchParams, field: string): URLSearchParams {
@@ -176,6 +255,12 @@ export function deleteFieldFilterParams(params: URLSearchParams, field: string):
  * Group filter triples into ONE display chip per field, preserving first-seen
  * order. A date-bucket drill contributes two triples for the same field
  * (`>= start`, `< end`); they collapse into a single `start → end` range chip.
+ *
+ * The is-null flag gets its own text (objectui#9159). Without that arm it fell
+ * to the `= <value>` default and the chip read `= true` — a condition the user
+ * never wrote, against a value the object does not hold, on the one drill whose
+ * whole point is that the field is EMPTY. It is checked first so a field
+ * carrying the flag can never render as that bare `true`.
  */
 export function groupFilterChips(triples: FilterTriple[]): Array<{ field: string; text: string }> {
   const order: string[] = [];
@@ -189,10 +274,12 @@ export function groupFilterChips(triples: FilterTriple[]): Array<{ field: string
   }
   return order.map((field) => {
     const list = byField.get(field)!;
+    const isNull = list.some(([, op]) => op === NULL_FILTER.op);
     const gte = list.find(([, op]) => op === '>=' || op === '>');
     const lt = list.find(([, op]) => op === '<' || op === '<=');
-    const text =
-      gte || lt
+    const text = isNull
+      ? 'is null'
+      : gte || lt
         ? `${gte ? String(gte[2]) : '…'} → ${lt ? String(lt[2]) : '…'}`
         : `= ${String(list[0][2])}`;
     return { field, text };

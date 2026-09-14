@@ -225,8 +225,15 @@ describe('DetailSection copy payloads — object cells copy JSON, scalars are un
       clipboard: '{"id":"acct-1","name":"Acme Corp"}',
     },
     {
+      // ⚠️ `rendered` UPDATED by objectui#9161: this cell used to draw the COUNT
+      // `2 files` and nothing else, which is the defect that card fixed — a
+      // read-only `file` field named no attachment and offered no way to open
+      // one. It now draws one affordance per file, so the CONTROL reads the two
+      // names. ⭐ The clipboard payload — this file's actual subject — is
+      // untouched: it copies the STORED value, which is exactly why "copy the
+      // rendered text" is not the contract here.
       label: 'Attachments',
-      rendered: '2 files',
+      rendered: 'a.pdfb.pdf',
       clipboard: '[{"name":"a.pdf"},{"name":"b.pdf"}]',
     },
     {

@@ -17,11 +17,13 @@ Which spellings those are is deliberately not listed here. The pin walks those
 two published tables and names every row it measured, so the population is
 re-derived on each run rather than restated in prose that cannot move with it —
 an earlier draft of this changeset hand-listed that population and undercounted
-it, which is why it is named by instrument here (objectui#9302). Measured through the real builder on one `text` column: every
-spelling the pin enumerates drew **1** value input where its camelCase dropdown
-twin drew **0**, with `equals` drawing 1 in both arms (it really does take a
-value) — the firing control that makes a uniform zero a reading rather than a
-dead harness.
+it, which is why it is named by instrument here (objectui#9302). Measured
+through the real builder on one `text` column, before the repair: every
+spelling the pin's own `firing` filter yields — the enumerated rows that are
+not themselves members of the exported set, so each has a DIFFERENT spelling as
+its twin — drew **1** value input where that camelCase dropdown twin drew **0**,
+with `equals` drawing 1 in both arms (it really does take a value) — the firing
+control that makes a uniform zero a reading rather than a dead harness.
 
 Both sides of the lookup now fold through the spec's `normalizeFilterOperator`.
 That is the same fold `filterValueArity` and `reconcileOperatorForField` in this

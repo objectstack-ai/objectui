@@ -299,11 +299,22 @@ describe('check-required-check-set — the prose points here instead of answerin
   const flatten = (rel: string): string =>
     fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\s+/g, ' ');
 
-  it('CONTROL: the detector fires on the carrier left standing', () => {
+  it('CONTROL: the detector fires — on a constructed sentence, and on real tree content', () => {
+    // Leg 1, self-contained: the regex is proven able to return non-zero here,
+    // so the zeros below do not rest on any other file staying as it is.
+    expect(CANNOT_READ.test('that set is a surface nothing here can read')).toBe(true);
+    expect(CANNOT_READ.test('that set is a surface nothing here can change')).toBe(false);
+
+    // Leg 2, the same detector over real content: `AGENTS.md` still carries the
+    // claim, deliberately. If this leg ever goes red the governed carrier was
+    // ruled on and repaired — which is a legitimate change, not a bug here. The
+    // remedy is to move the inventory docblock in the gate with it and retire
+    // this leg, NOT to weaken the detector.
     expect(
       CANNOT_READ.test(flatten(LEFT_STANDING)),
-      `${LEFT_STANDING} no longer carries the claim this detector hunts. Every zero below is ` +
-        'unearned until this control fires again — re-derive the population before trusting them.',
+      `${LEFT_STANDING} no longer carries the claim this detector hunts. If that carrier was ` +
+        `repaired, update the inventory docblock in ${GATE} to match and drop this leg. ` +
+        'Leg 1 above keeps the detector honest either way.',
     ).toBe(true);
   });
 

@@ -681,6 +681,16 @@ export const ADJUDICATED = new Map([
       walker: 'not-markdown: `.github/workflows/*.yml`',
     },
   ],
+  // objectui#9502 widened this suite to read prose: the repaired carriers must
+  // point at the gate instead of restating the ruleset's membership, and the
+  // untouched `AGENTS.md` carrier is the positive control that proves the
+  // detector still fires.
+  [
+    'scripts/__tests__/check-required-check-set.test.ts',
+    {
+      reads: ['AGENTS.md', 'content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
   [
     'scripts/__tests__/check-shell-escape-residue.test.ts',
     {

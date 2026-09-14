@@ -14,6 +14,7 @@ import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, getSortValue } from '@object-ui/core';
 import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
+import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useRowPredicate, usePredicateScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { 
@@ -61,8 +62,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
-
-type SortDirection = 'asc' | 'desc' | null;
 
 /**
  * Inline-edit helpers: convert a stored cell value to the string a native
@@ -928,7 +927,22 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // State management
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  // The sort state's second half. `SortDirection` is `@objectstack/spec`'s own
+  // export, imported rather than re-declared: this module used to hand-write
+  // `'asc' | 'desc' | null` under that exact export name, which is the planted-
+  // premise class `check:spec-symbols` exists to stop (objectui#7265).
+  //
+  // `null` is the ONE divergence, and it lives HERE rather than in the name
+  // because it is not a third direction — it is the absence of one, the
+  // unsorted end of the client-side header cycle in `handleSort`. That is the
+  // same "this half is empty" that `sortColumn` above already spells at its own
+  // slot, which is why folding it into a type would have been the odd one out.
+  // No `null` can reach the protocol's vocabulary: the sort comparator is past
+  // the `!sortDirection` guard in `sortedData`, and `activeSort` emits a
+  // `TableSortItem` only when both halves are set. The cycle that produces the
+  // third state is pinned by the `leaves client-side sorting exactly as it was`
+  // case in data-table-manual-sorting.test.tsx.
+  const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<any>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -1279,7 +1293,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
    * directly, which under `manualSorting` would have written to state nothing
    * reads: a menu item that highlights, closes, and changes nothing.
    */
-  const applySort = (columnKey: string, order: 'asc' | 'desc') => {
+  const applySort = (columnKey: string, order: SortDirection) => {
     if (manualSorting) {
       onSortChange?.([{ field: columnKey, order }]);
       return;

@@ -924,10 +924,31 @@ const DEBT_ISSUE = 7265;
 // default }` preset dialect that the spec's strict ViewTabSchema rejects, and
 // binding it would 422 metadata that renders today. Both are pinned, in both
 // directions, by packages/types/src/__tests__/spec-symbol-parity.test.ts.
+//
+// Then the `@object-ui/components` slice at objectui#7265, where the route was
+// decided by what the extra member MEANS rather than by how many members there
+// were. The DataTable renderer declared `SortDirection` as `'asc' | 'desc' |
+// null`, and that third state made the RENAME question genuinely live: the
+// spec's `SortDirection` -- re-measured at the RESOLVED pin 17.4.0, on the
+// `@objectstack/spec/shared` subpath, because byte-identical is a statement
+// about a version and so is two-member -- is the direction and nothing else.
+// Reading the site settled it the other way. `null` is not a third DIRECTION,
+// it is the ABSENCE of one: it is written at exactly one place (the end of the
+// client-side header cycle in `handleSort`) and read only by guards that guard
+// `sortColumn` in the same breath -- and `sortColumn`, the other half of the
+// same state pair, already spelled its own empty case as `useState<string |
+// null>` at the slot instead of folding it into a type name. So the concept IS
+// the spec's, and the strongest BIND form was available: the type is now
+// IMPORTED outright, the local declaration is gone rather than derived, and the
+// third state is confined to the one state slot that carries it with the reason
+// written there. `applySort`, one screen down, was a second hand copy of the
+// same two members inline in its signature and now takes the bound type too.
+// The spec-side properties the binding rests on are pinned in this package's
+// existing spec-symbol file, packages/components/src/__tests__/
+// share-filter-sort-spec-parity.test.ts (appended to, not duplicated); the site
+// and the block are pinned in
+// scripts/__tests__/spec-symbol-ledger-components-7265.test.ts.
 const DEBT = {
-  "@object-ui/components": [
-    "SortDirection",
-  ],
   "@object-ui/data-objectstack": [
     "normalizeFilterOperator",
   ],

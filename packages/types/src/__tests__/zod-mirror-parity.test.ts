@@ -2126,18 +2126,20 @@ interface UnmirroredDeclared {
    *     `viewTabBar` — zero reads; the tab-bar config is `ViewTabBar`'s `config` PROP
    *     from the host, never a node key.
    * ⚠️ `listViews` STAYS, on the ruling's own fallback clause, with the measurement
-   * that triggered it: the declaration's value is the local `NamedListView`, 47
-   * declared top-level members, six of which the renderer reads — `label`, `type`,
-   * `columns`, `filter`, `sort`, `options`. The renderer reads a seventh key off a
-   * named view, `data`, and it is NOT a declared member: it arrives through an
-   * `as any` cast on the named-view config in `plugin-view/src/ObjectView.tsx`, so
-   * it is outside the 47 this ledger counts. The spec slot `ViewSchema.listViews` is
+   * that triggered it — RE-TAKEN at objectui#8980, which moved both halves of it.
+   * The declaration's value is the local `NamedListView`, now 64 declared
+   * top-level members (47 plus the seventeen the protocol declares on this
+   * surface and objectui did not), 21 of which the renderer reads off a named
+   * view. `data` is one of the 21: it used to arrive through an `as any` cast on
+   * the named-view config in `plugin-view/src/ObjectView.tsx` and be outside the
+   * count, and objectui#8980's ruling declared it, which is objectui#7928's open
+   * half answered. The spec slot `ViewSchema.listViews` is
    * a record of the STRICT `ObjectListViewSchema`, which requires `columns` and
    * refuses `options`, ObjectQL tuple filters and `default` — the named views
    * `plugin-view`'s README and `content/docs/api/schema-reference.md` teach fail it
    * at `columns` / `filter.0` / unrecognized_keys. Mirroring the spec value loses
-   * documented behaviour; mirroring the local value enforces 41 unread members
-   * (47 declared, minus the 6 that are both declared and read) into the contract
+   * documented behaviour; mirroring the local value enforces 43 unread members
+   * (64 declared, minus the 21 that are both declared and read) into the contract
    * (the reason ruling B
    * refused option A for the six local keys). Neither is a mirror edit this ledger can
    * authorise; ⛔ `z.any()` was ruled out by name. The value type is the maintainer's

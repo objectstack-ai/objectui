@@ -44,14 +44,21 @@
  * ## The one that stayed, and why it is pinned too
  *
  * `listViews` is NOT mirrored. The ruling's own fallback clause fires on the
- * measurement below: the declaration's value is the local `NamedListView` — 47
- * declared top-level members, of which the renderer reads six (`label`, `type`,
- * `columns`, `filter`, `sort`, `options`), leaving 41 that a key-for-key local
- * mirror would enforce unread. The renderer reads a SEVENTH key off a named
- * view, `data`, which is NOT a declared member of `NamedListView`: it arrives
- * through an `as any` cast on the named-view config in the renderer
- * (`(currentNamedViewConfig as any)?.data`), which is why the read set below
- * has seven entries while the arithmetic subtracts only six. The spec's
+ * measurement below: the declaration's value is the local `NamedListView` — 64
+ * declared top-level members, of which the renderer reads 21, leaving 43 that a
+ * key-for-key local mirror would enforce unread.
+ *
+ * ⚠️ BOTH FIGURES WERE RE-TAKEN at objectui#8980 and are NOT the ones this file
+ * was written with. It measured 47 declared / 6 read / 41 unread, plus a
+ * SEVENTH read, `data`, that was declared nowhere and reached the renderer
+ * through an `as any` cast — which is why the read set had seven entries while
+ * the arithmetic subtracted only six. The director-seat ruling of 2026-09-13
+ * (objectui#8980) declared the seventeen members the protocol declares on this
+ * surface and objectui did not, `data` among them with the cast removed, and
+ * wired a read point for each. So the read set and the declared set no longer
+ * disagree on a single name, and the arithmetic subtracts the whole read set.
+ * ⛔ Do not quote 47 / 6 / 41 from anywhere: they are this file's history, not
+ * its reading. The spec's
  * `ViewSchema.listViews` is a record of the STRICT `ObjectListViewSchema`, and
  * the spec value refuses the named views this package's docs teach. Both facts
  * are asserted against the SPEC schema here, so the day the spec relaxes (or
@@ -162,8 +169,16 @@ const READ_CONTROL_KEY = 'objectName';
  */
 const CONTROL_KEY = 'viewSwitcherPosition';
 
-/** The seven `NamedListView` members the renderer reads off a named view. */
-const NAMED_VIEW_READS = ['columns', 'data', 'filter', 'label', 'options', 'sort', 'type'] as const;
+/**
+ * The `NamedListView` members the renderer reads off a named view. Twenty-one
+ * since objectui#8980 wired a read point for each of the seventeen protocol
+ * members it declares; seven before it, of which `data` was the undeclared cast.
+ */
+const NAMED_VIEW_READS = [
+  'appearance', 'calendar', 'chart', 'columns', 'data', 'fieldOrder', 'filter', 'gallery',
+  'gantt', 'grouping', 'kanban', 'label', 'map', 'name', 'options', 'rowColor', 'sort',
+  'timeline', 'tree', 'type', 'userActions',
+] as const;
 
 /* ── objectui#7924 — the per-member liveness census ───────────────────────────
  * Both halves below are RE-DERIVED at test time (`namedListViewMembers()` /
@@ -171,44 +186,71 @@ const NAMED_VIEW_READS = ['columns', 'data', 'filter', 'label', 'options', 'sort
  * that moves between the two sets — in EITHER direction — fails by name.
  */
 
-/** Every top-level member `NamedListView` declares. 47 today, sorted. */
+/** Every top-level member `NamedListView` declares. 64 today (47 + objectui#8980's seventeen), sorted. */
 const NAMED_LIST_VIEW_DECLARED = [
   'addDeleteRecordsInline', 'addRecord', 'addRecordViaForm', 'allowExport', 'allowPrinting',
-  'aria', 'bulkActionDefs', 'bulkActions', 'clickIntoRecordDetails', 'collapseAllByDefault',
-  'color', 'columns', 'compactToolbar', 'conditionalFormatting', 'densityMode', 'description',
-  'emptyState', 'exportOptions', 'fieldTextColor', 'filter', 'filterableFields', 'hiddenFields',
-  'inlineEdit', 'label', 'navigation', 'options', 'pagination', 'prefixField', 'resizable',
-  'rowActions', 'rowHeight', 'searchableFields', 'selection', 'sharing', 'showColor',
-  'showDensity', 'showDescription', 'showFilters', 'showGroup', 'showHideFields',
-  'showRecordCount', 'showSearch', 'showSort', 'sort', 'type', 'userFilters', 'wrapHeaders',
+  'appearance', 'aria', 'bulkActionDefs', 'bulkActions', 'calendar', 'chart',
+  'clickIntoRecordDetails', 'collapseAllByDefault', 'color', 'columns', 'compactToolbar',
+  'conditionalFormatting', 'data', 'densityMode', 'description', 'emptyState', 'exportOptions',
+  'fieldOrder', 'fieldTextColor', 'filter', 'filterableFields', 'gallery', 'gantt', 'grouping',
+  'hiddenFields', 'inlineEdit', 'kanban', 'label', 'map', 'name', 'navigation', 'options',
+  'pageName', 'pagination', 'prefixField', 'resizable', 'rowActions', 'rowColor', 'rowHeight',
+  'searchableFields', 'selection', 'sharing', 'showColor', 'showDensity', 'showDescription',
+  'showFilters', 'showGroup', 'showHideFields', 'showRecordCount', 'showSearch', 'showSort',
+  'sort', 'tabs', 'timeline', 'tree', 'type', 'userActions', 'userFilters', 'wrapHeaders',
 ] as const;
 
-/** The six DECLARED members the renderer reads off a named view. */
-const NAMED_VIEW_READ_DECLARED = ['columns', 'filter', 'label', 'options', 'sort', 'type'] as const;
-
 /**
- * Read off a named view but NOT declared on `NamedListView`: it arrives through
- * an `as any` cast (`(currentNamedViewConfig as any)?.data`). objectui#7928
- * requires this card to answer the key: it is still declared nowhere, so it is
- * the one member of the read set the "47 minus the read set" arithmetic must
- * NOT subtract.
+ * The DECLARED members the renderer reads off a named view. All 21 of them
+ * since objectui#8980 — the read set and the declared set no longer disagree on
+ * a single name, which is what closed {@link NAMED_VIEW_READ_UNDECLARED}.
  */
-const NAMED_VIEW_READ_UNDECLARED = ['data'] as const;
+const NAMED_VIEW_READ_DECLARED = [
+  'appearance', 'calendar', 'chart', 'columns', 'data', 'fieldOrder', 'filter', 'gallery',
+  'gantt', 'grouping', 'kanban', 'label', 'map', 'name', 'options', 'rowColor', 'sort',
+  'timeline', 'tree', 'type', 'userActions',
+] as const;
 
 /**
- * The census result: declared, and NOT read off a named view. 41 today. A
+ * Read off a named view but NOT declared on `NamedListView`. EMPTY since
+ * objectui#8980, and the emptiness is the reading.
+ *
+ * This held exactly one name, `data`, reached through an `as any` cast on the
+ * named-view config — objectui#7928's open half. The director-seat ruling of
+ * 2026-09-13 answered it by name ("`data` replaces the `as any` read …: declare
+ * it"), so the member is declared, the cast is gone, and the census arithmetic
+ * now subtracts the whole read set rather than the read set minus one.
+ *
+ * ⛔ A name reappearing here is not a test to update: it is a renderer reading a
+ * key off a named view that nothing declares, which is the class objectui#7928
+ * sends to a ruling.
+ */
+const NAMED_VIEW_READ_UNDECLARED = [] as const;
+
+/**
+ * The census result: declared, and NOT read off a named view. 43 today. A
  * document authoring any of these validates green (`BaseSchema` is
  * `.passthrough()`) and changes nothing — the finding objectui#7924 records.
+ *
+ * ⭐ TWO OF THE 43 ARE objectui#8980's OWN, AND THAT IS THE RULED OUTCOME, not
+ * an oversight: `tabs` and `pageName`. The ruling's item 2 requires a member
+ * with no renderer behaviour to attach to be DECLARED and REPORTED with its
+ * measurement — ⛔ not silently declared inert and ⛔ not dropped from the type.
+ * The measurements, reported on objectui#8980: objectui's tab bar for an object
+ * is the host-owned saved-view switcher (ADR-0053), so nothing on this surface
+ * reads the list shape's `ViewTabSchema[]`; and `page` is not a member of
+ * `NamedListView['type']`, so no authored named view can select the branch
+ * `pageName` configures.
  */
 const NAMED_LIST_VIEW_UNREAD = [
   'addDeleteRecordsInline', 'addRecord', 'addRecordViaForm', 'allowExport', 'allowPrinting',
   'aria', 'bulkActionDefs', 'bulkActions', 'clickIntoRecordDetails', 'collapseAllByDefault',
   'color', 'compactToolbar', 'conditionalFormatting', 'densityMode', 'description', 'emptyState',
   'exportOptions', 'fieldTextColor', 'filterableFields', 'hiddenFields', 'inlineEdit',
-  'navigation', 'pagination', 'prefixField', 'resizable', 'rowActions', 'rowHeight',
+  'navigation', 'pageName', 'pagination', 'prefixField', 'resizable', 'rowActions', 'rowHeight',
   'searchableFields', 'selection', 'sharing', 'showColor', 'showDensity', 'showDescription',
   'showFilters', 'showGroup', 'showHideFields', 'showRecordCount', 'showSearch', 'showSort',
-  'userFilters', 'wrapHeaders',
+  'tabs', 'userFilters', 'wrapHeaders',
 ] as const;
 
 /**
@@ -879,17 +921,23 @@ describe('objectui#7779 — `listViews` stays unmirrored on the ruling\'s fallba
     expect(readRepo('content/docs/api/schema-reference.md')).toContain('"filter": [["owner", "=", "${currentUser.id}"]],');
   });
 
-  it('the renderer reads exactly seven keys off a named view — six of them declared `NamedListView` members, the seventh (`data`) an `as any` cast — of a declaration with far more, the reason a local key-for-key mirror was not the answer either', () => {
-    expect(namedViewReads()).toEqual([...NAMED_VIEW_READS]);
-    // The tab strip reads `label` off the entries too — same member, second site.
-    expect(readRepo(READER)).toContain('{view.label || key}');
-    // Six of those seven are declared `NamedListView` members. The seventh,
-    // `data`, is not declared at all — it reaches the renderer through an
-    // `as any` cast on the named-view config — so the "unread" arithmetic
-    // below subtracts six, not seven. Both directions are already pinned
-    // without a new assertion: were `data` ever declared, the exact count
-    // moves 47 → 48 and fails here; were the cast read dropped,
-    // `namedViewReads()` returns six entries and fails above.
+  it('the renderer reads twenty-one keys off a named view — every one of them a declared `NamedListView` member since objectui#8980 — of a declaration with 64, the reason a local key-for-key mirror is still not the answer', () => {
+    // ⚠️ The REGEX instrument sees twenty, not twenty-one: `name` is read only
+    // at the tab strip (`view.name`), which `currentNamedViewConfig?.KEY` cannot
+    // see. The AST derivation below finds it; the gap between the two is
+    // asserted by name there rather than papered over here.
+    expect(namedViewReads()).toEqual([...NAMED_VIEW_READS].filter((k) => k !== 'name'));
+    // The tab strip reads `label` off the entries too — same member, second
+    // site — and since objectui#8980 `name` between it and the record key.
+    expect(readRepo(READER)).toContain('{view.label || view.name || key}');
+    // ALL twenty-one are declared `NamedListView` members since objectui#8980:
+    // the seventeen the protocol declares on this surface landed with a read
+    // point each, and `data` — which used to reach the renderer through an
+    // `as any` cast on the named-view config — is one of them. So the "unread"
+    // arithmetic below subtracts the whole read set rather than the read set
+    // minus one. Both directions stay pinned: a member added or removed moves
+    // the exact count and fails here; a read dropped shortens
+    // `namedViewReads()` and fails above.
     const declared = namedListViewMembers().names.length;
     // HOW THIS NUMBER IS TAKEN: `namedListViewMembers()` — the TypeScript parser
     // walking the interface's own `PropertySignature` members (objectui#7924).
@@ -908,8 +956,8 @@ describe('objectui#7779 — `listViews` stays unmirrored on the ruling\'s fallba
     // figures could stale silently in either direction.
     expect(
       declared,
-      'NamedListView\'s top-level member count moved (was 47). Re-derive it with this file\'s own namedListViewMemberCount() regex, then update the "47 declared / 41 unread" figures in the three files that carry them together — .changeset/object-view-unmirrored-keys-7779.md, packages/types/src/zod/objectql.zod.ts and packages/types/src/__tests__/zod-mirror-parity.test.ts — plus this file\'s own header. A shrink toward the read set also re-opens the listViews decision (objectui#7928).',
-    ).toBe(47);
+      'NamedListView\'s top-level member count moved (was 64 — 47 plus objectui#8980\'s seventeen). Re-derive it with this file\'s own namedListViewMemberCount() regex, then update the "64 declared / 43 unread" figures in the three files that carry them together — .changeset/object-view-unmirrored-keys-7779.md, packages/types/src/zod/objectql.zod.ts and packages/types/src/__tests__/zod-mirror-parity.test.ts — plus this file\'s own header. A shrink toward the read set also re-opens the listViews decision (objectui#7928).',
+    ).toBe(64);
     expect(declared).toBeGreaterThan(NAMED_VIEW_READS.length);
   });
 
@@ -936,20 +984,23 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
 
   it('the declared member set is EXACTLY the census, by name', () => {
     expect([...namedListViewMembers().names].sort()).toEqual([...NAMED_LIST_VIEW_DECLARED].sort());
-    expect(NAMED_LIST_VIEW_DECLARED).toHaveLength(47);
-    expect(new Set<string>(NAMED_LIST_VIEW_DECLARED).size).toBe(47);
+    expect(NAMED_LIST_VIEW_DECLARED).toHaveLength(64);
+    expect(new Set<string>(NAMED_LIST_VIEW_DECLARED).size).toBe(64);
   });
 
   it('all three instruments read the same declaration, and the two that disagree disagree for a stated reason', () => {
     const ast = namedListViewMembers().names.length;
     // The parser and the strict regex agree — that agreement is what licenses
     // replacing the regex without re-opening the number.
-    expect(ast).toBe(47);
+    expect(ast).toBe(64);
     expect(namedListViewMemberCount()).toBe(ast);
     // …and the loose regex does NOT, by 12, because it also counts nested
-    // object-literal lines. Pinned so "52 is between two instruments and is
-    // neither" stays a reading rather than a remembered sentence.
-    expect(namedListViewLooseMemberCount()).toBe(59);
+    // object-literal lines. The gap is still exactly 12 after objectui#8980:
+    // every one of the seventeen new members is a single-line type reference,
+    // so none of them adds a nested object literal for the loose instrument to
+    // over-count. Pinned so "a figure between two instruments is neither" stays
+    // a reading rather than a remembered sentence.
+    expect(namedListViewLooseMemberCount()).toBe(76);
     expect(namedListViewLooseMemberCount()).toBeGreaterThan(ast);
   });
 
@@ -976,42 +1027,59 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     }
   });
 
-  it('the renderer reads exactly seven names off a named view — six declared, plus the undeclared `data`', () => {
+  it('the renderer reads exactly twenty-one names off a named view — every one of them declared', () => {
     const d = deriveNamedViewReads();
     expect(d.reads).toEqual([...NAMED_VIEW_READS]);
-    expect(d.reads).toHaveLength(7);
-    // The AST derivation reproduces the regex reading it replaces: the
-    // instrument changed, the reading did not. ⭐ It also finds STRICTLY more
-    // sites — `{view.label || key}` on the tab strip is a named-view read the
-    // `currentNamedViewConfig?.KEY` regex cannot see — so the agreement is on
-    // the SET, and the AST's extra site is asserted rather than lost.
-    expect(d.reads).toEqual(namedViewReads());
+    expect(d.reads).toHaveLength(21);
+    // ⭐ THE INSTRUMENTS NOW DISAGREE BY ONE NAME, and the difference is pinned
+    // rather than smoothed over. The AST finds STRICTLY more than the
+    // `currentNamedViewConfig?.KEY` regex it replaced — that was already true
+    // for SITES (`{view.label || …}` on the tab strip is a named-view read the
+    // regex cannot see), and objectui#8980 made it true for a NAME as well:
+    // `name` is read ONLY at that tab strip. So the regex is a subset, and the
+    // members it cannot see are asserted by name.
+    const regexOnly = namedViewReads();
+    expect(regexOnly.filter((r) => !d.reads.includes(r)), 'the regex found a read the AST did not — the AST is the authority and must be extended').toEqual([]);
+    expect(
+      d.reads.filter((r) => !regexOnly.includes(r)),
+      'the set of named-view reads the `currentNamedViewConfig?.KEY` regex cannot see moved. '
+        + 'It is the tab strip\'s `view.KEY` reads; re-derive it rather than widening this expectation.',
+    ).toEqual(['name']);
     expect(d.readSites.label.length, '`label` is read at two sites: the delegation and the tab strip').toBe(2);
+    expect(d.readSites.name.length, '`name` is read at exactly one site: the tab strip\'s display fallback').toBe(1);
   });
 
-  it('the census partitions the declaration exactly: 6 read + 41 unread = 47, disjoint and exhaustive', () => {
+  it('the census partitions the declaration exactly: 21 read + 43 unread = 64, disjoint and exhaustive', () => {
     const declared = new Set(namedListViewMembers().names);
     const reads = new Set(deriveNamedViewReads().reads);
     const read = [...declared].filter((m) => reads.has(m)).sort();
     const unread = [...declared].filter((m) => !reads.has(m)).sort();
     expect(read).toEqual([...NAMED_VIEW_READ_DECLARED]);
     expect(unread).toEqual([...NAMED_LIST_VIEW_UNREAD]);
-    expect(read).toHaveLength(6);
-    expect(unread).toHaveLength(41);
+    expect(read).toHaveLength(21);
+    expect(unread).toHaveLength(43);
     expect(read.length + unread.length).toBe(declared.size);
     expect(read.filter((m) => unread.includes(m))).toEqual([]);
   });
 
-  it('`data` is READ off a named view and declared NOWHERE — the cast class objectui#7928 sends here', () => {
+  it('`data` is READ off a named view and now DECLARED — objectui#7928\'s open half, answered by the objectui#8980 ruling', () => {
     const declared = new Set(namedListViewMembers().names);
     const reads = deriveNamedViewReads();
     const undeclared = reads.reads.filter((r) => !declared.has(r));
-    // Still exactly one, and still `data`. If a SECOND cast-only read appears,
-    // this fails and the ruling request gets the new name with the old one.
+    // EMPTY, and the emptiness is the reading: nothing the renderer reads off a
+    // named view is undeclared any more. A name appearing here is a new
+    // cast-only read, which is the class objectui#7928 sends to a ruling — ⛔ do
+    // not add it to NAMED_VIEW_READ_UNDECLARED to make this green.
     expect(undeclared).toEqual([...NAMED_VIEW_READ_UNDECLARED]);
-    expect(declared.has('data'), '`data` became a declared member; the census arithmetic now subtracts seven, not six').toBe(false);
-    // …and it is genuinely reached through the cast, not through a declared path.
-    expect(readRepo(READER)).toContain('data: (currentNamedViewConfig as any)?.data');
+    expect(undeclared).toHaveLength(0);
+    expect(declared.has('data'), '`data` is a declared member since objectui#8980; the census arithmetic subtracts the whole read set').toBe(true);
+    expect(reads.reads).toContain('data');
+    // …and it is reached through the DECLARED path: the cast on the named-view
+    // config is gone. The two neighbouring casts are untouched and stay — the
+    // host `views` entry is an untyped host shape, and `data` on the node is one
+    // of the 27 objectui#5097 host-composition keys.
+    expect(readRepo(READER)).toContain('data: currentNamedViewConfig?.data ?? (activeView as any)?.data ?? (schema as any).data,');
+    expect(readRepo(READER)).not.toContain('(currentNamedViewConfig as any)?.data');
   });
 
   it.each(NAMED_VIEW_READ_DECLARED)('READ — `%s` is declared AND read off a named view', (member) => {

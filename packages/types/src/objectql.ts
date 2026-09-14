@@ -27,7 +27,7 @@ import type { DrillDownConfig } from './data-display.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
-import type { ListViewInferred, ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
+import type { ListViewInferred, ObjectCalendarBlockConfig, SpecNamedListView } from './zod/objectql.zod.js';
 
 /**
  * The type of {@link ObjectCalendarSchema.calendar}, re-exported so the
@@ -2262,6 +2262,183 @@ export interface NamedListView {
     describedBy?: string;
     live?: 'polite' | 'assertive' | 'off';
   };
+
+  /* ── objectui#8980 — the SEVENTEEN members the protocol declares on this very
+   * surface and this interface did not ───────────────────────────────────────
+   *
+   * Director-seat class-one adjudication of 2026-09-13 (objectui#8980), under
+   * the maintainer's standing principle — quoted verbatim, deliberately
+   * untranslated, because a translated ruling is a second ruling:
+   *
+   *   「我们的项目以 objectstack 协议为准，文档应该以实际实现为准。协议不正确的应该先修改协议。」
+   *
+   * The value type of an entry in `ViewSchema.listViews` / `ObjectSchema.listViews`
+   * is the protocol's `ObjectListViewSchema` (`@objectstack/spec/ui`, built from
+   * `ListViewShapeSchema`). Re-measured on this tree against the resolved
+   * `@objectstack/spec@17.4.0`: that shape carries 50 keys, 22 of which this
+   * interface did not declare, 5 of those 22 being the protocol's own
+   * `retiredKey()` tombstones (`bordered` `performance` `responsive` `striped`
+   * `virtualScroll` — each refuses a plausible value with a message naming the
+   * 17.0.0 removal). 22 − 5 = the seventeen below. objectui was NARROWER than
+   * the protocol on every one of them, which is the direction the principle
+   * forbids; the remedy is to catch up, ⛔ not to declare-and-ignore (ADR-0049),
+   * so each member here has a READ POINT landing in the same change.
+   *
+   * ⭐ TYPES ARE TAKEN FROM THE PROTOCOL, ⛔ never restated. Sixteen of the
+   * seventeen index {@link ListViewSchema} — this package's own spec-derived
+   * `list-view` node type, whose members arrive from `SpecListViewSchema.shape`
+   * by reference (`zod/objectql.zod.ts`, `specFieldsExcept`). That is the
+   * derivation this interface already uses one member up (`userFilters`), and
+   * it buys a second property the relay needs: `ObjectView` forwards a named
+   * view INTO a `list-view` node, so the two faces are provably the same type
+   * for every key that crosses. `name` is the exception and says so on its own
+   * line.
+   *
+   * ⚠️ WHAT IS NOT CLAIMED HERE. Declaring a key is not the same as the renderer
+   * having behaviour to attach to it. Three of the seventeen are reported with
+   * their measurement on objectui#8980 rather than wired, exactly as the
+   * ruling's item 2 requires — `tabs` and `pageName` have no reader on this
+   * surface at all, and `chart` / `tree` are read but only reachable through a
+   * host `views` prop (objectui#5321). ⛔ None of them may be dropped from the
+   * type on that basis: the report is the evidence a protocol card would need.
+   *
+   * The 19 legacy spellings this interface declares BEYOND the protocol are
+   * objectui#7924's remedy and stay there (ruling item 4) — ⛔ not touched here.
+   */
+
+  /**
+   * Internal view name (lowercase snake_case) — the protocol's own identity for
+   * this view, distinct from the record KEY it is filed under in `listViews`.
+   *
+   * ⭐ THE ONE MEMBER NOT DERIVED FROM {@link ListViewSchema}, and the reason is
+   * a measurement: `name` sits in that mirror's `LIST_VIEW_LOCAL_OVERRIDES`, so
+   * on the `list-view` node it resolves through `BaseSchema.name` — the
+   * COMPONENT name slot, a different contract that happens to share a spelling.
+   * Indexing the spec's own shape keeps this member tracking the protocol's
+   * `SnakeCaseIdentifierSchema` rather than that neighbour.
+   *
+   * LIVE, and written by a producer today: `@object-ui/app-shell`'s
+   * `mergeViewsIntoObjects` stamps `name: key` onto every composed `listViews`
+   * entry (`applyViewItem`), and its primary-view promotion matches on it — so
+   * this key has been travelling on this surface undeclared.
+   */
+  name?: SpecNamedListView['name'];
+
+  /**
+   * Data source configuration (defaults to the `object` provider).
+   *
+   * objectui#7928's open half, answered by ruling item 2: DECLARE it. The
+   * renderer already read this key off a named view through an `as any` cast on
+   * the named-view config; that cast is gone in the same change, so the read and
+   * the declaration are now one fact.
+   */
+  data?: ListViewSchema['data'];
+
+  /** Explicit field display order — the live third key of the protocol's
+   * `columns` × `hiddenFields` × `fieldOrder` composition (objectstack#15184
+   * ruling B, 2026-09-11: `columns` projects, `hiddenFields` subtracts,
+   * `fieldOrder` orders what survives). `ListView` reads it. */
+  fieldOrder?: ListViewSchema['fieldOrder'];
+
+  /** Grouping configuration. Read by `ListView` and by `ObjectGrid`. */
+  grouping?: ListViewSchema['grouping'];
+
+  /** Row colouring configuration — the spec-canonical form of the legacy bare
+   * `color` shorthand two dozen lines up. Read by `ListView` and `ObjectGrid`. */
+  rowColor?: ListViewSchema['rowColor'];
+
+  /** User action toggles for the view toolbar — the protocol's canonical home
+   * for the eight legacy `show*` spellings this interface still declares
+   * (objectui#7924 owns their retirement, ⛔ not this card). */
+  userActions?: ListViewSchema['userActions'];
+
+  /** Appearance and visualization configuration (`showDescription`,
+   * `allowedVisualizations`). Read by `ListView`. */
+  appearance?: ListViewSchema['appearance'];
+
+  /**
+   * Tab definitions for a multi-tab view interface (`ViewTabSchema[]`).
+   *
+   * ⭐ RULING ITEM 3 — MEASURED BEFORE DECLARED, because the protocol spends the
+   * word `tabs` on two different keys. This is the TOP-LEVEL one on the list
+   * shape, and it survives `ObjectListViewSchema` untouched. The other is
+   * `userFilters.tabs`, which that schema OMITS as page-only
+   * (`ObjectUserFiltersSchema`: "an object view's tab bar is its saved-view
+   * switcher (ViewTabBar), and a second one would collide"). So the key declared
+   * here is the array of `ViewTabSchema`, ⛔ not the user-filter preset bar —
+   * objectui's own `userFilters` dialect keeps carrying that one separately.
+   *
+   * ⚠️ NO RENDERER BEHAVIOUR ON THIS SURFACE, measured and REPORTED on
+   * objectui#8980 rather than silently declared inert: objectui's tab bar for an
+   * object is the saved-view switcher the HOST owns (ADR-0053), and the only
+   * `tabs` read in `packages/plugin-list` is `UserFilters`' `config.tabs` — the
+   * page-only key, not this one.
+   */
+  tabs?: ListViewSchema['tabs'];
+
+  /**
+   * Name of the published `page` a `type: 'page'` view mounts.
+   *
+   * ⚠️ NO RENDERER BEHAVIOUR ON THIS SURFACE, measured and REPORTED on
+   * objectui#8980: `page` is not a member of this interface's own `type` union
+   * (seven values; the protocol's is ten), so no authored named view can select
+   * the branch this key configures. Declared because the protocol declares it
+   * and the ruling forbids dropping a member to avoid the report.
+   */
+  pageName?: ListViewSchema['pageName'];
+
+  /* ── The eight view-KIND configuration blocks ──────────────────────────────
+   * The protocol carries each at the TOP LEVEL of a list view. objectui read
+   * them only out of the legacy untyped `options` bag
+   * (`options.kanban`, `options.calendar`, …), which is why none of the eight
+   * was declared. `ObjectView.generateViewSchema` now resolves the canonical
+   * top-level block first and merges the legacy nesting under it, so both
+   * spellings work and the declared one wins key-by-key; each block reaches the
+   * renderer `ObjectView` already dispatches to for that `type`.
+   *
+   * The four with a local dialect (`kanban` `calendar` `gallery` `timeline`)
+   * index this package's mirror deliberately: those shapes are the spec config
+   * `.partial()`-ed plus the legacy field aliases the renderers still read
+   * (`groupField`, `imageField`, `dateField`). `gantt` `map` `chart` `tree`
+   * arrive in that mirror straight from `SpecListViewSchema.shape`.
+   */
+
+  /** Kanban board configuration. Consumed by `ObjectKanban` (`@object-ui/plugin-kanban`). */
+  kanban?: ListViewSchema['kanban'];
+
+  /** Calendar configuration. Consumed by `ObjectCalendar` (`@object-ui/plugin-calendar`). */
+  calendar?: ListViewSchema['calendar'];
+
+  /** Gallery configuration. Consumed by `ObjectGallery` (`@object-ui/plugin-gallery`). */
+  gallery?: ListViewSchema['gallery'];
+
+  /** Timeline configuration. Consumed by `ObjectTimeline` (`@object-ui/plugin-timeline`). */
+  timeline?: ListViewSchema['timeline'];
+
+  /** Gantt configuration. Consumed by `ObjectGantt` (`@object-ui/plugin-gantt`). */
+  gantt?: ListViewSchema['gantt'];
+
+  /** Map configuration. Consumed by `ObjectMap` (`@object-ui/plugin-map`). */
+  map?: ListViewSchema['map'];
+
+  /**
+   * Chart configuration. Consumed by `ObjectChart` (`@object-ui/plugin-charts`).
+   *
+   * ⚠️ REACHABILITY, measured and REPORTED on objectui#8980: `chart` is not a
+   * member of this interface's `type` union — objectui#5321 ruled the branch
+   * HOST-COMPOSITION ONLY — so a named view reaches it only when it declares no
+   * `type` of its own and a host `views` entry selects `chart`. The read is
+   * real; the authored route to it is not. ⛔ Not a reason to drop the member.
+   */
+  chart?: ListViewSchema['chart'];
+
+  /**
+   * Tree configuration. Consumed by `ObjectTree` (`@object-ui/plugin-tree`).
+   *
+   * ⚠️ Same reachability reading as `chart` above (objectui#5321), reported on
+   * objectui#8980 with it.
+   */
+  tree?: ListViewSchema['tree'];
 }
 
 /**

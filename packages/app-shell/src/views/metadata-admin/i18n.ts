@@ -1306,6 +1306,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.admin.assignableSets': 'Assignable permission sets',
   'perm.admin.noSets': 'No permission sets loaded.',
   'perm.loading': 'Loading permission set {name}…',
+  // objectui#9420 — the package door refuses rather than PUTs when the
+  // save-time layered re-read REJECTS: without it the merge base falls back
+  // to the already-sliced draft and the write deletes every other package's
+  // permission rows with a 200. Worded as a refusal plus the retry, because
+  // nothing was written and retrying is the whole remedy.
+  'perm.save.rereadFailed':
+    'Save cancelled: the current permission set could not be re-read, so rows contributed by other packages cannot be preserved. Nothing was saved — please try again.',
   // objectui#4446 — names the gate that actually tripped. The old wording
   // ("OS_METADATA_WRITABLE not enabled") blamed a deployment env var for a
   // per-type registry declaration, and had no reachable honest case: the env
@@ -3276,6 +3283,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.admin.assignableSets': '可分配权限集',
   'perm.admin.noSets': '未加载权限集。',
   'perm.loading': '加载权限集 {name}…',
+  // objectui#9420 — 见 EN 表同键注释。
+  'perm.save.rereadFailed':
+    '保存已取消：无法重新读取当前权限集，其他包贡献的权限行将无法保留。本次未写入任何内容，请重试。',
   // objectui#4446 — 见 EN 表同键注释：旧文案把「每类型注册表声明」说成「部署环境变量未启用」。
   'perm.readOnly': '只读（该元数据类型没有运行时写入通道）',
   'perm.readOnly.hint':

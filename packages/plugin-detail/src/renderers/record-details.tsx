@@ -121,7 +121,18 @@ export interface RecordDetailsRendererProps {
 }
 
 export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
-  schema = {} as any,
+  // ⛔ NOT `{} as any` (objectui#8649). A destructuring default's type joins
+  // the annotated property type at the binding, so `any` here ERASED
+  // `RecordDetailsRendererProps` for every read site in this file: declared
+  // keys (`hideFields`, `sections`, `columns`, …) and undeclared ones
+  // (`enforceFieldSecurity`, …) all read `any`, indistinguishably. That is what
+  // made objectui#8327's checker census unable to classify eleven of this
+  // card's twelve reads, and it is a LOCAL type defect — the exported
+  // annotation above was always correct, so repairing it moves no published
+  // surface. Spelled THROUGH the annotation rather than restating it, so a
+  // later change to `RecordDetailsRendererProps` cannot silently re-erase it.
+  // Pinned by `__tests__/detailRendererUndeclaredKeys-8649.test.ts`.
+  schema = {} as NonNullable<RecordDetailsRendererProps['schema']>,
   className,
   ...props
 }) => {

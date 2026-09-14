@@ -102,6 +102,35 @@ export interface RecordReferenceRailRendererProps {
      * behavior.
      */
     hideEmpty?: boolean;
+    /**
+     * The contract's NODE-level props envelope
+     * (`@objectstack/spec` `PageComponentSchema.properties` — "Component props
+     * passed to the widget"), declared here by objectui#8649 for the ONE member
+     * this renderer reads off it.
+     *
+     * The rail accepts a node either flattened (`schema.entries`) or enveloped
+     * (`schema.properties.entries`). The enveloped read went through an explicit
+     * `(schema as any)` cast — ⛔ NOT through the `[k: string]: any` below,
+     * which had nothing to do with it — so `entries` arrived as `any` on that
+     * path while the flattened path had the contract's own entry type.
+     *
+     * ⚠️ An earlier revision of this card declared the member and left that cast
+     * in place, which made the declaration INERT at the only site this comment
+     * names: a cast at the read site defeats a declaration that a membership
+     * instrument still reports as present. The cast is now gone (see the read
+     * itself), and `__tests__/detailRendererUndeclaredKeys-8649.test.ts` fails
+     * if it returns. Declaring the member NARROWS an accept this face already
+     * granted through its index signature; it widens nothing, and `properties`
+     * itself stays open because the contract declares it as a record.
+     *
+     * ⚠️ This is the node's envelope, NOT a `record:reference_rail` prop:
+     * `RecordReferenceRailProps` declares `entries` and `hideEmpty` and nothing
+     * else. `properties` has the standing `dataSource` and `className` have —
+     * accepted on every page component, as
+     * `recordRelatedListInputs.spec-parity.test.ts` derives for the sibling
+     * block.
+     */
+    properties?: { entries?: ReferenceRailEntry[] } & Record<string, any>;
     [k: string]: any;
   };
   className?: string;
@@ -156,8 +185,17 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
 
   const entries: ReferenceRailEntry[] = Array.isArray(schema.entries)
     ? schema.entries
-    : Array.isArray((schema as any).properties?.entries)
-      ? ((schema as any).properties.entries as ReferenceRailEntry[])
+    : // ⛔ NOT `(schema as any).properties` (objectui#8649 contract review D1).
+      // The cast predated the declaration below and defeated it: the checker
+      // read `.properties : any` and `.entries : any`, so the declaration was
+      // inert at the one site its own doc-comment named. Un-cast, this read now
+      // carries `ReferenceRailEntry[]` from the declaration, which is also why
+      // the trailing `as ReferenceRailEntry[]` assertion is gone — the declared
+      // type supplies it. The two sibling renderers reading the same envelope
+      // (`record-history.tsx`, `record-quick-actions.tsx`) already read it
+      // un-cast; this file was the outlier.
+      Array.isArray(schema.properties?.entries)
+      ? schema.properties.entries
       : [];
   const parentId = ctx?.recordId;
   const dataSource = ctx?.dataSource;

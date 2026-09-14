@@ -134,15 +134,22 @@ describe('why the cast could never have been fed by an author (objectui#6854 Zon
     // which is the point of this file: whether a key survived a parse is not something
     // any static type can answer.
     //
-    // ⭐ It used to be a PAIR, asserting `onClick` and `shortcut` both gone. objectui#7719
-    // split the two contracts, so only the `onClick` half belongs here: `shortcut` is no
-    // longer an UNDECLARED key that gets scrubbed, it is a declared `retirementTombstone`
-    // that makes this very document FAIL to parse. ⛔ Do not restore the second assertion
-    // — `'shortcut' in first` is unreachable now, because there is no `first` to read.
-    // The refused case is the row named "an authored `shortcut` on the same item is
-    // REFUSED, not dropped" — cited by NAME, because a positional reference goes stale
-    // the moment a row is inserted. The contract itself is pinned in
-    // `./app-menu-item-shortcut-refusal-7719.test.ts`.
+    // ⭐ It used to be a PAIR, asserting `onClick` and `shortcut` both gone, driven by a
+    // fixture that carried both keys. objectui#7719 split the two contracts, so only the
+    // `onClick` half belongs here — and `authored` above no longer carries `shortcut` at
+    // all. `shortcut` is no longer an UNDECLARED key that gets scrubbed; it is a declared
+    // `retirementTombstone`.
+    //
+    // ⛔ Do not restore the second assertion. Restored ALONE it would still pass, because
+    // this fixture has no `shortcut` for the parse to refuse — a green row asserting the
+    // absence of a key nobody wrote, which pins nothing. Making it mean anything would
+    // require putting `shortcut` back into `authored`, and THAT is what turns this block
+    // red: the parse fails, `result.success` is false, and the early return above fires
+    // before `first` is ever destructured. So the two halves cannot share one fixture any
+    // more, which is the whole reason they were split. The refusal is pinned by the row
+    // named "an authored `shortcut` on the same item is REFUSED, not dropped" — cited by
+    // NAME, because a positional reference goes stale the moment a row is inserted — and
+    // the contract itself by `./app-menu-item-shortcut-refusal-7719.test.ts`.
     const [first] = (result.data as unknown as { items: Record<string, unknown>[] }).items;
     expect('onClick' in first).toBe(false);
   });

@@ -594,9 +594,14 @@ export interface AppMenuItem {
    *
    * ⚠️ NOT the same key as {@link AppAction.shortcut}, which is declared,
    * authorable and deliberately untouched — that one is the header BUTTON's own
-   * shortcut, one level up from these items. A `grep` for `shortcut` over this
-   * file finds that member first, and reading it as this one is how the widening
-   * the ruling refused looks like work already done.
+   * shortcut, one level up from these items. This file declares `shortcut` TWICE,
+   * on two different interfaces, and reading one as the other is how the widening
+   * the ruling refused looks like work already done. ⛔ Resolve which declaration
+   * OWNS a hit before acting on it; a `grep` reports positions, and a position is
+   * not an owner. (⚠️ This paragraph deliberately states no ORDER between the two:
+   * an ordering claim is falsified by the next insertion into this file — including
+   * the one that introduced this very docblock, which reversed the order a previous
+   * draft of this sentence asserted.)
    *
    * ⛔ No read was re-added in the standalone runner's `LayoutRenderer`; the
    * objectui#6854 pin stands. Both halves of this refusal are pinned in

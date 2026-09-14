@@ -3456,6 +3456,19 @@ const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
       'decides a pull request.',
   ],
   [
+    'lockfile-dedupe.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as the registry that classifies this check `OPTIONAL_CONTEXTS` — the declaration that ' +
+      'makes its red block a Dependabot auto-merge, and the one file a maintainer edits to demote ' +
+      'it. A declaration this section points at, not a step this workflow runs.',
+  ],
+  [
+    'lockfile-dedupe.yml: scripts/invoked-as.mjs',
+    "Named inside the section's TRIGGER sentence, which enumerates this path-filtered gate's " +
+      'runtime closure (`check-lockfile-dedupe.mjs` imports `isEntrypoint` from it) to say a ' +
+      'change to the checker cannot ship without running it. A path the workflow watches, not a ' +
+      'command any job invokes.',
+  ],
+  [
     'lockfile-integrity.yml: scripts/dependabot-merge-gate.mjs',
     'Named as the registry that classifies this workflow `NOT_A_GATE`, in the sentence explaining ' +
       'that it cannot block anything today.',

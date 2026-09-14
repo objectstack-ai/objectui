@@ -418,14 +418,22 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
     );
 
     /**
-     * ⚠️ The expected text moved from `0.123%` to `12.3%` in objectui#8728, and
-     * the pin is still doing its job. Its subject is ROUTING — that a percent
-     * keeps the chip's own text path and its own single bar instead of being
-     * handed to a cell renderer — and the routing is unchanged. What that card
-     * found is that this chip's two halves scaled the same stored number by two
-     * different rules, so the `0.123%` this line used to require was the text
-     * disagreeing with the bar drawn beside it. The agreement itself is pinned
-     * in `summaryChip.percentOneRule-8728.test.tsx`.
+     * ⚠️ The expected text has now moved TWICE, and the pin is still doing its
+     * job both times, because its subject is ROUTING — that a percent keeps the
+     * chip's own text path and its own single bar instead of being handed to a
+     * cell renderer — and the routing is unchanged by either card.
+     *
+     *  - objectui#8728: `0.123%` → `12.3%`. That card found the chip's two
+     *    halves scaling the same stored number by two different rules, so the
+     *    `0.123%` this line used to require was the text disagreeing with the
+     *    bar drawn beside it. The agreement itself is pinned in
+     *    `summaryChip.percentOneRule-8728.test.tsx`.
+     *  - objectui#9167: `12.3%` → `12%`. The chip's text now goes through
+     *    `formatPercent`, the list cell's own call, so it rounds to the field's
+     *    declared precision (`0` here, undeclared) and renders the locale's own
+     *    affix. ⭐ Note what did NOT move: the bar-span count below, which is
+     *    the actual assertion of this case. The spelling is pinned across both
+     *    surfaces in `summaryChip.percentConvention-9167.test.tsx`.
      */
     it('PERCENT — keeps its own text AND its single decorative bar', () => {
       const { container } = renderPage({
@@ -435,14 +443,14 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       });
 
       const chip = requireChip(container, 'ratio');
-      expect(textOf(chip), 'the percent chip keeps its own text').toBe('12.3%');
+      expect(textOf(chip), 'the percent chip keeps its own text').toBe('12%');
       // The chip's OWN bar is two `rounded-full` spans — track and fill. A cell
       // renderer routed in here would add its own, so the exact count is the pin.
       expect(nestedPills(chip).length, 'exactly the chip\'s own two-span bar, no renderer bar').toBe(2);
       expect(
         chip.getAttribute('aria-label'),
         'and the accessible name still comes from that same string',
-      ).toBe('Ratio: 12.3%');
+      ).toBe('Ratio: 12%');
     });
   });
 

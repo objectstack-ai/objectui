@@ -325,7 +325,11 @@ function useFieldTranslate(): ((key: string, params?: Record<string, unknown>) =
 // static reference; the widgets stay publicly available via the `export * from
 // './widgets/…'` block at the end of this file.
 import { ImageLightbox } from './widgets/ImageLightbox.js';
-import { readFileValues } from './widgets/file-value.js';
+import { readFileValue, readFileValues, type FileValueView } from './widgets/file-value.js';
+// The one view/download affordance every `file` surface renders (objectui#9161).
+// Shared with `FileField` rather than copied into it; deliberately NOT
+// re-exported below, so this package's published surface is unchanged.
+import { FileValueAffordance } from './widgets/file-affordance.js';
 
 /**
  * Cell renderer props
@@ -1999,21 +2003,66 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
   const fileField = field as any;
   const isMultiple = fileField.multiple;
   
-  if (Array.isArray(value)) {
-    const count = value.length;
-    // Same channel and the same literal-key rule as `RepeaterCellRenderer`
-    // below (objectui#8441). The `count === 1 ? 'file' : 'files'` this replaces
-    // was NOT a rule violation — it is English — but it was equally
-    // unlocalized, and plural-safe for English only: `ru` has four plural
-    // categories and `ar` six, so a two-branch ternary cannot spell either.
-    // Two adjacent cells answering one concept two ways is the shape the
-    // repeater fix exists to close, so both read one channel.
+  // The display name a value that carries none falls back to — the same key and
+  // the same English default `FileField` reads, so the widget and the cell never
+  // name one attachment two different ways. Kept on the i18n channel
+  // (objectui#8441): this card introduces no new user-facing string.
+  const translatedFallback = t?.('fields.file.fileFallback');
+  const fallbackName =
+    !translatedFallback || translatedFallback === 'fields.file.fileFallback'
+      ? 'File'
+      : translatedFallback;
+
+  // One file, as the shared affordance when it resolves to a URL and as the
+  // same truncating text as before when it does not (objectui#9161). ⛔ Never a
+  // dead anchor: objectui#8490's ruling for `email` / `url` / `phone` —
+  // "nothing to link to, no link" — reads the same here, and worse, since an
+  // anchor that navigates nowhere reads as a working download.
+  const renderOne = (view: FileValueView, key?: React.Key) => (
+    <FileValueAffordance
+      key={key}
+      view={view}
+      className="text-sm"
+      fallback={<TruncatedText text={view.name} className="text-sm" />}
+    />
+  );
+
+  // Kept parameterised on `count` even though the only surviving call passes 0
+  // (below): the sentence has to stay true for any count, or a future caller
+  // re-routing it would silently read `1 files`.
+  const countLabel = (count: number) => {
     const translated = t?.('detail.fileCount', { count });
-    const label =
-      !translated || translated === 'detail.fileCount'
-        ? `${count} ${count === 1 ? 'file' : 'files'}`
-        : translated;
-    return <span className="text-sm text-gray-600">{label}</span>;
+    return !translated || translated === 'detail.fileCount'
+      ? `${count} ${count === 1 ? 'file' : 'files'}`
+      : translated;
+  };
+
+  if (Array.isArray(value)) {
+    // THE DEFECT this card fixed (objectui#9161): this arm rendered the COUNT
+    // and nothing else, so a record whose `file` field held a successfully
+    // uploaded attachment stated `1 file` and offered no way to reach it —
+    // while the read path, the signing endpoint and the signed URL all answered
+    // 200. Normalising through `readFileValues` is `ImageCellRenderer`'s
+    // treatment one screen below, applied to the same spec family: a string
+    // URL, a CDN link and an unexpanded bare id all resolve.
+    const views = readFileValues(value, fallbackName);
+    if (views.length === 0) {
+      // THE COUNT SURVIVES on the one arm where it is the whole answer
+      // (objectui#8496): an array that resolves to no renderable file states
+      // `0 files` rather than drawing the em-dash — an answer the affordance
+      // cannot give. Same channel and the same literal-key rule as
+      // `RepeaterCellRenderer` below (objectui#8441). The
+      // `count === 1 ? 'file' : 'files'` this replaced was NOT a rule violation
+      // — it is English — but it was equally unlocalized, and plural-safe for
+      // English only: `ru` has four plural categories and `ar` six, so a
+      // two-branch ternary cannot spell either.
+      return <span className="text-sm text-gray-600">{countLabel(views.length)}</span>;
+    }
+    return (
+      <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-0.5">
+        {views.map((view, idx) => renderOne(view, idx))}
+      </span>
+    );
   }
   
   // An object carrying nothing is not a file (objectui#8596). The spec's
@@ -2033,8 +2082,12 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
   // `{ foo: 1 }` keeps its JSON so real data is never hidden."
   if (isPlainObjectValue(value) && Object.keys(value).length === 0) return <EmptyValue />;
 
-  const fileName = value.name || value.original_name || 'File';
-  return <TruncatedText text={String(fileName)} className="text-sm" />;
+  // Same treatment for the single-value arm: the `value.name ||
+  // value.original_name || 'File'` this replaced picked a name and stopped,
+  // which is the other half of objectui#9161. `readFileValue` picks the same
+  // name (plus a URL's last segment as a name of last resort) AND resolves the
+  // URL, so a single attachment is reachable too.
+  return renderOne(readFileValue(value, fallbackName));
 }
 
 /**

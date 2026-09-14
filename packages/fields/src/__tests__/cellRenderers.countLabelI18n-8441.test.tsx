@@ -128,6 +128,13 @@ const textOf = (container: HTMLElement) => container.textContent ?? '';
 /** An `n`-element array — the value shape a `repeater` / multi-file cell holds. */
 const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ q: i + 1 }));
 
+/**
+ * A file value that RESOLVES — the expanded read-path shape. `rows(n)` above
+ * deliberately does not: objectui#9161 renders one as an anchor and the other as
+ * plain text, and only having both in this file says which pin measures which.
+ */
+const RESOLVABLE = { id: 'f_1928', name: 'att-1928.txt', url: '/api/v1/storage/files/f_1928' };
+
 beforeEach(() => {
   cleanup();
 });
@@ -224,20 +231,71 @@ describe('objectui#8441 — the `repeater` count varies by locale', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('objectui#8441 — the `file` count reads the same channel', () => {
-  it('`en` keeps its English text byte for byte — this half is a no-op pin', () => {
-    expect(textOf(renderCell('file', rows(2), fileField, 'en').container)).toBe('2 files');
+  /**
+   * ⚠️ UPDATED by objectui#9161, and the update is the finding rather than a
+   * formality — the same way objectui#8695 moved a pin in
+   * `cell-truncation.test.tsx` and that move WAS the finding.
+   *
+   * The two cases below asserted `2 files` / `1 file` against the WHOLE
+   * container text for a NON-EMPTY array. That count was not a label beside the
+   * files; it was the entire rendering. A `file` field in read-only state
+   * therefore named nothing and linked nothing, so an attachment that uploaded
+   * successfully could not be opened or downloaded from the PC Console at all
+   * — while the record read, the signing endpoint and the signed URL itself all
+   * answered 200. objectui#9161 replaced the non-empty arm with ONE AFFORDANCE
+   * PER FILE.
+   *
+   * ⭐ objectui#8441's own subject survives intact and is re-pinned here, on the
+   * arm where a count is still the whole truth: an array that resolves to no
+   * renderable file states `0 files` — through `useFieldTranslate`, so `ru`'s
+   * four plural categories and `ar`'s six stay the pack's problem and not a
+   * ternary's. The per-item FALLBACK NAME is on the same channel, which is what
+   * the `ru` and `zh` legs below now measure.
+   *
+   * ⛔ No `toBe` was weakened to a `toContain` and no case was deleted to get
+   * past this: each one asserts the NEW text exactly, and the href the card
+   * exists to produce is asserted beside it.
+   */
+  it('`en` keeps its English text byte for byte — the count arm, and the new per-file arm', () => {
+    // `rows(n)` is `{ q: n }`: an object carrying neither a `url` nor an id, so
+    // it resolves to NO href and renders as plain text under the pack's
+    // fallback name. objectui#9161 requires exactly that — ⛔ never a dead
+    // anchor for a value with nothing to link to.
+    const fallback = (en as any).fields.file.fileFallback;
+    expect(textOf(renderCell('file', rows(2), fileField, 'en').container)).toBe(fallback + fallback);
     cleanup();
-    expect(textOf(renderCell('file', rows(1), fileField, 'en').container)).toBe('1 file');
+    expect(textOf(renderCell('file', rows(1), fileField, 'en').container)).toBe(fallback);
+    cleanup();
+    // The count sentence, byte for byte, on the arm that kept it.
+    expect(textOf(renderCell('file', [], fileField, 'en').container)).toBe('0 files');
+    cleanup();
+    // ⭐ And the behaviour the count made impossible, asserted in the same case
+    // so this pin cannot be read as merely recording a text change: a file that
+    // resolves carries its name AND a working href.
+    const { container } = renderCell('file', [RESOLVABLE], fileField, 'en');
+    expect(textOf(container)).toBe(RESOLVABLE.name);
+    expect(container.querySelector('a')?.getAttribute('href')).toBe(RESOLVABLE.url);
   });
 
-  it('`ru` at count 1 uses `_one`, and at count 2 the base key IN RUSSIAN', () => {
-    expect(textOf(renderCell('file', rows(1), fileField, 'ru').container)).toBe(
-      (ru as any).detail.fileCount_one.replace('{{count}}', '1'),
-    );
+  it('`ru` at count 0 uses the base key IN RUSSIAN, and the per-file name is the `ru` word', () => {
+    // `Intl.PluralRules('ru').select(0)` is `many`, and no pack here enumerates
+    // `_many` — so count 0 lands on the BASE key for the same reason count 2
+    // did before objectui#9161 moved the call. Without the base key i18next
+    // walks `fallbackLng` to `en` and a Russian reader gets English
+    // (objectui#3863).
+    expect(new Intl.PluralRules('ru').select(0)).toBe('many');
+    const zero = textOf(renderCell('file', [], fileField, 'ru').container);
+    // ⚠️ RENDER-side first, deliberately: reading the pack for the oracle throws
+    // when the base key is absent, and a pin that dies on its own oracle
+    // reddens without ever saying what the reader saw.
+    expect(zero, 'a Russian reader must not be handed English').not.toBe('0 files');
+    expect(zero).toBe((ru as any).detail.fileCount.replace('{{count}}', '0'));
     cleanup();
-    const two = textOf(renderCell('file', rows(2), fileField, 'ru').container);
-    expect(two).toBe((ru as any).detail.fileCount.replace('{{count}}', '2'));
-    expect(two, 'the ternary this replaced could only ever say `2 files`').not.toBe('2 files');
+    // The per-item fallback name rides the same channel: a bare value with no
+    // name of its own is named by the `ru` pack, never by a source literal.
+    const one = textOf(renderCell('file', rows(1), fileField, 'ru').container);
+    expect(one).toBe((ru as any).fields.file.fileFallback);
+    expect(one, 'and it is not the English word').not.toBe((en as any).fields.file.fileFallback);
   });
 
   it('a falsy value is still the empty affordance — the hook sits ABOVE that guard', () => {
@@ -269,13 +327,19 @@ describe('objectui#8441 — the provider-less English fallback matches the `en` 
     );
   });
 
-  it('`file` — singular and plural, byte-equal to `en`', () => {
-    expect(textOf(renderCell('file', rows(1), fileField).container)).toBe(
-      (en as any).detail.fileCount_one.replace('{{count}}', '1'),
+  it('`file` — the surviving count call, and the fallback name, byte-equal to `en`', () => {
+    // ⚠️ UPDATED by objectui#9161: the two counts this asserted were taken on a
+    // NON-EMPTY array, the arm that no longer counts. The DUTY is unchanged and
+    // is what moved with the call — `check:i18n-keys` compares an inline
+    // `defaultValue` against the pack, and neither of these call sites has that
+    // shape (one is a ternary, the other a key-equality test), so this pin is
+    // the comparison.
+    expect(textOf(renderCell('file', [], fileField).container)).toBe(
+      (en as any).detail.fileCount_other.replace('{{count}}', '0'),
     );
     cleanup();
-    expect(textOf(renderCell('file', rows(2), fileField).container)).toBe(
-      (en as any).detail.fileCount_other.replace('{{count}}', '2'),
+    expect(textOf(renderCell('file', rows(1), fileField).container)).toBe(
+      (en as any).fields.file.fileFallback,
     );
   });
 });

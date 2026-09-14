@@ -146,7 +146,9 @@ const nestedPills = (chip: HTMLElement) =>
 
 describe('objectui#8464 — an object-valued summary chip beside the H1', () => {
   /**
-   * The four object-valued kinds whose renderer was MEASURED to fit the pill.
+   * The object-valued kinds whose renderer was MEASURED to fit the pill.
+   * ⚠️ `file` was a fourth row here until objectui#9161; it is now its own case
+   * below, on the REFUSED side, for the reason stated there.
    * `expected` is the whole chip: the `sr-only` field-name prefix that carries
    * the accessible name plus the value the renderer drew. Asserting the exact
    * string pins BOTH halves the defect broke.
@@ -180,12 +182,6 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
       // expectation cannot be satisfied by echoing the input back.
       value: { latitude: 30.2741567, longitude: 120.1551234 },
       expected: 'office_location: 30.2742, 120.1551',
-    },
-    {
-      field: 'contract',
-      type: 'file',
-      value: { name: 'contract.pdf', url: 'https://cdn.example.com/contract.pdf' },
-      expected: 'contract: contract.pdf',
     },
     {
       field: 'payload',
@@ -312,6 +308,45 @@ describe('objectui#8464 — an object-valued summary chip beside the H1', () => 
     expect(chip.getAttribute('aria-label'), 'and its accessible name says the same').toBe(
       'Stage: Negotiation',
     );
+  });
+
+  it('FILE — a file value reads its coerced name; the download link does not enter the pill', () => {
+    // ⚠️ MOVED here from `RENDERER_BACKED` by objectui#9161, and the move is the
+    // finding. That card gave `FileCellRenderer` a view/download `<a href>` per
+    // file — its whole subject: a read-only `file` field named its attachments
+    // and offered no way to open one, while the record read, the signing
+    // endpoint and the signed URL all answered 200. This chip's own rule is
+    // unchanged and is what moves `file` across it: "the pill hosts text, not a
+    // control", beside the page H1.
+    //
+    // ⭐ The VALUE half of the old expectation is asserted unchanged below:
+    // `coerceToSafeValue` reads the same `name` the cell renderer reads, so the
+    // reader sees the same word they saw before. What this case adds is the
+    // absence of the control — the fact the move is about. The file itself
+    // stays reachable one band down, in the field's own cell.
+    const { container } = renderPage({
+      summaryFields: ['contract'] as any,
+      fields: [{ name: 'contract', label: 'contract', type: 'file' }] as any,
+      data: {
+        id: 'A5',
+        name: 'Acme',
+        contract: { name: 'contract.pdf', url: 'https://cdn.example.com/contract.pdf' },
+      },
+    });
+
+    const chip = requireChip(container, 'contract');
+    expect(textOf(chip), 'the chip must not carry the String() placeholder').not.toContain(
+      '[object Object]',
+    );
+    expect(textOf(chip), 'the chip reads the coerced file name').toBe('contract.pdf');
+    expect(
+      chip.querySelectorAll('a[href],button,[role="button"],input').length,
+      'no view/download control inside the page title row',
+    ).toBe(0);
+    expect(
+      chip.getAttribute('aria-label'),
+      'a string-path chip keeps the accessible name it always had',
+    ).toBe('contract: contract.pdf');
   });
 
   it('UNNAMEABLE OBJECT — an object with no name reads the page\'s own word for it', () => {

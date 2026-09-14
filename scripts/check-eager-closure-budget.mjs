@@ -564,6 +564,55 @@ export const BASELINE = Object.freeze({
   chunks: 329,
   totalChunks: 2309,
   commit: 'bbf6b02d9',
+
+  /**
+   * The squash merge that carried that branch onto `main` — recorded here so
+   * the provenance above is checkable with `git` and nothing else
+   * (objectui#9355).
+   *
+   * ⛔ NOT a correction, and ⛔ never a substitute for the field above. The
+   * PROVENANCE paragraph's ruling stands exactly as written: the field above
+   * names the tree the reading was taken on, that is the whole point of the
+   * convention, and no commit on `main` has that tree. This is the OTHER half
+   * — a sha that resolves — so a reader who tries to re-check the measurement
+   * gets a handle rather than the dead end that paragraph describes. Both legs,
+   * taken in a checkout where `git rev-parse --is-shallow-repository` answers
+   * `false`, so the absence is GENUINE and ⛔ not a shallow-clone artefact:
+   *
+   *     git cat-file -t 67485872ed  ->  commit
+   *     git cat-file -t bbf6b02d9   ->  fatal: Not a valid object name
+   *
+   * ⚠️ The two name DIFFERENT TREES, and how far apart is ⛔ NOT established
+   * here. The field above does not resolve, so no checkout can count the
+   * commits between the pair, and the gzipped distance between them would need
+   * a console build of each. ⛔ Do not read that silence as "small":
+   * objectui#9209 measured exactly one such distance, on the pair this field
+   * named before objectui#9251 re-baselined the constant, and that reading is a
+   * fact about the RETIRED pair which says nothing about this one. Carrying the
+   * figure forward is the stale-prose defect this block exists to refuse.
+   *
+   * The value below is RE-DERIVED rather than copied forward: it is the commit
+   * on `main` that introduced the field above into this file, which
+   * `git log origin/main -S <tip> --oneline --reverse --
+   * scripts/check-eager-closure-budget.mjs` returns as its earliest hit, and it
+   * is single-parent — as a squash is — with `(#9399)` in its subject, the pull
+   * request that carried objectui#9251.
+   *
+   * ⚠️ This field can only ever be BACK-FILLED, which is the one thing a future
+   * re-baseline has to know about it. A squash sha does not exist until the
+   * pull request merges, so the change that re-pins the field above ⛔ cannot
+   * write its own here. ⛔ Do not guess one, and ⛔ do not carry this one
+   * forward onto a reading it was not taken with: a wrong sha in this position
+   * is worse than an absent one, because unlike the field above it RESOLVES,
+   * and a reader who builds the wrong tree gets a plausible number instead of
+   * an error. Write `null` and let a follow-up name the merge once it exists.
+   * That reds the ledger case in
+   * `scripts/__tests__/check-eager-closure-budget.test.ts` which records what
+   * this constant carries as data, and redding there is the intended signal —
+   * the ledger is re-pinned deliberately, ⛔ never widened to accept either
+   * shape.
+   */
+  squashMerge: '67485872ed',
 });
 
 /**

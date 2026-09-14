@@ -623,14 +623,26 @@ describe('objectui#8596 — an object literal is not a cell value, and these ren
       ).toBe('AL');
     });
 
-    it('POPULATED — a real file still shows its name, and a real file ARRAY still counts', () => {
+    it('POPULATED — a real file still shows its name, and a real file ARRAY reaches each file', () => {
       const single = renderCell('file', { url: 'https://cdn.example.com/c.pdf', name: 'contract.pdf' });
       expect(textOf(single.container), 'a real attachment still shows its name').toBe('contract.pdf');
       expect(affordance(single.container), 'a real attachment is not "No value"').toBeNull();
       cleanup();
 
+      // ⚠️ UPDATED by objectui#9161, and the update is the finding: this array
+      // used to render `2 files` and nothing else — the count WAS the whole
+      // rendering, so a successfully uploaded attachment could not be opened
+      // from the PC Console. Each entry now renders its own name and href.
+      // `{ url: 'a' }` carries no name, so `readFileValue` names it from the
+      // URL's last segment. ⭐ The count is not gone: it answers the arm where
+      // it is the whole truth, and THE BOUNDARY below still pins `[]` →
+      // `0 files` for `file` / `video` / `audio`.
       const many = renderCell('file', [{ url: 'a' }, { url: 'b' }]);
-      expect(textOf(many.container), 'a real file array still counts its entries').toBe('2 files');
+      expect(textOf(many.container), 'each entry now names itself').toBe('ab');
+      expect(
+        Array.from(many.container.querySelectorAll('a')).map((a) => a.getAttribute('href')),
+        'and each entry carries its own href — the affordance the count replaced',
+      ).toEqual(['a', 'b']);
     });
   });
 

@@ -236,10 +236,12 @@ export type FilterBuilderOperator = (typeof defaultOperators)[number]['value']
  * itself (objectui#9302), so the gate answers "no value" for spellings that
  * are NOT members — the canonical form `foldFilterGroupToSpecRules` persists,
  * and the alias rows the spec publishes for those same operators. A consumer
- * holding a spelling that did not come from this dropdown must therefore fold
- * it through `normalizeFilterOperator` before asking this set, exactly as that
- * gate does. How much wider the gate's preimage is is NOT restated here: the
- * pin `filter-builder-valueless-canonical-spelling-9302.test.tsx` walks the
+ * holding a spelling that did not come from this dropdown must therefore ask
+ * that FOLD-CLOSURE, not this set: fold this set's own members through
+ * `normalizeFilterOperator` as well as the spelling, and ask the result —
+ * the same fold the gate applies to BOTH sides. How much wider the gate's
+ * preimage is is NOT restated here: the pin
+ * `filter-builder-valueless-canonical-spelling-9302.test.tsx` walks the
  * spec's two published tables and names every row it measures, which is the
  * only form of that answer that moves when those tables do (AGENTS.md #9).
  *

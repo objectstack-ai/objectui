@@ -16,8 +16,8 @@ a trigger reading `Is null`.
 Which spellings those are is deliberately not listed here. The pin walks those
 two published tables and names every row it measured, so the population is
 re-derived on each run rather than restated in prose that cannot move with it —
-the first pass of this changeset named four and the behaviour covered twice that
-(objectui#9302). Measured through the real builder on one `text` column: every
+an earlier draft of this changeset hand-listed that population and undercounted
+it, which is why it is named by instrument here (objectui#9302). Measured through the real builder on one `text` column: every
 spelling the pin enumerates drew **1** value input where its camelCase dropdown
 twin drew **0**, with `equals` drawing 1 in both arms (it really does take a
 value) — the firing control that makes a uniform zero a reading rather than a

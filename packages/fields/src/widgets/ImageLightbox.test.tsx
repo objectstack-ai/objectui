@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { describe, it, expect } from 'vitest';
 import { I18nProvider } from '@object-ui/i18n';
 import { ImageLightbox, type ImageLightboxProps } from './ImageLightbox';

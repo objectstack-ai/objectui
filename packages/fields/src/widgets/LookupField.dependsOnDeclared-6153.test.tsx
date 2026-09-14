@@ -16,6 +16,7 @@
  */
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { LookupFieldMetadata } from '@object-ui/types';
 import { LookupField } from './LookupField';

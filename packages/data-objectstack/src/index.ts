@@ -146,7 +146,37 @@ export const FILTER_OPERATOR_ALIASES: Record<string, string> = {
   after: '>',
 };
 
-function normalizeFilterOperator(op: unknown): string | null {
+/**
+ * Resolve an authored filter operator to the AST symbol the wire takes.
+ *
+ * Deliberately NOT named `normalizeFilterOperator`. That name belongs to a
+ * DIFFERENT function, which `@objectstack/spec/ui` exports and which this
+ * monorepo's view layer imports from there (`viewFilterFold`,
+ * `filter-converter`, `ListView`, `UserFilters`, the FilterBuilder). The two
+ * take the same input and agree on nothing else: the spec's folds a legacy
+ * spelling to the canonical VIEW vocabulary (`VIEW_FILTER_OPERATORS`) so that
+ * `ViewFilterRuleSchema`'s enum can judge it, leaving a canonical operator
+ * unchanged — `eq` becomes `equals` and `before` stays `before`. This one
+ * translates the same input into the server's filter-AST symbols through
+ * {@link FILTER_OPERATOR_ALIASES} — `eq` AND `equals` both become `=`, and
+ * `before` becomes `<`. Which spellings the two disagree on is enumerated by
+ * the pin named below rather than written down here; it is most of them.
+ *
+ * Renamed at objectui#7265, off the ledger in
+ * `scripts/check-spec-symbol-derivation.mjs`, so that a reader who has seen
+ * `normalizeFilterOperator` anywhere else in this tree cannot read the call
+ * below as the same fold. Nothing about the behaviour moved with the name.
+ *
+ * The `?? op` tail is shared with the spec's, and load-bearing for the same
+ * reason: an entry already written in AST form (`'='`, `'nin'`) has no row here
+ * and must pass through. The `null` arm is NOT shared — the spec's hands a
+ * non-string back verbatim (its body ends `return op as string`), this one
+ * refuses, and `objectFilterEntryToAST` turns the refusal into a
+ * `MalformedFilterError` instead of putting a number in the operator slot of a
+ * tuple it is about to send. Both halves are pinned, in both directions, in
+ * `scripts/__tests__/spec-symbol-ledger-data-objectstack-7265.test.ts`.
+ */
+function toAstFilterOperator(op: unknown): string | null {
   if (typeof op !== 'string') return null;
   const lower = op.toLowerCase();
   return FILTER_OPERATOR_ALIASES[lower] ?? FILTER_OPERATOR_ALIASES[op] ?? op;
@@ -487,7 +517,7 @@ function objectFilterEntryToAST(entry: any): [string, string, any] | null {
   // `name`-keyed rule cannot be saved as view metadata in the first place.
   const field = entry.field;
   const rawOp = entry.operator ?? entry.op ?? '=';
-  const op = normalizeFilterOperator(rawOp);
+  const op = toAstFilterOperator(rawOp);
   if (!field || !op) return null;
   return [String(field), op, entry.value];
 }

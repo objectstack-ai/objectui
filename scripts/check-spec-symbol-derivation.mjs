@@ -864,10 +864,16 @@ const ALLOW = {
 // could not serve either, being the card its own PR closes. objectui#7265 is the
 // open burn-down card for the population seeded here.
 // ⚠️ `CLAIM_DEBT_ISSUE` a few screens down has the same defect — objectui#4592 is
-// closed while its 18-entry block is live — and is deliberately NOT changed here,
+// closed while its block is still live — and is deliberately NOT changed here,
 // because rule 2's ledger is not what objectui#6291 widened. (Still deliberate at
-// objectui#7265, which burned two entries out of the block below and one out of
-// that one; only the COUNT above moved, never the dead anchor itself.)
+// objectui#7265: its slices have burned names out of BOTH blocks, by BIND, by
+// RENAME and by ALLOW as each site allowed, and each one moved a count while
+// leaving the dead anchor exactly where it was. How large either block is today
+// is deliberately NOT written here — `--ledger` and `--claim-ledger` regenerate
+// them from the working tree and the run banner prints both counts, so a figure
+// spelled out in this sentence could only be a second, staler answer to a
+// question the script already answers, and the sentence it used to end with is
+// the one this note now refuses to write again.)
 const DEBT_ISSUE = 7265;
 // Re-seeded at objectui#6291, mechanically (`--ledger`), when rule 1 stopped
 // skipping module-local declarations. ⚠️ The block is SHRINK-ONLY and this is the
@@ -948,10 +954,46 @@ const DEBT_ISSUE = 7265;
 // share-filter-sort-spec-parity.test.ts (appended to, not duplicated); the site
 // and the block are pinned in
 // scripts/__tests__/spec-symbol-ledger-components-7265.test.ts.
+//
+// Then the `@object-ui/data-objectstack` slice at objectui#7265, the first where
+// the mirror was a FUNCTION rather than a type -- which narrows the routes before
+// anybody reads the site. Rule 1 records a function declaration with
+// `derived: false` unconditionally (see `rendersJsx`, whose narrowing exists so
+// that it keeps doing so), meaning there is no derive-in-place form for a
+// function at all: the only exits are to delete the declaration and import the
+// spec's, to rename, or to waive.
+//
+// BIND was refused on a measurement rather than a preference. The spec's
+// `normalizeFilterOperator` (`@objectstack/spec/ui`, re-measured against the
+// RESOLVED 17.4.0 pin, because "same behaviour" is a statement about a version
+// exactly as "byte-identical" is) folds an authored spelling to the canonical
+// VIEW vocabulary so `ViewFilterRuleSchema`'s enum can judge it. This package's
+// folded the same input to the server's filter-AST SYMBOLS -- a different
+// codomain, not a different spelling of one: the spec answers `equals` and
+// `before` where this one answers `=` and `<`. Swapping it in would have changed
+// what goes on the wire for most of the operators a stored view can carry.
+//
+// Two things came out of that measurement which the seeding note had predicted
+// the other way round, and they are the part worth carrying forward. The `?? op`
+// tail is NOT where the two differ: both hand an unrecognised STRING back
+// unchanged, so the lenient tail is COMMON ground, and the guess that the spec's
+// version "refuses instead" does not survive being run. The tail does diverge,
+// but in the opposite direction and on the other arm -- the spec's returns a
+// NON-string verbatim (its body ends `return op as string`), where this one
+// returns `null`, and `objectFilterEntryToAST` reads that `null` one line later
+// into a `MalformedFilterError`. So binding the spec here would have WIDENED what
+// this adapter accepts onto the wire, not tightened it: a number in the operator
+// slot of a tuple it is about to send, instead of a 400-shaped refusal.
+//
+// Renamed, therefore -- to `toAstFilterOperator`, which names the codomain that
+// makes it a different function from the one the rest of this monorepo imports
+// from the spec under the old name. Nothing about the behaviour moved with it.
+// Both directions are pinned: the NAME in this package's own spec-symbol file,
+// packages/data-objectstack/src/spec-symbol-batch6.test.ts (appended to its
+// RENAMES table, not duplicated), and the site, the block and the measured
+// behaviour in
+// scripts/__tests__/spec-symbol-ledger-data-objectstack-7265.test.ts.
 const DEBT = {
-  "@object-ui/data-objectstack": [
-    "normalizeFilterOperator",
-  ],
   "@object-ui/plugin-detail": [
     "RecordAlertProps",
   ],

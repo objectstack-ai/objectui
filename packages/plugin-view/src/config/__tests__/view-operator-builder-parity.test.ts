@@ -10,10 +10,12 @@
  * View operator → FilterBuilder operator parity (#2901, #2945).
  *
  * The third of objectui's spec-operator translation tables. The other two —
- * `ListView.mapOperator` and `data-objectstack`'s `normalizeFilterOperator` —
- * were pinned to the spec in #2974, which found eight spellings they had missed
- * by enumerating instead of deriving. This one maps the same vocabulary onto the
- * FilterBuilder's operator ids, and it had missed nine:
+ * `ListView.mapOperator` and `data-objectstack`'s `toAstFilterOperator` (spelled
+ * `normalizeFilterOperator` until objectui#7265 renamed it off the spec's own
+ * export of that name) — were pinned to the spec in #2974, which found eight
+ * spellings they had missed by enumerating instead of deriving. This one maps
+ * the same vocabulary onto the FilterBuilder's operator ids, and it had missed
+ * nine:
  *
  *   not_equals, greater_than, less_than, greater_than_or_equal,
  *   less_than_or_equal, starts_with, ends_with, is_null, is_not_null

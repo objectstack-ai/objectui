@@ -224,6 +224,87 @@ describe('evaluateVitestInvocation — objectui#3288, the filter that never land
   });
 });
 
+describe('evaluateVitestInvocation — objectui#7814, the appended filter that WIDENS', () => {
+  // The argv below is not a reconstruction. It was captured out of the guard
+  // itself, on `origin/main`, during a real
+  //   pnpm --filter @object-ui/cli test packages/cli/src/__tests__/app-generator.test.ts
+  // by appending a dump inside `assertCanonicalVitestInvocation`. Both filters
+  // arrive in ONE `positionals` array, in ONE process, and the guard returned
+  // `null` for all five config loads of that run — which is the defect: the run
+  // executed the whole package, exited 0, and printed a green summary that reads
+  // exactly like a narrowed run for the one file.
+  const CAPTURED = ['run', '--root', '../..', 'packages/cli/'];
+  const APPENDED = 'packages/cli/src/__tests__/app-generator.test.ts';
+  const AT_PKG = { cwd: `${FAKE_ROOT}/packages/cli` };
+
+  it('refuses the exact invocation the card measured', () => {
+    const verdict = judge([...CAPTURED, APPENDED], AT_PKG);
+
+    expect(verdict?.code).toBe('subsumed-positional-filter');
+    expect(verdict?.message).toContain('objectui#7814');
+    // It has to NAME the union — which filter was swallowed by which — or the
+    // reader is told "no" without being told what to drop.
+    expect(verdict?.message).toContain(APPENDED);
+    expect(verdict?.message).toContain('packages/cli/');
+    // ...and hand back the form that actually narrows, spelled for the
+    // directory the caller is standing in.
+    expect(verdict?.message).toContain(`pnpm exec vitest run --root ../.. ${APPENDED}`);
+  });
+
+  it('is the control: without the appended path the SAME command stays allowed', () => {
+    // `pnpm --filter @object-ui/cli test` — the baked filter alone — is the one
+    // legitimate package-level run and must not become collateral. This is the
+    // negative half that proves the check above discriminates rather than
+    // refusing every package-level invocation.
+    expect(judge(CAPTURED, AT_PKG)).toBeNull();
+  });
+
+  it('leaves disjoint filters alone — subsumption is the trigger, not arity', () => {
+    expect(judge(['run', 'packages/fields/', 'packages/core/'])).toBeNull();
+  });
+
+  it('reads subsumption the way Vitest matches: substring of the path, not path prefix', () => {
+    // `vitest run cli` matches every file whose path CONTAINS `cli`, so naming a
+    // file underneath it adds nothing — the same union, spelled without a slash.
+    expect(judge(['run', 'cli', APPENDED])?.code).toBe('subsumed-positional-filter');
+    // And the containment really is textual: `packages/core` matches
+    // `packages/core-extras/...` too, so that pair is genuinely redundant.
+    expect(judge(['run', 'packages/core', 'packages/core-extras/src/a.test.ts'])?.code).toBe(
+      'subsumed-positional-filter'
+    );
+  });
+
+  it('does not fire on an exact repeat, which asks for nothing narrower', () => {
+    // `vitest run packages/cli/ packages/cli/` collects what the caller asked
+    // for. Nothing is misattributed, so there is nothing to refuse — pinned so
+    // that stays a decision rather than an accident of the comparison.
+    expect(judge(['run', 'packages/cli/', 'packages/cli/'])).toBeNull();
+  });
+
+  it('yields to the older verdicts, so this check only ever ADDS refusals', () => {
+    // A `--` run and a package-cwd run both also carry a subsumed pair here.
+    // They keep their original codes: the new check runs last, so no invocation
+    // that was refused before is refused differently now.
+    expect(judge(['run', 'packages/cli/', '--', APPENDED], AT_PKG)?.code).toBe('double-dash-args');
+    // Same subsumed pair, but launched from a package directory with no --root:
+    // that is objectui#3378 and it keeps saying so.
+    expect(judge(['run', 'packages/cli/', APPENDED], AT_PKG)?.code).toBe('package-cwd');
+    // A missing appended path is still objectui#3288's verdict, not this one.
+    expect(
+      judge(['run', 'packages/cli/', 'packages/cli/src/typo.test.ts'], { exists: () => false })
+        ?.code
+    ).toBe('missing-path-filter');
+    // With none of those in play, the new verdict is what is left.
+    expect(judge(['run', 'packages/cli/', APPENDED])?.code).toBe('subsumed-positional-filter');
+  });
+
+  it('stands down for the escape hatch like every other verdict', () => {
+    expect(
+      judge([...CAPTURED, APPENDED], { ...AT_PKG, env: { OBJECTUI_VITEST_GUARD: 'off' } })
+    ).toBeNull();
+  });
+});
+
 describe('evaluateVitestInvocation — the escape hatch', () => {
   it('stands down for OBJECTUI_VITEST_GUARD=off', () => {
     expect(judge(['run'], { cwd: FAKE_PKG, env: { OBJECTUI_VITEST_GUARD: 'off' } })).toBeNull();

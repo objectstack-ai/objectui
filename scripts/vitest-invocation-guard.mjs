@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * Rejects the two Vitest invocations that silently produce a FALSE GREEN.
+ * Rejects the Vitest invocations that silently produce a FALSE GREEN — the
+ * verdicts `evaluateVitestInvocation` returns below, each pinned in
+ * `scripts/__tests__/vitest-invocation-guard.test.ts`. Read that test for the
+ * set that is refused today; a count written here would go stale in silence.
  *
  * Called from the top of `vitest.config.mts` — the repo's ONE Vitest config
  * since objectui#3240 — and from every other config file Vitest can pick up
@@ -101,6 +104,20 @@
  * to switch that off for exactly the runs that asked for specific files: "I
  * named files and zero matched" is an error, while "no filter, and one project
  * happens to hold no files" stays fine.
+ *
+ * ## Trap 3 — an appended path filter that WIDENS the run (objectui#7814)
+ *
+ *     pnpm --filter @object-ui/cli test packages/cli/src/__tests__/app-generator.test.ts
+ *     => Test Files  17 passed (17)   <- the whole package, not the one file
+ *        Tests      266 passed (266)      (the file alone is 1 file / 47 tests)
+ *
+ * objectui#3240 bakes a positional into every package `test` script
+ * (`vitest run --root ../.. packages/<pkg>/`), and Vitest UNIONS positional
+ * filters. The appended path therefore does not replace the baked one, it sits
+ * beside it, and every file the baked filter admits still runs. Exit 0, green
+ * summary — the package's count read as the file's. `subsumed-positional-filter`
+ * refuses it; the numbers above are from the measurement on that card and are a
+ * timestamp, not a live reading.
  *
  * ## The canonical invocation
  *
@@ -476,6 +493,72 @@ export function evaluateVitestInvocation({
         '',
         '确需绕过(自担风险): OBJECTUI_VITEST_GUARD=off',
       ]),
+    };
+  }
+
+  // ## Trap 3 — an appended filter another positional already swallows
+  //
+  // Vitest matches each positional as a SUBSTRING of the test file path and
+  // takes the UNION of them, never the intersection. So when one positional
+  // contains another as a substring, the longer one admits a subset of what the
+  // shorter already admits and changes the collected set by nothing at all.
+  //
+  // This is not hypothetical spelling: objectui#3240 gave every package a
+  // `test` script that bakes its own positional in — `vitest run --root ../..
+  // packages/<pkg>/` — so `pnpm --filter <pkg> test <one file>` appends a
+  // SECOND filter beside that one and runs the whole package. Measured, exact
+  // argv as the guard receives it (objectui#7814):
+  //
+  //     pnpm --filter @object-ui/cli test packages/cli/src/__tests__/app-generator.test.ts
+  //     => positionals: ['packages/cli/', 'packages/cli/src/__tests__/app-generator.test.ts']
+  //
+  // It exits 0 and prints a green summary for the PACKAGE, which reads exactly
+  // like a successful narrowed run for the FILE. The count is real; the
+  // attribution is not, and nothing on screen separates the two. That is the
+  // same false-green shape as traps 1 and 2 — a caller who asked for one file
+  // is handed somebody else's count — so it is refused on the same terms,
+  // rather than left to a sentence somewhere that nobody is reading at the
+  // moment it fires.
+  const swallowed = positionals
+    .map((filter) => ({
+      filter,
+      broader: positionals.find((other) => other !== filter && filter.includes(other)),
+    }))
+    .filter((pair) => pair.broader !== undefined);
+
+  if (swallowed.length > 0) {
+    const { filter, broader } = swallowed[0];
+    const backToRoot = path.relative(realpath(cwd), root) || '.';
+    const fromHere = pkgDir
+      ? [`  pnpm exec vitest run --root ${backToRoot} ${filter}   # 就在当前目录(${pkgDir}/)`]
+      : [];
+    return {
+      code: 'subsumed-positional-filter',
+      message: box(
+        'vitest 调用被拒绝:追加的路径过滤没有缩小范围,反而被并进了更宽的那个 (objectui#7814)',
+        [
+          `位置参数: ${positionals.join(' ')}`,
+          `其中 ${filter} 被 ${broader} 整个包含。`,
+          '',
+          'vitest 把多个位置参数按【子串匹配】取【并集】,不取交集:凡是',
+          `${broader} 能匹配到的文件,${filter} 一个也拦不掉 ——`,
+          '追加的这个过滤器一个文件都没多跑,也一个都没少跑。',
+          '',
+          '包级 `test` 脚本自带一个 `packages/<pkg>/` 过滤(objectui#3240 定下的写法),',
+          '所以 `pnpm --filter <pkg> test <路径>` 追加的路径是【第二个】过滤器,跑的仍然是',
+          '整个包。它退出码 0、摘要一片绿,屏幕上没有任何东西把「整包」和「一个文件」区分开 ——',
+          '把整包的测试数当成那个文件的测试数,数字是真的,归属是假的。',
+          '',
+          '要真正只跑那一个文件,用【不带】baked 过滤器的形式:',
+          '',
+          ...fromHere,
+          `  pnpm exec vitest run ${filter}   # 或 cd 到仓库根再跑`,
+          '',
+          '确实要跑整个包,就把追加的路径去掉(`pnpm --filter <pkg> test` 本身就是整包)。',
+          '',
+          '确需绕过(自担风险): OBJECTUI_VITEST_GUARD=off',
+        ]
+      ),
     };
   }
 

@@ -211,7 +211,10 @@ describe('the NEGATIVE pins the ruling required (objectui#7650)', () => {
     expect(warn.mock.calls.length).toBe(warnsAfterFirst);
   });
 
-  it('leaves a declared key alone even when a snake twin of it exists on the def', () => {
+  it('leaves a DECLARED key alone — it is never itself a fold source', () => {
+    // objectui#8938: the title used to say "even when a snake twin of it exists
+    // on the def", and no twin is on this def — the same declared-versus-measured
+    // drift the card is about, one file down. The fixture is what it always was.
     // `displayField` is declared, so it is never itself a fold SOURCE. Without
     // this the pass could re-enter on its own output.
     const f: Record<string, unknown> = plainField({ displayField: 'name' });

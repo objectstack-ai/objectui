@@ -17,7 +17,7 @@ import zlib from 'node:zlib';
 import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';
 import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';
 import { resolveClientDistInjection } from '../../scripts/vite-objectstack-client-dist.ts';
-import { resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
+import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
 import { compression } from 'vite-plugin-compression2';
@@ -581,6 +581,21 @@ const specDistInjection = resolveSpecDistInjection(process.env.OBJECTSTACK_SPEC_
   specModuleTest: SPEC_MODULE_TEST,
 });
 if (specDistInjection) Object.assign(workspaceAliases, specDistInjection.aliases);
+
+// objectui#9408 — say which condition arm every entry came from, out loud.
+//
+// The resolver used to walk its OWN preference array instead of the exports
+// map's key order, so the five `browser`-first entries silently resolved to the
+// Node arm and the arm added to keep a browser build off `require('fs')` was
+// unreachable. Nothing in the build said so. The fix makes the pick correct; the
+// table makes it CHECKABLE — a wrong arm is now one grep in the build log
+// instead of an unattributable bundler error at some later pin bump.
+//
+// Printed only when the override is live, so a normal build stays quiet, and to
+// stderr so it cannot land in anything that parses stdout.
+if (specDistInjection) {
+  for (const line of formatConditionReport(specDistInjection)) console.error(line);
+}
 
 const specFsAllow: string[] = specDistInjection ? specDistInjection.fsAllow : [];
 

@@ -46,6 +46,7 @@ one has its own section below.
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
+| `lockfile-dedupe.yml` | Lockfile Dedupe Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own runtime closure; manual | **Yes, when it runs** — classified `OPTIONAL_CONTEXTS`, so a red stops a Dependabot auto-merge ([#8333](https://github.com/objectstack-ai/objectui/issues/8333)) |
 | `live-e2e.yml` | Live E2E (informational) | PR to `main`, `develop` (code paths); nightly cron `30 6 * * *`; manual | No — informational lane: not in the required-check set, and it declares no `merge_group` trigger |
 | `labeler.yml` | Auto Label PRs | PR `opened`, `synchronize`, `reopened` | No |
 | `dependabot-auto-merge.yml` | Dependabot Auto-merge | PR to `main`/`develop` authored by `dependabot[bot]` | No — but it gates *its own* merge, and goes red instead of merging when the check set is not green |
@@ -1002,6 +1003,16 @@ Runs `scripts/check-doc-component-types.mjs`, which reads every fenced code bloc
 `content/docs/**` and asks, of each `type` string literal in one, whether the repository registers a
 component under that name.
 
+**A second gate in the same job, and it can stop your pull request.** The job then runs
+`scripts/check-prompt-component-keys.mjs` in a step of its own — no `continue-on-error` — over
+`.github/prompts/**`. Those are markdown, so `ci.yml`'s `type-check` diff excludes them under
+`'**/*.md'` and a prompt-only PR starts that gate nowhere: the same blind spot, one file further
+out. It asks the stricter question a file read by an AI *author* has to survive — not "does this
+`type` exist" but "does it render, or is it answered only by the opt-in placeholder panel". A
+retired key passes the first question and fails this one, which is the whole of
+[#8929](https://github.com/objectstack-ai/objectui/issues/8929). Run it locally with
+`pnpm check:prompt-keys`.
+
 **Why the teaching surface needed its own ratchet.** The catalog side has had one since
 [#4616](https://github.com/objectstack-ai/objectui/issues/4616):
 `examples/schema-catalog/test/catalog-gallery-render.test.tsx` renders every catalog entry and fails
@@ -1867,6 +1878,60 @@ build-tooling churn. And it says nothing about bytes; `Bundle Analysis` measures
 that filter stands. Enrolling it is a maintainer decision with its own cost, written up on #8326's
 pull request as input.
 
+## Lockfile Dedupe (`lockfile-dedupe.yml`)
+
+**Trigger:** Pull requests to `main` and `develop` that touch `pnpm-lock.yaml`, this gate's own
+runtime closure (`scripts/check-lockfile-dedupe.mjs`, `scripts/invoked-as.mjs`,
+`scripts/ci-setup-pnpm.sh`) or the workflow file itself, plus manual dispatch. It appears in the
+checks list as **Lockfile Dedupe Check**.
+
+Runs `scripts/check-lockfile-dedupe.mjs`, which shells out to `pnpm dedupe --check` and requires the
+committed lockfile to be **already deduped** — that is, `pnpm dedupe` must have nothing left to
+collapse.
+
+**How it differs from its neighbour.** `Lockfile Integrity Check` reports a **delta** against the
+merge base ("did *this* change duplicate something?") and needs two revisions of one file.
+This gate reports a **property of one tree** ("would `pnpm dedupe` still have work to do here?") and
+needs no base — but it does need pnpm and the registry. The two are independent: a tree can be
+delta-clean and still carry years of accumulated duplication, which is the state `main` was in until
+[#9215](https://github.com/objectstack-ai/objectui/issues/9215) collapsed 47 identities out of it.
+
+**Why it exists.** [#8333](https://github.com/objectstack-ai/objectui/issues/8333) measured the
+sequence: a dependency bump re-resolves part of the peer graph and forks a package that was
+single-copy — no declaration, range or override anywhere in the workspace changes — and
+`Bundle Analysis` then reads a bundle that grew and attributes the growth to the bump. The remedy is
+`pnpm dedupe`, but `pnpm dedupe` is **not surgical**: run on a tree carrying old duplication it
+collapses all of it, and the reviewer reads the combined delta as the bump's — the same
+misattribution, aimed at a different pull request. So the remedy is only honest once the tree is
+already deduped, which is why #8333's ruling was **B then A**: pay the accumulated debt down in its
+own dedicated pull request first (#9215), then require the remedy in bump pull requests. This gate is
+that second half, and it is also what keeps the first half true.
+
+**It IS a blocking context**, and that is a decision rather than a default.
+`scripts/dependabot-merge-gate.mjs` classifies it in `OPTIONAL_CONTEXTS`, so a red stops a Dependabot
+auto-merge; its path filter makes it unrequirable under
+[#3523](https://github.com/objectstack-ai/objectui/issues/3523)'s rule, the same terms
+`Bundle Analysis` is enrolled on. It blocks where `Lockfile Integrity Check` deliberately does not
+because the two differ in **remedy**: #8326's gate names a duplication and leaves the answer open
+(re-lock, pin, or accept), a judgement call its header reserves for the maintainer, while this gate
+has exactly one mechanical remedy and pnpm prints it — run `pnpm dedupe` and commit the lockfile,
+changing no declaration, range or override. To stop it blocking, move the name to `NOT_A_GATE`;
+`scripts/__tests__/check-lockfile-dedupe.test.ts` fails on that demotion so it has to be taken
+deliberately.
+
+**⛔ What its green does not mean.** It does not say the lockfile is *minimal* — packages whose
+ranges genuinely do not overlap keep their separate copies and are not findings. It does not measure
+bytes; `Bundle Analysis` does. And it is not a check that drifts with the registry: `pnpm dedupe`
+collapses copies already in the tree rather than chasing the newest version a range admits, which
+#8333 measured directly (`better-auth` declared `^1.7.2`, locked at `1.7.2`, with `1.7.4` published
+and admitted by that range — and this gate green on that tree).
+
+**⛔ What it does not do.** It does not run `pnpm dedupe` for you, and it never edits the lockfile —
+`--check` reports without writing. A finding is fixed in the pull request that caused it, by running
+the command and committing the result. ⛔ Pinning a version, adding a `pnpm.overrides` entry or
+widening a range are **not** acceptable ways to satisfy it: #8333 rejected all three, on the grounds
+that they spend a declaration to fix a resolution artefact.
+
 ## Link Checking (`check-links.yml`)
 
 **Trigger:** Weekly cron (`17 4 * * 0` — Sundays, off the top of the hour, when the scheduled-run
@@ -2338,6 +2403,18 @@ covers change, and if so, does this change **add** a `.changeset/*.md`?
   required context that is never created leaves the PR pending rather than failing it
   ([#3523](https://github.com/objectstack-ai/objectui/issues/3523)). It would also be a second copy
   of the guarded surface, free to drift from the config the script reads.
+
+**A second job — `Changeset Claim Re-read`, report-only.** The same workflow runs
+`scripts/check-changeset-claims.mjs` in a job of its own, asking the *opposite* question: not
+whether this change declares a changeset, but whether somebody else's **pending** declaration still
+describes the tree once this change has touched a file it names. It has no enforcing switch at all,
+deliberately — "a pending changeset names a file you edited" is usually still true, and a gate that
+failed a build on prose being adjacent is the one triage said would be switched off within a month.
+So a finding here never turns the declaration gate's context red. It lives in *this* workflow rather
+than beside the other changeset gates in `changeset-guard.yml` because that one carries a `paths:`
+filter, and this gate's subject — an ordinary source change that falsifies a pending claim — is
+under no obligation to touch `.changeset/**` at all. Run it locally with
+`pnpm check:changeset-claims`.
 
 **Why this is separate from `changeset-guard.yml`, which also polices changesets:** that workflow's
 trigger is `paths: ['.changeset/**']`, and the inversion is deliberate — on a PR that adds *only* a

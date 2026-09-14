@@ -16,6 +16,9 @@ import {
   isImageValue,
   type FileValueView,
 } from './file-value.js';
+// The one view/download affordance every `file` surface renders
+// (objectui#9161) — shared with `FileCellRenderer` rather than copied.
+import { FileValueAffordance } from './file-affordance.js';
 
 /**
  * Shared upload pipeline for the file widgets: validates size, uploads through
@@ -198,10 +201,19 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
 
     return (
       <div {...hostGroupProps} className="flex flex-wrap gap-2">
+        {/* THE DEFECT (objectui#9161): this list used to be bare `<span>`s, so a
+            read-only field named its attachments and gave no way to open one.
+            The URL was already in hand on every arm — `readFileValues` resolves
+            the expanded value's own `url`, and derives the stable download
+            endpoint for a bare `sys_file` id. ⛔ A value that resolves to none
+            keeps the plain span it always had: no dead anchors (objectui#8490). */}
         {views.map((file, idx) => (
-          <span key={idx} className="text-sm truncate max-w-xs">
-            {file.name}
-          </span>
+          <FileValueAffordance
+            key={idx}
+            view={file}
+            className="text-sm max-w-xs"
+            fallback={<span className="text-sm truncate max-w-xs">{file.name}</span>}
+          />
         ))}
       </div>
     );
@@ -362,9 +374,18 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
                   ) : (
                     <FileIcon className="size-4 text-muted-foreground shrink-0" />
                   )}
-                  <span className="text-sm truncate">
-                    {file.name}
-                  </span>
+                  {/* The reporter's DOM reading of this row was `<button>` x 1
+                      and `<a>` x 0 (objectui#9161): a file already uploaded
+                      could be DELETED from here and not opened. The name
+                      becomes the same shared affordance the read-only surfaces
+                      draw — with `icon` suppressed, because this row already
+                      draws its own thumbnail or file icon to the left. */}
+                  <FileValueAffordance
+                    view={file}
+                    className="text-sm"
+                    icon={false}
+                    fallback={<span className="text-sm truncate">{file.name}</span>}
+                  />
                   {file.size && (
                     <span className="text-xs text-muted-foreground">
                       ({(file.size / 1024).toFixed(1)} KB)

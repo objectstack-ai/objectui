@@ -292,6 +292,21 @@ export interface RecordRelatedListComponentProps {
   objectName: string;
   /** Field on the related object that links back to this record */
   relationshipField: string;
+  /**
+   * Parent-record field whose value `relationshipField` stores — the spec's own
+   * wording. Defaults to `'id'`; `'name'` for a name-keyed junction.
+   *
+   * Declared here by objectui#8649. The contract has always declared it
+   * (`@objectstack/spec` `RecordRelatedListProps.relationshipValueField`,
+   * `z.string().default('id')`), `RecordRelatedListRenderer` has always read it,
+   * and `@object-ui/plugin-detail`'s registry has published it as an input since
+   * objectui#3808 — every layer declared it except this published TypeScript
+   * face, so a spec-valid, renderer-honoured, registry-published document was
+   * refused here with `TS2353`. That is objectui#9040's Direction 1, one
+   * interface over. Declaring it ALIGNS THE MIRROR rather than widening it: the
+   * accept set of this face moves to the contract's, never past it.
+   */
+  relationshipValueField?: string;
   /** Columns to display in the related list */
   columns?: string[];
   /** Sort configuration — `'field'` / `'-field'` string or explicit array (spec union) */

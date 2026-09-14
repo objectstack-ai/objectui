@@ -22,11 +22,28 @@
     // `recordDetailsInputs.spec-parity.test.ts` reads the sibling spec source
     // off disk to compare the declared input list against the renderer's, so
     // this project needs Node's globals. Naming `types` at all switches off
-    // automatic `@types/*` inclusion; the `toBeInTheDocument` matchers do not
-    // need naming here because the three files that use them `import
-    // '@testing-library/jest-dom'` explicitly, and a global augmentation
-    // reached by an import applies to the whole program.
-    "types": ["node"],
+    // automatic `@types/*` inclusion, so every entry here has to be earned.
+    //
+    // `@testing-library/jest-dom` is named so the matchers are registered by
+    // THIS config rather than by whichever other file happens to import them.
+    // This comment used to argue the opposite: that the matchers "do not need
+    // naming here because the three files that use them `import
+    // '@testing-library/jest-dom'` explicitly, and a global augmentation reached
+    // by an import applies to the whole program". The augmentation half is true;
+    // the conclusion is not (objectui#8722, all figures measured on this
+    // project's tsc-resolved file list, not on a glob):
+    //   - the count was stale by an order of magnitude -- 33 files carry the
+    //     bare import today, not three;
+    //   - 65 files here use a jest-dom matcher and 43 of them import it NOWHERE,
+    //     so their matchers were typed by a sibling's import alone;
+    //   - ablated before this entry existed: dropping the bare import from all
+    //     33 carriers gave 423 TS2339 errors across 65 files, 43 of which the
+    //     edit never touched. Neither the diff, nor this config, nor the failing
+    //     files would have named the cause.
+    // Dropping any ONE carrier stays green (measured too) -- the program depends
+    // on the SET, which is what makes the dependency invisible to a reviewer and
+    // why declaring it here is not merely tidier.
+    "types": ["node", "@testing-library/jest-dom"],
     // Drop the root tsconfig's source-tree `paths` so `@object-ui/*` and
     // `@objectstack/spec` resolve through the workspace dependency's built
     // `.d.ts` instead of pulling sibling sources in as program inputs (TS6059).

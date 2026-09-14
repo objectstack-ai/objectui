@@ -2080,6 +2080,29 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
           for (const f of collectPredicateFieldRefs(listViewPredicates({
             conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,
+            /**
+             * NON-AUTHOR SURFACE, cast on purpose — objectui#5091's 2026-08-19
+             * ruling, extended to this reader by objectui#8653 item 2.
+             *
+             * `rowActionDefs` is PRODUCER-DERIVED, not authored: `app-shell`'s
+             * `ObjectView` builds it from `objectDef.actions` filtered by
+             * `locations.includes('list_item')` and writes it onto a
+             * `fullSchema: ListViewSchema`; `plugin-view`'s `ObjectView`
+             * composes the same key onto a `list-view` node. `@objectstack/spec/ui`
+             * REFUSES it by name on both the list and the grid surface, and
+             * `@object-ui/types` declares it on neither mirror — which is why
+             * the read is a cast and ⛔ why declaring it would publish a key
+             * the save gate rejects.
+             *
+             * ⛔ DO NOT delete this read to "tidy up" an unexplained cast. The
+             * defs carry `visible` / `disabled` CELs and `recordIdField`, and
+             * this is the harvest that puts their operands into `$select`.
+             * Dropping it returns a row whose predicate operand was never
+             * selected — objectui#3501's fail-closed CEL fault (`No such key`)
+             * arriving with a success receipt. Pinned by name in
+             * `__tests__/listViewNonAuthorKeys-8653.test.tsx` §4 SITE 2; the
+             * declared sibling `bulkActionDefs` is that pin's control.
+             */
             rowActionDefs: (schema as any).rowActionDefs,
             bulkActionDefs: (schema as any).bulkActionDefs,
             objectActions: (objectDef as any)?.actions,
@@ -2637,6 +2660,21 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(groupingConfig ? { grouping: groupingConfig } : {}),
           ...(rowColorConfig ? { rowColor: rowColorConfig } : {}),
           ...(schema.rowActions ? { rowActions: schema.rowActions } : {}),
+          /**
+           * The RELAY half of the same non-author surface documented at the
+           * `listViewPredicates` call above (objectui#5091, extended here by
+           * objectui#8653 item 2). Undeclared on `ListViewSchema` — hence the
+           * cast — but DECLARED one node down: `DataTableSchema.rowActionDefs`
+           * is what `object-grid` hands `RowActionMenu`.
+           *
+           * ⛔ DO NOT delete this read. `baseProps` above is an explicit
+           * picklist, so this line is the ONLY way the host's composed row
+           * actions reach the row menu; dropping it removes the menu with no
+           * type error, no lint finding and no test failure anywhere else in
+           * the tree. Pinned by name in
+           * `__tests__/listViewNonAuthorKeys-8653.test.tsx` §4 SITE 1, with
+           * the declared `bulkActionDefs` below as that pin's control.
+           */
           ...((schema as any).rowActionDefs ? { rowActionDefs: (schema as any).rowActionDefs } : {}),
           ...(schema.bulkActions ? { batchActions: schema.bulkActions } : {}),
           ...((schema as any).bulkActionDefs ? { bulkActionDefs: (schema as any).bulkActionDefs } : {}),
@@ -3329,7 +3367,43 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       prefix: exportConfig?.fileNamePrefix,
       label: translatedLabel,
       objectName: schema.objectName,
-      viewLabel: schema.label || (schema as any).title,
+      /**
+       * The view's own label, resolved against the display locale — `label` is
+       * `string | I18nLabel` (the spec's INLINE locale map) and `viewLabel` is
+       * `string`, so the map has to be resolved before it gets here. Same
+       * resolver, same argument order as `ObjectGrid`'s twin site.
+       *
+       * ⛔ NO legacy `title` arm. This read used to be
+       * `schema.label || (schema as any).title`, and objectui#8653 item 1
+       * retired the second operand — the objectui#7129 route, as taken for
+       * `DashboardComponentSchema.title` at objectui#7623 — on two
+       * measurements:
+       *
+       *   - `@objectstack/spec/ui`'s `ListViewSchema` REFUSES `title` BY NAME
+       *     (`unrecognized_keys: ['title']`) while `ObjectGridPropsSchema`
+       *     ACCEPTS it. `packages/types` mirrors the spec rather than ruling
+       *     over it, so declaring `title` on `ListViewSchema` would make this
+       *     repo accept what the platform save gate rejects. That asymmetry is
+       *     also why objectui#6639 could take the DECLARE branch one package
+       *     over and this site could not.
+       *   - a parse-based census of `apps/ examples/ content/ packages/` found
+       *     ZERO `list-view` nodes authoring `title`, so no author loses a
+       *     filename to the retirement. Over that same corpus the instrument
+       *     reports THREE `object-grid` nodes carrying the key: TWO AUTHORED,
+       *     both in `content/docs/api/schema-reference.md`, plus one that is
+       *     not authored at all — `plugin-view`'s `ObjectView` composes
+       *     `title: schema.table?.title` onto a grid node it builds, so that
+       *     third hit is a producer writing the key, not an author declaring
+       *     it. Say "authored" or the two numbers disagree.
+       *
+       * ⭐ The `as any` was also laundering a defect of its own: `X || any`
+       * collapses the whole expression to `any`, so a locale-map `label`
+       * reached `sanitizeFileNameBase` UNRESOLVED and exported as
+       * `[object Object]`. Both halves are pinned in
+       * `__tests__/listViewNonAuthorKeys-8653.test.tsx` §3, which reads the
+       * download anchor rather than re-implementing the filename.
+       */
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale),
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.

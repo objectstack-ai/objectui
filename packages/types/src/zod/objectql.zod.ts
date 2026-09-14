@@ -38,6 +38,7 @@ import {
   ChartDrillDownSchema as SpecChartDrillDownSchema,
   I18nLabelSchema as SpecI18nLabelSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
+  UserFilterFieldSchema as SpecUserFilterFieldSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
@@ -436,16 +437,48 @@ const UserFilterOptionSchema = z.object({
 });
 
 /**
- * User Filters — field-level filter definition (dropdown & toggle modes)
+ * User Filters — field-level filter definition, DERIVED from the spec's
+ * `UserFilterFieldSchema` (objectui#7265, the `@object-ui/types` slice).
+ *
+ * This was a hand-written copy under the spec's own export name — the fork
+ * class `check:spec-symbols` exists to stop, and the reason the name sat in
+ * that gate's ledger. `field`, `type`, `showCount` and `defaultValues` now
+ * flow in from `@objectstack/spec/ui` by reference, so the day the protocol
+ * grows a key or a control type this mirror tracks it instead of drifting.
+ *
+ * Measured against the RESOLVED pin, `@objectstack/spec@17.4.0` — byte-identical
+ * is a statement about a version, not a property: the two shapes already agreed
+ * on all four of those members, the `type` enum included (the same five control
+ * types). So the derivation is not a change of behaviour, it is the same shape
+ * with provenance.
+ *
+ * TWO divergences are kept, each confined to the member that carries it:
+ *
+ *   1. `label` stays a plain string. The spec widened it to an i18n union
+ *      (`string | I18nLabel`), and this key is rendered as a React CHILD by
+ *      `@object-ui/plugin-list`'s `UserFilters` — the filter badge reads
+ *      `f.label || f.field` straight into JSX. A record arriving there is not
+ *      a label in another language, it is "Objects are not valid as a React
+ *      child". Localisation on this surface goes through that component's own
+ *      resolver (`i18n.fieldLabel`), not through an authored record.
+ *   2. `options[]` keeps this package's {@link UserFilterOptionSchema}, for the
+ *      same reason on its own `label` (`opt.label` is rendered the same way).
+ *
+ * `.strip()` restores this lane's posture. The spec's shape is `.strict()`, and
+ * inheriting that here would turn a key an author writes today into a 422
+ * instead of a silent strip — a protocol decision about the userFilters
+ * surface, not a side effect a derivation may make on its own. Left as it was,
+ * deliberately: see the note on {@link UserFiltersSchema}.
+ *
+ * Both divergences and the derivation itself are pinned by
+ * `../__tests__/spec-symbol-parity.test.ts`.
  */
-const UserFilterFieldSchema = z.object({
-  field: z.string().describe('Field name to filter on'),
-  label: z.string().optional().describe('Display label'),
-  type: z.enum(['select', 'multi-select', 'boolean', 'date-range', 'text']).optional().describe('Filter input type'),
-  options: z.array(UserFilterOptionSchema).optional().describe('Static options'),
-  showCount: z.boolean().optional().describe('Show record count per option'),
-  defaultValues: z.array(z.union([z.string(), z.number(), z.boolean()])).optional().describe('Default selected values'),
-});
+const UserFilterFieldSchema = stripImportedDefaults(SpecUserFilterFieldSchema)
+  .extend({
+    label: z.string().optional().describe('Display label'),
+    options: z.array(UserFilterOptionSchema).optional().describe('Static options'),
+  })
+  .strip();
 
 /**
  * User Filters — tab preset rule: `{ field, operator, value }`, the same
@@ -483,7 +516,33 @@ const UserFilterTabSchema = z
   .refine((t) => Boolean(t.name || t.id), { message: 'tab requires a name' });
 
 /**
- * User Filters Configuration Schema (Airtable Interfaces-style)
+ * User Filters Configuration Schema (Airtable Interfaces-style).
+ *
+ * ⚠️ A DECLARED DIALECT of the spec's `UserFiltersSchema`, not a copy of it, and
+ * not derivable from it (objectui#7265, the `@object-ui/types` slice). The
+ * waiver and its reason live in `check:spec-symbols`' ALLOW map, where the gate
+ * can fail if it ever stops excusing a real divergence; the three divergences
+ * it excuses are measured against `@objectstack/spec@17.4.0` and are:
+ *
+ *   1. `element` is REQUIRED here and admits only `dropdown | tabs`. The spec
+ *      defaults it to `dropdown` and keeps `toggle` in ITS enum so shipped
+ *      configs keep rendering (ADR-0047 3.4a); ADR-0053 makes `toggle`
+ *      unauthorable on this side — see the key's own note below.
+ *   2. `tabs` carries THIS package's legacy preset dialect. The spec's slot is
+ *      `ViewTabSchema`, which is `.strict()`, requires `name`, and therefore
+ *      rejects the `{ id, filters, default }` documents this schema still
+ *      accepts and `normalizeTabPresets` (`@object-ui/plugin-list`) still
+ *      normalises at runtime. Binding the spec's slot would 422 metadata that
+ *      renders today.
+ *   3. The shape STRIPS unknown keys where the spec's is `.strict()`. Closing
+ *      it is a protocol decision about this surface — the spec's own
+ *      `UserFiltersSchema` header records what closing a shape costs when a key
+ *      an author was right to write is not declared — and is deliberately not
+ *      taken as a side effect of a burn-down.
+ *
+ * Pinned by `../__tests__/spec-symbol-parity.test.ts`, which asserts each
+ * divergence in BOTH directions, so the waiver goes red rather than quiet on
+ * the day the spec (or this package) closes the gap.
  */
 const UserFiltersSchema = z.object({
   // AUTHORING contract (ADR-0053): `toggle` is deliberately not authorable —

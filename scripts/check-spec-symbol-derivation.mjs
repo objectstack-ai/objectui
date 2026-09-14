@@ -530,6 +530,27 @@ const ALLOW = {
       "the sanctioned set.",
     issue: 4115,
   },
+  "@object-ui/types:UserFiltersSchema": {
+    reason:
+      "Declared dialect of the spec's user-filter surface, not a copy of it (objectui#7265, the " +
+      "@object-ui/types slice). Three divergences, each measured against the RESOLVED pin " +
+      "@objectstack/spec@17.4.0 rather than the version the seeding card asserted against, and " +
+      "each load-bearing: (1) `element` is REQUIRED and admits only `dropdown | tabs`, where the " +
+      "spec defaults it to `dropdown` and keeps `toggle` in ITS enum so shipped configs keep " +
+      "rendering (ADR-0047 3.4a) - ADR-0053 makes `toggle` unauthorable on this side, and the " +
+      "refusal is what `phase2-schemas.test.ts` pins; (2) `tabs` is this package's legacy preset " +
+      "dialect, where the spec's slot is a strict ViewTabSchema that requires `name` and therefore " +
+      "REJECTS the `{ id, filters, default }` documents this schema accepts and " +
+      "`normalizeTabPresets` (@object-ui/plugin-list) normalises at runtime - binding it would 422 " +
+      "metadata that renders today; (3) the shape STRIPS unknown keys where the spec's is strict, " +
+      "and closing it is a protocol decision about this surface, not a side effect of a burn-down. " +
+      "The sibling name in the same block, `UserFilterFieldSchema`, went the OTHER way in the same " +
+      "slice - it IS the spec's concept and is now derived from it, with its own two divergences " +
+      "confined to the members that carry them. Both are pinned by " +
+      "packages/types/src/__tests__/spec-symbol-parity.test.ts, in both directions, so this waiver " +
+      "goes red rather than quiet on the day the gap closes.",
+    issue: 7265,
+  },
   "@object-ui/types:BulkActionParam": {
     reason:
       "Renderer-side dialect of the spec's authored param (objectui#3334). The spec's " +
@@ -886,11 +907,24 @@ const DEBT_ISSUE = 7265;
 // `FlowEdge` copy in `FlowEdgeInspector`, which was a third hand copy of this
 // package's OWN declared dialect `FlowDesignerEdge` and now uses it. Both ratchets
 // for the renames live in packages/app-shell/src/__tests__/spec-symbol-parity.test.ts.
+//
+// Then the `@object-ui/types` pair at objectui#7265, which is the slice where the
+// THIRD route finally got used: one name BOUND, one name moved to ALLOW, and the
+// two decided by reading their sites rather than by one policy for the group.
+// `UserFilterFieldSchema` is the spec's own concept under the spec's own name --
+// re-measured against the RESOLVED pin 17.4.0, the two shapes already agreed on
+// `field`, `type`, `showCount` and `defaultValues`, the five-member control-type
+// enum included -- so it now derives from `@objectstack/spec/ui` through this
+// package's import boundary, with TWO divergences confined to the members that
+// carry them (`label` stays a plain string because @object-ui/plugin-list renders
+// it as a React child, and `options[]` keeps the local element for the same reason
+// on its own label) and the object's strip posture restored so no accept set moved.
+// `UserFiltersSchema` went to ALLOW instead: `element` is required and refuses the
+// spec's `toggle` (ADR-0053), `tabs` is this package's legacy `{ id, filters,
+// default }` preset dialect that the spec's strict ViewTabSchema rejects, and
+// binding it would 422 metadata that renders today. Both are pinned, in both
+// directions, by packages/types/src/__tests__/spec-symbol-parity.test.ts.
 const DEBT = {
-  "@object-ui/types": [
-    "UserFilterFieldSchema",
-    "UserFiltersSchema",
-  ],
   "@object-ui/components": [
     "SortDirection",
   ],

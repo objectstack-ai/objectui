@@ -22,9 +22,10 @@ package's own spec-derived `list-view` node type (`ListViewSchema`), whose
 members arrive from `SpecListViewSchema.shape` by reference — the derivation
 `NamedListView.userFilters` already used, and the one that keeps a named view
 and the `list-view` node it is relayed into the same type for every key that
-crosses. `name` indexes the spec's `ObjectListViewSchema` input directly, because
-on the node that spelling resolves through `BaseSchema.name` — the component-name
-slot, a different contract wearing the same word.
+crosses. `name` indexes the protocol's own published authored type (`ListView`,
+`@objectstack/spec/ui`) directly, because on the node that spelling resolves
+through `BaseSchema.name` — the component-name slot, a different contract
+wearing the same word.
 
 **What an author can now do that silently did nothing before:**
 

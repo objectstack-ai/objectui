@@ -201,7 +201,17 @@ describe('objectui#8980 — a canonical top-level view-kind block reaches the re
   });
 
   it('`gantt` → `object-gantt` (ObjectGantt)', async () => {
-    const node = await generatedNodeFor({ label: 'Plan', type: 'gantt', gantt: { startDateField: 'start_at', endDateField: 'end_at' } });
+    // ⚠️ `titleField` is not decoration here: unlike the four blocks this
+    // package keeps a local `.partial()` dialect for, `gantt` flows into the
+    // mirror straight from `SpecListViewSchema.shape`, so the protocol's own
+    // three required bindings are required on the declared face too. Measured
+    // by tsc while this file was written — the fixture without it does not
+    // compile, which is the narrowing being declared rather than described.
+    const node = await generatedNodeFor({
+      label: 'Plan',
+      type: 'gantt',
+      gantt: { startDateField: 'start_at', endDateField: 'end_at', titleField: 'subject' },
+    });
     expect(node.type).toBe('object-gantt');
     expect(node.startDateField).toBe('start_at');
     expect(node.endDateField).toBe('end_at');
@@ -221,12 +231,23 @@ describe('objectui#8980 — a canonical top-level view-kind block reaches the re
     // the named view, which is what makes the declaration meaningful. This is
     // the reachability reading reported on objectui#8980; ⛔ not a reason to
     // drop either member from the type.
+    // ⚠️ MEASURED WHILE WRITING THIS FILE, and reported on objectui#8980: the
+    // protocol's chart config is the ADR-0021 DATASET-BOUND shape alone
+    // (`dataset` + `values`, required). The renderer still carries a legacy
+    // inline-aggregate branch below it (`xAxisField` / `valueField` /
+    // `aggregation`), and the declared face cannot express that branch — tsc
+    // refuses the fixture. That is the protocol narrowing a legacy escape
+    // hatch, ⛔ not a defect in this declaration, and ⛔ not licence to widen
+    // the type locally: the legacy shape still reaches the branch through the
+    // untyped `options.chart` bag.
     const chartNode = await generatedNodeFor(
-      { label: 'Agg', chart: { chartType: 'line', xAxisField: 'stage', valueField: 'amount' } },
+      { label: 'Agg', chart: { dataset: 'deals_by_stage', dimensions: ['stage'], values: ['amount'], chartType: 'line' } },
       [{ id: 'c', label: 'Agg', type: 'chart' }],
     );
     expect(chartNode.type).toBe('object-chart');
     expect(chartNode.chartType).toBe('line');
+    expect(chartNode.dataset).toBe('deals_by_stage');
+    expect(chartNode.xAxisKey).toBe('stage');
 
     const treeNode = await generatedNodeFor(
       { label: 'Tree', tree: { parentField: 'parent_id' } },

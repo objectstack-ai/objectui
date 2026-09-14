@@ -27,7 +27,7 @@ import type { DrillDownConfig } from './data-display.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
-import type { ListViewInferred, ObjectCalendarBlockConfig, SpecNamedListView } from './zod/objectql.zod.js';
+import type { ListViewInferred, ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
 
 /**
  * The type of {@link ObjectCalendarSchema.calendar}, re-exported so the
@@ -118,6 +118,11 @@ import type {
   NavigationConfig,
   ChartAggregate,
   GanttConfig as SpecGanttConfig,
+  // objectui#8980 — the protocol's OWN authored type for a list view
+  // (`z.input<typeof ListViewSchema>`, published under this name). One member
+  // of `NamedListView` indexes it; see that member for why it cannot take its
+  // type from this package's mirror like the other sixteen.
+  ListView as SpecListView,
   CalendarConfig as SpecCalendarConfig,
   // objectui#9239 — `ComponentPropsMap['object-calendar']`'s author state, so
   // `ObjectCalendarSchema.data` below DERIVES the protocol's `data` row rather
@@ -2314,15 +2319,21 @@ export interface NamedListView {
    * a measurement: `name` sits in that mirror's `LIST_VIEW_LOCAL_OVERRIDES`, so
    * on the `list-view` node it resolves through `BaseSchema.name` — the
    * COMPONENT name slot, a different contract that happens to share a spelling.
-   * Indexing the spec's own shape keeps this member tracking the protocol's
-   * `SnakeCaseIdentifierSchema` rather than that neighbour.
+   * Indexing the protocol's own published authored type keeps this member
+   * tracking `SnakeCaseIdentifierSchema` rather than that neighbour.
+   *
+   * `ListView` rather than the object-scoped `ObjectListView`: the protocol
+   * publishes a TS type for the first and not the second, and the two shapes
+   * differ ONLY in `userFilters` (`ObjectListViewSchema` omits and re-extends
+   * that one key). `name` is the same declaration on both, straight off
+   * `ListViewShapeSchema`.
    *
    * LIVE, and written by a producer today: `@object-ui/app-shell`'s
    * `mergeViewsIntoObjects` stamps `name: key` onto every composed `listViews`
    * entry (`applyViewItem`), and its primary-view promotion matches on it — so
    * this key has been travelling on this surface undeclared.
    */
-  name?: SpecNamedListView['name'];
+  name?: SpecListView['name'];
 
   /**
    * Data source configuration (defaults to the `object` provider).

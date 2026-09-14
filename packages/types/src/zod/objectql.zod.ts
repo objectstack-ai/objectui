@@ -19,7 +19,6 @@
 import { z } from 'zod';
 import {
   ListViewSchema as SpecListViewSchema,
-  ObjectListViewSchema as SpecObjectListViewSchema,
   KanbanConfigSchema as SpecKanbanConfigSchema,
   GanttConfigSchema as SpecGanttConfigSchema,
   CalendarConfigSchema as SpecCalendarConfigSchema,
@@ -1045,27 +1044,6 @@ export const ListViewSchema = BaseSchema
  * whoever actually parses; this surface is input on both sides.
  */
 export type ListViewInferred = z.input<typeof ListViewSchema>;
-
-/**
- * The protocol's NAMED-LIST-VIEW shape as AUTHORED — `z.input` of
- * `@objectstack/spec/ui`'s own `ObjectListViewSchema`, the declared value type
- * of both `ViewSchema.listViews` and `ObjectSchema.listViews`.
- *
- * Exported for ONE member. `NamedListView` (`../objectql.ts`) takes sixteen of
- * the seventeen keys objectui#8980 declares from {@link ListViewSchema} above,
- * because that mirror already imports them from `SpecListViewSchema.shape` by
- * reference and because `ObjectView` relays a named view INTO a `list-view`
- * node — one type for both faces of every key that crosses. `name` cannot come
- * from there: it sits in `LIST_VIEW_LOCAL_OVERRIDES`, so on the node it
- * resolves through `BaseSchema.name`, the COMPONENT name slot — a different
- * contract wearing the same spelling. Indexing this type instead keeps that one
- * member tracking the protocol's `SnakeCaseIdentifierSchema`.
- *
- * `z.input`, not `z.infer`, for the reason stated on `ListViewInferred`: this
- * describes the document as AUTHORED, and nothing on the render path parses, so
- * the spec's `.default()`s never arrive.
- */
-export type SpecNamedListView = z.input<typeof SpecObjectListViewSchema>;
 
 /**
  * Object Map Configuration Schema — the runtime half of `ObjectMapConfig`

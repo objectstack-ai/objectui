@@ -26,7 +26,7 @@
     // whose suites needed ES2022 for `Array.prototype.at`. Measured: this
     // package's 47 test files compile clean against the root's ES2020 baseline,
     // so the tests are held to the same lib the shipped SOURCE targets.
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     // Naming `types` at all switches off automatic `@types/*` inclusion.
     // `node` is load-bearing and measured: dropping it turns five suites red
     // with TS2304 `Cannot find name 'global'` — they all install a `global.fetch`

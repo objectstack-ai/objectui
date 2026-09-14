@@ -11,6 +11,11 @@
   // scripts/check-type-check-coverage.mjs` exits 1 naming both of them.
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    // objectui#8691: test programs only. One notch above the package build's
+    // ES2020, mirroring packages/app-shell. The package SOURCE tsconfig is
+    // untouched, so what this package SHIPS still compiles at the ES2020
+    // baseline; nothing here is emitted.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true,
     // `registrationInputs-8178.test.ts` reads the three component sources off
     // disk (`node:fs` / `node:path` / `node:url`) to derive the keys each

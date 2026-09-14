@@ -26,7 +26,7 @@
     // not inherit `composite` / `declaration` from the build config.
     "composite": false,
     "declaration": false,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     // Naming `types` at all switches off automatic `@types/*` inclusion.
     // `node` is required: several suites read fixtures off disk through
     // `node:fs` / `node:url` / `__dirname`, and the ActionRunner suites stub

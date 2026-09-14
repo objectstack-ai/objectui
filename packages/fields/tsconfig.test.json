@@ -29,7 +29,7 @@
     // Deliberately NOT raised to ES2022. Measured: no test file in this package
     // reaches for `Array.prototype.at` or any other ES2021+ builtin, so the
     // tests are held to the same lib the shipped SOURCE targets.
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     //
     // `types` is deliberately NOT named, unlike plugin-dashboard's. Naming it
     // switches off automatic `@types/*` inclusion, and this package's build

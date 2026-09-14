@@ -20,7 +20,7 @@
     // not inherit `composite` / `declaration` from the build config.
     "composite": false,
     "jsx": "react-jsx",
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2022", "DOM"],
     // Two global augmentations, neither of them an import:
     //   - `node` for `spec-symbol-batch7.test.tsx`, which resolves
     //     `@objectstack/spec`'s own `.d.ts` off disk to read the spec's export

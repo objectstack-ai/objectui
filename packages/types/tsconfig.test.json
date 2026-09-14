@@ -19,7 +19,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2022", "DOM"],
     // `spec-ui-schema-reexports.test.ts` reads sibling sources off disk to prove
     // no spec/ui zod value hides inside an `export type` block (#2561).
     "types": ["node"],

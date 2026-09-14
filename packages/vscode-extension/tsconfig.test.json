@@ -13,6 +13,11 @@
   // objectui#3009 failure itself.
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    // objectui#8691: test programs only. One notch above the package build's
+    // ES2020, mirroring packages/app-shell. The package SOURCE tsconfig is
+    // untouched, so what this package SHIPS still compiles at the ES2020
+    // baseline; nothing here is emitted.
+    "lib": ["ES2022"],
     // A checking project, never an emitting one.
     "noEmit": true,
     "declaration": false,

@@ -1079,10 +1079,48 @@ jobs:
       # defect wearing the other hat — and dropping the other two restores
       # objectui#9177. `scripts/__tests__/coverage-shard-reporter-readability.test.ts`
       # fails in both directions.
+      # ── Why this lane carries its own `--testTimeout` (objectui#9271) ────
+      #
+      # `vitest.config.mts` sets `testTimeout: 15000`. That budget is calibrated
+      # for the UNINSTRUMENTED lane (`test:` above, which runs on every event
+      # except push). This lane runs the same files under v8 coverage, and
+      # instrumentation is not free: the repo-sweeping rows under
+      # `scripts/__tests__/` — the ones that call `sweep(repoRoot)` /
+      # `analyze(repoRoot)` and walk the whole tree — take several times longer
+      # with the provider attached than without it.
+      #
+      # ⇒ the 15s budget has comfortable headroom uninstrumented and NONE here,
+      # so rows that pass everywhere else die in this lane on a timeout. A dead
+      # shard is not a failed gate, it is NO gate: `coverage-report` below gates
+      # every merge step on `needs.test-coverage.result == 'success'`, so one
+      # timed-out row skips the merge and the thresholds are never evaluated at
+      # all. objectui#9271 measured 116 consecutive pushes to `main` in that
+      # state; the comment above records objectui#8545 pricing two earlier
+      # episodes of the same shape at 84 and 87 pushes.
+      #
+      # ⛔ This is NOT a performance budget and must not be read as one. The
+      # timeout is a hung-test detector, and the detector that guards day-to-day
+      # work is the 15s one in the uninstrumented lane — which is UNCHANGED, and
+      # is the lane that actually runs before a merge. This number only stops
+      # this lane from killing rows that are doing exactly what they should.
+      #
+      # ⭐ Re-derive the ratio rather than trusting a figure written here
+      # (AGENTS.md #5 rule #9) — same tree, same runner, the flag set below as
+      # the only variable:
+      #
+      #     pnpm exec vitest run --project unit --testTimeout=900000 \
+      #       --reporter=verbose scripts/__tests__/check-i18n-dead-keys.test.ts
+      #     # then again with --coverage and compare the per-row ms
+      #
+      # ⚠️ Raising this cannot cost the job its own budget: `timeout-minutes: 40`
+      # above is roughly twice the wall clock the slowest shard has been using,
+      # and letting a row finish instead of killing it at 15s adds only the
+      # difference, not a re-run.
       - name: Run tests with coverage (shard ${{ matrix.shard }}/4)
         run: >-
           pnpm test:coverage --reporter=blob --reporter=default
           --reporter=github-actions --shard=${{ matrix.shard }}/4
+          --testTimeout=60000
           --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
           --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
 

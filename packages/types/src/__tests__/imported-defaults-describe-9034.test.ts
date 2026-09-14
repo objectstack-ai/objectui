@@ -854,7 +854,18 @@ describe('the carry buys nothing at the identity property\'s expense', () => {
     ).toEqual([]);
 
     // ⭐ PROVING REMOVAL: restore `: undefined` at the `tuple` arm's `const rest`
-    // in `../zod/imported-defaults.ts` and this assertion is the one that reddens.
+    // in `../zod/imported-defaults.ts` and THREE assertions in this file redden,
+    // ⛔ not one. Measured with that single line reverted and nothing else:
+    //
+    //   - this one;
+    //   - `⭐ every export with nothing to strip comes back REFERENCE-EQUAL`;
+    //   - `the ONLY clean exports that are rebuilt are behind a z.lazy`.
+    //
+    // ⚠️ The count matters because it is what the note is FOR: a reader who
+    // reverts the line, sees three reds, and was promised one has no way to tell
+    // an over-broad pin from a correct one. The fenced file's own note on this
+    // same ablation names the wider population; this one was the narrower of the
+    // two and is corrected to agree with it (objectui#9103).
   });
 
   it('⭐ most visited nodes are reference-equal — the walk did not start rebuilding the world', () => {

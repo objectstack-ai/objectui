@@ -7,12 +7,24 @@
 '@object-ui/plugin-grid': patch
 ---
 
-Narrow the two record-id declarations that were wider than the protocol:
-`RecordContextValue.recordId` and `DataSource.update`'s `id` are now `string`
-(objectui#9333, director seat decision batch #129 item 5, 2026-09-13).
+A record id is a `string` everywhere in the published types, as
+`@objectstack/spec` has always declared it. Three published declarations that
+admitted `number` no longer do.
 
-⚠️ **BREAKING for any code that hands a numeric primary key to either
-declaration.** Ships as `minor` per the launch-window convention: objectui's
+⚠️ **BREAKING if your code hands a numeric primary key to any of these three:**
+
+- **`RecordContextValue.recordId`** (`@object-ui/react`) — the value
+  `useRecordContext()` gives you is now a `string`, never a `number`.
+- **`DataSource.update`'s `id` parameter** (`@object-ui/types`) — a call that
+  passes a `string | number` is now a type error. Adapters that *implement*
+  `DataSource` are unaffected (see Migration).
+- **`TransactionOperation.id`** (`@object-ui/core`) — the operation record you
+  hand to `TransactionManager.recordOperation()` must carry a `string` id. If
+  you build that object from a numeric key, convert it where you build it. This
+  type is exported from the package root, so this is a breaking change for
+  `@object-ui/core` consumers in its own right, not just a knock-on.
+
+Ships as `minor` per the launch-window convention: objectui's
 `major` is a cross-repo pin to `@objectstack`'s so that "same major means
 compatible" holds across the two repos
 (`scripts/check-changeset-no-major.mjs`), and objectui's own breaking changes
@@ -25,6 +37,9 @@ that carries it.
   `string | number | null | undefined`; it is now `string | null | undefined`.
 - `DataSource.update`'s `id` parameter (`@object-ui/types`) was
   `string | number`; it is now `string`.
+- `TransactionOperation.id` (`@object-ui/core`) was `string | number`; it is now
+  `string`. Its sibling `BatchTransactionOperation.id` was already a `string`,
+  so the two operation records finally agree.
 - `LineItemsPanel` (`@object-ui/plugin-form`) drops the type assertion
   objectui#9304 left on its parent id. That assertion was the only thing making
   the context declaration and `buildMasterDetailEditBatch(parentId: string)`
@@ -38,7 +53,7 @@ than the protocol: a declaration that admits `number` promises callers something
 the wire never carries, and the promise is kept only by an assertion at the far
 end, which is what this card was filed about.
 
-## The consumers the narrowing reached, and what they cost
+## Internal consumers repaired at the same time (no public contract moves)
 
 Narrowing an interface **parameter** never reaches implementors — TypeScript
 compares method parameters bivariantly, so an adapter that still declares
@@ -48,10 +63,6 @@ in three packages, and each was red because a further declaration one layer in
 was itself wider than the protocol. All three are narrowed here, types only, with
 no runtime change and no coercion added at any call site:
 
-- `TransactionOperation.id` (`@object-ui/core`) is `string`. ⚠️ **Published**:
-  it is re-exported through `@object-ui/core`'s barrel, so this is a breaking
-  narrowing on that package too. Its own sibling `BatchTransactionOperation.id`
-  was already `string`; the two now agree.
 - `UserPreferenceRecord.id` and the `cachedRowId` it feeds
   (`@object-ui/data-objectstack`) are `string`. Module-local, not published —
   these rows are read back off the protocol, so the union was a claim the wire
@@ -74,3 +85,9 @@ to satisfy the interface. What changes is the **caller** side: a call that passe
 a `string | number` to `dataSource.update` is now a type error. A backend whose
 primary keys are numeric maps them at its own adapter boundary rather than
 pushing the union through every caller.
+
+For `TransactionOperation`, the same rule applies one level up: build the
+operation record with a `string` id. If the id arrives from a numeric-keyed
+backend, convert it in your adapter — the one place that knows the backend's key
+type — rather than at each `recordOperation()` call. Nothing about this change
+alters what is sent over the wire; only the declarations moved.

@@ -450,34 +450,52 @@ export function sanitizeChatMessagesForCache(
           // is used because the AI SDK preserves it through `useChat` init,
           // exactly as the server-backed tool-result merge relies on.
           //
-          // objectui#9232 — the pending-approval arm. `state` already survived
-          // this rebuild, so a cached `approval-requested` came back carrying
-          // nothing to decide with: the operator got Approve / Reject buttons
-          // whose only possible outcome was "No pending-action id found for
-          // this tool call". That is the exact divergence objectui#8442 closed
-          // on the way OUT of server history, reopened on the way IN to the
-          // cache.
+          // objectui#9232 — the pending-approval arm, and it is LAST on
+          // purpose. `state` already survived this rebuild, so a cached
+          // `approval-requested` came back carrying nothing to decide with:
+          // the operator got Approve / Reject buttons whose only possible
+          // outcome was "No pending-action id found for this tool call". That
+          // is the divergence objectui#8442 closed on the way OUT of server
+          // history, reopened on the way IN to the cache.
           //
-          // It is FIRST in the chain on purpose. The four detectors all read
-          // one `parseResultEnvelope(result)` and discriminate on its single
-          // `status` field (`pending_approval` / `drafted` /
-          // `blueprint_proposed` / the replay pair), so the arms are disjoint
-          // by construction and the order is unobservable today. The position
-          // fixes what happens if that ever stops being true: the other three
-          // restore a card describing something that already HAPPENED, while
-          // this one restores the operator's ability to ACT, and losing it is
-          // the only one of the four that leaves a live control wired to
-          // nothing. Minting this envelope cannot resurrect a Publish button
-          // over a rolled-back publish (objectui#5695's hazard) either —
-          // `detectDraftResult` is silent over a `pending_approval` status.
-          const cachedOutput = tool.pendingActionId
-            ? pendingApprovalToCachedResult(tool.pendingActionId)
-            : tool.replayOutcome
-              ? replayOutcomeToCachedResult(tool.replayOutcome)
-              : tool.draftReview
-                ? draftReviewToCachedResult(tool.draftReview)
-                : tool.proposedPlan
-                  ? proposedPlanToCachedResult(tool.proposedPlan)
+          // ⚠️ `output` holds ONE envelope, and an invocation can carry more
+          // than one affordance at a time — `draftReview` and `pendingActionId`
+          // are independent KEYS on the invocation, not two readings of one
+          // result. Putting the pending arm first therefore did not merely
+          // reorder equals: it stopped the draft envelope reaching the cache
+          // for any turn carrying both, which is the same loss (the "Review N
+          // changes / Publish" card on a cache-fallback reload) that the other
+          // three arms exist to prevent, and which
+          // `AiChatPage.runtimeMessageSeam.test.tsx` already pinned. So the
+          // three existing arms keep `output` exactly as before and the
+          // pending envelope is minted only when none of them claims it.
+          //
+          // Losing the id is not the price of that, because the id does NOT
+          // depend on `output` alone here — it is also written as a part key
+          // below. The two carriers are not redundant; each reaches where the
+          // other cannot, and that is the whole design:
+          //
+          //   * `output` is the only carrier that survives API mode's SDK
+          //     store, because `useObjectChat`'s `aiInitialMessages` rebuilds
+          //     each part from `{type,toolCallId,toolName,input,output,
+          //     errorText,state}` and drops every other key, after which
+          //     `extractToolInvocations` re-derives the id by re-parsing the
+          //     result. A pending-only turn — the only shape API mode can
+          //     actually produce, since `detectDraftResult` and
+          //     `detectPendingApproval` read ONE `parseResultEnvelope(result)`
+          //     and require different `status` values — lands here.
+          //   * the PART KEY is the only carrier left when a richer envelope
+          //     has taken `output`. Local mode keeps it, because
+          //     `normalizeMessages` passes `toolInvocations` through verbatim,
+          //     and `hydratedMessagesToChatMessages` lifts it on the way back.
+          const cachedOutput = tool.replayOutcome
+            ? replayOutcomeToCachedResult(tool.replayOutcome)
+            : tool.draftReview
+              ? draftReviewToCachedResult(tool.draftReview)
+              : tool.proposedPlan
+                ? proposedPlanToCachedResult(tool.proposedPlan)
+                : tool.pendingActionId
+                  ? pendingApprovalToCachedResult(tool.pendingActionId)
                   : undefined;
           parts.push({
             type: `tool-${tool.toolName}`,
@@ -488,6 +506,12 @@ export function sanitizeChatMessagesForCache(
             // The SDK envelope rides the PART, both here and on the server
             // path — `partApproval` narrows it straight back off this key.
             ...(tool.approval ? { approval: tool.approval } : {}),
+            // The id as a part key — the carrier that survives a taken
+            // `output`. It is a CACHE-side supplement, never a rival reading of
+            // the framework envelope: `hydratedMessagesToChatMessages` consults
+            // `detectPendingApproval` FIRST and only falls back here, so the
+            // one contract still decides wherever it has anything to say.
+            ...(tool.pendingActionId ? { pendingActionId: tool.pendingActionId } : {}),
             ...(cachedOutput !== undefined ? { output: cachedOutput } : {}),
           });
         }

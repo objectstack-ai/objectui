@@ -17,7 +17,11 @@ import { uiMessageToChatMessage } from '@object-ui/plugin-chatbot';
 // messages and presses Approve. `hydratedMessagesToChatMessages` is the
 // cache-fallback read this page really performs (AiChatPage feeds it
 // `initialMessages` from `useChatConversation`).
-import { useHitlInChat } from '@object-ui/plugin-chatbot';
+import {
+  useHitlInChat,
+  detectDraftResult,
+  detectPendingApproval,
+} from '@object-ui/plugin-chatbot';
 import { hydratedMessagesToChatMessages } from '../../console/ai/AiChatPage';
 
 import {
@@ -1257,40 +1261,81 @@ describe('sanitizeChatMessagesForCache — a pending approval survives the cache
     expect('approval' in (toolPart as object)).toBe(false);
   });
 
-  it('re-mints the pending envelope ahead of a co-occurring draft envelope', () => {
-    // Not producible by the live mapper: all four detectors read ONE
-    // `parseResultEnvelope(result)` and discriminate on its single `status`, so
-    // `pending_approval` and `drafted` cannot both match one result. The arm
-    // order is therefore unobservable in production — pinned anyway so the
-    // precedence is a decision rather than an accident of where the arm landed.
-    // An undecided action is the only one of the four whose loss leaves a live
-    // control wired to nothing; the others describe something already done.
-    const cached = sanitizeChatMessagesForCache([
+  // ── The both-at-once turn ────────────────────────────────────────────────
+  //
+  // objectui#9232 first shipped with the pending arm FIRST in the chain, on the
+  // argument that the arms were "disjoint by construction, so the order is
+  // unobservable". That argument was wrong, and a pre-existing pin
+  // (`AiChatPage.runtimeMessageSeam.test.tsx`) caught it: the detectors are
+  // disjoint over one RESULT, but `draftReview` and `pendingActionId` are
+  // independent KEYS on an invocation and a turn can carry both. Pending-first
+  // therefore stopped the draft envelope reaching the cache for such a turn —
+  // the exact "Review N changes / Publish" loss the other arms exist to
+  // prevent. The tests below pin both halves of the answer.
+  describe('a turn carrying BOTH a draft envelope and a pending approval', () => {
+    const both = [
       {
         id: 'a1',
-        role: 'assistant',
+        role: 'assistant' as const,
+        content: 'Staged the changes; deleting the old object needs your approval.',
         toolInvocations: [
           {
             toolCallId: 'tc-approve',
             toolName: 'apply_blueprint',
             state: 'approval-requested',
             pendingActionId: PENDING_ACTION_ID,
-            draftReview: { items: [{ type: 'object', name: 'task' }] },
+            draftReview: { items: [{ type: 'object', name: 'lead' }], packageId: 'app.crm' },
           },
         ],
       },
-    ]);
-    const toolPart = cached[0]?.parts.find((p) => p.type === 'tool-apply_blueprint');
-    expect(toolPart?.output).toEqual({
-      status: 'pending_approval',
-      pendingActionId: PENDING_ACTION_ID,
+    ];
+
+    it('keeps BOTH: the draft card renders and Approve reaches the pending action', async () => {
+      const persisted = throughLocalStorage(sanitizeChatMessagesForCache(both));
+
+      // `output` is the DRAFT envelope — the richer affordance keeps the one
+      // slot it can ride in, exactly as before objectui#9232.
+      const toolPart = persisted[0]?.parts.find((p) => p.type === 'tool-apply_blueprint');
+      expect(toolPart?.output).toMatchObject({
+        status: 'drafted',
+        packageId: 'app.crm',
+        drafted: [{ type: 'object', name: 'lead' }],
+      });
+      // …and the id rides the part key, which is the carrier left over.
+      expect(toolPart?.pendingActionId).toBe(PENDING_ACTION_ID);
+
+      const restored = hydratedMessagesToChatMessages(persisted);
+      const tool = restored[0]?.toolInvocations?.[0];
+
+      // Half one: the draft card comes back.
+      expect(tool?.draftReview).toEqual({
+        items: [{ type: 'object', name: 'lead' }],
+        packageId: 'app.crm',
+      });
+      // Half two: DRIVEN, not read off the call graph — the same drive the
+      // pending-only round trip gets. Approve must reach the pending action.
+      const { urls, decision } = await pressApprove(restored);
+      expect(urls).toEqual([`${API_BASE}/pending-actions/${PENDING_ACTION_ID}/approve`]);
+      expect(decision?.state).toBe('success');
     });
-    // And minting it cannot resurrect a Publish button over a rolled-back
-    // publish (objectui#5695): `detectDraftResult` is silent over this status.
-    const restored = hydratedMessagesToChatMessages(
-      JSON.parse(JSON.stringify(cached)) as HydratedUIMessage[],
-    );
-    expect(restored[0]?.toolInvocations?.[0]?.draftReview).toBeUndefined();
+  });
+
+  // The claim the first version of objectui#9232 asserted in prose and got
+  // wrong by over-reaching. Pinned in the narrow form that is actually true,
+  // because the arm ORDER now rests on it: over one RESULT the two envelopes
+  // are mutually exclusive, which is why a pending-only turn (the shape API
+  // mode can produce) still has `output` free to carry its id.
+  it('a single tool result cannot yield both a draft and a pending approval', () => {
+    const drafted = { status: 'drafted', drafted: [{ type: 'object', name: 'lead' }] };
+    const pending = { status: 'pending_approval', pendingActionId: PENDING_ACTION_ID };
+
+    // Lit controls first: each detector really does fire on its own envelope,
+    // so the two zeros below are readings and not two dead detectors.
+    expect(detectDraftResult(drafted)).toBeDefined();
+    expect(detectPendingApproval(pending)).toBeDefined();
+
+    expect(detectPendingApproval(drafted)).toBeUndefined();
+    expect(detectDraftResult(pending)).toBeUndefined();
   });
 
   // ── Stale entries: the decision is READ-SIDE TOLERANCE, not a version bump ──

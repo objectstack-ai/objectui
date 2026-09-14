@@ -931,11 +931,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // on objectstack#17987. Its declaredness verdict at this read site is
   // UNCHANGED by this card: through the retired union it was undeclared too,
   // and it is undeclared on `ObjectCalendarSchema`. The rule that makes that
-  // come out right is NOT "declared on every arm" — the checker reading this
-  // file records above carries five keys on the union that only ONE arm
-  // declares (`colorField` `dateField` `defaultView` `endField` `titleField`),
-  // because
-  // `ObjectGridSchema`'s index signature supplies the rest. It is: a union
+  // come out right is NOT "declared on every arm". In the checker reading
+  // recorded above, five keys ride the union although only ONE arm declares
+  // them — `colorField`, `dateField`, `defaultView`, `endField` and
+  // `titleField` — because `ObjectGridSchema`'s index signature supplies them.
+  // The rule is: a union
   // member is available only when EVERY arm supplies it — by its own
   // declaration OR through an applicable index signature. `CalendarSchema` has
   // neither for `navigation`, so the union does not carry it. Ledgered by name, and

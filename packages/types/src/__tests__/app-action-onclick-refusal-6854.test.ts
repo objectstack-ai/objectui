@@ -80,22 +80,42 @@ describe('AppActionSchema.onClick — the retirement message states a measured f
 });
 
 describe('why the cast could never have been fed by an author (objectui#6854 Zone 2, the premise)', () => {
-  // `AppAction.items` is parsed by the LEGACY eight-member `MenuItemSchema`, a
-  // plain `z.object` — so `onClick` and `shortcut` are not refused there, they
-  // are STRIPPED in silence. An author therefore has no declared route to send
-  // either key, which is what made deleting the two reads a cleanup rather than
-  // a behaviour removal. Whether `shortcut` SHOULD become authorable here is a
-  // separate contract question and deliberately not answered by this file.
-  const authored = { label: 'Profile', onClick: 'goProfile', shortcut: 'Ctrl+P' };
+  // `AppAction.items` is parsed by the LEGACY `MenuItemSchema`, a plain
+  // `z.object` — so `onClick` is not refused there, it is STRIPPED in silence.
+  // An author therefore has no declared route to send it, which is what made
+  // deleting the two reads a cleanup rather than a behaviour removal.
+  //
+  // ⭐ UPDATED by objectui#7719 (director seat decision batch #70 of 2026-09-07):
+  // this block used to carry `shortcut` in the same fixture and the same
+  // sentence, and recorded "whether `shortcut` SHOULD become authorable here is
+  // a separate contract question" as OPEN. It is answered — `shortcut` does not
+  // become authorable, and it is no longer stripped here either: it is a named
+  // `retirementTombstone()` refusal pointing at `NavigationItem`. So the two
+  // keys no longer share a fate and no longer share a fixture.
+  // ⛔ The Zone-2 premise this file exists for is UNCHANGED, and in fact
+  // stronger: an author still has no declared route to send either key, and is
+  // now told so for one of them. The `shortcut` contract itself is pinned in
+  // `./app-menu-item-shortcut-refusal-7719.test.ts`, not here.
+  const authored = { label: 'Profile', onClick: 'goProfile' };
 
-  it('the items mirror accepts the document and drops both undeclared keys', () => {
+  it('the items mirror accepts the document and drops the undeclared `onClick`', () => {
     const result = MenuItemSchema.safeParse(authored);
     expect(result.success).toBe(true);
     if (!result.success) return;
     const parsed = result.data as Record<string, unknown>;
     expect(parsed.label).toBe('Profile');
     expect('onClick' in parsed).toBe(false);
-    expect('shortcut' in parsed).toBe(false);
+  });
+
+  it('an authored `shortcut` on the same item is REFUSED, not dropped (objectui#7719)', () => {
+    // Kept HERE, beside the `onClick` row, rather than only in the #7719 pin:
+    // the two keys were one sentence in objectui#6854 and are two contracts now,
+    // and this pair is what stops them being conflated again. Swap either
+    // expectation and the file says which key it is describing.
+    const result = MenuItemSchema.safeParse({ ...authored, shortcut: 'Ctrl+P' });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues.some((i) => String(i.path[0]) === 'shortcut')).toBe(true);
   });
 
   it('a whole action carrying such an item parses green, with the item scrubbed', () => {
@@ -115,6 +135,5 @@ describe('why the cast could never have been fed by an author (objectui#6854 Zon
     // from the parsed value, which no static type can answer.
     const [first] = (result.data as unknown as { items: Record<string, unknown>[] }).items;
     expect('onClick' in first).toBe(false);
-    expect('shortcut' in first).toBe(false);
   });
 });

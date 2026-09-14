@@ -30,7 +30,7 @@ import {
   objectNavTargetExclusivity,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
-import { handlerKeyRefusal } from './tombstone.zod.js';
+import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import type { AppMenuItem } from '../app.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
@@ -274,6 +274,35 @@ export const MenuItemSchema: z.ZodType<AppMenuItem, AppMenuItem> = z.lazy(() => 
   children: z.array(MenuItemSchema).optional().describe('Child items (submenu)'),
   badge: z.union([z.string(), z.number()]).optional().describe('Badge or count'),
   hidden: z.union([z.boolean(), z.string()]).optional().describe('Visibility condition'),
+  // REFUSED (objectui#7719, director seat decision batch #70 of 2026-09-07,
+  // maintainer verbatim 「同意」). The ruling refused both widening options — a
+  // `shortcut` member on this deprecated type, and re-typing `AppAction.items`
+  // to the overlay `MenuItem` — and changed the DIAGNOSTIC instead: an authored
+  // value used to be stripped here in silence, and is refused by name now.
+  //
+  // WHY `retirementTombstone` and not `handlerKeyRefusal`, which the sibling
+  // `AppActionSchema.onClick` uses in this same file: that helper's message
+  // says JSON has no function value, which is false of a string-valued key, and
+  // its `z.custom` primitive makes `z.toJSONSchema` THROW. Measured: this const
+  // is representable today and `AppActionSchema` is NOT, precisely because of
+  // that `onClick` arm. Nor `aliasKeyRefusal`, which would have to name a
+  // canonical sibling key; the remedy here is a different TYPE.
+  //
+  // ⛔ No read was re-added in the standalone runner's `LayoutRenderer`; the
+  // objectui#6854 pin stands. Pinned in
+  // `../__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
+  shortcut: retirementTombstone(
+    'REFUSED (objectui#7719, director seat decision batch #70, 2026-09-07; ADR-0049) — `shortcut` '
+    + 'is not authorable on an app action ITEM. `AppAction.items` is this legacy `AppMenuItem` '
+    + 'face, deprecated in favour of `NavigationItem`, and no renderer reads a shortcut here: the '
+    + 'standalone runner renders an item\'s `label` and its `type: "separator"` and nothing else '
+    + '(objectui#6854). Until this refusal an authored value was STRIPPED in silence by this '
+    + 'mirror, which is the outcome the ruling closed; growing the deprecated type instead was '
+    + 'refused. NOT to be confused with `AppAction.shortcut`, which is declared, authorable and '
+    + 'unchanged — that is the header BUTTON\'s own shortcut, one level up from these items. '
+    + 'A keyboard shortcut on a navigation entry is a capability of the `NavigationItem` line: '
+    + 'author the menu as `NavigationItem`, and file the capability there if it is wanted.',
+  ),
 }));
 
 // ============================================================================

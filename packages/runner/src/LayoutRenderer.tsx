@@ -302,15 +302,21 @@ export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: Layou
                               * (objectui#6854, maintainer ruling of 2026-09-05, option B2).
                               *
                               * `items` is `AppMenuItem[]` (`@object-ui/types` `app.ts`), and the zod
-                              * mirror parses it with the legacy eight-member `MenuItemSchema`.
-                              * Neither declares `onClick` or `shortcut`; this map used to reach both
+                              * mirror parses it with the legacy `MenuItemSchema`. Neither makes
+                              * `onClick` or `shortcut` AUTHORABLE; this map used to reach both
                               * through `as any`, i.e. past the type it was handed. The `onClick` read
                               * is also what made the retirement refusal's own sentence — "no renderer
                               * reads this key, so nothing could ever run it" — false. `type` and
                               * `label` ARE declared on `AppMenuItem` and stay.
                               *
-                              * Whether `shortcut` should become authorable on `AppAction.items` is a
-                              * separate contract question; do not re-add either read to answer it.
+                              * `shortcut` is SETTLED, and the answer left this map alone
+                              * (objectui#7719, director seat decision batch #70 of 2026-09-07): it
+                              * does not become authorable on `AppAction.items`. What changed is the
+                              * DIAGNOSTIC on the types side — `shortcut?: never` on `AppMenuItem`
+                              * and a named refusal on `MenuItemSchema`, so an authored value is
+                              * refused instead of stripped in silence. A keyboard shortcut on a
+                              * navigation entry is a capability of the `NavigationItem` line.
+                              * ⛔ No read is re-added here; that is the ruling, not an open question.
                               */}
                             {userAction.items?.map((item, idx) => {
                                 if (item.type === 'separator') {

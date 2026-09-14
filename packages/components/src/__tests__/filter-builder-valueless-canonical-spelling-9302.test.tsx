@@ -56,7 +56,8 @@
  * and `--reporter=verbose` names each row it measured. Writing the count down
  * is what went wrong the first time — the literal table named the canonical
  * spellings and missed the all-lowercase alias rows, which move exactly the
- * same way and had nothing pinning them (objectui#9358).
+ * same way and had nothing pinning them — the first pass of this pin, on the
+ * branch that adds it, made exactly that mistake.
  *
  * Everything else is GREEN in both directions and is carried for a named
  * reason, not for coverage:
@@ -182,11 +183,11 @@ const ROWS: ReadonlyArray<{
  * ## The DERIVED table — the instrument, not a second literal list
  *
  * `ROWS` above is a hand-written table, and a hand-written table is exactly how
- * a spelling goes unmeasured: the first pass of this pin named four canonical
- * rows and stopped there, while the repair moves every spelling the spec
- * publishes for those operators (objectui#9358). So the row set below is not
- * listed — it is re-derived on every run from the two published tables, and
- * whatever they hold on the day of the run is what gets measured.
+ * a spelling goes unmeasured: the first pass of this pin, on the branch that
+ * adds it, named four canonical rows and stopped there, while the repair moves
+ * every spelling the spec publishes for those operators. So the row set below
+ * is not listed — it is re-derived on every run from the two published tables,
+ * and whatever they hold on the day of the run is what gets measured.
  *
  *   - `VIEW_FILTER_OPERATORS` — the spec's canonical vocabulary. Intersected
  *     with the exported set folded onto it, this yields the canonical spellings
@@ -240,7 +241,7 @@ const SPEC_SPELLINGS: ReadonlyArray<{
     })),
 ];
 
-describe('objectui#9358 — every spelling the spec publishes for these operators, derived', () => {
+describe('objectui#9302 — every spelling the spec publishes for these operators, derived', () => {
   it.each(SPEC_SPELLINGS)(
     '$dialect `$spelling` folds to `$canonical` and draws its twin row with 0 value inputs',
     ({ spelling, canonical }) => {
@@ -285,9 +286,9 @@ describe('objectui#9358 — every spelling the spec publishes for these operator
       ).toBeGreaterThanOrEqual(1);
     }
 
-    // The instrument reaches spellings `ROWS` never named — the objectui#9358
-    // gap. Without this the derived table could quietly shrink to the literal
-    // one and still be green.
+    // The instrument reaches spellings `ROWS` never named — the gap this pin's
+    // own first pass left. Without this the derived table could quietly shrink
+    // to the literal one and still be green.
     const literal = new Set(ROWS.map((r) => r.operator));
     const beyond = SPEC_SPELLINGS.filter((r) => !literal.has(r.spelling));
     expect(beyond.length, 'the derived table adds nothing over the literal one').toBeGreaterThanOrEqual(4);
@@ -331,7 +332,7 @@ describe('objectui#9302 — one operator, one row, whichever spelling it arrives
     // rows actually fire" comes from the published tables too. The firing rows
     // are exactly those the raw `has()` could not match literally — today that
     // is every canonical member plus every alias that is not itself a dropdown
-    // id (objectui#9358; the first pass of this pin saw only half of them).
+    // id (the first pass of this pin saw only half of them).
     const firing = SPEC_SPELLINGS.filter(
       (r) => !VALUELESS_FILTER_BUILDER_OPERATORS.has(r.spelling),
     );

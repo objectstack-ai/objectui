@@ -242,9 +242,24 @@ type ObjectCalendarConfig = CalendarConfig & {
 /**
  * The two PRE-#2231 alias spellings `getCalendarConfig` still honours, declared
  * ONLY as a cast target and deliberately NOT as schema members — see the
- * routing note on `getCalendarConfig`. `@objectstack/spec` refuses both by name
- * at the flat position, so a declaration here would make this repo accept what
- * the platform refuses.
+ * routing note on `getCalendarConfig`.
+ *
+ * ⚠️ The ground is NOT that the spec singles these two out. MEASURED on
+ * installed `@objectstack/spec` 17.4.0: `ComponentPropsMap['object-calendar']`
+ * is STRICT and declares exactly nine flat members — `calendar` `data`
+ * `defaultView` `filter` `loading` `locale` `objectName` `sort` `staticData` —
+ * so it refuses every undeclared flat key with the same `unrecognized_keys`
+ * diagnostic: these two aliases, a nonsense key, AND the five canonical field
+ * keys `ObjectCalendarSchema` already declares and this renderer reads (`startDateField`
+ * `endDateField` `titleField` `colorField` `allDayField`). ⛔ Blanket strictness cannot be the reason these
+ * two stay undeclared — applied as a reason it would require undeclaring those
+ * canonical five, and this repo's mirror being stricter than the protocol is
+ * the SANCTIONED direction anyway (see `zod/objectql.zod.ts`).
+ *
+ * The real ground is narrower: they are deprecated pre-#2231 ALIASES of keys
+ * this schema already declares, and the alias question has an open carrier —
+ * objectui#8355 — which has not ruled. Declaring an alias would settle that
+ * card by accretion; routing it to the producer leaves it open.
  */
 type CalendarAliasRungs = { dateField?: string; endField?: string };
 

@@ -2818,9 +2818,11 @@ export interface ObjectCalendarSchema extends BaseSchema {
   objectName?: string;
   /**
    * PRE-FETCHED RECORDS — an ARRAY, drawn in place of the calendar's own query.
-   * Read FIRST by the shared record-source ladder
-   * (`resolveRecordSourceConfig(schema, 'array')` in `@object-ui/core`), ahead
-   * of `staticData` / `objectName`.
+   * Read FIRST by the shared record-source ladder in `@object-ui/core`, on the
+   * `'array'` arm, ahead of `staticData` / `objectName`. ⛔ The ladder's ARM is
+   * the citation; its first argument is not, because that is a call SHAPE and
+   * it has already moved once — objectui#8651 now passes the three members the
+   * ladder documents itself as reading, one by one.
    *
    * Declared by objectui#7313, in the same stroke as the mirror's `data`: until
    * then the read landed on `BaseSchema`'s index signature on this side and
@@ -2925,8 +2927,11 @@ export interface ObjectCalendarSchema extends BaseSchema {
    *
    * objectui-LOCAL, and the one member here with no {@link CalendarConfig} twin
    * to derive from: `@objectstack/spec`'s `CalendarConfigSchema` is a
-   * `strictObject` of four keys and refuses this one BY NAME with an
-   * `unrecognized_keys` diagnostic. That is the class this package's mirror
+   * `strictObject` of exactly `startDateField`, `endDateField`, `titleField`
+   * and `colorField`, so it refuses this key as UNDECLARED — ⚠️ not "by name".
+   * Measured on 17.4.0: it answers `allDayField` and a nonsense key with the
+   * identical `unrecognized_keys` diagnostic, so the refusal is blanket
+   * strictness and says nothing about this key in particular (objectui#8651). That is the class this package's mirror
    * already names out loud, where `.passthrough()` is kept explicitly for this
    * key — "the renderers grow config knobs ahead of the protocol (calendar's
    * `allDayField`, for one), and stripping them here would silently disable a

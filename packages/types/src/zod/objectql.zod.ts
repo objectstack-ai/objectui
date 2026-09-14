@@ -730,7 +730,7 @@ const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfig
   // objectui-local, no spec counterpart — see objectui#8466 for the measurement
   // and the lane. The renderer honours it in BOTH positions: this container and
   // the flat member of the node.
-  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local (the spec's CalendarConfigSchema refuses it by name); LOAD-BEARING since objectui#8026"),
+  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
 }).passthrough();
 
 /**
@@ -1056,8 +1056,9 @@ export const ObjectMapConfigSchema = z.object({
  *    place of the block's own query, NOT a source to fetch from.
  *    `ComponentPropsMap['object-calendar'].data` is `z.array(z.unknown())
  *    .optional()` on `@objectstack/spec` 17.4.0 and the renderer honours that
- *    arm alone since objectui#8348 (`resolveRecordSourceConfig(schema,
- *    'array')`); objectui#9239 brought this file's member onto it.
+ *    arm alone since objectui#8348 (the shared ladder, called on the `'array'`
+ *    arm — ⛔ the arm is the citation, not the call shape, which has moved);
+ *    objectui#9239 brought this file's member onto it.
  *
  * ⛔ So do not read the message below as promising a fetchable source: on the
  * calendar, declaring `data` means handing the block rows it already has.
@@ -1342,7 +1343,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // face is objectui's own lane — `titleField`/`startDateField`/`endDateField`
   // have shipped declared here, and absent from `inputs`, for releases.
   colorField: z.string().optional().describe('Field carrying the per-record event colour — a CSS colour or a semantic palette name'),
-  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local (the spec's CalendarConfigSchema refuses it by name); LOAD-BEARING since objectui#8026"),
+  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
   defaultView: z.enum(['month', 'week', 'day']).optional().describe("Default view — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired: objectui#5784)"),
   // objectui#8174 — the two query keys `ObjectCalendar.tsx` lowers onto its own
   // `dataSource.find` (`$filter: schema.filter`,

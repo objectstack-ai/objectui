@@ -120,6 +120,29 @@ describe('PageRenderer — one page, one h1 (objectui#3434)', () => {
     expect(h1s[0].textContent).toBe('New Project + Tasks');
   });
 
+  it('treats a whitespace-only title as no title at all (objectui#9174)', () => {
+    // No `{`, so `interpolate()`'s fast path used to return the template
+    // VERBATIM, skipping the trim the token path applies. Truthy whitespace
+    // then passed PageHeaderRenderer's `explicitTitle && <h1>` gate, drawing a
+    // blank `h1` — and because `literalTitleText` (page.tsx) already trims and
+    // correctly read "no title", PageRenderer also drew its own implicit `h1`,
+    // for two `h1` elements on the document.
+    renderPage(masterDetailPage({ title: '   ' }));
+
+    const h1s = screen.getAllByRole('heading', { level: 1 });
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].textContent).toBe('New Project + Tasks');
+  });
+
+  it('still renders a real header title verbatim (lit control)', () => {
+    // A normal, non-empty title must still render through the untouched fast
+    // path — this is the control the trim-unification must not break.
+    renderPage(masterDetailPage({ title: 'Welcome to the CRM' }));
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Welcome to the CRM');
+  });
+
   it('honours an inline-translation map as a real header title', () => {
     renderPage(masterDetailPage({ title: { en: 'Get in touch', 'zh-CN': '联系我们' } }));
 

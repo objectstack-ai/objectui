@@ -21,9 +21,24 @@
  *
  *   - EXISTS + session lacks `requiredPermissions` → `403`
  *     `{ success: false, error: { code: 'PERMISSION_DENIED', message } }`
- *   - a nonexistent name, an unpublished app (ADR-0045 §3 keeps it externally
- *     unobservable), an app gated by an absent optional service (ADR-0057 D10 —
- *     nothing was denied to the CALLER) → `404 RESOURCE_NOT_FOUND`, unchanged.
+ *   - an unpublished app (ADR-0045 §3 keeps it externally unobservable), an app
+ *     gated by an absent optional service (ADR-0057 D10 — nothing was denied to
+ *     the CALLER) → `404 RESOURCE_NOT_FOUND`.
+ *   - ⭐ a name that resolves to NOTHING → `200` with the declared envelope
+ *     MINUS its `item`. Measured on a real server while implementing
+ *     objectui#9262 (showcase example, `objectstack` 60b9955, API 17.4.0);
+ *     this file previously asserted a 404 here and the assertion was wrong
+ *     about the server, not about the code. Both are absence.
+ *
+ * ## objectui#9262 — the verdicts this file now pins
+ *
+ * `probeAppAccess` used to answer `granted` whenever the call did not throw,
+ * which made every nonexistent app `granted` on a live server, and folded a 404
+ * absence together with an unreachable server into one `unknown`. The verdict
+ * set widened by two members (`not_found`, `unreachable`) and `unknown` was
+ * narrowed to "nothing was asked". Each case below names which answer produced
+ * which verdict, because the whole point of the widening is that the screen
+ * above it says only what was obtained.
  *
  * Every case here goes through the real `ObjectStackClient` over a stubbed
  * `fetch`, so what is measured includes the client's own error stamping
@@ -40,7 +55,9 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   ObjectStackAdapter,
   isAppPermissionDeniedError,
+  isMetaItemAbsentError,
   APP_PERMISSION_DENIED_CODE,
+  META_ITEM_ABSENT_CODE,
 } from './index';
 
 const json = (status: number, body: unknown) =>
@@ -55,9 +72,26 @@ const DENIED_BODY = {
   },
 };
 
-/** The absence body the same route keeps answering for every other refusal. */
+/** The 404 absence body — an app that EXISTS and is withheld for a non-permission reason. */
 const ABSENT_BODY = {
   error: { code: 'RESOURCE_NOT_FOUND', message: 'Metadata item not found or access denied.' },
+};
+
+/**
+ * The 200 a real server gives for a name with nothing behind it, transcribed
+ * from the live response (see the header). It is the declared
+ * `GetMetaItemResponse` envelope with `item` — a REQUIRED member of that schema
+ * — simply not there. In `rest-server.ts` the 403 and the 404 both sit inside
+ * `if (isAppType && visible)`, so a name that resolves to no document skips the
+ * gate entirely and the envelope falls through to `res.json`.
+ */
+const ITEMLESS_ENVELOPE = {
+  type: 'app',
+  name: 'no_such_app',
+  lock: 'none',
+  editable: true,
+  deletable: true,
+  resettable: false,
 };
 
 function makeAdapter(answer: (url: string) => Response) {
@@ -86,6 +120,24 @@ describe('isAppPermissionDeniedError', () => {
   });
 });
 
+describe('isMetaItemAbsentError', () => {
+  it("matches the metadata routes' absence code, in either ADR-0112 spelling", () => {
+    expect(META_ITEM_ABSENT_CODE).toBe('RESOURCE_NOT_FOUND');
+    expect(isMetaItemAbsentError({ code: 'RESOURCE_NOT_FOUND' })).toBe(true);
+    expect(isMetaItemAbsentError({ code: 'resource_not_found' })).toBe(true);
+  });
+
+  it('does NOT match a denial, or a bare 404 status', () => {
+    // The two answers must never cross: a denial read as absence would tell a
+    // user their permission problem is a typo, and the reverse tells them their
+    // typo is a permission problem (objectui#4252's defect, both ways round).
+    expect(isMetaItemAbsentError({ code: 'PERMISSION_DENIED' })).toBe(false);
+    expect(isMetaItemAbsentError({ httpStatus: 404 })).toBe(false);
+    expect(isMetaItemAbsentError(undefined)).toBe(false);
+    expect(isAppPermissionDeniedError({ code: META_ITEM_ABSENT_CODE })).toBe(false);
+  });
+});
+
 describe('ObjectStackAdapter.probeAppAccess — over the wire', () => {
   it('reports `denied` for the 403 PERMISSION_DENIED envelope', async () => {
     const { adapter, fetchImpl } = makeAdapter(() => json(403, DENIED_BODY));
@@ -96,9 +148,20 @@ describe('ObjectStackAdapter.probeAppAccess — over the wire', () => {
     expect(String(fetchImpl.mock.calls[0][0])).toContain('/api/v1/meta/app/finance');
   });
 
-  it('reports `unknown` for the 404 absence envelope — the copy must not move', async () => {
+  it('reports `not_found` for the 404 absence envelope', async () => {
     const { adapter } = makeAdapter(() => json(404, ABSENT_BODY));
-    await expect(adapter.probeAppAccess('no_such_app')).resolves.toBe('unknown');
+    await expect(adapter.probeAppAccess('no_such_app')).resolves.toBe('not_found');
+  });
+
+  it('THE MEASURED DEFECT — an item-less 200 is `not_found`, not `granted`', async () => {
+    // objectui#9262 cause 8, measured on a real server before the branch was
+    // written: the by-name route answers 200 for a name that resolves to
+    // nothing, so "the call did not throw" reported `granted` for an app that
+    // does not exist — and `granted` falls through to the same screen, which is
+    // why nobody saw it. Every typo, every never-created app and every
+    // unpublished draft took this path.
+    const { adapter } = makeAdapter(() => json(200, ITEMLESS_ENVELOPE));
+    await expect(adapter.probeAppAccess('no_such_app')).resolves.toBe('not_found');
   });
 
   it('reports `granted` when the route serves the app', async () => {
@@ -108,14 +171,25 @@ describe('ObjectStackAdapter.probeAppAccess — over the wire', () => {
     await expect(adapter.probeAppAccess('finance')).resolves.toBe('granted');
   });
 
-  it('reports `unknown` — never `denied` — when the server cannot be reached', async () => {
+  it('a 200 whose `item` is explicitly null is absence too, not a served app', async () => {
+    // The envelope member is declared `unknown`, so `null` is a value it can
+    // carry. Nothing was served either way — the discriminator is whether a
+    // DOCUMENT came back, not whether the key was typed.
+    const { adapter } = makeAdapter(() => json(200, { type: 'app', name: 'finance', item: null }));
+    await expect(adapter.probeAppAccess('finance')).resolves.toBe('not_found');
+  });
+
+  it('reports `unreachable` — never `denied`, never `not_found` — when the server cannot be reached', async () => {
+    // Nothing was learned about the app. Reading this as absence would be the
+    // #4252 defect mirrored: a screen asserting a state it never measured.
     const { adapter } = makeAdapter(() => {
       throw new Error('network down');
     });
-    await expect(adapter.probeAppAccess('finance')).resolves.toBe('unknown');
+    await expect(adapter.probeAppAccess('finance')).resolves.toBe('unreachable');
   });
 
   it('reports `unknown` for an empty name without asking anything', async () => {
+    // The one surviving `unknown`: nothing was asked, so nothing was measured.
     const { adapter, fetchImpl } = makeAdapter(() => json(200, {}));
     await expect(adapter.probeAppAccess('')).resolves.toBe('unknown');
     expect(fetchImpl).not.toHaveBeenCalled();
@@ -123,7 +197,19 @@ describe('ObjectStackAdapter.probeAppAccess — over the wire', () => {
 
   it('never throws — a caller renders a screen off this, not a catch block', async () => {
     const { adapter } = makeAdapter(() => new Response('<html>gateway</html>', { status: 502 }));
-    await expect(adapter.probeAppAccess('finance')).resolves.toBe('unknown');
+    await expect(adapter.probeAppAccess('finance')).resolves.toBe('unreachable');
+  });
+
+  it('a 5xx is `unreachable`, and a 404 with no declared code is too', async () => {
+    // The absence verdict is earned by the CODE, exactly as the denial is
+    // (objectui#4408). A 404 that carries no declared code is a transport fact
+    // many things produce — a proxy, an appliance, a mis-typed route — and none
+    // of them said the app is missing.
+    const { adapter: five } = makeAdapter(() => json(500, { error: { code: 'INTERNAL_ERROR', message: 'boom' } }));
+    await expect(five.probeAppAccess('finance')).resolves.toBe('unreachable');
+
+    const { adapter: bare } = makeAdapter(() => json(404, { message: 'Not Found' }));
+    await expect(bare.probeAppAccess('finance')).resolves.toBe('unreachable');
   });
 
   // ── code, not status ─────────────────────────────────────────────────────
@@ -131,11 +217,11 @@ describe('ObjectStackAdapter.probeAppAccess — over the wire', () => {
   // Both directions, because a status-reading implementation passes every case
   // above. 403 is not the fact; `PERMISSION_DENIED` is.
 
-  it('a 403 WITHOUT the code is `unknown` — a status alone never denies', async () => {
+  it('a 403 WITHOUT the code is `unreachable` — a status alone never denies', async () => {
     const { adapter } = makeAdapter(() =>
       json(403, { error: { code: 'CSRF_TOKEN_INVALID', message: 'stale token' } }),
     );
-    await expect(adapter.probeAppAccess('finance')).resolves.toBe('unknown');
+    await expect(adapter.probeAppAccess('finance')).resolves.toBe('unreachable');
   });
 
   it('the code decides even when the status is not 403', async () => {

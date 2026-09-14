@@ -854,12 +854,15 @@ const DEBT_ISSUE = 7265;
 // pre-existing mirrors it could not previously SEE, not forks anybody wrote. A
 // name may not be added here for any other reason.
 //
-// All 11 are real mirrors, classified by reading each site — the four
-// different-concept collisions the same widening surfaced went to ALLOW with
+// Every name still listed is a real mirror, classified by reading its site —
+// the different-concept collisions the same widening surfaced went to ALLOW with
 // reasons instead, and the two carrying standalone defects beyond the mirroring
 // already have cards (objectui#6286, objectui#6287). Re-adding a name here still
 // means "collides, not yet triaged"; a name whose triage concluded "deliberate
-// divergence" belongs in ALLOW instead.
+// divergence" belongs in ALLOW instead. ⚠️ How many are left is deliberately NOT
+// written here: `--ledger` regenerates the block and the run banner prints the
+// count, so a figure copied into this comment could only be a second, staler
+// answer to a question the script already answers (AGENTS.md #9).
 //
 // Burned down so far, in slices, each by the route its own site allowed:
 // `TreeConfig` (@object-ui/plugin-tree), then the @object-ui/core pair
@@ -867,15 +870,23 @@ const DEBT_ISSUE = 7265;
 // imported from `@objectstack/spec/data` after the identity the seeding card
 // asserted against 17.2.0 was RE-MEASURED against the resolved 17.4.0 pin,
 // because "byte-identical" is a statement about a version, not a property.
+//
+// Then the whole `@object-ui/app-shell` group at objectui#7265 — six names, seven
+// sites, and deliberately NOT one route for all of them, which is the part worth
+// carrying forward. Four were the spec's own concept and were BOUND to it
+// (`RemoteTable` imported outright, the sibling client in that same package
+// having already made that call; `AdminScope` and `FlowRuntimeState` derived as
+// `Partial<>` of the spec type, the widening confined to requiredness and
+// documented at each site; `ObjectLike` in `useTrackRouteAsRecent` PICKed down to
+// the two members it reads). Three were a DIFFERENT concept wearing the spec's
+// name and were renamed instead: `AppLike` → `AppRouteLike` (the ADR-0048 route
+// key `_packageId`, which the spec's translator shape does not declare),
+// `ObjectLike` in `deriveRelatedLists` → `MergedObjectLike` (carries `list`, a key
+// `MetadataProvider` merges on and the spec's closed shape cannot hold), and the
+// `FlowEdge` copy in `FlowEdgeInspector`, which was a third hand copy of this
+// package's OWN declared dialect `FlowDesignerEdge` and now uses it. Both ratchets
+// for the renames live in packages/app-shell/src/__tests__/spec-symbol-parity.test.ts.
 const DEBT = {
-  "@object-ui/app-shell": [
-    "AdminScope",
-    "AppLike",
-    "FlowEdge",
-    "FlowRuntimeState",
-    "ObjectLike",
-    "RemoteTable",
-  ],
   "@object-ui/types": [
     "UserFilterFieldSchema",
     "UserFiltersSchema",

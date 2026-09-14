@@ -195,9 +195,27 @@ describe('markdown fence scanning has one authority (objectui#9194)', () => {
    * family).
    */
   describe('neither gate re-spells the predicate', () => {
-    const GATES = ['scripts/check-doc-component-types.mjs', 'scripts/check-doc-expression-carriage.mjs'];
-    /** An anchored regex literal that matches a run of fence markers. */
-    const LOCAL_PREDICATE = /\/\^[^\n/]*(?:`{3}|`\{\d|~{3}|~\{\d)/;
+    const GATES = [
+      'scripts/check-doc-component-types.mjs',
+      'scripts/check-doc-expression-carriage.mjs',
+      // objectui#9331 — the same two wrong answers, one gate each: a toggle that
+      // flipped on any run, and a non-greedy match that ended a block at the
+      // first three-backtick run after it.
+      'scripts/check-prompt-component-keys.mjs',
+      'scripts/check-doc-example-shared-reader.mjs',
+    ];
+
+    /**
+     * A regex literal that matches a run of fence markers.
+     *
+     * ⚠️ The anchor is OPTIONAL, and that is objectui#9331's correction to this
+     * guard. It required `/^` and so could only ever have caught the toggle;
+     * `check-doc-example-shared-reader.mjs` spelled its predicate UNANCHORED
+     * (`/\`\`\`(?:tsx?|jsx?|typescript)\n/`) and would have walked straight
+     * past a guard looking for anchored literals only. A recurrence guard that
+     * matches one of the two shapes the defect actually takes is not a guard.
+     */
+    const LOCAL_PREDICATE = /\/\^?[^\n/]*(?:`{3}|`\{\d|~{3}|~\{\d)/;
 
     it.each(GATES)('%s imports the shared authority', (gate) => {
       const source = fs.readFileSync(path.join(ROOT, gate), 'utf8');
@@ -209,11 +227,27 @@ describe('markdown fence scanning has one authority (objectui#9194)', () => {
       expect(LOCAL_PREDICATE.test(source)).toBe(false);
     });
 
-    it('the guard would catch the predicate that was removed', () => {
+    it('the guard would catch every predicate that was removed', () => {
       // The positive control, so a guard that stopped matching anything at all
-      // cannot pass by describing nothing.
+      // cannot pass by describing nothing. One line per spelling actually
+      // deleted from this tree.
       expect(LOCAL_PREDICATE.test('const fence = /^\\s*```(\\S*)\\s*$/.exec(lines[i]);')).toBe(true);
       expect(LOCAL_PREDICATE.test('const fence = /^([ \\t]*)(`{3,}|~{3,})([^\\n]*)\\n/gm;')).toBe(true);
+      // objectui#9331, the toggle...
+      expect(LOCAL_PREDICATE.test('const FENCE = /^\\s*(?:```|~~~)/;')).toBe(true);
+      // ...and the unanchored one, which the pre-#9331 guard shape MISSED.
+      expect(
+        LOCAL_PREDICATE.test('body.matchAll(/```(?:tsx?|jsx?|typescript)\\n([\\s\\S]*?)```/g)'),
+      ).toBe(true);
+    });
+
+    it('does not fire on a regex that merely mentions backticks', () => {
+      // The negative control. Dropping the anchor widened this predicate, and a
+      // guard that reds on any backtick-bearing regex would force the gates to
+      // stop reading inline code — `check-prompt-component-keys.mjs` really
+      // carries this one, and it is not a fence predicate.
+      expect(LOCAL_PREDICATE.test('const BACKTICKED = /`([^`]+)`/g;')).toBe(false);
+      expect(LOCAL_PREDICATE.test("const NOT_A_REGEX = 'see ``` in prose';")).toBe(false);
     });
   });
 });

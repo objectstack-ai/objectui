@@ -231,6 +231,10 @@ import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isEntrypoint } from './invoked-as.mjs';
+import {
+  deriveRecordIconNamePairs,
+  renderModule as renderGeneratedNameList,
+} from './regenerate-lucide-record-icon-names.mjs';
 
 /** This gate's OWN repo — where lucide and typescript are resolved from. */
 const gateRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -585,7 +589,7 @@ export const ANCHORED_MAPS = [
 export const LUCIDE_OWNER_PKG = 'packages/components/package.json';
 const lucideRequire = createRequire(join(gateRoot, LUCIDE_OWNER_PKG));
 export const lucide = await import(pathToFileURL(lucideRequire.resolve('lucide-react')).href);
-export const { iconNames } = await import(pathToFileURL(lucideRequire.resolve('lucide-react/dynamic.mjs')).href);
+export const { iconNames, dynamicIconImports } = await import(pathToFileURL(lucideRequire.resolve('lucide-react/dynamic.mjs')).href);
 export const icons = lucide.icons;
 export const lucideVersion = JSON.parse(readFileSync(lucideRequire.resolve('lucide-react/package.json'), 'utf8')).version;
 const ts = createRequire(join(gateRoot, 'package.json'))('typescript');
@@ -777,6 +781,176 @@ function objectProp(objectLiteral, name) {
   return null;
 }
 
+// ── The generated legal-name list ────────────────────────────────────────────
+/**
+ * The module the seam now asks its membership question of, instead of indexing
+ * lucide's runtime `icons` record (objectui#9251).
+ *
+ * ⚠️ Reading the record was what put all 1,781 icon modules in the console's
+ * eager closure, so the whole point of the move is that NO shipped module
+ * imports the record any more. Discovery therefore cannot keep looking only for
+ * `import { icons }` — with that predicate alone it would find zero record
+ * sites the day the seam changed and, worse, would be telling the truth: the
+ * record IS unread. What has to stay censused is the site that judges names
+ * against the record's VOCABULARY, however it holds that vocabulary.
+ *
+ * The predicate is deliberately narrow, and the same shape as the one above it:
+ * a NAMED import (a rename counts) whose specifier names the generated table.
+ * A module that re-derives the vocabulary some other way is outside it — the
+ * same declared bound the `icons` predicate carries, and review holds the rest.
+ */
+export const GENERATED_NAME_LIST_MODULE = 'lucide-record-icon-names';
+
+/** Path of the generated list, relative to the repo root. */
+export const GENERATED_NAME_LIST_TARGET = 'packages/components/src/lib/lucide-record-icon-names.ts';
+
+function importsGeneratedNameList(node, specifier) {
+  if (!/(^|\/)lucide-record-icon-names(\.(js|ts))?$/.test(specifier)) return false;
+  if (node.importClause?.isTypeOnly) return false;
+  const bindings = node.importClause?.namedBindings;
+  if (!bindings || !ts.isNamedImports(bindings)) return false;
+  return bindings.elements.some((element) => !element.isTypeOnly);
+}
+
+// ── Part 4: the generated legal-name list ────────────────────────────────────
+/**
+ * The list the seam judges membership with must be (a) in sync with lucide's
+ * own export manifest, (b) the same vocabulary as the runtime `icons` record,
+ * and (c) derived WITHOUT importing that record.
+ *
+ * ## Why all three, and why here
+ *
+ * (a) alone is a self-consistency check: the file matches a script nobody
+ * proved was reading the right thing. (b) is what makes the list a RECORD
+ * vocabulary rather than a third one — this gate already loads the record for
+ * its own judgement, so it is the natural place to assert the equality that the
+ * generator deliberately does not (keeping the record out of the generator is
+ * the point of the exercise). (c) is the ruling's own clause, made mechanical:
+ * 「合法图标名集合由构建期生成的静态名单提供(⛔ 不从 `Object.keys(icons)` 推导)」
+ * — a derivation that read the record would re-pin every icon module into the
+ * eager closure and undo objectui#9251 without changing one visible byte of the
+ * seam.
+ *
+ * ⚠️ (c) is checked as an IMPORT, not as a text search. The prose of both files
+ * names `Object.keys(icons)` in order to forbid it, so a grep would fail on the
+ * very sentence that states the rule. A value import of `'lucide-react'` is the
+ * thing that actually costs the bytes; a `import type` of it is erased before
+ * anything is bundled and is not one.
+ */
+export const RECORD_FREE_MODULES = Object.freeze([
+  GENERATED_NAME_LIST_TARGET,
+  'scripts/regenerate-lucide-record-icon-names.mjs',
+  'packages/components/src/renderers/action/resolve-icon.ts',
+]);
+
+/**
+ * A file in this tree that DOES import the record for a value, so the
+ * "no record import" probe below can be shown to fire before its silence over
+ * {@link RECORD_FREE_MODULES} is quoted as a result. It is a test file, which
+ * is why it is allowed to do so: tests are not bundled into any page.
+ */
+export const RECORD_IMPORT_POSITIVE_CONTROL =
+  'packages/components/src/renderers/action/__tests__/resolve-icon-seam.test.ts';
+
+/** Does `file` import lucide's record entry for a VALUE (not just a type)? */
+export function importsRecordEntry(root, file) {
+  const sf = parseSource(root, file);
+  let found = false;
+  sf.forEachChild((node) => {
+    if (!ts.isImportDeclaration(node) || !ts.isStringLiteral(node.moduleSpecifier)) return;
+    if (node.moduleSpecifier.text !== 'lucide-react') return;
+    if (node.importClause?.isTypeOnly) return;
+    const bindings = node.importClause?.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        if (element.isTypeOnly) continue;
+        if ((element.propertyName ?? element.name).text === 'icons') found = true;
+      }
+      return;
+    }
+    // A namespace import reaches the record through the namespace object.
+    if (bindings && ts.isNamespaceImport(bindings)) found = true;
+  });
+  return found;
+}
+
+/**
+ * @param {string} root
+ * @returns {string[]} errors
+ */
+export function judgeGeneratedNameList(root) {
+  const errors = [];
+
+  let pairs;
+  try {
+    pairs = deriveRecordIconNamePairs(root);
+  } catch (e) {
+    errors.push(`the generated legal-name list could not be derived: ${e instanceof Error ? e.message : String(e)}`);
+    return errors;
+  }
+
+  // (a) the committed file is what the derivation renders.
+  const target = join(root, GENERATED_NAME_LIST_TARGET);
+  let committed = null;
+  try { committed = readFileSync(target, 'utf8'); } catch { committed = null; }
+  if (committed === null) {
+    errors.push(`${GENERATED_NAME_LIST_TARGET} is missing. Run \`node scripts/regenerate-lucide-record-icon-names.mjs\`.`);
+  } else if (committed !== renderGeneratedNameList(pairs)) {
+    errors.push(
+      `${GENERATED_NAME_LIST_TARGET} has drifted from lucide's export manifest — the seam would accept a `
+      + 'different set of names than lucide ships. Run `node scripts/regenerate-lucide-record-icon-names.mjs` and commit the result.',
+    );
+  }
+
+  // (b) it is the RECORD vocabulary, key for key.
+  const derived = new Set(pairs.map(([pascal]) => pascal));
+  const recordKeys = new Set(Object.keys(icons));
+  const missing = [...recordKeys].filter((k) => !derived.has(k));
+  const extra = [...derived].filter((k) => !recordKeys.has(k));
+  if (missing.length > 0 || extra.length > 0) {
+    errors.push(
+      `the generated legal-name list is not the runtime \`icons\` vocabulary: ${missing.length} record key(s) absent `
+      + `(${missing.slice(0, 5).join(', ')}), ${extra.length} name(s) it does not have `
+      + `(${extra.slice(0, 5).join(', ')}). The manifest parse and the record have diverged.`,
+    );
+  }
+
+  // (b2) every name must be loadable through the dynamic import map, which is
+  // how the seam draws it. A name that is in the list but not in the map
+  // resolves to a component that throws on mount instead of to `null`.
+  const loadable = new Set(Object.keys(dynamicIconImports ?? {}));
+  if (loadable.size === 0) {
+    errors.push('lucide\'s dynamic import map read as empty — the loadability probe is blind, so its silence proves nothing.');
+  } else {
+    const unloadable = pairs.filter(([, kebab]) => !loadable.has(kebab));
+    if (unloadable.length > 0) {
+      errors.push(
+        `${unloadable.length} generated name(s) are not keys of lucide's dynamic import map and could not be `
+        + `drawn: ${unloadable.slice(0, 5).map(([p, k]) => `${p} -> ${k}`).join(', ')}.`,
+      );
+    }
+  }
+
+  // (c) nothing on the derivation or resolution path imports the record.
+  if (!importsRecordEntry(root, RECORD_IMPORT_POSITIVE_CONTROL)) {
+    errors.push(
+      `the record-import probe did not fire on its positive control ${RECORD_IMPORT_POSITIVE_CONTROL}, `
+      + 'so its silence over the modules below is not a reading. Point the control at a module that still imports `icons`.',
+    );
+  } else {
+    for (const file of RECORD_FREE_MODULES) {
+      if (importsRecordEntry(root, file)) {
+        errors.push(
+          `${file} imports lucide's runtime \`icons\` record for a value. That import is the eager closure `
+          + 'objectui#9251 removed — 1,781 icon modules — and the ruling refuses deriving the legal-name set from it.',
+        );
+      }
+    }
+  }
+
+  return errors;
+}
+
 // ── Part 1: surface census ───────────────────────────────────────────────────
 /**
  * Which modules read which lucide vocabulary — rediscovered from source, so the
@@ -790,33 +964,51 @@ export function discoverResolvers(root, files) {
   for (const file of files) {
     if (isTestPath(file)) continue;
     const text = readFileSync(join(root, file), 'utf8');
-    if (!text.includes('lucide-react')) continue;
+    if (!text.includes('lucide-react') && !text.includes(GENERATED_NAME_LIST_MODULE)) continue;
     const sf = parseSource(root, file);
     let recordLocal = null;
+    let readsGeneratedNameList = false;
     let readsDynamic = false;
     sf.forEachChild((node) => {
       if (!ts.isImportDeclaration(node) || !ts.isStringLiteral(node.moduleSpecifier)) return;
       const specifier = node.moduleSpecifier.text;
       if (specifier.startsWith('lucide-react/dynamic')) readsDynamic = true;
+      if (importsGeneratedNameList(node, specifier)) readsGeneratedNameList = true;
       if (specifier !== 'lucide-react') return;
       const bindings = node.importClause?.namedBindings;
       if (!bindings || !ts.isNamedImports(bindings)) return;
       for (const element of bindings.elements) {
+        // A TYPE-only binding is erased before anything is bundled, so it does
+        // not put the record on the eager path and is not a read of it. The
+        // seam imports `LucideIcon` this way.
+        if (node.importClause?.isTypeOnly || element.isTypeOnly) continue;
         if ((element.propertyName ?? element.name).text === 'icons') recordLocal = element.name.text;
       }
     });
-    if (readsDynamic) dynamic.push(file);
-    if (!recordLocal) continue;
-    let indexes = false;
-    const visit = (node) => {
-      if (ts.isElementAccessExpression(node)) {
-        const base = unwrap(node.expression);
-        if (ts.isIdentifier(base) && base.text === recordLocal) indexes = true;
-      }
-      ts.forEachChild(node, visit);
-    };
-    ts.forEachChild(sf, visit);
-    if (indexes) record.push(file);
+
+    let indexesRecord = false;
+    if (recordLocal) {
+      const visit = (node) => {
+        if (ts.isElementAccessExpression(node)) {
+          const base = unwrap(node.expression);
+          if (ts.isIdentifier(base) && base.text === recordLocal) indexesRecord = true;
+        }
+        ts.forEachChild(node, visit);
+      };
+      ts.forEachChild(sf, visit);
+    }
+
+    const readsRecordVocabulary = indexesRecord || readsGeneratedNameList;
+    if (readsRecordVocabulary) record.push(file);
+    // ⚠️ A record site is NOT also a dynamic site, even though the seam imports
+    // `DynamicIcon`. The split this gate polices is which VOCABULARY a site's
+    // names are judged against, and the seam's is the record's 1,781 keys — it
+    // uses the dynamic map as a LOADER for names it has already accepted, never
+    // as the membership question. Listing it in both censuses would say it
+    // admits `iconNames`'s 258 retired spellings, which is the one thing this
+    // gate exists to deny. Moving the seam's membership to `iconNames` still
+    // fails loudly: the record census would drop to zero.
+    else if (readsDynamic) dynamic.push(file);
   }
   return { record: record.sort(), dynamic: dynamic.sort() };
 }
@@ -1042,6 +1234,7 @@ function judgeAnchoredMaps(root, anchors) {
  *   declaredDynamicReaders?: readonly string[],
  *   negativeControl?: string,
  *   recordReadingTypes?: Record<string, RecordReadingType>,
+ *   generatedNameListRoot?: string,
  * }} AnalyzeOptions
  *
  * @param {string} root
@@ -1053,6 +1246,13 @@ export function analyze(root, {
   declaredDynamicReaders = DECLARED_DYNAMIC_READERS,
   negativeControl = DISCOVERY_NEGATIVE_CONTROL,
   recordReadingTypes = RECORD_READING_TYPES,
+  // ⚠️ Deliberately NOT `root`. Parts 1-3 judge whatever tree they are pointed
+  // at, which is what lets the unit suite drive them with synthetic fixtures.
+  // Part 4 judges THIS repository's own generator, generated list and seam —
+  // three fixed paths, none of which a fixture tree has — so it is anchored to
+  // the gate's own root and a fixture run exercises it against the real files.
+  // Passing `null` turns it off for a caller that only wants parts 1-3.
+  generatedNameListRoot = gateRoot,
 } = {}) {
   const errors = [...selfTest(), ...censusResolverProblems()];
   const { sources, documents } = collectFiles(root);
@@ -1085,6 +1285,7 @@ export function analyze(root, {
   const authored = judgeAuthoredNodes(root, { sources, documents }, recordReadingTypes);
   const anchored = judgeAnchoredMaps(root, anchors);
   errors.push(...authored.errors, ...anchored.errors);
+  if (generatedNameListRoot) errors.push(...judgeGeneratedNameList(generatedNameListRoot));
 
   return {
     discovered,

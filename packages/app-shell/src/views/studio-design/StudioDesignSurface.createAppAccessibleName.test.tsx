@@ -22,9 +22,14 @@
  * The cost is not cosmetic. While the dialog is open Radix marks the rest of
  * the tree `aria-hidden`, so a by-name click on `Create app` lands on the modal
  * overlay and Radix dismisses the dialog — silently, with no error and nothing
- * created. The failure only surfaces much later at the app's list route as
- * `App not available … it may still be publishing`, which blames a publish that
- * never started.
+ * created. The failure only surfaces much later at the app's list route, on the
+ * screen for an app that is not there. That screen used to read
+ * `App not available … it may still be publishing` — blaming a publish that
+ * never started — which is the second half objectui#9231 asked to be measured
+ * rather than special-cased here; objectui#9262 measured it and retired the
+ * sentence, so the same path now reads `This app can't be opened`. The delay
+ * between the silent dismissal and the screen is what this suite is about, and
+ * that is unchanged.
  *
  * ## What this suite pins
  *

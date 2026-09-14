@@ -327,9 +327,12 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       ['detail.historyEmpty', DETAIL_VIEW, 'No history yet'],
       ['empty.appNotAvailable', APP_CONTENT, 'App not available'],
       [
+        // objectui#9262 retired the publishing clause: the screen asserted a
+        // transient deploy state it had never measured, over seven causes only
+        // one of which is a publish. What is left says nothing about why.
         'empty.appNotAvailableDescription',
         APP_CONTENT,
-        'This app is not available yet — it may still be publishing. Try again in a moment.',
+        'This app is not available — try again in a moment.',
       ],
       [
         'empty.interfacePageSourceMissing',
@@ -859,9 +862,13 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
     for (const key of KEYS) {
       expect((at(builtInLocales.fr, key) as string).includes('’'), `fr ${key} used a curly apostrophe`).toBe(false);
     }
-    expect(at(builtInLocales.fr, KEY)).toContain("n'est pas encore disponible");
-    // ru writes ё (163 values in the pack).
-    expect(at(builtInLocales.ru, KEY)).toContain('ещё');
+    expect(at(builtInLocales.fr, KEY)).toContain("n'est pas disponible");
+    // ru writes ё (163 values in the pack). This read `ещё`, which lived in the
+    // publishing clause objectui#9262 retired from this value; the habit is
+    // pinned on the sibling the same screen gained in that pass, where the ё is
+    // in `учётной записи`. Moved rather than dropped: a pack that reverts to
+    // `учетной` is the regression this line exists to catch.
+    expect(at(builtInLocales.ru, 'empty.appNotFoundDescription')).toContain('учётной');
     // The quote style around `{{name}}` follows the sibling empty-state value in
     // the SAME pack: zh curly, ja corner brackets, the rest ASCII.
     expect(at(builtInLocales.zh, 'empty.objectNotFoundDescription')).toContain('“{{name}}”');
@@ -998,7 +1005,7 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       const { t } = result.current;
       expect(t('common.editInStudio')).toBe('在 Studio 中编辑');
       expect(t('empty.appNotAvailable')).toBe('应用不可用');
-      expect(t('empty.appNotAvailableDescription')).toBe('此应用尚不可用 —— 可能仍在发布中。请稍后重试。');
+      expect(t('empty.appNotAvailableDescription')).toBe('此应用不可用 —— 请稍后重试。');
       expect(t('empty.interfacePageSourceMissing', { name: 'crm_lead' })).toBe(
         '此界面页引用了 “crm_lead”，但该来源不可用。',
       );

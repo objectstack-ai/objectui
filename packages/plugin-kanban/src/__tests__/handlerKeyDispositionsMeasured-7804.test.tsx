@@ -7,11 +7,17 @@
  */
 
 /**
- * Two of the three handler keys `KanbanRenderer` reads off the authored
- * document are now JUDGED by the `object-kanban` arm, and each one's
- * objectui#6124 disposition is MEASURED here rather than shared across the
- * prefix (objectui#7804, the `plugin-kanban` slice of the 39-row finding;
- * director seat ruling of 2026-09-07, decision batch #69).
+ * All three handler keys the kanban board consumes are now JUDGED by the
+ * `object-kanban` arm, and each one's objectui#6124 disposition is MEASURED
+ * here rather than shared across the prefix (objectui#7804, the `plugin-kanban`
+ * slice of the `KNOWN_UNDECLARED_READS` finding — ⛔ its row count is NOT
+ * written down here. This file reads that ledger live, through the import
+ * below, and `node scripts/check-handler-key-read-sites.mjs` prints the count
+ * while its `--list` enumerates the rows. AGENTS.md #9: the figure this line
+ * used to hard-code has since been overtaken by the population it described;
+ * director seat ruling of 2026-09-07, decision batch #69 — with the third key
+ * landing on objectui#9342, which moved the READ that had blocked its
+ * tombstone).
  *
  * ## The exposure this closes
  *
@@ -34,38 +40,49 @@
  *     untouched and arrives at the board implementation BY IDENTITY.
  *   - `onCardClick` — RUNTIME SLOT. `ObjectKanban` replaces the schema key with
  *     its own wrapper, but `SchemaRenderer` also spreads the authored key as a
- *     React PROP, `ObjectKanbanComponentProps` declares that prop, and the
- *     wrapper CALLS it. The authored function runs.
- *   - `onCardMove` — the reading is `'retired'` and it does NOT land here.
- *     `ObjectKanban` replaces the schema key with `handleCardMove` and declares
- *     NO `onCardMove` prop (its rest parameter is discarded), so neither
- *     channel delivers and an authored value reaches nothing on this arm.
+ *     React PROP, `ObjectKanbanComponentProps` declares that prop, and
+ *     `ObjectKanban` forwards it into `useNavigationOverlay` as `onRowClick`,
+ *     where `handleClick` gives it full priority and calls it. The authored
+ *     function runs. (Until objectui#9341 the wrapper ALSO called it directly,
+ *     which is why it ran twice — see the correction at the end of this block.)
+ *   - `onCardMove` — the reading is `'retired'`, and since objectui#9342 it
+ *     lands here as a TOMBSTONE on both faces. `ObjectKanban` replaces the
+ *     schema key with `handleCardMove` and declares NO `onCardMove` prop (its
+ *     rest parameter is discarded), so neither channel delivers and an authored
+ *     value reaches nothing on this arm.
  *
  * ⛔ "`ObjectKanban` overrides it" does not separate `onCardClick` from
  * `onCardMove` — it is true of both. What separates them is the PROP channel,
  * which only `onCardClick` has, so that is what suite 2 drives.
  *
- * ## ⚠️ Why the third key is recorded here instead of declared
+ * ## ⭐ Why the third key took a second card — and what closed it
  *
  * `check:handler-key-reads` — the gate of record for this class — refuses the
  * `'retired'` spelling while a renderer still reads the key, and prints
  * `declares it RETIRED, but a renderer still reads it`. Its own contract says
  * why: a tombstone "exists precisely because nothing reads the key — it has no
- * read site BY CONSTRUCTION". `KanbanRenderer` does read `schema.onCardMove`,
- * off the document `ObjectKanban` hands it; what the gate cannot see is that
- * the value at that read was substituted one hop earlier.
+ * read site BY CONSTRUCTION". `KanbanRenderer` DID read the key off the
+ * document `ObjectKanban` hands it; what the gate cannot see is that the value
+ * at that read was substituted one hop earlier.
  *
- * ⛔ The two spellings that would make it green are both worse. Declaring
- * `'runtime-slot'` keeps the TypeScript twin callable and so publishes a key
- * the object-bound board DROPS — the one resolution this package's `quickAdd`
- * carve-out records as forbidden. Deleting the read narrows `KanbanRenderer`'s
- * published props, which is the objectui#7742 remedy (`objectFields`, one file
- * over, maintainer decision batch #70) and a ruling rather than a repair.
+ * ⛔ Of the two spellings that would have made it green, one is forbidden:
+ * declaring `'runtime-slot'` keeps the TypeScript twin callable and so
+ * publishes a key the object-bound board DROPS — the resolution this package's
+ * `quickAdd` carve-out records as forbidden.
  *
- * ⇒ `onCardMove` keeps its `KNOWN_UNDECLARED_READS` row naming objectui#7804,
- * which stays open and stays the parent. Suite 1 pins it as STILL ACCEPTED AND
- * KEPT, so the exposure cannot drift silently and the day it is closed this
- * file goes red pointing at the reading that closed it.
+ * ⇒ objectui#9342 took the other one, as a RULING rather than a repair (the
+ * `domain:ui` seat on PR objectui#9338, option B; the objectui#7742 remedy
+ * `objectFields` took one file over under maintainer decision batch #70):
+ * `KanbanRenderer` now takes `onCardMove` as an explicit React PROP, a sibling
+ * of `schema`, `ObjectKanban` passes `handleCardMove` through it, and the arm
+ * carries `handlerKeyRefusal(…, 'retired', …)`. That narrows a published props
+ * surface, which is why the change carries `needs:contract-review`.
+ *
+ * ⚠️ The DISPOSITION did not move. objectui#7804 measured `'retired'` and suite
+ * 2 below still drives it dead on the same instrument; what objectui#9342
+ * supplied is the precondition the gate demanded. Suite 1 used to pin the key
+ * as STILL ACCEPTED AND KEPT, with the note that the day the read moved THAT
+ * leg would go red — it did, and it now reads the named refusal instead.
  *
  * ## Every control here can fire
  *
@@ -83,13 +100,15 @@
  *
  *   - suite 1 (the accept set) FAILS on the two declared keys: both parse
  *     GREEN and the authored value survives into the parsed output, which is
- *     the exposure restated as a reading. Its `onCardMove` leg PASSES before
- *     and after — that key is the one this slice does not close;
+ *     the exposure restated as a reading. Its `onCardMove` leg PASSED before
+ *     and after — that key was the one this slice did not close, and
+ *     objectui#9342 flipped that leg to the named refusal;
  *   - suite 3 (both faces) FAILS on the two: nothing is declared on either
  *     face, so there is no disposition to read;
  *   - suite 4 (the drained ledger) FAILS listing the two
  *     `object-kanban::ObjectKanbanSchema.*` rows this slice drains, while its
- *     `onCardMove` row is expected to survive;
+ *     `onCardMove` row is expected to survive (⭐ objectui#9342 drained that
+ *     third row too, and this suite now asserts the set is EMPTY);
  *   - suite 2 (the channels) PASSES UNCHANGED, before and after. It measures
  *     the renderer, and this card changes no renderer — which is exactly why it
  *     is the evidence the dispositions are derived from rather than a
@@ -101,9 +120,20 @@
  * output), but the dead-read leg of suite 2 also failed — on its lit CONTROL,
  * not on its subject. `onCardMove` was already measured dead; `onCardClick` ran
  * TWICE rather than once. That count is a defect in `ObjectKanban`'s click
- * wiring, not in this card's subject, so the control now asserts that the
- * authored handler RAN and the count is reported on its own card instead of
- * being pinned here.
+ * wiring, not in this card's subject, so the control asserted that the authored
+ * handler RAN and the count was reported on its own card instead of being
+ * pinned here.
+ *
+ * ⭐ THAT CARD LANDED (objectui#9341, maintainer ruling 2026-09-13): the
+ * wrapper's second, one-argument call is gone, the authored handler runs ONCE
+ * through `handleClick`, and the relaxed control here is TIGHTENED BACK to the
+ * exact count in that same diff — the handoff this relaxation was written for.
+ * Two readings in suite 2 and suite 3 moved with it, each for the same reason
+ * and each noted at the assertion: the surviving call carries the modifier
+ * event, so it is `(record, event)` rather than `(record)`, and the TypeScript
+ * face declares the second parameter. The exact-count reading and the modifier
+ * channel have their own file, `cardClickFiresOnce-9341.test.tsx`; what is
+ * here stays the LIT CONTROL for the dead-read leg beside it.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -208,18 +238,26 @@ describe('suite 1 — the accept set: an authored handler key on `object-kanban`
     expect(parsed.success).toBe(false);
   });
 
-  it('⚠️ `onCardMove` is STILL ACCEPTED AND KEPT — the row this slice did not close', () => {
-    // ⛔ Not an oversight and not a passing grade: this is the objectui#7664
-    // exposure, still open on this one key, pinned so it cannot drift in
-    // silence. The header says why declaring it is refused by the gate of
-    // record and why the two greener spellings are worse. The day the read
-    // moves to an explicit React prop and the key is tombstoned, THIS leg goes
-    // red — which is the point of writing it down as a reading.
+  it('⭐ `onCardMove` is REFUSED BY NAME — the row this slice could not close (objectui#9342)', () => {
+    // ⭐ THE LEG THAT FLIPPED, and it flipped by design. It used to read
+    // `{ accepted: true, kept: { action: 'toast' } }` — the objectui#7664
+    // exposure restated as a reading, pinned so it could not drift in silence —
+    // with the note that the day the read moved to an explicit React prop and
+    // the key was tombstoned, THIS leg would go red. objectui#9342 is that day:
+    // `KanbanRenderer` takes `onCardMove` as a React prop, so the arm carries
+    // `handlerKeyRefusal(…, 'retired', …)` and the authored value is refused BY
+    // NAME instead of being accepted and dropped.
+    //
+    // ⚠️ The DISPOSITION did not move — objectui#7804 measured it `'retired'`
+    // and suite 2 below still drives it dead. Only the precondition the gate of
+    // record demanded was supplied.
     const parsed = ObjectKanbanZod.safeParse(board({ onCardMove: { action: 'toast' } }));
     expect({
       accepted: parsed.success,
+      code: parsed.success ? null : parsed.error.issues[0]?.code,
+      path: parsed.success ? null : parsed.error.issues[0]?.path.join('.'),
       kept: parsed.success ? (parsed.data as Record<string, unknown>).onCardMove : null,
-    }).toEqual({ accepted: true, kept: { action: 'toast' } });
+    }).toEqual({ accepted: false, code: 'custom', path: 'onCardMove', kept: null });
   });
 
   it('CONTROLS — the scope did not move: a declared key still parses, and an undeclared one is still KEPT', () => {
@@ -255,7 +293,14 @@ describe('suite 2 — the channels, per key, on the one surviving registration (
     // spy can only have arrived through it.
     expect(props.onCardClick).not.toBe(onCardClick);
     (props.onCardClick as (c: unknown, e?: unknown) => void)(card);
-    expect(onCardClick).toHaveBeenCalledWith(card);
+    // ⭐ Reads the WHOLE call list, not one matching call (objectui#9341). The
+    // old spelling was `toHaveBeenCalledWith(card)`, which passed on the base
+    // tree because the SECOND, one-argument call matched it — the very call
+    // that card deleted. What survives is `handleClick`'s
+    // `onRowClick(record, event)`, so the authored handler is reached once and
+    // with the event slot present. This is the channel, still measured, now
+    // measured as it actually is.
+    expect(onCardClick.mock.calls).toEqual([[card, undefined]]);
   });
 
   it('⭐ `onCardMove` reaches NOTHING — driven, not inferred, with `onCardClick` as the lit control', async () => {
@@ -280,17 +325,20 @@ describe('suite 2 — the channels, per key, on the one surviving registration (
     );
     (props.onCardClick as (c: unknown, e?: unknown) => void)(card);
 
-    // ⚠️ The control asserts that `onCardClick` RAN, deliberately not how many
-    // times. Measured on the base tree it runs TWICE per click on this path:
-    // `ObjectKanban` passes the same function to `useNavigationOverlay` as
-    // `onRowClick` — whose `handleClick` forwards to it and returns — and then
-    // calls it again itself. That is a separate defect on a separate card; a
-    // count pinned here would make fixing it red on a file that is not about
-    // it, and the control needs only to be able to fire.
+    // ⭐ TIGHTENED BACK TO THE EXACT COUNT (objectui#9341, the card this control
+    // was relaxed FOR). It read `cardClickRan: … > 0` while the base tree ran
+    // the authored handler TWICE per click — `ObjectKanban` passed the same
+    // function to `useNavigationOverlay` as `onRowClick`, whose `handleClick`
+    // forwards to it and returns, and then called it again itself. That defect
+    // is fixed in the same diff that restores this count, so the relaxation has
+    // no subject any more; leaving it would let the double fire return in
+    // silence. The exact count owns its own file
+    // (`cardClickFiresOnce-9341.test.tsx`) — here it is still just the LIT
+    // CONTROL for the dead-read reading beside it.
     expect(
-      { cardMove: onCardMove.mock.calls.length, cardClickRan: onCardClick.mock.calls.length > 0 },
+      { cardMove: onCardMove.mock.calls.length, cardClick: onCardClick.mock.calls.length },
       'the lit control `onCardClick` must run — a run where NEITHER fires measures nothing',
-    ).toEqual({ cardMove: 0, cardClickRan: true });
+    ).toEqual({ cardMove: 0, cardClick: 1 });
   });
 
   it("the prop channel is the difference: `ObjectKanbanComponentProps` declares `onCardClick` and no `onCardMove`", () => {
@@ -325,14 +373,14 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
     return src.slice(start, end);
   }
 
-  it('the zod mirror refuses the two by name — and still declares nothing for the third', () => {
+  it('the zod mirror refuses all three by name — the third as a tombstone (objectui#9342)', () => {
     const shape = ObjectKanbanZod.shape as Record<string, { description?: string } | undefined>;
     expect(KEYS.map((key) => ({ key, declared: key in shape }))).toEqual([
       { key: 'onCardClick', declared: true },
-      { key: 'onCardMove', declared: false },
+      { key: 'onCardMove', declared: true },
       { key: 'onQuickAdd', declared: true },
     ]);
-    for (const key of DECLARED) {
+    for (const key of KEYS) {
       expect(shape[key]?.description, `\`${key}\` carries no author-facing guidance`).toContain(
         'objectui#6124',
       );
@@ -340,7 +388,7 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
     }
   });
 
-  it('the mirror spells RUNTIME SLOT on both landed keys, and nothing at all on the third', () => {
+  it('the mirror spells RUNTIME SLOT on the two live slots and RETIRED on the third', () => {
     const shape = ObjectKanbanZod.shape as Record<string, { description?: string } | undefined>;
     const said = (key: string) =>
       shape[key]?.description?.includes('RUNTIME SLOT')
@@ -354,12 +402,15 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
       onQuickAdd: said('onQuickAdd'),
     }).toEqual({
       onCardClick: 'runtime-slot',
-      onCardMove: 'undeclared',
+      // ⭐ objectui#9342. `'undefined'` here until the read moved; the reading
+      // itself is objectui#7804's, and `said()` is the same reader for all
+      // three, so this is the one that changed and not the instrument.
+      onCardMove: 'retired',
       onQuickAdd: 'runtime-slot',
     });
   });
 
-  it('the TypeScript twin keeps both live slots callable, and declares no third member', () => {
+  it('the TypeScript twin keeps both live slots callable and tombstones the third', () => {
     const body = objectKanbanInterface();
     const member = (key: string) => new RegExp(`^\\s{2}${key}\\?:\\s*([^;]+);`, 'm').exec(body)?.[1]?.trim();
     expect({
@@ -367,12 +418,19 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
       onCardMove: member('onCardMove'),
       onQuickAdd: member('onQuickAdd'),
     }).toEqual({
-      onCardClick: '(card: any) => void',
-      // ⚠️ `undefined` is the reading, not a gap in the regex — the firing
-      // control below reads a member this interface has always had. A
-      // `?: never` tombstone here is what the measurement asks for and what
-      // the gate of record refuses; see the header.
-      onCardMove: undefined,
+      // ⚠️ Two parameters since objectui#9341: the call that survives the
+      // double-fire repair is `handleClick`'s `onRowClick(record, event)`, and
+      // the one-argument spelling this pin used to read described only the
+      // deleted call. A signature pin read off disk, so it moves WITH the
+      // declaration and cannot drift from it.
+      onCardClick: '(card: any, event?: any) => void',
+      // ⭐ objectui#9342 — the `?: never` tombstone the measurement always
+      // asked for. It read `undefined` (no member at all) while the gate of
+      // record refused the spelling; moving `KanbanRenderer`'s read to an
+      // explicit React prop is what made it writable. ⛔ `never`, NOT a
+      // callable: a callable twin publishes a key the object-bound board
+      // DROPS, which is the `quickAdd` carve-out's forbidden resolution.
+      onCardMove: 'never',
       onQuickAdd: '(columnId: string, title: string) => void',
     });
 
@@ -384,25 +442,32 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
 });
 
 describe('suite 4 — the ledger drained with the fix (objectui#7804)', () => {
-  it('the two landed rows are gone, and the one this slice did not close is still named', () => {
+  it('every `object-kanban` row is drained — the last one by objectui#9342', () => {
     const rows = [...ledger.keys()].filter((row) =>
       row.startsWith('object-kanban::'),
     );
     expect(
       rows,
-      'a ledger row naming a read that is now declared is a live waiver for a defect that is gone; a ' +
-        'read that is still undeclared must keep its row or the gate loses it',
-    ).toEqual(['object-kanban::ObjectKanbanSchema.onCardMove']);
-    expect(
-      ledger.get('object-kanban::ObjectKanbanSchema.onCardMove'),
-    ).toBe('objectui#7804');
+      'a ledger row naming a read that is now declared is a live waiver for a defect that is gone — ' +
+        '`staleExemptions()` in the gate reddens on exactly that',
+    ).toEqual([]);
   });
 
   it('CONTROL — the ledger still carries the rows this slice did NOT take', () => {
     // objectui#7804 stays the parent and lands per package. A drained ledger
     // would mean this leg is reading an empty map rather than a shrinking one.
+    //
+    // ⚠️ The WITNESS is re-derived, not decorative. This leg named
+    // `detail::DetailSchema.onNavigate` until the `plugin-detail` slice of the
+    // same card declared it and drained the row — a row this slice did not
+    // take, taken by a sibling slice that landed after it. That is the shape
+    // to expect here: the witness is only ever a row no LANDED slice has
+    // closed yet, so when its own slice lands, re-derive it against
+    // `KNOWN_UNDECLARED_READS` rather than dropping the name and leaving the
+    // length check alone — the length alone passes on a map holding one stale
+    // row, which is the reading this control exists to refuse.
     const remaining = [...ledger.keys()];
     expect(remaining.length).toBeGreaterThan(0);
-    expect(remaining).toContain('detail::DetailSchema.onNavigate');
+    expect(remaining).toContain('button::ButtonSchema.onSuccess');
   });
 });

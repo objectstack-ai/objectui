@@ -25,7 +25,8 @@ premise — `label` flows in by reference through the spec's schema, and a local
 `string | I18nLabel` collapses to `I18nLabel` whichever forms the union holds.
 
 Documentation only, and the release-visible surface is the declaration file: measured
-with the package's real `tsc` build (`removeComments: false`, per `tsconfig.base.json`),
+with the package's real `tsc` build (`removeComments` is set nowhere in its config chain,
+so the default `false` holds),
 108 emitted files on both sides, `dist/ui-action.d.ts` 29,176 → 31,026 bytes, and every
 other file byte-identical — including `dist/ui-action.js` (3,480 bytes, unchanged sha),
 because the comment documents an `interface`, which is erased at emit along with its

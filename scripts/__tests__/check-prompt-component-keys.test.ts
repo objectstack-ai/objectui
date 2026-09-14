@@ -732,3 +732,82 @@ describe('the letter runs on the live prompt surface', () => {
     ).toBeGreaterThanOrEqual(29);
   });
 });
+
+/**
+ * objectui#9331 — the fence mask reads a RUN, not "three backticks"
+ *
+ * ## The defect
+ *
+ * This gate's private predicate was `/^\s*(?:```|~~~)/` used as a TOGGLE. It
+ * answers "marker" for a run of any length, so a FOUR-backtick opener flipped
+ * the mask on and the next THREE-backtick line — which CommonMark makes body
+ * text, and which is exactly how a page quotes a fence — flipped it back off.
+ * From there the gate read code as prose and prose as code for the rest of the
+ * file, and reported a clean pass over a region it had mis-paired.
+ *
+ * ## Why these two fixtures and not the live corpus
+ *
+ * The corpus cannot show this: `.github/prompts/**` carries ZERO runs of four
+ * or more backticks (measured on this card's base — 627 lines, 34 marker lines,
+ * no divergence), so the defect is LATENT and the gate's output is byte-identical
+ * before and after the repair. A case built here is the only thing that can fail
+ * before it and pass after it.
+ *
+ * The two wrappers are the two halves of one desynchronisation, and a fix that
+ * addressed only one would still pass the other:
+ *
+ *   EVEN marker count   the quoted bullet becomes VISIBLE — the gate judges an
+ *                       example of a bullet as a bullet (prose read as code).
+ *   ODD marker count    pairing never resynchronises, so the REAL bullet after
+ *                       the wrapper goes invisible (code read as prose). This is
+ *                       the worse half: the gate reports OK over text it never
+ *                       looked at.
+ */
+describe('a fence quoted inside a longer wrapper (objectui#9331)', () => {
+  // ⛔ Fixtures are arrays of string literals, never raw fences in this file. A
+  // backtick run at the start of a line HERE would open a fence in the very
+  // gates this suite drives, and would be swept by greps over this tree.
+  const QUOTED = '*   **Keys:** `quoted-inside-the-wrapper`';
+  const REAL = '*   **Keys:** `view:table`';
+
+  /** Four markers: pairing resynchronises, so the phantom bullet is the symptom. */
+  const EVEN_WRAPPER = ['# Teaching a nested fence', '', '````markdown', '```md', QUOTED, '```', '````', '', REAL, ''];
+
+  /** Three markers: pairing never recovers, so the REAL bullet is swallowed. */
+  const ODD_WRAPPER = ['# Teaching a nested fence', '', '````markdown', '```md', QUOTED, '````', '', REAL, ''];
+
+  const keysIn = (lines: string[]) =>
+    withTree(
+      (write) => write(`${PROMPT_DIR}/component.prompt.md`, lines.join('\n')),
+      (dir) => scanPromptKeys(dir) as { sites: { key: string }[]; bullets: number },
+    );
+
+  it('does not judge a bullet quoted inside the wrapper as a bullet', () => {
+    // Before the repair: ['quoted-inside-the-wrapper', 'view:table'], 2 bullets.
+    const scan = keysIn(EVEN_WRAPPER);
+    expect(scan.sites.map((s) => s.key)).toEqual(['view:table']);
+    expect(scan.bullets).toBe(1);
+  });
+
+  it('still sees the real bullet after an ODD number of markers', () => {
+    // Before the repair: ['quoted-inside-the-wrapper'] — `view:table` sat inside
+    // a fence that never closed, and the gate passed without reading it.
+    const scan = keysIn(ODD_WRAPPER);
+    expect(scan.sites.map((s) => s.key)).toEqual(['view:table']);
+  });
+
+  it('leaves an ordinary three-backtick fence exactly as it was', () => {
+    // The control in the other direction: the shape that already worked must not
+    // have changed, or the two cases above could pass by masking everything.
+    const scan = keysIn(['# Ordinary fence', '', '```md', QUOTED, '```', '', REAL, '']);
+    expect(scan.sites.map((s) => s.key)).toEqual(['view:table']);
+  });
+
+  it('reads a bullet that is not fenced at all — the lit control', () => {
+    // A guard against a mask that simply returns "fenced" for everything: if it
+    // did, every case above would pass while the gate judged nothing.
+    const scan = keysIn(['# No fence here', '', REAL, '']);
+    expect(scan.sites.map((s) => s.key)).toEqual(['view:table']);
+    expect(scan.bullets).toBe(1);
+  });
+});

@@ -12,6 +12,17 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 // via these mappers — round-tripping our cache through them is the real
 // production path (live render → cache → cache-fallback reload).
 import { uiMessageToChatMessage } from '@object-ui/plugin-chatbot';
+// objectui#9232 — the cache round trip is only proven by driving the affordance
+// it exists to restore, so the test mounts the real HITL hook over the restored
+// messages and presses Approve. `hydratedMessagesToChatMessages` is the
+// cache-fallback read this page really performs (AiChatPage feeds it
+// `initialMessages` from `useChatConversation`).
+import {
+  useHitlInChat,
+  detectDraftResult,
+  detectPendingApproval,
+} from '@object-ui/plugin-chatbot';
+import { hydratedMessagesToChatMessages } from '../../console/ai/AiChatPage';
 
 import {
   purgeChatCaches,
@@ -1069,5 +1080,314 @@ describe('useChatConversation — clears chat cache on logout / user switch', ()
 
     // u1's cached pointer is gone; the effect fired the purge on the switch.
     expect(localStorage.getItem(`${CACHE_PREFIX}:u1`)).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// objectui#9232 — the cache WRITE half of the approval round trip.
+//
+// objectui#8442 stopped `hydratedMessagesToChatMessages` dropping the approval
+// envelope and `pendingActionId` on the way OUT of persisted history.
+// `sanitizeChatMessagesForCache` is the way IN, and it rebuilt each tool part
+// field by field without either key — while keeping `state`. So a cached
+// `approval-requested` came back with the Approve / Reject affordance lit and
+// nothing behind it: `useHitlInChat` indexes on `pendingActionId`, so `decide`
+// could only answer "No pending-action id found for this tool call".
+//
+// These tests DRIVE the round trip rather than reading the call graph: live
+// mapper → sanitize → real `writeConversationMessagesCache` → JSON in
+// localStorage → back out → the hydration mapper → `useHitlInChat.decide()`,
+// and the assertion is the REST call the operator's Approve actually makes.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('sanitizeChatMessagesForCache — a pending approval survives the cache round trip (objectui#9232)', () => {
+  const PENDING_ACTION_ID = 'pa_9232';
+  const CONVERSATION_ID = 'conv-hitl';
+
+  /**
+   * The framework HITL envelope as `action-tools.ts` really returns it — note
+   * the operator-facing `message` and the proposed args, neither of which the
+   * detector reads and neither of which the cache is asked to keep.
+   */
+  const pendingOutput = {
+    status: 'pending_approval',
+    pendingActionId: PENDING_ACTION_ID,
+    message: 'Delete task “Q3 rollout”?',
+    toolName: 'action_delete_task',
+    args: { recordId: 'task_77', hard: true },
+  };
+
+  /** The AI SDK UI message the live stream produces for a HITL-gated tool. */
+  const liveUiMessage = {
+    id: 'a1',
+    role: 'assistant' as const,
+    parts: [
+      { type: 'text', text: 'This needs your approval.' },
+      {
+        type: 'tool-action_delete_task',
+        toolCallId: 'tc-approve',
+        toolName: 'action_delete_task',
+        state: 'approval-requested' as const,
+        input: { recordId: 'task_77' },
+        output: pendingOutput,
+        approval: { id: 'req_1' },
+      },
+    ],
+  };
+
+  /** Write through the real cache helper and read back what localStorage holds. */
+  function throughLocalStorage(cached: HydratedUIMessage[]): HydratedUIMessage[] {
+    writeConversationMessagesCache(CONVERSATION_ID, cached);
+    const raw = localStorage.getItem(`${MESSAGE_PREFIX}:${CONVERSATION_ID}`);
+    expect(raw).toBeTruthy();
+    return JSON.parse(raw as string) as HydratedUIMessage[];
+  }
+
+  /**
+   * Mount `useHitlInChat` over restored messages and press Approve, exactly as
+   * `<ChatbotEnhanced onToolApprove={hitl.decide}>` does. Returns the REST
+   * calls the decision made — an empty list means the affordance was dead.
+   */
+  async function pressApprove(messages: ReturnType<typeof hydratedMessagesToChatMessages>) {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ status: 'executed' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() =>
+      useHitlInChat({ messages, apiBase: API_BASE }),
+    );
+    await act(async () => {
+      await result.current.decide('tc-approve', true);
+    });
+    return {
+      urls: fetchMock.mock.calls.map((c) => String(c[0])),
+      decision: result.current.decisions['tc-approve'],
+    };
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  /** Live render → cache write → the bytes localStorage actually holds. */
+  function cacheTheLiveApproval(): HydratedUIMessage[] {
+    // Baseline / lit control: the LIVE render really does hold the id, so a
+    // zero further down means the cache lost it — not that it never existed.
+    const live = uiMessageToChatMessage(liveUiMessage);
+    expect(live.toolInvocations?.[0]?.pendingActionId).toBe(PENDING_ACTION_ID);
+    expect(live.toolInvocations?.[0]?.state).toBe('approval-requested');
+    return throughLocalStorage(sanitizeChatMessagesForCache([live]));
+  }
+
+  it('re-mints the MINIMAL pending envelope into the cached tool part', () => {
+    const toolPart = cacheTheLiveApproval()[0]?.parts.find(
+      (p) => p.type === 'tool-action_delete_task',
+    );
+    expect(toolPart?.output).toEqual({
+      status: 'pending_approval',
+      pendingActionId: PENDING_ACTION_ID,
+    });
+    // Leanness, same bargain the draft/plan inverses strike: the operator-facing
+    // prose and the proposed arguments are NOT re-serialized into the cache.
+    expect(JSON.stringify(toolPart?.output)).not.toContain('Q3 rollout');
+    expect(JSON.stringify(toolPart?.output)).not.toContain('task_77');
+    // The state that makes the card render survived the rebuild all along.
+    expect(toolPart?.state).toBe('approval-requested');
+  });
+
+  // THE load-bearing test. Deliberately holds ONE claim — that the restored
+  // message is something `useHitlInChat` can index and decide on — so that the
+  // assertion which fails when the fix is removed is the DRIVEN one (the REST
+  // call the operator's Approve makes), not an earlier shape check standing in
+  // front of it.
+  it('restores a message useHitlInChat can index, and Approve reaches the pending action', async () => {
+    const restored = hydratedMessagesToChatMessages(cacheTheLiveApproval());
+
+    const { urls, decision } = await pressApprove(restored);
+    expect(urls).toEqual([`${API_BASE}/pending-actions/${PENDING_ACTION_ID}/approve`]);
+    expect(decision?.state).toBe('success');
+  });
+
+  it('writes the AI SDK approval envelope as a part key, where the hydration mapper reads it', () => {
+    // The envelope rides the PART on both directions of the server path, so the
+    // cache writes it as a part key too. The input shape here is the one
+    // AiChatPage re-caches after a HYDRATED load (`hydratedMessagesToChatMessages`
+    // lifts `approval`; the live `extractToolInvocations` does not) — which is
+    // exactly the loop that would otherwise erase it on the next cache write.
+    const cached = sanitizeChatMessagesForCache([
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: 'This needs your approval.',
+        toolInvocations: [
+          {
+            toolCallId: 'tc-approve',
+            toolName: 'action_delete_task',
+            state: 'approval-requested',
+            approval: { id: 'req_1', reason: 'destructive' },
+            pendingActionId: PENDING_ACTION_ID,
+          },
+        ],
+      },
+    ]);
+    const persisted = throughLocalStorage(cached);
+    const toolPart = persisted[0]?.parts.find((p) => p.type === 'tool-action_delete_task');
+    expect(toolPart?.approval).toEqual({ id: 'req_1', reason: 'destructive' });
+
+    const restored = hydratedMessagesToChatMessages(persisted);
+    expect(restored[0]?.toolInvocations?.[0]?.approval).toEqual({
+      id: 'req_1',
+      reason: 'destructive',
+    });
+  });
+
+  it('leaves a tool with no pending approval exactly as it was', () => {
+    // The new arm is reachable only through `pendingActionId`; a plain tool must
+    // not grow an `output` (and an `approval`-less part must not grow that key).
+    const cached = sanitizeChatMessagesForCache([
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: 'Counted.',
+        toolInvocations: [
+          { toolCallId: 'tc1', toolName: 'aggregate_data', state: 'output-available' },
+        ],
+      },
+    ]);
+    const toolPart = cached[0]?.parts.find((p) => p.type === 'tool-aggregate_data');
+    expect('output' in (toolPart as object)).toBe(false);
+    expect('approval' in (toolPart as object)).toBe(false);
+  });
+
+  // ── The both-at-once turn ────────────────────────────────────────────────
+  //
+  // objectui#9232 first shipped with the pending arm FIRST in the chain, on the
+  // argument that the arms were "disjoint by construction, so the order is
+  // unobservable". That argument was wrong, and a pre-existing pin
+  // (`AiChatPage.runtimeMessageSeam.test.tsx`) caught it: the detectors are
+  // disjoint over one RESULT, but `draftReview` and `pendingActionId` are
+  // independent KEYS on an invocation and a turn can carry both. Pending-first
+  // therefore stopped the draft envelope reaching the cache for such a turn —
+  // the exact "Review N changes / Publish" loss the other arms exist to
+  // prevent. The tests below pin both halves of the answer.
+  describe('a turn carrying BOTH a draft envelope and a pending approval', () => {
+    const both = [
+      {
+        id: 'a1',
+        role: 'assistant' as const,
+        content: 'Staged the changes; deleting the old object needs your approval.',
+        toolInvocations: [
+          {
+            toolCallId: 'tc-approve',
+            toolName: 'apply_blueprint',
+            state: 'approval-requested',
+            pendingActionId: PENDING_ACTION_ID,
+            draftReview: { items: [{ type: 'object', name: 'lead' }], packageId: 'app.crm' },
+          },
+        ],
+      },
+    ];
+
+    it('keeps BOTH: the draft card renders and Approve reaches the pending action', async () => {
+      const persisted = throughLocalStorage(sanitizeChatMessagesForCache(both));
+
+      // `output` is the DRAFT envelope — the richer affordance keeps the one
+      // slot it can ride in, exactly as before objectui#9232.
+      const toolPart = persisted[0]?.parts.find((p) => p.type === 'tool-apply_blueprint');
+      expect(toolPart?.output).toMatchObject({
+        status: 'drafted',
+        packageId: 'app.crm',
+        drafted: [{ type: 'object', name: 'lead' }],
+      });
+      // …and the id rides the part key, which is the carrier left over.
+      expect(toolPart?.pendingActionId).toBe(PENDING_ACTION_ID);
+
+      const restored = hydratedMessagesToChatMessages(persisted);
+      const tool = restored[0]?.toolInvocations?.[0];
+
+      // Half one: the draft card comes back.
+      expect(tool?.draftReview).toEqual({
+        items: [{ type: 'object', name: 'lead' }],
+        packageId: 'app.crm',
+      });
+      // Half two: DRIVEN, not read off the call graph — the same drive the
+      // pending-only round trip gets. Approve must reach the pending action.
+      const { urls, decision } = await pressApprove(restored);
+      expect(urls).toEqual([`${API_BASE}/pending-actions/${PENDING_ACTION_ID}/approve`]);
+      expect(decision?.state).toBe('success');
+    });
+  });
+
+  // The claim the first version of objectui#9232 asserted in prose and got
+  // wrong by over-reaching. Pinned in the narrow form that is actually true,
+  // because the arm ORDER now rests on it: over one RESULT the two envelopes
+  // are mutually exclusive, which is why a pending-only turn (the shape API
+  // mode can produce) still has `output` free to carry its id.
+  it('a single tool result cannot yield both a draft and a pending approval', () => {
+    const drafted = { status: 'drafted', drafted: [{ type: 'object', name: 'lead' }] };
+    const pending = { status: 'pending_approval', pendingActionId: PENDING_ACTION_ID };
+
+    // Lit controls first: each detector really does fire on its own envelope,
+    // so the two zeros below are readings and not two dead detectors.
+    expect(detectDraftResult(drafted)).toBeDefined();
+    expect(detectPendingApproval(pending)).toBeDefined();
+
+    expect(detectPendingApproval(drafted)).toBeUndefined();
+    expect(detectDraftResult(pending)).toBeUndefined();
+  });
+
+  // ── Stale entries: the decision is READ-SIDE TOLERANCE, not a version bump ──
+  //
+  // Entries written by the OLD code are one format behind. They are kept and
+  // read, because (1) nothing can break on them — both readers of the new keys
+  // answer "absent" rather than throwing; (2) a `:v2` key or a discard would
+  // blank the transcript, the draft card and the plan card that the old writer
+  // DID keep, on the one path that renders when the server has nothing; and
+  // (3) they self-heal on the next server-backed load, which rewrites the cache
+  // through the new writer. See the block comment on `readMessageCache`.
+  describe('an entry written by the OLD cache shape', () => {
+    /** Byte-for-byte what the pre-objectui#9232 writer produced for this tool. */
+    const staleEntry: HydratedUIMessage[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'This needs your approval.' },
+          {
+            type: 'tool-action_delete_task',
+            toolCallId: 'tc-approve',
+            toolName: 'action_delete_task',
+            state: 'approval-requested',
+          },
+        ],
+      },
+    ];
+
+    it('still restores, and never fabricates an id it does not have', () => {
+      const restored = hydratedMessagesToChatMessages(throughLocalStorage(staleEntry));
+      // Tolerated, not discarded: everything the old writer kept still renders.
+      expect(restored).toHaveLength(1);
+      expect(restored[0]?.content).toBe('This needs your approval.');
+      const tool = restored[0]?.toolInvocations?.[0];
+      expect(tool?.toolCallId).toBe('tc-approve');
+      expect(tool?.state).toBe('approval-requested');
+      // No invention: absent stays absent on both halves.
+      expect(tool?.pendingActionId).toBeUndefined();
+      expect(tool?.approval).toBeUndefined();
+    });
+
+    it('degrades to the pre-fix decision error, making no REST call', async () => {
+      // The NEGATIVE half of the load-bearing assertion. Its lit control is the
+      // first test in this block, which differs in exactly one way — whether the
+      // cached part carries the re-minted envelope — and DOES reach
+      // `/pending-actions/pa_9232/approve`. A zero here with that control dark
+      // would be a void reading.
+      const restored = hydratedMessagesToChatMessages(throughLocalStorage(staleEntry));
+      const { urls, decision } = await pressApprove(restored);
+      expect(urls).toEqual([]);
+      expect(decision?.state).toBe('error');
+    });
   });
 });

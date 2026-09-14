@@ -100,7 +100,22 @@ const PICKER_KEYS = [
   'dependsOn',
 ] as const;
 
-/** One object field per relevant type, each carrying full picker config. */
+/**
+ * One object field per relevant type, each carrying full picker config.
+ *
+ * ⚠️ The spellings here are MIXED, and deliberately so — this fixture is about
+ * WHICH members inherit picker config, never about how a key is spelled. Most
+ * rows stay snake because `resolveActionParams` really does read that spelling
+ * (some as the only spelling it reads, some behind the declared one).
+ *
+ * ⭐ `dependsOn` is the exception and must stay camel (objectui#8672, ruling A).
+ * It was `depends_on: ['region']` and passed only because the resolver read the
+ * snake spelling — a spelling `@objectstack/spec`'s `FieldSchema` refuses BY
+ * NAME. Ruling A moved that read onto the declared `dependsOn` and removed the
+ * snake leg, so the old fixture row silently produced nothing and the
+ * `PICKER_KEYS` loop below caught it. ⛔ Do not "fix" a future failure here by
+ * restoring a dual read: the key is camelCase-only on both sides of the seam.
+ */
 const field = (type: string) => ({
   type,
   label: type,
@@ -112,7 +127,7 @@ const field = (type: string) => ({
   lookup_columns: ['name'],
   lookup_filters: [['active', '=', true]],
   lookup_page_size: 25,
-  depends_on: ['region'],
+  dependsOn: ['region'],
 });
 
 const ctx = (): ResolveActionParamsContext => ({

@@ -1029,6 +1029,31 @@ export function buildPersistedViewBody(
     return viewKind === undefined ? { ...patch } : { ...patch, viewKind };
 }
 
+/**
+ * The `filter[...]` params of a URL, selected out of the full search params as
+ * their own `URLSearchParams`. Extracted for the same reason `buildViewTabs`
+ * above is: so the shape is assertable without mounting the view.
+ *
+ * Built by APPENDING onto a `URLSearchParams` rather than joining `key=value`
+ * pairs into a string by hand (objectui#9287). `searchParams.entries()` yields
+ * DECODED values, so a hand-joined key re-introduced, unescaped, the two
+ * characters that are structural in a query string: `&` TRUNCATED the value at
+ * its first occurrence (`Smith & Sons` reached the reader as `Smith `, plus a
+ * stray empty-valued param) and `+` came back as a space (`A+B` as `A B`).
+ * Neither produces an absent condition — the list renders, scoped by a silently
+ * WRONG value, and nothing anywhere says the value was cut.
+ *
+ * `toString()` percent-encodes, so the serialized form still round-trips and
+ * still ignores the unrelated `uf_*` params the memo key exists to absorb.
+ */
+export function selectFilterParams(searchParams: URLSearchParams): URLSearchParams {
+    const filterParams = new URLSearchParams();
+    searchParams.forEach((value, key) => {
+        if (key.startsWith('filter[')) filterParams.append(key, value);
+    });
+    return filterParams;
+}
+
 export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: any) {
     const { objectName } = useParams();
     const { t } = useObjectTranslation();
@@ -2102,12 +2127,20 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // Dep on the serialized `filter[...]` entries only — `uf_*` user-filter
     // params also live in the URL and must not invalidate this memo (a new
     // array identity here rebuilds the whole list schema and refetches).
-    const filterParamsKey = Array.from(searchParams.entries())
-        .filter(([k]) => k.startsWith('filter['))
-        .map(([k, v]) => `${k}=${v}`)
-        .join('&');
+    const filterParams = selectFilterParams(searchParams);
+    const filterParamsKey = filterParams.toString();
     const urlFilters = useMemo(
-        () => parseUrlEqualityFilterTriples(new URLSearchParams(filterParamsKey)),
+        // The params object is read DIRECTLY — nothing is serialized here and
+        // parsed back, so there is no round trip left for a character to be
+        // lost in (objectui#9287). `filterParamsKey` is the memo's identity
+        // only.
+        () => parseUrlEqualityFilterTriples(filterParams),
+        // Keyed on the SERIALIZED params, not on the object's identity:
+        // `filterParams` is rebuilt every render, so listing it would
+        // invalidate this memo on every unrelated `uf_*` write — the churn
+        // this key exists to prevent. Equal keys imply equal contents, so the
+        // captured object is never stale.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
         [filterParamsKey],
     );
 

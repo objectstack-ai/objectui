@@ -1,0 +1,257 @@
+import { describe, expect, it } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parse as parseYaml } from 'yaml';
+
+import {
+  EXIT_BREACHED,
+  EXIT_CANNOT_RUN,
+  EXIT_OK,
+  PINNED_CONTEXTS,
+  WATCHED_CONTEXTS,
+  evaluate,
+  selfTest,
+} from '../check-required-check-set.mjs';
+import { REQUIRED_CONTEXTS } from '../dependabot-merge-gate.mjs';
+
+const ROOT = path.resolve(fileURLToPath(import.meta.url), '../../..');
+const GATE = 'scripts/check-required-check-set.mjs';
+const WORKFLOW = '.github/workflows/required-check-set-patrol.yml';
+const FIXTURES = 'scripts/__tests__/fixtures/required-check-set';
+const LIVE_FIXTURE = `${FIXTURES}/live-2026-09-14.json`;
+const ABLATED_FIXTURE = `${FIXTURES}/type-check-removed.json`;
+
+/**
+ * objectui#9422. The merge queue's required-check set lives in GitHub ruleset
+ * 11776024 — repository settings, not this repository. Dropping a member from
+ * it reds no gate and leaves no trace in any diff, and the one time that state
+ * existed here (objectui#3523) three pull requests merged with `Type Check` at
+ * `conclusion=failure`.
+ *
+ * `scripts/check-required-check-set.mjs` is the patrol that reads it. This file
+ * holds four separate things, because the patrol has four distinct ways to stop
+ * meaning anything:
+ *
+ *   1. the LOGIC — `--self-test`, offline, including the ablation;
+ *   2. the ABLATION through the real CLI, over a COMMITTED fixture of the live
+ *      API response with exactly one member removed, against the unablated
+ *      fixture as its control. A gate never observed failing is decoration;
+ *   3. the DECLARATION's integrity — every name the patrol pins or watches must
+ *      also be a name this repository already declares blocking in
+ *      `REQUIRED_CONTEXTS`, so the two lists cannot drift into watching
+ *      different pipelines;
+ *   4. the WIRING — the workflow exists, is scheduled, and runs this script.
+ *      A patrol nobody runs is indistinguishable from a patrol that passes,
+ *      and this is the half of the patrol's own liveness that a diff can see.
+ *
+ * ⚠️ What this file deliberately does NOT assert: that the live ruleset is
+ * intact. That reading needs the network and belongs to the scheduled run. A
+ * test that reached the API would be red whenever GitHub was slow, on every
+ * pull request, which is the noise the patrol's whole design avoids.
+ */
+
+/** The shape `GET /repos/{owner}/{repo}/rules/branches/{branch}` answers with. */
+type Rule = {
+  type: string;
+  parameters?: { required_status_checks?: Array<{ context?: string; integration_id?: number }> };
+};
+
+const readFixture = (rel: string): Rule[] => JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+
+const runGate = (args: string[]) =>
+  spawnSync(process.execPath, [path.join(ROOT, GATE), ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, GITHUB_REPOSITORY: 'objectstack-ai/objectui', QUEUE_BASE_BRANCH: 'main' },
+  });
+
+describe('check-required-check-set — the logic', () => {
+  it('passes its own offline self-test', async () => {
+    // Captured so a passing run does not print 32 lines into every suite; the
+    // capture is restored in `finally` so a throw cannot leave console silenced.
+    const log: string[] = [];
+    const out = console.log;
+    const err = console.error;
+    console.log = (...a: unknown[]) => void log.push(a.join(' '));
+    console.error = (...a: unknown[]) => void log.push(a.join(' '));
+    let code: number;
+    try {
+      code = await selfTest();
+    } finally {
+      console.log = out;
+      console.error = err;
+    }
+    expect(log.join('\n'), 'the self-test produced no output at all — it did not run').toMatch(/self-test/);
+    expect(code, log.join('\n')).toBe(0);
+  });
+
+  it('runs `--self-test` as a real child process and exits 0', () => {
+    const r = runGate(['--self-test']);
+    expect(`${r.stdout}${r.stderr}`).toMatch(/cases pass/);
+    expect(r.status).toBe(EXIT_OK);
+  });
+});
+
+describe('check-required-check-set — the ablation, through the CLI', () => {
+  /**
+   * The control comes FIRST on purpose. If the unablated fixture did not read
+   * green through this same code path, the red below would be evidence of
+   * nothing — a gate that fails on everything is not a gate.
+   */
+  it('CONTROL: the unablated fixture of the live response reads INTACT (exit 0)', () => {
+    const r = runGate(['--fixture', LIVE_FIXTURE]);
+    expect(r.stdout).toContain('The required-check set is intact');
+    expect(r.status).toBe(EXIT_OK);
+  });
+
+  it('ABLATION: the same response with `Type Check` removed REDS the gate (exit 3)', () => {
+    const r = runGate(['--fixture', ABLATED_FIXTURE]);
+    expect(r.status).toBe(EXIT_BREACHED);
+    expect(r.stdout).toContain('Pinned contexts missing from the required set: `Type Check`');
+    expect(r.stdout).not.toContain('✅');
+  });
+
+  it('the two fixtures differ by exactly the ablated member, and by nothing else', () => {
+    const live = readFixture(LIVE_FIXTURE);
+    const ablated = readFixture(ABLATED_FIXTURE);
+    const contexts = (rules: Rule[]): string[] =>
+      rules.flatMap((r) =>
+        r.type === 'required_status_checks'
+          ? (r.parameters?.required_status_checks ?? []).map((c) => String(c.context))
+          : [],
+      );
+    expect(contexts(live)).toContain('Type Check');
+    expect(contexts(ablated)).not.toContain('Type Check');
+    expect(contexts(ablated)).toEqual(contexts(live).filter((c: string) => c !== 'Type Check'));
+    // Everything that is not the required_status_checks rule is byte-identical,
+    // so the ablation cannot be passing for some second reason.
+    const others = (rules: Rule[]) => JSON.stringify(rules.filter((r) => r.type !== 'required_status_checks'));
+    expect(others(ablated)).toBe(others(live));
+  });
+
+  it('an answer it cannot read exits 2 — never 0, and never a breach it did not see', () => {
+    const bad = path.join(ROOT, FIXTURES, 'live-2026-09-14.json');
+    const r = spawnSync(process.execPath, [path.join(ROOT, GATE), '--fixture', `${bad}.does-not-exist`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    expect(r.status).toBe(EXIT_CANNOT_RUN);
+    expect(r.stderr).toContain('could not take a reading');
+    expect(r.stdout).not.toContain('✅');
+  });
+});
+
+describe('check-required-check-set — the committed fixture is the live shape', () => {
+  const live = () => readFixture(LIVE_FIXTURE);
+
+  it('carries the five rule types the endpoint answered with', () => {
+    expect(live().map((r) => r.type).sort()).toEqual(
+      ['deletion', 'merge_queue', 'non_fast_forward', 'pull_request', 'required_status_checks'].sort(),
+    );
+  });
+
+  it('declares exactly the nine contexts the patrol pins and watches', () => {
+    const reading = evaluate({ rules: live(), branch: 'main', repository: 'objectstack-ai/objectui' });
+    expect(reading.contexts).toHaveLength(9);
+    expect(reading.verdict).toBe('intact');
+    // Positive control and nonsense control in the same assertion block, so a
+    // membership test that stopped discriminating cannot read as agreement.
+    expect(reading.contexts).toContain('Type Check');
+    expect(reading.contexts).not.toContain('Type Checq');
+  });
+
+  it('is a fixture and not the gate itself: emptying it does not read as intact', () => {
+    expect(evaluate({ rules: [], branch: 'main' }).verdict).toBe('breached');
+  });
+});
+
+describe('check-required-check-set — the declaration cannot drift from the repository', () => {
+  /**
+   * `REQUIRED_CONTEXTS` (`scripts/dependabot-merge-gate.mjs`) is where this
+   * repository already writes down that a check is blocking and reports on
+   * every pull request; `content/docs/guide/ci-cd-pipeline.md` calls it "a
+   * human's answer" to which contexts may be required. The nine names in the
+   * live ruleset are a subset of it — measured 2026-09-14, 9 of 26 — so a
+   * rename that updates that list and forgets this one fails here instead of
+   * quietly leaving the patrol watching a name nothing produces.
+   */
+  it('every pinned and watched name is declared blocking in REQUIRED_CONTEXTS', () => {
+    const declared = new Set(REQUIRED_CONTEXTS);
+    const undeclared = [...PINNED_CONTEXTS, ...WATCHED_CONTEXTS].filter((c) => !declared.has(c));
+    expect(undeclared, `these names are watched by the patrol but not declared blocking: ${undeclared.join(', ')}`).toEqual([]);
+  });
+
+  it('CONTROL: a name that is not declared blocking is detected as such', () => {
+    expect(new Set(REQUIRED_CONTEXTS).has('Type Checq')).toBe(false);
+    expect(new Set(REQUIRED_CONTEXTS).has('Type Check')).toBe(true);
+  });
+
+  it('the pinned tier is non-empty, so the gate cannot pass on any answer at all', () => {
+    expect(PINNED_CONTEXTS.length).toBeGreaterThan(0);
+    expect(PINNED_CONTEXTS).toContain('Type Check');
+  });
+
+  it('the two tiers do not overlap', () => {
+    expect(WATCHED_CONTEXTS.filter((c) => PINNED_CONTEXTS.includes(c))).toEqual([]);
+  });
+});
+
+describe('check-required-check-set — the wiring', () => {
+  it('package.json runs the gate under `check:required-check-set`', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    expect(pkg.scripts['check:required-check-set']).toContain(GATE);
+  });
+
+  const workflow = (): Record<string, unknown> => parseYaml(fs.readFileSync(path.join(ROOT, WORKFLOW), 'utf8'));
+
+  /**
+   * YAML 1.1 reads a bare `on:` key as the BOOLEAN true, so `doc.on` is
+   * `undefined` and an assertion reaching for it would pass over an empty
+   * object — a wiring pin that asserts nothing. Both spellings are read, and
+   * the triggers assertion below fails loudly if neither resolves.
+   */
+  const triggers = (): Record<string, unknown> => {
+    const doc = workflow();
+    const on = doc[String(true)] ?? doc.on;
+    if (!on || typeof on !== 'object') {
+      throw new Error(`could not read the \`on:\` block of ${WORKFLOW} — keys were ${Object.keys(doc).join(', ')}`);
+    }
+    return on as Record<string, unknown>;
+  };
+
+  it('the patrol workflow exists and is SCHEDULED — the half of its liveness a diff can see', () => {
+    const on = triggers();
+    const schedule = on.schedule as Array<{ cron?: string }> | undefined;
+    expect(Array.isArray(schedule)).toBe(true);
+    expect(schedule).not.toHaveLength(0);
+    expect(schedule?.[0]?.cron).toMatch(/^\S+ \S+ \S+ \S+ \S+$/);
+    expect(on).toHaveProperty('workflow_dispatch');
+  });
+
+  it('the patrol has NO pull_request leg — it must never gate a pull request', () => {
+    const on = triggers();
+    expect(on).not.toHaveProperty('pull_request');
+    expect(on).not.toHaveProperty('pull_request_target');
+    expect(on).not.toHaveProperty('merge_group');
+  });
+
+  it('the workflow actually invokes this script', () => {
+    expect(fs.readFileSync(path.join(ROOT, WORKFLOW), 'utf8')).toContain(GATE);
+  });
+
+  it('the patrol asks for no write permission at all — it READS the ruleset', () => {
+    const perms = workflow().permissions;
+    expect(perms).toEqual({ contents: 'read' });
+  });
+
+  it('a run that could not read must fail the job, so a broken transport is never a silent green', () => {
+    const yml = fs.readFileSync(path.join(ROOT, WORKFLOW), 'utf8');
+    expect(yml).toContain(String(EXIT_CANNOT_RUN));
+    expect(yml).toContain(String(EXIT_BREACHED));
+    // Captured with no pipe in between — `node … | tail` reports the pipe's
+    // status and every verdict would collapse to 0.
+    expect(yml).toMatch(/exit_code=\$code/);
+  });
+});

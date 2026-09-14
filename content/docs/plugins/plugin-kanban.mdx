@@ -88,10 +88,16 @@ objectui#6124 **runtime slots**, so an authored `onCardClick: { "action":
 "toast" }` is now refused with a message pointing at the node-type spelling,
 where before it parsed green and was handed to a call site expecting a function.
 A React host still supplies either function through the TypeScript interface or
-as a React prop; only the JSON face refuses them. ⚠️ `onCardMove` itself is
-still *undeclared* on that validator — an authored one is accepted and silently
-dropped, because an object-bound board substitutes its own mover — and that gap
-is open on objectui#7804.
+as a React prop; only the JSON face refuses them.
+
+⭐ `onCardMove` is declared too, since objectui#9342 — but as a **tombstone**,
+not a runtime slot. An authored one used to be accepted and silently dropped,
+because an object-bound board substitutes its own mover and `ObjectKanban`
+declares no `onCardMove` React prop; the key reached **nothing**, so the
+TypeScript twin is `?: never` rather than callable and the validator refuses the
+key by name. The mover is a prop on **`KanbanRenderer`**, a sibling of its
+`schema` — which is where a host that mounts the board component directly
+supplies it, and the move that let the arm carry the tombstone at all.
 
 `columns` are the board's **swimlanes**, not a field projection — the fields drawn
 on a card are `cardFields`. It is **one of two array shapes**, the pair

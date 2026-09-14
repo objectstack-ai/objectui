@@ -300,11 +300,12 @@ const RUNTIME_SLOT: readonly Site[] = [
   //     and is live anyway through the other channel — `SchemaRenderer` spreads
   //     the authored key as a React prop, `ObjectKanbanComponentProps` declares
   //     it, and the substituted wrapper CALLS it.
-  // ⚠️ The third key `KanbanRenderer` forwards, `onCardMove`, is NOT here. Its
+  // ⚠️ The third key, `onCardMove`, is NOT in this half and never was: its
   // authored value reaches nothing on this entry, which is the `'retired'`
-  // disposition, and `check:handler-key-reads` refuses that spelling while the
-  // renderer still reads the key — so it keeps its `KNOWN_UNDECLARED_READS` row
-  // on objectui#7804 instead of being guessed into either half of this ledger.
+  // disposition. It is filed in `RETIRED` below since objectui#9342, which
+  // moved `KanbanRenderer`'s read off the document and onto an explicit React
+  // prop — until then `check:handler-key-reads` refused the tombstone spelling
+  // while the renderer still read the key.
   ['objectql.zod.ts', 'ObjectKanbanSchema', 'onCardClick', ObjectKanbanZod],
   ['objectql.zod.ts', 'ObjectKanbanSchema', 'onQuickAdd', ObjectKanbanZod],
   ['overlay.zod.ts', 'DialogSchema', 'onOpenChange', DialogZod],
@@ -320,8 +321,12 @@ const RUNTIME_SLOT: readonly Site[] = [
 ];
 
 /**
- * 22 keys NO renderer reads — the TypeScript interface carries the `?: never`
- * tombstone. Measured per key: the renderer takes `({ schema })` only, or
+ * The keys NO renderer reads — the TypeScript interface carries the `?: never`
+ * tombstone. ⚠️ The population is whatever this array holds and the length
+ * assertion below states; a figure repeated in this sentence would be derived
+ * once and never again (AGENTS.md #9), and it already drifted here — it read
+ * `22` while the assertion read `20`, across objectui#8802's arm retirement.
+ * Measured per key: the renderer takes `({ schema })` only, or
  * strips the key through a `toFormControlDomProps` whitelist, or spreads it
  * onto a DOM element / primitive that has no such prop (React warns about an
  * unknown event handler and attaches nothing). `CommandSchema.onChange` is the
@@ -352,6 +357,16 @@ const RETIRED: readonly Site[] = [
   ['navigation.zod.ts', 'BreadcrumbItemSchema', 'onClick', BreadcrumbItemZod],
   ['navigation.zod.ts', 'SidebarSchema', 'onCollapsedChange', SidebarZod],
   ['navigation.zod.ts', 'ButtonGroupButtonSchema', 'onClick', ButtonGroupButtonZod],
+  // ⭐ objectui#9342 — the THIRD `ObjectKanbanSchema` handler key, and the one
+  // its own slice could not file. Its disposition was measured `'retired'` by
+  // objectui#7804 (an authored value reaches nothing: `ObjectKanban`
+  // substitutes its own mover and declares no `onCardMove` React prop), but
+  // `check:handler-key-reads` refuses a tombstone while a renderer still reads
+  // the key off the document, so the row sat in that gate's
+  // `KNOWN_UNDECLARED_READS` instead. `KanbanRenderer` now takes `onCardMove`
+  // as an explicit React prop — the objectui#7742 remedy `objectFields` took —
+  // and the tombstone is spelled on both faces.
+  ['objectql.zod.ts', 'ObjectKanbanSchema', 'onCardMove', ObjectKanbanZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onConfirm', AlertDialogZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onCancel', AlertDialogZod],
 ];
@@ -429,7 +444,7 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     ]);
   });
 
-  it('64 sites are ledgered, 44 runtime slots + 20 retired, with no key filed twice', () => {
+  it('65 sites are ledgered, 44 runtime slots + 21 retired, with no key filed twice', () => {
     // 58 from objectui#6124; the 59th is `ObjectDataTableSchema.onRowClick`,
     // minted with its arm by objectui#6576 / #6914; the 60th is
     // `AlertDialogSchema.onAction`, declared by objectui#7104 for a key the
@@ -449,14 +464,19 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     // ⭐ 62 → 64: objectui#7804 declared `ObjectKanbanSchema.onCardClick` and
     // `.onQuickAdd`, two of the three reads the retirement above left on the
     // SURVIVING face with nothing declaring them. ⚠️ TWO, not three — the
-    // third (`onCardMove`) is measured `'retired'` and the gate of record
-    // refuses that spelling while the renderer still reads the key, so it stays
+    // third (`onCardMove`) was measured `'retired'` and the gate of record
+    // refused that spelling while the renderer still read the key, so it stayed
     // in `KNOWN_UNDECLARED_READS` rather than being filed here under a
     // disposition nothing measured.
+    //
+    // ⭐ 64 → 65: objectui#9342 moved that read to an explicit React prop on
+    // `KanbanRendererProps`, which is what let the arm carry the tombstone the
+    // measurement always asked for. A ledger GROWTH on the retired half, and
+    // the disposition is the one objectui#7804 measured — not a new reading.
     expect(RUNTIME_SLOT).toHaveLength(44);
-    expect(RETIRED).toHaveLength(20);
+    expect(RETIRED).toHaveLength(21);
     const ids = ALL_SITES.map(([file, schema, key]) => `${file}#${schema}.${key}`);
-    expect(new Set(ids).size).toBe(64);
+    expect(new Set(ids).size).toBe(65);
   });
 
   it.each(ALL_SITES)('%s %s.%s is DECLARED on the mirror shape, with the objectui#6124 guidance as its description', (_file, _schema, key, mirror) => {

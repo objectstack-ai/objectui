@@ -334,10 +334,14 @@ decision as a defect is how a warning channel gets ignored:
   **Load more** rather than rendering whole.
 
   Two members of the shape are **not** read on this path and authoring them
-  does nothing here: `filterMode` and `enableMentions` (objectui#8968). And the
-  panel the host auto-appends when a page omits a discussion block does **not**
-  run this pipeline, so it still renders the feed unfiltered and whole
-  (objectui#8983).
+  does nothing here: `filterMode` and `enableMentions` (objectui#8968).
+
+  There is no third path left to disagree with: the host used to auto-append a
+  panel below any page that omitted a discussion block, and objectui#7298
+  retired that append — a record page shows a discussion panel if and only if it
+  composes one. Every panel a user sees is therefore an authored or synthesized
+  block running this pipeline. The object's `enable.feeds: false` still
+  outranks the page and suppresses the panel either way.
 </Callout>
 
 ### RecordActivityTimeline Config

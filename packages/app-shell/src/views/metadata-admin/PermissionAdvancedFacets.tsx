@@ -22,6 +22,7 @@ import { ChevronRight, Plus, Trash2, Shield, Lock, PanelTop, FlaskConical } from
 import { CelPredicateField } from './CelPredicateField.js';
 import { CelTestRunDialog } from './CelTestRunDialog.js';
 import type { CelLintIssue } from './celAuthoring.js';
+import type { AdminScope as SpecAdminScope } from '@objectstack/spec/security';
 
 /**
  * Structured editors for the three "advanced" permission facets — Row-Level
@@ -79,14 +80,28 @@ function stripRetiredRlsKeys(policy: RlsPolicy): RlsPolicy {
   return next as RlsPolicy;
 }
 
-interface AdminScope {
-  businessUnit?: string;
-  includeSubtree?: boolean;
-  manageAssignments?: boolean;
-  manageBindings?: boolean;
-  authorEnvironmentSets?: boolean;
-  assignablePermissionSets?: string[];
-}
+/**
+ * The delegated-admin scope AS THIS EDITOR HOLDS IT MID-EDIT.
+ *
+ * The six keys are `@objectstack/spec/security`'s `AdminScope` — the AUTHORING
+ * side (`z.input`), which is what this editor writes — and they are TAKEN from
+ * it rather than restated (objectui#7265). The header above already said these
+ * shapes were "checked against the spec schemas"; a hand-written copy can only
+ * have been checked ONCE, and this one had already drifted in requiredness.
+ *
+ * `Partial<>` is the single deliberate divergence and it is the draft-buffer
+ * one: the spec REQUIRES `businessUnit`, while this editor materializes the
+ * facet from `asObject(draft.adminScope)` — `{}` before the author has typed
+ * anything — and every field below reads through a fallback (`?? ''`, `!!`)
+ * because a half-filled facet is the normal mid-edit state. Pinned in
+ * `spec-symbol-parity.test.ts`, both halves: the spec still requires
+ * `businessUnit` (so the widening is real and load-bearing) and no key here is
+ * invented (so the widening stays confined to requiredness).
+ *
+ * ⚠️ Requiredness is the ONLY thing relaxed. A draft that reaches Save still has
+ * to satisfy the server's `AdminScopeSchema`, which this type does not promise.
+ */
+type AdminScope = Partial<SpecAdminScope>;
 
 type TabVisibility = 'visible' | 'hidden' | 'default_on' | 'default_off';
 type TabPerms = Record<string, TabVisibility>;

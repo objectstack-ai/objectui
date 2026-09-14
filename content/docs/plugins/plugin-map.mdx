@@ -146,6 +146,26 @@ to `onMarkerClick` is not `===` the authored object.
 
 ## Configuration
 
+### An unconfigured map refuses
+
+The `map` block is **required** for the map to render anything. With no
+coordinate binding — no `map` block at all, a block that names only
+`titleField`, or a `latitudeField` with no `longitudeField` beside it — the
+component renders
+
+> Map configuration required — declare `map.locationField` or `map.latitudeField` + `map.longitudeField`
+
+in place of the map. It does **not** fall back to field names of its own
+(objectui#8169, ruled 2026-09-07): a guess that happens to hit plots records on a
+view whose author never said where its coordinates live, and a guess that misses
+paints an empty map that looks like broken data. Neither says what is missing.
+
+⚠️ This is a behaviour change for metadata written before the ruling. A view
+whose records carry `latitude` / `longitude` (or `location`) columns used to plot
+without declaring anything, because those four names were the component's
+defaults and the list / view relays floored `locationField` to `'location'` on
+the way in. Both are gone. Declare the binding:
+
 ### Field Mapping - Separate Coordinates
 
 When your data has separate latitude and longitude fields:

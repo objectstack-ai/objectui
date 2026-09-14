@@ -325,9 +325,16 @@ interface RuntimeField {
   // camel spelling here would fossilise a spelling no contract declares —
   // the exact defect this family exists to stop. Routed to objectui#7650.
   //
-  // ⛔ `depends_on` gains no camel twin either, and its reason is the opposite
-  // shape: `FieldSchema` DOES declare `dependsOn`, so the omission is not
-  // contractual but MEASURED. See the read site below.
+  // ⭐ objectui#8672, ruling A — `dependsOn` is now declared in the SPEC
+  // spelling and ONLY in it. Unlike the five keys above it gains no snake twin
+  // to rank behind, because there was never a contractual reason for one:
+  // `FieldSchema` DECLARES `dependsOn` and refuses `depends_on` by name. The
+  // snake member this interface used to carry was the only spelling the read
+  // site below looked at, so a spec-valid field def declaring the cascade
+  // resolved to `undefined` while the one spelling that DID arrive was one no
+  // author could legally write. That is not a producer leg worth keeping behind
+  // the declared one — it is the inverse of one, and keeping it would be the
+  // consumer-side tolerance AGENTS.md #0.1 bans.
   reference_to?: string;
   reference?: string;
   displayField?: string;
@@ -343,7 +350,7 @@ interface RuntimeField {
   lookup_filters?: unknown[];
   lookupPageSize?: number;
   lookup_page_size?: number;
-  depends_on?: unknown[];
+  dependsOn?: unknown[];
 }
 
 interface RuntimeObject {
@@ -599,23 +606,30 @@ export function resolveActionParam(
         // rank first, so there is nothing to add that would not fossilise an
         // undeclared key.
         //
-        // ⛔ `dependsOn` is the third declared key of that slice and it keeps
-        // its snake-only read for a MEASURED reason, not a contractual one.
-        // Adding `field.dependsOn ?? field.depends_on` was built and rendered
-        // before being refused: a field-backed lookup param whose def declares
-        // the spec spelling then renders `lookup-trigger-gated` and DISABLED,
-        // where the same def renders an enabled trigger today (control: an
-        // otherwise identical lookup without the key, enabled in both runs).
-        // The gate never lifts — this dialog supplies `dependentValues` only to
-        // `CASCADE_OPTION_WIDGET_TYPES`, which excludes `lookup`, so
-        // `LookupField`'s `dependenciesMissing` can never clear. That is pinned,
-        // with a keystroke witness, by leg A of
-        // `views/ActionParamDialog.lookupDependsOnReach-8672.test.tsx`, and leg
-        // C of the same file pins the `undefined` this read produces today.
-        // ⇒ ranking the declared spelling first here would trade a config-loss
-        // bug for an unusable picker on every spec-valid def that declares the
-        // cascade. Which of objectui#8672's three dispositions to take — wire
-        // it, refuse it, declare the limit — is that card's ruling to make.
+        // ⭐ objectui#8672, ruling A — `dependsOn` is the third declared key of
+        // that slice and it lands here now, in the DECLARED spelling and with
+        // no snake leg behind it. It was held back deliberately: honouring the
+        // spec spelling while `ActionParamDialog` fed `dependentValues` to
+        // option widgets only would have turned every spec-valid def that
+        // declares a cascade into a `lookup-trigger-gated`, permanently
+        // DISABLED picker — a measurement objectui#9130 built, rendered and
+        // then refused to ship, routing the disposition to objectui#8672.
+        //
+        // The dialog now supplies that record (see `paramNeedsDependentValues`
+        // in `views/ActionParamDialog.tsx`), so the gate lifts as soon as the
+        // named parent carries a value and `LookupField` narrows the picker by
+        // it. The two halves ship together on purpose: either alone is a
+        // regression, and this comment is the reason they may not be split
+        // again.
+        //
+        // ⛔ The snake read is GONE rather than demoted, which is the one place
+        // this key departs from its five siblings above. Their snake legs are
+        // kept because a pre-tightening document or an out-of-repo host adapter
+        // could still emit them. `depends_on` has no such producer to protect:
+        // `FieldSchema` refuses it BY NAME (suggesting `dependsOn`), so no
+        // document that parses can carry it, and objectui#7357 already retired
+        // the renderer-side twin in `LookupField`. Keeping it would leave this
+        // resolver the last reader of a spelling the protocol rejects.
         referenceTo: param.reference ?? field.reference,
         displayField:
           field.displayField ?? field.display_field ?? field.reference_field,
@@ -625,7 +639,7 @@ export function resolveActionParam(
         lookupColumns: field.lookupColumns ?? field.lookup_columns,
         lookupFilters: field.lookupFilters ?? field.lookup_filters,
         lookupPageSize: field.lookupPageSize ?? field.lookup_page_size,
-        dependsOn: field.depends_on,
+        dependsOn: field.dependsOn,
       }
     : {};
 

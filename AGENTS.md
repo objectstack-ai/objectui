@@ -315,7 +315,7 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
   ```
 
   实测是从 REST 端点发起的;405 正文那句 `Changes must be made through the merge queue` 拒绝的是**「直接合并」这个动作**本身,不是某个客户端,所以旧文教的 `gh pr merge --squash --delete-branch`(不带 `--auto`)这条收尾路径同样不成立(`gh` 具体报什么文案随版本变,**别按文案去猜**,认准下面的入队路径)。**撞上这个 405 不是你权限不够** —— 别去试更强的手段,也别以为要等人工审批。
-- **CI 全绿即自行合并,不必等维护者确认**(授权语义没变,变的只是动作;⛔ **例外:diff 命中受管面的 PR 不适用本条** —— 见下方「受管面」,那类 PR 停在 draft 等人类合并)—— 修改完成后**只提交你任务改动的文件**(逐路径 `git add <file>`,绝不 `git add -A` 扫入无关 diff),开 **draft** PR;等远端 CI 全绿后:
+- **CI 全绿即自行合并,不必等维护者确认**(授权语义没变,变的只是动作;⛔ **例外:diff 命中受管面的 PR 不适用本条** —— 见下方「受管面」,那类 PR 停在 draft 等一条获授权的批准,再由认领席落地)—— 修改完成后**只提交你任务改动的文件**(逐路径 `git add <file>`,绝不 `git add -A` 扫入无关 diff),开 **draft** PR;等远端 CI 全绿后:
 
   ```bash
   gh pr ready <n>                                    # 退出 draft
@@ -480,7 +480,7 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 ⇒ ⭐ **回读发现正文「变短」时,先看渲染后的页面,再决定要不要修。** 一次不必要的重写会毁掉一张本
 来正确的卡 —— 而在受管面上,那是不可恢复的。
 
-### ⛔ 受管面(governed surface):agent 起草,人类合并
+### ⛔ 受管面(governed surface):agent 起草,获授权批准后由认领席落地
 
 维护者裁决(2026-08-18),**原文照录、不翻译** —— 提问明确点名了本仓:
 
@@ -499,13 +499,13 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 ⚠️ **两棵 skills 树都受管 —— 别把它们和 skill 的安装位置弄混:**
 
 - `.claude/skills/**` —— 内部 agent 工具,在 `.claude/**` 之内,**受管**。
-- `skills/**`(仓根,发布给使用者的那棵,如 `skills/objectui/`)—— **同样受管**,就是 `GOVERNED_SURFACES` 里的 `skills-catalog` 一项:只改 `skills/**` 的 PR 也**停在 draft 等人类合并**,⛔ 不翻 ready、不入队。`.agents/skills/` 是 skill 的**安装位置**(内容由 `skills-lock.json` 还原,第三方的那些被 gitignore),不是规程文本,**不受管**。
+- `skills/**`(仓根,发布给使用者的那棵,如 `skills/objectui/`)—— **同样受管**,就是 `GOVERNED_SURFACES` 里的 `skills-catalog` 一项:只改 `skills/**` 的 PR 也**停在 draft 等一条获授权的批准**,⛔ 批准前不翻 ready、不入队。`.agents/skills/` 是 skill 的**安装位置**(内容由 `skills-lock.json` 还原,第三方的那些被 gitignore),不是规程文本,**不受管**。
 
   两棵树名字像、内容都叫 skill,本段曾按「路径是不是以 `.claude/` 开头」把仓根那棵判成**不受管**、并要求照普通代码 PR 自行入队 —— **那是错的**,而且错在会被机械拒绝的方向上:`merge_group` 腿照样拒,照着那句话做的席位要赔上一整轮队列构建。判据以 `scripts/check-governed-queue-guard.mjs` 的 `GOVERNED_SURFACES` 为准,拿不准就直接问它:`node scripts/check-governed-queue-guard.mjs --test <paths…>`。
 
 **硬规则 —— PR 的 diff 命中受管面时:**
 
-⛔ 绝不 `gh pr ready`(不退出 draft)、⛔ 绝不加入合并队列、⛔ 绝不 `gh pr merge --auto` / `enable_pr_auto_merge`、⛔ 绝不自己合并。这类 PR **停在 draft,等人类合并**。**人类的那次合并动作本身就是审核记录** —— 不需要额外的逐 PR 批准点击,也别去等一个不存在的 approval。
+⇒ **命中即停 draft;⛔ 未获授权批准不 ready 不入队不自合、永不批准,获批后认领席落地。**「获授权批准」= `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)里某个账号的一条 latest-decisive APPROVED review,DISMISSED 与被顶掉的不算(完整判据在下面那段);在它出现之前 ⛔ 绝不 `gh pr ready`(不退出 draft)、⛔ 绝不加入合并队列、⛔ 绝不 `gh pr merge --auto` / `enable_pr_auto_merge`、⛔ 绝不自己合并。**那条批准本身就是审核记录** —— 它出现之后,`gh pr ready` + `gh pr merge --squash --auto --delete-branch` 由**认领席**执行,照常走合并队列(维护者 2026-09-13 裁决 C,原文照录、不翻译:「C. approve 后不管后续改动都由席位落地:」)。
 
 ⛔ **第五条禁令 —— 绝不自己去留下那条 approval。** 上面四条管的是**落地**,这一条管的是**批准**:`scripts/check-governed-queue-guard.mjs` 的文件头部把它写成规范条款,它 `cleared` 分支的判定文本也印着同一句。此处**逐字照录、不译**(两处措辞不得漂移):
 
@@ -514,7 +514,7 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 sha pin **退休**之后这条**更重、不是更轻**(维护者 2026-09-04 裁,#7606 执行、#7616 把新判据写进下面那段):一条获授权的 APPROVED review 现在清掉同一 PR 其后**每一次** push,于是在一个 agent 操作的 approver 账号与一次它自己放行的受管落地之间,**只剩这条规范禁令**。
 
 - **判据是 PR 的文件清单,不是 PR 的标题或描述。** 命中与否只看路径。
-- **混合 diff:一条命中即整个 PR 分叉,没有比例判断。** 99 个普通文件 + 1 个受管文件 = 整个 PR 等人类合并。其余部分急着落地,就把受管文件**拆成单独的 PR**,别用「占比很小」给自己开口子。
+- **混合 diff:一条命中即整个 PR 分叉,没有比例判断。** 99 个普通文件 + 1 个受管文件 = 整个 PR 等那条获授权的批准。其余部分急着落地,就把受管文件**拆成单独的 PR**,别用「占比很小」给自己开口子。
 - **起草不受限。** 写、推分支、开 PR、按 review 修改,每个席位照做不误;被保留的只有**落地**这一个动作。
 - **CI 全绿、已 review 都不构成例外。** 这类文件是后续每一次 dispatch 读的操作规程,绿灯说明不了它该不该成为规程。
 - **发现自己已经挂上了怎么办**:把 PR 转回 **draft** 是唯一能可靠退出合并队列的动作 —— 只调 `disable_pr_auto_merge` 会摘掉 auto-merge 但**不取消队列成员资格**,两个都要做。⚠️ 只回收**你自己**挂上的:本仓多 agent 共用同一 GitHub 身份,不是你设置的状态就属于别的 actor —— 去问、去报告,别替他回退。

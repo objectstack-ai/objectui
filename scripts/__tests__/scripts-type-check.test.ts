@@ -12,7 +12,7 @@ import ts from 'typescript';
  * reach a directory that has no package.json; and
  * `scripts/check-type-check-coverage.mjs` decides coverage per PACKAGE, so it
  * could not see the gap either. Meanwhile the root `tsconfig.json` includes only
- * `packages`/`examples`/`apps`, and `tsconfig.base.json` excludes the test globs
+ * `packages`/`examples`/`apps`, and `tsconfig.tier-base.json` excludes the test globs
  * outright. Net: every file in `scripts/__tests__/` — ten tests that pin
  * `ci.yml`, `docs-links.yml`, `lint.yml`, the changeset guard, the control-byte
  * scanner and the shadcn local patches — was compiled by nothing at all.

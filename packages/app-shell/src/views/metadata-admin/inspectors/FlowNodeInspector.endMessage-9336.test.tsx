@@ -212,25 +212,50 @@ describe('the end group offers a typed control for `message` (objectui#9336)', (
     expect(field!.defaultValue, 'the spec declares no default for `message`').toBeUndefined();
   });
 
-  it('leaves the `outputVariable` row of the same group untouched (objectui#9335 is NOT ridden)', () => {
-    // The separability pin. objectui#9335 is a live, unclaimed defect in this
-    // same group: `outputVariable` is a key `EndConfigSchema` refuses BY NAME.
-    // This card does not fix it, and this row exists so a later reader can see
-    // that it was left deliberately rather than missed — and so that a future
-    // repair of #9335 has to come past this assertion on purpose.
-    const outputVariable = endFields().find((f) => f.id === 'outputVariable');
-    expect(outputVariable, 'the `outputVariable` row is still exactly as it was').toBeDefined();
-    expect(outputVariable!.kind).toBe('text');
-    expect(outputVariable!.showWhen, 'ungated, as before — untouched by this card').toBeUndefined();
+  it('and the `outputVariable` row of the same group is GONE — objectui#9335, come past on purpose', () => {
+    // ⭐ THIS ROW CHANGED SIDES, DELIBERATELY.
+    //
+    // It was this card's separability pin. While objectui#9335 was open it
+    // asserted the OPPOSITE — that the `outputVariable` row was still present,
+    // still `text` and still ungated — so that a later reader could see it had
+    // been left alone rather than missed, and so that a future repair of #9335
+    // would have to come past this assertion ON PURPOSE rather than route
+    // around it. objectui#9335 did exactly that; this is the other side.
+    //
+    // What it asserts now is the same separability read forward: the removal
+    // that repaired #9335 took the refused key and NOTHING ELSE — this card's
+    // own control is pinned intact by the rows above and below.
     expect(
-      FlowNodeSchema.safeParse({
-        id: 'e',
-        type: 'end',
-        label: 'E',
-        config: { outcome: 'refused', message: 'why', outputVariable: 'result' },
-      }).success,
-      'objectui#9335 is still open and still unsavable — this card claims no repair of it',
+      endFields().find((f) => f.id === 'outputVariable'),
+      'the key `EndConfigSchema` refuses by name is no longer offered by this group (objectui#9335)',
+    ).toBeUndefined();
+    // The lit control: the SAME lookup still finds this card's field, so the
+    // `undefined` above is a scoped removal and not an emptied group.
+    expect(messageField(), 'and this card\u2019s own control survived that removal').toBeDefined();
+
+    // ⭐ The un-hiding, which is what #9335 was costing THIS card. An
+    // unrecognized key short-circuits `EndConfigSchema`'s `superRefine`, so a
+    // `refused` end carrying `outputVariable` reported ONLY `unrecognized_keys`
+    // and never the missing-`message` refusal these rows exist for. The form
+    // can no longer produce that key, so the rule above is the one an author
+    // now meets. Both halves read off the installed spec, one key apart.
+    const masked = FlowNodeSchema.safeParse({
+      id: 'e',
+      type: 'end',
+      label: 'E',
+      config: { outcome: 'refused', outputVariable: 'result' },
+    });
+    expect(masked.success, 'the key is still refused by the contract — nothing here widened it').toBe(false);
+    expect(
+      masked.error!.issues.some((i) => i.code === 'custom'),
+      'and it still MASKS this card\u2019s refusal — which is why the form must not be able to write it',
     ).toBe(false);
+    expect(
+      FlowNodeSchema.safeParse({ id: 'e', type: 'end', label: 'E', config: { outcome: 'refused' } }).error!.issues.some(
+        (i) => i.code === 'custom',
+      ),
+      'the lit control, one key apart: without it, the missing-`message` refusal is exactly what surfaces',
+    ).toBe(true);
   });
 
   it('the visibility resolver admits it only for a refused outcome', () => {

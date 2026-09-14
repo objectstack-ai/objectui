@@ -528,7 +528,33 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'Required when the outcome is "Refused", and refused on a completed end — a completion renders nothing, so the key would be a silent no-op. A {token} template interpolated at run time (e.g. {record.name}), exactly like a screen Description.',
       showWhen: { field: 'outcome', equals: ['refused'] },
     }),
-    cfg('outputVariable', 'Output variable', 'text', { placeholder: 'result' }),
+    // objectui#9335 — there is deliberately NO `outputVariable` row here.
+    //
+    // `EndConfigSchema` is a STRICT object whose whole key surface is the pair
+    // above, so the loader refuses `outputVariable` BY NAME (`Unrecognized
+    // key(s) on this end node config`). A typed control for it could therefore
+    // only ever produce a flow that fails to load — not a nicety that happened
+    // to be ignored at run time, but a route to an unsavable draft, on a box
+    // that looked as ordinary as the ones beside it. An `end` node terminates
+    // rather than producing a value to bind, so there is nothing to name.
+    //
+    // ⛔ Not kept as a `__legacy__` render-only row either (the treatment
+    // `condition` on `decision` and the retired `script` keys get). That
+    // pattern is for keys the schema ACCEPTS and the runtime ignores — showing
+    // them costs nothing because the document still loads. A key the schema
+    // REFUSES needs no control at all, and a stored one is NOT hidden by this
+    // absence: an unowned config key falls through to the Advanced (JSON)
+    // block, which auto-opens when non-empty, so it stays visible and
+    // clearable. The key is real product vocabulary on the groups whose spec
+    // config declares it; those keep theirs.
+    //
+    // ⭐ The removal also UN-HIDES objectui#9336's rule: an unrecognized key
+    // short-circuits `EndConfigSchema`'s `superRefine`, so while this box
+    // existed a `refused` end that used it reported only `unrecognized_keys`
+    // and never the missing-`message` refusal.
+    //
+    // All of the above is re-derived rather than restated by
+    // `FlowNodeInspector.endOutputVariable-9335.test.tsx`.
   ],
   decision: [
     cfg('conditions', 'Branches', 'objectList', {

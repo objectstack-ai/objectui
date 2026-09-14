@@ -4114,7 +4114,9 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
       label: '拒绝原因',
       help: '当结果为“已拒绝”时必填;结果为“已完成”时则被拒收 —— 已完成的结束节点不渲染任何文本,该键会成为静默的空操作。支持 {token} 模板(如 {record.name}),与屏幕节点的“描述”一致。',
     },
-    outputVariable: { label: '输出变量' },
+    // objectui#9335 — an `outputVariable` overlay lived here and went with the
+    // descriptor it localized: `EndConfigSchema` refuses that key by name, so
+    // the end group no longer offers a field for it (see flow-node-config).
   },
   decision: {
     conditions: {

@@ -77,7 +77,9 @@
  *     with a flat `dateField` and NO `startDateField`, which the merge-base
  *     draws and the retiring tree refused. ⇒ the remedy is at the producer,
  *     which is outside this card's file surface, so the rungs STAY and both
- *     keys are ledgered below with the producer named.
+ *     keys are ledgered below with the producer named. The standing carrier for
+ *     the alias question is objectui#8355 (open, undecided); ⛔ this card does
+ *     not open a second one and does not decide it.
  *
  * ## ⛔ `navigation` is NOT ruled here, and its verdict is INVARIANT
  *

@@ -281,6 +281,15 @@ type CalendarAliasRungs = { dateField?: string; endField?: string };
  * asserts they are still read AND that the producer still flattens — so when
  * the producer is fixed the ledger reddens and the rungs can go.
  *
+ * ⭐ THE CARRIER IS objectui#8355, which already asks exactly this — *"the
+ * renderer carries a lenient alias ladder that no published declaration spells
+ * — decide whether the aliases stay, are declared, or are refused"* — and is
+ * OPEN and UNDECIDED. ⛔ Do not open a second card for it. Two notes for
+ * whoever takes it: its key list says `dateField` / `startField`, and the
+ * ladder measured here is `dateField` / `endField`; and its three options do
+ * not include the fourth this card takes, NORMALISE AT THE PRODUCER, which is
+ * the only one that refuses the alias without breaking the authoring path.
+ *
  * ⛔ Do not re-retire these on a text census. The only census that can answer
  * this question runs the producer.
  */

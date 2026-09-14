@@ -79,7 +79,10 @@ export interface RecordRelatedListRendererProps {
 }
 
 const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
-  schema = {} as any,
+  // ⛔ NOT `{} as any` — the annotation-erasing default objectui#8649 repaired.
+  // The mechanism and why the spelling tracks the annotation are written once,
+  // at the same site in `record-details.tsx`.
+  schema = {} as NonNullable<RecordRelatedListRendererProps['schema']>,
   className,
   ...props
 }) => {
@@ -128,11 +131,28 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   const relatedActions = useRelatedRecordActions();
   const handlers = React.useMemo(
     () =>
-      relatedActions?.resolve({
-        objectName,
-        relationshipField: schema.relationshipField,
-        parentId: parentLinkValue,
-      }) ?? null,
+      // The `objectName &&` gate is the objectui#8649 erasure repair surfacing a
+      // latent contract violation, not a behaviour change. `schema.objectName`
+      // is OPTIONAL on this component by declaration (see the annotation above:
+      // the gate binds it from `dataSource`, so it can arrive unbound), while
+      // `ResolveRelatedRecordActionsInput.objectName` is `string`. Until the
+      // default stopped erasing the annotation both read `any` and the mismatch
+      // was invisible; `tsc` names it as TS2322 now.
+      //
+      // Output-identical, and both halves are measured rather than assumed:
+      // `resolve` is pure and its only use of the key is
+      // `objects.find((o) => o?.name === objectName)`, which finds nothing for
+      // `undefined` and returns `{}`; and `handlers` is never read on this path
+      // — the `if (!objectName)` placeholder return below (kept AFTER the hooks
+      // for hook-order stability) discards it. So the gate replaces a discarded
+      // `{}` with a discarded `null` and skips a lookup that could never hit.
+      objectName
+        ? (relatedActions?.resolve({
+            objectName,
+            relationshipField: schema.relationshipField,
+            parentId: parentLinkValue,
+          }) ?? null)
+        : null,
     [relatedActions, objectName, schema.relationshipField, parentLinkValue],
   );
 

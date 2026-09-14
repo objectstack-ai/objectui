@@ -102,6 +102,28 @@ export interface RecordReferenceRailRendererProps {
      * behavior.
      */
     hideEmpty?: boolean;
+    /**
+     * The contract's NODE-level props envelope
+     * (`@objectstack/spec` `PageComponentSchema.properties` — "Component props
+     * passed to the widget"), declared here by objectui#8649 for the ONE member
+     * this renderer reads off it.
+     *
+     * The rail accepts a node either flattened (`schema.entries`) or enveloped
+     * (`schema.properties.entries`), and the enveloped read compiled only
+     * through the `[k: string]: any` below — so `entries` arrived as `any` on
+     * that path while the flattened path had the contract's own entry type.
+     * Declaring it NARROWS an accept this face already granted; it widens
+     * nothing, and `properties` itself stays open because the contract declares
+     * it as a record.
+     *
+     * ⚠️ This is the node's envelope, NOT a `record:reference_rail` prop:
+     * `RecordReferenceRailProps` declares `entries` and `hideEmpty` and nothing
+     * else. `properties` has the standing `dataSource` and `className` have —
+     * accepted on every page component, as
+     * `recordRelatedListInputs.spec-parity.test.ts` derives for the sibling
+     * block.
+     */
+    properties?: { entries?: ReferenceRailEntry[] } & Record<string, any>;
     [k: string]: any;
   };
   className?: string;

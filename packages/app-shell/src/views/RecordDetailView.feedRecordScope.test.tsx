@@ -168,17 +168,28 @@ function makeDataSource(seed: Seed = {}) {
 }
 
 /**
- * An AUTHORED record page with no discussion slot — this is what turns on the
- * host's bottom auto-append, the `RecordChatterPanel` that carries the comment
- * composer (`showCommentInput: true`). The optimistic round-trip test needs a
- * real composer to post through, rather than reaching for the callback prop.
+ * An AUTHORED record page that composes the discussion node — the panel that
+ * carries the comment composer (`showCommentInput` defaults true on the
+ * renderer's own config). The optimistic round-trip test needs a real composer
+ * to post through, rather than reaching for the callback prop.
+ *
+ * ⚠️ This used to be a page with NO discussion slot, driving the host's bottom
+ * auto-append. objectui#7298 removed that append — a record page shows a panel
+ * if and only if it composes one — so the composer now has to be authored, and
+ * what this file pins (which record an optimistic comment belongs to) is
+ * unchanged by where the panel came from.
  */
-const AUTHORED_PAGE_WITHOUT_DISCUSSION = {
+const AUTHORED_PAGE_WITH_DISCUSSION = {
   name: 'account_record_page',
   type: 'record',
   pageType: 'record',
   object: OBJECT_NAME,
-  regions: [{ name: 'main', components: [{ type: 'page:header', title: 'Account' }] }],
+  regions: [
+    {
+      name: 'main',
+      components: [{ type: 'page:header', title: 'Account' }, { type: 'record:discussion' }],
+    },
+  ],
 };
 
 function makeMetadata(pages: any[]) {
@@ -359,7 +370,7 @@ describe('RecordDetailView — the feed does not follow the user to the next rec
 });
 
 describe('RecordDetailView — optimistic comments ride with their own record (#3268)', () => {
-  /** Post a comment through the real composer on the auto-appended panel. */
+  /** Post a comment through the real composer on the authored panel. */
   async function postComment(text: string) {
     const box = await screen.findByPlaceholderText(COMMENT_PLACEHOLDER);
     fireEvent.change(box, { target: { value: text } });
@@ -372,21 +383,21 @@ describe('RecordDetailView — optimistic comments ride with their own record (#
     // been posted but not yet come back from the server cannot be collateral.
     const dataSource = makeDataSource({});
 
-    const { rerender } = render(tree(dataSource, REC_A, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    const { rerender } = render(tree(dataSource, REC_A, [AUTHORED_PAGE_WITH_DISCUSSION]));
     await screen.findByText(EMPTY_COMMENTS);
 
     await postComment('optimistic on A');
     expect(await screen.findByText('optimistic on A')).toBeTruthy();
 
     // …it must not follow the user to B…
-    rerender(tree(dataSource, REC_B, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    rerender(tree(dataSource, REC_B, [AUTHORED_PAGE_WITH_DISCUSSION]));
     expect(await screen.findByText(EMPTY_COMMENTS)).toBeTruthy();
     expect(screen.queryByText('optimistic on A')).toBeNull();
 
     // …and it must still be on A when the user comes back, exactly once: the
     // re-read now returns the persisted copy under the SAME id the optimistic
     // row was created with, so the union-by-id merge folds them together.
-    rerender(tree(dataSource, REC_A, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    rerender(tree(dataSource, REC_A, [AUTHORED_PAGE_WITH_DISCUSSION]));
     await waitFor(() => expect(screen.getAllByText('optimistic on A')).toHaveLength(1));
   });
 
@@ -397,17 +408,17 @@ describe('RecordDetailView — optimistic comments ride with their own record (#
     const dataSource = makeDataSource({});
     dataSource.create = vi.fn(async () => { throw new Error('503 offline'); });
 
-    const { rerender } = render(tree(dataSource, REC_A, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    const { rerender } = render(tree(dataSource, REC_A, [AUTHORED_PAGE_WITH_DISCUSSION]));
     await screen.findByText(EMPTY_COMMENTS);
 
     await postComment('never persisted');
     expect(await screen.findByText('never persisted')).toBeTruthy();
 
-    rerender(tree(dataSource, REC_B, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    rerender(tree(dataSource, REC_B, [AUTHORED_PAGE_WITH_DISCUSSION]));
     expect(await screen.findByText(EMPTY_COMMENTS)).toBeTruthy();
     expect(screen.queryByText('never persisted')).toBeNull();
 
-    rerender(tree(dataSource, REC_A, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    rerender(tree(dataSource, REC_A, [AUTHORED_PAGE_WITH_DISCUSSION]));
     await waitFor(() => expect(screen.getAllByText('never persisted')).toHaveLength(1));
   });
 
@@ -415,12 +426,12 @@ describe('RecordDetailView — optimistic comments ride with their own record (#
     // Posting on A then on B must give each panel exactly its own row.
     const dataSource = makeDataSource({});
 
-    const { rerender } = render(tree(dataSource, REC_A, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    const { rerender } = render(tree(dataSource, REC_A, [AUTHORED_PAGE_WITH_DISCUSSION]));
     await screen.findByText(EMPTY_COMMENTS);
     await postComment('written on A');
     await screen.findByText('written on A');
 
-    rerender(tree(dataSource, REC_B, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    rerender(tree(dataSource, REC_B, [AUTHORED_PAGE_WITH_DISCUSSION]));
     await screen.findByText(EMPTY_COMMENTS);
     await postComment('written on B');
     await screen.findByText('written on B');
@@ -431,7 +442,7 @@ describe('RecordDetailView — optimistic comments ride with their own record (#
       expect.objectContaining({ thread_id: `${OBJECT_NAME}:${REC_B}`, body: 'written on B' }),
     );
 
-    rerender(tree(dataSource, REC_A, [AUTHORED_PAGE_WITHOUT_DISCUSSION]));
+    rerender(tree(dataSource, REC_A, [AUTHORED_PAGE_WITH_DISCUSSION]));
     await waitFor(() => expect(screen.getAllByText('written on A')).toHaveLength(1));
     expect(screen.queryByText('written on B')).toBeNull();
   });

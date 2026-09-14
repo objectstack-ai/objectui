@@ -109,7 +109,7 @@ const warnings = () => warnSpy.mock.calls.map((c: unknown[]) => String(c[0])).jo
 // (a) The legacy shape is no longer consumed — and does not vanish silently.
 // ---------------------------------------------------------------------------
 describe('legacy `filter.map` is not map configuration (objectui#4034)', () => {
-  it('ignores a MapConfig stashed under `filter.map` and falls to the default config', async () => {
+  it('ignores a MapConfig stashed under `filter.map`, and refuses for want of a binding', async () => {
     await renderMap(
       {
         type: 'object-map',
@@ -118,8 +118,8 @@ describe('legacy `filter.map` is not map configuration (objectui#4034)', () => {
       ROWS,
     );
 
-    // The stash named `lat`/`lng`; it is not read, so the default config
-    // (`latitude`/`longitude`) applies and finds no coordinates on these rows.
+    // The stash named `lat`/`lng`; it is not read, so this schema declares no
+    // coordinate binding at all and the map refuses (objectui#8169).
     //
     // ⚠️ The rows come down the exempt host prop deliberately. Read as an
     // inline `value` set this row would still assert 0 — but for the WRONG
@@ -127,9 +127,10 @@ describe('legacy `filter.map` is not map configuration (objectui#4034)', () => {
     // passing with config resolution completely broken. Its whole job is to be
     // the 0 half of a 0/1 pair with the row below.
     expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+    expect(screen.queryByTestId('map-missing-location-binding')).not.toBeNull();
   });
 
-  it('really is the DEFAULT config that applies, not "no config at all"', async () => {
+  it('really is "no config at all" — rows spelled the OLD default way do not plot', async () => {
     await renderMap(
       {
         type: 'object-map',
@@ -138,12 +139,18 @@ describe('legacy `filter.map` is not map configuration (objectui#4034)', () => {
       ROWS_DEFAULT_SPELLING,
     );
 
-    // Same legacy stash, rows spelled the default way: the default config is
-    // live and places the marker. (Pre-fix this rendered nothing — the stash
-    // won and looked for `lat`/`lng`.)
-    const markers = screen.getAllByTestId('map-marker');
-    expect(markers).toHaveLength(1);
-    expect(markers[0]).toHaveAttribute('data-lat', '40');
+    // ⭐ The 1 half of the pair, INVERTED by objectui#8169 and load-bearing in
+    // its new direction. Same legacy stash, rows spelled `latitude`/`longitude`
+    // — the exact names `getMapConfig`'s deleted default branch guessed. It
+    // used to place this marker, which was the proof that a DEFAULT config
+    // applied rather than none. Guessing is over: an unbound map refuses, and a
+    // record set that happens to carry the conventional column names is
+    // precisely the population that must not plot unbound.
+    //
+    // This row goes red if either face of the guess comes back — the
+    // component's default branch, or a relay floor that feeds it.
+    expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+    expect(screen.queryByTestId('map-missing-location-binding')).not.toBeNull();
   });
 
   it('warns in dev, naming the legacy shape and pointing at `schema.map`', async () => {
@@ -164,6 +171,12 @@ describe('legacy `filter.map` is not map configuration (objectui#4034)', () => {
     await renderMap({
       type: 'object-map',
       data: { provider: 'value', items: ROWS_DEFAULT_SPELLING },
+      // A declared binding, so the map MOUNTS and there is a `mapStyle` prop to
+      // grade at all: since objectui#8169 an unbound map renders the refusal
+      // instead of `MapGL`. It names the rows' own columns and carries no
+      // `style`, so the only style this assertion can read is the demo default
+      // — which is the whole question here.
+      map: { latitudeField: 'latitude', longitudeField: 'longitude' },
       filter: { map: { style: 'https://legacy.example.com/style.json' } },
     });
 

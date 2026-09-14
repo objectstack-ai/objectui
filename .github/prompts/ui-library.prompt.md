@@ -14,7 +14,7 @@
 ---
 
 
-## 3. Component Standards
+## 2. Component Standards
 
 ### A. The "cn" Pattern
 Every component **MUST** accept `className` and merge it using `cn()` (clsx + tailwind-merge).
@@ -47,7 +47,7 @@ Theme is controlled via CSS variables in `globals.css` (in the consumer app or i
 
 ---
 
-## 4. Development Workflow
+## 3. Development Workflow
 
 1.  **Add Primitive:** Use Shadcn CLI (or manual copy) to add atoms.
     *   `npx shadcn-ui@latest add dropdown-menu`
@@ -56,7 +56,7 @@ Theme is controlled via CSS variables in `globals.css` (in the consumer app or i
 
 ---
 
-## 5. Visual Standards
+## 4. Visual Standards
 
 *   **Typography:** Inter (default). Headings tight tracking, strict scale.
 *   **Borders:** Subtle (`border-zinc-200` light / `border-zinc-800` dark).

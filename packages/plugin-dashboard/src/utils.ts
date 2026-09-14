@@ -6,6 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import type { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
+
 /** Returns true when the widget data config uses provider: 'object' (async data source). */
 export function isObjectProvider(widgetData: unknown): widgetData is { provider: 'object'; object?: string; aggregate?: any; filter?: any } {
   return (
@@ -33,6 +35,58 @@ export function humanizeFieldKey(key: string): string {
     .trim()
     // Title Case each word
     .replace(/\b\w/g, (c: string) => c.toUpperCase());
+}
+
+/**
+ * Resolve a chart series label — the SINGLE authority both dashboard relays
+ * (`DashboardRenderer`, `DashboardGridLayout`) call, so the three-arm decision
+ * below lives once instead of as two copies that could drift.
+ *
+ * Originated as a `DashboardRenderer`-local `useCallback` (objectui#9055,
+ * which fixed arms 2 and 3 there). `DashboardGridLayout` composed
+ * `series: [{ dataKey }]` with no `label` key on either of its branches — the
+ * legend and tooltip rendered the raw field key while the sibling relay's
+ * chart for the same widget rendered the humanized one (objectui#9172). That
+ * card is what moved this here rather than growing a second copy of the
+ * three-arm logic: a helper duplicated across the two relays is exactly the
+ * "one value, two spellings" class objectui#5425 ruled out.
+ *
+ * ⭐ THREE ARMS, and only the last two derive a display string from a FIELD
+ * KEY:
+ *
+ *   arm 1  synthetic y-field ('value' / 'count' / '') + an aggregate function
+ *          -> an i18n'd aggregate name (Count / Sum / Average …), so a
+ *          fieldless count aggregate doesn't leak the placeholder 'value' /
+ *          'count' string into the legend / tooltip.
+ *   arm 2  a real object + a real field -> `fieldLabel`'s bundle lookup, with
+ *          the HUMANIZED key (not the raw one) as its fallback.
+ *   arm 3  no object name at all (a static-data chart) -> the humanized key
+ *          outright.
+ *
+ * `t` and `fieldLabel` are injected rather than the hooks themselves, so this
+ * stays a plain function callable from either relay's own
+ * `useObjectTranslation()` / `useObjectLabel()` instances — no shared hook
+ * identity to manage, and each relay keeps memoizing its own `useCallback`
+ * wrapper over this (objectui#10's caution against depending on a memo's
+ * IDENTITY is about correctness, not about composing plain functions like
+ * this one).
+ */
+export function composeSeriesLabel(
+  t: ReturnType<typeof useObjectTranslation>['t'],
+  fieldLabel: ReturnType<typeof useObjectLabel>['fieldLabel'],
+  objectName: string | undefined,
+  yField: string,
+  aggFn: string | undefined,
+): string {
+  const isSynthetic = !yField || yField === 'value' || yField === 'count';
+  if (aggFn && (isSynthetic || aggFn === 'count')) {
+    return t(`report.aggregate.${aggFn}`, { defaultValue: aggFn });
+  }
+  const humanized = humanizeFieldKey(yField);
+  if (objectName) {
+    return fieldLabel(objectName, yField, humanized);
+  }
+  return humanized;
 }
 
 /**

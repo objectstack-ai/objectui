@@ -732,6 +732,56 @@ export default defineConfig({
             { name: 'vendor-radix', test: /[\\/]node_modules[\\/]@radix-ui[\\/]/, priority: 95 },
             { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95 },
             { name: 'vendor-icons-core', test: /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/](lucide-react|esm[\\/](Icon|createLucideIcon|defaultAttributes|shared))/, priority: 90 },
+            //
+            // ## ONE CHUNK PER ICON — and ⛔ why this is not the regroup objectui#9251 forbids
+            //
+            // ⚠️ Read this before reading the group below as the shape that
+            // card refused. The refused shape is *an aggregate*: one
+            // `vendor-icons-*` chunk holding lucide's ~1,781 per-icon modules,
+            // which would move them off the `ui-components` line and change the
+            // page load by nothing, because one eagerly-imported member makes
+            // the whole chunk eager — the same mechanism spelled out for the
+            // i18n catalogues below. In that shape the budget row goes green
+            // and the browser downloads exactly what it downloaded before.
+            //
+            // This group cannot do that. Its `name` is a FUNCTION of the module
+            // id, so it emits one single-module chunk per icon: an eager icon is
+            // eager alone and a lazy one stays lazy. It aggregates nothing, and
+            // it is the per-catalogue remedy of objectui#7479 applied to the
+            // same defect one library over.
+            //
+            // ## What it is actually for, measured
+            //
+            // Once objectui#9251 took the `icons` record off the eager path,
+            // the ~125 icons that first-party code still imports BY NAME became
+            // shared modules — reachable statically from a workspace chunk and
+            // dynamically from lucide's import map. With no group claiming them,
+            // rolldown parked them inside whichever chunk it liked, and three of
+            // those chunks were LAZY plugin chunks:
+            //
+            //   | plugin-dashboard | 21 icons parked, incl. `arrow-up-right` |
+            //   | plugin-gantt     | 62 icons parked, incl. `file-down`      |
+            //   | plugin-report    |  1 icon  parked, `table-2`              |
+            //
+            // The eager `index-*.js` chunk then held a STATIC
+            // `import{i as ri}from"./plugin-dashboard-*.js"` for one of those
+            // icons — and a static import of a chunk is the whole chunk. All
+            // three plugins were dragged into the eager closure: 326,305 raw /
+            // 96,133 gzipped bytes of lazily-loaded plugin code on every page
+            // load, for three icons.
+            //
+            // ⛔ That is the opposite of a regroup that moves no bytes: those
+            // bytes are REAL and they are removed by this line. The reading is
+            // on objectui#9251's pull request, taken on two console builds in
+            // one container.
+            {
+              name: (id: string) => {
+                const icon = /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/]([a-z0-9-]+)\.mjs$/.exec(id);
+                return icon ? `vendor-icon-${icon[1]}` : null;
+              },
+              test: /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/]/,
+              priority: 90,
+            },
             { name: 'vendor-ui-utils', test: /[\\/]node_modules[\\/](class-variance-authority|clsx|tailwind-merge|sonner)[\\/]/, priority: 90 },
             { name: 'vendor-zod', test: /[\\/]node_modules[\\/]zod[\\/]/, priority: 90 },
             { name: 'vendor-charts', test: /[\\/]node_modules[\\/](recharts|d3-|victory-)/, priority: 90 },

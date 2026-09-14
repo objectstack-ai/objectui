@@ -1509,19 +1509,24 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // `__tests__/handlerKeyDispositionsMeasured-7804.test.tsx`; the twin
   // docblocks in `../objectql.ts` carry the reasons member by member.
   //
-  // ⚠️ TWO of the three land here. `onCardMove` is the third and it is NOT
-  // declared, deliberately: its authored value is measured to reach NOTHING on
-  // this entry (`ObjectKanban` substitutes its own mover and declares no
-  // `onCardMove` React prop), which is the `'retired'` disposition — and
-  // `check:handler-key-reads` REFUSES that spelling while `KanbanRenderer`
-  // still reads the key off the document it is handed, printing
-  // `declares it RETIRED, but a renderer still reads it`. Closing that needs
-  // the READ to move to an explicit React prop — the objectui#7742 remedy this
-  // same file already applied to `objectFields` — which narrows a published
-  // component's props and is a ruling, not a repair. So the key keeps its
-  // `KNOWN_UNDECLARED_READS` row naming objectui#7804, which stays open and
-  // stays the parent, and this arm does not pretend to judge it.
+  // ⚠️ The three do NOT share a disposition. Two are RUNTIME SLOTS, whose
+  // function value reaches the board on this face; the third, `onCardMove`, is
+  // a TOMBSTONE, and reading it as a slot because it shares the prefix is the
+  // error batch #69 forbids. Its authored value was measured to reach NOTHING
+  // here — `ObjectKanban` substitutes its own `handleCardMove` and declares no
+  // `onCardMove` React prop — which is the `'retired'` disposition.
+  //
+  // ⭐ It could not be spelled until objectui#9342 (the ruling recorded on PR
+  // objectui#9338) moved the READ. `check:handler-key-reads` REFUSES a
+  // tombstone while a renderer still reads the key off the document, printing
+  // `declares it RETIRED, but a renderer still reads it` — a tombstone "has no
+  // read site BY CONSTRUCTION". `KanbanRenderer` now takes `onCardMove` as an
+  // explicit React prop, a sibling of its `schema`, which is the objectui#7742
+  // remedy this same file already applied to `objectFields`; it narrows a
+  // published component's props, so it is a ruling and not a repair, and the
+  // change carries `needs:contract-review` on its own merits.
   onCardClick: handlerKeyRefusal('onCardClick', 'runtime-slot', 'Card click handler'),
+  onCardMove: handlerKeyRefusal('onCardMove', 'retired', 'Card move handler'),
   onQuickAdd: handlerKeyRefusal('onQuickAdd', 'runtime-slot', 'Quick Add handler'),
 }).superRefine(requireKanbanRecordSource);
 

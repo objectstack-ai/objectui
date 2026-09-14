@@ -98,6 +98,21 @@ export type { SysActivityRow } from './renderers/recordActivityFeed';
 
 export { RecordDetailDrawer, deriveRecordPageHref } from './RecordDetailDrawer';
 export type { RecordDetailDrawerProps } from './RecordDetailDrawer';
+/**
+ * The record overlay PAYLOAD, with no shell of its own (objectui#9299).
+ *
+ * `ObjectGrid`, `ObjectTree`, `ObjectGantt`, `ObjectKanban` and
+ * `ObjectCalendar` mount this through `NavigationOverlay` so the authored
+ * `navigation.mode` is honoured on every view type. `RecordDetailDrawer` is
+ * the same payload in the drawer shell.
+ */
+export {
+  RecordDetailPanel,
+  buildRecordDetailFields,
+  DEFAULT_SYSTEM_FIELDS,
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+} from './RecordDetailPanel';
+export type { RecordDetailPanelProps } from './RecordDetailPanel';
 export {
   ConcurrentUpdateDialog,
   isConcurrentUpdateError,

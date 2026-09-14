@@ -339,35 +339,44 @@ const interpolate = (
   objectName?: string,
 ): string => {
   if (!template || typeof template !== 'string') return template || '';
-  if (!template.includes('{')) return template;
-  const out = template.replace(/\{([a-zA-Z0-9_.]+)\}/g, (_m, path: string) => {
-    const v = path.split('.').reduce<any>((acc, seg) => (acc == null ? acc : acc[seg]), data);
-    if (v == null) return '';
-    // Skip object/array values rather than letting `String(v)` produce a
-    // useless "[object Object]" — this happens when a token resolves to a
-    // related record (e.g. `{account}` on an opportunity). Authors who want
-    // a field of the related record should use a deeper path
-    // (e.g. `{account.name}`).
-    if (typeof v === 'object') return '';
-    const raw = String(v);
-    // Route enum values through i18n so subtitle templates render
-    // translated option labels instead of raw machine-readable values.
-    // Only the first path segment is treated as a field name (deeper
-    // paths reach into related records and have their own translation
-    // surfaces).
-    if (objectSchema?.fields && fieldOptionLabel && objectName && !path.includes('.')) {
-      const fieldDef: any = Array.isArray(objectSchema.fields)
-        ? objectSchema.fields.find((f: any) => f?.name === path)
-        : objectSchema.fields[path];
-      const options: any[] | undefined = fieldDef?.options;
-      if (Array.isArray(options)) {
-        const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
-        const fallback = match?.label ? String(match.label) : raw;
-        return fieldOptionLabel(objectName, path, raw, fallback);
-      }
-    }
-    return raw;
-  });
+  // No early return on the no-`{` case: that used to skip straight past the
+  // trim below, so a whitespace-only literal (no token, nothing to
+  // substitute) came back UNCHANGED while the exact same string with a
+  // token in it got blanked — two branches disagreeing about whitespace
+  // (objectui#9174). `.includes('{')` still buys the fast path its one real
+  // saving, skipping the `replace()` callback, but every template — token or
+  // not — now falls through to the SAME trim call below, so the two paths
+  // cannot re-diverge.
+  const out = template.includes('{')
+    ? template.replace(/\{([a-zA-Z0-9_.]+)\}/g, (_m, path: string) => {
+        const v = path.split('.').reduce<any>((acc, seg) => (acc == null ? acc : acc[seg]), data);
+        if (v == null) return '';
+        // Skip object/array values rather than letting `String(v)` produce a
+        // useless "[object Object]" — this happens when a token resolves to a
+        // related record (e.g. `{account}` on an opportunity). Authors who want
+        // a field of the related record should use a deeper path
+        // (e.g. `{account.name}`).
+        if (typeof v === 'object') return '';
+        const raw = String(v);
+        // Route enum values through i18n so subtitle templates render
+        // translated option labels instead of raw machine-readable values.
+        // Only the first path segment is treated as a field name (deeper
+        // paths reach into related records and have their own translation
+        // surfaces).
+        if (objectSchema?.fields && fieldOptionLabel && objectName && !path.includes('.')) {
+          const fieldDef: any = Array.isArray(objectSchema.fields)
+            ? objectSchema.fields.find((f: any) => f?.name === path)
+            : objectSchema.fields[path];
+          const options: any[] | undefined = fieldDef?.options;
+          if (Array.isArray(options)) {
+            const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
+            const fallback = match?.label ? String(match.label) : raw;
+            return fieldOptionLabel(objectName, path, raw, fallback);
+          }
+        }
+        return raw;
+      })
+    : template;
   return out.replace(/\s+/g, ' ').trim();
 };
 

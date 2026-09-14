@@ -14,11 +14,12 @@
  * uploads) and `SchemaRendererContext` (dataSource for lookup/user pickers)
  * come from the host view, exactly as the previous `LookupField` reuse did.
  *
- * One thing is threaded rather than ambient, and deliberately so: the record an
- * option widget resolves its per-option `visibleWhen` against. The dialog is a
- * small form, so its own in-progress `values` are that record — for WHICH
- * widgets receive it, see `CASCADE_OPTION_WIDGET_TYPES` in `@object-ui/core`
- * (objectui#3765; shared with the form and the bulk dialog per objectui#4770).
+ * One thing is threaded rather than ambient, and deliberately so: the live
+ * record a dependent widget scopes itself by. The dialog is a small form, so
+ * its own in-progress `values` are that record — for WHICH widgets receive it
+ * and on which of the two independent grounds, see
+ * `paramNeedsDependentValues()` below (objectui#3765 for the option widgets,
+ * objectui#8672 ruling A for the reference-bearing pickers).
  *
  * Returns collected param values or null on cancel.
  */
@@ -44,6 +45,11 @@ import {
   // dialog (objectui#4770). Its TSDoc carries the rationale that used to be
   // repeated in each of the three copies.
   CASCADE_OPTION_WIDGET_TYPES,
+  // The shared reference-bearing family — the SECOND reason a widget in this
+  // dialog needs the live record, and a different one (objectui#8672, ruling A).
+  // See `paramNeedsDependentValues` below; ⛔ never copied into a local literal
+  // and never merged into the set above.
+  EXPANDABLE_FIELD_TYPES,
 } from '@object-ui/core';
 import { usePredicateScope } from '@object-ui/react';
 import { getLazyFieldWidget, fileIdOf } from '@object-ui/fields';
@@ -213,6 +219,48 @@ function WidgetFallback() {
   return <div className="h-9 w-full animate-pulse rounded-md bg-muted" aria-hidden="true" />;
 }
 
+/**
+ * Which widgets in this dialog are handed the dialog's live record as
+ * `dependentValues` — and the reason is not one rule but TWO, over overlapping
+ * families, exactly as the object form already splits them
+ * (`form.tsx`'s `needsDataSourceWiring` line beside its
+ * `CASCADE_OPTION_WIDGET_TYPES` line).
+ *
+ * 1. **Option widgets** — {@link CASCADE_OPTION_WIDGET_TYPES}. Their OFFERED
+ *    SET is re-resolved against the record (`visibleWhen`, `dependsOn` gating)
+ *    by the shared evaluator. This half has been supplied since objectui#3765.
+ * 2. **Reference-bearing pickers** — {@link EXPANDABLE_FIELD_TYPES}. They have
+ *    no options list to narrow; they narrow a QUERY. `LookupField` turns the
+ *    field's declared `dependsOn` into a hard `$filter` (`dependentFilter` →
+ *    `popoverFilter` / `baseFilter`, feeding the quick-select popover, the
+ *    Level-2 table picker and PeoplePicker alike) and gates the trigger while
+ *    a named parent is still empty. objectui#8672, ruling A — the maintainer's
+ *    decision batch #115 — wires this half up here.
+ *
+ * ⭐ **Why this is not `CASCADE_OPTION_WIDGET_TYPES.add('lookup')`.** That set
+ * is shared verbatim by the object form and `plugin-grid`'s `BulkActionDialog`,
+ * and its members mean one specific thing: "this widget's offered OPTION set is
+ * re-resolved by `resolveCascadingOptions`". A lookup's is not — it has no
+ * option set. Adding a member would silently change the form's cascade-CLEAR
+ * loop and the bulk dialog too, deciding objectui#4771's open boundary for two
+ * surfaces this card never measured. So the families stay separate and this
+ * surface ORs them, which is the extension shape `paramToField.ts` names and
+ * the form has shipped all along. ⛔ Never `new Set([...A, ...B])` — a copy
+ * re-forks a shared table.
+ *
+ * ⚠️ `EXPANDABLE_FIELD_TYPES` is read over WIDGET keys here (the output of
+ * `paramToField`, i.e. `resolveParamWidgetType`), the same coincidence the form
+ * documents: each reference type maps onto a same-named widget id. `tree`
+ * resolves to `lookup` before it reaches this test, so that member is inert
+ * here — as it is on the form. A picker that degraded to `text` for want of a
+ * declared target is a `text` widget by then, and correctly gets nothing.
+ */
+function paramNeedsDependentValues(widgetType: string): boolean {
+  return (
+    CASCADE_OPTION_WIDGET_TYPES.has(widgetType) || EXPANDABLE_FIELD_TYPES.has(widgetType)
+  );
+}
+
 export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProps) {
   const { t, language } = useObjectTranslation();
   const [values, setValues] = useState<Record<string, any>>({});
@@ -353,7 +401,29 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
             // either. Merging the two records (`{ ...row, ...values }`) was
             // option C on the card and was NOT ruled: it invents a third scope
             // dialect that would have to be written into the contract first.
-            const cascadeProps = CASCADE_OPTION_WIDGET_TYPES.has(field.type)
+            //
+            // ⭐ objectui#8672, ruling A — the record now reaches the
+            // reference-bearing PICKERS too, not only the option widgets.
+            // WHICH record the dialog holds was the measurement the ruling left
+            // to the implementer, and the answer is that there is exactly one:
+            // `values`, its own in-progress params. The grid's `#7165` shape
+            // (`dependentValues={ctx.pendingRow ?? ctx.row}`) has a persisted
+            // row to merge staged edits into; this dialog has no row at all —
+            // it is not scoped to a record, its params ARE the record, and the
+            // option widgets beside it have been resolved against that same
+            // `values` since objectui#3765. So `values` is the dialog's whole
+            // equivalent of `pendingRow ?? row`, with no second candidate to
+            // rank against it.
+            //
+            // Before this, a lookup param declaring `dependsOn` rendered a
+            // trigger that was disabled forever: `LookupField` reached the
+            // context tail that objectui#7206 measured as unconditionally `{}`,
+            // so `dependenciesMissing` could never clear and the prompt named a
+            // field the user had already filled. ⛔ Nothing about the cascade
+            // itself is implemented here — `LookupField`'s `dependentFilter`
+            // chain was always live and host-independent; this line supplies
+            // the one INPUT no host could otherwise deliver.
+            const cascadeProps = paramNeedsDependentValues(field.type)
               ? { dependentValues: values }
               : {};
             // A picker param that fell back to text for want of a declared

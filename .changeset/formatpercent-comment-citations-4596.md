@@ -12,8 +12,8 @@ changes — `dist/utils/dataset-format.d.ts` is byte-identical across this chang
 against or reads on hover moves.
 
 Stated honestly, because an earlier draft of this note got it wrong: the shipped
-JavaScript **does** change. `tsconfig.base.json` sets `removeComments: false`
-deliberately and `@object-ui/core` builds with a plain `tsc`, so a body comment is
+JavaScript **does** change. `@object-ui/core` builds with a plain `tsc` and nothing in
+its config chain sets `removeComments`, so the default (`false`) holds and a body comment is
 emitted — `dist/utils/dataset-format.js` goes from 14,716 to 15,457 bytes, and it is the
 only one of the package's 180 dist files that moves. The test file is excluded from the
 build program (`src/**/__tests__/**`) and never reaches `dist` at all. Bytes moving is

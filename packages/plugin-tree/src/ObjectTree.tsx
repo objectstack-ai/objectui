@@ -30,7 +30,17 @@ import {
   applyNonGridRowCeiling,
   NonGridRowCeilingNote,
 } from '@object-ui/react';
-import { NavigationOverlay, cn } from '@object-ui/components';
+import {
+  NavigationOverlay,
+  cn,
+  legacyRecordDrawerWidthKey,
+  recordOverlayWidthStorageKey,
+  useOverlayAnchor,
+} from '@object-ui/components';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+} from '@object-ui/plugin-detail';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import {
@@ -815,6 +825,11 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     onRowClick,
   });
 
+  // objectui#9299 item 3 — `popover` anchors to the NODE the user clicked. The
+  // row's own click handler carries the DOM event, so the anchor is recorded
+  // there rather than through a container-level listener.
+  const { anchorRef, captureAnchor } = useOverlayAnchor();
+
   // Heading of the record-detail overlay rendered at the bottom of this file.
   // Must stay above the conditional returns below — rules-of-hooks.
   const { t } = useTreeTranslation();
@@ -843,7 +858,96 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     );
   }
 
-  return (
+  /**
+   * The record overlay — the ONE shared payload, in whichever shell the author
+   * declared.
+   *
+   * ⭐ objectui#9299. `ObjectTree` already honoured all four modes through
+   * `NavigationOverlay`, but it rendered its OWN key/value dump inside them
+   * while the three drawer-only renderers rendered the rich
+   * `InlineEditProvider` -> `DetailView` -> `InlineEditSaveBar` payload. The
+   * card measured that as "nobody gets both": the renderers that honoured the
+   * mode drew the poorer body. The ruling closes it in one direction — one
+   * payload everywhere — so this site now mounts {@link RecordDetailPanel}.
+   *
+   * ⚠️ It is a READ-ONLY panel here, and deliberately so: capability is handler
+   * presence, and `ObjectTree` has no write path to hand it. That is a strict
+   * gain over the dump it replaces (typed widgets, declared labels, honoured
+   * `hidden`), not a new edit surface.
+   *
+   * `mainContent` is what `split` needs — and its absence is exactly what
+   * objectui#9299 measured as the `ObjectTree` blank: the split branch of the
+   * shell is `if (!isOpen || !mainContent) return null`, and nothing here ever
+   * passed one, so an authored `split` rendered NOTHING on this renderer
+   * (item 2). `popoverAnchorRef` is what `popover` needs (item 3).
+   */
+  const renderRecordOverlay = (mainContent?: React.ReactNode): React.ReactNode => {
+    if (!navigation.isOverlay) return null;
+    const overlayObjectName =
+      resolveRecordSourceObjectName(schema, dataConfig) ?? schema.objectName;
+    return (
+      <NavigationOverlay
+        {...navigation}
+        /* Keyed, not a bare literal (objectui#3459). This value is handed to
+           `NavigationOverlay`'s `title` prop, so the overlay's own
+           `detail.recordDetail` default never applies here — whatever this
+           resolves to IS the visible heading of the drawer/modal/split/popover.
+           Reusing that very key rather than minting a twin keeps one control on
+           one translation. */
+        title={t('detail.recordDetail')}
+        mainContent={mainContent}
+        popoverAnchorRef={anchorRef}
+        // One drag-resize implementation, one key per object across every view
+        // type, and a width persisted under the retired
+        // `objectui.drawerWidth.OBJECT` carries over (item 4).
+        storageKey={overlayObjectName ? recordOverlayWidthStorageKey(overlayObjectName) : undefined}
+        legacyStorageKey={overlayObjectName ? legacyRecordDrawerWidthKey(overlayObjectName) : undefined}
+        width={navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH}
+      >
+        {(record) => {
+          const rec = record as Record<string, any>;
+          const recordId = rec.id ?? rec._id;
+          // ⚠️ DECLARED-FIELDS GATE — the same reading `ObjectGrid` carries, for
+          // the same measured reason: the shared payload renders the object's
+          // DECLARED fields, so a tree with no object schema has nothing for it
+          // to render typed and the plain reading of the row is the better
+          // answer.
+          const hasDeclaredFields = !!objectSchema?.fields
+            && Object.keys(objectSchema.fields as Record<string, unknown>).length > 0;
+          if (!overlayObjectName || recordId == null || !hasDeclaredFields) {
+            // No addressable record, or nothing declared to render against —
+            // the plain reading of what the row carries is the honest answer.
+            return (
+              <div className="space-y-3 p-4">
+                {Object.entries(rec).map(([key, value]) => (
+                  <div key={key} className="flex flex-col">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {key.replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-sm">{formatCellValue(value, cellContext(key)) || '—'}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          }
+          return (
+            <div className="px-6 pt-6 pb-6">
+              <RecordDetailPanel
+                record={rec}
+                objectName={overlayObjectName}
+                recordId={recordId}
+                dataSource={dataSource}
+                objectSchema={objectSchema as any}
+                onClose={navigation.close}
+              />
+            </div>
+          );
+        }}
+      </NavigationOverlay>
+    );
+  };
+
+  const treeView = (
     <div className={cn('w-full overflow-auto', className)} data-testid="object-tree">
       <table className="w-full border-collapse text-sm">
         <thead>
@@ -868,7 +972,12 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
                 className="border-b hover:bg-accent/50 cursor-pointer"
                 data-testid="object-tree-row"
                 data-depth={node.depth}
-                onClick={(e) => navigation.handleClick(node.record, e)}
+                onClick={(e) => {
+                  // Record the clicked row BEFORE opening, so `popover` mode
+                  // has an anchor by the time it renders (objectui#9299).
+                  captureAnchor(e);
+                  navigation.handleClick(node.record, e);
+                }}
               >
                 <td className="px-3 py-2">
                   <div
@@ -922,31 +1031,29 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         truncated={rowCeiling.truncated}
       />
 
-      {navigation.isOverlay && (
-        /* Keyed, not a bare literal (objectui#3459). This value is handed to
-           `NavigationOverlay`'s `title` prop, so the overlay's own
-           `detail.recordDetail` default never applies here — whatever this
-           resolves to IS the visible heading of the drawer/modal/split/popover.
-           Reusing that very key rather than minting a twin keeps one control on
-           one translation. Visible English changes `Record Details` →
-           `Record Detail` (the singular the whole `detail.*` family already
-           spells); nothing in `e2e/` or the unit suites addressed the plural. */
-        <NavigationOverlay {...navigation} title={t('detail.recordDetail')}>
-          {(record) => (
-            <div className="space-y-3">
-              {Object.entries(record).map(([key, value]) => (
-                <div key={key} className="flex flex-col">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    {key.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-sm">{formatCellValue(value, cellContext(key)) || '—'}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </NavigationOverlay>
-      )}
     </div>
+  );
+
+  // `split` (item 2): the tree IS the main content — it moves into the
+  // overlay's left panel with the record panel beside it. Before objectui#9299
+  // this renderer passed no `mainContent` at all, so the shell's split branch
+  // (`if (!isOpen || !mainContent) return null`) rendered NOTHING for an
+  // authored `split` — the measured blank.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
+    const splitOverlay = renderRecordOverlay(treeView);
+    if (splitOverlay) return <>{splitOverlay}</>;
+  }
+
+  return (
+    <>
+      {treeView}
+      {renderRecordOverlay()}
+    </>
   );
 };
 

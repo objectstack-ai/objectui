@@ -474,8 +474,26 @@ import { isEntrypoint } from './invoked-as.mjs';
  * ⛔ No other exemption was added, no import was made lazy, and no other
  * ceiling was moved — the three per-chunk lines that still pass were left
  * exactly as they are.
+ *
+ * ## Why this number came DOWN (objectui#9251)
+ *
+ * It was 3,210,000 over a 3,164,817 baseline. objectui#9251 took lucide's
+ * runtime `icons` record off the eager path — 1,781 icon module definitions
+ * that one namespace index was dragging into `ui-components` — and the closure
+ * went 3,180,591 -> 3,133,419 gzipped, 10,975,695 -> 10,606,541 raw, on two
+ * console builds of the same tree in one container. That is 47,172 gzipped
+ * bytes out, past the ~45 KB at which the header above makes re-pinning an
+ * obligation rather than an option: left at 3,210,000 this ceiling would have
+ * carried 0.84x of a regression in headroom, against the 0.50x it is designed
+ * for.
+ *
+ * ⛔ A TIGHTENING, and it must not be read as one of the raises above. No build
+ * that passed before this edit and measures under 3,179,000 fails after it.
+ * Headroom 45,581 bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES},
+ * which is exactly the value the header argues for — the first time this
+ * constant has sat on it rather than above it.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_210_000;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_179_000;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -488,55 +506,64 @@ export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
    *
-   * ⚠️ `755d34a5f` is NOT "this branch's last commit before the one that edits
-   * this file" — the argument every earlier entry here made. objectui#7479's
-   * change IS a console build input (`packages/i18n/src/**` and
-   * `apps/console/vite.config.ts`), so the commit named below is the one that
+   * ⚠️ `bbf6b02d9` is NOT "this branch's last commit before the one that edits
+   * this file" — the argument every earlier entry here made. objectui#9251's
+   * change IS a console build input (`packages/components/src/**` and
+   * `apps/console/vite.config.ts`), so the commit named here is the one that
    * CARRIES it and the reading is of that tree. The
-   * `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` half of the argument
-   * the previous baseline made (`34a1578ef`, and `3d257c85a` / `bd2a7ec50`
-   * before it) still holds, and is why the two can share one branch: nothing in
-   * this file or its unit test reaches the bundler, so the ceiling edit cannot
-   * have moved the figure it pins.
+   * `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` half of the argument the
+   * previous baseline entries made (`755d34a5f`, `34a1578ef`, and `3d257c85a` /
+   * `bd2a7ec50` before them) still holds, and is why the two can share one
+   * branch: nothing in this file or its unit test reaches the bundler, so the
+   * ceiling edit cannot have moved the figure it pins.
    *
-   * The reading it is SUBTRACTED from is the control build of `origin/main`
-   * `d8b4739d4` in the same container with the same instrument — 3,575,370
-   * bytes across 50 of 518 chunks. Both builds are recorded under "Why
-   * `i18n-locales` became `i18n-locale-en`" in the header, with the three
-   * unmoved chunks that make the delta readable as bytes LEAVING rather than
-   * bytes moving.
+   * ⚠️ `755d34a5f`, the previous baseline, is the one to compare against when
+   * reading the deltas below; it is a branch tip and behaves as described under
+   * PROVENANCE.
    *
-   * Measured by `pnpm --filter @object-ui/console build` (exit 0) reading
-   * `apps/console/dist/eager-closure.json`. ⛔ Not taken from CI's report and
-   * not extrapolated: CI weighs the pull-request MERGE ref and this is the
-   * branch tree, so the two differ by whatever has landed on `main` since.
+   * The reading it is SUBTRACTED from is a control build of this branch's own
+   * base, `origin/main` `ac05d4f4d`, in the same container with the same
+   * instrument — 3,180,591 bytes across 52 of 528 chunks, 10,975,695 raw. Both
+   * builds are recorded on objectui#9251's pull request, with the three unmoved
+   * chunks (`framework`, `vendor-objectstack`, `i18n-locale-en`, all three
+   * byte-identical across the pair) that make the delta readable as bytes
+   * LEAVING rather than bytes moving.
+   *
+   * ⚠️ The CHUNK COUNTS moved by an order of magnitude and that is the change,
+   * not an artefact: 52 of 528 became 329 of 2309 because every lucide icon
+   * module is now its own chunk. 277 of the eager 329 are `vendor-icon-*`
+   * single-module chunks holding the icons first-party code imports by name —
+   * 107,117 raw / 76,330 gzipped between them, which is the price of the split
+   * and is named here so nobody reads the aggregate drop as free.
+   *
+   * Measured by `pnpm --filter @object-ui/console exec vite build` (exit 0)
+   * reading `apps/console/dist/eager-closure.json`, both legs under
+   * `scripts/pm/os-verify-lock.sh`. ⛔ Not taken from CI's report and not
+   * extrapolated: CI weighs the pull-request MERGE ref and this is the branch
+   * tree, so the two differ by whatever has landed on `main` since.
    *
    * ⚠️ PROVENANCE — what a reader can and cannot check, because a reader who
    * tries the obvious thing gets nothing and currently learns nothing from it.
    * The commit named below is a BRANCH TIP and this repository squash-merges,
    * so it is not reachable from `main` and cannot be fetched by sha:
-   * `git fetch origin 755d34a5f1` answers "couldn't find remote ref", and
+   * `git fetch origin <tip>` answers "couldn't find remote ref", and
    * `git merge-base --is-ancestor` cannot resolve the object at all (exit 128,
-   * ⛔ not the exit 1 that would mean "resolved, and not an ancestor"). The
-   * previous baseline `34a1578ef` does resolve and is genuinely not an ancestor
-   * — exit 1, read against a control leg `d9580f4647` of the same age that
-   * exits 0 in the same checkout, because an exit 1 from a shallow clone means
-   * nothing without one. ⛔ This is the convention working rather than a defect:
-   * naming the tree the reading was taken on is the point, and no commit on
-   * `main` has that tree.
+   * ⛔ not the exit 1 that would mean "resolved, and not an ancestor"). ⛔ This
+   * is the convention working rather than a defect: naming the tree the reading
+   * was taken on is the point, and no commit on `main` has that tree. The
+   * CONTROL leg above is the half that does resolve — `ac05d4f4d` is an
+   * ordinary `main` commit — so the pair is checkable from one end.
    *
    * ⇒ the CONSEQUENCE, which nobody had written down: the provenance of this
    * constant ⛔ cannot be checked from a `main` checkout with git alone. It is
    * checkable — the GitHub compare API resolves these shas when a clone cannot,
    * and every ancestry figure in "What a re-baseline ABSORBS" above came from
-   * it. The squash merge that carried this branch onto `main` is `77b2a18a16`,
-   * which is reachable; ⚠️ its tree is 22 commits PAST the one measured here,
-   * so it is a handle on what LANDED and ⛔ never a substitute for the reading.
+   * it.
    */
-  gzipBytes: 3_164_817,
-  chunks: 51,
-  totalChunks: 528,
-  commit: '755d34a5f',
+  gzipBytes: 3_133_419,
+  chunks: 329,
+  totalChunks: 2309,
+  commit: 'bbf6b02d9',
 });
 
 /**
@@ -1045,7 +1072,43 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // REGRESSION_THIS_GATE_MUST_CATCH_BYTES on `3f775eeb8` — the loosest of the
   // four. See "Why `framework` moved UP" above for what that costs.
   framework: 100_000,
-  'ui-components': 399_000,
+  // ⭐ LOWERED by objectui#9251, which took lucide's runtime `icons` record off
+  // the eager path. Indexing that namespace object put 1,781 icon module
+  // definitions in this chunk; membership now comes from a build-generated
+  // static name list and the glyphs arrive through lucide's dynamic-import map,
+  // so the chunk went 397,091 -> 265,937 gzipped, on the two console builds
+  // recorded under "Why this number came DOWN" on
+  // {@link MAX_EAGER_CLOSURE_GZIP_BYTES}.
+  //
+  // ⛔ The RAW pair those same builds recorded is NOT restated here, and the
+  // omission is the repair rather than an oversight. It was restated, the head
+  // leg was wrong by 32,857 bytes, and the KB claim beside it matched neither
+  // that figure nor the right one — and nothing here could have caught either:
+  // no constant in this file reads raw bytes, no test weighs them, and a figure
+  // written into a comment is re-derived never. A ceiling-tier contract review
+  // re-measuring the head leg by hand is what found it — comment 5654270820 on
+  // objectui#9399, an ISSUE comment rather than a pull request review, which is
+  // where a reader looks it up. ⛔ The old figures are not quoted back, for the
+  // reason the objectui#7528 pin gives: a reader cannot tell a quotation from a
+  // claim.
+  // ⇒ Read raw off the instrument this gate already consumes: the `bytes`
+  // field beside `gzipBytes` for this key in
+  // `apps/console/dist/eager-closure.json`, on your own build. ⚠️ That answers
+  // the HEAD leg only — the control leg is a build of `ac05d4f4d`, which no
+  // checkout re-derives — which is why the drop above is stated in gzipped
+  // bytes, the unit this ceiling is weighed in.
+  //
+  // ⛔ A TIGHTENING. No build that passed before this edit and measures under
+  // 289,000 fails after it. Headroom 23,063 bytes = 0.25x
+  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES — well above the 0.10x floor, and
+  // chosen larger than `i18n-locale-en`'s 0.11x because this row is the one
+  // that had been living at 0.02x: the runway is the point of paying it down,
+  // and a re-pin that left it at the floor would hand the next author the same
+  // ratchet the day after it was cleared.
+  //
+  // ⚠️ This is also why this key no longer appears in
+  // {@link EXHAUSTED_HEADROOM_ALLOWANCES} — see the note there.
+  'ui-components': 289_000,
 });
 
 /**
@@ -1113,12 +1176,15 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * in this comment.
  *
  * ⚠️ These readings are on DIFFERENT commits from {@link BASELINE} above —
- * except `i18n-locale-en`, which as of objectui#7479 shares BASELINE's commit
- * exactly — and WHICH ONE IS LATER flips every time either side is
- * re-baselined, so read the commit names, never a direction asserted here. As
- * of objectui#7479 the AGGREGATE is the later reading: BASELINE's `755d34a5f`
- * is dated 2026-09-11 against `2c8474c04` on 2026-08-25 for `ui-components`
- * here, and `34a1578ef` (2026-09-06, objectui#7122) for `vendor-objectstack`.
+ * except `i18n-locale-en`, which as of objectui#7479 shares BASELINE's commit,
+ * and `ui-components`, which as of objectui#9251 shares it too — and WHICH ONE
+ * IS LATER flips every time either side is re-baselined, so read the commit
+ * names, never a direction asserted here. As of objectui#9251 the AGGREGATE is
+ * the later reading: BASELINE's `bbf6b02d9` is dated 2026-09-13 against
+ * `34a1578ef` (2026-09-06, objectui#7122) for `vendor-objectstack`, the one key
+ * left on an older tree. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
+ * was taken and the aggregate has moved on since, which is exactly why the two
+ * are named per key rather than described by a direction.
  * This paragraph asserted the reverse,
  * in the present tense, from objectui#5490 until objectui#6778 — true when it
  * was written, then left standing while three aggregate re-baselines moved
@@ -1186,7 +1252,10 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // BASELINE's. Moved with the ceiling in the same commit, per the maintainer
   // ruling of 2026-09-08 and the rule stated under "Raising one".
   framework: 72_245,
-  'ui-components': 391_095,
+  // `bbf6b02d9`, the same console build as BASELINE above, so the two are
+  // directly comparable, and the same instrument and container as the control
+  // build it is subtracted from (objectui#9251).
+  'ui-components': 265_937,
 });
 
 /**
@@ -1292,18 +1361,49 @@ export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE = 0.1;
  * ⇒ that reading is also why these figures are NOT compared at the byte. See
  * {@link EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE}, which is the unit
  * the comparison is made in and the reason a red here is a red a reader can see.
+ *
+ * ⚠️ The `@type` is load-bearing now that the table can be EMPTY. Its shape used
+ * to be inferred from the one entry it carried, so `Object.values(...)` was
+ * `number[]` for free; an empty literal infers nothing and the same expression
+ * becomes `unknown[]`, which fails `tsc -p tsconfig.scripts.json` in the unit
+ * suite that reads it — a leg no per-package `type-check` and no
+ * `turbo run type-check` covers, because `scripts/` is not a workspace package.
+ * ⛔ The fix belongs HERE, on the declaration, and not as a cast at the reader:
+ * chunk name to allowance bytes is what this table IS, whether or not it
+ * currently holds a row.
+ *
+ * @type {Readonly<Record<string, number>>}
  */
 export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
-  // ⭐ `i18n-locales: 8_804` stood here until objectui#7479. It is REMOVED, not
-  // lowered, and the distinction is the whole of why that is allowed: the rule
-  // above forbids LOWERING a figure, because a lowered figure is headroom
-  // supplied to a row that still exists. This row's chunk does not exist any
-  // more — nine of the ten catalogues it weighed are `import()`ed on demand, and
-  // the one that stays is budgeted under its own key at a headroom of 0.11x,
-  // ABOVE the floor and needing no allowance at all. That is the debt PAID, in
-  // the only currency this table takes: the row cleared the floor on its own.
-  // ⛔ Re-adding a locale row here would mean the catalogues came back.
-  'ui-components': 4_289,
+  // ⭐ EMPTY, and that is a state this table is allowed to be in: it is a ledger
+  // of debt, and debt can be discharged. Two rows have left it, by the two ways
+  // a row leaves — neither of them by being lowered, because a lowered figure is
+  // headroom supplied to a row that still owes it.
+  //
+  //   `i18n-locales: 8_804`  — left at objectui#7479 because its CHUNK ceased to
+  //     exist: nine of the ten catalogues it weighed became `import()`ed on
+  //     demand, and the one that stays is budgeted under its own key at 0.11x.
+  //
+  //   `ui-components: 4_289` — left at objectui#9251 because the ROW cleared the
+  //     floor. Its chunk is still here and still budgeted; what changed is that
+  //     lucide's 1,781-icon record came off the eager path, the ceiling was
+  //     re-pinned DOWN to 289,000 over a 265,937 measurement, and the headroom
+  //     went from 0.02x to 0.25x — two and a half times the floor this table
+  //     exists to excuse rows from.
+  //
+  // ⛔ Leaving the entry in place after that would have been the worse edit, not
+  // the cautious one, and in two ways at once. `floorFor` reads an allowance as
+  // this row's REQUIRED headroom, so a stale 4,289 would have replaced the
+  // 9,113.6-byte floor with a 3,377.6-byte one — the gate running WEAKER on the
+  // row it had just been strengthened for. And the row renderer prints
+  // "under the 0.10x floor and held open by its declared allowance" for every
+  // listed key unconditionally, so the passing verdict would have said the row
+  // was under a floor it is 2.5x clear of.
+  //
+  // ⚠️ An empty table must not be read as "this mechanism is unused". The
+  // ratchet is pinned on a synthetic row in
+  // `scripts/__tests__/check-eager-closure-budget.test.ts`, precisely so that
+  // paying the last debt off cannot quietly retire the instrument with it.
 });
 
 /**

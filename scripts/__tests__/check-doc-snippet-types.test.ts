@@ -12,6 +12,7 @@ import ts from 'typescript';
 import {
   ADR_DOCS,
   AUDIT_DOCS,
+  NESTED_PACKAGE_READMES,
   EXIT_CODES,
   FRAGMENT_MARKER_EXAMPLES,
   ROOT_DECLARED_CONTROL_PACKAGE,
@@ -27,6 +28,7 @@ import {
   listDocuments,
   moduleSpecifiersOf,
   moduleSpecifiersOfBlock,
+  nestedPackageReadmePages,
   resolvesOnlyThroughRootManifest,
   ROOT_DOCS,
   adrDocsPages,
@@ -902,6 +904,226 @@ describe('objectui#7856 card 2 — docs/adr/** and docs/audits/** are in the sca
     expect(source).toMatch(/for \(const tree of \[ADR_DOCS, AUDIT_DOCS\]\) \{\n\s*if \(!existsSync\(join\(repoRoot, tree\.dir\)\)\) \{/);
     expect(ADR_DOCS).toEqual({ dir: 'docs/adr', recursive: true });
     expect(AUDIT_DOCS).toEqual({ dir: 'docs/audits', recursive: true });
+  });
+});
+
+/**
+ * objectui#7308 — every `README.md` under `packages/`, at any depth, ledger-first.
+ *
+ * The defect this closes was a SPECIFICATION defect rather than drift: the
+ * header's SCAN SURFACE paragraph said `every packages/<name>/README.md`, one
+ * level, literally, and `listDocuments` implemented that sentence faithfully. So
+ * four nested pages were neither compiled nor ledgered — objectui#5174's "neither
+ * covered NOR declared ungated", one directory down — and `check-doc-links` had
+ * already closed the identical hole on the identical four files (objectui#6026).
+ *
+ * The proof this block owes is card 2's shape rather than card 1's, because this
+ * widening also lands LEDGER-FIRST: three of the four pages carry blocks that do
+ * not compile today, so showing them in the compiled tier is a claim this card
+ * may not make. What it asserts instead:
+ *
+ *   1. the pages are really in the walk, and the walk is EXACTLY the tracked
+ *      population under `packages/` — measured against `git ls-files` rather than
+ *      a hand-written list, which is the only version of this assertion that
+ *      notices a fifth page landing tomorrow;
+ *   2. every one of them that holds a `ts` / `tsx` block is on the ledger, and
+ *      every one that holds none is COVERED and ledgered nowhere — the second
+ *      half is not decoration, it is why this card writes THREE rows for FOUR
+ *      pages, and it is the mechanical refutation of "keep the ledger short by
+ *      leaving the page outside the surface";
+ *   3. the leg cannot double-collect a package's own top-level `README.md`, which
+ *      objectui#6026 got structurally by rooting the walk one directory down;
+ *   4. ⚠️ the walk does not follow pnpm's workspace symlinks out of the authored
+ *      tree. This is the one hazard no other leg in this file has: every other
+ *      recursive walk here crosses an authored tree with nothing generated inside
+ *      it, while `packages/` has a `node_modules/` per package whose entries are
+ *      SYMLINKS to sibling workspace packages — and `statSync` follows symlinks,
+ *      so `packages/a/node_modules/@object-ui/b` leads back into `packages/b` and
+ *      onward forever. Measured on `9ba7e9c3` with the workspace installed: an
+ *      unguarded walk does not merely overshoot, it does not terminate; capped at
+ *      depth 12 it had already reached 17,354 files named `README.md` against the
+ *      43 the repository tracks. The fixture below reproduces that cycle in
+ *      miniature, so the guard is asserted rather than trusted.
+ *
+ * ⛔ What is deliberately NOT asserted: a `main()` refusal when `packages/` is
+ * missing, of the kind `ROOT_DOCS` and the two subtree legs carry. This leg walks
+ * the SAME directory the top-level package-README leg has always walked, and that
+ * leg has never had one — introducing a new precondition on the shared directory
+ * is a different change from widening the depth this one reads. The vacuity floor
+ * that does apply is this file's own "scans a plausible number of documents".
+ */
+describe('objectui#7308 — the nested package READMEs are in the scan set, ledger-first', () => {
+  const trackedPackageReadmes = () =>
+    spawnSync('git', ['ls-files', '--', 'packages/'], { cwd: repoRoot, encoding: 'utf8' })
+      .stdout.split('\n')
+      .filter((f) => /(^|\/)README\.md$/.test(f))
+      .sort();
+
+  it('listDocuments reaches the nested pages, and the walk IS the tracked population', () => {
+    const documents = listDocuments(repoRoot);
+    const nested = nestedPackageReadmePages(repoRoot);
+    // Non-vacuous: the leg really finds pages, and they really are in the walk.
+    expect(nested.length).toBeGreaterThan(0);
+    for (const doc of nested) expect(documents).toContain(doc);
+    // Exactly the tracked population — no generated page gained, none lost.
+    const walked = documents.filter((d) => d.startsWith('packages/') && d.endsWith('/README.md')).sort();
+    const tracked = trackedPackageReadmes();
+    expect(tracked.length).toBeGreaterThan(0);
+    expect(walked).toEqual(tracked);
+    // Both depths are really represented, so the equality above is not green on
+    // a population that happens to be flat.
+    expect(tracked.some((f) => /^packages\/[^/]+\/README\.md$/.test(f))).toBe(true);
+    expect(tracked.some((f) => !/^packages\/[^/]+\/README\.md$/.test(f))).toBe(true);
+  });
+
+  it('collects BELOW a package root only, so the top-level leg cannot double-collect', () => {
+    for (const doc of nestedPackageReadmePages(repoRoot)) {
+      expect(doc, `${doc} sits at a package root`).not.toMatch(/^packages\/[^/]+\/README\.md$/);
+    }
+    const walked = listDocuments(repoRoot).filter((d) => d.startsWith('packages/'));
+    expect(new Set(walked).size).toBe(walked.length);
+  });
+
+  it('the widening is VISIBLE to the accounting: block-bearing pages are ledgered, block-free ones are covered', () => {
+    const state = analyze({}) as {
+      scans: Map<string, { blocks: unknown[] }>;
+      covered: string[];
+    };
+    const nested = nestedPackageReadmePages(repoRoot);
+    const withBlocks = nested.filter((doc) => (state.scans.get(doc)?.blocks.length ?? 0) > 0);
+    const withoutBlocks = nested.filter((doc) => (state.scans.get(doc)?.blocks.length ?? 0) === 0);
+    // Non-vacuous on BOTH halves — this is the assertion that says why three rows
+    // were written for four pages.
+    expect(withBlocks.length).toBeGreaterThan(0);
+    expect(withoutBlocks.length).toBeGreaterThan(0);
+    expect([...withBlocks].sort()).toEqual(
+      Object.keys(UNGATED_DOCS as Record<string, string>)
+        .filter((doc) => nested.includes(doc))
+        .sort(),
+    );
+    // A page with no ts/tsx block is COVERED at zero blocks and may not be
+    // ledgered: the stale-entry check would refuse it, which is exactly why
+    // leaving it out of the surface to keep the ledger short is not available.
+    for (const doc of withoutBlocks) expect(state.covered).toContain(doc);
+  });
+
+  it('every new ledger row carries a measured count, the phases, and what would have to change', () => {
+    const nested = new Set(nestedPackageReadmePages(repoRoot));
+    const entries = Object.entries(UNGATED_DOCS as Record<string, string>).filter(([doc]) => nested.has(doc));
+    expect(entries.length).toBeGreaterThan(0);
+    for (const [doc, reason] of entries) {
+      expect(reason, `${doc}: names no block count`).toMatch(/\d+ `tsx?` blocks?/);
+      expect(reason, `${doc}: names no diagnostic count`).toMatch(/\d+ diagnostics/);
+      expect(reason, `${doc}: names no diagnostic code`).toMatch(/TS\d{4}/);
+      expect(reason, `${doc}: does not say which phase was measured`).toMatch(/syntax-phase|semantic-phase/);
+      expect(reason, `${doc}: does not say what would have to change`).toMatch(/What would have to change|would have to change/);
+    }
+  });
+
+  it('descends below a package root, and stops at the directories that hold no prose', () => {
+    const root = tempTree({
+      'packages/alpha/README.md': '# top level, the OTHER leg has this one\n',
+      'packages/alpha/src/zod/README.md': '# nested\n',
+      'packages/alpha/docs/verification/README.md': '# nested, deeper\n',
+      'packages/alpha/src/NOTES.md': '# not a README, in no leg\n',
+      'packages/alpha/dist/README.md': '# build output\n',
+      'packages/alpha/node_modules/dep/README.md': '# an installed dependency\n',
+      'packages/beta/README.md': '# another package root\n',
+    });
+    try {
+      expect(nestedPackageReadmePages(root)).toEqual([
+        'packages/alpha/docs/verification/README.md',
+        'packages/alpha/src/zod/README.md',
+      ]);
+      const documents = listDocuments(root);
+      // The top-level leg still has the package roots, exactly once each.
+      expect(documents.filter((d) => d === 'packages/alpha/README.md')).toEqual([
+        'packages/alpha/README.md',
+      ]);
+      expect(documents).toContain('packages/beta/README.md');
+      // Not a README, and therefore in no leg — this card widened the depth the
+      // README rows read, and nothing else.
+      expect(documents).not.toContain('packages/alpha/src/NOTES.md');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not follow a workspace symlink out of the authored tree — the walk terminates', () => {
+    const root = tempTree({
+      'packages/alpha/README.md': '# alpha\n',
+      'packages/alpha/src/zod/README.md': '# the one real nested page\n',
+      'packages/beta/README.md': '# beta\n',
+      'packages/beta/src/adapters/README.md': '# beta nested\n',
+    });
+    try {
+      // pnpm's shape, in miniature: each package's node_modules links to its
+      // sibling, so an unguarded walk loops alpha -> beta -> alpha forever.
+      fs.mkdirSync(path.join(root, 'packages/alpha/node_modules/@object-ui'), { recursive: true });
+      fs.mkdirSync(path.join(root, 'packages/beta/node_modules/@object-ui'), { recursive: true });
+      fs.symlinkSync(
+        path.join(root, 'packages/beta'),
+        path.join(root, 'packages/alpha/node_modules/@object-ui/beta'),
+        'dir',
+      );
+      fs.symlinkSync(
+        path.join(root, 'packages/alpha'),
+        path.join(root, 'packages/beta/node_modules/@object-ui/alpha'),
+        'dir',
+      );
+      // ⚠️ The guard is written at TWO levels — once on each package's own
+      // directory entries, once inside the recursive descent — and only the
+      // second one covers a `node_modules` that is not a package's own. Without
+      // this deeper cycle the fixture ablates green when the inner guard is
+      // removed, which would make this assertion a pin on half the guard.
+      fs.mkdirSync(path.join(root, 'packages/alpha/src/node_modules/@object-ui'), { recursive: true });
+      fs.symlinkSync(
+        path.join(root, 'packages/beta'),
+        path.join(root, 'packages/alpha/src/node_modules/@object-ui/beta'),
+        'dir',
+      );
+      // Terminates, and yields the authored pages only — each exactly once.
+      expect(nestedPackageReadmePages(root)).toEqual([
+        'packages/alpha/src/zod/README.md',
+        'packages/beta/src/adapters/README.md',
+      ]);
+      // The control that makes the assertion above a reading: with the guard
+      // removed the SAME tree is a cycle, so an unguarded walk cannot finish. It
+      // is shown here bounded by depth rather than run to exhaustion.
+      const unguarded = (dir: string, depth: number): number => {
+        if (depth > 8) return 1;
+        let hits = 0;
+        for (const entry of fs.readdirSync(dir).sort()) {
+          const full = path.join(dir, entry);
+          if (fs.statSync(full).isDirectory()) hits += unguarded(full, depth + 1);
+          else if (entry === 'README.md') hits += 1;
+        }
+        return hits;
+      };
+      expect(unguarded(path.join(root, 'packages'), 0)).toBeGreaterThan(
+        nestedPackageReadmePages(root).length,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('an absent packages/ tree yields nothing here rather than throwing', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'doc-snippet-gate-nopkg-'));
+    try {
+      expect(nestedPackageReadmePages(root)).toEqual([]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+    expect(NESTED_PACKAGE_READMES).toEqual({ dir: 'packages', name: 'README.md', recursive: true });
+  });
+
+  it('the header states the widened surface, so the specification cannot drift back', () => {
+    const source = fs.readFileSync(path.join(repoRoot, 'scripts/check-doc-snippet-types.mjs'), 'utf8');
+    // The SCAN SURFACE paragraph is where objectui#7308's defect lived: it said
+    // `every packages/<name>/README.md`, and the walk implemented that sentence.
+    expect(source).toMatch(/every `README\.md` under `packages\/` AT ANY DEPTH/);
+    expect(source).not.toMatch(/every `packages\/<name>\/README\.md`, every/);
   });
 });
 

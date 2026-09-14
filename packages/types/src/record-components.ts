@@ -60,41 +60,6 @@ export interface RecordDetailsComponentProps {
    * against the installed spec.
    */
   columns?: '1' | '2' | '3' | '4';
-  /**
-   * ⛔ RETIRED UPSTREAM — the contract REFUSES this key by name. Do not author
-   * it; `tsc` accepting it here is the defect, not permission.
-   *
-   * `@objectstack/spec` declares the same top-level key as an ADR-0087 D2
-   * tombstone: removed in 17.0.0 (objectstack#6946) because the published
-   * `auto` | `custom` semantics were never implemented. Measured on the
-   * installed pin (17.4.0): `RecordDetailsProps.safeParse({ layout: 'compact' })`
-   * is RED with `invalid_type` at `layout`, and the message is the removal
-   * prescription itself. The control on the same instrument fired as it should
-   * — every other top-level key here accepts a plausible value, and an
-   * undeclared key is refused with a DIFFERENT code (`unrecognized_keys`), so
-   * the refusal is about this key by name rather than a schema that refuses
-   * everything.
-   *
-   * ⚠️ Note the third spelling: this face offers `stacked` | `inline` |
-   * `compact`, which is not even the `auto` | `custom` the spec published
-   * before removing it. No value of either set parses.
-   *
-   * Every other layer has already withdrawn it — objectui#3818 removed the
-   * renderer's dead branch, and `@object-ui/plugin-detail`'s registry manifest
-   * deliberately publishes no `layout` input and says so at the site. This
-   * declaration is the last live holdout of the spelling.
-   *
-   * ⚠️ It is still here ON PURPOSE, and this is a ledger of an OPEN divergence,
-   * not an endorsement: removing it is a published-surface RETIREMENT that
-   * breaks an in-repo consumer (`__tests__/p1-spec-alignment.test.ts` declares
-   * `layout: 'stacked'` on this interface and reads it back), and triage on
-   * objectui#9040 ruled that consumer out of that card's scope. The removal
-   * needs its own change: delete the key, move that consumer, and ship the
-   * `minor` retirement changeset — `.changeset/retire-record-details-section-collapsed.md`
-   * is the in-repo shape to copy. `__tests__/record-details-top-level-9040.test.ts`
-   * pins both halves of this paragraph so it cannot rot into a stale comment.
-   */
-  layout?: 'stacked' | 'inline' | 'compact';
   /** Sections to organize fields */
   sections?: Array<{
     /** Stable identifier for i18n key resolution (e.g. 'info', 'forecast'). */

@@ -33,13 +33,57 @@
  * record keys. `split('-')` regresses 4,748 pairs in that last reading, which
  * is why it is not adoptable and why the rows below assert the WIDER rule
  * rather than the more common one.
+ *
+ * ## ⭐ Why these rows compare glyph IDENTITY and not object identity
+ *
+ * objectui#9251 took the seam off lucide's runtime `icons` record — indexing it
+ * dragged all 1,781 icon modules into the console's eager closure — so the
+ * value `resolveIcon` returns is no longer the record's own component object,
+ * and `toBe(icons.ArrowRight)` stopped expressing "resolved to ArrowRight".
+ *
+ * ⛔ The record is NOT dropped as the oracle here; only the comparison changed.
+ * Every row below still asks the record what the right answer is, and compares
+ * by `displayName`, which lucide's own `createLucideIcon` sets to the PascalCase
+ * record key and which the seam sets to the same value. That substitution is
+ * only sound if no two record glyphs share a `displayName`, so that is measured
+ * in the first row rather than assumed — and the whole file still runs against
+ * the installed `icons`, so a lucide retirement moves these rows exactly as it
+ * did before.
  */
 
 import { describe, it, expect } from 'vitest';
 import { icons } from 'lucide-react';
 import { resolveIcon, describeIconLookup } from '../resolve-icon';
 
+/**
+ * Which record glyph a component IS, by the name lucide gives it.
+ *
+ * `null` stays `null` so an unresolvable name is still distinguishable from a
+ * resolved one; a component without a `displayName` answers a sentinel rather
+ * than `null`, so a seam that started returning anonymous components could not
+ * pass for one that resolved nothing.
+ */
+const glyphOf = (component: unknown): string | null => {
+  if (component === null || component === undefined) return null;
+  return (component as { displayName?: string }).displayName ?? '<anonymous component>';
+};
+
 describe('the icon-name seam resolves (objectui#5935)', () => {
+  /**
+   * ⭐ The precondition for every `glyphOf` comparison below: within the record,
+   * a `displayName` names exactly one glyph, so comparing by it is as strong as
+   * the `toBe(icons.X)` identity check it replaced (objectui#9251).
+   */
+  it('IDENTIFIES uniquely — the record\'s 1,781 glyphs have 1,781 distinct display names', () => {
+    const keys = Object.keys(icons);
+    expect(keys.length).toBeGreaterThan(1000);
+    const names = new Set(keys.map((key) => glyphOf((icons as Record<string, unknown>)[key])));
+    expect(names.size).toBe(keys.length);
+    // Non-vacuity: the set is built from real names, not from the sentinel.
+    expect(names.has('<anonymous component>')).toBe(false);
+    expect(names.has('House')).toBe(true);
+  });
+
   /**
    * ⭐ Non-vacuity for every "resolves" row below. A `resolveIcon` that returned
    * some component for EVERY input would pass them all; a `resolveIcon` that
@@ -52,17 +96,17 @@ describe('the icon-name seam resolves (objectui#5935)', () => {
   });
 
   it('accepts all four authored spellings of one glyph', () => {
-    const canonical = icons.ArrowRight;
-    expect(canonical).toBeDefined();
+    const canonical = glyphOf(icons.ArrowRight);
+    expect(canonical).toBe('ArrowRight');
     // kebab — what the docs and most fixtures author.
-    expect(resolveIcon('arrow-right')).toBe(canonical);
+    expect(glyphOf(resolveIcon('arrow-right'))).toBe(canonical);
     // snake — resolved on TWO of the seven surfaces before this card and on
     // five of them not at all. This row is the consolidation.
-    expect(resolveIcon('arrow_right')).toBe(canonical);
+    expect(glyphOf(resolveIcon('arrow_right'))).toBe(canonical);
     // space-separated — same story.
-    expect(resolveIcon('arrow right')).toBe(canonical);
+    expect(glyphOf(resolveIcon('arrow right'))).toBe(canonical);
     // already-Pascal — authored in real fixtures, must not be mangled.
-    expect(resolveIcon('ArrowRight')).toBe(canonical);
+    expect(glyphOf(resolveIcon('ArrowRight'))).toBe(canonical);
   });
 
   it('collapses repeated and mixed separators', () => {
@@ -70,8 +114,8 @@ describe('the icon-name seam resolves (objectui#5935)', () => {
     // tokens, which capitalise to nothing and join to nothing — measured
     // identical over 51,449 hostile spellings, and pinned here so the two
     // spellings are not "fixed" apart later.
-    expect(resolveIcon('arrow--right')).toBe(icons.ArrowRight);
-    expect(resolveIcon('arrow-_ right')).toBe(icons.ArrowRight);
+    expect(glyphOf(resolveIcon('arrow--right'))).toBe(glyphOf(icons.ArrowRight));
+    expect(glyphOf(resolveIcon('arrow-_ right'))).toBe(glyphOf(icons.ArrowRight));
   });
 
   it('applies the `Home` -> `House` rename, which is the ONLY rename', () => {
@@ -79,8 +123,8 @@ describe('the icon-name seam resolves (objectui#5935)', () => {
     // exists so a name that used to resolve still does — it is not a general
     // alias table, and nothing else belongs in it.
     expect(icons).not.toHaveProperty('Home');
-    expect(resolveIcon('home')).toBe(icons.House);
-    expect(resolveIcon('Home')).toBe(icons.House);
+    expect(glyphOf(resolveIcon('home'))).toBe(glyphOf(icons.House));
+    expect(glyphOf(resolveIcon('Home'))).toBe(glyphOf(icons.House));
     expect(describeIconLookup('home')).toEqual({ pascal: 'Home', key: 'House' });
     // The control: an UNMAPPED name passes through both halves unchanged, so
     // the row above is about the map and not about `describeIconLookup` always
@@ -101,7 +145,7 @@ describe('the icon-name seam resolves (objectui#5935)', () => {
     // is gone from the runtime record. Rules out a resolver that reached for
     // the named exports instead — a third, more forgiving vocabulary.
     expect(resolveIcon('edit')).toBeNull();
-    expect(resolveIcon('square-pen')).toBe(icons.SquarePen);
+    expect(glyphOf(resolveIcon('square-pen'))).toBe(glyphOf(icons.SquarePen));
   });
 
   it('takes the seam FUNCTION, not a re-derived string, as the answer', () => {
@@ -112,9 +156,9 @@ describe('the icon-name seam resolves (objectui#5935)', () => {
     for (const authored of ['home', 'file-text', 'arrow_right', 'not-a-real-icon']) {
       const { key } = describeIconLookup(authored);
       const expected = Object.prototype.hasOwnProperty.call(icons, key)
-        ? (icons as Record<string, unknown>)[key]
+        ? glyphOf((icons as Record<string, unknown>)[key])
         : null;
-      expect(resolveIcon(authored)).toBe(expected);
+      expect(glyphOf(resolveIcon(authored))).toBe(expected);
     }
   });
 
@@ -127,7 +171,7 @@ describe('the icon-name seam resolves (objectui#5935)', () => {
       const pascal = name.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
       const mapped = pascal === 'Home' ? 'House' : pascal;
       return Object.prototype.hasOwnProperty.call(icons, mapped)
-        ? (icons as Record<string, unknown>)[mapped]
+        ? glyphOf((icons as Record<string, unknown>)[mapped])
         : null;
     };
     let carried = 0;
@@ -138,14 +182,14 @@ describe('the icon-name seam resolves (objectui#5935)', () => {
       const before = narrow(kebab);
       if (before === null) continue;
       carried += 1;
-      expect(resolveIcon(kebab), `${kebab} stopped resolving`).toBe(before);
+      expect(glyphOf(resolveIcon(kebab)), `${kebab} stopped resolving`).toBe(before);
     }
     // Non-vacuity: a loop that skipped everything would pass silently.
     expect(carried).toBeGreaterThan(1000);
     // And the widening the enumeration measured, in both of its named cases.
     expect(narrow('building_2')).toBeNull();
-    expect(resolveIcon('building_2')).toBe(icons.Building2);
+    expect(glyphOf(resolveIcon('building_2'))).toBe(glyphOf(icons.Building2));
     expect(narrow('layout_dashboard')).toBeNull();
-    expect(resolveIcon('layout_dashboard')).toBe(icons.LayoutDashboard);
+    expect(glyphOf(resolveIcon('layout_dashboard'))).toBe(glyphOf(icons.LayoutDashboard));
   });
 });

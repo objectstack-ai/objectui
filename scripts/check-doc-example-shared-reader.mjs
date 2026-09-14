@@ -140,6 +140,7 @@ import ts from 'typescript';
 import { TOOLING_FILE, listSourceFiles } from './check-phantom-dependencies.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
 import { scanSource } from './js-comment-mask.mjs';
+import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -329,16 +330,60 @@ export function docBlocks(source) {
   return blocks;
 }
 
-/** `@example` fences, with the JSDoc line prefix removed so the code parses. */
+/**
+ * Fence languages whose body an `@example` is read as code in. Unchanged from
+ * the alternation this replaced — the widening is in how the fence is FOUND,
+ * not in which languages count.
+ */
+const EXAMPLE_LANGS = new Set(['ts', 'tsx', 'js', 'jsx', 'typescript']);
+
+/**
+ * `@example` fences, with the JSDoc line prefix removed so the code parses.
+ *
+ * Line-based and run-aware via `markdown-fence-scan.mjs` (objectui#9194), which
+ * owns the fence-opening question for the whole tree. ⛔ Never re-spell it here.
+ * The non-greedy `([\s\S]*?)` this replaced ended a block at the FIRST run of
+ * three backticks anywhere after it, so an example written inside a longer
+ * wrapper — the way a docblock legitimately quotes a fence — ended at the quoted
+ * INNER marker and this gate parsed a TRUNCATED example. Half an example parses
+ * clean and reports clean, so the wrong answer arrived with no diagnostic at all.
+ *
+ * A fence now ends only where CommonMark ends it: a run of the same character,
+ * at least as long, carrying no info string. An unterminated fence yields
+ * nothing, which is also what the replaced regex did — it could not match
+ * without a closing run.
+ */
 export function exampleFences(jsdocText) {
-  const body = jsdocText
+  const lines = jsdocText
     .replace(/^\s*\/\*\*/, '')
     .replace(/\*\/\s*$/, '')
     .split('\n')
-    .map((line) => line.replace(/^\s*\* ?/, ''))
-    .join('\n');
-  if (!body.includes('@example')) return [];
-  return [...body.matchAll(/```(?:tsx?|jsx?|typescript)\n([\s\S]*?)```/g)].map((m) => m[1]);
+    .map((line) => line.replace(/^\s*\* ?/, ''));
+  if (!lines.some((line) => line.includes('@example'))) return [];
+
+  const fences = [];
+  let open = null;
+  let body = [];
+  for (const line of lines) {
+    if (open) {
+      if (!closesFence(line, open)) {
+        body.push(line);
+        continue;
+      }
+      // Trailing newline included, so the extracted text is byte-for-byte what
+      // the capture group used to hand `parseSource`.
+      if (EXAMPLE_LANGS.has(open.lang)) fences.push(body.length > 0 ? `${body.join('\n')}\n` : '');
+      open = null;
+      body = [];
+      continue;
+    }
+    const fence = openFence(line);
+    if (fence) {
+      open = fence;
+      body = [];
+    }
+  }
+  return fences;
 }
 
 /** Argument slots of one call: named for an options object, `#i` for positional. */

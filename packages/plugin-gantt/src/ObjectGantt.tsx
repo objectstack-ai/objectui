@@ -41,7 +41,11 @@ import {
   NonGridRowCeilingNote,
 } from '@object-ui/react';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
-import { RecordDetailDrawer, deriveRecordPageHref } from '@object-ui/plugin-detail';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+  deriveRecordPageHref,
+} from '@object-ui/plugin-detail';
 import { usePermissions } from '@object-ui/permissions';
 import {
   AlertDialog,
@@ -52,6 +56,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  NavigationOverlay,
+  legacyRecordDrawerWidthKey,
+  recordOverlayWidthStorageKey,
+  useOverlayAnchor,
   cn,
 } from '@object-ui/components';
 import {
@@ -1571,6 +1579,11 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     onRowClick: navIsOverlay ? undefined : onRowClick,
   });
 
+  // objectui#9299 item 3 — `popover` anchors to the bar/row the user clicked.
+  // The capture handler goes on this component's own container below, because
+  // `GanttView` hands `onTaskClick` a task and not a DOM event.
+  const { anchorRef, anchorCaptureProps } = useOverlayAnchor();
+
   // #2473: an `api`-provider row is a composed render payload (bar_color,
   // node_type, sort_key…), not the business record — and a foreign-object row
   // has no schema at all, so the drawer degraded to humanized English labels.
@@ -1835,8 +1848,121 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     );
   }
 
-  return (
-    <div className={cn('flex h-full min-h-0 flex-col', className)}>
+  /**
+   * The record overlay — ONE payload in whichever shell the author declared.
+   *
+   * ⭐ objectui#9299. This used to be `<RecordDetailDrawer>`, which brought its
+   * own `Sheet` and had no `mode` parameter to receive the resolved
+   * `navigation.mode` — so an authored `modal`, `split` or `popover` silently
+   * rendered the drawer (measured on PR objectui#9296). The payload now mounts
+   * through the shared `NavigationOverlay`, which is the same shell `ObjectGrid`
+   * and `ObjectTree` use, so the four declared modes mean the same thing on
+   * every view type.
+   *
+   * `mainContent` is what `split` needs: the overlay puts it in the left panel
+   * beside the record panel, and here that is the chart itself (item 2).
+   * `popoverAnchorRef` is what `popover` needs: the bar the user clicked
+   * (item 3).
+   */
+  const renderRecordOverlay = (mainContent?: React.ReactNode): React.ReactNode => {
+    if (!navigation.isOverlay || !navigation.isOpen || !navigation.selectedRecord) return null;
+    const rec = navigation.selectedRecord as Record<string, any>;
+    const detail = recordDetailHref(rec);
+    if (!detail || isSyntheticRow(rec)) return null;
+    const { objectName, recordId } = detail;
+    const fullPageHref = detail.href ?? undefined;
+    const titleText = ganttConfig?.titleField
+      ? String(rec[ganttConfig.titleField] ?? t('gantt.drawer.fallbackTitle'))
+      : t('gantt.drawer.fallbackTitle');
+    // Row-level lock (lockField) and global readOnly must also lock the
+    // drawer: omitting onFieldSave/onDelete renders it strictly read-only.
+    const recLocked =
+      !!schema.readOnly ||
+      (ganttConfig?.lockField ? !!rec[ganttConfig.lockField] : false);
+    // #2473: prefer the fetched business record + schema over the raw row
+    // payload (see the drawerFetch effect above for why they can differ).
+    const fetched = drawerFetch?.key === `${objectName}:${recordId}` ? drawerFetch : null;
+    const drawerRecord = fetched?.record ?? rec;
+    const drawerSchema = fetched?.schema
+      ?? (objectName === resource ? (objectSchema as any) : undefined);
+    // Field saves on a fetched record write the BUSINESS object through the
+    // context DataSource (the gantt endpoint only understands composed
+    // rows); everything else keeps the gantt-endpoint write path.
+    const saveDS = fetched && dataSource ? dataSource : effectiveDataSource;
+    return (
+      <NavigationOverlay
+        {...navigation}
+        title={titleText}
+        mainContent={mainContent}
+        popoverAnchorRef={anchorRef}
+        // One drag-resize implementation, one key, and the width a user had
+        // already chosen under the retired `objectui.drawerWidth.OBJECT`
+        // carries over (item 4).
+        storageKey={recordOverlayWidthStorageKey(objectName)}
+        legacyStorageKey={legacyRecordDrawerWidthKey(objectName)}
+        // ⛔ Not `navigation.width` alone: an unauthored width has to land on
+        // the ruled default (objectui#6584) rather than on the overlay's own
+        // `42rem` floor, which would narrow this surface.
+        width={navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH}
+      >
+        {() => (
+          <div className="px-6 pt-6 pb-6">
+            <RecordDetailPanel
+              record={drawerRecord}
+              objectName={objectName}
+              recordId={recordId}
+              dataSource={saveDS ?? undefined}
+              objectSchema={drawerSchema}
+              onClose={navigation.close}
+              fullPageHref={fullPageHref}
+              onFieldSave={recLocked ? undefined : async (field, value) => {
+                if (!saveDS?.update) return;
+                try {
+                  await saveDS.update(objectName, String(recordId), { [field]: value });
+                } catch (err) {
+                  // DetailView rolls back and shows the (cleaned) message inline
+                  // next to the field — surface the server's reason, not the raw
+                  // "ApiDataSource: HTTP 403 …" transport string.
+                  const serverMsg = extractServerMessage(err);
+                  throw serverMsg ? new Error(serverMsg) : err;
+                }
+                if (fetched) {
+                  setDrawerFetch((prev) =>
+                    prev && prev.key === fetched.key
+                      ? { ...prev, record: { ...prev.record, [field]: value } }
+                      : prev,
+                  );
+                }
+                setData((prev) => prev.map((r) =>
+                  String(r.id ?? r._id) === String(recordId)
+                    ? { ...r, [field]: value }
+                    : r,
+                ));
+                void reload({ silent: true }); // write-readback — see handleTaskUpdateDefault
+              }}
+              onDelete={recLocked ? undefined : async () => {
+                if (!effectiveDataSource?.delete) return;
+                try {
+                  // ApiDataSource.delete reports failure as `false`, not a throw.
+                  const ok = await effectiveDataSource.delete(objectName, String(recordId));
+                  if (ok === false) throw new Error(t('gantt.writeFailed'));
+                } catch (err) {
+                  notifyWriteError(err);
+                  throw err;
+                }
+                setData((prev) => prev.filter((r) =>
+                  String(r.id ?? r._id) !== String(recordId),
+                ));
+              }}
+            />
+          </div>
+        )}
+      </NavigationOverlay>
+    );
+  };
+
+  const ganttView = (
+    <div className={cn('flex h-full min-h-0 flex-col', className)} {...anchorCaptureProps}>
       {resolvedQuickFilters.length > 0 && (
         <QuickFilterBar
           filters={resolvedQuickFilters}
@@ -1980,87 +2106,6 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         truncated={rowCeiling.truncated}
         className="shrink-0 px-1 py-1 text-xs text-muted-foreground"
       />
-      {navigation.isOverlay && navigation.isOpen && navigation.selectedRecord && (() => {
-        const rec = navigation.selectedRecord as Record<string, any>;
-        const detail = recordDetailHref(rec);
-        if (!detail || isSyntheticRow(rec)) return null;
-        const { objectName, recordId } = detail;
-        const fullPageHref = detail.href ?? undefined;
-        const titleText = ganttConfig?.titleField
-          ? String(rec[ganttConfig.titleField] ?? t('gantt.drawer.fallbackTitle'))
-          : t('gantt.drawer.fallbackTitle');
-        // Row-level lock (lockField) and global readOnly must also lock the
-        // drawer: omitting onFieldSave/onDelete renders it strictly read-only.
-        const recLocked =
-          !!schema.readOnly ||
-          (ganttConfig?.lockField ? !!rec[ganttConfig.lockField] : false);
-        // #2473: prefer the fetched business record + schema over the raw row
-        // payload (see the drawerFetch effect above for why they can differ).
-        const fetched = drawerFetch?.key === `${objectName}:${recordId}` ? drawerFetch : null;
-        const drawerRecord = fetched?.record ?? rec;
-        const drawerSchema = fetched?.schema
-          ?? (objectName === resource ? (objectSchema as any) : undefined);
-        // Field saves on a fetched record write the BUSINESS object through the
-        // context DataSource (the gantt endpoint only understands composed
-        // rows); everything else keeps the gantt-endpoint write path.
-        const saveDS = fetched && dataSource ? dataSource : effectiveDataSource;
-
-        return (
-          <RecordDetailDrawer
-            open
-            onClose={navigation.close}
-            title={titleText}
-            record={drawerRecord}
-            objectName={objectName}
-            recordId={recordId}
-            dataSource={saveDS ?? undefined}
-            objectSchema={drawerSchema}
-            width={navigation.width as any}
-            fullPageHref={fullPageHref}
-            onFieldSave={recLocked ? undefined : async (field, value) => {
-              if (!saveDS?.update) return;
-              try {
-                await saveDS.update(objectName, String(recordId), { [field]: value });
-              } catch (err) {
-                // DetailView rolls back and shows the (cleaned) message inline
-                // next to the field — surface the server's reason, not the raw
-                // "ApiDataSource: HTTP 403 …" transport string.
-                const serverMsg = extractServerMessage(err);
-                throw serverMsg ? new Error(serverMsg) : err;
-              }
-              if (fetched) {
-                setDrawerFetch((prev) =>
-                  prev && prev.key === fetched.key
-                    ? { ...prev, record: { ...prev.record, [field]: value } }
-                    : prev,
-                );
-              }
-              setData((prev) => prev.map((r) =>
-                String(r.id ?? r._id) === String(recordId)
-                  ? { ...r, [field]: value }
-                  : r,
-              ));
-              void reload({ silent: true }); // write-readback — see handleTaskUpdateDefault
-            }}
-            onDelete={recLocked ? undefined : async () => {
-              if (!effectiveDataSource?.delete) return;
-              try {
-                // ApiDataSource.delete reports failure as `false`, not a throw.
-                const ok = await effectiveDataSource.delete(objectName, String(recordId));
-                if (ok === false) throw new Error(t('gantt.writeFailed'));
-              } catch (err) {
-                notifyWriteError(err);
-                throw err;
-              }
-              setData((prev) => prev.filter((r) =>
-                String(r.id ?? r._id) !== String(recordId),
-              ));
-            }}
-          />
-        );
-      })()}
-
-
       {/* Delete confirmation */}
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open && !deleting) setPendingDelete(null); }}>
         <AlertDialogContent>
@@ -2086,5 +2131,29 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+
+  // `split` (item 2): the chart IS the main content — it moves into the
+  // overlay's left panel with the record panel beside it, rather than being
+  // covered by a drawer. Guarded on an OPEN overlay because the split shell
+  // renders nothing when closed; with nothing open the chart renders on its
+  // own exactly as before.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
+    const splitOverlay = renderRecordOverlay(ganttView);
+    // `null` here means this record has no overlay at all (a synthetic group
+    // row) — the chart still has to render.
+    if (splitOverlay) return <>{splitOverlay}</>;
+  }
+
+  return (
+    <>
+      {ganttView}
+      {renderRecordOverlay()}
+    </>
   );
 };

@@ -1766,7 +1766,7 @@ jobs:
             'scripts/vite-*.ts' \
             'scripts/vitest-invocation-guard.mjs' \
             'tsconfig.json' \
-            'tsconfig.base.json' \
+            'tsconfig.tier-base.json' \
             'package.json' \
             'pnpm-lock.yaml' \
             'pnpm-workspace.yaml' \

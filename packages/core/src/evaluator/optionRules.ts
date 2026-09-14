@@ -261,12 +261,21 @@ export function resolveCascadingOptions<T extends OptionLike>(
  *
  * `dependentValues` is also the channel two widget-hint pickers read a specific
  * SIBLING KEY from (`filter-condition` reads `object_name`, `recipient-picker`
- * reads `recipient_type`), and the lookup family filters its query by it. All
- * three surfaces above agree today in NOT feeding those from action / bulk
- * dialog params, but that is a different wiring question from the one ruled
- * here and it has never been decided either way. Stated here so the three
- * copies of the statement become one — the boundary itself stays open:
- * objectui#4771.
+ * reads `recipient_type`), and the lookup family filters its query by it —
+ * neither of which is an option list, so ⛔ no member is ever added to THIS set
+ * to serve them. Each surface decides that separately, by OR-ing its own rule
+ * beside this one, and they do not agree:
+ *
+ * - the object form has fed both families all along — `needsDataSourceWiring`,
+ *   its own line beside the one that reads this set;
+ * - the single-record action dialog feeds the lookup family since
+ *   objectui#8672 ruling A — `paramNeedsDependentValues()`, same shape;
+ * - the bulk action dialog feeds neither, and nothing has ruled on it.
+ *
+ * ⇒ objectui#4771 is the open boundary for the widget-hint pickers everywhere,
+ * and for the lookup family on the bulk dialog. Stated here so the surfaces'
+ * copies of the statement become one; ⛔ do not read a member of this set as
+ * the answer to "does widget X get the record on surface Y".
  *
  * ## Normalization stays with the consumer
  *

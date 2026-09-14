@@ -3367,12 +3367,12 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * substitutes its own wrapper on the schema it hands down, because that
    * wrapper also owns the record-detail overlay. Reachability here is the PROP
    * channel, and that is the whole difference between this key and the sibling
-   * `onCardMove`, which this face still does NOT declare: "the wrapper
-   * overrides it" is true of both and separates neither. `onCardMove` has no
-   * prop channel — `ObjectKanban` declares no such prop and discards its rest
-   * parameter — so an authored one reaches nothing, which is a `'retired'`
-   * reading that `check:handler-key-reads` refuses while `KanbanRenderer` still
-   * reads the key. It keeps its `KNOWN_UNDECLARED_READS` row on objectui#7804.
+   * `onCardMove` BELOW, which is a tombstone: "the wrapper overrides it" is true
+   * of both and separates neither. `onCardMove` has no prop channel on this
+   * element — `ObjectKanban` declares no such prop and discards its rest
+   * parameter — so an authored one reaches nothing, which is the `'retired'`
+   * reading objectui#9342 landed once `KanbanRenderer`'s read had moved off the
+   * document and onto an explicit React prop.
    *
    * ⚠️ TWO PARAMETERS since objectui#9341, and the second is what the surviving
    * channel actually delivers: `handleClick` forwards `onRowClick(record,
@@ -3391,6 +3391,34 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * click event `KanbanImpl` forwards, typed `React.MouseEvent` there.
    */
   onCardClick?: (card: any, event?: any) => void;
+
+  /**
+   * RETIRED (objectui#6124, ADR-0049; landed by objectui#9342 on the ruling
+   * recorded on PR objectui#9338) — JSON has no function value, and on this
+   * element an authored `onCardMove` reached NOTHING even as a programmatic
+   * value. `ObjectKanban` substitutes its own `handleCardMove` on the schema it
+   * hands down — that wrapper owns the optimistic write, the required-fields
+   * dialog and the objectui#4138 rollback — and declares no `onCardMove` React
+   * prop, so neither channel delivered. Measured by driving the handler the
+   * board was actually handed, with `onCardClick` as the lit control on the
+   * same document and the same render.
+   *
+   * ⚠️ RETIRED, not a RUNTIME SLOT, and the two are not interchangeable here.
+   * A slot keeps this member callable, which would publish a key the
+   * object-bound board DROPS — the resolution this package's `quickAdd`
+   * carve-out forbids in as many words. The sibling `onCardClick` above IS a
+   * slot because its function reaches the board through a React prop this
+   * element declares; `onCardMove` has no such prop.
+   *
+   * Where the mover lives now: `KanbanRendererProps.onCardMove`, an explicit
+   * React prop of `@object-ui/plugin-kanban`'s `KanbanRenderer`, a sibling of
+   * its `schema` — the objectui#7742 remedy `objectFields` took one card
+   * earlier. Until that read moved, `check:handler-key-reads` refused this very
+   * tombstone, because a tombstone "has no read site BY CONSTRUCTION".
+   *
+   * @deprecated Not part of this contract — the value was accepted and dropped.
+   */
+  onCardMove?: never;
 
   /**
    * Quick Add handler.

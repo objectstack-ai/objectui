@@ -16,8 +16,19 @@
  * ## The mechanism
  *
  * Zod 4.4.3 spells "no rest element" as `def.rest === null` — a real, OWN key
- * holding `null`, minted at exactly one site in the whole library
- * (`zod/v4/classic/schemas.cjs`, `const rest = hasRest ? _paramsOrRest : null`).
+ * holding `null`. Measured over the whole shipped `zod@4.4.3/v4` tree (176 files,
+ * 88 `.js` + 88 `.cjs`), the statement that mints it,
+ * `const rest = hasRest ? _paramsOrRest : null`, occurs at 6 locations — 3
+ * logical sites x 2 module formats: `classic/schemas.{js,cjs}`,
+ * `mini/schemas.{js,cjs}` and `core/api.{js,cjs}`, the last being where zod's
+ * `tuple` factory lives.
+ *
+ * ⚠️ The count is pinned to zod 4.4.3 and to that corpus. An earlier revision of
+ * this docblock said "exactly one site" and named `classic/schemas.cjs` alone —
+ * a 2-file corpus that excluded `core/api.cjs`, which is precisely the file the
+ * `tuple` factory is in. A census is only reproducible if its corpus is stated
+ * AND its corpus is the one that could have contradicted it.
+ *
  * The `tuple` arm normalised the other side of the comparison to `undefined`:
  *
  *     const rest = def.rest ? walk(def.rest) : undefined;   // the defect
@@ -47,8 +58,11 @@
  *     is `@objectstack/spec`'s own, shared with every workspace consumer, so
  *     nothing here may mutate it — and a subtree with no `ZodDefault` must
  *     still come back reference-equal.
- *  5. **The `:246` verdict**, which is the triage fence's census answered as a
- *     measurement rather than read off the tuple result.
+ *  5. **The `:246`@`b8a006883d` = `:274`@head verdict**, which is the triage
+ *     fence's census answered as a measurement rather than read off the tuple
+ *     result. (The `def.out` site moved because the repair's own comment block
+ *     was inserted above it; a quoted line is only a measurement against a
+ *     stated sha.)
  *
  * ⭐ Every assertion below records the removal that proves it — the mutation
  * that makes THIS assertion red. A proof that lives only in a pull-request body
@@ -147,9 +161,11 @@ describe('the zod 4.4.3 facts the fix rests on (objectui#9088)', () => {
 
   it('⭐ `rest` is the ONLY def member the walker reads that zod ever mints as `null`', () => {
     // This is the triage fence's census (`def.X ? walk(def.X) : undefined`)
-    // answered as a MEASUREMENT. That census has two hits in the module — the
-    // `tuple` arm's `def.rest` and the `pipe` arm's `def.out` — and a verdict on
-    // the second read off the first would be worthless.
+    // answered as a MEASUREMENT. That census had TWO hits at `b8a006883d` — the
+    // `tuple` arm's `def.rest` at `:223` and the `pipe` arm's `def.out` at
+    // `:246` — and a verdict on the second read off the first would be
+    // worthless. ⚠️ At this head ONE remains: the `tuple` hit is gone, removed
+    // by this card's own repair, and `def.out` now sits at `:274`.
     //
     // ⛔ The control here does NOT share the suspect part of the instrument: the
     // SAME probe, applied to `rest`, returns `null`. So a green on `out` is the

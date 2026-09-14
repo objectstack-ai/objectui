@@ -118,13 +118,22 @@ const SPEC_LIST_LEGAL = { name: 'all', columns: ['name'] };
 /** A minimal LEGAL `@objectstack/spec/ui` object-grid props object. */
 const SPEC_GRID_LEGAL = { objectName: 'account' };
 
+/**
+ * The narrow slice of a zod result this file reads. Spelled out rather than
+ * imported so the helper below needs no `any`: `unrecognized_keys` is the one
+ * issue code asserted anywhere here.
+ */
+type ParseLike = {
+  safeParse: (v: unknown) => { success: boolean; error?: { issues: Array<{ code: string; keys?: string[] }> } };
+};
+
 /** The keys a `safeParse` refused BY NAME — `[]` when the document parsed clean. */
-function refusedKeys(schema: { safeParse: (v: unknown) => any }, base: object, extra: object): string[] {
+function refusedKeys(schema: ParseLike, base: object, extra: object): string[] {
   const r = schema.safeParse({ ...base, ...extra });
-  if (r.success) return [];
+  if (r.success || !r.error) return [];
   return r.error.issues
-    .filter((i: { code: string }) => i.code === 'unrecognized_keys')
-    .flatMap((i: { keys?: string[] }) => i.keys ?? []);
+    .filter((i) => i.code === 'unrecognized_keys')
+    .flatMap((i) => i.keys ?? []);
 }
 
 describe('objectui#8653 §1 — the platform contract decides which exit each key has', () => {

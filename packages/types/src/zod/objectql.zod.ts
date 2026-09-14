@@ -711,12 +711,20 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  * can only narrow. The same asymmetry `filter` and `sort` already carry on this
  * block.
  *
- * ⛔ `.passthrough()` is kept, so this declaration REFUSES NOTHING that parses
+ * ⛔ `.passthrough()` is kept, so this declaration refuses no KEY that parses
  * today: a `calendar` block carrying `defaultView`, or any other unexamined
  * key, still parses exactly as it did through `BaseSchema`'s own
- * `.passthrough()`. What it adds is VALUE validation on the five named members
- * — `calendar: 42` and `calendar: { startDateField: 42 }` are refused where
- * both were admitted unexamined before.
+ * `.passthrough()`. It does refuse VALUES, which is the whole of what declaring
+ * buys — `calendar: 42` and `calendar: { startDateField: 42 }` are refused
+ * where both were admitted unexamined before.
+ *
+ * ⚠️ The key/value split is stated that way on purpose. An earlier cut wrote
+ * "REFUSES NOTHING that parses today", which is literally false for
+ * `calendar: 42`: it parsed at the merge-base and is refused here. The colon
+ * scoped it to keys and the next sentence gave the value narrowing, so it was
+ * defensible — but a sentence that needs its own punctuation to stay true is
+ * one reader away from being wrong, and the narrowing is the point of the
+ * declaration rather than a footnote to it.
  */
 const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
   // objectui-local, no spec counterpart — see objectui#8466 for the measurement

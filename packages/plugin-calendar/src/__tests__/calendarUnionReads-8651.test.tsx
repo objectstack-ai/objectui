@@ -89,9 +89,14 @@
  * rule, declare, retire or touch it.
  *
  * ⭐ It does not, and that is measurable rather than asserted: through the
- * UNION the key was already undeclared (`ObjectGridSchema` declares it,
- * `CalendarSchema` does not, and a union member is declared only when EVERY arm
- * declares it), and on `ObjectCalendarSchema` it is undeclared too. Same
+ * UNION the key was already undeclared, and on `ObjectCalendarSchema` it is
+ * undeclared too. ⚠️ The rule is NOT "declared on every arm" — the reading
+ * recorded at the top of this file carries five keys on the union that only ONE
+ * arm declares (`colorField` `dateField` `defaultView` `endField` `titleField`).
+ * It is: a union member is available only when EVERY arm supplies it — by its
+ * own declaration OR through an applicable index signature. `ObjectGridSchema`
+ * declares `navigation`; `CalendarSchema` neither declares it nor has an index
+ * signature to supply it; so the union does not carry it. Same
  * verdict at the read site before and after; the read itself is untouched. It
  * is ledgered BY NAME below, with an assertion that it is STILL READ — a stale
  * exception is a hole (the objectui#8885 ledger discipline).
@@ -102,7 +107,7 @@
  * instrument that re-derives it every run, never by a figure in prose. So the
  * central row below takes BOTH sides from the tree at run time — the keys read
  * come from a cast-aware census over `ObjectCalendar.tsx` (objectui#6576's
- * `schemaReads`, comment-masked so a retired spelling surviving in prose cannot
+ * `schemaReads`, comment-masked so a key that appears only in prose cannot
  * move a verdict), and the keys declared come from the zod mirror's own
  * `.shape`, never from parse acceptance, which under `.passthrough()` cannot
  * tell "declared" from "admitted unexamined" (objectui#8466's instrument).
@@ -189,7 +194,7 @@ function schemaReads(source: string): Set<string> {
   return new Set([...source.matchAll(SCHEMA_READ)].map((m) => m[1]));
 }
 
-/** The renderer's reads, with prose masked so a retired spelling in a comment cannot vote. */
+/** The renderer's reads, with prose masked so a key named only in a comment cannot vote. */
 function rendererReads(): Set<string> {
   return schemaReads(mask(readRepo(CALENDAR_READER)));
 }
@@ -346,7 +351,7 @@ describe('objectui#8651 — `calendar` is declared; the spec sets the KEY, objec
   });
 });
 
-/* ── 4. The retired spellings ──────────────────────────────────────────────── */
+/* ── 4. The routed spellings ───────────────────────────────────────────────── */
 
 describe('objectui#8651 — the `dateField` / `endField` rungs are ROUTED, not retired', () => {
   it('both are STILL READ — the rungs stay until the producer is fixed', () => {
@@ -403,7 +408,7 @@ describe('objectui#8651 — the `dateField` / `endField` rungs are ROUTED, not r
   });
 });
 
-/* ── 5. …and the retirement is observable on screen ───────────────────────── */
+/* ── 5. …and the regression is observable on screen ──────────────────────── */
 
 vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-detail')>()),

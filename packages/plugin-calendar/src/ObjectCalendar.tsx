@@ -109,8 +109,9 @@ import {
  *   - the local interface was absent from this package's barrel, so no importer
  *     could name it, and it SHADOWED `@object-ui/types`' own published
  *     `CalendarSchema` — the date-picker primitive reachable at `ui:calendar`
- *     only (objectui#8499). Its two distinctive members, the retired spellings
- *     noted on `getCalendarConfig` below, had no producer at all.
+ *     only (objectui#8499). Its two distinctive members are the alias spellings
+ *     `getCalendarConfig` below ROUTES to the producer (carrier objectui#8355);
+ *     they are still read, and they have a producer.
  *
  * The shape this leaves is the family's: `ObjectKanban` takes
  * `ObjectKanbanSchema`, `ObjectGantt` takes `ObjectGanttSchema`, `ObjectMap`
@@ -928,9 +929,16 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // objectui#8652's key: the maintainer ruled B there — declare it on the
   // platform element schemas first, then mirror — and that card is `pm:blocked`
   // on objectstack#17987. Its declaredness verdict at this read site is
-  // UNCHANGED by this card: through the retired union it was undeclared too
-  // (one arm declared it, and a union member is declared only when EVERY arm
-  // does), and it is undeclared on `ObjectCalendarSchema`. Ledgered by name, and
+  // UNCHANGED by this card: through the retired union it was undeclared too,
+  // and it is undeclared on `ObjectCalendarSchema`. The rule that makes that
+  // come out right is NOT "declared on every arm" — the checker reading this
+  // file records above carries five keys on the union that only ONE arm
+  // declares (`colorField` `dateField` `defaultView` `endField` `titleField`),
+  // because
+  // `ObjectGridSchema`'s index signature supplies the rest. It is: a union
+  // member is available only when EVERY arm supplies it — by its own
+  // declaration OR through an applicable index signature. `CalendarSchema` has
+  // neither for `navigation`, so the union does not carry it. Ledgered by name, and
   // asserted to be STILL READ, in `__tests__/calendarUnionReads-8651.test.tsx`.
   const navConfig = (schema as any).navigation ?? { mode: 'drawer' };
   const navIsOverlay = navConfig.mode === 'drawer' || navConfig.mode === 'modal' || navConfig.mode === 'split' || navConfig.mode === 'popover';

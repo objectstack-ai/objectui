@@ -102,6 +102,21 @@ type Severity = 'info' | 'warning' | 'error' | 'success';
 /**
  * Local (unexported) prop shape for the renderer below.
  *
+ * ⚠️ Spelled `RecordAlertRendererProps`, NOT `RecordAlertProps`. At the RESOLVED
+ * `@objectstack/spec` pin, `@objectstack/spec/ui` exports `RecordAlertProps` —
+ * and a `Record<Block>Props` for every sibling block this directory renders —
+ * for the block's AUTHORED properties — the key set nested under
+ * `schema.properties` below, and nothing else. What this declaration holds is a
+ * different thing one level up: the React props this renderer is called with, a
+ * `schema` node plus `className` plus an open tail. Every other renderer beside
+ * this one already spells that distinction `…RendererProps`; this file did not,
+ * which is why its name was rule 1's last entry in the `check:spec-symbols` DEBT
+ * ledger (objectui#7265) while its structurally identical siblings were never
+ * in it. Both halves are pinned — that the spec still owns the plain name, and
+ * that it does not own this one — in this package's spec-symbol file, together
+ * with the sibling convention itself, re-derived from the directory rather than
+ * restated here.
+ *
  * `title` / `body` accept the inline locale map as well as a plain string
  * (objectui#4970): both are read through `pickLocalized` further down, and the
  * block's published authoring surface declares the two arms
@@ -120,7 +135,7 @@ type Severity = 'info' | 'warning' | 'error' | 'success';
  * (`plugin-detail/src/index.tsx`), so there is no manifest arm to align — that
  * half stays parked on the `ComponentInput` member-shape question (PR #3795).
  */
-interface RecordAlertProps {
+interface RecordAlertRendererProps {
   schema?: {
     properties?: {
       severity?: Severity;
@@ -169,7 +184,7 @@ const SEVERITY_STYLES: Record<Severity, { wrap: string; icon: string }> = {
   },
 };
 
-export const RecordAlertRenderer: React.FC<RecordAlertProps> = ({ schema = {}, className }) => {
+export const RecordAlertRenderer: React.FC<RecordAlertRendererProps> = ({ schema = {}, className }) => {
   const props = readProps(schema);
   const recordCtx = useRecordContext();
   const record = recordCtx?.data;

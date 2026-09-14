@@ -860,9 +860,12 @@ const ALLOW = {
 // Re-anchored at objectui#6291. It was `4115` (objectstack#4115) while the block
 // was EMPTY — burned down in objectui#3162, and objectstack#4115 itself closed by
 // objectstack#6883. A ledger whose anchor is CLOSED makes the stale-entry message
-// below ("…and close #N once the ledger is empty") a dead instruction, and #6291
-// could not serve either, being the card its own PR closes. objectui#7265 is the
-// open burn-down card for the population seeded here.
+// below — the one that tells you the anchor can be ended once the ledger is empty
+// — a dead instruction, and #6291 could not serve either, being the card its own
+// PR closes. objectui#7265 is the open burn-down card for the population seeded
+// here. (That message used to spell its own instruction with a GitHub closing
+// keyword in front of the number; the reason it no longer does is written at the
+// ratchet that emits it, not restated here.)
 // ⚠️ `CLAIM_DEBT_ISSUE` a few screens down has the same defect — objectui#4592 is
 // closed while its block is still live — and is deliberately NOT changed here,
 // because rule 2's ledger is not what objectui#6291 widened. (Still deliberate at
@@ -993,10 +996,36 @@ const DEBT_ISSUE = 7265;
 // RENAMES table, not duplicated), and the site, the block and the measured
 // behaviour in
 // scripts/__tests__/spec-symbol-ledger-data-objectstack-7265.test.ts.
+//
+// Then the `@object-ui/plugin-detail` slice at objectui#7265, the LAST group, and
+// the one where the route was settled by the tree rather than by the shape. The
+// site was a non-exported `interface RecordAlertProps` used at exactly one place,
+// the `React.FC<…>` type argument of `RecordAlertRenderer`. Being a TYPE, it had
+// the derive-in-place route a function does not -- and reading it took that route
+// off the table rather than onto it. At the RESOLVED pin the spec's
+// `RecordAlertProps` is the AUTHORED property bag of the `record:alert` block,
+// while the local one is the React props the renderer is called with: a `schema`
+// node, a `className`, an open tail, with the spec's bag NESTED inside it under
+// `schema.properties` and mirrored FLAT beside it for legacy nodes. Not the same
+// concept, so BIND was refused; and an `interface` derives only through
+// `extends`, which a wrapper around a type cannot use on the type it wraps.
+//
+// What decided it is that the collision was a SPELLING SLIP against a convention
+// this repo already keeps. `@objectstack/spec/ui` owns a `Record<Block>Props`
+// for every block that directory renders, and every sibling renderer beside this
+// one already spells its own props type `Record<Block>RendererProps` -- which is
+// exactly why none of them was ever in this ledger and this one was. RENAMED to
+// `RecordAlertRendererProps`, therefore: not a dialect minted for the occasion
+// but the name the file should have carried, and no published face moves with it
+// (the declaration was never exported, and `index.tsx` imports the COMPONENT).
+// Pinned in both directions -- the spec still owns the plain name, the spec does
+// not own the new one, and the sibling convention is re-derived from the
+// directory rather than restated -- in this package's own spec-symbol file,
+// packages/plugin-detail/src/__tests__/spec-symbol-batch7.test.ts (appended to,
+// not duplicated), with the site, the block and the empty-ledger path in
+// scripts/__tests__/spec-symbol-ledger-plugin-detail-7265.test.ts.
 const DEBT = {
-  "@object-ui/plugin-detail": [
-    "RecordAlertProps",
-  ],
+
 };
 
 // Files under these paths are not objectui's own authored surface.
@@ -1161,7 +1190,12 @@ const CLAIM_DEBT = {
 // Types AND values: the drifted symbols in the table above are mostly types, and
 // a runtime `import()` only sees values. The compiler's own view of each
 // subpath's `.d.ts` is the only source that covers both.
-function specExportNames() {
+//
+// Exported for the pins in `scripts/__tests__/`, for the same reason `scanFile`
+// is: a ledger test that builds its own name map is asserting against a COPY of
+// the spec's export set, which is the exact failure this whole guard exists to
+// catch, one level up. A pin that reads THIS function reads what the gate reads.
+export function specExportNames() {
   const require = createRequire(import.meta.url);
   let pkgPath;
   try {
@@ -2074,6 +2108,27 @@ for (const [pkg, found] of byPackage) {
 
 // 2. Ratchet — a ledger entry whose symbol is fixed (or gone) must be deleted.
 //    Left in, it reserves the name: the next fork under it would land silently.
+//
+// ⚠️ The tail's WORDING is constrained, and not by taste (objectui#7265). This
+// message names the ledger's anchor card, and taking the INTERMEDIATE reading —
+// the site burned down, the block not yet regenerated — is standing practice on
+// that card, because it is the only proof the edit reached the symbol rather than
+// the block being rewritten around it. So this text is pasted into pull-request
+// bodies and commit messages BY DESIGN. GitHub's closing-keyword parser reads one
+// of its keywords (the close / fix / resolve families, in every tense) sitting
+// immediately before an issue reference, and it does not parse sentences: the
+// tail this line replaced put such a keyword directly in front of the anchor's
+// own number, so every slice that quoted its own reading carried a trigger that
+// would have ended the card on merge — silently, from a body whose author was
+// being careful. ⛔ Never write one of those keywords in front of the reference
+// here, and keep the `objectui#` prefix rather than a bare `#`. Pinned by
+// scripts/__tests__/spec-symbol-ledger-plugin-detail-7265.test.ts, which reads
+// this module's emitted text rather than trusting the comment.
+//
+// ⛔ The `CLAIM_DEBT` twin further down is deliberately NOT given the same
+// treatment. Its anchor is a CLOSED issue — the note beside `DEBT_ISSUE` above
+// records that exclusion and why it stands — so the keyword there triggers
+// nothing, and changing it would quietly make that note false.
 for (const [pkg, names] of Object.entries(DEBT)) {
   const live = new Set((byPackage.get(pkg) ?? []).map((v) => v.name));
   const stale = names.filter((n) => !live.has(n));
@@ -2083,7 +2138,7 @@ for (const [pkg, names] of Object.entries(DEBT)) {
       ` — \`${stale.join("`, `")}\`.\n` +
       `      Delete them from scripts/check-spec-symbol-derivation.mjs (\`--ledger\` regenerates the\n` +
       `      block) so the names cannot be re-forked silently` +
-      `${DEBT_ISSUE ? ` (and close #${DEBT_ISSUE} once the ledger is empty)` : ""}.`
+      `${DEBT_ISSUE ? `, and objectui#${DEBT_ISSUE} can be ended once the ledger is empty` : ""}.`
   );
 }
 

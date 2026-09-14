@@ -10,8 +10,8 @@ import { isConfigBag } from '@object-ui/react';
 
 /**
  * The config bag `record:alert` reads: the node's own keys UNDERNEATH (the
- * legacy flat spelling `RecordAlertProps` tolerates) and `properties` on top.
- * It is the sixth member of the `readProps()` family that
+ * legacy flat spelling `RecordAlertRendererProps` tolerates) and `properties`
+ * on top. It is the sixth member of the `readProps()` family that
  * `packages/components/src/__tests__/alias-precedence-cross-channel.test.tsx`
  * names, spelled differently — `{ ...schema, ...schema.properties }`, no
  * `props` alias leg — and since objectui#6790 it asks the same question the

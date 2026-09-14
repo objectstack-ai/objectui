@@ -175,11 +175,15 @@ describe('PermissionMatrixEditPage — the PACKAGE door refuses rather than dele
     editAccountRow();
     clickSave();
 
-    // The refusal reaches the author on the page's EXISTING error channel —
-    // the same strip a failed `client.save` renders into. No new toast path.
-    expect(await screen.findByText(REFUSAL)).toBeInTheDocument();
+    // Settle on EITHER arm before asserting — the refusal reaching the screen,
+    // or a PUT landing. Waiting on the refusal alone would make the pre-fix
+    // reading a timeout instead of the PUT it is, and waiting on
+    // `layeredCalls` alone would race the save that follows it.
+    await waitFor(() =>
+      expect(server.saved.length > 0 || screen.queryByText(REFUSAL) !== null).toBe(true),
+    );
 
-    // CONTROL: the re-read really was attempted and really did fail, so the
+    // CONTROL: the re-read really was attempted and really did reject, so the
     // absence below is a refusal and not a Save that never ran.
     expect(server.layeredCalls).toBe(2);
 
@@ -187,6 +191,10 @@ describe('PermissionMatrixEditPage — the PACKAGE door refuses rather than dele
     // `b_order` and `b_order.total` — the card's measured probe.
     expect(server.saved).toEqual([]);
     expect(server.savedOpts).toEqual([]);
+
+    // The refusal reaches the author on the page's EXISTING error channel —
+    // the same strip a failed `client.save` renders into. No new toast path.
+    expect(screen.getByText(REFUSAL)).toBeInTheDocument();
 
     // The page is usable again: `saving` cleared, so the author can retry.
     expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();

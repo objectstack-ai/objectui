@@ -75,12 +75,13 @@ interface BaseSchema {
 
 ## Data Context
 
-Expression context does not arrive as a prop. `SchemaRenderer` declares exactly one prop,
-`schema`, and every other prop it is handed is forwarded to the component the schema names —
-so a `data` prop written on the element reaches the evaluator through nothing. Because it is
-forwarded rather than refused, nothing throws and nothing warns; the expression simply never
-resolves. The scope comes from `PredicateScopeProvider`, which publishes each name you give
-it as an expression root:
+Expression scope does **not** arrive as a prop. `SchemaRenderer` declares exactly one prop,
+`schema`, and forwards every other prop it is handed straight through to the component the
+schema names — so a `data`, `dataSource` or `debug` written on the element is neither read nor
+refused. Nothing throws, and there is one line on the console; the expression simply never
+resolves, and an unresolvable template is returned as its own source text, so the characters
+you typed are what the reader sees. The scope comes from `PredicateScopeProvider`, which
+publishes each name you give it as an expression root:
 
 ```tsx
 import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
@@ -118,8 +119,8 @@ The scope the evaluator builds is what you published, plus three names the rende
 | `current_user` | an alias of whatever you published as `user`; the host's `ExpressionProvider` publishes the signed-in user there |
 
 A name outside that set resolves to nothing, and an unresolvable template is not an error:
-the evaluator hands back its own source text, so the characters you typed are what the reader
-sees.
+the evaluator hands back its own source text and writes one line to the console, so the
+characters you typed are what the reader sees.
 
 > **`dataSource` is not an expression root.** `SchemaRendererProvider`'s `dataSource` carries
 > the host's `DataSource` *adapter* — the object renderers call `find()` on. The renderer used
@@ -239,10 +240,16 @@ Object UI includes a powerful expression system for dynamic behavior:
 ```json
 {
   "type": "card",
-  "title": "${status === 'active' ? 'Active' : 'Inactive'}",
-  "description": "${status === 'active' ? 'This record is in use.' : 'This record is archived.'}"
+  "title": "${record.status === 'active' ? 'Active' : 'Inactive'}",
+  "description": "${record.status === 'active' ? 'This record is in use.' : 'This record is archived.'}"
 }
 ```
+
+`record.status` rather than a bare `status`, because this example is about a row: `record` is
+the row a record surface is bound to, and it is the only spelling a row field has — the bare
+shorthand and the wrong-layer `data.status` were both retired on runtime record surfaces
+(objectui#5330 phase 2). A head name the host publishes itself stays bare; this one is not
+one of those.
 
 `card` here rather than `badge`, because an expression is evaluated only on a key the
 node's own type carries. `expressionBindableTextKeysFor` — the lookup `SchemaRenderer`

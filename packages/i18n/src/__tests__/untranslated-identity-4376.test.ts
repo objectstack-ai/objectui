@@ -102,7 +102,12 @@ const LEGITIMATE_IDENTITIES: Record<string, string> = {
   // (no such key in `en`) — which is that guard doing its job.
   'publicForm.poweredBy': 'Powered by ObjectStack — product attribution; ja keeps the English wordmark line.',
   'connectAgent.apiKey.badge': 'headless — the literal mode name the CLI and API use.',
-  'marketplace.pricing.freemium': 'Freemium — the pricing-tier term of art; ru keeps the loanword.',
+  // `marketplace.pricing.freemium` sat here until objectui#8754 retired the
+  // whole `marketplace.pricing.*` family as dead. Its entry went with it, on
+  // the same reasoning the `workflow.*` note above records: an entry is a fact
+  // about one key's value, so it cannot outlive the key. Both assertions in
+  // `keeps the allowlist honest` would have failed on a leftover entry — dead
+  // (no identity left to excuse) and unknown (no such key in `en`).
   'console.settingsHub.beta': 'Beta — the release-stage badge, kept Latin in zh.',
   'console.settingsHub.categories.Beta': 'Beta — the same badge, reached by category name.',
   // Pure format string: two holes and a separator, no prose to translate

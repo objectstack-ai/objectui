@@ -553,8 +553,18 @@ The expression engine automatically caches results when data doesn't change.
 ### Sandboxed Execution
 
 Expressions run in a sandboxed environment and can only access:
-- The data context you provide
-- Built-in JavaScript functions (Math, Date, String, Array methods)
+- The names the host published as scope, plus `record` and `page`
+- The globals listed in `SAFE_GLOBALS` (`packages/core/src/evaluator/SafeExpressionParser.ts`):
+  `Math`, `JSON`, `parseInt`, `parseFloat`, `isNaN`, `isFinite`
+- Methods on the values those names hold — string, number and array methods
+- `new Date(...)` and `new RegExp(...)`, the only two constructors `new` accepts
+
+> **A global that is not on that list fails the way every unresolved name fails.** `Date`,
+> `String` and `Array` are reachable only in the two forms above — `Date` as a constructor,
+> `String` and `Array` as methods on a value you already hold. Written as globals they resolve
+> to nothing: `${Date.now()}`, `${String(x)}` and `${Array.isArray(x)}` each raise inside the
+> parser, and this surface fails soft, so the template is returned as its own source text with
+> one line on the console — the characters you typed are what the reader sees.
 
 They **cannot** access:
 - Browser APIs (window, document, localStorage)

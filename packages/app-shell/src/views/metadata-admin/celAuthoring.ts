@@ -376,20 +376,25 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  *
  * ⚠️ The reason is NOT that the engine's message refuses a `record.<root>`
  * rewrite. Measured against the installed 17.4.0, it mostly PRESCRIBES one: the
- * `current_user` text ends "To gate on record state, rewrite the predicate
- * against `record`." (Exactly one root's message does refuse by name — `app`'s,
+ * `current_user` text CONTAINS "To gate on record state, rewrite the predicate
+ * against `record`." — one of the three remedies it offers, and NOT where it
+ * ends (measured: `includes` true, `endsWith` false; every covered slot's text
+ * closes on "it is not a fourth answer"). (Exactly one root's message does
+ * refuse the rewrite by name — `app`'s,
  * with "⛔ Do NOT write `record.app`" — and that one never reaches this function;
  * see the gate below.) The real reason is that the verdict widens and objectui
  * has no message for most of what it now judges:
  *
  *  - the local instrument produces a sentence for exactly ONE root —
- *    `@object-ui/core`'s `METADATA_LAYER_ROOT`, `data`. For the five further
- *    roots a covered slot now reports (`current_user`, `user`, `features`, `os`,
- *    `ctx`) there is no objectui sentence to keep; the alternative is writing
- *    five by hand, which is the second copy this card exists to delete. And they
- *    would have to be per-root: the engine's texts for `data`, `current_user`,
- *    `features` and `app` are four different remedies, not one sentence with the
- *    root substituted;
+ *    `@object-ui/core`'s `METADATA_LAYER_ROOT`, `data`. For every OTHER root a
+ *    covered slot now reports there is no objectui sentence to keep; the
+ *    alternative is hand-writing one per root, which is the second copy this
+ *    card exists to delete. ⛔ Do not write that population down — it is
+ *    `FIELD_RULE_JUDGED_ROOTS` minus `FIELD_RULE_BOUND_ROOTS` minus `data`, and
+ *    it moves whenever the platform moves either set. And they would have to be
+ *    per-root: the engine's texts for `data`, the user-root family, the
+ *    platform-wide family and the ambient family are four different remedies,
+ *    not one sentence with the root substituted;
  *  - the one message actually SWAPPED is `data`'s, and objectui's tail there —
  *    "Re-root the reference on `record`" — is the half that does not generalise.
  *    It is right for `data` and wrong for `current_user`, which is not a field of
@@ -400,15 +405,19 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  *
  * Two consequences, both deliberate and both pinned:
  *
- *  - a covered slot now advises on the roots this tier RESOLVES but the field
- *    level does not bind. Measured through `lintCelPredicate` at
- *    `scope: 'record'`: `data`, `current_user`, `user`, `features`, `os`, `ctx`.
- *    ⚠️ NOT "every unbound root" — the advisory runs only once the predicate is
- *    error-free (`issues.every((i) => i.severity !== 'error')`, below), so a root
- *    this tier does not resolve at all (`app`, or any unknown name) is stopped by
- *    the bare-reference ERROR first and never reaches the helper, even though the
- *    helper judges `app` and carries a bespoke message for it. Still `warning`,
- *    so no save gate's accept set moves;
+ *  - a covered slot now advises on EVERY root the field level leaves unbound —
+ *    except `app`. ⛔ The exception is a MECHANISM, not a list, and this comment
+ *    deliberately enumerates neither side of it: the advisory runs only once the
+ *    predicate is error-free (`issues.every((i) => i.severity !== 'error')`,
+ *    below), and `app` is the single root the helper judges that the platform
+ *    does not DECLARE (`FIELD_RULE_JUDGED_ROOTS` is `SCOPE_ROOTS` plus the
+ *    ambient `app`), so for `app` alone the pre-existing bare-reference ERROR
+ *    fires first and the advisory never runs — even though the helper judges it
+ *    and carries a bespoke message for it. A name the helper does not judge at
+ *    all is stopped by that same error, and was never a candidate. ⛔ Writing
+ *    the advised roots out here would go stale the next time the platform moves
+ *    either set; `celAuthoring.fieldRuleVerdict-9318.test.ts` sweeps the whole
+ *    population instead. Still `warning`, so no save gate's accept set moves;
  *  - the surfaces {@link FIELD_RULE_VERDICT_SLOTS} does not name keep this
  *    function's own reading, unchanged. ⛔ Their coverage is not shrunk to match
  *    the helper.

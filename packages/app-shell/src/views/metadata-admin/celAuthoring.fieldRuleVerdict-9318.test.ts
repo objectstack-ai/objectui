@@ -41,6 +41,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { fieldRuleRootIssue, FIELD_RULE_BOUND_ROOTS } from '@objectstack/lint';
+import { SCOPE_ROOTS } from '@objectstack/formula';
 import { lintCelPredicate } from './celAuthoring';
 
 const HINT = { objectName: 'account', fields: ['organization_id', 'owner_id', 'status', 'amount'] };
@@ -152,5 +153,60 @@ describe('celAuthoring · platform drift tripwire (objectui#9318)', () => {
     // in objectui, with the instruction to re-derive which of this repo's
     // surfaces the helper's vocabulary still covers (PR objectui#9318 part 3).
     expect([...FIELD_RULE_BOUND_ROOTS]).toEqual(['record', 'previous', 'parent']);
+  });
+
+  it('SWEEPS the whole unbound population: every root is advised EXCEPT `app`', async () => {
+    // The instrument behind the docblock's universal. The published prose says
+    // "every root the field level leaves unbound is advised, except `app`" and
+    // ⛔ names no others — because any written-down list goes stale the next
+    // time the platform moves a root. This sweep re-derives the population on
+    // every run instead, so the claim cannot rot silently: it reddens when a
+    // root stops being advised, when a SECOND root starts being blocked, or
+    // when any root goes silent.
+    //
+    // ⚠️ The universe is RECONSTRUCTED, and that is a declared limit, not an
+    // oversight: `@objectstack/lint` keeps both `FIELD_RULE_JUDGED_ROOTS` and
+    // `FIELD_RULE_AMBIENT_ROOTS` module-private (neither is in its export list
+    // at 17.4.0), so the judged set is rebuilt here as `SCOPE_ROOTS` plus the
+    // one ambient root. A NEW ambient root added upstream would be invisible to
+    // this sweep until that literal is updated — nothing in this repo can see
+    // it. The `app` leg below pins the reconstruction itself.
+    const judged: readonly string[] = [...SCOPE_ROOTS, 'app'];
+    const bound: readonly string[] = FIELD_RULE_BOUND_ROOTS;
+    const candidates = judged.filter((r) => !bound.includes(r));
+    expect(candidates.length).toBeGreaterThan(1); // the sweep is measuring something
+
+    const advised: string[] = [];
+    const blocked: string[] = [];
+    const silent: string[] = [];
+    for (const root of candidates) {
+      const source = `${root}.x == 1`;
+      const issues = await lintCelPredicate(source, RULE_SLOT_HINT);
+      const engine = fieldRuleRootIssue('visibleWhen', source);
+      // Verbatim equality with the helper's own output, as elsewhere in this
+      // file — never a transcribed string.
+      if (engine && issues.some((i) => i.severity === 'warning' && i.message === engine.message)) advised.push(root);
+      else if (issues.some((i) => i.severity === 'error')) blocked.push(root);
+      else silent.push(root);
+    }
+
+    // The universal, and the single documented exception.
+    expect(silent).toEqual([]);
+    expect(blocked).toEqual(['app']);
+    expect(advised).toEqual(candidates.filter((r) => r !== 'app'));
+  });
+
+  it('WHY `app` is the exception: the helper judges it, the platform does not DECLARE it', async () => {
+    // The exception is a mechanism, not a special case: the advisory is gated
+    // behind `issues.every((i) => i.severity !== 'error')`, and a root the
+    // engine does not declare raises a bare-reference ERROR first. `app` is the
+    // only judged root in that position — it is AMBIENT (renderer-mounted),
+    // which is exactly why the engine's own message for it refuses the
+    // `record.app` rewrite by name.
+    expect(SCOPE_ROOTS).not.toContain('app');
+    expect(fieldRuleRootIssue('visibleWhen', 'app.theme == "dark"')).not.toBeNull();
+    const issues = await lintCelPredicate('app.theme == "dark"', RULE_SLOT_HINT);
+    expect(issues.some((i) => i.severity === 'error')).toBe(true);
+    expect(issues.filter((i) => i.severity === 'warning')).toEqual([]);
   });
 });

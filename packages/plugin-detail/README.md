@@ -226,6 +226,17 @@ A summary chip is a single-line pill, and it formats `currency`, `date`,
 `datetime`, `percent` and the option families itself. Any other value it can
 render as text it renders as text.
 
+A **`percent`** chip is formatted by `@object-ui/fields`' `formatPercent` — the
+same call the list cell makes — so one stored value reads the same beside the H1
+as it does in a list: scaled by `percentDisplayValue`, rounded to the field's
+declared `precision` (`0` when it declares none), and rendered through the
+display locale's own percent affix rather than an appended sign. A stored
+`1234.5` therefore reads `1,235%` in an `en` session and carries the locale's
+own affix and marks elsewhere. Which stored values that convention moves, and
+what each reads in both places, is re-derived by
+`src/__tests__/summaryChip.percentConvention-9167.test.tsx` rather than listed
+here. The chip's bar keeps the unrounded magnitude, as the list cell's bar does.
+
 An **object** value — an expanded lookup payload, an address, a location, a
 file — is drawn by that field's own cell renderer, so the chip shows what the
 same value shows everywhere else on the page: the referenced record's name, the

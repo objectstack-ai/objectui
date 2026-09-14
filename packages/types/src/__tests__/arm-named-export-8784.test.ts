@@ -42,9 +42,15 @@
  * "the metric is left to move and said out loud instead" and "whoever wants
  * the number back down should treat naming these families as its own
  * decision". objectui#8499's ceiling review raised the omission as blocking
- * F1 (`5597569641`), a delta commit carrying the eight barrel lines was
- * prepared, and the review then PASSed the deferral "on the surface-widening
- * reason alone" (`5598263402`). ⛔ So this is NOT `d908a82f4` recurring: no
+ * F1 (`5597569641`), whose remedy NAMED "one additive commit on `90fcf4f2`
+ * with the eight barrel lines" — ⛔ named, not prepared. `5598263402` recorded
+ * the sha later offered for that commit, `b7af6b52`, as a phantom ("Option (a)
+ * had nothing to lean on"), and the review PASSed the deferral "on the
+ * surface-widening reason alone" instead. Re-derive by asking this repository's
+ * commits endpoint for `b7af6b52`: it answers 422 "No commit found for SHA"
+ * where the controls `90fcf4f2`, `fb010227` and `005409fc1` answer 200.
+ *
+ * ⛔ So this is NOT `d908a82f4` recurring: no
  * one forgot — the barrel was left alone on a reason, and the decision that
  * reason deferred has since been TAKEN.
  *
@@ -62,11 +68,24 @@
  * ⚠️ It is still exactly what this pin is for, and the reason is where the
  * declaration LIVES. A `.changeset/*.md` is consumed and deleted at release —
  * measured, e.g. `59f61cfb8` "chore: release packages (#4655)" removes the
- * batch it versioned. The absence outlives its own explanation, and once the
- * explanation is gone a deferred non-export and a collateral drop are the same
- * two lines of nothing in `index.zod.ts`. The rows below move that reason into
- * the tree, where it is re-read on every run and deleted only when it stops
- * being true.
+ * batch it versioned.
+ *
+ * ⛔ But the explanation does NOT die with the file, and this docblock used to
+ * say it did. A changeset that declares a bump has its prose copied into the
+ * bumped package's CHANGELOG by that same release commit; only one with EMPTY
+ * frontmatter — this repository's "no release" declaration — is deleted with
+ * nowhere for its reason to go. `.changeset/8499-node-slot-registered-arms.md`
+ * declares `'@object-ui/types': minor`, so its reason lands in
+ * `packages/types/CHANGELOG.md` at the next release. Re-derive on any release
+ * commit by diffing its `.changeset/` deletions against the `*CHANGELOG.md`
+ * lines it adds; ⛔ nothing in this repository re-derives it for you, so treat
+ * this paragraph as the one-off reading it is.
+ *
+ * ⇒ The operative argument is narrower and survives intact: nothing in the tree
+ * re-reads that CHANGELOG entry and nothing reddens when it stops being true, so
+ * a deferred non-export and a collateral drop still read as the same two lines
+ * of nothing in `index.zod.ts`. The rows below move the reason to where it IS
+ * re-read on every run, and deleted only when it stops being true.
  *
  * ## Why the existing checks could not see it
  *
@@ -100,8 +119,15 @@
  *    PARENT sub-union re-exported under the arm's name — satisfies a name-based
  *    check and every behavioural leg of that pin. Only identity catches it, and
  *    the arm's identity chain deliberately starts at the union OPTION, so no
- *    containing union is ever a candidate. `the parent union under the arm's
- *    name is still unnamed` below is that property as a control.
+ *    containing union is ever a candidate. TWO controls below carry that
+ *    property: `still reports the arm when the PARENT union carries the arm
+ *    name`, on probe schemas, and `still reports the REAL arm when the barrel
+ *    binds its name to the parent union`, on the real barrel — the leg that
+ *    catches a `namesOn` weakened from identity to a name match, since a probe
+ *    schema has no declaring name for such a check to match on. ⛔ Cited by
+ *    title, not by line: the title this sentence used to give belonged to no
+ *    `it()` in this file at any point, and a line number would have rotted the
+ *    same way (the shape objectui#7853 established and objectui#8478 applied).
  *
  * ⛔ The arm list is DERIVED on every run and no count is hard-coded: arms land
  * (four did, mid-card), and a number stated in a comment that nothing checks is
@@ -225,7 +251,22 @@ interface ZodDef {
   readonly entries?: Readonly<Record<string, unknown>>;
 }
 
-/** Zod 4 keeps a schema's definition on `_zod`; nothing public exposes it. */
+/**
+ * A schema's definition. Zod 4 stores it at `_zod.def` and ALSO exposes it
+ * publicly as `.def` — the same object, not a copy. ⛔ This docblock used to say
+ * "nothing public exposes it", which is false. Measured on the zod version
+ * `packages/types/package.json` resolves today (4.4.3): `schema.def ===
+ * schema._zod.def` holds for every shape this file walks — object, literal,
+ * enum, union, discriminated union and lazy — and zod's own `ZodType`
+ * interface declares `def` while carrying `_def` only as deprecated, with a
+ * doc comment pointing at `.def` as the replacement.
+ *
+ * ⇒ The spelling below is therefore not load-bearing and reading `.def` would be
+ * equally correct; it is kept because the cast is written against the internal
+ * shape. ⚠️ That is a claim about a third-party runtime, which is the class
+ * that goes stale in silence: re-measure it against the zod version
+ * `packages/types/package.json` resolves, ⛔ never against this sentence.
+ */
 function defOf(schema: unknown): ZodDef | undefined {
   return (schema as { _zod?: { def?: ZodDef } } | null | undefined)?._zod?.def;
 }
@@ -426,15 +467,42 @@ describe('the census reads the real union, and reads all of it', () => {
     if (button === undefined) return;
     expect(namesOn(BARREL, button)).toContain('ButtonSchema');
   });
+
+  it('still reports the REAL arm when the barrel binds its name to the parent union', () => {
+    // ⭐ Property 2 as a control ON THE REAL BARREL, and the leg this file was
+    // missing. `still reports the arm when the PARENT union carries the arm
+    // name` states the same property on probe schemas, and a probe schema has no
+    // declaring name — so a `namesOn` weakened from identity to "identity OR the
+    // arm's declaring name" leaves that control, and every other test here,
+    // green: with the barrel intact AND with `export { NavigationSchema as
+    // BreadcrumbSchema }` written to `index.zod.ts`. Only this leg reddens under
+    // that weakening, because the arm below is declared as `BreadcrumbSchema` in
+    // `navigation.zod.ts` and the namespace it is judged against carries that
+    // very name — bound to the PARENT union, which is exactly the write
+    // adversarial probing of #8777's pin found.
+    const breadcrumb = CENSUS.arms.find((arm) => arm.literals.includes('breadcrumb'));
+    expect(breadcrumb).toBeDefined();
+    if (breadcrumb === undefined) return;
+    // The intact barrel names it, so the substitution below is the only variable.
+    expect(namesOn(BARREL, breadcrumb)).toContain('BreadcrumbSchema');
+    expect(
+      namesOn({ ...BARREL, BreadcrumbSchema: BARREL.NavigationSchema }, breadcrumb),
+      'The barrel binds `BreadcrumbSchema` to the PARENT union rather than to the arm, so the '
+      + 'arm has no name of its own and must read as unnamed. A `namesOn` that answers this by '
+      + 'name instead of by identity reports `BreadcrumbSchema` here and the pin goes quiet.',
+    ).toEqual([]);
+  });
 });
 
 describe('the census fires — controls', () => {
   // Every control below is built on schemas the census has never seen, so each
   // one is free to be red: the arm under test is absent from the namespace it
   // is judged against, which is precisely the state the real reading must
-  // detect. A census that reported nothing would leave all four green only if
-  // it reported nothing for the real union too, and the `recurses BELOW` and
-  // `matches a known arm` legs above already refuse that.
+  // detect. A census that reported nothing would leave every control in this
+  // block green only if it reported nothing for the real union too, and the
+  // `recurses BELOW` and `matches a known arm` legs above already refuse that.
+  // ⛔ No count is written here: this block said "all four" while carrying five,
+  // which is the objectui#8606 shape in the very file that names it.
   const armA = z.object({ type: z.literal('probe-a') });
   const armB = z.object({ type: z.literal('probe-b') });
   const armC = z.object({ type: z.literal('probe-c') });
@@ -483,11 +551,28 @@ describe('the census fires — controls', () => {
   });
 
   it('accepts either side of a `z.lazy` as the arm name, and neither is still unnamed', () => {
-    // `z.union` rather than a discriminated one: a bare `z.lazy` member
-    // computes no `propValues`, which zod 4 refuses as a discriminated option
-    // (`any-component-union-fanout.test.ts` measures that refusal). The real
-    // tree reaches its lazy arm through an annotated member; what matters here
-    // is only which objects count as the arm's identity.
+    // `z.union`, and ⛔ nothing forbids a discriminated one here — this comment
+    // used to say a bare `z.lazy` member "computes no `propValues`, which zod 4
+    // refuses as a discriminated option", and all three parts of that are wrong
+    // on the zod version `packages/types/package.json` resolves today (4.4.3),
+    // and on this repo's tsc (6.0.3):
+    //  - a bare `z.lazy` over an object schema DOES compute `propValues` — it
+    //    inherits its member's;
+    //  - `z.discriminatedUnion('type', [lazyArm])` both type-checks and parses,
+    //    green for the declared literal and red for anything else;
+    //  - what zod 4.4.3 refuses as a discriminated option is a plain `z.union`
+    //    MEMBER, which computes no `propValues` — and it refuses at the first
+    //    PARSE, not at construction (`Invalid discriminated union option at
+    //    index "N"`). That is the refusal `any-component-union-fanout.test.ts`
+    //    measures, in `lets both nested unions declare their literals too`; ⛔ it
+    //    measures nothing about a lazy.
+    // ⚠️ Nor is the real tree's cast owed to `z.lazy`: `crud.zod.ts`'s action arm
+    // needs one because of its maintainer-ruled `z.ZodType<…>` annotation
+    // (objectui#7760), whose internals type `propValues` as `PropValues |
+    // undefined` — the annotation, not the lazy, is what `tsc` cannot see
+    // through. `censusOf` reads `def.type === 'union'`, which a discriminated
+    // union also is, so this choice changes nothing either way; what matters
+    // here is only which objects count as the arm's identity.
     const lazyArm = z.lazy(() => armC);
     const lazyUnion = z.union([lazyArm]);
     const unnamedAgainst = (namespace: Readonly<Record<string, unknown>>) =>

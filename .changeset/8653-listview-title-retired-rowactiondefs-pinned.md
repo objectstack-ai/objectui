@@ -16,10 +16,14 @@ rather than ruling over it, so declaring `title` on `ListViewSchema` would have 
 this repo accept what the platform save gate rejects. That asymmetry is also why
 objectui#6639 could take the *declare* branch for `ObjectGridSchema.title` one package
 over and this site could not. A parse-based census of `apps/ examples/ content/` and
-`packages/` found **zero** `list-view` nodes authoring `title` (the same instrument
-reports the two `object-grid` nodes that do), so the retirement costs no author a
-filename. `ObjectGrid`'s own `title` reads are untouched — they remain declared, ruled
-and read.
+`packages/` found **zero** `list-view` nodes authoring `title`, so the retirement costs
+no author a filename. Over that same corpus the instrument reports **three**
+`object-grid` nodes carrying the key: **two authored** ones, both in
+`content/docs/api/schema-reference.md`, plus one that is not authored at all —
+`packages/plugin-view/src/ObjectView.tsx` composes `title: schema.table?.title` onto a
+grid node it builds, so it is a producer writing the key rather than an author
+declaring it. `ObjectGrid`'s own `title` reads are untouched — they remain declared,
+ruled and read.
 
 **Behaviour change, deliberate.** A list view authoring only `title` (no `label`) no
 longer contributes a view segment to the export filename; it exports as

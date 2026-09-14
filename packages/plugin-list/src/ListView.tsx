@@ -3387,9 +3387,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
        *     also why objectui#6639 could take the DECLARE branch one package
        *     over and this site could not.
        *   - a parse-based census of `apps/ examples/ content/ packages/` found
-       *     ZERO `list-view` nodes authoring `title` (the same instrument
-       *     reports the two `object-grid` nodes that do), so no author loses a
-       *     filename to the retirement.
+       *     ZERO `list-view` nodes authoring `title`, so no author loses a
+       *     filename to the retirement. Over that same corpus the instrument
+       *     reports THREE `object-grid` nodes carrying the key: TWO AUTHORED,
+       *     both in `content/docs/api/schema-reference.md`, plus one that is
+       *     not authored at all — `plugin-view`'s `ObjectView` composes
+       *     `title: schema.table?.title` onto a grid node it builds, so that
+       *     third hit is a producer writing the key, not an author declaring
+       *     it. Say "authored" or the two numbers disagree.
        *
        * ⭐ The `as any` was also laundering a defect of its own: `X || any`
        * collapses the whole expression to `any`, so a locale-map `label`

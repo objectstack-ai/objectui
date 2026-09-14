@@ -193,10 +193,18 @@ export const SUBJECT_IS_THE_CWD = Object.freeze([
 /**
  * Cwd-rooted reads owed a repair. ⛔ SHRINK-ONLY: adding a line here is
  * admitting a new instance of a class that produced 13 defects in one day.
+ *
+ * EMPTY, and the ratchet in `scripts/__tests__/check-test-path-roots.test.ts`
+ * is pinned at zero to hold it there. The last entry was the storage-state
+ * read in `e2e/live/inline-edit-polish-2572.spec.ts`, held back because whether
+ * `import.meta` survives Playwright's TypeScript transform in this repository
+ * was unmeasured. objectui#9188 measured it: a probe spec in `e2e/live/`, run
+ * under `playwright.live.config.ts`, read `import.meta.url` back as its own
+ * absolute `file:` URL, byte-identical from two different launch directories,
+ * while the bare relative path moved between them. So the entry was repaired
+ * into the PR #7796 spelling rather than excused.
  */
-export const KNOWN_CWD_ROOTED = Object.freeze([
-  'e2e/live/inline-edit-polish-2572.spec.ts:34 -- `readFileSync(\'e2e/live/.auth/state.json\')`. Playwright, not Vitest: this spec runs only in `live-e2e.yml` against a real backend, so the repair cannot be verified from a seat that cannot run it, and whether `import.meta` survives Playwright\'s TS transform here is unmeasured. Tracked as objectui#9188.',
-]);
+export const KNOWN_CWD_ROOTED = Object.freeze([]);
 
 /**
  * The population floors. A gate that scans nothing passes, and that is the

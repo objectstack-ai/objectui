@@ -984,7 +984,21 @@ describe('objectui#7308 — the nested package READMEs are in the scan set, ledg
     expect(new Set(walked).size).toBe(walked.length);
   });
 
-  it('the widening is VISIBLE to the accounting: block-bearing pages are ledgered, block-free ones are covered', () => {
+  /**
+   * objectui#9412 paid the three rows down, so this pin's direction INVERTED:
+   * where it used to say "every block-bearing nested page is on the ledger", the
+   * state it now holds is that NONE of them is, and that every one of them is
+   * covered. Both readings are the same claim about the accounting — the
+   * widening is visible in it — and the half that was never about the debt is
+   * kept verbatim: a nested page with no ts/tsx block is covered at zero blocks
+   * and may not be ledgered.
+   *
+   * ⛔ The inversion is not a relaxation. A ledgered nested page would still be
+   * legal the day somebody writes a row with a reason (`analyze` re-derives every
+   * row), and the sibling case below is what keeps the row's SHAPE requirement
+   * live for that day.
+   */
+  it('the widening is VISIBLE to the accounting: every nested page is covered, none is ledgered', () => {
     const state = analyze({}) as {
       scans: Map<string, { blocks: unknown[] }>;
       covered: string[];
@@ -992,31 +1006,48 @@ describe('objectui#7308 — the nested package READMEs are in the scan set, ledg
     const nested = nestedPackageReadmePages(repoRoot);
     const withBlocks = nested.filter((doc) => (state.scans.get(doc)?.blocks.length ?? 0) > 0);
     const withoutBlocks = nested.filter((doc) => (state.scans.get(doc)?.blocks.length ?? 0) === 0);
-    // Non-vacuous on BOTH halves — this is the assertion that says why three rows
-    // were written for four pages.
+    // Non-vacuous on BOTH halves — a nested page that really holds blocks, and a
+    // nested page that really holds none, are each present in the tree.
     expect(withBlocks.length).toBeGreaterThan(0);
     expect(withoutBlocks.length).toBeGreaterThan(0);
-    expect([...withBlocks].sort()).toEqual(
-      Object.keys(UNGATED_DOCS as Record<string, string>)
-        .filter((doc) => nested.includes(doc))
-        .sort(),
-    );
+    // The debt is paid: no nested README is ungated any more.
+    expect(Object.keys(UNGATED_DOCS as Record<string, string>).filter((doc) => nested.includes(doc))).toEqual([]);
     // A page with no ts/tsx block is COVERED at zero blocks and may not be
     // ledgered: the stale-entry check would refuse it, which is exactly why
     // leaving it out of the surface to keep the ledger short is not available.
-    for (const doc of withoutBlocks) expect(state.covered).toContain(doc);
+    // The block-bearing ones are covered now too, and the gate compiles them.
+    for (const doc of nested) expect(state.covered).toContain(doc);
   });
 
-  it('every new ledger row carries a measured count, the phases, and what would have to change', () => {
+  it('every ledger row a nested page might get still owes a measured count, the phases, and what would have to change', () => {
+    const shapeFailures = (reason: string) =>
+      [
+        [/\d+ `tsx?` blocks?/, 'names no block count'],
+        [/\d+ diagnostics/, 'names no diagnostic count'],
+        [/TS\d{4}/, 'names no diagnostic code'],
+        [/syntax-phase|semantic-phase/, 'does not say which phase was measured'],
+        [/What would have to change|would have to change/, 'does not say what would have to change'],
+      ].flatMap(([pattern, complaint]) => ((pattern as RegExp).test(reason) ? [] : [complaint as string]));
+
+    // Non-vacuity, in place of the population this used to loop over: the shape
+    // checker itself is exercised against a row that satisfies it and one that
+    // does not, so a nested row reappearing cannot land on a check that has
+    // quietly stopped checking anything.
+    expect(
+      shapeFailures(
+        '2 `ts` blocks, 4 diagnostics, ALL semantic-phase: TS2304 x4. What would have to change: the ' +
+          'excerpts declare the values they use.',
+      ),
+    ).toEqual([]);
+    expect(shapeFailures('this page does not compile')).toHaveLength(5);
+
+    // Today: the nested leg carries no ledger row at all (objectui#9412). The
+    // loop below is what applies the shape the day one returns.
     const nested = new Set(nestedPackageReadmePages(repoRoot));
     const entries = Object.entries(UNGATED_DOCS as Record<string, string>).filter(([doc]) => nested.has(doc));
-    expect(entries.length).toBeGreaterThan(0);
+    expect(entries).toEqual([]);
     for (const [doc, reason] of entries) {
-      expect(reason, `${doc}: names no block count`).toMatch(/\d+ `tsx?` blocks?/);
-      expect(reason, `${doc}: names no diagnostic count`).toMatch(/\d+ diagnostics/);
-      expect(reason, `${doc}: names no diagnostic code`).toMatch(/TS\d{4}/);
-      expect(reason, `${doc}: does not say which phase was measured`).toMatch(/syntax-phase|semantic-phase/);
-      expect(reason, `${doc}: does not say what would have to change`).toMatch(/What would have to change|would have to change/);
+      expect(shapeFailures(reason), `${doc}: ${shapeFailures(reason).join('; ')}`).toEqual([]);
     }
   });
 

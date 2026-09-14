@@ -1031,6 +1031,56 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * stays here because this ledger keeps the record of why each declaration
  * existed, not because the page still carries them.
  *
+ * Batch 5 (objectui#9412) paid down objectui#7308's three NESTED package-README
+ * rows, the whole of that card's debt half. Re-derived first on `8196b10631`
+ * with this gate's own analyzer, the rows temporarily lifted — `analyze({ ungated
+ * })` for the population, `compileSnippets()` for the phases, over the closure
+ * `--build-filter` names (35/35 turbo tasks successful) — and every figure the
+ * rows recorded on `9ba7e9c3` still held: 20 blocks, 13 failing (3 syntax-phase,
+ * 10 semantic), 37 diagnostics, split across the pages exactly as written. In
+ * the same runs the sentinel produced TS2305, the positive control 0, and both
+ * bound controls TS2307, so the zeros below are readings from a program that
+ * demonstrably reports non-zero.
+ *
+ * Its defect was the one objectui#7308 named first, and it is the kind this gate
+ * exists for: `packages/core/src/adapters/README.md`'s custom-adapter template
+ * declared `implements DataSource<T>` while omitting `getObjectSchema` (TS2420),
+ * and wrote `// Your implementation` as the whole body of six methods annotated
+ * non-`void` (TS2355 x6). A reader who copied it got a class that does not
+ * satisfy the interface it claims. The template now implements all six REQUIRED
+ * members — `find`, `findOne`, `create`, `update`, `delete`, `getObjectSchema` —
+ * and each unimplemented body throws rather than falling off the end, so the
+ * reader's class type-checks at every step of filling it in.
+ *
+ * Routes, in the two the batches above established: 19 blocks compile (the two
+ * `{ ... }` elisions on the zod page written as real initialisers, six excerpts
+ * given their own imports or a `declare const` stand-in, one before/after fence
+ * split into the two programs it was really holding, and the shape sketch
+ * re-fenced ```text, which takes it out of the ts/tsx population), and ONE block
+ * is a declared fragment: `packages/components/src/__tests__/README.md`'s
+ * "Adding New Tests" pattern. Both of its specifiers were measured refused in
+ * this program before the marker was written — `vitest` is the ROOT-DECLARED
+ * control specifier itself, so the row's own first remedy ("the block imports
+ * `describe`/`it`/`expect` from `vitest`") produces a `[bound]` failure by
+ * construction, and `./test-utils` is TS2307 because every block compiles at the
+ * repository root while that helper is suite-local and unshipped
+ * (`@object-ui/components` lists `dist` in `files`, and `dist/` holds no
+ * `test-utils`). The row anticipated exactly that and named the marker as its
+ * alternative. The block imports the two specifiers anyway, because they are the
+ * ones a file in that directory really writes, and a stand-in would have taught a
+ * spelling nobody should copy; the marker costs no coverage here, since the block
+ * imports no documented package surface at all.
+ *
+ * ⚠️ One claim in the retired zod row was FALSE and is corrected rather than
+ * carried forward: it said `packages/types` "lists the whole of `src/` in its
+ * manifest `files`", so `src/zod/README.md` ships in the npm tarball. It does
+ * not. That manifest's `files` is `['dist', 'README.md', 'CHANGELOG.md',
+ * 'LICENSE']`, and `npm pack --dry-run --json` in that package reports 134
+ * entries, none of them under `src/` and exactly one README — the package-root
+ * one. The page was still worth clearing, on the reason every other row here
+ * gives: it is a page a reader copies from. It is not worth clearing because it
+ * ships, and a later card should not plan around that.
+ *
  * objectui#5343 then read that list back and cleared it for the getting-started
  * pages: no entry for `content/docs/guide/**` or for
  * `content/docs/api/schema-reference.md` names a missing export any more. Every
@@ -1057,66 +1107,9 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * @type {Record<string, string>}
  */
 const UNGATED_DOCS = {
-  // objectui#7308 — the nested package READMEs, LEDGER-FIRST. Measured on
-  // `9ba7e9c3` with this gate's own analyzer against the closure `--build-filter`
-  // names (35/35 turbo tasks successful): `analyze({ ungated: {} })` for the
-  // population, `compileSnippets()` for the phases, with the surface widened and
-  // these rows NOT yet written — which is the only order in which the numbers
-  // below are readings rather than justifications.
-  //
-  // The census, with each population named: the widening adds 4 documents
-  // (245 -> 249 in the scan set) carrying 20 `ts`/`tsx` blocks, of which 13 fail
-  // — 3 in the syntax phase and 10 in the semantic phase — for 37 diagnostics.
-  //
-  // ⚠️ Only THREE rows appear below for those four documents, and the missing
-  // fourth is mechanical rather than an exclusion: `packages/plugin-gantt/docs/
-  // verification/README.md` holds no `ts`/`tsx` fenced block at all (its fences
-  // are `sh`), so it joins the COVERED tier at zero blocks, and a row naming it
-  // here would fail this gate's own re-derivation as a stale entry — "an entry
-  // naming a file that ... holds no `ts` / `tsx` block at all, fails as a stale
-  // entry". ⛔ That is the opposite of keeping the ledger short by quietly leaving
-  // a page outside the surface, which is the defect objectui#7308 reported.
-  //
-  // ⚠️ These three rows are DEBT, not a terminal state — unlike the objectui#7856
-  // card 2 rows below, which are records nobody may repair. A package README is a
-  // page a reader copies from, so every row here can and should leave by the page
-  // compiling. Paying it down is its own card; ⛔ softening this gate is not a way
-  // to pay it.
-  'packages/components/src/__tests__/README.md':
-    '1 `ts` block (fence 104), 9 diagnostics, ALL semantic-phase: TS2593 x3, TS2304 x5, TS2552 x1. The ' +
-    "block is the page's \"Adding New Tests\" pattern: a bare `describe`/`it` body with no imports at all, " +
-    'so the Vitest globals (`describe`, `it`, `expect`) and the three local helpers it calls ' +
-    '(`validateComponentRegistration`, `renderComponent`, `getAllDisplayIssues`) are all undefined names. ' +
-    'What would have to change: the block imports `describe`/`it`/`expect` from `vitest` and the three ' +
-    'helpers from wherever this test suite ships them — or, if the helpers are suite-local and have no ' +
-    'importable home, the block gets a `FRAGMENT_MARKER` saying so.',
-  'packages/core/src/adapters/README.md':
-    '5 `ts` blocks (fences 36, 70, 191, 216, 239); 2 of them compile untouched. 3 fail with 9 diagnostics, ' +
-    'ALL semantic-phase: TS2304 x2, TS2355 x6, TS2420 x1. Two are excerpts naming a value the prose ' +
-    'introduces but the block never declares (`contextDataSource` at fence 191, `dataSource` at fence 216). ' +
-    "⚠️ The third is a DOCUMENTED-API defect rather than a snippet-hygiene one, and it is the first thing " +
-    'this widening found: the custom-adapter template at fence 239 declares `class MyCustomAdapter<T> ' +
-    "implements DataSource<T>` while omitting `getObjectSchema`, which `DataSource<T>` requires (TS2420), " +
-    'and its six method bodies are `// Your implementation` comments under non-`void` return annotations ' +
-    '(TS2355 x6). A reader who copies it gets a class that does not satisfy the interface it claims. What ' +
-    'would have to change: the template gains `getObjectSchema` and returns a value from each body (or ' +
-    'declares the bodies elided), and the two excerpts declare the value they use.',
-  'packages/types/src/zod/README.md':
-    '14 `ts` blocks (fences 88, 110, 140, 151, 220, 245, 266, 281, 289, 301, 324, 334, 354, 368); 5 compile ' +
-    'untouched. 9 fail with 19 diagnostics: 3 fail in the syntax-phase (fences 220, 301, 368 — TS1109 x10, ' +
-    'so their semantic half is UNMEASURED, not clean) and 6 fail in the semantic-phase (TS2304 x8, ' +
-    'TS2307 x1). Three ' +
-    'classes, each with its own remedy. (1) Fence 220 is a SHAPE SKETCH — a bare object literal at ' +
-    "statement position with `?:` optionality markers written on keys and `type: string` standing where a " +
-    'value goes; its fence language should be one this gate does not compile. (2) Fences 301 and 368 write ' +
-    'the elision `{ ... }` literally, which TypeScript reads as a spread with no operand. (3) The six ' +
-    'semantic failures are EXCERPTS that continue an earlier block’s imports — `ButtonSchema`, ' +
-    '`CardSchema`, `userInput`, `internalConfig`, `useForm`, `registry` — plus one specifier no imported ' +
-    'package declares (`@hookform/resolvers/zod`, TS2307), which is the bound this header states rather ' +
-    'than a page defect. What would have to change: each excerpt made self-contained against the built ' +
-    '`dist/*.d.ts`, the two elisions written as real initialisers, and the sketch’s fence relabelled. ' +
-    '⭐ This page SHIPS: `packages/types` lists the whole of `src/` in its manifest `files`, so it is ' +
-    'inside the npm tarball a reader downloads — which is why objectui#7308 filed it first.',
+  // objectui#7308's three nested-package-README rows were PAID DOWN by
+  // objectui#9412 and are gone from this object. Their record is in the header
+  // above, under "Batch 5"; nothing was softened here to retire them.
   // objectui#7856 card 2. Measured on `fedfa3e4` with this gate's own analyzer
   // against the closure `--build-filter` names (35/35 turbo tasks successful):
   // `analyze({ ungated: {} })` for the population, `compileSnippets()` for the

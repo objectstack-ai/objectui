@@ -57,17 +57,17 @@ stays open because the contract declares it as a record.
 ⚠️ **Three keys are deliberately NOT declared, and no runtime behaviour
 changes.** `enforceFieldSecurity`, `redactFields` and `requiredPermissions` are
 read by all three renderers and are **routed to the producer**, not declared
-here and not retired here. Measured on the installed contract (17.4.0) over
-every object schema `@objectstack/spec/ui` exports, with controls in the same
-pass:
+here and not retired here. Measured on the installed contract over the block-tag
+map `ComponentPropsMap` — the authoring surface an author writes into — plus the
+node envelope every block shares, with controls in the same pass:
 
 ```
-enforceFieldSecurity · redactFields   declared on 0 exported schemas
-requiredPermissions                   declared — including on the sibling block
-                                      RecordQuickActionsProps — but on none of
-                                      RecordDetails/Highlights/RelatedListProps
-aria · fields · columns               declared on many          <- CONTROL
-zzqx_no_such_key                      declared on 0             <- CONTROL
+enforceFieldSecurity · redactFields   declared by no block, and not on the node
+requiredPermissions                   declared by exactly one block,
+                                      `record:quick_actions`, and by none of
+                                      record:details / :highlights / :related_list
+aria · fields                         declared by many blocks          <- CONTROL
+zzqx_no_such_key                      declared by none                 <- CONTROL
 ```
 
 Declaring them here would make this repo accept what the platform refuses;

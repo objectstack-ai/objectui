@@ -34,7 +34,7 @@
  * the platform refuses. The question per key is therefore: does the contract
  * declare it, and on WHICH schema? Both halves matter — a token that exists
  * somewhere under the UI contract is not a declaration on the schema a given
- * node maps to. {@link declaringSchemasOf} answers exactly that, over the
+ * node maps to. {@link declaringBlocksOf} answers exactly that, over the
  * installed published artifact, every run.
  *
  *   - `hideFields` (`record-details`) — DECLARED, on `RecordDetailsProps` and
@@ -53,15 +53,15 @@
  *     `recordRelatedListInputs.spec-parity.test.ts`. ⇒ ALIGN THE MIRROR, for the
  *     one member this renderer reads off the envelope.
  *   - `enforceFieldSecurity` and `redactFields` (three renderers each) — declared
- *     on NO object schema the UI contract exports. ⇒ "declare" is off the table
+ *     by NO block the UI contract maps, and not on the shared node envelope
+ *     either. ⇒ "declare" is off the table
  *     outright. ROUTED TO THE PRODUCER, ⛔ not retired here: the renderers honour
  *     both keys today on the raw-node path, so deleting the reads would remove a
  *     redaction that is working, and changing runtime masking behaviour is the
  *     maintainer floor this card must not cross.
  *   - `requiredPermissions` (three renderers each) — the sharpest of the twelve.
- *     The contract DOES declare it, including on the sibling page-component
- *     props schema `RecordQuickActionsProps`, but NOT on the three this card
- *     covers. A word-frequency screen over the contract reads "present" and is
+ *     The contract DOES declare it, on the sibling block `record:quick_actions`,
+ *     but NOT on the three this card covers. A word-frequency screen over the contract reads "present" and is
  *     wrong about exactly this; the per-schema census below is what separates
  *     them. ⇒ ROUTED TO THE PRODUCER, same floor.
  *
@@ -71,7 +71,9 @@
  *     else — vitest strips types. They are the ONLY half that discriminates the
  *     two mirror alignments from their defect, because that defect was a
  *     TypeScript-only refusal.
- *   - The census legs read the INSTALLED `@objectstack/spec` artifact. They are
+ *   - The census legs read the INSTALLED `@objectstack/spec` artifact, over the
+ *     contract's own block-tag map plus the node envelope — the surface an
+ *     author actually writes into. They are
  *     the PREMISE of the routing decision, never its evidence: they were green
  *     before this card and are green after. They earn their place by going RED
  *     the day the platform declares one of the routed keys — which is the signal
@@ -89,7 +91,12 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import * as specUi from '@objectstack/spec/ui';
+// ⛔ NOT `import * as` from '@objectstack/spec/ui'. A namespace import pulls in
+// the restricted form-VIEW vocabulary (`FormField` / `FormFieldSchema`,
+// objectui#3090) whose type erases to `any`, and the repo's `no-restricted-imports`
+// rule refuses it by name. Named imports are also the better instrument here:
+// they make the census population a DECLARED set rather than "whatever the module
+// happens to export".
 import {
   ComponentPropsMap,
   PageComponentSchema,
@@ -223,25 +230,41 @@ function objectShapeKeys(schema: unknown): string[] | null {
 }
 
 /**
- * The census this card's routing rests on: which EXPORTED object schemas of the
- * installed UI contract declare `key`. Derived from the artifact on every run —
- * never a list written down here.
+ * The census this card's routing rests on: which BLOCKS of the installed UI
+ * contract declare `key` on their props. Derived from the artifact on every run
+ * — never a list written down here.
+ *
+ * The population is `ComponentPropsMap`, the contract's own block-tag map, which
+ * is the authoring surface an author writes into. That is narrower and more
+ * meaningful than every export of the module: a token can appear on
+ * `ActionSchema` or a nav item and still be no part of any block's props, which
+ * is exactly the trap `requiredPermissions` sets for a word-frequency screen.
  */
-function declaringSchemasOf(key: string): string[] {
+function declaringBlocksOf(key: string): string[] {
   const found: string[] = [];
-  for (const [name, value] of Object.entries(specUi as Record<string, unknown>)) {
-    const keys = objectShapeKeys(value);
-    if (keys?.includes(key)) found.push(name);
+  for (const [tag, schema] of Object.entries(ComponentPropsMap as Record<string, unknown>)) {
+    const keys = objectShapeKeys(schema);
+    if (keys?.includes(key)) found.push(tag);
   }
   return found.sort();
 }
 
-/** How many exported object schemas the census actually walked. */
-const censusPopulation = (): number =>
-  Object.values(specUi as Record<string, unknown>).filter((v) => objectShapeKeys(v) !== null).length;
+/** The block tags whose props schema the census could not walk. */
+const unwalkableBlocks = (): string[] =>
+  Object.entries(ComponentPropsMap as Record<string, unknown>)
+    .filter(([, schema]) => objectShapeKeys(schema) === null)
+    .map(([tag]) => tag)
+    .sort();
 
-/** The three props schemas this card's renderers map to. */
-const CARD_PROPS_SCHEMAS = ['RecordDetailsProps', 'RecordHighlightsProps', 'RecordRelatedListProps'] as const;
+/** How many block props schemas the census actually walked. */
+const censusPopulation = (): number =>
+  Object.keys(ComponentPropsMap as Record<string, unknown>).length - unwalkableBlocks().length;
+
+/** Keys the contract accepts on the page-component NODE, on every block. */
+const nodeLevelKeys = (): string[] => objectShapeKeys(PageComponentSchema) ?? [];
+
+/** The three blocks this card's erasure-repaired renderers implement. */
+const CARD_BLOCKS = ['record:details', 'record:highlights', 'record:related_list'] as const;
 
 /**
  * The keys routed to the producer, and the renderer files each is ledgered
@@ -267,34 +290,42 @@ const maskedSource = (file: string): string => mask(readFileSync(join(RENDERERS,
 const ERASING_DEFAULT = /schema\s*=\s*\{\}\s*as\s+any/;
 
 describe('objectui#8649 — the census the routing rests on (PREMISE, re-derived every run)', () => {
-  it('walks a non-empty population and discriminates', () => {
+  it('walks a non-empty population, names what it cannot walk, and discriminates', () => {
     // Calibration in both directions: an empty walk would make every "declared
     // nowhere" reading below vacuous, and an everything-set would make them
     // unfalsifiable.
-    expect(censusPopulation()).toBeGreaterThan(50);
-    expect(declaringSchemasOf('zzqx_no_such_key')).toEqual([]);
-    expect(declaringSchemasOf('aria').length).toBeGreaterThan(0);
-    expect(declaringSchemasOf('fields').length).toBeGreaterThan(0);
+    expect(censusPopulation()).toBeGreaterThan(30);
+    // ⚠️ A block whose props schema this walk cannot open is a HOLE in every
+    // absence reading below, so it is surfaced rather than silently skipped. The
+    // three blocks this card rules on must never be in it.
+    for (const block of CARD_BLOCKS) expect(unwalkableBlocks()).not.toContain(block);
+    expect(declaringBlocksOf('zzqx_no_such_key')).toEqual([]);
+    expect(declaringBlocksOf('aria').length).toBeGreaterThan(0);
+    expect(declaringBlocksOf('fields').length).toBeGreaterThan(0);
   });
 
-  it('`enforceFieldSecurity` and `redactFields` are declared on NO exported UI-contract schema', () => {
-    // The reading that takes "declare" off the table for these two. It goes RED
-    // the day the platform declares either — which is the signal that the routed
-    // producer-side card landed.
-    expect(declaringSchemasOf('enforceFieldSecurity')).toEqual([]);
-    expect(declaringSchemasOf('redactFields')).toEqual([]);
+  it('`enforceFieldSecurity` and `redactFields` are declared by NO block, and not on the node', () => {
+    // The reading that takes "declare" off the table for these two: they are no
+    // part of any block's authoring surface, nor of the envelope every block
+    // shares. It goes RED the day the platform declares either — which is the
+    // signal that the routed producer-side card landed.
+    expect(declaringBlocksOf('enforceFieldSecurity')).toEqual([]);
+    expect(declaringBlocksOf('redactFields')).toEqual([]);
+    expect(nodeLevelKeys()).not.toContain('enforceFieldSecurity');
+    expect(nodeLevelKeys()).not.toContain('redactFields');
   });
 
-  it('`requiredPermissions` IS declared by the contract — just never on these three props schemas', () => {
+  it('`requiredPermissions` IS declared by the contract — just never on these three blocks', () => {
     // Why a word-frequency screen gets this key wrong, stated as an assertion
-    // rather than as prose: the token is present AND the declaration is absent
-    // where these renderers read it.
-    const declaring = declaringSchemasOf('requiredPermissions');
+    // rather than as prose: the token is present on the authoring surface AND
+    // absent from the three blocks that read it.
+    const declaring = declaringBlocksOf('requiredPermissions');
     expect(declaring.length).toBeGreaterThan(0);
-    // The sibling page-component props schema that DOES carry it — the precedent
-    // the producer-side card would cite.
-    expect(declaring).toContain('RecordQuickActionsProps');
-    for (const schema of CARD_PROPS_SCHEMAS) expect(declaring).not.toContain(schema);
+    // The sibling block that DOES carry it — the precedent the producer-side
+    // card would cite.
+    expect(declaring).toContain('record:quick_actions');
+    for (const block of CARD_BLOCKS) expect(declaring).not.toContain(block);
+    expect(nodeLevelKeys()).not.toContain('requiredPermissions');
   });
 
   it('the block-tag map entry IS the named props schema (premise of the type pins)', () => {
@@ -304,13 +335,16 @@ describe('objectui#8649 — the census the routing rests on (PREMISE, re-derived
   });
 
   it('the two mirror alignments are alignments — the contract declares both keys', () => {
-    expect(declaringSchemasOf('relationshipValueField')).toContain('RecordRelatedListProps');
-    expect(declaringSchemasOf('hideFields')).toContain('RecordDetailsProps');
-    // `properties` is a NODE-level key, so it is declared on the page-component
-    // node rather than on any block's props bag.
-    expect(declaringSchemasOf('properties')).toContain('PageComponentSchema');
-    expect(objectShapeKeys(PageComponentSchema)).toContain('dataSource');
-    expect(objectShapeKeys(PageComponentSchema)).not.toContain('relationshipField');
+    expect(declaringBlocksOf('relationshipValueField')).toContain('record:related_list');
+    expect(declaringBlocksOf('hideFields')).toContain('record:details');
+    // `properties` is a NODE-level key: declared on the page-component envelope
+    // every block shares, and on no block's own props bag. Both halves asserted,
+    // because the rail's declaration is only an alignment if BOTH are true.
+    expect(nodeLevelKeys()).toContain('properties');
+    expect(declaringBlocksOf('properties')).toEqual([]);
+    // Calibration of the node reading itself, in both directions.
+    expect(nodeLevelKeys()).toContain('dataSource');
+    expect(nodeLevelKeys()).not.toContain('relationshipField');
   });
 });
 

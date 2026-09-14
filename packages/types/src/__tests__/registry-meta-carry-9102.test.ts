@@ -194,11 +194,25 @@ const reaches = (root: z.ZodType, type: string): boolean => {
 };
 
 /**
- * The import boundary's SECOND identity-property exception, carried by
- * objectui#9088 and deliberately not repaired here: zod spells "no rest
- * element" as `def.rest === null`, the walker compares it against `undefined`,
- * so every rest-less tuple is rebuilt whether or not anything changed beneath
- * it. Excused below exactly as the objectui#9034 pin excuses it.
+ * Does the subtree hold a tuple with no rest element?
+ *
+ * ⭐ This USED to name the import boundary's SECOND identity-property
+ * exception, and it was excused below. objectui#9088 repaired it, so the
+ * walker now has exactly ONE identity-property exception — the `lazy` arm —
+ * and this helper selects a POPULATION the boundary is expected to get right
+ * rather than a set to be excused.
+ *
+ * The defect it used to describe: zod spells "no rest element" as
+ * `def.rest === null`, and the `tuple` arm compared that against the
+ * `undefined` its own `def.rest ? … : undefined` produced, so
+ * `null === undefined` was false and every rest-less tuple was rebuilt whether
+ * or not anything beneath it had changed. The arm now copies `def.rest`.
+ *
+ * ⛔ Do NOT re-add an exclusion built on this helper to make a future red go
+ * away. A rest-less tuple being rebuilt is the defect objectui#9088 closed, and
+ * the assertion below is what keeps this file from going blind to it — measured:
+ * while the exclusion stood, restoring the defect left this whole file at
+ * 34/34 green.
  */
 const hasRestlessTuple = (root: z.ZodType): boolean => {
   const seen = new Set<z.ZodType>();
@@ -799,14 +813,52 @@ describe('site ① — the import boundary conveys the protocol\'s metadata', ()
   });
 
   it('⭐ every export with nothing to strip still comes back REFERENCE-EQUAL', () => {
+    // ⭐ There used to be a second exclusion here, `&& !hasRestlessTuple(s)`, a
+    // carve-out for objectui#9088. That card has landed and the exclusion is
+    // DELETED, not narrowed — so the exports it used to excuse are back inside
+    // this assertion and have to satisfy it like everything else.
+    //
+    // ⛔ It mattered more here than in the sibling pin, because this carve-out
+    // carried NO expiry assertion: nothing required the excluded set to be
+    // non-empty, so it could only ever come back green. Measured while it stood:
+    // restoring the defect in the `tuple` arm left this entire file at 34/34
+    // passing, exit 0 — blind to the exact defect objectui#9088 closed.
     const clean = census.roots.filter(([, s]) => !reaches(s, 'default'));
-    const plain = clean.filter(([, s]) => !reaches(s, 'lazy') && !hasRestlessTuple(s));
-    expect(plain.length, 'no clean export free of both exceptions — this assertion is vacuous').toBeGreaterThan(50);
+    const plain = clean.filter(([, s]) => !reaches(s, 'lazy'));
+    expect(plain.length, 'no clean export outside the `lazy` exception — this assertion is vacuous').toBeGreaterThan(50);
     const broken = plain.filter(([, s]) => stripImportedDefaults(s) !== s).map(([n]) => n);
     expect(
       broken.slice(0, 10),
       'a clean subtree was rebuilt. Carrying metadata must never rebuild a node the walk did not already rebuild.',
     ).toEqual([]);
+  });
+
+  it('⭐ the rest-less tuples this file used to excuse are reference-equal (objectui#9088)', () => {
+    // ⭐ The replacement for the deleted carve-out, and deliberately stronger
+    // than removing the exclusion alone. Dropping the filter would leave this
+    // population silently untested the day the spec stops publishing a rest-less
+    // tuple; this asserts the population is NON-EMPTY *and* that every member
+    // satisfies the property the carve-out used to suppress. It matches what
+    // `imported-defaults-describe-9034.test.ts` now asserts, so the two pins
+    // fail together rather than one covering for the other.
+    const clean = census.roots.filter(([, s]) => !reaches(s, 'default'));
+    const restless = clean.filter(([, s]) => !reaches(s, 'lazy') && hasRestlessTuple(s));
+    expect(
+      restless.length,
+      'no clean export holds a rest-less tuple — objectui#9088\'s population is empty on this spec version, ' +
+        'so this assertion proves nothing and the corpus needs re-deriving',
+    ).toBeGreaterThan(0);
+
+    const stillRebuilt = restless.filter(([, s]) => stripImportedDefaults(s) !== s).map(([n]) => n);
+    expect(
+      stillRebuilt.slice(0, 10),
+      'a clean export holding a rest-less tuple was REBUILT — objectui#9088 has regressed: the `tuple` arm is ' +
+        'normalising `def.rest` to `undefined` again, so `null === undefined` is false for every rest-less tuple',
+    ).toEqual([]);
+
+    // ⭐ PROVING REMOVAL: restore `: undefined` at the `tuple` arm's `const rest`
+    // in `../zod/imported-defaults.ts` and this assertion reddens. While the
+    // carve-out stood, that same mutation left this file entirely green.
   });
 
   it('⛔ the spec\'s own graph is left exactly as it was found — every node, both derivations', () => {

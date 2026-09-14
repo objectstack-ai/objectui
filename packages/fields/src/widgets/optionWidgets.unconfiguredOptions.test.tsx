@@ -38,6 +38,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { SelectField } from './SelectField';
 import { MultiSelectField } from './MultiSelectField';
 import { CheckboxesField } from './CheckboxesField';

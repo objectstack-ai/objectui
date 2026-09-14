@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { describe, it, expect, vi } from 'vitest';
 import { DateField } from './widgets/DateField';
 import { DateTimeField } from './widgets/DateTimeField';

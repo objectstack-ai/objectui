@@ -20,6 +20,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import type { LookupFieldMetadata } from '@object-ui/types';
 import { LookupField } from './LookupField';
 

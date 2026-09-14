@@ -36,10 +36,30 @@
     // program does not name it either — so leaving it unset is what reproduces
     // the exact program these tests were checked by until now, which is the
     // property objectui#4006 had to preserve while moving the coverage.
-    // Measured: no test file here uses `global`, and the seven suites that use
-    // `@testing-library/jest-dom` matchers `import '@testing-library/jest-dom'`
-    // explicitly, so its global augmentation reaches the whole program through
-    // that import (plugin-list's lesson).
+    // Re-measured here on this program's own resolved file list (objectui#8722
+    // round 2) — `tsc -p tsconfig.test.json --listFiles`, never a glob, because
+    // these tests sit at four different depths and any single glob reads a
+    // partial population. Of its 161 test files:
+    //
+    //   - None uses the Node `global` object, and one could not slip in
+    //     unnoticed: injecting `global.setTimeout` into a test file here is
+    //     TS2304, against an unmutated exit 0. That is what keeps `types` unset
+    //     safe on the Node axis, and it is the claim this paragraph rests on.
+    //   - Every one of the 92 files that call `@testing-library/jest-dom`
+    //     matchers now carries its own `import '@testing-library/jest-dom';`,
+    //     so no file's matchers are typed only by a DIFFERENT file's import.
+    //     119 files carry that import in all; the 27 beyond the 92 do not use
+    //     a matcher themselves.
+    //
+    // Those counts are a reading taken once, not a live fact. The instrument
+    // that re-derives them is `pnpm census:tsconfig-test-parity`, and the
+    // column that must stay 0 for this package is `leaning`.
+    //
+    // What the second point does NOT claim is that any single import is
+    // load-bearing. The augmentation is still PROGRAM-scoped, so removing any
+    // proper subset of those 119 imports leaves the program green (measured).
+    // What changed is that every matcher user is now also a supplier, so no
+    // file here can be reddened by an edit to a file it does not control.
     //
     // `paths` drops the root tsconfig's source-tree mappings so `@object-ui/*`
     // and `@objectstack/spec/*` resolve through each workspace dependency's

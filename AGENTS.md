@@ -233,10 +233,12 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
   objectui#7791(PR #7796)同一个文件仓根 `7 passed`、包级 `2 failed / 5 passed`,cwd 是唯一
   变量;objectui#7799(PR #7806)按 `packages/*/src` 普查,命中 19 个同类、13 个确有缺陷。
   拼法用 PR #7796 落地、#7806 沿用的那一个:从**裸** `import.meta.url` 逐段上溯到仓根,
-  ⛔ 不引入第三种;⛔ 尤其别写 `new URL(<相对路径>, import.meta.url)` —— 本仓的测试变换里它被
-  Vite 重写成 `http://localhost:3000/@fs/…`,`fileURLToPath` 在**两种 cwd 下都**抛
-  `ERR_INVALID_URL_SCHEME`,那是把一次假红换成整个套件根本加载不起来。
-  ⚠️ **这一条今天没有任何门拦得住**:#7799 修掉的是 13 个实例,不是这一类。
+  ⛔ 不引入第三种;`new URL(<相对路径>, import.meta.url)` 就是第三种,别写 —— 但理由只是「拼法唯一」。
+  这里曾断言它被 Vite 重写成 `http://localhost:3000/@fs/…`、`fileURLToPath` 在**两种 cwd 下都**抛
+  `ERR_INVALID_URL_SCHEME`;objectui#9191 按 `vitest.config.mts` 声明的每个 project 逐一实测,未能复现
+  —— node 与 happy-dom 两种 environment、两种 cwd 下 `import.meta.url` 都是 `file:` URL,文件读得到。
+  `@fs` 那个形状是 Vite dev-server/浏览器变换的产物,本仓测试不声明 browser mode,不走那条路。
+  ⚠️ **`process.cwd()` 那一类已由 `pnpm check:test-path-roots` 拦下,这个拼法它按设计不拦**(理由写在该脚本头部)。
 
 ### 测试纪律(flaky 测试:先找竞态,别调超时)
 

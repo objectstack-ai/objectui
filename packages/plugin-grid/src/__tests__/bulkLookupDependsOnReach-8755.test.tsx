@@ -303,11 +303,19 @@ describe('objectui#8755 leg A — a `dependsOn` lookup BULK param gates on an EM
     // `dependsOn` is not among the destructured ones. ⛔ If a later change adds
     // it to that destructure list, the renders above go red for a reason no
     // render can name — this reads the adapter directly so the cause is visible.
-    const field = bulkParamToField(GATED_LOOKUP as any, false);
+    //
+    // ⭐ The param is spread with a `help` key DECLARED, and that is the whole
+    // point of the control below. An earlier draft read `field.help` off a
+    // fixture that carried no `help` at all — so `undefined` was what the
+    // adapter returned whatever it did with its destructure list, and contract
+    // review proved it by deleting `help: _help,` and watching the case stay
+    // green. A control that cannot come back red is not a control.
+    const field = bulkParamToField({ ...GATED_LOOKUP, help: 'rendered by the dialog, not the widget' } as any, false);
     expect(field.dependsOn).toEqual(['region']);
-    // LIT CONTROL on the same call, in both directions: a key the adapter DOES
-    // destructure out must be absent, so "present" above is a reading of the
-    // spread and not of an adapter that copies everything.
+    // LIT CONTROL on the same call, in both directions: `help` IS declared on
+    // the param above and IS in the adapter's destructure list, so its absence
+    // here is a reading of that list — and `dependsOn`'s presence is therefore a
+    // reading of the spread, not of an adapter that copies everything.
     expect(field.help).toBeUndefined();
     expect(field.type).toBe('lookup');
     expect(field.reference_to).toBe('contacts');
@@ -384,19 +392,22 @@ describe('objectui#8755 leg C — the fix ORs a second family; it does not widen
     expect(EXPANDABLE_FIELD_TYPES.has('radio')).toBe(false);
   });
 
-  it('asks `@object-ui/core` EXPANDABLE_FIELD_TYPES which params get the record', async () => {
+  it('AT LEAST ONE of this dialog’s two reads consults the set `@object-ui/core` exports', async () => {
     // Identity, not membership — the shape objectui#4770 established for the
     // other family. The behavioural cases above pass against ANY set holding
     // `lookup`, including a re-inlined private copy; the spy is installed on the
     // Set object exported by `@object-ui/core`, so it records a call only if
     // this dialog consulted THAT object while rendering.
     //
-    // ⚠️ Stated at the strength the instrument actually has: this dialog reads
-    // the same object TWICE per param — once for the DataSource decision
-    // (`bulkParamToField`'s `fieldNeedsDataSource`) and once for the record
-    // supply — and a `has` spy cannot tell them apart. So it was GREEN before
-    // this card's change too. What it pins is that NEITHER read is a private
-    // copy; the record-supply behaviour itself is pinned by leg A and leg D.
+    // ⚠️ STATED AT THE STRENGTH THIS INSTRUMENT HAS, AND NO HIGHER. The dialog
+    // reads that object twice per param — `bulkParamToField`'s
+    // `widgetNeedsDataSource` (pre-existing) and `paramNeedsDependentValues`
+    // (the site this card adds) — and a `has` spy cannot tell the two apart, so
+    // a recorded call proves only that AT LEAST ONE of them is not a private
+    // copy. It was green before this card's change, and contract review measured
+    // that it STAYS green when the record-supply read alone is re-forked onto a
+    // private literal `Set`. ⛔ So it does not pin the new site; the case below
+    // is the one that does, and leg A and leg D pin the behaviour.
     const spy = vi.spyOn(EXPANDABLE_FIELD_TYPES, 'has');
     try {
       openDialog([REGION, GATED_LOOKUP]);
@@ -405,6 +416,53 @@ describe('objectui#8755 leg C — the fix ORs a second family; it does not widen
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it('⭐ and the RECORD-SUPPLY read is that same object — forcing it to answer `false` re-gates the picker', async () => {
+    // The discriminating instrument the `has`-call spy above is not. It does not
+    // watch WHICH read happened; it changes what the shared object ANSWERS and
+    // reads the consequence at the one site this card adds.
+    //
+    //  - real code: `paramNeedsDependentValues` asks THIS object, is told
+    //    `lookup` is not a member, supplies no `dependentValues`, and the
+    //    trigger stays gated even after the parent is filled — what is asserted.
+    //  - a private-copy fork of that one site: it never asks this object, still
+    //    answers true, still supplies the record, and the gate LIFTS ⇒ RED.
+    //
+    // The other read (`widgetNeedsDataSource`) is stubbed by the same mock, and
+    // deliberately: it only decides whether a `dataSource` prop is threaded, and
+    // `dependenciesMissing` does not read it, so it cannot produce the gate.
+    const real = EXPANDABLE_FIELD_TYPES.has.bind(EXPANDABLE_FIELD_TYPES);
+    const spy = vi
+      .spyOn(EXPANDABLE_FIELD_TYPES, 'has')
+      .mockImplementation((k: string) => (k === 'lookup' ? false : real(k)));
+    try {
+      // SELF-TEST of the stub before anything is read through it, on a known
+      // input each way — otherwise a mock that silently failed to install would
+      // render this case's green as a reading of the dialog.
+      expect(EXPANDABLE_FIELD_TYPES.has('lookup')).toBe(false);
+      expect(EXPANDABLE_FIELD_TYPES.has('user')).toBe(true);
+
+      openDialog([REGION, GATED_LOOKUP, KEYSTROKE_WITNESS]);
+      expect(await screen.findByTestId('lookup-trigger-gated')).toBeDisabled();
+
+      typeRegion('north');
+
+      // KEYSTROKE WITNESS — the same control leg A uses: the radio's offered set
+      // narrows, so the dialog demonstrably saw the change. Without it, "still
+      // gated" could be a dialog that never re-rendered.
+      await waitFor(() => expect(screen.queryByTestId('radio-option-smb')).not.toBeInTheDocument());
+      expect(screen.getByTestId('radio-option-ent')).toBeInTheDocument();
+
+      // SUBJECT — the gate did NOT lift, because the supply site asked the
+      // object this test controls.
+      expect(screen.getByTestId('lookup-trigger-gated')).toBeDisabled();
+      expect(screen.queryByTestId('lookup-trigger-contact')).not.toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
+    }
+    // …and the stub is gone again, so no later case inherits it.
+    expect(EXPANDABLE_FIELD_TYPES.has('lookup')).toBe(true);
   });
 });
 

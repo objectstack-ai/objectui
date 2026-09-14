@@ -53,7 +53,10 @@
  *     UNDECLARED; 40 since objectui#7804 declared
  *     `ObjectKanbanSchema.onCardClick` / `.onQuickAdd`, that same shape again on
  *     the face that INHERITED those reads when objectui#8802 retired the
- *     sibling `kanban` arm). A key nothing reads
+ *     sibling `kanban` arm; ⛔ this running tally is PROSE and has never carried
+ *     objectui#7655's six or objectui#8802's removals, so it is not today's
+ *     figure — read `RUNTIME_SLOT`'s own docblock and the length pin beside it,
+ *     which objectui#7804's `DataTableSchema` slice moved by seven). A key nothing reads
  *     gets the `?: never` tombstone (22 sites, `RETIRED` below; the `crud.ts`
  *     `confirm` / `base.ts` convention).
  *
@@ -216,12 +219,16 @@ const objectOf = (mirror: z.ZodType, key: string): z.ZodObject<z.ZodRawShape> =>
 };
 
 /**
- * 44 keys whose function value REACHES a renderer at runtime — the TypeScript
+ * 51 keys whose function value REACHES a renderer at runtime — the TypeScript
  * interface keeps the function type (36 at the objectui#6124 census; 38 since
  * `ObjectDataTableSchema.onRowClick`, objectui#6576, and `AlertDialogSchema.onAction`,
  * objectui#7104, joined; 44 since objectui#7655 gave `chatbot-enhanced` and
  * `chatbot-floating` their own faces, each carrying the three slots its
- * registration forwards). Channel measured per key on this tree:
+ * registration forwards; 51 since objectui#7804's `DataTableSchema` slice
+ * declared the seven keys that arm's renderer had been reading undeclared).
+ * ⛔ Do not add a delta to this figure — the pin that cannot rot is
+ * `expect(RUNTIME_SLOT).toHaveLength(…)` below; count the constant.
+ * Channel measured per key on this tree:
  * `schema.onX` read/forwarded (kanban, chatbot, data-table, form, code-editor,
  * menu items), `props.onX` called after `SchemaRenderer`'s spread (input,
  * textarea, select, checkbox, file-upload, date-picker, input-otp, pagination,
@@ -270,6 +277,37 @@ const RUNTIME_SLOT: readonly Site[] = [
   ['data-display.zod.ts', 'DataTableSchema', 'onRowDelete', DataTableZod],
   ['data-display.zod.ts', 'DataTableSchema', 'onSelectionChange', DataTableZod],
   ['data-display.zod.ts', 'DataTableSchema', 'onColumnsReorder', DataTableZod],
+  // ⭐ objectui#7804 — the `DataTableSchema` slice, seven keys the REGISTERED
+  // `data-table` renderer read off the authored document while this arm declared
+  // none of them, so `BaseSchema.passthrough()` ACCEPTED and KEPT an authored
+  // `{ "action": "toast" }` and handed it to a call site that CALLS it.
+  //
+  // Each channel measured on its own, and they do NOT all share one — which is
+  // why six siblings are not evidence for the seventh:
+  //   - `onAddRecord` / `onBatchSave` / `onCellChange` / `onRowSave` are React
+  //     props on `ObjectGridComponentProps`; `ObjectGrid` puts them on the
+  //     `data-table` node it builds (`onRowSave ?? defaultRowSave` and
+  //     `onBatchSave ?? defaultBatchSave` install a dataSource-backed default
+  //     only when the host wired none);
+  //   - `onRowActionDef` is `RelatedList`'s own `onRowAction` React prop,
+  //     forwarded onto the node it builds;
+  //   - `onRowClick` has THREE suppliers — `ObjectGrid`'s `navigation.handleClick`,
+  //     `ObjectDataTable`'s `schema.onRowClick ?? handleRowClick`, and
+  //     `RelatedList`'s own prop — and its forwarding face,
+  //     `ObjectDataTableSchema.onRowClick`, is already a site in this ledger;
+  //   - ⚠️ `onColumnResize` has NO host prop at all. `ObjectGrid` supplies its own
+  //     closure, folding the resize into the merged `{ order, widths }` layout it
+  //     persists and reports through `onColumnStateChange`. A live function still
+  //     reaches the renderer through the TypeScript face, so the slot is real;
+  //     `'retired'` would have published "no renderer reads this key" for a read
+  //     objectui#6175 wired on purpose.
+  ['data-display.zod.ts', 'DataTableSchema', 'onAddRecord', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onBatchSave', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onCellChange', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onColumnResize', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onRowActionDef', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onRowClick', DataTableZod],
+  ['data-display.zod.ts', 'DataTableSchema', 'onRowSave', DataTableZod],
   ['disclosure.zod.ts', 'AccordionSchema', 'onValueChange', AccordionZod],
   ['disclosure.zod.ts', 'CollapsibleSchema', 'onOpenChange', CollapsibleZod],
   ['disclosure.zod.ts', 'ToggleGroupSchema', 'onValueChange', ToggleGroupZod],
@@ -444,7 +482,7 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     ]);
   });
 
-  it('65 sites are ledgered, 44 runtime slots + 21 retired, with no key filed twice', () => {
+  it('72 sites are ledgered, 51 runtime slots + 21 retired, with no key filed twice', () => {
     // 58 from objectui#6124; the 59th is `ObjectDataTableSchema.onRowClick`,
     // minted with its arm by objectui#6576 / #6914; the 60th is
     // `AlertDialogSchema.onAction`, declared by objectui#7104 for a key the
@@ -473,10 +511,17 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     // `KanbanRendererProps`, which is what let the arm carry the tombstone the
     // measurement always asked for. A ledger GROWTH on the retired half, and
     // the disposition is the one objectui#7804 measured — not a new reading.
-    expect(RUNTIME_SLOT).toHaveLength(44);
+    //
+    // ⭐ 65 → 72: objectui#7804's `DataTableSchema` slice, the largest single
+    // growth this ledger has taken — seven keys the registered `data-table`
+    // renderer read off the authored document with the arm declaring none of
+    // them. All seven land on the RUNTIME SLOT half, each measured at its own
+    // channel; `onColumnResize` is the one that does not share the group's, and
+    // the site comment beside the rows records why that mattered.
+    expect(RUNTIME_SLOT).toHaveLength(51);
     expect(RETIRED).toHaveLength(21);
     const ids = ALL_SITES.map(([file, schema, key]) => `${file}#${schema}.${key}`);
-    expect(new Set(ids).size).toBe(65);
+    expect(new Set(ids).size).toBe(72);
   });
 
   it.each(ALL_SITES)('%s %s.%s is DECLARED on the mirror shape, with the objectui#6124 guidance as its description', (_file, _schema, key, mirror) => {
@@ -636,6 +681,15 @@ export type assertionRuntimeSlotsKeepTheirFunctionType = [
   Expect<KeepsFunction<DataTableSchema['onRowDelete']>>,
   Expect<KeepsFunction<DataTableSchema['onSelectionChange']>>,
   Expect<KeepsFunction<DataTableSchema['onColumnsReorder']>>,
+  // objectui#7804 — the `DataTableSchema` slice. Each TS twin stays callable
+  // because the function value REACHES the renderer; the mirror refuses by name.
+  Expect<KeepsFunction<DataTableSchema['onAddRecord']>>,
+  Expect<KeepsFunction<DataTableSchema['onBatchSave']>>,
+  Expect<KeepsFunction<DataTableSchema['onCellChange']>>,
+  Expect<KeepsFunction<DataTableSchema['onColumnResize']>>,
+  Expect<KeepsFunction<DataTableSchema['onRowActionDef']>>,
+  Expect<KeepsFunction<DataTableSchema['onRowClick']>>,
+  Expect<KeepsFunction<DataTableSchema['onRowSave']>>,
   Expect<KeepsFunction<AccordionSchema['onValueChange']>>,
   Expect<KeepsFunction<CollapsibleSchema['onOpenChange']>>,
   Expect<KeepsFunction<ToggleGroupSchema['onValueChange']>>,

@@ -366,6 +366,51 @@ export const DataTableSchema = BaseSchema.extend({
   }).optional().describe('Per-record CEL predicates for the built-in row Delete item (objectui#2614)'),
   onSelectionChange: handlerKeyRefusal('onSelectionChange', 'runtime-slot', 'Selection change handler'),
   onColumnsReorder: handlerKeyRefusal('onColumnsReorder', 'runtime-slot', 'Column reorder handler'),
+  // ⭐ objectui#7804 — seven keys the REGISTERED `data-table` renderer reads off
+  // the authored document while this arm declared none of them. `BaseSchema` is
+  // `.passthrough()`, so an undeclared key is NOT refused: it stops being judged
+  // and the value is KEPT. `{ "type": "data-table", "onRowClick": { "action":
+  // "toast" } }` therefore parsed GREEN and handed that action object to a call
+  // site that CALLS it. Declaring the key is what makes the refusal loud and BY
+  // NAME, the shape `onRowEdit` / `onRowDelete` / `onSelectionChange` /
+  // `onColumnsReorder` above already carry.
+  //
+  // ⛔ The disposition is MEASURED PER KEY, never applied as a pattern.
+  // `'retired'` publishes "no renderer reads this key, so nothing could ever
+  // run it" — FALSE for all seven: `renderers/complex/data-table.tsx` reads and
+  // INVOKES every one. So each is a `'runtime-slot'`, and each was carried by
+  // finding the props path a host actually supplies it through:
+  //
+  //   - `onAddRecord`     `ObjectGrid` puts its own `onAddRecord` React prop on
+  //                       the `data-table` node it builds; `ObjectManager` and
+  //                       `FieldDesigner` are the hosts that supply it.
+  //   - `onBatchSave`     `ObjectGrid`'s `onBatchSave ?? defaultBatchSave` —
+  //                       the left limb is `ObjectGridComponentProps.onBatchSave`.
+  //   - `onCellChange`    `ObjectGrid` forwards `ObjectGridComponentProps.onCellChange`.
+  //   - `onColumnResize`  ⚠️ a DIFFERENT channel from its six siblings, and the
+  //                       reason "six of them were" is not evidence: no host prop
+  //                       carries this key at all. `ObjectGrid` supplies its OWN
+  //                       closure, folding the resize into the merged
+  //                       `{ order, widths }` layout it persists and reports
+  //                       through `onColumnStateChange`. Still a live function
+  //                       reaching the renderer through the TypeScript face —
+  //                       objectui#6175 wired that read deliberately — so
+  //                       `'runtime-slot'` holds and `'retired'` would be false.
+  //   - `onRowActionDef`  `RelatedList` forwards its own `onRowAction` React prop.
+  //   - `onRowClick`      three suppliers: `ObjectGrid` (`navigation.handleClick`),
+  //                       `ObjectDataTable` (`schema.onRowClick ?? handleRowClick`)
+  //                       and `RelatedList` (its own `onRowClick` React prop).
+  //                       The sibling `ObjectDataTableSchema.onRowClick` arm in
+  //                       `objectql.zod.ts` is the same key on the forwarding face.
+  //   - `onRowSave`       `ObjectGrid`'s `onRowSave ?? defaultRowSave` — the left
+  //                       limb is `ObjectGridComponentProps.onRowSave`.
+  onAddRecord: handlerKeyRefusal('onAddRecord', 'runtime-slot', 'Add record handler'),
+  onBatchSave: handlerKeyRefusal('onBatchSave', 'runtime-slot', 'Batch save handler'),
+  onCellChange: handlerKeyRefusal('onCellChange', 'runtime-slot', 'Cell value change handler'),
+  onColumnResize: handlerKeyRefusal('onColumnResize', 'runtime-slot', 'Column resize handler'),
+  onRowActionDef: handlerKeyRefusal('onRowActionDef', 'runtime-slot', 'Row action handler'),
+  onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler'),
+  onRowSave: handlerKeyRefusal('onRowSave', 'runtime-slot', 'Row save handler'),
   cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both (objectui#6882)'),
   renderCellEditor: z.function().optional().describe('Host-supplied inline cell editor; returning null falls through to the built-in text/number/date inputs (objectui#6882). Its context carries `row` (the persisted record) and `pendingRow` (that record with the row\'s staged, unsaved edits merged over it — objectui#7188); `z.function()` encodes no parameter shape, so the member on `DataTableSchema` is the authority for it'),
   frozenColumns: z.number().optional().describe('Number of frozen columns'),

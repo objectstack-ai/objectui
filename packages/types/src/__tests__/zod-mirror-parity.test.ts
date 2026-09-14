@@ -129,7 +129,18 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **41 entries** in `KnownDrift`, **65 keys** across them — 41 / 63 until
+ *   - **41 entries** in `KnownDrift`, **72 keys** across them — 41 / 65 until
+ *     objectui#7804's `DataTableSchema` slice DECLARED seven handler keys on
+ *     `data-display.zod.ts#DataTableSchema`, an existing entry (so the entry
+ *     count did not move). ⭐ The largest single move this ledger has taken, and
+ *     the first that is a pure TRANSFER: all seven came out of
+ *     `RuntimeOnlyDeclared`'s entry for the same pair, so this ledger's key
+ *     total and that one's move by the same seven in opposite directions — read
+ *     the two bullets together or the arithmetic looks like growth from nowhere.
+ *     The keys were declared on the TypeScript face and nowhere else while
+ *     `renderers/complex/data-table.tsx` read and RAN each one; declaring the
+ *     mirror's named refusal beside the callable twin is what turns a
+ *     passthrough accept into a refusal BY NAME. It was 41 / 63 until
  *     objectui#7804's `plugin-detail` slice (batch #69) DECLARED `onNavigate`
  *     and `onAddComment` on `crud.zod.ts#DetailSchema`, an existing entry (so
  *     the entry count did not move). ⭐ The first keys this ledger has gained
@@ -258,7 +269,15 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **7 entries** in `RuntimeOnlyDeclared`, **24 keys** across them.
+ *   - **7 entries** in `RuntimeOnlyDeclared`, **17 keys** across them — 7 / 24
+ *     until objectui#7804's `DataTableSchema` slice took seven keys out of
+ *     `data-display.zod.ts#DataTableSchema` and into `KnownDrift` above, the
+ *     mirror having declared each as a named refusal. The entry SURVIVES with
+ *     five keys, so the entry count did not move; ⚠️ this ledger shrinking while
+ *     `KnownDrift` grows by the same seven is ONE move seen from both sides, not
+ *     two. ⭐ The direction is the one this ledger is meant to drain in: a
+ *     runtime-only key leaves by being declared on the mirror, never by being
+ *     quietly refiled.
  *     **6 of the 7** are a subset of the **14** pairs above; `TreeViewSchema` is
  *     NOT — it is the first pair whose ONLY ledger entry is a runtime-only one
  *     (objectui#6150 declared `onNodeClick` on an otherwise clean pair), which is why
@@ -1570,12 +1589,31 @@ interface KnownDrift {
    * `resolveSelectionMode` in `renderers/complex/data-table.tsx` implements
    * `'single'` as a real mode.)
    *
-   * The four callbacks — RUNTIME SLOT (objectui#6124) ×4: `renderers/complex/data-table.tsx`
+   * The eleven callbacks — RUNTIME SLOT (objectui#6124) ×11: `renderers/complex/data-table.tsx`
    * CALLS every one of them off `schema.*` (`schema.onRowEdit?.(r)`,
    * `schema.onSelectionChange(selectedData)`, …), so the TS side keeps them callable
    * and the mirror refuses them by name.
+   *
+   * ⭐ It was FOUR until objectui#7804's `DataTableSchema` slice. The other seven
+   * — `onAddRecord`, `onBatchSave`, `onCellChange`, `onColumnResize`,
+   * `onRowActionDef`, `onRowClick`, `onRowSave` — arrived from
+   * `RuntimeOnlyDeclared` below, where they sat as declared-on-TS-only keys while
+   * the registered renderer read and ran each one and `BaseSchema.passthrough()`
+   * ACCEPTED an authored `{ "action": "toast" }` for any of them.
+   *
+   * ⚠️ The disposition was measured per key, and one of the seven does NOT share
+   * the group's channel: `onColumnResize` has no host prop anywhere — `ObjectGrid`
+   * supplies its own closure and folds the resize into the merged column layout it
+   * persists, while the other six arrive as React props a host hands `ObjectGrid`
+   * or `RelatedList`. Still a live function reaching the renderer through the TS
+   * face, so still a runtime slot; had it been read as `'retired'` off its
+   * siblings, the arm would publish "no renderer reads this key" to every author
+   * who trips it, and objectui#6175 wired that read on purpose.
    */
-  'data-display.zod.ts#DataTableSchema': 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder';
+  'data-display.zod.ts#DataTableSchema':
+    | 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder'
+    | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnResize'
+    | 'onRowActionDef' | 'onRowClick' | 'onRowSave';
   /** RUNTIME SLOT (objectui#6124): the `accordion` renderer spreads leftover props onto the Radix `Accordion` root, where `onValueChange` is a real prop. */
   'disclosure.zod.ts#AccordionSchema': 'onValueChange';
   /** RUNTIME SLOT (objectui#6124): the `collapsible` renderer spreads leftover props onto the Radix `Collapsible` root. */
@@ -2279,7 +2317,17 @@ interface UnmirroredDeclared {
  */
 interface RuntimeOnlyDeclared {
   /**
-   * 12 of `DataTableSchema`'s former 29. OVERSIGHT group — this mirror already
+   * ⭐ 5 of `DataTableSchema`'s former 29, down from 12 with objectui#7804's
+   * `DataTableSchema` slice: `onAddRecord`, `onBatchSave`, `onCellChange`,
+   * `onColumnResize`, `onRowActionDef`, `onRowClick` and `onRowSave` are now
+   * DECLARED on the mirror as named refusals and moved to `KnownDrift` above.
+   * The entry survives because the five below are not that class — four of them
+   * (`onPageChange`, `onPageSizeChange`, `onSearchChange`, `onSortChange`) are
+   * host-driven pagination/sort/search slots the grid forwards, and
+   * `onColumnReorder` is read nowhere at all, which is the open ruling recorded
+   * below. ⛔ Draining the rest of this entry is NOT a follow-on of that slice.
+   *
+   * OVERSIGHT group — this mirror already
    * declares four callbacks. ⚠️ `onColumnReorder` is still read NOWHERE, and
    * deliberately so. objectui#6175 repaired the persistence half this entry used to
    * describe: `onColumnResize` is now invoked by `data-table.tsx` (at the end of a
@@ -2295,8 +2343,8 @@ interface RuntimeOnlyDeclared {
    * and that ruling is still OPEN. Nothing about this entry's membership changed.
    */
   'data-display.zod.ts#DataTableSchema':
-    | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnReorder' | 'onColumnResize'
-    | 'onPageChange' | 'onPageSizeChange' | 'onRowActionDef' | 'onRowClick' | 'onRowSave'
+    | 'onColumnReorder'
+    | 'onPageChange' | 'onPageSizeChange'
     | 'onSearchChange' | 'onSortChange';
   /**
    * 1 of `FormSchema`'s former 9. OVERSIGHT group — `onSubmit`, `onChange` and

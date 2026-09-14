@@ -139,13 +139,22 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // here rather than guessed at in the change that adds the instrument.
   ['button::ButtonSchema.onSuccess', 'objectui#7804'],
   ['icon::IconSchema.onSuccess', 'objectui#7804'],
-  ['data-table::DataTableSchema.onAddRecord', 'objectui#7804'],
-  ['data-table::DataTableSchema.onBatchSave', 'objectui#7804'],
-  ['data-table::DataTableSchema.onCellChange', 'objectui#7804'],
-  ['data-table::DataTableSchema.onColumnResize', 'objectui#7804'],
-  ['data-table::DataTableSchema.onRowActionDef', 'objectui#7804'],
-  ['data-table::DataTableSchema.onRowClick', 'objectui#7804'],
-  ['data-table::DataTableSchema.onRowSave', 'objectui#7804'],
+  // ⭐ ALL SEVEN `data-table::DataTableSchema` rows LANDED and are gone —
+  // objectui#7804's `DataTableSchema` slice. `onAddRecord`, `onBatchSave`,
+  // `onCellChange`, `onColumnResize`, `onRowActionDef`, `onRowClick` and
+  // `onRowSave` are objectui#6124 RUNTIME SLOTS on the arm, each measured at its
+  // OWN channel rather than assumed from its siblings: five arrive as React
+  // props a host hands `ObjectGrid` or `RelatedList`, which forward them onto
+  // the `data-table` node they build; `onRowClick` has three suppliers at once;
+  // and `onColumnResize` has NO host prop anywhere — `ObjectGrid` supplies its
+  // own closure, folding the resize into the merged column layout it persists.
+  // That last one is why the disposition could not be read off the group: the
+  // key is still READ and still RUN, so `'retired'` ("no renderer reads this
+  // key") would have published a false statement to every author who trips it.
+  //
+  // Draining a row is part of the landing, not cleanup after it: a row that
+  // outlived its read reddens `staleExemptions()` below — which is exactly the
+  // intermediate reading that proved the arm edit had reached these keys.
   ['tree-view::TreeViewSchema.onNodeClick', 'objectui#7804'],
   ['object-form::ObjectFormSchema.onCancel', 'objectui#7804'],
   ['object-form::ObjectFormSchema.onError', 'objectui#7804'],

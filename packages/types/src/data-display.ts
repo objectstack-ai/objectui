@@ -1149,6 +1149,14 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Handler invoked when one of {@link rowActionDefs} is chosen from the row
    * overflow menu.
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is called by `renderers/complex/data-table.tsx`
+   * (`onActionDef={schema.onRowActionDef}`). Supplied by `RelatedList`
+   * (`@object-ui/plugin-detail`), which forwards its own `onRowAction` React
+   * prop onto the `data-table` node it builds.
    */
   onRowActionDef?: (action: DataTableRowAction, row: any) => void | Promise<void>;
   /**
@@ -1239,21 +1247,56 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Cell value change handler
    * Called when a cell value is edited
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is called by `renderers/complex/data-table.tsx`
+   * (`schema.onCellChange(globalIndex, columnKey, valueToStage, row)`). Supplied
+   * by `ObjectGrid` (`@object-ui/plugin-grid`), which forwards the React prop of
+   * the same name off `ObjectGridComponentProps`.
    */
   onCellChange?: (rowIndex: number, columnKey: string, newValue: any, row: any) => void;
   /**
    * Row save handler
    * Called when saving changes for a single row
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is called by `renderers/complex/data-table.tsx`
+   * (`await schema.onRowSave(globalIndex, rowChanges, row)`). Supplied by
+   * `ObjectGrid` as `onRowSave ?? defaultRowSave` — the left limb is the React
+   * prop of the same name on `ObjectGridComponentProps`, the right a
+   * dataSource-backed default installed only when no host wired one.
    */
   onRowSave?: (rowIndex: number, changes: Record<string, any>, row: any) => void | Promise<void>;
   /**
    * Batch save handler
    * Called when saving changes for multiple rows
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is called by `renderers/complex/data-table.tsx`
+   * (`await schema.onBatchSave(changesToSave)`). Supplied by `ObjectGrid` as
+   * `onBatchSave ?? defaultBatchSave`, the same two-limb shape as
+   * {@link onRowSave}.
    */
   onBatchSave?: (changes: Array<{ rowIndex: number; changes: Record<string, any>; row: any }>) => void | Promise<void>;
   /**
    * Row click handler
    * Called when a row is clicked
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is called by `renderers/complex/data-table.tsx`
+   * (`schema.onRowClick(row)`, gated on `!e.defaultPrevented`). THREE suppliers,
+   * measured: `ObjectGrid` passes `navigation.handleClick`, `ObjectDataTable`
+   * passes `schema.onRowClick ?? handleRowClick` (its own forwarding face,
+   * `ObjectDataTableSchema.onRowClick`, carries the same refusal arm), and
+   * `RelatedList` forwards its own React prop of this name.
    */
   onRowClick?: (row: any) => void;
   /**
@@ -1322,11 +1365,35 @@ export interface DataTableSchema extends BaseSchema {
   emptyAction?: SchemaNode;
   /**
    * Callback when the "+ Add record" row is clicked
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is called by `renderers/complex/data-table.tsx`
+   * (`onClick={() => schema.onAddRecord?.()}`). Supplied by `ObjectGrid`, which
+   * forwards the React prop of the same name off `ObjectGridComponentProps`;
+   * `ObjectManager` and `FieldDesigner` (`@object-ui/plugin-designer`) are two
+   * hosts that fill it.
    */
   onAddRecord?: () => void;
   /**
    * Column resize handler
    * Called when a column is resized
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is called by `renderers/complex/data-table.tsx`
+   * (`schema.onColumnResize?.(resizedColumn, finalWidth)` at the end of a resize
+   * drag — objectui#6175 wired that read).
+   *
+   * ⚠️ Its channel is NOT the one its six siblings above use, and the difference
+   * was measured rather than inferred: no React prop anywhere carries this key.
+   * `ObjectGrid` supplies its own closure here and reports the MERGED
+   * `{ order, widths }` layout to its host through `onColumnStateChange`
+   * instead, because the table vocabulary is per-event and the grid's is the
+   * persisted blob. A live function still reaches the renderer through this
+   * interface, which is what makes the slot real.
    */
   onColumnResize?: (columnKey: string, width: number) => void;
   /**

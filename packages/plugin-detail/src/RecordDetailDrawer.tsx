@@ -9,47 +9,45 @@
 /**
  * RecordDetailDrawer
  *
- * A standardized right-side drawer that renders {@link DetailView} for a
- * single record. Used by plugin-gantt, plugin-calendar and plugin-kanban
- * to provide a consistent "click row/event/card → side drawer with
- * inline edit + delete" UX without each plugin re-implementing the same
- * Sheet + typed-fields-from-objectSchema scaffolding.
+ * A standardized right-side drawer that renders {@link RecordDetailPanel} for
+ * a single record.
  *
- * Field list is derived from the supplied objectSchema (so dates render
- * as date pickers, lookups stay readonly etc.). System/audit fields
- * (id, created_at, ...) are filtered out by default.
+ * ⭐ **This component no longer owns a shell** (objectui#9299, director seat
+ * decision batch #128 item 1). It used to bring its own `Sheet` plus its own
+ * drag-resize implementation, and that is exactly what the card measured as
+ * the defect: `ObjectGantt`, `ObjectKanban` and `ObjectCalendar` rendered this
+ * drawer for all four authored `navigation.mode` values, so `modal`, `split`
+ * and `popover` were silently the drawer. Those three renderers now mount
+ * {@link RecordDetailPanel} through `NavigationOverlay` themselves and honour
+ * the authored mode.
+ *
+ * What survives here is the published convenience wrapper — drawer mode, one
+ * record, handler-presence capability — delegating to the SAME
+ * `NavigationOverlay` every other surface uses. Two consequences, both ruled:
+ *
+ * - **One drag-resize implementation** (item 4). The width this drawer used to
+ *   persist under `objectui.drawerWidth.OBJECT` (480 px floor) is read once and
+ *   migrated into the shell's `ov:drawer-width:OBJECT` (360 px floor), so a user
+ *   who had already sized their drawer keeps that width. ⛔ It is not reset.
+ *   The retired key is spelled in exactly one place —
+ *   `legacyRecordDrawerWidthKey` in `@object-ui/components`.
+ * - **One chrome.** The shell's header (breadcrumb-style title + close +
+ *   optional expand) replaces the sr-only `SheetHeader` this file used to
+ *   render. That is the "chrome de-duplication" the ruling priced in.
  */
 
 import React from 'react';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
+  NavigationOverlay,
+  legacyRecordDrawerWidthKey,
+  recordOverlayWidthStorageKey,
 } from '@object-ui/components';
-import { isExpandableFieldType } from '@object-ui/core';
 import type { DataSource } from '@object-ui/types';
-import { SYSTEM_MANAGED_FIELD_NAMES } from '@object-ui/types';
-import { InlineEditProvider } from '@object-ui/react';
-import { DetailView } from './DetailView';
-import { InlineEditSaveBar } from './InlineEditSaveBar';
-import { useDetailTranslation } from './useDetailTranslation';
-
-/**
- * Field names hidden from the quick-look drawer / inline edit form.
- *
- * Scope: this is the DRAWER allow-list — used to keep the slim sheet UI
- * focused on author-defined business fields. The full record detail page
- * (`RecordDetailView`) surfaces audit fields via a compact
- * `<RecordMetaFooter>` (single-line, muted) rather than a heavy panel, so
- * users can still see who/when created or last touched a record.
- *
- * Derived from the shared `SYSTEM_MANAGED_FIELD_NAMES` — the same set the grid's
- * default-column derivation uses — so it stays in lockstep with the fields
- * `applySystemFields` injects (audit `*_at`/`*_by`, the ownership/tenant FKs,
- * soft-delete bookkeeping). Callers can still override via the `systemFields` prop.
- */
-const DEFAULT_SYSTEM_FIELDS = new Set(SYSTEM_MANAGED_FIELD_NAMES);
+import {
+  DEFAULT_SYSTEM_FIELDS,
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+} from './RecordDetailPanel';
 
 export interface RecordDetailDrawerProps {
   /** Whether the drawer is currently open. */
@@ -86,6 +84,12 @@ export interface RecordDetailDrawerProps {
    * future move to the bucket is a fresh ruling, with visual-regression
    * evidence across all four surfaces in one stroke.
    *
+   * ⚠️ Pixels are unchanged by objectui#9299's shell delegation: the shell
+   * treats an authored width as a floor via
+   * `max(WIDTH, min(60vw, 880px))`, and for this default that expression
+   * reduces to `min(60vw, 960px)` at every viewport — the same value the
+   * inline style used to set.
+   *
    * Note: when `resizable` is true (the default), this is only used
    * as the initial width — the user's drag-resized width takes over
    * and is persisted to localStorage keyed by `objectName`.
@@ -115,17 +119,13 @@ export interface RecordDetailDrawerProps {
   resizable?: boolean;
   /**
    * Optional URL to the full record page. When provided, the drawer
-   * shows an "Open in new tab" button in the header that opens this
-   * URL in a new browser tab. The drawer itself stays open.
+   * shows an "Open in new tab" entry in the record header's overflow menu.
    * Typically `/console/apps/{appName}/{objectName}/record/{recordId}`.
    */
   fullPageHref?: string;
 }
 
-const MIN_WIDTH_PX = 480;
-const MAX_WIDTH_VW = 95;
-
-/** Right-side drawer wrapping {@link DetailView} for a single record. */
+/** Right-side drawer wrapping {@link RecordDetailPanel} for a single record. */
 export function RecordDetailDrawer({
   open,
   onClose,
@@ -135,7 +135,7 @@ export function RecordDetailDrawer({
   recordId,
   dataSource,
   objectSchema,
-  width = 'min(960px, 60vw)',
+  width = RECORD_OVERLAY_DEFAULT_WIDTH,
   columns = 2,
   systemFields = DEFAULT_SYSTEM_FIELDS,
   onFieldSave,
@@ -143,279 +143,37 @@ export function RecordDetailDrawer({
   resizable = true,
   fullPageHref,
 }: RecordDetailDrawerProps) {
-  const { t } = useDetailTranslation();
-  const storageKey = `objectui.drawerWidth.${objectName}`;
-
-  // Resolve the initial width: prefer the persisted user width, otherwise
-  // fall back to the prop. Persisted value is stored as an integer pixel
-  // count to avoid CSS-string drift between sessions.
-  const [pxWidth, setPxWidth] = React.useState<number | null>(() => {
-    if (typeof window === 'undefined' || !resizable) return null;
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) {
-        const n = parseInt(raw, 10);
-        if (Number.isFinite(n) && n >= MIN_WIDTH_PX) return n;
-      }
-    } catch {
-      // ignore localStorage failures (private browsing, etc.)
-    }
-    return null;
-  });
-
-  const widthValue = React.useMemo(() => {
-    if (resizable && pxWidth != null) return `${pxWidth}px`;
-    return typeof width === 'number' ? `${width}px` : width;
-  }, [resizable, pxWidth, width]);
-
-  const widthStyle = widthValue
-    ? { width: widthValue, maxWidth: widthValue }
-    : undefined;
-
-  // --- Drag-to-resize ---------------------------------------------------
-  // We attach pointer listeners on `window` while a drag is active so the
-  // gesture continues smoothly even if the cursor leaves the handle.
-  const dragStateRef = React.useRef<{ startX: number; startWidth: number } | null>(null);
-
-  const handleResizePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (!resizable) return;
-    event.preventDefault();
-    const containerWidth = pxWidth ?? (typeof window !== 'undefined' ? Math.min(window.innerWidth * 0.6, 960) : 720);
-    dragStateRef.current = { startX: event.clientX, startWidth: containerWidth };
-
-    const onMove = (e: PointerEvent) => {
-      const state = dragStateRef.current;
-      if (!state) return;
-      const delta = state.startX - e.clientX; // dragging left = wider
-      const maxPx = typeof window !== 'undefined' ? (window.innerWidth * MAX_WIDTH_VW) / 100 : 1600;
-      const next = Math.min(maxPx, Math.max(MIN_WIDTH_PX, state.startWidth + delta));
-      setPxWidth(Math.round(next));
-    };
-    const onUp = () => {
-      const state = dragStateRef.current;
-      dragStateRef.current = null;
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-      try {
-        // Persist final width — read it from state at flush time.
-        setPxWidth((current) => {
-          if (current != null) {
-            window.localStorage.setItem(storageKey, String(current));
-          }
-          return current;
-        });
-      } catch {
-        // ignore
-      }
-      void state;
-    };
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-  }, [resizable, pxWidth, storageKey]);
-
-  // Build typed fields list from objectSchema, falling back to record keys
-  // when no schema is available. Lookups are marked readonly because we
-  // don't yet wire a relation picker inside the drawer's inline editor —
-  // showing them as plain text inputs would let users overwrite the
-  // relation with a free-form string.
-  const schemaFields: Record<string, any> = (objectSchema?.fields ?? {}) as Record<string, any>;
-  const orderedNames = Object.keys(schemaFields).length
-    ? Object.keys(schemaFields)
-    : Object.keys(record);
-  const fields = orderedNames
-    .filter((name) => !systemFields.has(name) && !name.startsWith('__'))
-    .filter((name) => name in record)
-    // Honor `hidden: true` on the schema field def so internal/system fields
-    // (e.g. database_url, environment_id, is_system) don't leak into the
-    // quick-look drawer.
-    .filter((name) => !schemaFields[name]?.hidden)
-    .map((name) => {
-      const def = schemaFields[name] || {};
-      // Which types are reference-bearing is NOT restated here: it is
-      // `EXPANDABLE_FIELD_TYPES` in `@object-ui/core`, read through
-      // `isExpandableFieldType` — the same family the `$expand` builder, the
-      // object form's `needsDataSourceWiring`, the grid's `bulkParamToField`
-      // and the dashboard's whitelist read (objectui#4770 / #4790 / #4815 /
-      // #5312 / #5692). The literal that stood here diverged in BOTH
-      // directions (objectui#5874):
-      //
-      //  - it lacked `user` and `tree`. Both carry the same foreign-key
-      //    storage as `lookup`, so the reason stated above — the drawer has no
-      //    relation picker, and a plain text input would let the user overwrite
-      //    the relation with a free-form string — applied to them just as much.
-      //    Gaining them RESTORES the stated rule rather than widening it.
-      //  - it carried a fifth spelling `reference`, which no producer can emit:
-      //    absent from `@objectstack/spec`'s closed `FieldType` vocabulary,
-      //    exactly where `owner` sat before objectui#4814 retired it.
-      //
-      // Pinned by an identity spy on that `has`, so a member-identical private
-      // copy fails rather than quietly re-forking the table. Never
-      // `new Set([...EXPANDABLE_FIELD_TYPES, ...])` — a copy re-forks it.
-      const isLookup = isExpandableFieldType(def);
-      // Carry through the full field metadata so DetailView's inline-edit
-      // mode can resolve the correct widget (e.g. a select with options
-      // rather than a free-form text input). DetailSection performs the
-      // same enrichment when rendering a record detail page; without this
-      // fan-out the drawer rendered a plaintext input for every picklist.
-      return {
-        name,
-        label: def.label,
-        type: def.type as any,
-        readonly: !!def.readonly || isLookup,
-        options: def.options,
-        currency: def.currency,
-        precision: def.precision,
-        scale: (def as any).scale,
-        format: def.format,
-        // Served schemas key the target as `reference` (ObjectStack
-        // convention, #2407); the drawer can receive a raw schema from any
-        // DataSource, so both snake_case spellings are resolved here.
-        //
-        // Two further arms stood here until objectui#6837 — `def.referenceTo`
-        // and `def.target` — and they were NOT redundant-but-harmless: no
-        // contract declares either spelling. `FieldSchema` refuses BOTH by name
-        // with `unrecognized_keys`, each carrying its own "did you mean
-        // `reference`" rename; `referenceTo` is additionally stripped at the
-        // designer read door (`RETIRED_FIELD_KEYS`, objectui#6041 / #6519), so
-        // that arm could never hit. A structure-walk producer census found ZERO
-        // emitters of either at THIS cell — a value inside an object schema's
-        // `fields` container, which is what `objectSchema.fields[name]` reads —
-        // while the controls `reference` (92 hits / 36 files) and `reference_to`
-        // (52 / 36) were hot in the same pass over the same cells. So the two
-        // arms were invented tolerance surface: a silent absorption point for a
-        // producer that should fail visibly (AGENTS.md #0.1).
-        //
-        // ⛔ Do not re-add a spelling arm here. A producer emitting a refused
-        // spelling is fixed AT THE PRODUCER, or canonicalised once at the
-        // ingestion choke point (`normalizeSchemaReferenceKeys`, which stamps
-        // both snake_case keys from whichever spelling arrived) — never by a
-        // renderer-side alias.
-        //
-        // objectui#6837 half 2 deleted the last read arm too: the RIGHT-hand
-        // side now reads `reference` alone, the only spelling the protocol
-        // declares. ⚠️ The LEFT-hand key is unchanged and must stay
-        // `reference_to` — it is the key this emit's TARGET contract declares
-        // (`DetailViewField` / `DetailViewFieldSchema` in `@object-ui/types`,
-        // which declares `reference_to` and never declares `reference`).
-        // Narrowing the read is protocol compliance; renaming the emitted key
-        // would be a separate view-contract change with its own weight.
-        reference_to: def.reference,
-        reference_field: def.reference_field ?? def.referenceField,
-        required: def.required,
-        validation: def.validation,
-        placeholder: def.placeholder,
-        description: def.description,
-      };
-    });
-
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent
-        side="right"
-        className="w-full overflow-y-auto p-0 sm:!max-w-none"
-        style={widthStyle}
-        // Suppress Radix's default auto-focus on open. The drawer is for
-        // browsing/inspecting a record, not for immediate keyboard entry,
-        // so auto-focusing the Close button (or the first focusable
-        // child) flashes a focus ring on mount which feels jarring.
-        // Keyboard users can still Tab in normally.
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        {/* Drag handle on the left edge — only rendered on >= sm screens
-            where pointer-resize is meaningful. The handle carries no visible
-            label, so its `aria-label` IS the control to a screen reader —
-            hence it comes from the locale pack, not a literal
-            (objectstack#5733, twin of #5506's NavigationOverlay handle). */}
-        {resizable && (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={t('common.resizeDrawer')}
-            onPointerDown={handleResizePointerDown}
-            className="hidden sm:block absolute left-0 top-0 h-full w-1.5 cursor-col-resize select-none bg-transparent hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
-          />
-        )}
-        {/* Accessible title for screen readers — DetailView's own
-            HeaderHighlight renders the visible title, so we hide ours
-            visually to avoid the duplicate-heading look. */}
-        <SheetHeader className="sr-only">
-          <SheetTitle>{title}</SheetTitle>
-        </SheetHeader>
+    <NavigationOverlay
+      isOpen={open}
+      isOverlay
+      mode="drawer"
+      selectedRecord={record}
+      close={onClose}
+      setIsOpen={(next) => { if (!next) onClose(); }}
+      width={width}
+      title={title}
+      storageKey={resizable ? recordOverlayWidthStorageKey(objectName) : undefined}
+      legacyStorageKey={resizable ? legacyRecordDrawerWidthKey(objectName) : undefined}
+    >
+      {() => (
         <div className="px-6 pt-6 pb-6">
-          {/* One inline-edit session scoped to this drawer. `canEdit` gates on
-              handler presence so an omitted onFieldSave yields a strictly
-              read-only drawer (objectui#2407 P1). */}
-          <InlineEditProvider canEdit={!!onFieldSave}>
-          <DetailView
+          <RecordDetailPanel
+            record={record}
+            objectName={objectName}
+            recordId={recordId}
             dataSource={dataSource}
-            // Capability = handler presence: a caller that omits onFieldSave /
-            // onDelete gets a strictly read-only drawer (no inline editors, no
-            // delete action) — e.g. a gantt row locked via lockField. Hardcoding
-            // these on would let the drawer bypass row-level locks.
-            inlineEdit={!!onFieldSave}
-            schema={{
-              type: 'detail-view',
-              objectName,
-              resourceId: String(recordId),
-              data: record,
-              showDelete: !!onDelete,
-              columns,
-              fields,
-              // Fold "Open in new tab" into DetailView's unified header
-              // overflow menu (the "..." kebab) rather than floating it
-              // as a separate icon. This way we never stack a third icon
-              // on top of the existing Edit + More-actions + Close X
-              // cluster at the top-right of the drawer.
-              actions: fullPageHref
-                ? [
-                    {
-                      type: 'action:bar',
-                      location: 'record_header',
-                      systemActions: [
-                        {
-                          name: 'sys_open_new_tab',
-                          label: t('detail.openInNewTab'),
-                          icon: 'external-link',
-                          type: 'script',
-                          onClick: () =>
-                            window.open(fullPageHref, '_blank', 'noopener'),
-                        },
-                      ],
-                    },
-                  ]
-                : undefined,
-            } as any}
-            onDelete={onDelete ? async () => {
-              try {
-                await onDelete();
-                onClose();
-              } catch (err) {
-                console.error('[RecordDetailDrawer] delete failed:', err);
-              }
-            } : undefined}
+            objectSchema={objectSchema}
+            columns={columns}
+            systemFields={systemFields}
+            onFieldSave={onFieldSave}
+            onDelete={onDelete}
+            onClose={onClose}
+            fullPageHref={fullPageHref}
           />
-          {/* Record-level Save/Cancel bar. Callback mode: loops the caller's
-              per-field onFieldSave over the draft, preserving the drawer's
-              existing persistence contract (plugin-gantt/calendar/kanban). */}
-          <InlineEditSaveBar
-            onFieldSave={onFieldSave ? async (field, value) => {
-              try {
-                await onFieldSave(field, value);
-              } catch (err) {
-                console.error('[RecordDetailDrawer] inline field save failed:', err);
-                // Rethrow so the save bar surfaces the failure inline and keeps
-                // the draft — swallowing made a rejected save look successful.
-                throw err;
-              }
-            } : undefined}
-          />
-          </InlineEditProvider>
         </div>
-      </SheetContent>
-    </Sheet>
+      )}
+    </NavigationOverlay>
   );
 }
 
@@ -425,9 +183,9 @@ export default RecordDetailDrawer;
  * Derive a full record-page URL from the current browser location.
  *
  * Used by plugin-gantt / plugin-calendar / plugin-kanban to populate
- * `RecordDetailDrawer.fullPageHref` without each plugin needing direct
- * access to the router. Strips any `/view/{viewId}` suffix so the
- * resulting URL points at the canonical record page.
+ * `fullPageHref` without each plugin needing direct access to the router.
+ * Strips any `/view/{viewId}` suffix so the resulting URL points at the
+ * canonical record page.
  *
  * @param objectName - The object name segment in the URL
  *   (e.g. `campaign`, `lead`).

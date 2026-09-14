@@ -57,7 +57,16 @@ import './index';
 
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
-vi.mock('@object-ui/components', async (orig) => {
+// Mock target is the DEEP module `@object-ui/components/ui/sonner`, not the
+// package barrel `@object-ui/components`. The barrel used to be enough only
+// because `MasterDetailForm`'s OWN `handleError` toast (removed, objectui#7354)
+// happened to go through it; the form renderer's toast
+// (`packages/components/src/renderers/form/form.tsx`) imports `toast` via a
+// RELATIVE path (`../../ui/sonner`) and never resolves through the barrel
+// specifier a caller outside that package uses — see
+// `MasterDetailForm.outcomeToastSupersede.test.tsx` (#7345), which already
+// mocks this exact deep path for the same reason.
+vi.mock('@object-ui/components/ui/sonner', async (orig) => {
   const actual = await (orig as any)();
   return {
     ...actual,

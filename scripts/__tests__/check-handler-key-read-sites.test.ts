@@ -589,14 +589,20 @@ describe('check-handler-key-read-sites — this repository', () => {
     // ⭐ objectui#7804 closed TWO of them on the surviving face, each measured
     // at its own channel, and the split is asserted rather than averaged: a
     // reading that put all three in one bucket would be the error that ruling
-    // forbids. `onCardMove` is the third — its authored value reaches nothing
+    // forbids. `onCardMove` was the third — its authored value reaches nothing
     // on this entry, which is the `'retired'` disposition, and THIS GATE
-    // refuses that spelling while `KanbanRenderer` still reads the key — so it
-    // keeps its `KNOWN_UNDECLARED_READS` row on objectui#7804.
+    // refused that spelling while `KanbanRenderer` still read the key.
+    //
+    // ⭐ objectui#9342 resolved that standoff by moving the READ: `onCardMove`
+    // is an explicit React prop on `KanbanRendererProps` now, so it is no
+    // longer a READ SITE at all and correctly leaves this census — while the
+    // arm carries the tombstone. ⚠️ Its absence below is therefore a reading,
+    // and the two survivors are what keep it from being a census that lost the
+    // kanban walk altogether (the hop this whole leg exists for).
     const judged = result.census.map((c) => `${c.type}.${c.key}`);
     expect(judged).toContain('object-kanban.onCardClick');
-    expect(judged).toContain('object-kanban.onCardMove');
     expect(judged).toContain('object-kanban.onQuickAdd');
+    expect(judged).not.toContain('object-kanban.onCardMove');
     const kanbanRow = (key: string) =>
       result.census.find((c) => c.type === 'object-kanban' && c.key === key);
     expect(
@@ -607,7 +613,10 @@ describe('check-handler-key-read-sites — this repository', () => {
       })),
     ).toEqual([
       { key: 'onCardClick', declared: true, disposition: 'runtime-slot' },
-      { key: 'onCardMove', declared: false, disposition: undefined },
+      // No census row: the key is declared on the arm (as a tombstone) but the
+      // renderer no longer reads it off the document, so there is nothing to
+      // judge. The arm-side reading is asserted in the resolver leg below.
+      { key: 'onCardMove', declared: undefined, disposition: undefined },
       { key: 'onQuickAdd', declared: true, disposition: 'runtime-slot' },
     ]);
 
@@ -707,17 +716,18 @@ describe('check-handler-key-read-sites — this repository', () => {
     expect(objectKanban?.members.has('groupBy')).toBe(true);
     // ⭐ And the resolver reads its handler dispositions PER KEY, which is what
     // objectui#7804 measured this face on: two of the three keys the plugin
-    // reads are objectui#6124 RUNTIME SLOTS, and `onCardMove` is declared by
-    // nothing — its authored value reaches neither channel, which is the
-    // `'retired'` disposition, and this gate refuses that spelling while the
-    // renderer still reads the key.
+    // consumes are objectui#6124 RUNTIME SLOTS, and `onCardMove` is `'retired'`
+    // — its authored value reaches neither channel. ⭐ `undefined` here until
+    // objectui#9342: this gate refuses a tombstone while a renderer still reads
+    // the key, so the arm could not carry one until that read moved to an
+    // explicit React prop on `KanbanRendererProps`.
     expect({
       onCardClick: objectKanban?.members.get('onCardClick'),
       onCardMove: objectKanban?.members.get('onCardMove'),
       onQuickAdd: objectKanban?.members.get('onQuickAdd'),
     }).toEqual({
       onCardClick: 'runtime-slot',
-      onCardMove: undefined,
+      onCardMove: 'retired',
       onQuickAdd: 'runtime-slot',
     });
 

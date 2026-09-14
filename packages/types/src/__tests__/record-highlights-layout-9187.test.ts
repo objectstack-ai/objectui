@@ -30,15 +30,18 @@
  *     below so nobody counts them as the fix.
  *   - vitest ALSO reads this package's own declaration as TEXT, so the
  *     reintroduction of a third value is caught even by a run that never
- *     type-checks. Its control is the sibling interface one screen up, whose
- *     `layout` is still a three-value union (objectui#9040, open by ruling):
- *     the same matcher finds THAT one, so an empty result on the highlights
- *     key is a reading rather than a regex that cannot match anything.
+ *     type-checks. Its control is a three-value union elsewhere in the same
+ *     file, read by the same matcher: an empty result on the highlights key is
+ *     then a reading rather than a regex that cannot match anything.
  *
- * ⛔ The sibling is not this card's to fix, and this file must not grow into
- * a pin that demands it: `RecordDetailsComponentProps.layout` is a tombstone
- * the contract refuses BY NAME, with an in-repo consumer triage ruled out of
- * scope. It appears here only as a firing control.
+ * ⚠️ THAT CONTROL MOVED, and the move is the point. It used to be the
+ * `layout` on `RecordDetailsComponentProps` one screen up, a three-value union
+ * the contract refused by name. objectui#9040 item 1 RETIRED that member, so
+ * this file's control leg was one of the three in-repo consumers that removal
+ * had to migrate — and the ONLY one `tsc` could not name, because it reads the
+ * declaration as text. It is now `RecordChatterComponentProps.position`, a
+ * three-value union the contract genuinely declares, so the control no longer
+ * depends on a divergence staying open to keep firing.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -178,15 +181,21 @@ describe('objectui#9187 — record:highlights `layout` against the installed spe
     const declared = /^\s*layout\?: (.+);$/m.exec(block)?.[1];
     expect(declared).toBe("'horizontal' | 'vertical'");
 
-    // ⭐ THE LIT CONTROL for this instrument: the SAME matcher, run against the
-    // sibling interface one screen up, finds a three-value union there
-    // (objectui#9040, open by ruling — ⛔ not this card's to fix). So the
-    // assertion above is a reading, not a matcher that can never see a third
-    // member. If #9040 ever lands, this control moves to another three-value
-    // union or becomes a literal fixture — it must never be deleted outright.
-    const siblingBlock = source.slice(source.indexOf('interface RecordDetailsComponentProps'));
-    const siblingDeclared = /^\s*layout\?: (.+);$/m.exec(siblingBlock)?.[1];
-    expect(siblingDeclared?.split('|')).toHaveLength(3);
+    // ⭐ THE LIT CONTROL for this instrument: the SAME matcher shape, keyed on a
+    // different member, finds a THREE-value union elsewhere in this same file.
+    // So the two-member assertion above is a reading, not a matcher that can
+    // never see a third member.
+    //
+    // ⚠️ It used to read `RecordDetailsComponentProps.layout`, which was a
+    // three-value union only because that face diverged from the contract.
+    // objectui#9040 item 1 retired that member, so the control moved here, as
+    // this file's own instruction said it must — moved, ⛔ never deleted. Its
+    // subject is `RecordChatterComponentProps.position`, a union the contract
+    // declares, so the control no longer needs a defect to stay lit.
+    const controlBlock = source.slice(source.indexOf('interface RecordChatterComponentProps'));
+    expect(controlBlock).not.toBe('');
+    const controlDeclared = /^\s*position\?: (.+);$/m.exec(controlBlock)?.[1];
+    expect(controlDeclared?.split('|')).toHaveLength(3);
   });
 
   it('the literals above are real values, not type-only decoration', () => {

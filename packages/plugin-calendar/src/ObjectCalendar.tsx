@@ -39,7 +39,11 @@ import {
   applyNonGridRowCeiling,
   NonGridRowCeilingNote,
 } from '@object-ui/react';
-import { RecordDetailDrawer, deriveRecordPageHref } from '@object-ui/plugin-detail';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+  deriveRecordPageHref,
+} from '@object-ui/plugin-detail';
 import { usePermissions } from '@object-ui/permissions';
 import { ChevronRight } from 'lucide-react';
 import {
@@ -54,7 +58,11 @@ import {
   Button,
   Input,
   Label,
+  NavigationOverlay,
+  legacyRecordDrawerWidthKey,
+  recordOverlayWidthStorageKey,
   toast,
+  useOverlayAnchor,
 } from '@object-ui/components';
 import {
   buildExpandFields,
@@ -104,7 +112,21 @@ export interface ObjectCalendarComponentProps {
   /** Loading state propagated from a parent. Respected only when `data` is also provided. */
   loading?: boolean;
   onEventClick?: (record: any) => void;
-  onRowClick?: (record: any) => void;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
   onDateClick?: (date: Date) => void;
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
@@ -800,6 +822,12 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     onRowClick: navIsOverlay ? undefined : onRowClick,
   });
 
+  // objectui#9299 item 3 — `popover` anchors to the EVENT the user clicked.
+  // `CalendarView` hands `onEventClick` a calendar event object, not a DOM
+  // event, so the anchor is recorded by a capture listener on this component's
+  // own container instead.
+  const { anchorRef, anchorCaptureProps } = useOverlayAnchor();
+
   // Default drag-to-reschedule handler. When the caller hasn't provided an
   // `onEventDrop`, persist the new dates back to the data source so dragging
   // an event in the month view actually changes the record. Optimistic
@@ -973,8 +1001,80 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     );
   }
 
-  return (
-    <div ref={pullRef} className={className}>
+  /**
+   * The record overlay — ONE payload in whichever shell the author declared.
+   *
+   * ⭐ objectui#9299. This used to be `<RecordDetailDrawer>`, which brought its
+   * own `Sheet` and had no `mode` parameter, so an authored `modal`, `split` or
+   * `popover` silently rendered the drawer (measured on PR objectui#9296). The
+   * payload now mounts through the shared `NavigationOverlay` — the same shell
+   * `ObjectGrid` and `ObjectTree` use — so the four declared modes mean the
+   * same thing on every view type.
+   *
+   * `mainContent` is what `split` needs: the calendar itself goes in the left
+   * panel beside the record panel (item 2). `popoverAnchorRef` is what
+   * `popover` needs: the event the user clicked (item 3).
+   */
+  const renderRecordOverlay = (mainContent?: React.ReactNode): React.ReactNode => {
+    if (!navigation.isOverlay || !navigation.isOpen || !navigation.selectedRecord) return null;
+    const objectName = resolveRecordSourceObjectName(schema, dataConfig);
+    const rec = navigation.selectedRecord as Record<string, any>;
+    const recordId = rec.id ?? rec._id;
+    if (!objectName || recordId == null) return null;
+    const titleText = calendarConfig?.titleField
+      ? String(rec[calendarConfig.titleField] ?? 'Event Details')
+      : 'Event Details';
+    return (
+      <NavigationOverlay
+        {...navigation}
+        title={titleText}
+        mainContent={mainContent}
+        popoverAnchorRef={anchorRef}
+        // One drag-resize implementation, one key, and a width the user had
+        // already chosen under the retired `objectui.drawerWidth.OBJECT`
+        // carries over rather than resetting (item 4).
+        storageKey={recordOverlayWidthStorageKey(objectName)}
+        legacyStorageKey={legacyRecordDrawerWidthKey(objectName)}
+        // ⛔ Not `navigation.width` alone: an unauthored width has to land on
+        // the ruled default (objectui#6584 / #6303) rather than on the shell's
+        // own `42rem` floor, which would narrow this surface.
+        width={navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH}
+      >
+        {() => (
+          <div className="px-6 pt-6 pb-6">
+            <RecordDetailPanel
+              record={rec}
+              objectName={objectName}
+              recordId={recordId}
+              dataSource={dataSource}
+              objectSchema={objectSchema as any}
+              onClose={navigation.close}
+              fullPageHref={deriveRecordPageHref(objectName, recordId) ?? undefined}
+              onFieldSave={async (field, value) => {
+                if (!dataSource?.update) return;
+                await dataSource.update(objectName, String(recordId), { [field]: value });
+                setData((prev) => prev.map((r) =>
+                  String(r.id ?? r._id) === String(recordId)
+                    ? { ...r, [field]: value }
+                    : r,
+                ));
+              }}
+              onDelete={async () => {
+                if (!dataSource?.delete) return;
+                await dataSource.delete(objectName, String(recordId));
+                setData((prev) => prev.filter((r) =>
+                  String(r.id ?? r._id) !== String(recordId),
+                ));
+              }}
+            />
+          </div>
+        )}
+      </NavigationOverlay>
+    );
+  };
+
+  const calendarView = (
+    <div ref={pullRef} className={className} {...anchorCaptureProps}>
       {pullDistance > 0 && (
         <div
           className="flex items-center justify-center text-xs text-muted-foreground"
@@ -1139,48 +1239,30 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         </DialogContent>
       </Dialog>
 
-      {navigation.isOverlay && navigation.isOpen && navigation.selectedRecord && (() => {
-        const objectName = resolveRecordSourceObjectName(schema, dataConfig);
-        const rec = navigation.selectedRecord as Record<string, any>;
-        const recordId = rec.id ?? rec._id;
-        if (!objectName || recordId == null) return null;
-        const titleText = calendarConfig?.titleField
-          ? String(rec[calendarConfig.titleField] ?? 'Event Details')
-          : 'Event Details';
-        return (
-          <RecordDetailDrawer
-            open
-            onClose={navigation.close}
-            title={titleText}
-            record={rec}
-            objectName={objectName}
-            recordId={recordId}
-            dataSource={dataSource}
-            objectSchema={objectSchema as any}
-            // No `?? 'min(960px, 60vw)'` fallback on purpose — `undefined` has
-            // to reach the drawer for its OWN identical default to apply. See
-            // the `navConfig` comment above (objectui#6303).
-            width={navigation.width as any}
-            fullPageHref={deriveRecordPageHref(objectName, recordId) ?? undefined}
-            onFieldSave={async (field, value) => {
-              if (!dataSource?.update) return;
-              await dataSource.update(objectName, String(recordId), { [field]: value });
-              setData((prev) => prev.map((r) =>
-                String(r.id ?? r._id) === String(recordId)
-                  ? { ...r, [field]: value }
-                  : r,
-              ));
-            }}
-            onDelete={async () => {
-              if (!dataSource?.delete) return;
-              await dataSource.delete(objectName, String(recordId));
-              setData((prev) => prev.filter((r) =>
-                String(r.id ?? r._id) !== String(recordId),
-              ));
-            }}
-          />
-        );
-      })()}
     </div>
+  );
+
+  // `split` (item 2): the calendar IS the main content — it moves into the
+  // overlay's left panel with the record panel beside it, rather than being
+  // covered by a drawer. Guarded on an OPEN overlay because the split shell
+  // renders nothing when closed; with nothing open the calendar renders alone,
+  // exactly as before.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
+    const splitOverlay = renderRecordOverlay(calendarView);
+    // `null` means this record has no overlay at all (no object name / no id)
+    // — the calendar still has to render.
+    if (splitOverlay) return <>{splitOverlay}</>;
+  }
+
+  return (
+    <>
+      {calendarView}
+      {renderRecordOverlay()}
+    </>
   );
 };

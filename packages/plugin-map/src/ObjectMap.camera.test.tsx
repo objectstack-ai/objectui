@@ -35,9 +35,18 @@ vi.mock('react-map-gl/maplibre', () => ({
 }));
 
 /**
- * Showcase-shaped records: the platform's `location` value is `{ lat, lng }`,
- * and the showcase map view declares no map config at all — the exact pair of
- * facts that produced the reported empty first paint.
+ * Showcase-shaped records: the platform's `location` value is `{ lat, lng }` —
+ * half of the pair of facts that produced the reported empty first paint. The
+ * other half was that the showcase map view declared no map config at all, and
+ * `getMapConfig` guessed `location` for it.
+ *
+ * ⚠️ That half is no longer reachable (objectui#8169, ruled 2026-09-07): an
+ * unbound map REFUSES and never mounts `MapGL`, so a camera assertion over an
+ * unconfigured view would be measuring the refusal, not the camera. Every arm
+ * below therefore DECLARES the binding these records genuinely carry — the
+ * default below — which is what the guess used to supply and leaves each
+ * camera fact, and every number in this file, exactly as objectui#4941 pinned
+ * it. The camera is what this file grades; the binding is now a premise.
  */
 const usCities = [
   { id: '1', name: 'Seattle', location: { lat: 47.6062, lng: -122.3321 } },
@@ -46,9 +55,12 @@ const usCities = [
   { id: '4', name: 'Austin', location: { lat: 30.2672, lng: -97.7431 } },
 ];
 
-const valueView = (items: any[], map?: Record<string, unknown>): any => ({
+const valueView = (
+  items: any[],
+  map: Record<string, unknown> = { locationField: 'location' },
+): any => ({
   type: 'map',
-  ...(map ? { map } : {}),
+  map,
   data: { provider: 'value', items },
 });
 

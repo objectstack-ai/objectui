@@ -119,14 +119,24 @@ The declared configuration input. Every key is optional:
 | `center` | `[latitude, longitude]` — a two-number **tuple**, latitude first. Declaring it opts this view out of the auto-fit. |
 | `style` | MapLibre style URL/spec, replacing the default public demo style. |
 
-**The block replaces the field-name defaults, it is not merged with them.** With
-no map configuration at all the component falls back to the field names
-`latitude` / `longitude` / `location` / `description` — no title field, because an
-unconfigured marker takes its title from the record-title precedence above rather
-than from a guessed `name`; the moment a `map` block is present, only what it
-declares is read. So `map: { titleField: 'name' }`
-on its own names no coordinate field, places nothing, and renders an empty map
-under the excluded-records notice — the defaults do not fill the gap.
+**Nothing is guessed — an unbound map REFUSES.** A map with no coordinate binding
+renders
+
+> Map configuration required — declare `map.locationField` or `map.latitudeField` + `map.longitudeField`
+
+in place of the map, rather than painting an empty one (objectui#8169, ruled
+2026-09-07). *Unbound* is a property of the resolved config, not of the spelling
+that produced it — an absent `map` block, a block naming only `titleField`, and a
+`latitudeField` with no `longitudeField` beside it all refuse alike.
+
+The four field-name defaults this component used to fall back to — `latitude` /
+`longitude` / `location` / `description` — are gone, and so are the
+`locationField: … || 'location'` floors that `plugin-list` and `plugin-view` used
+to add on the way in. ⚠️ **Behaviour change for existing metadata**: a record set
+that happens to carry `latitude` / `longitude` columns no longer plots on a view
+that declared no binding — it refuses, and the fix is to declare the binding.
+A title field is still never guessed (objectui#5953): an unconfigured marker
+takes its title from the record-title precedence above.
 
 ## Initial camera
 

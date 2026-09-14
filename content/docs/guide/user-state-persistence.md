@@ -212,3 +212,34 @@ interface FavoriteItem {
 - **Legacy migration (one-shot).** The old `objectui-nav-pins` localStorage key (a plain `string[]`) is read once on first mount, converted to `type:'nav'` favorites with `pinned: true`, then removed. If an adapter is attached, the migrated set is also pushed to the backend on the next debounce window.
 
 UIs that surface "favorites" (HomePage Starred, the sidebar Favorites section) filter out `type === 'nav'` so nav-pin records don't pollute the user-visible list. The sidebar Pinned section is rendered from the live navigation tree decorated by `useNavPins.applyPins`.
+
+## Record-overlay width
+
+The record overlay — the panel that opens when a user clicks a row, node, bar,
+card or event — remembers the width that user dragged it to. This is a
+**preference**, not addressable state, so it lives in `localStorage` rather than
+in the URL.
+
+| Key | Written by | Holds |
+|---|---|---|
+| `ov:drawer-width:<objectName>` | `NavigationOverlay` (`@object-ui/components`) | An integer pixel width |
+
+One key per object, shared by every view type: resize the overlay on a grid and
+the same object's kanban board opens at that width too.
+
+- **Floor and ceiling.** Widths below 360px are not restored (the panel body
+  stops being usable); a drag is capped at 95% of the viewport.
+- **Reset.** Double-clicking the drag handle removes the key, so the overlay
+  returns to the width the metadata authored.
+- **Legacy migration (one-shot).** Until objectui#9299 the gantt, kanban and
+  calendar drawers ran a second implementation of their own that persisted to
+  `objectui.drawerWidth.<objectName>` with a 480px floor. The first mount that
+  finds no value under the current key reads that one, writes it forward, and
+  **removes** the retired entry — so a width a user had already chosen carries
+  over rather than resetting, and a later double-click reset is not undone by a
+  stale value coming back.
+
+Authoring note: the mode the overlay opens in is `navigation.mode` on the view
+(`drawer` | `modal` | `split` | `popover`), and it means the same thing on every
+list-type renderer. In `split` the renderer's own view moves into the left
+panel; in `popover` the panel is anchored to the element the user clicked.

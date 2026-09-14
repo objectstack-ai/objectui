@@ -46,7 +46,7 @@ import { outOfPackageFiles } from './helpers/tsc-program';
  * The derivation immediately found a third instance, wider than the two known
  * ones: nearly every package's `tsconfig.json` extends the repo-root
  * `tsconfig.json` (and `examples/byo-backend-console` extends the root
- * `tsconfig.base.json`), and neither was in `inputs`. Compiler options are as
+ * `tsconfig.tier-base.json`), and neither was in `inputs`. Compiler options are as
  * load-bearing as source — flipping `strict` there changes every package's
  * verdict — so those two entries ship with this guard.
  *

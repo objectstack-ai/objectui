@@ -118,8 +118,23 @@ export interface RelatedListProps {
     linkField?: string;
     label?: string;
   };
-  /** Callback when a row is clicked (opens record detail) */
-  onRowClick?: (row: any) => void;
+  /**
+   * Callback when a row is clicked (opens record detail).
+   *
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (row: any, event?: any) => void;
   /**
    * Child-object row actions (`locations: ['list_item']`), already localized
    * by the host. Rendered in each row's overflow menu alongside Edit/Delete.

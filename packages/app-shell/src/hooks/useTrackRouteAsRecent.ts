@@ -26,11 +26,26 @@
  */
 import { useEffect, useRef } from 'react';
 import { useRecentItems } from '../context/RecentItemsProvider.js';
+import type { ObjectLike as SpecObjectLike } from '@objectstack/spec/system';
 
-interface ObjectLike {
-  name: string;
-  label?: string;
-}
+/**
+ * The two members this hook reads off an object in the current app, TAKEN from
+ * `@objectstack/spec/system`'s `ObjectLike` rather than restated under its name
+ * (objectui#7265).
+ *
+ * That export is the spec's own minimal projection of an object metadata
+ * document — the one `translateObject` consumes — and `name` / `label` mean
+ * exactly what they mean here: the object's identifier and its display label.
+ * This hook needs no more than those two, so it PICKS them; the alternative,
+ * importing the whole shape, would drag in `fields` / `actions` / `pluralLabel`
+ * that no caller of this hook supplies and this hook never reads.
+ *
+ * The projection is what makes the binding safe AND load-bearing: it stays two
+ * members wide, and it stops compiling the day the spec renames or retires
+ * either one — which a hand-written `{ name: string; label?: string }` never
+ * would. Pinned in `spec-symbol-parity.test.ts`.
+ */
+type ObjectLike = Pick<SpecObjectLike, 'name' | 'label'>;
 
 export interface UseTrackRouteAsRecentOptions {
   /** Active route path. Usually `useLocation().pathname`. */

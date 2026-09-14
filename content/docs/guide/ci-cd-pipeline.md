@@ -59,6 +59,7 @@ one has its own section below.
 | `node-esm-load-gate.yml` | Node ESM Load Scan | Nightly cron `17 4 * * *`; push to `main` touching the gate; manual | No — the per-PR half is `pnpm check:esm-specifiers` in **Type Check** |
 | `half-state-patrol.yml` | Half-State Patrol | 6-hourly cron `37 1,7,13,19 * * *`; manual; PR touching the sweeper or the workflow | No — **report-only**; it fails only when the sweep could not run, or a *configured* anchor could not be written |
 | `merge-queue-head-patrol.yml` | Merge queue head patrol | Every 15 minutes (cron `7,22,37,52 * * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge-queue head with no `merge_group` build is a live repo-wide block |
+| `required-check-set-patrol.yml` | Required check set patrol | Daily (cron `23 5 * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge queue whose required set has lost `Type Check` validates nothing that a type error would fail |
 | `hook-selftests.yml` | Hook Self-Tests | PR / push touching `.claude/hooks/**` or the workflow | **Yes** |
 
 The path filters explain most "why did nothing run on my PR?" questions:
@@ -2560,6 +2561,70 @@ repository/Actions-settings reading no agent seat can take, and #7010's triage s
 detection could ship without it. All four recorded heads were Dependabot pull requests, but that is
 a correlation the patrol does not encode — Dependabot pull requests have merged through this queue
 (`1a4381083`, 2026-08-25), so the failure is conditional and nobody has established on what.
+
+### Required Check Set Patrol (`required-check-set-patrol.yml`)
+
+**Trigger:** daily (cron `23 5 * * *`) and manual dispatch. No pull-request leg — see below.
+
+Runs `scripts/check-required-check-set.mjs`, which asks one question: **is `Type Check` still in the
+set of contexts `main`'s merge queue requires?** That set is the defence installed by
+[#3523](https://github.com/objectstack-ai/objectui/issues/3523) after the 2026-08-07 incident, and it
+lives in repository ruleset 11776024 — GitHub-side configuration. Dropping a member from it reds no
+gate, fires no alarm, and leaves no trace in any diff a reviewer reads
+([#9422](https://github.com/objectstack-ai/objectui/issues/9422)).
+
+**The reading, and the sentence on this page it corrects.** The three ordered steps above say a
+maintainer's ruleset edit is a repository-settings change "nothing in this repository can do…and
+nothing here can read the current state of it either". The *write* half is unchanged and this patrol
+does not touch it — it never enrols, removes or renames a context. The *read* half is true of a test
+in a checkout and false of a job with network: `GET /repos/{owner}/{repo}/rules/branches/{branch}`
+answers HTTP 200 with the full rule list, measured 2026-09-14. So the paragraph's rule for deciding
+which contexts *may* be required still stands (`REQUIRED_CONTEXTS` is a human's answer, and nothing
+derives it from settings); what has changed is that the set which *is* required can now be observed.
+
+**Two tiers, because a job rename must not manufacture a red.** `PINNED_CONTEXTS` is `Type Check`
+alone — the leg the recorded incident actually failed on — and its absence fails the job.
+`WATCHED_CONTEXTS` is the other eight; their absence is reported in the run summary and fails
+nothing. Pinning a name is pinning a spelling, and a check that goes red on healthy work is how a
+repository learns to ignore red ([#6596](https://github.com/objectstack-ai/objectui/issues/6596)).
+The shard names are the riskiest of the nine to pin: the 4-way matrix is itself a shape this
+repository has already changed once (`71be244d52`, 2026-07-17). ⚠️ The accepted cost is stated
+plainly — a silent removal of any of the eight is *observable*, not *enforced*. Promoting one is a
+one-line move between the two lists.
+
+**The rule TYPES are pinned as well**, and that is not the same kind of claim: `Type Check` being in
+a `required_status_checks` rule means nothing if the `merge_queue` rule is gone. A rule type is not a
+job name, so no rename can move it.
+
+**An empty answer is a breach, never a clean read.** The endpoint answers `200 []` for a branch no
+ruleset targets — measured here against `zzz-no-such-branch-9422` — which is indistinguishable from
+"every rule on `main` was deleted", i.e. the 2026-08-07 state. The patrol reports both causes and
+passes on neither. The branch comes from `github.event.repository.default_branch` rather than a
+literal, so the benign cause is not reachable by a typo.
+
+**What watches the patrol.** Its *logic* is watched offline on every pull request by
+`scripts/__tests__/check-required-check-set.test.ts`, which drives the real CLI over a committed
+fixture of the live API response with `Type Check` removed and asserts it exits 3, against the
+unablated fixture as its control. Its *wiring* — this file, its schedule, its permissions and the
+script it calls — is pinned by the same test, and the section and row you are reading are required by
+`scripts/__tests__/ci-cd-pipeline-doc.test.ts`. Its *transport* is watched by the exit contract: a
+reading that could not be taken is exit 2 and a red job, never a green one. ⚠️ What is **not**
+watched, and is declared rather than dissolved: GitHub delaying or dropping scheduled runs, and an
+admin disabling the workflow in the Actions UI. Two measurements bound it — the 60-day-inactivity
+rule that disables schedules is nowhere near holding (3392 commits to `origin/main` in the last 60
+days; longest gap between consecutive commits over the most recent 400 was 0.13 days), and the reader
+is stateless, so a dropped tick costs detection latency and never coverage.
+
+**Daily rather than every fifteen minutes**, unlike its sibling above: a settings edit has no
+self-healing window, so a second read four minutes later reads the same thing. One run a day is one
+API call a day, and the job takes no write permission at all.
+
+**No `pull_request` leg, deliberately**, for the sibling's reason: every job of a
+`pull_request`-triggered workflow produces a check run that `scripts/dependabot-merge-gate.mjs` must
+classify. ⛔ A `merge_group` leg is ruled out by a sharper one — a check outside the required set does
+not gate the queue, and putting *this* check inside it would make the gate that watches the required
+set the thing whose silent removal it exists to detect. The set can never be self-watching, which is
+what makes an out-of-band clock the right home.
 
 ### Hook Self-Tests (`hook-selftests.yml`)
 

@@ -11,10 +11,10 @@
  * (objectui#7345 — the objectui#7252 defect class, on a renderer PR #7342 did
  * not touch).
  *
- * ## Where the two toasts come from here
+ * ## Where the two toasts came from here (at the time this file was written)
  *
  * Unlike the wizard (whose refusal came from the step renderer and whose
- * success came from `WizardForm`), BOTH outcomes of a master-detail save are
+ * success came from `WizardForm`), BOTH outcomes of a master-detail save were
  * raised by `MasterDetailForm` itself, one line apart:
  *
  *  - `handleSaved` -> `toast.success('Created' | '<title> saved')`;
@@ -24,6 +24,15 @@
  * one and nothing here held a handle on the previous attempt's toast. A save
  * the server refused left its error toast on screen, and the confirmation of
  * the corrected retry landed BESIDE it.
+ *
+ * ⚠️ **`handleError`'s toast is gone as of objectui#7354** — see that card and
+ * `MasterDetailForm.singleRefusalRaiser.test.tsx`. It was a SEPARATE defect
+ * from the one THIS file pins (a refused save reported its own refusal
+ * TWICE, once here and once from the parent `<ObjectForm>`'s renderer — see
+ * below), and removing it does not touch what this file asserts: `handleSaved`
+ * still raises the built-in success toast this file pins, under the same id,
+ * and the dismiss-on-retry mechanics below are unchanged. `handleError` now
+ * only releases the save guard and forwards to `schema.onError`.
  *
  * ## The two paths, and why both are pinned
  *
@@ -36,11 +45,23 @@
  *    start of each attempt is what closes that half, which is why it is part of
  *    the shape and not decoration.
  *
+ *    ⚠️ That `toast.dismiss` call dismisses THIS form's own id, which is not
+ *    the id the refusal is raised under any more (see below) — it still
+ *    closes this half because the form renderer's OWN submit-start dismiss
+ *    (objectui#7252, unconditional, independent of this form's dismiss)
+ *    retires the renderer's stale refusal before the retry's outcome is
+ *    decided, whether that retry succeeds or fails again. Driven, not assumed:
+ *    the second `it` below IS path 2, and it is green post-#7354.
+ *
  * The parent `<ObjectForm>`'s own renderer also toasts a rejected write, under
  * its OWN `form-outcome:` id, and retires it at the top of the next submit
- * (objectui#7252). That toast is therefore already superseded and is not what
- * this file pins; it is visible in the pre-fix registry below as the second
- * error entry.
+ * (objectui#7252). Before objectui#7354 that toast was already superseded and
+ * was not what this file pinned; it was visible in the pre-fix registry below
+ * as the second error entry. Post-#7354 it is the ONLY error entry — the
+ * duplication objectui#7354 fixed is gone, so `distinctOnScreen` below now
+ * sees the same one-error reality `onScreen` does; see
+ * `MasterDetailForm.singleRefusalRaiser.test.tsx` for the pin that asserts
+ * that directly on the raw (undeduplicated) registry.
  *
  * ## Why the pin models sonner rather than counting calls
  *
@@ -170,12 +191,20 @@ const onScreen = (): ToastEntry[] => [...toastRegistry.values()];
 /**
  * What the screen SAYS, with each distinct statement counted once.
  *
- * Measured, not assumed: a refused master-detail save currently puts the SAME
- * refusal on screen twice — `handleError` here raises one, and the parent
- * `<ObjectForm>`'s renderer raises its own for the write it re-threw. That
- * duplication is a separate defect from the one this file pins (it is filed
- * out of scope), so the assertions below deliberately do not depend on HOW MANY
+ * Before objectui#7354: a refused master-detail save put the SAME refusal on
+ * screen twice — `handleError` here raised one, and the parent
+ * `<ObjectForm>`'s renderer raised its own for the write it re-threw. That
+ * duplication was a separate defect from the one THIS file pins, so the
+ * assertions below were written to deliberately not depend on HOW MANY
  * raisers reported an outcome — only on WHICH outcomes remain readable.
+ *
+ * objectui#7354 fixed that duplication (removed `handleError`'s own toast),
+ * so today `distinctOnScreen()` and the raw `onScreen()` agree on a refused
+ * save — there is only the one raiser left. The dedup here is kept anyway:
+ * this file's OWN subject (a later outcome superseding an earlier one on THIS
+ * form) never depended on how many raisers were active, and
+ * `MasterDetailForm.singleRefusalRaiser.test.tsx` is where the raw,
+ * undeduplicated count is the point of the assertion.
  */
 const distinctOnScreen = (): ToastEntry[] => {
   const seen = new Map<string, ToastEntry>();

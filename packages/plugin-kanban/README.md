@@ -136,9 +136,12 @@ declare const columns: KanbanColumn[];
 //
 // ⚠️ `onCardMove` is NOT a document key: it is a React prop the host supplies
 // (JSON has no function value), which is why it is spelled with explicit
-// parameter types below rather than inferred from the annotation. The
-// annotation is the type this package's renderer consumes; an unknown key does
-// not fail it — `ObjectKanbanSchema` extends `BaseSchema`, whose index
+// parameter types below rather than inferred from the annotation. Since
+// objectui#9342 the document face says so BY NAME — `ObjectKanbanSchema` carries
+// a `?: never` tombstone and the zod mirror refuses the key with the remedy in
+// the message, where before an authored one was accepted and silently dropped.
+// The annotation is the type this package's renderer consumes; an unknown key
+// does not fail it — `ObjectKanbanSchema` extends `BaseSchema`, whose index
 // signature deliberately accepts type-specific extensions, so the compiler is
 // not what catches a misspelt board key.
 const board: ObjectKanbanSchema = {
@@ -243,11 +246,18 @@ const schema: ObjectKanbanSchema = {
 };
 
 // The host supplies the handler as a React prop — JSON has no function value.
+// It is a SIBLING of `schema` on `KanbanRenderer`, never a member of it
+// (objectui#9342): `<KanbanRenderer schema={schema} onCardMove={onCardMove} />`.
 const onCardMove = (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => {
   console.log(`Card ${cardId} moved from ${fromColumnId} to ${toColumnId} at index ${newIndex}`);
   // Update your backend or state here
 };
 ```
+
+⚠️ An **object-bound** board does not take this prop. `ObjectKanban` owns the
+mover — the same function owns the optimistic write, the required-fields dialog
+and the rollback — so on the `object-kanban` registry key there is no host
+handler to supply, and the document key is refused by name.
 
 ## Links
 

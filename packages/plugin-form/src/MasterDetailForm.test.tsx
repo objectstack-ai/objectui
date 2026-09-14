@@ -5,8 +5,20 @@ import { registerAllFields } from '@object-ui/fields';
 import { MasterDetailForm } from './MasterDetailForm';
 
 // Capture toast calls so we can assert the form is never a silent no-op.
+// Mock target is the DEEP module `@object-ui/components/ui/sonner`, not the
+// package barrel `@object-ui/components` — that used to be enough only
+// because MasterDetailForm's OWN (now-removed, objectui#7354) `handleError`
+// toast happened to go through the barrel, which this file's coarse mock DID
+// intercept. It never saw the form renderer's toast
+// (`packages/components/src/renderers/form/form.tsx`), which imports `toast`
+// via a RELATIVE path (`../../ui/sonner`) and therefore never resolves
+// through the barrel specifier a caller OUTSIDE that package uses. Now that
+// MasterDetailForm no longer raises its own toast, the renderer's is the
+// single surviving raiser, and only the deep-module mock can see it — the
+// same reason `MasterDetailForm.outcomeToastSupersede.test.tsx` (#7345)
+// already mocks this exact path.
 const { toastSuccess, toastError } = vi.hoisted(() => ({ toastSuccess: vi.fn(), toastError: vi.fn() }));
-vi.mock('@object-ui/components', async (orig) => {
+vi.mock('@object-ui/components/ui/sonner', async (orig) => {
   const actual = await (orig as any)();
   // Inherit the real toast surface and override only what this file asserts:
   // a hand-listed double freezes sonner's methods at whatever was typed that

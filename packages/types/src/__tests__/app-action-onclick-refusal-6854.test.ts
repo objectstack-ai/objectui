@@ -130,9 +130,19 @@ describe('why the cast could never have been fed by an author (objectui#6854 Zon
     // element mirror `MenuItemSchema` was annotated `z.ZodType<any>` to break its own
     // recursion. objectui#7760 gave that mirror its declaration as both type arguments,
     // so the element is `AppMenuItem` now and a direct assertion to an index-signature
-    // type no longer overlaps. ⛔ The assertions below are unchanged and still read the
-    // RUNTIME object — the point of this file is that both undeclared keys are gone
-    // from the parsed value, which no static type can answer.
+    // type no longer overlaps. The assertion below still reads the RUNTIME object,
+    // which is the point of this file: whether a key survived a parse is not something
+    // any static type can answer.
+    //
+    // ⭐ It used to be a PAIR, asserting `onClick` and `shortcut` both gone. objectui#7719
+    // split the two contracts, so only the `onClick` half belongs here: `shortcut` is no
+    // longer an UNDECLARED key that gets scrubbed, it is a declared `retirementTombstone`
+    // that makes this very document FAIL to parse. ⛔ Do not restore the second assertion
+    // — `'shortcut' in first` is unreachable now, because there is no `first` to read.
+    // The refused case is the row named "an authored `shortcut` on the same item is
+    // REFUSED, not dropped" — cited by NAME, because a positional reference goes stale
+    // the moment a row is inserted. The contract itself is pinned in
+    // `./app-menu-item-shortcut-refusal-7719.test.ts`.
     const [first] = (result.data as unknown as { items: Record<string, unknown>[] }).items;
     expect('onClick' in first).toBe(false);
   });

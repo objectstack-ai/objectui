@@ -29,6 +29,21 @@ import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
 import type { ListViewInferred, ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
 
+/**
+ * The type of {@link ObjectCalendarSchema.calendar}, re-exported so the
+ * published member has a NAME an importer can write (objectui#8651).
+ *
+ * ⛔ Spelled with its `from` clause deliberately: a re-export with no module
+ * specifier is judged as its own declaration by
+ * `scripts/check-spec-symbol-derivation.mjs`, which is the same reason
+ * `plugin-calendar`'s deprecated aliases carry theirs.
+ *
+ * Without this the member was typed by a name no consumer could reach — exactly
+ * the "measurably unreachable" property objectui#8651 removed from that
+ * plugin's local `CalendarSchema`, and it must not come back one layer over.
+ */
+export type { ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
+
 // ============================================================================
 // Spec-Canonical Types — imported from @objectstack/spec/ui
 // Rule: "Never Redefine Types. ALWAYS import them."
@@ -2849,10 +2864,14 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * returns this block whole when it is present, and only falls through to the
    * flat members below when it is not.
    *
-   * `@objectstack/spec` declares it —
+   * `@objectstack/spec` declares the KEY —
    * `ComponentPropsMap['object-calendar'].calendar` — and this package's
-   * registration `inputs` publishes it, so authors are offered the key. Both
-   * published faces of THIS package stayed silent about it until objectui#8651,
+   * registration `inputs` publishes it, so authors are offered it. ⚠️ The spec
+   * does NOT declare its SHAPE: measured on 17.4.0 that slot is
+   * `z.unknown().optional()`, not `CalendarConfigSchema`, so the protocol
+   * accepts any value there at all. The member list below is objectui's own —
+   * see the mirror for the grounds. Both published faces of THIS package stayed
+   * silent about the key until objectui#8651,
    * which is the objectui#6914 class: the value rode {@link BaseSchema}'s
    * `[key: string]: any` here and `.passthrough()` on the mirror, admitted and
    * never examined. `calendar: 42` type-checked, parsed green, and drew an

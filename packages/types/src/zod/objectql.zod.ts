@@ -688,12 +688,28 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  *     renderer drops — `plugin-calendar/src/index.tsx` names that as this
  *     gate's own failure mode one layer in.
  *
- * The members declared are exactly the five `ObjectCalendar.tsx`'s events pass
- * destructures out of the resolved config: the spec's four, plus objectui's own
- * `allDayField`. That key has no spec counterpart — `CalendarConfigSchema` is a
- * `strictObject` of four keys and refuses it BY NAME — and it is the same
- * objectui-local lane objectui#8466 took for the FLAT spelling of this
- * vocabulary, on this same interface, for the same renderer.
+ * ⚠️ THE MEMBER LIST IS objectui's OWN, and the spec does NOT supply it.
+ * MEASURED on the installed `@objectstack/spec` 17.4.0:
+ * `ComponentPropsMap['object-calendar'].calendar` is NOT `CalendarConfigSchema`
+ * — it is `z.unknown().optional()` (wrapper chain `["optional","unknown"]`, and
+ * not the same object reference), so at THIS position the protocol accepts
+ * everything: a nonsense key, a wrong-typed member, even `calendar: 42` all
+ * parse. `CalendarConfigSchema` is the strict four-key object the spec uses for
+ * a LIST VIEW's calendar block, which is a different position.
+ *
+ * ⇒ what the protocol settles here is the KEY, not its SHAPE. The shape below
+ * is objectui's, chosen as exactly the five members `ObjectCalendar.tsx`'s
+ * events pass destructures out of the resolved config — the spec's four plus
+ * objectui's own `allDayField`, the same objectui-local lane objectui#8466 took
+ * for the FLAT spelling of this vocabulary, on this same interface, for the same
+ * renderer.
+ *
+ * That makes this mirror STRICTER than the protocol at this position, which is
+ * the sanctioned direction and not the forbidden one: objectui#8327's triage
+ * ruling forbids accepting what the platform REFUSES, and under `BaseSchema`'s
+ * `.passthrough()` — which already admitted this key unexamined — a declaration
+ * can only narrow. The same asymmetry `filter` and `sort` already carry on this
+ * block.
  *
  * ⛔ `.passthrough()` is kept, so this declaration REFUSES NOTHING that parses
  * today: a `calendar` block carrying `defaultView`, or any other unexamined

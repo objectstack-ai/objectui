@@ -403,26 +403,63 @@ describe('objectui#7313 — the declaration names a live read, in the declared o
     expect(at, `${RENDERER} no longer calls the shared ladder at all`).toBeGreaterThan(-1);
     let depth = 0;
     let end = at + 'resolveRecordSourceConfig'.length;
+    let closed = false;
     for (; end < src.length; end += 1) {
       if (src[end] === '(') depth += 1;
       else if (src[end] === ')') {
         depth -= 1;
-        if (depth === 0) break;
+        if (depth === 0) {
+          closed = true;
+          break;
+        }
       }
     }
     const call = src.slice(at, end + 1);
+    expect(closed, 'the paren match ran away — every assertion below is void').toBe(true);
+
+    // ⭐ READ THE ARGUMENT LIST, do not search the slice for the arm's TEXT.
+    //
+    // This row shipped with `call.length < src.length` and `call.endsWith(')')`
+    // as its control, and objectui#8651's contract review showed both are
+    // satisfied by a paren match that RAN AWAY — a runaway slice is shorter
+    // than the file and ends in a paren. The control passed in exactly the case
+    // it existed to catch.
+    //
+    // ⚠️ And the obvious repairs do not close it either, which is worth writing
+    // down so the next person does not re-derive it: delete this call's own
+    // closing paren and the matcher simply closes on `useMemo`'s instead,
+    // swallowing the dependency array. That runaway slice still reports
+    // `closed`, is still balanced on every bracket kind, and still contains no
+    // declaration — a dependency array is a legal call argument, so NO
+    // structural test on the slice can separate the two. Measured: 179 chars
+    // genuine, 249 runaway.
+    //
+    // What DOES separate them is the thing this row actually claims — the arm
+    // is the call's LAST ARGUMENT, not a string that appears somewhere inside
+    // it. Splitting the argument list at depth 0 gives `['{…}', "'array'"]` for
+    // the real call and a third `[…]` argument for the runaway, so the arity
+    // assertion fires. It is also reformat-stable, which a length ceiling is
+    // not.
+    const inner = call.slice(call.indexOf('(') + 1, -1);
+    const args: string[] = [];
+    let buf = '';
+    let d = 0;
+    for (const ch of inner) {
+      if ('([{'.includes(ch)) d += 1;
+      else if (')]}'.includes(ch)) d -= 1;
+      if (ch === ',' && d === 0) { args.push(buf.trim()); buf = ''; continue; }
+      buf += ch;
+    }
+    args.push(buf.trim());
+    const positional = args.filter((a) => a.length > 0);
+    expect(positional, `${RENDERER}: the ladder call no longer takes exactly (schema, arm)`)
+      .toHaveLength(2);
     // The arm is the one `ComponentPropsMap['object-calendar'].data` declares
     // (`z.array(z.unknown())`, "Pre-fetched records"), which is why it is
     // `'array'` here and `'view-data'` on `object-grid` / `object-map` /
     // `object-gantt`.
-    expect(call, `${RENDERER} no longer calls the shared ladder with its declared arm`)
-      .toContain("'array'");
-    expect(call).not.toContain("'view-data'");
-    // CONTROL: the slice really is the call and not the whole file — a paren
-    // match that ran away would swallow the other arm's name from elsewhere and
-    // make the refusal above unfailable.
-    expect(call.length).toBeLessThan(src.length);
-    expect(call.endsWith(')')).toBe(true);
+    expect(positional[1], `${RENDERER} no longer calls the shared ladder with its declared arm`)
+      .toBe("'array'");
   });
 
   it('the ladder reads `data`, then `staticData`, then `objectName` — the order the refinement rests on', () => {

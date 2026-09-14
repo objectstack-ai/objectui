@@ -446,6 +446,7 @@ export type {
   ViewNavigationConfig,
   ViewTabBarConfig,
   ObjectQLComponentSchema,
+  ObjectCalendarBlockConfig,
   BulkActionDef,
   BulkActionParam,
   BulkActionOperation,

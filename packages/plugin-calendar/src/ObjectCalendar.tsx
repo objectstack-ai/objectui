@@ -80,11 +80,26 @@ import {
  * `ObjectGridSchema`. Both arms are gone; the prop is now the published schema
  * of the element this file is registered as (`index.tsx`, both tags).
  *
- * What the union cost, measured with the TypeScript checker on the current tree
- * (`getPropertyOfType`, never a grep — objectui#8410): of the fifteen keys this
+ * What the union cost, measured with the TypeScript checker on the merge-base
+ * (`getPropertyOfType`, never a grep — objectui#8410). Of the fifteen keys this
  * renderer reads off the node, FOUR were declared on neither arm and EIGHT on
- * exactly one, so every one of them needed a cast to read — while
- * `ObjectCalendarSchema` already declared ELEVEN of the fifteen.
+ * exactly one, while `ObjectCalendarSchema` already declared ELEVEN of the
+ * fifteen.
+ *
+ * ⚠️ But the cast count is NOT twelve, and an earlier cut of this comment said
+ * it was. `ObjectGridSchema` carries `BaseSchema`'s `[key: string]: any`, so on
+ * the UNION the five `CalendarSchema`-only keys resolved through that index
+ * signature and compiled with no cast at all. The checker on the union itself:
+ * DECLARED 8 of 15 (`colorField` `dateField` `defaultView` `endField` `filter`
+ * `objectName` `sort` `titleField`), NOT declared 7 (`allDayField` `calendar`
+ * `data` `endDateField` `navigation` `startDateField` `staticData`), nonsense
+ * control `false`. ⇒ SEVEN reads needed a cast, not twelve.
+ *
+ * ⭐ That reading is worse for the old shape, not better: those five compiled
+ * silently as `any` — admitted through an index signature, never examined —
+ * which is the objectui#6914 defect itself rather than an absence of one. A
+ * cast at least announces the gap. The union's own index signature is `false`,
+ * which is why the other seven had to be cast.
  *
  * The two arms failed differently and neither was salvageable:
  *
@@ -224,33 +239,50 @@ type ObjectCalendarConfig = CalendarConfig & {
 };
 
 /**
- * ⛔ TWO ALIAS RUNGS RETIRED HERE (objectui#8651), and they were the only
- * members the retired plugin-local interface had that this schema does not.
+ * The two PRE-#2231 alias spellings `getCalendarConfig` still honours, declared
+ * ONLY as a cast target and deliberately NOT as schema members — see the
+ * routing note on `getCalendarConfig`. `@objectstack/spec` refuses both by name
+ * at the flat position, so a declaration here would make this repo accept what
+ * the platform refuses.
+ */
+type CalendarAliasRungs = { dateField?: string; endField?: string };
+
+/**
+ * ⚠️ TWO ALIAS RUNGS SURVIVE HERE, and objectui#8651 ROUTES THEM TO THE
+ * PRODUCER rather than retiring them. An earlier cut of that card DID retire
+ * them, on a census that was FALSE; the census was the defect, so the reasoning
+ * is recorded here rather than the conclusion it produced.
  *
- * The flat branch below used to read a second spelling under each of the two
- * date bindings — one for the start field, one for the end — falling back to it
- * when the canonical spelling was absent. Censused on the current tree, each
- * with a control that hits: ZERO producers anywhere in this repo write either
- * onto a calendar node (every hit belongs to the sibling `timeline` widget),
- * ZERO fixtures, ZERO tests and ZERO docs teach them, and `@objectstack/spec`
- * refuses both BY NAME — with an `unrecognized_keys` diagnostic at the flat
- * position AND inside `CalendarConfigSchema`, which is a `strictObject` of four
- * keys. So no conforming author could write them and no write door could store
- * them.
+ * What the false census said: zero producers anywhere in this repo write either
+ * spelling onto a calendar node. What it could not see: the producer does not
+ * write the key LITERALLY, it SPREADS it. `plugin-list/src/ListView.tsx`'s
+ * `case 'calendar':` ends by flattening the authored block onto the node it
+ * emits — `...(schema.options?.calendar || {})` then `...(schema.calendar || {})`
+ * — objectui's own published `ListViewSchema` accepts `calendar.dateField`, and
+ * `resolveTimelineDateBinding` in that same file documents it in terms:
+ * *"`dateField` is the pre-#2231 alias for `startDateField`"*, and honours it.
+ * A word-boundary text census is structurally blind to a key that arrives
+ * through a spread.
  *
- * ⛔ Per AGENTS.md #0.1 the remedy for a second spelling belongs at the
- * producer, and there is no producer: a tolerant rung kept here would be a
- * second de-facto contract with nothing on the other end of it. The node that
- * carried ONLY a retired spelling now falls through to `null`, which the
- * "Calendar configuration required" refusal screen answers by name — the same
- * degradation objectui#7711 chose for the same reason, one key over. Pinned,
- * with its positive control, in `__tests__/calendarUnionReads-8651.test.tsx`.
+ * MEASURED by mounting the producer on `calendar: { dateField, titleField }`,
+ * capturing the `object-calendar` node it really emits — a `titleField` and a
+ * flat `dateField`, NO `startDateField` — and rendering that exact node on both
+ * trees: the merge-base draws a calendar, the retiring tree drew "Calendar
+ * configuration required". A live, published authoring path stopped rendering
+ * with every gate green. `endField` degraded more quietly: the node still
+ * resolved through `startDateField` and the end binding was silently dropped.
  *
- * ⛔ No casts remain in this function. Every key it reads is now a declared
- * member of the parameter type, which is the whole point of objectui#8651 — and
- * `packages/types/src/__tests__/calendar-flat-color-allday-8466.test.ts` reads
- * this function's reads as a FACT rather than as a spelling (objectui#8832), so
- * dropping them moves no verdict there.
+ * ⇒ AGENTS.md #0.1 points these at the PRODUCER — the one translation point in
+ * `ListView.tsx`'s calendar branch, which already lifts `startDateField`,
+ * `endDateField`, `titleField` and `defaultView` and should normalise these two
+ * the same way. That file is outside objectui#8651's declared file surface, so
+ * the card ROUTES rather than retires: the rungs stay, and both keys are
+ * LEDGERED BY NAME in `__tests__/calendarUnionReads-8651.test.tsx`, which
+ * asserts they are still read AND that the producer still flattens — so when
+ * the producer is fixed the ledger reddens and the rungs can go.
+ *
+ * ⛔ Do not re-retire these on a text census. The only census that can answer
+ * this question runs the producer.
  */
 function getCalendarConfig(schema: ObjectCalendarSchema): ObjectCalendarConfig | null {
   // The declared configuration container — read FIRST, as the spec declares it.
@@ -259,10 +291,18 @@ function getCalendarConfig(schema: ObjectCalendarSchema): ObjectCalendarConfig |
   }
 
   // The flat spelling, which `ObjectView` and `ListView` emit.
-  if (schema.startDateField) {
+  //
+  // ⛔ The two alias rungs are spelled as a cast ON `schema` at each read site,
+  // never through a renamed local. The repo's read census (objectui#6576's
+  // `schemaReads`, used by
+  // `types/src/__tests__/calendar-flat-color-allday-8466.test.ts` and by this
+  // card's own pin) matches `schema.KEY` and `(schema as T).KEY` — a local alias
+  // would hide these two reads from the very instrument meant to enumerate them,
+  // which is the same class of blindness that produced the false census above.
+  if (schema.startDateField || (schema as CalendarAliasRungs).dateField) {
       return {
-          startDateField: schema.startDateField,
-          endDateField: schema.endDateField,
+          startDateField: schema.startDateField || (schema as CalendarAliasRungs).dateField,
+          endDateField: schema.endDateField || (schema as CalendarAliasRungs).endField,
           titleField: schema.titleField,
           colorField: schema.colorField,
           allDayField: schema.allDayField
@@ -427,12 +467,10 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // luck; that luck is now gone, so the list has to be honest. Pinned in
   // `__tests__/ObjectCalendar.filterIsNotAConfigSlot-7711.test.tsx`.
   //
-  // ⛔ Two more entries left this list in objectui#8651, and they are NOT a
-  // third accidental omission: the two retired alias rungs noted on
-  // `getCalendarConfig` above. The function no longer reads either spelling, so
-  // depending on them would be the mirror-image dishonesty — a dependency on a
-  // key that can no longer change the result. This list is exactly what the
-  // function reads, in both directions.
+  // ⚠️ The two alias rungs are listed too, and they have to be: this list is
+  // exactly what `getCalendarConfig` reads, in BOTH directions. A cut of
+  // objectui#8651 dropped them alongside a retirement that broke a live
+  // authoring path; the rungs came back, so these came back with them.
   //
   // ⭐ objectui#8026 — `allDayField` is now LOAD-BEARING here, not merely
   // honest. When #7711 named it, nothing read the key, so the dependency could
@@ -447,7 +485,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   const calendarConfig = useMemo(() => getCalendarConfig(schema), [
     schema.calendar,
     schema.startDateField,
+    (schema as CalendarAliasRungs).dateField,
     schema.endDateField,
+    (schema as CalendarAliasRungs).endField,
     schema.titleField,
     schema.colorField,
     schema.allDayField

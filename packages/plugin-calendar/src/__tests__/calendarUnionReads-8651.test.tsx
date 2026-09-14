@@ -16,8 +16,16 @@
  * The card filed twelve keys in two classes — four undeclared on both arms of
  * `ObjectGridSchema | CalendarSchema`, eight declared on exactly ONE arm — and
  * asked, as its FIRST question, whether that union is right at all. Measured
- * with the TypeScript checker on the current tree (`getPropertyOfType`, never a
+ * with the TypeScript checker on the merge-base (`getPropertyOfType`, never a
  * grep — objectui#8410), the answer decides eleven of the twelve at once:
+ *
+ * ⚠️ Note what the union itself answers, because it is easy to get backwards
+ * and this file's first cut did: on the UNION only SEVEN of the fifteen reads
+ * were undeclared. `ObjectGridSchema` carries `BaseSchema`'s index signature,
+ * so the five `CalendarSchema`-only keys resolved through it and compiled with
+ * no cast — silently typed `any`, which is the defect rather than the absence
+ * of one. Per-ARM is the reading the card tabled; per-UNION is the reading the
+ * compiler acts on; they are different numbers and both are measured here.
  *
  *   `ObjectCalendarSchema` — this repo's published interface for the
  *   `object-calendar` element, and its zod mirror — ALREADY declares eleven of
@@ -54,13 +62,22 @@
  *     publishes it AND `getCalendarConfig` reads it FIRST. Triage's ruling for
  *     the family (objectui#8327, comment `5619610246`) makes that exit
  *     mechanical: declared in spec ⇒ align the mirror. Declared here.
- *   - `dateField` / `endField` were declared ONLY on the retired local
- *     interface and read only as fallback rungs beneath the canonical
- *     spellings. Nothing writes them: zero producers, zero fixtures, zero
- *     tests, zero docs — each census run below with a control that hits — and
- *     the spec refuses both BY NAME at the flat position and inside
- *     `CalendarConfigSchema`. ⇒ retired, per AGENTS.md #0.1: the remedy for a
- *     second spelling belongs at the producer, and there is no producer.
+ *   - `dateField` / `endField` are ROUTED TO THE PRODUCER, the third exit.
+ *     ⛔ An earlier cut of this card RETIRED them on a census that was FALSE,
+ *     and the false census is recorded here because it is the transferable
+ *     part. It said: zero producers write either spelling onto a calendar node.
+ *     It could not see the producer because the producer does not write the key
+ *     LITERALLY — `plugin-list/src/ListView.tsx`'s `case 'calendar':` SPREADS
+ *     the authored block flat onto the node it emits, objectui's own published
+ *     `ListViewSchema` accepts `calendar.dateField`, and
+ *     `resolveTimelineDateBinding` in that file documents it as *"the pre-#2231
+ *     alias for `startDateField`"* and honours it. A word-boundary text census
+ *     is structurally blind to a key arriving through a spread. Measured by
+ *     mounting the producer: `calendar: { dateField, titleField }` emits a node
+ *     with a flat `dateField` and NO `startDateField`, which the merge-base
+ *     draws and the retiring tree refused. ⇒ the remedy is at the producer,
+ *     which is outside this card's file surface, so the rungs STAY and both
+ *     keys are ledgered below with the producer named.
  *
  * ## ⛔ `navigation` is NOT ruled here, and its verdict is INVARIANT
  *
@@ -130,11 +147,22 @@ const CALENDAR_READER = 'packages/plugin-calendar/src/ObjectCalendar.tsx';
  */
 const LEDGERED_OTHER_CARD_READS = ['navigation'] as const;
 
-/** The two spellings this card retires. */
-const RETIRED_SPELLINGS = ['dateField', 'endField'] as const;
+/**
+ * The two PRE-#2231 alias spellings this card ROUTES TO THE PRODUCER rather
+ * than declaring or retiring. Both are genuinely undeclared on
+ * `ObjectCalendarSchema` and must stay so — `@objectstack/spec` refuses both by
+ * name at the flat position, so declaring them would make this repo accept what
+ * the platform refuses. Each entry is asserted to be STILL READ, and the
+ * PRODUCER is asserted to still flatten its block, so when `ListView` is fixed
+ * this ledger reddens rather than rotting into a permanent exemption.
+ */
+const ROUTED_TO_PRODUCER = ['dateField', 'endField'] as const;
 
-/** Their canonical twins — the control that makes a zero above a reading. */
+/** Their canonical twins — the control that makes any zero above a reading. */
 const CANONICAL_TWINS = ['startDateField', 'endDateField'] as const;
+
+/** The producer that makes the two aliases reachable, and the branch that does it. */
+const PRODUCER = 'packages/plugin-list/src/ListView.tsx';
 
 /** A key nothing reads and nothing declares: the both-ways control. */
 const CONTROL_KEY = 'zzqxNoSuchField';
@@ -233,9 +261,10 @@ describe('objectui#8651 — every key read off the node is declared on that sche
   it('no read is undeclared, with `navigation` ledgered by name', () => {
     const reads = rendererReads();
     const declared = new Set(shapeKeys(ObjectCalendarMirror));
+    const exempt = new Set<string>([...LEDGERED_OTHER_CARD_READS, ...ROUTED_TO_PRODUCER]);
     const undeclared = [...reads]
       .filter((key) => !declared.has(key))
-      .filter((key) => !(LEDGERED_OTHER_CARD_READS as readonly string[]).includes(key))
+      .filter((key) => !exempt.has(key))
       .sort();
     expect(undeclared, `undeclared reads on ObjectCalendarSchema: ${undeclared.join(', ')}`)
       .toEqual([]);
@@ -269,7 +298,23 @@ describe('objectui#8651 — every key read off the node is declared on that sche
 
 /* ── 3. `calendar`, the container the spec names ───────────────────────────── */
 
-describe('objectui#8651 — `calendar` is declared, on the grounds the spec already set', () => {
+describe('objectui#8651 — `calendar` is declared; the spec sets the KEY, objectui sets the SHAPE', () => {
+  it('⚠️ the spec declares the KEY but NOT its shape — the slot refuses nothing', () => {
+    // The grounds, stated the way the instrument returns them. An earlier cut
+    // of this card said the spec declares the container and that "no conforming
+    // author could write" the alias spellings inside it. The first half is
+    // true; the second is false, and this row is why.
+    const oc = (ComponentPropsMap as unknown as Record<string, any>)['object-calendar'];
+    const inside = (value: unknown) => oc.safeParse({ objectName: 'duly_task', calendar: value }).success;
+    expect(inside({ startDateField: 'kickoff' })).toBe(true);   // known-accepted control
+    expect(inside({ [CONTROL_KEY]: 'x' })).toBe(true);          // ⇒ the slot is not strict
+    expect(inside({ dateField: 'kickoff' })).toBe(true);        // so the alias IS writable
+    expect(inside(42)).toBe(true);                              // it is `z.unknown()`
+    // CONTROL, same instrument, one level out: the element's props schema IS
+    // strict, so the reading above is about this SLOT and not a dead parser.
+    expect(oc.safeParse({ objectName: 'duly_task', [CONTROL_KEY]: 'x' }).success).toBe(false);
+  });
+
   it('the spec declares it at the flat position (control: a nonsense key on the same call)', () => {
     expect(specShapeKeys('object-calendar')).toContain('calendar');
     const oc = (ComponentPropsMap as unknown as Record<string, any>)['object-calendar'];
@@ -301,22 +346,58 @@ describe('objectui#8651 — `calendar` is declared, on the grounds the spec alre
 
 /* ── 4. The retired spellings ──────────────────────────────────────────────── */
 
-describe('objectui#8651 — the `dateField` / `endField` alias rungs are retired', () => {
-  it('the renderer no longer reads either spelling', () => {
+describe('objectui#8651 — the `dateField` / `endField` rungs are ROUTED, not retired', () => {
+  it('both are STILL READ — the rungs stay until the producer is fixed', () => {
     const reads = rendererReads();
-    for (const key of RETIRED_SPELLINGS) {
-      expect([...reads], `${key} is still read off the node`).not.toContain(key);
+    for (const key of ROUTED_TO_PRODUCER) {
+      expect([...reads], `${key} is ledgered as routed but is no longer read`).toContain(key);
     }
   });
 
-  it('CONTROL: the same census DOES see the canonical twins, so the zero is a reading', () => {
+  it('CONTROL: the same census sees the canonical twins, and invents nothing', () => {
     const reads = rendererReads();
     for (const key of CANONICAL_TWINS) expect([...reads]).toContain(key);
+    expect(reads.has(CONTROL_KEY)).toBe(false);
   });
 
-  it('neither is declared on the mirror either', () => {
+  it('⛔ neither is DECLARED — declaring would accept what the platform refuses', () => {
     const declared = shapeKeys(ObjectCalendarMirror);
-    for (const key of RETIRED_SPELLINGS) expect(declared).not.toContain(key);
+    for (const key of ROUTED_TO_PRODUCER) expect(declared).not.toContain(key);
+    // …and that is the spec's verdict, not an assumption. Same call, with a
+    // known-accepted key and a nonsense key as the two controls.
+    const oc = (ComponentPropsMap as unknown as Record<string, any>)['object-calendar'];
+    expect(oc.safeParse({ objectName: 'duly_task' }).success).toBe(true);
+    expect(oc.safeParse({ objectName: 'duly_task', [CONTROL_KEY]: 'x' }).success).toBe(false);
+    for (const key of ROUTED_TO_PRODUCER) {
+      const r = oc.safeParse({ objectName: 'duly_task', [key]: 'x' });
+      expect(r.success, `the spec now accepts a flat ${key}; revisit this routing`).toBe(false);
+    }
+  });
+
+  it('the LEDGER IS NOT STALE: the producer still flattens its block onto the node', () => {
+    // The carrier assertion. `ListView`'s calendar branch ends by spreading the
+    // authored `calendar` block FLAT onto the `object-calendar` node it emits,
+    // which is the whole reason an authored `calendar.dateField` reaches this
+    // renderer as a flat key. When that branch normalises the aliases instead,
+    // this row reddens and the two rungs above can finally go.
+    const producer = mask(readRepo(PRODUCER));
+    const at = producer.indexOf("case 'calendar':");
+    expect(at, `${PRODUCER}: the calendar branch is gone; re-derive this ledger`).toBeGreaterThan(-1);
+    // Bound the slice STRUCTURALLY, at the next `case` label, rather than by a
+    // character count — a magic window either overshoots into the sibling
+    // branch (measured: 2000 chars reaches `case 'gallery':`) or silently
+    // undershoots past the spread this row is about.
+    const nextCase = producer.indexOf("case '", at + 1);
+    expect(nextCase, `${PRODUCER}: no branch follows the calendar one; the bound is unsafe`)
+      .toBeGreaterThan(at);
+    const branch = producer.slice(at, nextCase);
+    expect(branch, `${PRODUCER} no longer flattens the authored calendar block`)
+      .toContain('...(schema.calendar || {})');
+    // CONTROLS: the slice really is just this branch — it carries this branch's
+    // own content and none of the next one's.
+    expect(branch).toContain('startDateField');
+    expect(branch).not.toContain("case 'gallery':");
+    expect(branch.length).toBeLessThan(producer.length);
   });
 });
 
@@ -359,24 +440,55 @@ function makeDataSource() {
 
 const REFUSAL = /Calendar configuration required/i;
 
-describe('objectui#8651 — the retirement reaches the screen', () => {
-  it('a node configured ONLY through the retired spelling draws the refusal screen', async () => {
+/**
+ * ⭐ THE REGRESSION ROW. An earlier cut of this card retired the two alias rungs
+ * and this suite was GREEN, the whole farm was GREEN, and a live authoring path
+ * had stopped rendering. What was missing was not a stricter assertion anywhere
+ * in it — it was THIS node.
+ *
+ * The shape is not invented: it is what `ListView` really emits for a view
+ * authored `calendar: { dateField, titleField }` — captured by mounting the
+ * producer with a spy registration — a flat `dateField`, a `titleField`, and NO
+ * `startDateField`. Measured on both trees with the identical node: the
+ * merge-base draws, the retiring tree drew "Calendar configuration required".
+ *
+ * ⛔ Do not relax this row to make a retirement pass. The retirement is
+ * available only once the PRODUCER normalises the alias, and the ledger row
+ * above is what reports that.
+ */
+describe('objectui#8651 — the node the producer really emits still draws', () => {
+  it('a node carrying ONLY the aliased date binding renders, and does not refuse', async () => {
     render(
       <ObjectCalendar
         schema={{ type: 'object-calendar', objectName: 'duly_task', dateField: 'kickoff', titleField: 'nickname' } as any}
         dataSource={makeDataSource()}
       />,
     );
-    await waitFor(() => expect(screen.getByText(REFUSAL)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByTestId('object-calendar-shell') ?? document.body).toBeTruthy());
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(screen.queryByText(REFUSAL), 'the aliased binding stopped resolving — this is the objectui#8651 regression').toBeNull();
   });
 
-  it('CONTROL: the canonical spelling on the same rows draws a calendar, not the refusal', async () => {
+  it('CONTROL: the canonical spelling on the same rows also draws', async () => {
     render(
       <ObjectCalendar
         schema={{ type: 'object-calendar', objectName: 'duly_task', startDateField: 'kickoff', titleField: 'nickname' } as any}
         dataSource={makeDataSource()}
       />,
     );
-    await waitFor(() => expect(screen.queryByText(REFUSAL)).toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(screen.queryByText(REFUSAL)).toBeNull();
+  });
+
+  it('CONTROL: the refusal is REACHABLE, so the two rows above are not vacuous', async () => {
+    // A node with no date binding at all must still refuse — otherwise
+    // `queryByText(REFUSAL)` returning null above would mean nothing.
+    render(
+      <ObjectCalendar
+        schema={{ type: 'object-calendar', objectName: 'duly_task', titleField: 'nickname' } as any}
+        dataSource={makeDataSource()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText(REFUSAL)).toBeTruthy());
   });
 });

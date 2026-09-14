@@ -1002,6 +1002,16 @@ Runs `scripts/check-doc-component-types.mjs`, which reads every fenced code bloc
 `content/docs/**` and asks, of each `type` string literal in one, whether the repository registers a
 component under that name.
 
+**A second gate in the same job, and it can stop your pull request.** The job then runs
+`scripts/check-prompt-component-keys.mjs` in a step of its own — no `continue-on-error` — over
+`.github/prompts/**`. Those are markdown, so `ci.yml`'s `type-check` diff excludes them under
+`'**/*.md'` and a prompt-only PR starts that gate nowhere: the same blind spot, one file further
+out. It asks the stricter question a file read by an AI *author* has to survive — not "does this
+`type` exist" but "does it render, or is it answered only by the opt-in placeholder panel". A
+retired key passes the first question and fails this one, which is the whole of
+[#8929](https://github.com/objectstack-ai/objectui/issues/8929). Run it locally with
+`pnpm check:prompt-keys`.
+
 **Why the teaching surface needed its own ratchet.** The catalog side has had one since
 [#4616](https://github.com/objectstack-ai/objectui/issues/4616):
 `examples/schema-catalog/test/catalog-gallery-render.test.tsx` renders every catalog entry and fails
@@ -2338,6 +2348,18 @@ covers change, and if so, does this change **add** a `.changeset/*.md`?
   required context that is never created leaves the PR pending rather than failing it
   ([#3523](https://github.com/objectstack-ai/objectui/issues/3523)). It would also be a second copy
   of the guarded surface, free to drift from the config the script reads.
+
+**A second job — `Changeset Claim Re-read`, report-only.** The same workflow runs
+`scripts/check-changeset-claims.mjs` in a job of its own, asking the *opposite* question: not
+whether this change declares a changeset, but whether somebody else's **pending** declaration still
+describes the tree once this change has touched a file it names. It has no enforcing switch at all,
+deliberately — "a pending changeset names a file you edited" is usually still true, and a gate that
+failed a build on prose being adjacent is the one triage said would be switched off within a month.
+So a finding here never turns the declaration gate's context red. It lives in *this* workflow rather
+than beside the other changeset gates in `changeset-guard.yml` because that one carries a `paths:`
+filter, and this gate's subject — an ordinary source change that falsifies a pending claim — is
+under no obligation to touch `.changeset/**` at all. Run it locally with
+`pnpm check:changeset-claims`.
 
 **Why this is separate from `changeset-guard.yml`, which also polices changesets:** that workflow's
 trigger is `paths: ['.changeset/**']`, and the inversion is deliberate — on a PR that adds *only* a

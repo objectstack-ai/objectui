@@ -356,7 +356,6 @@ const serverChromeLabel = () => String(capturedChartProps?.schema?.series?.[0]?.
  */
 async function settle(): Promise<void> {
   for (let i = 0; i < 6; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });

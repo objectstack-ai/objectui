@@ -252,17 +252,27 @@ export interface FlowConfigField {
    * as one; `flow-node-config.spec-reconciliation.test.ts` reconciles EVERY
    * declaring field against its own per-node-type spec schema, so a drift
    * reddens on the bump. objectui#9109 widened that ledger from the
-   * approval-escalation block, which it used to walk alone — the four
-   * declarations the installed spec applies none of had been sitting outside
-   * it, unchecked, for exactly that reason. A declaration added in a region
-   * the ledger has no spec schema for now fails there by name rather than
-   * going unnoticed.
+   * approval-escalation block, which it used to walk alone — declarations the
+   * installed spec applies none of had been sitting outside it, unchecked, for
+   * exactly that reason. A declaration added in a region the ledger has no spec
+   * schema for now fails there by name rather than going unnoticed.
+   *
+   * ⭐ Those unbacked declarations were then DELETED (objectui#9109's second
+   * half, triage's direction B). The reasoning is this doc comment applied to
+   * itself: it defines the property AS the spec default for its key, so a
+   * declaration with no spec counterpart is FALSE by that definition, and
+   * removing it restores an invariant rather than deciding anything. ⛔ The
+   * other end — adding the missing `.default()`s to a published contract —
+   * changes what omitting the key MEANS; that is a maintainer's call and a
+   * `packages/spec` change, ⛔ never made from this file. What the deletion
+   * cost is DISPLAY only, and it was measured as such: a declared default is
+   * shown, never written (objectui#6263), so the submit side cannot observe one.
    *
    * What the ledger cannot decide is which END of a divergence to move: it
-   * RECORDS the unbacked declarations (and the reverse case, a spec default
-   * this table states nowhere) in registers that re-measure themselves, and
-   * leaves the choice to a human. ⇒ derive a new value from the spec, never
-   * from taste.
+   * RECORDS an unbacked declaration (and the reverse case, a spec default this
+   * table states nowhere) in registers that re-measure themselves, and leaves
+   * the choice to a human. ⇒ derive a new value from the spec, never from
+   * taste.
    */
   defaultValue?: string;
   /**
@@ -642,7 +652,16 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'records' }),
   ],
   http_request: [
-    cfg('method', 'Method', 'select', { options: HTTP_METHODS, defaultValue: 'GET' }),
+    // ⛔ No `defaultValue` (objectui#9109): `HttpConfigSchema.method` is
+    // `z.string().optional()` with NO `.default()`, so an omitted key
+    // materialises nothing and a declaration here would be a claim about the
+    // installed spec with nothing behind it (see the `defaultValue` doc comment
+    // above). ⚠️ That is a statement about SCHEMA DEFAULTING only — the flow
+    // EXECUTOR lives in `objectstack` and may well apply `GET`; this repo does
+    // NOT MEASURE that, and ⛔ does not claim it false. If it is true the repair
+    // is a `.default('GET')` upstream, which this table would then mirror — the
+    // direction #0.1 requires (fix the contract, not the view).
+    cfg('method', 'Method', 'select', { options: HTTP_METHODS }),
     cfg('url', 'URL', 'text', { placeholder: 'https://api.example.com/v1/contracts' }),
     cfg('headers', 'Headers', 'keyValue', { help: 'Request headers (e.g. Authorization, Content-Type).' }),
     cfg('body', 'Body', 'textarea', { placeholder: '{ "key": "value" }', help: 'Request payload (JSON or expression).' }),
@@ -736,12 +755,16 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       placeholder: 'account_id',
       help: 'Object form only: variable bound to the saved record\u2019s id, for later steps.',
     }),
+    // ⛔ No `defaultValue` (objectui#9109): `ScreenConfigSchema.mode` is an
+    // OPTIONAL enum with no `.default()`, so an omitted key materialises
+    // nothing. Same shape as `http_request.method` above — whether the executor
+    // applies create-mode is NOT MEASURED here, and a declaration would state a
+    // spec default that does not exist.
     cfg('mode', 'Form mode', 'select', {
       options: [
         { value: 'create', label: 'Create' },
         { value: 'edit', label: 'Edit' },
       ],
-      defaultValue: 'create',
       help: 'Object form only.',
     }),
     cfg('defaults', 'Form defaults', 'keyValue', {
@@ -934,6 +957,21 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     }),
   ],
   wait: [
+    // ⛔ No `defaultValue` (objectui#9109), and here the declaration was not
+    // merely unbacked — it was the WRONG SHAPE of statement. `eventType` is
+    // REQUIRED on the spec's `waitEventConfig` block: an omitted key does not
+    // behave as `timer`, it FAILS TO PARSE. Declaring one told the author (and
+    // an AI author reading the reference page) that leaving the key alone was a
+    // working configuration, in two ways at once — `controllerAdmits` revealed
+    // `timerDuration` below on a node that had stored no `eventType` at all, and
+    // the select trigger stated `Timer` as its placeholder.
+    //
+    // ⭐ Deleting it does NOT leave the required key without a value: a declared
+    // default is SHOWN, NEVER WRITTEN (objectui#6263), so the key was unset
+    // before and after. What changes is DISPLAY only — `timerDuration` now stays
+    // off screen until the author picks `timer`, which is the correct prompt for
+    // a key they must set. A STORED value re-shows regardless
+    // (`isFieldVisible`'s stored-value rule), so no existing config hides.
     at('waitEventConfig', 'eventType', 'Wait for', 'select', {
       options: [
         { value: 'timer', label: 'Timer' },
@@ -942,7 +980,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { value: 'manual', label: 'Manual' },
         { value: 'condition', label: 'Condition' },
       ],
-      defaultValue: 'timer',
       fallbackPath: ['config', 'eventType'],
     }),
     at('waitEventConfig', 'timerDuration', 'Duration', 'text', {
@@ -1026,6 +1063,12 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   join_gateway: [],
   boundary_event: [
     at('boundaryConfig', 'attachedToNodeId', 'Attached to', 'reference', { ref: { kind: 'node' }, placeholder: 'host node id', help: 'Host node this boundary event monitors.' }),
+    // ⛔ No `defaultValue` (objectui#9109) — same REQUIRED-key shape as
+    // `wait.waitEventConfig.eventType` above: the spec's `boundaryConfig` block
+    // requires `eventType`, so an omitted key does not behave as `error`, it
+    // fails to parse. `errorCode` below is the sibling the declaration used to
+    // reveal on a node storing no `eventType`; it now waits for the author to
+    // pick `error`, and a stored value re-shows it regardless.
     at('boundaryConfig', 'eventType', 'Event type', 'select', {
       options: [
         { value: 'error', label: 'Error' },
@@ -1033,7 +1076,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { value: 'signal', label: 'Signal' },
         { value: 'cancel', label: 'Cancel' },
       ],
-      defaultValue: 'error',
     }),
     // `defaultValue` mirrors the spec's `.default(true)` (objectui#9277): a
     // `boundaryConfig` that OMITS `interrupting` parses as INTERRUPTING, so a

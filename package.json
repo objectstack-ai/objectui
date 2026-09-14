@@ -87,6 +87,7 @@
     "check:governed-queue-guard": "node scripts/check-governed-queue-guard.mjs --self-test",
     "governed": "node scripts/check-governed-queue-guard.mjs --test",
     "check:merge-queue-head": "node scripts/check-merge-queue-head.mjs --self-test",
+    "check:required-check-set": "node scripts/check-required-check-set.mjs --self-test",
     "check:lockfile-integrity": "node scripts/check-lockfile-integrity.mjs",
     "merge-queue-head": "node scripts/check-merge-queue-head.mjs",
     "check:pre-install-import-graph": "node scripts/check-pre-install-import-graph.mjs",

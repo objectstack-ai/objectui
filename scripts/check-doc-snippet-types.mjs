@@ -424,11 +424,20 @@
  * be read off the collector:
  *
  *     every `.mdx` and `.md` page under `content/docs`, every page under an
- *     `apps/<app>/docs` tree, every `packages/<name>/README.md`, every `.md` /
- *     `.mdx` page at the TOP LEVEL of the repository-root `docs/` tree
- *     (objectui#7856 card 1), every page under `docs/adr/**` and under
- *     `docs/audits/**` (objectui#7856 card 2, recursively), and the root
- *     `README.md`.
+ *     `apps/<app>/docs` tree, every `README.md` under `packages/` AT ANY DEPTH
+ *     (objectui#7308), every `.md` / `.mdx` page at the TOP LEVEL of the
+ *     repository-root `docs/` tree (objectui#7856 card 1), every page under
+ *     `docs/adr/**` and under `docs/audits/**` (objectui#7856 card 2,
+ *     recursively), and the root `README.md`.
+ *
+ * ⚠️ The package-README clause used to read `every packages/<name>/README.md`,
+ * one level, literally — and that is what objectui#7308 reported: the sentence
+ * above is where the surface is SPECIFIED, so a walk that stopped at the package
+ * root was not drift from this paragraph, it was this paragraph drawn too small.
+ * Four nested pages were therefore neither compiled nor ledgered, i.e. neither
+ * covered NOR declared ungated, one directory down from where objectui#5174
+ * found the same state one level up. The sibling gate `check-doc-links` had
+ * already closed the identical hole on the identical four files (objectui#6026).
  *
  * ⚠️ Card 2 is the widening whose whole delivery is the LEDGER, and reading it
  * as coverage would be reading it backwards. Every page in those two subtrees
@@ -700,6 +709,101 @@ export function auditDocsPages(root) {
   return subtreeDocPages(root, AUDIT_DOCS);
 }
 
+/**
+ * The package-README leg, at EVERY depth (objectui#7308).
+ *
+ * The leg above this one — `packages/<name>/README.md` — was stated in this
+ * header's SCAN SURFACE paragraph as if the one level were the specification,
+ * so this was never implementation drift: the specification itself was drawn
+ * too small, and a page one directory deeper was "neither covered NOR declared
+ * ungated" — objectui#5174's phrase for the state that is strictly worse than a
+ * named debt, arriving here one directory down instead of one level up.
+ *
+ * Re-derived on `9ba7e9c3`, naming the population in words each time: of the 43
+ * tracked files under `packages/` whose basename is `README.md`, 39 sit at a
+ * package root and 4 sit deeper, so 4 pages were in no gate's accounting. They
+ * are not private notes — `packages/types` lists the whole of `src/` in its
+ * manifest `files`, so `packages/types/src/zod/README.md` is inside the npm
+ * tarball a reader downloads.
+ *
+ * objectui#6026 closed exactly this hole, on exactly these four files, in the
+ * sibling gate `check-doc-links` — same defect, same count, different gate. This
+ * is that fix arriving here.
+ *
+ * ### Why this is its own leg rather than a `recursive` flag on the one above
+ *
+ * Two reasons, and the first is the same one `ADR_DOCS` / `AUDIT_DOCS` carry: a
+ * divergence between this gate's walk and `check-doc-fence-languages`' has to be
+ * something a pin can SUBTRACT by import rather than a hand-written list of
+ * today's four filenames, so the guard's walk-equality test keeps failing on any
+ * OTHER drift. The second is objectui#6026's own no-double-parse guarantee,
+ * inherited structurally: this leg is rooted at the SUBdirectories of each
+ * package, so a package's own top-level `README.md` is not inside any of them
+ * and cannot be collected twice. Nothing here has a notion of "top level".
+ *
+ * ### ⚠️ Why the skip set is load-bearing, measured rather than assumed
+ *
+ * Every other recursive leg in this file walks an authored tree with nothing
+ * generated inside it. `packages/` is not that tree. Under pnpm each package has
+ * its own `node_modules/` holding SYMLINKS to its workspace siblings, and
+ * `statSync` follows symlinks — so `packages/a/node_modules/@object-ui/b` leads
+ * back into `packages/b`, whose own `node_modules` leads onward. Measured on
+ * `9ba7e9c3` with the workspace installed: an unguarded recursive walk does not
+ * merely overshoot, it does not TERMINATE; capped at depth 12 it had already
+ * reached 17,354 files named `README.md`, against the 43 the repository tracks.
+ * With `UNSCANNED_DIRS` applied the walk yields exactly 43 — the tracked
+ * population, to the file.
+ */
+export const NESTED_PACKAGE_READMES = { dir: PACKAGES_DIR, name: 'README.md', recursive: true };
+
+/**
+ * Directory names this file's `packages/` walk never enters.
+ *
+ * The same set, for the same reason, that `check-doc-links.mjs` walks its own
+ * disk surfaces with (`UNSCANNED_DIRS` there): none of these holds authored
+ * prose — they hold installed dependencies and build output — and the first of
+ * them is what makes the walk above terminate at all.
+ */
+const UNSCANNED_DIRS = new Set(['node_modules', 'dist', 'build', '.next', '.turbo', '.git']);
+
+/**
+ * Every `README.md` strictly BELOW a package's own root, in a stable order.
+ *
+ * An absent `packages/` yields `[]` so a throwaway fixture tree stays listable,
+ * exactly as the legs above do.
+ *
+ * Exported so a sibling census can ask this gate what this leg contains instead
+ * of re-spelling it — which is what `check-doc-fence-languages.test.ts` does: the
+ * fence guard does NOT carry this leg (moving `check:doc-fences`' surface is not
+ * this card), and its walk-equality pin subtracts this enumerator BY IMPORT.
+ */
+export function nestedPackageReadmePages(root) {
+  const base = join(root, NESTED_PACKAGE_READMES.dir);
+  if (!existsSync(base) || !statSync(base).isDirectory()) return [];
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir).sort()) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) {
+        if (!UNSCANNED_DIRS.has(entry)) walk(p);
+        continue;
+      }
+      if (entry === NESTED_PACKAGE_READMES.name) out.push(relative(root, p).split(sep).join('/'));
+    }
+  };
+  for (const entry of readdirSync(base).sort()) {
+    const pkg = join(base, entry);
+    if (!statSync(pkg).isDirectory()) continue;
+    // Rooted at each package's SUBdirectories: the package's own README.md is
+    // not inside any of them, so the leg above cannot double-collect it.
+    for (const sub of readdirSync(pkg).sort()) {
+      const p = join(pkg, sub);
+      if (statSync(p).isDirectory() && !UNSCANNED_DIRS.has(sub)) walk(p);
+    }
+  }
+  return out;
+}
+
 /** Fence languages treated as compilable TypeScript. `js` / `jsx` are NOT in the
  *  set: they are not type-annotated, so a strict program judges them on rules
  *  their authors never opted into. */
@@ -718,12 +822,14 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  *   apps/<app>/docs/**              ✓        ✓       ✓     objectui#6600
  *   README.md                       ✓        ✓       ✓     objectui#7115
  *   packages/<name>/README.md       ✓        ✓       ✗     ships inside `files`
+ *   nested packages README.md       ✗        ✓       ✗     objectui#7308
  *   docs/*.md (top level only)      ✗        ✓       ✗     objectui#7856 card 1
  *   docs/adr/**                     ✗        ✓       ✗     objectui#7856 card 2
  *   docs/audits/**                  ✗        ✓       ✗     objectui#7856 card 2
  *
- * The three `docs/` rows are the legs THIS gate carries alone, and the asymmetry
- * is deliberate rather than an oversight to be tidied up later: objectui#7856
+ * The three `docs/` rows and the nested-README row are the legs THIS gate carries
+ * alone, and the asymmetry is deliberate rather than an oversight to be tidied up
+ * later: objectui#7856
  * card 1 moves this gate's population only, so `check-doc-fence-languages` and
  * `check-doc-component-types` keep the surface they had. `check-doc-fence-
  * languages.test.ts` therefore no longer compares the two walks for equality
@@ -735,6 +841,12 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * where it stops, and `docs/adr/**` being GOVERNED is the reason the boundary
  * between the rows is worth a line of code rather than a comment.
  *
+ * objectui#7308's nested-README row extends that same subtraction with
+ * `nestedPackageReadmePages()` — a fourth enumerator, imported rather than
+ * re-spelled — for the reason card 1 exported its own: moving `check:doc-fences`'
+ * surface is not this card's to do, so the divergence is NAMED and every OTHER
+ * drift between the two walks still fails that pin.
+ *
  * `check-doc-component-types` does not read the package READMEs — it asks
  * whether a documented `type` literal is a registered component key, and a
  * package README teaches its own package's API rather than the schema vocabulary.
@@ -744,7 +856,8 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * ⚠️ EVERYTHING ELSE authored in markdown is read by no doc gate at all. That is
  * a statement of what the roots are today, ⛔ not a plan and not a promise. In
  * descending order of size, the unscanned population is: non-README `.md` under
- * `packages/**` (by far the largest); the PUBLISHED
+ * `packages/**`, at any depth, which stays the largest of them — objectui#7308
+ * brought the nested `README.md` files in and NOTHING else; the PUBLISHED
  * `skills/objectui/**`; the root pages that are not `README.md` (`AGENTS.md`,
  * `CONTRIBUTING.md`, `ROADMAP.md` and the rest); `examples/**`; the `apps/**`
  * pages that are not under an `apps/<app>/docs/` tree; `.claude/**`;
@@ -764,7 +877,7 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * "which":
  *
  *     git ls-files '*.md' '*.mdx' \
- *       | grep -vE '^(content/docs/|apps/[^/]+/docs/|packages/[^/]+/README\.md$|README\.md$|docs/[^/]+\.mdx?$|docs/adr/|docs/audits/|\.changeset/)'
+ *       | grep -vE '^(content/docs/|apps/[^/]+/docs/|packages/.*README\.md$|README\.md$|docs/[^/]+\.mdx?$|docs/adr/|docs/audits/|\.changeset/)'
  *
  * ⚠️ A subdirectory of `docs/` that is NEITHER `adr/` NOR `audits/` is in no leg
  * and therefore still in that population — the exclusion above names the two
@@ -944,6 +1057,66 @@ const TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript']);
  * @type {Record<string, string>}
  */
 const UNGATED_DOCS = {
+  // objectui#7308 — the nested package READMEs, LEDGER-FIRST. Measured on
+  // `9ba7e9c3` with this gate's own analyzer against the closure `--build-filter`
+  // names (35/35 turbo tasks successful): `analyze({ ungated: {} })` for the
+  // population, `compileSnippets()` for the phases, with the surface widened and
+  // these rows NOT yet written — which is the only order in which the numbers
+  // below are readings rather than justifications.
+  //
+  // The census, with each population named: the widening adds 4 documents
+  // (245 -> 249 in the scan set) carrying 20 `ts`/`tsx` blocks, of which 13 fail
+  // — 3 in the syntax phase and 10 in the semantic phase — for 37 diagnostics.
+  //
+  // ⚠️ Only THREE rows appear below for those four documents, and the missing
+  // fourth is mechanical rather than an exclusion: `packages/plugin-gantt/docs/
+  // verification/README.md` holds no `ts`/`tsx` fenced block at all (its fences
+  // are `sh`), so it joins the COVERED tier at zero blocks, and a row naming it
+  // here would fail this gate's own re-derivation as a stale entry — "an entry
+  // naming a file that ... holds no `ts` / `tsx` block at all, fails as a stale
+  // entry". ⛔ That is the opposite of keeping the ledger short by quietly leaving
+  // a page outside the surface, which is the defect objectui#7308 reported.
+  //
+  // ⚠️ These three rows are DEBT, not a terminal state — unlike the objectui#7856
+  // card 2 rows below, which are records nobody may repair. A package README is a
+  // page a reader copies from, so every row here can and should leave by the page
+  // compiling. Paying it down is its own card; ⛔ softening this gate is not a way
+  // to pay it.
+  'packages/components/src/__tests__/README.md':
+    '1 `ts` block (fence 104), 9 diagnostics, ALL semantic-phase: TS2593 x3, TS2304 x5, TS2552 x1. The ' +
+    "block is the page's \"Adding New Tests\" pattern: a bare `describe`/`it` body with no imports at all, " +
+    'so the Vitest globals (`describe`, `it`, `expect`) and the three local helpers it calls ' +
+    '(`validateComponentRegistration`, `renderComponent`, `getAllDisplayIssues`) are all undefined names. ' +
+    'What would have to change: the block imports `describe`/`it`/`expect` from `vitest` and the three ' +
+    'helpers from wherever this test suite ships them — or, if the helpers are suite-local and have no ' +
+    'importable home, the block gets a `FRAGMENT_MARKER` saying so.',
+  'packages/core/src/adapters/README.md':
+    '5 `ts` blocks (fences 36, 70, 191, 216, 239); 2 of them compile untouched. 3 fail with 9 diagnostics, ' +
+    'ALL semantic-phase: TS2304 x2, TS2355 x6, TS2420 x1. Two are excerpts naming a value the prose ' +
+    'introduces but the block never declares (`contextDataSource` at fence 191, `dataSource` at fence 216). ' +
+    "⚠️ The third is a DOCUMENTED-API defect rather than a snippet-hygiene one, and it is the first thing " +
+    'this widening found: the custom-adapter template at fence 239 declares `class MyCustomAdapter<T> ' +
+    "implements DataSource<T>` while omitting `getObjectSchema`, which `DataSource<T>` requires (TS2420), " +
+    'and its six method bodies are `// Your implementation` comments under non-`void` return annotations ' +
+    '(TS2355 x6). A reader who copies it gets a class that does not satisfy the interface it claims. What ' +
+    'would have to change: the template gains `getObjectSchema` and returns a value from each body (or ' +
+    'declares the bodies elided), and the two excerpts declare the value they use.',
+  'packages/types/src/zod/README.md':
+    '14 `ts` blocks (fences 88, 110, 140, 151, 220, 245, 266, 281, 289, 301, 324, 334, 354, 368); 5 compile ' +
+    'untouched. 9 fail with 19 diagnostics: 3 fail in the syntax-phase (fences 220, 301, 368 — TS1109 x10, ' +
+    'so their semantic half is UNMEASURED, not clean) and 6 fail in the semantic-phase (TS2304 x8, ' +
+    'TS2307 x1). Three ' +
+    'classes, each with its own remedy. (1) Fence 220 is a SHAPE SKETCH — a bare object literal at ' +
+    "statement position with `?:` optionality markers written on keys and `type: string` standing where a " +
+    'value goes; its fence language should be one this gate does not compile. (2) Fences 301 and 368 write ' +
+    'the elision `{ ... }` literally, which TypeScript reads as a spread with no operand. (3) The six ' +
+    'semantic failures are EXCERPTS that continue an earlier block’s imports — `ButtonSchema`, ' +
+    '`CardSchema`, `userInput`, `internalConfig`, `useForm`, `registry` — plus one specifier no imported ' +
+    'package declares (`@hookform/resolvers/zod`, TS2307), which is the bound this header states rather ' +
+    'than a page defect. What would have to change: each excerpt made self-contained against the built ' +
+    '`dist/*.d.ts`, the two elisions written as real initialisers, and the sketch’s fence relabelled. ' +
+    '⭐ This page SHIPS: `packages/types` lists the whole of `src/` in its manifest `files`, so it is ' +
+    'inside the npm tarball a reader downloads — which is why objectui#7308 filed it first.',
   // objectui#7856 card 2. Measured on `fedfa3e4` with this gate's own analyzer
   // against the closure `--build-filter` names (35/35 turbo tasks successful):
   // `analyze({ ungated: {} })` for the population, `compileSnippets()` for the
@@ -1205,6 +1378,9 @@ export function listDocuments(root = repoRoot) {
       if (existsSync(readme)) out.push(relative(root, readme).split(sep).join('/'));
     }
   }
+  // Every README.md BELOW a package root (objectui#7308), its own leg so the
+  // fence guard's walk-equality pin can subtract exactly this set by import.
+  out.push(...nestedPackageReadmePages(root));
   // The root `docs/` tree, TOP LEVEL only (objectui#7856 card 1). Enumerated by
   // directory entry and filtered to files by `rootDocsPages`, so `docs/adr/**`
   // (governed) and `docs/audits/**` cannot arrive through THIS leg by accident —
@@ -1763,8 +1939,25 @@ export function analyze({ root = repoRoot, ungated = UNGATED_DOCS } = {}) {
   };
 }
 
-/** Phase 1 (syntax) and phase 2 (semantics), kept apart on purpose. */
-export function compileSnippets({ root = repoRoot, compiled, paths, declaredSpecifiers = [] }) {
+/**
+ * Phase 1 (syntax) and phase 2 (semantics), kept apart on purpose.
+ *
+ * `extraPathsByPackage` is the emitted-manifest half of the bound, and it is
+ * keyed by EMITTING PACKAGE (`packages/<dir>`) rather than merged into one map
+ * on purpose: a manifest one generator emits says nothing about what another
+ * generator's reader installs, and a single merged map would let create-plugin's
+ * `vite-plugin-dts` silence a TS2307 in a `packages/cli` template. Empty for the
+ * documentation run, whose blocks live under `content/docs/**` and match no key,
+ * so that verdict does not move by one byte. See the emitted-census header
+ * section "The manifest the emitted file's reader installs".
+ */
+export function compileSnippets({
+  root = repoRoot,
+  compiled,
+  paths,
+  declaredSpecifiers = [],
+  extraPathsByPackage = {},
+}) {
   const parseFailures = [];
   // THE BOUND (see the header): blocks importing a specifier that reaches them
   // only through the repository root's own manifest. Kept out of the semantic
@@ -1772,9 +1965,20 @@ export function compileSnippets({ root = repoRoot, compiled, paths, declaredSpec
   const boundFailures = [];
   const boundedSpecifiers = new Set();
   const rootDeclared = rootDeclaredSpecifiers(root);
-  const bounded = (specifier) => resolvesOnlyThroughRootManifest(specifier, { paths, rootDeclared });
+  // The global map WINS every collision, the same direction `mergedPaths` above
+  // resolves one: a workspace package deliberately left unmapped stays unmapped,
+  // and an emitted manifest may only ever ADD a specifier no existing mapping
+  // already backs.
+  const pathsFor = (block) => {
+    const extra = extraPathsByPackage[block.doc.split('/').slice(0, 2).join('/')];
+    return extra ? { ...extra, ...paths } : paths;
+  };
+  const bounded = (specifier, blockPaths = paths) =>
+    resolvesOnlyThroughRootManifest(specifier, { paths: blockPaths, rootDeclared });
   const virtual = new Map();
   const owners = new Map();
+  /** virtual file -> the `paths` that file's own block is bounded and resolved by. */
+  const blockPathsOf = new Map();
   compiled.forEach((block, index) => {
     // Every block is parsed as TSX regardless of the fence label. The corpus
     // labels JSX-bearing snippets `ts`, `tsx` and `typescript` interchangeably,
@@ -1788,13 +1992,17 @@ export function compileSnippets({ root = repoRoot, compiled, paths, declaredSpec
       parseFailures.push({ block, diagnostics: probe.parseDiagnostics });
       return;
     }
-    const refused = moduleSpecifiersOf(probe).filter(bounded).sort();
+    const blockPaths = pathsFor(block);
+    const refused = moduleSpecifiersOf(probe)
+      .filter((specifier) => bounded(specifier, blockPaths))
+      .sort();
     if (refused.length > 0) {
       for (const specifier of refused) boundedSpecifiers.add(specifierRoot(specifier));
       boundFailures.push({ block, specifiers: refused });
       return;
     }
     const name = join(root, VIRTUAL_DIR, `s${String(index).padStart(4, '0')}.tsx`);
+    blockPathsOf.set(name, blockPaths);
     // A block with no top-level import/export is a SCRIPT: its declarations would
     // be globals shared with every other block. Force a module so each block is
     // judged exactly as a reader who copies that one block would experience it.
@@ -1848,14 +2056,32 @@ export function compileSnippets({ root = repoRoot, compiled, paths, declaredSpec
   // has nothing to do with them.
   const probeDir = join(root, VIRTUAL_DIR);
   const resolutionCache = new Map();
+  // One options object per DISTINCT block map rather than one per file, so
+  // `ts.resolveModuleName`'s own per-options caching stays live. A block with no
+  // emitted-manifest map — every documentation block, and every census block in
+  // a package that emits none — gets the shared `options` object unchanged, so
+  // its resolution is byte-for-byte the one this function performed before the
+  // emitted-manifest half existed. The CONTROL files have no entry either, which
+  // is what keeps the ROOT-DECLARED control live while a census block beside it
+  // legitimately resolves the very same specifier.
+  const perBlockOptions = new Map();
+  const optionsFor = (containingFile) => {
+    const blockPaths = blockPathsOf.get(containingFile);
+    if (!blockPaths || blockPaths === paths) return null;
+    if (!perBlockOptions.has(blockPaths)) {
+      perBlockOptions.set(blockPaths, { ...options, paths: blockPaths });
+    }
+    return perBlockOptions.get(blockPaths);
+  };
   host.resolveModuleNames = (moduleNames, containingFile, _reused, _redirected, compilerOptions) =>
     moduleNames.map((name) => {
       const key = `${containingFile}|${name}`;
       if (resolutionCache.has(key)) return resolutionCache.get(key);
+      const scoped = optionsFor(containingFile);
       const resolved = ts.resolveModuleName(
         name,
         containingFile,
-        compilerOptions ?? options,
+        scoped ?? compilerOptions ?? options,
         host,
       ).resolvedModule;
       const inProbeDir = dirname(containingFile) === probeDir;
@@ -1863,7 +2089,10 @@ export function compileSnippets({ root = repoRoot, compiled, paths, declaredSpec
       // the bound refused THE CORPUS, and the only file that reaches this arm is
       // the ROOT-DECLARED control, which has its own line. Counting the control
       // there would make every run read as though a document had imported it.
-      const answer = resolved && inProbeDir && bounded(name) ? undefined : resolved;
+      const answer =
+        resolved && inProbeDir && bounded(name, blockPathsOf.get(containingFile) ?? paths)
+          ? undefined
+          : resolved;
       resolutionCache.set(key, answer);
       return answer;
     });
@@ -2018,6 +2247,60 @@ export function compileSnippets({ root = repoRoot, compiled, paths, declaredSpec
  * per-package test: the harness already exists, and route B would have bought
  * one template at the cost of real `devDependencies` in a package that builds
  * in 23 ms (objectui#7864's own table).
+ *
+ * ## The manifest the emitted file's reader installs (objectui#8397)
+ *
+ * The root bound's sentence is "this specifier reaches the snippet only through
+ * this workspace's own installation, not through anything THE EMITTED FILE'S
+ * READER INSTALLS". For a document that is total. ⭐ For a GENERATOR its premise
+ * can be false, because the same generator also writes the manifest the reader
+ * installs — and the census was not reading it. Measured on `324b1d0684`, all
+ * three on one generator, `packages/create-plugin/src/templates.ts` — named by
+ * the BUILDER rather than by a line, because the filing card's own coordinates
+ * had already drifted by the time it was picked up:
+ *
+ *   buildVitestSetup   [bound]     @testing-library/jest-dom/vitest
+ *   buildTestFile      [bound]     @testing-library/react, vitest
+ *   buildViteConfig    [semantic]  TS2307 vite-plugin-dts
+ *
+ * Every one of those six specifiers is declared by `buildPackageJson`, twenty
+ * lines above the templates being refused for them. ⚠️ And the third was the
+ * WHOLE of the census's `code` class that run — the one diagnostic the summary
+ * calls "the only ones that say anything about the emitted code" was an artefact
+ * of reading the wrong manifest.
+ *
+ * ⛔ What this is NOT: an exemption, a ledger, or an allowance list. Nothing is
+ * excused from compilation and nothing is skipped — the two refused templates
+ * JOIN the semantic program and are judged there. The count that moves is
+ * `judged`, upward; `walked`, `recognised` and the blind side are identical.
+ * (objectui#8397's standing fence: a change that improves the number by
+ * SHRINKING what is measured is the defect, not the fix.)
+ *
+ * Three properties hold it to that, and each is why the obvious cheaper version
+ * was not taken:
+ *
+ *   1. **The manifest is read, not assumed.** `buildPackageJson` returns an
+ *      object rather than a template literal, which the filing card left open as
+ *      a possible blocker. It is not one: the census already parses these files
+ *      with `ts.createSourceFile`, and `scanEmittedManifests` reads the object
+ *      literal out of that same tree. Nothing is executed or imported.
+ *   2. **Per EMITTING PACKAGE, never merged.** `create-plugin`'s manifest says
+ *      nothing about what a `packages/cli` template's reader installs. One
+ *      merged map would have silenced a TS2307 in another generator's template —
+ *      the same shape as the failure being fixed, one level up.
+ *   3. **Mapped only at an identical declared RANGE.** A specifier is mapped to
+ *      the types this workspace resolves for a manifest declaring that same
+ *      specifier at that same range string, root or workspace package. A range
+ *      this repository does not itself declare stays unresolvable and is
+ *      REPORTED. So the census can never judge a template against a version its
+ *      reader will not install, and the day the generator's range and this
+ *      repository's drift apart the mapping disappears rather than lying.
+ *
+ * What the census gains it also prints: the manifests found, the specifiers
+ * mapped, and — line by line — every specifier an emitted manifest declares that
+ * this workspace could not type, which stay bounded. An unreadable entry (a
+ * computed range, a spread that leads out of the package) is counted too. This
+ * reader's blind side is reported for the same reason the recogniser's is.
  */
 
 /** The tree the census walks: every workspace package's `src/`. */
@@ -2245,6 +2528,343 @@ export function emittedCensus({ root = repoRoot } = {}) {
 }
 
 /**
+ * The manifest fields an EMITTED manifest is read for. `peerDependencies` is in
+ * the set for the same reason `deriveDeclaredDependencyPaths` reads REQUIRED
+ * peers and for no other: a manifest that declares one states its tree cannot
+ * work without it, and installers act on that. Optional peers are subtracted by
+ * {@link requiredPeerSpecifiers}, which this reader hands its literal to rather
+ * than re-implementing.
+ */
+export const EMITTED_MANIFEST_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies'];
+
+/**
+ * What an object literal has to show to be read as a manifest a reader installs:
+ * `name` and `version` — the two fields no package.json is a package.json
+ * without — plus at least one dependency field spelled as an object literal.
+ *
+ * Deliberately narrow, and narrow in the safe direction. A literal this misses
+ * costs a specifier the bound keeps refusing, which is the status quo and is
+ * reported as a refusal. A literal it wrongly ADMITS would widen the bound over
+ * a template whose reader installs no such thing, which is the failure the bound
+ * exists to prevent — so `name`+`version` is required even though every manifest
+ * in this corpus would be found by the dependency fields alone.
+ */
+const EMITTED_MANIFEST_REQUIRED_FIELDS = ['name', 'version'];
+
+/**
+ * Files the emitted-manifest reader parses at all: those whose text mentions
+ * `dependencies` in any spelling.
+ *
+ * A prefilter, never a recogniser. Its only failure mode is a constant the
+ * reader cannot follow, which lands in the REPORTED unreadable list — it can
+ * never turn into a mapping, so it cannot widen the bound. Without it this
+ * reader would re-parse all ~1400 censused sources a second time for the two
+ * files in this repository that carry a manifest.
+ */
+const EMITTED_MANIFEST_PREFILTER = /dependencies/i;
+
+const propertyNameOf = (property) => {
+  const name = property.name;
+  if (!name) return null;
+  return ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : null;
+};
+
+/**
+ * Every `NAME = <object literal | string literal>` an emitting package's sources
+ * declare, keyed by name — and ONLY where that name is declared exactly once in
+ * the package.
+ *
+ * Cross-FILE, because the corpus puts them there: `packages/cli` keeps its
+ * emitted ranges in `utils/scaffold-dependencies.ts` and spreads them into the
+ * manifest literal in `commands/init.ts`, which a same-file reader would see as
+ * an unresolvable spread and drop the whole manifest for.
+ *
+ * Unique-name-gated, because a name two files define is two answers to one
+ * question: picking either is a guess, and a guess here maps a specifier to a
+ * range the reader may not install. An ambiguous name is REPORTED and followed
+ * nowhere — the same direction as every other edge in this file.
+ *
+ * @param {{ file: string, sourceFile: ts.SourceFile }[]} sources
+ */
+export function emittedConstantTable(sources) {
+  const seen = new Map();
+  for (const { file, sourceFile } of sources) {
+    const visit = (node) => {
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+        const init = node.initializer;
+        if (
+          ts.isObjectLiteralExpression(init) ||
+          ts.isStringLiteral(init) ||
+          ts.isNoSubstitutionTemplateLiteral(init)
+        ) {
+          seen.set(node.name.text, [...(seen.get(node.name.text) ?? []), { file, node: init }]);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    ts.forEachChild(sourceFile, visit);
+  }
+  const table = new Map();
+  const ambiguous = [];
+  for (const [name, declarations] of [...seen].sort()) {
+    if (declarations.length === 1) table.set(name, declarations[0].node);
+    else ambiguous.push(name);
+  }
+  return { table, ambiguous };
+}
+
+/** A string literal, or a name the package declares exactly one string literal for. */
+function emittedStringValue(node, table, following = new Set()) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (ts.isIdentifier(node) && !following.has(node.text)) {
+    const target = table.get(node.text);
+    if (target) return emittedStringValue(target, table, new Set([...following, node.text]));
+  }
+  return null;
+}
+
+/**
+ * One `{ specifier: range }` field of an emitted manifest, as plain data.
+ *
+ * Anything it cannot read to a LITERAL range — a computed key, a call
+ * expression, a spread of a name the package does not uniquely declare — is
+ * pushed to `unreadable` and left out. It is never approximated: the range is
+ * the whole of the next step's evidence, and a specifier carrying a guessed
+ * range would be mapped to types the reader may never install.
+ */
+function emittedRecordValue(node, table, unreadable, where, following = new Set()) {
+  const out = {};
+  if (!node || !ts.isObjectLiteralExpression(node)) {
+    unreadable.push({ ...where, detail: 'the field is not an object literal' });
+    return out;
+  }
+  for (const property of node.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      const name = ts.isIdentifier(property.expression) ? property.expression.text : null;
+      if (name && table.has(name) && !following.has(name)) {
+        Object.assign(
+          out,
+          emittedRecordValue(table.get(name), table, unreadable, where, new Set([...following, name])),
+        );
+      } else {
+        unreadable.push({ ...where, detail: `spread of \`${name ?? 'an expression'}\` cannot be followed` });
+      }
+      continue;
+    }
+    const specifier = propertyNameOf(property);
+    if (!specifier || !ts.isPropertyAssignment(property)) {
+      unreadable.push({ ...where, detail: 'an entry has no literal name' });
+      continue;
+    }
+    const range = emittedStringValue(property.initializer, table);
+    if (range === null) {
+      unreadable.push({ ...where, specifier, detail: 'the range is not a literal' });
+      continue;
+    }
+    out[specifier] = range;
+  }
+  return out;
+}
+
+/**
+ * Every manifest one emitting source file writes into its reader's tree, read
+ * from the AST as `{ specifier: range }`.
+ *
+ * ⭐ This is the answer to the feasibility question objectui#8397 filed open —
+ * "the census substitutes holes before compiling, and `buildPackageJson` returns
+ * an OBJECT, not a template literal". It does, and that is not an obstacle: the
+ * census already parses every one of these files with `ts.createSourceFile` to
+ * find their template literals, and an object literal in that same tree is read
+ * by the same walk. Nothing has to be executed, transpiled or imported.
+ *
+ * @param {ts.SourceFile} sourceFile
+ * @param {Map<string, ts.Node>} table
+ * @param {string} file
+ */
+export function scanEmittedManifests(sourceFile, table, file = sourceFile.fileName) {
+  const manifests = [];
+  const unreadable = [];
+  const visit = (node) => {
+    if (ts.isObjectLiteralExpression(node)) {
+      const has = (name) => node.properties.some((p) => propertyNameOf(p) === name);
+      const fields = EMITTED_MANIFEST_FIELDS.filter((field) => {
+        const property = node.properties.find((p) => propertyNameOf(p) === field);
+        return property && ts.isPropertyAssignment(property) && ts.isObjectLiteralExpression(property.initializer);
+      });
+      if (EMITTED_MANIFEST_REQUIRED_FIELDS.every(has) && fields.length > 0) {
+        const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+        const manifest = {};
+        for (const field of fields) {
+          const property = node.properties.find((p) => propertyNameOf(p) === field);
+          manifest[field] = emittedRecordValue(property.initializer, table, unreadable, {
+            site: `${file}:${line}`,
+            field,
+          });
+        }
+        const meta = node.properties.find((p) => propertyNameOf(p) === 'peerDependenciesMeta');
+        if (meta && ts.isPropertyAssignment(meta) && ts.isObjectLiteralExpression(meta.initializer)) {
+          manifest.peerDependenciesMeta = Object.fromEntries(
+            meta.initializer.properties
+              .map(propertyNameOf)
+              .filter(Boolean)
+              .map((name) => [name, { optional: true }]),
+          );
+        }
+        // The peer half runs through the SAME subtraction the declared-dependency
+        // map uses, so "REQUIRED peer" means one thing in this file.
+        const declared = { ...manifest.dependencies, ...manifest.devDependencies };
+        for (const specifier of requiredPeerSpecifiers(manifest)) {
+          if (!(specifier in declared)) declared[specifier] = manifest.peerDependencies[specifier];
+        }
+        manifests.push({ file, line, declared });
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sourceFile, visit);
+  return { manifests, unreadable };
+}
+
+/**
+ * The manifests every emitting PACKAGE writes, keyed by `packages/<dir>`.
+ *
+ * Per package rather than per file, because a generator is a package: this
+ * repository's `create-plugin` builds the manifest in `templates.ts` and the
+ * files beside it in `templates.ts` and `index.ts`, and `cli` splits the ranges
+ * into a third module again. Per FILE would judge `index.ts`'s templates against
+ * no manifest at all.
+ */
+export function emittedManifestDeclarations({ root = repoRoot } = {}) {
+  const { files } = listEmittedSources(root);
+  const byPackage = {};
+  const sites = [];
+  const unreadable = [];
+  const ambiguous = [];
+  const perPackageFiles = new Map();
+  for (const file of files) {
+    const dir = file.split('/').slice(0, 2).join('/');
+    perPackageFiles.set(dir, [...(perPackageFiles.get(dir) ?? []), file]);
+  }
+  for (const [dir, packageFiles] of [...perPackageFiles].sort()) {
+    const sources = [];
+    for (const file of packageFiles) {
+      const source = readFileSync(join(root, file), 'utf8');
+      if (!EMITTED_MANIFEST_PREFILTER.test(source)) continue;
+      sources.push({
+        file,
+        sourceFile: ts.createSourceFile(file, source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX),
+      });
+    }
+    if (sources.length === 0) continue;
+    const { table, ambiguous: ambiguousHere } = emittedConstantTable(sources);
+    for (const name of ambiguousHere) ambiguous.push(`${dir}: ${name}`);
+    const declared = {};
+    for (const { file, sourceFile } of sources) {
+      const scan = scanEmittedManifests(sourceFile, table, file);
+      for (const manifest of scan.manifests) {
+        sites.push(`${manifest.file}:${manifest.line}`);
+        Object.assign(declared, manifest.declared);
+      }
+      unreadable.push(...scan.unreadable);
+    }
+    if (Object.keys(declared).length > 0) byPackage[dir] = declared;
+  }
+  return { byPackage, sites, unreadable, ambiguous };
+}
+
+/**
+ * `paths` for the specifiers an EMITTED manifest declares — one map per emitting
+ * package, mapped ONLY to the types this workspace resolves for a manifest that
+ * declares the SAME specifier at the SAME range.
+ *
+ * The range equality is the whole of the rule's honesty, and it is why this is
+ * not a hole in the bound. The bound refuses a specifier that reaches a snippet
+ * only through this repository's installation, because that says nothing about
+ * the reader. Here the READER'S OWN manifest — written by the same generator —
+ * declares it, so the entitlement is the reader's; all this workspace supplies
+ * is a copy of the types for a range it independently declares for itself. A
+ * range this repository does not declare anywhere is left unresolvable and
+ * REPORTED, never mapped to an approximate copy, exactly as an untyped declared
+ * dependency is. So the day the two drift apart the mapping disappears and the
+ * diagnostic comes back, instead of the census quietly judging a template
+ * against a version its reader will never install.
+ *
+ * The root manifest is an eligible anchor, and that is not the bound reopening:
+ * what the root supplies here is the `.d.ts`, never the entitlement, and the
+ * ROOT-DECLARED control still proves the bound is live for every specifier no
+ * emitted manifest declares.
+ *
+ * Anchors are tried root-first and then by package name, so which of 22
+ * identical declarations backs a specifier is decided by name rather than by
+ * readdir order — the same tie-break `deriveDeclaredDependencyPaths` makes.
+ */
+export function deriveEmittedManifestPaths(root = repoRoot, byPackage = {}, packageDirOf = {}) {
+  const options = {
+    module: COMPILER_OPTIONS.module,
+    moduleResolution: COMPILER_OPTIONS.moduleResolution,
+  };
+  const host = ts.createCompilerHost(options, false);
+  // Every DECLARATION this workspace makes of every specifier, from manifests
+  // only — never from a walk of `node_modules`, the same prohibition the
+  // declared-dependency map is built under.
+  const workspaceDeclarations = new Map();
+  const declare = (dir, specifier, range) => {
+    workspaceDeclarations.set(specifier, [...(workspaceDeclarations.get(specifier) ?? []), { dir, range }]);
+  };
+  for (const dir of ['.', ...Object.keys(packageDirOf).sort().map((name) => packageDirOf[name])]) {
+    const manifestPath = join(root, dir, 'package.json');
+    if (!existsSync(manifestPath)) continue;
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    for (const field of ['dependencies', 'devDependencies']) {
+      for (const [specifier, range] of Object.entries(manifest[field] || {})) declare(dir, specifier, range);
+    }
+  }
+
+  const pathsByPackage = {};
+  const anchored = [];
+  const unresolvable = [];
+  for (const emitter of Object.keys(byPackage).sort()) {
+    const map = {};
+    for (const specifier of Object.keys(byPackage[emitter]).sort()) {
+      // A workspace package is mapped from its OWN `exports` by
+      // `derivePackageTypePaths`, and one deliberately left unmapped there stays
+      // unmapped — the same carve-out `deriveDeclaredDependencyPaths` makes, for
+      // the same reason.
+      if (specifier in packageDirOf) continue;
+      const range = byPackage[emitter][specifier];
+      const anchors = (workspaceDeclarations.get(specifier) ?? []).filter((d) => d.range === range);
+      let landed = null;
+      for (const anchor of anchors) {
+        const resolved = ts.resolveModuleName(
+          specifier,
+          join(root, anchor.dir, DEPENDENCY_PROBE_FILE),
+          options,
+          host,
+        );
+        const file = resolved.resolvedModule ? resolved.resolvedModule.resolvedFileName : null;
+        if (!file || !DECLARATION_FILE.test(file) || WORKSPACE_SRC.test(file)) continue;
+        landed = { ...anchor, file };
+        break;
+      }
+      if (!landed) {
+        unresolvable.push({
+          emitter,
+          specifier,
+          range,
+          detail: anchors.length === 0 ? 'no manifest here declares that range' : 'it ships no types here',
+        });
+        continue;
+      }
+      map[specifier] = [landed.file];
+      anchored.push({ emitter, specifier, range, anchor: landed.dir });
+    }
+    pathsByPackage[emitter] = map;
+  }
+  return { pathsByPackage, anchored, unresolvable };
+}
+
+/**
  * `packages/<dir>/…` -> `packages/<dir> (<manifest name>)`.
  *
  * Both halves, because on this corpus neither is enough on its own: the
@@ -2333,9 +2953,10 @@ function formatDiagnostic(diagnostic, block) {
  * @param {{ files: string[], excludedAsTooling: string[], templatesSeen: number, markerSeen: number, markerOnly: unknown[], moduleShapedMisses: unknown[], recognised: { file: string, line: number, byHeuristic: boolean }[], blocks: unknown[] }} census
  * @param {{ semanticFailures: { block: { doc: string } }[], parseFailures: { block: { doc: string } }[], boundFailures: { block: { doc: string } }[], semanticallyJudged: number }} run
  * @param {Record<string, string>} packageDirOf
+ * @param {{ sites: string[], anchored: unknown[], unresolvable: { emitter: string, specifier: string, range: string, detail: string }[], unreadable: unknown[], ambiguous: string[] }} [manifests]
  * @returns {string[]}
  */
-export function emittedCensusSummary(census, run, packageDirOf = {}) {
+export function emittedCensusSummary(census, run, packageDirOf = {}, manifests = null) {
   const diagnosticsBySite = new Map();
   const byClass = { interpolated: 0, sibling: 0, code: 0 };
   for (const { block, diagnostics } of run.semanticFailures) {
@@ -2365,6 +2986,24 @@ export function emittedCensusSummary(census, run, packageDirOf = {}) {
     `  Blind side    ${census.markerSeen} template(s) carry the marker at all — the population an opt-in-only ` +
       `route would have reached. ${census.moduleShapedMisses.length} unrecognised template(s) open a top-level ` +
       '`export` and are seen by NEITHER route.',
+  ];
+  if (manifests) {
+    lines.push(
+      `  Reader's mfst ${manifests.sites.length} manifest(s) the generators themselves write (${
+        manifests.sites.join(', ') || 'none'
+      }): ${manifests.anchored.length} specifier(s) mapped to the types this workspace declares at the SAME ` +
+        `range, ${manifests.unresolvable.length} left unresolvable, ${manifests.unreadable.length} entry(s) ` +
+        `unreadable, ${manifests.ambiguous.length} constant name(s) ambiguous. An emitted manifest is what the ` +
+        'reader installs; the root bound is about what only THIS workspace installs.',
+    );
+    for (const entry of manifests.unresolvable) {
+      lines.push(
+        `                ⚠ ${entry.emitter} emits \`${entry.specifier}\`@${entry.range} and ${entry.detail} — ` +
+          'its templates are still judged against the root bound for it.',
+      );
+    }
+  }
+  lines.push(
     `  Judged        ${run.semanticallyJudged} of ${census.blocks.length} recognised template(s) reached the ` +
       `semantic phase; ${run.parseFailures.length} failed to parse, ${run.boundFailures.length} were refused by ` +
       'the root bound. Neither of those is a pass.',
@@ -2373,7 +3012,7 @@ export function emittedCensusSummary(census, run, packageDirOf = {}) {
       `judging one emitted file in isolation) and ${byClass.interpolated} on a specifier that is itself ` +
       `interpolated (an artefact of the hole substitution). ${byClass.code} remain, and those are the only ` +
       'ones that say anything about the emitted code.',
-  ];
+  );
   for (const [name, row] of [...perPackage].sort()) {
     lines.push(
       `  ${name.padEnd(42)} ${row.sites} site(s), ${row.failed} with diagnostic(s), ${row.diagnostics} diagnostic(s).`,
@@ -2581,11 +3220,19 @@ function main() {
       return EXIT_CODES.couldNotRun;
     }
 
+    // THE MANIFEST THE EMITTED FILE'S READER INSTALLS (objectui#8397). Read from
+    // the generators' own sources, per emitting package, and handed ONLY to the
+    // census run: the documentation verdict is computed from `state.paths`
+    // exactly as before.
+    const manifests = emittedManifestDeclarations({ root: repoRoot });
+    const emittedPaths = deriveEmittedManifestPaths(repoRoot, manifests.byPackage, state.packageDirOf);
+
     const censusRun = compileSnippets({
       root: repoRoot,
       compiled: census.blocks,
       paths: state.paths,
       declaredSpecifiers: state.declaredSpecifiers,
+      extraPathsByPackage: emittedPaths.pathsByPackage,
     });
 
     // The same controls the documentation verdict is gated on, for the same
@@ -2611,6 +3258,30 @@ function main() {
         `the positive control failed (${ts.flattenDiagnosticMessageText(censusRun.positiveDiagnostics[0].messageText, ' ')})`,
       );
     }
+    // objectui#8397: the ROOT-DECLARED control, in the census's own program. The
+    // emitted-manifest map above is the ONE thing that could widen the bound out
+    // from under this census, so the census now proves the bound is still on —
+    // and it proves it in the very program where a `create-plugin` block
+    // legitimately resolves `vitest` through its reader's own manifest. The two
+    // facts must hold together, or the map is an exemption wearing a rule's
+    // clothes. Read the same three preconditions the documentation run reads
+    // before the verdict arm, so a control that stopped meaning anything says so
+    // instead of reading as a bound that held.
+    if (censusRun.rootDeclaredMapped) {
+      censusControls.push(
+        `'${censusRun.rootDeclaredControl}' is now covered by the GLOBAL paths map, so it can no longer show the root bound is on`,
+      );
+    } else if (!censusRun.rootDeclaredByRoot) {
+      censusControls.push(
+        `'${censusRun.rootDeclaredControl}' is no longer declared by the repository ROOT's package.json`,
+      );
+    } else if (!censusRun.rootDeclaredInstalledAt) {
+      censusControls.push(`'${censusRun.rootDeclaredControl}' is not installed in this workspace`);
+    } else if (!censusRun.rootDeclaredDiagnostics.map((d) => d.code).includes(2307)) {
+      censusControls.push(
+        `a specifier only the repository ROOT declares still resolves in the census program — the emitted-manifest map has widened the bound for every block instead of for the emitting package that declares it`,
+      );
+    }
     if (censusControls.length > 0) {
       console.error('CENSUS HARNESS CONTROL FAILED — no count below is a fact about any emitter:');
       for (const c of censusControls) console.error(`  - ${c}`);
@@ -2621,7 +3292,27 @@ function main() {
       return EXIT_CODES.couldNotRun;
     }
 
-    for (const line of emittedCensusSummary(census, censusRun, state.packageDirOf)) console.log(line);
+    for (const line of emittedCensusSummary(census, censusRun, state.packageDirOf, {
+      sites: manifests.sites,
+      unreadable: manifests.unreadable,
+      ambiguous: manifests.ambiguous,
+      anchored: emittedPaths.anchored,
+      unresolvable: emittedPaths.unresolvable,
+    })) {
+      console.log(line);
+    }
+    // Printed, not merely asserted above: the emitted-manifest map's whole claim
+    // is that it widened the bound for ONE package's blocks and for nothing else,
+    // and this is the line a reader can check that against without opening the
+    // script (objectui#8397).
+    console.log(
+      `  Bound live    the ROOT-DECLARED control ('${censusRun.rootDeclaredControl}', covered by no global paths ` +
+        `entry) produced ${censusRun.rootDeclaredDiagnostics.length} diagnostic(s)${
+          censusRun.rootDeclaredDiagnostics.length
+            ? ` (TS${censusRun.rootDeclaredDiagnostics.map((d) => d.code).join(', TS')})`
+            : ''
+        } in this same program — the root bound is ON for every block no emitted manifest speaks for.`,
+    );
     console.log('');
 
     // The findings themselves. Printed on stdout, deliberately: they are a

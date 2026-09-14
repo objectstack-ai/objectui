@@ -75,6 +75,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../ui/popover';
+// `PopoverAnchor` is NOT re-exported by `../ui/popover`, and that file is a
+// no-touch Shadcn-synced file (AGENTS.md #7) — so the anchor part is taken
+// from the primitive here, in the custom wrapper, which is exactly what that
+// rule prescribes.
+import * as PopoverPrimitive from '@radix-ui/react-popover';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -172,8 +177,35 @@ export interface NavigationOverlayProps {
   mainContent?: React.ReactNode;
   /**
    * Popover trigger element (for popover mode).
+   *
+   * Rendered through Radix's `PopoverTrigger asChild`, so it is mounted HERE,
+   * inside the overlay's own subtree. That makes it the right carrier only for
+   * a host that has no element of its own to point at — a host wanting the
+   * popover to sit on an element it already rendered elsewhere (a grid row, a
+   * tree node, a gantt bar, a kanban card, a calendar event) must use
+   * {@link NavigationOverlayProps.popoverAnchorRef}, because re-rendering that
+   * element here would draw a SECOND copy of it in the overlay rather than
+   * anchor to the first.
    */
   popoverTrigger?: React.ReactNode;
+  /**
+   * The already-rendered element the popover should be anchored to
+   * (popover mode).
+   *
+   * ⭐ This is how the five list-type renderers honour `navigation.mode:
+   * 'popover'` after objectui#9299: the click handler stores
+   * `event.currentTarget` — the row / node / bar / card / event the user
+   * actually clicked — on this ref in the same turn that opens the overlay,
+   * and the popover is positioned against it through Radix's virtual-anchor
+   * shape (`Popper.Anchor virtualRef`). No element is re-rendered, so nothing
+   * is duplicated and the renderer keeps ownership of its own DOM.
+   *
+   * When neither this nor `popoverTrigger` is supplied the overlay falls back
+   * to a compact `Dialog`. ⛔ After objectui#9299 none of the five renderers is
+   * allowed to reach that fallback — it survives only for a host that genuinely
+   * has no anchor to offer.
+   */
+  popoverAnchorRef?: React.RefObject<HTMLElement | null>;
   /**
    * Optional handler invoked when the user clicks the "Expand to full page"
    * affordance in the drawer/modal header. Mirrors Linear / Notion / Airtable
@@ -202,6 +234,98 @@ export interface NavigationOverlayProps {
    * by the `width` prop / configured ceiling.
    */
   storageKey?: string;
+  /**
+   * Retired storage key whose value is migrated into `storageKey` once
+   * (drawer mode only).
+   *
+   * ⭐ objectui#9299 item 4: there used to be TWO drag-resize implementations
+   * with two different persisted keys and two different floors —
+   * `RecordDetailDrawer`'s `objectui.drawerWidth.OBJECT` and this component's
+   * `ov:STORAGE_KEY`. They are now one implementation, and a user who had
+   * already dragged a gantt / kanban / calendar drawer to their preferred width
+   * must keep that width rather than be silently reset to the default. So the
+   * first mount that finds no value under `storageKey` adopts the value found
+   * under this key, writes it forward, and REMOVES the retired entry — which is
+   * what makes the migration one-time rather than a permanent second read: a
+   * later double-click reset must not resurrect the old width.
+   *
+   * Build it with {@link legacyRecordDrawerWidthKey} rather than spelling the
+   * prefix again at a call site.
+   */
+  legacyStorageKey?: string;
+}
+
+/**
+ * The one `storageKey` spelling every record overlay uses, keyed by object.
+ *
+ * `NavigationOverlay` prefixes it with `ov:` on the way to `localStorage`, so
+ * the stored key is `ov:drawer-width:OBJECT`. The console's own object page
+ * (`app-shell`'s `ObjectView`) has always used this spelling; after
+ * objectui#9299 the five list-type renderers use it too, so one object has one
+ * remembered overlay width no matter which view type the user resized it on.
+ */
+export function recordOverlayWidthStorageKey(objectName: string): string {
+  return `drawer-width:${objectName}`;
+}
+
+/**
+ * The RETIRED per-object key `RecordDetailDrawer` persisted its width under
+ * before objectui#9299. Read once, migrated forward, then removed — see
+ * {@link NavigationOverlayProps.legacyStorageKey}. ⛔ Nothing writes it.
+ */
+export function legacyRecordDrawerWidthKey(objectName: string): string {
+  return `objectui.drawerWidth.${objectName}`;
+}
+
+/**
+ * Remember the element a click landed on, so `popover` mode can anchor to it.
+ *
+ * ⭐ objectui#9299 item 3: `popover` is anchored to the clicked element — the
+ * row, node, bar, card or event the user actually pressed. That element is
+ * rendered by the RENDERER, not by this overlay, so the overlay cannot find it
+ * on its own, and `popoverTrigger` (which MOUNTS an element of its own inside
+ * the overlay) is the wrong carrier for it — passing the row there would draw
+ * a second copy of the row instead of pointing at the first.
+ *
+ * Two carriers, same recorder. Spread `anchorCaptureProps` on the renderer's
+ * own container when the click reaches it without a DOM event (a chart, a
+ * calendar grid); call `captureAnchor(event)` directly at a click site that
+ * already HAS one (a kanban card, a tree row). Either way hand `anchorRef` to
+ * {@link NavigationOverlayProps.popoverAnchorRef}. The container form uses the
+ * capture phase deliberately: it runs before the bubbling `onClick` that opens
+ * the overlay, so by the time the popover renders the anchor is recorded.
+ *
+ * It reads `target`, not `currentTarget`, because the handler sits on the
+ * CONTAINER: `currentTarget` there is the whole view, and a popover anchored
+ * to the whole board is not anchored to anything. `target` is the deepest
+ * element under the pointer — the bar, the card, the cell — which is what the
+ * user pointed at.
+ *
+ * ⚠️ Read synchronously, which is what this does: React nulls its event fields
+ * out once the handler returns, so stashing the event rather than the element
+ * would hand the overlay a dead reference.
+ *
+ * Clicks that do not open anything (a toolbar button, a filter) also land here
+ * and are harmless: `anchorRef` is only ever read while the popover is open,
+ * and the click that opened it is by construction the last one recorded.
+ */
+export function useOverlayAnchor(): {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  captureAnchor: (event: { target?: unknown } | null | undefined) => void;
+  anchorCaptureProps: { onClickCapture: (event: { target?: unknown }) => void };
+} {
+  const anchorRef = React.useRef<HTMLElement | null>(null);
+  const captureAnchor = React.useCallback((event: { target?: unknown } | null | undefined) => {
+    const el = event?.target as HTMLElement | null | undefined;
+    if (el && typeof el.getBoundingClientRect === 'function') {
+      anchorRef.current = el;
+    }
+  }, []);
+  const anchorCaptureProps = React.useMemo(
+    () => ({ onClickCapture: captureAnchor }),
+    [captureAnchor],
+  );
+  return { anchorRef, captureAnchor, anchorCaptureProps };
 }
 
 /**
@@ -240,22 +364,47 @@ const DRAWER_MAX_VW_FACTOR = 0.95;
  * localStorage so the same user gets a consistent width across sessions /
  * objects. Returns `null` when storageKey is absent (resize disabled).
  */
-function useDrawerResize(storageKey: string | undefined) {
+function useDrawerResize(
+  storageKey: string | undefined,
+  legacyStorageKey: string | undefined,
+) {
   const [width, setWidth] = React.useState<number | null>(null);
   const draggingRef = React.useRef(false);
 
-  // Restore persisted width on mount.
+  // Restore persisted width on mount — and, once, adopt a width the user had
+  // already chosen under the RETIRED key (objectui#9299 item 4).
+  //
+  // Order matters and is the whole point: the current key wins outright, so a
+  // width set since the migration is never overwritten by a stale one. The
+  // legacy read only fires when this key holds nothing.
+  //
+  // ⚠️ `parseInt` is deliberate for the legacy value: that is how
+  // `RecordDetailDrawer` read its own key, and reading it with a stricter
+  // parser than the writer used would drop widths rather than carry them over.
   React.useEffect(() => {
     if (!storageKey || typeof window === 'undefined') return;
     try {
       const raw = window.localStorage.getItem(`ov:${storageKey}`);
-      if (!raw) return;
-      const n = Number(raw);
-      if (Number.isFinite(n) && n >= DRAWER_MIN_PX) setWidth(n);
+      if (raw) {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n >= DRAWER_MIN_PX) setWidth(n);
+        return;
+      }
+      if (!legacyStorageKey) return;
+      const legacyRaw = window.localStorage.getItem(legacyStorageKey);
+      if (!legacyRaw) return;
+      const legacy = parseInt(legacyRaw, 10);
+      if (!Number.isFinite(legacy) || legacy < DRAWER_MIN_PX) return;
+      setWidth(legacy);
+      window.localStorage.setItem(`ov:${storageKey}`, String(legacy));
+      // Removing it is what makes this a MIGRATION rather than a permanent
+      // second read: after a double-click reset (which clears `ov:`) the old
+      // width must stay gone.
+      window.localStorage.removeItem(legacyStorageKey);
     } catch {
       // ignore (private mode / quota)
     }
-  }, [storageKey]);
+  }, [storageKey, legacyStorageKey]);
 
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
     if (!storageKey || typeof window === 'undefined') return;
@@ -334,9 +483,11 @@ export const NavigationOverlay: React.FC<NavigationOverlayProps> = ({
   renderView,
   mainContent,
   popoverTrigger,
+  popoverAnchorRef,
   onExpand,
   expandLabel,
   storageKey,
+  legacyStorageKey,
 }) => {
   const widthStyle = getWidthStyle(width);
   // Every chrome string below is locale-driven (objectstack#5430 for the two
@@ -352,7 +503,10 @@ export const NavigationOverlay: React.FC<NavigationOverlayProps> = ({
   const overlayDescription = t('detail.recordDetailOverlay', { title: resolvedTitle });
   // Keep hooks above all conditional returns. Opening a record changes
   // selectedRecord from null to an object, but hook order must stay stable.
-  const resize = useDrawerResize(mode === 'drawer' ? storageKey : undefined);
+  const resize = useDrawerResize(
+    mode === 'drawer' ? storageKey : undefined,
+    mode === 'drawer' ? legacyStorageKey : undefined,
+  );
   // Inline-edit dropdowns render in body-level poppers; without this guard the
   // click that closes an open dropdown also dismisses the drawer/modal (#2156).
   const handleInteractOutside = usePopperAwareInteractOutside();
@@ -395,6 +549,18 @@ export const NavigationOverlay: React.FC<NavigationOverlayProps> = ({
         <SheetContent
           side="right"
           onInteractOutside={handleInteractOutside}
+          // Suppress Radix's default auto-focus on open. The overlay is for
+          // browsing/inspecting a record, not for immediate keyboard entry, so
+          // auto-focusing the Close button (or the first focusable child)
+          // flashes a focus ring on mount which feels jarring. Keyboard users
+          // still Tab in normally.
+          //
+          // This came in with objectui#9299's chrome de-duplication: it was
+          // `RecordDetailDrawer`'s behaviour, reasoned and deliberate, and the
+          // ruling makes this component the ONE drawer. Converging on the
+          // documented choice rather than dropping it is what "one shared
+          // overlay shell" has to mean when the two shells disagreed.
+          onOpenAutoFocus={(e) => e.preventDefault()}
           className={cn(
             // Mobile: full width (no inline cap, no max-w from base sheet).
             // sm+: honor the host-supplied width via `--ov-w` CSS var with a
@@ -573,8 +739,16 @@ export const NavigationOverlay: React.FC<NavigationOverlayProps> = ({
 
   // --- Popover Mode ---
   if (mode === 'popover') {
-    if (!popoverTrigger) {
-      // Fallback: render as a compact floating card when no trigger element is provided
+    if (!popoverTrigger && !popoverAnchorRef) {
+      // Fallback: a compact floating card when the host offers NO anchor at
+      // all — neither an element for us to render as the trigger, nor a
+      // reference to one it rendered itself.
+      //
+      // ⛔ objectui#9299 item 3: this is no longer the path any of the five
+      // list-type renderers takes. It measured as the path ALL of them took —
+      // `popover` was honoured on no surface, because nothing ever passed a
+      // trigger — and the ruling closed that. It survives for a host that
+      // genuinely has nothing to point at.
       if (!isOpen) return null;
       return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -601,10 +775,15 @@ export const NavigationOverlay: React.FC<NavigationOverlayProps> = ({
     }
     return (
       <Popover open={isOpen} onOpenChange={setIsOpen}>
-        {popoverTrigger && (
+        {popoverTrigger ? (
           <PopoverTrigger asChild>
             {popoverTrigger}
           </PopoverTrigger>
+        ) : (
+          // Virtual anchor: position against the element the host ALREADY
+          // rendered and the user actually clicked. Nothing is mounted for it,
+          // so the row / node / bar / card / event is not duplicated here.
+          <PopoverPrimitive.Anchor virtualRef={popoverAnchorRef} />
         )}
         <PopoverContent
           className={cn('w-96 max-h-[400px] overflow-y-auto p-4', className)}

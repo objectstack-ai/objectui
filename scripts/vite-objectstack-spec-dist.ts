@@ -29,7 +29,32 @@
 // `./openapi.json`, which the map redirects to `json-schema/openapi.json` — a
 // hand-written table would have shipped a hook that mis-resolves it.
 //
-// ## Two properties this module holds on purpose
+// ## Whose precedence wins (objectui#9408)
+//
+// A conditional exports value expresses precedence ONE way: the ORDER OF ITS
+// OWN KEYS. Node and every bundler match by walking that order and taking the
+// first key the caller's condition set satisfies. The caller's side of the
+// contract is the SET — "these are the conditions I satisfy" — never a ranking
+// of its own, because ranking is the package's to declare.
+//
+// This module used to walk its own `['import', 'module', 'browser', 'default']`
+// array instead, so the LAST word on precedence belonged to the consumer. The
+// spec's map declares `browser` FIRST on five entries (`.`, `./data`,
+// `./system`, `./kernel`, `./cloud` on 17.4.0), so the array's `import`-before-
+// `browser` ranking silently overrode a deliberate upstream declaration and the
+// `browser` arm became unreachable. Measured on 17.4.0, both sides in one run:
+// this module returned `dist/index.mjs` for all five while Vite's own resolver
+// — the resolver this hook exists to MODEL — returned `dist/browser/index.mjs`.
+//
+// That divergence is the bug, and it is the hook's own charter that condemns
+// it: an override build is supposed to differ from a normal build in WHICH SPEC
+// it bundles, never in WHICH ARM of that spec it picks. Reordering the array
+// would have swapped one consumer-side ranking for another and broken any
+// caller that genuinely wants the Node arm; honouring the map's key order is
+// correct for every caller, because each one then says what it satisfies and
+// the package says what it prefers.
+//
+// ## Three properties this module holds on purpose
 //
 // - **Loud, never lenient.** Every way the override can be wrong — path absent,
 //   not the spec package, an exports entry naming a file the built package does
@@ -37,6 +62,13 @@
 //   sits — throws with the offending value named. A tolerant fallback to
 //   the installed spec would silently rebuild the exact skew the hook exists to
 //   kill, and the framework guard could not tell the difference.
+// - **Audible, never silent.** Every entry carries the condition path that
+//   chose it (`browser > import > default`), and `formatConditionReport` renders
+//   the table the caller prints. A resolver that picks an arm without saying so
+//   fails the only way that matters here: the first symptom of a wrong pick is a
+//   bundler error at some later pin bump, in a package nobody connects to this
+//   file. The report is what makes the pick falsifiable at the moment it happens
+//   rather than a build-length later.
 // - **Inert when unset.** `resolveSpecDistInjection(undefined, …)` returns
 //   `null` and the caller's config keeps every baseline value, identity
 //   included.
@@ -48,13 +80,23 @@ import path from 'node:path';
 export const SPEC_PACKAGE_NAME = '@objectstack/spec';
 
 /**
- * Export conditions a browser/ESM bundler picks, in preference order.
+ * The conditions a browser/ESM bundler SATISFIES. A set, never a ranking.
  *
- * `types` is deliberately absent: it sits FIRST inside each condition object in
- * the spec's map, and a resolver that walked object keys in declaration order
- * would alias every subpath at a `.d.mts` file.
+ * Membership only: this answers "would the console's bundler match this key",
+ * and the exports map answers "which matching key wins" with its own key order.
+ * Listing them in a ranked-looking order here is what caused objectui#9408, so
+ * the declaration order below carries NO meaning — sorted alphabetically to
+ * keep it that way.
+ *
+ * `types` is deliberately absent, and under key-order resolution that omission
+ * became load-bearing rather than incidental: `types` sits FIRST inside every
+ * condition object in the spec's map, so a walk in declaration order reaches it
+ * before anything else and would alias every subpath at a `.d.mts` file. It is
+ * excluded because a bundler emitting JavaScript does not satisfy it — the same
+ * reason `require` is absent — which is exactly the shape of question this set
+ * is supposed to answer.
  */
-const IMPORT_CONDITIONS = ['import', 'module', 'browser', 'default'] as const;
+const IMPORT_CONDITIONS: ReadonlySet<string> = new Set(['browser', 'default', 'import', 'module']);
 
 /** Character class matching either path separator, for a generated `RegExp`. */
 const SEPARATOR_CLASS = '[\\\\/]';
@@ -77,6 +119,15 @@ export interface SpecDistInjection {
   aliases: Record<string, string>;
   /** Directories the dev server must be allowed to read (out-of-workspace). */
   fsAllow: string[];
+  /**
+   * Every exports entry with the condition arm that chose it — the audible half
+   * of objectui#9408.
+   *
+   * Carried on the injection rather than logged from inside the resolver so the
+   * module stays a pure function, and so the caller decides when and where the
+   * table appears. `formatConditionReport` renders it.
+   */
+  resolutions: SpecExportResolution[];
   /** `advancedChunks` test that keeps the injected spec in the vendor chunk. */
   vendorChunkTest: RegExp;
   /**
@@ -105,27 +156,76 @@ export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** One exports-map entry, resolved, with the condition path that chose it. */
+export interface SpecExportResolution {
+  /** The bare or subpath specifier, e.g. `@objectstack/spec/data`. */
+  specifier: string;
+  /** The exports-map key it came from, e.g. `./data`. */
+  exportKey: string;
+  /** Absolute path of the file the specifier resolves to. */
+  target: string;
+  /**
+   * Conditions entered, outermost first — `['browser', 'import', 'default']`.
+   *
+   * Empty for an entry whose value is a bare string, which names its file with
+   * no condition at all (`./package.json` in the real map).
+   */
+  conditionPath: string[];
+  /**
+   * Sibling keys this module ALSO satisfies but that the map ranked lower, in
+   * the map's order. Non-empty only where the package expressed a real
+   * preference — the entries where getting the order wrong is observable, and
+   * so the ones worth reading in a build log.
+   */
+  passedOver: string[];
+}
+
+/** A resolved leaf plus how it was reached. */
+interface PickedTarget {
+  target: string;
+  conditionPath: string[];
+  passedOver: string[];
+}
+
 /**
- * The `import`-condition leaf of one exports-map value.
+ * The leaf one exports-map value resolves to for a browser/ESM bundler.
+ *
+ * Walks the value's OWN key order and takes the first key `IMPORT_CONDITIONS`
+ * satisfies — the algorithm Node and every bundler implement, and the reason
+ * objectui#9408 was a bug and not a preference. The consumer contributes the
+ * SET; the package contributes the ORDER.
+ *
+ * `Object.keys` is insertion order here, which is the map's declared order:
+ * exports keys are condition names and `./`-prefixed subpaths, never the
+ * integer-like keys JavaScript would hoist to the front of the enumeration.
  *
  * Returns `null` for an entry that resolves to nothing a bundler could take
  * (e.g. one exported only under `require`), so the caller can name it.
  */
-function pickImportTarget(value: unknown): string | null {
-  if (typeof value === 'string') return value;
+function pickImportTarget(value: unknown, trail: string[] = []): PickedTarget | null {
+  if (typeof value === 'string') return { target: value, conditionPath: trail, passedOver: [] };
   if (value === null || typeof value !== 'object') return null;
   if (Array.isArray(value)) {
+    // A fallback array is the one place the PACKAGE ranks alternatives itself,
+    // so first-that-resolves is its declared order, not ours.
     for (const candidate of value) {
-      const hit = pickImportTarget(candidate);
+      const hit = pickImportTarget(candidate, trail);
       if (hit) return hit;
     }
     return null;
   }
   const conditions = value as Record<string, unknown>;
-  for (const condition of IMPORT_CONDITIONS) {
-    if (!Object.hasOwn(conditions, condition)) continue;
-    const hit = pickImportTarget(conditions[condition]);
-    if (hit) return hit;
+  const satisfiable = Object.keys(conditions).filter((key) => IMPORT_CONDITIONS.has(key));
+  for (let i = 0; i < satisfiable.length; i += 1) {
+    const condition = satisfiable[i];
+    const hit = pickImportTarget(conditions[condition], [...trail, condition]);
+    if (!hit) continue;
+    // Report the OUTERMOST level that had a real choice. That is the level
+    // where a precedence mistake is observable — `browser` vs `import` on the
+    // entry itself, not `default` vs nothing three levels in — so an outer
+    // level with alternatives outranks whatever an inner level recorded.
+    const lower = satisfiable.slice(i + 1);
+    return { ...hit, passedOver: lower.length > 0 ? lower : hit.passedOver };
   }
   return null;
 }
@@ -182,14 +282,19 @@ function findSpecPackageDir(raw: string): string {
 }
 
 /**
- * Every specifier the package's exports map declares, mapped to the absolute
- * file a bundler resolves it to.
+ * Every specifier the package's exports map declares, resolved to the absolute
+ * file a browser/ESM bundler takes, with the condition path that chose it.
  *
  * Cross-checked in `scripts/__tests__/vite-objectstack-spec-dist.test.ts`
- * against Node's own resolver (`import.meta.resolve`) for every entry, so
- * this is not a second opinion about the map — it agrees with the algorithm.
+ * against two resolvers, because no single one covers the map: Node's own
+ * (`import.meta.resolve`) for the entries it can express, and a REAL Vite
+ * build for the `browser`-carrying ones, which Node cannot express at all —
+ * Node does not satisfy `browser`, so it answers with the Node arm by
+ * construction. Vite is the resolver this hook models, so it is the oracle
+ * that counts where the two disagree. Either way this is not a second opinion
+ * about the map; it agrees with the algorithm.
  */
-export function readSpecExportTargets(packageDir: string): Map<string, string> {
+export function readSpecExportResolutions(packageDir: string): SpecExportResolution[] {
   const manifestPath = path.join(packageDir, 'package.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as { exports?: unknown };
   const exportsMap = manifest.exports;
@@ -197,7 +302,7 @@ export function readSpecExportTargets(packageDir: string): Map<string, string> {
     fail(`\`${manifestPath}\` declares no exports map, so no subpath can be resolved`);
   }
 
-  const targets = new Map<string, string>();
+  const resolutions: SpecExportResolution[] = [];
   for (const [key, value] of Object.entries(exportsMap as Record<string, unknown>)) {
     if (!key.startsWith('.')) {
       fail(`\`${manifestPath}\` exports key \`${key}\` is a condition, not a subpath — unsupported`);
@@ -207,24 +312,67 @@ export function readSpecExportTargets(packageDir: string): Map<string, string> {
       // reintroduce the silent half-injection this hook exists to prevent.
       fail(`\`${manifestPath}\` exports key \`${key}\` is a wildcard pattern — unsupported by this hook`);
     }
-    const target = pickImportTarget(value);
-    if (!target) {
-      fail(`\`${manifestPath}\` exports key \`${key}\` resolves to nothing under ${IMPORT_CONDITIONS.join('/')}`);
+    const picked = pickImportTarget(value);
+    if (!picked) {
+      fail(
+        `\`${manifestPath}\` exports key \`${key}\` resolves to nothing under ` +
+          `${[...IMPORT_CONDITIONS].join('/')}`
+      );
     }
-    const absolute = path.resolve(packageDir, target);
+    const absolute = path.resolve(packageDir, picked.target);
     if (!fs.existsSync(absolute)) {
       fail(
-        `\`${manifestPath}\` exports key \`${key}\` names \`${target}\`, which the built package does not contain ` +
+        `\`${manifestPath}\` exports key \`${key}\` names \`${picked.target}\`, which the built package does not contain ` +
           `(expected \`${absolute}\`) — build the spec package before injecting it`
       );
     }
     const specifier = key === '.' ? SPEC_PACKAGE_NAME : `${SPEC_PACKAGE_NAME}/${key.slice(2)}`;
-    targets.set(specifier, absolute);
+    resolutions.push({
+      specifier,
+      exportKey: key,
+      target: absolute,
+      conditionPath: picked.conditionPath,
+      passedOver: picked.passedOver,
+    });
   }
-  if (!targets.has(SPEC_PACKAGE_NAME)) {
+  if (!resolutions.some((r) => r.specifier === SPEC_PACKAGE_NAME)) {
     fail(`\`${manifestPath}\` exports map has no \`.\` entry, so the bare specifier cannot be resolved`);
   }
-  return targets;
+  return resolutions;
+}
+
+/**
+ * Every specifier the package's exports map declares, mapped to its file.
+ *
+ * The shape callers that only need the table want; `readSpecExportResolutions`
+ * is the same pass with the condition path each choice took kept.
+ */
+export function readSpecExportTargets(packageDir: string): Map<string, string> {
+  return new Map(readSpecExportResolutions(packageDir).map((r) => [r.specifier, r.target]));
+}
+
+/**
+ * The build-log table: which condition arm each specifier came from.
+ *
+ * Lives beside the resolver rather than in the console config for the reason
+ * `specModuleTest` does — one producer, so a second consumer cannot drift into
+ * reporting something the resolver did not actually do. Entries where the map
+ * offered an alternative this module ALSO satisfies are marked, because those
+ * are the only ones where precedence was decided rather than forced.
+ */
+export function formatConditionReport(injection: SpecDistInjection): string[] {
+  const width = Math.max(...injection.resolutions.map((r) => r.specifier.length));
+  const lines = [
+    `OBJECTSTACK_SPEC_DIST: ${injection.packageDir}`,
+    `  ${injection.resolutions.length} exports entries aliased; condition arm chosen per entry:`,
+  ];
+  for (const r of [...injection.resolutions].sort((a, b) => a.specifier.localeCompare(b.specifier))) {
+    const arm = r.conditionPath.length > 0 ? r.conditionPath.join(' > ') : '(unconditional)';
+    const over = r.passedOver.length > 0 ? `  [ranked above: ${r.passedOver.join(', ')}]` : '';
+    const file = path.relative(injection.packageDir, r.target);
+    lines.push(`    ${r.specifier.padEnd(width)}  ${arm}  ->  ${file}${over}`);
+  }
+  return lines;
 }
 
 /**
@@ -321,7 +469,8 @@ export function resolveSpecDistInjection(
 
   const packageDir = findSpecPackageDir(raw.trim());
   assertSpecDependenciesResolve(packageDir);
-  const targets = readSpecExportTargets(packageDir);
+  const resolutions = readSpecExportResolutions(packageDir);
+  const targets = new Map(resolutions.map((r) => [r.specifier, r.target]));
 
   // Subpaths first (sorted for a stable, reviewable table), bare specifier last
   // — see `SpecDistInjection.aliases` for why the order decides correctness.
@@ -346,6 +495,7 @@ export function resolveSpecDistInjection(
     packageDir,
     aliases,
     fsAllow: [packageDir],
+    resolutions,
     vendorChunkTest: widen(vendorChunkTest),
     specModuleTest: widen(specModuleTest),
   };

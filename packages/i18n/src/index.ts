@@ -147,7 +147,7 @@ export {
   type SpecTranslationData,
 } from './utils/index.js';
 
-export { pickLocalized, setLocalized } from './pickLocalized.js';
+export { pickLocalized, setLocalized, clearLocalized } from './pickLocalized.js';
 export { LocalizationProvider, useLocalization, type LocalizationValue } from './LocalizationContext.js';
 export { resolveFieldCurrency } from './currency.js';
 

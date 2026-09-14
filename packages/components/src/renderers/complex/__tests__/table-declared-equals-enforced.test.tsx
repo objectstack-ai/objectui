@@ -49,6 +49,11 @@ import {
 // Module-scope side-effect import, not a `beforeAll` — see
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../table';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /* ── the renderer source, comments stripped ──────────────────────────────── */
 
@@ -58,7 +63,7 @@ import '../table';
 const SOURCE_PATH = resolve(__dirname, '../table.tsx');
 const RAW = readFileSync(SOURCE_PATH, 'utf8');
 /** Code only: a `col.header` in a comment must not count as a read. */
-const CODE = RAW.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+const CODE = mask(RAW);
 
 /* ── zod shape introspection (zod 4; one-hop unwrap, tombstone-aware) ────── */
 

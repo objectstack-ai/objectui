@@ -712,6 +712,8 @@ A single-record detail view with grouped fields, actions, and tabs.
 | `showBack` | `boolean` | Show a back navigation button. |
 | `loading` | `boolean` | Show loading state. |
 
+> **Handler keys are not authorable in JSON, and this face refuses three of them by name.** `onBack` has been a named refusal since objectui#7344; since objectui#7804 this face also declares `onNavigate` and `onAddComment` as objectui#6124 **runtime slots**: a React host supplies the function through the TypeScript interface or as a React prop, and the validator **refuses the key by name** — the message leads with the slot's label (`SPA navigation callback`, `New comment callback`), states that the key "is a RUNTIME SLOT for a host-supplied function, not authorable metadata (objectui#6124): JSON has no function value, and no handler key consumes a declarative action object", and closes by pointing at the node-type spelling (`{ "type": "toast", … }`, an `action:button` node). Until then an authored `onNavigate: { "action": "toast" }` parsed **green** — `BaseSchema` is `.passthrough()`, so a key no arm declares is not refused, it stops being judged and the value is kept — and because every read site only tests the key for truthiness, the kept object then reached a call site expecting a function: `handleBack`, `handleEdit` and the post-delete redirect call `schema.onNavigate(url, { replace })` in `DetailView`'s own body, while `onAddComment` is forwarded as a prop into the comment composer, which renders *because* the key is truthy and then awaits it on send. ⚠️ `onTabChange` is a fourth handler key this view reads and it is **still undeclared** — and where the `object-kanban` board's third key, `onCardMove`, has been a **tombstone** refused by name since objectui#9342, an authored `onTabChange` is not refused at all: it is **kept**, read through a cast and handed to the tab strip's `onValueChange`, so it still reaches a call site expecting a function at the first tab switch. That gap is open on objectui#7804.
+
 **Related:** [DetailViewSchema](#detailviewschema), [ObjectGridSchema](#objectgridschema)
 
 ---
@@ -925,8 +927,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
   "objectName": "tasks",
   "groupBy": "status",
   "titleField": "title",
-  "cardFields": ["assignee", "due_date"],
-  "quickAdd": true
+  "cardFields": ["assignee", "due_date"]
 }
 ```
 
@@ -939,18 +940,20 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 | `cardFields` | `string[]` | Fields rendered on each card. |
 | `filter` | `any[]` | Query filter, forwarded verbatim as `$filter`. |
 | `limit` | `number` | Fetch window for the board (default 100). |
-| `quickAdd` | `boolean` | Show a Quick Add button at the bottom of each column. |
 | `coverImageField` | `string` | Field whose URL renders as the card cover image. |
-| `allowCollapse` | `boolean` | Allow lanes to collapse and expand. |
 | `conditionalFormatting` | `KanbanConditionalFormattingRule[]` | Card colouring rules — native `{ field, operator, value }` or spec `{ condition, style }`. |
 
 > `groupField` is refused by name (objectui#7322): the renderer reads `groupBy`.
+
+> **`quickAdd` and `allowCollapse` were rows of the table above and are not authorable on this board.** `allowCollapse` is **refused by name** by the strict authoring face, which does not declare it at all — a document carrying it fails validation rather than merely going unread, and `@object-ui/plugin-kanban` has no read site for it. `quickAdd` still parses, because the strict face does declare it, but an object-bound board never honours it: the Quick Add control is gated on an `onQuickAdd` runtime slot and no `object-kanban` path supplies one, so `@object-ui/sdui-parser` answers an authored `quickAdd: true` with an `inert-quick-add` warning. objectui#8285 ruled that key retired (director seat, decision batch 91). ⚠️ `@object-ui/types` still declares **both** on its mirror of this face, so a reader will find them there; that half is objectui#8801, not this table.
 
 > `columns` is declared on this face since objectui#8913, as the pair of array shapes `@objectstack/spec` declares — an array of `{ id, title }` lanes, **or** an array of bare value strings. A **mixed** array is refused: the renderer decides which shape it has from the first element alone, so a mix yields a blank lane and mis-bucketed cards. A lane accepts `id`, `title`, `cards`, `limit`, `className` and `collapsed`, which are the members the board implementations read; `id` is a **string** — the authored face keeps that narrowing, and since objectui#8993 a non-string lane id no longer renders every card twice: the bucketer's leftover sweep keys membership the way the injection already did (a lane `1` takes the group `'1'`). When a lane carries `cards`, each card is judged — a card with no `title` is refused. An undeclared lane key is accepted and dropped, not refused, which is this tolerant face's posture; the strict authoring face refuses it by name.
 >
 > ⚠️ The **bare-string array applies only to a board with no `groupBy`.** It is declared so this package does not refuse an authoring the protocol allows. The renderer reads a bare-string lane list only when a board has no `groupBy` — so on a board that *does* declare one the strings are ignored and the lanes come from the group field's picklist options or from the data. Since objectui#8990 made `groupBy` optional, a lane-less board is a valid authoring and this arm is live on it: the lanes are drawn, titled by the **raw strings** (a grouped board titles its lanes with the picklist *labels* instead). ⚠️ Such a board holds **no cards** — with no lane key the records are never distributed — and dragging a card writes nothing back. It is lane headings, not a populated board; to control the lanes of a working board, declare `groupBy` and write the `{ id, title }` array.
 >
-> The other keys the retired `kanban` arm alone declared — `cardTitle`, `swimlaneField`, `grouping` and `navigation` — are still undeclared on this face. The renderer reads them, so a board may carry them; they are simply not judged. The board's React host supplies `onCardMove` / `onCardClick` / `onQuickAdd` as props; none of the three is authorable in JSON.
+> The other keys the retired `kanban` arm alone declared — `cardTitle`, `swimlaneField`, `grouping` and `navigation` — are still undeclared on this face. The renderer reads them, so a board may carry them; they are simply not judged.
+
+> **Handler keys are not authorable in JSON, and all three now say so by name.** Since objectui#7804 this face declares `onCardClick` and `onQuickAdd` as objectui#6124 **runtime slots**: a React host supplies the function through the TypeScript interface or as a React prop, and this validator **refuses the key by name** with a message pointing at the node-type spelling (`{ "type": "toast", … }`, an `action:button` node). Until then an authored `onCardClick: { "action": "toast" }` parsed **green** — `BaseSchema` is `.passthrough()`, so a key no arm declares is not refused, it stops being judged and the value is kept, then reaches a call site expecting a function. ⭐ The third key, `onCardMove`, is a **tombstone** since objectui#9342, not a runtime slot: an authored one reached **nothing** even as a function, because an object-bound board substitutes its own mover — so the TypeScript twin is `?: never` rather than callable, and the mover lives on `KanbanRenderer`'s React prop of the same name, a sibling of its `schema`.
 
 > `data` and `bind` are [`BaseSchema`](#baseschema) members, not narrowed here, but this face requires **one of** `bind`, `data`, `objectName` — the renderer's own record-source ladder (an external `data` prop → `bind` via `useDataScope` → this schema's own `data` → a fetch keyed by `objectName`). A purely static board (lanes carrying their own cards, no record source) authors `"groupBy"` and `"data": []`. ⚠️ The record-source rule is **separate** from the lane key and is unaffected by objectui#8990: omitting `groupBy` is fine, omitting all of `bind` / `data` / `objectName` is still refused, at the refinement rather than at `groupBy`.
 

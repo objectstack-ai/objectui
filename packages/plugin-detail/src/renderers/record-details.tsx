@@ -18,6 +18,7 @@ import type { RecordDetailsComponentProps } from '@object-ui/types';
 import {
   columnIdentity,
   deriveTitleField,
+  formatTitleTemplate,
   isObjectInlineEditable,
   recordDisplayValueAt,
   resolveNameField,
@@ -344,14 +345,26 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // lets the fall-through happen here too. When nothing is declared the two
   // return the same name and the first one simply wins.
   //
-  // ⚠️ Two disagreements with the header chain are KNOWN and deliberately NOT
-  // repaired here — both are rungs that name no FIELD, so there is no row to
-  // hide for either, and closing them is a separate ruling:
-  //   - `page:header`'s own `schema.title`, which this package cannot see;
-  //   - `objectSchema.titleFormat`, a render-only template the header ranks
-  //     ABOVE the declared pointer (pinned in `@object-ui/components`'
-  //     `__tests__/page-header-title.test.tsx`, "titleFormat still outranks
-  //     nameField"), interpolating any number of fields.
+  // ⚠️ Two rungs of the header chain name no FIELD at all, so a dedupe keyed
+  // on "which single field is the H1" is structurally unable to answer them
+  // (objectui#8351). They are NOT symmetric and only ONE is answered here:
+  //   - `objectSchema.titleFormat` — ANSWERED, below, by the ruled option B:
+  //     the template's rendered output is compared against the candidates'
+  //     values, and a composite that is no field's value hides no row.
+  //   - `page:header`'s own `schema.title` — NOT answered, and not answerable
+  //     from this package: it is a key on the HEADER schema, which
+  //     `record:details` never receives. Same shape, its own card.
+  //
+  // ⛔ Neither of those is the ORDER question. `PageHeaderRenderer` ranks the
+  // interpolated `titleFormat` ABOVE the ADR-0079 declared pointer, while
+  // `getRecordDisplayName` documents it BELOW (step 3) — pinned green in
+  // `@object-ui/components`' `__tests__/page-header-title.test.tsx` as
+  // "titleFormat still outranks nameField". Closing that divergence moves what
+  // the H1 SHOWS on existing records and retires that pin, so it is a
+  // maintainer ruling and carries its own `needs-user-decision` card. This
+  // ladder deliberately does not depend on which of the two wins: it asks
+  // whether the rendered template IS some candidate's value, which answers the
+  // dedupe under either order.
   //
   // ⛔ `objSchema?.primaryField` used to top this list, and it is gone
   // (objectui#7586). It is a `DetailViewSchema` key (`@object-ui/types`
@@ -406,10 +419,61 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // down: it would still disagree with the header about an expanded lookup
   // object whose display chain yields nothing (`{ id: 'u1' }` is not a title),
   // which the raw test — and a trim of it — both read as a value.
-  for (const candidate of titleCandidates) {
-    if (recordDisplayValueAt(data, candidate) !== undefined) {
-      hideFieldNames.add(candidate);
-      break;
+  //
+  // ⭐ THE `titleFormat` RUNG (objectui#8351, maintainer ruling option B).
+  //
+  // A `titleFormat` H1 is a rendered TEMPLATE, not a field. On a multi-field
+  // format it is no single field's value, so NO row duplicates it and the walk
+  // below must not run at all — it would hide `resolveNameField`'s row, a row
+  // the H1 never showed, exactly the "a field silently vanished" shape
+  // objectui#8175 closed one rung higher.
+  //
+  // ⚠️ "Fully interpolates" is measured, not assumed, and it is measured with
+  // the instruments already here — no new predicate, which is the same rule
+  // the emptiness note below states:
+  //   - `formatTitleTemplate` is THE renderer of this rung. It is what
+  //     `getRecordDisplayName` step 3 calls and what this package's own
+  //     `DetailView.resolveDisplayTitle` step 2 calls, so all three agree
+  //     about what the template produces on a given record.
+  //   - `recordDisplayValueAt` then answers the only question a dedupe has:
+  //     is that string some candidate's value?
+  //
+  // Three outcomes, and the two that are NOT the ruled case are what keep this
+  // honest:
+  //   - composite (no candidate's value equals it) → hide NOTHING. The ruled
+  //     case: "the H1 is not any single field's value, so there is no row to
+  //     hide".
+  //   - empty (no placeholder resolved on this record) → the header has
+  //     ALREADY walked past this rung onto the declared pointer, so the
+  //     value-keyed walk below runs unchanged. Suppressing on the mere
+  //     PRESENCE of a `titleFormat` would blind the dedupe on every record
+  //     where the template renders nothing.
+  //   - collapsed onto ONE field's value (a blank placeholder was dropped with
+  //     its orphan separator, or the format names a single field) → that row
+  //     IS the duplicate, and it still goes. A presence-only rule prints
+  //     "Contract No: HT-0001" directly beneath an H1 reading `HT-0001`, which
+  //     is the duplication Phase P.0 exists to remove.
+  //
+  // Pinned in `__tests__/record-details.titleFormatNoDedupe-8351.test.tsx`,
+  // which asserts which row RENDERS and which row DROPS — never the heading,
+  // which this package does not draw.
+  //
+  // ⚠️ The match is a SCAN of the candidates, not a peek at the first one with
+  // a value: with `titleFormat: '{name}'` over `nameField: 'contract_no'` the
+  // first resolving candidate is `contract_no` and the H1 is `name`'s value,
+  // so stopping early would hide the wrong row AND leave the real duplicate.
+  const interpolatedTitle = formatTitleTemplate(objSchema?.titleFormat, data);
+  if (interpolatedTitle) {
+    const shownAs = titleCandidates.find(
+      (candidate) => recordDisplayValueAt(data, candidate) === interpolatedTitle,
+    );
+    if (shownAs) hideFieldNames.add(shownAs);
+  } else {
+    for (const candidate of titleCandidates) {
+      if (recordDisplayValueAt(data, candidate) !== undefined) {
+        hideFieldNames.add(candidate);
+        break;
+      }
     }
   }
 

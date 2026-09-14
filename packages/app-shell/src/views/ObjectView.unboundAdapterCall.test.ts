@@ -51,6 +51,11 @@ import {
   reorderViewPatches,
   setDefaultViewPatches,
 } from './ObjectView';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /** One `updateView` call as the fake recorded it. */
 interface RecordedWrite {
@@ -248,9 +253,7 @@ describe('the detach-then-call pattern stays gone (ratchet)', () => {
     // docblock quotes the broken line verbatim to explain it, so a scan over the
     // raw file reports the documentation of the bug as the bug. (Measured — this
     // assertion failed exactly that way before the strip was added.)
-    const code = source
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    const code = mask(source);
 
     // `const updateView = (dataSource as any).updateView;` and any sibling —
     // the shape that drops `this`. Calling through the object

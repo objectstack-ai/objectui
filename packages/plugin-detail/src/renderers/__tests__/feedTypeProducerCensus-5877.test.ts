@@ -48,6 +48,11 @@ import {
   PRODUCED_FEED_TYPES,
   UNMAPPED_ACTIVITY_FEED_TYPE,
 } from '../recordActivityFeed';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // packages/plugin-detail/src/renderers/__tests__ -> repository root
@@ -79,7 +84,7 @@ function walk(dir: string, out: string[] = []): string[] {
 
 /** Comments are prose about producers, not producers. */
 const stripComments = (src: string): string =>
-  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  mask(src);
 
 const isTest = (file: string): boolean =>
   /\.(test|spec)\.tsx?$/.test(file) || file.split(path.sep).includes('__tests__');

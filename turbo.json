@@ -15,7 +15,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/tsconfig.json",
-        "$TURBO_ROOT$/tsconfig.base.json",
+        "$TURBO_ROOT$/tsconfig.tier-base.json",
         "$TURBO_ROOT$/scripts/vite-*.ts",
         "$TURBO_ROOT$/scripts/build-plugin-stylesheet.mjs",
         "$TURBO_ROOT$/scripts/check-dist-completeness.mjs",
@@ -77,7 +77,7 @@
         "$TURBO_ROOT$/scripts/vite-*.ts",
         "$TURBO_ROOT$/vitest.config.mts",
         "$TURBO_ROOT$/tsconfig.json",
-        "$TURBO_ROOT$/tsconfig.base.json"
+        "$TURBO_ROOT$/tsconfig.tier-base.json"
       ]
     },
     "//#type-check:e2e": {

@@ -96,7 +96,7 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
   ...props
 }) => {
   const { designer } = splitDesigner(props);
-  const ctx = useRecordContext() as any;
+  const ctx = useRecordContext();
   const discussion = useDiscussionContext();
   const tt = useSafeTranslate();
 

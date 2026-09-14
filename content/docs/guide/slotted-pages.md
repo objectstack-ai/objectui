@@ -42,6 +42,51 @@ Each slot accepts a single component schema or an array (arrays are
 flattened in place). Each slot is a **full replacement at the slot
 boundary** — there is no deep-merge or JSON-Patch in v1.
 
+## The discussion panel is composed, never appended
+
+A record page shows a discussion panel **if and only if the page composes a
+`record:discussion` node** — or its `record:chatter` alias, which is the same
+renderer under a Salesforce-familiar name. There is no automatic panel, and
+therefore no negative flag to switch one off.
+
+- **Synthesized** and **slotted** pages compose the node for you (it is the
+  `discussion` slot in the table above), so the out-of-the-box record page is
+  unchanged.
+- **Full pages** (`kind: "full"`) author every region, so a full page places the
+  node itself — exactly like every other component it wants:
+
+<!-- doc-snippet: fragment — a metadata excerpt: one region's components[] is one fragment of a page schema, shown without the document that would contain it -->
+```ts
+regions: [
+  {
+    name: 'main',
+    components: [
+      { type: 'page:header', properties: { title: '{name}' } },
+      { type: 'record:details' },
+      { type: 'record:discussion' },   // ← the panel is here because you put it here
+    ],
+  },
+]
+```
+
+The node's own config is honoured as authored, so the panel a page composes is
+the panel it asked for: `{ type: 'record:discussion', properties: { feed: {
+showCommentInput: false } } }` renders the conversation without a composer.
+
+**Precedence — the object outranks the page.** `enable.feeds: false` on the
+object definition suppresses the discussion panel whether or not the page
+composes the node; the view also skips the `sys_comment` read for such an
+object, and the server rejects comment writes against it with
+`403 FEEDS_DISABLED`. `enable.feeds` is opt-**out**: absent means on.
+
+> **Upgrading (objectui#7298).** A record page used to get a discussion panel
+> appended below its content whenever its tree placed no discussion node, and
+> the only way out was an `assignedPage.disableDiscussion` flag that `PageSchema`
+> — a `strictObject` — refuses, so no author could ever write it. Both are gone.
+> If one of your **authored full pages** relied on that automatic panel, add one
+> `record:discussion` node where you want it. Synthesized and slotted pages need
+> no change.
+
 ## Example: customize only the header
 
 ```ts

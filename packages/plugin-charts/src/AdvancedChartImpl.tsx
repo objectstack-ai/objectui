@@ -1348,25 +1348,57 @@ function AdvancedChartImplInner({
 
   // Shared X-axis props for time/categorical axes, in two branches.
   //
-  // Above X_AXIS_ALL_LABELS_MAX_BUCKETS, recharts' `minTickGap` thins ticks
-  // that would otherwise overlap — `interval={0}` is NOT hard-coded there,
-  // because forcing every label painted a dense black bar when the data spanned
-  // hundreds of points. At or below the bound the reverse is true and thinning
-  // is the bug (objectui#7247): the axis is short enough that every label is
-  // provably drawable, and each one is a bar's only name.
+  // Above X_AXIS_ALL_LABELS_MAX_BUCKETS, `interval={0}` is NOT hard-coded,
+  // because forcing every label painted a dense black bar when the data
+  // spanned hundreds of points (`interval: 'preserveStartEnd'` is what keeps
+  // that safe — it, not `minTickGap`, is what still lets recharts drop
+  // interior ticks; see objectui#7386 below for why `minTickGap` itself no
+  // longer does any of that thinning). At or below the bound the reverse is
+  // true and thinning is the bug (objectui#7247): the axis is short enough
+  // that every label is provably drawable, and each one is a bar's only name.
+  //
+  // objectui#7386 — `minTickGap: 0`, not a re-tuned nonzero density.
+  // `minTickGap` is ADDED on top of each tick's own measured (angled) box —
+  // recharts' `getTicks`, per tick: `start = tickCoord + size/2 + minTickGap`
+  // — so the 32/48px this branch used to charge was mandatory whitespace
+  // beyond what real overlap avoidance already required, borrowed from a
+  // time-series budget and charged to every band axis above 5 buckets too
+  // (a 7-status pipeline at 290px, ~33px/band, dropped 4 of 7 names — the
+  // labels were never actually so wide they'd collide). `interval:
+  // 'preserveStartEnd'` plus recharts' own measured-width collision check
+  // (`getStringSize` against each tick's real rendered font) is the
+  // mechanism that has to do ALL the work now, same as it always has for the
+  // ticks it keeps — `minTickGap: 0` removes only the extra margin, not the
+  // check itself, so the "hundreds of points" case above stays protected by
+  // the SAME measured-overlap logic, just without the added tax. Verified in
+  // real Chromium (this repo's DOM test env reports zero text metrics, so it
+  // cannot exercise this at all — see the PR for the harness and counts):
+  // at 290px, 7/7 and 8/8 bucket labels now draw with zero measured overlap
+  // (rotated labels checked via their true rotated rectangles, not an
+  // axis-aligned box — an axis-aligned check over-reports collisions for
+  // diagonal text, which is the same conservatism recharts' own angled-tick
+  // model (`getAngledRectangleWidth`) accepts rather than reimplements: real
+  // collision is on PERPENDICULAR separation between parallel slanted lines,
+  // and neither this file nor recharts computes that; both accept the
+  // more-conservative projected-width model instead of bypassing it, as this
+  // scale (a handful of buckets, not hundreds) does not warrant taking on
+  // untested custom collision geometry with no local way to verify it); a
+  // 180-point daily series at 800px still thinned to 11 ticks with zero
+  // overlap, unchanged in kind from before this change.
   const xAxisCommonProps = React.useMemo(() => ({
     tickLine: false as const,
     tickMargin: 10,
     axisLine: false as const,
-    // A short categorical axis names every bucket; everything above the bound
-    // keeps the time-series thinning, which is what `minTickGap` is for.
+    // A short categorical axis names every bucket; everything above the
+    // bound now leans on recharts' own measured-overlap check with no added
+    // margin — see the `objectui#7386` comment above.
     ...(labelEveryBucket
       ? { interval: 0 as const }
-      : { interval: 'preserveStartEnd' as const, minTickGap: isMobile ? 32 : 48 }),
+      : { interval: 'preserveStartEnd' as const, minTickGap: 0 }),
     tickFormatter: xAxisTickFormatter,
     ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, position: 'insideBottom' as const, offset: -4 } } : {}),
     ...(rotateXLabels && { angle: -35, textAnchor: 'end' as const, height: 60 }),
-  }), [isMobile, labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title]);
+  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title]);
 
   // #2942 — the non-series spec families used to fall through the component
   // map's `|| BarChart` into a bar shell whose series marks all returned

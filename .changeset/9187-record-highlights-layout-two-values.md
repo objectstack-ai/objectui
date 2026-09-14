@@ -42,10 +42,16 @@ wrote `grid` is not observable from here and gets a compile error (TS2322)
 naming the key — which is why the FROM/TO is spelled out above.
 
 ⚠️ The `layout` one interface up, on `RecordDetailsComponentProps`, is a
-**different** divergence and is **not** touched here: the contract refuses that
-key by name, and its removal is objectui#9040's, still open. Copying either
+**different** divergence and was **not** touched by this change: the contract
+refuses that key by name, and its removal was objectui#9040's. Copying either
 declaration onto the other is refused at publish. The union landed here is
-pinned against the installed spec — in both directions, and with the sibling as
-a firing control — in `record-highlights-layout-9187.test.ts`.
+pinned against the installed spec, in both directions, in
+`record-highlights-layout-9187.test.ts`.
+
+✅ That sibling key is retired in the same release
+(`.changeset/9040-retire-record-details-layout.md`), so the firing control this
+pin originally borrowed from it — a three-value union — moved to
+`RecordChatterComponentProps.position` as part of that retirement's consumer
+migration. The control moved; it was never deleted.
 
 objectui#9187.

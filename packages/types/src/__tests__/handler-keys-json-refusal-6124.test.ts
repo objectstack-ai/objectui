@@ -50,7 +50,10 @@
  *     below — 37 since objectui#6576 minted `ObjectDataTableSchema` with an
  *     `onRowClick` arm, the first on an `objectql` mirror; 38 since objectui#7104
  *     declared `AlertDialogSchema.onAction`, a key the renderer had been reading
- *     UNDECLARED). A key nothing reads
+ *     UNDECLARED; 40 since objectui#7804 declared
+ *     `ObjectKanbanSchema.onCardClick` / `.onQuickAdd`, that same shape again on
+ *     the face that INHERITED those reads when objectui#8802 retired the
+ *     sibling `kanban` arm). A key nothing reads
  *     gets the `?: never` tombstone (22 sites, `RETIRED` below; the `crud.ts`
  *     `confirm` / `base.ts` convention).
  *
@@ -78,8 +81,14 @@ import { z } from 'zod';
 import { retirementTombstone } from '../zod/tombstone.zod';
 // objectui#6576 — the first handler arm on an `objectql` mirror, ledgered here
 // like the 58 it joins.
-import { ObjectDataTableSchema as ObjectDataTableZod } from '../zod/objectql.zod';
-import type { ObjectDataTableSchema } from '../objectql';
+// objectui#7804 added the second pair on this mirror: the `object-kanban` face
+// INHERITED reads it never declared when objectui#8802 retired the sibling
+// `kanban` arm.
+import {
+  ObjectDataTableSchema as ObjectDataTableZod,
+  ObjectKanbanSchema as ObjectKanbanZod,
+} from '../zod/objectql.zod';
+import type { ObjectDataTableSchema, ObjectKanbanSchema } from '../objectql';
 import {
   CalendarViewSchema as CalendarViewZod,
   CarouselSchema as CarouselZod,
@@ -281,6 +290,24 @@ const RUNTIME_SLOT: readonly Site[] = [
   ['navigation.zod.ts', 'PaginationSchema', 'onPageChange', PaginationZod],
   // objectui#6576 / #6914 — `ObjectDataTable.tsx` forwards `schema.onRowClick` into the `data-table` it renders.
   ['objectql.zod.ts', 'ObjectDataTableSchema', 'onRowClick', ObjectDataTableZod],
+  // ⭐ objectui#7804 — the `plugin-kanban` slice of the 39-row finding, and a
+  // ledger GROWTH on the face that INHERITED the reads objectui#8802's arm
+  // retirement left declared by nothing. Each channel measured on its own, and
+  // the two do not share one:
+  //   - `onQuickAdd` rides `ObjectKanban`'s `...schema` spread untouched and
+  //     arrives at `KanbanImpl` BY IDENTITY;
+  //   - `onCardClick` is SUBSTITUTED on the schema `ObjectKanban` hands down,
+  //     and is live anyway through the other channel — `SchemaRenderer` spreads
+  //     the authored key as a React prop, `ObjectKanbanComponentProps` declares
+  //     it, and the substituted wrapper CALLS it.
+  // ⚠️ The third key, `onCardMove`, is NOT in this half and never was: its
+  // authored value reaches nothing on this entry, which is the `'retired'`
+  // disposition. It is filed in `RETIRED` below since objectui#9342, which
+  // moved `KanbanRenderer`'s read off the document and onto an explicit React
+  // prop — until then `check:handler-key-reads` refused the tombstone spelling
+  // while the renderer still read the key.
+  ['objectql.zod.ts', 'ObjectKanbanSchema', 'onCardClick', ObjectKanbanZod],
+  ['objectql.zod.ts', 'ObjectKanbanSchema', 'onQuickAdd', ObjectKanbanZod],
   ['overlay.zod.ts', 'DialogSchema', 'onOpenChange', DialogZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onOpenChange', AlertDialogZod],
   // objectui#7104 — the action button's `onClick`; the renderer read `schema.onAction` UNDECLARED until then.
@@ -294,8 +321,12 @@ const RUNTIME_SLOT: readonly Site[] = [
 ];
 
 /**
- * 22 keys NO renderer reads — the TypeScript interface carries the `?: never`
- * tombstone. Measured per key: the renderer takes `({ schema })` only, or
+ * The keys NO renderer reads — the TypeScript interface carries the `?: never`
+ * tombstone. ⚠️ The population is whatever this array holds and the length
+ * assertion below states; a figure repeated in this sentence would be derived
+ * once and never again (AGENTS.md #9), and it already drifted here — it read
+ * `22` while the assertion read `20`, across objectui#8802's arm retirement.
+ * Measured per key: the renderer takes `({ schema })` only, or
  * strips the key through a `toFormControlDomProps` whitelist, or spreads it
  * onto a DOM element / primitive that has no such prop (React warns about an
  * unknown event handler and attaches nothing). `CommandSchema.onChange` is the
@@ -326,6 +357,16 @@ const RETIRED: readonly Site[] = [
   ['navigation.zod.ts', 'BreadcrumbItemSchema', 'onClick', BreadcrumbItemZod],
   ['navigation.zod.ts', 'SidebarSchema', 'onCollapsedChange', SidebarZod],
   ['navigation.zod.ts', 'ButtonGroupButtonSchema', 'onClick', ButtonGroupButtonZod],
+  // ⭐ objectui#9342 — the THIRD `ObjectKanbanSchema` handler key, and the one
+  // its own slice could not file. Its disposition was measured `'retired'` by
+  // objectui#7804 (an authored value reaches nothing: `ObjectKanban`
+  // substitutes its own mover and declares no `onCardMove` React prop), but
+  // `check:handler-key-reads` refuses a tombstone while a renderer still reads
+  // the key off the document, so the row sat in that gate's
+  // `KNOWN_UNDECLARED_READS` instead. `KanbanRenderer` now takes `onCardMove`
+  // as an explicit React prop — the objectui#7742 remedy `objectFields` took —
+  // and the tombstone is spelled on both faces.
+  ['objectql.zod.ts', 'ObjectKanbanSchema', 'onCardMove', ObjectKanbanZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onConfirm', AlertDialogZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onCancel', AlertDialogZod],
 ];
@@ -359,11 +400,22 @@ const NON_ON_FUNCTION = /^\s*(cell|custom|renderCellEditor|validate): z\.functio
 const describeOf = (mirror: z.ZodType, key: string): string | undefined =>
   (objectOf(mirror, key).shape[key] as { description?: string } | undefined)?.description;
 
-/** One key, isolated: `.pick()` keeps the member's own declaration and drops
- *  the rest of the object, so the probe needs no per-schema fixture and a
- *  refusal can only be about the key under test. */
+/** One key, isolated: the member's OWN declaration, lifted out of its object,
+ *  so the probe needs no per-schema fixture and a refusal can only be about the
+ *  key under test.
+ *
+ *  ⚠️ Rebuilt rather than `.pick()`ed since objectui#7804. `ObjectKanbanSchema`
+ *  closes with `.superRefine(requireKanbanRecordSource)` — the one-of
+ *  `bind`/`data`/`objectName` rule — and zod refuses `.pick()` on an object
+ *  carrying refinements (`.pick() cannot be used on object schemas containing
+ *  refinements`), which is a THROW rather than a red assertion and so would
+ *  have read as the instrument breaking rather than as a missing fixture. The
+ *  member declaration handed to the new object is the same one `.pick()` would
+ *  have carried, and every probe below writes only that key, so no probe's
+ *  reading moves; what is dropped with the wrapper is the record-source
+ *  refinement, which is exactly the noise this isolation exists to remove. */
 const pickKey = (mirror: z.ZodType, key: string) =>
-  objectOf(mirror, key).pick({ [key]: true } as Record<string, true>);
+  z.object({ [key]: objectOf(mirror, key).shape[key] });
 
 const AUTHORED_ACTION_OBJECT = { action: 'toast', title: 'Saved', variant: 'success' };
 const LIVE_FUNCTION = () => undefined;
@@ -392,7 +444,7 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     ]);
   });
 
-  it('62 sites are ledgered, 42 runtime slots + 20 retired, with no key filed twice', () => {
+  it('65 sites are ledgered, 44 runtime slots + 21 retired, with no key filed twice', () => {
     // 58 from objectui#6124; the 59th is `ObjectDataTableSchema.onRowClick`,
     // minted with its arm by objectui#6576 / #6914; the 60th is
     // `AlertDialogSchema.onAction`, declared by objectui#7104 for a key the
@@ -408,10 +460,23 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     // own failure mode; the two comment blocks above state why an ARM
     // retirement is not that failure, and `./bare-kanban-node-key-retired-8802.test.ts`
     // measures the refusal that replaced them.
-    expect(RUNTIME_SLOT).toHaveLength(42);
-    expect(RETIRED).toHaveLength(20);
+    //
+    // ⭐ 62 → 64: objectui#7804 declared `ObjectKanbanSchema.onCardClick` and
+    // `.onQuickAdd`, two of the three reads the retirement above left on the
+    // SURVIVING face with nothing declaring them. ⚠️ TWO, not three — the
+    // third (`onCardMove`) was measured `'retired'` and the gate of record
+    // refused that spelling while the renderer still read the key, so it stayed
+    // in `KNOWN_UNDECLARED_READS` rather than being filed here under a
+    // disposition nothing measured.
+    //
+    // ⭐ 64 → 65: objectui#9342 moved that read to an explicit React prop on
+    // `KanbanRendererProps`, which is what let the arm carry the tombstone the
+    // measurement always asked for. A ledger GROWTH on the retired half, and
+    // the disposition is the one objectui#7804 measured — not a new reading.
+    expect(RUNTIME_SLOT).toHaveLength(44);
+    expect(RETIRED).toHaveLength(21);
     const ids = ALL_SITES.map(([file, schema, key]) => `${file}#${schema}.${key}`);
-    expect(new Set(ids).size).toBe(62);
+    expect(new Set(ids).size).toBe(65);
   });
 
   it.each(ALL_SITES)('%s %s.%s is DECLARED on the mirror shape, with the objectui#6124 guidance as its description', (_file, _schema, key, mirror) => {
@@ -590,6 +655,8 @@ export type assertionRuntimeSlotsKeepTheirFunctionType = [
   Expect<KeepsFunction<TabsSchema['onValueChange']>>,
   Expect<KeepsFunction<PaginationSchema['onPageChange']>>,
   Expect<KeepsFunction<ObjectDataTableSchema['onRowClick']>>,
+  Expect<KeepsFunction<ObjectKanbanSchema['onCardClick']>>,
+  Expect<KeepsFunction<ObjectKanbanSchema['onQuickAdd']>>,
   Expect<KeepsFunction<DialogSchema['onOpenChange']>>,
   Expect<KeepsFunction<AlertDialogSchema['onOpenChange']>>,
   Expect<KeepsFunction<AlertDialogSchema['onAction']>>,

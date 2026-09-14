@@ -228,6 +228,32 @@ isRTL('ar'); // true
 isRTL('en'); // false
 ```
 
+### Localized value helpers — reading and editing an `I18nLabel`
+
+Server-driven metadata types a label as a plain string **or** an inline
+per-locale map (`{ en: 'Pricing', 'zh-CN': '定价' }`). An authoring surface that
+shows one locale in one text input has to answer three separate questions, so
+there are three functions and each answers exactly one:
+
+```tsx
+import { pickLocalized, setLocalized, clearLocalized } from '@object-ui/i18n';
+
+const stored = { en: 'Pricing', 'zh-CN': '定价' };
+
+pickLocalized(stored, 'en-US');          // 'Pricing'   — which entry to DISPLAY
+setLocalized(stored, 'en-US', 'Plans');  // { en: 'Plans', 'zh-CN': '定价' }
+clearLocalized(stored, 'en-US');         // { 'zh-CN': '定价' }
+```
+
+⛔ Never write the input's string back as the whole value — that replaces the
+map and every locale the author was not looking at is gone, silently, on the
+first keystroke. `setLocalized` replaces **one** entry (adding it when the
+active locale has none) and `clearLocalized` removes **one** entry (returning
+`undefined` once nothing localized is left). Both choose that entry with the
+same limbs, and deliberately stop short of `pickLocalized`'s display-only
+fallbacks, so an author editing in `fr` while shown the `en` string can neither
+overwrite nor delete English.
+
 ## Scope — the `engine.*` carve-out (metadata-admin / Studio)
 
 Not every user-facing string in this repository resolves through these packs.

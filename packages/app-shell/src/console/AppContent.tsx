@@ -316,11 +316,20 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // for every kind of absence). The maintainer ruling put the answer there
   // rather than as a flag in the list, so nothing below re-reads the list.
   //
-  // Only the measured verdict `denied` changes what renders. `unknown` — an
-  // absent app, an unreachable server, a host that injected an adapter without
-  // the probe — keeps the existing screen exactly as it is today: this fix
-  // exists because the console asserted a state it had not measured, and
-  // guessing in the other direction would be the same defect mirrored.
+  // Every verdict here is a MEASURED one, and the screen says only what was
+  // measured — never what it guesses. objectui#4252 applied that rule to
+  // `denied`; objectui#9262 applied the same rule to the rest of this screen's
+  // population, which was seven further causes wearing one sentence about
+  // publishing. `not_found` and `unreachable` are separate answers the
+  // transport had always given and the probe used to fold into one `unknown`
+  // (see `AppAccessVerdict`), so the branches below un-fold a collapse rather
+  // than ask anything new — the enumeration surface the 2026-08-12 ruling
+  // guarded is untouched, and the control plane still answers the same way for
+  // every app the caller may not see.
+  //
+  // `unknown` now means only "nothing was asked": a host injected a DataSource
+  // that cannot answer this (AGENTS #1). Guessing a cause for it would be the
+  // same defect mirrored, so it keeps the screen that asserts nothing.
   // The verdict is stored WITH the app it describes, and read back only for
   // that app. Two missing apps in a row keep `requestedAppMissing` true the
   // whole way across, so nothing in this branch is reset by the transition — a
@@ -341,7 +350,8 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     const probe = dataSource?.probeAppAccess;
     if (typeof probe !== 'function') {
       // AGENTS #1 — the console is protocol-agnostic: a host may inject a
-      // DataSource that cannot answer this. Degrade to today's copy.
+      // DataSource that cannot answer this. `unknown` is exactly that: the
+      // question was never put, so the screen asserts nothing (objectui#9262).
       setAccessProbe({ app: appName, verdict: 'unknown' });
       return;
     }
@@ -349,7 +359,11 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     const probed = appName;
     void Promise.resolve(probe.call(dataSource, probed))
       .then(verdict => { if (!cancelled) setAccessProbe({ app: probed, verdict }); })
-      .catch(() => { if (!cancelled) setAccessProbe({ app: probed, verdict: 'unknown' }); });
+      // A probe that REJECTS has failed — `probeAppAccess` itself never throws,
+      // so reaching here means a host implementation did. That is the absence
+      // of an answer, not the absence of an app: `unreachable`, never `unknown`
+      // (which now means nothing was asked at all) — objectui#9262.
+      .catch(() => { if (!cancelled) setAccessProbe({ app: probed, verdict: 'unreachable' }); });
     return () => { cancelled = true; };
   }, [requestedAppMissing, previewDrafts, missingRecheck, appName, accessProbe, dataSource]);
   // Never the previous app's answer: while a probe for a newly-requested app is
@@ -760,17 +774,55 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
         </div>
       );
     }
+    // objectui#9262 — the remaining verdicts, each saying only what the probe
+    // obtained. The screen this replaced asserted ONE transient deploy state
+    // ("it may still be publishing") over every one of them; that sentence is
+    // retired by the ruling, and a genuine post-publish lag now reads as
+    // `not_found` — the forced `refreshMetadata()` above is what gives that lag
+    // its chance to resolve before anything is said about it.
+    //
+    // Retry is offered on all three because all three can change on their own:
+    // an absence ends when the app is created or published, an unreachable
+    // server comes back, and an unasked question is still unasked. That is the
+    // opposite of `denied` above, which no retry can move.
+    //
+    // ⭐ `granted` lands on the NEUTRAL screen deliberately, with `unknown`.
+    // Reaching here with `granted` means the by-name route served the app while
+    // the refreshed list still does not carry it (objectui#9262 cause 8, and the
+    // one shape measured on a real server before this branch was written). The
+    // console has no app document to render from and no account of the
+    // disagreement, so the screen that asserts nothing is the honest one.
+    const verdictScreen =
+      accessVerdict === 'not_found'
+        ? {
+            testId: 'app-not-found',
+            title: t('empty.appNotFound', { defaultValue: "This app can't be opened" }),
+            description: t('empty.appNotFoundDescription', {
+              defaultValue: 'The server did not return this app for your account.',
+            }),
+          }
+        : accessVerdict === 'unreachable'
+          ? {
+              testId: 'app-unreachable',
+              title: t('empty.appUnreachable', { defaultValue: "Couldn't reach the server" }),
+              description: t('empty.appUnreachableDescription', {
+                defaultValue: 'This app could not be checked. Try again in a moment.',
+              }),
+            }
+          : {
+              testId: 'app-not-available',
+              title: t('empty.appNotAvailable', { defaultValue: 'App not available' }),
+              description: t('empty.appNotAvailableDescription', {
+                defaultValue: 'This app is not available — try again in a moment.',
+              }),
+            };
     return (
       <div className="h-screen flex items-center justify-center">
-        <Empty>
-          <EmptyTitle>{t('empty.appNotAvailable', { defaultValue: 'App not available' })}</EmptyTitle>
-          <EmptyDescription>
-            {t('empty.appNotAvailableDescription', {
-              defaultValue: 'This app is not available yet — it may still be publishing. Try again in a moment.',
-            })}
-          </EmptyDescription>
+        <Empty data-testid={verdictScreen.testId}>
+          <EmptyTitle>{verdictScreen.title}</EmptyTitle>
+          <EmptyDescription>{verdictScreen.description}</EmptyDescription>
           <div className="mt-4">
-            <Button onClick={() => setMissingRecheckRun(null)} data-testid="app-not-available-retry">
+            <Button onClick={() => setMissingRecheckRun(null)} data-testid={`${verdictScreen.testId}-retry`}>
               {t('common.retry', { defaultValue: 'Retry' })}
             </Button>
           </div>

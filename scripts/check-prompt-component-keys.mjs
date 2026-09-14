@@ -132,6 +132,7 @@ import { fileURLToPath } from 'node:url';
 
 import { deriveRegistryKeys, INDIRECT_REGISTRATIONS } from './check-doc-component-types.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
+import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -170,10 +171,16 @@ const LABEL_BULLET = /^(\s*)[*+-]\s+\*\*([^*]+?):\*\*\s*(.*)$/;
 /** A list item at any depth — the only kind of line a gated block reads. */
 const LIST_ITEM = /^\s*(?:[*+-]|\d+\.)\s+/;
 
-/** A fenced-code delimiter. A `**Keys:**` line inside a fence is an EXAMPLE of
- *  a bullet, not a bullet, and judging it would red on a document explaining
- *  the convention. */
-const FENCE = /^\s*(?:```|~~~)/;
+/**
+ * A `## N. Title` heading. It opens a SECTION, which is the scope a letter run
+ * is numbered within — the prompt surface carries several independent runs per
+ * file and they each restart at `A`.
+ */
+const SECTION_HEADING = /^##\s+(.*\S)\s*$/;
+
+/** A `### X. Title` heading — one entry in its section's letter run. */
+const LETTER_HEADING = /^###\s+([A-Z])\.\s/;
+
 
 /**
  * Bullet labels whose sub-bullet BLOCK teaches keys an author may write, and
@@ -212,17 +219,36 @@ function indentOf(line) {
   return expanded.length - expanded.trimStart().length;
 }
 
-/** Mark every line that sits inside a fenced code block. */
+/**
+ * Mark every line that sits inside a fenced code block, delimiters included. A
+ * `**Keys:**` line inside a fence is an EXAMPLE of a bullet, not a bullet, and
+ * judging it would red on a document explaining the convention.
+ *
+ * Run-aware via `markdown-fence-scan.mjs` (objectui#9194), which owns this
+ * question for the whole tree. ⛔ Never re-spell the predicate here: a private
+ * one read a fence as "three backticks" and toggled, so a FOUR-backtick opener
+ * was closed by the next THREE-backtick line — which CommonMark makes body text
+ * — and from there the gate read code as prose and prose as code for the rest of
+ * the file. That is why only a run of the SAME character, AT LEAST AS LONG and
+ * carrying no info string, closes what a run opened.
+ */
 function fenceMask(lines) {
   const mask = new Array(lines.length).fill(false);
-  let open = false;
+  let open = null;
   for (let i = 0; i < lines.length; i++) {
-    if (FENCE.test(lines[i])) {
+    if (open) {
+      // The body, and the closing delimiter itself, are both inside the fence.
       mask[i] = true;
-      open = !open;
+      if (closesFence(lines[i], open)) open = null;
       continue;
     }
-    mask[i] = open;
+    const fence = openFence(lines[i]);
+    if (fence) {
+      mask[i] = true;
+      open = fence;
+      continue;
+    }
+    mask[i] = false;
   }
   return mask;
 }
@@ -348,6 +374,105 @@ export function scanPromptKeys(root) {
 }
 
 /**
+ * Every `### X.` letter run in the prompt surface, grouped by the `## N.`
+ * section that scopes it (objectui#9145).
+ *
+ * ## What this reads, and why it is a SEQUENCE check rather than a count
+ *
+ * `.github/prompts/component.prompt.md` opened §1 with a hand-written "these 3
+ * standard slots" over seven sections, and those seven ran `A B D E F G H` — no
+ * `C`. Both halves were wrong in the file's FIRST commit (`4e7737788`), so
+ * neither is a drift from a state that was once true: the inventory was never
+ * measured against the list it describes.
+ *
+ * The two halves are repaired differently, and only one of them needs a gate:
+ *
+ *   THE COUNT      deleted, not pinned. The sentence no longer states a number,
+ *                  so there is no second place for the inventory to be written
+ *                  down and no way for the two to disagree. A gate comparing a
+ *                  stated count to a heading count would exist only to keep a
+ *                  construct alive that has no reason to be there.
+ *   THE LETTERING  pinned here. A letter run is not a duplicate of anything —
+ *                  it IS the inventory — so it cannot be deleted, and a gap in
+ *                  it is exactly the reading that cost this card: a missing
+ *                  letter says "a section was dropped" to an AI author that
+ *                  reads these files as authoritative, and the file itself does
+ *                  not say whether that is true.
+ *
+ * ## Why a run is scoped to its `## N.` section
+ *
+ * `component.prompt.md` carries a SECOND, independent letter run further down
+ * (`### A. Field Widget Implementation`, `### B. Dashboard Widget
+ * Implementation`) under `## 2. API Reference & Contracts`, and
+ * `engine.prompt.md` carries five. Each restarts at `A`, so a file-wide
+ * sequence check would red on every correct file here. The section heading is
+ * the boundary the author already writes.
+ *
+ * Sections with no letter headings (`## 2. Standard Contexts` in
+ * `engine.prompt.md`, whose sub-headings are backticked type names) are
+ * returned too, carrying an empty `entries`. They contribute no run, and the
+ * caller needs them to tell "this surface has no letter runs because it has no
+ * sections" (a fixture tree exercising the key vocabulary) apart from "this
+ * surface has sections and every run in them has vanished" (the collapse).
+ * ⛔ This does NOT judge the `## N.` numbers themselves — that is a different
+ * vocabulary and a different claim.
+ */
+export function scanPromptSections(root) {
+  const sections = [];
+  for (const abs of promptFiles(root)) {
+    const rel = relative(root, abs).split(sep).join('/');
+    const lines = readFileSync(abs, 'utf8').split('\n');
+    const fenced = fenceMask(lines);
+    let current = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (fenced[i]) continue;
+      const section = SECTION_HEADING.exec(lines[i]);
+      if (section) {
+        current = { file: rel, section: section[1], entries: [] };
+        sections.push(current);
+        continue;
+      }
+      const letter = LETTER_HEADING.exec(lines[i]);
+      if (!letter || !current) continue;
+      current.entries.push({ letter: letter[1], line: i + 1, text: lines[i].trim() });
+    }
+  }
+  return sections;
+}
+
+/** The sections that actually carry a letter run. */
+export const lettered = (sections) => sections.filter((s) => s.entries.length > 0);
+
+/**
+ * The first heading in each run whose letter is not the one its position calls
+ * for. Only the FIRST is reported per run: a gap at `C` makes every heading
+ * after it wrong too, and listing all of them buries the one an author has to
+ * decide about.
+ */
+export function letterRunFindings(runs) {
+  const findings = [];
+  for (const run of runs) {
+    for (let i = 0; i < run.entries.length; i++) {
+      const expected = String.fromCharCode(65 + i);
+      const entry = run.entries[i];
+      if (entry.letter === expected) continue;
+      findings.push({
+        file: `${run.file}:${entry.line}`,
+        key: `### ${entry.letter}.`,
+        text: `${entry.text}  —  expected \`### ${expected}.\`, heading ${i + 1} of ${run.entries.length} under \`## ${run.section}\``,
+        label: run.section,
+        expect: 'contiguous-letters',
+        scope: 'letter-run',
+        reason: 'letter-run-gap',
+      });
+      break;
+    }
+  }
+  return findings;
+}
+
+/**
  * Judge the prompt surface. Throws when an input is missing, because a gate
  * that cannot see its inputs must not report a pass.
  */
@@ -398,7 +523,17 @@ export function analyze(root, options = {}) {
     );
   }
 
-  const findings = [];
+  const sections = scanPromptSections(root);
+  const runs = lettered(sections);
+  if (sections.length > 0 && runs.length === 0) {
+    throw new Error(
+      `${sections.length} \`## N.\` section(s) under ${PROMPT_DIR} carry no \`### X.\` heading at all. ` +
+        'The category inventories this pin reads are gone or have been reformatted, and a run that ' +
+        'reads nothing passes while asserting nothing.',
+    );
+  }
+
+  const findings = letterRunFindings(runs);
   for (const site of taught) {
     const isAuthorable = authorable.has(site.key);
     const isPlaceholder = placeholderOnly.has(site.key);
@@ -423,6 +558,8 @@ export function analyze(root, options = {}) {
       registryKeys: registry.keys.size,
       authorable: authorable.size,
       placeholderOnly: placeholderOnly.size,
+      letterRuns: runs.length,
+      letterHeadings: runs.reduce((n, run) => n + run.entries.length, 0),
     },
   };
 }
@@ -437,6 +574,12 @@ const HINTS = {
   'unregistered-key':
     'Nothing in this repository registers this key, so it resolves to the OBJUI-001 "Unknown ' +
     'component type" panel everywhere. Teach a registered key.',
+  'letter-run-gap':
+    'The `### X.` headings under this `## N.` section do not run A, B, C, … without a gap. To an AI ' +
+    'author reading these files as authoritative, a missing letter says a section was DROPPED — and ' +
+    'nothing in the file says whether that is true (objectui#9145: the gap was a generation artifact ' +
+    'present in the file\'s first commit, not a dropped category). Renumber the run so the letters ' +
+    'are contiguous, or add the section the gap claims is missing.',
   'not-a-placeholder-key':
     'This key is taught under a `Protocol Placeholders:` label, but a REAL renderer answers it — so ' +
     'the section understates what the platform ships and steers an author away from a component that ' +
@@ -473,11 +616,15 @@ if (isEntrypoint(import.meta.url)) {
       `${counters.authorable} authorable key(s) — the ${counters.registryKeys} registered key(s) less ` +
       `the ${counters.placeholderOnly} answered only by the ${PLACEHOLDER_NAMESPACE} registration.`,
   );
+  console.log(
+    `Checked ${counters.letterHeadings} \`### X.\` heading(s) across ${counters.letterRuns} letter ` +
+      'run(s) for a contiguous A, B, C, … sequence within each `## N.` section.',
+  );
 
   if (findings.length === 0) {
     console.log(
-      'OK  Every key taught as available is answered by a real renderer, and every key taught as a ' +
-        'protocol placeholder is answered only by the placeholder.',
+      'OK  Every key taught as available is answered by a real renderer, every key taught as a ' +
+        'protocol placeholder is answered only by the placeholder, and every letter run is contiguous.',
     );
     process.exit(0);
   }

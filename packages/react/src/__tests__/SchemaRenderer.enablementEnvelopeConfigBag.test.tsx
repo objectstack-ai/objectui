@@ -72,6 +72,7 @@ import { ComponentRegistry, ExpressionEvaluator } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
 import { useCondition, toPredicateInput } from '../hooks/useExpression';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 
 const DATA = { status: 'draft' };
 
@@ -133,9 +134,11 @@ const Probe = (props: { schema?: Record<string, unknown>; disabled?: boolean }) 
 
 function mount(schema: unknown) {
   return render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA } as never}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA } as never}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
   );
 }
 

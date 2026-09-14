@@ -60,41 +60,6 @@ export interface RecordDetailsComponentProps {
    * against the installed spec.
    */
   columns?: '1' | '2' | '3' | '4';
-  /**
-   * ⛔ RETIRED UPSTREAM — the contract REFUSES this key by name. Do not author
-   * it; `tsc` accepting it here is the defect, not permission.
-   *
-   * `@objectstack/spec` declares the same top-level key as an ADR-0087 D2
-   * tombstone: removed in 17.0.0 (objectstack#6946) because the published
-   * `auto` | `custom` semantics were never implemented. Measured on the
-   * installed pin (17.4.0): `RecordDetailsProps.safeParse({ layout: 'compact' })`
-   * is RED with `invalid_type` at `layout`, and the message is the removal
-   * prescription itself. The control on the same instrument fired as it should
-   * — every other top-level key here accepts a plausible value, and an
-   * undeclared key is refused with a DIFFERENT code (`unrecognized_keys`), so
-   * the refusal is about this key by name rather than a schema that refuses
-   * everything.
-   *
-   * ⚠️ Note the third spelling: this face offers `stacked` | `inline` |
-   * `compact`, which is not even the `auto` | `custom` the spec published
-   * before removing it. No value of either set parses.
-   *
-   * Every other layer has already withdrawn it — objectui#3818 removed the
-   * renderer's dead branch, and `@object-ui/plugin-detail`'s registry manifest
-   * deliberately publishes no `layout` input and says so at the site. This
-   * declaration is the last live holdout of the spelling.
-   *
-   * ⚠️ It is still here ON PURPOSE, and this is a ledger of an OPEN divergence,
-   * not an endorsement: removing it is a published-surface RETIREMENT that
-   * breaks an in-repo consumer (`__tests__/p1-spec-alignment.test.ts` declares
-   * `layout: 'stacked'` on this interface and reads it back), and triage on
-   * objectui#9040 ruled that consumer out of that card's scope. The removal
-   * needs its own change: delete the key, move that consumer, and ship the
-   * `minor` retirement changeset — `.changeset/retire-record-details-section-collapsed.md`
-   * is the in-repo shape to copy. `__tests__/record-details-top-level-9040.test.ts`
-   * pins both halves of this paragraph so it cannot rot into a stale comment.
-   */
-  layout?: 'stacked' | 'inline' | 'compact';
   /** Sections to organize fields */
   sections?: Array<{
     /** Stable identifier for i18n key resolution (e.g. 'info', 'forecast'). */
@@ -242,15 +207,44 @@ export interface RecordDetailsComponentProps {
 export interface RecordHighlightsComponentProps {
   /**
    * Fields to display as highlights — bare names or
-   * `{name,label?,icon?,type?,readonly?}` for inline overrides.
+   * `{name,label?,type?,readonly?}` for inline overrides, as the CLOSED SET
+   * the contract declares.
    *
    * `readonly: true` suppresses the chip's inline-edit affordance
    * (objectstack#5077) without touching the object field, which is what
    * hook-maintained columns need: marking the object field `readonly` would
    * also strip the hook's own write-back.
+   *
+   * The object arm offered a fifth key, `icon`, until objectui#9280, and the
+   * contract never accepted it. `@objectstack/spec`
+   * `RecordHighlightsProps.fields[]`'s object arm declares exactly
+   * `name`/`label`/`type`/`readonly` and carries a `never` catchall, i.e. it is
+   * `$strict`: an unlisted key is REFUSED, not stripped, and the refusal takes
+   * the WHOLE document with it. Measured on the installed pin, 17.4.0,
+   * `RecordHighlightsProps.safeParse({ fields: [{ name: 'x', icon: 'star' }] })`
+   * is RED with `invalid_union` at `fields.0`. So `{ name: 'amount', icon:
+   * 'dollar-sign' }` type-checked here and was refused at the door — a green
+   * local build and a rejection at the only layer that matters. Three controls
+   * on the same instrument fired as they should: a declared key
+   * (`{ name, label }`) parses green, so the arm is not refusing everything; an
+   * arbitrary key (`zzzNonsense`) is refused with the SAME `invalid_union`
+   * code, so `icon` was not special-cased; and the bare-string arm parses
+   * green, so only the object arm moved. Contract-first (Commandment #0.1):
+   * the declaration moves to the contract, the contract is not widened.
+   *
+   * ⚠️ Whether a highlight chip SHOULD be able to carry an icon is a separate
+   * question this narrowing does not answer. The route for it is an upstream
+   * spec widening (an `@objectstack/spec` decision, on its own card), ⛔ never
+   * a redeclaration here.
+   *
+   * ⚠️ Do NOT copy this retirement onto `sections[].icon` one screen up. That
+   * is a DIFFERENT key on a different face — `DetailSection` genuinely draws
+   * it and the contract declares it — the same word, not the same member.
+   * `__tests__/record-highlights-fields-icon-9280.test.ts` pins this arm
+   * against the installed spec in both directions.
    */
   fields: Array<
-    string | { name: string; label?: string; icon?: string; type?: string; readonly?: boolean }
+    string | { name: string; label?: string; type?: string; readonly?: boolean }
   >;
   /**
    * Layout mode for the highlights strip, as the CLOSED SET the contract

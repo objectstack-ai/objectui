@@ -104,6 +104,12 @@ import type {
   ChartAggregate,
   GanttConfig as SpecGanttConfig,
   CalendarConfig as SpecCalendarConfig,
+  // objectui#9239 — `ComponentPropsMap['object-calendar']`'s author state, so
+  // `ObjectCalendarSchema.data` below DERIVES the protocol's `data` row rather
+  // than re-spelling it. Aliased because the bare name is the protocol's, and a
+  // local symbol under a `@objectstack/spec` export's name reads to the next
+  // agent as the spec's own definition (`pnpm check:spec-symbols`).
+  ObjectCalendarProps as SpecObjectCalendarProps,
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
@@ -662,9 +668,21 @@ export interface ObjectGridSchema extends BaseSchema {
   name?: string;
   
   /**
-   * Display label override
+   * Display label override.
+   *
+   * `string | I18nLabel` — the spec's INLINE locale map, resolved against a
+   * BCP-47 display locale by `resolveI18nLabel(label, locale)`. Plain `string`
+   * until objectui#9092: a NARROWING override of `BaseSchema.label`, which
+   * objectui#4580's revised Q1 ruling (option A) widened. The mirror
+   * (`zod/objectql.zod.ts`'s `ObjectGridSchema`) never restates the key, so it
+   * inherits the zod `BaseSchema`'s `I18nLabelSchema` and accepted the map all
+   * along while `tsc` refused it.
+   *
+   * ⚠️ NOT the KEYED `{ key, defaultValue?, params? }` vocabulary that
+   * {@link BaseSchema.ariaLabel} carries; the two are structurally confusable
+   * and neither resolver accepts the other's shape.
    */
-  label?: string;
+  label?: string | I18nLabel;
   
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
@@ -839,10 +857,24 @@ export interface ObjectGridSchema extends BaseSchema {
   title?: string;
 
   /**
+   * Legacy description field.
+   *
+   * `string | I18nLabel` — the spec's INLINE locale map, resolved against a
+   * BCP-47 display locale by `resolveI18nLabel(label, locale)`. Plain `string`
+   * until objectui#9092: a NARROWING override of `BaseSchema.description`,
+   * which objectui#4580's revised Q1 ruling (option A) widened. The mirror
+   * (`zod/objectql.zod.ts`'s `ObjectGridSchema`) never restates the key, so it
+   * inherits the zod `BaseSchema`'s `I18nLabelSchema`.
+   *
+   * ⚠️ The `@deprecated` tag below is NOT a reason to leave the declaration
+   * narrow: deprecated-but-declared is still an authoring face, and an author
+   * on it was refused by `tsc` for writing the form the contract publishes.
+   * Whether the key should exist at all is the ADR-0049 liveness question, not
+   * this one.
+   *
    * @deprecated No direct replacement (consider using label with additional context)
-   * Legacy description field
    */
-  description?: string;
+  description?: string | I18nLabel;
   
   /**
    * Enable/disable built-in operations
@@ -2770,16 +2802,45 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   objectName?: string;
   /**
-   * Data source configuration. Read FIRST by `getDataConfig` — `if
-   * (schema.data) return schema.data;` — ahead of `staticData` / `objectName`.
+   * PRE-FETCHED RECORDS — an ARRAY, drawn in place of the calendar's own query.
+   * Read FIRST by the shared record-source ladder
+   * (`resolveRecordSourceConfig(schema, 'array')` in `@object-ui/core`), ahead
+   * of `staticData` / `objectName`.
    *
    * Declared by objectui#7313, in the same stroke as the mirror's `data`: until
    * then the read landed on `BaseSchema`'s index signature on this side and
    * on `.passthrough()` on the mirror's, so the record source the resolver
-   * prefers was the one neither face named. Same type as
-   * {@link ObjectMapSchema.data}.
+   * prefers was the one neither face named.
+   *
+   * ⛔ NOT `ViewData`, and NOT the same type as {@link ObjectMapSchema.data} —
+   * that is what objectui#9239 changed here, and it is a BREAKING NARROWING of
+   * a published authoring type. Until it, both published faces of this package
+   * declared the `{ provider, items }` PROVIDER BLOCK on this key while the
+   * protocol declared an array, so an author validating against
+   * `@object-ui/types` got a green verdict for metadata `os validate`, the save
+   * gate and (since objectui#8348) the renderer all refuse — `declared !==
+   * enforced` with the declaration on the wrong side, the shape AGENTS.md #0.1
+   * exists to prevent. Maintainer ruling, decision batch #83 (2026-09-08),
+   * verbatim: 「8348 以协议为准」.
+   *
+   * DERIVED from the protocol's own row rather than re-spelled, so this key
+   * cannot drift from it a second time: `ComponentPropsMap['object-calendar']`
+   * (the spec's own `ObjectCalendarPropsSchema`) declares
+   * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
+   * the internal fetch"*.
+   * MEASURED on the installed artifact at `@objectstack/spec` 17.4.0 — the
+   * version this repository's `pnpm-lock.yaml` resolves — through the published
+   * `@objectstack/spec/ui` entry point: the provider block returns
+   * `success=false` with `expected: 'array'` at `path: ['data']`, the array
+   * returns `success=true`. The same reading is written down, per block, in
+   * `packages/core/src/utils/record-source.ts`.
+   *
+   * ⛔ The sibling blocks are NOT following: `object-map` and `object-gantt`
+   * have no `ComponentPropsMap` row at all, so the published row that governs
+   * them is this package's own `ObjectMapSchema.data` / `ObjectGanttSchema.data`
+   * — `ViewData` on both, deliberately kept.
    */
-  data?: ViewData;
+  data?: SpecObjectCalendarProps['data'];
   /** Inline records, wrapped into a `{ provider: 'value' }` config by `getDataConfig`. */
   staticData?: any[];
   /** Field for event start */
@@ -3281,6 +3342,101 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * Cards are colored based on field values matching conditions.
    */
   conditionalFormatting?: KanbanConditionalFormattingRule[];
+
+  /**
+   * Card click handler.
+   *
+   * RUNTIME SLOT (objectui#6124 shape; declared by objectui#7804) — a
+   * host-supplied function, NOT authorable metadata: JSON has no function
+   * value, so the zod twin refuses this key by name and points at the node-type
+   * spelling. Kept callable here because the function REACHES the board and
+   * RUNS: `SchemaRenderer` spreads every non-metadata schema key as a React
+   * prop, `ObjectKanbanComponentProps` declares an `onCardClick` prop, and
+   * `ObjectKanban` forwards that prop into `useNavigationOverlay` as its
+   * `onRowClick` — where `handleClick` gives it FULL PRIORITY and calls it.
+   *
+   * ⭐ CORRECTED, NOT QUIETLY EDITED (objectui#9341). This paragraph used to
+   * end "and `ObjectKanban`'s own click wrapper calls it", which was true and
+   * was ALSO the defect: the wrapper called the authored function a SECOND
+   * time, on top of the `handleClick` call above, so one card click ran it
+   * twice. The wrapper's call is gone; the CHANNEL and every word of the
+   * argument below survive, because the prop still reaches the hook and the
+   * hook still runs it. Only the identity of the call SITE moved.
+   *
+   * ⚠️ It is NOT the function the board implementation receives — `ObjectKanban`
+   * substitutes its own wrapper on the schema it hands down, because that
+   * wrapper also owns the record-detail overlay. Reachability here is the PROP
+   * channel, and that is the whole difference between this key and the sibling
+   * `onCardMove` BELOW, which is a tombstone: "the wrapper overrides it" is true
+   * of both and separates neither. `onCardMove` has no prop channel on this
+   * element — `ObjectKanban` declares no such prop and discards its rest
+   * parameter — so an authored one reaches nothing, which is the `'retired'`
+   * reading objectui#9342 landed once `KanbanRenderer`'s read had moved off the
+   * document and onto an explicit React prop.
+   *
+   * ⚠️ TWO PARAMETERS since objectui#9341, and the second is what the surviving
+   * channel actually delivers: `handleClick` forwards `onRowClick(record,
+   * event)` so a host can implement Cmd/Ctrl/middle-click. The call this
+   * declaration used to describe — one argument — is the one that was deleted;
+   * declaring one here would have described only the dropped call.
+   *
+   * ⛔ `event` is `any` rather than `HandleClickModifiers`, and that is a
+   * MEASURED constraint, not a shortcut: that interface lives in
+   * `@object-ui/react`, which depends on THIS package and which this package's
+   * manifest does not name in any dependency field — so naming it here is a
+   * phantom dependency (`check:phantom-deps`) and closes a cycle. Re-declaring its three fields inline would
+   * put a second copy of one contract on a published face. `event?: any` is the
+   * spelling `BaseSchema`'s own `onClick` / `onChange` / `onSubmit` already use
+   * for exactly this situation, one file over. What actually arrives is the DOM
+   * click event `KanbanImpl` forwards, typed `React.MouseEvent` there.
+   */
+  onCardClick?: (card: any, event?: any) => void;
+
+  /**
+   * RETIRED (objectui#6124, ADR-0049; landed by objectui#9342 on the ruling
+   * recorded on PR objectui#9338) — JSON has no function value, and on this
+   * element an authored `onCardMove` reached NOTHING even as a programmatic
+   * value. `ObjectKanban` substitutes its own `handleCardMove` on the schema it
+   * hands down — that wrapper owns the optimistic write, the required-fields
+   * dialog and the objectui#4138 rollback — and declares no `onCardMove` React
+   * prop, so neither channel delivered. Measured by driving the handler the
+   * board was actually handed, with `onCardClick` as the lit control on the
+   * same document and the same render.
+   *
+   * ⚠️ RETIRED, not a RUNTIME SLOT, and the two are not interchangeable here.
+   * A slot keeps this member callable, which would publish a key the
+   * object-bound board DROPS — the resolution this package's `quickAdd`
+   * carve-out forbids in as many words. The sibling `onCardClick` above IS a
+   * slot because its function reaches the board through a React prop this
+   * element declares; `onCardMove` has no such prop.
+   *
+   * Where the mover lives now: `KanbanRendererProps.onCardMove`, an explicit
+   * React prop of `@object-ui/plugin-kanban`'s `KanbanRenderer`, a sibling of
+   * its `schema` — the objectui#7742 remedy `objectFields` took one card
+   * earlier. Until that read moved, `check:handler-key-reads` refused this very
+   * tombstone, because a tombstone "has no read site BY CONSTRUCTION".
+   *
+   * @deprecated Not part of this contract — the value was accepted and dropped.
+   */
+  onCardMove?: never;
+
+  /**
+   * Quick Add handler.
+   *
+   * RUNTIME SLOT (objectui#6124 shape; declared by objectui#7804) — a
+   * host-supplied function, NOT authorable metadata: JSON has no function
+   * value, so the zod twin refuses this key by name. Kept callable here because
+   * it rides `ObjectKanban`'s schema spread untouched and arrives at the board
+   * implementation BY IDENTITY, where it is half of the pair the Quick Add
+   * control is gated on.
+   *
+   * ⚠️ The other half, `quickAdd`, is deliberately undeclared on this face
+   * pending objectui#8285, and an object-bound board supplies no handler of its
+   * own — so a JSON author gets no control. That is a statement about the
+   * document, not about this slot: the slot is live, which is why it keeps its
+   * function type rather than a tombstone.
+   */
+  onQuickAdd?: (columnId: string, title: string) => void;
 }
 
 /**

@@ -52,6 +52,7 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
+import { PredicateScopeProvider } from '../hooks/useExpression';
 import {
   DROPPED_PROPS_BAG_PREFIX,
   collectDroppedPropsKeys,
@@ -65,9 +66,11 @@ const DATA = { customers: ['ada', 'grace'] };
 
 const renderWithData = (schema: unknown) =>
   render(
-    <SchemaRendererContext.Provider value={{ dataSource: DATA } as never}>
+    <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA } as never}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererContext.Provider>,
+    </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
   );
 
 /**
@@ -467,9 +470,11 @@ describe('objectui#6708 — the SchemaRenderer-tier diagnostic', () => {
     const node = { type: 'test-6708:probe', id: 'rerendered', props: { data: 1 } };
     const { rerender } = renderWithData(node);
     rerender(
-      <SchemaRendererContext.Provider value={{ dataSource: DATA } as never}>
+      <PredicateScopeProvider scope={{ data: DATA }}>
+        <SchemaRendererContext.Provider value={{ dataSource: DATA } as never}>
         <SchemaRenderer schema={node as never} />
-      </SchemaRendererContext.Provider>,
+      </SchemaRendererContext.Provider>
+      </PredicateScopeProvider>,
     );
     expect(warnings()).toHaveLength(1);
   });

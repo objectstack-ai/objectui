@@ -22,6 +22,19 @@ import {
   specSymbols,
 } from '../check-spec-range-floors.mjs';
 
+// Plain-JS CI helper; its types are INFERRED from the .mjs source by
+// `tsconfig.scripts.json` (`allowJs`), so no `@ts-expect-error` here — unlike
+// the 28 package-side carriers, whose `tsconfig.test.json` has `allowJs: false`
+// and genuinely errors on this import (objectui#3494).
+import { maskComments } from '../js-comment-mask.mjs';
+
+// The annotation is NOT redundant under `allowJs`, and this was measured rather
+// than assumed: `maskComments`'s JSDoc carries no `@param` tag (its neighbour
+// `scanSource` does), so inference gives the parameter an implicit `any` and
+// `maskComments(12345)` type-checks clean. Naming the signature here is what
+// keeps the one call site below checked.
+const mask: (source: string) => string = maskComments;
+
 /**
  * objectui#5793 — a declared `@objectstack/spec` floor must carry every symbol
  * the declaring package's own published artifact references.
@@ -379,11 +392,7 @@ describe('reading the export surface of a published version', () => {
     // that could not tell an explanation from a call site would have to choose
     // between firing on the documentation and not existing.
     const source = fs.readFileSync(path.join(repoRoot, GATE), 'utf8');
-    const code = source
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .split('\n')
-      .map((line) => line.replace(/(^|[^:])\/\/.*$/, '$1'))
-      .join('\n');
+    const code = mask(source);
     expect(code).toMatch(/loadPublishedSpec/);
     expect(code).not.toMatch(/createRequire|require\.resolve|import\.meta\.resolve/);
     expect(source).toContain('never through the installed tree');

@@ -84,7 +84,8 @@ vi.mock('./GanttView', () => ({
 // control cases have something observable to assert.
 vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-detail')>()),
-  RecordDetailDrawer: () => <div data-testid="record-drawer" />,
+  // objectui#9299: the overlay payload is `RecordDetailPanel` now.
+  RecordDetailPanel: () => <div data-testid="record-drawer" />,
 }));
 
 import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';

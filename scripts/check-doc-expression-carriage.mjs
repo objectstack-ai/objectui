@@ -216,6 +216,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_DOCS, appDocsDirs, ROOT_PAGES } from './check-doc-component-types.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
+import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
@@ -677,9 +678,13 @@ export function scanFences(root) {
     let open = null;
     let body = [];
     for (let i = 0; i < lines.length; i++) {
-      const fence = /^\s*```(\S*)\s*$/.exec(lines[i]);
-      if (fence) {
-        if (open) {
+      // ⛔ Never re-spell the fence predicate here. `markdown-fence-scan.mjs` is
+      // its one authority, and it is one because the local spelling this line
+      // used to hold read a four-backtick opener as a three-backtick fence in a
+      // language named with a leading backtick, which then counted two phantom
+      // fences as successfully parsed (objectui#9194).
+      if (open) {
+        if (closesFence(lines[i], open)) {
           const scanned = JSON_FENCE_LANGUAGES.includes(open.lang);
           fences.push({
             file: rel,
@@ -693,10 +698,14 @@ export function scanFences(root) {
           });
           open = null;
           body = [];
-        } else {
-          open = { lang: (fence[1] || 'plaintext').toLowerCase(), line: i + 1 };
+          continue;
         }
-        continue;
+      } else {
+        const opened = openFence(lines[i]);
+        if (opened) {
+          open = { ...opened, lang: (opened.lang || 'plaintext').toLowerCase(), line: i + 1 };
+          continue;
+        }
       }
       if (open) body.push(lines[i]);
     }

@@ -12,6 +12,12 @@ import { percentDisplayValue } from '@object-ui/core';
  * The ONE rule the `summaryFields` chip scales a stored `percent` by — and it
  * is the repo's, not this file's (objectui#9071).
  *
+ * ⭐ Since objectui#9167 this is the chip's BAR path only. The chip's TEXT goes
+ * straight to `formatPercent` in `@object-ui/fields` — the list cell's own
+ * body, which applies {@link percentDisplayValue} itself and then the locale's
+ * percent affix at the field's precision. See "The half objectui#9071 did NOT
+ * take" below, which objectui#9167 closed.
+ *
  * ## Why this function exists at all (objectui#8728)
  *
  * The chip beside the record H1 draws a percent TWICE — as its text and as a
@@ -53,18 +59,24 @@ import { percentDisplayValue } from '@object-ui/core';
  * (`formatPercent` / `PercentCellRenderer`), the dashboard measure
  * (`formatMeasure`) and the grid column summary already read.
  *
- * ## ⚠️ The half objectui#9071 did NOT take, stated rather than left silent
+ * ## The half objectui#9071 did NOT take — closed by objectui#9167
  *
  * That doc comment asks a third surface for BOTH halves — the scaling AND the
- * convention. Only the SCALING moved here. The chip states the full number with
- * a bare `%`; the list cell renders through the locale's percent affix at the
- * field's precision, which is `0` by default. So a stored `12.3` still reads
- * `12.3%` on the chip and `12%` in the cell — two spellings of one magnitude,
- * and the two bars prove the magnitude is one. Taking the convention half would
- * move values the chip renders correctly today, which objectui#9071's
- * acceptance forbids; it is pinned as a fact in
- * `__tests__/summaryChip.percentSource-9071.test.tsx` so the next card inherits
- * a measurement instead of a silence.
+ * convention. objectui#9071 moved the SCALING only: the chip stated the full
+ * JavaScript number with a bare `%` while the list cell rendered through the
+ * locale's percent affix at the field's precision (`0` by default), so a stored
+ * `12.3` read `12.3%` beside the H1 and `12%` in the list — two spellings of
+ * one magnitude, with the two bars proving the magnitude was one. That card
+ * stopped because its acceptance forbade moving values the chip rendered
+ * correctly today, and the convention half moves several.
+ *
+ * objectui#9167 took it, value by value rather than by inspection: both
+ * surfaces were driven in the same run, on the same field, for every stored
+ * value below, and every row that MOVED moved onto the reading the list cell
+ * was already giving. The chip's text is now `formatPercent(stored, precision,
+ * locale)` — the cell's own call, byte for byte — and this function is left
+ * holding the BAR alone. The table and its `de-DE` leg are pinned in
+ * `__tests__/summaryChip.percentConvention-9167.test.tsx`.
  */
 export function summaryChipPercentPoints(raw: number): number {
   const points = percentDisplayValue(raw);
@@ -74,16 +86,23 @@ export function summaryChipPercentPoints(raw: number): number {
   // whatever `percentDisplayValue` decides.
   if (points === raw) return points;
 
-  // A ratio the source scaled to points. The `toPrecision` is load-bearing, not
-  // defensive: `raw * 100` is binary floating-point multiplication, and it is
-  // the TEXT that reads the result. 246 of the 999 three-decimal ratios
-  // (0.001 through 0.999) carry residue when multiplied by 100 — a stored
-  // `0.07` is `7.000000000000001`, a stored `0.29` is `28.999999999999996` —
-  // which a CSS bar width absorbs invisibly and a label cannot. 12 significant
-  // digits is far wider than any percent a human authored, and far narrower
-  // than the residue. It rounds a MAGNITUDE the source already chose, so it is
-  // a rendering step on this chip's text path, not a percent convention: the
-  // guard above keeps it off every value the source passed through, where
-  // trimming to 12 digits would move numbers that render correctly today.
+  // A ratio the source scaled to points. `raw * 100` is binary floating-point
+  // multiplication: 246 of the 999 three-decimal ratios (0.001 through 0.999)
+  // carry residue — a stored `0.07` is `7.000000000000001`, a stored `0.29` is
+  // `28.999999999999996`. 12 significant digits is far wider than any percent a
+  // human authored and far narrower than the residue, and it rounds a MAGNITUDE
+  // the source already chose, so it is a rendering step and not a percent
+  // convention: the guard above keeps it off every value the source passed
+  // through, where trimming to 12 digits would move numbers that render
+  // correctly today.
+  //
+  // ⚠️ Its ORIGINAL argument was that "it is the TEXT that reads the result" —
+  // a CSS bar width absorbs the residue invisibly, a label cannot. objectui#9167
+  // took the text away from here, so that argument no longer applies and only
+  // the invisible half is left. It is kept rather than deleted because deleting
+  // it is a change of its own: the drawn width would move from `7%` to
+  // `7.000000000000001%` on the residue values, which is the direction the list
+  // cell's own unrounded bar already takes — a tidy-up for whoever measures it,
+  // ⛔ not something objectui#9167 changed on its way past.
   return Number(points.toPrecision(12));
 }

@@ -35,15 +35,31 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
+// Two resolvers, two vocabularies — the repo spells the distinction into the
+// NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
+// `resolveI18nLabel`: it resolves the INLINE per-locale map
+// (`{ en: …, 'fr-FR': … }`) that `I18nLabel` carries. It does NOT accept
+// objectui's keyed `{ key, defaultValue, params }` ref — that vocabulary lives
+// on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead.
+// Needed here since objectui#9092 restored `ObjectGridSchema.label` to the
+// `string | I18nLabel` form `BaseSchema` has carried since objectui#4580: the
+// two reads below put the label in STRING positions, so a map-valued label used
+// to reach them as an object and the compiler could not say so.
+import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 import { stateMachineNextValues, isFieldInlineEditable } from './inline-edit-options';
 import {
   Badge, Button, NavigationOverlay, EmptyValue,
+  legacyRecordDrawerWidthKey, recordOverlayWidthStorageKey, useOverlayAnchor,
   Popover, PopoverContent, PopoverTrigger,
   RefreshIndicator,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+} from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
 import { useGroupedData, usableGroupingFields } from './useGroupedData';
@@ -505,7 +521,21 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    * one selected row's `false` must not silently drop the other rows' action.
    */
   rowOperations?: (record: any) => ObjectGridRowOperations | null | undefined;
-  onRowClick?: (record: any) => void;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
   onBulkDelete?: (records: any[]) => void;
@@ -2211,6 +2241,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     onRowClick,
   });
 
+  // objectui#9299 item 3 — `popover` anchors to the ROW the user clicked. The
+  // grid reaches `handleClick` from several places that carry no DOM event
+  // (`DataTable`'s own row handler, `LinkCell.onActivate`), so the anchor is
+  // recorded by a capture listener on this component's container.
+  const { anchorRef, anchorCaptureProps } = useOverlayAnchor();
+
   // --- Action support for action columns ---
   const { execute: executeAction, updateContext: updateActionContext } = useAction();
 
@@ -3205,7 +3241,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: schema.label || schema.title,
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -4288,7 +4324,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: schema.label || schema.title,
+    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,
@@ -4564,13 +4600,54 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `Contacts Detail` / `Record Detail`), including with no `I18nProvider`
   // mounted — `createSafeTranslation`'s fallback interpolates `{{label}}` from
   // `GRID_DEFAULT_TRANSLATIONS`.
-  const detailTitle = schema.label
-    ? t('detail.recordDetailWithLabel', { label: schema.label })
+  //
+  // ⚠️ The label is RESOLVED before it reaches `t()` (objectui#9092). This is an
+  // UNTYPED sink: `t`'s options are `Record<string, unknown>`, so when
+  // `ObjectGridSchema.label` was restored to `string | I18nLabel` the compiler
+  // named the two `string`-typed reads above and said nothing about this one.
+  // Unresolved, an inline locale map interpolates as `[object Object]` on BOTH
+  // paths — i18next substitutes the raw value, and the provider-less
+  // `interpolateFallback` runs it through `String(v)` — and this value IS the
+  // overlay's visible heading (`NavigationOverlay title=`, below), so the
+  // failure is user-facing rather than diagnostic.
+  //
+  // The fallthrough is deliberate: `resolveI18nLabel` answers `undefined` for an
+  // entry-less map and `''` for an empty entry, and both are falsy, so a label
+  // that resolves to nothing lands on the `objectName` branch exactly as a
+  // missing label always did. Testing `schema.label` itself could not do that —
+  // every object is truthy, so an entry-less map used to take the label branch.
+  const resolvedDetailLabel = resolveInlineI18nLabel(schema.label, displayLocale);
+  const detailTitle = resolvedDetailLabel
+    ? t('detail.recordDetailWithLabel', { label: resolvedDetailLabel })
     : schema.objectName
       ? t('detail.recordDetailWithLabel', {
           label: schema.objectName.charAt(0).toUpperCase() + schema.objectName.slice(1),
         })
       : t('detail.recordDetail');
+
+  /**
+   * The shell-side props every one of this component's three
+   * `NavigationOverlay` call sites shares (objectui#9299).
+   *
+   * Spelled once because three copies of a set like this is how two of them
+   * end up carrying a `popoverAnchorRef` and the third silently keeps falling
+   * back to the `Dialog` the ruling closed.
+   *
+   * - `popoverAnchorRef` (item 3): the row the user clicked. Before this card
+   *   NO renderer passed an anchor, so `popover` degraded to a `Dialog` on all
+   *   five surfaces — measured, not inferred.
+   * - `storageKey` / `legacyStorageKey` (item 4): one drag-resize
+   *   implementation, one key per object across every view type, and a width
+   *   persisted under the retired `objectui.drawerWidth.OBJECT` carries over.
+   * - `width`: an unauthored width lands on the ruled default (objectui#6584)
+   *   rather than on the shell's own `42rem` floor.
+   */
+  const recordOverlayShellProps = {
+    popoverAnchorRef: anchorRef,
+    storageKey: schema.objectName ? recordOverlayWidthStorageKey(schema.objectName) : undefined,
+    legacyStorageKey: schema.objectName ? legacyRecordDrawerWidthKey(schema.objectName) : undefined,
+    width: navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH,
+  };
 
   // Form-based record detail renderer (replaces simple key-value dump).
   // Hoisted above the mobile card-view's early return (below) so both the
@@ -4578,6 +4655,56 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // this same type-aware renderer instead of the card view falling back to
   // a raw `String(value)` dump (which showed "[object Object]" for lookups).
   const renderRecordDetail = (record: any) => {
+    // ⭐ objectui#9299 — ONE payload on every view type.
+    //
+    // `ObjectGrid` already honoured all four `navigation.mode` values through
+    // `NavigationOverlay`, but it drew its OWN read-only key/value panel inside
+    // them while the gantt/kanban/calendar drew the rich
+    // `InlineEditProvider` -> `DetailView` -> `InlineEditSaveBar` payload. The
+    // card measured that as "nobody gets both": the renderers that honoured the
+    // mode drew the poorer body. The ruling closes it in one direction — one
+    // payload everywhere.
+    //
+    // ⚠️ READ-ONLY here, and deliberately so: capability is handler presence,
+    // and this renderer has no per-field write path to hand the panel. What
+    // changes is the FIDELITY of the reading (declared labels, typed widgets,
+    // honoured `hidden`, the object's own field order), not the ability to edit.
+    // ⚠️ DECLARED-FIELDS GATE, measured rather than assumed. The shared payload
+    // renders the object's DECLARED fields: `RecordDetailPanel` derives widgets
+    // from `objectSchema.fields[name].type`. The panel below renders the same
+    // values by INFERRING from them — a date-shaped string on a `*_date` key,
+    // a number on an `amount`-ish key — which is what objectui#4541 (locale-
+    // aware date fallback), objectui#8491 (the localized `Empty` placeholder)
+    // and objectui#8920 (the `format` hint) put here. A grid with no object
+    // schema — inline `value` rows, or a DataSource with no `getObjectSchema`
+    // — has NOTHING declared, so handing it to the shared payload renders raw
+    // ISO strings where a localized date used to be. Measured on this branch:
+    // `recordDetailDateLocale` read back `close_date2024-03-15` in a zh
+    // session. So the shared payload takes every grid that HAS declared
+    // fields — every console surface — and the inference reading stands where
+    // there is nothing to declare. ⛔ Not a preference: it is which of the two
+    // can render the value at all.
+    const panelRecordId = rowRecordId(record);
+    const hasDeclaredFields = !!objectSchema?.fields
+      && Object.keys(objectSchema.fields as Record<string, unknown>).length > 0;
+    if (schema.objectName && panelRecordId != null && hasDeclaredFields) {
+      return (
+        <div className="px-6 pt-6 pb-6" data-testid="record-detail-panel">
+          <RecordDetailPanel
+            record={record}
+            objectName={schema.objectName}
+            recordId={panelRecordId}
+            dataSource={dataSource as any}
+            objectSchema={objectSchema as any}
+            onClose={navigation.close}
+          />
+        </div>
+      );
+    }
+    // No addressable record behind this row — a grid over inline `value` rows
+    // with no object name. The payload needs an object and an id to render
+    // field widgets against, so the plain reading of what the row carries is
+    // the honest answer; inventing an id would not be.
     const entries = Object.entries(record);
     // Honor `hidden: true` on the schema field def — internal/system fields
     // (e.g. database_url, environment_id, is_system) shouldn't leak into the
@@ -4764,7 +4891,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     return (
       <>
-        <div className="space-y-2 p-2">
+        <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
             const secondaryCols = displayColumns.slice(1, 5);
@@ -4890,7 +5017,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           })}
         </div>
         {navigation.isOverlay && (
-          <NavigationOverlay {...navigation} title={detailTitle}>
+          <NavigationOverlay
+            {...navigation}
+            title={detailTitle}
+            {...recordOverlayShellProps}
+          >
             {(record) => renderRecordDetail(record)}
           </NavigationOverlay>
         )}
@@ -5179,13 +5310,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     />
   );
 
-  // For split mode, wrap the grid in the ResizablePanelGroup
-  if (navigation.isOverlay && navigation.mode === 'split') {
+  // For split mode, wrap the grid in the ResizablePanelGroup.
+  //
+  // ⭐ objectui#9299, MEASURED WHILE REPAIRING THIS CARD and repaired here.
+  // This branch used to be entered on the authored mode alone, and the shell's
+  // split branch opens `if (!isOpen || !mainContent) return null` — so a grid
+  // authored `split` rendered NOTHING until a record was selected, and a record
+  // could never be selected because there was no grid to click. Same defect
+  // class as the `ObjectTree` blank the card names, on the renderer the card
+  // calls correct; the card's measurement read only that `mainContent` is
+  // PASSED here, never that the closed state renders. Ruling item 2 requires
+  // `split` to work on all five, so the guard joins the open state.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
     return (
       <>
         <NavigationOverlay
           {...navigation}
           title={detailTitle}
+          {...recordOverlayShellProps}
           mainContent={
             <div className="flex flex-col h-full">
               {gridToolbar}
@@ -5214,7 +5361,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   return (
-    <div ref={pullRef} className="relative h-full flex flex-col">
+    <div ref={pullRef} className="relative h-full flex flex-col" {...anchorCaptureProps}>
       {/* Re-fetch indicator while existing rows remain visible (filter/sort
           change). The initial-load skeleton above handles the empty case. */}
       <RefreshIndicator active={loading && data.length > 0} />
@@ -5245,6 +5392,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         <NavigationOverlay
           {...navigation}
           title={detailTitle}
+          {...recordOverlayShellProps}
         >
           {(record) => renderRecordDetail(record)}
         </NavigationOverlay>

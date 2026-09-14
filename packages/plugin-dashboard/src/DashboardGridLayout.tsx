@@ -4,10 +4,10 @@ import 'react-grid-layout/css/styles.css';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button } from '@object-ui/components';
 import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
 import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { useObjectTranslation, useObjectLabel, pickLocalized } from '@object-ui/i18n';
 import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
 import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
-import { isObjectProvider, deriveStaticTableColumns } from './utils';
+import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
 import { classifyWidgetType } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
@@ -133,7 +133,28 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   // Active UI language, for resolving inline per-locale widget titles below.
   // `useObjectTranslation` is provider-safe (react-i18next falls back to its
   // global instance and never throws), so a standalone grid still renders.
-  const { language } = useObjectTranslation();
+  const { t, language } = useObjectTranslation();
+  // `fieldLabel` — the bundle lookup `composeSeriesLabel` (below) consults
+  // before falling back to the humanized key. Same provider-safe contract as
+  // `useObjectTranslation` above: a bundle miss degrades to the fallback
+  // argument rather than throwing.
+  const { fieldLabel } = useObjectLabel();
+  /**
+   * Resolve a chart series label — objectui#9172. This relay used to compose
+   * `series: [{ dataKey }]` on both chart branches below with NO `label` key
+   * at all, so `ChartRenderer`'s `s.label || s.dataKey` fallback rendered the
+   * raw field key in the legend/tooltip while `DashboardRenderer`, the sibling
+   * relay composing a chart node for the same stored widget, rendered the
+   * humanized one (objectui#9055). `composeSeriesLabel` (`./utils`) is that
+   * sibling's three-arm decision moved to a single shared authority rather
+   * than grown a second time here — see its docblock for the arms. This
+   * `useCallback` only binds it to THIS component's own `t` / `fieldLabel`.
+   */
+  const resolveSeriesLabel = React.useCallback(
+    (objectName: string | undefined, yField: string, aggFn: string | undefined) =>
+      composeSeriesLabel(t, fieldLabel, objectName, yField, aggFn),
+    [t, fieldLabel],
+  );
   /**
    * The metric tile's sub-caption resolver — objectui#8889.
    *
@@ -292,7 +313,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           objectName: widgetData.object,
           aggregate: effectiveAggregate,
           xAxisKey: effectiveXAxisKey,
-          series: [{ dataKey: effectiveYField }],
+          series: [{
+            dataKey: effectiveYField,
+            label: resolveSeriesLabel(widgetData.object, effectiveYField, effectiveAggregate?.function),
+          }],
           colors: CHART_COLORS,
           // Deterministic first paint inside the grid (#2756).
           isAnimationActive: false,
@@ -308,7 +332,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
         chartType: dispatch.chartType,
         data: dataItems,
         xAxisKey: xAxisKey,
-        series: [{ dataKey: yField }],
+        series: [{
+          dataKey: yField,
+          label: resolveSeriesLabel(undefined, yField, undefined),
+        }],
         colors: CHART_COLORS,
         // Deterministic first paint inside the grid (#2756).
         isAnimationActive: false,
@@ -421,7 +448,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       ...widget,
       ...options
     };
-  }, []);
+  }, [resolveSeriesLabel]);
 
   return (
     <div ref={containerRef} className={cn("w-full", className)} data-testid="grid-layout">

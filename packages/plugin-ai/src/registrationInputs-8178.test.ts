@@ -36,6 +36,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ComponentRegistry } from '@object-ui/core';
 import './index';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /**
  * This file is `.test.ts` (the node project) rather than `.test.tsx`, on
@@ -75,7 +80,7 @@ const inputNamesOf = (type: string): string[] =>
 const readSource = (file: string): string => readFileSync(join(HERE, file), 'utf8');
 
 const stripComments = (src: string): string =>
-  src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ');
+  mask(src);
 
 const codeOf = (type: string): string => stripComments(readSource(SOURCE[type]));
 

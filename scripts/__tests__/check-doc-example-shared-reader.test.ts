@@ -494,3 +494,64 @@ describe('check-doc-example-shared-reader — this repository', () => {
     expect(page).toContain('check:doc-example-readers');
   });
 });
+
+/**
+ * objectui#9331 — an `@example` fence ends where CommonMark ends it
+ *
+ * ## The defect
+ *
+ * `exampleFences` matched with a non-greedy
+ * `/```(?:tsx?|jsx?|typescript)\n([\s\S]*?)```/g`. Non-greedy means the block
+ * ended at the FIRST run of three backticks anywhere after the opener — so an
+ * example written inside a LONGER wrapper, which is how a docblock legitimately
+ * quotes a fence, ended at the quoted INNER marker and this gate parsed a
+ * TRUNCATED example. That is the quiet kind of wrong answer: half an example is
+ * still valid TSX, so it parses clean, finds no hand-spelled reader in the half
+ * it never saw, and the gate reports OK.
+ *
+ * ## Why these cases and not the live corpus
+ *
+ * Measured on this card's base over the gate's real population — 1439 source
+ * files, 16511 JSDoc blocks, 135 extracted fences — the repair is byte-identical
+ * (both sides hash to 0fe1e95e…). The single 4-backtick construct on that
+ * surface is an inline code SPAN on a prose line, not an opener. So the defect
+ * is LATENT and only a case built here can fail before the repair and pass after.
+ */
+describe('an @example fence inside a longer wrapper (objectui#9331)', () => {
+  // ⛔ Fixtures are arrays of string literals, never raw fences in this file: a
+  // backtick run at the start of a line here would open a fence in the gates
+  // this suite drives, and would be swept by greps over this tree.
+  const block = (...body: string[]) => ['/**', ' * @example', ...body.map((l) => ` * ${l}`), ' */'].join('\n');
+
+  it('reads a four-backtick example whole, not truncated at the quoted marker', () => {
+    // Before the repair this returned only 'const md = `code`;\n' — everything
+    // from the quoted marker onward, `more();` included, was silently dropped.
+    const fences = exampleFences(block('````tsx', 'const md = `code`;', '```', 'more();', '````'));
+    expect(fences).toHaveLength(1);
+    expect(fences[0]).toContain('more();');
+    expect(fences[0]).toBe(['const md = `code`;', '```', 'more();', ''].join('\n'));
+  });
+
+  it('does not lift a tsx block quoted inside a markdown wrapper', () => {
+    // Before the repair this returned BOTH — the quoted example was extracted as
+    // if it were the documented one, and then judged.
+    const fences = exampleFences(
+      block('````md', '```tsx', 'quoted(1);', '```', '````', '', '```tsx', 'real(2);', '```'),
+    );
+    expect(fences).toEqual(['real(2);\n']);
+  });
+
+  it('ignores a fence whose language is not a code language — the other control', () => {
+    expect(exampleFences(block('```md', 'not code;', '```'))).toEqual([]);
+  });
+
+  it('still reads an ordinary three-backtick example — the lit control', () => {
+    // Guards against a walk that simply returns nothing: without this, both
+    // cases above would pass on an extractor that had stopped extracting.
+    expect(exampleFences(block('```tsx', 'const a = 1;', '```'))).toEqual(['const a = 1;\n']);
+  });
+
+  it('yields nothing for an unterminated fence, as the replaced regex did', () => {
+    expect(exampleFences(block('```tsx', 'const a = 1;'))).toEqual([]);
+  });
+});

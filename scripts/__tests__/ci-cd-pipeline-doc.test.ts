@@ -2617,6 +2617,52 @@ describe('ci-cd-pipeline.md — the vi-mock and shadcn sections', () => {
 });
 
 /**
+ * ⭐ Lifted to module scope by objectui#9463, for the reason the alias rule above
+ * was: the whole-page sweep below declares the SAME four phantoms at a coarser
+ * granularity (per workflow, not per job), and two copies of a declaration are two
+ * declarations — the next edit would have corrected one of them and left the other
+ * saying the opposite. The sweep re-keys these instead of restating them, so there
+ * is exactly one place where "this command is right to be on the page" is argued.
+ */
+/**
+ * Commands these sections name that their job's `run:` steps do not contain — and
+ * which are RIGHT to be there. Each entry is a claim about why the instrument
+ * cannot see the command, ⛔ never "this one is inconvenient".
+ *
+ * Asserted as an exact set, so it works in both directions: a new phantom fails
+ * here, and a declared one whose prose disappears fails as **stale** rather than
+ * quietly widening the hole. That is the same shape as the shrink-only ratchets
+ * elsewhere in this repository, for the same reason — an allowlist nobody has to
+ * shrink stops being a record of debt and becomes permission.
+ */
+const DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
+  [
+    'performance-budget.yml `bundle-analysis`: pnpm test',
+    'A cross-reference to the suite you are reading right now, not a claim about this ' +
+      'workflow: the section says the 350 KB figure is pinned to the YAML and "fails `pnpm test` ' +
+      'if this page disagrees with it". That suite runs in `ci.yml`.',
+  ],
+  [
+    'changeset-release.yml `release`: pnpm changeset:publish',
+    "Really run by the release job, through `changesets/action@v1`'s `publish:` INPUT rather " +
+      'than a `run:` step — so this rule cannot see it on the workflow side. Deleting it from ' +
+      'the page would remove the only description of how a release actually reaches npm.',
+  ],
+  [
+    'changeset-release.yml `release`: pnpm check:published-dist',
+    'The blocking copy of the Published Dist Gate, reached the same way: it is the first leg of ' +
+      '`pnpm changeset:publish`, which runs through the action input. The section names it to ' +
+      'explain why the refresh lane deliberately does NOT run it.',
+  ],
+  [
+    'changeset-release.yml `release`: pnpm check:spec-floors',
+    'The second leg of `pnpm changeset:publish`, same action input, same invisibility. The ' +
+      'section quotes that script body verbatim and names this gate to explain why the nightly ' +
+      '`spec-range-floors.yml` is an alarm rather than the blocking copy.',
+  ],
+]);
+
+/**
  * objectui#8420, second instance set: the four sections a full census of this page
  * measured as real command-parity defects.
  *
@@ -2695,44 +2741,6 @@ describe('ci-cd-pipeline.md — the four sections measured as parity defects', (
       byGate(commandParity(file, job, section(heading), `${file} \`${job}\``)),
     );
   }
-
-  /**
-   * Commands these sections name that their job's `run:` steps do not contain — and
-   * which are RIGHT to be there. Each entry is a claim about why the instrument
-   * cannot see the command, ⛔ never "this one is inconvenient".
-   *
-   * Asserted as an exact set, so it works in both directions: a new phantom fails
-   * here, and a declared one whose prose disappears fails as **stale** rather than
-   * quietly widening the hole. That is the same shape as the shrink-only ratchets
-   * elsewhere in this repository, for the same reason — an allowlist nobody has to
-   * shrink stops being a record of debt and becomes permission.
-   */
-  const DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
-    [
-      'performance-budget.yml `bundle-analysis`: pnpm test',
-      'A cross-reference to the suite you are reading right now, not a claim about this ' +
-        'workflow: the section says the 350 KB figure is pinned to the YAML and "fails `pnpm test` ' +
-        'if this page disagrees with it". That suite runs in `ci.yml`.',
-    ],
-    [
-      'changeset-release.yml `release`: pnpm changeset:publish',
-      "Really run by the release job, through `changesets/action@v1`'s `publish:` INPUT rather " +
-        'than a `run:` step — so this rule cannot see it on the workflow side. Deleting it from ' +
-        'the page would remove the only description of how a release actually reaches npm.',
-    ],
-    [
-      'changeset-release.yml `release`: pnpm check:published-dist',
-      'The blocking copy of the Published Dist Gate, reached the same way: it is the first leg of ' +
-        '`pnpm changeset:publish`, which runs through the action input. The section names it to ' +
-        'explain why the refresh lane deliberately does NOT run it.',
-    ],
-    [
-      'changeset-release.yml `release`: pnpm check:spec-floors',
-      'The second leg of `pnpm changeset:publish`, same action input, same invisibility. The ' +
-        'section quotes that script body verbatim and names this gate to explain why the nightly ' +
-        '`spec-range-floors.yml` is an alarm rather than the blocking copy.',
-    ],
-  ]);
 
   it('documents every job these four workflows define', () => {
     // One unit per job is the shape; a new job would run gates that no assertion here
@@ -3234,5 +3242,348 @@ describe('ci-cd-pipeline.md — populations are pointed at, never counted in pro
         `sweeper exports it as CLOSED_ISSUE_WINDOW_PAGES (${literal} today) — naming the export ` +
         `survives the value moving, a copy of the value does not.`,
     ).toBeUndefined();
+  });
+});
+
+/**
+ * ── objectui#9463: command parity by DEFAULT, for every workflow section ─────
+ *
+ * The two blocks above pin 8 of this page's 38 workflow sections, each joined by
+ * hand after somebody decided what that section's documentation surface IS. The
+ * remaining 30 were priced at roughly thirty more rounds, one section per pull
+ * request, because objectui#8420 measured the naive sweep at 24 of 34 flagged and
+ * ruled that "a gate that cries wolf gets switched off rather than fixed".
+ *
+ * ⭐ That ruling was right then and does not survive its own follow-up work. What
+ * made a sweep impossible was that nothing could separate a legitimate exception
+ * from a real defect. objectui#8420's census classified every section individually
+ * and NAMED the false-positive population, so the separation now exists and the
+ * cheaper shape is the one that inverts the default: every section is pinned, and
+ * the exceptions are written down with a reason each.
+ *
+ * ## What inverting actually costs, measured on origin/main at 38 sections
+ *
+ *   38 sections  =  21 that agree outright  +  17 the rule flags
+ *   17 flagged   =  15 phantom-only (the page names a command the job does not
+ *                   run)  +  2 in the direction that can hurt somebody
+ *
+ * ⛔ The 2 are not declared away. They were repaired on the page in the same change,
+ * because both are the exact harm this rule exists to catch — a gate a contributor
+ * can be stopped by and cannot find:
+ *
+ *   - `doc-component-types.yml` runs `pnpm check:prompt-keys` in a step of its own
+ *     with no `continue-on-error`, and the section named neither the script nor the
+ *     alias.
+ *   - `changeset-presence.yml` grew a SECOND job, `changeset-claims`, and the
+ *     section documented only the first.
+ *
+ * ⭐ **Both landed on 2026-09-11, two days after the census that had put both of
+ * those sections in its "agrees today, and nothing holds them that way" bucket.**
+ * That is the whole argument for inverting rather than queueing: the census did not
+ * find them because they did not exist yet, and a thirty-deep one-section-per-PR
+ * queue would not have found them either. A default that pins everything makes the
+ * next section born pinned instead of joining the queue.
+ *
+ * ## ⛔ What this does NOT do
+ *
+ * ⛔ It weakens nothing. No assertion above is relaxed, no accept set widened, no
+ * blocking check demoted; `undocumentedCommands` — the direction that hides a gate —
+ * admits no exception at all here, and the per-job pins above keep running unchanged
+ * on top of this. Everything below is added coverage.
+ *
+ * ⚠️ **It does extend the alias rule's blast radius, and that was left as a separate
+ * decision on purpose.** The header of the vi-mock/shadcn block says the alias
+ * decision "does not reach the other 32 sections … re-pointing them is a separate
+ * card, not a silent side effect of this one." objectui#9463 IS that separate card,
+ * so the side effect is neither silent nor a side effect. ⛔ The rule itself is
+ * applied verbatim and re-litigated nowhere: a pure `node scripts/<file>` wrapper is
+ * one gate with its alias, an alias carrying an ARGUMENT stays its own command.
+ *
+ * ⚠️ **The one instance the alias question is still open on is reported, ⛔ not
+ * decided here.** `## Governed Surface Guard` names both `pnpm governed --  <paths>`
+ * and `node scripts/check-governed-queue-guard.mjs --test <paths>` as ways to ask the
+ * same question locally, while the job runs that script with `--self-test` and with
+ * no argument. Because `governed` carries `--test`, the settled rule refuses to merge
+ * it and it reads as a phantom. It is declared below with that reason. Whether an
+ * argument-carrying alias should ever merge is a maintainer's call on the rule, not
+ * an implementer's on this section.
+ */
+
+/** Every workflow section of the page: `NAME.yml` -> the heading that opens it. */
+function documentedWorkflowSections(): Map<string, string> {
+  const byFile = new Map<string, string>();
+  for (const line of doc.split('\n')) {
+    const m = /^(#{1,6}) .*\(`([^`]+\.yml)`\)[ \t]*$/.exec(line);
+    if (!m) continue;
+    const [, hashes, file] = m;
+    const held = byFile.get(file);
+    // The shallowest heading wins, so a workflow documented by a `##` section with a
+    // `###` sub-gate inside it (`doc-snippet-types.yml`) is read as ONE surface —
+    // which is what the page means and what a contributor reads.
+    if (held && /^#+/.exec(held)![0].length <= hashes.length) continue;
+    byFile.set(file, line);
+  }
+  return byFile;
+}
+
+/**
+ * One unit per SECTION: every first-party command every job of that workflow runs,
+ * against the whole section documenting it.
+ *
+ * ⛔ Per workflow and not per job, deliberately. The page documents a workflow in one
+ * section; pairing per job would demand the section attribute each command to the job
+ * that runs it, which is a claim this page does not make and should not be forced to.
+ * The per-job pins above keep the finer grain where somebody chose it.
+ */
+function sweepUnits(): CommandParity[] {
+  return [...documentedWorkflowSections()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([file, heading]) => {
+      const yaml = fs.readFileSync(path.join(workflowDir, file), 'utf8');
+      const ran = new Set<string>();
+      for (const key of jobKeys(yaml, file)) {
+        for (const c of firstPartyCommands(runSteps(jobBlock(yaml, key, file)).join('\n'))) ran.add(c);
+      }
+      return byGate({ label: file, ran, named: firstPartyCommands(section(heading)) });
+    });
+}
+
+/**
+ * The four per-job declarations above, re-keyed to this block's per-workflow labels.
+ *
+ * ⛔ Re-keyed rather than restated: the claim "this command is right to be on the
+ * page" is argued in exactly one place, and a reason edited there reaches here.
+ */
+function inheritedDeclarations(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [key, why] of DECLARED_NON_RUN_COMMANDS) {
+    const m = /^(\S+\.yml) `[^`]+`: (.+)$/.exec(key);
+    if (m) out.set(`${m[1]}: ${m[2]}`, why);
+  }
+  return out;
+}
+
+/**
+ * `<workflow>: <command>` -> why the page is RIGHT to name a command its workflow's
+ * jobs do not run. Every entry is a claim about the page or the instrument, ⛔ never
+ * "this one is inconvenient", and each was re-read on the section before being
+ * written here.
+ *
+ * Asserted as an exact set in both directions, like the per-job map it extends: a new
+ * phantom fails as undeclared, and a declared one whose prose disappears fails as
+ * STALE rather than quietly widening the hole.
+ */
+const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
+  [
+    'changeset-guard.yml: scripts/check-changeset-presence.mjs',
+    'Introduced by the words "Deliberately not listed": the overwrite gate imports that ' +
+      "script's base-ref resolver and frontmatter reader, so the section names it to say it is a " +
+      'shared dependency rather than a step of this workflow.',
+  ],
+  [
+    'changeset-guard.yml: scripts/invoked-as.mjs',
+    'Named as "a dependency the gate scripts import, but a widely shared one" — a module, not a ' +
+      'command this job runs.',
+  ],
+  [
+    'changeset-guard.yml: pnpm test',
+    'A cross-reference to the suite you are reading: the section says `pnpm test` asserts the ' +
+      'same repository state "so the rule survives this workflow being skipped". That suite runs ' +
+      'in `ci.yml`.',
+  ],
+  [
+    'changeset-guard.yml: pnpm changeset',
+    'The local authoring command, named to explain why the `adjective-animal-verb` filenames it ' +
+      'allocates are collision-safe and hand-picked ones are not. Never a job step.',
+  ],
+  [
+    'check-links.yml: pnpm docs:check-links',
+    "The SIBLING checker, named in this section's two-checker comparison table whose own `Runs` " +
+      'column says `docs-links.yml`. ⚠️ Dual-eligible: this job has no `run:` step at all (its ' +
+      'work is `lycheeverse/lychee-action`), so the rule reads no command on the workflow side ' +
+      'either.',
+  ],
+  [
+    'docs-route-eager-closure.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as the registry whose `REQUIRED_CONTEXTS` declares this context blocking — the ' +
+      'declaration, not a command.',
+  ],
+  [
+    'docs-route-eager-closure.yml: pnpm check:eager-closure',
+    'Named expressly to say it weighs the CONSOLE and not this route: "The cards that added to ' +
+      'that list said the cost was governed by `check:eager-closure`. It was not." Deleting it ' +
+      'would delete the correction.',
+  ],
+  [
+    'governed-surface-guard.yml: scripts/pm/check-half-states.mjs',
+    'Named as a DIFFERENT question — its H31 compares the gate\'s two carriers with each other, ' +
+      'which the section cites to explain that nothing in this repository answers the verdict ' +
+      'question this gate deliberately does not answer either.',
+  ],
+  [
+    'governed-surface-guard.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as "the only thing this repository can write down, and has" about required contexts — ' +
+      'a declaration this section points at, not a step it runs.',
+  ],
+  [
+    'governed-surface-guard.yml: pnpm governed',
+    '⚠️ The one surviving argument-carrying alias. `governed` is ' +
+      '`node scripts/check-governed-queue-guard.mjs --test`, and an alias that carries an ' +
+      'argument selects a MODE, so the settled rule correctly refuses to merge it with the ' +
+      "`--self-test` and bare invocations the job runs. The section offers it as the local " +
+      'reproduction spelling and names the raw `--test` spelling beside it. ⛔ Whether such an ' +
+      'alias should ever merge is a decision about the RULE — reported, not taken here.',
+  ],
+  [
+    'half-state-patrol.yml: scripts/invoked-as.mjs',
+    "Named inside the section's enumeration of the workflow's TRIGGER PATHS (\"or a pull request " +
+      'touching …"), which is not a command claim at all.',
+  ],
+  [
+    'hook-selftests.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as what classifies this check `OPTIONAL_CONTEXTS`. ⚠️ Dual-eligible: the job drives ' +
+      'the hook self-tests and the rule reads no first-party command from that step.',
+  ],
+  [
+    'line-citation-gate.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as the registry that classifies this report-only check `NOT_A_GATE` — the reason the ' +
+      'section gives for it never blocking.',
+  ],
+  [
+    'line-citation-gate.yml: pnpm census:cross-file-line-citations',
+    'The page says so itself: the tree-wide census "runs in no workflow", and is named to ' +
+      'contrast the right instrument for sizing the class against the differential gate that ' +
+      'decides a pull request.',
+  ],
+  [
+    'lockfile-integrity.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as the registry that classifies this workflow `NOT_A_GATE`, in the sentence explaining ' +
+      'that it cannot block anything today.',
+  ],
+  [
+    'merge-queue-head-patrol.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as the declaration that would have to be edited if this workflow ever grew a ' +
+      '`pull_request` leg — the argument for not having one.',
+  ],
+  [
+    'node-esm-load-gate.yml: pnpm check:esm-specifiers',
+    'The gate\'s OTHER leg, named to say it does not run here: "reads sources and needs no build, ' +
+      'so it runs per pull request in Type Check, not in this workflow".',
+  ],
+  [
+    'pre-install-import-graph.yml: scripts/invoked-as.mjs',
+    'Named as the module every pre-install script imports since objectui#6092 — data the gate ' +
+      'walks, and the tail of the illustrative failure chain under "If it fails".',
+  ],
+  [
+    'pre-install-import-graph.yml: scripts/some-gate.mjs',
+    'An illustrative PLACEHOLDER in the example failure chain ' +
+      '`scripts/some-gate.mjs -> scripts/invoked-as.mjs -> typescript`. No such file exists.',
+  ],
+  [
+    'published-dist-gate.yml: pnpm check:published-tsconfig-exclude',
+    'The per-PR sibling that covers the CONFIG half, named to say where it runs instead: ' +
+      '"runs in Type Check".',
+  ],
+  [
+    'required-check-set-patrol.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as the classifier every `pull_request` job\'s check run must pass through — the ' +
+      'section\'s stated reason for having no `pull_request` leg.',
+  ],
+]);
+
+describe('ci-cd-pipeline.md — command parity, every workflow section', () => {
+  it('reads one section per workflow — a shrunken enumeration is a broken reader', () => {
+    // The control the whole block rests on. If the heading regex stopped matching,
+    // every assertion below would pass by comparing nothing at all — the vacuous
+    // green this file's inventory reader was given the same guard against.
+    const sections = documentedWorkflowSections();
+    const workflowFiles = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
+
+    expect(
+      workflowFiles.filter((f) => !sections.has(f) && !DOCUMENTATION_EXEMPT.has(f)),
+      'these workflows have no heading of the form "## Title (`name.yml`)" on ' +
+        'content/docs/guide/ci-cd-pipeline.md, so the parity sweep below never reads them. The ' +
+        'inventory test at the top of this file says the same thing about the same set — if it ' +
+        'is green and this is red, the heading exists but not in the form this reader parses.',
+    ).toEqual([]);
+
+    expect(
+      [...sections.keys()].filter((f) => !workflowFiles.includes(f)),
+      'these headings name a `.yml` that is not in .github/workflows/. The sweep would crash ' +
+        'reading it; delete the section or restore the workflow.',
+    ).toEqual([]);
+  });
+
+  it('finds commands on both sides — a silent parser would make every pin below vacuous', () => {
+    const units = sweepUnits();
+
+    // Floors, not ratchets: they catch a parser that stopped matching, which is the
+    // only way "nothing disagrees" can be true while the page is wrong.
+    expect(
+      units.reduce((n, u) => n + u.ran.size, 0),
+      'the `run:` parse found implausibly few first-party commands across every workflow. ' +
+        'Dozens of jobs in this repository run a `scripts/` gate; a handful means `jobBlock`, ' +
+        '`runSteps` or `firstPartyCommands` stopped matching, not that CI shrank.',
+    ).toBeGreaterThan(60);
+
+    expect(
+      units.reduce((n, u) => n + u.named.size, 0),
+      'the page parse found implausibly few first-party commands across every section. This ' +
+        'page names a gate in almost every section; a handful means the section reader broke.',
+    ).toBeGreaterThan(60);
+
+    // And the inherited declarations must actually arrive. An empty re-key would let
+    // four real phantoms read as undeclared — or, worse, silently shrink the exact-set
+    // assertion below to something nobody wrote.
+    expect(
+      [...inheritedDeclarations().keys()].sort(),
+      'the per-job declarations above no longer re-key onto this block\'s labels, so the four ' +
+        'phantoms they explain are about to be reported as undeclared. Check the key format of ' +
+        'DECLARED_NON_RUN_COMMANDS against the regex in `inheritedDeclarations`.',
+    ).toEqual([
+      'changeset-release.yml: pnpm changeset:publish',
+      'changeset-release.yml: pnpm check:published-dist',
+      'changeset-release.yml: pnpm check:spec-floors',
+      'performance-budget.yml: pnpm test',
+    ]);
+  });
+
+  it('names every first-party command every workflow job actually runs', () => {
+    // ⛔ No exception list in this direction, by design. A command a job runs and the
+    // page does not name is a gate a contributor can be stopped by and cannot find —
+    // objectui#8420's `check:sdui-registration-pins`, objectui#9463's
+    // `check:prompt-keys`. There is no such thing as a legitimate one.
+    const missing = undocumentedCommands(sweepUnits());
+
+    expect(
+      missing,
+      'these workflows run first-party commands that their section on ' +
+        'content/docs/guide/ci-cd-pipeline.md does not name:\n' +
+        missing.map((m) => `  - ${m}`).join('\n') +
+        '\n\nAdd each one to its section. An alias and a `node scripts/…` invocation of the same ' +
+        'pure wrapper count as one gate, so either spelling satisfies this. ⛔ There is no ' +
+        'exception list for this direction: a gate the page hides is the defect this whole file ' +
+        'exists for.',
+    ).toEqual([]);
+  });
+
+  it('declares every command a section names that its workflow does not run', () => {
+    const declared = new Map([...inheritedDeclarations(), ...SWEEP_DECLARED_NON_RUN_COMMANDS]);
+    const phantoms = phantomCommands(sweepUnits()).sort();
+
+    // Exact set, both directions. A new phantom fails as undeclared; a declaration
+    // whose prose has gone fails as stale, so the list stays a record of reasoned
+    // exceptions rather than becoming permission.
+    expect(
+      phantoms,
+      'the set of commands this page names that the workflow documenting them does not run has ' +
+        'changed.\n\nIf a NEW entry appears: either the page now credits a workflow with a gate ' +
+        'it does not run — fix the page — or there is a real reason it belongs there, in which ' +
+        'case add it to SWEEP_DECLARED_NON_RUN_COMMANDS with that reason written out.\n\nIf an ' +
+        'entry has GONE: its declaration is stale and must be deleted, or the prose it explained ' +
+        'was removed by accident.\n\nCurrently declared:\n' +
+        [...declared].map(([k, why]) => `  - ${k}\n      ${why}`).join('\n'),
+    ).toEqual([...declared.keys()].sort());
   });
 });

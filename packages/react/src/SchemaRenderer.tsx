@@ -31,7 +31,7 @@ import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
-import { reportDroppedPropsBag } from './utils/propsBagDiagnostic.js';
+import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { expressionBindableTextKeysFor } from '@objectstack/spec/ui';
 import {
   reportUnresolvableVisibilityPredicate,
@@ -328,6 +328,25 @@ const PREDICATE_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
   ...VISIBILITY_CHAIN_KEYS,
   ...ENABLEMENT_NODE_GATE_KEYS,
   ...ENABLEMENT_RENDERER_KEYS,
+]);
+
+/**
+ * Every key a NODE GATE in this file actually consults, as ONE lookup for the
+ * objectui#9108 refusal below. DERIVED from the same two declarations the gates
+ * are built from, so a leg added to either chain is refused under `props` by the
+ * same edit that adds it.
+ *
+ * {@link PREDICATE_CHAIN_KEYS} minus {@link ENABLEMENT_RENDERER_KEYS}, and the
+ * subtraction is the whole reason this is a second derivation rather than a
+ * reuse: `enabled` is in that union because the config-bag evaluation loops
+ * flatten it, but NO gate here consults it - the action renderers read it one
+ * layer down off the schema and negate it. Refusing it here would state, of a
+ * key this file never asks about, that a gate in this file could not see it.
+ * Its own `props` drop is objectui#6708's subject and is reported there.
+ */
+const NODE_GATE_PREDICATE_KEYS: ReadonlySet<string> = new Set<string>([
+  ...VISIBILITY_CHAIN_KEYS,
+  ...ENABLEMENT_NODE_GATE_KEYS,
 ]);
 
 /**
@@ -823,11 +842,33 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // an object spread.
     if (!schema || typeof schema !== 'object') return schema;
 
-    // `data` (record/datasource) plus the ambient host scope. `current_user`
-    // is aliased to `user` so both `user.email` and `current_user.email`
-    // resolve in component `visible`/`visibleOn` expressions. `page` exposes
-    // page-local state so predicates can gate on `page.<var>` (e.g. a record
-    // picker's selection toggling another component's visibility).
+    // The ambient host scope, plus the roots this tier can answer itself.
+    // `current_user` is aliased to `user` so both `user.email` and
+    // `current_user.email` resolve in component `visible`/`visibleOn`
+    // expressions. `page` exposes page-local state so predicates can gate on
+    // `page.<var>` (e.g. a record picker's selection toggling another
+    // component's visibility).
+    //
+    // ⛔ `data` is NOT here, and the absence is the decision (objectui#9308,
+    // maintainer ruling 2026-09-13 option B). This used to read
+    // `data: dataSource` — the host's injected ADAPTER, published as an
+    // expression root. `ExpressionProvider` states the governing principle for
+    // the tier above: "Every root below is one the engine accepts AND one this
+    // tier can actually answer", and objectui#8155 (`app`) and objectui#8166
+    // (`data`) applied it there. Against a conformant `DataSource` adapter
+    // every `data.*` path resolves `undefined`, so this tier could not answer
+    // the root it bound: it published a name that was silently constant on
+    // every row. ADR-0089 D3 puts `data` at the METADATA layer
+    // (`CANONICAL_ROOT_BY_LAYER = { runtime: 'record', metadata: 'data' }`) and
+    // the engine's per-surface `FIELD_RULE_BOUND_ROOTS` is
+    // `['record','previous','parent']`. The row is `record`.
+    //
+    // ⭐ Ordering consequence, and the second half of the same ruling: the
+    // spread below used to be followed by `data: dataSource`, so a host that
+    // legitimately published `data` through the documented scope channel
+    // (`PredicateScopeProvider`) was silently OVERWRITTEN by the adapter.
+    // Removing the line un-shadows that channel — a host root named `data` now
+    // survives, like every other root a host publishes.
     //
     // `record` is written AFTER the ambient spread so a page's own row wins
     // over anything a host put in the scope — the same precedence
@@ -844,7 +885,6 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
         ? { record: boundRecord }
         : null),
-      data: dataSource,
       page: pageVariables,
     });
     // Shallow copy
@@ -959,7 +999,19 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         // `false`. Verdict untouched — `verdict` is returned exactly as
         // computed, which is what keeps the ruling's "no verdict changes" true
         // by construction rather than by review.
-        reportAdapterOnlyDataPredicate(newSchema.type, newSchema.id, key, raw, dataSource);
+        //
+        // objectui#9308: the object handed over is the `data` the HOST
+        // published in the ambient scope — the one the evaluator above
+        // actually resolved `data.*` against — and no longer the adapter. The
+        // renderer binds no `data` of its own, so passing the adapter here
+        // would report reads the evaluator never made against it.
+        reportAdapterOnlyDataPredicate(
+          newSchema.type,
+          newSchema.id,
+          key,
+          raw,
+          (predicateScope as any)?.data,
+        );
         return verdict;
       } catch (err) {
         reportUnresolvableVisibilityPredicate(
@@ -1073,7 +1125,15 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         },
       });
       if (__DEV__ && !faulted) {
-        reportAdapterOnlyDataPredicate(newSchema.type, newSchema.id, key, raw, dataSource, 'enablement');
+        // objectui#9308 — same re-aim as the visibility leg above.
+        reportAdapterOnlyDataPredicate(
+          newSchema.type,
+          newSchema.id,
+          key,
+          raw,
+          (predicateScope as any)?.data,
+          'enablement',
+        );
       }
       return verdict;
     };
@@ -1381,6 +1441,45 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       }
       newSchema.props = newProps;
     }
+
+    /**
+     * REFUSE, by name, a node-gate predicate parked under the legacy `props`
+     * alias (objectui#9108, maintainer ruling 2026-09-13, verbatim 「同意」 on
+     * the `domain:spec` seat's recommendation).
+     *
+     * ## Sited HERE, immediately in front of the two gates
+     *
+     * This is the one point where the gates' own input is final: the
+     * `properties` hoist above has run, both config-bag evaluation loops have
+     * run, and neither gate has consulted anything yet. It is also the only
+     * placement that survives its own subject - the late diagnostics near
+     * `createElement` are downstream of `if (shouldHide) return null`, so a node
+     * that parks `visible` under `props` while ALSO hiding through the canonical
+     * spelling would never reach them, and the refusal would go missing on the
+     * one shape that carries both spellings at once.
+     *
+     * ## Read-only, and that is the ruled outcome rather than a limitation
+     *
+     * Nothing below changes. The gates still read the post-hoist node only, so
+     * every verdict, every hoisted value and every byte the element receives is
+     * what it was - the alias is REFUSED, not honoured. The opposite arm was
+     * built and closed (PR objectui#9144): honouring it would have made *"8
+     * predicate keys work while the rest stayed silently dropped - and partly
+     * working is harder to learn from than not working"*.
+     *
+     * The bag handed over is {@link propsWithoutCanonicalKeys}'s, the SAME
+     * subtraction the outgoing props bag uses, so a key the canonical bag also
+     * declares is not reported as parked: there the author is already getting
+     * the canonical answer (objectui#5123). The key SET is
+     * {@link NODE_GATE_PREDICATE_KEYS}, derived from the two chain declarations
+     * above rather than re-listed here.
+     */
+    reportRefusedPropsPredicate(
+      newSchema.type,
+      newSchema.id,
+      NODE_GATE_PREDICATE_KEYS,
+      propsWithoutCanonicalKeys(newSchema.props, newSchema.properties),
+    );
 
     // Evaluate visibility: visibleWhen / visible / visibleOn / visibility / hidden / hiddenOn
     const shouldHide = (() => {

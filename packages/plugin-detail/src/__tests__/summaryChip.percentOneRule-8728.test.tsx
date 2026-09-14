@@ -62,6 +62,34 @@
  * relation objectui#8728 is about, that the chip's two halves never disagree
  * with EACH OTHER.
  *
+ * ## ⭐ objectui#9167 moved three of these rows' TEXT, and nothing else
+ *
+ * objectui#9071 took the SCALING half of `percentDisplayValue`'s contract and
+ * stopped; objectui#9167 took the CONVENTION half, so the chip's text is now
+ * `formatPercent(stored, precision, locale)` — the list cell's own call. Three
+ * rows moved, each onto the reading the cell was already giving:
+ *
+ * | stored  | before #9167 | after #9167 | why                                  |
+ * |---------|--------------|-------------|--------------------------------------|
+ * | `0.123` | `12.3%`      | `12%`       | the field's declared precision, 0     |
+ * | `12.3`  | `12.3%`      | `12%`       | same                                  |
+ * | `1.5`   | `1.5%`       | `2%`        | same, rounding half-expand            |
+ *
+ * ⚠️ The `12.3` row is this file's CONTROL, and it moved. Its argument was
+ * "already in percentage points, so the SCALING leaves it alone" — and that is
+ * still true and still asserted: its bar is 12.3 before and after. What moved is
+ * the SPELLING, which is the whole of objectui#9167. The control against a
+ * runaway repair is now the bar column, pinned per row below.
+ *
+ * ⚠️ And the relation itself had to be RESTATED, not just re-expected. "The bar
+ * draws the number the text states" was an exact equality only while the text
+ * was the unrounded number; once the text rounds to the field's precision, the
+ * bar and the text differ by up to half a unit in the last declared place BY
+ * DESIGN — the cell's bar is unrounded for the same reason. So the relation is
+ * now stated modulo that rounding, and it still fails for the defect this file
+ * exists for: the original `0.123%` beside a bar at 12.3% is off by 12.177,
+ * twenty-four times the slack.
+ *
  * ## Instruments
  *
  * - The chip is navigated by `[data-summary-chip="ratio"]`, never by
@@ -70,6 +98,14 @@
  * - The bar's fill is read from the inline `width` — the one place the drawn
  *   percentage exists in the DOM. It is an author-declared, data-driven length,
  *   the carve-out the styling rule already grants this bar.
+ * - The chip is mounted with NO i18n provider, exactly as objectui#8728 wrote
+ *   it. That is deliberate and still deterministic after objectui#9167: with no
+ *   tenant locale and no active UI language, `useDisplayLocale` returns its
+ *   documented floor `'en'` rather than the machine's locale, so the expected
+ *   strings below are the `en` convention and do not vary with the runner. The
+ *   NON-`en` legs are objectui#9167's own pin
+ *   (`summaryChip.percentConvention-9167.test.tsx`), which mounts an explicit
+ *   session for each locale it names.
  * - The accessible name is asserted only for its PERCENTAGE — that it ends with
  *   the same text the chip shows. How the chip NAMES the field is objectui#8729,
  *   the serial card on this same render, and pinning that here would hand it a
@@ -121,11 +157,21 @@ const requireChip = (c: HTMLElement): HTMLElement => {
 
 const textOf = (el: HTMLElement) => (el.textContent ?? '').replace(/\s+/g, ' ').trim();
 
-/** The percentage the chip SAYS, read back out of its own text. */
+/**
+ * The percentage the chip SAYS, read back out of its own text.
+ *
+ * The shape is the `en` convention — the locale these rows are mounted in — and
+ * it admits the GROUPING separator objectui#9167 brought with it, so a repair
+ * that started grouping is read rather than rejected as malformed. The sign is
+ * a suffix in `en`; locales that put it in front are pinned in objectui#9167's
+ * own file, which does not parse the text back at all.
+ */
 const spokenPercent = (chip: HTMLElement): number => {
   const text = textOf(chip);
-  expect(text, 'the chip states a percentage').toMatch(/^-?\d+(\.\d+)?%$/);
-  return Number(text.slice(0, -1));
+  expect(text, 'the chip states a percentage in the en convention').toMatch(
+    /^-?\d{1,3}(,\d{3})*(\.\d+)?%$/,
+  );
+  return Number(text.slice(0, -1).replace(/,/g, ''));
 };
 
 /** The percentage the chip DRAWS, read off the bar fill's own width. */
@@ -142,47 +188,82 @@ const drawnPercent = (chip: HTMLElement): number => {
 /** The bar cannot draw outside its track, so agreement is stated modulo this. */
 const onTrack = (p: number) => Math.max(0, Math.min(100, p));
 
+/**
+ * The field below declares no `precision`, so both places take the list cell's
+ * documented default. The chip's text rounds to it (objectui#9167); the bar does
+ * not, and must not — the cell's own bar is unrounded too.
+ */
+const DECLARED_PRECISION = 0;
+
+/**
+ * How far the drawn magnitude may sit from the stated one: half a unit in the
+ * last declared place, which is exactly what rounding to `DECLARED_PRECISION`
+ * can move. ⛔ Not a tolerance for "close enough" — the defect this file exists
+ * for misses by 12.177 at `0.123`, twenty-four times this slack, and a repair
+ * that re-desynchronised the two halves by any factor is still red.
+ */
+const ROUNDING_SLACK = 0.5 * 10 ** -DECLARED_PRECISION;
+
 interface Row {
   what: string;
   stored: number;
+  /** What the chip STATES, in the `en` convention objectui#9167 routed it onto. */
   text: string;
+  /** What the chip DRAWS, clamped to its track — unrounded, and unmoved by #9167. */
+  bar: number;
 }
 
 const ROWS: Row[] = [
   // The card's own reproduction. Before the fix: text `0.123%`, bar 12.3%.
-  { what: 'a stored ratio — the card\'s reproduction', stored: 0.123, text: '12.3%' },
-  // CONTROL. Already percentage points, so nothing about it may move.
-  { what: 'CONTROL — a value already in points is untouched', stored: 12.3, text: '12.3%' },
-  { what: 'zero', stored: 0, text: '0%' },
+  // objectui#9167 then rounded the TEXT to the field's declared precision; the
+  // bar is the same 12.3 it has drawn since objectui#8728.
+  { what: 'a stored ratio — the card\'s reproduction', stored: 0.123, text: '12%', bar: 12.3 },
+  // CONTROL for the SCALING — already percentage points, so the magnitude may
+  // not move, and it does not: the bar is 12.3 before and after objectui#9167.
+  // Its TEXT moved with the convention half; see the header.
+  { what: 'CONTROL — a value already in points keeps its magnitude', stored: 12.3, text: '12%', bar: 12.3 },
+  { what: 'zero', stored: 0, text: '0%', bar: 0 },
   // THE FORK, after objectui#9071 moved it. See the header: one percentage
   // point, the answer every other band already gave.
-  { what: 'EXACTLY 1 — one percentage point, as everywhere else', stored: 1, text: '1%' },
-  { what: 'just above 1 — the other side of the same boundary', stored: 1.5, text: '1.5%' },
+  { what: 'EXACTLY 1 — one percentage point, as everywhere else', stored: 1, text: '1%', bar: 1 },
+  // The row where rounding moves the text by the FULL slack: half-expand takes
+  // 1.5 to 2 while the bar keeps 1.5.
+  { what: 'just above 1 — the other side of the same boundary', stored: 1.5, text: '2%', bar: 1.5 },
   // Agreement has to survive the clamp: the text keeps the real number, the
   // bar saturates. A row that only ever tested unclamped values would let a
   // repair that clamped the TEXT too pass.
-  { what: 'a large value — the bar saturates, the text does not', stored: 250, text: '250%' },
+  { what: 'a large value — the bar saturates, the text does not', stored: 250, text: '250%', bar: 100 },
   // The residue row. `0.07 * 100` is `7.000000000000001` in binary floating
   // point — invisible as a CSS width, unreadable as a label.
-  { what: 'a ratio whose scaling carries float residue', stored: 0.07, text: '7%' },
+  { what: 'a ratio whose scaling carries float residue', stored: 0.07, text: '7%', bar: 7 },
   // The other end of the same boundary. objectui#8728 moved this text to
   // `-500%` because the bar's rule scaled it and the ruling was that the text
   // follows the bar; objectui#9071 then replaced that rule with the declared
   // source, which passes a value at or below -1 straight through. The bar is
   // unchanged across both cards — any negative clamps to an empty track — so
   // this row only ever moved on the half that reads the number.
-  { what: 'a negative at or below -1 — passed through by the shared rule', stored: -5, text: '-5%' },
+  { what: 'a negative at or below -1 — passed through by the shared rule', stored: -5, text: '-5%', bar: 0 },
 ];
 
+/**
+ * By how much this chip's two halves disagree, in percentage points: what the
+ * bar draws, against what the text states once the track has clamped it.
+ * Zero before objectui#9167 rounded the text; at most {@link ROUNDING_SLACK}
+ * after, and 12.177 on the defect this file reproduces.
+ */
+const halvesDisagreeBy = (chip: HTMLElement): number =>
+  Math.abs(drawnPercent(chip) - onTrack(spokenPercent(chip)));
+
 describe('summary chip percent — one stored number, one percentage (objectui#8728)', () => {
-  it.each(ROWS)('$what: a stored $stored states $text', ({ stored, text }) => {
+  it.each(ROWS)('$what: a stored $stored states $text beside a bar at $bar', ({ stored, text, bar }) => {
     const chip = requireChip(renderChip(stored));
 
     expect(textOf(chip), 'the chip states this percentage').toBe(text);
+    expect(drawnPercent(chip), 'and draws this magnitude, unrounded and clamped').toBe(bar);
     expect(
-      drawnPercent(chip),
-      'THE PIN: the bar draws the number the text states, clamped to its track',
-    ).toBe(onTrack(spokenPercent(chip)));
+      halvesDisagreeBy(chip),
+      'THE PIN: the bar draws the number the text states, clamped to its track and modulo the declared rounding',
+    ).toBeLessThanOrEqual(ROUNDING_SLACK);
   });
 
   /**
@@ -193,7 +274,7 @@ describe('summary chip percent — one stored number, one percentage (objectui#8
   it('never states one percentage and draws another, for any row above', () => {
     const disagreements = ROWS.filter(({ stored }) => {
       const chip = requireChip(renderChip(stored));
-      const disagrees = drawnPercent(chip) !== onTrack(spokenPercent(chip));
+      const disagrees = halvesDisagreeBy(chip) > ROUNDING_SLACK;
       cleanup();
       return disagrees;
     });

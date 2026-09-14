@@ -156,13 +156,19 @@ describe('inactiveRetainedKind — mechanical coverage of every showWhen group',
   it('finds the groups the census measured — and does not tag everything', () => {
     // If this drifts, the census in the PR body is stale; re-measure before
     // trusting the coverage claim below.
-    expect(gatedByType.size).toBe(8); // 8 (name, ...) buckets — 7 canonical + the `script_task` alias
+    // ⚑ RE-MEASURED at landing, not carried over: objectui#9336 gave the `end`
+    // node its first `showWhen` field (`config.message`, gated on
+    // `outcome === 'refused'`), so `end` became a NEW bucket. 8 -> 9 buckets,
+    // 33 -> 34 gated fields, 24 -> 23 ungated types. Triage's standing ruling
+    // for the counts objectui#9277/#9278 share applies here too: re-measure at
+    // landing time rather than copying a number out of the card.
+    expect(gatedByType.size).toBe(9); // 9 (name, ...) buckets — 8 canonical + the `script_task` alias
     const totalGated = [...gatedByType.values()].reduce((n, fs) => n + fs.length, 0);
-    expect(totalGated).toBe(33);
+    expect(totalGated).toBe(34);
     // The discriminating control: most node types have NO showWhen at all, so a
     // predicate that simply said "yes" everywhere would fail here.
     const ungatedTypes = TYPES.filter((t) => !gatedByType.has(t));
-    expect(ungatedTypes.length).toBe(24);
+    expect(ungatedTypes.length).toBe(23);
     expect(ungatedTypes).toContain('create_record');
     expect(ungatedTypes).toContain('connector_action');
   });
@@ -203,7 +209,7 @@ describe('inactiveRetainedKind — mechanical coverage of every showWhen group',
         checked += 1;
       }
     }
-    expect(checked).toBe(33);
+    expect(checked).toBe(34); // objectui#9336 added `end.message` — see the note above.
   });
 });
 

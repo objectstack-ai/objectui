@@ -1559,10 +1559,21 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `viewOptions.map` is an untyped bag (`NamedListView.options`); a raw
         // spread here forwarded every key the author wrote, including `style`,
         // which `ObjectMap`'s `FlatMapConfigKeys` declares OUT of this flat form.
+        //
+        // ⛔ NO `locationField: … || 'location'` FLOOR (objectui#8169 — ruled
+        // 2026-09-07 「同意」, option B), for the same reason the gantt branch
+        // above carries no date floors: only ever restate a binding the view
+        // actually DECLARED. This floor was worse than a duplicate of
+        // `getMapConfig`'s own default branch — it SHADOWED half of it, forcing
+        // the flat branch to return that one key with no `latitudeField` /
+        // `longitudeField` beside it. Both faces moved together: the
+        // component's coordinate guesses are gone, and an undeclared map now
+        // renders `ObjectMap`'s "Map configuration required" refusal instead of
+        // an empty map — pinned in
+        // `plugin-map/src/ObjectMap.unboundRefusal-8169.test.tsx`.
         return {
           type: 'object-map',
           ...baseProps,
-          locationField: viewOptions.map?.locationField || 'location',
           ...pickFlatMapConfig(viewOptions.map),
         };
       case 'tree':

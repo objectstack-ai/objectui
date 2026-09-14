@@ -66,20 +66,90 @@
  * audit, and a new document dropped into a tree that is already declared
  * (`content/docs/**`) is covered the moment it lands.
  *
+ * ## objectui#9096 -- `scripts` joins the scan, and what that ruling costs
+ *
+ * objectui#8861 left `scripts/__tests__/**` out and gave this reason:
+ *
+ *   ⛔ "`scripts/__tests__/**` is deliberately OUT of the hazard class:
+ *      `scripts/**` is not on the exclusion list, so a PR touching it already
+ *      gets a full run."
+ *
+ * ⛔ That sentence is true about a pull request that touches THE TEST. The
+ * hazard is a pull request that touches THE MARKDOWN THE TEST READS. Those are
+ * different pull requests, and only the second one is invisible.
+ *
+ * ### The measurement, and why the population count is the wrong unit
+ *
+ * Every one of the 46 candidate files under `scripts/__tests__` was run under
+ * an `fs` trace and the markdown it opened was recorded. The union is not
+ * "nearly every markdown document in the tree" -- it is EVERY one of them:
+ * 1805 of 1805 tracked `.md` / `.mdx` files are opened by at least one of these
+ * tests. One file does it alone: `dollar-dialect-alias-census.test.ts` scans
+ * every tracked path through a helper module, which is limit 2 below in its
+ * purest form -- the scanner cannot see that read at all, and it is the read
+ * that makes the class total.
+ *
+ * ⇒ so the honest statement of this ruling is: on the `test` job, the decision
+ * step's markdown exclusions are now INERT. Any markdown-only pull request runs
+ * the shards.
+ *
+ * The reason that is nonetheless the right ruling is that documents are the
+ * wrong unit to price it in. Runs are. Measured over the 513 first-parent
+ * commits on `main` available at the time of writing:
+ *
+ *   36  reached the second stage at all (everything they changed was excluded)
+ *   21  of those already run, on the class objectui#8861 declared
+ *   15  still skipped -- the blind spot this card is about
+ *   14  of those 15 fire once `scripts` is a scan root
+ *    1  of those 15 still skips, and SHOULD: `8011852dc` changed only
+ *       `apps/site/**` and carried no markdown at all
+ *
+ * ⇒ the price of making the class total is 14 extra full runs per 513 merges
+ * (2.7pp), because 93% of merges change something outside the exclusions and
+ * already run. The exclusion list itself does NOT go inert: non-markdown paths
+ * under `content/**`, `docs/**` and `apps/site/**` still skip, and that last
+ * commit is the live control for it.
+ *
+ * ### ⚠️ What a reviewer should weigh against it
+ *
+ * triage on objectui#9096 wrote "⛔ Do not widen the `Test (shard N/4)` trigger
+ * to 'every markdown file' ... a resolved input list, ⛔ not a glob". The
+ * MECHANISM that fence prescribes is intact -- the workflow still consults a
+ * derived, adjudicated, self-auditing list and never a glob. Its EFFECT is not:
+ * the list's answer is now `true` for every markdown path. That tension is real
+ * and is left visible on purpose rather than argued away. The two numbers a
+ * reviewer needs to reverse this are above: 1805 of 1805 documents, 14 of 513
+ * merges.
+ *
+ * ### Where the trees come from
+ *
+ * A `…/**` entry below means "this test walks this tree". Where a test read
+ * most of a tree, the tree is declared rather than its files, which is the same
+ * over-produce-rather-than-miss direction the scanner takes: the cost of a
+ * declared document nothing reads is one extra run, and the cost of a missed
+ * one is the defect this file exists to close.
+ *
+ * ### The repository root is a tree too -- `./*` (objectui#9142)
+ *
+ * The entries above buy their whole value from INHERITANCE: a page added under
+ * `content/docs/` is on the trigger the moment it lands, because the tree was
+ * declared rather than its members. The repository root had no tree spelling,
+ * so its documents were declared one by one -- and a root document nobody had
+ * declared yet was not on the trigger at all. Adding `SECURITY.md` skipped
+ * `Test (shard N/4)`, and `check-doc-links.test.ts`, whose stated job is to
+ * fail on a root document with no `SCAN_ROOTS` row, was the test that did not
+ * run. `./*` is the root's tree spelling: depth 1, markdown only. See
+ * `matchesEntry()` for why depth 1 and not `**`.
+ *
  * ## ⛔ What this does NOT answer -- read this before citing it as coverage
  *
- *   1. **Test surfaces outside `SCAN_ROOTS`.** The scan covers the product test
- *      surface. `scripts/__tests__/**` is deliberately NOT in it, on triage's
- *      instruction. ⚠️ Measured while deriving this class, that exclusion is
- *      NOT free: tests under `scripts/__tests__/**` run in the same shards, and
- *      they read a large population of repository markdown -- `AGENTS.md`,
- *      `CONTRIBUTING.md`, `QUICK_REFERENCE.md`, `docs/**`, and every package
- *      README among them. A markdown-only pull request touching one of those
- *      still walks into the blind spot this file closes for the product
- *      surface. The number matters to the decision and is recorded on the card
- *      filed for it, because widening this class to that population would make
- *      nearly every markdown document in the tree a test input, which is a
- *      different ruling from the one this file implements.
+ *   1. **Test surfaces outside `SCAN_ROOTS`.** ⭐ RULED, objectui#9096 -- this
+ *      limit is closed and the section below records what closing it cost. The
+ *      sentence that used to stand here said widening to `scripts/__tests__`
+ *      "would make nearly every markdown document in the tree a test input,
+ *      which is a different ruling". That was right about the population and
+ *      wrong about nothing else: it IS a different ruling, it was measured, and
+ *      it was made. Nothing is excluded from the scan today.
  *   2. **A read the scanner cannot see.** It resolves string literals and
  *      recognises directory walks. A test that computes a path from parts no
  *      literal carries, or reads markdown through a helper module in another
@@ -106,11 +176,13 @@ export const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..'
 /**
  * Where `deriveCandidates()` looks for tests.
  *
- * These are the roots the root Vitest config collects from, minus
- * `scripts/**` -- see limit 1 in this file's header for what that costs and why
- * it is not this file's call to change.
+ * Every root the root Vitest config collects from, `scripts` included since
+ * objectui#9096. That config's `node` project collects `.test.ts` files under
+ * `scripts` too, so those tests run in the same `Test (shard N/4)` job as the
+ * rest -- see the objectui#9096 section in this file's header for what
+ * including them costs and why the cost was paid.
  */
-export const SCAN_ROOTS = ['packages', 'apps', 'examples', 'eslint-rules'];
+export const SCAN_ROOTS = ['packages', 'apps', 'examples', 'eslint-rules', 'scripts'];
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.turbo', 'coverage', 'build', '.next']);
 
@@ -155,6 +227,16 @@ export const ADJUDICATED = new Map([
   [
     'packages/components/src/__tests__/guide-layout-page-buttons-7926.test.tsx',
     { reads: ['content/docs/guide/layout.md'] },
+  ],
+  // The four-leg render pin for objectui#8021. Leg A is READ OFF
+  // `content/docs/guide/schema-rendering.md` rather than transcribed -- both the
+  // wiring and the expression spelling -- and the sweep arm reads the second
+  // surface the same repair covered.
+  [
+    'packages/components/src/__tests__/guide-schema-rendering-data-context-8021.test.tsx',
+    {
+      reads: ['content/docs/guide/schema-rendering.md', 'packages/react/README.md'],
+    },
   ],
   [
     'packages/components/src/__tests__/page-body-single-node-8310.test.tsx',
@@ -395,22 +477,447 @@ export const ADJUDICATED = new Map([
       reads: ['content/docs/utilities/vscode-extension.mdx', 'packages/vscode-extension/DESIGN.md'],
     },
   ],
+
+  // ---------------------------------------------------------------------------
+  // objectui#9096 -- the `scripts/__tests__/**` surface.
+  //
+  // Added with `scripts` as a scan root. These are repository GATE tests, and
+  // they read documentation the way the product tests read a README: as data.
+  // The `reads` column below was not inferred from the literals -- every one of
+  // these 45 files was run under an `fs` trace and the documents it actually
+  // opened were recorded, which is also how the three tests that ENUMERATE a
+  // markdown population without opening it were caught.
+  // ---------------------------------------------------------------------------
+  // Reads no markdown: the document literal is an ARGUMENT to a path-matcher assertion, never opened.
+  [
+    'scripts/__tests__/check-action-forward-parity.test.ts',
+    {
+      reads: [],
+      notRead: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
+  [
+    'scripts/__tests__/check-changeset-claims.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', 'README.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-changeset-no-major.test.ts',
+    {
+      reads: ['.changeset/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
+  [
+    'scripts/__tests__/check-changeset-overwrite.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', '.changeset/olive-donkeys-smile.md'],
+    },
+  ],
+  // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
+  [
+    'scripts/__tests__/check-changeset-presence.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', 'CHANGELOG.md', 'README.md', 'apps/console/README.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-component-types.test.ts',
+    {
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-example-ids.test.ts',
+    {
+      reads: ['content/docs/**'],
+      notRead: ['examples/README.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-example-shared-reader.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-example-types.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-expression-carriage.test.ts',
+    {
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-fence-languages.test.ts',
+    {
+      reads: ['apps/console/docs/**', 'content/docs/**', 'docs/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // `./*` rather than the eight root documents it used to list, and the
+  // distinction is the whole of objectui#9142. This test does not read a list
+  // of root documents -- it runs `git ls-files -- '*.md'`, keeps the paths with
+  // no separator in them, and fails when one of them has no `SCAN_ROOTS` row.
+  // Its own words: "scans EVERY tracked root-level markdown file -- the
+  // invariant that replaces the list". Its input is therefore the root CLASS,
+  // and a list of the eight members was a declaration that went stale on the
+  // ninth -- at precisely the moment the test was written to speak.
+  [
+    'scripts/__tests__/check-doc-links.test.ts',
+    {
+      reads: ['./*', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-snippet-emitted-census.test.ts',
+    {
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'packages/**'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-doc-snippet-types.test.ts',
+    {
+      reads: ['README.md', 'apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md', 'apps/console/docs/deployment.md', 'apps/console/docs/error-tracking.md', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'packages/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: the root-document literals are fixture INPUTS to a pure path classifier.
+  [
+    'scripts/__tests__/check-governed-queue-guard.test.ts',
+    {
+      reads: [],
+      notRead: ['AGENTS.md', 'CLAUDE.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-handler-key-read-sites.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: opens no markdown; the `.md` literal is a message string.
+  [
+    'scripts/__tests__/check-i18n-dead-keys.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-installed-spec-pin-claims.test.ts',
+    {
+      reads: ['.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
+      notRead: ['.changeset/8897-installed-spec-pin-claims.md', 'CHANGELOG.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/check-links-workflow.test.ts',
+    {
+      reads: ['content/docs/**', 'docs/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: fixture trees only, and the suite asserts markdown is OUT of the ESLint walk.
+  [
+    'scripts/__tests__/check-lint-rule-coverage.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: the files ESLint walks — the suite asserts `.md` is OUT of that walk',
+    },
+  ],
+  [
+    'scripts/__tests__/check-new-cross-file-line-citations.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: reads workflow YAML and sources, no markdown.
+  [
+    'scripts/__tests__/check-pre-install-import-graph.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-prompt-component-keys.test.ts',
+    {
+      reads: ['.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  // Reads no markdown: the `README.md` literals are packed-file names inside a manifest fixture.
+  [
+    'scripts/__tests__/check-published-dist-tooling.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-readme-exports.test.ts',
+    {
+      reads: ['packages/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-shell-escape-residue.test.ts',
+    {
+      reads: ['.claude/skills/**', 'AGENTS.md', 'CLAUDE.md', 'content/docs/**', 'skills/objectui/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-skill-eval-tokens.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md', 'skills/objectui/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-skill-examples.test.ts',
+    {
+      reads: ['.claude/skills/**', 'content/docs/guide/ci-cd-pipeline.md', 'skills/objectui/**'],
+      notRead: ['README.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/check-skills-paths.test.ts',
+    {
+      reads: ['.claude/skills/**', 'skills/objectui/**'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/ci-cd-pipeline-doc.test.ts',
+    {
+      reads: ['.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'CONTRIBUTING.md', 'content/docs/guide/ci-cd-pipeline.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/component-node-vocabulary-7434.test.ts',
+    {
+      reads: ['content/docs/**', 'packages/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: its `README.md` literal is sample input to a pure path-matcher
+  // assertion -- the suite is a census OF corpus walkers and keeps its own inputs literal.
+  [
+    'scripts/__tests__/coverage-red-cause-census.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
+    },
+  ],
+  // Reads no markdown: every document literal is fixture text handed to pure functions.
+  [
+    'scripts/__tests__/cross-file-line-citation-census.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md', 'ROADMAP.md', 'packages/core/README.md', 'packages/plugin-form/CHANGELOG.md', 'packages/plugin-form/README.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/doc-version-claims.test.ts',
+    {
+      reads: ['content/docs/**', 'packages/**', 'skills/objectui/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: reads workspace manifests and turbo inputs; the `README.md` literal is a declared-input fixture.
+  [
+    'scripts/__tests__/docs-build-trigger.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
+      walker: 'not-markdown: workspace `package.json` manifests and turbo input globs',
+    },
+  ],
+  // `./*` for the same reason as `check-doc-links.test.ts` above, reached by a
+  // different route: this one takes its population from `trackedFiles()` in
+  // `dollar-dialect-alias-census.mjs`, which is `git ls-files -z` -- EVERY
+  // tracked path, root documents included, with no list anywhere to update.
+  [
+    'scripts/__tests__/dollar-dialect-alias-census.test.ts',
+    {
+      reads: ['./*', '.changeset/**', '.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
+    },
+  ],
+  [
+    'scripts/__tests__/extract-mdx-demos.test.ts',
+    {
+      reads: ['content/docs/**'],
+      walker: 'markdown-tree',
+    },
+  ],
+  // Reads no markdown: the `README.md` literal names a repo-wide labeler rule, not a file it opens.
+  [
+    'scripts/__tests__/labeler-package-coverage.test.ts',
+    {
+      reads: [],
+      notRead: ['README.md'],
+      walker: 'not-markdown: package directories under `packages/`',
+    },
+  ],
+  [
+    'scripts/__tests__/layered-read-declared-path-4016.test.ts',
+    {
+      reads: ['skills/objectui/**'],
+      walker: 'not-markdown: package `src/` directories',
+    },
+  ],
+  [
+    'scripts/__tests__/lint-workflow.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // objectui#9194. Names one page -- the one that legitimately teaches nested
+  // fences -- to pin that a block quoted inside a longer run stays that run's
+  // body. The whole scan surface is reached too, but through the two gates' own
+  // scanners rather than a walk of its own, which is why no `walker` is declared.
+  // Its odd-marker control is written into a temp directory and is ⛔ not a
+  // document in this tree.
+  [
+    'scripts/__tests__/markdown-fence-scan.test.ts',
+    { reads: ['content/docs/plugins/plugin-markdown.mdx'] },
+  ],
+  // Reads no markdown: drives the decision step against fixture repositories it
+  // writes in a temp directory, so every document literal here is a fixture path
+  // rather than a file in this tree -- `AGENTS.md` included, which is the
+  // objectui#9096 firing fixture and is WRITTEN by the test, never read from the
+  // repository root.
+  [
+    'scripts/__tests__/markdown-test-inputs.test.ts',
+    {
+      reads: [],
+      notRead: ['AGENTS.md', 'README.md', 'ROADMAP.md', 'packages/app-shell/README.md', 'packages/plugin-dashboard/README.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/merge-queue-reporting.test.ts',
+    {
+      reads: ['content/docs/guide/ci-cd-pipeline.md'],
+      walker: 'not-markdown: `.github/workflows/*.yml`',
+    },
+  ],
+  [
+    'scripts/__tests__/quick-reference-commands-4149.test.ts',
+    {
+      reads: ['QUICK_REFERENCE.md'],
+      walker: 'not-markdown: directory listings that test whether a documented path exists',
+    },
+  ],
+  [
+    'scripts/__tests__/quick-reference-current-release-4143.test.ts',
+    {
+      reads: ['QUICK_REFERENCE.md'],
+      walker: 'not-markdown: package and app directories',
+    },
+  ],
+  [
+    'scripts/__tests__/sync-quick-reference-release.test.ts',
+    {
+      reads: ['QUICK_REFERENCE.md'],
+    },
+  ],
+  [
+    'scripts/__tests__/unconsumed-widget-option-claim-6186.test.ts',
+    {
+      reads: ['content/docs/plugins/plugin-dashboard.mdx'],
+    },
+  ],
 ]);
 
 /** Is `rel` a markdown document at all? The only extensions this tree publishes. */
 export const isMarkdown = (rel) => /\.mdx?$/.test(rel);
 
 /**
+ * Is this entry a CLASS of documents rather than one document?
+ *
+ * Two spellings, and what separates them is DEPTH:
+ *
+ *   `dir/**`   every markdown document under `dir`, at any depth.
+ *   `dir/*`    every markdown document directly IN `dir`, and none deeper.
+ *
+ * Neither names a file, so neither is something `missingDocuments()` can look
+ * for on disk -- that is the one thing this predicate is for.
+ */
+export const isClassEntry = (entry) => entry.endsWith('/**') || entry.endsWith('/*');
+
+/**
  * Does one repo-relative path match one ledger entry?
  *
  * A `…/**` entry matches every markdown document under that directory, at any
- * depth. Anything else is one exact path -- deliberately not a glob, so a new
- * document beside a declared one does not inherit its declaration by accident.
+ * depth. A `…/*` entry matches only the documents directly in it. Anything else
+ * is one exact path -- deliberately not a glob, so a new document beside a
+ * declared one does not inherit its declaration by accident.
+ *
+ * ## The repository root is spelled `./*` (objectui#9142)
+ *
+ * A document inside a declared tree inherits that tree's declaration the moment
+ * it lands -- that is what a `…/**` entry buys, and it is why a new page under
+ * `content/docs/` is on the trigger before anyone has thought about it. The
+ * repository ROOT had no tree spelling at all, so every root document was
+ * declared per file, and a root document nobody had declared yet was not on the
+ * trigger: a pull request whose only change was "add `SECURITY.md`" skipped
+ * `Test (shard N/4)`.
+ *
+ * ⇒ the test that does not run is exactly the one written to notice. Measured
+ * on `f080538813`, before this spelling existed:
+ *
+ *     LIT CONTROL  planted undeclared root doc  SECURITY.md
+ *        Test (shard N/4) step : should_run=false   matched: (none)
+ *
+ * and `scripts/__tests__/check-doc-links.test.ts` describes itself as scanning
+ * "EVERY tracked root-level markdown file -- the invariant that replaces the
+ * list", failing when a root document has no `SCAN_ROOTS` row. An invariant
+ * that replaces a list is silent at the one moment the list would have been
+ * updated. The merge queue catches it and dequeues the pull request, which is
+ * the objectui#8857 shape and the objectui#8857 cost.
+ *
+ * ⛔ `./*` is NOT a step toward "every markdown file". The depth-1 spelling is
+ * the narrowest thing that gives the root what every declared tree already has;
+ * it matches `SECURITY.md` and it does not match `docs/NOTES.md`. The resolved
+ * input list is still a resolved input list -- the fence objectui#9096 carried
+ * ("a resolved input list, ⛔ not a glob") governs this file and is intact.
  */
 export function matchesEntry(rel, entry) {
   if (entry.endsWith('/**')) {
     const prefix = `${entry.slice(0, -3)}/`;
     return rel.startsWith(prefix) && isMarkdown(rel);
+  }
+  if (entry.endsWith('/*')) {
+    // `./*` is the repository root, whose prefix is the empty string; every
+    // other `dir/*` carries its own trailing separator.
+    const dir = entry.slice(0, -2);
+    const prefix = dir === '.' ? '' : `${dir}/`;
+    if (!isMarkdown(rel) || !rel.startsWith(prefix)) return false;
+    return !rel.slice(prefix.length).includes('/');
   }
   return rel === entry;
 }
@@ -438,9 +945,24 @@ export function readersByEntry() {
  * The subset of `paths` that this repository has recorded as a test's input.
  *
  * Paths are taken as repo-relative, which is what `git diff --name-only` emits.
+ *
+ * ## Every matching entry, not the first one (objectui#9142)
+ *
+ * Entries OVERLAP, and they always have: `packages/app-shell/README.md` is one
+ * test's declared read and is also inside `packages/**`, which is another's.
+ * Reporting only the first match made the readers list an artefact of sort
+ * order -- that README reported eight readers and lost the ninth, the one whose
+ * entry names the file exactly. The root class makes the same overlap
+ * structural rather than incidental, so the union is taken here: `entries` is
+ * every rule that covers the document and `readers` is every test behind them.
+ *
+ * `should_run` does not depend on this -- one match is enough to run everything
+ * and the caller in `ci.yml` reads only the path. The readers do: they are what
+ * the log line names when it says which test is waiting on this document.
  */
 export function markdownTestInputsAmong(paths) {
   const entries = declaredEntries();
+  const readers = readersByEntry();
   const out = [];
   for (const raw of paths) {
     // `git diff --name-only` wraps a path in double quotes when it holds a byte
@@ -449,8 +971,11 @@ export function markdownTestInputsAmong(paths) {
     const unquoted = raw.trim().replace(/^"(.*)"$/, '$1');
     const rel = unquoted.replace(/^\.\//, '');
     if (!rel || !isMarkdown(rel)) continue;
-    const hit = entries.find((entry) => matchesEntry(rel, entry));
-    if (hit) out.push({ path: rel, entry: hit, readers: readersByEntry().get(hit) ?? [] });
+    const hits = entries.filter((entry) => matchesEntry(rel, entry));
+    if (!hits.length) continue;
+    const tests = new Set();
+    for (const entry of hits) for (const test of readers.get(entry) ?? []) tests.add(test);
+    out.push({ path: rel, entries: hits, readers: [...tests].sort() });
   }
   return out;
 }
@@ -614,10 +1139,17 @@ export function auditTree(candidates) {
   return findings;
 }
 
-/** Ledger entries naming one document that is not in the tree. */
+/**
+ * Ledger entries naming one document that is not in the tree.
+ *
+ * A class entry (`…/**`, `…/*`) is skipped: it names a rule, not a file, so
+ * there is nothing to look for. objectui#9142's triage named the trap this
+ * avoids -- `missingDocuments()` reds on a declared path that is not in the
+ * tree, so a root class spelled as if it were a path would red every run.
+ */
 export function missingDocuments({ root = REPO_ROOT } = {}) {
   return declaredEntries().filter(
-    (entry) => !entry.endsWith('/**') && !existsSync(path.join(root, entry)),
+    (entry) => !isClassEntry(entry) && !existsSync(path.join(root, entry)),
   );
 }
 

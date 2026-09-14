@@ -53,6 +53,11 @@ import { describe, it, expect } from 'vitest';
 import type { ComponentInput, ComponentInputControlType } from '../base.js';
 import type { WidgetInput } from '../widget.js';
 import { ComponentInputControlTypeSchema } from '../zod/base.zod.js';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const WIDGET_SRC = readFileSync(
   fileURLToPath(new URL('../widget.ts', import.meta.url)),
@@ -70,7 +75,7 @@ const ARMS = ComponentInputControlTypeSchema.options;
  * very convergence it is meant to protect.
  */
 function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  return mask(src);
 }
 
 /** The body of `export interface <name> { … }`, comments removed. */

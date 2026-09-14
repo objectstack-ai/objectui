@@ -56,15 +56,48 @@ A fully functional, schema-driven Kanban board component for Object UI with drag
 
 ### With Event Handling
 
+⛔ **`onCardMove` is not a document key, and never was.** JSON has no function
+value, so it cannot be authored — not as a function, and not as the string
+spelling this page used to teach:
+
 ```json
 {
   "type": "object-kanban",
-  "groupBy": "status",
-  "data": [],
-  "columns": [...],
   "onCardMove": "(event) => { console.log('Card moved:', event); }"
 }
 ```
+
+That document was **accepted and silently dropped** until objectui#9342: the
+`object-kanban` validator did not declare the key, `BaseSchema` is
+`.passthrough()`, and `ObjectKanban` substituted its own mover on the schema it
+hands the board — so an author who wrote it got a board that never called it and
+no error saying why. It is now **refused by name**, with the remedy in the
+message.
+
+The board's mover is a **React prop**, supplied by the host that owns the write:
+
+```tsx
+import { KanbanRenderer } from '@object-ui/plugin-kanban';
+
+const board = { type: 'object-kanban', groupBy: 'status', data: [], columns };
+
+// A sibling of `schema`, never a member of it (objectui#9342).
+const onCardMove = (
+  cardId: string,
+  fromColumnId: string,
+  toColumnId: string,
+  newIndex: number,
+) => {
+  console.log(`Card ${cardId} moved from ${fromColumnId} to ${toColumnId} at ${newIndex}`);
+};
+
+<KanbanRenderer schema={board} onCardMove={onCardMove} />;
+```
+
+⚠️ On an **object-bound** board (`<ObjectKanban>`, the `object-kanban` registry
+key) the host does **not** supply it: `ObjectKanban` owns the mover, because the
+same function owns the optimistic write, the required-fields dialog and the
+rollback. The prop above is for a host that mounts `KanbanRenderer` directly.
 
 ## Schema Reference
 
@@ -75,7 +108,7 @@ A fully functional, schema-driven Kanban board component for Object UI with drag
 | `type` | `"object-kanban"` | Yes | Component type identifier. ⚠️ The bare `kanban` spelling was RETIRED in objectui#8802 (ruled 2026-09-09) and is refused by name. |
 | `columns` | `KanbanColumn[]` | Yes | Array of column configurations |
 | `className` | `string` | No | Custom CSS classes |
-| `onCardMove` | `function` | No | Callback when a card is moved |
+| `onCardMove` | `never` | — | ⛔ RETIRED (objectui#9342) — refused by name. Not a document key: the mover is a React prop on `KanbanRenderer`, or `ObjectKanban`'s own on an object-bound board. See "With Event Handling" above. |
 
 ### KanbanColumn
 

@@ -129,7 +129,32 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **40 entries** in `KnownDrift`, **61 keys** across them — 41 / 64 until
+ *   - **41 entries** in `KnownDrift`, **65 keys** across them — 41 / 63 until
+ *     objectui#7804's `plugin-detail` slice (batch #69) DECLARED `onNavigate`
+ *     and `onAddComment` on `crud.zod.ts#DetailSchema`, an existing entry (so
+ *     the entry count did not move). ⭐ The first keys this ledger has gained
+ *     from a pair that declared them on NEITHER face: the TypeScript side typed
+ *     them `any` through `BaseSchema`'s index signature and the mirror kept
+ *     them through `.passthrough()`, while the registered renderer read and RAN
+ *     them — so the pair was not "in parity", it was mutually silent, and
+ *     declaring the callable twin against the mirror's named refusal is what
+ *     makes the drift visible. Growth by REPAIR, in a ledger whose entries
+ *     usually shrink by it. ⚠️ Two slices of objectui#7804 land in this bullet
+ *     back to back and both are real, and neither is a copy-paste of the other:
+ *     the `plugin-detail` one here, the `plugin-kanban` one directly below.
+ *     It was 40 / 61 until
+ *     objectui#7804's `plugin-kanban` slice DECLARED
+ *     `objectql.zod.ts#ObjectKanbanSchema`'s
+ *     `onCardClick` and `onQuickAdd` (director seat, decision batch #69), a new
+ *     entry carrying TWO of the three keys the retirement below stranded on the
+ *     surviving face. ⭐ The first entry this ledger has gained from an arm
+ *     RETIREMENT leaving reads behind on a sibling: the keys did not move and
+ *     no face drifted — the face that used to declare them stopped existing,
+ *     and a different one picked up the obligation. ⚠️ TWO of the three, not
+ *     three: `onCardMove` is measured `'retired'` on this face and
+ *     `check:handler-key-reads` refuses that spelling while the renderer still
+ *     reads the key, so neither face declares it and it is not drift at all.
+ *     It was 40 / 61 until then, because
  *     objectui#8802 RETIRED the bare `kanban` node type key (maintainer ruling
  *     2026-09-09) and the `complex.zod.ts#KanbanSchema` pair with it, taking that
  *     entry's three RUNTIME SLOT keys (`onCardMove` / `onCardClick` /
@@ -246,8 +271,8 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **22 entries** in `WiderThanDeclared`, **35 keys** across them, and **45 arms**
- *     under those keys — split **6** SCHEMA-NODE, **29** CONCRETE, **0** MIXED, **10** unions.
+ *   - **20 entries** in `WiderThanDeclared`, **30 keys** across them, and **37 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **25** CONCRETE, **0** MIXED, **7** unions.
  *     ⭐ objectui#8517 taught the operator to tell an OPEN record — `z.record(z.string(), V)`
  *     — from a partial record over a finite key union, and NOT ONE figure on this line moved
  *     with it. ⛔ Do not read that as the clause measuring nothing. It was built on two live
@@ -365,7 +390,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 40 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 41 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -1505,18 +1530,30 @@ interface KnownDrift {
    * refused BY NAME by `RetiredKanbanNodeSchema`, pinned in
    * `./bare-kanban-node-key-retired-8802.test.ts`.
    *
-   * ⚠️ Recorded rather than repaired: `KanbanRenderer` still forwards all three,
-   * and the SURVIVING `objectql.zod.ts#ObjectKanbanSchema` pair declares none of
-   * them, so they are read-but-undeclared on the surviving face. Declaring them
-   * there would WIDEN a published accept set, which is a ruling and not a
-   * repair — reported on the retirement PR.
+   * ⚠️ Recorded rather than repaired AT THE TIME: `KanbanRenderer` forwarded
+   * all three and the SURVIVING `objectql.zod.ts#ObjectKanbanSchema` pair
+   * declared none, so they were read-but-undeclared on the surviving face.
+   * Both halves of that have since landed — objectui#7804 declared the two
+   * live slots, and objectui#9342 moved the `onCardMove` READ to an explicit
+   * React prop and tombstoned the key on both faces.
    */
   /**
    * RUNTIME SLOT (objectui#7344): `register('detail', DetailView)` — `DetailView`'s
    * `handleBack` calls `onBack()` when set. The mirror was `z.any()` (wider than
    * the declared callable, objectui#7069's direction); it now refuses by name.
+   *
+   * `onNavigate` and `onAddComment` joined with objectui#7804 (batch #69), and
+   * they drift for the SAME reason `onBack` does — a callable twin against a
+   * named refusal — but they reach that state from the opposite side. `onBack`
+   * was declared on both faces and the mirror was too WIDE. These two were
+   * declared on NEITHER: the TypeScript face typed them `any` through
+   * `BaseSchema`'s index signature and the mirror kept them through
+   * `.passthrough()`, while `DetailView` read and ran them. ⇒ this entry
+   * GREW by a repair, which is the direction this ledger's drift entries
+   * normally shrink in; the growth is the declaration arriving, not a
+   * regression.
    */
-  'crud.zod.ts#DetailSchema': 'onBack';
+  'crud.zod.ts#DetailSchema': 'onBack' | 'onNavigate' | 'onAddComment';
   /**
    * `rowActions` was the FIFTH key here until objectui#6940 settled the ruling
    * this entry was explicitly waiting on. It read: DISJOINT — TS declares
@@ -1627,6 +1664,37 @@ interface KnownDrift {
    * pre-#6124 state of that file, not a rule for new mirrors.
    */
   'objectql.zod.ts#ObjectDataTableSchema': 'onRowClick';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×2 — the
+   * SECOND handler entry on this mirror, and the first anywhere in this ledger
+   * that was born from an ARM RETIREMENT rather than from a mirror or a
+   * declaration moving. The three keys `KanbanRenderer` forwards off `schema.*`
+   * sat on the `complex.zod.ts#KanbanSchema` entry until objectui#8802 retired
+   * the bare `kanban` node type key; the reads stayed, on the surviving
+   * `object-kanban` face, declared by neither side.
+   *
+   * The two here are declared because their function value REACHES the board on
+   * that face, measured one channel at a time and NOT shared across the prefix
+   * (`plugin-kanban`'s `__tests__/handlerKeyDispositionsMeasured-7804.test.tsx`):
+   * `onQuickAdd` arrives at the board implementation BY IDENTITY through
+   * `ObjectKanban`'s schema spread, and `onCardClick` — substituted on that
+   * spread — arrives instead as the React PROP `ObjectKanbanComponentProps`
+   * declares, which `ObjectKanban`'s own wrapper CALLS.
+   *
+   * ⚠️ The THIRD key, `onCardMove`, is still NOT here, and the reason CHANGED
+   * with objectui#9342 — it is not drift either way. It used to be absent
+   * because NEITHER face declared it (`undefined` meeting `undefined`); since
+   * objectui#9342 BOTH faces declare it as a tombstone — `?: never` on the
+   * TypeScript twin, `handlerKeyRefusal(…, 'retired', …)` on this mirror — and
+   * a matched pair of tombstones is the shape `complex.zod.ts#CarouselSchema`
+   * already carries for `onSlideChange`, which is likewise not in this ledger.
+   * Its `'retired'` reading is objectui#7804's measurement (an authored value
+   * reaches nothing: `ObjectKanban` substitutes its own mover and declares no
+   * `onCardMove` React prop); what was missing was the precondition, and
+   * objectui#9342 supplied it by moving `KanbanRenderer`'s read onto an
+   * explicit React prop so `check:handler-key-reads` would accept a tombstone.
+   */
+  'objectql.zod.ts#ObjectKanbanSchema': 'onCardClick' | 'onQuickAdd';
   /**
    * RUNTIME SLOT (objectui#6124): the `alert-dialog` renderer spreads leftover props
    * onto the Radix `AlertDialog` root (`onOpenChange`). `onAction` joined with
@@ -2418,17 +2486,18 @@ export type assertionLedgerHalvesAreDisjoint = Expect< Equal< DoubleFiledKey, ne
  */
 interface WiderThanDeclared {
   /**
-   * CONCRETE `label` + SCHEMA-NODE `areas`. (`actions` left under objectui#7760: its
-   * element is a schema-node slot, and once `SchemaNodeSchema` carried its input face
-   * the key measured clean.)
-
-   * `label` is the INLINE-LOCALE class: `BaseSchema`'s mirror spells the key
-   * `I18nLabelSchema` — a plain string OR an inline locale map — while this
-   * declaration restates `label?: string` and so refuses the map its own mirror
-   * accepts. The narrowing lives on the DECLARED side, which is why the forward
-   * comparison reads the pair as clean.
+   * SCHEMA-NODE `areas`. (`actions` left under objectui#7760: its element is a
+   * schema-node slot, and once `SchemaNodeSchema` carried its input face the key
+   * measured clean.)
+   *
+   * `label` LEFT under objectui#9092, the INLINE-LOCALE class: the mirror spelled
+   * the key `I18nLabelSchema` — a plain string OR an inline locale map — while the
+   * declaration restated `label?: string` and refused the map its own mirror
+   * accepted. The declaration now states `string | I18nLabel`, the form
+   * objectui#4580's revised Q1 ruling (option A) put on `BaseSchema.label`, so the
+   * pair measures clean and this entry would be STALE if it stayed.
    */
-  'app.zod.ts#AppComponentSchema': 'label' | 'areas';
+  'app.zod.ts#AppComponentSchema': 'areas';
   /**
    * CONCRETE, and DISJOINT rather than strictly wider — the pair also carries a
    * `KnownDrift` entry for the same key, one of the measured cases where each face
@@ -2503,12 +2572,21 @@ interface WiderThanDeclared {
    */
   'layout.zod.ts#ContainerSchema': 'maxWidth';
   /**
-   * MIXED: `aria` carries the inline-locale widening one level down; `slots` is
-   * SCHEMA-NODE. (`regions` left under objectui#7760 — its element's content is a
-   * schema-node list, so its reading WAS the annotation. `slots` did not move, so the
-   * unconstrained position on ITS path is not one of the ten consts that card filled.)
+   * SCHEMA-NODE `slots`. (`regions` left under objectui#7760 — its element's content
+   * is a schema-node list, so its reading WAS the annotation. `slots` did not move, so
+   * the unconstrained position on ITS path is not one of the ten consts that card
+   * filled.)
+   *
+   * `aria` LEFT under objectui#9092: it carried the inline-locale widening one level
+   * down, on `ariaLabel`. The mirror receives the spec's own `AriaPropsSchema` BY
+   * REFERENCE through `SpecPageFields` (the spec's `PageSchema` declares `aria` at its
+   * top level), and that schema spells `ariaLabel` as `z.union([z.string(),
+   * InlineLocaleMapSchema])`; the declaration restated the string arm alone. It now
+   * states `string | I18nLabel` — the NESTED slot's vocabulary, not the FLAT
+   * `BaseSchema.ariaLabel`'s KEYED one, which objectui#4580 Q2-B deliberately left
+   * narrow.
    */
-  'layout.zod.ts#PageNodeSchema': 'aria' | 'slots';
+  'layout.zod.ts#PageNodeSchema': 'slots';
   /**
    * CONCRETE. `variant` is DISJOINT — one variant spelling on each side the other
    * refuses; also in `KnownDrift`. `logo` ENTERED under objectui#7760: the mirror is
@@ -2521,14 +2599,6 @@ interface WiderThanDeclared {
    * deep.
    */
   'navigation.zod.ts#HeaderBarSchema': 'logo' | 'variant';
-  /** CONCRETE, INLINE-LOCALE: both keys are `I18nLabelSchema` on the mirror and restated as plain strings on this declaration. */
-  'objectql.zod.ts#ObjectGridSchema': 'label' | 'description';
-  /**
-   * SCHEMA-NODE. (`form` left under objectui#7760; `table` did not. Both are inline
-   * `z.lazy` slots with no exported const — `UNNAMED_LAZY_SLOTS` below records them —
-   * and neither carries an annotation of its own, so what moved is what they REACH.)
-   */
-  'objectql.zod.ts#ObjectViewSchema': 'table';
   /**
    * CONCRETE. ENTERED under objectui#7760, unmeasurable before it: the mirror is
    * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` and the declaration states
@@ -2658,7 +2728,6 @@ type WiderArmClass = 'SCHEMA-NODE' | 'CONCRETE';
 const WIDER_ARM_ROW_SEPARATOR = '::';
 
 const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
-  'app.zod.ts#AppComponentSchema::label': ['CONCRETE', 'CONCRETE'],
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
   'complex.zod.ts#ChatbotSchema::body': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::header': ['CONCRETE'],
@@ -2681,13 +2750,9 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'form.zod.ts#SliderSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
   'form.zod.ts#SliderSchema::value': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#ContainerSchema::maxWidth': ['CONCRETE', 'CONCRETE'],
-  'layout.zod.ts#PageNodeSchema::aria': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'navigation.zod.ts#HeaderBarSchema::logo': ['CONCRETE', 'CONCRETE'],
   'navigation.zod.ts#HeaderBarSchema::variant': ['CONCRETE'],
-  'objectql.zod.ts#ObjectGridSchema::label': ['CONCRETE', 'CONCRETE'],
-  'objectql.zod.ts#ObjectGridSchema::description': ['CONCRETE', 'CONCRETE'],
-  'objectql.zod.ts#ObjectViewSchema::table': ['SCHEMA-NODE'],
   'overlay.zod.ts#TooltipSchema::content': ['CONCRETE', 'CONCRETE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
   'views.zod.ts#DetailViewSchema::fields': ['SCHEMA-NODE'],

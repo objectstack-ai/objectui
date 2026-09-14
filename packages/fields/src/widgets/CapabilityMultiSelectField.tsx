@@ -152,8 +152,11 @@ export function CapabilityMultiSelectField({
 }: FieldWidgetComponentProps<string | string[]>) {
   const { t } = useFieldTranslation();
   const ctx = React.useContext(SchemaRendererContext);
+  // The context leg needs no cast since objectui#7912 typed the seam; the
+  // `props` leg still does, because `FieldWidgetProps.dataSource` is declared
+  // `unknown` in this package.
   const dataSource: DataSource | null =
-    (props.dataSource as any) ?? (ctx as any)?.dataSource ?? null;
+    (props.dataSource as DataSource | null | undefined) ?? ctx?.dataSource ?? null;
   const disabled = props.disabled;
 
   const [caps, setCaps] = React.useState<Capability[] | null>(null);

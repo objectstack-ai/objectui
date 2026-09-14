@@ -7,7 +7,7 @@ callers to remove it (objectui#4622).
 
 No executable line changes — but the artifact is **not** unchanged, and that is worth
 stating plainly rather than rounding to "comment-only". This package builds with plain
-`tsc`, and `tsconfig.base.json` sets `"removeComments": false` deliberately, so the JSDoc
+`tsc`, and nothing in its config chain sets `"removeComments"`, so the default `false` holds and the JSDoc
 is emitted into `dist/schema-input.js` as well as `dist/schema-input.d.ts` — it is both
 what an editor shows on hover at every call site and bytes that ship.
 

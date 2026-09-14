@@ -54,6 +54,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 /** Walk up to the workspace root, so the type source is found by repo layout. */
 function repoRoot(): string {
@@ -90,10 +95,7 @@ function interfaceKeys(file: string, name: string): Map<string, Key> {
     else if (src[i] === '}') depth -= 1;
   }
 
-  const body = src
-    .slice(start, i - 1)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '');
+  const body = mask(src.slice(start, i - 1));
 
   const keys = new Map<string, Key>();
   let depth = 0;

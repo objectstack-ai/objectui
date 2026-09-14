@@ -34,10 +34,13 @@ import {
   PLACEHOLDER_NAMESPACE,
   PROMPT_DIR,
   analyze,
+  lettered,
+  letterRunFindings,
   partitionRegistry,
   placeholderSites,
   promptFiles,
   scanPromptKeys,
+  scanPromptSections,
 } from '../check-prompt-component-keys.mjs';
 import { INDIRECT_REGISTRATIONS, deriveRegistryKeys } from '../check-doc-component-types.mjs';
 
@@ -593,5 +596,218 @@ describe('the prompt surface this gate now reads', () => {
     for (const tombstone of ['user:profile', 'ai:chat_window', 'view:kanban']) {
       expect(prompt, `${tombstone} tombstone must still be written down`).toContain(`\`${tombstone}\``);
     }
+  });
+});
+
+// ── 8. the letter run, scoped to its section (objectui#9145) ─────────────────
+
+describe('a `## N.` section\'s `### X.` headings must run A, B, C, … without a gap', () => {
+  /** The minimum surface the earlier guards need, plus the headings under test. */
+  const runLetters = (prompt: string[]) =>
+    withTree((write) => {
+      write(PLACEHOLDER_SITE, placeholderModule(['view:kanban']));
+      write('packages/plugin-grid/src/index.tsx', "ComponentRegistry.register('grid', G, { namespace: 'view' });");
+      write(`${PROMPT_DIR}/component.prompt.md`, ['*   **Keys:** `view:grid`, etc.', '', ...prompt].join('\n'));
+    }, analyzeFixture);
+
+  it('reports the gap — the defect this card was filed for, reproduced', () => {
+    // `A B D` is the shape `component.prompt.md` §1 carried from its first
+    // commit: seven sections lettered A B D E F G H, no `### C.`.
+    const { findings } = runLetters(['## 1. Component Categories', '', '### A. One', '', '### B. Two', '', '### D. Four']);
+
+    expect(findings.map((f) => [f.key, f.reason])).toEqual([['### D.', 'letter-run-gap']]);
+    expect(findings[0].text).toContain('expected `### C.`');
+    expect(findings[0].text).toContain('heading 3 of 3');
+  });
+
+  it('reports only the FIRST mismatch in a run, not every heading after the gap', () => {
+    // A gap at C makes D, E and F wrong too. Listing all of them buries the one
+    // heading an author actually has to decide about.
+    const { findings } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '### B. Two',
+      '',
+      '### D. Four',
+      '',
+      '### E. Five',
+      '',
+      '### F. Six',
+    ]);
+
+    expect(findings.map((f) => f.key)).toEqual(['### D.']);
+  });
+
+  it('scopes the run to its section, so a second run restarting at A is not a gap', () => {
+    // The reason this is not a file-wide sequence check: `component.prompt.md`
+    // carries a second run under §2 and `engine.prompt.md` carries five, and a
+    // file-wide check would red on every correct file on this surface.
+    const { findings, counters } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '### B. Two',
+      '',
+      '## 2. API Reference',
+      '',
+      '### A. Field Widget Implementation',
+      '',
+      '### B. Dashboard Widget Implementation',
+    ]);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterRuns).toBe(2);
+    expect(counters.letterHeadings).toBe(4);
+  });
+
+  it('does not read a heading inside a fenced code block', () => {
+    const { findings, counters } = runLetters([
+      '## 1. Component Categories',
+      '',
+      '### A. One',
+      '',
+      '```md',
+      '### D. An EXAMPLE of a heading, not a heading',
+      '```',
+      '',
+      '### B. Two',
+    ]);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterHeadings).toBe(2);
+  });
+
+  it('refuses to pass when every section has lost its letter headings', () => {
+    // The collapse this guard exists for: the inventories are reformatted away
+    // and a run that reads nothing reports a pass it did not earn.
+    expect(() => runLetters(['## 1. Component Categories', '', 'Prose, and no headings at all.'])).toThrow(
+      /carry no `### X\.` heading/,
+    );
+  });
+
+  it('says nothing about a surface that has no `## N.` sections at all', () => {
+    // A run only exists inside a section, so "no sections" is not a collapsed
+    // inventory — it is a document this pin makes no claim about. Every fixture
+    // in the sections above is that shape, which is why they must stay green.
+    const { findings, counters } = runLetters(['Just a Keys bullet and nothing else.']);
+
+    expect(findings).toEqual([]);
+    expect(counters.letterRuns).toBe(0);
+  });
+});
+
+// ── 9. the live tree, under the letter-run pin ───────────────────────────────
+
+describe('the letter runs on the live prompt surface', () => {
+  const sections = () => scanPromptSections(repoRoot) as {
+    file: string;
+    section: string;
+    entries: { letter: string; line: number; text: string }[];
+  }[];
+
+  it('every run in every prompt file is contiguous from A', () => {
+    expect(letterRunFindings(lettered(sections()))).toEqual([]);
+  });
+
+  it('pins §1 of `component.prompt.md` to the seven categories, lettered A–G', () => {
+    // The corrected state. objectui#9145: this run read `A B D E F G H` — the
+    // gap was in the file's first commit, not a category that was dropped, so
+    // it is renumbered rather than filled.
+    const one = sections().find(
+      (s) => s.file === `${PROMPT_DIR}/component.prompt.md` && /^1\./.test(s.section),
+    );
+    expect(one, '§1 Component Categories must still be a `## 1.` section').toBeDefined();
+    expect(one!.entries.map((e) => e.letter)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
+  });
+
+  it('floors the surface, so a reformat cannot quietly empty it', () => {
+    const runs = lettered(sections()) as { entries: unknown[] }[];
+    expect(runs.length, 'letter runs on the live prompt surface').toBeGreaterThanOrEqual(8);
+    expect(
+      runs.reduce((n: number, run) => n + run.entries.length, 0),
+      'lettered headings on the live prompt surface',
+    ).toBeGreaterThanOrEqual(29);
+  });
+});
+
+/**
+ * objectui#9331 — the fence mask reads a RUN, not "three backticks"
+ *
+ * ## The defect
+ *
+ * This gate's private predicate was `/^\s*(?:```|~~~)/` used as a TOGGLE. It
+ * answers "marker" for a run of any length, so a FOUR-backtick opener flipped
+ * the mask on and the next THREE-backtick line — which CommonMark makes body
+ * text, and which is exactly how a page quotes a fence — flipped it back off.
+ * From there the gate read code as prose and prose as code for the rest of the
+ * file, and reported a clean pass over a region it had mis-paired.
+ *
+ * ## Why these two fixtures and not the live corpus
+ *
+ * The corpus cannot show this: `.github/prompts/**` carries ZERO runs of four
+ * or more backticks (measured on this card's base — 627 lines, 34 marker lines,
+ * no divergence), so the defect is LATENT and the gate's output is byte-identical
+ * before and after the repair. A case built here is the only thing that can fail
+ * before it and pass after it.
+ *
+ * The two wrappers are the two halves of one desynchronisation, and a fix that
+ * addressed only one would still pass the other:
+ *
+ *   EVEN marker count   the quoted bullet becomes VISIBLE — the gate judges an
+ *                       example of a bullet as a bullet (prose read as code).
+ *   ODD marker count    pairing never resynchronises, so the REAL bullet after
+ *                       the wrapper goes invisible (code read as prose). This is
+ *                       the worse half: the gate reports OK over text it never
+ *                       looked at.
+ */
+describe('a fence quoted inside a longer wrapper (objectui#9331)', () => {
+  // ⛔ Fixtures are arrays of string literals, never raw fences in this file. A
+  // backtick run at the start of a line HERE would open a fence in the very
+  // gates this suite drives, and would be swept by greps over this tree.
+  const QUOTED = '*   **Keys:** `quoted-inside-the-wrapper`';
+  const REAL = '*   **Keys:** `view:table`';
+
+  /** Four markers: pairing resynchronises, so the phantom bullet is the symptom. */
+  const EVEN_WRAPPER = ['# Teaching a nested fence', '', '````markdown', '```md', QUOTED, '```', '````', '', REAL, ''];
+
+  /** Three markers: pairing never recovers, so the REAL bullet is swallowed. */
+  const ODD_WRAPPER = ['# Teaching a nested fence', '', '````markdown', '```md', QUOTED, '````', '', REAL, ''];
+
+  const keysIn = (lines: string[]) =>
+    withTree(
+      (write) => write(`${PROMPT_DIR}/component.prompt.md`, lines.join('\n')),
+      (dir) => scanPromptKeys(dir) as { sites: { key: string }[]; bullets: number },
+    );
+
+  it('does not judge a bullet quoted inside the wrapper as a bullet', () => {
+    // Before the repair: ['quoted-inside-the-wrapper', 'view:table'], 2 bullets.
+    const scan = keysIn(EVEN_WRAPPER);
+    expect(scan.sites.map((s) => s.key)).toEqual(['view:table']);
+    expect(scan.bullets).toBe(1);
+  });
+
+  it('still sees the real bullet after an ODD number of markers', () => {
+    // Before the repair: ['quoted-inside-the-wrapper'] — `view:table` sat inside
+    // a fence that never closed, and the gate passed without reading it.
+    const scan = keysIn(ODD_WRAPPER);
+    expect(scan.sites.map((s) => s.key)).toEqual(['view:table']);
+  });
+
+  it('leaves an ordinary three-backtick fence exactly as it was', () => {
+    // The control in the other direction: the shape that already worked must not
+    // have changed, or the two cases above could pass by masking everything.
+    const scan = keysIn(['# Ordinary fence', '', '```md', QUOTED, '```', '', REAL, '']);
+    expect(scan.sites.map((s) => s.key)).toEqual(['view:table']);
+  });
+
+  it('reads a bullet that is not fenced at all — the lit control', () => {
+    // A guard against a mask that simply returns "fenced" for everything: if it
+    // did, every case above would pass while the gate judged nothing.
+    const scan = keysIn(['# No fence here', '', REAL, '']);
+    expect(scan.sites.map((s) => s.key)).toEqual(['view:table']);
+    expect(scan.bullets).toBe(1);
   });
 });

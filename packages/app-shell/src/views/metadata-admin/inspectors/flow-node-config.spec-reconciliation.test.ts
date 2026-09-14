@@ -573,7 +573,7 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
     expect(declaringFields().length, 'the table still declares defaults at all').toBeGreaterThan(5);
   });
 
-  it('every default the spec applies is declared by the form, with the same value', () => {
+  it('every default the spec applies is declared by the form, with the same value, beyond its register rows', () => {
     const mismatches: string[] = [];
     const noField: string[] = [];
     const undeclared: string[] = [];
@@ -610,7 +610,7 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
     ).toEqual(UNDECLARED_REGISTER.map(rowId).sort());
   });
 
-  it('and the form declares no default the spec does not apply', () => {
+  it('and the form declares no default the spec does not apply, beyond its register rows', () => {
     // The other direction, and not symmetric decoration: a `defaultValue` with
     // no spec counterpart is a claim about the contract with nothing behind it,
     // and it is ACTED ON — it resolves a `showWhen` controller, seeds a boolean

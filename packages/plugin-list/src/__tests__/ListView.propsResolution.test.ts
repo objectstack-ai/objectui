@@ -48,8 +48,21 @@ type CallSiteProps = ComponentProps<typeof ListView>;
 // 1. The declared callback survives to the call site with its REAL signature.
 //    Before the fix this was `any`, so a wrong-typed handler — and any prop
 //    typo next to it — passed silently.
+//
+//    ⭐ MOVED BY objectui#9357, and this pin is how that move was noticed. The
+//    second parameter is the modifier payload `useNavigationOverlay`'s
+//    `handleClick` has always invoked this prop with — `ListView` passes the
+//    prop straight into that option — and the declaration used to name only the
+//    record. Note what caught it: `Equal` is exact identity, so it reds on a
+//    widening that `extends` would have waved through in BOTH directions. Note
+//    also WHERE it was caught — `tsc`, never vitest, which erases every line
+//    above `describe`. This package's 77 test files stayed green across the
+//    change.
 type _OnRowClickIsDeclared = Assert<
-  Equal<CallSiteProps['onRowClick'], ((record: Record<string, unknown>) => void) | undefined>
+  Equal<
+    CallSiteProps['onRowClick'],
+    ((record: Record<string, unknown>, event?: any) => void) | undefined
+  >
 >;
 
 // 2. …and that is not vacuously true because the whole thing is `any`.
@@ -122,5 +135,15 @@ describe('objectui#4528 — ListView serves its declared props', () => {
       void record;
     };
     expect(typeof probe).toBe('function');
+
+    // SOURCE COMPATIBILITY, stated where it can be checked rather than only
+    // claimed in a changeset: the one-parameter handler above still satisfies
+    // the widened prop (that is the assignment on the line above, unchanged by
+    // objectui#9357), and so does a handler that reads the payload.
+    const withModifiers: CallSiteProps['onRowClick'] = (record, event) => {
+      void record;
+      void event?.metaKey;
+    };
+    expect(typeof withModifiers).toBe('function');
   });
 });

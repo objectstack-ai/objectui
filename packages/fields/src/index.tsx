@@ -2027,6 +2027,16 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
     />
   );
 
+  // Kept parameterised on `count` even though the only surviving call passes 0
+  // (below): the sentence has to stay true for any count, or a future caller
+  // re-routing it would silently read `1 files`.
+  const countLabel = (count: number) => {
+    const translated = t?.('detail.fileCount', { count });
+    return !translated || translated === 'detail.fileCount'
+      ? `${count} ${count === 1 ? 'file' : 'files'}`
+      : translated;
+  };
+
   if (Array.isArray(value)) {
     // THE DEFECT this card fixed (objectui#9161): this arm rendered the COUNT
     // and nothing else, so a record whose `file` field held a successfully
@@ -2046,13 +2056,7 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
       // — it is English — but it was equally unlocalized, and plural-safe for
       // English only: `ru` has four plural categories and `ar` six, so a
       // two-branch ternary cannot spell either.
-      const count = views.length;
-      const translated = t?.('detail.fileCount', { count });
-      const label =
-        !translated || translated === 'detail.fileCount'
-          ? `${count} ${count === 1 ? 'file' : 'files'}`
-          : translated;
-      return <span className="text-sm text-gray-600">{label}</span>;
+      return <span className="text-sm text-gray-600">{countLabel(views.length)}</span>;
     }
     return (
       <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-0.5">

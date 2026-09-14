@@ -1,7 +1,10 @@
 ---
 '@object-ui/types': minor
 '@object-ui/react': minor
+'@object-ui/core': minor
 '@object-ui/plugin-form': patch
+'@object-ui/data-objectstack': patch
+'@object-ui/plugin-grid': patch
 ---
 
 Narrow the two record-id declarations that were wider than the protocol:
@@ -34,6 +37,28 @@ get, update, delete and the batch operation. A consumer type may not be wider
 than the protocol: a declaration that admits `number` promises callers something
 the wire never carries, and the promise is kept only by an assertion at the far
 end, which is what this card was filed about.
+
+## The consumers the narrowing reached, and what they cost
+
+Narrowing an interface **parameter** never reaches implementors — TypeScript
+compares method parameters bivariantly, so an adapter that still declares
+`id: string | number` keeps satisfying `DataSource`. It reaches **callers**. A
+full local type-check of every workspace type-check program found exactly six,
+in three packages, and each was red because a further declaration one layer in
+was itself wider than the protocol. All three are narrowed here, types only, with
+no runtime change and no coercion added at any call site:
+
+- `TransactionOperation.id` (`@object-ui/core`) is `string`. ⚠️ **Published**:
+  it is re-exported through `@object-ui/core`'s barrel, so this is a breaking
+  narrowing on that package too. Its own sibling `BatchTransactionOperation.id`
+  was already `string`; the two now agree.
+- `UserPreferenceRecord.id` and the `cachedRowId` it feeds
+  (`@object-ui/data-objectstack`) are `string`. Module-local, not published —
+  these rows are read back off the protocol, so the union was a claim the wire
+  never makes.
+- `resolveRecordId`'s return type (`@object-ui/plugin-grid`) is
+  `string | undefined`. Module-local, not published — it annotates `any`-typed
+  row data, so the union was an assertion rather than a measurement.
 
 ## Migration — no `String(...)` at your call sites
 

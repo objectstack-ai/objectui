@@ -4114,7 +4114,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // refresh so the grid reflects persisted values. Throwing on failure is
   // important: DataTable's saveRow/saveBatch keep pending changes when the save
   // promise rejects, so a failed write doesn't silently lose the user's edits.
-  const resolveRecordId = (row: any): string | number | undefined =>
+  // The one place a row's primary key is read for a write. `string`, as
+  // `@objectstack/spec` declares every record door — the union this used to
+  // annotate was a claim about `any`-typed row data, not a measurement of it
+  // (objectui#9333).
+  const resolveRecordId = (row: any): string | undefined =>
     row?._id ?? row?.id;
 
   const defaultRowSave = async (

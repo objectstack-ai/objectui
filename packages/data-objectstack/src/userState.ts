@@ -74,7 +74,13 @@ export interface UserDataAdapter<T> {
 }
 
 interface UserPreferenceRecord {
-  id?: string | number;
+  /**
+   * Row id, as `@objectstack/spec` declares every record door: a `string`
+   * (objectui#9333). These rows are read back off the protocol and handed to
+   * `DataSource.update`, so the union this used to carry was a claim the wire
+   * never makes.
+   */
+  id?: string;
   user_id: string;
   key: string;
   value: unknown;
@@ -102,7 +108,7 @@ export function createObjectStackUserStateAdapter<T = unknown>(
 
   // Cache the row id between load() and save() so we can update in place
   // without re-querying. Reset on every successful load.
-  let cachedRowId: string | number | null = null;
+  let cachedRowId: string | null = null;
 
   // Serializes overlapping save() calls. A fresh adapter is created whenever
   // the data source / user changes (see UserStateBridge), so its cachedRowId

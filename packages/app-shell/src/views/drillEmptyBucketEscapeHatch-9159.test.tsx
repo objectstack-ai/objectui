@@ -132,7 +132,13 @@ describe('the drill escape hatch and the empty bucket (objectui#9159)', () => {
     // pins the CONTRACT (the param key and its value) and not URLSearchParams'
     // encoding of square brackets.
     expect(decodeURIComponent(search)).toBe('?filter[owner][null]=true');
-    expect(NULL_FILTER).toEqual({ param: 'null', flag: 'true', op: 'is_null', key: '$null' });
+    expect(NULL_FILTER).toEqual({
+      param: 'null',
+      flag: 'true',
+      op: 'is_null',
+      key: '$null',
+      labelKey: 'filterBuilder.operators.isNull',
+    });
   });
 
   it('the chip the list renders names the condition instead of showing a bare `true`', () => {
@@ -144,14 +150,18 @@ describe('the drill escape hatch and the empty bucket (objectui#9159)', () => {
     const { search } = drillTo('opportunity', filter);
     const chips = groupFilterChips(destinationScope(search));
 
+    // The chip grouper renders anything that is not a range as `= VALUE`, so
+    // without its own arm this read `= true` — a condition the user never wrote
+    // against a value the object does not hold. That arm hands out the filter
+    // builder's operator KEY rather than a finished English string, because the
+    // text is prose rather than the user's own comparand; the render site
+    // resolves it, pinned in a real non-English render by
+    // `ObjectDataPage.filterChipI18n-9159.test.tsx`.
     expect(chips).toEqual([
       { field: 'stage', text: '= won' },
-      { field: 'owner', text: 'is null' },
+      { field: 'owner', textKey: NULL_FILTER.labelKey },
     ]);
-    // The chip grouper renders anything that is not a range as `= <value>`, so
-    // without its own arm this read `= true` — a condition the user never wrote
-    // against a value the object does not hold.
-    expect(chips[1].text).not.toContain('true');
+    expect(chips[1].text).toBeUndefined();
   });
 
   it('`[null]=false` is NOT a second operator — it produces no condition at all', () => {

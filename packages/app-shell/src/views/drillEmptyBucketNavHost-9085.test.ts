@@ -74,7 +74,13 @@ describe('drill escape hatch vs the empty bucket (objectui#9085, repaired by obj
     // view.
     expect(Object.keys(URL_FILTER_OPS)).toEqual(['gte', 'lte', 'gt', 'lt']);
     expect(Object.keys(RANGE_OP_PARAM)).toEqual(['$gte', '$lte', '$gt', '$lt']);
-    expect(NULL_FILTER).toEqual({ param: 'null', flag: 'true', op: 'is_null', key: '$null' });
+    expect(NULL_FILTER).toEqual({
+      param: 'null',
+      flag: 'true',
+      op: 'is_null',
+      key: '$null',
+      labelKey: 'filterBuilder.operators.isNull',
+    });
   });
 
   it('the new spelling NO LONGER serializes identically to the bare null it replaced', () => {

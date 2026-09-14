@@ -75,6 +75,13 @@ export const NULL_FILTER = {
   op: 'is_null',
   /** ObjectQL operator-object key the WRITE side recognizes. */
   key: '$null',
+  /**
+   * i18n key for this operator's user-visible label, reused from the filter
+   * builder's operator family rather than forked: all ten packs already define
+   * and translate it, and that family already has a locale-parity pin. The chip
+   * arm below hands this OUT; resolving it is the render site's job.
+   */
+  labelKey: 'filterBuilder.operators.isNull',
 } as const;
 
 /**
@@ -252,17 +259,44 @@ export function deleteFieldFilterParams(params: URLSearchParams, field: string):
 }
 
 /**
+ * One display chip: a field, plus the ONE of two carriers its operator needs.
+ *
+ * The split is not stylistic — it is the line between text this module may
+ * finish and text it may not (objectui#9159, applying objectui#8441). A range
+ * or equality chip's content is the USER'S OWN comparand, which no catalogue
+ * can translate and which reads the same in every locale, so it is finished
+ * here as `text`. An is-null chip's content is PROSE this module would
+ * otherwise hard-code in English for every reader on every locale; it therefore
+ * travels as `textKey` and is resolved at the render site, which already
+ * translates the field half of the same chip.
+ */
+export interface FilterChip {
+  field: string;
+  /** Finished, language-neutral text (a comparand, a pair of range bounds). */
+  text?: string;
+  /** i18n key whose translation IS this chip's text. Mutually exclusive with `text`. */
+  textKey?: string;
+}
+
+/**
  * Group filter triples into ONE display chip per field, preserving first-seen
  * order. A date-bucket drill contributes two triples for the same field
  * (`>= start`, `< end`); they collapse into a single `start → end` range chip.
  *
- * The is-null flag gets its own text (objectui#9159). Without that arm it fell
+ * The is-null flag gets its own arm (objectui#9159). Without it the flag fell
  * to the `= <value>` default and the chip read `= true` — a condition the user
  * never wrote, against a value the object does not hold, on the one drill whose
  * whole point is that the field is EMPTY. It is checked first so a field
  * carrying the flag can never render as that bare `true`.
+ *
+ * That arm is the only one that yields `textKey` rather than `text`, for the
+ * reason on {@link FilterChip}. The key is the filter builder's existing
+ * operator key, already present and already translated in all ten packs, and
+ * already policed by that family's locale-parity pin — ⛔ not a second string
+ * forked for this chip, which would put two spellings of one operator label at
+ * rest in one product.
  */
-export function groupFilterChips(triples: FilterTriple[]): Array<{ field: string; text: string }> {
+export function groupFilterChips(triples: FilterTriple[]): FilterChip[] {
   const order: string[] = [];
   const byField = new Map<string, FilterTriple[]>();
   for (const tr of triples) {
@@ -274,12 +308,13 @@ export function groupFilterChips(triples: FilterTriple[]): Array<{ field: string
   }
   return order.map((field) => {
     const list = byField.get(field)!;
-    const isNull = list.some(([, op]) => op === NULL_FILTER.op);
+    if (list.some(([, op]) => op === NULL_FILTER.op)) {
+      return { field, textKey: NULL_FILTER.labelKey };
+    }
     const gte = list.find(([, op]) => op === '>=' || op === '>');
     const lt = list.find(([, op]) => op === '<' || op === '<=');
-    const text = isNull
-      ? 'is null'
-      : gte || lt
+    const text =
+      gte || lt
         ? `${gte ? String(gte[2]) : '…'} → ${lt ? String(lt[2]) : '…'}`
         : `= ${String(list[0][2])}`;
     return { field, text };

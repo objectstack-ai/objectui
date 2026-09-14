@@ -26,8 +26,14 @@ survived, so the page looked correctly scoped.
   that input;
 - **read** — that param becomes `[field, 'is_null', true]`, the same triple the other two
   consumers already produce;
-- **chip** — the grouper renders `is null` for it, where it previously fell to the
-  `= <value>` default and displayed a bare `true`.
+- **chip** — the grouper gives it its own arm, where it previously fell to the `= <value>`
+  default and displayed a bare `true`. That arm hands out an i18n KEY rather than finished
+  text (`FilterChip.textKey`), and `ObjectDataPage` resolves it at the same half-chip seam
+  that already draws the field name through `fieldLabel`. The key is the filter builder's
+  existing operator label, already defined and translated in all ten locale packs, so
+  nothing new is authored and no second spelling of one operator label is put at rest. The
+  range and equality arms are untouched and still finish their own text: a comparand is the
+  user's own data, which no catalogue can translate.
 
 The value is a FLAG, not a comparand. `filter[<field>][null]=false` is **not** a second
 operator: this dialect cannot write "is not null", so the read side drops that param the

@@ -210,10 +210,30 @@ describe('the is-null operator: `filter[<field>][null]=true`', () => {
     expect(parse('filter[owner][null]=')).toEqual([]);
   });
 
-  it('renders a chip that names the condition instead of `= true`', () => {
+  it('renders a chip that carries the operator KEY instead of `= true` or an English literal', () => {
+    // objectui#9159 round 2: the arm used to finish the string as the literal
+    // `'is null'`. A user-facing literal in a renderer is unlocalized for every
+    // reader on every locale, so the chip now travels as the filter builder's
+    // existing operator key and the render site resolves it — pinned against a
+    // real non-English render in `ObjectDataPage.filterChipI18n-9159.test.tsx`.
     expect(groupFilterChips([['owner', 'is_null', true]])).toEqual([
-      { field: 'owner', text: 'is null' },
+      { field: 'owner', textKey: 'filterBuilder.operators.isNull' },
     ]);
+    // And it finishes NO text of its own, so nothing can render that bare
+    // `true` even if the render site forgot the key.
+    expect(groupFilterChips([['owner', 'is_null', true]])[0].text).toBeUndefined();
+  });
+
+  it('leaves the range and equality arms finishing their own text, since a comparand is the user\'s own', () => {
+    // The CONTROL for the split above: these carry no `textKey`, because there
+    // is nothing in them a catalogue could translate.
+    expect(groupFilterChips([['stage', '=', 'won']])).toEqual([{ field: 'stage', text: '= won' }]);
+    expect(
+      groupFilterChips([
+        ['close_date', '>=', '2026-04-01'],
+        ['close_date', '<', '2026-07-01'],
+      ]),
+    ).toEqual([{ field: 'close_date', text: '2026-04-01 → 2026-07-01' }]);
   });
 
   it('removing the chip clears the flag param', () => {

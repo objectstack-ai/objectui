@@ -45,14 +45,23 @@ the key (`objects.find((o) => o?.name === objectName)`) finds nothing for
 `if (!objectName)` placeholder return.
 
 **`record:reference_rail` declares the node-level `properties` envelope it
-reads.** The renderer accepts a node either flattened (`schema.entries`) or
-enveloped (`schema.properties.entries`); the enveloped read compiled only
-through the schema type's `[k: string]: any`, so `entries` arrived as `any` on
-that path. `properties` is `@objectstack/spec`'s own node-level key
-(`PageComponentSchema.properties`, "Component props passed to the widget") with
-the standing `dataSource` and `className` have. Declaring it **narrows** an
-accept this face already granted — it widens nothing, and `properties` itself
-stays open because the contract declares it as a record.
+reads, and the read now uses the declaration.** The renderer accepts a node
+either flattened (`schema.entries`) or enveloped (`schema.properties.entries`).
+The enveloped read went through an explicit `(schema as any)` cast — **not**
+through the schema type's `[k: string]: any`, which had nothing to do with it —
+so `entries` arrived as `any` on that path. Both halves are fixed here: the
+member is declared **and** the cast is removed, so the checker types the read
+`ReferenceRailEntry[]` (the trailing `as ReferenceRailEntry[]` assertion went
+with it — the declared type supplies it). `properties` is `@objectstack/spec`'s
+own node-level key (`PageComponentSchema.properties`, "Component props passed to
+the widget") with the standing `dataSource` and `className` have. Declaring it
+**narrows** an accept this face already granted through its index signature — it
+widens nothing, and `properties` itself stays open because the contract declares
+it as a record.
+
+⚠️ Declaring a member is not enough on its own when the read site casts: a cast
+defeats the declaration while a membership instrument still reports the member
+as present. The pin now fails if the cast returns.
 
 ⚠️ **Three keys are deliberately NOT declared, and no runtime behaviour
 changes.** `enforceFieldSecurity`, `redactFields` and `requiredPermissions` are

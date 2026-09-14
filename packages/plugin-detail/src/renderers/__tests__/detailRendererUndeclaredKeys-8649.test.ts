@@ -289,6 +289,13 @@ const maskedSource = (file: string): string => mask(readFileSync(join(RENDERERS,
 /** The erasing spelling, as a matcher — applied to real sources AND to a control. */
 const ERASING_DEFAULT = /schema\s*=\s*\{\}\s*as\s+any/;
 
+/**
+ * A cast standing between `schema` and `.properties` — the shape that made this
+ * card's `properties` declaration inert at its own read site (objectui#8649
+ * contract review D1). Applied to the real source AND to a control below.
+ */
+const CAST_BEFORE_PROPERTIES = /\(\s*schema\s+as\s+\w+\s*\)\s*\.\s*properties/;
+
 describe('objectui#8649 — the census the routing rests on (PREMISE, re-derived every run)', () => {
   it('walks a non-empty population, names what it cannot walk, and discriminates', () => {
     // Calibration in both directions: an empty walk would make every "declared
@@ -379,8 +386,34 @@ describe('objectui#8649 — the routed-key ledger is not stale', () => {
     }
   }
 
-  it('the rail still reads the node-level `properties` envelope it now declares', () => {
-    expect(maskedSource('record-reference-rail.tsx')).toMatch(/properties\??\.entries/);
+  /**
+   * ⭐ The assertion this block used to carry was
+   * `toMatch(/properties\??\.entries/)`, and it was WORTHLESS for the thing it
+   * was there to guard: it matches `(schema as any).properties.entries` exactly
+   * as happily as the un-cast form. The declaration this card added was inert at
+   * this very site for that reason, and this pin reported green throughout —
+   * measured by the objectui#8649 contract review, not by this file.
+   *
+   * A cast at the read site defeats a declaration that a MEMBERSHIP instrument
+   * (`getPropertyOfType` on the binding, which unwraps the cast) still reports
+   * as present. So the liveness leg is now three assertions, and the
+   * load-bearing one is the NEGATIVE: the enveloped read must not be re-cast.
+   */
+  it('the rail reads the node-level `properties` envelope UN-CAST, so the declaration reaches it', () => {
+    const source = maskedSource('record-reference-rail.tsx');
+    // Liveness: the read is still here at all.
+    expect(source).toMatch(/Array\.isArray\(schema\.properties\?\.entries\)/);
+    expect(source).toMatch(/\?\s*schema\.properties\.entries/);
+    // The guard: no cast may stand between `schema` and `.properties`. Comments
+    // are masked before this runs, so the spelling quoted in this file's own
+    // prose cannot satisfy or defeat it.
+    expect(source).not.toMatch(CAST_BEFORE_PROPERTIES);
+  });
+
+  it('the un-cast guard can fire, so the negative leg above is a reading', () => {
+    // The control varies ONLY the claim: the same read, re-cast.
+    expect(CAST_BEFORE_PROPERTIES.test('Array.isArray((schema as any).properties?.entries)')).toBe(true);
+    expect(CAST_BEFORE_PROPERTIES.test('Array.isArray(schema.properties?.entries)')).toBe(false);
   });
 
   it('the ledger matcher can fire negative, so the legs above are readings', () => {

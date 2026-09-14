@@ -592,7 +592,17 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   ],
   loop: [
     cfg('collection', 'Collection', 'expression', { placeholder: '{leadList}', refMode: 'template', help: 'Expression resolving to the items to iterate.' }),
-    cfg('iteratorVariable', 'Item variable', 'text', { placeholder: 'currentItem' }),
+    // objectui#9340 — the hint is the identifier the runtime binds when this box is
+    // left blank, so it may not name a DIFFERENT one. It hinted `currentItem` while
+    // `LoopConfigSchema` applies its own default to the omitted key: an author who
+    // read the box and wrote that reference in the body got an unresolved one at run
+    // time. ⛔ Not repaired by declaring a `defaultValue` — a `text` control reads
+    // `placeholder` and NONE of the three sites the `defaultValue` doc comment above
+    // names (objectui#9109 fence 4 owns that wiring). The value is reconciled against
+    // the installed spec by `FlowNodeInspector.loopItemVariable-9340.test.tsx`; the
+    // twin on `map` already agreed and is pinned there too, so a drift on EITHER
+    // reddens rather than being re-derived by hand here.
+    cfg('iteratorVariable', 'Item variable', 'text', { placeholder: 'item' }),
   ],
   // Sequential multi-instance (ADR-0037 A2): a per-item subflow, one at a time;
   // each item may durably pause (e.g. a per-item approval).

@@ -15,6 +15,7 @@ import {
   evaluate,
   formatFindings,
   groupBareKeys,
+  isGeneratedPath,
   isTestPath,
   judgeAgainstLedger,
 } from '../check-registry-bare-name-collisions.mjs';
@@ -109,6 +110,20 @@ describe('registry bare-name collisions — the sweep over this repository', () 
       expect(entry, `contested bare key ${group.key} must be declared in the ledger`).toBeDefined();
       expect([...group.claimants].map(claimantId).sort()).toEqual([...(entry?.claimants ?? [])].sort());
     }
+  });
+
+  it('holds no build OUTPUT — the population must not move when someone builds', () => {
+    // Measured while this gate landed: 1633 files before `turbo run build`,
+    // 1639 after, the six being `apps/site/.next`, `apps/site/.source` and a
+    // generated `plugin.d.ts`. A population that depends on build state is one
+    // no two runs agree on.
+    for (const file of result.files) {
+      expect(isGeneratedPath(file), `${file} is generated output and must not be in the population`).toBe(false);
+    }
+    expect(isGeneratedPath('apps/site/.next/types/routes.d.ts')).toBe(true);
+    expect(isGeneratedPath('apps/site/.source/server.ts')).toBe(true);
+    expect(isGeneratedPath('apps/console/plugin.d.ts')).toBe(true);
+    expect(isGeneratedPath('apps/console/src/register-plugins.ts')).toBe(false);
   });
 
   it('keeps test sources out of the population — a test-body registration governs nothing', () => {

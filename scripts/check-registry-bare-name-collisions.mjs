@@ -115,6 +115,26 @@ export const INCLUDE_GLOBS = [
 ];
 
 /**
+ * Build OUTPUT, excluded from the population — and this is not housekeeping.
+ *
+ * Measured while landing this gate: the same sweep read 1633 source files
+ * before `turbo run build` and 1639 after it. The six were the framework
+ * caches `apps/site/.next` and `apps/site/.source` plus a generated
+ * `plugin.d.ts`. A population that moves with whether someone has built is a
+ * population no two runs agree on, and objectui#9256's table records the
+ * neighbouring version of this hazard: an unbuilt tree answered `any` and
+ * `any` read as "reads neither".
+ *
+ * A dot-segment is how every generator here hides its output; `.d.ts` is
+ * emitted type, and no declaration file carries a registration CALL. The
+ * sibling `walkFiles` in `check-doc-component-types.mjs` skips dot-directories
+ * for the same reason, which is why its file count did not move.
+ */
+export function isGeneratedPath(rel) {
+  return rel.split('/').some((segment) => segment.startsWith('.')) || /\.d\.tsx?$/.test(rel);
+}
+
+/**
  * Test sources, excluded from the population. The spelling mirrors the
  * `isTestFile` predicate in `check-doc-component-types.mjs`, widened by the
  * `test/` and `e2e/` directories this repo also uses, so the two gates read
@@ -224,7 +244,9 @@ export function collectClaims(root = repoRoot, options = {}) {
   const unresolved = [];
   const counters = { populationFiles: 0, filesWithRegistrations: 0, claims: 0, indirectClaims: 0 };
 
-  const files = collectFiles(root, options.includeGlobs ?? INCLUDE_GLOBS).filter((f) => !isTestPath(f));
+  const files = collectFiles(root, options.includeGlobs ?? INCLUDE_GLOBS).filter(
+    (f) => !isTestPath(f) && !isGeneratedPath(f),
+  );
   counters.populationFiles = files.length;
 
   for (const rel of files) {
@@ -417,7 +439,15 @@ export function evaluate(root = repoRoot, options = {}) {
   const contested = [...groups.values()].filter((g) => g.verdict === 'contested');
   findings.push(...judgeAgainstLedger(groups, ledger));
 
-  return { findings, groups, counts, claims: collected.claims, unresolved: collected.unresolved, contested };
+  return {
+    findings,
+    groups,
+    counts,
+    claims: collected.claims,
+    files: collected.files,
+    unresolved: collected.unresolved,
+    contested,
+  };
 }
 
 /**

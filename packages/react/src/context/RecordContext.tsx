@@ -121,10 +121,16 @@ export interface RecordContextValue<TData = any, TObjectSchema = any> {
    *
    * A host whose primary keys are numeric does NOT stringify at its call
    * sites: `RecordContextProviderProps` still accepts `string | number`, and
-   * the provider pays the conversion once, below. Everything downstream --
-   * `record:*` renderers, `LineItemsPanel`'s parent id -- reads a `string` and
-   * hands it to a `string` parameter with no assertion in between, which is
-   * what objectui#9304 had to leave behind.
+   * the provider pays the conversion once, below.
+   *
+   * `LineItemsPanel` reads this member as a `string` and hands it to a
+   * `string` parameter with no assertion in between, which is what
+   * objectui#9304 had to leave behind. That is a statement about that one
+   * reader, not about every reader: three `record:*` renderers in
+   * `@object-ui/plugin-detail` -- `record-details`, `record-quick-actions` and
+   * `record-alert` -- still read it through an `as any`. Those casts are
+   * redundant now rather than load-bearing, and removing them was left outside
+   * objectui#9333 deliberately.
    */
   recordId: string | null | undefined;
   /**

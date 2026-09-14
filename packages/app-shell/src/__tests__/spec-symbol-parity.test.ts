@@ -100,6 +100,23 @@ import type {
   FlowNodeParsed as SpecFlowNodeParsed,
 } from '@objectstack/spec/automation';
 
+// objectui#7265, the app-shell slice — the four entries that were BOUND to the
+// spec rather than renamed. Three of the four declarations are module-local and
+// unreachable by name, so what is pinned here is the SPEC-side property each
+// derivation rests on; the derivations themselves are compiled in situ by this
+// package's `type-check`, and the absence of the old mirrors is pinned by
+// scripts/__tests__/spec-symbol-ledger-app-shell-7265.test.ts.
+import { AdminScopeSchema } from '@objectstack/spec/security';
+import type { AdminScope as SpecAdminScope } from '@objectstack/spec/security';
+import type {
+  FlowRuntimeState as SpecFlowRuntimeState,
+  RemoteTable as SpecRemoteTable,
+} from '@objectstack/spec/contracts';
+import type { ObjectLike as SpecObjectLike } from '@objectstack/spec/system';
+import { appRouteSegment } from '../utils/appRoute';
+import { deriveRelatedLists } from '../utils/deriveRelatedLists';
+import type { UseTrackRouteAsRecentOptions } from '../hooks/useTrackRouteAsRecent';
+
 /** Every name `@objectstack/spec` exports from any subpath — types AND values. */
 function specExportNames(): Set<string> {
   const require = createRequire(import.meta.url);
@@ -178,6 +195,22 @@ const RENAMES: Array<[local: string, formerly: string, specMeaning: string]> = [
     'BrowserNotificationPreferences',
     'NotificationPreferences',
     "the ACCOUNT's server-persisted delivery routing — `email` / `push` / `inApp` / `digest` / `channels`, moved by the `getNotificationPreferences` API pair",
+  ],
+  // objectui#7265, the app-shell slice. Both are minimal duck types that
+  // collided with a minimal duck type of the spec's own — `@objectstack/spec`
+  // uses the same `…Like` convention for the shapes its i18n `translate*`
+  // helpers consume, so the collision is a naming convention two layers reached
+  // for independently, not a fork. The measurement that chose rename over
+  // derive is written at each declaration.
+  [
+    'AppRouteLike',
+    'AppLike',
+    "the i18n translator's minimal app document (`translateApp`: `name` REQUIRED, `navigation` tree) — it declares no `_packageId`, which is the ADR-0048 route key every helper in `utils/appRoute.ts` reads first",
+  ],
+  [
+    'MergedObjectLike',
+    'ObjectLike',
+    "the i18n translator's minimal object document (`translateObject`: `name` REQUIRED, `fields` / `actions`) — a closed shape with no member for `list`, which `MetadataProvider.mergeViewsIntoObjects` merges on after authoring",
   ],
 ];
 
@@ -466,6 +499,143 @@ describe('ObjectFieldGroup derives from the spec schema INPUT side', () => {
         never
       >
     >;
+
+    expect(true).toBe(true);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* objectui#7265, the `@object-ui/app-shell` slice — the four entries BOUND to  */
+/* the spec. Each pins the spec-side property its derivation rests on, so the   */
+/* derivation cannot silently stop meaning what its site says it means.         */
+/* -------------------------------------------------------------------------- */
+
+describe('AdminScope is the spec facet, widened only in requiredness (#7265)', () => {
+  it('is pinned at compile time', () => {
+    type _NotAny = Assert<Equal<IsAny<SpecAdminScope>, false>>;
+
+    // `PermissionAdvancedFacets` declares `type AdminScope = Partial<SpecAdminScope>`.
+    // That alias is module-local, so what is asserted here is the property the
+    // alias depends on: every key of the spec's authoring shape survives
+    // `Partial<>`, and none is invented.
+    type Local = Partial<SpecAdminScope>;
+    type _SameKeys = Assert<Equal<keyof Local, keyof SpecAdminScope>>;
+    type _NoInventedKeys = Assert<Equal<Exclude<keyof Local, keyof SpecAdminScope>, never>>;
+
+    // The widening is real and confined to requiredness: the spec's value is
+    // always a valid draft, and the reverse is false for exactly one reason —
+    // `businessUnit`. If this flips, the spec made it optional itself and the
+    // editor's alias should collapse to a plain re-export.
+    type _SpecIsUsableAsADraft = Assert<Extends<SpecAdminScope, Local>>;
+    type _StillWidened = Assert<Equal<Extends<Local, SpecAdminScope>, false>>;
+    type _OnlyBusinessUnitDiffers = Assert<
+      Extends<Omit<Local, 'businessUnit'>, Omit<SpecAdminScope, 'businessUnit'>>
+    >;
+    type _AddingItBackClosesTheGap = Assert<
+      Extends<Local & Pick<SpecAdminScope, 'businessUnit'>, SpecAdminScope>
+    >;
+
+    expect(true).toBe(true);
+  });
+
+  it('the spec still REQUIRES `businessUnit` — the widening the editor relies on', () => {
+    // The runtime half, and the one that can actually fail: the editor
+    // materializes this facet from `asObject(draft.adminScope)`, i.e. `{}`,
+    // before the author has typed anything.
+    const empty = AdminScopeSchema.safeParse({});
+    expect(empty.success).toBe(false);
+    expect(JSON.stringify(empty.error?.issues)).toContain('businessUnit');
+
+    // …and the other five are defaulted, so they are optional to AUTHOR. This is
+    // the positive control for the assertion above: same schema, same call, and
+    // it must pass, so a blanket "this schema rejects everything" cannot be what
+    // made the first assertion green.
+    expect(AdminScopeSchema.safeParse({ businessUnit: 'bu_sales' }).success).toBe(true);
+  });
+});
+
+describe('FlowRuntimeState is the spec report, read as unvalidated wire JSON (#7265)', () => {
+  it('is pinned at compile time', () => {
+    type _NotAny = Assert<Equal<IsAny<SpecFlowRuntimeState>, false>>;
+
+    // `StudioDesignSurface` declares `type FlowRuntimeState = Partial<SpecFlowRuntimeState>`.
+    type Local = Partial<SpecFlowRuntimeState>;
+    type _SameKeys = Assert<Equal<keyof Local, keyof SpecFlowRuntimeState>>;
+
+    // The three the effect narrows by hand (`if (s?.name)`, `s.enabled !== false`,
+    // `!!s.bound`) are REQUIRED in the contract. That is what makes `Partial<>` a
+    // statement about the READER — an unvalidated body from a possibly-older
+    // backend — rather than a claim about the contract. If any of the three
+    // becomes optional upstream, this fails and the alias should be re-argued.
+    type _NameRequiredInSpec = Assert<Equal<Extends<Omit<Local, 'name'>, SpecFlowRuntimeState>, false>>;
+    type _SpecIsUsableHere = Assert<Extends<SpecFlowRuntimeState, Local>>;
+    type _StillWidened = Assert<Equal<Extends<Local, SpecFlowRuntimeState>, false>>;
+    type _RequiredTrio = Assert<
+      Equal<Exclude<'name' | 'enabled' | 'bound', keyof SpecFlowRuntimeState>, never>
+    >;
+
+    expect(true).toBe(true);
+  });
+});
+
+describe('RemoteTable is the spec introspection row, imported outright (#7265)', () => {
+  it('is pinned at compile time', () => {
+    type _NotAny = Assert<Equal<IsAny<SpecRemoteTable>, false>>;
+
+    // The copy `DatasourceResourcePage` used to declare, verbatim. It is NOT a
+    // valid spec row, and the single reason is `columnCount`: optional there,
+    // required in the contract the server actually sends. Pinning the old shape
+    // as REJECTED is what stops the import being quietly widened back.
+    type FormerLocalCopy = { name: string; schema?: string; columnCount?: number };
+    type _CopyWasWider = Assert<Equal<Extends<FormerLocalCopy, SpecRemoteTable>, false>>;
+    type _AndTheReasonIsColumnCount = Assert<
+      Extends<FormerLocalCopy & Pick<SpecRemoteTable, 'columnCount'>, SpecRemoteTable>
+    >;
+
+    // The page reads exactly these three; `rowCountEstimate` is the spec member
+    // it does not render, and it must stay optional or the import breaks the page.
+    type _PageMembersExist = Assert<Extends<'name' | 'schema' | 'columnCount', keyof SpecRemoteTable>>;
+    type _RowCountOptional = Assert<Extends<Omit<SpecRemoteTable, 'rowCountEstimate'>, SpecRemoteTable>>;
+
+    expect(true).toBe(true);
+  });
+});
+
+describe('the two renamed dialects still mean what their rename said (#7265)', () => {
+  it('is pinned at compile time', () => {
+    type _NotAny = Assert<Equal<IsAny<SpecObjectLike>, false>>;
+
+    // `useTrackRouteAsRecent` PICKs two members off the spec's shape. Reached
+    // through the exported options interface, so this is the real declaration
+    // rather than a restatement of it.
+    type TrackedObject = NonNullable<UseTrackRouteAsRecentOptions['objects']>[number];
+    type _IsTheSpecProjection = Assert<Equal<TrackedObject, Pick<SpecObjectLike, 'name' | 'label'>>>;
+    type _TwoMembersWide = Assert<Equal<keyof TrackedObject, 'name' | 'label'>>;
+
+    // ⭐ The published-face pin. `UseTrackRouteAsRecentOptions` IS exported, so
+    // this projection reaches consumers; binding it to the spec moved the bytes
+    // of the emitted `.d.ts` and must NOT have moved the type. Written as the
+    // literal shape the hand-written interface used to declare, so it fails the
+    // day the spec's `name` / `label` stop being `string` / `string | undefined`
+    // — which is the only way this derivation could become a breaking change.
+    type _FaceUnchangedByTheBinding = Assert<
+      Equal<TrackedObject, { name: string; label?: string | undefined }>
+    >;
+
+    // `MergedObjectLike` carries `list`, which is why it could not be the spec's
+    // `ObjectLike`: that shape is closed and declares no such member, so a value
+    // carrying it is not assignable to it.
+    type MergedObject = NonNullable<Parameters<typeof deriveRelatedLists>[0]>;
+    type _HasMergedListKey = Assert<Extends<'list', keyof MergedObject>>;
+    type _SpecHasNoListKey = Assert<Equal<Extends<'list', keyof SpecObjectLike>, false>>;
+
+    // `AppRouteLike` keeps `_packageId` — the ADR-0048 route key — as a DECLARED
+    // member typed `unknown`, which is what forces the narrowing guards. The
+    // spec's `AppLike` would surrender it to an index signature.
+    type RouteApp = NonNullable<Parameters<typeof appRouteSegment>[0]>;
+    type _PackageIdIsDeclared = Assert<Extends<'_packageId', keyof RouteApp>>;
+    type _PackageIdIsUnknownNotAny = Assert<Equal<IsAny<RouteApp['_packageId']>, false>>;
+    type _NameIsOptionalHere = Assert<Extends<Record<string, unknown>, RouteApp>>;
 
     expect(true).toBe(true);
   });

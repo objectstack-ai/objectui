@@ -15,15 +15,41 @@
  *   framework-owned, app-independent page for this user (see below).
  */
 
-type AppLike = { name?: unknown; _packageId?: unknown } & Record<string, unknown>;
+/**
+ * The minimal app shape THESE ROUTE HELPERS read.
+ *
+ * ⚠️ Renamed off `AppLike` at objectui#7265, and the rename is the fix rather
+ * than a workaround. `@objectstack/spec/system` exports an `AppLike` of its own:
+ * the minimal app document `translateApp` consumes — `{ name, label,
+ * description, navigation }` with `name` REQUIRED — i.e. the keys the
+ * TRANSLATOR reads. These helpers read a disjoint set for a different purpose,
+ * and adopting the spec's shape would make this module worse in both
+ * directions:
+ *
+ *   - `_packageId` is the ADR-0048 route key and the FIRST thing every function
+ *     here reads. The spec's shape does not declare it; it would arrive through
+ *     that shape's `[key: string]: any`, i.e. as `any`, taking the
+ *     `typeof packageId !== 'string'` guard in `studioPackageId` with it. Same
+ *     for `active` / `hidden`, which `filterActiveApps` reads;
+ *   - `name` is optional here on purpose. `resolveHostAppSegment`'s documented
+ *     step 4 exists FOR "the degenerate app carrying neither `_packageId` nor
+ *     `name`", so a required `name` would assert away the one case that branch
+ *     was written to serve.
+ *
+ * `unknown` (not `string`) on both members is deliberate for the same reason the
+ * guards exist: these helpers are handed apps straight out of the metadata
+ * catalog and must narrow before using either. `spec-symbol-parity.test.ts`
+ * holds the two-way ratchet on the rename.
+ */
+type AppRouteLike = { name?: unknown; _packageId?: unknown } & Record<string, unknown>;
 
-export function appRouteSegment(app: AppLike | null | undefined): string | undefined {
+export function appRouteSegment(app: AppRouteLike | null | undefined): string | undefined {
   if (!app) return undefined;
   const seg = (app._packageId as string | undefined) ?? (app.name as string | undefined);
   return seg ?? undefined;
 }
 
-export function matchAppBySegment<T extends AppLike>(
+export function matchAppBySegment<T extends AppRouteLike>(
   apps: readonly T[] | null | undefined,
   seg: string | null | undefined,
 ): T | undefined {
@@ -57,7 +83,7 @@ const SETUP_APP_SEGMENT = 'setup';
  * implementation. Two keys, two layers; this reads exactly one of them. Pinned
  * by `__tests__/appRoute.test.ts`.
  */
-export function filterActiveApps<T extends AppLike>(apps: readonly T[] | null | undefined): T[] {
+export function filterActiveApps<T extends AppRouteLike>(apps: readonly T[] | null | undefined): T[] {
   if (!apps) return [];
   return apps.filter((a) => a?.active !== false && a?.hidden !== true);
 }
@@ -100,7 +126,7 @@ export function filterActiveApps<T extends AppLike>(apps: readonly T[] | null | 
  * `currentAppName`, which is stale by construction — hence the re-check.
  */
 export function resolveHostAppSegment(
-  apps: readonly AppLike[] | null | undefined,
+  apps: readonly AppRouteLike[] | null | undefined,
   preferred: string | null | undefined,
 ): string {
   const active = filterActiveApps(apps);
@@ -127,7 +153,7 @@ export function resolveHostAppSegment(
  * read-only packages as browse-only.
  */
 export function appStudioDesignPath(
-  app: AppLike | null | undefined,
+  app: AppRouteLike | null | undefined,
   isWorkspaceAdmin: boolean,
 ): string | null {
   if (!isWorkspaceAdmin) return null;
@@ -149,7 +175,7 @@ export function appStudioDesignPath(
  * type is a fixed keyword (`dashboard`/`report`/…).
  */
 export function appStudioSurfacePath(
-  app: AppLike | null | undefined,
+  app: AppRouteLike | null | undefined,
   isWorkspaceAdmin: boolean,
   surface: { type?: string | null; name?: string | null } | null | undefined,
 ): string | null {
@@ -177,7 +203,7 @@ export function appStudioSurfacePath(
  * keyword).
  */
 export function appStudioObjectPath(
-  app: AppLike | null | undefined,
+  app: AppRouteLike | null | undefined,
   isWorkspaceAdmin: boolean,
   objectName: string | null | undefined,
 ): string | null {
@@ -220,7 +246,7 @@ const NON_OBJECT_ROUTE_TYPES = new Set([...INTERFACE_SURFACE_ROUTE_TYPES, 'syste
  * declarative and the decision is unit-tested here.
  */
 export function appStudioRoutePath(
-  app: AppLike | null | undefined,
+  app: AppRouteLike | null | undefined,
   isWorkspaceAdmin: boolean,
   route: { type?: string | null; name?: string | null } | null | undefined,
 ): string | null {
@@ -236,7 +262,7 @@ export function appStudioRoutePath(
 }
 
 /** Shared guard: the owning package id usable by the Studio design surface. */
-function studioPackageId(app: AppLike | null | undefined): string | null {
+function studioPackageId(app: AppRouteLike | null | undefined): string | null {
   const packageId = app?._packageId;
   if (typeof packageId !== 'string' || !packageId || packageId === 'sys_metadata') return null;
   return packageId;

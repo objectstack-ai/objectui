@@ -31,19 +31,34 @@
  *
  * ## ⭐ The premise this file is built on, and how to re-take it
  *
- * The repository has written down, in more than one place, that this surface
- * cannot be read from here:
+ * The repository used to say, in more than one place, that this surface cannot
+ * be read from here. Those sentences were TRUE when they were written:
+ * objectui#4959 recorded a merge landing while all four `Test (shard N/4)` jobs
+ * were `in_progress`, which is possible only if none of them was required. The
+ * ruleset was edited afterwards (`updated_at` 2026-08-24) and the prose was
+ * not. objectui#9502 repaired the carriers it could reach, in the direction
+ * this file makes available -- each one now separates the read half from the
+ * write half and POINTS here rather than answering for itself:
  *
- *   content/docs/guide/ci-cd-pipeline.md  "nothing here can read the current
- *                                          state of it either"
- *   .github/workflows/dependabot-auto-merge.yml
- *                                         "a repository-SETTINGS surface
- *                                          nothing here can read or change"
+ *   content/docs/guide/ci-cd-pipeline.md        "Merge Queue" step 3, and the
+ *                                               Dependabot Auto-Merge section
+ *   .github/workflows/dependabot-auto-merge.yml the header's "does NOT do" list
+ *   scripts/dependabot-merge-gate.mjs           "declared = enforced"
+ *
+ * ⛔ One carrier is deliberately left standing, and it is not an oversight:
+ *
  *   AGENTS.md                             "从仓内读不到"
  *
- * The WRITE half of all three is still true and this file does not touch it.
- * ⛔ This script never writes: no enrolment, no removal, no ruleset edit. It
- * issues exactly one GET.
+ * AGENTS.md is GOVERNED surface -- an agent drafts it, an authorised approver
+ * lands it -- so objectui#9502 did not touch it. It may also be true on a leg
+ * the repaired sentences never had: its parenthetical covers who may BYPASS the
+ * ruleset as well as the required-context list, and bypass actors are not
+ * carried by `GET /rules/branches/{branch}`, the endpoint this file reads.
+ * ⛔ Ruling on it is a separate, governed decision and is not made here.
+ *
+ * The WRITE half of every one of them is still true and this file does not
+ * touch it. ⛔ This script never writes: no enrolment, no removal, no ruleset
+ * edit. It issues exactly one GET.
  *
  * The READ half is false for a job that has network, and that is the whole
  * reason this gate is cheap rather than impossible:

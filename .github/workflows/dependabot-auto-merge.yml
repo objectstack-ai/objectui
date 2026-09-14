@@ -44,10 +44,18 @@ on:
 # Two things this deliberately does NOT do:
 #
 #   * It does not ask GitHub which checks are required. That set is a
-#     repository-SETTINGS surface nothing here can read or change
-#     (`content/docs/guide/ci-cd-pipeline.md`, "Merge Queue", step 3) — and it
-#     provably does not contain the shards today, since a merge happened while
-#     all four were `in_progress`. Reading it would reproduce the hole.
+#     repository-SETTINGS surface nothing here can CHANGE
+#     (`content/docs/guide/ci-cd-pipeline.md`, "Merge Queue", step 3) — the
+#     protection endpoint answers 403 to this job's token and only a maintainer
+#     edits the ruleset. Its membership can be READ, and the repository reads it
+#     elsewhere on a schedule: `scripts/check-required-check-set.mjs`, wired as
+#     `pnpm check:required-check-set` and run by
+#     `.github/workflows/required-check-set-patrol.yml`. This gate still must not
+#     delegate to that set — it is narrower than the wait below and a maintainer
+#     can shrink it without any diff — so the wait is declared in the script and
+#     tested there. ⛔ Do not restate the membership in this comment: the
+#     sentence replaced here did, and went stale when the ruleset changed under
+#     it (objectui#9502).
 #   * It does not replace `--auto` with a direct merge. `main` is behind an
 #     enforced merge queue: a direct merge is rejected with 405 `Changes must be
 #     made through the merge queue` (measured in #3243, recorded in AGENTS.md

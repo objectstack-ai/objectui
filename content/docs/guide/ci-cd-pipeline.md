@@ -134,8 +134,16 @@ no required checks, and merges. On 2026-08-07 three pull requests
 2. Make the contexts report on *every* pull request, by moving path filtering out of
    `on.pull_request.paths-ignore` and into the jobs.
 3. Only then may a maintainer add context names to the branch-protection and merge-queue required
-   sets. This is a **repository-settings** change; nothing in this repository can do it, and
-   nothing here can read the current state of it either.
+   sets. This is a **repository-settings** change and nothing in this repository can *do* it:
+   `GET /repos/{owner}/{repo}/branches/{branch}/protection` answers
+   `403 Resource not accessible by integration` to an Actions token, so enrolling a context is a
+   maintainer action. The current state, by contrast, **can** be read — and is, on a schedule.
+   ⛔ This page does not restate it. Run `pnpm check:required-check-set`, or read
+   [Required Check Set Patrol](#required-check-set-patrol-required-check-set-patrolyml) below for
+   what that gate does with the answer. A membership copied into prose is exactly what
+   [#9502](https://github.com/objectstack-ai/objectui/issues/9502) had to repair: the sentence that
+   stood here said nothing could read it, which was true when written and stopped being true when
+   the ruleset was edited.
 
 Step 3 before step 1 is the deadlock: a required context that never reports does not fail a queue
 build, it stalls it until the ruleset's 60-minute status-check timeout assumes failure — every
@@ -147,10 +155,11 @@ Two things follow for anyone editing this directory:
   Nothing has to be added to a list for that to be enforced: name the context in
   `REQUIRED_CONTEXTS` (`scripts/dependabot-merge-gate.mjs`), which is where this repository already
   writes down that a check is blocking and reports on every pull request, and the workflow is
-  inside the derived floor from that moment. "May this context be required?" is still a property of
-  the repository's settings that no test here can read — `REQUIRED_CONTEXTS` is a human's answer to
-  it, and deriving from that answer beats writing it down a second time and watching the copies
-  drift ([#6160](https://github.com/objectstack-ai/objectui/issues/6160)). A gate that carries no path filter
+  inside the derived floor from that moment. "May this context be required?" is not the question
+  step 3 points the gate at: a live reading says which contexts **are** required, never which ones
+  *ought to be*, and no test in a checkout reads either one. `REQUIRED_CONTEXTS` is a human's answer
+  to the normative half, and deriving from that answer beats writing it down a second time and
+  watching the copies drift ([#6160](https://github.com/objectstack-ai/objectui/issues/6160)). A gate that carries no path filter
   *precisely so that it can be required* is the mirror image of the bullet below, and the sequence
   matters there too: name its context in `REQUIRED_CONTEXTS` and subscribe `merge_group` in the
   same commit that creates the workflow, rather than acquiring either afterwards
@@ -2650,14 +2659,20 @@ lives in repository ruleset 11776024 — GitHub-side configuration. Dropping a m
 gate, fires no alarm, and leaves no trace in any diff a reviewer reads
 ([#9422](https://github.com/objectstack-ai/objectui/issues/9422)).
 
-**The reading, and the sentence on this page it corrects.** The three ordered steps above say a
-maintainer's ruleset edit is a repository-settings change "nothing in this repository can do…and
-nothing here can read the current state of it either". The *write* half is unchanged and this patrol
-does not touch it — it never enrols, removes or renames a context. The *read* half is true of a test
-in a checkout and false of a job with network: `GET /repos/{owner}/{repo}/rules/branches/{branch}`
-answers HTTP 200 with the full rule list, measured 2026-09-14. So the paragraph's rule for deciding
-which contexts *may* be required still stands (`REQUIRED_CONTEXTS` is a human's answer, and nothing
-derives it from settings); what has changed is that the set which *is* required can now be observed.
+**The reading, and the read/write split it rests on.** The three ordered steps above draw the line
+this patrol lives on. The *write* half is unchanged and this patrol does not touch it — it never
+enrols, removes or renames a context, and it asks for no write permission at all. The *read* half is
+a different question: true of a test in a checkout, false of a job with network.
+`GET /repos/{owner}/{repo}/rules/branches/{branch}` answers HTTP 200 with the full rule list,
+measured 2026-09-14. So the steps' rule for deciding which contexts *may* be required still stands
+(`REQUIRED_CONTEXTS` is a human's answer, and nothing derives it from settings); what this patrol
+adds is that the set which *is* required can be observed.
+
+Until [#9502](https://github.com/objectstack-ai/objectui/issues/9502) several sentences in this tree
+answered that second question for themselves rather than pointing here — written when the answer was
+"no", left standing after a ruleset edit made it "yes". The docblock of
+`scripts/check-required-check-set.mjs` inventories them by name, including the one deliberately left
+alone and why. ⛔ Do not add another: point at the gate, do not copy its answer.
 
 **Two tiers, because a job rename must not manufacture a red.** `PINNED_CONTEXTS` is `Type Check`
 alone — the leg the recorded incident actually failed on — and its absence fails the job.
@@ -2785,10 +2800,14 @@ the job goes red, and a comment on the PR names what refused.
 
 Two properties are worth keeping in mind when editing it:
 
-- The gate does **not** ask GitHub which checks are required, because that set is a
-  repository-settings surface nothing here can read (see the three ordered steps under
-  [Merge Queue](#merge-queue)) — and it provably does not contain the shards today, since a merge
-  happened while all four were `in_progress`. Reading it would reproduce the hole.
+- The gate does **not** ask GitHub which checks are required. That set is a repository-settings
+  surface nothing here can **change** (see the three ordered steps under
+  [Merge Queue](#merge-queue)); it can be *read*, and
+  [Required Check Set Patrol](#required-check-set-patrol-required-check-set-patrolyml) reads it
+  daily. Delegating to it anyway would reproduce the hole for a reason that survives every ruleset
+  edit: the required set is the *narrower* of the two — a subset a maintainer chose, changeable
+  off-repo with no diff — while the wait declared in `scripts/dependabot-merge-gate.mjs` covers
+  every unfiltered blocking context this repository produces, and a test holds it to that.
 - It does **not** replace `--auto` with a direct merge. `main` is behind an enforced merge queue,
   where a direct merge is rejected with 405; enabling auto-merge *is* the enqueue action. What
   changed is that it happens after the check set is green on that SHA, not 29 seconds after the

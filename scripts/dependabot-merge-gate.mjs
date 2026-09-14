@@ -51,11 +51,31 @@
  * ## The contract: declared = enforced, and absence is never green
  *
  * The gate does NOT ask GitHub "are the required checks green?" — that question
- * is answered by the branch-protection required set, which is a
- * repository-SETTINGS surface this repository can neither read nor change
- * (`content/docs/guide/ci-cd-pipeline.md`, "Merge Queue", step 3), and which is
- * demonstrably not carrying the shards today: a merge occurred while all four
- * were `in_progress`, so none of them can be in it.
+ * is answered by the branch-protection required set, a repository-SETTINGS
+ * surface this repository cannot WRITE (`content/docs/guide/ci-cd-pipeline.md`,
+ * "Merge Queue", step 3): enrolling, removing or renaming a context there is a
+ * maintainer action, and `GET /repos/{owner}/{repo}/branches/{branch}/protection`
+ * answers `403 Resource not accessible by integration` to the token a job here
+ * runs under.
+ *
+ * ⛔ What that set currently HOLDS is deliberately not restated here, and no
+ * decision in this file turns on it. It IS readable from a job with network, and
+ * this repository already reads it: `scripts/check-required-check-set.mjs`
+ * (`pnpm check:required-check-set`, patrolled by
+ * `.github/workflows/required-check-set-patrol.yml`) takes a live reading of the
+ * ruleset and exits 2 when it could not take one — never 0. Ask that
+ * instrument. A comment cannot be re-run.
+ *
+ * ⚠️ An earlier version of this paragraph did restate it: "demonstrably not
+ * carrying the shards today", derived from #4959, where a merge landed while all
+ * four shards were `in_progress`, which is possible only if none of them was
+ * required. It was true when it was written and false by the time it was read —
+ * the ruleset was edited afterwards and the prose was not (objectui#9502). So
+ * the declaration below rests on two things no ruleset edit can move: it is
+ * BROADER than a required set (every unfiltered blocking context this repository
+ * produces, not the subset a maintainer chose to enforce), and it is visible to
+ * review and to `dependabot-merge-gate.test.ts`, which off-repo configuration is
+ * not.
  *
  * So the set is declared here, and three rules keep the declaration honest:
  *

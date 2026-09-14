@@ -49,6 +49,11 @@ import { dirname, join } from 'node:path';
 // measure it rather than restate it. `@objectstack/spec` is a declared
 // dependency of this package; `ComponentPropsMap` is its published UI surface.
 import { ComponentPropsMap } from '@objectstack/spec/ui';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 import { ObjectCalendarSchema, ObjectGanttSchema, safeValidateSchema } from '../zod/index.zod';
 import { BaseSchema } from '../zod/base.zod';
@@ -377,20 +382,47 @@ describe('objectui#7313 — `data` and `staticData` are DECLARED, not passthroug
 
 describe('objectui#7313 — the declaration names a live read, in the declared order', () => {
   it('the renderer resolves its records through the shared ladder, on the ARRAY arm', () => {
-    const src = readFileSync(join(REPO_ROOT, RENDERER), 'utf8');
-    // ⭐ objectui#8348 — the arm is part of the call now, and asserting it here
-    // is what keeps this row honest. The previous spelling looked for the bare
-    // `resolveRecordSourceConfig(schema)`, which this file's own renderer
-    // satisfies from a DOCBLOCK line that merely names the function — so it
-    // would have stayed green through a call site that had stopped existing.
-    expect(src, `${RENDERER} no longer calls the shared ladder with its declared arm`).toContain(
-      "resolveRecordSourceConfig(schema, 'array')",
-    );
+    // ⭐ objectui#8348 — the arm is part of the call, and asserting it here is
+    // what keeps this row honest. The spelling before that card looked for the
+    // bare `resolveRecordSourceConfig(schema)`, which this renderer satisfies
+    // from a DOCBLOCK line that merely names the function — so it would have
+    // stayed green through a call site that had stopped existing.
+    //
+    // ⭐ objectui#8651 re-anchored it a second time, for the objectui#8832
+    // reason: the literal `resolveRecordSourceConfig(schema, 'array')` pinned
+    // how the FIRST ARGUMENT is written, and that card had to change it — the
+    // ladder's parameter declares `data?: ViewData` while this block's
+    // published `data` row is the ARRAY arm, so the three members it documents
+    // itself as reading are now passed one by one. The call, the arm and the
+    // refusal of the other arm are the FACTS; the argument's shape is
+    // formatting. So the arms are read out of the call's own argument list,
+    // located by paren matching, with comments masked FIRST — which retires the
+    // docblock false green structurally rather than by wording.
+    const src = mask(readFileSync(join(REPO_ROOT, RENDERER), 'utf8'));
+    const at = src.indexOf('resolveRecordSourceConfig(');
+    expect(at, `${RENDERER} no longer calls the shared ladder at all`).toBeGreaterThan(-1);
+    let depth = 0;
+    let end = at + 'resolveRecordSourceConfig'.length;
+    for (; end < src.length; end += 1) {
+      if (src[end] === '(') depth += 1;
+      else if (src[end] === ')') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    const call = src.slice(at, end + 1);
     // The arm is the one `ComponentPropsMap['object-calendar'].data` declares
     // (`z.array(z.unknown())`, "Pre-fetched records"), which is why it is
     // `'array'` here and `'view-data'` on `object-grid` / `object-map` /
     // `object-gantt`.
-    expect(src).not.toContain("resolveRecordSourceConfig(schema, 'view-data')");
+    expect(call, `${RENDERER} no longer calls the shared ladder with its declared arm`)
+      .toContain("'array'");
+    expect(call).not.toContain("'view-data'");
+    // CONTROL: the slice really is the call and not the whole file — a paren
+    // match that ran away would swallow the other arm's name from elsewhere and
+    // make the refusal above unfailable.
+    expect(call.length).toBeLessThan(src.length);
+    expect(call.endsWith(')')).toBe(true);
   });
 
   it('the ladder reads `data`, then `staticData`, then `objectName` — the order the refinement rests on', () => {

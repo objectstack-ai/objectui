@@ -3181,6 +3181,13 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   //     i18n label union, or the widget's comparison directive moves ONE side too.
   // Either way it is exactly what this list exists to make legible rather than
   // mysterious.
+  // objectui#8651: the `calendar` CONTAINER is the spec's own
+  // `SpecCalendarConfigSchema` — spec-derived, extended with objectui's single
+  // local knob (`allDayField`, the lane objectui#8466 took for the flat spelling
+  // of the same vocabulary) and kept `.passthrough()`. So a spec bump that moves
+  // the four-key calendar config vocabulary moves ONE side of this pair, which
+  // is exactly what this list exists to make legible rather than mysterious.
+  'objectql.zod.ts#ObjectCalendarSchema',
   'objectql.zod.ts#ObjectChartSchema',
   'objectql.zod.ts#ObjectGallerySchema',
   'objectql.zod.ts#ObjectGanttSchema',

@@ -27,7 +27,7 @@ import type { DrillDownConfig } from './data-display.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
-import type { ListViewInferred } from './zod/objectql.zod.js';
+import type { ListViewInferred, ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
 
 // ============================================================================
 // Spec-Canonical Types — imported from @objectstack/spec/ui
@@ -2843,6 +2843,35 @@ export interface ObjectCalendarSchema extends BaseSchema {
   data?: SpecObjectCalendarProps['data'];
   /** Inline records, wrapped into a `{ provider: 'value' }` config by `getDataConfig`. */
   staticData?: any[];
+  /**
+   * The configuration container, and the FIRST thing this element's renderer
+   * reads: `plugin-calendar/src/ObjectCalendar.tsx`'s `getCalendarConfig`
+   * returns this block whole when it is present, and only falls through to the
+   * flat members below when it is not.
+   *
+   * `@objectstack/spec` declares it —
+   * `ComponentPropsMap['object-calendar'].calendar` — and this package's
+   * registration `inputs` publishes it, so authors are offered the key. Both
+   * published faces of THIS package stayed silent about it until objectui#8651,
+   * which is the objectui#6914 class: the value rode {@link BaseSchema}'s
+   * `[key: string]: any` here and `.passthrough()` on the mirror, admitted and
+   * never examined. `calendar: 42` type-checked, parsed green, and drew an
+   * empty calendar.
+   *
+   * DERIVED from the mirror rather than re-spelled, so the two faces cannot
+   * fork — the same construction {@link ListViewSchema} uses through
+   * `ListViewInferred`. What the mirror declares is the five members
+   * `ObjectCalendar`'s events pass destructures out of the resolved config: the
+   * spec's four plus objectui's own `allDayField`, on the lane objectui#8466
+   * took for the flat spelling of the same vocabulary.
+   *
+   * ⛔ `defaultView` is deliberately NOT a member of this container even though
+   * a list VIEW's calendar block carries one: this renderer seeds its view state
+   * from {@link ObjectCalendarSchema.defaultView}, the FLAT member below, and
+   * never looks inside here. The container stays `.passthrough()`, so a block
+   * carrying it still parses — it is simply not advertised.
+   */
+  calendar?: ObjectCalendarBlockConfig;
   /** Field for event start */
   startDateField?: string;
   /** Field for event end */

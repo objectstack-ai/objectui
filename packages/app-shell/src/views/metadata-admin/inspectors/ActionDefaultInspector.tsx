@@ -668,8 +668,18 @@ export function ActionDefaultInspector({
         {/* Both are `ExpressionInputSchema` in the spec (`disabled` as
             `boolean | ExpressionInput`), so a persisted action carries the
             ADR-0089 envelope — same read/write pair as the hook guard (#3218). */}
-        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} onBlockingIssuesChange={(n) => reportCel('visible', n)} />
-        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
+        {/* `scope="record"` is CONFORMANCE, not taste (objectui#8167). The
+            row-predicate canon in `@object-ui/core` (`rowPredicateCanon.ts`)
+            names an action renderer's `visible` / `disabled` as a row surface
+            in its own words, and `usePredicateRecordContext` binds `record`
+            and nothing else — so a bare `status == 'done'` can never match.
+            Without the scope these two editors linted it CLEAN: the default is
+            `celAuthoring`'s `hint.scope ?? 'flattened'`, which is right for RLS
+            and wrong here. It also ends a disagreement inside this very
+            control — the row builder was already emitting `record.<field>`
+            while its own raw editor accepted the retired bare spelling. */}
+        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} scope="record" onBlockingIssuesChange={(n) => reportCel('visible', n)} />
+        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} scope="record" onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
       </div>
 
       {/* 7 ─ AI exposure */}

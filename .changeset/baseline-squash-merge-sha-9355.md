@@ -12,10 +12,13 @@ The thing it buys: `commit` names a branch tip, this repository squash-merges, a
 object therefore does not exist in any `main` checkout (`git cat-file -t` exits 128 in a
 clone that `git rev-parse --is-shallow-repository` reports as `false`, so the absence is
 genuine). The squash that carried the same branch onto `main` does resolve, and carrying
-it AS DATA — rather than only in the prose, where it already appears — drags it under
-the existing positive pin that holds every commit the constant carries to its own
-attached prose. A prose hash on this constant is guarded by nothing; a carried one
-cannot go stale in silence.
+it AS DATA drags it under the existing positive pin that holds every commit the
+constant carries to its own attached prose. A prose hash on this constant is guarded by
+nothing; a carried one cannot go stale in silence — and this change was open long enough
+to be shown that rather than argue it. A re-baseline landed on `main` underneath it,
+rewrote the block, and took the prose handle out with it: on `main` today the squash of
+the tree the constant names appears nowhere in the repository, while the field below
+carries it under the pin.
 
 The ledger case in `scripts/__tests__/check-eager-closure-budget.test.ts` that records
 what each baseline carries as data is re-pinned to the exact new pair. It is still

@@ -668,10 +668,11 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     // literal is `BASELINE.gzipBytes` rendered, re-taken each time the baseline
     // moves (objectui#6683 down to 3177.7, objectui#6776 down to 3146.8,
     // objectui#7122 UP to 3468.0 on the authorised raise, objectui#7479 down to
-    // 3090.6 when nine locale catalogues left the eager closure) — a
+    // 3090.6 when nine locale catalogues left the eager closure, objectui#9251
+    // down to 3060.0 when lucide's 1,781-icon record left it) — a
     // rendering derived in the test would agree with the renderer by
     // construction and pin nothing.
-    expect(result.message).toContain('3090.6');
+    expect(result.message).toContain('3060.0');
   });
 
   it('is exactly one regression wide, from either side of the line', () => {
@@ -853,13 +854,22 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
 
     /**
      * A declared row's hinge is its pinned figure LESS one grain, and the pair
-     * is taken at that exact boundary. 4,289 is the live `ui-components`
-     * headroom the allowance was read from, so this is the ratchet at its own
-     * hinge rather than a rounded neighbourhood of it.
+     * is taken at that exact boundary.
+     *
+     * ⭐ The allowance below is SYNTHETIC and that is deliberate (objectui#9251).
+     * It used to be read live out of {@link EXHAUSTED_HEADROOM_ALLOWANCES}, and
+     * when `ui-components` paid its debt off the table went empty — which would
+     * have left this whole block with no subject, silently retiring the ratchet
+     * on the run that proved it worked. A mechanism must stay pinned when
+     * nothing currently uses it, or the day someone needs it again is the day
+     * they find out it was never checked. 4,289 is kept as the figure because it
+     * is the one the ratchet was designed and measured against; the LIVE table
+     * is pinned separately, under "the allowance table is a ratchet, pinned".
      */
     describe('a declared row', () => {
       const CEILING = PER_CHUNK_GZIP_CEILINGS['ui-components'];
-      const ALLOWANCE = EXHAUSTED_HEADROOM_ALLOWANCES['ui-components'];
+      const ALLOWANCE = 4_289;
+      const DECLARED = { 'ui-components': ALLOWANCE };
       const GRAIN =
         REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
 
@@ -867,6 +877,7 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
       const atHeadroom = (headroom: number) =>
         evaluateHeadroomSensitivity({
           report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
+          allowances: DECLARED,
         });
 
       it('is held open at its pinned figure', () => {
@@ -935,7 +946,7 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         const at = (headroom: number, allowance: number) =>
           evaluateHeadroomSensitivity({
             report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
-            allowances: { ...EXHAUSTED_HEADROOM_ALLOWANCES, 'ui-components': allowance },
+            allowances: { 'ui-components': allowance },
           }).status;
 
         expect(at(Math.floor(paidDown - GRAIN), paidDown)).toBe('error');
@@ -947,11 +958,18 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     it('names every declared row in the PASSING verdict, not only when one fires', () => {
       // A debt list that is only legible on the run that reds is the parenthetical
       // this card is about: noticing stays manual, and it already failed twice.
+      //
+      // ⭐ Driven by a SYNTHETIC table, and the live one is folded in beside it.
+      // Reading only the live table made this case vacuous the moment the last
+      // debt was paid off (objectui#9251) — a green tick over an empty `for`.
+      const declared = { ...EXHAUSTED_HEADROOM_ALLOWANCES, 'ui-components': 4_289 };
       const result = evaluateHeadroomSensitivity({
         report: sensitivityReport(BASELINE.gzipBytes),
+        allowances: declared,
       });
       expect(result.status).toBe('pass');
-      for (const [name, allowance] of Object.entries(EXHAUSTED_HEADROOM_ALLOWANCES)) {
+      expect(Object.keys(declared).length).toBeGreaterThan(0);
+      for (const [name, allowance] of Object.entries(declared)) {
         expect(result.message).toContain(`chunk \`${name}\``);
         expect(result.message).toContain(`declared ${allowance}-byte allowance`);
       }
@@ -964,23 +982,32 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
      * enforcement: an edit in either direction has to come here and be argued.
      */
     describe('the allowance table is a ratchet, pinned', () => {
-      it('holds exactly the rows measured under the floor on the day it landed', () => {
-        // ⚠️ `i18n-locales: 8_804` was here until objectui#7479 and is REMOVED,
-        // not lowered: its chunk ceased to exist when nine of the ten
-        // catalogues became `import()`ed, and the one that stays is budgeted
-        // under `i18n-locale-en` at a headroom ABOVE the floor, needing no
-        // allowance. That is the only way a row leaves this table.
-        expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({
-          'ui-components': 4_289,
-        });
+      it('holds exactly the rows still in debt — today, none', () => {
+        // ⚠️ Two rows have left this table and NEITHER was lowered, which is the
+        // distinction the ratchet is made of:
+        //
+        //   `i18n-locales: 8_804`  — objectui#7479. Its CHUNK ceased to exist.
+        //   `ui-components: 4_289` — objectui#9251. Its ROW cleared the floor:
+        //     lucide's 1,781-icon record came off the eager path, the ceiling
+        //     was re-pinned DOWN to 289,000 over a 265,937 measurement, and the
+        //     headroom went 0.02x -> 0.25x.
+        //
+        // ⛔ An empty table is NOT this mechanism being retired. Every case in
+        // "a declared row" above now drives a SYNTHETIC entry for exactly that
+        // reason, so the ratchet stays measured with nothing currently owing.
+        expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({});
       });
 
       it('every entry is real debt — strictly under the floor it excuses', () => {
         // An allowance at or above the floor is not debt, it is a second floor
         // for one row, and the row should simply have been dropped from here.
+        // ⚠️ The live table is empty today, so the rule is also asserted the way
+        // it FAILS — otherwise this case is a green tick over an empty loop.
         for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(allowance).toBeLessThan(FLOOR);
         }
+        expect(4_289).toBeLessThan(FLOOR);
+        expect(FLOOR).toBeLessThan(FLOOR + 1);
       });
 
       it('is compared at the coarser of the two grids this gate renders on', () => {
@@ -1004,10 +1031,13 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         expect(grain).toBeGreaterThan(1);
         expect(grain).toBeLessThan(floor);
         // Every declared row must still have a reachable trip point above zero,
-        // or its entry would be decorative.
+        // or its entry would be decorative. Asserted on the live table AND on
+        // the synthetic figure the ratchet was measured against, so an empty
+        // live table cannot make this read as checked.
         for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(allowance - grain).toBeGreaterThan(0);
         }
+        expect(4_289 - grain).toBeGreaterThan(0);
       });
 
       it('every entry names a ceiling that exists', () => {
@@ -1017,6 +1047,10 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         for (const key of Object.keys(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(judged).toContain(key);
         }
+        // Non-vacuity for an empty live table: the key the last entry named is
+        // still a budgeted chunk, and an invented one is still not.
+        expect(judged).toContain('ui-components');
+        expect(judged).not.toContain('a-chunk-nothing-budgets');
       });
     });
   });
@@ -1112,7 +1146,7 @@ describe('main', () => {
     // about the FIXTURE while the gate under test behaved correctly. The number
     // this case is actually about is "the report's chunk count, echoed".
     expect(outputs.closure_chunks).toBe(String(fixture.files.length));
-    expect(outputs.closure_gzip_kb).toBe('3090.6');
+    expect(outputs.closure_gzip_kb).toBe('3060.0');
   });
 
   it('exits 1 — a verdict about the BUNDLE — when over budget', () => {

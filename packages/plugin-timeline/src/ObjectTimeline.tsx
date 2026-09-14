@@ -152,8 +152,23 @@ export interface ObjectTimelineProps {
   };
   dataSource?: DataSource;
   className?: string;
-  onRowClick?: (record: any) => void;
-  onItemClick?: (record: any) => void;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
+  /** The other arm of the same `??` that feeds the hook — see `onRowClick` above (objectui#9357). */
+  onItemClick?: (record: any, event?: any) => void;
 }
 
 export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({

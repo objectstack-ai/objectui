@@ -8,8 +8,8 @@
  * the discussion feed, so it is the only place that can tell the panel
  * "still fetching". Until #3209 it never did: `feedItems` started `[]` and
  * both fetches filled it asynchronously with no loading state anywhere, so
- * `DiscussionContextProvider` and the auto-appended `RecordChatterPanel`
- * both went out without `loading`. The user-visible result was the panel
+ * `DiscussionContextProvider` and the panel it feeds both went out without
+ * `loading`. The user-visible result was the panel
  * asserting "No comments yet" — a factual claim about the record — for the
  * whole first leg of every record page, then contradicting itself when the
  * rows arrived.
@@ -19,14 +19,19 @@
  * are on the rendered outcome — the loading row vs. the empty copy — never
  * on "a prop was passed".
  *
- * TWO delivery paths reach a user, and this file exercises both, because the
- * fix wires them separately and either one alone still ships the bug:
- *   • the SYNTHESIZED page (no authored record page) bakes in a
- *     `record:discussion` node, so the panel arrives through
+ * TWO composition routes reach a user, and this file exercises both:
+ *   • the SYNTHESIZED page (no authored record page) composes a
+ *     `record:discussion` node itself, so the panel arrives through
  *     `DiscussionContextProvider` → `record:chatter` renderer;
- *   • an AUTHORED page that omits the discussion slot gets the host's
- *     bottom auto-append, a `RecordChatterPanel` mounted directly with no
- *     context hop in between.
+ *   • an AUTHORED page that composes the node explicitly — the same renderer,
+ *     reached through the author's own tree and its `page:header` sibling.
+ *
+ * ⚠️ This file used to drive the second route through the host's bottom
+ * AUTO-APPEND, on an authored page that omitted the node. objectui#7298 (the
+ * maintainer ruling of 2026-09-12) removed that append: a record page shows a
+ * discussion panel if and only if it composes one, so an authored page without
+ * the node now has no panel and no loading signal to pin. The route that
+ * survives is the authored NODE, which is what the fixture below declares.
  *
  * The three cases that matter, and why:
  *   1. during the fetch → loading row, no empty copy;
@@ -121,17 +126,21 @@ function makeDataSource(feed: FeedResponses) {
 }
 
 /**
- * An AUTHORED record page that places no discussion slot — this is what
- * turns on the host's bottom auto-append (`showAutoDiscussion`). The
- * synthesized default page always bakes in `record:discussion`, so without
- * an authored page the auto-append branch is unreachable.
+ * An AUTHORED record page that composes the discussion node explicitly — the
+ * second of the two routes, and since objectui#7298 the only way a panel
+ * reaches an authored page at all.
  */
-const AUTHORED_PAGE_WITHOUT_DISCUSSION = {
+const AUTHORED_PAGE_WITH_DISCUSSION = {
   name: 'account_record_page',
   type: 'record',
   pageType: 'record',
   object: OBJECT_NAME,
-  regions: [{ name: 'main', components: [{ type: 'page:header', title: 'Account' }] }],
+  regions: [
+    {
+      name: 'main',
+      components: [{ type: 'page:header', title: 'Account' }, { type: 'record:discussion' }],
+    },
+  ],
 };
 
 function makeMetadata(pages: any[]) {
@@ -189,11 +198,11 @@ afterEach(() => {
 
 describe('RecordDetailView — the feed fetch produces a loading signal (#3209)', () => {
   it('renders the discussion through the context path when the page is synthesized', async () => {
-    // Pins WHICH path the cases below exercise: the synthesized page bakes
-    // in `record:discussion`, so the host suppresses its auto-append and the
-    // panel arrives via DiscussionContext. If this ever flips, the auto-append
-    // case (further down) would be the one under test twice and the context
-    // hop would go uncovered without any test turning red.
+    // Pins WHICH route the cases below exercise: with no authored page the
+    // synthesizer composes `record:discussion` itself, so the panel arrives
+    // through DiscussionContext. If this ever flips, the AUTHORED-node case
+    // (further down) would be the one under test twice and the synthesized
+    // route would go uncovered without any test turning red.
     const dataSource = makeDataSource({ sys_comment: pending, sys_activity: pending });
 
     renderDetail(dataSource);
@@ -327,16 +336,16 @@ describe('RecordDetailView — the feed fetch produces a loading signal (#3209)'
   });
 });
 
-describe('RecordDetailView — the auto-appended panel is on the same chain (#3209)', () => {
-  // An authored page that omits the discussion slot gets the host's
-  // bottom-of-page `RecordChatterPanel`, mounted DIRECTLY — no
-  // DiscussionContext hop, therefore its own `loading` wire. Missing it
-  // would leave every authored record page still showing "No comments yet"
-  // mid-fetch, with the context path green.
-  it('shows the loading row on an authored page whose discussion slot is auto-appended', async () => {
+describe('RecordDetailView — an AUTHORED discussion node is on the same chain (#3209)', () => {
+  // The author's own `record:discussion` reaches the same renderer through the
+  // author's tree rather than the synthesizer's. Both routes read `loading` off
+  // the one `DiscussionContextProvider`, and this half is what would leave an
+  // authored record page showing "No comments yet" mid-fetch while the
+  // synthesized path stayed green.
+  it('shows the loading row on an authored page that composes the discussion node', async () => {
     const dataSource = makeDataSource({ sys_comment: pending, sys_activity: pending });
 
-    renderDetail(dataSource, [AUTHORED_PAGE_WITHOUT_DISCUSSION]);
+    renderDetail(dataSource, [AUTHORED_PAGE_WITH_DISCUSSION]);
 
     expect(await screen.findByTestId('activity-loading')).toBeTruthy();
     expect(screen.queryByText(EMPTY_COMMENTS)).toBeNull();
@@ -348,7 +357,7 @@ describe('RecordDetailView — the auto-appended panel is on the same chain (#32
       sys_activity: () => Promise.resolve({ data: [] }),
     });
 
-    renderDetail(dataSource, [AUTHORED_PAGE_WITHOUT_DISCUSSION]);
+    renderDetail(dataSource, [AUTHORED_PAGE_WITH_DISCUSSION]);
 
     expect(await screen.findByText(EMPTY_COMMENTS)).toBeTruthy();
     expect(screen.queryByTestId('activity-loading')).toBeNull();
@@ -360,7 +369,7 @@ describe('RecordDetailView — the auto-appended panel is on the same chain (#32
       sys_activity: () => Promise.reject(new Error('404 sys_activity')),
     });
 
-    renderDetail(dataSource, [AUTHORED_PAGE_WITHOUT_DISCUSSION]);
+    renderDetail(dataSource, [AUTHORED_PAGE_WITH_DISCUSSION]);
 
     expect(await screen.findByText(EMPTY_COMMENTS)).toBeTruthy();
     expect(screen.queryByTestId('activity-loading')).toBeNull();

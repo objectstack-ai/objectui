@@ -28,7 +28,10 @@ export interface RecordHighlightsRendererProps {
 }
 
 export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> = ({
-  schema = {} as any,
+  // ⛔ NOT `{} as any` — the annotation-erasing default objectui#8649 repaired.
+  // The mechanism and why the spelling tracks the annotation are written once,
+  // at the same site in `record-details.tsx`.
+  schema = {} as NonNullable<RecordHighlightsRendererProps['schema']>,
   className,
   ...props
 }) => {

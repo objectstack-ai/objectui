@@ -6,34 +6,38 @@
  * LICENSE file in the root directory of this source tree.
  *
  * ══════════════════════════════════════════════════════════════════════════
- * The TWO chatter surfaces on a record page render the SAME feed
- * (objectui#8983)
+ * BOTH composition routes to the chatter panel render the SAME feed
+ * (objectui#8983, re-aimed by objectui#7298)
  * ══════════════════════════════════════════════════════════════════════════
  *
- * A record page can show its discussion through either of two surfaces, and
- * which one a user gets is decided by the page schema, not by them:
+ * A record page shows its discussion because the page composes a
+ * `record:discussion` / `record:chatter` node, and there are two ways that node
+ * gets into the tree:
  *
- *   AUTHORED / SYNTHESIZED BLOCK   a page that places `record:discussion` or
- *                                  `record:chatter` — which every synthesized
- *                                  default page does (`buildDefaultPageSchema`
- *                                  appends `record:discussion` unless
- *                                  `hideDiscussion`) — renders through
- *                                  `RecordChatterRenderer`.
- *   HOST FALLBACK                  an AUTHORED page that omits the block gets
- *                                  the host's bottom auto-append, gated by
- *                                  `showAutoDiscussion` in `RecordDetailView`.
+ *   SYNTHESIZED BLOCK   no authored record page ⇒ `buildDefaultPageSchema`
+ *                       composes `record:discussion` itself.
+ *   AUTHORED BLOCK      an authored page places the node in its own region,
+ *                       beside whatever else it composes.
  *
- * objectui#8934 taught the renderer to run `applyFeedConfig`, so the protocol's
- * `feed` members and its DEFAULTS became live on the first surface. The
- * fallback kept handing its rows to `RecordChatterPanel` raw. For one round the
- * two therefore disagreed on the same record and the same rows — a completed
+ * Both resolve through `ComponentRegistry` to ONE `RecordChatterRenderer`, so
+ * both must render one feed. objectui#8934 taught that renderer to run
+ * `applyFeedConfig`, making the protocol's `feed` members and its DEFAULTS live
+ * — and this file is what turns red if a future edit gives either route its own
+ * items/config path instead.
+ *
+ * ⚠️ WHAT CHANGED UNDER THIS FILE. The second surface used to be the HOST
+ * FALLBACK: an authored page that omitted the block got a panel auto-appended
+ * by `RecordDetailView`, and for one round that fallback handed its rows to
+ * `RecordChatterPanel` raw while the block ran the pipeline — a completed
  * activity showed on one and not the other, and a feed past twenty rows
- * rendered whole on one and paged on the other.
- *
- * objectui#8983 closed that by BINDING, not by copying: the fallback now mounts
- * `RecordChatterRenderer` — the same component `ComponentRegistry` resolves
- * both block names to — with no schema, so it runs the one pipeline instead of
- * a second implementation of it kept in agreement by hand.
+ * rendered whole on one and paged on the other. objectui#8983 closed that by
+ * BINDING rather than copying (the fallback started mounting the renderer with
+ * no schema). objectui#7298 then retired the fallback outright — the maintainer
+ * ruling of 2026-09-12: a page shows a discussion panel if and only if it
+ * composes one. So the divergence this file was written about can no longer
+ * arise from THAT pair; the pair it guards now is the two ways the node is
+ * composed, and the pre-fix control below still measures what an UNBOUND
+ * surface would have rendered.
  *
  * ## What makes the equality below a reading rather than a tautology
  *
@@ -42,12 +46,13 @@
  * objectui#8934 too, when neither surface ran the pipeline. Three legs answer
  * that, and all three have to hold together:
  *
- *   PRE-FIX CONTROL   `PreFixFallbackShape` below is the fallback's JSX as it
- *                     was written before this card — the same panel, the same
- *                     hard-coded three affordances, raw `items`. It is rendered
- *                     on the SAME feed and asserted to produce a DIFFERENT row
- *                     set. So the fixture provably discriminates: an unbound
- *                     fallback fails the equality.
+ *   PRE-FIX CONTROL   `PreFixFallbackShape` below is the retired host
+ *                     fallback's JSX as it was written before objectui#8983 —
+ *                     the same panel, the same hard-coded three affordances,
+ *                     raw `items`. It is rendered on the SAME feed and asserted
+ *                     to produce a DIFFERENT row set. So the fixture provably
+ *                     discriminates: a surface that stops running the pipeline
+ *                     fails the equality.
  *   AGREEMENT FIXTURE the shared row set is asserted by VALUE, and the value is
  *                     the pipeline's answer (completed row hidden, a 20-row
  *                     page window) rather than the raw feed. Both surfaces
@@ -131,16 +136,22 @@ const OBJECTS = [
 ];
 
 /**
- * An AUTHORED record page that places no discussion slot — the one thing that
- * turns the host fallback on. A synthesized page always bakes in
- * `record:discussion`, so without this the fallback branch is unreachable.
+ * An AUTHORED record page that composes the discussion node itself — the second
+ * of the two routes. Since objectui#7298 an authored page that OMITS the node
+ * renders no panel at all, which is pinned in
+ * `RecordDetailView.discussionExplicitComposition-7298`.
  */
-const AUTHORED_PAGE_WITHOUT_DISCUSSION = {
+const AUTHORED_PAGE_WITH_DISCUSSION = {
   name: 'account_record_page',
   type: 'record',
   pageType: 'record',
   object: OBJECT_NAME,
-  regions: [{ name: 'main', components: [{ type: 'page:header', title: 'Account' }] }],
+  regions: [
+    {
+      name: 'main',
+      components: [{ type: 'page:header', title: 'Account' }, { type: 'record:discussion' }],
+    },
+  ],
 };
 
 /** Zero-padded so no marker is a substring of another (`Comment 1` vs `10`). */
@@ -248,15 +259,15 @@ function renderDetail(fixture: Fixture, pages: any[]) {
 }
 
 /**
- * The host fallback's JSX EXACTLY as it was written before objectui#8983 —
- * `RecordChatterPanel` mounted directly, the three affordances hard-coded, raw
- * `items`, no `hasMore` / `onLoadMore`.
+ * The retired host fallback's JSX EXACTLY as it was written before
+ * objectui#8983 — `RecordChatterPanel` mounted directly, the three affordances
+ * hard-coded, raw `items`, no `hasMore` / `onLoadMore`.
  *
- * ⛔ Not production code and not a second implementation: it is the control
- * that makes the equality assertions readings. Every case that asserts the two
- * surfaces agree also asserts that THIS shape does not, on the same feed — so a
- * fallback that stopped running the pipeline could not pass by rendering
- * whatever the other surface happens to render.
+ * ⛔ Not production code, and since objectui#7298 not any code: it is the
+ * control that makes the equality assertions readings. Every case that asserts
+ * the two routes agree also asserts that THIS shape does not, on the same feed
+ * — so a route that stopped running the pipeline could not pass by rendering
+ * whatever the other one happens to render.
  */
 const PreFixFallbackShape: React.FC<{ items: FeedItem[] }> = ({ items }) => (
   <div className="mt-6">
@@ -299,9 +310,9 @@ async function readSurface(fixture: Fixture, pages: any[]) {
   return { rows: renderedRows(fixture), loadMore: loadMoreCount() };
 }
 
-const viaHostFallback = (fixture: Fixture) => readSurface(fixture, [AUTHORED_PAGE_WITHOUT_DISCUSSION]);
-/** No authored page ⇒ the synthesized default, which bakes in the block. */
-const viaAuthoredBlock = (fixture: Fixture) => readSurface(fixture, []);
+const viaAuthoredBlock = (fixture: Fixture) => readSurface(fixture, [AUTHORED_PAGE_WITH_DISCUSSION]);
+/** No authored page ⇒ the synthesized default, which composes the block. */
+const viaSynthesizedBlock = (fixture: Fixture) => readSurface(fixture, []);
 
 function readPreFixShape(fixture: Fixture) {
   render(<PreFixFallbackShape items={feedAsTheViewBuildsIt(fixture)} />);
@@ -329,26 +340,26 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('both chatter surfaces render the same feed (objectui#8983)', () => {
+describe('both composition routes render the same feed (objectui#8983)', () => {
   it('a COMPLETED activity is hidden on both — and the pre-fix fallback shape shows it', async () => {
     // The card's first probe row. `showCompleted` defaults false in the spec,
-    // so the pipeline drops the `task`; an unbound fallback renders it.
+    // so the pipeline drops the `task`; an unbound surface renders it.
     const fixture: Fixture = { comments: 3, withCompletedActivity: true };
     const expected = ['Comment 01', 'Comment 02', 'Comment 03'];
 
-    const fallback = await viaHostFallback(fixture);
-    expect(fallback.rows).toEqual(expected);
-
-    cleanup();
     const authored = await viaAuthoredBlock(fixture);
     expect(authored.rows).toEqual(expected);
-    expect(fallback.rows).toEqual(authored.rows);
 
-    // PRE-FIX CONTROL — the same feed, the shape this branch used to have.
+    cleanup();
+    const synthesized = await viaSynthesizedBlock(fixture);
+    expect(synthesized.rows).toEqual(expected);
+    expect(authored.rows).toEqual(synthesized.rows);
+
+    // PRE-FIX CONTROL — the same feed, the shape the retired fallback had.
     cleanup();
     const preFix = readPreFixShape(fixture);
     expect(preFix.rows).toEqual([...expected, TASK_MARKER]);
-    expect(preFix.rows).not.toEqual(fallback.rows);
+    expect(preFix.rows).not.toEqual(authored.rows);
   });
 
   it('a feed past the page window pages on both — and the pre-fix fallback shape renders it whole', async () => {
@@ -358,22 +369,22 @@ describe('both chatter surfaces render the same feed (objectui#8983)', () => {
     const fixture: Fixture = { comments: 25, withCompletedActivity: false };
     const expected = Array.from({ length: 20 }, (_, i) => commentMarker(i + 6));
 
-    const fallback = await viaHostFallback(fixture);
-    expect(fallback.rows).toEqual(expected);
-    expect(fallback.loadMore).toBe(1);
-
-    cleanup();
     const authored = await viaAuthoredBlock(fixture);
     expect(authored.rows).toEqual(expected);
     expect(authored.loadMore).toBe(1);
-    expect(fallback.rows).toEqual(authored.rows);
+
+    cleanup();
+    const synthesized = await viaSynthesizedBlock(fixture);
+    expect(synthesized.rows).toEqual(expected);
+    expect(synthesized.loadMore).toBe(1);
+    expect(authored.rows).toEqual(synthesized.rows);
 
     // PRE-FIX CONTROL — no pipeline, so no window and no paging affordance.
     cleanup();
     const preFix = readPreFixShape(fixture);
     expect(preFix.rows).toHaveLength(25);
     expect(preFix.loadMore).toBe(0);
-    expect(preFix.rows).not.toEqual(fallback.rows);
+    expect(preFix.rows).not.toEqual(authored.rows);
   });
 
   it('NEUTRAL FIXTURE — on a feed with nothing to filter, all three shapes agree', async () => {
@@ -384,13 +395,13 @@ describe('both chatter surfaces render the same feed (objectui#8983)', () => {
     const fixture: Fixture = { comments: 3, withCompletedActivity: false };
     const expected = ['Comment 01', 'Comment 02', 'Comment 03'];
 
-    const fallback = await viaHostFallback(fixture);
-    expect(fallback.rows).toEqual(expected);
-    expect(fallback.loadMore).toBe(0);
-
-    cleanup();
     const authored = await viaAuthoredBlock(fixture);
     expect(authored.rows).toEqual(expected);
+    expect(authored.loadMore).toBe(0);
+
+    cleanup();
+    const synthesized = await viaSynthesizedBlock(fixture);
+    expect(synthesized.rows).toEqual(expected);
 
     cleanup();
     const preFix = readPreFixShape(fixture);
@@ -399,14 +410,14 @@ describe('both chatter surfaces render the same feed (objectui#8983)', () => {
   });
 });
 
-describe('the fallback got the paging PAIR, not just the affordance (objectui#8983)', () => {
-  it('"Load more" on the host fallback grows the window by one page', async () => {
+describe('the authored block got the paging PAIR, not just the affordance (objectui#8983)', () => {
+  it('"Load more" on an authored `record:discussion` grows the window by one page', async () => {
     // `hasMore` without `onLoadMore` renders a button that does nothing — which
     // satisfies every assertion that only counts buttons. Clicking it is what
     // separates "the page window is wired" from "a dead affordance rendered".
     const fixture: Fixture = { comments: 25, withCompletedActivity: false };
 
-    renderDetail(fixture, [AUTHORED_PAGE_WITHOUT_DISCUSSION]);
+    renderDetail(fixture, [AUTHORED_PAGE_WITH_DISCUSSION]);
     await settled();
     await waitFor(() => expect(renderedRows(fixture).length).toBe(20));
 

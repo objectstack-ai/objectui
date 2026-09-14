@@ -810,6 +810,12 @@ async function validateObjectFieldRules(draft: unknown): Promise<SchemaFormIssue
         objectName,
         fields: fieldNames,
         scope: 'record',
+        // Names the authored key so the wrong-layer advisory takes the
+        // platform's published verdict (objectui#9318). Only ERRORS are kept
+        // below, and that advisory is a `warning`, so this changes nothing
+        // this gate reports today — it keeps the two `scope: 'record'` callers
+        // asking the same question of the same authority.
+        slot: key,
       });
       for (const f of findings) {
         if (f.severity !== 'error') continue;

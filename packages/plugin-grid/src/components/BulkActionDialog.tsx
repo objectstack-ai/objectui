@@ -22,12 +22,13 @@ import {
 import { AlertTriangle, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/react';
 import { getLazyFieldWidget } from '@object-ui/fields';
-// The shared allow-table of widgets that are fed the dialog's own in-progress
-// values as their record — one definition for this dialog, the single-record
-// action dialog and the object form (objectui#4770). Its TSDoc carries the
-// rationale (including the unruled picker-family boundary, objectui#4771) that
-// used to be repeated in each of the three copies.
-import { CASCADE_OPTION_WIDGET_TYPES } from '@object-ui/core';
+// The two shared allow-tables of widgets that are fed the dialog's own
+// in-progress values as their record — one definition each for this dialog, the
+// single-record action dialog and the object form (objectui#4770 / objectui#4815).
+// Their TSDoc carries the rationale that used to be repeated in each copy.
+// See `paramNeedsDependentValues` below for why this surface ORs them;
+// ⛔ never copied into a local literal, and ⛔ never merged into one set.
+import { CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
 import type { BulkActionDef, BulkActionParam } from '@object-ui/types';
 import { useBulkExecutor, type BulkExecutorOptions, type BulkResult } from '../hooks/useBulkExecutor';
 import { hasMultiValueShape, type MultiValueFieldDef } from '../hooks/multiValueFields';
@@ -605,6 +606,67 @@ interface ParamFieldProps {
  * PeoplePicker. Widgets stay lazy behind `<Suspense>` so opening a dialog only
  * loads the widgets its params actually use.
  */
+/**
+ * Which widgets in this dialog are handed the dialog's live record as
+ * `dependentValues` — and the reason is not one rule but TWO, over overlapping
+ * families, exactly as the object form already splits them (`form.tsx`'s
+ * `needsDataSourceWiring` line beside its `CASCADE_OPTION_WIDGET_TYPES` line)
+ * and as the single-record dialog does since objectui#8672 ruling A.
+ *
+ * 1. **Option widgets** — {@link CASCADE_OPTION_WIDGET_TYPES}. Their OFFERED
+ *    SET is re-resolved against the record (`visibleWhen`, `dependsOn` gating)
+ *    by the shared evaluator. This half has been supplied here since
+ *    objectui#4757.
+ * 2. **Reference-bearing pickers** — {@link EXPANDABLE_FIELD_TYPES}. They have
+ *    no options list to narrow; they narrow a QUERY. `LookupField` turns the
+ *    field's declared `dependsOn` into a hard `$filter` (`dependentFilter` →
+ *    `popoverFilter` / `baseFilter`, feeding the quick-select popover, the
+ *    Level-2 table picker and PeoplePicker alike) and gates the trigger while a
+ *    named parent is still empty. objectui#8755 wires this half up here, the
+ *    third and last surface that reads the option set.
+ *
+ * ⭐ **Why this is a consistency fix and not a new authoring route.** `dependsOn`
+ * was ALREADY a live, honoured key on a `BulkActionParam`: `bulkParamToField`
+ * does not destructure it out, so it rides `...extra` onto the field bag, and
+ * the option widgets above have read it through `useCascadingOptions` all
+ * along. Family 2 read the same key off the same bag and was never handed the
+ * record, so a bulk lookup param declaring `dependsOn` rendered a trigger
+ * disabled FOREVER — prompting for the very param the user had just filled.
+ * Retiring the key (ADR-0049 enforce-or-remove, the other disposition
+ * objectui#8755 weighed) would have deleted a shipping capability, because one
+ * of the two families that read it works.
+ *
+ * ⚠️ **The bulk param schema does NOT license the key, and must not be cited as
+ * if it did.** `@objectstack/spec`'s `BulkActionParamSchema` "accepts"
+ * `dependsOn` — and accepts a nonsense key in the same breath, because it is not
+ * strict; its strict sibling `ActionParamSchema` refuses both. That accept is a
+ * NULL reading, measured with both controls in
+ * `__tests__/bulkLookupDependsOnReach-8755.test.tsx` leg B. Whether the key
+ * should become authorable BY CONTRACT on this surface — by closing that schema,
+ * or by giving bulk the field-backed route `resolveActionParams` gives the
+ * single-record dialog — is upstream of this repo and is left open there.
+ *
+ * ⭐ **Why this is not `CASCADE_OPTION_WIDGET_TYPES.add('lookup')`.** That set is
+ * shared verbatim with the object form's cascade-CLEAR loop and with
+ * `ActionParamDialog`, and its members mean one specific thing: "this widget's
+ * offered OPTION set is re-resolved by `resolveCascadingOptions`". A lookup's is
+ * not — it has no option set. So the families stay separate and this surface ORs
+ * them. ⛔ Never `new Set([...A, ...B])` — a copy re-forks a shared table.
+ *
+ * ⚠️ `EXPANDABLE_FIELD_TYPES` is read over WIDGET keys here (the output of
+ * `bulkParamToField`, i.e. `resolveBulkParamWidgetType`), the same coincidence
+ * the form and the single-record dialog document: each reference type maps onto
+ * a same-named widget id. `tree` resolves to `lookup` before it reaches this
+ * test, so that member is inert here. A picker that degraded to `text` for want
+ * of a declared `object` target is a `text` widget by then, and correctly gets
+ * nothing.
+ */
+function paramNeedsDependentValues(widgetType: string): boolean {
+  return (
+    CASCADE_OPTION_WIDGET_TYPES.has(widgetType) || EXPANDABLE_FIELD_TYPES.has(widgetType)
+  );
+}
+
 const ParamField: React.FC<ParamFieldProps> = ({ param, multiple, value, onChange, dataSource, values }) => {
   const id = `bulk-param-${param.name}`;
   const field = useMemo(() => bulkParamToField(param, multiple), [param, multiple]);
@@ -640,7 +702,17 @@ const ParamField: React.FC<ParamFieldProps> = ({ param, multiple, value, onChang
   // A predicate naming a column the dialog has no param for (`record.owner_id`)
   // stays unresolvable, which `resolveVisibleOptions` fails OPEN: the option is
   // offered, never wrongly hidden.
-  const cascadeProps = CASCADE_OPTION_WIDGET_TYPES.has(field.type)
+  //
+  // ⭐ objectui#8755 — the record now reaches the reference-bearing PICKERS too,
+  // not only the option widgets. WHICH record is the same one and for the same
+  // reason: this dialog holds no row at all, so its `values` are its whole
+  // equivalent of the grid's `ctx.pendingRow ?? ctx.row` (objectui#7165/#7188),
+  // with no second candidate to rank against it. ⛔ Nothing about the cascade
+  // itself is implemented here — `LookupField`'s `dependentFilter` chain was
+  // always live and host-independent; this line supplies the one INPUT no host
+  // could otherwise deliver. WHICH widgets, and why two rules rather than one,
+  // is `paramNeedsDependentValues` above.
+  const cascadeProps = paramNeedsDependentValues(field.type)
     ? { dependentValues: values }
     : {};
 

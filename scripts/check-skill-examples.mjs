@@ -121,8 +121,8 @@
  * because that package declares it — and may not import a package nothing
  * declares).
  *
- * ⛔ The alternative was mapping `@object-ui/*` to `src/` through
- * `tsconfig.base.json`, and it is rejected for the reason that gate's header
+ * ⛔ The alternative was mapping `@object-ui/*` to `src/` through the root
+ * `tsconfig.json`, and it is rejected for the reason that gate's header
  * states in as many words: the root config maps the workspace to SOURCE, so a
  * harness that inherited it would judge the guides against code no reader
  * resolves — green while the published surface is broken. The reader of a skill

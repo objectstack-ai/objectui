@@ -241,7 +241,18 @@ export function hydratedMessagesToChatMessages(messages: HydratedUIMessage[]): C
         // Without the id, `useHitlInChat` never indexes the invocation and the
         // operator's Approve / Reject has nothing to call.
         const approval = partApproval(part);
-        const pendingActionId = detectPendingApproval(result)?.pendingActionId;
+        // objectui#9232 — the envelope still decides wherever it has anything
+        // to say; the part key is only consulted when it does not. That order
+        // is what keeps this a single contract rather than two dialects: on the
+        // SERVER path the id exists only inside the result, so `??` never
+        // reaches its right-hand side and this line behaves exactly as
+        // objectui#8442 left it. The fallback exists for the CACHE path, where
+        // `output` holds one envelope and a turn carrying both a draft and a
+        // pending approval has to put its draft there — leaving the part key as
+        // the only place the id can ride. `sanitizeChatMessagesForCache` is the
+        // only writer of that key.
+        const pendingActionId =
+          detectPendingApproval(result)?.pendingActionId ?? partString(part, 'pendingActionId');
         toolInvocations.push({
           toolCallId,
           toolName,

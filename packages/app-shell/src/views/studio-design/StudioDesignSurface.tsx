@@ -21,6 +21,7 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
 import { extractDraftBody } from '@object-ui/data-objectstack';
+import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
 import { StudioChatDock } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { useIsWideViewport } from './wideViewport.js';
@@ -3697,12 +3698,25 @@ export function DataPillar({
 }
 
 /** Automations pillar — flows: list → FlowPreview (default OFF / review-then-enable). */
-/** Runtime enable/bound state for a flow (from `GET /automation/_status`). */
-interface FlowRuntimeState {
-  name: string;
-  enabled?: boolean;
-  bound?: boolean;
-}
+/**
+ * One flow's runtime enable/bound state, as `GET /automation/_status` puts it on
+ * the wire — the same report `IAutomationService.getFlowRuntimeStates` produces,
+ * so the shape is the spec's and is TAKEN from it rather than restated
+ * (objectui#7265; this used to be a module-local copy under the spec's own name,
+ * already three keys behind it).
+ *
+ * `Partial<>` is the one deliberate divergence, and it is about the READER, not
+ * the contract: this types a JSON body that has not been validated and may come
+ * from an older backend that sends neither `enabled` nor `bound` — the effect
+ * hard-codes the degraded case (`if (!res.ok) return`, "dots just don't
+ * render"). Every member is therefore optional HERE while the contract keeps
+ * `name` / `enabled` / `bound` required, and the reads below narrow each one
+ * explicitly (`if (s?.name)`, `s.enabled !== false`, `!!s.bound`) instead of
+ * trusting the type. Pinned in `spec-symbol-parity.test.ts`: if the spec ever
+ * relaxes those three itself, the pin fails and this alias should collapse to a
+ * plain re-export.
+ */
+type FlowRuntimeState = Partial<SpecFlowRuntimeState>;
 
 /**
  * A flow's live status in the Automations rail: a colored dot + On/Off, from the

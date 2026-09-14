@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { namedFiles, paragraphNaming, resolveNamed, treeIndex } from '../check-changeset-claims.mjs';
+import { audit, namedFiles, paragraphNaming, resolveNamed, treeIndex } from '../check-changeset-claims.mjs';
 
 /**
  * objectui#9003 — a pending changeset's prose is judged by nothing.
@@ -416,5 +416,99 @@ describe('resolveNamed', () => {
     // `package.json` resolves to dozens of tracked files here. Precision comes
     // from resolution against the tree, not from a list somebody has to keep.
     expect(resolveNamed(index, 'package.json')).toBeNull();
+  });
+});
+
+// ── 6. the blind spot is COUNTED, not hand-counted per incident ──────────────
+
+/**
+ * objectui#9140 — the shape this gate cannot see, made measurable.
+ *
+ * objectui#9065 was five WENT-FALSE claims at once; the gate named four and was
+ * blind to the fifth. The fifth's body names no file at all — it coordinates
+ * itself by SYMBOL — so no diff can make the diff-mode check speak about it.
+ * That was established by counting backticked spans BY HAND, once, on one card.
+ *
+ * `--audit` now counts the population instead, so the size of the blind spot is
+ * re-derived on every run rather than written down (AGENTS.md rule #9). What is
+ * pinned here is the COUNTER, in both directions:
+ *
+ *   - a symbol-coordinated body is counted as outside the reach (it fires), and
+ *   - the FIRING NEGATIVE CONTROL: the same body with one resolvable file name
+ *     added is NOT counted there. Without that leg, "the census sees it" cannot
+ *     be told apart from "the census counts everything".
+ *
+ * The limit itself is pinned too: even when the change edits the very file the
+ * symbol-only body is about, the diff-mode gate still reports nothing about it.
+ * ⛔ That is the card's finding, pinned AS A LIMIT — not a bug to be fixed by
+ * loosening the coordinate, which objectui#9140 measured and left open.
+ */
+describe('objectui#9140 — bodies this gate can never reach', () => {
+  /** A fixture carrying one symbol-coordinated pending body. */
+  function blindFixture(label: string, body: string): Fixture {
+    const fixture = fixtureRepo(label);
+    fixture.write('.changeset/9140-symbol-coordinated.md', body);
+    fixture.commit('a pending declaration that coordinates itself by symbol');
+    return fixture;
+  }
+
+  // The shape of `.changeset/7165-grid-dependent-values.md`: every coordinate it
+  // offers is a symbol, and not one of them is spelled as a file name.
+  const SYMBOL_ONLY =
+    '---\n' +
+    "'@fixture/alpha': patch\n" +
+    '---\n\n' +
+    'The inline editor now supplies `dependentValues`, so a `dependsOn` column is\n' +
+    'no longer permanently uneditable. `renderCellEditor` passes the saved row.\n';
+
+  it('counts a symbol-coordinated body as outside the reach', () => {
+    const fixture = blindFixture('blind', SYMBOL_ONLY);
+    const totals = audit(fixture.root, null);
+
+    expect(totals.silent, 'a body naming no file is outside the diff-mode reach').toBeGreaterThanOrEqual(1);
+    expect(totals.blind.join('\n')).toContain('.changeset/9140-symbol-coordinated.md');
+  });
+
+  it('FIRING NEGATIVE CONTROL — the same body naming one resolvable file is NOT counted there', () => {
+    // Known direction, and it must move: the ONLY edit between the two fixtures
+    // is one added backticked file name that resolves to exactly one tracked
+    // file. If the census counted every body, this leg would read identically
+    // to the one above and prove nothing.
+    const blind = audit(blindFixture('blind-ctl-a', SYMBOL_ONLY).root, null);
+    const seeing = audit(
+      blindFixture('blind-ctl-b', SYMBOL_ONLY.replace('the saved row.', 'the saved row, in `reconciliation.test.ts`.'))
+        .root,
+      null,
+    );
+
+    const named = '.changeset/9140-symbol-coordinated.md';
+    expect(blind.blind.join('\n'), 'the symbol-only body IS in the blind list').toContain(named);
+    expect(seeing.blind.join('\n'), 'adding one resolvable file name takes it OUT').not.toContain(named);
+    // Non-empty guard: both runs must have looked at the same publishing
+    // population, so the difference above cannot come from one side reading
+    // nothing at all.
+    expect(seeing.publishing, 'both runs read the same publishing population').toBe(blind.publishing);
+    expect(blind.publishing).toBeGreaterThan(0);
+    expect(seeing.silent, 'the control body left the silent population').toBe(blind.silent - 1);
+  });
+
+  it('pins the LIMIT: the diff-mode gate stays silent even when the change edits the file that body is about', () => {
+    const fixture = blindFixture('blind-limit', SYMBOL_ONLY);
+    // `renderCellEditor` is a symbol this body names. Edit the file that
+    // declares it — the exact shape of the falsifying merge on objectui#9065.
+    fixture.write('packages/alpha/src/reconciliation.test.ts', 'export const renderCellEditor = () => null;\n');
+    fixture.commit('edit the file the symbol-only body is about');
+
+    const run = runGate(fixture.root, lastCommitRange(fixture));
+
+    expect(run.status, 'report-only: still exit 0').toBe(0);
+    expect(run.output, 'the symbol-coordinated body is never reported').not.toContain(
+      '9140-symbol-coordinated.md',
+    );
+    // Control with a known direction that HITS in this same run: the gate did
+    // look, and it can still speak about a body that names that same file.
+    expect(run.output, 'the gate was not simply silent about everything').toContain(
+      '.changeset/6794-declared-default.md',
+    );
   });
 });

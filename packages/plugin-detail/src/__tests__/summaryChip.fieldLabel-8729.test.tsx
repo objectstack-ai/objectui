@@ -324,6 +324,14 @@ describe('objectui#8729 — the summary chip names its field like its siblings',
    * accessible name ENDS WITH the on-screen percentage, leaving this card a
    * free hand over the name half. Re-asserted from this side so a name change
    * cannot quietly take the percentage with it.
+   *
+   * ⚠️ The percentage itself moved from `12.3%` to `12%` in objectui#9167,
+   * which routed the chip's text through the list cell's own `formatPercent` at
+   * the field's declared precision (`0` here, undeclared). The RELATION this
+   * case exists for — the name ends with whatever is on screen, and the NAME
+   * half is `Win Ratio:` — is untouched: it is asserted against `textOf(chip)`
+   * rather than against a literal, which is why only the two pinned strings
+   * below had to move.
    */
   it('THE PERCENTAGE HALF — untouched: the name still ends with the percentage on screen', () => {
     const container = renderPage({
@@ -333,14 +341,14 @@ describe('objectui#8729 — the summary chip names its field like its siblings',
     });
 
     const chip = requireChip(container, 'ratio');
-    expect(textOf(chip), 'CONTROL: the percent branch still states the percentage').toBe('12.3%');
+    expect(textOf(chip), 'CONTROL: the percent branch still states the percentage').toBe('12%');
     const label = chip.getAttribute('aria-label') ?? '';
     expect(label.endsWith(textOf(chip)), `the name ends with the percentage (got "${label}")`).toBe(
       true,
     );
     // And the name half moved with this card — the percent branch is one of the
     // three sites, not an exception to them.
-    expect(chip).toHaveAccessibleName('Win Ratio: 12.3%');
+    expect(chip).toHaveAccessibleName('Win Ratio: 12%');
   });
 });
 

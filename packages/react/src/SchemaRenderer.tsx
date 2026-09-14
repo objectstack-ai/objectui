@@ -31,7 +31,7 @@ import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
-import { reportDroppedPropsBag } from './utils/propsBagDiagnostic.js';
+import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { expressionBindableTextKeysFor } from '@objectstack/spec/ui';
 import {
   reportUnresolvableVisibilityPredicate,
@@ -328,6 +328,25 @@ const PREDICATE_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
   ...VISIBILITY_CHAIN_KEYS,
   ...ENABLEMENT_NODE_GATE_KEYS,
   ...ENABLEMENT_RENDERER_KEYS,
+]);
+
+/**
+ * Every key a NODE GATE in this file actually consults, as ONE lookup for the
+ * objectui#9108 refusal below. DERIVED from the same two declarations the gates
+ * are built from, so a leg added to either chain is refused under `props` by the
+ * same edit that adds it.
+ *
+ * {@link PREDICATE_CHAIN_KEYS} minus {@link ENABLEMENT_RENDERER_KEYS}, and the
+ * subtraction is the whole reason this is a second derivation rather than a
+ * reuse: `enabled` is in that union because the config-bag evaluation loops
+ * flatten it, but NO gate here consults it - the action renderers read it one
+ * layer down off the schema and negate it. Refusing it here would state, of a
+ * key this file never asks about, that a gate in this file could not see it.
+ * Its own `props` drop is objectui#6708's subject and is reported there.
+ */
+const NODE_GATE_PREDICATE_KEYS: ReadonlySet<string> = new Set<string>([
+  ...VISIBILITY_CHAIN_KEYS,
+  ...ENABLEMENT_NODE_GATE_KEYS,
 ]);
 
 /**
@@ -1422,6 +1441,45 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       }
       newSchema.props = newProps;
     }
+
+    /**
+     * REFUSE, by name, a node-gate predicate parked under the legacy `props`
+     * alias (objectui#9108, maintainer ruling 2026-09-13, verbatim 「同意」 on
+     * the `domain:spec` seat's recommendation).
+     *
+     * ## Sited HERE, immediately in front of the two gates
+     *
+     * This is the one point where the gates' own input is final: the
+     * `properties` hoist above has run, both config-bag evaluation loops have
+     * run, and neither gate has consulted anything yet. It is also the only
+     * placement that survives its own subject - the late diagnostics near
+     * `createElement` are downstream of `if (shouldHide) return null`, so a node
+     * that parks `visible` under `props` while ALSO hiding through the canonical
+     * spelling would never reach them, and the refusal would go missing on the
+     * one shape that carries both spellings at once.
+     *
+     * ## Read-only, and that is the ruled outcome rather than a limitation
+     *
+     * Nothing below changes. The gates still read the post-hoist node only, so
+     * every verdict, every hoisted value and every byte the element receives is
+     * what it was - the alias is REFUSED, not honoured. The opposite arm was
+     * built and closed (PR objectui#9144): honouring it would have made *"8
+     * predicate keys work while the rest stayed silently dropped - and partly
+     * working is harder to learn from than not working"*.
+     *
+     * The bag handed over is {@link propsWithoutCanonicalKeys}'s, the SAME
+     * subtraction the outgoing props bag uses, so a key the canonical bag also
+     * declares is not reported as parked: there the author is already getting
+     * the canonical answer (objectui#5123). The key SET is
+     * {@link NODE_GATE_PREDICATE_KEYS}, derived from the two chain declarations
+     * above rather than re-listed here.
+     */
+    reportRefusedPropsPredicate(
+      newSchema.type,
+      newSchema.id,
+      NODE_GATE_PREDICATE_KEYS,
+      propsWithoutCanonicalKeys(newSchema.props, newSchema.properties),
+    );
 
     // Evaluate visibility: visibleWhen / visible / visibleOn / visibility / hidden / hiddenOn
     const shouldHide = (() => {

@@ -71,9 +71,12 @@ import { blank, scanSource } from '../js-comment-mask.mjs';
  *     population is one change; ⛔ never narrow one alone.
  *  2. **Alias sites are counted only where the alias is TYPE-marked** —
  *     `export type { A as X }` or `export { type A as X }`. This is lossless
- *     rather than a heuristic: `tsconfig.base.json` sets
- *     `"isolatedModules": true` repo-wide, so a type re-export MUST carry the
- *     `type` marker to compile at all. It also keeps a VALUE alias
+ *     rather than a heuristic: the root `tsconfig.json` sets
+ *     `"isolatedModules": true` and every package extends it, so a type
+ *     re-export MUST carry the `type` marker to compile at all. (This
+ *     named the tier base instead until objectui#9330 measured that no
+ *     package extends that file — the option is repo-wide all the same,
+ *     it just comes from the root config.) It also keeps a VALUE alias
  *     (`export { helper as Grid }`) from reddening against an unrelated
  *     `interface Grid` in the type namespace.
  *

@@ -30,12 +30,23 @@
     // Naming `types` at all switches off automatic `@types/*` inclusion.
     // `node` is load-bearing and measured: dropping it turns five suites red
     // with TS2304 `Cannot find name 'global'` — they all install a `global.fetch`
-    // double. `@testing-library/jest-dom` is deliberately NOT
-    // listed even though 18 suites use its matchers — measured too: removing it
-    // changes nothing, because the seven files that reach for the matchers
-    // `import '@testing-library/jest-dom'` explicitly and a global augmentation
-    // reached by an import applies to the whole program (plugin-list's lesson).
-    "types": ["node"],
+    // double.
+    //
+    // `@testing-library/jest-dom` is now listed. It used to be deliberately NOT
+    // listed, on the argument that "removing it changes nothing, because the
+    // seven files that reach for the matchers `import '@testing-library/jest-dom'`
+    // explicitly and a global augmentation reached by an import applies to the
+    // whole program". That augmentation rule is real, but the conclusion does not
+    // follow, and the premise had gone stale (objectui#8722; counts below are off
+    // this project's tsc-resolved file list, not off a glob): 25 files carry the
+    // bare import today, not seven, and of the 39 files that use a matcher, 18
+    // import it NOWHERE. Those 18 are typed by a sibling's import alone, so a
+    // file split or an "unused import" cleanup elsewhere in the package can turn
+    // them red with nothing in the diff naming the cause. The sister ablation in
+    // plugin-detail put numbers on it: 423 TS2339 errors across 65 files, 43 of
+    // them untouched by the edit. Registering the matchers here is what makes
+    // each file's typing independent of every other file's imports.
+    "types": ["node", "@testing-library/jest-dom"],
     //
     // `paths` drops the root tsconfig's source-tree mappings so `@object-ui/*`
     // and `@objectstack/spec` resolve through each workspace dependency's built

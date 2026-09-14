@@ -124,12 +124,35 @@ describe('the icon seam the CLI generates code against', () => {
   it('does NOT accept lucide alias spellings, which is where the change narrows', () => {
     // Measured, not assumed, and pinned because it is the migration note the
     // change owes its readers. lucide's namespace exports each icon three ways
-    // — `House`, `HouseIcon`, `LucideHouse` — plus digit-suffixed spellings
-    // like `Building2`. Only the canonical one is an `icons` key, so the alias
-    // spellings resolved in a generated app and nowhere else in the platform.
-    // Aligning the template is what removes them.
-    for (const alias of ['HouseIcon', 'LucideHouse', 'Building2']) {
+    // — `House`, `HouseIcon`, `LucideHouse`. Only the canonical one is an
+    // `icons` key, so the alias spellings resolved in a generated app and
+    // nowhere else in the platform. Aligning the template is what removes them.
+    for (const alias of ['HouseIcon', 'LucideHouse']) {
       expect(isLucideIconName(alias), alias).toBe(false);
+    }
+  });
+
+  it('accepts the digit-suffixed canonical spellings, which were never an alias case', () => {
+    // objectui#9414 corrected this file's OWN reading. `Building2` sat in the
+    // list above as though it were a fourth alias shape, and it never was: it
+    // is the PascalCase component lucide exports for the canonical key
+    // `building-2`, exactly as `House` is for `house`. What rejected it was
+    // this seam's tokeniser, which split `lower-or-digit -> Upper` and
+    // `acronym-run -> Word` and never `letter -> digit` — so `Building2`
+    // became `building2`, matched no canonical name, and a generated app
+    // authoring the spelling lucide's own site shows got the `Database` glyph
+    // with no error, no warning and no log.
+    //
+    // ⚠ The two facts this file already had were both true and the WRONG
+    // conclusion was drawn from them: the alias spellings really did resolve
+    // only in a generated app, and `Building2` really did resolve there too.
+    // The first is a narrowing the migration owes its readers; the second was
+    // a defect on this side of the seam, wearing the first one's clothes.
+    //
+    // ⛔ Nothing about the alias narrowing above moved. `HouseIcon` and
+    // `LucideHouse` are still out, and still for the reason stated there.
+    for (const canonical of ['Building2', 'Grid2x2', 'BarChart3']) {
+      expect(isLucideIconName(canonical), canonical).toBe(true);
     }
   });
 });

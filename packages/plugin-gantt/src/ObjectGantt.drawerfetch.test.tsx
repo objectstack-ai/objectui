@@ -30,10 +30,15 @@ vi.mock('./GanttView', () => ({
   ),
 }));
 
+// objectui#9299 moved the payload out of `RecordDetailDrawer`'s `Sheet`:
+// `ObjectGantt` now mounts `RecordDetailPanel` through the shared
+// `NavigationOverlay`, so the props this file reads arrive at the PANEL. The
+// prop names it asserts on (`record`, `objectSchema`, `onFieldSave`) are
+// unchanged — only the component that receives them moved.
 let drawerProps: any = null;
 vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-detail')>()),
-  RecordDetailDrawer: (props: any) => {
+  RecordDetailPanel: (props: any) => {
     drawerProps = props;
     return (
       <div

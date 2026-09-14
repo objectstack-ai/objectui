@@ -132,6 +132,7 @@ import { fileURLToPath } from 'node:url';
 
 import { deriveRegistryKeys, INDIRECT_REGISTRATIONS } from './check-doc-component-types.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
+import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -169,11 +170,6 @@ const LABEL_BULLET = /^(\s*)[*+-]\s+\*\*([^*]+?):\*\*\s*(.*)$/;
 
 /** A list item at any depth — the only kind of line a gated block reads. */
 const LIST_ITEM = /^\s*(?:[*+-]|\d+\.)\s+/;
-
-/** A fenced-code delimiter. A `**Keys:**` line inside a fence is an EXAMPLE of
- *  a bullet, not a bullet, and judging it would red on a document explaining
- *  the convention. */
-const FENCE = /^\s*(?:```|~~~)/;
 
 /**
  * A `## N. Title` heading. It opens a SECTION, which is the scope a letter run
@@ -223,17 +219,36 @@ function indentOf(line) {
   return expanded.length - expanded.trimStart().length;
 }
 
-/** Mark every line that sits inside a fenced code block. */
+/**
+ * Mark every line that sits inside a fenced code block, delimiters included. A
+ * `**Keys:**` line inside a fence is an EXAMPLE of a bullet, not a bullet, and
+ * judging it would red on a document explaining the convention.
+ *
+ * Run-aware via `markdown-fence-scan.mjs` (objectui#9194), which owns this
+ * question for the whole tree. ⛔ Never re-spell the predicate here: a private
+ * one read a fence as "three backticks" and toggled, so a FOUR-backtick opener
+ * was closed by the next THREE-backtick line — which CommonMark makes body text
+ * — and from there the gate read code as prose and prose as code for the rest of
+ * the file. That is why only a run of the SAME character, AT LEAST AS LONG and
+ * carrying no info string, closes what a run opened.
+ */
 function fenceMask(lines) {
   const mask = new Array(lines.length).fill(false);
-  let open = false;
+  let open = null;
   for (let i = 0; i < lines.length; i++) {
-    if (FENCE.test(lines[i])) {
+    if (open) {
+      // The body, and the closing delimiter itself, are both inside the fence.
       mask[i] = true;
-      open = !open;
+      if (closesFence(lines[i], open)) open = null;
       continue;
     }
-    mask[i] = open;
+    const fence = openFence(lines[i]);
+    if (fence) {
+      mask[i] = true;
+      open = fence;
+      continue;
+    }
+    mask[i] = false;
   }
   return mask;
 }

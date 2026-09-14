@@ -106,6 +106,42 @@
  * it, or carves an exemption into it: the two gates are meant to fire together on
  * a correction, one asking for the read and the other recording the write.
  *
+ * ## What objectui#9140 measured about this gate, after five live instances
+ *
+ * objectui#9065 was five WENT-FALSE claims at once. The gate was re-run on each
+ * falsifying merge's own range, and the answer split two ways. Both halves are
+ * recorded here because each one contradicts something this header assumes.
+ *
+ * HALF ONE - it named four of the five, and nobody acted on any of them. All
+ * four false paragraphs then sat on `main` as pending release-note input until
+ * objectui#9065 was filed BY HAND, and three had already been folded into the
+ * standing Changesets release PR's staged CHANGELOGs. ⇒ the "REQUEST TO READ"
+ * theory of change stated above has a measured delivery record, and on the one
+ * shape this gate exists for that record is zero for four. ⛔ That is NOT an
+ * argument for making it block - the measurement against blocking is unchallenged
+ * and "Why it can never block" still rules. It is the datum whoever revisits that
+ * trade needs, recorded rather than lost.
+ *
+ * HALF TWO - the fifth was invisible, and that is a SECOND historical instance on
+ * the runner-up's side of the coordinate trade measured above. The one this gate
+ * could not see is exactly the one whose body names no file at all: it coordinates
+ * itself by symbol. `--audit` now counts that population - bodies that publish but
+ * spell no name this gate can resolve - so the blind spot is re-derived on every
+ * run instead of hand-counted per incident (rule #9 in AGENTS.md).
+ *
+ * ⛔ The coordinate was NOT widened, and the reason is a measurement, not taste.
+ * objectui#9140 asked what it would take to bring that fifth instance into the
+ * census. Its body reaches a file this gate could resolve through exactly ONE
+ * spelling - the stem of a file name - and that one spelling is backticked by a
+ * large fraction of the whole pending queue, because it is the name of one of this
+ * repo's principal components. Admitting it admits every changeset that mentions
+ * that component. Re-measured over the same 25-first-parent-commit population the
+ * table above uses, that widening lands in the same band the runner-up was REJECTED
+ * in, and it lands there on a channel half one just measured at zero for four. ⇒
+ * widening the coordinate is a readability-budget decision, it is open, and it is
+ * deliberately not taken here. The numbers are on objectui#9140; ⛔ they are not
+ * copied into this header, which is rule #9 applied to this paragraph.
+ *
  * ## Where it runs
  *
  * `changeset-presence.yml`, as a second job. That workflow carries NO path
@@ -380,19 +416,43 @@ export function audit(root, ref = null) {
       path.endsWith('.md') &&
       !NOT_A_CHANGESET.has(path.slice(path.lastIndexOf('/') + 1)),
   );
-  const totals = { pending: pendingPaths.length, publishing: 0, naming: 0, resolved: 0, unresolved: 0, dangling: [] };
+  const totals = {
+    pending: pendingPaths.length,
+    publishing: 0,
+    naming: 0,
+    resolved: 0,
+    unresolved: 0,
+    dangling: [],
+    silent: 0,
+    unreachable: 0,
+    blind: [],
+  };
   for (const [path, source] of readBlobs(root, ref, pendingPaths)) {
     const declaration = describeDeclaration(source);
     if (declaration.kind !== 'frontmatter' || declaration.entries === 0) continue;
     totals.publishing += 1;
     const spans = namedFiles(source);
-    if (spans.length === 0) continue;
+    if (spans.length === 0) {
+      // Coordinates itself by SYMBOL, or by nothing. No diff can ever make the
+      // diff-mode check speak about this body (objectui#9140).
+      totals.silent += 1;
+      totals.blind.push(`${path}  ~  names no file at all`);
+      continue;
+    }
     totals.naming += 1;
+    let resolvedHere = 0;
     for (const span of spans) {
       if (resolveNamed(index, span) === null) {
         totals.unresolved += 1;
         totals.dangling.push(`${path}  ~  ${span}`);
-      } else totals.resolved += 1;
+      } else {
+        totals.resolved += 1;
+        resolvedHere += 1;
+      }
+    }
+    if (resolvedHere === 0) {
+      totals.unreachable += 1;
+      totals.blind.push(`${path}  ~  every name it spells resolves to none or to many`);
     }
   }
   return totals;
@@ -425,9 +485,19 @@ if (isEntrypoint(import.meta.url)) {
         `${totals.unresolved} resolve to none or to many.`,
     );
     console.log(
+      `\nOutside the diff-mode check's reach ENTIRELY: ${totals.silent} publishing body(ies) name no file ` +
+        `at all,\nand ${totals.unreachable} spell only names that resolve to none or to many. Those ` +
+        `${totals.silent + totals.unreachable} cannot be\nreported for ANY diff — that is the size of the ` +
+        'blind spot (objectui#9140), re-derived each run.',
+    );
+    if (process.argv.includes('--blind')) for (const line of totals.blind) console.log(`      ${line}`);
+    console.log(
       '\n    A name that resolves to nothing is ⛔ NOT a false claim on its own — a changeset that\n' +
         '    retired a file names it correctly and the file is correctly gone. This count is the\n' +
-        "    reach of the diff-mode check, not a verdict on anybody's prose.",
+        "    reach of the diff-mode check, not a verdict on anybody's prose.\n" +
+        '    ⛔ Nor is a body that names no file WRONG for coordinating itself by symbol — that is a\n' +
+        '    normal way to write a changeset. It is simply a body this gate cannot carry a request\n' +
+        '    to read about, and objectui#9140 measured one WENT-FALSE claim that sat there unseen.',
     );
     process.exit(0);
   }

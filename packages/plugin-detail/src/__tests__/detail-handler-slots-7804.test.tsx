@@ -42,8 +42,20 @@
  *     key kept alive by the same passthrough.
  *
  * ⇒ two keys, two channels, one disposition — which is a reading, not an
- * assumption: the sibling slice on `object-kanban` got three DIFFERENT
- * dispositions out of three keys sharing one prefix.
+ * assumption: the sibling slice on `object-kanban` took three keys sharing one
+ * prefix and measured them into three DIFFERENT channels carrying only TWO
+ * dispositions — two of them are RUNTIME SLOTS, and the third, `onCardMove`,
+ * is a TOMBSTONE. That is what the kanban slice's own `objectql.zod.ts`
+ * docblock says in as many words, and this sentence agrees with it.
+ *
+ * ⭐ That slice is precisely where the two counts COME APART, which is a
+ * SHARPER case for measuring per key than three-out-of-three would have been.
+ * Neither count can be read off the other: `HandlerKeyDisposition` offers
+ * exactly TWO values, so three keys can never carry three distinct
+ * dispositions — while the routes by which a key reaches a renderer are
+ * bounded by nothing, and there were three. ⛔ A per-prefix reading collapses
+ * both counts to one and cannot say which of the two it lost; only the per-key
+ * channel reading recovers them.
  *
  * ## Every control can fire
  *

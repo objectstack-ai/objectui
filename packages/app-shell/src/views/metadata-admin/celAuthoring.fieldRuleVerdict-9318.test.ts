@@ -15,13 +15,19 @@
  *
  * ## What did NOT move, and is pinned here as such
  *
- * The helper's vocabulary is the FIELD-RULE tier: it judges against
- * `FIELD_RULE_BOUND_ROOTS` = `record` / `previous` / `parent`. Two of the
- * surfaces `rowCanonAdvisory` guards bind a DIFFERENT set, measured:
+ * The helper judges against `FIELD_RULE_BOUND_ROOTS` = `record` / `previous` /
+ * `parent` — whatever slot name it is handed. It has no vocabulary gate of its
+ * own (measured: an unrecognised slot still returns a finding, not `null`), so
+ * WHICH surfaces it may answer for is objectui's call, not the platform's. Two
+ * of the surfaces `rowCanonAdvisory` guards bind a set that is not that one, and
+ * neither is comparable to it — they overlap on `record` alone:
  *
  *  - the conditional-formatting `condition` binds `ROW_PREDICATE_ROOTS`
- *    (`record`, `current_user`, `user`, `features`, `os`, `ctx`) — WIDER;
- *  - a `formula` field's `expression` binds `FORMULA_ROOTS` (`record`) — NARROWER.
+ *    (`record`, `current_user`, `user`, `features`, `os`, `ctx`) — five roots
+ *    the field tier does not bind, but NOT a superset: no `previous`, no
+ *    `parent`;
+ *  - a `formula` field's `expression` binds `FORMULA_ROOTS` (`record`) — a
+ *    proper subset.
  *
  * So the helper's verdict is adopted exactly on the three slots whose bound set
  * IS the field-rule set, and the local fallback is KEPT for the rest. The two
@@ -89,6 +95,9 @@ describe('celAuthoring · the field-rule verdict is the published one (objectui#
     // verdict: `current_user` is in the engine's baseline `SCOPE_ROOTS`, so
     // `validateExpression` says nothing about it, while the FIELD level does
     // not bind it. objectui's one-root detector could never reach this.
+    // "WIDER" in the name is this verdict against the ONE-ROOT detector it
+    // replaces — ⛔ not a set relation between the two surfaces' bound roots,
+    // which are incomparable (see the header).
     const issues = await lintCelPredicate('current_user.isAdmin', RULE_SLOT_HINT);
     const advisory = issues.filter((i) => i.severity === 'warning' && /current_user/.test(i.message));
     expect(advisory).toHaveLength(1);
@@ -106,9 +115,12 @@ describe('celAuthoring · the field-rule verdict is the published one (objectui#
 
 describe('celAuthoring · the UNCOVERED surfaces keep the local fallback (objectui#9318 part 3)', () => {
   it('LIVE CONTROL — a formula `expression` still gets objectui\'s message, not the engine\'s', async () => {
-    // `FORMULA_ROOTS` is `['record']` — NARROWER than `FIELD_RULE_BOUND_ROOTS`.
-    // Routing this through the helper would silently stop advising `previous.*`
-    // / `parent.*` on a surface that binds neither.
+    // `FORMULA_ROOTS` is `['record']` — a proper SUBSET of
+    // `FIELD_RULE_BOUND_ROOTS`. Routing this through the helper would not shrink
+    // coverage: measured, `previous.*` / `parent.*` report nothing on this
+    // surface today either. It would report them CLEAN on the helper's own
+    // authority — asserting they are bound where this surface binds only
+    // `record`. A false green, which is worse than the silence it replaces.
     const issues = await lintCelPredicate('data.amount * 0.2', { ...UNSLOTTED_HINT, role: 'value' as const });
     const advisory = issues.filter((i) => i.severity === 'warning' && OBJECTUI_MESSAGE_MARKER.test(i.message));
     expect(advisory).toHaveLength(1);
@@ -117,9 +129,11 @@ describe('celAuthoring · the UNCOVERED surfaces keep the local fallback (object
 
   it('LIVE CONTROL — a conditional-formatting condition is NOT advised for the roots it binds', async () => {
     // `ROW_PREDICATE_ROOTS` carries `current_user`, `user`, `features`, `os`,
-    // `ctx` — WIDER than `FIELD_RULE_BOUND_ROOTS`. This is the pin that reddens
-    // if someone routes every `scope: 'record'` surface through the helper:
-    // the author would be told to rewrite a predicate that works.
+    // `ctx` on top of `record` — five roots the field tier does not bind. It is
+    // NOT a superset of `FIELD_RULE_BOUND_ROOTS` though: it lacks `previous` and
+    // `parent`, so the two sets overlap on `record` alone. This is the pin that
+    // reddens if someone routes every `scope: 'record'` surface through the
+    // helper: the author would be told to rewrite five roots that work here.
     expect(await lintCelPredicate('current_user.isAdmin', UNSLOTTED_HINT)).toEqual([]);
     expect(await lintCelPredicate("os.name == 'x'", UNSLOTTED_HINT)).toEqual([]);
   });

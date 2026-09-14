@@ -247,16 +247,35 @@ function loadFieldRuleVerdict(): Promise<FieldRuleRootIssue | null> {
  *
  * ## What is deliberately NOT here, and why the local fallback stays
  *
- * The helper's vocabulary does not cover every surface this advisory guards,
- * and the two it misses differ from the field-rule set in OPPOSITE directions:
+ * ⚠️ `fieldRuleRootIssue` does NOT gate on the slot name. Hand it any string and
+ * it judges against `FIELD_RULE_BOUND_ROOTS` and interpolates the name into its
+ * message — measured on 17.4.0, `('expression', 'current_user.x')` and
+ * `('condition', 'current_user.x')` both return a finding, not `null`. The
+ * helper never declines a surface, so this list is objectui's OWN coverage
+ * answer and it is the only thing standing between a wrong surface and a
+ * confident wrong verdict.
  *
- *  - a `formula` field's `expression` binds `FORMULA_ROOTS` — `['record']`,
- *    strictly NARROWER. Taking the field-rule verdict there would stop advising
- *    `previous.*` / `parent.*` on a surface that binds neither;
+ * Two guarded surfaces bind a set that is not the field-rule set, and neither
+ * is comparable to it — they overlap on `record` alone:
+ *
+ *  - a `formula` field's `expression` binds `FORMULA_ROOTS` — `['record']`, a
+ *    proper SUBSET. Routed through the helper, `previous.*` / `parent.*` come
+ *    back clean — the helper reports them BOUND at the field tier, and on a
+ *    formula they are not bound at all. A false green; and the message it does
+ *    print for other roots names `previous` and `parent` as available here,
+ *    which on this surface is wrong prose as well as a wrong verdict;
  *  - a conditional-formatting `condition` binds `ROW_PREDICATE_ROOTS` —
- *    `record`, `current_user`, `user`, `features`, `os`, `ctx`, strictly WIDER.
- *    Taking the field-rule verdict there would tell an author to rewrite a
- *    predicate that works.
+ *    `record`, `current_user`, `user`, `features`, `os`, `ctx`. That is five
+ *    roots the field tier does not bind, but it is NOT a superset of the
+ *    field-rule set: it lacks `previous` and `parent`. Routed through the
+ *    helper, all five would be advised as unbound where the surface binds them
+ *    — an author told to rewrite a predicate that works.
+ *
+ * ⛔ Neither miss is a coverage SHRINK, and it is worth being exact about that:
+ * measured on this tree, both surfaces report nothing at all for `previous.*` /
+ * `parent.*` today, so nothing currently advised would stop being advised. The
+ * hazard is the other one — a verdict that is wrong in a DIFFERENT direction on
+ * each surface: too loud on the condition, too quiet on the formula.
  *
  * So those keep the local instrument. ⛔ Do not extend this list to "tidy up"
  * the branch below without re-measuring the surface's bound roots first —
@@ -352,20 +371,47 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  * unbinds moves one and not the other, silently, in the direction objectui#8166
  * already paid for once.
  *
- * So on the slots the published vocabulary covers ({@link FIELD_RULE_VERDICT_SLOTS})
- * the verdict is ASKED, not re-derived — and the engine's own message ships with
- * it, because that message is per-root correct where objectui's single sentence
- * is not: "Re-root the reference on `record`" is right for `data` and actively
- * wrong for `current_user` or `app`, which are not fields of the record at all.
+ * So on the slots {@link FIELD_RULE_VERDICT_SLOTS} names, the verdict is ASKED,
+ * not re-derived — and the engine's own message ships with it.
+ *
+ * ⚠️ The reason is NOT that the engine's message refuses a `record.<root>`
+ * rewrite. Measured against the installed 17.4.0, it mostly PRESCRIBES one: the
+ * `current_user` text ends "To gate on record state, rewrite the predicate
+ * against `record`." (Exactly one root's message does refuse by name — `app`'s,
+ * with "⛔ Do NOT write `record.app`" — and that one never reaches this function;
+ * see the gate below.) The real reason is that the verdict widens and objectui
+ * has no message for most of what it now judges:
+ *
+ *  - the local instrument produces a sentence for exactly ONE root —
+ *    `@object-ui/core`'s `METADATA_LAYER_ROOT`, `data`. For the five further
+ *    roots a covered slot now reports (`current_user`, `user`, `features`, `os`,
+ *    `ctx`) there is no objectui sentence to keep; the alternative is writing
+ *    five by hand, which is the second copy this card exists to delete. And they
+ *    would have to be per-root: the engine's texts for `data`, `current_user`,
+ *    `features` and `app` are four different remedies, not one sentence with the
+ *    root substituted;
+ *  - the one message actually SWAPPED is `data`'s, and objectui's tail there —
+ *    "Re-root the reference on `record`" — is the half that does not generalise.
+ *    It is right for `data` and wrong for `current_user`, which is not a field of
+ *    the record. Reading a verdict from one authority and explaining it from
+ *    another drifts exactly the way two verdicts do.
+ *
  * ⛔ Exactly one message ships per finding; the two are never concatenated.
  *
  * Two consequences, both deliberate and both pinned:
  *
- *  - the covered slots now advise on EVERY root the field level leaves unbound,
- *    not only `data` — a widening, and the substance of adopting the published
- *    verdict. Still `warning`, so no save gate's accept set moves;
- *  - the surfaces the vocabulary does NOT cover keep this function's own
- *    reading, unchanged. ⛔ Their coverage is not shrunk to match the helper.
+ *  - a covered slot now advises on the roots this tier RESOLVES but the field
+ *    level does not bind. Measured through `lintCelPredicate` at
+ *    `scope: 'record'`: `data`, `current_user`, `user`, `features`, `os`, `ctx`.
+ *    ⚠️ NOT "every unbound root" — the advisory runs only once the predicate is
+ *    error-free (`issues.every((i) => i.severity !== 'error')`, below), so a root
+ *    this tier does not resolve at all (`app`, or any unknown name) is stopped by
+ *    the bare-reference ERROR first and never reaches the helper, even though the
+ *    helper judges `app` and carries a bespoke message for it. Still `warning`,
+ *    so no save gate's accept set moves;
+ *  - the surfaces {@link FIELD_RULE_VERDICT_SLOTS} does not name keep this
+ *    function's own reading, unchanged. ⛔ Their coverage is not shrunk to match
+ *    the helper.
  *
  * Severity is the one thing that stays objectui's: `warning`, never `error`.
  */

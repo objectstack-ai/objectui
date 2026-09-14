@@ -263,10 +263,13 @@ describe('the declaration is derived from the read site, not from a list (object
     //
     // So what this leg measures is the SOURCE spelling, not the gate's reach:
     // that `(schema as any)` is still how `DetailView` reads the key, and that
-    // there is exactly ONE such read. Deciding the key's objectui#6124
-    // disposition is objectui#9344's item ② — it lands in the zod arms, not
-    // here, and `DetailSchema` today declares neither `onTabChange` nor the
-    // `onValueChange` spelling `TabsSchema` carries for the same event.
+    // there is exactly ONE such read. The key's objectui#6124 disposition is
+    // OPEN — ⛔ not decided here, and ⛔ not decided anywhere else yet. It
+    // lands in the zod arms, and the ledger row above carries it on
+    // objectui#7804, which is the card `check-handler-key-read-sites.mjs`
+    // itself names for this row. `DetailSchema` today declares neither
+    // `onTabChange` nor the `onValueChange` spelling `TabsSchema` carries for
+    // the same event.
     expect(castReads).toEqual(['onTabChange']);
   });
 });

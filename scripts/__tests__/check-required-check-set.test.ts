@@ -52,7 +52,13 @@ const ABLATED_FIXTURE = `${FIXTURES}/type-check-removed.json`;
  * pull request, which is the noise the patrol's whole design avoids.
  */
 
-const readFixture = (rel: string) => JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+/** The shape `GET /repos/{owner}/{repo}/rules/branches/{branch}` answers with. */
+type Rule = {
+  type: string;
+  parameters?: { required_status_checks?: Array<{ context?: string; integration_id?: number }> };
+};
+
+const readFixture = (rel: string): Rule[] => JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
 
 const runGate = (args: string[]) =>
   spawnSync(process.execPath, [path.join(ROOT, GATE), ...args], {
@@ -62,18 +68,23 @@ const runGate = (args: string[]) =>
   });
 
 describe('check-required-check-set — the logic', () => {
-  it('passes its own offline self-test', () => {
+  it('passes its own offline self-test', async () => {
+    // Captured so a passing run does not print 32 lines into every suite; the
+    // capture is restored in `finally` so a throw cannot leave console silenced.
     const log: string[] = [];
     const out = console.log;
     const err = console.error;
     console.log = (...a: unknown[]) => void log.push(a.join(' '));
     console.error = (...a: unknown[]) => void log.push(a.join(' '));
+    let code: number;
     try {
-      expect(selfTest()).resolves.toBe(0);
+      code = await selfTest();
     } finally {
       console.log = out;
       console.error = err;
     }
+    expect(log.join('\n'), 'the self-test produced no output at all — it did not run').toMatch(/self-test/);
+    expect(code, log.join('\n')).toBe(0);
   });
 
   it('runs `--self-test` as a real child process and exits 0', () => {
@@ -105,16 +116,18 @@ describe('check-required-check-set — the ablation, through the CLI', () => {
   it('the two fixtures differ by exactly the ablated member, and by nothing else', () => {
     const live = readFixture(LIVE_FIXTURE);
     const ablated = readFixture(ABLATED_FIXTURE);
-    const contexts = (rules: any[]) =>
+    const contexts = (rules: Rule[]): string[] =>
       rules.flatMap((r) =>
-        r.type === 'required_status_checks' ? r.parameters.required_status_checks.map((c: any) => c.context) : [],
+        r.type === 'required_status_checks'
+          ? (r.parameters?.required_status_checks ?? []).map((c) => String(c.context))
+          : [],
       );
     expect(contexts(live)).toContain('Type Check');
     expect(contexts(ablated)).not.toContain('Type Check');
     expect(contexts(ablated)).toEqual(contexts(live).filter((c: string) => c !== 'Type Check'));
     // Everything that is not the required_status_checks rule is byte-identical,
     // so the ablation cannot be passing for some second reason.
-    const others = (rules: any[]) => JSON.stringify(rules.filter((r) => r.type !== 'required_status_checks'));
+    const others = (rules: Rule[]) => JSON.stringify(rules.filter((r) => r.type !== 'required_status_checks'));
     expect(others(ablated)).toBe(others(live));
   });
 
@@ -134,7 +147,7 @@ describe('check-required-check-set — the committed fixture is the live shape',
   const live = () => readFixture(LIVE_FIXTURE);
 
   it('carries the five rule types the endpoint answered with', () => {
-    expect(live().map((r: any) => r.type).sort()).toEqual(
+    expect(live().map((r) => r.type).sort()).toEqual(
       ['deletion', 'merge_queue', 'non_fast_forward', 'pull_request', 'required_status_checks'].sort(),
     );
   });
@@ -191,19 +204,34 @@ describe('check-required-check-set — the wiring', () => {
     expect(pkg.scripts['check:required-check-set']).toContain(GATE);
   });
 
-  const workflow = () => parseYaml(fs.readFileSync(path.join(ROOT, WORKFLOW), 'utf8'));
+  const workflow = (): Record<string, unknown> => parseYaml(fs.readFileSync(path.join(ROOT, WORKFLOW), 'utf8'));
+
+  /**
+   * YAML 1.1 reads a bare `on:` key as the BOOLEAN true, so `doc.on` is
+   * `undefined` and an assertion reaching for it would pass over an empty
+   * object — a wiring pin that asserts nothing. Both spellings are read, and
+   * the triggers assertion below fails loudly if neither resolves.
+   */
+  const triggers = (): Record<string, unknown> => {
+    const doc = workflow();
+    const on = doc[String(true)] ?? doc.on;
+    if (!on || typeof on !== 'object') {
+      throw new Error(`could not read the \`on:\` block of ${WORKFLOW} — keys were ${Object.keys(doc).join(', ')}`);
+    }
+    return on as Record<string, unknown>;
+  };
 
   it('the patrol workflow exists and is SCHEDULED — the half of its liveness a diff can see', () => {
-    // `on` parses as the YAML boolean `true` — that is the spec, not a bug here.
-    const on = workflow()[true] ?? workflow().on;
-    expect(Array.isArray(on.schedule)).toBe(true);
-    expect(on.schedule.length).toBeGreaterThan(0);
-    expect(on.schedule[0].cron).toMatch(/^\S+ \S+ \S+ \S+ \S+$/);
+    const on = triggers();
+    const schedule = on.schedule as Array<{ cron?: string }> | undefined;
+    expect(Array.isArray(schedule)).toBe(true);
+    expect(schedule).not.toHaveLength(0);
+    expect(schedule?.[0]?.cron).toMatch(/^\S+ \S+ \S+ \S+ \S+$/);
     expect(on).toHaveProperty('workflow_dispatch');
   });
 
   it('the patrol has NO pull_request leg — it must never gate a pull request', () => {
-    const on = workflow()[true] ?? workflow().on;
+    const on = triggers();
     expect(on).not.toHaveProperty('pull_request');
     expect(on).not.toHaveProperty('pull_request_target');
     expect(on).not.toHaveProperty('merge_group');

@@ -1966,15 +1966,30 @@ describe('the prose attached to the baselines (objectui#7046)', () => {
 
   /**
    * What each baseline carries AS DATA, recorded so the pin above cannot go
-   * vacuous in silence. Measured on `main`: `BASELINE` carries exactly one
-   * commit string; `PER_CHUNK_BASELINE` carries NONE — its per-key provenance
+   * vacuous in silence. Measured on `main`: `BASELINE` carries exactly two
+   * commit strings; `PER_CHUNK_BASELINE` carries NONE — its per-key provenance
    * commits live only in prose, with no exported value to check them against,
    * which is why the pin above says nothing about it and the claim pin below is
    * what guards its block. Add a `commit` field there and this reds, and the pin
    * above starts covering it.
+   *
+   * The second string is objectui#9355's `squashMerge`: the tree the reading
+   * was taken on cannot be resolved from a `main` checkout, so the squash that
+   * landed it is carried beside it as the handle that can. ⭐ Carrying it as
+   * DATA rather than leaving it in prose is the point of the change — a prose
+   * hash is guarded by nothing, while a carried one is dragged under the
+   * positive pin above and cannot go stale in silence, which is the
+   * objectui#6778 defect one column over.
+   *
+   * ⚠️ This case is POSITIONAL and exact on purpose, and ⛔ must not be widened
+   * to tolerate either shape. A re-baseline cannot know its own squash sha —
+   * the sha does not exist until the pull request merges — so the honest value
+   * at that moment is `null`, and `null` reds here. That red is the intended
+   * signal: it is a ledger, it is re-pinned deliberately, and a predicate loose
+   * enough to accept both shapes would stop recording anything.
    */
   it('records what each baseline carries as data, so the pin cannot go vacuous', () => {
-    expect(commitsCarriedBy(BASELINE)).toEqual([BASELINE.commit]);
+    expect(commitsCarriedBy(BASELINE)).toEqual([BASELINE.commit, BASELINE.squashMerge]);
     expect(commitsCarriedBy(PER_CHUNK_BASELINE)).toEqual([]);
   });
 

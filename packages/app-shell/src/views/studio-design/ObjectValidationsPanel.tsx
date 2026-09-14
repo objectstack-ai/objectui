@@ -310,11 +310,36 @@ function RuleTypeFields({
         <code className="rounded bg-muted px-1">false</code>
         {t('engine.studio.rules.celPost', locale)}
       </span>
+      {/* `scope="record"` (objectui#8167). The authority for a validation rule
+          is the SERVER: objectql's rule validator evaluates a `script` /
+          `cross_field` `condition` with `{ record, previous }` and nothing
+          else, and since objectstack#4649 an unevaluable predicate there is
+          fail-CLOSED — it rejects the write. So a bare `amount > 100` authored
+          here does not merely fail to match, it makes every write to the
+          object fail, while this editor linted it clean under `celAuthoring`'s
+          `hint.scope ?? 'flattened'` default.
+
+          ⚠️ What this is NOT resting on. The dispatch that ordered this change
+          said the draft-level validator for THIS surface already runs
+          `scope: 'record'`. It does not: `clientValidation`'s
+          `validateObjectFieldRules` lints `visibleWhen` / `readonlyWhen` /
+          `requiredWhen` and `formula` expressions — a sibling surface, which
+          is the word the filing card itself uses. Nothing validates a
+          validation rule's `condition` at draft level at all. The server
+          binding above is the reason, and it is the stronger one.
+
+          The counter-datum, recorded so it is not re-discovered as an
+          objection: `ObjectValidationEngine.scopeFor` in `@object-ui/core`
+          binds the bare field names AND `record`. That engine is deprecated
+          and deliberately unwired — `validation-engine-stays-unwired.test.ts`
+          reddens if a production module imports it — so it is not an
+          authority on what an author should type. */}
       <ConditionBuilder
         value={expressionSource(rule.condition)}
         onCommit={(cel) => patch({ condition: writeExpressionSource(rule.condition, cel) })}
         fields={fields}
         disabled={disabled}
+        scope="record"
         onBlockingIssuesChange={onBlockingIssuesChange}
       />
     </div>

@@ -234,7 +234,7 @@ function initFrom(value: string): { rows: Row[]; join: '&&' | '||'; raw: boolean
   return { rows: [], join: '&&', raw: !!value };
 }
 
-export function ConditionBuilder({ label, value, onCommit, objectName, fields: fieldsProp, disabled, onBlockingIssuesChange, subjects }: {
+export function ConditionBuilder({ label, value, onCommit, objectName, fields: fieldsProp, disabled, onBlockingIssuesChange, subjects, scope }: {
   label?: string;
   value: string;
   onCommit: (cel: string) => void;
@@ -259,6 +259,42 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
    * record-scoped default every existing consumer relies on.
    */
   subjects?: ConditionSubjectVocabulary;
+  /**
+   * Evaluation scope the raw-expression editor lints and completes against
+   * (objectui#8167) — forwarded verbatim to `CelPredicateField`, which mirrors
+   * `CelSchemaHint.scope`.
+   *
+   * ## Why this had to become a prop
+   *
+   * It was not one. Every mount ran the `celAuthoring` default, whose own
+   * spelling is `hint.scope ?? 'flattened'`, and no caller could say otherwise
+   * — so a bare `status == 'done'` typed into an action's **Visible when**
+   * linted CLEAN. It never matches: `usePredicateRecordContext` binds `record`
+   * and nothing else, and objectui#5741 Phase 2 retired the bare shorthand on
+   * runtime record surfaces. The row-predicate canon in `@object-ui/core`
+   * (`rowPredicateCanon.ts`) names an action renderer's `visible` / `disabled`
+   * as such a surface in its own words. That is objectui#7727's defect, at a
+   * component objectui#7727 does not touch.
+   *
+   * ## Undefined is the default, and that is deliberate
+   *
+   * Omitting it forwards `undefined`, so the engine hint stays exactly what it
+   * was and every mount that passes nothing is unchanged byte for byte. In
+   * particular this does **not** derive the scope from
+   * {@link ConditionSubjectVocabulary.fieldPrefix}: that would silently flip
+   * every record-prefixed mount, including the three whose tier is still an
+   * open question (the page-block, hook and schema-driven `ConditionWidget`
+   * sites — see objectui#8167). Deriving a verdict is the same thing as
+   * making one, and those are not this component's to make.
+   *
+   * ## It governs the RAW editor only
+   *
+   * The row builder compiles subjects itself from `fieldPrefix`, so passing
+   * `'record'` does not move a single emitted byte — it makes the raw editor
+   * agree with the rows the builder was already emitting at that mount, which
+   * before this prop existed it did not.
+   */
+  scope?: 'record' | 'flattened';
 }) {
   const { fields: hookFields } = useObjectFields(objectName);
   const fields = fieldsProp ?? hookFields;
@@ -377,6 +413,10 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
           placeholder="record.status != 'done' && user.isAdmin"
           objectName={objectName}
           fieldNames={fieldNames}
+          /* Forwarded verbatim, `undefined` included — see the `scope` prop's
+             own note. An omitted scope must reach `celAuthoring` as absent so
+             its `hint.scope ?? 'flattened'` default answers unchanged. */
+          scope={scope}
           t={tLocal}
         />
         {value && !parse(value) && (

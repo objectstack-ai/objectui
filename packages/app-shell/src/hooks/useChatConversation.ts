@@ -180,6 +180,25 @@ interface CacheableChatToolInvocation {
   /** objectui#5695 — the confirm-replay verdict, so the 确认修改 card's terminal
    *  state (已生效 / 已暂存为草稿 / 未生效) survives a cache-fallback reload. */
   replayOutcome?: { kind: 'published' | 'drafted' | 'failed'; outcome?: string; error?: string; packageId?: string; dispatchError?: boolean };
+  /**
+   * objectui#9232 — the two halves of an ACTIONABLE approval, mirroring
+   * objectui#8442 on the way IN to the cache. They travel differently and that
+   * asymmetry is the whole design (see `sanitizeChatMessagesForCache`):
+   *
+   *   * `approval` is the AI SDK envelope and rides the persisted PART, so it
+   *     is written back as a part key and read back as one (`partApproval`);
+   *   * `pendingActionId` is the ObjectStack `pending_actions` row id, is
+   *     never persisted as a part key on ANY path, and is therefore restored
+   *     by re-minting the result envelope `detectPendingApproval` re-parses.
+   */
+  approval?: {
+    id: string;
+    approved?: boolean;
+    reason?: string;
+    isAutomatic?: boolean;
+    signature?: string;
+  };
+  pendingActionId?: string;
 }
 
 interface CacheableChatMessage {
@@ -265,6 +284,29 @@ function replayOutcomeToCachedResult(
   };
 }
 
+/**
+ * Rebuild the MINIMAL HITL envelope `mapMessages.detectPendingApproval`
+ * re-parses (objectui#9232). Inverse of that detector, exactly as
+ * `draftReviewToCachedResult` is the inverse of `detectDraftResult`.
+ *
+ * This exists because the id travels asymmetrically. The AI SDK `approval`
+ * envelope is a persisted PART key, so the cache can write it and the
+ * hydration mapper reads it straight back; `pendingActionId` is not a part key
+ * on any path — it lives only inside the tool RESULT — so the only way to
+ * round-trip it is to re-mint the envelope the one detector re-parses. A
+ * second hand-rolled reader on the cache side would be the second dialect of
+ * one contract that Commandment #0.1 refuses.
+ *
+ * The two keys the detector reads are the only two written: the framework's
+ * real envelope also carries a human `message` and the proposed arguments, and
+ * none of that is re-serialized — the same leanness the draft/plan inverses
+ * take, and the reason a cached thread does not grow a copy of every pending
+ * action's payload.
+ */
+function pendingApprovalToCachedResult(pendingActionId: string): Record<string, unknown> {
+  return { status: 'pending_approval', pendingActionId };
+}
+
 const CACHE_PREFIX = 'objectstack:ai-chat-conversation-id';
 const MESSAGE_CACHE_PREFIX = 'objectstack:ai-chat-messages';
 
@@ -317,6 +359,39 @@ export function purgeChatCaches(): void {
   }
 }
 
+/**
+ * ## Cache-format compatibility — objectui#9232 chose READ-SIDE TOLERANCE
+ *
+ * objectui#9232 added two keys to what `sanitizeChatMessagesForCache` writes,
+ * so entries already in a user's `localStorage` are a short format behind.
+ * Three routes were on the table — tolerate them, bump `MESSAGE_CACHE_PREFIX`
+ * to a `:v2` key, or discard on read. This path deliberately TOLERATES, and
+ * the reasoning is pinned in `useChatConversation.test.tsx` rather than left to
+ * be re-derived:
+ *
+ *   1. Nothing can break on an old entry. The cached payload is a list of OPEN
+ *      records (`HydratedUIMessagePart`), and both readers of the new keys
+ *      already answer "absent" rather than throwing — `partApproval` returns
+ *      undefined for a missing envelope, `detectPendingApproval` returns
+ *      undefined for a result that is not one. An old entry restores exactly
+ *      as it does today.
+ *   2. A version bump or a discard would throw away everything the old writer
+ *      got RIGHT — the transcript text, the draft "Review N changes / Publish"
+ *      card, the ADR-0038 chip, the proposed plan, the objectui#5695 replay
+ *      verdict — to recover one affordance. This cache is only ever read when
+ *      the server returned no messages, so the discarded thread is the only
+ *      thread the operator would have seen: a strictly worse trade.
+ *   3. Old entries self-heal. The cache is rewritten from `runtimeMessages` on
+ *      every render, so the first server-backed load after this ships restores
+ *      the id through the objectui#8442 path and writes it back in the new
+ *      shape. The stale window closes by itself, and only stays open on a
+ *      conversation the server cannot serve at all — where there is nothing
+ *      better to restore from anyway.
+ *
+ * What tolerance does NOT do is invent: an old entry keeps `approval-requested`
+ * with no id, which is precisely today's behaviour, and no id is fabricated to
+ * paper over it. See the objectui#9232 block in the tests.
+ */
 function readMessageCache(conversationId: string): HydratedUIMessage[] {
   try {
     const raw = localStorage.getItem(messageCacheKey(conversationId));
@@ -374,19 +449,45 @@ export function sanitizeChatMessagesForCache(
           // earlier cache shape never kept. `output` (not a custom part field)
           // is used because the AI SDK preserves it through `useChat` init,
           // exactly as the server-backed tool-result merge relies on.
-          const cachedOutput = tool.replayOutcome
-            ? replayOutcomeToCachedResult(tool.replayOutcome)
-            : tool.draftReview
-              ? draftReviewToCachedResult(tool.draftReview)
-              : tool.proposedPlan
-                ? proposedPlanToCachedResult(tool.proposedPlan)
-                : undefined;
+          //
+          // objectui#9232 — the pending-approval arm. `state` already survived
+          // this rebuild, so a cached `approval-requested` came back carrying
+          // nothing to decide with: the operator got Approve / Reject buttons
+          // whose only possible outcome was "No pending-action id found for
+          // this tool call". That is the exact divergence objectui#8442 closed
+          // on the way OUT of server history, reopened on the way IN to the
+          // cache.
+          //
+          // It is FIRST in the chain on purpose. The four detectors all read
+          // one `parseResultEnvelope(result)` and discriminate on its single
+          // `status` field (`pending_approval` / `drafted` /
+          // `blueprint_proposed` / the replay pair), so the arms are disjoint
+          // by construction and the order is unobservable today. The position
+          // fixes what happens if that ever stops being true: the other three
+          // restore a card describing something that already HAPPENED, while
+          // this one restores the operator's ability to ACT, and losing it is
+          // the only one of the four that leaves a live control wired to
+          // nothing. Minting this envelope cannot resurrect a Publish button
+          // over a rolled-back publish (objectui#5695's hazard) either —
+          // `detectDraftResult` is silent over a `pending_approval` status.
+          const cachedOutput = tool.pendingActionId
+            ? pendingApprovalToCachedResult(tool.pendingActionId)
+            : tool.replayOutcome
+              ? replayOutcomeToCachedResult(tool.replayOutcome)
+              : tool.draftReview
+                ? draftReviewToCachedResult(tool.draftReview)
+                : tool.proposedPlan
+                  ? proposedPlanToCachedResult(tool.proposedPlan)
+                  : undefined;
           parts.push({
             type: `tool-${tool.toolName}`,
             toolCallId: tool.toolCallId,
             toolName: tool.toolName,
             state: tool.state ?? (tool.errorText ? 'output-error' : 'output-available'),
             ...(tool.errorText ? { errorText: tool.errorText } : {}),
+            // The SDK envelope rides the PART, both here and on the server
+            // path — `partApproval` narrows it straight back off this key.
+            ...(tool.approval ? { approval: tool.approval } : {}),
             ...(cachedOutput !== undefined ? { output: cachedOutput } : {}),
           });
         }

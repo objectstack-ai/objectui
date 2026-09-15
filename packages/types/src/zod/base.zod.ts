@@ -718,9 +718,54 @@ export const ComponentConfigSchema = ComponentMetaSchema.extend({
 export const HTMLAttributesSchema = z.record(z.string(), z.any()).describe('HTML attributes');
 
 /**
- * Event Handlers
+ * Event handlers — NOTE, not a declaration. There is deliberately no
+ * event-handlers const here (objectui#6910).
+ *
+ * `EventHandlersSchema`, a `z.record(z.string(), z.function())`, stood at this
+ * spot until objectui#6910 retired it under ADR-0049 enforce-or-remove
+ * (maintainer ruling on objectui#6124, decision batch #8, reconfirmed in batch
+ * #25). It was a published export of `@object-ui/types/zod` that **no JSON
+ * document could ever satisfy** — every value it accepted had to be a function
+ * — and that nothing in this package composed. It could therefore neither
+ * admit a correct authoring nor refuse a wrong one: an author reading the
+ * published surface got no signal in either direction, which is exactly the
+ * shape ADR-0049 exists to remove.
+ *
+ * Why no JSON-authorable replacement can be written here, i.e. why this is a
+ * NOTE and not a narrower schema: on the JSON face handlers are not values at
+ * all. The per-node `on*` handler keys that do exist are declared through
+ * `handlerKeyRefusal()` in `./tombstone.zod.ts`, which refuses EVERY value —
+ * an authored object and a live function alike — and carries the remedy in
+ * its own message: author behaviour as a NODE TYPE, an `action:` node with a
+ * declared action, the spelling PR #6498 established. A record of function
+ * values is that same unauthorable shape with the key set left open as well,
+ * so narrowing it could only make the refusal harder to read. The
+ * function-valued face is a TypeScript prop shape, declared as `EventHandlers`
+ * in `../base.ts`; a zod mirror of it would mirror something that never
+ * crosses the wire.
+ *
+ * ⚠️ `BaseSchema` declares NO `events` key, and this note asserted that it did
+ * until the claim was checked against the tree. AGENTS.md's abridged protocol
+ * sketch shows `events?: Record<string, ActionSchema[]>` and its action-system
+ * commandment authors one, but `BaseSchemaCore` declares no such member and
+ * nothing reads `schema.events`: whatever a document writes under that key,
+ * no renderer runs it. `BaseSchemaCore` is `.passthrough()`, so such a node is
+ * KEPT, judged by nothing and run by nothing. ⛔ Do not send an author there.
+ * ⛔ No count of authored `events` keys is stated here — objectui#9553 carries
+ * that census. A census answer frozen into a comment is the defect AGENTS.md
+ * commandment #9 forbids, and this note shipped one once already: the first
+ * version of this paragraph named a total that was wrong on the day it was
+ * written, and it reached the emitted `.d.ts` before review caught it.
+ *
+ * ⚠️ Do not conclude from a clean sweep that no second one of these exists.
+ * Both standing instruments are structurally blind to this shape: the
+ * `z.function()` census matches the `key: z.function(` spelling and a record's
+ * VALUE type is not a key, and `../__tests__/zod-mirror-parity.test.ts`
+ * exempts index signatures by design ("no keys to compare"). This note, not a
+ * gate, is what records the absence.
+ *
+ * Precedent of the same shape: objectstack#12009 / PR #13413.
  */
-export const EventHandlersSchema = z.record(z.string(), z.function()).describe('Event handlers');
 
 /**
  * The two CSS passthrough attributes a node exposes: a Tailwind class string and

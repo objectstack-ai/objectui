@@ -747,12 +747,15 @@ export const HTMLAttributesSchema = z.record(z.string(), z.any()).describe('HTML
  * ⚠️ `BaseSchema` declares NO `events` key, and this note asserted that it did
  * until the claim was checked against the tree. AGENTS.md's abridged protocol
  * sketch shows `events?: Record<string, ActionSchema[]>` and its action-system
- * commandment authors one, but `BaseSchemaCore` has no such member, no
- * renderer reads `schema.events`, and every authored `events` in the corpus is
- * `TimelineSchema.events`, an unrelated array. `BaseSchemaCore` is
- * `.passthrough()`, so a node written from that sketch is KEPT, judged by
- * nothing and run by nothing. ⛔ Do not send an author there; the finding is
- * carded separately.
+ * commandment authors one, but `BaseSchemaCore` declares no such member and
+ * nothing reads `schema.events`: whatever a document writes under that key,
+ * no renderer runs it. `BaseSchemaCore` is `.passthrough()`, so such a node is
+ * KEPT, judged by nothing and run by nothing. ⛔ Do not send an author there.
+ * ⛔ No count of authored `events` keys is stated here — objectui#9553 carries
+ * that census. A census answer frozen into a comment is the defect AGENTS.md
+ * commandment #9 forbids, and this note shipped one once already: the first
+ * version of this paragraph named a total that was wrong on the day it was
+ * written, and it reached the emitted `.d.ts` before review caught it.
  *
  * ⚠️ Do not conclude from a clean sweep that no second one of these exists.
  * Both standing instruments are structurally blind to this shape: the

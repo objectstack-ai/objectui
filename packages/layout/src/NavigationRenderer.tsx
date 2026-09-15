@@ -707,6 +707,7 @@ export function resolveHref(
  */
 const MATCH_RECORD = 50;
 const MATCH_FILTERS = 40;
+const MATCH_PARAMS = 35;
 const MATCH_VIEW = 30;
 const MATCH_EXACT = 25;
 const MATCH_OBJECT_SUBROUTE = 10;
@@ -733,6 +734,7 @@ function stripViewQualifier(objectName: string, view: string): string {
 function itemMatchScore(
   item: NavigationItem,
   pathname: string,
+  searchParams: URLSearchParams,
   filterParams: Map<string, string>,
   basePath: string,
   ctx: NavTemplateContext | undefined,
@@ -786,10 +788,21 @@ function itemMatchScore(
     return segs.length === 0 ? MATCH_EXACT : MATCH_OBJECT_SUBROUTE;
   }
 
-  // Non-object types match against their canonical href (metadata component
-  // hrefs may carry a query string — compare pathnames only).
-  const hrefPath = href.split('?')[0];
-  if (pathname === hrefPath) return MATCH_EXACT;
+  // Non-object targets may share a pathname and use authored params to name
+  // the exact navigation context. Compare those params when present so two
+  // menu entries that intentionally reuse one page still round-trip to the
+  // correct item, group, and area. Unrelated runtime params remain ignored.
+  const [hrefPath, hrefSearch = ''] = href.split('?');
+  if (pathname === hrefPath) {
+    const expected = new URLSearchParams(hrefSearch);
+    if ([...expected].length > 0) {
+      for (const [key, value] of expected) {
+        if (searchParams.get(key) !== value) return 0;
+      }
+      return MATCH_PARAMS;
+    }
+    return MATCH_EXACT;
+  }
 
   // Directory/index components (e.g. `metadata:directory`) link to a parent
   // route that also hosts more-specific child items (`metadata:resource`
@@ -814,6 +827,7 @@ export function resolveActiveNavItem(
   basePath: string,
   templateContext?: NavTemplateContext,
 ): NavigationItem | null {
+  const searchParams = new URLSearchParams(search);
   const filterParams = parseFilterParams(search);
   let best: NavigationItem | null = null;
   let bestScore = 0;
@@ -824,7 +838,7 @@ export function resolveActiveNavItem(
         visit(node.children);
         continue;
       }
-      const score = itemMatchScore(node, pathname, filterParams, basePath, templateContext);
+      const score = itemMatchScore(node, pathname, searchParams, filterParams, basePath, templateContext);
       if (score > bestScore) {
         best = node;
         bestScore = score;

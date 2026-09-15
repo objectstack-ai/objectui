@@ -127,6 +127,26 @@ export const TextSchema = BaseSchema.extend({
     .optional()
     .describe('Text variant/style'),
   align: z.enum(['left', 'center', 'right', 'justify']).optional().describe('Text alignment'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `text` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `align`, `className`, `content`, `variant`. '
+    + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `text` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `align`, `className`, `content`, `variant`. '
+    + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -139,6 +159,26 @@ export const ImageSchema = BaseSchema.extend({
   width: z.union([z.string(), z.number()]).optional().describe('Image width'),
   height: z.union([z.string(), z.number()]).optional().describe('Image height'),
   objectFit: z.enum(['contain', 'cover', 'fill', 'none', 'scale-down']).optional().describe('Object fit property'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `image` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `alt`, `src`. '
+    + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `image` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `alt`, `src`. '
+    + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -206,6 +246,26 @@ export const IconSchema = BaseSchema.extend({
     .describe('Lucide glyph name, kebab-case (objectui#5631: was `name`)'),
   size: z.number().optional().describe('Icon size in pixels'),
   color: z.string().optional().describe('Icon color'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `icon` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
+    + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `icon` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
+    + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -375,6 +435,26 @@ export const TabsSchema = BaseSchema.extend({
   orientation: z.enum(['horizontal', 'vertical']).optional().describe('Tabs orientation'),
   items: z.array(TabItemSchema).describe('Tab items configuration'),
   onValueChange: handlerKeyRefusal('onValueChange', 'runtime-slot', 'Change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tabs` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
+    + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tabs` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
+    + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**

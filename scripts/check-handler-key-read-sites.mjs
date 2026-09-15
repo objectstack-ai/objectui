@@ -156,16 +156,30 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // outlived its read reddens `staleExemptions()` below — which is exactly the
   // intermediate reading that proved the arm edit had reached these keys.
   ['tree-view::TreeViewSchema.onNodeClick', 'objectui#7804'],
-  ['object-form::ObjectFormSchema.onCancel', 'objectui#7804'],
-  ['object-form::ObjectFormSchema.onError', 'objectui#7804'],
-  ['object-form::ObjectFormSchema.onOpenChange', 'objectui#7804'],
-  ['object-form::ObjectFormSchema.onStepChange', 'objectui#7804'],
-  ['object-form::ObjectFormSchema.onSuccess', 'objectui#7804'],
+  // ⭐ ALL FIVE `object-form::ObjectFormSchema` rows LANDED and are gone —
+  // objectui#7804's `objectql.ts` slice, which drained nine rows across four
+  // plain `export interface X extends BaseSchema` faces in one file.
+  // `onCancel`, `onError`, `onOpenChange`, `onStepChange` and `onSuccess` are
+  // objectui#6124 RUNTIME SLOTS on the arm, each measured at its OWN channel
+  // rather than assumed from its siblings: four are supplied by hosts that
+  // build the `object-form` NODE in TypeScript (`AppContent`, `RecordFormPage`,
+  // `ScreenView`, `FlowRunner`, `useActionModal`, `ObjectManager`,
+  // `FieldDesigner`, `MasterDetailForm`, `EmbeddableForm`, `plugin-view`'s
+  // `ObjectView`), while `onStepChange` has NO in-repo supplier at all — the
+  // channel is wired end to end (`ObjectForm` forwards it onto the wizard node,
+  // `WizardForm` calls it) and only the supplier is missing.
   ['form::FormSchema.onError', 'objectui#7804'],
   ['form::FormSchema.onOpenChange', 'objectui#7804'],
   ['form::FormSchema.onStepChange', 'objectui#7804'],
   ['form::FormSchema.onSuccess', 'objectui#7804'],
-  ['object-grid::ObjectGridSchema.onNavigate', 'objectui#7804'],
+  // ⭐ `object-grid::ObjectGridSchema.onNavigate` LANDED and is gone with the
+  // same slice. A RUNTIME SLOT whose channel the maintainer's 2026-08-19 ruling
+  // on objectui#5234 (option C) preserved on purpose — declared on the
+  // TypeScript face for programmatic callers, kept OFF the authoring surface —
+  // so the mirror's named refusal now says on this face what
+  // `@objectstack/spec`'s `strictObject` already said on the other. ⚠️ No
+  // in-repo host builds an `object-grid` node carrying it; the pin
+  // `gridNonAuthorKeys.test.tsx` supplies it and asserts the read still fires.
   ['grid::GridSchema.onNavigate', 'objectui#7804'],
   // ⭐ ALL THREE `object-kanban::ObjectKanbanSchema` rows LANDED and are gone.
   // `onCardClick` and `onQuickAdd` went with objectui#7804's `plugin-kanban`
@@ -192,9 +206,25 @@ export const KNOWN_UNDECLARED_READS = new Map([
   ['list::ListSchema.onDensityChange', 'objectui#7804'],
   ['list::ListSchema.onNavigate', 'objectui#7804'],
   ['list::ListSchema.onPageSizeChange', 'objectui#7804'],
-  ['object-gallery::ObjectGallerySchema.onCardClick', 'objectui#7804'],
-  ['object-gallery::ObjectGallerySchema.onRowClick', 'objectui#7804'],
-  ['object-view::ObjectViewSchema.onNavigate', 'objectui#7804'],
+  // ⭐ BOTH `object-gallery::ObjectGallerySchema` rows and
+  // `object-view::ObjectViewSchema.onNavigate` LANDED and are gone with the
+  // same slice. The gallery pair is this ledger's PROPS-half shape: the two
+  // reads sit on one line (`props.onRowClick ?? props.onCardClick`) because
+  // `SchemaRenderer` spreads the authored node's leftover keys into the props
+  // bag — `onRowClick` has two in-repo suppliers (`ListView`'s `baseProps`,
+  // `RelatedList`'s mobile branch), `onCardClick` has none and is the `??`
+  // fallback spelling declared on `ObjectGalleryProps`. `ObjectViewSchema`'s
+  // key is read at four call sites and supplied by `@object-ui/app-shell`'s
+  // `ObjectView`, which builds the node in TypeScript.
+  //
+  // ⚠️ `onNavigate` is filed TWICE in this ledger's history, on two different
+  // faces with two different signatures and two different suppliers. They were
+  // judged separately, not co-disposed.
+  //
+  // Draining a row is part of the landing, not cleanup after it: a row that
+  // outlived its read reddens `staleExemptions()` below — which is exactly the
+  // intermediate reading that proved the arm edit had reached these nine keys
+  // and no others.
   // ⭐ objectui#9344 — the two rows this ledger could not have held before, and
   // the reason its population was never a total. Both reads are spelled
   // `(schema as any).onTabChange`, and a cast receiver was invisible to the

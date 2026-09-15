@@ -725,6 +725,37 @@ export interface UIActionSchema {
   
   /** Whether to refresh data after execution */
   refreshAfter?: boolean;
+
+  /**
+   * Offer an Undo affordance after a single-record update action succeeds.
+   *
+   * Declared here as an ALIGNMENT (objectui#8648). Before this, `action:button`
+   * forwarded it as `(schema as any).undoable`, and
+   * `checker.getPropertyOfType` on the static type of `schema` BEFORE that cast
+   * reported no declared member — while the same instrument reports `undoable`
+   * DECLARED on `@objectstack/spec`'s `Action`, the schema this interface
+   * mirrors. `@object-ui/core`'s `ActionDef` has declared the write side all
+   * along; only this read side was missing, so the forward was typed `any` in
+   * both directions.
+   *
+   * Reachability is unchanged and is not what this declares: the runtime reads
+   * the key only under a `rowRecord` guard that `action:button` never seeds,
+   * which `check:action-forward-parity`'s JUSTIFIED table records for the three
+   * sibling surfaces. Declaring the key does not make it reachable; it makes
+   * the forward compiler-checked.
+   */
+  undoable?: SpecAction['undoable'];
+
+  /**
+   * Row field whose value seeds `recordIdParam` — defaults to `id` on the
+   * platform side.
+   *
+   * Declared here as an ALIGNMENT (objectui#8648), on the same reading as
+   * {@link undoable}: not a declared member of the pre-cast `schema` type at
+   * `action-button.tsx`, and DECLARED on the contract's `Action`. Typed by
+   * derivation so the default-bearing spelling cannot drift from the spec.
+   */
+  recordIdField?: SpecAction['recordIdField'];
   
   /** Toast notification configuration */
   toast?: {
@@ -737,11 +768,58 @@ export interface UIActionSchema {
     /** Toast duration in milliseconds */
     duration?: number;
   };
-  
+
+  /**
+   * One-shot reveal dialog for an action whose response is shown exactly once —
+   * 2FA setup, an OAuth `client_secret`, regenerated backup codes. Both action
+   * renderers forward it; without the forward the runner falls back to the
+   * success toast and the value the user was meant to copy is gone
+   * (objectui#3646).
+   *
+   * Declared here as an ALIGNMENT (objectui#8648). `checker.getPropertyOfType`
+   * on the pre-cast `schema` type at `action-button.tsx` and `action-icon.tsx`
+   * reported no declared member; the same instrument reports `resultDialog`
+   * DECLARED on `@objectstack/spec`'s `Action`. ⚠️ And NOT on its inline
+   * sibling — spec's own `inline-action.test.ts` asserts the key is not
+   * inline-authorable — which is why "the token exists under the UI contract"
+   * is not the question this settles.
+   */
+  resultDialog?: SpecAction['resultDialog'];
+
   // === Conditional ===
-  
+
   /** Expression controlling visibility (e.g., "status === 'draft'") */
   visible?: string;
+
+  /**
+   * Predicate DISABLING the control — TRUE means disabled. The primary gate on
+   * both action renderers since #1885 / ADR-0049; {@link enabled} below is the
+   * legacy non-spec fallback kept so existing metadata keeps working.
+   *
+   * Declared here as an ALIGNMENT (objectui#8648), and this key is the one the
+   * card warned about. A word-frequency screen over the UI contract answers
+   * "present" for `disabled` loudly (67 hits at triage) and that reading does
+   * not decide anything: what decides it is `checker.getPropertyOfType` on the
+   * actual declaring type. Taken on the static type of `schema` BEFORE the cast
+   * — `UIActionSchema & { type: string; className?: string | undefined;
+   * actionType?: string | undefined; }` — it reported NO declared member at
+   * either renderer; taken on `@objectstack/spec`'s `Action` it reports
+   * DECLARED. Taken on spec's inline sibling it reports ABSENT, which is the
+   * reading a token screen cannot produce.
+   *
+   * Typed by derivation so the three accepted arms — literal boolean, raw CEL
+   * string, and a `{ dialect, source }` envelope — cannot drift from the
+   * contract. `packages/core`'s `ActionDef` already derives the same key from
+   * the same spec type and pins all three arms in
+   * `actions/__tests__/actionKeys.types.test.ts`; this is the read side of that
+   * pair, which had no declaration to land in.
+   *
+   * ⚠️ Not to be confused with the `disabled` PROP on `ActionButtonProps` /
+   * `ActionIconProps` (objectui#9131): that one is the host's EVALUATED
+   * verdict, a `boolean`, and lives on the renderer's props bag. This one is
+   * the author's predicate and lives on the action.
+   */
+  disabled?: SpecAction['disabled'];
   
   /** Expression controlling enabled state (e.g., "hasPermission('edit')") */
   enabled?: string;

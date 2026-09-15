@@ -1167,6 +1167,116 @@ export interface CalendarSchema extends BaseSchema {
    * @deprecated Not part of this contract — the value was inert.
    */
   onChange?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `calendar` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `defaultValue`, `mode`, `value` (in `packages/components/src/renderers/form/calendar.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "calendar" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `view:calendar`
+   * as the SOLE claimant of the bare key, because `ui:calendar` passes
+   * `skipFallback: true` and never writes it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * ⚠️ TWO readers, and both answer NEITHER. The bare `calendar` key resolves to
+   * plugin-calendar's full CRUD calendar VIEW (`view:calendar`, the renderer in
+   * `packages/plugin-calendar/src/index.tsx`), which reads its declared view
+   * surface — `objectName`, `calendar`, `filter`, `sort`, `defaultView`,
+   * `locale`, `data`, `staticData`, `loading` — and neither content channel.
+   * This declaration's own key set describes the date-picker primitive reached
+   * at `ui:calendar` only (`packages/components/src/renderers/form/calendar.tsx`),
+   * which reads `defaultValue`, `mode` and `value` and neither content channel.
+   *
+   * ⚠️ The tombstone does NOT reach {@link UiCalendarSchema} on THIS face, and
+   * that was measured rather than assumed. `UiCalendarSchema` is declared as an
+   * `Omit` of this interface, and {@link BaseSchema} carries an index signature,
+   * so `Omit` resolves through `Exclude<string, 'type'>` = `string` and collapses
+   * every member into that signature: the checker answers `any` for
+   * `UiCalendarSchema['body']` — and for `UiCalendarSchema['mode']` as well, so
+   * this is not about the tombstone. That face has never carried this key set,
+   * whatever its own docblock says. The MIRROR does propagate, because
+   * `zod/form.zod.ts` builds it with `.extend()` and zod carries the shape.
+   * Both halves are pinned in `__tests__/content-channel-family-d-9256.test.ts`
+   * — the mirror as a refusal row, this face as a tripwire that reddens the day
+   * the collapse is repaired.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `calendar` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `calendar` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. A docblock mention is not an AST node,
+   * and `schema.bodyExtra` in
+   * `packages/components/src/renderers/action/action-button.tsx` is the kind of
+   * prefix hit grep scores. Every read is filed under the TYPE of the object it
+   * is read from; this declaration carries none. What the renderer DOES read
+   * off this node: `defaultValue`, `mode`, `value` (in `packages/components/src/renderers/form/calendar.tsx`).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9261, AND WHAT CHANGED.
+   * `ComponentRegistry.register` writes the bare-name fallback last-one-wins,
+   * so which declaration governs an authored `{ "type": "calendar" }` node was
+   * unmeasured and narrowing it would have been a guess. It is measured now:
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `view:calendar`
+   * as the SOLE claimant of the bare key, because `ui:calendar` passes
+   * `skipFallback: true` and never writes it. Re-derive from that instrument
+   * rather than from this sentence.
+   *
+   * ⚠️ TWO readers, and both answer NEITHER. The bare `calendar` key resolves to
+   * plugin-calendar's full CRUD calendar VIEW (`view:calendar`, the renderer in
+   * `packages/plugin-calendar/src/index.tsx`), which reads its declared view
+   * surface — `objectName`, `calendar`, `filter`, `sort`, `defaultView`,
+   * `locale`, `data`, `staticData`, `loading` — and neither content channel.
+   * This declaration's own key set describes the date-picker primitive reached
+   * at `ui:calendar` only (`packages/components/src/renderers/form/calendar.tsx`),
+   * which reads `defaultValue`, `mode` and `value` and neither content channel.
+   *
+   * ⚠️ The tombstone does NOT reach {@link UiCalendarSchema} on THIS face, and
+   * that was measured rather than assumed. `UiCalendarSchema` is declared as an
+   * `Omit` of this interface, and {@link BaseSchema} carries an index signature,
+   * so `Omit` resolves through `Exclude<string, 'type'>` = `string` and collapses
+   * every member into that signature: the checker answers `any` for
+   * `UiCalendarSchema['body']` — and for `UiCalendarSchema['mode']` as well, so
+   * this is not about the tombstone. That face has never carried this key set,
+   * whatever its own docblock says. The MIRROR does propagate, because
+   * `zod/form.zod.ts` builds it with `.extend()` and zod carries the shape.
+   * Both halves are pinned in `__tests__/content-channel-family-d-9256.test.ts`
+   * — the mirror as a refusal row, this face as a tripwire that reddens the day
+   * the collapse is repaired.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `calendar` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

@@ -286,6 +286,36 @@ export const ObjectGridSchema = BaseSchema.extend({
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
   frozenColumns: z.number().optional(),
+  // ⭐ objectui#7804 — one key the REGISTERED `object-grid` renderer reads off
+  // the authored document while this arm declared none. `BaseSchema` is
+  // `.passthrough()`, so an undeclared key is NOT refused: it stops being
+  // judged and the value is KEPT. `{ "type": "object-grid", "objectName": "a",
+  // "onNavigate": { "action": "toast" } }` therefore parsed GREEN and that
+  // action object was handed to `useNavigationOverlay`, which CALLS it as
+  // `onNavigate(recordId, view)`.
+  //
+  // ⛔ Disposition MEASURED, not patterned. `'retired'` publishes "no renderer
+  // reads this key" — FALSE here: `ObjectGrid` reads it (`onNavigate:
+  // schema.onNavigate` into its `useNavigationOverlay` call) and
+  // `gridNonAuthorKeys.test.tsx` pins the read firing on a row click from a
+  // SCHEMA-supplied function. So `'runtime-slot'`, and the channel is the one
+  // the maintainer's 2026-08-19 ruling on objectui#5234 (option C) preserved on
+  // purpose: the key stays DECLARED on `ObjectGridSchema` for programmatic
+  // callers and stays OFF the authoring surface (`GRID_QUERY_INPUTS`).
+  //
+  // ⚠️ Measured and reported rather than smoothed: NO in-repo host builds an
+  // `object-grid` node carrying this key today — the nine siblings the read
+  // site's own comment names (`onRowClick`, `onRowSelect`, …) travel
+  // `ObjectGridComponentProps` instead. The slot is nonetheless real and
+  // exercised: the TypeScript face declares it, the renderer reads and runs it,
+  // and the pin supplies it. What is absent is an in-repo SUPPLIER, not the
+  // channel.
+  //
+  // ⭐ This arm and `@objectstack/spec` now say the same thing in two places:
+  // `ComponentPropsMap['object-grid']` is a `strictObject` that already
+  // rejected `onNavigate` by name (`unrecognized_keys`), while this mirror
+  // accepted and KEPT it. The refusal message points at the node-type spelling.
+  onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
 });
 
 /**
@@ -326,6 +356,48 @@ export const ObjectFormSchema = BaseSchema.extend({
   showReset: z.boolean().optional().describe('Show reset button'),
   initialValues: z.record(z.string(), z.any()).optional().describe('Initial values'),
   readOnly: z.boolean().optional().describe('Read-only mode'),
+  // ⭐ objectui#7804 — five keys the REGISTERED `object-form` renderer reads off
+  // the authored document while this arm declared none of them. `BaseSchema` is
+  // `.passthrough()`, so an undeclared key is NOT refused: it stops being
+  // judged and the value is KEPT. `{ "type": "object-form", "objectName": "a",
+  // "mode": "create", "onSuccess": { "action": "toast" } }` therefore parsed
+  // GREEN and that action object was forwarded onto the child node whose
+  // renderer CALLS it.
+  //
+  // ⛔ The disposition is MEASURED PER KEY, never applied as a pattern.
+  // `'retired'` publishes "no renderer reads this key, so nothing could ever
+  // run it" — FALSE for all five: `plugin-form`'s `ObjectForm` reads every one
+  // off `schema.*` and forwards it into the variant it renders. So each is a
+  // `'runtime-slot'`, and each was carried by finding the path a host actually
+  // supplies it through — the `object-form` NODE a host builds in TypeScript,
+  // `ObjectFormComponentProps` declaring only `schema` / `dataSource` /
+  // `className`:
+  //
+  //   - `onSuccess`     forwarded as `onSuccess: schema.onSuccess`; supplied by
+  //                     `AppContent`, `RecordFormPage`, `ScreenView`,
+  //                     `FlowRunner` and `useActionModal` (`@object-ui/app-shell`),
+  //                     `ObjectManager` / `FieldDesigner` (`@object-ui/plugin-designer`),
+  //                     `MasterDetailForm` and `EmbeddableForm` (`@object-ui/plugin-form`),
+  //                     and `plugin-view`'s `ObjectView`.
+  //   - `onCancel`      the same builders, one line below their `onSuccess`.
+  //   - `onOpenChange`  the MODAL/DRAWER arm's open-state slot; supplied by
+  //                     `AppContent` (`if (!open) closeRecordForm()`) and by
+  //                     `ObjectManager` / `FieldDesigner` (`handleFormClose`).
+  //   - `onError`       supplied by `MasterDetailForm`, beside its `onSuccess`.
+  //   - `onStepChange`  ⚠️ a DIFFERENT reading from its four siblings, and the
+  //                     reason four of them are not evidence for the fifth: NO
+  //                     in-repo host supplies this key. `ObjectForm` forwards it
+  //                     onto the wizard node (`onStepChange: schema.onStepChange`)
+  //                     and `WizardForm` CALLS it (`schema.onStepChange(step)`),
+  //                     so the channel is wired end to end and a host that fills
+  //                     it is run — what is absent is an in-repo supplier, not
+  //                     the channel. `'retired'` would still be false: the read
+  //                     and the call are both there.
+  onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel handler'),
+  onError: handlerKeyRefusal('onError', 'runtime-slot', 'Submit error handler'),
+  onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Modal/drawer open-state handler'),
+  onStepChange: handlerKeyRefusal('onStepChange', 'runtime-slot', 'Wizard step change handler'),
+  onSuccess: handlerKeyRefusal('onSuccess', 'runtime-slot', 'Submit success handler'),
 });
 
 /**
@@ -426,6 +498,25 @@ export const ObjectViewSchema = BaseSchema.extend({
   // verbatim into the `view-switcher` node it composes.
   allowCreateView: ViewSwitcherSchema.shape.allowCreateView,
   viewActions: ViewSwitcherSchema.shape.viewActions,
+  // ⭐ objectui#7804 — one key the REGISTERED `object-view` renderer reads off
+  // the authored document while this arm declared none. `BaseSchema` is
+  // `.passthrough()`, so an undeclared key is NOT refused: it stops being
+  // judged and the value is KEPT, then reaches four call sites in
+  // `plugin-view`'s `ObjectView` that INVOKE it —
+  // `schema.onNavigate('new', 'edit')` on create, and the record id with
+  // `'edit'` / `'view'` on the other three.
+  //
+  // ⛔ Disposition MEASURED. `'retired'` publishes "no renderer reads this key"
+  // — FALSE against four live reads. `'runtime-slot'`, and the supplier is
+  // named: `@object-ui/app-shell`'s `ObjectView` builds the `object-view` node
+  // in TypeScript and puts `onNavigate: (recordId, mode) => …` on it, the same
+  // two-parameter shape the declaration carries. The value travels the node,
+  // which is the TypeScript face, never `safeParse`.
+  //
+  // ⚠️ Same key NAME as `ObjectGridSchema.onNavigate` above, a DIFFERENT
+  // signature (`mode: 'view' | 'edit'` rather than the grid's `action?: string`)
+  // and a different supplier. Judged separately for that reason.
+  onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
 });
 
 /**
@@ -1801,6 +1892,37 @@ export const ObjectGallerySchema = BaseSchema.extend({
   grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Grouping configuration for sectioned display'),
   imageField: z.string().optional().describe('DEPRECATED — use gallery.coverField'),
   titleField: z.string().optional().describe('DEPRECATED — use gallery.titleField'),
+  // ⭐ objectui#7804 — two keys the REGISTERED `object-gallery` renderer reads
+  // off the authored document while this arm declared neither. `BaseSchema` is
+  // `.passthrough()`, so an undeclared key is NOT refused: it stops being
+  // judged and the value is KEPT, and `SchemaRenderer` then spreads it into the
+  // component's props bag (`createElement` spreading `...componentProps`), where
+  // `ObjectGallery` reads `props.onRowClick ?? props.onCardClick` and hands the
+  // winner to `useNavigationOverlay` as the function it CALLS on a card click.
+  // `{ "type": "object-gallery", "onCardClick": { "action": "toast" } }`
+  // therefore parsed GREEN and put that action object where a function is run.
+  //
+  // ⚠️ The channel is the PROPS half of the runtime slot, not the `schema.*`
+  // half, which is why the read census finds both at one line. It is still the
+  // same defect: the key travels the authored NODE to get there.
+  //
+  // ⛔ Disposition MEASURED PER KEY. `'retired'` publishes "no renderer reads
+  // this key" — FALSE for both.
+  //
+  //   - `onRowClick`   two in-repo suppliers, each putting it on the
+  //                    `object-gallery` node it builds: `ListView`
+  //                    (`onRowClick: navigation.handleClick`, from the
+  //                    `baseProps` every child view receives) and
+  //                    `RelatedList`'s mobile branch (its own React prop).
+  //   - `onCardClick`  ⚠️ a DIFFERENT reading from its sibling: NO in-repo host
+  //                    supplies it. It is the second arm of the `??` above, the
+  //                    spelling a host may use instead, declared on
+  //                    `ObjectGalleryProps` with its own doc. The slot is real —
+  //                    declared on the props interface, read at two sites, run
+  //                    through the hook — but what is absent is an in-repo
+  //                    SUPPLIER, not the channel.
+  onCardClick: handlerKeyRefusal('onCardClick', 'runtime-slot', 'Card click handler'),
+  onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row/item click handler'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '

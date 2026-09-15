@@ -13,18 +13,21 @@
  * ## `feed` is the full `record:activity` shape, and it is applied HERE
  *
  * `@objectstack/spec` declares `RecordChatterProps.feed:
- * RecordActivityProps.optional()` (`component.zod.ts:1366`), bound to BOTH
- * names (`:2948` `record:chatter`, `:2962` `record:discussion`), and
+ * RecordActivityProps.optional()` (`ui/component.zod.ts`, the member commented
+ * `Feed configuration (delegates to RecordActivityProps)`), bound to BOTH names
+ * — `ComponentPropsMap` wires `'record:chatter'` and `'record:discussion'` to
+ * that one `RecordChatterProps` row, and the pair-identity pin in
+ * `component-record-blocks.test.ts` holds them together. And
  * `RecordActivityProps` carries the filter members `types` / `limit` /
  * `showCompleted` / `unifiedTimeline`. This renderer used to hand
  * `discussion.items` to the panel raw, so those four were accepted by the spec,
  * declared in the registration, and then discarded in silence — an
  * IMPLEMENTATION GAP, not a narrower contract (objectui#8934).
  *
- * The pipeline below is `record-activity.tsx:219`'s, not a second convention:
- * the same `applyFeedConfig(sourceItems, { types, showCompleted,
- * unifiedTimeline }, pageSize)` call, and the same reading of `limit` as a PAGE
- * SIZE that "Load more" grows by, rather than a hard cap.
+ * The pipeline below is `record-activity.tsx`'s, not a second convention: the
+ * same `applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline },
+ * pageSize)` call, and the same reading of `limit` as a PAGE SIZE that
+ * "Load more" grows by, rather than a hard cap.
  *
  * ⚠️ Consequences an author sees, because the spec's DEFAULTS now apply here
  * too: `showCompleted` defaults false, so completed activities (feed type
@@ -33,19 +36,70 @@
  * whole. Both are `record:activity`'s behaviour, which is what the protocol
  * says this key is.
  *
- * ⚠️ NOT closed by this pipeline, and not claimed to be: `filterMode` and
- * `enableMentions` are also declared on `RecordActivityProps` and are still
- * unread on this path — `RecordActivityTimeline` takes `filterMode` as a
- * component PROP (`:187`, `:212`), never off `config`, and the chatter path's
- * mentions come from the host context's `mentionSuggestions`. `applyFeedConfig`
- * covers the four filter members only. Tracked as objectui#8968.
+ * ## `filterMode` and `enableMentions` — the remainder, closed here (objectui#8968)
+ *
+ * `applyFeedConfig` is the filter PIPELINE, so it reaches the four members it
+ * takes and no others. Two more members of the same declared shape sit outside
+ * it, and both were still unread on this path after objectui#8934:
+ *
+ *   `filterMode`      `RecordActivityTimeline` takes it as a component PROP
+ *                     (destructured `filterMode: controlledFilter`, resolved as
+ *                     `controlledFilter ?? internalFilter`), never off `config`
+ *                     — and this renderer passed none, so an authored
+ *                     `feed.filterMode` reached nothing under either name.
+ *                     `RecordChatterPanel` already declares and forwards the
+ *                     prop; the chatter renderer was the missing end.
+ *   `enableMentions`  the composer's @-autocomplete is fed by
+ *                     `mentionSuggestions`, which this renderer passed on
+ *                     UNCONDITIONALLY — so the affordance existed here and the
+ *                     member the protocol says gates it did not. Off now
+ *                     withholds the suggestions, which is the behaviour the
+ *                     `record:activity` registration publishes for this key.
+ *
+ * Both are wired with `record:activity`'s own reading rather than a local one,
+ * for the reason objectui#8934 gives: one declared shape, one implementation of
+ * it, not two copies kept in agreement by hand.
+ *
+ * ### ⭐ The DECISION this card left to the implementer — `filterMode` on a
+ * panel whose dropdown is gated off by `showFilterToggle`
+ *
+ * `filterMode` and `showFilterToggle` are INDEPENDENT. One names WHICH SLICE
+ * the feed shows; the other names WHETHER THE CONTROL that changes it is on
+ * screen. With the toggle off an authored `filterMode` is therefore not inert —
+ * it stops being the slice the user OPENS on and becomes the slice the author
+ * PINNED. Three reasons that is the reading, rather than "no dropdown, no
+ * meaning":
+ *
+ *   1. the protocol's own wording splits them exactly that way — `filterMode`
+ *      is described as the "Default activity filter" and `showFilterToggle` as
+ *      "Show filter dropdown in panel header". Neither member's description
+ *      mentions the other, so neither is declared to gate the other.
+ *   2. `RecordActivityTimeline` already resolves `activeFilter` before, and
+ *      independently of, its `showFilter` flag, and the item filter runs on
+ *      `activeFilter` whether or not the dropdown renders. Coupling the two
+ *      HERE would put a second convention on one declared shape — the defect
+ *      class objectui#8934 closed, re-opened one key along.
+ *   3. the alternative silently discards a value the author wrote and the spec
+ *      accepts, which is the exact shape this card exists to remove.
+ *
+ * Pinned by `__tests__/recordChatterFilterModeMentions-8968.test.tsx`, both
+ * legs: the pinned slice renders, and the dropdown does not.
+ *
+ * ⚠️ `aria` — the third row of objectui#8968's table, which the card filed as
+ * NOT MEASURED — was measured on that card and is NOT part of this path's
+ * remainder: it is unread on `record:activity` as well, so it is a gap over the
+ * `record:*` block family rather than a chatter-path one, and closing it means
+ * deciding how an authored label composes with the timeline's own. Reported on
+ * objectui#8968, deliberately not fixed here. ⚠️ Nothing in this file
+ * re-derives that reading — it was taken once, and the card carries it.
  */
 
 import React from 'react';
 import { useRecordContext, useDiscussionContext } from '@object-ui/react';
 import type { FeedItem, RecordActivityComponentProps, RecordChatterComponentProps } from '@object-ui/types';
 import { RecordChatterPanel } from '../RecordChatterPanel';
-import { applyFeedConfig, normalizeLimit } from './recordActivityFeed';
+import type { FeedFilterMode } from '../RecordActivityTimeline';
+import { applyFeedConfig, normalizeFilterMode, normalizeLimit } from './recordActivityFeed';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -100,18 +154,41 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
     ...(schema as any),
   } as any;
 
-  // The nested `feed` IS `RecordActivityProps` (spec `component.zod.ts:1366`),
-  // so its filter members are applied on this path with the same pipeline and
-  // the same call shape `record:activity` uses at `record-activity.tsx:219`.
+  // The nested `feed` IS `RecordActivityProps` (the spec member commented
+  // `Feed configuration (delegates to RecordActivityProps)`), so its filter
+  // members are applied on this path with the same pipeline and the same
+  // `applyFeedConfig` call shape `record:activity` uses.
   const feed = config.feed as RecordActivityComponentProps | undefined;
 
   // Page window. Starts at `limit` and grows by `limit` per "Load more", so the
   // authored `limit` is a page size (the spec's wording) rather than a hard cap
   // — the same reading, and the same `extraPages`-is-the-state shape, as
-  // `record-activity.tsx:159-160`.
+  // `record-activity.tsx` (where the comment reads "The extra PAGES are the
+  // state, not the resulting size").
   const [extraPages, setExtraPages] = React.useState(0);
   const limit = normalizeLimit(feed?.limit);
   const pageSize = limit * (extraPages + 1);
+
+  // `filterMode` — the authored slice, normalized by the SAME function
+  // `record:activity` uses, so an unrecognised value falls back to `all` rather
+  // than freezing the dropdown blank on a value with no matching item.
+  // ⚠️ That shared diagnostic prints a `[record:activity]` prefix and warns
+  // once per offending VALUE, so a bad `filterMode` authored on both a
+  // `record:activity` and a `record:chatter` block on one page warns under the
+  // activity name only. A renderer-aware prefix belongs in `recordActivityFeed`
+  // rather than here; reported on objectui#8968, not fixed on this card.
+  //
+  // It seeds STATE rather than being handed to the panel directly: the timeline
+  // treats `filterMode` as a CONTROLLED prop, so passing the authored value
+  // straight through would pin the dropdown open on it and swallow every user
+  // choice. Same shape as `record:activity`, deliberately — one reading of one
+  // declared member.
+  //
+  // ⭐ Independent of `showFilterToggle` on purpose; the docblock above carries
+  // the decision and its three reasons.
+  const defaultFilterMode = normalizeFilterMode(feed?.filterMode);
+  const [filterMode, setFilterMode] = React.useState<FeedFilterMode>(defaultFilterMode);
+  React.useEffect(() => { setFilterMode(defaultFilterMode); }, [defaultFilterMode]);
 
   const discussionItems = discussion?.items as FeedItem[] | undefined;
   const applied = React.useMemo(
@@ -128,15 +205,22 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
     [discussionItems, feed?.types, feed?.showCompleted, feed?.unifiedTimeline, pageSize],
   );
 
-  // `record-activity.tsx:233` writes this with an empty dependency list. The
-  // setter is named here instead — it is stable, so the two are equivalent at
-  // runtime — because with `[]` the React Compiler cannot preserve the manual
+  // `record-activity.tsx` writes its own `handleLoadMore` with an empty
+  // dependency list. The setter is named here instead — it is stable, so the
+  // two are equivalent at runtime — because with `[]` the React Compiler cannot preserve the manual
   // memoization (it infers `setExtraPages`) and reports `Compilation Skipped`
   // on this component. One deviation, in a dependency array, to keep this
   // component compiled; the pipeline call shape below is copied unchanged.
   const handleLoadMore = React.useCallback(() => {
     setExtraPages((n) => n + 1);
   }, [setExtraPages]);
+
+  // `enableMentions` — withholding the suggestion list is what turns the
+  // composer's @-autocomplete off, which is what the registration publishes for
+  // this key ("Off withholds the suggestions"). `!== false` rather than a
+  // truthiness test, because the protocol's default is ON and an unauthored
+  // member must not read as "off".
+  const mentionsEnabled = feed?.enableMentions !== false;
 
   return (
     <div className={className} {...designer}>
@@ -155,10 +239,15 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
         // is the signal that reaches it). `record:activity` reads the same
         // field off the same context; no second idiom.
         loading={discussion?.loading}
+        // The two members `applyFeedConfig` does not reach (objectui#8968).
+        // `RecordChatterPanel` already forwards both to the timeline, so the
+        // renderer was the only missing end of the wire.
+        filterMode={filterMode}
+        onFilterChange={setFilterMode}
         onAddComment={discussion?.onAddComment as any}
         onAddReply={discussion?.onAddReply as any}
         onToggleReaction={discussion?.onToggleReaction as any}
-        mentionSuggestions={discussion?.mentionSuggestions as any}
+        mentionSuggestions={mentionsEnabled ? (discussion?.mentionSuggestions as any) : undefined}
         onUploadAttachments={discussion?.onUploadAttachments as any}
       />
     </div>

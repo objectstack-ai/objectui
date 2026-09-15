@@ -228,7 +228,7 @@ describe('the summary chip reads the declared percent source (objectui#9071)', (
     expect(chip.bar, 'both draw 12.3 points').toBe(12.3);
     expect(
       chip.text,
-      "the convention agrees too — the chip rounds to the field's precision and renders the locale's affix (objectui#9167)",
+      "the convention agrees too — the chip rounds to the field's declared width and renders the locale's affix (objectui#9167)",
     ).toBe(cell.text);
     expect(chip.text, 'and it is the reading the cell was already giving').toBe('12%');
   });

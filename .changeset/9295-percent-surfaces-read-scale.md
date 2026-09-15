@@ -1,31 +1,39 @@
 ---
 '@object-ui/fields': minor
 '@object-ui/plugin-grid': minor
+'@object-ui/plugin-detail': minor
 ---
 
-Both percent surfaces read `scale` for their fraction width, not `precision`
-(objectui#9295).
+All three percent surfaces read `scale` for their fraction width, not
+`precision` (objectui#9295).
 
-`PercentCellRenderer` in `@object-ui/fields` and the `colType === 'percent'` arm
-of `formatSummaryLabel` in `@object-ui/plugin-grid`'s `useColumnSummary` each
-took `precision` and handed it to `Intl` as BOTH the minimum and the maximum
-fraction digits. `@objectstack/spec` declares the pair in its own words on both
+`PercentCellRenderer` in `@object-ui/fields`, the `colType === 'percent'` arm of
+`formatSummaryLabel` in `@object-ui/plugin-grid`'s `useColumnSummary`, and the
+record summary chip's percent branch in `@object-ui/plugin-detail`'s
+`DetailView` each took `precision` and handed it to `Intl` as BOTH the minimum
+and the maximum fraction digits. `@objectstack/spec` declares the pair in its own words on both
 the field face and the column face: `precision` is the "Total digits" of a
 `decimal(p, s)` column and `scale` is its "Decimal places" — so a percent field
 was padded out to the column's TOTAL width. A `decimal(10, 2)` percent field
-rendered `25.0000000000%` in the cell and `Sum: 25.0000000000%` in the footer
-directly beneath it. This is the identical defect objectui#2131 removed from the
-currency arm and objectui#2134 from the number arm, arriving one type later; in
-`useColumnSummary` the corrected percent arm now sits four lines below a currency
-arm it finally agrees with.
+rendered `25.0000000000%` in the cell, `Sum: 25.0000000000%` in the footer
+directly beneath it, and `25.0000000000%` again on the record summary chip. This
+is the identical defect objectui#2131 removed from the currency arm and
+objectui#2134 from the number arm, arriving one type later; in `useColumnSummary`
+the corrected percent arm now sits four lines below a currency arm it finally
+agrees with.
+
+The summary chip moves because objectui#9167 routed it onto the LIST CELL as its
+authority and its ruling turns on the two being byte-equal, so the member was
+always incidental there: following the cell is what KEEPS that ruling. Its pin
+asserts both halves and is what caught the chip being left behind.
 
 **Breaking, deliberately — filed as `minor` because this repo's fixed release
 group forbids `major`.** Percent rendering moves in two directions:
 
-- A percent field or column declaring `scale` now honours it. Declaring
-  `scale: 2` previously rendered `25%` and now renders `25.00%`.
-- A percent field or column declaring `precision` no longer pads to it.
-  Declaring `precision: 10` previously rendered `25.0000000000%` and now
+- A percent field, column or summary chip declaring `scale` now honours it.
+  Declaring `scale: 2` previously rendered `25%` and now renders `25.00%`.
+- A percent field, column or summary chip declaring `precision` no longer pads
+  to it. Declaring `precision: 10` previously rendered `25.0000000000%` and now
   renders `25%`.
 
 **Migration.** Restate the intended fraction width as `scale`, which is the

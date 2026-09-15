@@ -1194,12 +1194,26 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         // to the field's precision would make this chip
                         // disagree with the cell it just started agreeing with.
                         const percentField = { ...(objField as any), ...(sectionField as any) };
-                        // The field's declared precision, resolved with the
-                        // same view-over-object precedence the currency branch
-                        // above spells, and floored at the cell's own default:
-                        // `PercentCellRenderer` reads `field.precision ?? 0`.
-                        const precision = percentField.precision ?? 0;
-                        display = formatPercent(num, precision, displayLocale);
+                        // The field's declared width, resolved with the same
+                        // view-over-object precedence the currency branch above
+                        // spells, and floored at the cell's own default:
+                        // `PercentCellRenderer` reads `field.scale ?? 0`.
+                        //
+                        // ⭐ The MEMBER moved and the AUTHORITY did not
+                        // (objectui#9295). This read was `precision ?? 0` until
+                        // `@objectstack/spec` was read at source: it declares
+                        // `precision` as the "Total digits" of a decimal(p, s)
+                        // column and `scale` as its "Decimal places", so the
+                        // cell was padding a decimal(10, 2) percent field out to
+                        // ten fraction digits and this chip mirrored it there.
+                        // objectui#9167 routed this chip onto the LIST CELL as
+                        // the authority — its ruling turns on the two being
+                        // byte-equal — so when the cell's member moved, staying
+                        // on `precision` is what would have BROKEN that ruling,
+                        // not what would have kept it. Whatever the cell reads,
+                        // this reads; that is the whole of the coupling.
+                        const scale = percentField.scale ?? 0;
+                        display = formatPercent(num, scale, displayLocale);
                         const points = summaryChipPercentPoints(num);
                         percentValue = Math.max(0, Math.min(100, points));
                       }

@@ -89,7 +89,7 @@ afterEach(() => {
  * The field both surfaces are handed. `ratio` is deliberate: it does NOT match
  * the cell renderer's whole-percent name pattern (`progress` / `completion`), so
  * both surfaces are on the same fraction-inferring path. No declared
- * `precision`, so both take the cell's documented default of `0`.
+ * `scale`, so both take the cell's documented default of `0`.
  */
 const FIELD: FieldMetadata = { name: 'ratio', label: 'Ratio', type: 'percent' };
 
@@ -196,10 +196,10 @@ interface Row {
  * declared convention rather than merely away from the old one.
  */
 const MOVED_ROWS: Row[] = [
-  { what: 'precision — a stored ratio rounds to the field default of 0', locale: 'en', stored: 0.123, text: '12%', was: '12.3%' },
-  { what: 'precision — already in points, still rounded', locale: 'en', stored: 12.3, text: '12%', was: '12.3%' },
-  { what: 'precision — rounding is half-expand, as the cell has always been', locale: 'en', stored: 1.5, text: '2%', was: '1.5%' },
-  { what: 'precision — three decimals collapse to the declared 0', locale: 'en', stored: 1.005, text: '1%', was: '1.005%' },
+  { what: 'width — a stored ratio rounds to the field default of 0', locale: 'en', stored: 0.123, text: '12%', was: '12.3%' },
+  { what: 'width — already in points, still rounded', locale: 'en', stored: 12.3, text: '12%', was: '12.3%' },
+  { what: 'width — rounding is half-expand, as the cell has always been', locale: 'en', stored: 1.5, text: '2%', was: '1.5%' },
+  { what: 'width — three decimals collapse to the declared 0', locale: 'en', stored: 1.005, text: '1%', was: '1.005%' },
   // ⭐ THE FOUR-DIGIT ROW. `1234.5%` is wrong in en-US as well as in German,
   // which is the reasoning objectui#4553 recorded when it made this same move
   // for the list cell.
@@ -207,7 +207,7 @@ const MOVED_ROWS: Row[] = [
   // ⭐ THE NON-`en` ROWS. The affix and the marks are the locale's own.
   { what: 'affix — de-DE separates the sign with its own space', locale: 'de-DE', stored: 0.25, text: '25 %', was: '25%' },
   { what: 'affix + marks — de-DE swaps the grouping and decimal marks', locale: 'de-DE', stored: 1234.5, text: '1.235 %', was: '1234.5%' },
-  // ⭐ The row no bare-append implementation can produce, at any precision.
+  // ⭐ The row no bare-append implementation can produce, at any width.
   { what: 'affix — tr-TR puts the sign in FRONT', locale: 'tr-TR', stored: 0.25, text: '%25', was: '25%' },
 ];
 
@@ -285,20 +285,56 @@ describe('the summary chip takes the percent CONVENTION from the declared source
   });
 
   /**
-   * The field's DECLARED precision, the authority this card routes the chip onto.
+   * The field's DECLARED width, the authority this card routes the chip onto.
    * Without it the two places could agree only by both defaulting to 0, which a
    * chip that ignored the field entirely would also satisfy.
+   *
+   * ⭐ The MEMBER is `scale`, and it moved without this card's ruling moving
+   * (objectui#9295). It was `precision` until `@objectstack/spec` was read at
+   * source: `precision` is the "Total digits" of a decimal(p, s) column and
+   * `scale` is its "Decimal places", so both surfaces were padding a
+   * decimal(10, 2) percent field out to ten fraction digits. This card routed
+   * the chip onto THE LIST CELL as the authority — its own ACCEPT turns on the
+   * two being byte-equal on every row — so the member was always incidental and
+   * following the cell is what KEEPS this ruling, not what bends it. The second
+   * assertion below is the one that would have caught a chip left behind, and
+   * it did: it is how objectui#9295 found this third surface.
    */
   it.each([
     { stored: 0.25, text: '25.00%' },
     { stored: 12.3, text: '12.30%' },
     { stored: 1234.5, text: '1,234.50%' },
     { stored: 1.005, text: '1.01%' },
-  ])('reads the field\'s declared precision: a stored $stored at precision 2 reads $text', ({ stored, text }) => {
-    const field = { ...FIELD, precision: 2 } as FieldMetadata;
+  ])('reads the field\'s declared width: a stored $stored at scale 2 reads $text', ({ stored, text }) => {
+    const field = { ...FIELD, scale: 2 } as FieldMetadata;
     const { chip, cell } = bothPlaces(stored, 'en', field);
 
-    expect(chip.text, 'the chip honours the declared precision').toBe(text);
+    expect(chip.text, 'the chip honours the declared width').toBe(text);
+    expect(chip.text, 'and so states what the cell states').toBe(cell.text);
+  });
+
+  /**
+   * objectui#9295's own row, kept HERE because this file is where the coupling
+   * lives: `precision` is the TOTAL digit count, so declaring it must not widen
+   * either surface. A decimal(10, 2) field declares BOTH, and the chip has to
+   * read the decimal-places one.
+   */
+  it.each([
+    { stored: 0.25, text: '25.00%' },
+    { stored: 12.3, text: '12.30%' },
+  ])('ignores `precision` beside a declared `scale`: $stored reads $text', ({ stored, text }) => {
+    const field = { ...FIELD, precision: 10, scale: 2 } as FieldMetadata;
+    const { chip, cell } = bothPlaces(stored, 'en', field);
+
+    expect(chip.text, 'the chip pads to `scale`, never to `precision`').toBe(text);
+    expect(chip.text, 'and so states what the cell states').toBe(cell.text);
+  });
+
+  it('ignores a `precision` declared on its own, as the cell does', () => {
+    const field = { ...FIELD, precision: 10 } as FieldMetadata;
+    const { chip, cell } = bothPlaces(0.25, 'en', field);
+
+    expect(chip.text, 'a bare `precision` is not a width').toBe('25%');
     expect(chip.text, 'and so states what the cell states').toBe(cell.text);
   });
 

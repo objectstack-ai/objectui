@@ -75,7 +75,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { DiscussionContextProvider } from '@object-ui/react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { FeedItem } from '@object-ui/types';
@@ -155,24 +155,56 @@ function rendererFor(blockName: string): React.ComponentType<any> {
   return impl;
 }
 
+/**
+ * The element under test. Split out from `mountAs` so a case can RE-RENDER it:
+ * every call builds a FRESH `schema` object, which is what makes the "an equal
+ * authored value must not clobber the user's choice" leg below a real reading
+ * rather than a test of object identity.
+ */
+function treeFor(
+  blockName: string,
+  feed: unknown,
+  hostExtra: Record<string, unknown> = {},
+): React.ReactElement {
+  const Renderer = rendererFor(blockName);
+  const schema: Record<string, unknown> = { position: 'bottom' };
+  if (feed !== undefined) schema.feed = feed;
+  return (
+    <DiscussionContextProvider items={ITEMS as any} loading={false} {...handlers} {...(hostExtra as any)}>
+      <Renderer schema={schema as any} />
+    </DiscussionContextProvider>
+  );
+}
+
 function mountAs(
   blockName: string,
   feed: unknown,
   hostExtra: Record<string, unknown> = {},
 ) {
-  const Renderer = rendererFor(blockName);
-  const schema: Record<string, unknown> = { position: 'bottom' };
-  if (feed !== undefined) schema.feed = feed;
-  return render(
-    <DiscussionContextProvider items={ITEMS as any} loading={false} {...handlers} {...(hostExtra as any)}>
-      <Renderer schema={schema as any} />
-    </DiscussionContextProvider>,
-  );
+  return render(treeFor(blockName, feed, hostExtra));
 }
 
 /** Which fixture rows the panel is currently rendering, in fixture order. */
 function renderedIds(): string[] {
   return Object.keys(MARKERS).filter((id) => screen.queryAllByText(MARKERS[id]).length > 0);
+}
+
+/**
+ * Open the filter dropdown and pick one option, driving the Radix Select the
+ * way this repo's other suites do — `keyDown` to open, then the option. A leg
+ * that only asserts the OPENING slice cannot tell a seed from a freeze, so this
+ * is what makes the "the dropdown stays usable" half of the claim measurable
+ * instead of merely stated.
+ */
+async function chooseFilter(optionLabel: string): Promise<void> {
+  const trigger = screen.getByRole('combobox', { name: FILTER_TRIGGER });
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  await waitFor(() => expect(screen.queryAllByRole('option').length).toBeGreaterThan(0));
+  fireEvent.click(screen.getByRole('option', { name: optionLabel }));
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: FILTER_TRIGGER }).textContent)
+      .toContain(optionLabel),
+  );
 }
 
 /** Type `@` into the composer; the suggestion list appears only when fed one. */
@@ -274,6 +306,59 @@ describe.each(BLOCK_NAMES)('%s: ⭐ the DECISION — `filterMode` with `showFilt
     mountAs(blockName, { ...AFFORDANCES, showFilterToggle: false, filterMode: 'changes_only' });
     expect(renderedIds()).toEqual(withToggle);
     expect(withToggle).toEqual(['f-1']);     // the comparison is not vacuous
+  });
+});
+
+describe.each(BLOCK_NAMES)('%s: the authored value is a SEED, not a freeze (objectui#8968)', (blockName) => {
+  // ⭐ Why this block exists, stated because it is the one thing the other
+  // cases here CANNOT catch. Every leg above asserts the slice the panel OPENS
+  // on, and all of them stay green against a renderer that hands the authored
+  // value down as a constant — `filterMode={defaultFilterMode}` with no
+  // `onFilterChange`. That renderer would FREEZE the dropdown: the timeline
+  // resolves `controlledFilter ?? internalFilter`, so a controlled prop with no
+  // setter pins the value and swallows every user choice. An assertion set that
+  // cannot tell working from broken is the shape this card exists to remove, so
+  // the "stays usable" half is driven here rather than asserted in prose.
+
+  it('⭐ a later user choice moves the rows — the dropdown is live, not pinned', async () => {
+    mountAs(blockName, { ...AFFORDANCES, filterMode: 'comments_only' });
+    expect(renderedIds()).toEqual(['c-1', 'c-2']);
+
+    await chooseFilter(MODE_LABEL.changes_only);
+
+    // The rows follow the user, not the author. Against a frozen dropdown this
+    // is still ['c-1', 'c-2'].
+    expect(renderedIds()).toEqual(['f-1']);
+  });
+
+  it('an EQUAL authored value re-rendered as a fresh object does not clobber that choice', async () => {
+    // The resync effect runs on `defaultFilterMode`. That is a normalized
+    // PRIMITIVE, so a parent re-render carrying a new `feed` object with the
+    // same authored value compares equal and the effect does not re-fire.
+    // Without this leg, an effect keyed on the config OBJECT would look correct
+    // here and would reset the user's choice on every parent render.
+    const view = render(treeFor(blockName, { ...AFFORDANCES, filterMode: 'comments_only' }));
+    await chooseFilter(MODE_LABEL.changes_only);
+    expect(renderedIds()).toEqual(['f-1']);
+
+    view.rerender(treeFor(blockName, { ...AFFORDANCES, filterMode: 'comments_only' }));
+    expect(renderedIds()).toEqual(['f-1']);
+    expect(screen.getByRole('combobox', { name: FILTER_TRIGGER }).textContent)
+      .toContain(MODE_LABEL.changes_only);
+  });
+
+  it('a CHANGED authored value DOES re-seed — the effect earns its place', async () => {
+    // The other half of the same wire, so "does not clobber" above can never be
+    // satisfied by an effect that was simply deleted. Re-authoring the member
+    // has to flow through.
+    const view = render(treeFor(blockName, { ...AFFORDANCES, filterMode: 'comments_only' }));
+    await chooseFilter(MODE_LABEL.changes_only);
+    expect(renderedIds()).toEqual(['f-1']);
+
+    view.rerender(treeFor(blockName, { ...AFFORDANCES, filterMode: 'tasks_only', showCompleted: true }));
+    expect(renderedIds()).toEqual(['t-1']);
+    expect(screen.getByRole('combobox', { name: FILTER_TRIGGER }).textContent)
+      .toContain(MODE_LABEL.tasks_only);
   });
 });
 

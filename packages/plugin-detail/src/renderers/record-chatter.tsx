@@ -184,6 +184,12 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   // choice. Same shape as `record:activity`, deliberately — one reading of one
   // declared member.
   //
+  // ⛔ Do not "simplify" these three lines into `filterMode={defaultFilterMode}`:
+  // that is the freeze, and it is invisible to any assertion that only reads the
+  // slice the panel OPENS on. The seed-not-freeze block in
+  // `__tests__/recordChatterFilterModeMentions-8968.test.tsx` drives the dropdown
+  // after mount and turns red when it is done.
+  //
   // ⭐ Independent of `showFilterToggle` on purpose; the docblock above carries
   // the decision and its three reasons.
   const defaultFilterMode = normalizeFilterMode(feed?.filterMode);

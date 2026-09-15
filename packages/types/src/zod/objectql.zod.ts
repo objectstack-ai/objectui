@@ -1142,15 +1142,16 @@ export const ListViewSchema = BaseSchema
     //     `onNavigate` has no in-repo supplier on a `list-view` node, yet the
     //     channel is wired end to end and the read still fires.
     //   `onAddRecord` · `onBulkAction` · `onPageSizeChange`  read off the PROPS
-    //     bag (`props.onX`) and declared as React props on `ListViewProps`
-    //     (`@object-ui/plugin-list`), the interface objectui#4528 wrote out by
-    //     name. `StudioDesignSurface` supplies `onAddRecord` as a React prop;
-    //     the other two have no in-repo supplier and are still read and still
-    //     invoked.
-    //
-    // ⇒ nothing is ADDED to `ListViewRuntimeProps` by this slice: every one of
-    // the five already has a declared TypeScript home, and the three props-half
-    // keys never belonged on the node type at all.
+    //     bag (`props.onX`). TWO supply paths reach that bag and both are live:
+    //     a React host passes the prop to the component — `ListViewProps`
+    //     (`@object-ui/plugin-list`) declares all three by name, and
+    //     `StudioDesignSurface` supplies `onAddRecord` that way — or a host
+    //     builds the NODE and `SchemaRenderer` spreads it in. The second path
+    //     was typed only by `BaseSchema`'s index signature, so this slice
+    //     declares the three on `ListViewRuntimeProps` as well, which is the
+    //     same repair objectui#9344's slice made on `ObjectGallerySchema` for
+    //     the same spread. `onBulkAction` / `onPageSizeChange` have no in-repo
+    //     supplier and are still read and still invoked.
     //
     // ⚠️ Unlike the plain `interface X extends BaseSchema` arms this card
     // drained before it, THIS arm feeds its own TypeScript face:

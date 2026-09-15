@@ -28,11 +28,12 @@
  * package, chained from the package's `type-check` script.
  *
  * ⛔ What this file does NOT assert: that the keys are unreachable. They are
- * RUNTIME SLOTS — `onNavigate` / `onDensityChange` reach `ListView` through the
- * node (`schema.onX`), the other three through React props declared on
- * `ListViewProps` in `@object-ui/plugin-list`. A host still supplies them; what
- * is refused is AUTHORING one as JSON, which could only ever hand a call site
- * a plain object where it expects a function.
+ * RUNTIME SLOTS. `onNavigate` / `onDensityChange` reach `ListView` off the node
+ * (`schema.onX`); the other three reach it off the PROPS bag, which a host fills
+ * either by passing the React prop `ListViewProps` declares or by putting the
+ * key on the NODE, where `SchemaRenderer` spreads it in. A host still supplies
+ * all five; what is refused is AUTHORING one as JSON, which could only ever hand
+ * a call site a plain object where it expects a function.
  */
 import { describe, it, expect } from 'vitest';
 import { ListViewSchema as ListViewMirror } from '../zod/objectql.zod.js';
@@ -143,11 +144,36 @@ const TYPE_PINS = {
   objectName: 'accounts' satisfies ListViewSchema['objectName'],
 } as const;
 
-/** The three PROPS-half keys are NOT authorable on the node type. */
-// @ts-expect-error `onAddRecord` is a React prop on `ListViewProps`, not a node key.
-const notOnTheNode: ListViewSchema['onAddRecord'] = () => undefined;
-void notOnTheNode;
+/**
+ * The three PROPS-half slots stay CALLABLE on the node type too — the second
+ * supply path (`SchemaRenderer` spreading a node key into the props bag) is what
+ * this declaration contracts, and it is exactly what the refusal arm would have
+ * killed without the precedence.
+ */
+const propsHalf = {
+  onAddRecord: (() => undefined) satisfies NonNullable<ListViewSchema['onAddRecord']>,
+  onBulkAction: ((action: string, records: unknown[]) => {
+    void action;
+    void records;
+  }) satisfies NonNullable<ListViewSchema['onBulkAction']>,
+  onPageSizeChange: ((size: number) => {
+    void size;
+  }) satisfies NonNullable<ListViewSchema['onPageSizeChange']>,
+} as const;
+void propsHalf;
 
-/** And the runtime half's own key list is what the precedence is keyed on. */
-const runtimeKeys: Array<keyof ListViewRuntimeProps> = ['onNavigate', 'onDensityChange', 'refreshTrigger'];
+/**
+ * ⛔ And the precedence is keyed on `ListViewRuntimeProps`' own member list, so
+ * a sixth refusal arm added to the mirror without a matching declaration here
+ * would go back to resolving as `undefined`. This is that list, stated where it
+ * fails if a member leaves it.
+ */
+const runtimeKeys: Array<keyof ListViewRuntimeProps> = [
+  'onNavigate',
+  'onDensityChange',
+  'refreshTrigger',
+  'onAddRecord',
+  'onBulkAction',
+  'onPageSizeChange',
+];
 void runtimeKeys;

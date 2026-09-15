@@ -2644,6 +2644,42 @@ export interface ListViewRuntimeProps {
    * Used by parent components (e.g. ObjectView) to signal that a mutation occurred.
    */
   refreshTrigger?: number;
+
+  /**
+   * ⭐ The three slots below are declared here by objectui#7804, and the reason is
+   * the one objectui#9344's slice already measured on `ObjectGallerySchema`: a key
+   * that reaches the renderer through `SchemaRenderer`'s props spread is on the
+   * TypeScript face whether or not anyone declared it — `BaseSchema`'s index
+   * signature was typing all three `unknown`, which is a declaration nobody wrote
+   * and nobody can read.
+   *
+   * `ListView` reads them off its PROPS bag (`props.onAddRecord`, not
+   * `schema.onAddRecord`), and there are two supply paths into that bag, both
+   * live: a React host renders the component and passes the prop directly — the
+   * `ListViewProps` interface in `@object-ui/plugin-list` declares all three by
+   * name for exactly that — or a host builds the NODE in TypeScript and
+   * `SchemaRenderer` spreads every non-metadata top-level key into the props it
+   * creates the component with. This declaration is the second path's contract.
+   * Declaring it is what keeps the `'runtime-slot'` disposition on the matching
+   * zod arms true: JSON cannot author a function, so the mirror refuses the key
+   * by name, while a programmatic host goes on supplying one HERE.
+   *
+   * ⚠️ Signatures match `ListViewProps` deliberately, `any` included. A host that
+   * discovered the payload from the implementation annotated its own handler
+   * against that interface, and a narrower declaration here refuses such a host
+   * CONTRAVARIANTLY — the reading objectui#9341 took on
+   * `ObjectKanbanSchema.onCardClick` and the reason `ListViewProps.onRowClick`
+   * carries the same spelling.
+   */
+
+  /** Called when the user asks for a new record (toolbar "+ New" and the empty-state CTA). */
+  onAddRecord?: () => void;
+
+  /** Called with a non-delete bulk action key and the currently selected rows. */
+  onBulkAction?: (action: string, records: any[]) => void;
+
+  /** Called when the user picks a different page size in the pager. */
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 /**

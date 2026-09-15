@@ -45,11 +45,20 @@ precedence (`ListViewAuthored`), so:
   still the function types `ListViewRuntimeProps` declares, still supplied on
   the node by hosts such as `@object-ui/app-shell`'s `ObjectView`.
 - `ListViewSchema['onAddRecord']`, `['onBulkAction']` and `['onPageSizeChange']`
-  narrow from `unknown` (they were only ever reachable through the passthrough
-  index signature) to `undefined`. That is the intended narrowing: all three are
-  React props, declared by name on `ListViewProps` in `@object-ui/plugin-list`,
-  and a host passes them to `<ListView>` rather than authoring them on the node.
-- Nothing is ADDED to `ListViewRuntimeProps`, so no published interface widens.
+  are now DECLARED on `ListViewRuntimeProps` with the signatures `ListViewProps`
+  in `@object-ui/plugin-list` already carried, where before they were typed only
+  by `BaseSchema`'s passthrough index signature — `unknown`, a declaration
+  nobody wrote and nobody can read. `ListView` reads all three off its props
+  bag, and a host fills that bag either by passing the React prop or by putting
+  the key on the node, where `SchemaRenderer` spreads it in; this declaration is
+  the second path's contract. Same repair as the `ObjectGallerySchema` pair one
+  slice earlier, for the same spread.
+
+**A published interface therefore WIDENS as well as narrowing.** Three members
+are added to `ListViewRuntimeProps`. Nothing that compiled before stops
+compiling — `unknown` accepted any host handler and the declared signatures
+accept the ones `ListViewProps` already held hosts to — but the surface is
+larger, and it is stated here rather than left to be discovered.
 
 **Migration.** Nothing in the corpus has to change: no authored `'list-view'`
 document in this repository, its examples or its docs writes any of the five —

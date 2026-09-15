@@ -2858,8 +2858,9 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * `RecordChatterProps.feed` as `RecordActivityProps` (`component.zod.ts:1366`),
  * so objectui#8934 closed the gap in `renderers/record-chatter.tsx` rather than
  * narrowing the declaration, and the four filter members are live on that path
- * now. (`filterMode` and `enableMentions` are still unread there —
- * objectui#8968.) This block's own row is unaffected either way: nothing in
+ * now. (`filterMode` and `enableMentions` were the remainder; objectui#8968
+ * closed them too, so every member of the declared shape is read there now.)
+ * This block's own row is unaffected either way: nothing in
  * this file asserts on that description string.
  *
  * ## 41 -> 37, the seventh slice, and the LAST four one-key blocks closed

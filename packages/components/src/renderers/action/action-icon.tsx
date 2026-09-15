@@ -95,8 +95,9 @@ const ActionIconRenderer = forwardRef<
     const isVisible = useCondition(toPredicateInput(schema.visible), recordData);
     // Spec `disabled` (boolean | CEL — disabled when TRUE) primary, legacy
     // non-spec `enabled` fallback (#1885 follow-through — only action-button
-    // was wired; this renderer ignored a spec-authored `disabled`).
-    const isDisabledPred = useCondition(toPredicateInput((schema as any).disabled), recordData);
+    // was wired; this renderer ignored a spec-authored `disabled`). Uncast
+    // since objectui#8648 — see `action-button.tsx` for the reading.
+    const isDisabledPred = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
 
     const Icon = resolveIcon(schema.icon);
@@ -152,8 +153,11 @@ const ActionIconRenderer = forwardRef<
           toast: schema.toast,
           // See action-button.tsx — the one-shot reveal spec (2FA setup, fresh
           // OAuth secret). Without it the runner falls back to the success
-          // toast and the value the user was meant to copy is gone.
-          resultDialog: (schema as any).resultDialog,
+          // toast and the value the user was meant to copy is gone. The READ is
+          // uncast since objectui#8648; the write-side assertion is the same
+          // ledgered `ResultDialogSpec` drift `action-button.tsx` documents
+          // (filed as objectui#9542). ⛔ Never widen it back to `as any`.
+          resultDialog: schema.resultDialog as ActionDef['resultDialog'],
           // See action-button.tsx — the declared post-success hop
           // (objectui#5493). The runner reads it off the forwarded def; dropped
           // here the action succeeds and the authored navigation never runs.
@@ -200,7 +204,7 @@ const ActionIconRenderer = forwardRef<
         // reason to disable, never a reason to enable — `SchemaRenderer` emits
         // `true` or `undefined`, never `false`. See `action:button`.
         disabled={hostDisabled || (
-          hasDeclaredVisibilityGate((schema as any).disabled)
+          hasDeclaredVisibilityGate(schema.disabled)
             ? isDisabledPred
             : hasDeclaredVisibilityGate(schema.enabled)
               ? !isEnabled

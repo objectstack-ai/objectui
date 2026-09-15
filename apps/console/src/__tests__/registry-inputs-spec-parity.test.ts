@@ -2860,8 +2860,8 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * narrowing the declaration, and the four filter members are live on that path
  * now. (`filterMode` and `enableMentions` were the remainder; objectui#8968
  * closed them too, so every member of the declared shape is read there now.)
- * This block's own row is unaffected either way: nothing in
- * this file asserts on that description string.
+ * This block's own row is unaffected either way: nothing in this file asserts
+ * on that description string.
  *
  * ## 41 -> 37, the seventh slice, and the LAST four one-key blocks closed
  *

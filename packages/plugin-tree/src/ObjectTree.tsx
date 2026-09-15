@@ -20,7 +20,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import type { DataSource, TreeViewConfig } from '@object-ui/types';
+import type { DataSource, ObjectQLComponentSchema, TreeViewConfig } from '@object-ui/types';
 import {
   useNavigationOverlay,
   useSafeFieldLabel,
@@ -78,8 +78,65 @@ const useTreeTranslation = createSafeTranslation(
   'detail.recordDetail',
 );
 
+/**
+ * The `object-tree` NODE, taken off the PUBLISHED union rather than written
+ * out here (objectui#8655 step ①).
+ *
+ * ⛔ Not a second declaration of the node's shape. `ObjectTreeSchema` in
+ * `@object-ui/types` is the one declaration — the interface whose own docblock
+ * calls itself the "Object Tree (tree-grid) Component Schema", and which
+ * `views.ts` names as "the node an author writes". Every key and every key TYPE
+ * arrives from there, so a key added, renamed or retyped on it reaches this
+ * renderer without an edit here: the property a hand-copied interface cannot
+ * have, and the same derivation `ResolvedTreeConfig` below already uses against
+ * `TreeViewConfig`.
+ *
+ * ⚠️ `Extract` off `ObjectQLComponentSchema`, and NOT a named import, for a
+ * measured reason: `ObjectTreeSchema` is declared in `objectql.ts` and re-exported
+ * from the ZOD barrel (objectui#8784 / PR #8777 repaired that half), but the TS
+ * barrel's `export type { … } from './objectql.js'` block omits it, while its nine
+ * siblings — `ObjectMapSchema`, `ObjectGanttSchema`, `ObjectCalendarSchema`,
+ * `ObjectKanbanSchema`, `ObjectChartSchema`, `ObjectGallerySchema`,
+ * `ObjectDataTableSchema`, `ObjectGridSchema`, `ObjectFormSchema` — are all on it.
+ * So the name cannot be imported today. ⛔ That omission is NOT repaired here: it
+ * is a published-surface addition on another package and belongs to whoever files
+ * it. `Extract` is the spelling `ObjectQLComponentSchema`'s own docblock teaches,
+ * and it needs nothing added to any published face.
+ *
+ * ⛔ Deliberately NOT spelled `ObjectTreeSchema` locally: a module-local type under
+ * a published type's name is the two-layers-one-word trap objectui#8651 recorded
+ * when a local `CalendarSchema` shadowed the published one.
+ */
+type ObjectTreeNodeSchema = Extract<ObjectQLComponentSchema, { type: 'object-tree' }>;
+
 export interface ObjectTreeProps {
-  schema: any;
+  /**
+   * The `object-tree` node this renderer draws.
+   *
+   * Both of this package's registrations (`object-tree` and `tree`, in this
+   * package's `index.tsx`) publish one `treeInputs` list and one renderer, so one
+   * props type covers both tags — the shape `plugin-map` already has under two
+   * tags, and the shape objectui#8651 gave `ObjectCalendar`.
+   *
+   * ## What typing this BUYS, stated rather than assumed (objectui#8655)
+   *
+   * It was `any`, and an `any` is not a weaker answer than a type — it is NO
+   * answer. `checker.getPropertyOfType` through `any` returns `undefined` for
+   * `objectName`, which this schema certainly declares, exactly as it does for a
+   * nonsense token; so every "is this key declared?" asked of this prop came back
+   * "unknown" while LOOKING like "undeclared". That ordering is the card's — type
+   * FIRST, classify second — and it is objectui#8410's standing ruling that an
+   * absence returned by an instrument structurally unable to see a declaration is
+   * not a reading at all.
+   *
+   * ## ⚠️ The CEILING, so nobody reads this as more than it is
+   *
+   * `BaseSchema` ends in `[key: string]: any`, so an UNDECLARED key read off this
+   * type still compiles and still types `any`. What the annotation buys is that the
+   * question becomes ANSWERABLE by the checker, ⛔ not that an undeclared read is
+   * refused — the same ceiling objectui#5155 / objectui#7927 record for the mirror.
+   */
+  schema: ObjectTreeNodeSchema;
   dataSource?: DataSource;
   className?: string;
   /**
@@ -170,12 +227,22 @@ function fieldKey(f: any): string | undefined {
  *     `labelField` to `'name'` before the node is built, so the `??` chain never
  *     fell through.
  *
+ * ## Why the PARAMETER is typed, and not left `any` (objectui#8655)
+ *
+ * The sole call site hands this function the `schema` PROP. Typing the prop and
+ * leaving this parameter `any` would move the card's own defect one hop down
+ * rather than close it: the six reads below would still be asked of `any`, and
+ * `checker.getPropertyOfType` cannot say declared-or-not through `any` — it
+ * answers `undefined` for a key this node certainly declares exactly as it does
+ * for a nonsense token. The annotation is what makes those six ANSWERABLE; it
+ * refuses nothing, because `BaseSchema` ends in `[key: string]: any`.
+ *
  * objectui#8253's ruling said to declare the key only if the console writes it —
  * measured, it does not (`CreateViewDialog.tsx`'s `tree` slot collects
  * `parentField` alone) — else delete the read. This is that deletion, executed
  * on objectui#8841.
  */
-function getTreeConfig(schema: any): ResolvedTreeConfig {
+function getTreeConfig(schema: ObjectTreeNodeSchema): ResolvedTreeConfig {
   const nested = (schema.tree || schema.filter?.tree || {}) as TreeViewConfig;
   const rawFields = Array.isArray(schema.fields)
     ? schema.fields
@@ -704,7 +771,18 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         }
 
         // Otherwise fall back to inline/static data (tests, value provider).
-        const passed = (rest as any).data ?? (schema as any).data;
+        //
+        // ⭐ `schema.data` is read WITHOUT a cast since objectui#8655, and the
+        // missing cast is the finding rather than a tidy-up. This was one of
+        // that card's two class-(d) reads — reported "unanswerable", not
+        // "undeclared", because the prop was `any` and
+        // `checker.getPropertyOfType` cannot tell those apart through one.
+        // Typed at the node, the checker answers: `data` IS declared, on
+        // `BaseSchema` ("Arbitrary data attached to the component"), so the
+        // `as any` was hiding a declaration rather than reaching past its
+        // absence. ⛔ The sibling cast on `rest` stays — `rest` is the
+        // untyped remainder of the props bag, a different question.
+        const passed = (rest as any).data ?? schema.data;
         if (Array.isArray(passed)) {
           if (!cancelled) {
             setRecords(passed);
@@ -821,6 +899,22 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   });
 
   const navigation = useNavigationOverlay({
+    // ⛔ The cast STAYS, and it stays on purpose (objectui#8655). This is the
+    // card's other class-(d) read, and typing the node made it answerable:
+    // measured with `checker.getPropertyOfType` against the node type, this key
+    // is UNDECLARED — it survives only on `BaseSchema`'s `[key: string]: any`.
+    // Dropping the cast would compile through that index signature and type
+    // `any` with nothing marking it, which is the defect rather than the
+    // absence of one (objectui#8651 records that shape).
+    //
+    // ⛔ And this card does NOT rule it. `navigation` is objectui#8652's
+    // family: maintainer-ruled option B — declare on the PLATFORM element
+    // schemas first, then mirror — blocked on objectstack#17987, whose unlock
+    // criterion is a released `@objectstack/spec` carrying the declaration
+    // being installable here. Measured on the installed spec: `navigation` is
+    // declared on exactly one `ComponentPropsMap` entry, `object-grid`, and
+    // this element has no entry at all. ⇒ not declared here, not retired here,
+    // read untouched.
     navigation: (schema as any).navigation,
     // The record-page URL names the object the ROWS came from, not the block's
     // bare top-level key (objectui#7638). objectui#6939 published `objectName`

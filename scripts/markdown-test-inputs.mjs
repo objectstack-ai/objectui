@@ -238,6 +238,17 @@ export const ADJUDICATED = new Map([
       reads: ['content/docs/guide/schema-rendering.md', 'packages/react/README.md'],
     },
   ],
+  // objectui#9569. This one reads a CHANGELOG as a CONTROL, not as a spec: the
+  // test asserts a class named only by that prose is absent from the compiled
+  // stylesheet, and reads the file to prove the prose still names it -- so the
+  // negative assertion cannot pass because the token quietly went away.
+  [
+    'packages/components/src/__tests__/index-css-scan-excludes-tests.test.ts',
+    {
+      reads: ['packages/components/CHANGELOG.md'],
+      notRead: ['CHANGELOG.md'],
+    },
+  ],
   [
     'packages/components/src/__tests__/page-body-single-node-8310.test.tsx',
     {

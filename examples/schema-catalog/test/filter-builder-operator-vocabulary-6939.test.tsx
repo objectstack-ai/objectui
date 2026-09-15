@@ -205,19 +205,43 @@ describe('objectui#6939 — NEW: the catalog entries now pass `safeValidateSchem
   );
 
   it('`.success` is not vacuous — an invented operator is refused', () => {
+    // ⚠️ The payload is deliberately spelled for THIS test — it names the card
+    // and the component, so nobody reaches for it as a repo-wide "is this
+    // token absent" control. A generic-looking absent token consumed as a test
+    // literal stops being absent the moment this file lands, and the next
+    // reader who trusts it gets a non-zero from a token they believed clean.
+    const INVENTED = 'filter_builder_6939_invented_operator';
     const bogus = withOperators('components-complex-filter-builder/product-search', {
-      equals: 'qqzz_absent_token_9999',
-      greater_than: 'qqzz_absent_token_9999',
-      less_than: 'qqzz_absent_token_9999',
+      equals: INVENTED,
+      greater_than: INVENTED,
+      less_than: INVENTED,
     });
+    expect(DECLARED_OPERATORS).not.toContain(INVENTED);
+    expect(operatorsOf(bogus)).not.toEqual(operatorsOf(asAuthored('components-complex-filter-builder/product-search')));
     expect(reasons(bogus)).not.toEqual([]);
   });
 });
 
 describe('objectui#6939 — PRESERVED: the rewrite cost no pixel', () => {
   it.each(AFFECTED)('%s: as authored renders exactly as the alias arm did', (id) => {
+    const aliased = withOperators(id, FORMER_ALIAS);
+    // ⛔ Anti-vacuity on the ARM, before anything is rendered — the same guard
+    // the NEW-direction twin carries on its own use of this table (the leg
+    // named `⛔ the alias dialect it used to author is still REFUSED`).
+    // `withOperators` falls through on a key it does not hold
+    // (`table[c.operator] ?? c.operator`) and `FORMER_ALIAS` is keyed on the
+    // DECLARED spellings, so against a corpus re-authored in the alias dialect
+    // this arm is an identity transform: the same document rendered twice and
+    // asserted equal to itself. Measured — without these two lines the whole
+    // leg stays GREEN under a revert of the three catalog files to `eq` / `gt`
+    // / `lt`, which is this card's own failure class reproduced inside the pin
+    // that carries its headline claim.
+    const beforeOps = operatorsOf(asAuthored(id));
+    const afterOps = operatorsOf(aliased);
+    expect(afterOps.length).toBe(beforeOps.length);
+    for (const [i, op] of beforeOps.entries()) expect(afterOps[i]).not.toBe(op);
     const authored = measure(asAuthored(id));
-    const asItWas = measure(withOperators(id, FORMER_ALIAS));
+    const asItWas = measure(aliased);
     // Anti-vacuity first: a tile that failed to mount would make every equality
     // below trivially true.
     expect(authored.text).not.toContain('failed to render');

@@ -48,9 +48,12 @@ import {
   compareSortValues,
   getRecordDisplayName,
   getSortValue,
+  isEmptyValue,
   isExpandableFieldType,
   isPlatformSortableField,
   isUnmaterializedFieldType,
+  composeParentScopeFilter,
+  isMultiValueRelationship,
   mergeFilterNodes,
   readObjectSortability,
   toFilterNode,
@@ -115,8 +118,23 @@ export interface RelatedListProps {
     linkField?: string;
     label?: string;
   };
-  /** Callback when a row is clicked (opens record detail) */
-  onRowClick?: (row: any) => void;
+  /**
+   * Callback when a row is clicked (opens record detail).
+   *
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (row: any, event?: any) => void;
   /**
    * Child-object row actions (`locations: ['list_item']`), already localized
    * by the host. Rendered in each row's overflow menu alongside Edit/Delete.
@@ -132,6 +150,26 @@ export interface RelatedListProps {
   toolbarActions?: RelatedRowActionDef[];
   /** Execute one of {@link toolbarActions} (no row context). */
   onToolbarAction?: (action: RelatedRowActionDef) => void | Promise<void>;
+  /**
+   * Field names this list must never show, whatever decided its columns
+   * (objectui#9053).
+   *
+   * The block-level authoring preference `record:related_list` reads as
+   * `redactFields`, pushed down to the component that actually decides
+   * columns. It used to be applied only where the block could apply it — over
+   * the AUTHORED `columns` array — and this component has two more paths that
+   * decide columns on their own (`highlightFields` prominence and the
+   * heuristic field walk), which that list never reached. Redacting EVERY
+   * authored column therefore emptied the array, the empty array read as "no
+   * columns were authored", and the derived set brought the redacted field
+   * straight back: applying the control maximally switched it off.
+   *
+   * ⚠️ This is an AUTHORING preference, not the permission boundary. Field
+   * security is enforced independently and unconditionally through
+   * `perms.checkField(..., 'read')` on every path below; a field that must be
+   * unreachable belongs in FLS, not here.
+   */
+  redactFields?: string[];
   /** Maximum number of columns to auto-generate. Default 6. */
   maxColumns?: number;
   /** Page size for pagination (enables pagination when set) */
@@ -188,15 +226,32 @@ export interface RelatedListProps {
    * Foreign-key field name on child records pointing back to the parent.
    * The renderer hides this column from the table and from the schema-derived
    * column list, since the parent record is already implicit context.
-   * Used in combination with `parentId` to scope the auto-fetch query.
+   * Used in combination with `parentId` to scope the auto-fetch query — its
+   * ARITY on the child object decides how that condition is compiled, see
+   * `parentId` below.
    */
   referenceField?: string;
   /**
    * Primary-key value of the parent record. When both `parentId` and
-   * `referenceField` are set, the auto-fetch query is scoped with
-   * `$filter: { [referenceField]: parentId }` so only true children
-   * are returned. Without this scope the list would dump the entire
-   * target object table.
+   * `referenceField` are set, the auto-fetch query is scoped to this parent's
+   * children so only true children are returned. Without this scope the list
+   * would dump the entire target object table.
+   *
+   * The condition is compiled to match the relationship field's ARITY on the
+   * child object (objectui#7299), because the two arities are two different
+   * questions about the stored value:
+   *
+   *   - single-valued → `$filter: { [referenceField]: parentId }` — equality,
+   *     byte for byte what this component has always sent;
+   *   - `multiple: true` → `$filter: { [referenceField]: { $contains: parentId } }`
+   *     — MEMBERSHIP, because the stored value is an ARRAY of ids and equality
+   *     asks whether the whole array IS one id.
+   *
+   * The verdict is `@objectstack/spec/data`'s own `isMultiValueField`, not a
+   * local rule, and it is reached through `@object-ui/core`'s
+   * {@link composeParentScopeFilter} — the ONE compiler of this condition,
+   * shared with the tab-badge count probe that used to carry a second one
+   * (objectui#8882).
    */
   parentId?: string | number;
   /** Lucide icon name (kebab-case) to render next to the section title. */
@@ -314,6 +369,34 @@ export const RelatedToolbarButton: React.FC<{
   );
 };
 
+/*
+ * The two-shape field lookup and the ARITY VERDICT that used to live here are
+ * now `@object-ui/core`'s `parent-scope` seam (`composeParentScopeFilter` /
+ * `isMultiValueRelationship`), imported above.
+ *
+ * They moved because this component was never the only reader of the question.
+ * The related-list tab BADGE compiles the same parent-relationship condition,
+ * it kept sending bare equality after objectui#7299 taught this file to compile
+ * by arity, and objectui#8882 is the result: a multi-value related list that
+ * renders its rows above a tab with no count at all.
+ *
+ * ⛔ Do not reintroduce a local arity rule here, however small — the warning
+ * that stood at this spot still stands, and now names one more reader. This
+ * component decides `$contains` vs `=` and the badge decides too; readers of
+ * one question disagreeing is the whole defect class. Moving the decision to a
+ * shared seam is NOT "putting a local rule one layer up" — the rule is still
+ * the spec's, and there is now exactly one caller of it.
+ *
+ * ⚠️ What the seam does NOT buy is agreement with STORAGE. This spot used to
+ * add that the driver refusing the query decides on that same
+ * `isMultiValueField`. It does not (objectui#8937): `driver-sql` gates the
+ * equality family on its own storage question, which reads `multiple` as truthy
+ * on ANY type, so the two rules diverge for `master_detail` / `tree` / `text`
+ * carrying `multiple: true`. The measured rule, the divergence and the upstream
+ * card that owns which of them is right (objectstack#17469) are recorded on the
+ * seam itself — `@object-ui/core`'s `parent-scope` — so one place answers it.
+ */
+
 export const RelatedList: React.FC<RelatedListProps> = ({
   title,
   type,
@@ -335,6 +418,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   toolbarActions,
   onToolbarAction,
   add,
+  redactFields,
   maxColumns = 6,
   pageSize,
   defaultSort,
@@ -442,6 +526,30 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     }
   }, [api, dataSource]);
 
+  // ARITY of the parent-relationship field, read off the child object's own
+  // schema above (objectui#7299). `false` until that schema PROVES otherwise,
+  // and the direction of the default is load-bearing on both branches:
+  //
+  //   - a single-valued list never sees this value CHANGE (false → false), so
+  //     the fetch effect below does not re-run and its wire stays byte-identical
+  //     to what it sent before this card;
+  //   - a multi-valued one flips false → true when the schema lands and refetches
+  //     with the membership spelling. Its first attempt is the query this
+  //     component has always sent, so nothing new can go wrong on it — and that
+  //     query is loudly REFUSED by the driver rather than quietly answered.
+  //
+  // ⛔ Deliberately NOT gated on "schema has loaded". A `DataSource` without
+  // `getObjectSchema`, or one whose schema fetch rejects, would then never fetch
+  // rows at all — trading this card's loud 400 on one relationship shape for a
+  // silent empty list on EVERY related list in the app.
+  // The seam's verdict, not a second reading of the metadata: the query below
+  // and this flag must never be able to disagree about the arity, which is the
+  // defect objectui#8882 records when two call sites each decide for themselves.
+  const referenceFieldIsMultiValue = React.useMemo(
+    () => isMultiValueRelationship(objectSchema?.fields, referenceField),
+    [objectSchema, referenceField],
+  );
+
   // Add-picker target schema, fetched lazily on first open. It drives the
   // picker's display column (`add.picker.labelField` → displayField), the
   // auto-derived multi-column layout, and type-aware cell rendering — without
@@ -514,7 +622,18 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         return;
       }
       setLoading(true);
-      const parentScope = { [referenceField!]: parentId } as Record<string, any>;
+      // The parent-relationship condition, compiled to match the field's ARITY
+      // (objectui#7299). A multi-valued relationship asks a MEMBERSHIP question
+      // — "is this parent among the stored values" — and `$contains` is the
+      // spelling the drivers execute for it, the one `driver-sql` names in the
+      // `400 INVALID_FILTER` it answers the equality form with. Single-valued
+      // keeps `=`, unchanged. The author never writes either: they named a
+      // relationship, and its storage form is this component's business.
+      const parentScope = composeParentScopeFilter(
+        referenceField!,
+        parentId!,
+        objectSchema?.fields,
+      ) as Record<string, any>;
       // Parent relationship AND the list's own scope (objectstack#7118). The
       // parent condition is never negotiable — an "additional" criterion may only
       // narrow this parent's children — and with nothing authored the query is
@@ -582,6 +701,32 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         setTotal(null);
         setHasMore(false);
         setLoading(false);
+      } else if (referenceFieldIsMultiValue) {
+        // The same refusal as the arm above, one cause earlier: this path's
+        // `filter[<field>]=<value>` grammar has no MEMBERSHIP operator, so the
+        // condition a multi-value relationship needs cannot be written here at
+        // all (objectui#7299).
+        //
+        // Measured, not assumed. The repo's one operator contract for this
+        // spelling is `drillUrlFilters`' `URL_FILTER_OPS` (#1752) — `gte`,
+        // `lte`, `gt`, `lt` and nothing else — and its parser DROPS an
+        // unrecognised suffix rather than downgrading it, so a hopeful
+        // `filter[<field>][contains]=` would arrive as no condition whatsoever:
+        // an unscoped fetch of the entire child table, exactly what the guard
+        // above exists to prevent. The platform's own REST surface does not
+        // take this bracket form at all — it reads one `filter=<JSON AST>`
+        // param — so there is no third spelling to reach for either.
+        //
+        // That leaves bare `=`, which is this card's defect. Empty-and-loud
+        // beats both a predicate known to be wrong and a silent full-table
+        // scan.
+        console.warn(
+          `[RelatedList] "${api}" relates through the multi-value field "${referenceField}" but has no dataSource adapter — the raw-URL fallback's \`filter[<field>]=<value>\` grammar has no membership operator, so no rows are fetched. Pass a dataSource (RecordContext) to use a related list on a multi-value relationship field.`,
+        );
+        setRelatedData([]);
+        setTotal(null);
+        setHasMore(false);
+        setLoading(false);
       } else {
         const qs = new URLSearchParams({
           [`filter[${referenceField}]`]: String(parentId),
@@ -615,8 +760,13 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // body still reads the memoised values; only the re-run condition moves,
     // onto the very keys the memos are already keyed on, so a content change
     // still refetches exactly as before.
+    //
+    // `referenceFieldIsMultiValue` belongs here for the same reason the two
+    // relationship keys beside it do: it decides WHICH predicate this effect
+    // sends (objectui#7299). It is a boolean, so a single-valued list re-runs
+    // exactly as often as it did before — false → false is not a change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, dataProvided, dataSource, referenceField, parentId, refreshNonce, windowed, effectivePageSize, fetchPage, fetchSortField, fetchSortDirection, defaultSortKey, filterKey]);
+  }, [api, dataProvided, dataSource, referenceField, referenceFieldIsMultiValue, parentId, refreshNonce, windowed, effectivePageSize, fetchPage, fetchSortField, fetchSortDirection, defaultSortKey, filterKey]);
 
   // Windowed mode: a page beyond the (shrunken) collection — e.g. the last
   // row of the last page was just deleted — comes back empty. Step back one
@@ -892,6 +1042,22 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   //  - Cap at `maxColumns` to keep the related card readable; users can
   //    click "View All" to see the full list.
   const perms = usePermissions();
+  /**
+   * [objectui#9053] The redaction list as a lookup, memoised on the PROP's
+   * identity so `effectiveColumns` keeps the reference-stable dependency the
+   * rest of this file is built around: a caller that passes no list passes
+   * `undefined`, which never changes, and one that passes its authored array
+   * passes it by reference.
+   */
+  const redactedFields = React.useMemo(
+    () =>
+      new Set(
+        (Array.isArray(redactFields) ? redactFields : []).filter(
+          (f): f is string => typeof f === 'string' && f.length > 0,
+        ),
+      ),
+    [redactFields],
+  );
   const effectiveColumns = React.useMemo(() => {
     const relatedObjectName = objectName || api || '';
     // FLS: drop columns the current user cannot read on the related object.
@@ -909,6 +1075,27 @@ export const RelatedList: React.FC<RelatedListProps> = ({
             const key = c?.accessorKey || columnIdentity(c);
             return key !== referenceField;
           })
+        : cols;
+
+    /**
+     * [objectui#9053] Redaction — the block-level authoring preference, asked
+     * on EVERY path below rather than only over the authored array.
+     *
+     * Identity is resolved the way this component resolves it everywhere else
+     * (`accessorKey || columnIdentity`), because that is the key it RENDERS
+     * through: filtering on any other reading would leave a column refused by
+     * name and drawn by accessor.
+     *
+     * ⛔ Fail-OPEN on a column it cannot name, exactly like `filterFLS` beside
+     * it. Whether an entry whose identity does not resolve should be kept or
+     * dropped is objectui#8793's question, not this one, and answering it here
+     * would fold two policies into one diff.
+     */
+    const isRedacted = (key: unknown): boolean =>
+      redactedFields.size > 0 && !!key && redactedFields.has(String(key));
+    const filterRedacted = (cols: any[]): any[] =>
+      redactedFields.size > 0
+        ? cols.filter((c) => !isRedacted(c?.accessorKey || columnIdentity(c)))
         : cols;
 
     /**
@@ -934,6 +1121,13 @@ export const RelatedList: React.FC<RelatedListProps> = ({
      *
      * ## Why this does NOT delegate to `DetailSection`'s `hasCellValue`
      *
+     * ⚠️ objectui#8496 put the four members BOTH functions share into
+     * `@object-ui/core`'s `isEmptyValue` and had each call it. That is a shared
+     * FLOOR, not a merge: this predicate and `hasCellValue` stay two functions
+     * on purpose, because a grid COLUMN and a record ROW ask the question at two
+     * granularities, and objectui#8459 measured this one as the better-shaped
+     * answer here. ⛔ Do not "finish the job" by deleting one of them.
+     *
      * Measured, not assumed. `hasCellValue` answers `true` for every non-null
      * `object`, and `typeof [] === 'object'` — so it calls an EMPTY ARRAY a
      * VALUE. This surface calls it empty, and that is the answer a grid needs:
@@ -951,10 +1145,14 @@ export const RelatedList: React.FC<RelatedListProps> = ({
      * `__tests__/RelatedList.emptinessAgreement-8459.test.tsx`.
      */
     const isValueEmpty = (v: any) =>
-      v === null ||
-      v === undefined ||
-      (typeof v === 'string' && v.trim() === '') ||
-      (Array.isArray(v) && v.length === 0);
+      // THE FLOOR, asked by name (objectui#8496): `null`, `undefined`, `''`,
+      // `[]`. Those four are no longer spelled here.
+      isEmptyValue(v) ||
+      // THE EXTENSION, and the only one: a WHITESPACE-ONLY string is empty in a
+      // grid cell. It is not a floor member because the gallery, the kanban and
+      // the shared cell renderers all keep `'   '` a value; only this surface
+      // and `record:details` trim, each for the reason objectui#8350 measured.
+      (typeof v === 'string' && v.trim() === '');
 
     const pruneEmpty = (cols: any[]): any[] => {
       if (!relatedData.length) return cols;
@@ -971,6 +1169,63 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // auto-derived path so a `status` column reads "Planned" (badge), never the
     // raw `planned`, regardless of how the columns were supplied.
     const makeCell = (key: string, def: any): ((value: any) => any) | undefined => {
+      // ⛔ A column whose field carries no `type` gets NO cell — and therefore
+      // none of the objectui#8459 placeholder below. That boundary is
+      // DELIBERATE, and objectui#8477 is the card that measured it and chose to
+      // write it down here rather than close it.
+      //
+      // THE GAP, stated honestly: `pruneEmpty` above judges this very column
+      // with the full `isValueEmpty`, so a column survives because *some other
+      // row* has a value — and this row's whitespace-only cell then paints
+      // visually blank, the exact UI the em-dash below exists to prevent,
+      // reached through the one door that never gets a cell. Measured: an
+      // undeclared `memo` column holding `'   '` renders a blank `div.truncate`
+      // while its sibling row renders `real memo`.
+      //
+      // ⚠️ WHY "just attach a minimal cell here" IS NOT A SHORTCUT — IT SHIPS A
+      // CRASH. The data-table's no-cell branch is not a pass-through: with no
+      // `cell` it applies TWO transforms — `String(value)` for a non-null
+      // object, and `formatCellValue(value)`, the locale ISO date/datetime face
+      // objectui#7443 and objectui#7620 spent two cards folding into ONE home —
+      // whereas a `cell`'s return value is handed STRAIGHT to React, with no
+      // way to defer any single value back to that default. Measured on one
+      // untyped column, same row, `tbody` innerHTML byte for byte, no-cell
+      // versus a cell returning its argument unchanged:
+      //
+      //   `real memo` / `0` / `false`   identical
+      //   ISO date `2026-07-04`         `Jul 4`                 becomes `2026-07-04`
+      //   ISO datetime                  `Mar 5, 2024, 02:30 PM` becomes the raw ISO string
+      //   array `['a','b']`             `a,b`                   becomes `ab`
+      //   object `{latitude,longitude}` `[object Object]`       THROWS
+      //                                 "Objects are not valid as a React child"
+      //
+      // The object row is not a rendering difference, it is a crash — and
+      // untyped columns rendering `[object Object]` are precisely the
+      // population such a cell reaches first.
+      //
+      // ⛔ Choosing whether to attach a cell by INSPECTING THE VALUE is the same
+      // idea in a disguise: that is inferring a type from a value, fenced off
+      // by objectui#8477 explicitly.
+      //
+      // ⇒ SUCCESSOR — objectui#8817. The layer that owns "how a value renders
+      // when there is no cell" is the data-table itself, so it also owns "what
+      // an empty one draws"; fixing it from out here would force a SECOND
+      // spelling of `formatCellValue` (a `useCallback` inside that component,
+      // exported nowhere, closing over its own language state). That is a
+      // product-wide behaviour change with its own ruling to make — is the
+      // table's "empty" this file's `isValueEmpty`, or does the disagreement
+      // merely move up one layer? Until it lands, this boundary stands.
+      //
+      // REACHABILITY, so the next reader need not re-derive it: this line is
+      // reached only for a field that IS declared and carries no `type`. The
+      // card's own case — a column key the schema never declares — never
+      // arrives here at all: both explicit-column call sites guard with
+      // `def ? makeCell(...) : undefined`, and the auto-derived walk guards with
+      // `if (def.type)`. The `if (!CellRenderer)` line just below is, by
+      // contrast, DEAD: `getCellRenderer` is typed to return a component and
+      // ends in `standardMap[fieldType] || TextCellRenderer`, so it never
+      // returns a falsy renderer — measured over seven spellings, including
+      // ones no producer can emit, all of which resolved to `TextCellRenderer`.
       if (!def?.type) return undefined;
       const rendererType = resolveCellRendererType({ type: def.type, format: def.format }) || def.type;
       const CellRenderer = getCellRenderer(rendererType);
@@ -1083,7 +1338,21 @@ export const RelatedList: React.FC<RelatedListProps> = ({
      };
      if (columns && columns.length > 0) {
        const normalized = columns.map(normalizeColumn);
-       return pruneEmpty(filterFLS(filterFK(normalized)));
+       // [objectui#9053] Redaction is applied to the authored candidates FIRST
+       // and their emptiness judged HERE, so an array emptied by redaction
+       // behaves exactly as it already does when the BLOCK empties it upstream
+       // — it falls through to the derivation below, which is redaction-filtered
+       // too. That keeps one outcome for one input: the same authoring must not
+       // render a derived list when the block happened to name the column and an
+       // empty one when only this component could. ⛔ What an emptied-by-security
+       // column set should LOOK like is objectui#9053's deferred question; this
+       // deliberately answers it the way the shipping path already answers it
+       // rather than inventing a second answer. Emptiness produced by FLS or by
+       // `pruneEmpty` keeps its existing meaning untouched: still an empty list.
+       const candidates = filterRedacted(normalized);
+       if (candidates.length > 0) {
+         return pruneEmpty(filterFLS(filterFK(candidates)));
+       }
      }
     if (!objectSchema?.fields) return [];
 
@@ -1100,7 +1369,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         )
       : [];
     if (declaredHighlights.length > 0) {
-      const hf = pruneEmpty(filterFLS(filterFK(declaredHighlights.map(normalizeColumn))));
+      const hf = pruneEmpty(
+        filterFLS(filterFK(filterRedacted(declaredHighlights.map(normalizeColumn)))),
+      );
       if (hf.length > 0) return hf.slice(0, Math.max(1, maxColumns));
     }
 
@@ -1146,6 +1417,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         if (key === 'id' || key === referenceField) return false;
         if (def?.hidden) return false;
         if (def?.type && SKIP_TYPES.has(def.type)) return false;
+        // [objectui#9053] Redaction: drop redacted fields from the walk too —
+        // asked here rather than over `generated` so the priority sort and the
+        // `maxColumns` slice below both see the set the reader will get.
+        if (isRedacted(key)) return false;
         // FLS: drop unreadable fields from auto-derived columns too.
         if (perms?.isLoaded && resolvedObjectName
             && !perms.checkField(resolvedObjectName, key, 'read')) {
@@ -1193,7 +1468,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
 
     const pruned = pruneEmpty(generated);
     return pruned.slice(0, Math.max(1, maxColumns));
-  }, [columns, objectSchema, objectName, api, resolveFieldLabel, referenceField, relatedData, maxColumns, lookupLabels, perms]);
+  }, [columns, objectSchema, objectName, api, resolveFieldLabel, referenceField, relatedData, maxColumns, lookupLabels, perms, redactedFields]);
 
   /**
    * [#6108] The SERVED per-column sortability projection for this object —

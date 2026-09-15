@@ -41,28 +41,35 @@ export interface MetadataCacheStats {
 
 /**
  * MetadataCache - LRU cache with TTL expiration for schema metadata
- * 
+ *
  * Features:
  * - LRU (Least Recently Used) eviction policy
  * - TTL (Time To Live) based expiration (fixed from creation, not sliding)
  * - Memory limit controls
  * - Async-safe operations
  * - Performance statistics tracking
- * 
+ *
  * Concurrent requests for the same uncached key are deduplicated via an
  * internal in-flight Promise map: only the first call invokes the fetcher,
  * and subsequent callers receive the same Promise.
- * 
- * @example
- * ```typescript
- * const cache = new MetadataCache({ maxSize: 100, ttl: 300000 });
- * 
- * const schema = await cache.get('users', async () => {
- *   return await fetchSchemaFromServer('users');
- * });
- * 
- * console.log(cache.getStats());
- * ```
+ *
+ * PACKAGE-INTERNAL. `@object-ui/data-objectstack` declares exactly one export
+ * key (`.`) and this class is not reachable through it: `ObjectStackAdapter`
+ * imports it directly, holds it in a `private` field and constructs it from
+ * its own `config.cache`. This block therefore documents no usage example. It
+ * used to open with a direct construction of this class, which is a line no
+ * reader outside the package can run: that import is TS2305, `has no exported
+ * member` (objectui#8320). The example was removed rather than made
+ * importable, because exporting the class would add a supported public class
+ * on the evidence of one docblock - a contract change this cache does not ask
+ * for.
+ *
+ * The reachable route to everything this cache does is the adapter, and it is
+ * already documented where a reader can act on it: `createObjectStackAdapter`
+ * takes the same `{ maxSize, ttl }` object as `cache` and carries a worked
+ * example of its own, and `getCached` / `getCacheStats` / `invalidateCache` /
+ * `clearCache` on `ObjectStackAdapter` are the controls. The package
+ * README's "Metadata Caching" section is the same story in long form.
  */
 export class MetadataCache {
   private cache: Map<string, CachedSchema>;

@@ -21,10 +21,17 @@ name: Pre-Install Import Graph
 # an unclassified blocking check is one a Dependabot merge would be let past
 # (objectui#6135).
 #
-# It needs no install and no build — a checkout plus one `node` call over 24
-# workflow files and a dozen scripts, well under a second. Keep it that way: the
-# gate exists to protect install-free gates, so an install here would be the
-# joke telling itself.
+# It needs no install and no build — a checkout plus one `node` call over every
+# file in `.github/workflows/` and the `scripts/` gates their pre-install steps
+# name, well under a second. ⛔ No population count here, deliberately: this
+# sentence used to state one as a literal, it went stale by double digits, and
+# nothing went red over that whole distance, because nothing fails on a number
+# written in a comment (objectui#8606, objectui#7448). The population is DERIVED
+# from `.github/workflows/` on every run, so the live reading is a command —
+# `node scripts/check-pre-install-import-graph.mjs --list` prints it — and
+# `scripts/__tests__/check-pre-install-import-graph.test.ts` refuses a count
+# written back here. Keep it that way: the gate exists to protect install-free
+# gates, so an install here would be the joke telling itself.
 
 on:
   pull_request:

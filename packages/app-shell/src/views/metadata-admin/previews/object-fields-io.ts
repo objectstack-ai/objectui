@@ -52,6 +52,14 @@ export type Shape = 'array' | 'record';
  * concept it is a SEPARATE key (`reference`, `system`) that is NOT stripped
  * and rides through untouched, which is what lets the designer read it back.
  *
+ * ⚠️ That sentence was UNCONDITIONAL and, for one key, measurably false
+ * (objectui#8896): it holds only where the draft ALSO carries the spec
+ * spelling. A draft holding a relationship target ONLY as `referenceTo` had it
+ * deleted here with nothing left behind. {@link stripRetiredFieldKeys} now
+ * keeps that one value under `reference` before dropping the key, so the
+ * sentence is true as written — see there for why the repair is keyed to this
+ * key alone and is NOT a `specEquivalent` migration.
+ *
  * ── The two registry keys this door deliberately does NOT strip ──
  *
  * `formula` — RULED, objectui#6526 option B (2026-08-27): this door reads
@@ -87,12 +95,75 @@ export type Shape = 'array' | 'record';
  */
 export const RETIRED_FIELD_KEYS = retiredFieldKeysFor('metadataAdminFieldsReadDoor');
 
-/** Drop {@link RETIRED_FIELD_KEYS} from one field definition. */
+/**
+ * The pre-objectui#6041 spelling of a relationship target, and the spec key it
+ * was renamed to.
+ *
+ * Named as a PAIR here rather than derived from the tombstone's
+ * `specEquivalent`: the registry is explicit that `specEquivalent` is
+ * "Documentation for the reader, NEVER an instruction to migrate a value
+ * mechanically", because objectui#6043 refused exactly that for `formula` —
+ * whose value is a LANGUAGE, so a blind rename launders non-CEL text into a
+ * formula that parses green and evaluates to null. A relationship target is a
+ * bare object NAME under both spellings, which is what makes reading it under
+ * either one a read rather than a migration, and that fact is specific to this
+ * one key.
+ */
+const RETIRED_REFERENCE_KEY = 'referenceTo';
+const SPEC_REFERENCE_KEY = 'reference';
+
+/** Does this value NAME a target object? Blank and non-string name none. */
+function isUsableTarget(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+/**
+ * Drop {@link RETIRED_FIELD_KEYS} from one field definition, keeping a
+ * relationship target the draft holds ONLY under the retired spelling
+ * (objectui#8896).
+ *
+ * ## The claim this repairs — it is this module's own, one paragraph up
+ *
+ * {@link RETIRED_FIELD_KEYS}' note said "Nothing is lost on the way out: where
+ * the spec has a spelling for the concept it is a SEPARATE key (`reference`,
+ * `system`) that is NOT stripped and rides through untouched". That holds only
+ * when the draft ALSO carries the spec spelling. A draft holding the target
+ * only as `referenceTo` had it deleted here with nothing left behind — and
+ * this is the SINGLE read door for `draft.fields` across the whole object
+ * designer, with `writeFields` writing each def back verbatim, so the loss
+ * committed on the next save. `ObjectFieldInspector`'s target editor reads
+ * `def.reference` and rendered empty; so did every other reader, because
+ * objectui#6837's ruling ("protocol normalization belongs on the server, the
+ * front end just executes the protocol") deleted the per-reader legacy arms.
+ *
+ * Recovering HERE is that ruling's own shape rather than an exception to it:
+ * the door normalizes, the readers stay canonical. `reference_to` is the
+ * ingestion choke points' business (`normalizeSchemaReferenceKeys`, which also
+ * stamps a second key `FieldSchema` refuses) and is deliberately not touched by
+ * this door, which serves a WRITE path.
+ *
+ * ## Three things this does not do
+ *
+ * ⛔ The retired key still never survives — `FieldSchema` refuses it by name,
+ * which is the whole reason this door strips.
+ * ⛔ Never overwrites a live `reference`: the spec spelling is what the author
+ * has been editing, and a stale legacy value beside it is the older truth.
+ * ⛔ Never invents a target. `unrecognized_keys` fires on the key's PRESENCE,
+ * so `referenceTo: ''` is a real stored state; recovering it would hand every
+ * gate downstream a target that names no object.
+ */
 function stripRetiredFieldKeys(def: Record<string, unknown>): Record<string, unknown> {
   const present = RETIRED_FIELD_KEYS.filter((k) => k in def);
   if (present.length === 0) return def;
   const next = { ...def };
   for (const k of present) delete next[k];
+  if (
+    (present as readonly string[]).includes(RETIRED_REFERENCE_KEY)
+    && !isUsableTarget(next[SPEC_REFERENCE_KEY])
+    && isUsableTarget(def[RETIRED_REFERENCE_KEY])
+  ) {
+    next[SPEC_REFERENCE_KEY] = def[RETIRED_REFERENCE_KEY];
+  }
   return next;
 }
 
@@ -138,9 +209,18 @@ export function writeFields(view: FieldsView): Record<string, unknown> | Array<R
   if (view.shape === 'array') {
     return view.entries.map((e) => ({ name: e.name, ...e.def }));
   }
-  const out: Record<string, unknown> = {};
-  for (const e of view.entries) out[e.name] = e.def;
-  return out;
+  // ⛔ NEVER assign into a literal here (objectui#9237). `out[e.name] = e.def`
+  // with `e.name === '__proto__'` invokes `Object.prototype`'s ONE accessor
+  // instead of creating an own property, so the entry `readFields` just read
+  // back vanishes before `JSON.stringify` sees it. `__proto__` is a spec-legal
+  // stored field key (`ObjectSchema.fields`' grammar is `/^[a-z_][a-z0-9_]*$/`),
+  // so the PUT body that results is ACCEPTED and the server stores the object
+  // WITHOUT the field — silent destruction of stored metadata by an edit that
+  // never touched it, not a recoverable 422. `Object.fromEntries` defines an
+  // own property, which is the same reason `MetadataService.toFieldsMap` uses
+  // it. `__proto__` is the only name that reproduces: every other
+  // `Object.prototype` member is a data property that assignment shadows.
+  return Object.fromEntries(view.entries.map((e) => [e.name, e.def]));
 }
 
 /** Find the index of a field by name. Returns -1 if not found. */

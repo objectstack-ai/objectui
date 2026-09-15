@@ -206,6 +206,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isEntrypoint } from './invoked-as.mjs';
+import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -427,8 +428,15 @@ const REGISTRY_RECEIVERS = ['ComponentRegistry', 'componentRegistry', 'registry'
  * Helpers that register from a collection instead of from a literal argument.
  * Each entry names the collection it reads; the derivation re-reads that
  * collection every run and fails if it is gone.
+ *
+ * EXPORTED because the `protocol-placeholder` entry is also the DECLARATION a
+ * sibling gate reads to tell a real renderer from a placeholder panel
+ * (`check-prompt-component-keys.mjs`, objectui#8929). That gate must never
+ * carry its own list of placeholder key names — such a list is exactly the
+ * drift it exists to close — so it asks this table which module the
+ * placeholders come from and follows it live.
  */
-const INDIRECT_REGISTRATIONS = [
+export const INDIRECT_REGISTRATIONS = [
   {
     site: 'packages/components/src/renderers/placeholders.tsx',
     collection: 'PROTOCOL_COMPONENTS',
@@ -483,6 +491,15 @@ const OPEN_REGISTRATION_SITES = {
  */
 const DOC_TYPE_EXEMPTIONS = {
   'content/docs/api/schema-reference.md': {
+    kanban:
+      'ViewSwitcher `views[].type` — the VIEW-TYPE vocabulary (`ViewType`, ' +
+      'packages/types/src/views.ts), which is what a switcher tab names, not a node type; the ' +
+      'nested `schema` in the same snippet carries `object-kanban`, the node type. Needed from ' +
+      'objectui#8802, which retired the bare `kanban` NODE type key — until then the value ' +
+      'passed by coincidence, the two vocabularies sharing one spelling. ⛔ The stored/view-type ' +
+      'spelling is deliberately NOT retired (`ObjectView` maps a stored `kanban` view onto the ' +
+      '`object-kanban` node type). Same vocabulary as the `components/complex/view-switcher.mdx` ' +
+      'entry below.',
     action:
       'ActionSchema discriminant under an ACTION LIST, never a rendered child — an action\'s own ' +
       '`dialog.actions[]` and `chain[]`, a detail page\'s `actions[]` and a CRUD dialog\'s ' +
@@ -530,6 +547,15 @@ const DOC_TYPE_EXEMPTIONS = {
       'filter enum, alongside `date-picker` / `number-range`.',
   },
   'content/docs/components/complex/view-switcher.mdx': {
+    kanban:
+      'ViewSwitcher `views[].type` — the VIEW-TYPE vocabulary (`ViewType`, ' +
+      'packages/types/src/views.ts), which is what a switcher tab names, not a node type. ' +
+      'The nested `schema` in the very same snippet carries the node type. Needed from ' +
+      'objectui#8802, which retired the bare `kanban` NODE type key — until then the value ' +
+      'passed by coincidence, the two vocabularies sharing one spelling. ⛔ The stored/view-type ' +
+      'spelling is deliberately NOT retired: `ObjectView` maps a stored `kanban` view onto the ' +
+      '`object-kanban` node type, and renaming it would break every stored kanban view in every ' +
+      'deployment.',
     share:
       'First member of a TypeScript union of view-action ids (`\'share\' | \'settings\' | ' +
       '\'duplicate\' | \'delete\'`) in a Schema API declaration, not a node type.',
@@ -1117,22 +1143,30 @@ export function scanDocs(root) {
   for (const abs of files) {
     const rel = relative(root, abs).split(sep).join('/');
     const lines = readFileSync(abs, 'utf8').split('\n');
-    let inFence = false;
+    /** @type {import('./markdown-fence-scan.mjs').OpenFence | null} */
+    let open = null;
     let lang = null;
     for (let i = 0; i < lines.length; i++) {
-      const fence = /^\s*```(\S*)\s*$/.exec(lines[i]);
-      if (fence) {
-        if (inFence) {
-          inFence = false;
+      // ⛔ Never re-spell the fence predicate here. `markdown-fence-scan.mjs` is
+      // its one authority, and it is one because the local spelling this line
+      // used to hold read a four-backtick opener as a three-backtick fence in a
+      // language named with a leading backtick (objectui#9194).
+      if (open) {
+        if (closesFence(lines[i], open)) {
+          open = null;
           lang = null;
-        } else {
-          inFence = true;
-          lang = fence[1] || 'plaintext';
-          counters.codeBlocks++;
+          continue;
         }
-        continue;
+      } else {
+        const opened = openFence(lines[i]);
+        if (opened) {
+          open = opened;
+          lang = opened.lang || 'plaintext';
+          counters.codeBlocks++;
+          continue;
+        }
       }
-      if (!inFence) {
+      if (!open) {
         if (KEY_TABLE_HEADER.test(lines[i]) && TABLE_DELIMITER.test(lines[i + 1] ?? '')) {
           counters.keyTables++;
           const header = i + 1;
@@ -1165,7 +1199,7 @@ export function scanDocs(root) {
         sites.push({ file: rel, line: i + 1, lang, value, text: lines[i].trim() });
       }
     }
-    if (inFence) {
+    if (open) {
       // An unclosed fence means the rest of the file was read as code. Report it
       // rather than guessing, because the alternative is a silently truncated scan.
       sites.push({ file: rel, line: lines.length, lang: 'unterminated', value: null, unterminated: true });

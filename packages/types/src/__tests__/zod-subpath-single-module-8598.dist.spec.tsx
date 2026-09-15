@@ -112,7 +112,19 @@ describe('objectui#8598 — the shipped `./zod` face is one bundled module', () 
     ).toEqual([]);
   });
 
-  it('REFUSES a nested off-spec node through a single-schema entry', () => {
+  /**
+   * ⚠️ An ACCEPT-SET control over the WHOLE module — ⛔ not a measurement of the
+   * single-schema entry, which is what this case used to claim in its name
+   * (objectui#8712). A vitest import evaluates the entire barrel, as this
+   * file's header already says, so the #8344 fill is reachable here whatever
+   * the module boundary looks like. Measured against a `tsc` barrel of 30
+   * separate modules — the ablated shape this file exists to refuse — the case
+   * below PASSED, and the file went red through the structural case above,
+   * which is the one that can see the defect. What this case holds is the other
+   * half: the schema still refuses what it must and accepts what it must, so a
+   * bundle that had started refusing everything cannot pass for a fix.
+   */
+  it('REFUSES a nested off-spec node, and accepts its well-formed twin', () => {
     expect(BUILT!.CardSchema.safeParse(NESTED_OFF_SPEC).success).toBe(false);
     // The control: the same slot, on-spec, still parses. A schema that refused
     // everything would satisfy the case above and be a much worse regression.

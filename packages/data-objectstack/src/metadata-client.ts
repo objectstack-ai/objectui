@@ -33,6 +33,12 @@
  */
 
 import { GetMetaItemLayeredResponseSchema } from '@objectstack/spec/api';
+// objectui#8676 - the object-metadata write invariant, applied HERE because this
+// is a DOOR and not a writer. Every `client.save('object', ...)` call site in the
+// repo passes through this one method, so guarding it covers a writer set that
+// nothing has to enumerate. See that module's docblock for why the writers are
+// deliberately not listed anywhere.
+import { assertObjectMetadataWritable } from './object-metadata-write-guard';
 import type {
   GetMetaItemLayeredResponse,
   RuntimeAuthoringIssue,
@@ -944,6 +950,9 @@ export class MetadataClient {
           ' The PUT /meta/:type/:name route requires a name segment.',
       );
     }
+    // objectui#8676 - before the request, so a refused body issues no PUT and the
+    // half-filled draft stays in the client (objectui#7714's ruled behaviour).
+    assertObjectMetadataWritable(type, item, 'MetadataClient.save');
     const params: string[] = [];
     if (options.force) params.push('force=true');
     if (options.mode === 'draft') params.push('mode=draft');

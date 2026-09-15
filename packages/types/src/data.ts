@@ -404,7 +404,10 @@ export interface DataSource<T = any> {
    * Update an existing record.
    *
    * @param resource - Resource name
-   * @param id - Record identifier
+   * @param id - Record identifier. A `string`, as `@objectstack/spec` declares
+   *   every record door; an adapter for a backend whose primary keys are
+   *   numeric maps at its own boundary rather than widening this contract for
+   *   every caller (objectui#9333).
    * @param data - Updated data (partial)
    * @param opts - Optional write options. Pass `opts.ifMatch` to enable
    *   Optimistic Concurrency Control: the implementation forwards the
@@ -417,7 +420,7 @@ export interface DataSource<T = any> {
    */
   update(
     resource: string,
-    id: string | number,
+    id: string,
     data: Partial<T>,
     opts?: { ifMatch?: string },
   ): Promise<T>;

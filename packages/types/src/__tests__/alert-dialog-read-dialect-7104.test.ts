@@ -48,13 +48,27 @@
  * over the four new members, which resolved to `any` through the index
  * signature. The PR body carries the counts from that run.
  *
- * ## What this file pins as UNRESOLVED, on purpose
+ * ## What this file left OPEN, and what has since closed it
  *
- * - `cancelLabel` / `confirmLabel` / `confirmVariant` stay declared on both
- *   faces and read by nothing. Retiring them is a NARROWING with its own card
- *   and its own changeset grade (the objectui#7104 ruling); the pins below
- *   record today's state so that the PR which retires them re-derives these
- *   lines deliberately rather than passing unnoticed.
+ * - RESOLVED, and re-derived rather than deleted: `cancelLabel` /
+ *   `confirmLabel` / `confirmVariant` used to stay declared on both faces and
+ *   read by nothing, and the pins below recorded that state so that the PR
+ *   retiring them would re-derive these lines deliberately rather than pass
+ *   unnoticed. That PR is objectui#7963 (maintainer ruling 2026-09-10, ADR-0049
+ *   enforce-or-remove), and this file went red exactly where it was built to:
+ *   the three type-level `StillDeclared` legs and the `@default` docblock leg.
+ *   The block near the bottom is the SAME pin re-derived onto the other side of
+ *   the flip — the trio is now REFUSED BY NAME rather than merely inert, so what
+ *   it asserts is that the keys stay DECLARED (which is what makes a refusal
+ *   loud under `.passthrough()`), that the renderer still reads none of them,
+ *   and that their docblocks now teach the retirement instead of publishing an
+ *   `@default` nothing applies. The parse-level and TypeScript-level contract of
+ *   that refusal lives in its own file,
+ *   `alert-dialog-footer-keys-refusal-7963.test.ts`, and the DOM reading it
+ *   rests on lives with the renderer, in
+ *   `packages/components/src/__tests__/alert-dialog-footer-keys-liveness-7963.test.tsx`
+ *   — deliberately not duplicated here, for the same reason the objectui#7693
+ *   half below is not: this package cannot see a renderer.
  * - RESOLVED, and re-derived rather than deleted: the four schema-catalog
  *   fixtures used to author `actions`, a key no surface carries, so the docs
  *   page's own examples rendered an empty footer — objectui#7693. That card
@@ -91,8 +105,18 @@ const FIXTURES = ['basic-alert-dialog', 'confirmation-dialog', 'custom-actions',
 
 /** The three JSON-authorable keys the renderer reads. */
 const READ_KEYS = ['content', 'cancelText', 'actionText'] as const;
-/** The three keys the type declares for the same affordance and nothing reads. */
-const INERT_DECLARED = ['cancelLabel', 'confirmLabel', 'confirmVariant'] as const;
+/**
+ * The three keys the type declared for the same affordance and nothing read.
+ *
+ * ⚠️ RE-POINTED by objectui#7963, ⛔ not deleted. They were `INERT_DECLARED` —
+ * declared, accepted, and read by nothing. They are now REFUSED BY NAME on both
+ * faces (`retirementTombstone()` in the mirror, `?: never` on the interface), so
+ * "inert" became wrong in its own terms: an authored value no longer rides
+ * `.passthrough()` through, it reds at parse. The list keeps its members and its
+ * job here — naming the keys the renderer must go on NOT reading and the docs
+ * page must go on NOT teaching — under the name that is now true of them.
+ */
+const RETIRED_DECLARED = ['cancelLabel', 'confirmLabel', 'confirmVariant'] as const;
 
 const shape = AlertDialogZod.shape;
 
@@ -122,6 +146,13 @@ type KeepsFunction<T> = [Extract<NonNullable<T>, (...args: never[]) => unknown>]
 export type _Content = Expect<Equal<AlertDialogSchema['content'], SchemaNode | SchemaNode[]>>;
 export type _CancelText = Expect<Equal<AlertDialogSchema['cancelText'], string | undefined>>;
 export type _ActionText = Expect<Equal<AlertDialogSchema['actionText'], string | undefined>>;
+// objectui#8978 — the capability the retired `confirmVariant` was supposed to
+// carry, on a spelling in the `action*` dialect this node already uses for that
+// button. Two values, and the DOM reading that earns the narrowness lives in
+// `packages/components/src/__tests__/alert-dialog-action-variant-8978.test.tsx`.
+export type _ActionVariant = Expect<
+  Equal<AlertDialogSchema['actionVariant'], 'default' | 'destructive' | undefined>
+>;
 export type _OnAction = Expect<Equal<AlertDialogSchema['onAction'], (() => void) | undefined>>;
 export type _OnActionCallable = Expect<KeepsFunction<AlertDialogSchema['onAction']>>;
 
@@ -132,12 +163,27 @@ export type _MirrorCancelText = Expect<Equal<MirrorInput['cancelText'], string |
 export type _MirrorActionText = Expect<Equal<MirrorInput['actionText'], string | undefined>>;
 export type _MirrorOnActionRefused = Expect<Equal<MirrorInput['onAction'], undefined>>;
 
-// The inert trio still reads as DECLARED — the retirement card re-derives these.
-export type _CancelLabelStillDeclared = Expect<Equal<AlertDialogSchema['cancelLabel'], string | undefined>>;
-export type _ConfirmLabelStillDeclared = Expect<Equal<AlertDialogSchema['confirmLabel'], string | undefined>>;
-export type _ConfirmVariantStillDeclared = Expect<
-  Equal<AlertDialogSchema['confirmVariant'], 'default' | 'destructive' | undefined>
->;
+// The trio, re-derived by objectui#7963: `?: never`, so the member's type is
+// `undefined` and no value is assignable to it. These three legs were
+// `string | undefined` / the variant union until the retirement landed — that
+// is the flip this file was built to make visible.
+export type _CancelLabelRetired = Expect<Equal<AlertDialogSchema['cancelLabel'], undefined>>;
+export type _ConfirmLabelRetired = Expect<Equal<AlertDialogSchema['confirmLabel'], undefined>>;
+export type _ConfirmVariantRetired = Expect<Equal<AlertDialogSchema['confirmVariant'], undefined>>;
+
+// `Equal<…, undefined>` alone would also hold for a key typed `?: undefined`, so
+// the refusal itself is asserted where it bites: at the authoring site. The
+// `@ts-expect-error` IS the assertion — it stops compiling if any of the three
+// ever becomes assignable again.
+export const retiredTrioRefused: AlertDialogSchema = {
+  type: 'alert-dialog',
+  // @ts-expect-error objectui#7963 — `cancelLabel` is retired; write `cancelText`
+  cancelLabel: 'Keep it',
+  // @ts-expect-error objectui#7963 — `confirmLabel` is retired; write `actionText`
+  confirmLabel: 'Delete',
+  // @ts-expect-error objectui#7963 — `confirmVariant` is retired, with no surviving spelling
+  confirmVariant: 'destructive',
+};
 
 // A wrong-typed value is now a compile error AT the key. Before objectui#7104
 // the index signature absorbed it: `cancelText: 123` compiled clean.
@@ -263,7 +309,7 @@ describe('the fact the declaration records: the renderer READS these keys and te
     expect(renderer).toMatch(/name:\s*'content'/);
     expect(renderer).toMatch(/^\s*cancelText:\s*'Cancel',/m);
     expect(renderer).toMatch(/^\s*actionText:\s*'Continue',/m);
-    for (const key of INERT_DECLARED) expect(renderer, key).not.toContain(key);
+    for (const key of RETIRED_DECLARED) expect(renderer, key).not.toContain(key);
   });
 
   it('control: the scan can find things — this IS the alert-dialog registration', () => {
@@ -273,24 +319,55 @@ describe('the fact the declaration records: the renderer READS these keys and te
   });
 });
 
-describe('the declared-but-unread trio is UNTOUCHED here — recorded for its own card (objectui#7104)', () => {
-  it.each(INERT_DECLARED)('`%s` is still declared on the mirror', (key) => {
+describe('the trio is RETIRED — the objectui#7104 pin re-derived onto the other side of the flip (objectui#7963)', () => {
+  it.each(RETIRED_DECLARED)('`%s` is still a MEMBER of the mirror — which is what makes the refusal loud', (key) => {
+    // ⛔ Deleting the member was never the shape: `BaseSchemaCore` ends
+    // `.passthrough()`, so a dropped key is KEPT in silence. This leg reads
+    // identically before and after the retirement and means the OPPOSITE thing —
+    // which is exactly why the leg below now asks what the member DOES.
     expect(shape[key]).toBeDefined();
   });
 
-  it.each(INERT_DECLARED)('`%s` is still declared on the TS interface', (key) => {
-    expect(members(declaredInterface()).get(key)?.optional).toBe(true);
+  it.each(RETIRED_DECLARED)('`%s` is a REFUSAL arm, not a value type — the reading `.shape` membership cannot give', (key) => {
+    expect(AlertDialogZod.safeParse({ ...AUTHORED, [key]: 'anything' }).success).toBe(false);
   });
 
-  it.each(INERT_DECLARED)('`%s` is still read by nothing in the renderer', (key) => {
+  it.each(RETIRED_DECLARED)('`%s` is still declared on the TS interface, now as `?: never`', (key) => {
+    const member = members(declaredInterface()).get(key);
+    expect(member?.optional).toBe(true);
+    expect(member?.typeText).toBe('never');
+  });
+
+  it.each(RETIRED_DECLARED)('`%s` is still read by nothing in the renderer', (key) => {
+    // ⭐ The reading the retirement rests on, kept standing rather than retired
+    // with the keys. The ruling was RETIRE, ⛔ not "teach the renderer the other
+    // dialect" — so this must go on being true after the change, not before it.
     expect(read(RENDERER)).not.toContain(key);
   });
 
-  it('their docblocks still publish an `@default` the renderer never applies — the prong-2 reading the follow-up judges', () => {
+  it('their docblocks now teach the retirement instead of publishing an `@default` the renderer never applied', () => {
+    // The prong-2 reading the follow-up judged, re-derived: the three `@default`
+    // tags were the shipped type telling authors a value would be supplied when
+    // nothing read the key at all. They are gone, and each docblock names the
+    // card. ⚠️ The `confirmVariant` block named NO substitute until
+    // objectui#8978 answered the separate question the retirement pointed at; it
+    // now names `actionVariant`, and the KEY is still `?: never` (the leg above
+    // is what holds that, and the `@ts-expect-error` at the top of this file is
+    // what holds it at an authoring site).
     const iface = declaredInterface();
-    expect(iface).toMatch(/@default 'Cancel'[\s\S]{0,40}cancelLabel\?: string;/);
-    expect(iface).toMatch(/@default 'Confirm'[\s\S]{0,40}confirmLabel\?: string;/);
-    expect(iface).toMatch(/@default 'default'[\s\S]{0,40}confirmVariant\?: 'default' \| 'destructive';/);
+    expect(iface).not.toMatch(/@default 'Cancel'/);
+    expect(iface).not.toMatch(/@default 'Confirm'/);
+    for (const key of RETIRED_DECLARED) {
+      expect(iface, key).toMatch(new RegExp(`objectui#7963[\\s\\S]{0,4000}?${key}\\?: never;`));
+    }
+  });
+
+  it('control: the surviving spellings are NOT retired on either face', () => {
+    // Without this, every leg above would pass against an interface that had
+    // retired the whole footer.
+    expect(members(declaredInterface()).get('cancelText')?.typeText).toBe('string');
+    expect(members(declaredInterface()).get('actionText')?.typeText).toBe('string');
+    expect(AlertDialogZod.safeParse({ ...AUTHORED, cancelText: 'Keep it' }).success).toBe(true);
   });
 });
 
@@ -301,9 +378,20 @@ describe('the docs page publishes the read dialect (objectui#7104)', () => {
     ['content', 'SchemaNode | SchemaNode[]'],
     ['cancelText', 'string'],
     ['actionText', 'string'],
+    ['actionVariant', "'default' | 'destructive'"],
   ])('row `%s` is published as `%s`, optional — the declaration\'s own spelling', (key, typeText) => {
     expect(rows().get(key)).toEqual({ optional: true, typeText });
   });
+
+  it.each(['content', 'cancelText', 'actionText', 'actionVariant'])(
+    'and the page says what the DECLARATION says for `%s` — neither face can drift alone',
+    (key) => {
+      // The row texts above are literals, so on their own they pin the page to a
+      // string rather than to the type. This leg is the other half: the same row
+      // read off `packages/types/src/overlay.ts`.
+      expect(rows().get(key)).toEqual(members(declaredInterface()).get(key));
+    },
+  );
 
   it('the phantom `actions` row is gone — no surface ever carried it', () => {
     expect(rows().has('actions')).toBe(false);
@@ -315,7 +403,7 @@ describe('the docs page publishes the read dialect (objectui#7104)', () => {
   });
 
   it('the page does not teach the declared-but-unread trio either', () => {
-    for (const key of INERT_DECLARED) expect(rows().has(key), key).toBe(false);
+    for (const key of RETIRED_DECLARED) expect(rows().has(key), key).toBe(false);
   });
 
   it('control: the rows both faces always agreed on are still there', () => {

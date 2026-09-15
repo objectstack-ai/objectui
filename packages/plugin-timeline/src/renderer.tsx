@@ -1298,7 +1298,11 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
                   {item.description}
                 </TimelineDescription>
               )}
-              {item.content && renderChildren(item.content)}
+              {/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&`
+                  evaluates to the slot, so a legal authored `content: 0`
+                  painted the character and `renderChildren`'s own falsy leg
+                  never ran. `renderChildren` IS the guard. */}
+              {renderChildren(item.content)}
             </TimelineContent>
           </TimelineItem>
         );
@@ -1353,7 +1357,9 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
                       {item.description}
                     </TimelineDescription>
                   )}
-                  {item.content && renderChildren(item.content)}
+                  {/* ⛔ No `&&` guard on a node slot — see the vertical
+                      variant above (objectui#9162). */}
+                  {renderChildren(item.content)}
                 </div>
               </div>
               {index < items.length - 1 && (

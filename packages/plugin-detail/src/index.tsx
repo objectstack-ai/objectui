@@ -16,6 +16,7 @@ import {
 import { withFieldCarrier } from '@object-ui/fields';
 import { DetailView } from './DetailView';
 import { DetailSection } from './DetailSection';
+import { DetailSectionNode } from './DetailSectionNode';
 import { headerColorVocabulary } from './headerColor';
 import { DetailTabs } from './DetailTabs';
 import { RelatedList } from './RelatedList';
@@ -97,6 +98,21 @@ export type { SysActivityRow } from './renderers/recordActivityFeed';
 
 export { RecordDetailDrawer, deriveRecordPageHref } from './RecordDetailDrawer';
 export type { RecordDetailDrawerProps } from './RecordDetailDrawer';
+/**
+ * The record overlay PAYLOAD, with no shell of its own (objectui#9299).
+ *
+ * `ObjectGrid`, `ObjectTree`, `ObjectGantt`, `ObjectKanban` and
+ * `ObjectCalendar` mount this through `NavigationOverlay` so the authored
+ * `navigation.mode` is honoured on every view type. `RecordDetailDrawer` is
+ * the same payload in the drawer shell.
+ */
+export {
+  RecordDetailPanel,
+  buildRecordDetailFields,
+  DEFAULT_SYSTEM_FIELDS,
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+} from './RecordDetailPanel';
+export type { RecordDetailPanelProps } from './RecordDetailPanel';
 export {
   ConcurrentUpdateDialog,
   isConcurrentUpdateError,
@@ -297,7 +313,6 @@ ComponentRegistry.register('detail-view', DetailViewRenderer, {
     { name: 'sections', type: 'array' },
     { name: 'fields', type: 'array' },
     { name: 'tabs', type: 'array' },
-    { name: 'related', type: 'array' },
     { name: 'actions', type: 'array' },
     { name: 'showBack', type: 'boolean' },
     { name: 'backUrl', type: 'string' },
@@ -317,12 +332,24 @@ ComponentRegistry.register('detail-view', DetailViewRenderer, {
     sections: [],
     fields: [],
     tabs: [],
-    related: [],
   }
 });
 
-// Register DetailSection component
-ComponentRegistry.register('detail-section', DetailSection, {
+// Register DetailSection component.
+//
+// ⚠️ Against `DetailSectionNode`, NOT `DetailSection` — and that is what makes
+// the `inputs` below true (objectui#8626). `SchemaRenderer` spreads a node's
+// non-metadata keys as React props, so an authored node arrives as `title` /
+// `fields` / … while `DetailSection` reads a single `section` OBJECT prop. Bound
+// directly, `section` arrived `undefined` and the very first
+// `section.defaultCollapsed` read THREW — measured end to end, the author's page
+// showed `SchemaErrorBoundary`'s orange "failed to render" banner in place of the
+// block. `DetailSectionNode` folds the eight declared inputs into the `section`
+// object the component reads; see that file for why the fold sits at this seam
+// rather than in `DetailSection` (which every in-repo caller uses directly), and
+// why re-declaring these eight as a nested `section` input was the repair NOT
+// taken.
+ComponentRegistry.register('detail-section', DetailSectionNode, {
   namespace: 'plugin-detail',
   label: 'Detail Section',
   category: 'Detail Components',
@@ -625,7 +652,7 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   // un-gated (pinned as `MULTI_KIND_MEMBER_CONTRACTS` in the repo-wide parity
   // gate). objectui#3407 / objectstack#5176.
   inputs: [
-    { name: 'fields', type: 'array', required: true, description: 'Key fields to highlight (1-7), bare names or {name,label?,icon?,type?,readonly?}. Set readonly: true on an entry to render that chip read-only — it suppresses the inline-edit affordance and the HeaderHighlight editability gate enforces it. Use it for hook/automation-maintained columns that must not be hand-edited from the record header; marking the OBJECT field readonly instead would also strip the hook\'s own write-back.' },
+    { name: 'fields', type: 'array', required: true, description: 'Key fields to highlight (1-7), bare names or {name,label?,type?,readonly?}. Set readonly: true on an entry to render that chip read-only — it suppresses the inline-edit affordance and the HeaderHighlight editability gate enforces it. Use it for hook/automation-maintained columns that must not be hand-edited from the record header; marking the OBJECT field readonly instead would also strip the hook\'s own write-back.' },
     { name: 'layout', type: 'enum', enum: ['horizontal', 'vertical'], description: 'Layout orientation for highlight fields' },
   ],
 });
@@ -700,7 +727,26 @@ const CHATTER_INPUTS: ComponentInput[] = [
   { name: 'width', type: 'string', description: 'Panel width as a CSS value (side positions only)' },
   { name: 'collapsible', type: 'boolean' },
   { name: 'defaultCollapsed', type: 'boolean' },
-  { name: 'feed', type: 'object', description: 'Activity-feed config nested inside the panel — same shape as record:activity' },
+  // `feed` delegates its whole member list to `record:activity`, and that is
+  // the SPEC's statement rather than this file's: `@objectstack/spec` declares
+  // `RecordChatterProps.feed: RecordActivityProps.optional()`
+  // (`component.zod.ts:1366`), bound to both names (`:2948` / `:2962`). So the
+  // description names the declaration it delegates to instead of re-listing
+  // its members, which would then be free to drift from it. (Re-listing would
+  // also have to decide what to do with `aria`, which the spec shape carries
+  // and `record:activity`'s own registration does not — one more reason the
+  // delegation is the honest statement.)
+  //
+  // objectui#8934: the four FILTER members of that shape (`types` / `limit` /
+  // `showCompleted` / `unifiedTimeline`) used to be discarded on this path
+  // because `record-chatter.tsx` handed `discussion.items` to the panel raw.
+  // That was an IMPLEMENTATION GAP against a wider protocol, not a narrower
+  // contract, so it was closed in the renderer — see `renderers/record-chatter.tsx`,
+  // which now runs `applyFeedConfig` with `record-activity.tsx:219`'s call shape.
+  // ⛔ Do not narrow this declaration to match an implementation: the protocol
+  // is the contract, and a protocol that is wrong is changed in
+  // `@objectstack/spec` first.
+  { name: 'feed', type: 'object', description: 'Activity-feed configuration nested inside the panel — the same shape as record:activity. The spec declares this key as RecordActivityProps (RecordChatterProps.feed), so its members are the inputs record:activity declares; see that block for what each one does.' },
 ];
 
 ComponentRegistry.register('chatter', RecordChatterRenderer, {
@@ -795,16 +841,35 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
   icon: 'triangle-alert',
   inputs: [
     { name: 'severity', type: 'enum', enum: ['info', 'warning', 'error', 'success'] },
-    // Two arms each (objectui#3832). Unlike the `page:*` specimens these two
-    // have no props schema to measure against — `ComponentPropsMap` carries no
-    // `record:alert` entry at rc.6 — so the second arm is justified by the
-    // RENDERER: `renderers/record-alert.tsx` resolves both through
-    // `pickLocalized`, which is exactly what these descriptions teach. Declaring
-    // the map arm therefore adds no shape the block does not already honour; it
-    // stops the manifest gate warning `type-mismatch` on the recommended write.
+    // Two arms each (objectui#3832). When these were declared, `ComponentPropsMap`
+    // carried no `record:alert` entry to measure against, so the second arm was
+    // justified by the RENDERER: `renderers/record-alert.tsx` resolves both
+    // through `pickLocalized`, which is exactly what these descriptions teach.
+    // Declaring the map arm therefore adds no shape the block does not already
+    // honour; it stops the manifest gate warning `type-mismatch` on the
+    // recommended write. (The row DOES exist as of the installed 17.4.0 — read
+    // for `visible` below, objectui#9100 — so the "no entry" reading is stale;
+    // these two arms are unaffected either way.)
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
     { name: 'body', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
-    { name: 'visible', type: 'string', description: 'Expression gating the banner against the current record' },
+    // objectui#9100 — the spec accepts three arms here and the renderer now
+    // resolves all three, so a single `'string'` was the declaration-narrower-
+    // than-the-contract family of objectui#4581, one layer up. Measured on the
+    // INSTALLED `@objectstack/spec` 17.4.0 (`dist/ui/index.d.ts`, the
+    // `ComponentPropsMap['record:alert']` row): `visible` is
+    // `boolean | string | { dialect: 'cel'|'cron'|'template', source?, … }`,
+    // and `renderers/record-alert.tsx` hands whichever arrives to
+    // `toPredicateInput`, which takes a boolean as a short-circuit, a bare
+    // string as the legacy spelling, and a `cel` envelope as the canonical
+    // one. The envelope arm only became reachable through `SchemaRenderer`
+    // with this card's fix, which is the order `ComponentInput.type`
+    // prescribes: teach the render site, then declare the arm.
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Gates the banner against the current record: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope',
+    },
     { name: 'icon', type: 'string', description: 'Lucide icon name; defaults to the severity icon' },
     { name: 'action', type: 'object', description: '{ actionName, label?, variant? } — the action the banner offers' },
     { name: 'dismissible', type: 'boolean' },

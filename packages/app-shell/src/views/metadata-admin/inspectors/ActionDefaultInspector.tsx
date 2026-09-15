@@ -202,7 +202,10 @@ const TARGET_META_TYPE: Record<string, string> = { flow: 'flow', modal: 'page', 
 
 /** Target binding: a reference picker for flow/modal/form (names come from the
  *  matching metadata type), else a free-text input (url/api). An out-of-catalog
- *  value is preserved as a synthesized option so it is never silently dropped. */
+ *  value is preserved as a synthesized option so it is never silently dropped —
+ *  `InspectorSelectField` owns that rule now (objectui#8488); this call site
+ *  used to hand-roll it, in the same `VALUE (not found)` wording the primitive
+ *  defaults to, so deleting the copy changes no text. */
 function ActionTargetField({ type, value, onCommit, cfg, readOnly }: {
   type: string;
   value: string;
@@ -213,13 +216,10 @@ function ActionTargetField({ type, value, onCommit, cfg, readOnly }: {
   const metaType = TARGET_META_TYPE[type] ?? null;
   const { options } = useMetaOptions(metaType);
   const usePicker = !!metaType && options.length > 0;
-  const opts = usePicker && value && !options.some((o) => o.value === value)
-    ? [{ value, label: `${value} (not found)` }, ...options]
-    : options;
   return (
     <div className="space-y-1">
       {usePicker ? (
-        <InspectorSelectField label={`${cfg.label} *`} value={value || undefined} options={opts} onCommit={onCommit} disabled={readOnly} />
+        <InspectorSelectField label={`${cfg.label} *`} value={value || undefined} options={options} onCommit={onCommit} disabled={readOnly} />
       ) : (
         <InspectorTextField label={`${cfg.label} *`} value={value} onCommit={onCommit} placeholder={cfg.placeholder} disabled={readOnly} mono />
       )}
@@ -668,8 +668,18 @@ export function ActionDefaultInspector({
         {/* Both are `ExpressionInputSchema` in the spec (`disabled` as
             `boolean | ExpressionInput`), so a persisted action carries the
             ADR-0089 envelope — same read/write pair as the hook guard (#3218). */}
-        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} onBlockingIssuesChange={(n) => reportCel('visible', n)} />
-        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
+        {/* `scope="record"` is CONFORMANCE, not taste (objectui#8167). The
+            row-predicate canon in `@object-ui/core` (`rowPredicateCanon.ts`)
+            names an action renderer's `visible` / `disabled` as a row surface
+            in its own words, and `usePredicateRecordContext` binds `record`
+            and nothing else — so a bare `status == 'done'` can never match.
+            Without the scope these two editors linted it CLEAN: the default is
+            `celAuthoring`'s `hint.scope ?? 'flattened'`, which is right for RLS
+            and wrong here. It also ends a disagreement inside this very
+            control — the row builder was already emitting `record.<field>`
+            while its own raw editor accepted the retired bare spelling. */}
+        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} scope="record" onBlockingIssuesChange={(n) => reportCel('visible', n)} />
+        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} scope="record" onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
       </div>
 
       {/* 7 ─ AI exposure */}

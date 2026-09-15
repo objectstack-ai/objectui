@@ -32,9 +32,10 @@ source of truth for that mapping.
   `kind` — those keys are ignored by `resolveHref` and rejected/stripped at
   save. Emit the typed target field for the chosen type (`objectName`,
   `pageName`, `dashboardName`, `reportName`, `url`, `componentRef`).
-- Object-item target precedence: `recordId` → `filters` → `viewName`
-  (`filters` is a `Record<string, string>`; equality semantics, serialized as
-  `filter[<field>]=<value>` on the `/data` route).
+- Object-item targets are exclusive, not ordered (spec `objectNavTargetExclusivity`):
+  `filters` is mutually exclusive with `recordId`/`viewName`; `runAction` is refused with
+  `recordId` (it composes with `viewName` or `filters`); `recordId` + `viewName` is tolerated.
+  `filters` is a `Record<string, string>` (equality; serialized as `filter[<field>]=<value>` on `/data`).
 - Every nav item needs a snake_case `id` and a `label` (both required by
   `NavigationItemSchema`).
 - The `navigation` key is the spec'd root for app nav. `menu` is deprecated

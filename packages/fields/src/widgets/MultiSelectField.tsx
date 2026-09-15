@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Badge, EmptyValue, cn } from '@object-ui/components';
-import type { OptionLike } from '@object-ui/core';
+import { optionDisplayLabel, type OptionLike } from '@object-ui/core';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
@@ -111,7 +111,7 @@ export function MultiSelectField({
           // Label from the raw set so a stored value hidden by `visibleWhen`
           // still renders its label rather than a bare id.
           const opt = rawOptions.find((o) => o.value === v);
-          return <Badge key={v} variant="outline">{opt?.label || v}</Badge>;
+          return <Badge key={v} variant="outline">{opt ? optionDisplayLabel(opt) : v}</Badge>;
         })}
       </div>
     );
@@ -191,7 +191,7 @@ export function MultiSelectField({
                 : 'border-input bg-background text-foreground hover:bg-accent',
             )}
           >
-            {opt.label}
+            {optionDisplayLabel(opt)}
           </button>
         );
       })}

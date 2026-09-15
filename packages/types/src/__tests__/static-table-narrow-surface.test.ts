@@ -465,8 +465,14 @@ describe('the split itself — narrow = rich key set, live = the measured read s
     expect(Object.keys(shapeOf(TableColumnSchema)).sort()).toEqual([...RICH_COLUMN_KEYS].sort());
   });
 
-  it('the static table zod tombstones exactly `hoverable` and `striped`', () => {
-    expect(tombstonedKeys(TableZod).sort()).toEqual(['hoverable', 'striped']);
+  it('the static table zod tombstones exactly its two retired keys plus the two content channels', () => {
+    // `hoverable` / `striped` are objectui#5474's retirements — keys the static
+    // renderer never read. `body` / `children` joined them in objectui#9256 for
+    // the SAME reason measured a second time: the compiler-API read-site sweep
+    // over all 24 registering packages files zero `body` / `children` reads
+    // under `TableSchema`, so both content channels were silent empty boxes
+    // here too. Four tombstones, one mechanism.
+    expect(tombstonedKeys(TableZod).sort()).toEqual(['body', 'children', 'hoverable', 'striped']);
   });
 });
 

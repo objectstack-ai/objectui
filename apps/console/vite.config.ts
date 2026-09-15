@@ -17,7 +17,7 @@ import zlib from 'node:zlib';
 import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';
 import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';
 import { resolveClientDistInjection } from '../../scripts/vite-objectstack-client-dist.ts';
-import { resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
+import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
 import { compression } from 'vite-plugin-compression2';
@@ -582,6 +582,21 @@ const specDistInjection = resolveSpecDistInjection(process.env.OBJECTSTACK_SPEC_
 });
 if (specDistInjection) Object.assign(workspaceAliases, specDistInjection.aliases);
 
+// objectui#9408 — say which condition arm every entry came from, out loud.
+//
+// The resolver used to walk its OWN preference array instead of the exports
+// map's key order, so the five `browser`-first entries silently resolved to the
+// Node arm and the arm added to keep a browser build off `require('fs')` was
+// unreachable. Nothing in the build said so. The fix makes the pick correct; the
+// table makes it CHECKABLE — a wrong arm is now one grep in the build log
+// instead of an unattributable bundler error at some later pin bump.
+//
+// Printed only when the override is live, so a normal build stays quiet, and to
+// stderr so it cannot land in anything that parses stdout.
+if (specDistInjection) {
+  for (const line of formatConditionReport(specDistInjection)) console.error(line);
+}
+
 const specFsAllow: string[] = specDistInjection ? specDistInjection.fsAllow : [];
 
 // Pre-bundling an ALIASED, out-of-workspace dep is opt-in through this list and
@@ -732,6 +747,56 @@ export default defineConfig({
             { name: 'vendor-radix', test: /[\\/]node_modules[\\/]@radix-ui[\\/]/, priority: 95 },
             { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95 },
             { name: 'vendor-icons-core', test: /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/](lucide-react|esm[\\/](Icon|createLucideIcon|defaultAttributes|shared))/, priority: 90 },
+            //
+            // ## ONE CHUNK PER ICON — and ⛔ why this is not the regroup objectui#9251 forbids
+            //
+            // ⚠️ Read this before reading the group below as the shape that
+            // card refused. The refused shape is *an aggregate*: one
+            // `vendor-icons-*` chunk holding lucide's ~1,781 per-icon modules,
+            // which would move them off the `ui-components` line and change the
+            // page load by nothing, because one eagerly-imported member makes
+            // the whole chunk eager — the same mechanism spelled out for the
+            // i18n catalogues below. In that shape the budget row goes green
+            // and the browser downloads exactly what it downloaded before.
+            //
+            // This group cannot do that. Its `name` is a FUNCTION of the module
+            // id, so it emits one single-module chunk per icon: an eager icon is
+            // eager alone and a lazy one stays lazy. It aggregates nothing, and
+            // it is the per-catalogue remedy of objectui#7479 applied to the
+            // same defect one library over.
+            //
+            // ## What it is actually for, measured
+            //
+            // Once objectui#9251 took the `icons` record off the eager path,
+            // the ~125 icons that first-party code still imports BY NAME became
+            // shared modules — reachable statically from a workspace chunk and
+            // dynamically from lucide's import map. With no group claiming them,
+            // rolldown parked them inside whichever chunk it liked, and three of
+            // those chunks were LAZY plugin chunks:
+            //
+            //   | plugin-dashboard | 21 icons parked, incl. `arrow-up-right` |
+            //   | plugin-gantt     | 62 icons parked, incl. `file-down`      |
+            //   | plugin-report    |  1 icon  parked, `table-2`              |
+            //
+            // The eager `index-*.js` chunk then held a STATIC
+            // `import{i as ri}from"./plugin-dashboard-*.js"` for one of those
+            // icons — and a static import of a chunk is the whole chunk. All
+            // three plugins were dragged into the eager closure: 326,305 raw /
+            // 96,133 gzipped bytes of lazily-loaded plugin code on every page
+            // load, for three icons.
+            //
+            // ⛔ That is the opposite of a regroup that moves no bytes: those
+            // bytes are REAL and they are removed by this line. The reading is
+            // on objectui#9251's pull request, taken on two console builds in
+            // one container.
+            {
+              name: (id: string) => {
+                const icon = /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/]([a-z0-9-]+)\.mjs$/.exec(id);
+                return icon ? `vendor-icon-${icon[1]}` : null;
+              },
+              test: /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/]/,
+              priority: 90,
+            },
             { name: 'vendor-ui-utils', test: /[\\/]node_modules[\\/](class-variance-authority|clsx|tailwind-merge|sonner)[\\/]/, priority: 90 },
             { name: 'vendor-zod', test: /[\\/]node_modules[\\/]zod[\\/]/, priority: 90 },
             { name: 'vendor-charts', test: /[\\/]node_modules[\\/](recharts|d3-|victory-)/, priority: 90 },
@@ -786,7 +851,43 @@ export default defineConfig({
             // magnitude smaller. It is rolldown's behaviour, not a choice
             // available here: `framework` cannot be lifted above these two
             // without re-absorbing the catalogue, which is the whole defect.
-            { name: 'i18n-locales', test: /[\\/]packages[\\/]i18n[\\/]/, priority: 84 },
+            //
+            // ## Why there are ELEVEN i18n groups and not one (objectui#7479)
+            //
+            // objectui#7399 gave the catalogues one `i18n-locales` chunk so the
+            // `framework` ceiling stopped budgeting them. That chunk held all
+            // ten, and all ten were EAGER because `packages/i18n`'s entry
+            // re-exported every pack statically. objectui#7479 made nine of
+            // them `import()`ed on demand — and a single group would have
+            // silently undone that: `advancedChunks` groups by MODULE, not by
+            // reachability, so ten catalogues sharing one group are one chunk,
+            // and one eager member makes that whole chunk eager. The laziness
+            // would be real in the source and absent in the bundle, which is
+            // the failure mode this whole card exists to avoid.
+            //
+            // So: one group per catalogue, ten single-module chunks, plus a
+            // group for the i18n RUNTIME (provider, hooks, formatters) which
+            // stays eager and is a hundredth of the size. The names are the
+            // gate's handle — `scripts/check-eager-locale-catalogues.mjs` reads
+            // `i18n-locale-<code>` out of the BUILT `eager-closure.json` and
+            // fails if any code but the active one is eager.
+            //
+            // ⛔ Spelled out, one literal per line, for the same reason the
+            // marketplace co-tenants below are: each entry is a measured fact,
+            // and a computed table would also defeat the parse in
+            // `scripts/__tests__/check-eager-closure-budget.test.ts` that pins
+            // this attribution.
+            { name: 'i18n-locale-en', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]en\.ts$/, priority: 84 },
+            { name: 'i18n-locale-zh', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]zh\.ts$/, priority: 84 },
+            { name: 'i18n-locale-ja', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ja\.ts$/, priority: 84 },
+            { name: 'i18n-locale-ko', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ko\.ts$/, priority: 84 },
+            { name: 'i18n-locale-de', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]de\.ts$/, priority: 84 },
+            { name: 'i18n-locale-fr', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]fr\.ts$/, priority: 84 },
+            { name: 'i18n-locale-es', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]es\.ts$/, priority: 84 },
+            { name: 'i18n-locale-pt', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]pt\.ts$/, priority: 84 },
+            { name: 'i18n-locale-ru', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ru\.ts$/, priority: 84 },
+            { name: 'i18n-locale-ar', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ar\.ts$/, priority: 84 },
+            { name: 'i18n-runtime', test: /[\\/]packages[\\/]i18n[\\/]/, priority: 83 },
             { name: 'data-adapter', test: /[\\/]packages[\\/]data-objectstack[\\/]/, priority: 84 },
             { name: 'framework', test: /[\\/]packages[\\/](core|react|types)[\\/]/, priority: 80 },
             { name: 'ui-components', test: /[\\/]packages[\\/](components|fields)[\\/]/, priority: 80 },

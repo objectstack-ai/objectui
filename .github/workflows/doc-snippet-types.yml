@@ -39,6 +39,32 @@ name: Doc Snippet Types
 #
 # ⛔ Do not replace the filtered build with `pnpm build`. The filter is the reason
 # this job is allowed to run on every pull request at all.
+#
+# ── Why the `@example` gate rides in this job rather than a workflow of its own ─
+#
+# `scripts/check-doc-example-types.mjs` (`pnpm check:doc-examples`) is a SIBLING
+# of the gate above, not a fork: it imports that script's compiler host, its
+# built-`.d.ts` resolution and every one of its controls, and it reuses that
+# script's `analyze()` wholesale. So its precondition is the SAME filtered build
+# this job already pays for, derived by the SAME `--build-filter` call — a
+# workflow of its own would install the workspace a second time and rebuild the
+# same closure a second time to judge a corpus that needs neither.
+#
+# It also could not derive that filter without naming
+# `scripts/check-doc-snippet-types.mjs` in a second workflow file, which
+# `scripts/__tests__/check-doc-snippet-types.test.ts` fails on by design
+# ("lives in exactly one workflow — one gate, one home").
+#
+# It runs AFTER the blocking snippet gate, deliberately. Both are blocking, so
+# whichever runs second is skipped when the first is red; putting the newly
+# wired gate first would let it mask an established one, which is the worse of
+# the two directions.
+#
+# It was declared in `package.json` and run by no workflow at all until
+# objectui#8757 — measured there: a defect it catches reached `main` and was
+# repaired 71 minutes later with nothing observing either direction, and the
+# card that reported the red was written from a stale merge base because no run
+# existed to read.
 
 on:
   pull_request:
@@ -152,3 +178,10 @@ jobs:
 
       - name: Compile documentation snippets against the built types
         run: node scripts/check-doc-snippet-types.mjs
+
+      # objectui#8757. Same corpus discipline as the gate above: a block that
+      # cannot compile is either fixed or DECLARED in the script's
+      # `UNGATED_EXAMPLES` ledger with a written reason — ⛔ never made green by
+      # narrowing what the gate scans.
+      - name: Compile JSDoc `@example` blocks against the built types
+        run: node scripts/check-doc-example-types.mjs

@@ -741,9 +741,10 @@ describe('the guard file itself', () => {
  * now judged structurally and none of them has an entry.
  *
  * The near neighbours are the point: `rendersJsx` must not become "functions are
- * exempt" (that would silence `isContextToken` and `normalizeFilterOperator`,
- * both real mirrors), and `isPureAlias` must not become "type aliases are
- * exempt" (that would silence every hand-written union under a spec name).
+ * exempt" (that would have silenced `isContextToken` and
+ * `normalizeFilterOperator`, the two module-local functions the census above
+ * classified as real mirrors), and `isPureAlias` must not become "type aliases
+ * are exempt" (that would silence every hand-written union under a spec name).
  */
 describe("rule 1 sees module-local declarations, and the narrowings say which it may not", () => {
   const RULE1_SPEC_NAMES = new Map<string, Set<string>>([
@@ -790,11 +791,24 @@ const NavigationConfig = () => <span />;
 
   it('…but a module-local FUNCTION that renders nothing is still a fork', () => {
     // The near neighbour that keeps `rendersJsx` from decaying into
-    // `isRendererLike`. `isContextToken` (@object-ui/core) and
-    // `normalizeFilterOperator` (@object-ui/data-objectstack) are the live
-    // instances: non-exported functions under spec export names, both real
-    // mirrors, both DEBT entries today. A blanket "functions are renderers"
-    // would have made them invisible instead — silently, and for good.
+    // `isRendererLike`. On the objectui#6291 commit — the widening this block
+    // proves — the module-local functions the census classified as real mirrors
+    // were `isContextToken` (@object-ui/core) and `normalizeFilterOperator`
+    // (@object-ui/data-objectstack): non-exported functions under spec export
+    // names, and both went into the DEBT ledger. A blanket "functions are
+    // renderers" would have made them invisible instead — silently, and for
+    // good.
+    //
+    // ⚠️ Read that as the measurement it was, ⛔ not as a census of today's tree.
+    // objectui#7265 burned both names down — `isContextToken` BOUND to the
+    // spec's own export, so no local declaration of it survives anywhere under
+    // `packages/**/src/**`, and `normalizeFilterOperator` RENAMED to
+    // `toAstFilterOperator` because the two folds have different codomains. The
+    // fixture below is therefore the shape the narrowing was designed against,
+    // not a name you will find in the ledger; what has to keep holding is the
+    // narrowing, which is why the fixture is written out here instead of read
+    // off the tree. Whether any name is in the ledger at all is a question
+    // `--ledger` answers and this comment deliberately does not.
     withFixture(
       {
         'predicate.ts': `

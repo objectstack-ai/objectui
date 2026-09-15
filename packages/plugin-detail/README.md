@@ -7,7 +7,9 @@ DetailView plugin for ObjectUI - A comprehensive detail page component with fiel
 - **Field Grouping/Sections**: Organize fields into logical sections with titles
 - **Collapsible Sections**: Make sections collapsible to save space
 - **Tab Navigation**: Organize content into tabs for better UX
-- **Related Lists**: Display related records (e.g., contacts for an account)
+- **Related Lists**: Display related records (e.g., contacts for an account) —
+  authored as a `record:related_list` block, ⛔ not as a `detail-view` `related`
+  array, which is retired (objectui#7997; see **RelatedList** below)
 - **Action Buttons**: Edit, Delete, and custom action buttons
 - **Readonly/Edit Mode**: Toggle between view and edit modes
 - **Back Navigation**: Built-in back button with customizable behavior
@@ -128,7 +130,7 @@ const accountDetail = <DetailView
 />;
 ```
 
-### With Tabs and Related Lists
+### With Tabs
 
 ```tsx
 import { DetailView } from '@object-ui/plugin-detail';
@@ -170,30 +172,6 @@ const accountDetail = <DetailView
         },
       },
     ],
-    related: [
-      {
-        title: 'Contacts',
-        type: 'table',
-        api: '/api/accounts/12345/contacts',
-        columns: [
-          { accessorKey: 'name', header: 'Name' },
-          { accessorKey: 'email', header: 'Email' },
-          { accessorKey: 'phone', header: 'Phone' },
-          { accessorKey: 'title', header: 'Title' },
-        ],
-      },
-      {
-        title: 'Opportunities',
-        type: 'table',
-        api: '/api/accounts/12345/opportunities',
-        columns: [
-          { accessorKey: 'name', header: 'Name' },
-          { accessorKey: 'amount', header: 'Amount' },
-          { accessorKey: 'stage', header: 'Stage' },
-          { accessorKey: 'close_date', header: 'Close Date' },
-        ],
-      },
-    ],
     showEdit: true,
     showDelete: true,
   }}
@@ -225,11 +203,10 @@ const schema: DetailViewSchema = {
   summaryFields: ['industry', 'website'],
   layout: 'vertical',
   columns: 2,
-  // See the examples above for the shapes these four carry.
+  // See the examples above for the shapes these three carry.
   sections: [],
   fields: [],
   tabs: [],
-  related: [],
   actions: [],
   showBack: true,
   backUrl: '/accounts',
@@ -249,6 +226,17 @@ A summary chip is a single-line pill, and it formats `currency`, `date`,
 `datetime`, `percent` and the option families itself. Any other value it can
 render as text it renders as text.
 
+A **`percent`** chip is formatted by `@object-ui/fields`' `formatPercent` — the
+same call the list cell makes — so one stored value reads the same beside the H1
+as it does in a list: scaled by `percentDisplayValue`, rounded to the field's
+declared `precision` (`0` when it declares none), and rendered through the
+display locale's own percent affix rather than an appended sign. A stored
+`1234.5` therefore reads `1,235%` in an `en` session and carries the locale's
+own affix and marks elsewhere. Which stored values that convention moves, and
+what each reads in both places, is re-derived by
+`src/__tests__/summaryChip.percentConvention-9167.test.tsx` rather than listed
+here. The chip's bar keeps the unrounded magnitude, as the list cell's bar does.
+
 An **object** value — an expanded lookup payload, an address, a location, a
 file — is drawn by that field's own cell renderer, so the chip shows what the
 same value shows everywhere else on the page: the referenced record's name, the
@@ -266,6 +254,91 @@ does not. The set and the measurement behind it are
 
 ## Components
 
+### RecordDetailPanel
+
+The record overlay's **payload**, with no shell of its own: one
+`InlineEditProvider` session wrapping `DetailView` plus the record-level
+`InlineEditSaveBar`, and the `objectSchema` → typed-field derivation that feeds
+them.
+
+All five list-type renderers (`ObjectGrid`, `ObjectTree`, `ObjectGantt`,
+`ObjectKanban`, `ObjectCalendar`) mount this component through
+`NavigationOverlay` from `@object-ui/components`, so an authored
+`navigation.mode` of `drawer` / `modal` / `split` / `popover` means the same
+thing on every view type (objectui#9299). ⛔ Do not re-wrap it in a shell of
+your own — that is exactly the fork this component exists to remove.
+
+```tsx
+import type { ReactNode } from 'react';
+import { NavigationOverlay, useOverlayAnchor } from '@object-ui/components';
+import { RecordDetailPanel } from '@object-ui/plugin-detail';
+import { useNavigationOverlay } from '@object-ui/react';
+import type { DataSource } from '@object-ui/types';
+
+declare const dataSource: DataSource;
+declare const objectSchema: { fields?: Record<string, unknown> };
+declare const myView: ReactNode;
+declare function saveField(field: string, value: unknown): Promise<void>;
+declare function deleteRecord(): Promise<void>;
+
+function ContactsOverlay() {
+  const navigation = useNavigationOverlay({
+    navigation: { mode: 'drawer' },
+    objectName: 'contacts',
+  });
+  // `popover` anchors to the element the click landed on; spread
+  // `anchorCaptureProps` on your own container, or call `captureAnchor(event)`
+  // at a click site that already has one.
+  const { anchorRef } = useOverlayAnchor();
+
+  return (
+    <NavigationOverlay
+      {...navigation}
+      title="Record Detail"
+      mainContent={myView}
+      popoverAnchorRef={anchorRef}
+    >
+      {(record) => (
+        <RecordDetailPanel
+          record={record}
+          objectName="contacts"
+          recordId={String(record.id)}
+          dataSource={dataSource}
+          objectSchema={objectSchema}
+          onFieldSave={saveField}
+          onDelete={deleteRecord}
+          onClose={navigation.close}
+        />
+      )}
+    </NavigationOverlay>
+  );
+}
+```
+
+Omit `onFieldSave` for a strictly read-only panel; omit `onDelete` for no
+delete action.
+
+**Capability is handler presence, not a boolean.** A caller that omits
+`onFieldSave` gets a read-only panel and one that omits `onDelete` gets no
+delete action — which is what lets a row locked through a renderer's `lockField`
+open read-only without the panel knowing what a lock is.
+
+`RECORD_OVERLAY_DEFAULT_WIDTH` is exported alongside it and is the single code
+home of the default overlay width repo-wide. ⛔ Do not re-spell the literal at a
+call site.
+
+### RecordDetailDrawer
+
+The same payload in the drawer shell — a published convenience wrapper that
+delegates to `NavigationOverlay` in `mode="drawer"`. It no longer owns a
+`Sheet`, a drag-resize implementation, or a chrome header of its own
+(objectui#9299).
+
+A width a user had already dragged is persisted by the shell under
+`ov:drawer-width:<objectName>`; a width left by the retired implementation under
+`objectui.drawerWidth.<objectName>` is read once, moved forward and removed, so
+existing widths carry over rather than reset.
+
 ### DetailSection
 
 Renders a group of fields with optional collapsing.
@@ -277,6 +350,52 @@ Tab navigation for organizing content into different views.
 ### RelatedList
 
 Displays related records in list, grid, or table format.
+
+> **Retired: `DetailViewSchema.related`** (objectui#7997, ADR-0049
+> enforce-or-remove). Author a `record:related_list` block instead.
+>
+> Until objectui#7997 a `detail-view` node could carry its own `related` array,
+> and this README taught it. That array is retired under ADR-0049
+> enforce-or-remove (maintainer ruling 2026-09-10). It was a second entry to a
+> capability `@objectstack/spec` already governs — the protocol declares no
+> `DetailView` schema at all — so it mirrored nothing and drifted from the
+> renderer it fed: it typed `columns` as `TableColumn` objects while the
+> renderer also accepted bare field names. Authoring it is now **refused by
+> name** on both the TypeScript and the JSON face, ⛔ not silently ignored.
+>
+> Nothing about the rendered result changed: both entries always went through
+> the `RelatedList` component documented here. Only the second door closed.
+>
+> ```tsx
+> import { SchemaRenderer } from '@object-ui/react';
+>
+> const contacts = (
+>   <SchemaRenderer
+>     schema={{
+>       type: 'record:related_list',
+>       objectName: 'contact',
+>       relationshipField: 'account_id',
+>       title: 'Contacts',
+>       columns: ['name', 'email', 'phone'],
+>     }}
+>   />
+> );
+> ```
+>
+> ⚠️ `columns` is an array of **field-name strings**, which is what the protocol
+> declares (`RecordRelatedListProps.columns`). The header comes from the related
+> object's field `label` and the cell from the field's type, so a label rename
+> reaches the list for free — the hand-spelled `{ accessorKey, header }` form the
+> retired array taught froze both. `relationshipField` names the field on the
+> related object pointing back at this record, and replaces the retired form's
+> `api` endpoint.
+>
+> ⚠️ The block reads the parent record from the record page's `RecordContext`,
+> so author it on a record page. Placed anywhere it cannot resolve a parent id
+> it scopes to nothing and renders an empty list — which is also what the
+> retired `related` form did whenever it declared `api` without a
+> `referenceField`.
+
 
 Related lists are **paged by default**: the `record:related_list` renderer
 applies the spec default `limit` of **5** when the node doesn't declare one
@@ -306,9 +425,16 @@ filter can express).
 
 The node's `filter` (spec `RecordRelatedListProps.filter`, "additional filter
 criteria") narrows the list beyond the parent relationship: it is
-**AND-combined** with `{ [relationshipField]: parentId }`, never substituted for
+**AND-combined** with the parent-relationship condition, never substituted for
 it, so a related list stays scoped to the record it appears on and an additional
-criterion can only ever narrow that set. Authors write it in the spec's own
+criterion can only ever narrow that set. That condition is **not one fixed
+spelling** — it is compiled to match the relationship field's ARITY on the
+child object (`objectui#7299`). A single-valued relationship gets the equality
+form `{ [relationshipField]: parentId }`; a multi-valued one gets the membership
+form `{ [relationshipField]: { $contains: parentId } }`, because the stored
+value is an array of ids and equality would ask whether the whole array *is* one
+id. The arity verdict is `@objectstack/spec/data`'s own `isMultiValueField`,
+never a rule this package keeps locally. Authors write `filter` in the spec's own
 vocabulary (`[{ field, operator, value }]`); a `dataSource` binding's composed
 filter (component AND saved view AND binding) lands on the same key. Both are
 lowered to ObjectQL through the repo's single filter sink, so no second dialect

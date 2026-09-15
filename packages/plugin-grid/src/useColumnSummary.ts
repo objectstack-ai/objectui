@@ -9,7 +9,8 @@
 import { useMemo } from 'react';
 import type { ListColumn } from '@object-ui/types';
 import type { ColumnSummary } from '@objectstack/spec/ui';
-import { useLocalization, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
+import { useLocalization, useDisplayLocale, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
+import { formatPercent } from '@object-ui/fields';
 
 /**
  * Aggregation functions for the column footer — the spec's `ColumnSummary`
@@ -278,16 +279,44 @@ function computeAggregation(type: string, rows: SummaryRow[], field: string): nu
  * in the packs — "separator included, so a translator owns the whole phrase
  * rather than inheriting an English-shaped glue".
  *
- * The NUMBER is untouched: every `toLocaleString` / `Intl.NumberFormat` call
- * below is exactly as it was, and stays #4589's surface rather than this
- * card's.
+ * ## Which LOCALE the number is formatted in (objectui#9294)
+ *
+ * Separate from the join above and separate from #4589's surface below: every
+ * `Intl` call here takes `displayLocale`. The WIDTHS and the choice of
+ * formatter are untouched and stay #4589's — the only thing this file claims
+ * is the tag.
+ *
+ * These calls used to pass no locale at all, which is not "no opinion" — an
+ * omitted or `undefined` locale is the MACHINE's, which is neither of this
+ * renderer's two channels, and is named by `useDisplayLocale`'s own doc
+ * comment as the one thing a caller must not do. It is also worse here than at
+ * the percent arm its parent card repaired: a percent sign changing sides is
+ * visible, a decimal separator changing is not. `1,234.5` is a perfectly
+ * ordinary German number — for a value three orders of magnitude away — and
+ * the arms below include a currency total.
  */
 function formatSummaryLabel(
   type: string,
   value: number | null,
   t: SummaryTranslate,
-  column?: { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: { defaultCurrency?: string }; precision?: number | null; scale?: number | null },
-  tenantDefault?: string,
+  column: { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: { defaultCurrency?: string }; precision?: number | null; scale?: number | null } | undefined,
+  tenantDefault: string | undefined,
+  // The BCP-47 tag from `useDisplayLocale()` — tenant locale, then UI
+  // language, then a concrete `'en'`, never `undefined`.
+  //
+  // ⭐ Required and non-optional `string` on purpose (objectui#9294). The two
+  // parameters in front of it are spelled `T | undefined` rather than `T?`
+  // only so this one is allowed to be mandatory. Under the `displayLocale?:`
+  // it replaces, dropping the argument type-checks and the result renders as a
+  // plausible number rather than as an error — the same failure shape as the
+  // omitted locale this card repaired, one layer up, and the reason that
+  // defect was invisible in review for as long as it was. The function is
+  // module-private with a single call site, so nothing outside pays for this.
+  //
+  // ⛔ And no `?? 'en'` backstop here: that would be a renderer-side default
+  // papering over an absent channel (Commandment #0.1). The concrete fallback
+  // belongs to `useDisplayLocale`, which already owns it.
+  displayLocale: string,
 ): string {
   if (value === null) return '';
   const labelKey = TYPE_LABEL_KEYS[type as ColumnSummaryType];
@@ -298,10 +327,10 @@ function formatSummaryLabel(
     t('grid.summary.pattern', { label, value: formatted });
 
   if (PERCENT_TYPES.has(type)) {
-    return join(`${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`);
+    return join(`${value.toLocaleString(displayLocale, { maximumFractionDigits: 1 })}%`);
   }
   if (NON_NUMERIC_TYPES.has(type)) {
-    return join(value.toLocaleString());
+    return join(value.toLocaleString(displayLocale));
   }
 
   const colType = column?.type;
@@ -314,27 +343,59 @@ function formatSummaryLabel(
     const decimals = column?.scale ?? 0;
     try {
       formatted = currency
-        ? new Intl.NumberFormat(undefined, {
+        ? new Intl.NumberFormat(displayLocale, {
             style: 'currency',
             currency,
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals,
           }).format(value)
-        : new Intl.NumberFormat(undefined, {
+        : new Intl.NumberFormat(displayLocale, {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals,
           }).format(value);
     } catch {
-      formatted = value.toLocaleString();
+      // The throw this catches is a bad `currency` code, not a bad locale, so
+      // the fallback keeps the tag: degrading to the machine's locale here
+      // would reintroduce the defect on precisely the rows that already went
+      // wrong once.
+      formatted = value.toLocaleString(displayLocale);
     }
   } else if (colType === 'percent') {
+    // objectui#9269 — the percent decision is NOT made here any more.
+    //
+    // This arm held a hand-inlined copy of `percentDisplayValue`'s body plus a
+    // literal ASCII sign:
+    //
+    //   const pct = (value > -1 && value < 1) ? value * 100 : value;
+    //   formatted = `${pct.toFixed(decimals)}%`;
+    //
+    // Line 1 is `percentDisplayValue` in `@object-ui/core` character for
+    // character, so the SCALING agreed by DUPLICATION rather than by
+    // reference. The CONVENTION was not taken at all, and that is the half a
+    // reader saw: measured against the list cell in the same run, a stored
+    // `0.25` read `25%` in this footer and `25 %` in the cell directly above
+    // it in a German session, and `%25` in a Turkish one — where the sign sits
+    // on the OTHER SIDE of the number. A four-digit value read `1235%` against
+    // `1,235%` even in `en`.
+    //
+    // `formatPercent` is the list-cell path (`PercentCellRenderer`), and it
+    // carries BOTH halves `percentDisplayValue`'s doc comment demands of a
+    // third surface: the SCALING, so the fraction/points boundary has one
+    // home, and the CONVENTION, via `style: 'percentPoints'`, so the affix is
+    // the LOCALE's rather than a literal. Taking only the first is precisely
+    // the drift objectui#4576 already paid for once.
+    //
+    // ⚠️ `decimals` still reads `precision`, NOT `scale`. Whether that is the
+    // right member here is a separate and deliberately unmeasured question —
+    // the currency arm above reads `scale` for the reason #2131 records — and
+    // this card's own table had precision agreeing on both sides (`12.3` reads
+    // `12%` either way), so it is left exactly where it was.
     const decimals = column?.precision ?? 0;
-    const pct = (value > -1 && value < 1) ? value * 100 : value;
-    formatted = `${pct.toFixed(decimals)}%`;
+    formatted = formatPercent(value, decimals, displayLocale);
   } else if (type === 'avg') {
-    formatted = value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    formatted = value.toLocaleString(displayLocale, { maximumFractionDigits: 2 });
   } else {
-    formatted = value.toLocaleString();
+    formatted = value.toLocaleString(displayLocale);
   }
   return join(formatted);
 }
@@ -357,6 +418,12 @@ export function useColumnSummary(
   // Tenant default currency (ADR-0053) backstops a currency column that
   // declares no explicit code, so the footer agrees with the cells above it.
   const { currency: tenantCurrency } = useLocalization();
+  // The tag every field / cell / metric renderer formats `Intl` values with
+  // (tenant locale, then UI language, then `'en'`) — never `undefined`, which
+  // would be the MACHINE's locale. The percent footer took this path first
+  // (objectui#9269); every other arm joined it at objectui#9294, so the whole
+  // footer and the cells above it now read under one convention.
+  const displayLocale = useDisplayLocale();
   // Aggregate-prefix bundle lookups (objectui#4024). Provider-safe: with no
   // I18nProvider this resolves the English defaults table, never a raw key.
   const { t } = useSummaryTranslation();
@@ -396,10 +463,10 @@ export function useColumnSummary(
       summaries.set(col.field, {
         field: col.field,
         value: result,
-        label: formatSummaryLabel(config.type, result, t, columnHints, tenantCurrency),
+        label: formatSummaryLabel(config.type, result, t, columnHints, tenantCurrency, displayLocale),
       });
     }
 
     return { summaries, hasSummary: summaries.size > 0 };
-  }, [columns, data, fieldMetadata, tenantCurrency, t]);
+  }, [columns, data, fieldMetadata, tenantCurrency, displayLocale, t]);
 }

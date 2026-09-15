@@ -708,10 +708,23 @@ describe('queryDataset passes the server drillRanges sidecar through (#1752)', (
     // Both halves in one filter. Without the range the drill was a SUPERSET —
     // clicking June's bar opened every month for that region.
     expect(buildDatasetDrillFilter(result.drillRawRows?.[0], drillDims, result.dimensionFields ?? {}, { stage: 'won' }, result.drillRanges?.[0]))
+      // objectui#9137 re-spelled the COMPOSITION: the runtime filter is now
+      // conjoined through `composeDrillFilter` rather than spread into the
+      // drill filter, and the half-open range arrives as two `$and` children
+      // on one field (`convertFiltersToAST` emits a node per bound). Both
+      // halves are still here, which is this test's claim — without the range
+      // the drill was a superset.
       .toEqual({
-        stage: 'won',
-        'account.region': 'NA',
-        close_date: { $gte: '2026-06-01', $lt: '2026-07-01' },
+        $and: [
+          { stage: 'won' },
+          {
+            $and: [
+              { 'account.region': 'NA' },
+              { close_date: { $gte: '2026-06-01' } },
+              { close_date: { $lt: '2026-07-01' } },
+            ],
+          },
+        ],
       });
   });
 

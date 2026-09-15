@@ -17,16 +17,14 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
-  GroupingConfigSchema as SpecGroupingConfigSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
-import { KanbanConditionalFormattingRuleSchema } from './objectql.zod.js';
 import { DASHBOARD_COLOR_VARIANTS, DASHBOARD_WIDGET_TYPES } from '../designer.js';
 import {
   DASHBOARD_COMPONENT_WIDGET_TYPES,
@@ -87,6 +85,13 @@ const retiredDeclarativeKanbanKey = (key: string, where: string, remedy: string)
       'now validates the shape `@object-ui/plugin-kanban` renders: `objectName` + `groupBy` for ' +
       `an object-bound board, or \`columns[].cards[]\` for a static one. ${remedy}`,
   );
+
+// ⛔ `retiredZeroReadKanbanKey` RETIRED with its only three call sites
+// (objectui#8802): `allowCollapse` / `cardTemplates` / `columnWidths` were
+// tombstones on the `kanban` arm, and the arm itself is gone. The batch #70
+// refusals it carried were arm-scoped by construction — a `type: "kanban"`
+// document is now refused whole, and a `type: "object-kanban"` one is judged by
+// `objectql.zod.ts#ObjectKanbanSchema` exactly as it always was.
 
 /**
  * Kanban Card Schema — mirrors {@link KanbanCard} in `../complex.ts` key for key.
@@ -154,47 +159,35 @@ export const ColumnWidthConfigSchema = z.object({
 });
 
 /**
- * Kanban Schema — the `'kanban'` arm of {@link ComplexSchema}, mirroring
- * {@link KanbanSchema} in `../complex.ts` key for key: the shape
- * `@object-ui/plugin-kanban`'s registered renderers read (objectui#7664).
+ * ⛔ The `'kanban'` arm is RETIRED (objectui#8802, maintainer ruling 2026-09-09)
+ * — this is its NAMED REFUSAL, the half a deletion would not have given.
  *
- * `onCardMove` / `onCardClick` / `onQuickAdd` are RUNTIME SLOTS (objectui#6124):
- * `KanbanRenderer` forwards all three off `schema.*` in one block, so the
- * TypeScript twin keeps them callable and this mirror refuses them by name.
- * ⛔ None of the three may be dropped instead of refused — `BaseSchema` is
- * `.passthrough()`, so a dropped key is KEPT rather than refused (the first cut
- * of objectui#7664 dropped `onCardClick` and turned a refused document into an
- * accepted one). `onColumnAdd` / `onCardAdd` are the two
- * retired handler keys carried over from the declarative face so the successor
- * arm keeps refusing the spelling; `draggable` is that face's own retired key.
- * `conditionalFormatting` and `grouping` are the same schemas the `object-kanban`
- * and `object-gallery` arms use (`objectql.zod.ts`, `@objectstack/spec`).
+ * {@link KanbanSchema}'s member-by-member mirror of `../complex.ts` went with
+ * the TypeScript interface. What stays is an arm claiming the literal, so
+ * `AnyComponentSchema`'s discriminator still routes a `type: "kanban"` document
+ * HERE and the author reads why the spelling went and what to write instead —
+ * rather than the union's own remedy-free `Invalid input`.
+ *
+ * ⚠️ Read `retiredNodeType`'s own docblock before changing this: the reason an
+ * arm is needed at all is NOT `BaseSchema`'s `.passthrough()` (that rule governs
+ * dropped MEMBER keys), it is that the union's generic discriminator message
+ * names no remedy.
+ *
+ * The keys this arm alone declared — `columns`, `cardTitle`, `swimlaneField`,
+ * `grouping`, `conditionalFormatting`, `navigation` — were never on the
+ * `object-kanban` face (`objectql.zod.ts#ObjectKanbanSchema`) and are not being
+ * removed from it: an `object-kanban` document is judged exactly as it was.
+ *
+ * Pinned in `../__tests__/bare-kanban-node-key-retired-8802.test.ts`.
  */
-export const KanbanSchema = BaseSchema.extend({
-  type: z.literal('kanban'),
-  objectName: z.string().optional().describe('Object name to fetch data from'),
-  groupBy: z.string().optional().describe('Field to group records by (maps to column IDs)'),
-  swimlaneField: z.string().optional().describe('Field for swimlane rows (2D grouping)'),
-  cardTitle: z.string().optional().describe('Field to use as the card title'),
-  cardFields: z.array(z.string()).optional().describe('Fields to display on the card'),
-  data: z.array(z.any()).optional().describe('Static data or bound data (raw rows)'),
-  limit: z.number().optional().describe('Row cap for the fetch (defaults to 100)'),
-  columns: z.array(KanbanColumnSchema).optional().describe('Columns to display, each carrying its cards'),
-  onCardMove: handlerKeyRefusal('onCardMove', 'runtime-slot', 'Card move handler'),
-  onCardClick: handlerKeyRefusal('onCardClick', 'runtime-slot', 'Card click handler'),
-  className: z.string().optional().describe('CSS class name'),
-  quickAdd: z.boolean().optional().describe('Enable the Quick Add button at the bottom of each column'),
-  onQuickAdd: handlerKeyRefusal('onQuickAdd', 'runtime-slot', 'Quick Add handler'),
-  coverImageField: z.string().optional().describe('Field name to use as cover image on cards'),
-  allowCollapse: z.boolean().optional().describe('Allow columns to be collapsed/expanded'),
-  conditionalFormatting: z.array(KanbanConditionalFormattingRuleSchema).optional().describe('Card conditional formatting rules'),
-  cardTemplates: z.array(CardTemplateSchema).optional().describe('Predefined card templates for quick-add'),
-  columnWidths: ColumnWidthConfigSchema.optional().describe('Custom column width configuration'),
-  grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Grouping configuration from ListView; its first field is the swimlaneField fallback'),
-  draggable: retiredDeclarativeKanbanKey('draggable', 'board', 'Drag-and-drop is always on; delete the key.'),
-  onColumnAdd: handlerKeyRefusal('onColumnAdd', 'retired', 'Column add handler'),
-  onCardAdd: handlerKeyRefusal('onCardAdd', 'retired', 'Card add handler'),
-});
+export const RetiredKanbanNodeSchema = retiredNodeType(
+  'kanban',
+  'Author `object-kanban` instead — the same board, the same renderer, and the ' +
+    'spelling every stored kanban view already renders through (`ObjectView` maps a ' +
+    'stored `kanban` view type onto the `object-kanban` node type). ⚠️ The STORED ' +
+    '`NamedListView.type` value `"kanban"` is a DIFFERENT layer and is unaffected — ' +
+    'do not rewrite it.',
+);
 
 /**
  * Calendar View Mode — the registered renderer's rendered set.
@@ -272,6 +265,22 @@ export const CalendarViewSchema = BaseSchema.extend({
   // `onViewChange` below.
   onEventClick: handlerKeyRefusal('onEventClick', 'runtime-slot', 'Host-only event click handler'),
   onViewChange: handlerKeyRefusal('onViewChange', 'runtime-slot', 'Host-only view change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
+    + '`titleField`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
+    + '`titleField`.',
+  ),
 });
 
 /**
@@ -409,46 +418,66 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
  * `…Clear allRemove condition…`, and the three value inputs degrade from
  * `text`/`number`/`number` to three `text` boxes.
  *
- * ## The type vocabulary
+ * ## The type vocabulary — the FOURTEEN the published doc declares
  *
- * `text` / `number` / `boolean` / `date` / `datetime` / `time` are the ruled
- * six, and all six are live and MUTUALLY DISTINGUISHABLE at the value control
- * (measured, one condition row each): `<input type>` `text`, `number`, `date`,
- * `datetime-local`, `time`, and for `boolean` no input at all but an extra
- * option Select. They are `FilterValueFamily`
- * (`custom/filter-builder.tsx:406`), which `valueFamilyForFieldType` folds a
- * column's `type` into and `FILTER_INPUT_TYPE_BY_FAMILY` draws from.
+ * Ruled on objectui#7562 (director seat, decision batch #88, 2026-09-08): of
+ * the three declarations of this one authoring surface — the published doc
+ * (`content/docs/components/complex/filter-builder.mdx`), the component, and
+ * this mirror — the DOC is the authority. The component already follows it,
+ * and a contract does not retract what it published to authors. So the enum
+ * below is the doc's fourteen in the doc's order, and `type` is OPTIONAL
+ * because the doc publishes `type?:` and the renderer reads `fieldType ||
+ * "text"` (`custom/filter-builder.tsx:408`, and again at 964 for operators).
  *
- * `string` LEAVES the vocabulary: it renders identically to a nonsense
- * spelling, because both reach the text control by the unrecognised-word
- * fallthrough rather than by being read. It is a phantom, and `text` is the
- * spelling the registration's own `defaultProps` and all five catalog entries
- * use.
+ * ⛔ The ruling carried a PRECONDITION, measured before this enum moved:
+ * every one of the fourteen has a renderer branch, because a key declared that
+ * nothing draws would have had to come OUT of the doc instead. Measured on
+ * `e3fb3b6` by driving one condition row per member through the real
+ * `FilterBuilder` and reading both the value control and the operator bucket.
+ * All fourteen passed and nothing was removed from the doc. The branches, in
+ * `custom/filter-builder.tsx`:
  *
- * ⚠ `select` is RETAINED, which departs from a literal reading of the ruling's
- * six. The ruling inherits the finding card's description of `select` as
- * "extra"; measured, it is not. `selectLikeTypes = ["select", "status"]`
- * (`custom/filter-builder.tsx:935`) is consumed by `operatorsForFieldType`
- * (line 989, the `equals`/`in`/`notIn` bucket) and by
- * `isOptionDrivenValueControl` (line 739), and a `select` column draws the
- * option-driven Select rather than a text box — 39 elements and no `<input>`,
- * against 36 and one. Dropping it would REFUSE a spelling this mirror accepts
- * today and the renderer draws distinctly, which is a fresh instance of the
- * class this card closes. Flagged for contract review rather than decided here.
+ *   - `numberLikeTypes:931` — `number`, `currency`, `percent`, `rating`
+ *     ⇒ `<input type="number">` and the numeric bucket (`greaterThan` /
+ *     `lessThan` / `greaterOrEqual` / `lessOrEqual`).
+ *   - `dateLikeTypes:933`, plus the three equality tests at 411-413 — `date`,
+ *     `datetime`, `time` ⇒ `<input type>` `date` / `datetime-local` / `time`
+ *     and `before` / `after` / `between`.
+ *   - `boolean` is its own family (line 410) ⇒ no `<input>` at all but a
+ *     two-item Select, and a two-operator bucket nothing else has.
+ *   - `selectLikeTypes:935` — `select`, `status`; `lookupLikeTypes:947` —
+ *     `lookup`, `master_detail`, `user` ⇒ the option-driven Select (a THIRD
+ *     combobox on the row, no `<input>`) and the relational `in` / `notIn`
+ *     bucket. With no static option domain but a `referenceTo` — or
+ *     `type: 'user'`, which defaults its own — all three lookup-like members
+ *     draw the remote search picker instead (line 1277).
  *
- * ⚠ NOT declared, and NOT a regression this change introduces: `status`,
- * `currency`, `percent`, `rating`, `lookup`, `master_detail` and `user` are
- * live spellings with their own buckets and controls (`number` inputs for the
- * first four by way of `numberLikeTypes`, the option Select for the last three
- * by way of `lookupLikeTypes`) and every one of them is refused by this mirror
- * BEFORE this change as well as after. Reported on objectui#6939 as a
- * pre-existing gap; widening to them is an accept-set change the ruling does
- * not cover.
+ * ⚠ `text` is the fourteenth and its branch is BY NAME, not by a distinct
+ * control: it IS the unrecognised-word fallthrough target, so a `text` column
+ * measures identical to a nonsense spelling AND to an absent `type` — same 35
+ * elements, same `<input type="text">`, same operator bucket, all three. What
+ * makes it READ rather than phantom is that the renderer names it: line 408 is
+ * where an absent `type` acquires the family called `text`, and `text` is a
+ * `FilterValueFamily` member (line 405) and a `FILTER_INPUT_TYPE_BY_FAMILY`
+ * key (line 431). The ruling says the same from the other side — "`text` when
+ * absent, as the renderer already reads it" — so its optional half cannot land
+ * while `text` is deleted.
+ *
+ * `string` stays OUT, and that is the contrast the paragraph above turns on:
+ * it is named NOWHERE in the renderer, so it reaches the text control only by
+ * the fallthrough. A phantom, removed by objectui#6939 and not restored here;
+ * the published doc does not offer it either, so the two faces agree.
  */
 export const FilterFieldSchema = z.object({
   value: z.string().describe('Field key — the identity every read site matches on'),
   label: z.string().describe('Field label'),
-  type: z.enum(['text', 'number', 'boolean', 'date', 'datetime', 'time', 'select']).describe('Field type'),
+  type: z.enum([
+    'text', 'number', 'currency', 'percent', 'rating',
+    'date', 'datetime', 'time',
+    'boolean',
+    'select', 'status',
+    'lookup', 'master_detail', 'user',
+  ]).optional().describe('Field type — the published doc\'s fourteen; `text` when absent'),
   operators: z.array(FilterOperatorSchema).optional().describe('Available operators'),
   options: z.array(z.object({
     label: z.string(),
@@ -467,8 +496,22 @@ export const FilterBuilderSchema = BaseSchema.extend({
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
   allowGroups: z.boolean().optional().describe('Allow grouped conditions'),
   maxDepth: z.number().optional().describe('Maximum nesting depth'),
-  wrapperClass: z.string().optional()
-    .describe("Outer wrapper classes, read at renderers/complex/filter-builder.tsx:37 — `className={schema.wrapperClass || ''}` (objectui#6150)"),
+  // Applied at renderers/complex/filter-builder.tsx:37 as `className={schema.wrapperClass || ''}`.
+  wrapperClass: z.string().optional().describe('Outer wrapper classes for the filter builder (objectui#6150)'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
+  ),
 });
 
 /**
@@ -486,11 +529,11 @@ export const CarouselSchema = BaseSchema.extend({
   type: z.literal('carousel'),
   items: z.array(CarouselItemSchema).describe('Carousel items'),
   opts: z.record(z.string(), z.unknown()).optional()
-    .describe("Embla option bag forwarded verbatim at renderers/complex/carousel.tsx:23 — `opts={schema.opts}`. Left OPEN on purpose: the renderer passes the whole bag through, so narrowing it to the docs' `{loop, align}` pair would refuse authored documents that work today (objectui#6150)"),
+    .describe("Embla option bag forwarded verbatim (`opts={schema.opts}`). Left OPEN on purpose: the renderer passes the whole bag through, so narrowing it to the docs' `{loop, align}` pair would refuse authored documents that work today (objectui#6150)"),
   orientation: z.enum(['horizontal', 'vertical']).optional()
-    .describe("Scroll axis, read at renderers/complex/carousel.tsx:24 — `orientation={schema.orientation || 'horizontal'}` (objectui#6150)"),
-  itemClassName: z.string().optional()
-    .describe('Per-slide Tailwind classes, read at renderers/complex/carousel.tsx:30 — `className={schema.itemClassName}` on every CarouselItem (objectui#6150)'),
+    .describe("Scroll axis — `orientation={schema.orientation || 'horizontal'}` (objectui#6150)"),
+  // Applied at renderers/complex/carousel.tsx:30 as `className={schema.itemClassName}` on every CarouselItem.
+  itemClassName: z.string().optional().describe('Per-slide Tailwind classes, applied to every carousel item (objectui#6150)'),
   autoPlay: z.number().optional().describe('Auto-play interval (ms)'),
   showArrows: z.boolean().optional().describe('Show navigation arrows'),
   showDots: z.boolean().optional().describe('Show navigation dots'),
@@ -498,6 +541,20 @@ export const CarouselSchema = BaseSchema.extend({
   itemsPerView: z.number().optional().describe('Items per view'),
   gap: z.number().optional().describe('Gap between items'),
   onSlideChange: handlerKeyRefusal('onSlideChange', 'retired', 'Slide change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
+  ),
 });
 
 /**
@@ -524,6 +581,20 @@ export const ChatToolInvocationSchema = z.object({
     ])
     .optional()
     .describe('Tool invocation state'),
+  // Mirrors `ChatToolInvocation.approval` in ../complex.ts. The AI SDK v6
+  // tool-part union requires this envelope alongside the three approval
+  // states; the pairing itself is objectui#8426's narrowing and is NOT
+  // enforced here, so this arm stays independently optional (objectui#8442).
+  approval: z
+    .object({
+      id: z.string().describe('Approval request id — the key a decision is replied on'),
+      approved: z.boolean().optional().describe('The decision, once made'),
+      reason: z.string().optional().describe('Free-text reason supplied with the decision'),
+      isAutomatic: z.boolean().optional().describe('True when policy decided without a human'),
+      signature: z.string().optional().describe('Signature over the approval, when signed'),
+    })
+    .optional()
+    .describe('AI SDK approval envelope for a tool call awaiting or carrying a human decision'),
 });
 
 export const ChatMessageSourceSchema = z.object({
@@ -543,10 +614,10 @@ export const ChatMessageSchema = z.object({
   reasoning: z.string().optional().describe('Chain-of-thought reasoning text'),
   sources: z.array(ChatMessageSourceSchema).optional().describe('Citation sources'),
   traceId: z.string().optional().describe('Backend trace id (ai_traces.id)'),
-  avatar: z.string().optional()
-    .describe('Per-message avatar image URL overriding the chatbot-level userAvatarUrl / assistantAvatarUrl, read at plugin-chatbot/src/index.tsx:173–174 — `message.avatar || userAvatarUrl` (objectui#7295)'),
-  avatarFallback: z.string().optional()
-    .describe('Per-message avatar fallback text overriding the chatbot-level userAvatarFallback / assistantAvatarFallback, read at plugin-chatbot/src/index.tsx:177–178 — `message.avatarFallback || userAvatarFallback` (objectui#7295)'),
+  // Read at plugin-chatbot/src/index.tsx:172-174 as `message.avatar || userAvatarUrl` (or `|| assistantAvatarUrl` on the assistant branch).
+  avatar: z.string().optional().describe('Per-message avatar image URL overriding the chatbot-level userAvatarUrl / assistantAvatarUrl (objectui#7295)'),
+  // Read at plugin-chatbot/src/index.tsx:176-178 as `message.avatarFallback || userAvatarFallback` (or `|| assistantAvatarFallback` on the assistant branch).
+  avatarFallback: z.string().optional().describe('Per-message avatar fallback text overriding the chatbot-level userAvatarFallback / assistantAvatarFallback (objectui#7295)'),
 });
 
 /**
@@ -631,6 +702,16 @@ export const ChatbotSchema = BaseSchema.extend({
   autoResponseText: z.string().optional().describe('Text of the local auto-response'),
   autoResponseDelay: z.number().optional().describe('Delay in milliseconds before the local auto-response is sent'),
   onSend: handlerKeyRefusal('onSend', 'runtime-slot', 'Called after a message is sent, in both API and local auto-response mode'),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
+    + '`maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
+    + '`showTimestamp`, `streamingEnabled`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -699,6 +780,17 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
   surface: z.enum(['card', 'plain']).optional()
     .describe("Visual chrome for the chat surface: 'card' bordered panel (default) or 'plain' frameless full-page workspace (objectui#6687)"),
   onClear: chatbotOnClearArm(),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
+    + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -733,6 +825,17 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
+    + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
+    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
+    + '`userAvatarFallback`, `userAvatarUrl`.',
+  ),
 });
 
 /**
@@ -990,9 +1093,12 @@ export const GlobalFilterSchema = z.object({
  *
  * `BaseSchema` is `.passthrough()` while the spec's `DashboardSchema` is
  * strict, so before this derivation every spec-only key rode through objectui
- * unvalidated — `header`, `refreshInterval`, `performance`, `aria`,
+ * unvalidated — `header`, `refreshIntervalSeconds`, `performance`, `aria`,
  * `protection` and the `_lock*`/`_package*`/`_provenance` package-lock
- * envelope were neither checked nor declared.
+ * envelope were neither checked nor declared. (That key was spelled
+ * `refreshInterval` until @objectstack/spec 17.4.0 renamed it — objectui#7783;
+ * the spec now carries a `retiredKey` tombstone under the old spelling, and it
+ * flows in here by reference like every other member of this set.)
  *
  * Omitted, each for a stated reason:
  *  - `name`/`label`/`description` — component-envelope keys owned by BaseSchema;
@@ -1035,6 +1141,22 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
     defaultRange: z.string().optional(),
     allowCustomRange: z.boolean().optional(),
   }).optional().describe('Built-in date range filter'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
+    + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
+    + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
+  ),
 });
 
 /**
@@ -1079,7 +1201,7 @@ export const DashboardConfigSchema = z.object({
   description: z.string().optional().describe('Dashboard description'),
   columns: z.number().min(1).max(24).optional().describe('Grid columns (1-24)'),
   gap: z.number().min(0).optional().describe('Grid gap in pixels'),
-  refreshInterval: z.number().min(0).optional().describe('Auto-refresh interval in seconds'),
+  refreshIntervalSeconds: z.number().min(0).optional().describe('Auto-refresh interval in seconds'),
   widgets: z.array(DashboardWidgetConfigSchema).optional().describe('Dashboard widgets'),
   globalFilters: z.array(z.any()).optional().describe('Global filter conditions'),
   dateRange: z.object({
@@ -1108,7 +1230,7 @@ export const DashboardConfigSchema = z.object({
  * Complex Schema Union - All complex component schemas
  */
 export const ComplexSchema = z.discriminatedUnion('type', [
-  KanbanSchema,
+  RetiredKanbanNodeSchema,
   CalendarViewSchema,
   FilterBuilderSchema,
   CarouselSchema,

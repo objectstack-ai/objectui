@@ -25,13 +25,19 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type * as React from 'react';
 import { FeedFilterMode as SpecFeedFilterModeEnum } from '@objectstack/spec/data';
 import type { FeedFilterMode as SpecFeedFilterMode } from '@objectstack/spec/data';
 import type { ObjectFieldLike as SpecObjectFieldLike } from '@objectstack/spec/system';
+import type { RecordAlertProps as SpecRecordAlertProps } from '@objectstack/spec/ui';
 
 import type { FeedFilterMode } from '../RecordActivityTimeline';
 import type { ObjectDefFieldLike } from '../synth/buildDefaultPageSchema';
 import { normalizeFilterMode } from '../renderers/recordActivityFeed';
+import type { RecordAlertRenderer } from '../renderers/record-alert';
 
 describe('FeedFilterMode is the spec enum, at runtime as well as in types', () => {
   it('accepts every member the spec declares — read from the spec, not restated', () => {
@@ -81,6 +87,83 @@ describe('the two verdicts are pinned at compile time', () => {
     type _SpecCarriesHelp = Assert<HasKey<SpecObjectFieldLike, 'help'>>;
     type _LocalCarriesGroup = Assert<HasKey<ObjectDefFieldLike, 'group'>>;
     type _LocalCarriesHidden = Assert<HasKey<ObjectDefFieldLike, 'hidden'>>;
+
+    expect(true).toBe(true);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* objectui#7265, this package's slice — `RecordAlertProps`.                   */
+/*                                                                            */
+/* Appended here rather than given a file of its own: this IS the package's    */
+/* spec-symbol parity file, and the shape it already holds (a RENAME, pinned   */
+/* by what the spec means rather than by what the copy said) is exactly the    */
+/* shape this one needs. The block, the site and the empty-ledger path are     */
+/* pinned one level up, in scripts/__tests__ beside the gate they are about.   */
+/* -------------------------------------------------------------------------- */
+
+describe('the renderer props convention this directory already kept', () => {
+  // ⛔ Rooted at THIS FILE, never at `process.cwd()` — a package test runs under
+  // two different cwds depending on the invocation (`check:test-path-roots`).
+  const renderersDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../renderers');
+
+  /** Every `React.FC<Name>` annotation in the renderers directory, file by file. */
+  const annotations = (): Array<{ file: string; propsType: string }> => {
+    const out: Array<{ file: string; propsType: string }> = [];
+    for (const name of fs.readdirSync(renderersDir).sort()) {
+      if (!name.endsWith('.tsx')) continue;
+      const text = fs.readFileSync(path.join(renderersDir, name), 'utf8');
+      for (const hit of text.matchAll(/React\.FC<\s*([A-Za-z0-9_]+)\s*>/g)) {
+        out.push({ file: name, propsType: hit[1] });
+      }
+    }
+    return out;
+  };
+
+  it('the scan finds annotations at all — the control', () => {
+    // A convention derived from an empty population is a green that means
+    // nothing. This leg fails if the directory moves, is renamed, or stops
+    // spelling its components `React.FC<…>`.
+    expect(annotations().length).toBeGreaterThan(1);
+  });
+
+  it('every renderer names its props type `…RendererProps`, never the block name', () => {
+    // This is the reason `RecordAlertProps` was the LAST entry in the gate's
+    // DEBT ledger while its siblings were never in it: `@objectstack/spec/ui`
+    // owns a `Record<Block>Props` for each of the blocks rendered here, so the
+    // `Renderer` infix is what keeps a renderer's props type out of the spec's
+    // namespace. Derived from the directory rather than listed, so a renderer
+    // added later is judged too.
+    const offenders = annotations().filter((a) => !a.propsType.endsWith('RendererProps'));
+    expect(
+      offenders,
+      'a renderer in this directory types its component with a props type that is not '
+        + 'spelled `…RendererProps`. If the name is one @objectstack/spec exports, '
+        + '`pnpm check:spec-symbols` will fail on it as a hand-written mirror of the '
+        + "block's authored properties — which is what objectui#7265's last slice "
+        + 'repaired. Rename the props type, or delete this assertion deliberately.',
+    ).toEqual([]);
+  });
+});
+
+describe('RecordAlertRendererProps is NOT the spec bag it wraps', () => {
+  it('is pinned at compile time', () => {
+    // The measurement that refused BIND, as assertions. The spec's
+    // `RecordAlertProps` is the block's AUTHORED property bag; the renderer's
+    // props are the React envelope that carries it. `severity` belongs to the
+    // first and `schema` to the second, and the spec's declaration has no index
+    // signature, so both questions have real answers on that side.
+    type _SpecIsReal = Assert<Equal<IsAny<SpecRecordAlertProps>, false>>;
+    type _SpecCarriesSeverity = Assert<HasKey<SpecRecordAlertProps, 'severity'>>;
+    type _SpecIsNotTheEnvelope = Assert<Equal<HasKey<SpecRecordAlertProps, 'schema'>, false>>;
+
+    // ⛔ Deliberately NOT asserted with `HasKey` on the renderer's side: its
+    // props carry `[k: string]: any`, so `K extends keyof T` is true for every
+    // K there and the question would answer itself. Identity is the probe that
+    // still discriminates.
+    type _RendererIsNotTheBag = Assert<
+      Equal<Equal<React.ComponentProps<typeof RecordAlertRenderer>, SpecRecordAlertProps>, false>
+    >;
 
     expect(true).toBe(true);
   });

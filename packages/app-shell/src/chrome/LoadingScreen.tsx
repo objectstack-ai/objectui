@@ -3,7 +3,7 @@ import { Spinner, Button } from '@object-ui/components';
 import { Database, CheckCircle2, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
-import { en as enLocale, builtInLocales } from '@object-ui/i18n';
+import { en as enLocale, getLoadedBuiltInLocales } from '@object-ui/i18n';
 
 interface LoadingScreenProps {
   /** Optional message override */
@@ -31,13 +31,31 @@ interface LoadingScreenProps {
 // Each field falls back to `en` individually. A pack that is behind on some
 // `console.*` keys — several are, see objectui#2872 part (a) — must degrade to
 // English, not to `undefined`, which would render blank on the splash.
-function getStartupStrings() {
+//
+// ⚠️ Reads the RESIDENT catalogues, not all ten (objectui#7479). `en` is
+// statically imported and always there; the other nine are fetched, and the
+// console awaits the active one before `createRoot().render()`, so this splash
+// still renders in the user's language. The behaviour that DOES change is the
+// boot where nothing awaited the catalogue: the splash shows English for the
+// few hundred milliseconds the fetch takes, and objectui#2871's ten languages
+// return the moment it lands. ⛔ Do not "fix" that by importing the ten packs
+// back in — that is the eager payload this card removed, restored for a
+// sub-second splash.
+type ConsoleStrings = typeof enLocale.console;
+
+function getStartupStrings(): ConsoleStrings {
   const tag =
     (typeof document !== 'undefined' ? document.documentElement.lang : '') ||
     (typeof navigator !== 'undefined' ? navigator.language : '') ||
     'en';
-  const base = tag.toLowerCase().split('-')[0] as keyof typeof builtInLocales;
-  const pack = builtInLocales[base]?.console;
+  const base = tag.toLowerCase().split('-')[0];
+  // `as unknown as` because a catalogue is typed by SHAPE here while
+  // `enLocale` carries `en`'s literal VALUES — the same cast `createI18n` and
+  // the old `builtInLocales` consumers made.
+  const catalogue = getLoadedBuiltInLocales()[base] as unknown as
+    | { console?: Partial<ConsoleStrings> }
+    | undefined;
+  const pack = catalogue?.console;
   if (!pack || pack === enLocale.console) return enLocale.console;
   return {
     ...enLocale.console,
@@ -45,7 +63,7 @@ function getStartupStrings() {
     loadingSteps: { ...enLocale.console.loadingSteps, ...pack.loadingSteps },
     error: { ...enLocale.console.error, ...pack.error },
     actions: { ...enLocale.console.actions, ...pack.actions },
-  };
+  } as ConsoleStrings;
 }
 
 export function LoadingScreen({ message, error, onRetry, retrying }: LoadingScreenProps) {

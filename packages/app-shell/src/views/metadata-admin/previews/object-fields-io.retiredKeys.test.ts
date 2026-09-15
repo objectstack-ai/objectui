@@ -51,6 +51,32 @@ const SAMPLE: Record<(typeof RETIRED_FIELD_KEYS)[number], unknown> = {
   isSystem: true,
 };
 
+/**
+ * What is left on `{ type: 'lookup', label: 'Owner' }` after the door has seen
+ * that key — the falsification half of each case below, and the one place the
+ * three keys stop being interchangeable (objectui#8896).
+ *
+ * `indexed` and `isSystem` leave NOTHING behind, for two different recorded
+ * reasons: the field-level index flag built no index at all (objectui#4644 —
+ * the concept moved to the object's `indexes[]`, so there is no field-level
+ * value to keep), and the system flag's spec spelling `system` is a separate
+ * key the draft either carries or does not, so the strip IS the whole write
+ * half of objectui#6044 and re-stamping it would invent a flag the author
+ * never set.
+ *
+ * `referenceTo` is the one whose VALUE the draft may hold nowhere else. It is
+ * the same CONCEPT as `reference` and the same KIND of value — a bare object
+ * name — so deleting it destroyed the only copy of a relationship target and
+ * left the designer's target editor empty. The door keeps that value under the
+ * spec spelling now; the retired key is dropped exactly as the other two are,
+ * which is what every `key in out` assertion below is stating.
+ */
+const RESIDUE: Record<(typeof RETIRED_FIELD_KEYS)[number], Record<string, unknown>> = {
+  indexed: {},
+  referenceTo: { reference: 'account' },
+  isSystem: {},
+};
+
 describe('object-fields-io · retired FieldSchema keys (objectui#4644, objectui#6519)', () => {
   it('names exactly the three keys this door strips', () => {
     // The list is derived from the tombstone registry (objectui#6527:
@@ -77,8 +103,10 @@ describe('object-fields-io · retired FieldSchema keys (objectui#4644, objectui#
       }) as Record<string, Record<string, unknown>>;
 
       expect(key in out.owner_id).toBe(false);
-      // Falsification: keyed to the tombstone, not a blanket unknown-key purge.
-      expect(out.owner_id).toEqual({ type: 'lookup', label: 'Owner' });
+      // Falsification: keyed to the tombstone, not a blanket unknown-key purge
+      // — and, for the one key whose value has nowhere else to live, the value
+      // survives under the spec spelling (see {@link RESIDUE}).
+      expect(out.owner_id).toEqual({ type: 'lookup', label: 'Owner', ...RESIDUE[key] });
     });
 
     it(`drops \`${key}\` from an array-shaped draft on round-trip`, () => {
@@ -87,7 +115,7 @@ describe('object-fields-io · retired FieldSchema keys (objectui#4644, objectui#
       ]) as Array<Record<string, unknown>>;
 
       expect(key in out[0]).toBe(false);
-      expect(out[0]).toEqual({ name: 'owner_id', type: 'lookup', label: 'Owner' });
+      expect(out[0]).toEqual({ name: 'owner_id', type: 'lookup', label: 'Owner', ...RESIDUE[key] });
     });
   }
 
@@ -102,7 +130,9 @@ describe('object-fields-io · retired FieldSchema keys (objectui#4644, objectui#
     >;
 
     expect(RETIRED_FIELD_KEYS.filter((k) => k in out.owner_id)).toEqual([]);
-    expect(out.owner_id).toEqual({ type: 'lookup', label: 'Owner' });
+    // Every retired key is gone; the lookup's target is not, because it is a
+    // VALUE and not a key — the asymmetry {@link RESIDUE} records.
+    expect(out.owner_id).toEqual({ type: 'lookup', label: 'Owner', reference: 'account' });
   });
 
   it('drops falsy values too — the key itself is what the parse rejects', () => {

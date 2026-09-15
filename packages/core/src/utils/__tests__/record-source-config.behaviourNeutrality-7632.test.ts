@@ -29,10 +29,27 @@
  *    `{ provider: 'value', items }`, which the other three do NOT have. This is
  *    a REAL divergence on off-contract input: those three return the array
  *    verbatim, so `dataConfig.provider` is `undefined` downstream and the block
- *    draws nothing. It is preserved, not flattened — the two sites keep the
- *    head locally and the shared rung stays contract-strict (AGENTS.md #0.1),
- *    the same way objectui#7627 left the off-contract `{ provider: 'object' }`
- *    tails at their sites.
+ *    draws nothing.
+ *
+ * ## ⭐ objectui#8348 — what this file now pins, and what it still pins
+ *
+ * The divergence above was PRESERVED by objectui#7632 and is RULED on by
+ * decision batch #83 (2026-09-08, maintainer verbatim 「8348 以协议为准」): rung 1
+ * honours `data` only on the arm the block's PUBLISHED row declares. So this
+ * file keeps its original job — the shared rung moves nothing at any site — for
+ * every input the ruling leaves alone, and pins the ruled MOVES explicitly
+ * where it does not:
+ *
+ *  - `object-calendar` (row: `z.array(z.unknown())`) no longer takes a
+ *    `{ provider, items }` object as a record source;
+ *  - `object-grid`, `object-map`, `object-gantt` (row: `ViewData`) no longer
+ *    take a bare array, and grid's and map's normalizing heads are gone;
+ *  - `object-tree` publishes no `data` row on any face, so nothing about it
+ *    moves and it passes the `'undeclared'` arm.
+ *
+ * The pre-collapse bodies transcribed below stay as the reference for both
+ * halves: they are what "unchanged" means, and they are the ⛔ CONTROL that
+ * makes "changed" a measurement instead of a restatement.
  */
 import { describe, it, expect } from 'vitest';
 import { resolveRecordSourceConfig } from '../record-source.js';
@@ -81,19 +98,40 @@ const beforeMap = (schema: Schema): Cfg => {
   return null;
 };
 
-/** The post-collapse spelling now compiled into grid and map: head, then shared rung. */
-const afterArrayHead = (schema: Schema): Cfg => {
-  if (Array.isArray(schema.data)) return { provider: 'value', items: schema.data };
-  return resolveRecordSourceConfig(schema);
+/**
+ * The ladder with rung 1 REMOVED — where an authored `data` that is off its
+ * block's declared arm now lands (objectui#8348). Not a third hand-copy: it is
+ * the expected value this file compares against, written out so a reader can
+ * see that "refused at rung 1" means "falls through to `staticData`, then
+ * `objectName`" and not "returns null".
+ */
+const ladderBelowRungOne = (schema: Schema): Cfg => {
+  if (schema.staticData) return { provider: 'value', items: schema.staticData };
+  if (schema.objectName) return { provider: 'object', object: schema.objectName };
+  return null;
 };
 
-const SITES: { id: string; before: (s: Schema) => Cfg; after: (s: Schema) => Cfg }[] = [
-  { id: 'ObjectGantt:321', before: beforeBare, after: resolveRecordSourceConfig },
-  { id: 'ObjectTree:93', before: beforeBare, after: resolveRecordSourceConfig },
-  { id: 'ObjectCalendar:118', before: beforeCalendar, after: resolveRecordSourceConfig },
-  { id: 'ObjectGrid:428', before: beforeGrid, after: afterArrayHead },
-  { id: 'ObjectMap:128', before: beforeMap, after: afterArrayHead },
+/**
+ * The five sites, each with the arm its block's PUBLISHED `data` row declares
+ * (objectui#8348, decision batch #83 — 「8348 以协议为准」). The arm is what the
+ * site passes today; `before` is what the site resolved before the collapse
+ * (objectui#7632), which is still the reference for every input the ruling does
+ * not move.
+ */
+const SITES: { id: string; arm: 'view-data' | 'array' | 'undeclared'; before: (s: Schema) => Cfg }[] = [
+  { id: 'ObjectGantt', arm: 'view-data', before: beforeBare },
+  { id: 'ObjectTree', arm: 'undeclared', before: beforeBare },
+  { id: 'ObjectCalendar', arm: 'array', before: beforeCalendar },
+  { id: 'ObjectGrid', arm: 'view-data', before: beforeGrid },
+  { id: 'ObjectMap', arm: 'view-data', before: beforeMap },
 ];
+
+/** What the site resolves TODAY. */
+const after = (site: (typeof SITES)[number], schema: Schema): Cfg =>
+  resolveRecordSourceConfig(schema as any, site.arm) as Cfg;
+
+/** Is the authored `data` a `ViewData` OBJECT (the arm calendar's row refuses)? */
+const hasObjectData = (s: Schema): boolean => !!s.data && !Array.isArray(s.data);
 
 /**
  * Contract-valid by construction: `ViewDataSchema` is a
@@ -121,8 +159,19 @@ const CONTRACT_VALID: [string, Schema][] = [
 describe('resolveRecordSourceConfig — behaviour neutrality on contract-valid input (objectui#7632)', () => {
   for (const [name, schema] of CONTRACT_VALID) {
     for (const site of SITES) {
-      it(`${site.id} is unchanged for "${name}"`, () => {
-        expect(site.after(schema)).toEqual(site.before(schema));
+      // ⭐ objectui#8348 moves exactly one cell family of this matrix, and the
+      // branch below is what keeps the rest a neutrality claim rather than a
+      // rewritten expectation. `object-calendar`'s published row is
+      // `z.array(z.unknown())`, so a `ViewData` OBJECT under `data` is no
+      // longer a record source THERE — and nowhere else.
+      const ruledAway = site.arm === 'array' && hasObjectData(schema);
+      it(`${site.id} ${ruledAway ? 'refuses the off-arm `data` (objectui#8348)' : 'is unchanged'} for "${name}"`, () => {
+        if (ruledAway) {
+          expect(after(site, schema)).not.toEqual(site.before(schema));
+          expect(after(site, schema)).toEqual(ladderBelowRungOne(schema));
+        } else {
+          expect(after(site, schema)).toEqual(site.before(schema));
+        }
       });
     }
   }
@@ -130,7 +179,7 @@ describe('resolveRecordSourceConfig — behaviour neutrality on contract-valid i
   it('the matrix is a LIT control: every rung of the ladder is actually exercised', () => {
     const reached = new Set(
       CONTRACT_VALID.map(([, s]) => {
-        const cfg = resolveRecordSourceConfig(s);
+        const cfg = resolveRecordSourceConfig(s as any, 'view-data');
         if (cfg === null) return 'null';
         if (s.data) return 'data';
         if (s.staticData) return 'staticData';
@@ -140,15 +189,39 @@ describe('resolveRecordSourceConfig — behaviour neutrality on contract-valid i
     // A matrix that never reaches a rung cannot prove that rung neutral.
     expect([...reached].sort()).toEqual(['data', 'null', 'objectName', 'staticData']);
   });
+
+  it('⛔ NON-VACUITY: the ruled-away family is not empty', () => {
+    // Without this, a `hasObjectData` that answered `false` everywhere would
+    // turn the branch above into "everything is unchanged" and the file would
+    // pass while asserting nothing about the ruling.
+    const ruled = CONTRACT_VALID.filter(([, s]) => hasObjectData(s));
+    expect(ruled.length).toBeGreaterThan(0);
+    expect(SITES.filter((site) => site.arm === 'array')).toHaveLength(1);
+  });
 });
 
 /**
- * The OFF-CONTRACT fork: a bare array under `data`. `ViewData` admits no array
- * variant, so this cannot be published — but grid and map normalize it anyway
- * and the other three do not. The collapse deliberately does NOT unify them;
- * these cases pin BOTH sides of the fork, so neither a "fold the head into the
- * shared reader" simplification nor a "drop the redundant head" cleanup can
- * happen silently.
+ * The bare array under `data` — the fork objectui#7632 preserved and
+ * objectui#8348 RESOLVES, by the row rather than by convention.
+ *
+ * Before this card: `ObjectGrid` and `ObjectMap` lifted `data: [...]` to
+ * `{ provider: 'value', items }` at their own sites; gantt, tree and calendar
+ * returned the array verbatim (`provider` `undefined` downstream). Decision
+ * batch #83 rules by each block's published row, and the rows are not the same
+ * shape, so the fork does not close onto ONE answer — it closes onto the
+ * declared one per block:
+ *
+ *  - `object-grid` — row is `ViewData`, and its own spec description says "the
+ *    bare-array shortcut is refused". ⇒ the lift is gone; the array falls
+ *    through rung 1.
+ *  - `object-map`, `object-gantt` — no `ComponentPropsMap` row; the governing
+ *    row is `ObjectMapSchema.data` / `ObjectGanttSchema.data`,
+ *    `ViewDataSchema.optional()`. ⇒ same verdict.
+ *  - `object-calendar` — row IS `z.array(z.unknown())`
+ *    ("Pre-fetched records — skips the internal fetch"), so the array is the
+ *    DECLARED spelling and rung 1 still returns it verbatim. Unmoved.
+ *  - `object-tree` — no published `data` row at all, on any face, so neither
+ *    arm of the ruling reaches it and rung 1 keeps its pre-8348 behaviour.
  */
 const ARRAY_SHORTHAND: [string, Schema][] = [
   ['array-shorthand', { objectName: 'Y', data: [1, 2] }],
@@ -157,31 +230,81 @@ const ARRAY_SHORTHAND: [string, Schema][] = [
   ['array-shorthand+staticData', { staticData: [9], data: [1] }],
 ];
 
-describe('the off-contract bare-array `data` shorthand (objectui#7632)', () => {
+describe('the bare-array `data` shorthand, judged by the row (objectui#8348)', () => {
   for (const [name, schema] of ARRAY_SHORTHAND) {
-    it(`grid and map still normalize it for "${name}"`, () => {
-      expect(afterArrayHead(schema)).toEqual({ provider: 'value', items: schema.data });
-      expect(afterArrayHead(schema)).toEqual(beforeGrid(schema));
-      expect(afterArrayHead(schema)).toEqual(beforeMap(schema));
+    it(`grid, map and gantt no longer honour it for "${name}"`, () => {
+      for (const site of SITES.filter((s) => s.arm === 'view-data')) {
+        expect(after(site, schema), site.id).toEqual(ladderBelowRungOne(schema));
+        // The named regression: the lift is gone, not relocated.
+        expect(after(site, schema), site.id).not.toEqual({
+          provider: 'value',
+          items: schema.data,
+        });
+      }
+      // ⛔ CONTROL: the pre-8348 grid/map bodies transcribed at the top of this
+      // file DID lift it — so the rows above are a change in behaviour, not a
+      // restatement of what was already true.
+      expect(beforeGrid(schema)).toEqual({ provider: 'value', items: schema.data });
+      expect(beforeMap(schema)).toEqual({ provider: 'value', items: schema.data });
     });
 
-    it(`gantt, tree and calendar still return it verbatim for "${name}"`, () => {
-      expect(resolveRecordSourceConfig(schema)).toBe(schema.data);
-      expect(resolveRecordSourceConfig(schema)).toEqual(beforeBare(schema));
-      expect(resolveRecordSourceConfig(schema)).toEqual(beforeCalendar(schema));
+    it(`calendar and tree still return it verbatim for "${name}"`, () => {
+      for (const site of SITES.filter((s) => s.arm !== 'view-data')) {
+        expect(after(site, schema), site.id).toBe(schema.data);
+      }
+      // Unmoved against the pre-collapse bodies, which is the objectui#7632
+      // neutrality claim still holding for these two sites.
+      expect(beforeBare(schema)).toBe(schema.data);
+      expect(beforeCalendar(schema)).toBe(schema.data);
     });
   }
 
-  it('an empty array is truthy, which is why hoisting the head is neutral', () => {
-    // The whole neutrality of the hoist rests on this: `if (schema.data)` could
-    // never let an array fall through to rung 2 or 3, so checking the array
-    // FIRST cannot change which rung is taken.
+  it('an empty array is still truthy — so this is an ARM verdict, not a falsiness one', () => {
+    // `[]` was the case that made the old head's hoist neutral. It is also the
+    // case that proves the new rung 1 discriminates on SHAPE rather than on
+    // truthiness: a `view-data` site drops `data: []` even though it is truthy,
+    // and an `array` site keeps it.
     expect(Boolean([])).toBe(true);
-    expect(beforeGrid({ objectName: 'Y', staticData: [9], data: [] })).toEqual({
+    const schema: Schema = { objectName: 'Y', staticData: [9], data: [] };
+    expect(resolveRecordSourceConfig(schema as any, 'view-data')).toEqual({
       provider: 'value',
-      items: [],
+      items: [9],
     });
+    expect(resolveRecordSourceConfig(schema as any, 'array')).toBe(schema.data);
   });
+});
+
+/**
+ * The other direction of the same ruling: the `{ provider, items }` config
+ * object on the block whose row is the ARRAY arm — the exact spelling
+ * objectui#8348 was filed about.
+ *
+ * `ComponentPropsMap['object-calendar'].data.safeParse({ provider: 'value',
+ * items: [] })` fails with `invalid_type … expected: 'array'`, so `os validate`
+ * and the save gate refuse it. As of this card the renderer refuses it too.
+ */
+describe('the `{ provider, items }` object on an ARRAY-armed block (objectui#8348)', () => {
+  const OFF_ARM: [string, Schema][] = [
+    ['value-provider + objectName', { objectName: 'Y', data: { provider: 'value', items: [{ id: 1 }] } }],
+    ['value-provider alone', { data: { provider: 'value', items: [{ id: 1 }] } }],
+    ['value-provider + staticData', { staticData: [9], data: { provider: 'value', items: [{ id: 1 }] } }],
+    ['object-provider + objectName', { objectName: 'Y', data: { provider: 'object', object: 'X' } }],
+  ];
+
+  for (const [name, schema] of OFF_ARM) {
+    it(`is not a record source for "${name}"`, () => {
+      expect(resolveRecordSourceConfig(schema as any, 'array')).toEqual(
+        ladderBelowRungOne(schema),
+      );
+      expect(resolveRecordSourceConfig(schema as any, 'array')).not.toBe(schema.data);
+    });
+
+    it(`⛔ CONTROL: the same document IS a record source on a view-data arm for "${name}"`, () => {
+      // Without this leg, a rung 1 that had simply stopped working would satisfy
+      // every assertion above.
+      expect(resolveRecordSourceConfig(schema as any, 'view-data')).toBe(schema.data);
+    });
+  }
 });
 
 /**
@@ -200,7 +323,7 @@ describe('the `in`-guard divergence is type-level, not behavioural (objectui#763
 
   for (const [name, schema] of CALENDAR_IN_GUARD) {
     it(`the guarded and unguarded ladders agree for "${name}"`, () => {
-      expect(resolveRecordSourceConfig(schema)).toEqual(beforeCalendar(schema));
+      expect(resolveRecordSourceConfig(schema as any, 'array')).toEqual(beforeCalendar(schema));
       expect(beforeCalendar(schema)).toEqual(beforeBare(schema));
     });
   }

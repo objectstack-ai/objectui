@@ -18,8 +18,9 @@
  * same `variant`, same class string as `DetailView` uses — against the object
  * value the defect is about, and the DOM the pill received is counted.
  *
- * The answer: **A for the 38 kinds that fit, with a stated rule for the 15 that
- * do not.** The refused set is `CHIP_UNFIT_RENDERER_TYPES` in
+ * The answer: **A for the 35 kinds that fit, with a stated rule for the 18 that
+ * do not.** (38 / 15 when this census was first taken; objectui#9161 moved
+ * `file` / `video` / `audio` across — see their row.) The refused set is `CHIP_UNFIT_RENDERER_TYPES` in
  * `../summaryChipRenderers`, and `THE SET MATCHES THE MEASUREMENT` below fails
  * if the constant and this table ever disagree.
  *
@@ -27,11 +28,12 @@
  *
  * | class                    | types                                                       | what the pill received                              |
  * |--------------------------|-------------------------------------------------------------|-----------------------------------------------------|
- * | ✅ plain inline text      | the other 38                                                | `Acme Corp`, or the JSON literal for the seven behind objectui#8481's declared json-literal fence, or a value-independent face |
+ * | ✅ plain inline text      | the other 35                                                | `Acme Corp`, or the JSON literal for the seven behind objectui#8481's declared json-literal fence, or a value-independent face |
  * | ⛔ a pill inside a pill   | `select` `status` `multiselect` `radio` `checkboxes` `tags`   | `SelectCellRenderer`'s own `Badge` — one `rounded-full` node nested in the chip's own |
  * | ⛔ an avatar composite    | `user`                                                      | TWO `rounded-full` nodes and the initials glued on: `ACAcme Corp` |
  * | ⛔ an image and no text   | `image` `avatar` `signature`                                | an `<img>`, `textContent === ''` |
  * | ⛔ a "No value" face      | `boolean` `toggle` `datetime` `repeater`, and `date`         | the shared `EmptyValue` (and `formatDate`'s own em-dash for `date`, objectui#8581) |
+ * | ⛔ an interactive control | `file` `video` `audio` (objectui#9161)                       | one `<a href>` view/download link per file; the TEXT is unchanged, which is why only the control count moved |
  *
  * The last class is not a layout objection. A chip is drawn only AFTER
  * `hasCellValue` has called the value FILLED, so a renderer that answers "No
@@ -83,7 +85,13 @@ const OBJ = { id: 'acct-1', name: 'Acme Corp' };
 /** The chip's own class string, copied from `DetailView`'s summary Badge. */
 const CHIP_CLASS = 'text-xs bg-primary/10 text-primary border-transparent hover:bg-primary/15';
 
-type Verdict = 'fit' | 'pill-in-pill' | 'avatar' | 'image-no-text' | 'no-value-face';
+type Verdict =
+  | 'fit'
+  | 'pill-in-pill'
+  | 'avatar'
+  | 'image-no-text'
+  | 'no-value-face'
+  | 'interactive-control';
 
 /**
  * `text` is what the pill received; `verdict` is why it is or is not allowed.
@@ -115,9 +123,6 @@ const CENSUS: ReadonlyArray<readonly [type: string, text: string, verdict: Verdi
   ['url', 'Acme Corp', 'fit'],
   ['phone', 'Acme Corp', 'fit'],
   ['color', 'Acme Corp', 'fit'],
-  ['file', 'Acme Corp', 'fit'],
-  ['video', 'Acme Corp', 'fit'],
-  ['audio', 'Acme Corp', 'fit'],
   // ── plain inline text: objectui#8481's declared json-literal fence ──────
   ['location', '{"id":"acct-1","name":"Acme Corp"}', 'fit'],
   ['geolocation', '{"id":"acct-1","name":"Acme Corp"}', 'fit'],
@@ -152,6 +157,17 @@ const CENSUS: ReadonlyArray<readonly [type: string, text: string, verdict: Verdi
   // `date` draws `formatDate`'s OWN em-dash, not the shared affordance
   // (objectui#8581's subject). Recorded as it is, refused for the same reason.
   ['date', '—', 'no-value-face'],
+  // ── refused: an interactive control (objectui#9161) ───────────────────
+  // ⚠️ MOVED from the fit side by objectui#9161, and the move is the finding.
+  // `FileCellRenderer` now draws a view/download `<a href>` per file — the
+  // whole subject of that card: a read-only `file` field named its attachments
+  // and gave no way to open one, while every backend path answered 200. The
+  // TEXT these three put in the pill is unchanged (`coerceToSafeValue` reads
+  // the same `name` the renderer does), so this census only moved because it
+  // counts controls as well as text — which is the half that was load-bearing.
+  ['file', 'Acme Corp', 'interactive-control'],
+  ['video', 'Acme Corp', 'interactive-control'],
+  ['audio', 'Acme Corp', 'interactive-control'],
 ];
 
 function assertCensusComplete(entries: readonly unknown[], expected: number, what: string): void {
@@ -217,8 +233,9 @@ describe('objectui#8464 — the Badge-fit census: A is not free, and here is whi
     const refused = CENSUS.filter(([, , v]) => v !== 'fit');
     expect(
       refused.length,
-      'fifteen types are refused: 6 pill-in-pill, 1 avatar, 3 image-no-text, 5 no-value-face',
-    ).toBe(15);
+      'eighteen types are refused: 6 pill-in-pill, 1 avatar, 3 image-no-text, ' +
+        '5 no-value-face, 3 interactive-control',
+    ).toBe(18);
 
     for (const [type, , verdict] of refused) {
       const { container } = renderChip(type);
@@ -241,6 +258,20 @@ describe('objectui#8464 — the Badge-fit census: A is not free, and here is whi
           (chip.textContent ?? '').trim(),
           `${type}: answers "no value" for a value hasCellValue called filled`,
         ).toBe('—');
+      }
+      if (verdict === 'interactive-control') {
+        // objectui#9161's affordance, measured where it lands rather than
+        // assumed: the probe value carries an `id`, so `readFileValue` resolves
+        // it to the stable `/api/v1/storage/files/:id` endpoint and the cell
+        // draws one anchor. A pill beside the page H1 hosts text, not a link.
+        expect(
+          chip.querySelectorAll('a[href]').length,
+          `${type}: the cell draws a view/download link a pill may not host`,
+        ).toBe(1);
+        expect(
+          (chip.textContent ?? '').trim(),
+          `${type}: and it is not a refusal for want of text — the name is there`,
+        ).toBe('Acme Corp');
       }
       cleanup();
     }
@@ -266,7 +297,7 @@ describe('objectui#8464 — the Badge-fit census: A is not free, and here is whi
     // Refusing EVERY type also satisfies every refusal assertion above; this is
     // the half that is red for it.
     const fitting = CENSUS.filter(([, , v]) => v === 'fit');
-    expect(fitting.length, 'the fitting side is not empty').toBe(38);
+    expect(fitting.length, 'the fitting side is not empty').toBe(35);
 
     for (const [type] of fitting) {
       const { container } = renderChip(type);

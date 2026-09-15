@@ -242,7 +242,12 @@ const schema: ObjectCalendarSchema = {
   type: 'object-calendar',
   objectName?: string,              // ObjectQL object name
   staticData?: Array<any>,          // Static data array
-  data?: ViewData,                  // Advanced data configuration
+  data?: Array<unknown>,            // Pre-fetched records, drawn in place of the
+                                    // calendar's own query. An ARRAY — this block's
+                                    // published row refuses the `{ provider, items }`
+                                    // config object (objectui#8348). `@object-ui/types`
+                                    // declares it as that array too since
+                                    // objectui#9239, derived from the protocol's row
   calendar?: CalendarConfig,        // Calendar-specific configuration
   filter?: ViewFilterRule[],        // Query filter, lowered to $filter
   sort?: SortConfig[],              // Query sort, lowered to $orderby
@@ -251,6 +256,16 @@ const schema: ObjectCalendarSchema = {
   className?: string
 }
 ```
+
+`filter` and `sort` are not object-only keys (objectui#9061). They narrow and
+order inline records — `staticData` or `data: { provider: 'value' }` — exactly as
+they narrow and order fetched ones, and the platform row ceiling (2,000 drawn
+records with a footnote naming both numbers) applies to inline records too. The
+ceiling is applied to the **filtered** set, so a large inline array that a
+`filter` cuts below the ceiling draws every matching record and shows no
+footnote. Inline records reach the calendar as the in-memory adapter's own deep
+copy, so they must be JSON-serializable and a record handed to `onEventClick` is
+not `===` the authored object.
 
 ### CalendarConfig
 
@@ -263,12 +278,30 @@ const schema: ObjectCalendarSchema = {
 }
 ```
 
-`CalendarConfig` is `@objectstack/spec`'s `CalendarConfigSchema`, and that schema
-is **strict**: these four are the whole of it, and a fifth key is rejected rather
-than ignored. `ObjectCalendar` destructures exactly
-`{ startDateField, endDateField, titleField, colorField }`
-(`ObjectCalendar.tsx`), so the list above is also the whole of what the renderer
-reads.
+`CalendarConfig` is a re-export of `@objectstack/spec`'s `CalendarConfigSchema`,
+and that schema is **strict**: the four keys above are the whole of *the spec
+type*, and it refuses a fifth by name with an `unrecognized_keys` diagnostic.
+That is a statement about the type — not about what this renderer reads, and not
+about what reaches it.
+
+`ObjectCalendar` (`ObjectCalendar.tsx`) reads **five** keys off the `calendar`
+block: the four above plus objectui's own `allDayField`, honoured since
+objectui#8026.
+
+`{ startDateField, endDateField, titleField, colorField, allDayField }`
+
+`allDayField` names the record field carrying the all-day flag. It is
+objectui-local by design — the spec refuses the name — and this renderer gives it
+**no** default field name, so a calendar that never declares it draws exactly as
+before, with the all-day flag inferred from the absence of an end date.
+
+Nor is a fifth key rejected on the way in. Neither published face of
+`ObjectCalendarSchema` declares the `calendar` container, so whatever you write
+inside it reaches the renderer unexamined; on the list-view path the container
+*is* declared — as objectui's own mirror of the spec schema, which keeps
+`.passthrough()` for exactly this. Annotating the block `CalendarConfig` is what
+narrows it to the spec's four: under that annotation `allDayField` does not
+compile.
 
 ## Configuration
 
@@ -326,17 +359,34 @@ const valueProviderCalendar: ObjectCalendarSchema = {
 };
 ```
 
-#### API Provider — not implemented
+#### `data: { provider: … }` — refused on this block
 
-`data.provider: 'api'` has no fetch implementation in `ObjectCalendar`. A schema
-that reaches this branch logs `API provider not yet implemented for
-ObjectCalendar`, sets the record set to empty and renders a calendar with no
-events; `endpoint` and `method` have no read point anywhere in the package.
-Without a `DataSource` it fails one step earlier, with `DataSource required for
-object/api providers`.
+⚠️ Since **objectui#8348** a calendar authored with a record-source *config
+object* under `data` — `{ provider: 'value', items: [...] }`,
+`{ provider: 'object', object: … }`, `{ provider: 'api', … }` — is not honoured
+here. `object-calendar`'s published `data` row is an **array of pre-fetched
+records**, so the config object is refused by kind: `os validate` and the save
+gate reject it, and as of that card the renderer does too.
 
-Read from the database with the **Object Provider** above, or pass events you
-already hold with the **Value Provider**.
+Since **objectui#9239** the `@object-ui/types` declaration refuses it as well —
+both the `ObjectCalendarSchema` interface and the zod mirror `safeValidateSchema`
+runs. Until that card this package was the one published face that still
+accepted the config object, so a document validated *here* could pass while every
+other surface rejected it; the annotated examples on this page are checked
+against the narrowed declaration.
+
+That is a behaviour change for stored documents, and a **breaking narrowing** of
+the authoring type. A calendar written that way no longer draws those rows; the
+record-source ladder falls past `data` to `staticData`, then to `objectName`, so
+it queries its object instead — or draws nothing when it names neither. In
+TypeScript the same document is now a compile error at `data` rather than a
+silent pass.
+
+Read from the database with the **Object Provider** above (`objectName`), pass
+events you already hold with the **Value Provider** (`staticData`), or hand the
+block rows it already has as an array under `data`. There is no api-provider
+branch to reach on this block; `endpoint` and `method` have no read point
+anywhere in the package.
 
 ## Comparison: CalendarView vs ObjectCalendar
 
@@ -468,7 +518,7 @@ const taskCalendar: ObjectCalendarSchema = {
 
 You can also import and use the components directly in React:
 
-{/* doc-snippet: fragment — the `ObjectCalendar` half cannot compile against the SHIPPED prop type: `ObjectCalendarComponentProps.schema` is declared `ObjectGridSchema | CalendarSchema`, and neither admits an `object-calendar` node — `ObjectGridSchema.type` is the literal `'object-grid'` and `CalendarSchema` is the FORM date picker (`type: 'calendar'`). The renderer registered for `object-calendar` passes exactly this shape (`index.tsx`), and `ObjectCalendar.tsx` reads `objectName` / `calendar` / `staticData` off it, so the runtime path is real and the declaration is the stale half — filed as objectui#7311 rather than papered over with a cast (measured: TS2322 x1) */}
+{/* doc-snippet: fragment — the `ObjectCalendar` half cannot compile as written, because the `schema` literal below omits the required `type: 'object-calendar'` discriminant. The SHIPPED prop type is `ObjectCalendarComponentProps.schema: ObjectCalendarSchema` (`plugin-calendar/dist/ObjectCalendar.d.ts`), whose `type` member is the literal `'object-calendar'`. Compiling this exact block against the built workspace measures TS2741 x1 (Property 'type' is missing) and TS2322 x0. ⚠️ This reason was rewritten by objectui#8651: it previously said the prop was declared a grid/date-picker union and that neither arm admitted an `object-calendar` node, with a measurement of TS2322 x1. Every clause of that reason is false at this head, because objectui#8651 re-pointed the prop at the published element schema — which is also why the objectui#7311 'stale declaration' framing is gone. ⛔ Whether the old TS2322 x1 held when it was written is NOT asserted here: that would need a build of the old tree, which was not done. The fix for the block itself is to add the discriminant, not a cast. */}
 ```tsx
 import { CalendarView, ObjectCalendar } from '@object-ui/plugin-calendar';
 import type { DataSource } from '@object-ui/types';

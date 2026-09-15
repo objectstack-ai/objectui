@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { childVitestEnv } from './helpers/child-vitest-env';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -1392,15 +1393,17 @@ describe('THE DEATH — a frozen factory kills the file at COLLECTION, not in a 
    *      annotations — which the CI log shows it did, decorating the parent's
    *      own run with failures from a fixture that is behaving correctly.
    *   3. `NO_COLOR` asks for uncoloured output. It is not relied on: the
-   *      stripping above is what makes the assertions true either way.
+   *      stripping above is what makes the assertions true either way. ⭐ It is
+   *      stated at the call site rather than left to the environment, and that
+   *      is now the only thing deciding it: `childVitestEnv()` removes the
+   *      agent markers an agent container sets, which vitest otherwise reads to
+   *      turn colour off, swap in its `agent` reporter and change coverage
+   *      defaults — silently, and only outside CI (objectui#8616).
    */
   function runVitest(root: string) {
-    const env: Record<string, string> = { NO_COLOR: '1' };
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value === undefined || key === 'VITEST' || key.startsWith('VITEST_')) continue;
-      if (key === 'GITHUB_ACTIONS' || key === 'NO_COLOR' || key === 'FORCE_COLOR') continue;
-      env[key] = value;
-    }
+    const env = childVitestEnv({ NO_COLOR: '1' });
+    delete env.GITHUB_ACTIONS;
+    delete env.FORCE_COLOR;
     const reportAt = path.join(root, 'vitest-report.json');
     const run = spawnSync(
       path.join(repoRoot, 'node_modules/.bin/vitest'),

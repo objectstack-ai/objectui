@@ -177,7 +177,12 @@ describe('ListView spec parity (#2231 drift guard)', () => {
  */
 describe('per-view-type configs derive from the spec', () => {
   const CONFIGS = {
-    kanban: { spec: SpecKanbanConfigSchema, local: ['groupField', 'cardFields'] },
+    // `groupBy` is local and DECLARED, but it is not a writable member: it is
+    // the objectui#8365 alias-refusal arm (`aliasKeyRefusal`), declared exactly so
+    // the key is refused BY NAME instead of riding this mirror's `.passthrough()`.
+    // It belongs on this list because the list asks which keys the mirror
+    // declares beyond the spec — declaring a refusal is still declaring.
+    kanban: { spec: SpecKanbanConfigSchema, local: ['groupField', 'cardFields', 'groupBy'] },
     calendar: { spec: SpecCalendarConfigSchema, local: ['defaultView'] },
     gantt: { spec: SpecGanttConfigSchema, local: [] },
     gallery: { spec: SpecGalleryConfigSchema, local: ['imageField'] },

@@ -27,6 +27,7 @@ import {
 } from './submitRedirectNavigation';
 import { usePermissions } from '@object-ui/permissions';
 import { sectionPredicateUnsupportedWarning } from './sectionPredicateDiagnostic';
+import { warnUnresolvedTopLevelField } from './sectionFields';
 import { TabbedForm } from './TabbedForm';
 import { WizardForm, NAVIGATE_ON_SUCCESS_REFUSED_NOTE } from './WizardForm';
 import { SplitForm } from './SplitForm';
@@ -772,7 +773,14 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // If fieldsToShow is an array of strings, fieldName is the string
       // If fieldsToShow is array of objects (unlikely but possible in some formats), we need to extract name
       const name = typeof fieldName === 'string' ? fieldName : (fieldName as any).name;
-      if (!name) return;
+      if (!name) {
+        // objectui#8738 route 1: a member that resolves to no name (most
+        // commonly the spec `FormFieldSchema` object, identity key `field`,
+        // that IS legal in `sections[].fields`) used to vanish here without a
+        // word. Warn, don't accept — see `warnUnresolvedTopLevelField`.
+        warnUnresolvedTopLevelField(fieldName, schema.objectName);
+        return;
+      }
 
       const field = objectSchema.fields?.[name];
       if (!field && !hasInlineFields) return; // Skip if not found in object definition unless inline
@@ -847,6 +855,33 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           formField.inputType = 'datetime-local';
         }
 
+        // ⛔ DO NOT ADD A TYPE TO THIS LIST TO GIVE IT A LENGTH CAP. Measured
+        // on this branch's base (objectui#8438): on THIS path the assignment
+        // below reaches nothing, for every one of the four types it names.
+        //
+        // `formField` is the FORM FIELD; the metadata carrier a registered
+        // `field:*` widget reads is `formField.field` — a DIFFERENT object,
+        // assigned from the raw object-schema `field` further down. So
+        // `TextAreaField` resolves its cap from `field.max_length` directly and
+        // never consults the key written here. Ablation, both configurations,
+        // with the two statements below replaced by a comment: the rendered
+        // `maxlength` attribute and the character counter were byte-identical
+        // to the unablated run (a `textarea` with `max_length: 111` kept
+        // `maxlength="111"` and its `0/111` counter; `markdown`, `html` and
+        // `richtext` rendered no `maxlength` either way).
+        //
+        // ⇒ objectui#8438 was filed as "`richtext` is missing from this list".
+        // It is — and adding it would have changed nothing observable, which is
+        // exactly the 假绿 objectui#4250 named and objectui#4831 warned about.
+        // The cap was unread for ALL THREE of the rich-content registry keys,
+        // and the fix is the widget reading it: see the `maxLength` docblock in
+        // `packages/fields/src/widgets/RichTextField.tsx`.
+        //
+        // Left in place rather than deleted: `formField.maxLength` IS live for
+        // the OTHER producer of form fields — `EmbeddableForm`'s
+        // `applyDefaultMaxLengths` writes it onto `customFields`, where the
+        // form field IS the carrier — and removing a dead assignment is a
+        // different question from this card's, on a shared file.
         if (field.type === 'text' || field.type === 'textarea' || field.type === 'markdown' || field.type === 'html') {
           // Spec FieldSchema declares camelCase; `max_length`/`min_length` is
           // the legacy objectui spelling. Dual-read like buildValidationRules

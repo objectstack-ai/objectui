@@ -309,7 +309,8 @@ describe('objectui#5846 — the totals row is outside the sortable rows', () => 
     expect(drillFilters[drillFilters.length - 1]).toEqual({ industry: 'fin' });
 
     fireEvent.click(bodyRows()[2]);
-    await waitFor(() => expect(drillFilters[drillFilters.length - 1]).toEqual({ industry: null }));
+    // objectui#9085 spelling; the (row, index) pairing this test pins is unchanged.
+    await waitFor(() => expect(drillFilters[drillFilters.length - 1]).toEqual({ industry: { $null: true } }));
   });
 
   it('keeps the totals row OUT of the CSV, as the cross-tab already does', async () => {

@@ -24,7 +24,7 @@ import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
 import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate } from '@object-ui/react';
-import { renderChildren, cn } from '../../lib/utils';
+import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { RelatedCountStore, useRelatedCountVersion } from '../../hooks/related-count-store';
 import { useIsMobile } from '../../hooks/use-mobile';
@@ -153,16 +153,31 @@ const labelText = (label: any): string => {
 };
 
 /**
- * Lightweight built-in translation for well-known English tab/accordion
- * labels used by Lightning-style record pages (Details / Related /
- * Activity / History / Notes / Files / Tasks / Events / Attachments /
- * Chatter / Discussion). Keeps `@object-ui/components` free of an i18n
- * dependency while closing the gap between custom Page schemas (often
- * authored in English) and the localised default detail view.
+ * EXACT-LOCALE overrides for well-known English tab/accordion labels used by
+ * Lightning-style record pages (Details / Related / Activity / History /
+ * Notes / Files / Tasks / Events / Attachments / Chatter / Discussion),
+ * consulted AHEAD of `KNOWN_LABEL_KEYS` below.
+ *
+ * It shipped as the only source, with exactly two arms — and that was
+ * objectui#4645: `buildDefaultPageSchema` writes plain English tokens onto the
+ * synthesized record-detail tabs and three of its comments say they "localize
+ * through the tab strip's KNOWN_LABEL_DICT", which was true for Chinese and
+ * silently false for the eight other shipped packs. A ja-JP / es-ES record
+ * detail rendered `Details / Related / Attachments` inside otherwise fully
+ * localized chrome.
+ *
+ * What stays here is what the packs cannot answer:
+ *   - `zh-TW`. There is no `zh-TW` pack; i18next resolves it to the
+ *     SIMPLIFIED `zh` resource, so this map is the only source of the
+ *     Traditional forms. It must therefore win over the pack lookup, which is
+ *     why the dict is consulted first rather than second.
+ *   - the tokens no pack carries (`Notes`, `Files`, `Tasks`, `Events`,
+ *     `Overview`, and the object-name rows) — dropping them would take
+ *     coverage AWAY from zh.
  *
  * Authors can always override by passing a localised `label` (string or
- * `{ default, zh-CN, ... }` shape) directly in their schema; the map is
- * only consulted when the input matches a known English token.
+ * `{ default, zh-CN, ... }` shape) directly in their schema; neither map is
+ * consulted unless the input matches a known English token.
  */
 const KNOWN_LABEL_DICT: Record<string, Record<string, string>> = {
   'zh-CN': {
@@ -230,6 +245,29 @@ const KNOWN_LABEL_DICT: Record<string, Record<string, string>> = {
 };
 
 /**
+ * The other half of the same lookup: the well-known English tokens the ten
+ * shipped packs ALREADY translate, mapped to the key that carries them
+ * (objectui#4645). No pack key is minted here — every row below was in all ten
+ * packs before this change; the tab strip simply never asked for them.
+ *
+ * These are exactly the tokens `buildDefaultPageSchema` writes onto its
+ * synthesized tab nodes, plus the two `record:discussion` spellings, so the
+ * built-in record detail is covered end to end. A token absent from this map
+ * (an authored `Invoices` tab) is left alone, which is the contract the dict
+ * already had.
+ */
+const KNOWN_LABEL_KEYS: Record<string, string> = {
+  Details: 'detail.details',
+  Related: 'detail.related',
+  Activity: 'detail.activity',
+  History: 'detail.history',
+  Attachments: 'detail.attachments',
+  Approvals: 'detail.approvalsPanelTitle',
+  Discussion: 'detail.discussion',
+  Comments: 'detail.comments',
+};
+
+/**
  * `locale` is passed in rather than re-detected. Both call sites already
  * resolve it from `useObjectTranslation().language`; this function used to
  * call `detectLocale()` and read `document.documentElement.lang` on its own,
@@ -238,26 +276,46 @@ const KNOWN_LABEL_DICT: Record<string, Record<string, string>> = {
  * in-app, because the DOM attribute and the i18n instance update
  * independently (objectui#2871).
  */
-const translateLabel = (text: string, locale: string): string => {
+const translateLabel = (
+  text: string,
+  locale: string,
+  tt: (keyOrKeys: string | string[], fallback: string) => string,
+): string => {
   if (!text) return text;
   // Match `zh-CN`, `zh-TW`, then base `zh` → `zh-CN`.
   const exact = KNOWN_LABEL_DICT[locale];
   const base = locale.split('-')[0];
   const fallback = base === 'zh' ? KNOWN_LABEL_DICT['zh-CN'] : undefined;
   const dict = exact || fallback;
-  if (!dict) return text;
+  /**
+   * One token, in lookup order: the exact-locale dict, then the pack.
+   *
+   * `undefined` means "this token has no translation in this locale" — NOT
+   * "the pack answered with the English token". `tt` falls back to its second
+   * argument, so a pack miss and an `en` session both come back as `text`
+   * itself; collapsing them here is what keeps the compound path below from
+   * claiming a translation it does not have.
+   */
+  const one = (token: string): string | undefined => {
+    const hit = dict?.[token];
+    if (hit !== undefined) return hit;
+    const key = KNOWN_LABEL_KEYS[token];
+    if (key === undefined) return undefined;
+    const translated = tt(key, token);
+    return translated === token ? undefined : translated;
+  };
   // Direct hit on the full string.
-  if (dict[text] !== undefined) return dict[text];
+  const direct = one(text);
+  if (direct !== undefined) return direct;
   // Try splitting on " & " / " 和 " / " and " separators so labels like
   // "Notes & Attachments" translate piece-wise to "备注 & 附件" without
   // requiring every concrete combination to be enumerated in the dict.
   const sepRe = /\s*(?:&|and|和)\s*/i;
   if (sepRe.test(text)) {
-    const parts = text.split(sepRe);
-    const allKnown = parts.every((p) => dict[p.trim()] !== undefined);
-    if (allKnown) {
+    const parts = text.split(sepRe).map((p) => p.trim()).map(one);
+    if (parts.every((p) => p !== undefined)) {
       const sep = locale.startsWith('zh') ? '与' : ' & ';
-      return parts.map((p) => dict[p.trim()]).join(sep);
+      return (parts as string[]).join(sep);
     }
   }
   return text;
@@ -281,35 +339,44 @@ const interpolate = (
   objectName?: string,
 ): string => {
   if (!template || typeof template !== 'string') return template || '';
-  if (!template.includes('{')) return template;
-  const out = template.replace(/\{([a-zA-Z0-9_.]+)\}/g, (_m, path: string) => {
-    const v = path.split('.').reduce<any>((acc, seg) => (acc == null ? acc : acc[seg]), data);
-    if (v == null) return '';
-    // Skip object/array values rather than letting `String(v)` produce a
-    // useless "[object Object]" — this happens when a token resolves to a
-    // related record (e.g. `{account}` on an opportunity). Authors who want
-    // a field of the related record should use a deeper path
-    // (e.g. `{account.name}`).
-    if (typeof v === 'object') return '';
-    const raw = String(v);
-    // Route enum values through i18n so subtitle templates render
-    // translated option labels instead of raw machine-readable values.
-    // Only the first path segment is treated as a field name (deeper
-    // paths reach into related records and have their own translation
-    // surfaces).
-    if (objectSchema?.fields && fieldOptionLabel && objectName && !path.includes('.')) {
-      const fieldDef: any = Array.isArray(objectSchema.fields)
-        ? objectSchema.fields.find((f: any) => f?.name === path)
-        : objectSchema.fields[path];
-      const options: any[] | undefined = fieldDef?.options;
-      if (Array.isArray(options)) {
-        const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
-        const fallback = match?.label ? String(match.label) : raw;
-        return fieldOptionLabel(objectName, path, raw, fallback);
-      }
-    }
-    return raw;
-  });
+  // No early return on the no-`{` case: that used to skip straight past the
+  // trim below, so a whitespace-only literal (no token, nothing to
+  // substitute) came back UNCHANGED while the exact same string with a
+  // token in it got blanked — two branches disagreeing about whitespace
+  // (objectui#9174). `.includes('{')` still buys the fast path its one real
+  // saving, skipping the `replace()` callback, but every template — token or
+  // not — now falls through to the SAME trim call below, so the two paths
+  // cannot re-diverge.
+  const out = template.includes('{')
+    ? template.replace(/\{([a-zA-Z0-9_.]+)\}/g, (_m, path: string) => {
+        const v = path.split('.').reduce<any>((acc, seg) => (acc == null ? acc : acc[seg]), data);
+        if (v == null) return '';
+        // Skip object/array values rather than letting `String(v)` produce a
+        // useless "[object Object]" — this happens when a token resolves to a
+        // related record (e.g. `{account}` on an opportunity). Authors who want
+        // a field of the related record should use a deeper path
+        // (e.g. `{account.name}`).
+        if (typeof v === 'object') return '';
+        const raw = String(v);
+        // Route enum values through i18n so subtitle templates render
+        // translated option labels instead of raw machine-readable values.
+        // Only the first path segment is treated as a field name (deeper
+        // paths reach into related records and have their own translation
+        // surfaces).
+        if (objectSchema?.fields && fieldOptionLabel && objectName && !path.includes('.')) {
+          const fieldDef: any = Array.isArray(objectSchema.fields)
+            ? objectSchema.fields.find((f: any) => f?.name === path)
+            : objectSchema.fields[path];
+          const options: any[] | undefined = fieldDef?.options;
+          if (Array.isArray(options)) {
+            const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
+            const fallback = match?.label ? String(match.label) : raw;
+            return fieldOptionLabel(objectName, path, raw, fallback);
+          }
+        }
+        return raw;
+      })
+    : template;
   return out.replace(/\s+/g, ' ').trim();
 };
 
@@ -426,6 +493,11 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // `useObjectTranslation`), so the count-badge copy and the tab-label
   // localization below read the same session locale from one hook.
   const { t: tTabs, language } = useTabsTranslation();
+  // The pack half of `translateLabel` (objectui#4645). Per-call rather than a
+  // second defaults map: these keys carry no interpolation, and the English
+  // token IS the fallback, so `useSafeTranslate`'s (keys, fallback) shape is
+  // exactly the lookup.
+  const ttLabel = useSafeTranslate();
   const rawItems: PageTabsItem[] = schema?.items || [];
   // Tab visual style lives at `properties.type` ('line'|'card'|'pill') — the
   // outer `schema.type` is always 'page:tabs' (the component dispatch key).
@@ -445,7 +517,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //     subscriber updates with no parent re-render.
   const ctx = useRecordContext();
   const parentId = ctx?.data?.id;
-  const ds: any = ctx?.dataSource;
+  const ds = ctx?.dataSource;
 
   // Conditional tabs (framework#2606): an item-level `visibleWhen` CEL
   // predicate removes the ENTIRE tab (header + panel) when FALSE — unlike a
@@ -574,31 +646,71 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     if (!ds || typeof ds.find !== 'function') return;
     if (probeTargets.size === 0) return;
     let cancelled = false;
-    for (const probes of probeTargets.values()) {
-      for (const probe of probes) {
-        // RelatedCountStore.fetch is internally deduplicated, so concurrent
-        // mounts of multiple tab strips don't generate redundant requests.
-        // The attachments probe overrides the store-built single-key filter
-        // with the two-key `(parent_object, parent_id)` scope; the synthetic
-        // relationshipField keeps the cache key unique, and the store's
-        // `sys_attachment` invalidation (data-change bus) still hits it.
-        const finder = probe.attachments
-          ? (object: string, query: any) =>
-              ds.find(object, {
-                ...query,
-                $filter: { parent_object: recordObject, parent_id: parentId },
-              })
-          : (object: string, query: any) => ds.find(object, query);
-        void RelatedCountStore.fetch(
-          finder,
-          probe.objectName,
-          probe.relationshipField,
-          parentId,
-          probe.filter,
-        ).catch(() => 0);
-        if (cancelled) return;
+    void (async () => {
+      // objectui#8882 — the badge asks the SAME question of the parent
+      // relationship that the rows do, and that question's spelling depends on
+      // the relationship field's ARITY. The store compiles it through
+      // `composeParentScopeFilter`, the one compiler `RelatedList` uses for the
+      // ROWS, but that seam can only answer from METADATA — so this call site
+      // owes it the child object's field defs. It is the same `DataSource` the
+      // row side reads them from, one layer up.
+      //
+      // Resolved BEFORE any probe rather than gating on a loaded schema: an
+      // adapter without `getObjectSchema`, or one whose fetch rejects, still
+      // probes — the seam then compiles the historical equality wire, which is
+      // byte for byte what this effect sent before this card. What is NOT done
+      // is probing first and correcting later: the store caches the first
+      // answer it gets, and a lenient backend that answers the wrong question
+      // with a number would have that number cached and never re-probed.
+      const fieldsFor = new Map<string, unknown>();
+      if (typeof ds.getObjectSchema === 'function') {
+        const names = new Set<string>();
+        for (const probes of probeTargets.values()) {
+          for (const probe of probes) {
+            // The attachments probe's `relationshipField` is a synthetic cache
+            // discriminator, not a field on `sys_attachment`, and its wrapper
+            // below replaces `$filter` outright — there is no arity to read.
+            if (!probe.attachments) names.add(probe.objectName);
+          }
+        }
+        await Promise.all(
+          Array.from(names).map(async (name) => {
+            try {
+              fieldsFor.set(name, (await ds.getObjectSchema(name))?.fields);
+            } catch {
+              // Equality it is — the wire this effect has always sent.
+            }
+          }),
+        );
       }
-    }
+      if (cancelled) return;
+      for (const probes of probeTargets.values()) {
+        for (const probe of probes) {
+          // RelatedCountStore.fetch is internally deduplicated, so concurrent
+          // mounts of multiple tab strips don't generate redundant requests.
+          // The attachments probe overrides the store-built single-key filter
+          // with the two-key `(parent_object, parent_id)` scope; the synthetic
+          // relationshipField keeps the cache key unique, and the store's
+          // `sys_attachment` invalidation (data-change bus) still hits it.
+          const finder = probe.attachments
+            ? (object: string, query: any) =>
+                ds.find(object, {
+                  ...query,
+                  $filter: { parent_object: recordObject, parent_id: parentId },
+                })
+            : (object: string, query: any) => ds.find(object, query);
+          void RelatedCountStore.fetch(
+            finder,
+            probe.objectName,
+            probe.relationshipField,
+            parentId,
+            probe.filter,
+            probe.attachments ? undefined : (fieldsFor.get(probe.objectName) as any),
+          ).catch(() => 0);
+          if (cancelled) return;
+        }
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -633,7 +745,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     value: typeof (it as any).value === 'string' && (it as any).value !== '' ? (it as any).value : `tab-${idx}`,
     // pickLocalized first (honours `{ en, zh }` / `{ default }`); translateLabel
     // then maps any plain-English well-known token (Details/Related/…) to the locale.
-    labelStr: translateLabel(pickLocalized(it.label, language), language),
+    labelStr: translateLabel(pickLocalized(it.label, language), language, ttLabel),
     // Explicit spec count wins; otherwise fall back to the derived probe.
     count: it.count !== undefined && it.count !== null && it.count !== ''
       ? it.count
@@ -833,8 +945,18 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           <CardTitle>{title}</CardTitle>
         </CardHeader>
       )}
-      {body && <CardContent>{renderChildren(body)}</CardContent>}
-      {footer && <CardFooter className="flex justify-between">{renderChildren(footer)}</CardFooter>}
+      {/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to
+          the slot itself, so a legal authored `body: 0` painted the character
+          "0" — and this renderer's `schema` is `any`, which is why the card's
+          TypeScript census could not see these two while the runtime probe
+          could. `renderNodeSlot` invokes the wrapper only when the slot has
+          content, so the chrome disappears with it. */}
+      {renderNodeSlot(body, (node) => (
+        <CardContent>{renderChildren(node)}</CardContent>
+      ))}
+      {renderNodeSlot(footer, (node) => (
+        <CardFooter className="flex justify-between">{renderChildren(node)}</CardFooter>
+      ))}
     </Card>
   );
 };
@@ -880,6 +1002,10 @@ interface PageAccordionItem {
 const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
   const { language } = useObjectTranslation();
+  // Same lookup the tab strip reads (objectui#4645) — `page:accordion` is the
+  // other renderer that localizes well-known English section labels, and the
+  // two must not answer differently for the same token.
+  const ttLabel = useSafeTranslate();
   const items: PageAccordionItem[] = schema?.items || [];
   const allowMultiple = !!schema?.allowMultiple;
   // Variants:
@@ -895,7 +1021,7 @@ const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) =
   const itemsWithValue = items.map((it, idx) => ({
     ...it,
     value: `panel-${idx}`,
-    labelStr: translateLabel(pickLocalized(it.label, language), language),
+    labelStr: translateLabel(pickLocalized(it.label, language), language, ttLabel),
   }));
 
   const defaultOpen = itemsWithValue
@@ -1397,9 +1523,11 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // renders the related record's NAME.
     const predicateRecord = toPredicateRecord(ctx?.data, headerPredicateFields);
     return {
-      // The ambient host scope (`features` / `app` / `current_user` / …) binds
+      // The ambient host scope (`features` / `current_user` / …) binds
       // top-level, the way it does for a row predicate — the header used to
-      // expose it only under `ctx.*`.
+      // expose it only under `ctx.*`. (⛔ No `app` among them since
+      // objectui#8155 unbound that root; the `ctx.app` mirror below therefore
+      // reads whatever a host still passes, which in this repo is nothing.)
       ...(predicateScope && typeof predicateScope === 'object' ? predicateScope : {}),
       user: scopeUser,
       // Server-CEL-parity identity alias (#2358 trap 1): the spec's canonical

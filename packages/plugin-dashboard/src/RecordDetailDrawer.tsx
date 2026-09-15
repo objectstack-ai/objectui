@@ -34,6 +34,7 @@ import {
   isSystemField,
   isNumericFieldMeta,
 } from './recordFields';
+import { humanizeFieldKey } from './utils';
 
 export interface RecordDetailDrawerProps {
   /** The record to display, or `null` when nothing is selected. */
@@ -102,7 +103,21 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({
 
     return keys.map((key) => {
       const def = fieldsByName[key];
-      const humanized = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').replace(/_/g, ' ');
+      // Same shape as `ObjectDataTable`'s `buildHeader` half, function for
+      // function: `humanizeFieldKey` derives the fallback and the i18n wrapper
+      // (bundle entry wins, this is only its fallback) and the `objectName`
+      // guard are unchanged. This line used to carry a FOURTH inline spelling
+      // that upper-cased only the first word, so one key rendered as
+      // `Close Date` in the column the user clicked and `Close date` in the
+      // field this drawer opened — one key, two spellings, one uninterrupted
+      // interaction (objectui#9055; the class objectui#5425 ruled out).
+      //
+      // The KEY prefixer stays distinct from `humanizeLabel`, the VALUE
+      // prefixer in `@object-ui/core` — see `utils/humanize-label.ts`, whose
+      // docblock gives the per-input difference table and rules that
+      // converging the two "is a decision, not a refactor … it needs its own
+      // card". This card adopts the KEY convention; it does not merge them.
+      const humanized = humanizeFieldKey(key);
       const label = objectName ? fieldLabel(objectName, key, humanized) : humanized;
       const fieldMeta = buildFieldMeta({ accessorKey: key, label, def, objectName, fieldOptionLabel });
       return {

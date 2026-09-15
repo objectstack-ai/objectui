@@ -56,6 +56,17 @@ For `provider: 'value'`. Everything runs against an in-memory array, which is
 deep-cloned on construction so the caller's array is never mutated. Useful for
 static content, fixtures, and previews.
 
+The clone is a **`structuredClone`**, not a JSON round-trip (objectui#9175). It
+is an aliasing barrier and nothing more: `ViewData.items` is
+`z.array(z.unknown())` in `@objectstack/spec`, so **an inline row does not have
+to be serializable** (objectui#6018). A `Date` arrives as a `Date`, a key whose
+value is `undefined` keeps its key, `Map` / `Set` / `RegExp` / `BigInt` /
+`NaN` / a cyclic record graph all survive as themselves. What
+`structuredClone` cannot copy — a function, a DOM node — throws
+`DataCloneError` at construction: **loud, on purpose**, and there is no
+fallback to the round-trip, because a fallback would restore the silent
+flattening this replaced.
+
 ```typescript
 import { ValueDataSource } from '@object-ui/core';
 
@@ -75,8 +86,9 @@ const { data, total } = await dataSource.find('people', {
 
 It implements `$filter` (both MongoDB-style objects and FilterNode AST arrays),
 `$search`, `$orderby`, `$skip`, `$top` and `$select` locally, plus `bulk()`,
-`aggregate()` and `onMutation()`. `getAll()` returns a cloned snapshot and
-`count` the current length.
+`aggregate()` and `onMutation()`. `getAll()` returns a cloned snapshot — the
+same `structuredClone` rule as the constructor — and `count` the current
+length.
 
 #### What `$filter` executes, and what it refuses
 
@@ -94,7 +106,9 @@ $contains  $icontains  $notContains  $startsWith  $endsWith  $null  $exists
 That is **all sixteen** — nothing the spec declares is refused by name.
 
 `$contains`, `$notContains`, `$startsWith` and `$endsWith` are **case-sensitive**;
-`$icontains` is the one case-insensitive member and its fold is **ASCII-only**.
+`$icontains` is the one case-insensitive member, its fold is **ASCII-only**, and its
+comparand must be a **non-empty string** — any other comparand shape is refused in the
+table below rather than folded (objectui#8748).
 `$null` takes its direction from the value: `$null: true` is IS NULL, `$null: false`
 is IS NOT NULL. `$exists` is its exact inverse — `$exists: true` is IS NOT NULL — which
 is the lowering `convertFiltersToAST` already performs, not a reading invented here.
@@ -109,6 +123,37 @@ appeared in no filter answer at all. The stored value is never coerced to text �
 searching `String(50)` would answer a query nobody wrote, in a spelling the storage
 class chose. A `null` and an absent key take the same side of the same predicate.
 
+#### Grouped filters — `$and` and `$or`
+
+Both are **executed** in the object dialect (objectui#8513), matching the
+semantics the five platform backends already answer to. A group is one ENTRY of
+the condition object, so it ANDs with its sibling keys:
+`{ status: 'open', $or: [ … ] }` is "status AND the group". Groups nest.
+
+The empty-group answers are the **boolean identity elements** ruled by
+objectstack#5322 — and they are not a special case in the code, they are what
+`Array.prototype.every` and `Array.prototype.some` already answer for an empty
+array:
+
+| filter | rows | why |
+| --- | --- | --- |
+| `{ $and: [] }` | **every** row | the AND identity is TRUE |
+| `{ $or: [] }` | **no** row | the OR identity is FALSE |
+| `{ $or: [ … , {} ] }` | **every** row | a `{}` branch is a TRUE disjunct and absorbs its `$or` |
+| `{ $and: [ … , {} ] }` | the other branches | a `{}` branch drops out of an `$and` |
+
+The identities matter in practice because `convertFiltersToAST` hands them back
+**unlowered** — it returns the original object when a filter reduces to no
+conditions — so `{ $and: [] }` reaches this matcher as an object even from
+callers that lower everything else. Before objectui#8513 it answered zero rows
+for a filter whose ruled answer is every row.
+
+This is pinned against the spec's own cross-backend table
+(`FILTER_LOGIC_CASES`), not against a local fixture, in
+`ValueDataSource.filterLogicConformance-8513.test.ts`. A malformed group — a
+non-array `$and`, or a member that is not a condition object — is refused like
+anything else below.
+
 Anything else is **refused**: the row is excluded and the reason is logged once per
 distinct refusal per `find()` — never passed through as "no constraint", which is
 what an unrecognised operator used to mean here. Refused on purpose, each with a
@@ -119,9 +164,10 @@ prescription in the message:
 | `$like` / `$ilike` | declared, but staged out of `FILTER_OPERATORS`; no pattern engine in memory | `$contains` / `$icontains` |
 | `$regex` / `$options` | retired from the protocol | `$icontains` |
 | `$startswith`, `$notcontains`, `$notin`, `$ncontains` | non-canonical spellings | the camelCase spelling |
-| `$and` / `$or` / `$not` | combinators, not field operators | an AST array `$filter` |
+| `$not` | ruled upstream (objectstack#5146), but this repo's own `convertFiltersToAST` still refuses it: the AST has no negation keyword and rewriting the negation inward is silently partial | `$ne` / `$nin` / `$notContains` |
 | `{ relation: { field: … } }` | this matcher does not descend into relations | filter on the stored key |
 | an **array** comparand outside `$in` / `$nin` / `$between` | the spec leaves it unruled and the sibling in-memory matcher refuses it; a reference comparison excluded every row, and on `$ne` selected every row (objectui#8514) | `{ field: { $in: [ … ] } }` |
+| an **empty** or **non-string** `$icontains` / `icontains` comparand | `FILTER_TEXT_CASES` carries both as REJECTION rows — an empty comparand constrains nothing, a coerced one answers a query nobody wrote (objectui#8748) | a non-empty string comparand, or drop the condition |
 | `{ $field }` in an `$in` / `$nin` member or a `$between` endpoint | removed from those positions because no backend resolved one (objectstack#7596) | a scalar comparison |
 | `{ $field, addDays }` | the offset is defined against the column's temporal class, which this schema-less matcher cannot read (objectstack#14104) | shift the value at the producer |
 | `{ $field: 'a.b' }` (dotted) | this matcher addresses a flat record, so a dotted reference would not mean what a dotted field name means | a same-record column |
@@ -144,6 +190,11 @@ renderer calls; components do not branch on `provider` themselves.
 
 ```typescript
 import { resolveDataSource } from '@object-ui/core';
+import type { DataSource } from '@object-ui/types';
+
+// The `DataSource` the renderer already holds from context. It is what
+// `provider: 'object'` resolves to, and the fallback for every other case.
+declare const contextDataSource: DataSource;
 
 const dataSource = resolveDataSource(
   { provider: 'api', read: { url: '/api/users' } },
@@ -169,6 +220,10 @@ stay ignorant of which one ran.
 
 ```typescript
 import { runBatchTransaction } from '@object-ui/core';
+import type { DataSource } from '@object-ui/types';
+
+// The adapter the view resolved to — see `resolveDataSource` above.
+declare const dataSource: DataSource;
 
 // `{ $ref: 0 }` resolves to the id minted by operation 0 (the parent).
 await runBatchTransaction(dataSource, [
@@ -188,38 +243,78 @@ for the capability negotiation that decides which path is taken.
 
 ## Creating Custom Adapters
 
-To create a custom adapter, implement the `DataSource<T>` interface:
+To create a custom adapter, implement the `DataSource<T>` interface. It requires
+**six** members — `find`, `findOne`, `create`, `update`, `delete` and
+`getObjectSchema` — and everything else on it is optional. `getObjectSchema` is
+easy to miss and is not optional: schema-dependent components call it before they
+render, which is why `ApiDataSource` answers it with a minimal stub rather than
+omitting it.
 
 ```typescript
 import type { DataSource, QueryParams, QueryResult } from '@object-ui/types';
 
 export class MyCustomAdapter<T = any> implements DataSource<T> {
+  // ── The six members `DataSource<T>` requires ───────────────────────────────
+
   async find(resource: string, params?: QueryParams): Promise<QueryResult<T>> {
-    // Your implementation
+    throw new Error(`find(${resource}) is not implemented yet`);
   }
-  
-  async findOne(resource: string, id: string | number): Promise<T | null> {
-    // Your implementation
+
+  async findOne(
+    resource: string,
+    id: string | number,
+    params?: QueryParams,
+  ): Promise<T | null> {
+    throw new Error(`findOne(${resource}, ${id}) is not implemented yet`);
   }
-  
+
   async create(resource: string, data: Partial<T>): Promise<T> {
-    // Your implementation
+    throw new Error(`create(${resource}) is not implemented yet`);
   }
-  
-  async update(resource: string, id: string | number, data: Partial<T>): Promise<T> {
-    // Your implementation
+
+  async update(
+    resource: string,
+    id: string,
+    data: Partial<T>,
+    opts?: { ifMatch?: string },
+  ): Promise<T> {
+    throw new Error(`update(${resource}, ${id}) is not implemented yet`);
   }
-  
-  async delete(resource: string, id: string | number): Promise<boolean> {
-    // Your implementation
+
+  async delete(
+    resource: string,
+    id: string | number,
+    opts?: { ifMatch?: string },
+  ): Promise<boolean> {
+    throw new Error(`delete(${resource}, ${id}) is not implemented yet`);
   }
-  
-  // Optional: bulk operations
-  async bulk?(resource: string, operation: string, data: Partial<T>[]): Promise<T[]> {
-    // Your implementation
+
+  /**
+   * Required. Return the object's metadata, or a minimal stub
+   * (`{ name, fields: {} }`) when your backend exposes none — see
+   * `ApiDataSource` above.
+   */
+  async getObjectSchema(objectName: string): Promise<any> {
+    return { name: objectName, fields: {} };
+  }
+
+  // ── Optional: implement only what your backend actually supports ───────────
+
+  async bulk?(
+    resource: string,
+    operation: 'create' | 'update' | 'delete',
+    data: Partial<T>[],
+  ): Promise<T[]> {
+    throw new Error(`bulk(${resource}, ${operation}) is not implemented yet`);
   }
 }
 ```
+
+The bodies above **throw** rather than fall off the end: a method annotated
+`Promise<QueryResult<T>>` that returns nothing is a type error, and a template
+that does not type-check is one a reader copies into a class that does not
+satisfy the interface it claims to implement. Replace each `throw` as you go and
+the class stays checkable at every step.
 
 ## Related Packages
 

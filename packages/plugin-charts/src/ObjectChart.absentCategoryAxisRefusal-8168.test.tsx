@@ -55,6 +55,7 @@ vi.mock('recharts', async () => {
 });
 
 import { ObjectChart, resolveChartCategoryField } from './ObjectChart';
+import type { ObjectChartSchema } from '@object-ui/types';
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({}) })));
@@ -77,8 +78,37 @@ const dataSourceWithRows = () => ({
   aggregate: vi.fn().mockResolvedValue(ROWS),
 });
 
-const renderChart = (schema: Record<string, unknown>, ds: any = dataSourceWithRows()) =>
-  render(<ObjectChart schema={{ chartType: 'bar', isAnimationActive: false, ...schema }} dataSource={ds} />);
+// `type` moved into the base literal when objectui#7946 anchored
+// `ObjectChartProps.schema` to `ObjectChartSchema`, on which `type` is
+// required and pinned to the registry key. The per-case overrides stay a
+// partial of the anchored type — this file's whole subject is nodes that
+// declare no category axis, so the parameter must keep admitting them.
+const renderChart = (schema: Partial<ObjectChartSchema>, ds: any = dataSourceWithRows()) =>
+  render(<ObjectChart schema={{ type: 'object-chart', chartType: 'bar', isAnimationActive: false, ...schema }} dataSource={ds} />);
+
+/**
+ * ⭐ An aggregate the AUTHORING DOOR refuses, handed to the renderer anyway —
+ * which is the population this whole file is about, and the reason it needs a
+ * spelling of its own.
+ *
+ * objectui#7946's rework round declared `ObjectChartSchema.aggregate` as
+ * `@objectstack/spec`'s `ChartAggregate` BY REFERENCE, where `function` and
+ * `groupBy` are REQUIRED and the structured `groupBy` node must name its
+ * `field`. Two of the cases below are exactly those documents — a measure with
+ * no category, and a date-bucketing node naming no field — so they are no longer
+ * writable as typed literals. ⛔ That is not a reason to widen the declaration
+ * back: it is the reason this refusal screen exists. Every live producer
+ * forwards `aggregate` as `any` (`DashboardRenderer`'s `(widget as any).data`,
+ * app-shell's `viewDef: any`), so a document the door refuses still ARRIVES at
+ * this component at runtime, and what it owes the reader then is a named
+ * refusal rather than a bar labelled `Unknown`.
+ *
+ * So the out-of-contract shape is asserted HERE, once, named, and greppable —
+ * rather than by relaxing the parameter type, which would quietly make every
+ * other literal in this file unchecked too.
+ */
+const UNAUTHORABLE = (aggregate: unknown): ObjectChartSchema['aggregate'] =>
+  aggregate as ObjectChartSchema['aggregate'];
 
 /** The refusal is absent AND the chart got far enough to draw. */
 const expectNoRefusal = async () => {
@@ -110,7 +140,7 @@ describe('ObjectChart — absent category axis refusal (objectui#8168)', () => {
     // the measure instead.
     renderChart({
       objectName: 'crm_opportunity',
-      aggregate: { field: 'amount', function: 'sum' },
+      aggregate: UNAUTHORABLE({ field: 'amount', function: 'sum' }),
       series: [{ dataKey: 'amount' }],
     });
 
@@ -122,7 +152,7 @@ describe('ObjectChart — absent category axis refusal (objectui#8168)', () => {
     // naming no field has no other spelling that could rescue it.
     renderChart({
       objectName: 'crm_opportunity',
-      aggregate: { field: 'amount', function: 'sum', groupBy: { dateGranularity: 'day' } },
+      aggregate: UNAUTHORABLE({ field: 'amount', function: 'sum', groupBy: { dateGranularity: 'day' } }),
     });
 
     expect(await screen.findByTestId(REFUSAL)).toBeInTheDocument();

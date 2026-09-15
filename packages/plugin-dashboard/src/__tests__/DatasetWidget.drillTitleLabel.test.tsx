@@ -193,7 +193,10 @@ describe('DatasetWidget — the drill title reads the series LABEL (objectui#468
     await waitFor(() => expect(drawerProps.length).toBeGreaterThan(0));
     // The KEY did the lookup — the right records, which is what objectui#4673
     // already guaranteed and what must not move…
-    expect(lastDrawer().filter).toEqual({ status_id: 'st-backlog', priority_id: null });
+    // objectui#9085: the empty `priority` dimension carries the is-empty
+    // predicate; the identity-keyed `status` half is untouched, which is what
+    // this test is about.
+    expect(lastDrawer().filter).toEqual({ status_id: 'st-backlog', priority_id: { $null: true } });
     // …and the TITLE reads the label. Pre-fix: 'Backlog / [null]'.
     expect(lastDrawer().title).toBe(`Backlog / ${NULL_CATEGORY_LABEL}`);
     expect(lastDrawer().title).not.toContain('[null]');

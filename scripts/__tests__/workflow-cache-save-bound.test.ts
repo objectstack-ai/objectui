@@ -62,13 +62,21 @@ import { parse as parseYaml } from 'yaml';
  *   - Four had a distribution to derive from, and carry a ceiling with the
  *     derivation written beside the key.
  *   - Two did not, and carry NO ceiling ON PURPOSE, with the reason written
- *     beside the job. `changelog.yml::changelog` has never run at all;
- *     `stale.yml::stale` has never succeeded, and every run it has fails in
- *     `Set up job` before the marketplace action starts, so its seconds measure
- *     a setup failure rather than the job's work. Pinning an ABSENCE reads
- *     oddly until you notice the failure mode it catches: someone tidying up
- *     the inconsistency by copying `20` onto them, which is precisely the
- *     inherited number objectui#7048 fences and objectui#7956's triage forbade.
+ *     beside the job. Pinning an ABSENCE reads oddly until you notice the
+ *     failure mode it catches: someone tidying up the inconsistency by copying
+ *     `20` onto them, which is precisely the inherited number objectui#7048
+ *     fences and objectui#7956's triage forbade.
+ *
+ * ⚠️ That second half is now ONE job, not two. `stale.yml::stale` was the other
+ * one, and objectui#8548 deleted the whole workflow under enforce-or-remove:
+ * eight months, 236 runs, zero successes, zero consumers. Its entry left the
+ * `accepted` table in that same commit, because a pin naming a job that no
+ * longer exists fails on the lookup and says nothing about ceilings.
+ * ⛔ Do not read the shrink as the rule weakening — `changelog.yml::changelog`
+ * still holds it, and the case it catches (copying `20` onto an unmeasured job)
+ * is unchanged. ⭐ A job leaving this table by being DELETED and a job leaving
+ * it by acquiring a derived ceiling are opposite events; only the second one
+ * moves an entry into the `derived` table above.
  *
  * ## Deliberately NOT asserted
  *
@@ -438,22 +446,26 @@ describe('every workflow cache save is bounded and non-fatal (objectui#7048)', (
     ).toEqual([]);
   });
 
-  it('keeps the two jobs objectui#7956 could not measure UNBOUNDED, with their reason recorded', () => {
+  it('keeps the job objectui#7956 could not measure UNBOUNDED, with its reason recorded', () => {
     // The other half of objectui#7956, and the half that is easy to undo by
-    // being helpful. Four of its six jobs got a ceiling; these two did not,
-    // because neither has a distribution that measures the job doing its work:
+    // being helpful. Four of its six jobs got a ceiling; this one did not,
+    // because it has no distribution that measures the job doing its work:
     //
     //   - `changelog.yml::changelog` — `total_count: 0` runs, ever. It is
     //     dispatch-only and has never been dispatched. (Control on the same
     //     endpoint: `changeset-release.yml` answers with thousands, so the zero
     //     is a reading and not a broken query.)
-    //   - `stale.yml::stale` — 234 completed runs, 0 successful, over eight
-    //     months. Ten sampled evenly across that window all fail in `Set up
-    //     job`, before `actions/stale` starts, so their 1-4 seconds measure how
-    //     fast the job fails to begin. Its real cost has never been observed,
-    //     and it is the kind that grows with the repository.
     //
-    // A number invented for either one would look derived and be a guess, and a
+    // objectui#7956 left TWO jobs here. The second was `stale.yml::stale` — 234
+    // completed runs, 0 successful, over eight months, every sampled one failing
+    // in `Set up job` before the marketplace action started, so its 1-4 seconds
+    // measured how fast the job failed to begin rather than any work it did.
+    // objectui#8548 deleted that workflow outright (enforce-or-remove: zero
+    // consumers, zero successes), which is why this table lists one key and not
+    // two. ⛔ Re-adding `stale.yml::stale` here does not restore a pin — the
+    // lookup below would fail on a workflow that is gone.
+    //
+    // A number invented for it would look derived and be a guess, and a
     // ceiling under a job's honest slowest run converts a working job into a
     // permanently red one — objectui#7048's fence, and objectstack#16173 is the
     // live counter-example (a distribution mis-estimated by ~2.6x killed a test
@@ -464,7 +476,7 @@ describe('every workflow cache save is bounded and non-fatal (objectui#7048)', (
     // jobs above onto these two. Adding a real ceiling here is welcome — derive
     // it from runs that did the work, write the derivation beside the key, and
     // move the entry up into the `derived` table above in the same commit.
-    const accepted = ['changelog.yml::changelog', 'stale.yml::stale'];
+    const accepted = ['changelog.yml::changelog'];
 
     const bounded: string[] = [];
     const undocumented: string[] = [];

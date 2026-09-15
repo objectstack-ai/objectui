@@ -97,8 +97,16 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
  * available to users in the view toolbar", and already carries `rowHeight` —
  * objectui's `showDensity` under its spec name. `group` / `hideFields` /
  * `rowColor` are the same kind of toggle and are named after the config key
- * they gate (`grouping`, `hiddenFields`, `rowColor`), pending promotion into
- * `UserActionsConfigSchema` upstream.
+ * they gate (`grouping`, `hiddenFields`, `rowColor`).
+ *
+ * That promotion has LANDED (objectui#5435, ruled Option A 2026-08-22):
+ * `UserActionsConfigSchema` declares all three from `@objectstack/spec@17.3.0`,
+ * and the spec's declaring docblock names this card. Every key this table emits
+ * is therefore authorable, which
+ * `__tests__/normalize-list-view.foldOutputAuthorable-5435.test.ts` pins with a
+ * firing control. ⛔ Do not read the three as legacy-only spellings awaiting
+ * retirement — the protocol declares them, so removing them here would leave
+ * objectui narrower than the protocol.
  */
 const SHOW_FLAG_TO_USER_ACTION: Record<string, string> = {
   showSearch: 'search',

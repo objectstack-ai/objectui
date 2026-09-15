@@ -18,6 +18,7 @@ import {
   toDomProps,
   chartCategoryKey,
   chartMeasureKey,
+  chartConfigPresentation,
 } from '@object-ui/core';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button, getLazyIcon } from '@object-ui/components';
 import { forwardRef, useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
@@ -39,10 +40,11 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { isObjectProvider, deriveStaticTableColumns } from './utils';
+import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
 import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
+import { useWidgetSubCaption } from './widgetSubCaption';
 import { DashboardFilterBar } from './DashboardFilterBar';
 
 interface SortableWidgetWrapperProps {
@@ -287,7 +289,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // ── i18n: convention-based label resolution for dashboard / widget /
     // action text. The dashboard name (`schema.name`) keys all lookups; when
     // it's missing we silently degrade to the raw English fallbacks.
-    const { dashboardLabel, dashboardDescription, dashboardActionLabel, widgetTitle, widgetDescription, widgetSubCaption, fieldLabel } = useObjectLabel();
+    const { dashboardLabel, dashboardDescription, dashboardActionLabel, widgetTitle, widgetDescription, fieldLabel } = useObjectLabel();
     const { t, language } = useObjectTranslation();
 
     /**
@@ -313,21 +315,23 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
       [language],
     );
     /**
-     * Resolve a chart series label. When the y-field defaults to a synthetic
-     * key like 'value' (used by count aggregations that have no real field),
-     * fall back to an i18n'd aggregate name (Count / Sum / Average …) instead
-     * of leaking the placeholder 'value' string into the legend / tooltip.
+     * Resolve a chart series label. The three-arm decision itself
+     * (`composeSeriesLabel`, `./utils`) is shared with `DashboardGridLayout` —
+     * see that function's docblock (objectui#9055 fixed arms 2/3 here,
+     * objectui#9172 gave the sibling relay this same authority instead of a
+     * second copy). This `useCallback` only binds it to THIS component's own
+     * `t` / `fieldLabel` instances so its identity still tracks them.
+     *
+     * It stays distinct from `humanizeLabel`, the VALUE prefixer in
+     * `@object-ui/core` — `utils/humanize-label.ts`'s docblock carries the
+     * per-input difference table and rules that converging the two "is a
+     * decision, not a refactor … it needs its own card".
      */
-    const resolveSeriesLabel = useCallback((objectName: string | undefined, yField: string, aggFn: string | undefined) => {
-      const isSynthetic = !yField || yField === 'value' || yField === 'count';
-      if (aggFn && (isSynthetic || aggFn === 'count')) {
-        return t(`report.aggregate.${aggFn}`, { defaultValue: aggFn });
-      }
-      if (objectName) {
-        return fieldLabel(objectName, yField, yField);
-      }
-      return yField;
-    }, [t, fieldLabel]);
+    const resolveSeriesLabel = useCallback(
+      (objectName: string | undefined, yField: string, aggFn: string | undefined) =>
+        composeSeriesLabel(t, fieldLabel, objectName, yField, aggFn),
+      [t, fieldLabel],
+    );
     const dashName = (schema as any).name as string | undefined;
 
     /**
@@ -408,16 +412,18 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * bundle carries a non-empty `subCaption`, whether or not the author wrote
      * one. Absent both, this answers `undefined` rather than `''` —
      * `MetricWidget` gates its whole caption row on the value's truthiness.
+     *
+     * ⚠️ The composition itself no longer lives here (objectui#8889). It moved
+     * to `useWidgetSubCaption` so that BOTH dashboard surfaces —
+     * `DashboardRenderer` and `DashboardGridLayout`, which route a
+     * dataset-bound widget to the same `DatasetWidget` (objectui#4614) — resolve
+     * it through ONE decision point. An invariant that says two channels can
+     * never disagree cannot be enforced by two independent resolvers; see that
+     * module's header. The limbs, their order and the `undefined`-never-`''`
+     * contract are unchanged, which is why the pins in
+     * `__tests__/DashboardRenderer.metricSubCaption.test.tsx` did not move.
      */
-    const tWidgetSubCaption = useCallback(
-      (widget: DashboardWidgetSchema): string | undefined => {
-        const authored = (widget.options as Record<string, unknown> | undefined)?.description;
-        const fallback = resolveLabel(authored);
-        if (!dashName || !widget.id) return fallback;
-        return widgetSubCaption(dashName, widget.id, fallback);
-      },
-      [dashName, widgetSubCaption, resolveLabel],
-    );
+    const tWidgetSubCaption = useWidgetSubCaption(dashName);
 
     // Install host-supplied modal/script handlers on the underlying ActionRunner.
     useEffect(() => {
@@ -445,14 +451,19 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
       setTimeout(() => setRefreshing(false), 600);
     }, [onRefresh]);
 
-    // Auto-refresh interval
+    // Auto-refresh interval. The `* 1000` is seconds → milliseconds, and the
+    // key now says so itself: @objectstack/spec 17.4.0 renamed
+    // `refreshInterval` to `refreshIntervalSeconds` precisely because a reader
+    // multiplying by 1000 was the tell that the unit lived out of band
+    // (objectstack#15680, objectui#7783). The arithmetic is unchanged — the
+    // value is still seconds.
     useEffect(() => {
-      if (!schema.refreshInterval || schema.refreshInterval <= 0 || !onRefresh) return;
-      intervalRef.current = setInterval(handleRefresh, schema.refreshInterval * 1000);
+      if (!schema.refreshIntervalSeconds || schema.refreshIntervalSeconds <= 0 || !onRefresh) return;
+      intervalRef.current = setInterval(handleRefresh, schema.refreshIntervalSeconds * 1000);
       return () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
       };
-    }, [schema.refreshInterval, onRefresh, handleRefresh]);
+    }, [schema.refreshIntervalSeconds, onRefresh, handleRefresh]);
 
     const handleWidgetClick = useCallback((e: React.MouseEvent, widgetId: string | undefined) => {
       if (!designMode || !onWidgetClick || !widgetId) return;
@@ -608,6 +619,28 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 const xAxisKey = options.xField || 'name';
                 const yField = options.yField || 'value';
 
+                // The widget's declared `chartConfig`, lowered onto the chart
+                // schema — objectui#4044. `DashboardWidget.chartConfig` is
+                // declared as the spec's full `ChartConfigSchema` on EVERY
+                // dashboard widget, but until this card only the ADR-0021
+                // dataset path (`DatasetWidget`) read it: this inline path
+                // mentioned `chartConfig` zero times, so an author who wrote
+                // `chartConfig.title` / `.colors` / `.height` on a widget bound
+                // to inline rows or to a `provider: 'object'` aggregate parsed
+                // clean and got nothing.
+                //
+                // `chartConfigPresentation` is the SAME whitelist the dataset
+                // path lowers through (`@object-ui/core`), not a second copy —
+                // it admits a key only when the chart block measurably draws it
+                // (see its docblock for the two criteria and for why `aria` is
+                // refused). Spread AFTER the derived keys so an authored
+                // `colors` / `height` overrides the defaults below, and BEFORE
+                // nothing that would shadow the dataset-derived bindings: the
+                // whitelist emits no `xAxisKey` and no `series`, which is what
+                // keeps objectstack#17385's open precedence question (authored
+                // axes vs derived) out of this change.
+                const chartPresentation = chartConfigPresentation(widget.chartConfig);
+
                 // provider: 'object' — delegate to ObjectChart for async data loading.
                 // Field/aggregate config comes from the nested data provider.
                 if (isObjectProvider(widgetData)) {
@@ -652,7 +685,8 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                         // which is what `CompareToConfig` projects — so the cast
                         // that used to bridge the skew is gone.
                         compareTo: widget.compareTo,
-                        className: "h-[200px] sm:h-[250px] md:h-[300px]"
+                        className: "h-[200px] sm:h-[250px] md:h-[300px]",
+                        ...chartPresentation,
                     };
                 }
 
@@ -671,7 +705,8 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     colors: CHART_COLORS,
                     // Deterministic first paint inside the grid (#2756).
                     isAnimationActive: false,
-                    className: "h-[200px] sm:h-[250px] md:h-[300px]"
+                    className: "h-[200px] sm:h-[250px] md:h-[300px]",
+                    ...chartPresentation,
                 };
             }
 
@@ -932,7 +967,19 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 <CardContent className="p-0">
                     <div className={cn("h-full w-full", "p-3 sm:p-4 md:p-6", designMode && "pointer-events-none")}>
                         {datasetBound
-                          ? <DatasetWidget widget={effectiveWidget} dataSource={dataSource} />
+                          ? <DatasetWidget
+                              widget={effectiveWidget}
+                              dataSource={dataSource}
+                              /* objectui#8889 — dispatch site 1 of 2. Both must pass this;
+                                 passing it from one surface only is objectui#4614's lesson
+                                 repeated. `?? null` is the "resolved to nothing" signal:
+                                 `undefined` would mean "nobody resolved it" and send
+                                 `DatasetWidget` back to its own authored-only limb, which
+                                 is how a bundle entry that resolves to empty would lose to
+                                 the authored value on THIS surface while the inline arms of
+                                 `getComponentSchema()` above render nothing. */
+                              subCaption={tWidgetSubCaption(widget) ?? null}
+                            />
                           : <SchemaRenderer schema={componentSchema} dataSource={dataSource} />}
                     </div>
                 </CardContent>

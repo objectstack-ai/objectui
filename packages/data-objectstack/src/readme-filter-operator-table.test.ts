@@ -25,8 +25,10 @@
  *     retired (objectui#8447 / PR #8512): `$regex` is REFUSED with a
  *     `FilterOperatorError`, because a substring match is a different
  *     question, not a weaker version of the same one;
- *   - only `$startswith` was listed, while the map carries both spellings and
+ *   - only `$startswith` was listed, while the map carried both spellings and
  *     `$startsWith` is the spec's (`FILTER_OPERATORS`, `data/filter.zod.ts`).
+ *     The lowercase half was retired outright by objectui#8568; this pin is
+ *     what named the four rows that had to change with it.
  *
  * Re-deriving the whole table for that card found the rest of the drift: four
  * operators the code's own "Supported operators:" message enumerates —
@@ -53,10 +55,11 @@
  *     `$exists` are probed with both booleans, so their rows must name both
  *     directions;
  *   - the supported table must carry a row for EVERY key of
- *     `convertOperatorToAST`'s `operatorMap` (alias spellings included — the
- *     omitted `$startsWith` was an alias row) and for every operator the
+ *     `convertOperatorToAST`'s `operatorMap` and for every operator the
  *     unknown-operator error message calls supported (`$null` / `$exists`
  *     live outside the map);
+ *   - the two tables TOGETHER must account for every member of the spec's
+ *     `FILTER_OPERATORS` — see "The blind spot" below;
  *   - every `$`-spelling in the refused table must be refused, and every
  *     combinator row's keyword must be the one its lowered group carries.
  *
@@ -65,11 +68,42 @@
  * Hardcoding `nin` below would rebuild the defect one level up: a second
  * hand-maintained copy, in a test, that would then have to be edited whenever
  * the map changed — the edit everybody makes without reading. So the map is
- * read from `filter-converter.ts`'s source (the only way to see its lowercase
- * aliases without exporting it; a control below proves the read agrees with
- * the runtime), the supported list is read from the error the function throws
- * for an unknown operator, and every lowering comes from calling the function.
+ * read from `filter-converter.ts`'s source (it is not exported, and a control
+ * below proves the read agrees with the runtime), the supported list is read
+ * from the error the function throws for an unknown operator, and every
+ * lowering comes from calling the function.
  * A red here is always "fix the README (or the code)", never "update the test".
+ *
+ * ## The blind spot this pin had, and what closes it (objectui#8976)
+ *
+ * Until objectui#8976 both completeness checks read the SAME two populations,
+ * and both were the CODE's: `operatorMap`'s keys, and the operators the
+ * unknown-operator error calls supported. That makes the pin exact about drift
+ * between the code and the page — and structurally unable to see an operator
+ * missing from BOTH sides at once.
+ *
+ * `$icontains` was exactly that operator. It is a canonical member of
+ * `FILTER_OPERATORS`, `ValueDataSource` executed it, `FilterConditionField`
+ * emitted it and `packages/core/src/adapters/README.md` PRESCRIBED it — while
+ * `convertOperatorToAST` had no row for it and the error message did not list
+ * it. Absent from both code-side populations, it was absent from everything
+ * this pin derives from them, so the README could carry no row for it in either
+ * table and the suite stayed green. A pin that reads only the code cannot
+ * report the code being wrong.
+ *
+ * So a THIRD population is read, and it is the one the code answers TO: the
+ * spec's `FILTER_OPERATORS`. Every canonical member must be accounted for by
+ * these tables — documented as supported, or documented as refused. Which of
+ * the two is not asserted here (that is the code's ruling, and the rows above
+ * already hold the tables to it); what is asserted is that no canonical
+ * operator is missing from BOTH, because that is the state nothing else can
+ * see.
+ *
+ * ⚠️ Deliberately ONE-DIRECTIONAL. The refused table legitimately carries
+ * spellings the spec does NOT declare (`$regex`, and the four lowercase aliases
+ * objectui#8568 retired) — documenting a refusal for something outside
+ * `FILTER_OPERATORS` is the point of that table, not drift. Asserting the
+ * converse would delete it.
  *
  * ## Exhaustiveness IS asserted, deliberately
  *
@@ -87,6 +121,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { convertFiltersToAST, convertOperatorToAST } from '@object-ui/core';
+import { FILTER_OPERATORS } from '@objectstack/spec/data';
 
 /** Walk up to the workspace root, so both files are found by repo layout. */
 function repoRoot(): string {
@@ -232,14 +267,43 @@ type Lowering =
   | { readonly refused: false; readonly operators: ReadonlySet<string> };
 
 /**
+ * The comparands every spelling is probed with.
+ *
+ * The two BOOLEANS are here because `$null` / `$exists` read their value to pick
+ * a direction, so one probe would see only half of what they emit.
+ *
+ * The STRING is here because "for every other operator the value is irrelevant"
+ * — what this list used to say — stopped being true. objectui#9001 gave
+ * `$icontains` a comparand door: `@objectstack/spec`'s `FILTER_TEXT_CASES`
+ * declares an empty or non-string comparand REFUSED, so probing that operator
+ * with a boolean measures the COMPARAND door and answers "refused", and this
+ * file read that as "not a supported operator" — a supported operator reported
+ * as unsupported, from an instrument that was asking the wrong question rather
+ * than from any defect in the code or the page.
+ */
+const PROBE_COMPARANDS: readonly unknown[] = [true, false, 'probe'];
+
+/**
  * What `convertFiltersToAST` does with `spelling` in operator position — the
- * AST operator(s) it emits, or a refusal. Probed with both booleans because
- * `$null` / `$exists` read their value to pick a direction; for every other
- * operator the value is irrelevant and both probes agree.
+ * AST operator(s) it emits, or a refusal.
+ *
+ * ⚠️ "Refused" means refused for EVERY comparand in {@link PROBE_COMPARANDS},
+ * not for the first one tried. That distinction is the whole repair: an operator
+ * the converter does not support is refused whatever you hand it, while an
+ * operator whose COMPARAND is constrained refuses some values and lowers others
+ * — and this function is asked about the operator. The union over the probes
+ * that lower is still exactly "the operator(s) the lowered node carries", so a
+ * row naming the wrong one (objectui#8558: `notin` for `nin`) still fails, and
+ * a spelling the code genuinely refuses is still reported refused.
+ *
+ * The envelope assertion runs on EVERY refusing probe rather than only on a
+ * fatal one, so a comparand door that refuses outside the `INVALID_FILTER` / 400
+ * envelope is caught here too.
  */
 function lowerings(spelling: string): Lowering {
   const operators = new Set<string>();
-  for (const value of [true, false]) {
+  let refusals = 0;
+  for (const value of PROBE_COMPARANDS) {
     let node: unknown;
     try {
       node = convertFiltersToAST({ probe: { [spelling]: value } });
@@ -248,7 +312,8 @@ function lowerings(spelling: string): Lowering {
         error,
         `${spelling} threw something other than the INVALID_FILTER / 400 envelope`,
       ).toMatchObject({ code: 'INVALID_FILTER', httpStatus: 400 });
-      return { refused: true };
+      refusals += 1;
+      continue;
     }
     if (!Array.isArray(node) || node[0] !== 'probe' || typeof node[1] !== 'string') {
       throw new Error(
@@ -257,14 +322,15 @@ function lowerings(spelling: string): Lowering {
     }
     operators.add(node[1]);
   }
+  if (refusals === PROBE_COMPARANDS.length) return { refused: true };
   return { refused: false, operators };
 }
 
 /**
- * `convertOperatorToAST`'s `operatorMap`, read out of the source so the
- * lowercase aliases are visible without exporting the map. The slice is
- * anchored on the declaration, and a control below holds every entry to the
- * runtime, so a moved or reshaped map fails loudly rather than reading empty.
+ * `convertOperatorToAST`'s `operatorMap`, read out of the source because the map
+ * is local to that function and not exported. The slice is anchored on the
+ * declaration, and a control below holds every entry to the runtime, so a moved
+ * or reshaped map fails loudly rather than reading empty.
  */
 function operatorMapFromSource(): Map<string, string> {
   const start = CONVERTER_SOURCE.indexOf('const operatorMap');
@@ -327,6 +393,30 @@ describe('README filter-operator tables are decided by convertFiltersToAST (obje
       expect(supportedByError.length).toBeGreaterThanOrEqual(10);
       expect(supportedByError).toContain('$eq');
       expect(supportedByError).toContain('$exists');
+    });
+
+    it('reads the spec population the code-side lists cannot report on', () => {
+      // The third population, and the only one that is not derived from the
+      // code under test — which is the whole point of adding it (objectui#8976).
+      expect(FILTER_OPERATORS.length).toBeGreaterThanOrEqual(12);
+      expect(FILTER_OPERATORS).toContain('$icontains');
+      // Discriminating control: the spec population is not a restatement of the
+      // one the other completeness case reads. `operatorMap` structurally CANNOT
+      // carry `$null` / `$exists` — they pick their AST operator from the value,
+      // so they are handled before the map is consulted — which is why holding
+      // the page to the map alone always left canonical operators unaccounted
+      // for, and why the population below has to come from outside the code.
+      expect(sorted(FILTER_OPERATORS)).not.toEqual(sorted(operatorMap.keys()));
+      for (const outsideTheMap of ['$null', '$exists']) {
+        expect(FILTER_OPERATORS).toContain(outsideTheMap);
+        expect([...operatorMap.keys()]).not.toContain(outsideTheMap);
+      }
+      // ⚠️ NOT asserted: that the spec list differs from the unknown-operator
+      // message's enumeration. On a healthy tree those two agree — they did not
+      // before objectui#8976, and making them agree is part of what this card
+      // fixed. Pinning them equal would be wrong in the other direction: a spec
+      // operator this converter deliberately refuses must NOT be enumerated as
+      // supported, and the refused table is where it would be documented.
     });
 
     it('found all three tables, each with rows', () => {
@@ -397,6 +487,27 @@ describe('README filter-operator tables are decided by convertFiltersToAST (obje
   });
 
   describe('the Supported Filter Operators table', () => {
+    it('the string probe is load-bearing, and this is the operator that proves it', () => {
+      // The control for {@link PROBE_COMPARANDS}. Without it the third probe is
+      // an unexplained entry the next reader tidies away, and CI goes red on a
+      // page and a converter that are both correct — which is exactly what
+      // happened when objectui#9001 landed the comparand door.
+      //
+      // Two halves, and both are needed: the boolean probe must still be
+      // refused (or the third probe has nothing to rescue and may go), and the
+      // string probe must still lower (or the rescue does not work and the
+      // repair is elsewhere).
+      expect(
+        () => convertFiltersToAST({ probe: { $icontains: true } }),
+        'a boolean $icontains comparand is refused by the contract\'s own row '
+          + '(FILTER_TEXT_CASES, objectui#9001); if this stops throwing, the string probe may go',
+      ).toThrow();
+      expect(
+        convertFiltersToAST({ probe: { $icontains: 'probe' } }),
+        'and a VALID comparand must lower, or the probe set cannot rescue the operator',
+      ).toEqual(['probe', 'icontains', 'probe']);
+    });
+
     it('every spelling in the first column lowers to exactly the operator(s) the second column names', () => {
       const bad: string[] = [];
       for (const row of supported) {
@@ -421,7 +532,7 @@ describe('README filter-operator tables are decided by convertFiltersToAST (obje
       ).toEqual([]);
     });
 
-    it('carries a row for every key of the operator map, alias spellings included', () => {
+    it('carries a row for every key of the operator map', () => {
       const listed = new Set(supported.flatMap((row) => operatorSpellings(row.cells[0] ?? '')));
       const missing = [...operatorMap.keys()].filter((spelling) => !listed.has(spelling));
       expect(
@@ -438,6 +549,24 @@ describe('README filter-operator tables are decided by convertFiltersToAST (obje
         missing,
         'the code tells an author these operators are supported and the table has no row for them '
           + '(objectui#8558 found `$notContains`, `$endsWith`, `$null`, `$exists` missing)',
+      ).toEqual([]);
+    });
+  });
+
+  describe('every canonical operator is accounted for by the two tables (objectui#8976)', () => {
+    it('no member of the spec FILTER_OPERATORS is missing from BOTH tables', () => {
+      const documented = new Set(
+        [...supported, ...refused].flatMap((row) => operatorSpellings(row.cells[0] ?? '')),
+      );
+      const undocumented = (FILTER_OPERATORS as readonly string[])
+        .filter((spelling) => !documented.has(spelling));
+      expect(
+        undocumented,
+        'the spec declares these operators canonical and this page documents them neither as '
+          + 'supported nor as refused. Until objectui#8976 `$icontains` was exactly that: absent '
+          + 'from `operatorMap` AND from the unknown-operator message, so every other case here '
+          + 'derived it away. Add a row to whichever table the code actually implements — and if '
+          + 'the code implements neither, that is the defect, not this pin',
       ).toEqual([]);
     });
   });

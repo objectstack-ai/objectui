@@ -71,7 +71,30 @@ const CASES: Record<string, Case> = {
     // `type` collides semantically (spec = page kind, objectui = component
     // discriminator, kind lives on `pageType`); `regions` is a local fork.
     omitted: ['type', 'regions'],
-    local: ['title', 'pageType', 'body', 'children'],
+    // `actions` is the odd one out and is listed HERE deliberately rather than
+    // exempted: it is not a local CAPABILITY, it is a local REFUSAL. The spec
+    // does not declare it, no renderer reads it, and objectui#7926 (maintainer
+    // ruling 2026-09-09, batch #107 item 2, option A) ruled that `page` grows no
+    // reader — so the key is DECLARED as an ADR-0049 tombstone precisely so an
+    // authored value is refused by name instead of being kept in silence by
+    // `BaseSchema`'s `.passthrough()`. That makes it an objectui-only key on
+    // this shape, and this ledger is the right place for the decision to be
+    // visible. `../__tests__/page-actions-refusal-7926.test.ts` owns the
+    // behaviour; this row owns the fact that the key exists at all.
+    //
+    // `breadcrumbs` is the SECOND of that kind and joins for the same reason,
+    // under the same gate (objectui#8871, ADR-0049 enforce-or-remove). Its
+    // authority is not objectui#7926's ruling — that one covers `actions` only —
+    // but the standing enforce-or-remove discipline this package applies to this
+    // face. Same shape, same helper, same reason to be visible here rather than
+    // exempted: a local REFUSAL, not a local capability.
+    // `../__tests__/page-breadcrumbs-refusal-8871.test.ts` owns the behaviour.
+    //
+    // ⚠️ These two are the ONLY members of this row that are refusals. Adding a
+    // third means a third undeclared key was found surviving `.passthrough()` on
+    // this node — which is the census that decides between one more named refusal
+    // and finally making the node strict. ⛔ Do not grow this list reflexively.
+    local: ['title', 'pageType', 'body', 'children', 'actions', 'breadcrumbs'],
   },
   App: {
     spec: SpecAppSchema,
@@ -165,9 +188,12 @@ describe('spec-only keys are now VALIDATED, not passed through (objectstack#4115
     expect(OuiAppSchema.safeParse({ type: 'app', branding: 'blue' }).success).toBe(false);
   });
 
-  it('Dashboard declares header/refreshInterval/performance', () => {
+  it('Dashboard declares header/refreshIntervalSeconds/performance', () => {
     const keys = Object.keys(shapeOf(OuiDashboardSchema));
-    for (const key of ['header', 'refreshInterval', 'performance', 'protection']) {
+    // `refreshIntervalSeconds` is the post-rename spelling (objectui#7783); the
+    // spec still carries `refreshInterval` as a `retiredKey` tombstone, so
+    // asserting the OLD name here would pass on the tombstone and prove nothing.
+    for (const key of ['header', 'refreshIntervalSeconds', 'performance', 'protection']) {
       expect(keys, `'${key}' is still undeclared`).toContain(key);
     }
   });

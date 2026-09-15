@@ -76,7 +76,7 @@ import {
   type DatasetDrillRange,
 } from '@object-ui/core';
 import { cn, Skeleton, ChartSkeleton, GridSkeleton } from '@object-ui/components';
-import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale } from '@object-ui/i18n';
+import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import { AlertTriangle, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 // objectui#7063 — the default empty state is stated ONCE for the dashboard
 // surface (see that component's header for why it is dashboard-local).
@@ -405,7 +405,31 @@ export {
   type MergedChartSeries,
 } from '@object-ui/core';
 
-export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource: unknown }) {
+/**
+ * The sub-caption a dashboard surface already resolved for this tile
+ * (objectui#8889). Three states, and the difference between two of them is
+ * load-bearing:
+ *
+ *  - **omitted (`undefined`)** — nobody upstream resolved it. This component is
+ *    rendering outside a dashboard surface (a standalone host, a preview, a
+ *    test), so there is no dashboard `name` in existence and therefore no
+ *    bundle key to look up. The AUTHORED limb is resolved locally, which is
+ *    exactly what objectui#7293 landed and what keeps rendering.
+ *  - **a string** — that is the answer; render it.
+ *  - **`null`** — a surface DID resolve it, to nothing. Render nothing, and in
+ *    particular do NOT fall back to the authored value: a bundle entry that
+ *    resolves to empty is the bundle winning, and the inline arms of
+ *    `getComponentSchema()` render nothing in that same case. Falling back here
+ *    is how the two surfaces would start to disagree.
+ *
+ * ⛔ Never widened to "the dashboard name" or "the widget's translation node".
+ * Handing this component the INPUTS would put a second copy of the
+ * authored-vs-bundle composition inside it, and the field's own invariant — "a
+ * bundle entry always wins over an inline map and the two channels can never
+ * disagree" — needs a single decision point to be true. That point is
+ * `useWidgetSubCaption`; what arrives here is its answer.
+ */
+export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any; dataSource: unknown; subCaption?: string | null }) {
   const datasetName = String(widget?.dataset ?? '');
   const dimensions: string[] = useMemo(() => (Array.isArray(widget?.dimensions) ? widget.dimensions.filter(Boolean) : []), [widget]);
   const values: string[] = useMemo(() => (Array.isArray(widget?.values) ? widget.values.filter(Boolean) : []), [widget]);
@@ -492,6 +516,12 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
   // dependency array to add it to; the sites below are all in the render body
   // and re-run whenever the provider changes.
   const displayLocale = useDisplayLocale();
+  // The UI LANGUAGE, deliberately distinct from `displayLocale` above: that one
+  // is the NUMBER locale (objectui#4566 / #4033 — the tenant regional default
+  // outranks the UI language), this one is what authored TEXT follows. Swapping
+  // either for the other silently changes the other surface's behaviour, which
+  // is why `MetricWidget` keeps the same two channels apart by name.
+  const { language } = useObjectTranslation();
 
   // ADR-0021 dual-form: the widget's presentation-scope `filter` must flow into
   // the dataset query as `runtimeFilter`, or a dataset-bound widget renders the
@@ -578,6 +608,47 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
+
+  // ── Declared measures this tile will never show (objectui#8894) ──────────
+  // `values` is `z.array(z.string()).min(1)` on `DashboardWidgetSchema`, so an
+  // author may legally declare three measures, and the query above runs ALL of
+  // them (`measures: values`). The metric/KPI branch below then renders
+  // `values[0]` and stops — no warning, no console message, no visual tell. A
+  // tile answering a NARROWER question than its metadata asked still reads as a
+  // finished product, and that silence is the defect (ADR-0049
+  // declared-but-unenforced), not the count of numbers on screen.
+  //
+  // This makes the drop AUDIBLE. It deliberately does NOT render the dropped
+  // measures: giving `values[1..]` rendering semantics they do not have today
+  // widens the authoring surface (objectui#8894 option (a), a separate card on
+  // the manual-floor route), so the markup below is byte-unchanged and the
+  // measures after the first are still dropped — objectui#8887 pins both of
+  // those facts and both stay green.
+  //
+  // ⚠️ "Queried … never displayed", NOT "ignored": the extra measures are not
+  // inert, and a message saying they were would itself be false. They are
+  // computed by the server, they join the refetch `signature` above, and
+  // `options.sortBy` accepts any of them (`values.includes(sortBy)`) — which,
+  // on a metric-TYPE widget that also declares dimensions, decides which row
+  // becomes `rows[0]` and therefore which number is shown. Only the DISPLAY
+  // drops them, and only that is what this claims.
+  //
+  // The message itself is the effect's dependency, so it speaks once per mount
+  // and again only when what it would say changes. A module-level one-shot Set
+  // (`warnSuppressedListNav`'s shape) was deliberately not used: it would need
+  // an exported reset and leak across tests, and the census for this card found
+  // the multi-measure metric tile in NO authored dashboard in this tree or in
+  // `objectstack` — there is no population here to flood a console with.
+  const unrenderedMeasureWarning =
+    isMetric && values.length > 1
+      ? `[DatasetWidget] Widget "${String(widget?.id ?? '')}" (type "${widgetType}", dataset "${datasetName}") `
+        + `declares ${values.length} measures, but a metric tile renders only the first ("${values[0]}"). `
+        + `Queried and then never displayed: ${values.slice(1).map((m) => `"${m}"`).join(', ')}. `
+        + `Declare one measure per metric tile, or use a widget that renders every measure (table, pivot or a chart).`
+      : '';
+  useEffect(() => {
+    if (unrenderedMeasureWarning) console.warn(unrenderedMeasureWarning);
+  }, [unrenderedMeasureWarning]);
 
   // ── The analytics label net's INPUT: resolved field metadata, locale-free ──
   // ONE object-schema read per dataset query, yielding `{ object, field,
@@ -835,6 +906,54 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
     // `undefined`, which `cn` drops: the markup of every widget that never
     // declared the key stays byte-identical.
     const accentClass = metricAccentTextClass(widget?.colorVariant);
+    // ── The declared sub-caption (objectui#7293) ───────────────────────────
+    // `options.description` is the metric tile's SUB-CAPTION slot. It is
+    // declared end to end and reached nothing: it has its own translation key
+    // (`{ns}.dashboards.{dash}.widgets.{id}.subCaption`, objectui#4032 item 4 /
+    // objectstack#8056), the server's `translateDashboard` OVERLAYS that
+    // translation onto this very key, and `DashboardRenderer.tWidgetSubCaption`
+    // resolves it — but only onto the two INLINE arms of `getComponentSchema`.
+    // `dataset` is REQUIRED on `DashboardWidgetSchema` (verified against the
+    // published @objectstack/spec@17.4.0: required keys are id/dataset/values),
+    // so every spec-legal widget renders HERE instead, and every author who
+    // wrote a sub-caption got silence — the ADR-0049 declared-but-unenforced
+    // shape, same as `colorVariant` above.
+    //
+    // ── The BUNDLE limb (objectui#8889) ────────────────────────────────────
+    // #7293 (above) landed the AUTHORED limb here, reading the key at the
+    // caption row rather than taking a prop, and its reason was sound at the
+    // time: BOTH dashboard surfaces route a dataset-bound widget to this
+    // component (`DashboardRenderer` and `DashboardGridLayout`, objectui#4614),
+    // so a prop from ONE dispatch site fixes one surface and leaves the other
+    // silently unchanged (objectui#4614 is that lesson's original card).
+    //
+    // What it could not deliver is the SECOND limb: a client i18n bundle entry
+    // at `{ns}.dashboards.{dash}.widgets.{id}.subCaption` overriding the
+    // authored value. That limb needs the dashboard NAME, and this component
+    // does not know which dashboard it is on — it is handed a widget, not a
+    // position. So an app-bundle dashboard whose sub-caption was written ONLY
+    // in the bundle (no `options.description` at all) rendered nothing here,
+    // even though `tWidgetSubCaption`'s own docblock calls that shape
+    // legitimate: "A translation with no authored counterpart is legitimate and
+    // matches the server."
+    //
+    // The answer now arrives resolved, from `useWidgetSubCaption` — ONE
+    // composition, called by BOTH dispatch sites (the #4614 requirement is met
+    // by changing both, not by moving the read down here). See the `subCaption`
+    // prop's docblock for the three states and why `null` must not fall back.
+    //
+    // The local limb below is what remains of #7293, and it still runs for a
+    // host that passes no prop. `pickLocalized` (the objectui#4208 seam), not a
+    // `typeof === 'string'` test: an authored inline per-locale map is the
+    // vocabulary this field admits, and re-implementing a narrower resolver
+    // here is exactly the fourth dialect objectstack#4115 exists to prevent
+    // (objectui#4032 is what a private resolver that could not read the map
+    // already cost). A miss answers `''`, which collapses to `undefined` and
+    // renders NO node at all — a tile that declares no sub-caption keeps
+    // byte-identical markup.
+    const resolvedSubCaption = subCaption === undefined
+      ? (pickLocalized(options.description, language) || undefined)
+      : (subCaption || undefined);
     return (
       <div className="flex h-full w-full flex-col items-start justify-center gap-1 p-2">
         <span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
@@ -855,6 +974,9 @@ export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource:
           </div>
         )}
         <span className="text-xs text-muted-foreground">{headerLabel(values[0])}</span>
+        {resolvedSubCaption && (
+          <span className="text-xs text-muted-foreground" data-testid="dataset-metric-subcaption">{resolvedSubCaption}</span>
+        )}
       </div>
     );
   }

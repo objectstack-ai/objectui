@@ -54,7 +54,7 @@ export interface ActionSchema extends BaseSchema {
    * neighbouring `ActionSchema` keys live read this one: in
    * `packages/core/src/actions/ActionRunner.ts` the spellings `action.level`
    * and `schema.level` have zero hits repo-wide, exit 1, with `action.method`
-   * as the firing control (`ActionRunner.ts:1787` and `:1793`). Until
+   * as the firing control (`ActionRunner.ts:1788` and `:1794`). Until
    * objectui#7735 the zod mirror's `.default('default')` substituted the value
    * into a parsed document; with that gone the tag described nothing that runs.
    * Whether the key should exist at all is the ADR-0049 liveness worklist's
@@ -319,6 +319,31 @@ export interface DetailSchema extends BaseSchema {
    * which accepted `z.any()`, now refuses the key by name.
    */
   onBack?: () => void;
+  /**
+   * SPA navigation callback — RUNTIME SLOT (objectui#7804, the objectui#6124
+   * shape): a host-supplied function, NOT authorable metadata. `'detail'` is
+   * registered to `DetailView` RAW, so an authored value reaches
+   * `schema.onNavigate` by identity and `handleBack` / `handleEdit` / the
+   * post-delete redirect CALL it. Until this card the key was declared on
+   * NEITHER face: `BaseSchema`'s index signature typed it `any` here and the
+   * zod mirror's `.passthrough()` kept it there, so an authored
+   * `{ "action": "toast" }` parsed green and threw `schema.onNavigate is not a
+   * function` at click. The zod twin now refuses the key by name; supply it
+   * from a React host.
+   *
+   * Signature taken from the call site (`(url, { replace })`), which is the
+   * same one `views.ts#DetailViewSchema.onNavigate` declares — one component,
+   * two registrations, one contract.
+   */
+  onNavigate?: (url: string, options?: { replace?: boolean; newTab?: boolean }) => void;
+  /**
+   * New comment callback — RUNTIME SLOT (objectui#7804), reaching the renderer
+   * on a DIFFERENT channel from {@link DetailSchema.onNavigate}: `DetailView`
+   * does not call it, it forwards it as a prop into `<RecordComments>`, whose
+   * submit handler awaits it. Measured per key rather than per prefix, as the
+   * batch #69 ruling requires.
+   */
+  onAddComment?: (text: string) => void | Promise<void>;
   /**
    * Force the loading skeleton.
    *

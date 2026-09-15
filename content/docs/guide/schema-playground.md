@@ -211,7 +211,7 @@ Schemas can be nested to build complex layouts. Here is a dashboard that combine
     "type": "grid",
     "columns": 3,
     "gap": "md",
-    "items": [
+    "children": [
       {
         "type": "card",
         "title": "Open Issues",

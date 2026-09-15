@@ -13,7 +13,16 @@
  */
 
 import './vitest.setup.base';
+import { installBuiltInLocaleCatalogues } from './vitest.setup.i18n-catalogues';
 import '@testing-library/jest-dom';
+// objectui#7479 — the nine non-`en` locale catalogues are `import()`ed on
+// demand now, so a suite that mounts a provider in `zh` and asserts on the same
+// tick would read the `en` fallback. This puts the DOM projects in the state
+// `apps/console/src/main.tsx` reaches by awaiting `preloadBootstrapLocale()`
+// before its first render. ⛔ Read the setup module's header before treating
+// this as the thing that keeps the payload claim honest — it is not, and it
+// names the three mechanisms that are.
+installBuiltInLocaleCatalogues();
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 

@@ -130,9 +130,9 @@ const pt = {
     // numbers, a missing one cannot name how many. Same split as
     // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
     // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework` — a ceiling set 8,924 B above the
-    // baseline it was measured from, about sixty short keys' worth across ten
-    // locales. `pnpm check:eager-closure` prints the figure in force.
+    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
+    // deliberately NOT restated here — it moves on every re-baseline, and the
+    // figure that was here went stale. `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Mostrando os primeiros {{shown}} de {{total}} registros. Restrinja o filtro.",
     rowCeilingNoteUnknownTotal: "Mostrando os primeiros {{shown}} registros. Restrinja o filtro.",
   },
@@ -175,7 +175,6 @@ const pt = {
     conflictMessage: "Outra pessoa alterou este registro enquanto você editava. Sobrescrever substituirá as alterações dela pelas suas.",
     conflictLatestVersion: "Salvamento dela: {{time}}",
     conflictOverwrite: "Sobrescrever",
-    addItem: "Adicionar item",
     removeItem: "Remover item",
     fieldRequired: "Este campo é obrigatório",
     invalidFormat: "Formato inválido",
@@ -1069,6 +1068,7 @@ const pt = {
     sortBy: "Ordenar por",
     filterPlaceholder: "Filtrar…",
     highlightFields: "Campos principais",
+    highlightsLabel: "Campos principais do registro",
     createdBy: "Criado por",
     updatedBy: "Atualizado por",
     // objectui#3863 — base key. pt's third category `many` starts at a million, where
@@ -1083,6 +1083,13 @@ const pt = {
     hideEmptyFields: "Ocultar campos vazios",
     noValue: "Sem valor",
     unresolvedReference: "Referência não resolvida: {{value}} não foi resolvida como um usuário",
+    unresolvedLookupReference: "Referência não resolvida: {{value}} não foi resolvida como um registro nesta tela",
+    repeaterItemCount: "{{count}} itens",
+    repeaterItemCount_one: "{{count}} item",
+    repeaterItemCount_other: "{{count}} itens",
+    fileCount: "{{count}} arquivos",
+    fileCount_one: "{{count}} arquivo",
+    fileCount_other: "{{count}} arquivos",
     // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
     // used no translation hook at all, so every one of these read English in
     // every session; swept in one pass rather than converting the timestamps
@@ -1151,7 +1158,6 @@ const pt = {
       },
     },
     addWidget: "Adicionar widget",
-    removeWidget: "Remover widget",
     editLayout: "Editar layout",
     saveLayout: "Salvar layout",
     resetLayout: "Redefinir layout",
@@ -1289,7 +1295,6 @@ const pt = {
     addGroup: "Adicionar grupo",
     addUrl: "Adicionar URL",
     addSeparator: "Adicionar separador",
-    noNavItems: "Nenhum item de navegação ainda.",
     logoUrl: "Logo URL",
     primaryColor: "Cor primária",
     faviconUrl: "Favicon URL",
@@ -1322,7 +1327,6 @@ const pt = {
     stepBrandingDesc: "Logo, cores e favicon",
     noObjectsFound: "Nenhum objeto encontrado.",
     noNavItemsHint: "Sem itens de navegação. Selecione objetos na etapa anterior ou adicione manualmente.",
-    separator: "Separador",
     separatorLabel: "— Separador —",
     newGroup: "Novo grupo",
     newLink: "Novo link",
@@ -1460,6 +1464,9 @@ const pt = {
     importMappingsUnavailable: "Não foi possível carregar os mapeamentos de importação salvos de {{object}}",
     importMappingsRefused: "O servidor recusou esta solicitação, portanto esta lista está vazia porque não pôde ser lida, não porque nada esteja registrado. Entre novamente ou peça acesso a um administrador.",
     importMappingsUnreadable: "Esta lista está vazia porque não pôde ser lida, não porque nada esteja registrado. Tente novamente e relate o problema se ele persistir.",
+    savedViewsUnavailable: "Não foi possível carregar as exibições salvas de {{object}}",
+    savedViewsRefused: "O servidor recusou esta solicitação, portanto esta lista está vazia porque não pôde ser lida, não porque este objeto não tenha exibições salvas. Entre novamente ou peça acesso a um administrador.",
+    savedViewsUnreadable: "Esta lista está vazia porque não pôde ser lida, não porque este objeto não tenha exibições salvas. Tente novamente e relate o problema se ele persistir.",
     settingsHub: {
       title: "Configurações",
       subtitle: "Configure seu workspace, integrações e sinalizadores de recursos.",
@@ -1877,7 +1884,6 @@ const pt = {
       allRecords: "Todos os registros",
       new: "Novo",
       configureView: "Configurar visualização",
-      toolbar: "Barra de ferramentas",
       toolbarEnabledCount: "{{count}} de {{total}} habilitados",
       searchFields: "Pesquisar campos…",
       title: "Título",
@@ -1894,7 +1900,6 @@ const pt = {
       longitudeField: "Campo de longitude",
       imageField: "Campo de imagem",
       selectField: "Selecionar campo…",
-      groupBy: "Agrupar por",
       endDateField: "Campo de data de término",
       import: "Importar",
       importTitle: "Importar do CSV",
@@ -2266,7 +2271,6 @@ const pt = {
     label: "Espaços de trabalho",
     default: "Meu espaço de trabalho",
     switch: "Trocar de espaço de trabalho",
-    create: "Criar espaço de trabalho",
     createTitle: "Criar um espaço de trabalho",
     createDescription: "Um espaço de trabalho é um espaço compartilhado para colaboração da equipe.",
     createButton: "Criar espaço de trabalho",
@@ -2291,7 +2295,6 @@ const pt = {
     packageManagement: "Gerenciamento de pacotes",
     searchNavigation: "Pesquisar na navegação…",
     settings: "Configurações",
-    help: "Ajuda",
     helpTooltip: "Ajuda e documentação",
     activityFeed: "Feed de atividades",
     notifications: "Notificações",
@@ -2365,7 +2368,6 @@ const pt = {
       capabilityWarn: "Verificação de autoria: {{count}} referência(s) de capacidade não apontam para nada.",
     },
     title: "Início",
-    subtitle: "Painel do seu espaço de trabalho",
     nav: "Início",
     allApps: "Todas as aplicações",
     yourApps: "As suas aplicações",
@@ -2377,8 +2379,6 @@ const pt = {
       empty: "Está tudo em dia",
     },
     loading: "Carregando espaço de trabalho…",
-    recent: "Recentes",
-    starred: "Favoritos",
     welcome: "Bem-vindo ao ObjectUI",
     welcomeDescription: "Comece criando sua primeira aplicação ou configurando as preferências do sistema.",
     createFirstApp: "Crie sua primeira app",
@@ -2503,7 +2503,11 @@ const pt = {
     noAppsConfigured: "Nenhum aplicativo configurado",
     noAppsConfiguredDescription: "Nenhum aplicativo está registrado. Crie seu primeiro aplicativo ou visite as configurações do sistema.",
     appNotAvailable: "Aplicativo indisponível",
-    appNotAvailableDescription: "Este aplicativo ainda não está disponível — a publicação pode estar em andamento. Tente novamente em instantes.",
+    appNotAvailableDescription: "Este aplicativo não está disponível — tente novamente em instantes.",
+    appNotFound: "Não é possível abrir este aplicativo",
+    appNotFoundDescription: "O servidor não retornou este aplicativo para a sua conta.",
+    appUnreachable: "Não foi possível acessar o servidor",
+    appUnreachableDescription: "Não foi possível verificar este aplicativo. Tente novamente em instantes.",
     appAccessDenied: "Você não tem acesso a este aplicativo",
     appAccessDeniedDescription: "Este aplicativo existe, mas sua conta não tem autorização para abri-lo. Peça acesso a um administrador.",
     appAccessDeniedHome: "Voltar ao início",
@@ -2993,6 +2997,20 @@ const pt = {
       countDashboards_one: "{{count}} painel",
       countSeedData: "dados de exemplo",
     },
+    build: {
+      building: "Criando {{app}}…",
+      built: "Criação de {{app}} concluída",
+      appFallback: "seu aplicativo",
+      addingSampleData: "adicionando dados de exemplo",
+      group: {
+        object: "Objetos",
+        view: "Visões",
+        dashboard: "Painéis",
+        app: "Aplicativo",
+        seed: "Dados de exemplo",
+      },
+      moreArtifacts: "+{{n}} mais",
+    },
   },
   chatbotError: {
     title: "Falha na resposta",
@@ -3178,7 +3196,8 @@ const pt = {
       reviewed: "Revisado e aprovado",
       unreviewed: "Ainda não revisado",
       signed: "Assinado",
-      grantsIntro: "Na instalação, este pacote receberá:",
+      grantsIntro: "Este pacote solicita:",
+      notEnforced: "Esta lista é registada na instalação e reconfirmada se uma versão posterior pedir mais, mas o runtime ainda não restringe o pacote a ela.",
       services: "Serviços da plataforma",
       hooks: "Hooks de ciclo de vida",
       network: "Acesso à rede",
@@ -3217,28 +3236,12 @@ const pt = {
       storage: "Armazenamento",
       other: "Outro",
     },
-    pricing: {
-      free: "Grátis",
-      freemium: "Freemium",
-      paid: "Pago",
-      subscription: "Assinatura",
-      "usage-based": "Por uso",
-      "contact-sales": "Contatar vendas",
-    },
     relativeTime: {
       today: "hoje",
       daysAgo: "há {{count}}d",
       monthsAgo: "há {{count}} meses",
       yearsAgo: "há {{count}} anos",
     },
-  },
-  approvals: {
-    approve: 'Aprovar',
-    reject: 'Rejeitar',
-    comment: 'Comentário (opcional)',
-    approveSuccess: 'Aprovado',
-    rejectSuccess: 'Rejeitado',
-    rejectConfirm: 'Rejeitar esta solicitação de aprovação?',
   },
   approvalsInbox: {
     loadMore: 'Carregar mais',

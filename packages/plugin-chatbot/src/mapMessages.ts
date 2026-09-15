@@ -157,7 +157,18 @@ export function parseResultEnvelope(result: unknown): Record<string, unknown> | 
   return fallback ?? wrapperFallback;
 }
 
-function detectPendingApproval(
+/**
+ * The ObjectStack HITL envelope a tool result carries when the framework's
+ * `action-tools.ts` proposes a destructive action:
+ * `{ status: 'pending_approval', pendingActionId: 'pa_…', … }`.
+ *
+ * Exported (objectui#8442) so the app-shell's HYDRATION mapper derives the id
+ * from the same parse the live mapper uses. The id is never persisted as a part
+ * key — it exists in rehydrated history only inside this envelope — so a second
+ * hand-rolled reader there would be a second dialect of one contract, which is
+ * exactly what AGENTS.md Commandment #0.1 refuses.
+ */
+export function detectPendingApproval(
   result: unknown,
 ): { pendingActionId: string; raw: Record<string, unknown> } | undefined {
   const obj = parseResultEnvelope(result);

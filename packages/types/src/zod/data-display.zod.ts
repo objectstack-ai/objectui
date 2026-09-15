@@ -65,7 +65,14 @@ export const AlertSchema = BaseSchema.extend({
   icon: z.string().optional().describe('Alert icon'),
   dismissible: z.boolean().optional().describe('Whether alert can be dismissed'),
   onDismiss: handlerKeyRefusal('onDismiss', 'retired', 'Dismiss handler'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  children: aliasKeyRefusal(
+    'children',
+    'body',
+    'this alert node',
+    '`alert` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/alert.tsx`). '
+    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -78,6 +85,20 @@ export const StatisticSchema = BaseSchema.extend({
   trend: z.enum(['up', 'down', 'neutral']).optional().describe('Trend indicator'),
   description: z.string().optional().describe('Description text'),
   icon: z.string().optional().describe('Statistic icon'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `statistic` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `description`, `icon`, `label`, `trend`, `value`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `statistic` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `description`, `icon`, `label`, `trend`, `value`.',
+  ),
 });
 
 /**
@@ -88,7 +109,14 @@ export const BadgeSchema = BaseSchema.extend({
   label: z.string().optional().describe('Badge label'),
   variant: z.enum(['default', 'secondary', 'destructive', 'outline']).optional().describe('Badge variant'),
   icon: z.string().optional().describe('Badge icon'),
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  children: aliasKeyRefusal(
+    'children',
+    'body',
+    'this badge node',
+    '`badge` reads `body`, never `children` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/badge.tsx`). '
+    + '`children` is inherited from `BaseSchema`, so an authored `children` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -101,6 +129,20 @@ export const AvatarSchema = BaseSchema.extend({
   fallback: z.string().optional().describe('Fallback text/initials'),
   size: z.enum(['sm', 'default', 'lg', 'xl']).optional().describe('Avatar size'),
   shape: z.enum(['circle', 'square']).optional().describe('Avatar shape'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `avatar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `alt`, `fallback`, `src`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `avatar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `alt`, `fallback`, `src`.',
+  ),
 });
 
 /**
@@ -127,7 +169,7 @@ export const ListSchema = BaseSchema.extend({
   dividers: z.boolean().optional().describe('Show dividers between items'),
   dense: z.boolean().optional().describe('Dense spacing'),
   wrapperClass: z.string().optional()
-    .describe('Classes on the wrapper div around the title and the list, read at renderers/data-display/list.tsx:27 — `cn("space-y-2", schema.wrapperClass)` (objectui#7722)'),
+    .describe('Classes on the wrapper div around the title and the list — merged with the base `space-y-2` (objectui#7722)'),
 });
 
 /**
@@ -276,6 +318,20 @@ export const TableSchema = BaseSchema.extend({
   footer: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Table footer'),
   hoverable: retirementTombstone('RETIRED (objectui#5474) — the static table never implemented row hover; use data-table'),
   striped: retirementTombstone('RETIRED (objectui#5474) — the static table never implemented striping; style rows via className, or use data-table'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `caption`, `columns`, `data`, `footer`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `caption`, `columns`, `data`, `footer`.',
+  ),
 });
 
 /**
@@ -310,11 +366,76 @@ export const DataTableSchema = BaseSchema.extend({
   }).optional().describe('Per-record CEL predicates for the built-in row Delete item (objectui#2614)'),
   onSelectionChange: handlerKeyRefusal('onSelectionChange', 'runtime-slot', 'Selection change handler'),
   onColumnsReorder: handlerKeyRefusal('onColumnsReorder', 'runtime-slot', 'Column reorder handler'),
+  // ⭐ objectui#7804 — seven keys the REGISTERED `data-table` renderer reads off
+  // the authored document while this arm declared none of them. `BaseSchema` is
+  // `.passthrough()`, so an undeclared key is NOT refused: it stops being judged
+  // and the value is KEPT. `{ "type": "data-table", "onRowClick": { "action":
+  // "toast" } }` therefore parsed GREEN and handed that action object to a call
+  // site that CALLS it. Declaring the key is what makes the refusal loud and BY
+  // NAME, the shape `onRowEdit` / `onRowDelete` / `onSelectionChange` /
+  // `onColumnsReorder` above already carry.
+  //
+  // ⛔ The disposition is MEASURED PER KEY, never applied as a pattern.
+  // `'retired'` publishes "no renderer reads this key, so nothing could ever
+  // run it" — FALSE for all seven: `renderers/complex/data-table.tsx` reads and
+  // INVOKES every one. So each is a `'runtime-slot'`, and each was carried by
+  // finding the props path a host actually supplies it through:
+  //
+  //   - `onAddRecord`     `ObjectGrid` puts its own `onAddRecord` React prop on
+  //                       the `data-table` node it builds; `ObjectManager` and
+  //                       `FieldDesigner` are the hosts that supply it.
+  //   - `onBatchSave`     `ObjectGrid`'s `onBatchSave ?? defaultBatchSave` —
+  //                       the left limb is `ObjectGridComponentProps.onBatchSave`.
+  //   - `onCellChange`    `ObjectGrid` forwards `ObjectGridComponentProps.onCellChange`.
+  //   - `onColumnResize`  ⚠️ a DIFFERENT channel from its six siblings, and the
+  //                       reason "six of them were" is not evidence: no host prop
+  //                       carries this key at all. `ObjectGrid` supplies its OWN
+  //                       closure, folding the resize into the merged
+  //                       `{ order, widths }` layout it persists and reports
+  //                       through `onColumnStateChange`. Still a live function
+  //                       reaching the renderer through the TypeScript face —
+  //                       objectui#6175 wired that read deliberately — so
+  //                       `'runtime-slot'` holds and `'retired'` would be false.
+  //   - `onRowActionDef`  `RelatedList` forwards its own `onRowAction` React prop.
+  //   - `onRowClick`      three suppliers: `ObjectGrid` (`navigation.handleClick`),
+  //                       `ObjectDataTable` (`schema.onRowClick ?? handleRowClick`)
+  //                       and `RelatedList` (its own `onRowClick` React prop).
+  //                       The sibling `ObjectDataTableSchema.onRowClick` arm in
+  //                       `objectql.zod.ts` is the same key on the forwarding face.
+  //   - `onRowSave`       `ObjectGrid`'s `onRowSave ?? defaultRowSave` — the left
+  //                       limb is `ObjectGridComponentProps.onRowSave`.
+  onAddRecord: handlerKeyRefusal('onAddRecord', 'runtime-slot', 'Add record handler'),
+  onBatchSave: handlerKeyRefusal('onBatchSave', 'runtime-slot', 'Batch save handler'),
+  onCellChange: handlerKeyRefusal('onCellChange', 'runtime-slot', 'Cell value change handler'),
+  onColumnResize: handlerKeyRefusal('onColumnResize', 'runtime-slot', 'Column resize handler'),
+  onRowActionDef: handlerKeyRefusal('onRowActionDef', 'runtime-slot', 'Row action handler'),
+  onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler'),
+  onRowSave: handlerKeyRefusal('onRowSave', 'runtime-slot', 'Row save handler'),
   cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both (objectui#6882)'),
   renderCellEditor: z.function().optional().describe('Host-supplied inline cell editor; returning null falls through to the built-in text/number/date inputs (objectui#6882). Its context carries `row` (the persisted record) and `pendingRow` (that record with the row\'s staged, unsaved edits merged over it — objectui#7188); `z.function()` encodes no parameter shape, so the member on `DataTableSchema` is the authority for it'),
   frozenColumns: z.number().optional().describe('Number of frozen columns'),
   showRowNumbers: z.boolean().optional().describe('Show row numbers'),
   emptyAction: SchemaNodeSchema.optional().describe('Optional schema node rendered inside the empty-state, e.g. an "Add record" button. Lets the empty state become an actionable invitation rather than a dead end.'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `data-table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `emptyAction`, `onAddRecord`, `onBatchSave`, `onCellChange`, '
+    + '`onColumnResize`, `onColumnsReorder`, `onRowActionDef`, `onRowClick`, `onRowDelete`, '
+    + '`onRowEdit`, `onRowSave`, `onSelectionChange`, `renderCellEditor`, `rowActionDefs`, '
+    + '`rowDeletePredicates`, `rowEditPredicates`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `data-table` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `emptyAction`, `onAddRecord`, `onBatchSave`, `onCellChange`, '
+    + '`onColumnResize`, `onColumnsReorder`, `onRowActionDef`, `onRowClick`, `onRowDelete`, '
+    + '`onRowEdit`, `onRowSave`, `onSelectionChange`, `renderCellEditor`, `rowActionDefs`, '
+    + '`rowDeletePredicates`, `rowEditPredicates`.',
+  ),
 });
 
 /**
@@ -394,9 +515,9 @@ export const TreeViewSchema = BaseSchema.extend({
     + 'authored `data` would render an empty tree. Rename the key; the array is unchanged.',
   ),
   nodes: z.array(TreeNodeSchema).optional()
-    .describe('Inline tree nodes — the one inline spelling, read at renderers/data-display/tree-view.tsx:105 as the second limb of `boundData || schema.nodes || []` (a `bind`-resolved value wins, so this stays optional and no presence rule exists — objectui#6951 B1). Declared by objectui#6150; a `nodes`-only document became LEGAL at objectui#6939; the `data` fallback spelling was retired by objectui#6951 (the registration\'s own `inputs` and `defaultProps` spell it `nodes`, and the four catalog entries ARE those `defaultProps`)'),
+    .describe('Inline tree nodes — the one inline spelling, read as the second limb of `boundData || schema.nodes || []` (a `bind`-resolved value wins, so this stays optional and no presence rule exists — objectui#6951 B1). Declared by objectui#6150; a `nodes`-only document became LEGAL at objectui#6939; the `data` fallback spelling was retired by objectui#6951 (the registration\'s own `inputs` and `defaultProps` spell it `nodes`, and the four catalog entries ARE those `defaultProps`)'),
   title: z.string().optional()
-    .describe('Heading above the tree, read at renderers/data-display/tree-view.tsx:115 (presence gate) and :117 (the h3 body) (objectui#6150)'),
+    .describe('Heading above the tree — renders only when set (objectui#6150)'),
   defaultExpandedIds: z.array(z.string()).optional().describe('Default expanded node IDs'),
   defaultSelectedIds: z.array(z.string()).optional().describe('Default selected node IDs'),
   expandedIds: z.array(z.string()).optional().describe('Controlled expanded node IDs'),
@@ -405,6 +526,20 @@ export const TreeViewSchema = BaseSchema.extend({
   showLines: z.boolean().optional().describe('Show connecting lines'),
   onSelectChange: handlerKeyRefusal('onSelectChange', 'retired', 'Selection change handler'),
   onExpandChange: handlerKeyRefusal('onExpandChange', 'retired', 'Expand change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tree-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `bind`, `nodes`, `onNodeClick`, `title`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tree-view` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `bind`, `nodes`, `onNodeClick`, `title`.',
+  ),
 });
 
 /**
@@ -850,6 +985,20 @@ export const KbdSchema = BaseSchema.extend({
   type: z.literal('kbd'),
   label: z.string().optional().describe('Key label'),
   keys: z.union([z.string(), z.array(z.string())]).optional().describe('Key(s) to display'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `kbd` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `keys`, `label`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `kbd` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `className`, `keys`, `label`.',
+  ),
 });
 
 /**
@@ -858,6 +1007,20 @@ export const KbdSchema = BaseSchema.extend({
 export const HtmlSchema = BaseSchema.extend({
   type: z.literal('html'),
   html: z.string().describe('HTML content'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `html` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `html`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `html` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `html`.',
+  ),
 });
 
 /**

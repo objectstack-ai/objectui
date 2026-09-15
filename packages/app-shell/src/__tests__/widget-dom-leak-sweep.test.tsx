@@ -101,7 +101,7 @@
  * ## objectui#5574 — the family this sweep could not see, and what it found
  *
  * Until objectui#5574 this gate's discovery was four namespace prefixes wide.
- * `packages/components/src/renderers/**` registers **158 types across five**
+ * `packages/components/src/renderers/**` registered **158 types across five**
  * (`ui:`, `element:`, `page:`, `action:`, `protocol-placeholder:`) and not one
  * of them was reachable, so the whole family sat outside the ratchet. That is
  * not a theoretical hole: it is why `ui:grid`'s leak had to be found BY HAND
@@ -144,6 +144,14 @@
  * is always current truth, which is the whole point of not writing dates into
  * a ledger.
  *
+ * ⚠️ That reasoning is right about the ROWS and was wrong about the COUNTS: the
+ * numbers quoted in this docblock were a SECOND, unasserted copy of the same
+ * facts, and six of them had drifted by objectui#8659 — three correctly scoped
+ * PRs each moved an array and left the prose behind. Section 6 closes it: every
+ * count above is now read back out of this file's own text and checked against
+ * the arrays. Adding a count to this docblock without adding it there puts the
+ * next slice back where objectui#8659 found this one.
+ *
  * ### Four phantom cleans, which are the finding behind the finding
  *
  * A first pass over this family reported 46 clean targets. Sixteen of those
@@ -172,7 +180,7 @@
  *
  * That is traps 1, 3 and 4 of the list below, at scale, and it is the reason
  * this family's readiness is an AUTHORED `className` ({@link COMPONENTS_READY})
- * rather than 158 transcribed selectors: it proves the widget rendered its own
+ * rather than one transcribed selector per target: it proves the widget rendered its own
  * host element on every target, uniformly, and it caught all sixteen. The
  * targets it cannot cover carry their reason in
  * {@link READY_OVERRIDE_REASONS}, pinned two-way so that list cannot grow
@@ -339,6 +347,8 @@
 
 import type { ComponentType } from 'react';
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ComponentRegistry } from '@object-ui/core';
@@ -575,15 +585,17 @@ const CALENDAR_OBJECT_EXTRAS = {
  * The readiness selector for this family, authored rather than discovered.
  *
  * The plugin targets above each name a selector out of their own markup. Doing
- * that 158 times would be 158 hand-transcribed strings, each able to rot into a
+ * that once per target in this family would be one hand-transcribed string
+ * each, every one able to rot into a
  * selector that matches something else — and a readiness selector that matches
  * the WRONG element is precisely the trap-1 failure this file exists to refuse.
  * So the node authors a `className` and the selector is derived from it: one
  * string, and it proves the widget rendered its own host element AND honoured
  * an ordinary authored prop while doing it.
  *
- * Measured on the tree this landed on: 152 of 158 targets match it. The other
- * six are in {@link READY_OVERRIDE_REASONS}, each with the reason it cannot —
+ * Measured on the tree this landed on: 152 of 158 targets matched it.
+ * Today 155 of 159 targets match it; the other four are in
+ * {@link READY_OVERRIDE_REASONS}, each with the reason it cannot —
  * a recorded limitation with its own two-way assertion below, never a quiet
  * exemption (the `omitCanaries` discipline, applied to readiness).
  */
@@ -1685,4 +1697,377 @@ describe('the canary once withheld from calendar-view is swept again (objectui#4
       errors.mockRestore();
     }
   }, 30000);
+});
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * 6. The docblock's counts are MEASURED, not remembered (objectui#8659)
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The counts this file states in prose, asserted.
+ *
+ * ## What rotted, and why a text correction was not the fix
+ *
+ * Everything above reads its rows off the arrays, so the ROWS are always
+ * current truth — that is the two-way expiry, and it works. The COUNTS were the
+ * exception: a second, hand-written copy of the same facts, sitting in prose
+ * that nothing read. objectui#8659 measured six of them wrong at once, produced
+ * by three landed PRs (#7564, #7958, #8034 plus the `element:*` additions), each
+ * correctly scoped to its own slice and each moving an array without moving the
+ * paragraph that quotes it.
+ *
+ * ⛔ The realised harm is not "the docs are stale". This docblock is the FIRST
+ * thing a burn-down slice reads, and a dispatch had already quoted `95 of 158`
+ * out of it as a baseline — a slice that believed it would have reported
+ * `95 -> 94` where the truth was `90 -> 89`. The PM loop ate a fabricated
+ * number.
+ *
+ * objectui#5632's slice corrected all six texts once. That is precisely why
+ * this section exists rather than a seventh correction: the next slice inherits
+ * the same unasserted prose and it rots again. ⭐ The deliverable is the
+ * MECHANISM — a moved array that leaves the paragraph behind must go RED.
+ *
+ * ## How the loop is closed, in two legs
+ *
+ * Neither leg alone closes it, and the reason is worth stating because the
+ * obvious implementation stops after the first:
+ *
+ *  1. **{@link DOCBLOCK_COUNTS} vs {@link MEASURED_COUNTS}** — the named
+ *     constants against the value re-derived from {@link COMPONENTS_PLAIN_TYPES},
+ *     {@link COMPONENTS_SPECIAL_TARGETS} and {@link COMPONENTS_LEAK_GROUPS} on
+ *     every run. One side is DERIVED; a constant compared against another
+ *     constant asserts nothing.
+ *  2. **The prose vs {@link DOCBLOCK_COUNTS}** — every sentence that quotes a
+ *     number is read back out of this file's own source and checked. Without
+ *     this leg the first one only MOVES the hand-written copy from the prose
+ *     into a constant: a slice reddened by leg 1 repairs the constant, the
+ *     paragraph stays wrong, and the defect is exactly where it was with one
+ *     more place to forget.
+ *
+ * Together: move an array and leg 1 goes red; repair only the constant and
+ * leg 2 goes red; the paragraph has to move.
+ *
+ * ## The rule for a number added to this file later
+ *
+ * ⚠️ Every count here is one of two things, and the difference is the whole
+ * discipline:
+ *
+ *   - a LIVE reading of the tree as it stands — it belongs in
+ *     {@link DOCBLOCK_COUNTS} with a statement in {@link QUOTED_COUNTS}, or it
+ *     is the next drift;
+ *   - an ARRIVAL reading, kept deliberately because the burn-down is the story
+ *     (`119 of 158 ON ARRIVAL`, the phantom-clean census, the per-PR rows of the
+ *     burn-down list) — it must SAY it is historical, in the sentence itself.
+ *     A live-sounding tense on a frozen number is how `158` got quoted as
+ *     today's target count.
+ *
+ * A number that is incidental rather than a reading — "one selector per target"
+ * — is best written without a literal at all.
+ *
+ * ⭐ The shape generalises past this file, and objectui#8659's triage asked for
+ * the observation rather than a tenth hand-written card: this is the first
+ * enforced instance of a class that has been repaired BY HAND at least six
+ * times in this repo (objectui#7448, #8122, #8484, #8629, #9004, and this one),
+ * across workflow headers, gate `.mjs` docblocks and docs pages. What makes it
+ * mechanisable here is that the file holding the prose also holds the arrays,
+ * so no cross-file rooting is needed. Where that is true elsewhere, this is the
+ * technique; where it is not, the pin needs a path and the path needs a root
+ * (`scripts/check-test-path-roots.mjs`).
+ */
+
+/** Number words as this docblock spells them, for the counts written as words. */
+const COUNT_WORDS: readonly string[] = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+  'eleven', 'twelve',
+];
+const wordForCount = (count: number): string => COUNT_WORDS[count] ?? String(count);
+
+/**
+ * Every count the prose above quotes, named once and written by hand — these
+ * are the numbers AS WRITTEN, deliberately not derived. They are what leg 2
+ * checks the prose against and what leg 1 checks the arrays against.
+ */
+const DOCBLOCK_COUNTS = {
+  /** `packages/components` targets swept: the plain types plus the specials. */
+  componentsTargets: 159,
+  /** Of those, the ones needing nothing but the shared readiness class. */
+  componentsPlainTypes: 140,
+  /** Ledgered `packages/components` rows — targets with a recorded leak. */
+  componentsLedgered: 89,
+  /** The complement: swept, scanned and clean. */
+  componentsClean: 70,
+  /** Measured shapes the ledgered rows fall into. */
+  componentsShapes: 4,
+  /** Registry prefixes `packages/components` owns. */
+  componentsPrefixes: 5,
+  /** Targets the shared readiness selector reaches. */
+  componentsReadyMatched: 155,
+  /** The rest, each with a recorded reason it cannot. */
+  componentsReadyOverrides: 4,
+  /** Attributes leaked by the shape with the most members. */
+  commonestShapeAttributes: 14,
+  /** Every target this sweep renders, all five packages. */
+  allTargets: 182,
+  /** Every ledgered row, `plugin-dashboard`'s open tail included. */
+  allLedgered: 91,
+} as const;
+
+type CountName = keyof typeof DOCBLOCK_COUNTS;
+
+const COMPONENTS_TARGET_COUNT = COMPONENTS_PLAIN_TYPES.length + COMPONENTS_SPECIAL_TARGETS.length;
+const COMPONENTS_LEDGERED_COUNT = COMPONENTS_LEAK_GROUPS.reduce(
+  (total, group) => total + group.targets.length,
+  0,
+);
+const COMPONENTS_READY_MATCHED = COMPONENTS_TARGETS.filter(
+  (target) => target.ready === COMPONENTS_READY,
+).length;
+const COMMONEST_SHAPE = [...COMPONENTS_LEAK_GROUPS].sort(
+  (a, b) => b.targets.length - a.targets.length,
+)[0];
+
+/**
+ * The same quantities, RE-DERIVED from the arrays on every run. This is the
+ * derived side of leg 1: nothing below is typed from memory.
+ */
+const MEASURED_COUNTS: Readonly<Record<CountName, number>> = {
+  componentsTargets: COMPONENTS_TARGET_COUNT,
+  componentsPlainTypes: COMPONENTS_PLAIN_TYPES.length,
+  componentsLedgered: COMPONENTS_LEDGERED_COUNT,
+  componentsClean: COMPONENTS_TARGET_COUNT - COMPONENTS_LEDGERED_COUNT,
+  componentsShapes: COMPONENTS_LEAK_GROUPS.length,
+  componentsPrefixes: OWNED_NAMESPACES.components.length,
+  componentsReadyMatched: COMPONENTS_READY_MATCHED,
+  componentsReadyOverrides: COMPONENTS_TARGET_COUNT - COMPONENTS_READY_MATCHED,
+  commonestShapeAttributes: COMMONEST_SHAPE.attributes.length,
+  allTargets: ALL_TARGETS.length,
+  allLedgered: Object.keys(LEAK_LEDGER).length,
+};
+
+/**
+ * This file's own source, read from its own URL rather than from anything
+ * rooted at `process.cwd()` — the rule `scripts/check-test-path-roots.mjs`
+ * enforces, and the reason the same assertion cannot reach two verdicts
+ * depending on which directory the run started in.
+ */
+const SELF_SOURCE = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+
+/** Comment furniture removed, so the docblock reads as ordinary text. */
+const PROSE_LINES = SELF_SOURCE.replace(/^[ \t]*(?:\/\*\*?|\*\/|\*|\/\/)[ \t]?/gm, '');
+/** …and folded onto one line, so a sentence that WRAPS still matches as one. */
+const PROSE = PROSE_LINES.replace(/\s+/g, ' ');
+
+interface QuotedCount {
+  /** Which sentence, for the failure message. */
+  readonly where: string;
+  /** It must match EXACTLY once: a pattern that matches nothing asserts nothing. */
+  readonly pattern: RegExp;
+  /** One expected value per capture group, in order. */
+  readonly expected: readonly (number | string)[];
+}
+
+/**
+ * Every statement in this file that quotes a count, with the value it must
+ * quote. ⛔ A number added to the prose without a row here is unasserted again.
+ */
+const QUOTED_COUNTS: readonly QuotedCount[] = [
+  {
+    where: 'the whole-sweep reading under the package table',
+    pattern: /\*\*(\d+) of (\d+) targets leak\.\*\*/,
+    expected: [DOCBLOCK_COUNTS.allLedgered, DOCBLOCK_COUNTS.allTargets],
+  },
+  {
+    where: 'the `objectui#5574` reading heading',
+    pattern: /ON ARRIVAL, in \w+ shapes; (\d+) today/,
+    expected: [DOCBLOCK_COUNTS.componentsLedgered],
+  },
+  {
+    where: 'the burn-down sentence under that heading',
+    pattern:
+      /\*\*(\d+) rows in ([A-Z]+) shapes\*\* remain, on a target set that has itself grown to (\d+)\./,
+    expected: [
+      DOCBLOCK_COUNTS.componentsLedgered,
+      wordForCount(DOCBLOCK_COUNTS.componentsShapes).toUpperCase(),
+      DOCBLOCK_COUNTS.componentsTargets,
+    ],
+  },
+  {
+    where: 'the readiness-selector reading above `COMPONENTS_READY_CLASS`',
+    pattern:
+      /Today (\d+) of (\d+) targets match it; the other (\w+) are in \{@link READY_OVERRIDE_REASONS\}/,
+    expected: [
+      DOCBLOCK_COUNTS.componentsReadyMatched,
+      DOCBLOCK_COUNTS.componentsTargets,
+      wordForCount(DOCBLOCK_COUNTS.componentsReadyOverrides),
+    ],
+  },
+  {
+    where: 'the prefix note inside `OWNED_NAMESPACES`',
+    pattern: /`packages\/components` owns ([A-Z]+) registry prefixes/,
+    expected: [wordForCount(DOCBLOCK_COUNTS.componentsPrefixes).toUpperCase()],
+  },
+  {
+    where: 'the shape summary above `COMPONENTS_LEAK_GROUPS`',
+    pattern:
+      /(\d+) of the (\d+) `packages\/components` targets leak, and they do it in exactly\s*\*?\s*([A-Z]+) shapes/,
+    expected: [
+      DOCBLOCK_COUNTS.componentsLedgered,
+      DOCBLOCK_COUNTS.componentsTargets,
+      wordForCount(DOCBLOCK_COUNTS.componentsShapes).toUpperCase(),
+    ],
+  },
+  {
+    where: 'the "ledger, not an allowlist" paragraph',
+    pattern:
+      /all (\d+) targets render and all (\d+) are scanned on every run, the (\d+) clean ones included/,
+    expected: [
+      DOCBLOCK_COUNTS.componentsTargets,
+      DOCBLOCK_COUNTS.componentsTargets,
+      DOCBLOCK_COUNTS.componentsClean,
+    ],
+  },
+  {
+    where: 'the warning-as-error section, on the commonest shape',
+    pattern: /of the (\d+) attributes in the commonest shape/,
+    expected: [DOCBLOCK_COUNTS.commonestShapeAttributes],
+  },
+  {
+    where: 'the `components` entry of the `TARGETS` map',
+    pattern:
+      /(\d+) targets, built above rather than spelled here because (\d+) of them need nothing but the shared readiness class\./,
+    expected: [DOCBLOCK_COUNTS.componentsTargets, DOCBLOCK_COUNTS.componentsPlainTypes],
+  },
+  {
+    where: 'the `packages/components` banner inside `LEAK_LEDGER`',
+    pattern: /packages\/components: (\d+) of (\d+) targets, in ([a-z]+) measured shapes/,
+    expected: [
+      DOCBLOCK_COUNTS.componentsLedgered,
+      DOCBLOCK_COUNTS.componentsTargets,
+      wordForCount(DOCBLOCK_COUNTS.componentsShapes),
+    ],
+  },
+];
+
+/** A row of the per-package reading table in the docblock. */
+const READING_TABLE_ROW = / \| *([a-z-]+) *\| *(\d+) *\| *(\d+) *\| *([\d ./]+?) *\|/g;
+
+/** The integers a table cell names, so `7 / 9` and `12 .. 15` read the same. */
+function cellNumbers(cell: string): number[] {
+  return (cell.match(/\d+/g) ?? []).map(Number);
+}
+
+describe("the docblock's counts are measurements, not memory (objectui#8659)", () => {
+  // ── Leg 1: the named constants against the arrays ────────────────────────
+  //
+  // The four quantities objectui#8659's ruling named, one case each, so a red
+  // says which reading moved rather than "some number is wrong".
+
+  it('targets — the components family size is what the two arrays hold', () => {
+    expect(
+      MEASURED_COUNTS.componentsTargets,
+      'COMPONENTS_PLAIN_TYPES + COMPONENTS_SPECIAL_TARGETS moved; every sentence ' +
+        'quoting the target count has to move with them (objectui#8659).',
+    ).toBe(DOCBLOCK_COUNTS.componentsTargets);
+    // …and the split, so the plain-type count cannot drift inside a stable total.
+    expect(MEASURED_COUNTS.componentsPlainTypes).toBe(DOCBLOCK_COUNTS.componentsPlainTypes);
+    expect(COMPONENTS_TARGETS.length).toBe(MEASURED_COUNTS.componentsTargets);
+  });
+
+  it('ledgered rows — the recorded leaks are what the groups name', () => {
+    expect(
+      MEASURED_COUNTS.componentsLedgered,
+      'COMPONENTS_LEAK_GROUPS moved — a burn-down that deleted rows, or a ' +
+        'regression that added them. The prose counts move too (objectui#8659).',
+    ).toBe(DOCBLOCK_COUNTS.componentsLedgered);
+    // The groups and the ledger are the same population, counted two ways.
+    const ledgeredComponents = Object.keys(LEAK_LEDGER).filter((type) =>
+      COMPONENTS_TARGETS.some((target) => target.type === type),
+    ).length;
+    expect(ledgeredComponents).toBe(MEASURED_COUNTS.componentsLedgered);
+  });
+
+  it('clean targets — swept, scanned, and carrying no row', () => {
+    expect(
+      MEASURED_COUNTS.componentsClean,
+      'the clean count is targets minus ledgered rows; it moves whenever either ' +
+        'does, and it is the number the "ledger, not an allowlist" paragraph quotes.',
+    ).toBe(DOCBLOCK_COUNTS.componentsClean);
+  });
+
+  it('shapes — the number of measured mechanisms, not of rows', () => {
+    expect(
+      MEASURED_COUNTS.componentsShapes,
+      'a shape left COMPONENTS_LEAK_GROUPS (a whole mechanism burned down) or ' +
+        'joined it. The prose spells this one as a WORD in three places.',
+    ).toBe(DOCBLOCK_COUNTS.componentsShapes);
+  });
+
+  it.each(Object.keys(DOCBLOCK_COUNTS) as CountName[])(
+    'every named count is the measured one: %s',
+    (name) => {
+      expect(MEASURED_COUNTS[name]).toBe(DOCBLOCK_COUNTS[name]);
+    },
+  );
+
+  // ── Leg 2: the prose against the named constants ─────────────────────────
+
+  it('the extractor is reading this file — the control every regex below needs', () => {
+    // A pattern that matches nothing makes its assertion vacuously true, so the
+    // source has to be proved present before anything is extracted from it.
+    expect(SELF_SOURCE).toContain('MEASUREMENT GATE: the objectui#3291 DOM-leak canary sweep');
+    expect(SELF_SOURCE.length).toBeGreaterThan(40_000);
+    // The furniture strip left prose behind, not an empty string.
+    expect(PROSE).toContain('This is a ledger, not an allowlist');
+  });
+
+  it.each(QUOTED_COUNTS.map((quoted) => [quoted.where, quoted] as const))(
+    'the prose quotes the measured count: %s',
+    (_where, quoted) => {
+      const all = [...PROSE.matchAll(new RegExp(quoted.pattern, 'g'))];
+      expect(
+        all.length,
+        `${quoted.where}: expected exactly one match for ${quoted.pattern}. Zero means ` +
+          'the sentence was reworded and this row has to follow it; more than one means ' +
+          'the pattern is too loose to name what it pins.',
+      ).toBe(1);
+      const captured = all[0].slice(1).map((group) => (/^\d+$/.test(group) ? Number(group) : group));
+      expect(
+        captured,
+        `${quoted.where}: the sentence quotes numbers the arrays do not hold. Update the ` +
+          'prose (and DOCBLOCK_COUNTS) to the measured values — objectui#8659 is the card ' +
+          'about doing exactly that and having it rot again.',
+      ).toEqual(quoted.expected);
+    },
+  );
+
+  it('the reading table is derived row by row from the target set and the ledger', () => {
+    const rows = [...PROSE_LINES.matchAll(READING_TABLE_ROW)];
+    expect(
+      rows.map((row) => row[1]).sort(),
+      'every package in TARGETS needs a row in the docblock table, and no row may ' +
+        'name a package that is no longer swept.',
+    ).toEqual(Object.keys(TARGETS).sort());
+
+    for (const [, pkg, targets, leaking, attributes] of rows) {
+      const swept = TARGETS[pkg];
+      expect(Number(targets), `${pkg}: the table's target count`).toBe(swept.length);
+      const rowsHere = swept
+        .map((target) => LEAK_LEDGER[target.type])
+        .filter((entry): entry is LedgerEntry => Boolean(entry));
+      expect(Number(leaking), `${pkg}: the table's leaking count`).toBe(rowsHere.length);
+      // The attribute cell is a RANGE, spelled `7 / 9` for two and `12 .. 15`
+      // for more; both are pinned by their extremes rather than by punctuation.
+      const widths = rowsHere.map((entry) => entry.attributes.length);
+      const quoted = cellNumbers(attributes);
+      expect(quoted.length, `${pkg}: the table's attribute cell names no number`).toBeGreaterThan(0);
+      if (widths.length === 0) {
+        expect(quoted, `${pkg}: no rows, so the cell reads 0`).toEqual([0]);
+      } else {
+        expect(
+          [Math.min(...quoted), Math.max(...quoted)],
+          `${pkg}: the attribute cell's extremes against the ledgered rows`,
+        ).toEqual([Math.min(...widths), Math.max(...widths)]);
+      }
+    }
+  });
 });

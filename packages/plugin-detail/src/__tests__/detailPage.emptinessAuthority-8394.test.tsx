@@ -66,9 +66,33 @@
  * The replacement navigates by the field LABEL, which no placeholder change can
  * move: each chip is `<span>{label}</span>` followed by the value slot, so
  * `chipOf(label)` is the chip box and the affordance is read INSIDE it. That
- * also strengthens the assertion from "how many" to "which chip", the way the
- * summary chips below are already read through the `aria-label="<field>:
- * <display>"` each `Badge` carries.
+ * also strengthens the assertion from "how many" to "which chip".
+ *
+ * ⚠️ **The summary chips below were re-derived the same way, and for the same
+ * reason, by objectui#8729** — declared here rather than done quietly, because
+ * this instrument belongs to this card and not to that one.
+ *
+ * They used to be navigated by `[aria-label^="<storedName>: "]`, which made the
+ * harness depend on the chip NAMING ITS FIELD BY THE STORED COLUMN — the very
+ * thing objectui#8729 changed (the chip now resolves a label through
+ * `fieldLabel`, as every other band of this page already did). That is exactly
+ * the objectui#8506 shape one paragraph up: the navigation target moved, so
+ * `chipFor` matched nothing and two cases failed while the emptiness authority
+ * they exist to guard was untouched.
+ *
+ * `chipFor` now navigates by `data-summary-chip="<storedName>"`, the machine
+ * handle objectui#8464 added. That is strictly better here than either
+ * spelling of the name: it is a handle rather than a reader-facing string, so
+ * no display or naming decision can move it, and it also finds the
+ * renderer-backed chips — which carry no `aria-label` at all and which the old
+ * selector could never have seen.
+ *
+ * ⭐ **This card's subject did not move.** Every emptiness answer below —
+ * which chip renders, which does not, and that the picker and the render agree
+ * — is asserted on exactly the same fields with exactly the same data. One
+ * assertion about the chip's NAME moved (`stage: Won` → `Stage: Won`); its
+ * stated purpose, "the chip that took the slot reads its value", is preserved
+ * and now reads the value under the field's resolved label.
  */
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
@@ -109,9 +133,13 @@ const chipOf = (label: string) => screen.getByText(label).parentElement as HTMLE
 const chipsDrawingAffordance = (labels: string[]) =>
   labels.filter((l) => chipOf(l).querySelector('[data-slot="empty-value"]') !== null);
 
-/** The summary chip for `field`, read by the `aria-label` the Badge carries. */
+/**
+ * The summary chip for `field`, read by the machine handle the Badge carries —
+ * never by the name it gives the field, which is objectui#8729's subject and
+ * not this card's. See the docblock.
+ */
 const chipFor = (c: HTMLElement, field: string) =>
-  c.querySelector(`[aria-label^="${field}: "]`);
+  c.querySelector(`[data-summary-chip="${field}"]`);
 
 const highlightSchema = {
   fields: {
@@ -269,7 +297,11 @@ describe('DetailView — the summary chips beside the H1 trim (#8394)', () => {
     expect(
       chipFor(container, 'stage')!.getAttribute('aria-label'),
       'and the chip that took the slot reads its value',
-    ).toBe('stage: Won');
+      // The NAME half of this string is objectui#8729's (the chip resolves the
+      // field's label, `Stage`, where it used to print the stored column,
+      // `stage`); the VALUE half is this card's and is unmoved. Re-pinned here
+      // rather than loosened, so this line keeps failing for a render-only fix.
+    ).toBe('Stage: Won');
   });
 });
 

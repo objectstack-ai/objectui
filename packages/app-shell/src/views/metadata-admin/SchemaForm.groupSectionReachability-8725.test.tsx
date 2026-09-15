@@ -31,14 +31,14 @@
  *   • the spec-bundled forms (`getPageForm` / `getViewForm` / `getReportForm` /
  *     `getDashboardForm`), which read `pageForm` & co. straight out of
  *     `@objectstack/spec/ui` — an upstream, versioned document this repo does
- *     not author either. Measured against the installed 17.3.0, none of those
- *     four declares a `group` section today; that is a property of one spec
- *     release, not a barrier.
+ *     not author either. Measured against the installed artifact (17.4.0), none
+ *     of those four declares a `group` section today; that is a property of one
+ *     spec release, not a barrier.
  *
  * So the REQUIRED `fields` on {@link FormSectionSpec} stands between a
  * TypeScript author and this renderer, and between nothing else. A section
  * carrying `group` and no `fields` — which `FormSectionSchema` ACCEPTS, measured
- * against the installed 17.3.0 — reaches the reads unimpeded.
+ * against the installed artifact (17.4.0) — reaches the reads unimpeded.
  *
  * ## What was measured, and how the card's wording is one word off
  *

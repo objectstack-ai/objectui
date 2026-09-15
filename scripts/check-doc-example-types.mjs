@@ -169,7 +169,7 @@
  *
  * ## The ledger, and what makes it shrink-only
  *
- * `UNGATED_EXAMPLES` is keyed by `path:line symbol` and each row carries the
+ * `UNGATED_EXAMPLES` is keyed by `path symbol #ordinal` and each row carries the
  * diagnostic CODES the example currently produces, a written reason, and the card
  * that owns it. Four verdicts, and only the first is silent:
  *
@@ -435,12 +435,23 @@ export function exampleCensus({ root = repoRoot } = {}) {
   const inSources = tags.filter((t) => !t.tooling);
   const exported = inSources.filter((t) => t.exported && t.symbol !== null);
   const blocks = [];
+  /**
+   * `file symbol -> how many of its blocks have been seen`, which becomes each
+   * block's ORDINAL. `exported` is walked in source order per file, so the
+   * ordinal of a block is its position among that symbol's own examples and
+   * moves only when one of THEM is added or removed (objectui#8875 clause 3).
+   */
+  const ordinals = new Map();
   for (const tag of exported) {
     for (const fence of tag.fences) {
       if (!TS_FENCE_LANGUAGES.has(fence.language)) continue;
+      const pair = `${tag.file} ${tag.symbol}`;
+      const ordinal = (ordinals.get(pair) ?? 0) + 1;
+      ordinals.set(pair, ordinal);
       blocks.push({
         file: tag.file,
         line: tag.line,
+        ordinal,
         symbol: tag.symbol,
         package: tag.package,
         language: fence.language,
@@ -473,9 +484,11 @@ export function exampleCensus({ root = repoRoot } = {}) {
  * The declared debt: examples that do not compile today, each with the codes it
  * produces, a written reason, and the card that owns it.
  *
- * Keys are `path:line symbol`. The line is the `@example` TAG's line, which is
- * where a reader looking for the block starts; it moves when the file moves, and
- * a row whose key no longer resolves is reported as stale rather than ignored.
+ * Keys are `path symbol #ordinal` — see `ledgerKey` for why they carry ⛔ NO
+ * line number and what the ordinal is. A row whose key no longer resolves is
+ * reported as stale rather than ignored, so a symbol that stops documenting an
+ * example still reddens; what no longer reddens is an edit somewhere else in
+ * the same file.
  *
  * ⛔ A row is not a place to park a defect. Every row here is a claim that the
  * example is a FRAGMENT (it references context its reader supplies) or that a
@@ -485,541 +498,543 @@ export function exampleCensus({ root = repoRoot } = {}) {
  * @type {Record<string, { card: string | null, codes: number[], reason: string }>}
  */
 export const UNGATED_EXAMPLES = {
-  'packages/auth/src/AuthGuard.tsx:36 AuthGuard': {
+  'packages/auth/src/AuthGuard.tsx AuthGuard #1': {
     card: null,
     codes: [2657],
     reason:
       'two sibling JSX elements with no wrapper: the block is a render-body excerpt, not a module',
   },
-  'packages/auth/src/AuthProvider.tsx:142 AuthProvider': {
+  'packages/auth/src/AuthProvider.tsx AuthProvider #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, which the example never declares',
   },
-  'packages/auth/src/AuthProvider.tsx:149 AuthProvider': {
+  'packages/auth/src/AuthProvider.tsx AuthProvider #2': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, which the example never declares',
   },
-  'packages/auth/src/AuthProvider.tsx:155 AuthProvider': {
+  'packages/auth/src/AuthProvider.tsx AuthProvider #3': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, which the example never declares',
   },
-  'packages/auth/src/AuthShell.tsx:66 AuthShell': {
+  'packages/auth/src/AuthShell.tsx AuthShell #1': {
     card: null,
     codes: [2304, 2552],
     reason:
       'usage fragment: references `LoginForm`, `navigate`, which the example never declares',
   },
-  'packages/auth/src/createAuthClient.ts:270 createAuthClient': {
+  'packages/auth/src/createAuthClient.ts createAuthClient #1': {
     card: null,
     codes: [18004],
     reason:
       'shorthand `{ email, password }` stands for credentials the caller supplies; the example never declares them',
   },
-  'packages/auth/src/ForgotPasswordForm.tsx:107 ForgotPasswordForm': {
+  'packages/auth/src/ForgotPasswordForm.tsx ForgotPasswordForm #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `setShowSuccess`, which the example never declares',
   },
-  'packages/auth/src/LoginForm.tsx:126 LoginForm': {
+  'packages/auth/src/LoginForm.tsx LoginForm #1': {
     card: null,
     codes: [2552],
     reason:
       'usage fragment: references `navigate`, which the example never declares',
   },
-  'packages/auth/src/RegisterForm.tsx:102 RegisterForm': {
+  'packages/auth/src/RegisterForm.tsx RegisterForm #1': {
     card: null,
     codes: [2552],
     reason:
       'usage fragment: references `navigate`, which the example never declares',
   },
-  'packages/auth/src/useAuth.ts:16 useAuth': {
+  'packages/auth/src/useAuth.ts useAuth #1': {
     card: null,
     codes: [18047],
     reason:
       'guards on `isAuthenticated`, which strict null checking cannot correlate with `user` being non-null',
   },
-  'packages/auth/src/UserMenu.tsx:31 UserMenu': {
+  'packages/auth/src/UserMenu.tsx UserMenu #1': {
     card: null,
     codes: [2552],
     reason:
       'usage fragment: references `navigate`, which the example never declares',
   },
-  'packages/components/src/notifications/NotificationAlerts.tsx:58 NotificationAlerts': {
+  'packages/components/src/notifications/NotificationAlerts.tsx NotificationAlerts #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, `NotificationProvider`, which the example never declares',
   },
-  'packages/components/src/notifications/NotificationBanners.tsx:38 NotificationBanners': {
+  'packages/components/src/notifications/NotificationBanners.tsx NotificationBanners #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `Outlet`, which the example never declares',
   },
-  'packages/components/src/notifications/NotificationInline.tsx:43 NotificationInline': {
+  'packages/components/src/notifications/NotificationInline.tsx NotificationInline #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `notify`, which the example never declares',
   },
-  'packages/components/src/notifications/NotificationSnackbar.tsx:43 NotificationSnackbar': {
+  'packages/components/src/notifications/NotificationSnackbar.tsx NotificationSnackbar #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, `NotificationProvider`, which the example never declares',
   },
-  'packages/core/src/actions/TransactionManager.ts:129 TransactionManager': {
+  'packages/core/src/actions/TransactionManager.ts TransactionManager #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `actionExecutor`, `createOrderAction`, `manager`, `sendNotificationAction`, `updateInventoryAction`, which the example never declares',
   },
-  'packages/core/src/actions/TransactionManager.ts:244 TransactionManager': {
+  'packages/core/src/actions/TransactionManager.ts TransactionManager #2': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataSource`, `manager`, which the example never declares',
   },
-  'packages/core/src/actions/TransactionManager.ts:324 TransactionManager': {
+  'packages/core/src/actions/TransactionManager.ts TransactionManager #3': {
     card: null,
     codes: [2304, 7006],
     reason:
       'usage fragment: references `items`, `manager`, which the example never declares, so what depends on them is judged unbound',
   },
-  'packages/core/src/adapters/resolveDataSource.ts:36 resolveDataSource': {
+  'packages/core/src/adapters/resolveDataSource.ts resolveDataSource #1': {
     card: null,
     codes: [2304, 18047],
     reason:
       'usage fragment: references `contextDataSource`, which the example never declares, so what depends on it is judged unbound',
   },
-  'packages/core/src/data-scope/DataScopeManager.ts:68 DataScopeManager': {
+  'packages/core/src/data-scope/DataScopeManager.ts DataScopeManager #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `myDataSource`, which the example never declares',
   },
-  'packages/core/src/data-scope/ViewDataProvider.ts:139 ViewDataProvider': {
+  'packages/core/src/data-scope/ViewDataProvider.ts ViewDataProvider #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `myFetcher`, which the example never declares',
   },
-  'packages/core/src/evaluator/ExpressionEvaluator.ts:264 ExpressionEvaluator': {
+  'packages/core/src/evaluator/ExpressionEvaluator.ts ExpressionEvaluator #2': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `evaluator`, which the example never declares',
   },
-  'packages/core/src/evaluator/ExpressionEvaluator.ts:334 ExpressionEvaluator': {
+  'packages/core/src/evaluator/ExpressionEvaluator.ts ExpressionEvaluator #3': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `evaluator`, which the example never declares',
   },
-  'packages/core/src/evaluator/ExpressionEvaluator.ts:534 ExpressionEvaluator': {
+  'packages/core/src/evaluator/ExpressionEvaluator.ts ExpressionEvaluator #4': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `fmt`, which the example never declares',
   },
-  'packages/core/src/registry/WidgetRegistry.ts:41 WidgetRegistry': {
+  'packages/core/src/registry/WidgetRegistry.ts WidgetRegistry #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `registry`, which the example never declares',
   },
-  'packages/core/src/utils/debug.ts:109 debugLog': {
+  'packages/core/src/utils/debug.ts debugLog #1': {
     card: null,
     codes: [7017],
     reason:
       'sets a debug flag on `globalThis`, which has no index signature under strict mode',
   },
-  'packages/core/src/utils/freeze-schema.ts:144 defineSystemView': {
+  'packages/core/src/utils/freeze-schema.ts defineSystemView #1': {
     card: null,
     codes: [2339],
     reason:
       'demonstrates that the returned view is frozen by showing a `push` the readonly type rejects — the diagnostic IS the lesson',
   },
-  'packages/core/src/utils/record-source.ts:140 resolveRecordSourceConfig': {
+  'packages/core/src/utils/record-source.ts resolveRecordSourceConfig #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `resolveRecordSourceObjectName`, `schema`, `useMemo`, which the example never declares',
   },
-  'packages/core/src/utils/record-source.ts:69 resolveRecordSourceObjectName': {
+  'packages/core/src/utils/record-source.ts resolveRecordSourceObjectName #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `resolveRecordSourceConfig`, `schema`, `useMemo`, which the example never declares',
   },
-  'packages/core/src/validation/schema-validator.ts:490 assertValidSchema': {
+  // Lines moved 490 -> 550 and 515 -> 575 (objectui#8416: `validateSchema`'s
+  // parameter narrowed from `any` to `unknown`, which put the
+  // `SchemaNodeUnderValidation` / `isSchemaNodeShape` pair and its docblocks
+  // above these two JSDoc blocks in schema-validator.ts). Both VERDICTS are
+  // unchanged — only the line half of each key moved, and both were re-derived
+  // from the file rather than arithmetic on the old numbers.
+  'packages/core/src/validation/schema-validator.ts assertValidSchema #1': {
     card: null,
     codes: [2304, 18046],
     reason:
       'usage fragment: references `schema`, which the example never declares, so what depends on it is judged unbound',
   },
-  'packages/core/src/validation/schema-validator.ts:515 isValidSchema': {
+  'packages/core/src/validation/schema-validator.ts isValidSchema #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `data`, `renderSchema`, which the example never declares',
   },
-  'packages/data-objectstack/src/cache/MetadataCache.ts:56 MetadataCache': {
-    card: null,
-    codes: [2304],
-    reason:
-      'usage fragment: references `MetadataCache`, `fetchSchemaFromServer`, which the example never declares',
-  },
-  'packages/data-objectstack/src/index.ts:6323 createObjectStackAdapter': {
+  'packages/data-objectstack/src/index.ts createObjectStackAdapter #1': {
     card: null,
     codes: [2591],
     reason:
       'usage fragment: references `process`, which the example never declares, so what depends on it is judged unbound',
   },
-  'packages/i18n/src/provider.tsx:370 I18nProviderProps': {
+  'packages/i18n/src/provider.tsx I18nProviderProps #1': {
     card: null,
     codes: [2304, 7006],
     reason:
       'usage fragment: references `App`, `I18nProvider`, which the example never declares, so what depends on them is judged unbound',
   },
-  'packages/i18n/src/provider.tsx:393 I18nProviderProps': {
+  'packages/i18n/src/provider.tsx I18nProviderProps #2': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, `I18nProvider`, `loadLanguage`, `loadLocales`, which the example never declares',
   },
-  'packages/i18n/src/provider.tsx:428 I18nProvider': {
+  'packages/i18n/src/provider.tsx I18nProvider #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, which the example never declares',
   },
-  'packages/i18n/src/useObjectLabel.ts:88 useObjectLabel': {
+  'packages/i18n/src/useObjectLabel.ts useObjectLabel #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `objectDef`, which the example never declares',
   },
-  'packages/i18n/src/utils/spec-formatters.ts:64 resolvePlural': {
+  'packages/i18n/src/utils/spec-formatters.ts resolvePlural #1': {
     card: null,
     codes: [2304],
     reason:
       'annotates with `SpecPluralRule`, a type the example does not import',
   },
-  'packages/layout/src/AppSchemaRenderer.tsx:485 AppSchemaRenderer': {
+  'packages/layout/src/AppSchemaRenderer.tsx AppSchemaRenderer #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `Outlet`, `appJson`, `can`, `evaluateVisibility`, `evaluator`, which the example never declares',
   },
-  'packages/layout/src/NavigationRenderer.tsx:1243 NavigationRenderer': {
+  'packages/layout/src/NavigationRenderer.tsx NavigationRenderer #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `appSchema`, `can`, `evaluateVisibility`, `evaluator`, `saveOrder`, `searchTerm`, `updatePin`, which the example never declares',
   },
-  'packages/layout/src/ResponsiveGrid.tsx:119 ResponsiveGrid': {
+  'packages/layout/src/ResponsiveGrid.tsx ResponsiveGrid #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `Card`, which the example never declares',
   },
-  'packages/mobile/src/useGesture.ts:29 useGesture': {
+  'packages/mobile/src/useGesture.ts useGesture #1': {
     card: null,
     codes: [1108],
     reason:
       'a hook-body excerpt: its `return` sits outside any function, so the block is a fragment by shape',
   },
-  'packages/mobile/src/useSpecGesture.ts:69 useSpecGesture': {
+  'packages/mobile/src/useSpecGesture.ts useSpecGesture #1': {
     card: 'objectui#7974',
     codes: [1108, 2322],
     reason:
       'the scalar `swipe.direction` this example passes is rejected by the declared `SpecSwipeDirection[]` (TS2322). objectui#7974 owns BOTH halves — the example and the lenient cast that hides it — and is on another lane. Delete this row when that card lands; the block also returns outside a function (TS1108), a hook-body excerpt',
   },
-  'packages/mobile/src/useTouchTarget.ts:33 useTouchTarget': {
+  'packages/mobile/src/useTouchTarget.ts useTouchTarget #1': {
     card: null,
     codes: [1108],
     reason:
       'a hook-body excerpt: its `return` sits outside any function, so the block is a fragment by shape',
   },
-  'packages/plugin-designer/src/EditorModeToggle.tsx:46 EditorModeToggle': {
+  'packages/plugin-designer/src/EditorModeToggle.tsx EditorModeToggle #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `mode`, `setMode`, which the example never declares',
   },
-  'packages/plugin-designer/src/hooks/useDesignerHistory.ts:24 useDesignerHistory': {
+  'packages/plugin-designer/src/hooks/useDesignerHistory.ts useDesignerHistory #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `DesignerState`, `initialState`, `newState`, which the example never declares',
   },
-  'packages/plugin-form/src/FormSection.tsx:109 FormSectionContainer': {
+  'packages/plugin-form/src/FormSection.tsx FormSectionContainer #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `FormField`, which the example never declares',
   },
-  'packages/plugin-form/src/ObjectForm.tsx:123 ObjectForm': {
+  // Line moved 123 -> 124 (objectui#8738 route 1: one new import line added
+  // above this JSDoc block, in ObjectForm.tsx, for `warnUnresolvedTopLevelField`).
+  'packages/plugin-form/src/ObjectForm.tsx ObjectForm #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataSource`, which the example never declares',
   },
-  'packages/plugin-form/src/TabbedForm.tsx:220 TabbedForm': {
+  'packages/plugin-form/src/TabbedForm.tsx TabbedForm #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataSource`, which the example never declares',
   },
-  'packages/plugin-form/src/WizardForm.tsx:361 WizardForm': {
+  'packages/plugin-form/src/WizardForm.tsx WizardForm #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataSource`, which the example never declares',
   },
-  'packages/plugin-grid/src/VirtualGrid.tsx:49 VirtualGrid': {
+  'packages/plugin-grid/src/VirtualGrid.tsx VirtualGrid #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `items`, which the example never declares',
   },
-  'packages/plugin-list/src/ListView.tsx:808 ListViewHandle': {
+  'packages/plugin-list/src/ListView.tsx ListViewHandle #1': {
     card: null,
     codes: [2304, 2686],
     reason:
       'names the `React` UMD global, which a module-shaped block may not reach without an import',
   },
-  'packages/plugin-report/src/LiveReportExporter.ts:150 exportExcelWithFormulas': {
+  'packages/plugin-report/src/LiveReportExporter.ts exportExcelWithFormulas #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `data`, `report`, which the example never declares',
   },
-  'packages/plugin-report/src/LiveReportExporter.ts:234 createScheduleTrigger': {
+  'packages/plugin-report/src/LiveReportExporter.ts createScheduleTrigger #1': {
     card: null,
     codes: [1109],
     reason:
       'the block is a prose-and-code mixture that does not parse as TSX in isolation',
   },
-  'packages/plugin-report/src/LiveReportExporter.ts:88 exportWithLiveData': {
+  'packages/plugin-report/src/LiveReportExporter.ts exportWithLiveData #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `myAdapter`, `report`, which the example never declares',
   },
-  'packages/plugin-view/src/ObjectView.tsx:591 ObjectView': {
+  'packages/plugin-view/src/ObjectView.tsx ObjectView #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataSource`, which the example never declares',
   },
-  'packages/plugin-view/src/ObjectView.tsx:605 ObjectView': {
+  'packages/plugin-view/src/ObjectView.tsx ObjectView #2': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataSource`, which the example never declares',
   },
-  'packages/plugin-view/src/ObjectView.tsx:622 ObjectView': {
+  'packages/plugin-view/src/ObjectView.tsx ObjectView #3': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataSource`, which the example never declares',
   },
-  'packages/react/src/context/ActionContext.tsx:72 ActionProvider': {
+  'packages/react/src/context/ActionContext.tsx ActionProvider #1': {
     card: null,
     codes: [2304, 18004],
     reason:
       'shorthand `{ user }` stands for context the caller supplies; the example never declares it',
   },
-  'packages/react/src/context/DndContext.tsx:128 DndProvider': {
+  'packages/react/src/context/DndContext.tsx DndProvider #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `KanbanBoard`, `handleDrop`, which the example never declares',
   },
-  'packages/react/src/context/NotificationContext.tsx:377 NotificationProvider': {
+  'packages/react/src/context/NotificationContext.tsx NotificationProvider #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, `NotificationAlerts`, `NotificationBanners`, `NotificationSnackbar`, `toast`, which the example never declares',
   },
-  'packages/react/src/context/ThemeContext.tsx:120 ThemeProvider': {
+  'packages/react/src/context/ThemeContext.tsx ThemeProvider #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `App`, `myTheme`, which the example never declares',
   },
-  'packages/react/src/element-data-source/ElementDataSourceGate.tsx:182 useElementDataSourceSchema': {
+  'packages/react/src/element-data-source/ElementDataSourceGate.tsx useElementDataSourceSchema #1': {
     card: null,
     codes: [1108, 2304],
     reason:
       'usage fragment: references `schema`, which the example never declares, so what depends on it is judged unbound',
   },
-  'packages/react/src/hooks/useActionRunner.ts:42 useActionRunner': {
+  'packages/react/src/hooks/useActionRunner.ts useActionRunner #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `formData`, `toast`, which the example never declares',
   },
-  'packages/react/src/hooks/useClientNotifications.ts:103 useClientNotifications': {
+  'packages/react/src/hooks/useClientNotifications.ts useClientNotifications #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `Button`, which the example never declares',
   },
-  'packages/react/src/hooks/useCrudShortcuts.ts:37 useCrudShortcuts': {
+  'packages/react/src/hooks/useCrudShortcuts.ts useCrudShortcuts #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `closeDialog`, `deleteSelected`, `openCreateDialog`, `saveRecord`, which the example never declares',
   },
-  'packages/react/src/hooks/useDataRefresh.ts:24 useDataRefresh': {
+  'packages/react/src/hooks/useDataRefresh.ts useDataRefresh #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataSource`, `objectName`, `params`, `schema`, `setData`, `useEffect`, which the example never declares',
   },
-  'packages/react/src/hooks/useDebugMode.ts:34 useDebugMode': {
+  'packages/react/src/hooks/useDebugMode.ts useDebugMode #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `DebugPanel`, which the example never declares',
   },
-  'packages/react/src/hooks/useDensityMode.ts:77 useDensityMode': {
+  'packages/react/src/hooks/useDensityMode.ts useDensityMode #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `activeView`, `dataSource`, `obj`, `vid`, which the example never declares',
   },
-  'packages/react/src/hooks/useDiscovery.ts:88 useDiscovery': {
+  'packages/react/src/hooks/useDiscovery.ts useDiscovery #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `AuthProvider`, `LoadingScreen`, which the example never declares',
   },
-  'packages/react/src/hooks/useDynamicApp.ts:58 useDynamicApp': {
+  'packages/react/src/hooks/useDynamicApp.ts useDynamicApp #1': {
     card: null,
     codes: [2304, 2307, 2693],
     reason:
       'imports \'../config/app.json\', a sibling file the reader\'s own project supplies, and names `Console` as a value',
   },
-  'packages/react/src/hooks/useElementDataSource.ts:125 useElementDataSource': {
+  'packages/react/src/hooks/useElementDataSource.ts useElementDataSource #1': {
     card: null,
     codes: [1108, 2304],
     reason:
       'usage fragment: references `adapter`, `schema`, which the example never declares, so what depends on them is judged unbound',
   },
-  'packages/react/src/hooks/useETagCache.ts:174 useETagCache': {
+  'packages/react/src/hooks/useETagCache.ts useETagCache #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `User`, `setUser`, `useEffect`, which the example never declares',
   },
-  'packages/react/src/hooks/useExpression.ts:163 useExpression': {
+  'packages/react/src/hooks/useExpression.ts useExpression #1': {
     card: null,
     codes: [18004],
     reason:
       'shorthand `{ data, user }` stands for the scope the caller supplies; the example never declares it',
   },
-  'packages/react/src/hooks/useKeyboardShortcuts.ts:34 useKeyboardShortcuts': {
+  'packages/react/src/hooks/useKeyboardShortcuts.ts useKeyboardShortcuts #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `closeModal`, `createNew`, `openSearch`, which the example never declares',
   },
-  'packages/react/src/hooks/useNavigationOverlay.ts:211 useNavigationOverlay': {
+  'packages/react/src/hooks/useNavigationOverlay.ts useNavigationOverlay #1': {
     card: null,
     codes: [1003, 1382],
     reason:
       'the block is a prose-and-code mixture that does not parse as TSX in isolation',
   },
-  'packages/react/src/hooks/useOffline.ts:239 useOffline': {
+  'packages/react/src/hooks/useOffline.ts useOffline #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `Banner`, which the example never declares',
   },
-  'packages/react/src/hooks/usePageVariables.tsx:249 usePageVariableBinding': {
+  'packages/react/src/hooks/usePageVariables.tsx usePageVariableBinding #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `record`, `schema`, which the example never declares',
   },
-  'packages/react/src/hooks/usePageVariables.tsx:98 PageVariablesProvider': {
+  'packages/react/src/hooks/usePageVariables.tsx PageVariablesProvider #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `MyComponents`, which the example never declares',
   },
-  'packages/react/src/hooks/usePerformance.ts:139 usePerformance': {
+  'packages/react/src/hooks/usePerformance.ts usePerformance #1': {
     card: null,
     codes: [2304, 2345],
     reason:
       'usage fragment: references `NormalList`, `VirtualList`, which the example never declares, so what depends on them is judged unbound',
   },
-  'packages/react/src/hooks/usePerformanceBudget.ts:131 usePerformanceBudget': {
+  'packages/react/src/hooks/usePerformanceBudget.ts usePerformanceBudget #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `Dashboard`, `analytics`, which the example never declares',
   },
-  'packages/react/src/hooks/useSchemaPersistence.ts:212 useSchemaPersistence': {
+  'packages/react/src/hooks/useSchemaPersistence.ts useSchemaPersistence #1': {
     card: null,
     codes: [2304, 2451, 7006],
     reason:
       'usage fragment: references `SchemaPersistenceAdapter`, `pageSchema`, which the example never declares, so what depends on them is judged unbound',
   },
-  'packages/react/src/hooks/useSettledSchema.ts:112 useSettledSchema': {
+  'packages/react/src/hooks/useSettledSchema.ts useSettledSchema #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `dataConfig`, `resolveRecordSourceObjectName`, `schema`, which the example never declares',
   },
-  'packages/react/src/hooks/useViewData.ts:72 useViewData': {
+  'packages/react/src/hooks/useViewData.ts useViewData #1': {
     card: null,
     codes: [2304, 7031],
     reason:
       'usage fragment: references `ErrorMessage`, `Spinner`, `Table`, which the example never declares, so what depends on them is judged unbound',
   },
-  'packages/react/src/hooks/useViewSharing.ts:53 useViewSharing': {
+  'packages/react/src/hooks/useViewSharing.ts useViewSharing #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `currentFilters`, `currentSort`, `initialViews`, which the example never declares',
   },
-  'packages/types/src/data.ts:263 GlobalSearchHit': {
+  'packages/types/src/data.ts GlobalSearchHit #1': {
     card: null,
     codes: [2304, 7006],
     reason:
       'usage fragment: references `DataSource`, `User`, `buildQuery`, which the example never declares, so what depends on them is judged unbound',
   },
-  'packages/types/src/data.ts:740 DataSource': {
+  'packages/types/src/data.ts DataSource #1': {
     card: null,
     codes: [2304, 7006],
     reason:
       'usage fragment: references `dataSource`, `refreshList`, which the example never declares, so what depends on them is judged unbound',
   },
-  'packages/types/src/icon-key-migration.ts:122 migrateIconNodeKeys': {
+  'packages/types/src/icon-key-migration.ts migrateIconNodeKeys #1': {
     card: null,
     codes: [2304],
     reason:
       'usage fragment: references `save`, `storedPage`, which the example never declares',
   },
-  'packages/types/src/objectql.ts:1607 ObjectFormSchema': {
+  'packages/types/src/objectql.ts ObjectFormSchema #1': {
     card: null,
     codes: [1005, 1109],
     reason:
       'the block is a prose-and-code mixture that does not parse as TSX in isolation',
   },
-  'packages/types/src/plugin-scope.ts:227 AppMetadataPlugin': {
+  'packages/types/src/plugin-scope.ts AppMetadataPlugin #1': {
     card: null,
     codes: [1128],
     reason:
@@ -1139,9 +1154,30 @@ export function preludeFor(block, injectableFrom) {
     : '';
 }
 
-/** `path:line symbol` — the ledger key for one block. */
+/**
+ * `path symbol #ordinal` — the ledger key for one block.
+ *
+ * ⛔ NO LINE NUMBER. It used to be `path:line symbol`, and the line was part of
+ * the key, so an edit ANYWHERE ABOVE a documented symbol invalidated every row
+ * below it in that file. That is not hypothetical: PR #8895 added three import
+ * lines to `packages/types/src/objectql.ts`, every collected block moved down by
+ * three, and this gate reddened on `main` naming a row whose example had not
+ * changed at all. objectui#8614 is the same failure one card earlier.
+ *
+ * The maintainer ruled the class on 2026-09-10 — 跨文件的「某文件第几行」引用，
+ * 这种完全没必要吧，是否应该避免 — and objectui#8875's clause 3 applies it here:
+ * a stored line number is a snapshot of a moving quantity, and the repair is to
+ * STOP STORING ONE, not to recompute it after every shift.
+ *
+ * The ordinal is the block's position among the examples of THAT symbol in THAT
+ * file (see `exampleCensus`). 114 of this tree's 124 blocks are the only example
+ * on their symbol and carry `#1`; the ordinal exists for the five symbols that
+ * document more than one. It moves only when a sibling example on the same
+ * symbol is added or removed — an editorial act on the very block a row
+ * describes — never when unrelated lines shift above it.
+ */
 export function ledgerKey(block) {
-  return `${block.file}:${block.line} ${block.symbol}`;
+  return `${block.file} ${block.symbol} #${block.ordinal}`;
 }
 
 /**

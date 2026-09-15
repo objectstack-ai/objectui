@@ -207,3 +207,61 @@ export function toHostGroupProps(
     ...(labelledBy != null ? { role: 'group' as const } : null),
   };
 }
+
+/**
+ * The host keys a LABELABLE surface may consume — the `labelling: 'control'`
+ * counterpart of {@link HostGroupProps} (objectui#8803).
+ *
+ * ## Why a second, smaller bag instead of reusing the group one
+ *
+ * A widget declared `'control'` is told nothing by the host: its label emits a
+ * plain `for` and expects to reach a labelable element on its own. Every
+ * editable branch answers that by spreading `toDomProps` onto the control it
+ * renders. The branches that return EARLY answer it with nothing — and for the
+ * single `SelectField` that is the zero-option box, where the `…-form-item` id
+ * reached no element at all and the label's `for` DANGLED.
+ *
+ * What such a surface needs is therefore the exact complement of the group
+ * bag:
+ *
+ *  - `id` — yes. It is the id the `for` points at, and landing it is the whole
+ *    repair;
+ *  - `aria-describedby` — yes, for the objectui#4005 reason, unchanged by the
+ *    surface being labelable: the field renders no input in this state, so
+ *    this box is the only element the visible help text can be announced on;
+ *  - `aria-labelledby` — ⛔ NO. The `for` already names this element. Adding an
+ *    IDREF beside it is the second naming channel objectui#3978 removed;
+ *  - `role` — ⛔ NO. A labelable element's own semantics are what make the name
+ *    land; a synthetic role on top is the category error objectui#3991 named.
+ *
+ * `aria-invalid` / `aria-required` / `name` stay off for the reasons spelled
+ * out at length on {@link HostGroupProps}: control-channel state on a surface
+ * nobody can edit, and the DOM leak objectui#3291 sweeps for. A closed type,
+ * not an open props tail, for that same reason.
+ */
+export interface HostControlProps {
+  /** The host's control id — the id its label's `for` points at. */
+  id?: string;
+  /** IDREF of the host's visible help text. */
+  'aria-describedby'?: string;
+}
+
+/**
+ * Read the two whole-field keys a labelable replacement surface may carry. See
+ * {@link HostControlProps}.
+ *
+ * Routed through {@link toDomProps} for the same reason {@link toHostGroupProps}
+ * is: the keys keep ONE gate, and its compile-time assertions bind that
+ * whitelist to the props contract in both directions.
+ *
+ * Standalone rendering (the grid's inline cell editor, an action param dialog,
+ * a bare SDUI node) hands down neither key, so both values are `undefined`,
+ * React emits no attribute, and that markup stays byte-identical.
+ */
+export function toHostControlProps(props: {
+  id?: string;
+  'aria-describedby'?: string;
+}): HostControlProps {
+  const { id, 'aria-describedby': describedBy } = toDomProps(props);
+  return { id, 'aria-describedby': describedBy };
+}

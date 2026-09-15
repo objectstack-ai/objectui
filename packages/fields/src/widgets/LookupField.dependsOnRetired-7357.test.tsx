@@ -31,6 +31,7 @@
  */
 
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LookupField } from './LookupField';
 import { SelectField } from './SelectField';

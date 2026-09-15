@@ -42,6 +42,13 @@
  *                               performs a top-level REGISTRATION,
  *                               in BOTH its source and its published spelling
  *
+ * ...where "the entry graph" is the union over EVERY entry point the manifest
+ * publishes, de-duplicated into one module set. See "Which entry forms anchor
+ * the walk" below: walking only the barrel made the gate blind in exactly its
+ * own failure class, since a registrar reachable only from a secondary entry is
+ * never proposed as MISSING and, if the array names it anyway, reads as STALE --
+ * so the gate would ARGUE for deleting a correct entry (objectui#8850).
+ *
  * Both directions are checked, because a `sideEffects` array can be wrong in
  * two ways and only one of them is loud:
  *
@@ -67,11 +74,13 @@
  * performs into exactly three buckets, and refuses anything it does not
  * recognise:
  *
- *   - `registration` -- a top-level CALL or `new`. Not "a call whose name looks
- *     like `register`": a name test is an under-reading, and an under-reading
- *     here is precisely the silent drop. `ComponentRegistry.register(...)`,
- *     `registerAppComponent(...)` and a hypothetical `Registry.add(...)` are
- *     indistinguishable to a bundler and are treated alike here.
+ *   - `registration` -- a top-level CALL or `new`, written as a STATEMENT or
+ *     performed while a top-level binding is INITIALISED (see the next
+ *     section). Not "a call whose name looks like `register`": a name test is
+ *     an under-reading, and an under-reading here is precisely the silent drop.
+ *     `ComponentRegistry.register(...)`, `registerAppComponent(...)` and a
+ *     hypothetical `Registry.add(...)` are indistinguishable to a bundler and
+ *     are treated alike here.
  *   - `local-binding-write` -- `X.displayName = 'X'` where `X` is declared in
  *     THIS module and the right-hand side calls nothing. It is provably
  *     module-local: a bundler that drops the module drops its target too, so
@@ -86,6 +95,120 @@
  * the whole design: a new spelling of a load-time effect must make this gate
  * LOUD, never make it quietly decide the module is pure. "I did not recognise
  * that" and "that is not a registration" must not be the same answer.
+ *
+ * ## A call inside a top-level `const` initializer (objectui#8578)
+ *
+ * `export const X = f(...)` declares a binding AND runs `f` at load time. To a
+ * bundler those are one statement: a module this array does not name is dropped
+ * whole, and `f`'s effect leaves with the binding. Reading that shape as
+ * "declares a constant, does nothing" was measured wrong on `@object-ui/types`'
+ * `AnyComponentSchema = defineNodeComponentUnion(...)`, whose initializer writes
+ * the node recursion point's option slot into a DIFFERENT module (`base.zod.ts`).
+ *
+ * The widening is NOT "any call in an initializer", and that is a measurement
+ * rather than a preference: over this workspace that reading takes
+ * `@object-ui/app-shell` from 14 registering modules to 122, because
+ * `new Set([...])`, `React.createContext(...)`, `new RegExp(...)` and
+ * `React.lazy(...)` are calls that produce the binding's VALUE and nothing else.
+ * Naming their modules would spend exactly the consumer bytes the array exists
+ * to save. So an initializer registers only when all three hold:
+ *
+ *   1. the call is EVALUATED NOW. The walk stops at every function boundary, so
+ *      a closure that is RETURNED is not a load-time effect -- app-shell's
+ *      `withSettleSignal` increments a module counter inside the wrapper it
+ *      returns, and reading that as load-time is how this widening would score
+ *      a pure wrapper as a registrar. A function handed as an ARGUMENT to a call
+ *      being made now IS walked, because that call may invoke it now.
+ *   2. the callee RESOLVES inside this package, through relative imports and
+ *      re-exports only.
+ *   3. that callee WRITES to a binding it did not itself declare -- the same
+ *      argument `local-binding-write` makes one level out, applied to the
+ *      callee's own scope: anything it did not declare outlives the call and is
+ *      observable by someone other than the dropped module.
+ *
+ * What this still does NOT see, stated here rather than left to silence, since
+ * a reader who mistakes silence for absence is the failure this gate is about:
+ *
+ *   - a call into ANOTHER package (`z.discriminatedUnion`, `React.createContext`,
+ *     `new Set`) is read as value-producing. That is the boundary
+ *     {@link walkEntryGraph} already draws, for the reason it gives: another
+ *     package's load-time behaviour is that package's manifest's problem.
+ *   - a registration a module performs only when something CALLS it is not a
+ *     load-time effect at all, by construction. ⛔ do not read a zero here as
+ *     "this package has no load-time effects", only as "none this gate can
+ *     derive".
+ *
+ * ## Which entry forms anchor the walk (objectui#8850)
+ *
+ * `exports` keys that start with `.` are SUBPATHS -- separate things a consumer
+ * can import, so separate graph roots. Everything below a subpath is a
+ * CONDITION or a fallback array, and those choose a build FORMAT of the same
+ * subpath. {@link classifyEntryForms} sorts every published form on that
+ * structure first and -- only where the structure does not decide -- on what is
+ * on disk, into `entry-point`, `duplicate-entry`, `alternate-format` and
+ * `asset`, and refuses anything that is none of them.
+ *
+ * The refusal is the load-bearing half, and it is deliberately NOT "fail when a
+ * form cannot be mapped back to a source file". Measured over this workspace:
+ * the only two packages declaring an array publish, beside their barrel, a
+ * STYLESHEET and the `require` half of the SAME entry. Both are unmappable and
+ * neither is a defect, so a gate that failed on unmappable would be red on its
+ * entire population on day one. What must be loud is a form this gate cannot
+ * CLASSIFY -- because a skipped form is a skipped root, and a registrar behind
+ * it would never be proposed as MISSING. Silently skipping it would rebuild the
+ * gate's own silent-drop failure class one level up.
+ *
+ * ### ⛔ What this classification GIVES UP, and why (objectui#9124)
+ *
+ * `alternate-format` is decided from the manifest's structure alone, so a
+ * DANGLING form -- one the manifest declares that will never exist on disk --
+ * is no longer DISTINGUISHABLE from a legitimate second build format when it
+ * sits under a subpath that already has a real module form. This is a declared
+ * trade, and stating it precisely matters more than stating it strongly:
+ *
+ *   - What is given up is DISCRIMINATING POWER, not visibility. A dangling form
+ *     is still LISTED in `alternateFormats`; it just no longer stands ALONE
+ *     there.
+ *   - It was a REPORTED FIELD, never a refusal. `problems` was empty either
+ *     way, so nothing that used to fail now passes.
+ *   - The discrimination existed only on a BUILT tree, which is the opposite of
+ *     what intuition suggests and is why it is written down here. Compare the
+ *     two behaviours on one manifest whose `.` publishes an `import` half and a
+ *     `require` half: with `dist/` PRESENT, a produced `require` half existed
+ *     and classified as an `asset` while a never-produced one classified as
+ *     `unmapped`, so `alternateFormats` was EXACTLY the dangling set. With
+ *     `dist/` ABSENT, neither exists, both land in `alternateFormats`, and the
+ *     field separates nothing at all.
+ *
+ * ⇒ the trade is: a verdict that depended on whether `dist/` happened to be
+ * present is exchanged for the ability to spot a dangling form sitting beside a
+ * real one. Worth it because the first is a red a contributor cannot clear --
+ * the artefact it turned on is `.gitignore`d, so the input was not in the tree
+ * at all -- and the second was never enforced (objectui#6893, objectui#7460,
+ * objectui#7671 are the measured instances of that class in this repo's own
+ * gates). The pair of cases named `the verdict does not depend on whether the
+ * tree is BUILT` in this gate's test file is what re-derives all of this; ⛔ do
+ * not trust this paragraph over them.
+ *
+ * What the trade costs is bounded by the same structure that creates it: such a
+ * form adds no graph root either way, because the module form under its subpath
+ * IS the root and an alternate format reaches exactly what that root reaches.
+ * So a registrar cannot hide behind it -- which is the harm the refusal below
+ * exists to prevent, and it is untouched.
+ *
+ * ⛔ The gap is NOT widened to dangling forms under a subpath with no module
+ * form. There, `existsInPackage` still decides, and a form that is neither a
+ * module nor a file on disk is still refused loudly -- that is the `./ghost.js`
+ * and subpath-`*` shape, and removing the check there was MEASURED to promote
+ * such a form to a graph root and crash the walk on ENOENT.
+ *
+ * The genuine multi-entry population is ZERO today (a stylesheet is not a graph
+ * root; a second format of one entry reaches exactly what that entry reaches),
+ * so this widening changes no verdict in this workspace right now. It is the
+ * next package with a real second entry -- `@object-ui/types`' `./zod`, whose
+ * one load-time effect is unreachable from `src/index.ts`, is the measured
+ * demonstration, and it is out of this gate's population only because it
+ * declares `sideEffects: false` -- that the widening is for.
  *
  * ## Reachability -- naming a module is not enough
  *
@@ -259,6 +382,270 @@ function containsCall(node) {
   return hit;
 }
 
+/**
+ * Every call EVALUATED when `node` is evaluated. The walk stops at every
+ * function boundary, because a call written inside a function body runs when
+ * that function is CALLED, not when the module is loaded — `withSettleSignal`
+ * in `@object-ui/app-shell` is the measured example: it returns a closure that
+ * increments a module counter, and reading that write as load-time is how a
+ * widening of this gate scores a pure wrapper as a registrar.
+ */
+function immediateCalls(node) {
+  const calls = [];
+  const walk = (n) => {
+    if (isFunctionLike(n)) return;
+    if (ts.isCallExpression(n) || ts.isNewExpression(n)) calls.push(n);
+    ts.forEachChild(n, walk);
+  };
+  walk(node);
+  return calls;
+}
+
+/** Anything whose body is deferred until it is called. */
+function isFunctionLike(n) {
+  return (
+    ts.isFunctionExpression(n) ||
+    ts.isArrowFunction(n) ||
+    ts.isFunctionDeclaration(n) ||
+    ts.isClassDeclaration(n) ||
+    ts.isClassExpression(n) ||
+    ts.isMethodDeclaration(n) ||
+    ts.isGetAccessorDeclaration(n) ||
+    ts.isSetAccessorDeclaration(n)
+  );
+}
+
+/** `a.b.c` / `a[0]` / `(a as T).b` -> `a`. The binding a write or call is rooted at. */
+function rootIdentifier(expr) {
+  let node = expr;
+  while (node) {
+    if (ts.isIdentifier(node)) return node.text;
+    if (
+      ts.isPropertyAccessExpression(node) ||
+      ts.isElementAccessExpression(node) ||
+      ts.isNonNullExpression(node) ||
+      ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node)
+    ) {
+      node = node.expression;
+      continue;
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+const sourceCache = new Map();
+
+/** Parse-once, by absolute path. This gate is a one-shot process. */
+function parseSource(absFile) {
+  let source = sourceCache.get(absFile);
+  if (!source) {
+    if (!fs.existsSync(absFile) || !MODULE_FILE_RE.test(absFile)) return undefined;
+    source = ts.createSourceFile(absFile, fs.readFileSync(absFile, 'utf8'), ts.ScriptTarget.Latest, true);
+    sourceCache.set(absFile, source);
+  }
+  return source;
+}
+
+/**
+ * The function `name` refers to in `file`, followed through this package's own
+ * RELATIVE imports and re-exports.
+ *
+ * Returns `undefined` for everything the walk cannot reach: a bare package
+ * specifier (`z.discriminatedUnion`, `React.createContext`, `new Set`), a
+ * namespace or default import, a value that is not a function. That is the same
+ * boundary {@link walkEntryGraph} already draws and for the same reason —
+ * another package's load-time behaviour is that package's manifest's problem.
+ */
+function resolveLocalFunction(file, name, seen = new Set(), origin) {
+  const key = `${file}#${name}`;
+  if (seen.has(key)) return undefined;
+  seen.add(key);
+  // `origin` carries the ONE source that may not exist on disk: the module being
+  // classified, which a caller may have parsed from a string. Everything the walk
+  // reaches from there is a real file.
+  const source = origin && origin.file === file ? origin.source : parseSource(file);
+  if (!source) return undefined;
+
+  for (const stmt of source.statements) {
+    if (ts.isFunctionDeclaration(stmt) && stmt.name && stmt.name.text === name) return { file, fn: stmt };
+    if (ts.isVariableStatement(stmt)) {
+      for (const d of stmt.declarationList.declarations) {
+        if (!ts.isIdentifier(d.name) || d.name.text !== name) continue;
+        const init = d.initializer;
+        return init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) ? { file, fn: init } : undefined;
+      }
+    }
+    if (ts.isClassDeclaration(stmt) && stmt.name && stmt.name.text === name) return undefined;
+  }
+
+  for (const stmt of source.statements) {
+    const specifier = stmt.moduleSpecifier;
+    if (!specifier || !ts.isStringLiteral(specifier)) continue;
+
+    if (ts.isImportDeclaration(stmt) && stmt.importClause) {
+      const bindings = stmt.importClause.namedBindings;
+      if (!bindings || !ts.isNamedImports(bindings)) continue;
+      const element = bindings.elements.find((e) => e.name.text === name);
+      if (!element) continue;
+      if (!specifier.text.startsWith('.')) return undefined;
+      const abs = resolveRelative(file, specifier.text);
+      return abs ? resolveLocalFunction(abs, (element.propertyName ?? element.name).text, seen, origin) : undefined;
+    }
+
+    if (ts.isExportDeclaration(stmt) && stmt.exportClause && ts.isNamedExports(stmt.exportClause)) {
+      const element = stmt.exportClause.elements.find((e) => e.name.text === name);
+      if (!element) continue;
+      if (!specifier.text.startsWith('.')) return undefined;
+      const abs = resolveRelative(file, specifier.text);
+      return abs ? resolveLocalFunction(abs, (element.propertyName ?? element.name).text, seen, origin) : undefined;
+    }
+
+    if (ts.isExportDeclaration(stmt) && !stmt.exportClause && specifier.text.startsWith('.')) {
+      const abs = resolveRelative(file, specifier.text);
+      const found = abs ? resolveLocalFunction(abs, name, seen, origin) : undefined;
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/** Every identifier `fn` declares itself: parameters, locals, nested declarations. */
+function functionScopeBindings(fn) {
+  const names = new Set();
+  const addBinding = (n) => {
+    if (!n) return;
+    if (ts.isIdentifier(n)) names.add(n.text);
+    else if (ts.isObjectBindingPattern(n) || ts.isArrayBindingPattern(n)) {
+      for (const el of n.elements) if (ts.isBindingElement(el)) addBinding(el.name);
+    }
+  };
+  for (const p of fn.parameters ?? []) addBinding(p.name);
+  const walk = (n) => {
+    if (ts.isVariableDeclaration(n) || ts.isParameter(n)) addBinding(n.name);
+    if ((ts.isFunctionDeclaration(n) || ts.isClassDeclaration(n)) && n.name) names.add(n.name.text);
+    if (ts.isCatchClause(n) && n.variableDeclaration) addBinding(n.variableDeclaration.name);
+    ts.forEachChild(n, walk);
+  };
+  if (fn.body) walk(fn.body);
+  return names;
+}
+
+/** Assignment operators. `x = v`, `x ||= v`, `x += v` are all writes. */
+const ASSIGNMENT_OPERATORS = new Set([
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.PlusEqualsToken,
+  ts.SyntaxKind.MinusEqualsToken,
+  ts.SyntaxKind.AsteriskEqualsToken,
+  ts.SyntaxKind.AsteriskAsteriskEqualsToken,
+  ts.SyntaxKind.SlashEqualsToken,
+  ts.SyntaxKind.PercentEqualsToken,
+  ts.SyntaxKind.AmpersandEqualsToken,
+  ts.SyntaxKind.BarEqualsToken,
+  ts.SyntaxKind.CaretEqualsToken,
+  ts.SyntaxKind.LessThanLessThanEqualsToken,
+  ts.SyntaxKind.GreaterThanGreaterThanEqualsToken,
+  ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+  ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+]);
+
+/** How deep the callee walk follows in-package calls before giving up. */
+const CALLEE_DEPTH_LIMIT = 6;
+
+/**
+ * Whether calling `fn` writes, AS PART OF THE CALL, to a binding `fn` does not
+ * itself declare.
+ *
+ * "Escaping" is judged against the CALLEE's own scope, and that is the same
+ * argument the `local-binding-write` carve-out above makes one level out:
+ * anything the callee did not declare outlives the call and is observable by
+ * someone other than the module being dropped. `nodeUnionOptions[0] = installed`
+ * in `@object-ui/types`' `base.zod.ts` is exactly that shape.
+ *
+ * Deferred writes do not count: the walk stops at function boundaries, so a
+ * closure that is RETURNED rather than run is not a load-time effect. A function
+ * handed as an ARGUMENT to a call being made now is walked, because that call
+ * may invoke it now.
+ */
+function performsEscapingWrite(fn, file, depth = 0, seen = new Set(), origin) {
+  const key = `${file}@${fn.pos}`;
+  if (seen.has(key) || depth > CALLEE_DEPTH_LIMIT) return false;
+  seen.add(key);
+
+  const local = functionScopeBindings(fn);
+  let found = false;
+
+  const walk = (n) => {
+    if (found) return;
+    if (isFunctionLike(n)) return;
+
+    if (ts.isBinaryExpression(n) && ASSIGNMENT_OPERATORS.has(n.operatorToken.kind)) {
+      const root = rootIdentifier(n.left);
+      if (root && !local.has(root)) {
+        found = true;
+        return;
+      }
+    }
+    if (
+      (ts.isPrefixUnaryExpression(n) || ts.isPostfixUnaryExpression(n)) &&
+      (n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken)
+    ) {
+      const root = rootIdentifier(n.operand);
+      if (root && !local.has(root)) {
+        found = true;
+        return;
+      }
+    }
+    if (ts.isCallExpression(n)) {
+      const root = rootIdentifier(n.expression);
+      if (root && !local.has(root)) {
+        const callee = resolveLocalFunction(file, root, new Set(), origin);
+        if (callee && performsEscapingWrite(callee.fn, callee.file, depth + 1, seen, origin)) {
+          found = true;
+          return;
+        }
+      }
+      for (const arg of n.arguments) {
+        if (!isFunctionLike(arg) || !arg.body) continue;
+        for (const p of arg.parameters ?? []) if (ts.isIdentifier(p.name)) local.add(p.name.text);
+        ts.forEachChild(arg.body, walk);
+        if (found) return;
+      }
+    }
+    ts.forEachChild(n, walk);
+  };
+
+  if (fn.body) walk(fn.body);
+  return found;
+}
+
+/**
+ * Whether a top-level `const`/`let`/`var` statement performs a load-time
+ * REGISTRATION through one of its initializers.
+ *
+ * See the header's "a call in a top-level initializer" section: the call must be
+ * evaluated now, its callee must resolve inside this package, and that callee
+ * must write somewhere it did not declare.
+ */
+function initializerRegisters(stmt) {
+  const source = stmt.getSourceFile();
+  if (!source) return false;
+  const origin = { file: source.fileName, source };
+  for (const declaration of stmt.declarationList.declarations) {
+    if (!declaration.initializer) continue;
+    for (const call of immediateCalls(declaration.initializer)) {
+      const root = rootIdentifier(call.expression);
+      if (!root) continue;
+      const callee = resolveLocalFunction(origin.file, root, new Set(), origin);
+      if (callee && performsEscapingWrite(callee.fn, callee.file, 0, new Set(), origin)) return true;
+    }
+  }
+  return false;
+}
+
 /** Every identifier declared at the top level of this source file. */
 function moduleScopeBindings(source) {
   const names = new Set();
@@ -326,6 +713,10 @@ export function classifyEffect(stmt, localBindings) {
     return 'unknown';
   }
 
+  // A declaration that PERFORMS something while being declared. See the header:
+  // the binding is not the only thing a bundler drops with this statement.
+  if (ts.isVariableStatement(stmt) && initializerRegisters(stmt)) return 'registration';
+
   return null;
 }
 
@@ -391,23 +782,30 @@ export function resolveRelative(fromFile, specifier) {
 }
 
 /**
- * The barrel plus every module reachable from it by relative import: the set a
- * bundler may shake, and therefore the set the declaration is a promise about.
+ * Every ENTRY POINT plus every module reachable from any of them by relative
+ * import: the set a bundler may shake, and therefore the set the declaration is
+ * a promise about.
+ *
+ * The roots are a SET and the walk is one traversal over a shared `seen` set,
+ * so N entry points cost the union of their graphs and never N times one of
+ * them — a package whose entries mostly overlap walks barely more than its
+ * barrel does (objectui#8850, question 2).
  *
  * Bare package specifiers stop the walk — another package's manifest is that
  * package's problem.
  *
- * @param {string} entryFile absolute path to the source barrel.
+ * @param {string | string[]} entryFiles absolute path(s) to the source entry point(s).
  * @param {string} [root]
  */
-export function walkEntryGraph(entryFile, root = REPO_ROOT) {
+export function walkEntryGraph(entryFiles, root = REPO_ROOT) {
+  const entryList = Array.isArray(entryFiles) ? entryFiles : [entryFiles];
   const seen = new Set();
   /** @type {Map<string, {effects: any[], edges: any[]}>} */
   const scans = new Map();
   /** @type {Map<string, {from: string, bare: boolean}[]>} */
   const importedBy = new Map();
   const unresolved = [];
-  const stack = [entryFile];
+  const stack = [...entryList];
 
   while (stack.length > 0) {
     const file = stack.pop();
@@ -430,7 +828,7 @@ export function walkEntryGraph(entryFile, root = REPO_ROOT) {
     }
   }
 
-  return { modules: [...seen], scans, importedBy, unresolved };
+  return { modules: [...seen], scans, importedBy, unresolved, entries: [...new Set(entryList)] };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -438,38 +836,93 @@ export function walkEntryGraph(entryFile, root = REPO_ROOT) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Every module path a bundler can resolve the PACKAGE to, package-relative,
- * derived from the manifest.
+ * Every SUBPATH the manifest publishes, with the forms published under it.
  *
- * `types` is skipped: type declarations are erased and are never a bundling
- * surface. `*` patterns are skipped because they name no single file — and a
- * package that grows one while declaring an array is reported by
- * {@link evaluatePackage} rather than silently dropped.
+ * The grouping is the whole point, and it is Node's own resolution rule rather
+ * than a heuristic: a key of the `exports` map that starts with `.` names a
+ * SUBPATH — a distinct thing a consumer can import, and therefore a candidate
+ * graph root. Everything BELOW a subpath is a CONDITION (`import`, `require`,
+ * `browser`, `default`) or a fallback array, and those select a build FORMAT of
+ * the same subpath. Two forms under one subpath are one entry point published
+ * twice; two subpaths are two entry points. {@link classifyEntryForms} turns
+ * that distinction into graph roots, and nothing downstream has to guess it
+ * back out of a flat list.
+ *
+ * `main` and `module` are the pre-`exports` spelling of the root subpath `.`
+ * and are folded into it. `types` is skipped: type declarations are erased and
+ * are never a bundling surface. A `null` target publishes nothing.
  */
-export function manifestEntryForms(manifest) {
-  const found = new Set();
+export function manifestEntrySubpaths(manifest) {
+  /** @type {Map<string, Set<string>>} */
+  const bySubpath = new Map();
+  const add = (subpath, form) => {
+    const forms = bySubpath.get(subpath) ?? new Set();
+    forms.add(normalize(form));
+    bySubpath.set(subpath, forms);
+  };
+
   for (const field of [manifest.main, manifest.module]) {
-    if (typeof field === 'string') found.add(normalize(field));
+    if (typeof field === 'string') add('.', field);
   }
-  const walk = (node) => {
+
+  /** Everything below a subpath key: conditions and fallback arrays, never a new subpath. */
+  const walkTarget = (subpath, node) => {
     if (node === null || node === undefined) return;
     if (typeof node === 'string') {
-      if (node.startsWith('./')) found.add(normalize(node));
+      if (node.startsWith('./')) add(subpath, node);
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const value of node) walkTarget(subpath, value);
       return;
     }
     if (typeof node !== 'object') return;
     for (const [key, value] of Object.entries(node)) {
       if (key === 'types') continue;
-      walk(value);
+      walkTarget(subpath, value);
     }
   };
-  walk(manifest.exports);
+
+  const exportsField = manifest.exports;
+  if (typeof exportsField === 'string' || Array.isArray(exportsField)) {
+    walkTarget('.', exportsField);
+  } else if (exportsField !== null && typeof exportsField === 'object') {
+    const keys = Object.keys(exportsField);
+    // Node's rule: a map whose keys ALL start with `.` is a subpath map; any
+    // other object is a bare condition set for the root subpath.
+    const isSubpathMap = keys.length > 0 && keys.every((k) => k === '.' || k.startsWith('./'));
+    if (isSubpathMap) {
+      for (const [key, value] of Object.entries(exportsField)) walkTarget(key, value);
+    } else {
+      walkTarget('.', exportsField);
+    }
+  }
+
+  return [...bySubpath.entries()]
+    .map(([subpath, forms]) => ({ subpath, forms: [...forms].sort() }))
+    .filter((entry) => entry.forms.length > 0)
+    .sort((a, b) => a.subpath.localeCompare(b.subpath));
+}
+
+/**
+ * Every module path a bundler can resolve the PACKAGE to, package-relative —
+ * the flat view of {@link manifestEntrySubpaths}, derived from it rather than
+ * collected a second time so the two can never disagree about what is
+ * published.
+ */
+export function manifestEntryForms(manifest) {
+  const found = new Set();
+  for (const entry of manifestEntrySubpaths(manifest)) {
+    for (const form of entry.forms) found.add(form);
+  }
   return [...found].sort();
 }
 
 /**
  * The map between a package's SOURCE spelling and its PUBLISHED spelling, and
- * the source barrel both are anchored on.
+ * the source barrel both are anchored on. Both directions: {@link
+ * classifyEntryForms} needs the inverse to decide which SECONDARY forms are
+ * entry points.
  *
  * Derived, not configured: the published barrel comes from the manifest, the
  * source barrel is found on disk beside it, and the transform is whatever turns
@@ -506,6 +959,31 @@ export function deriveSpellingMap(pkg, root = REPO_ROOT) {
   const toPublished = (sourceRel) =>
     `${distRoot}/${sourceRel.slice(srcRoot.length + 1).replace(/\.(tsx|ts|mts|jsx|js|mjs)$/, publishedExt)}`;
 
+  /**
+   * The INVERSE: `dist/a/b.js` -> the `src/a/b.*` that produces it, or
+   * `undefined` when the source tree contains no module that could.
+   *
+   * It is the inverse of the transform above and not a second guess at one: the
+   * published root is swapped back for the source root, the extension is
+   * dropped, and the answer must EXIST on disk as a source module. An extension
+   * the transform above could never have produced (a `.cjs` beside a `.js`
+   * build, a stylesheet) is still tried stem-first, because a second build
+   * FORMAT of a real module is still that module — what decides is whether a
+   * source module is there, never what the form is spelled.
+   */
+  const toSource = (publishedRel) => {
+    const prefix = `${distRoot}/`;
+    if (!publishedRel.startsWith(prefix)) return undefined;
+    const rest = publishedRel.slice(prefix.length);
+    const stem = rest.endsWith(publishedExt) ? rest.slice(0, -publishedExt.length) : rest.replace(/\.[^./]+$/, '');
+    if (stem === '') return undefined;
+    for (const ext of RESOLVE_EXTENSIONS) {
+      const candidate = `${srcRoot}/${stem}${ext}`;
+      if (fs.existsSync(path.join(pkgAbs, candidate))) return candidate;
+    }
+    return undefined;
+  };
+
   if (toPublished(sourceBarrel) !== publishedBarrel) {
     return {
       error:
@@ -514,7 +992,145 @@ export function deriveSpellingMap(pkg, root = REPO_ROOT) {
     };
   }
 
-  return { forms, sourceBarrel, publishedBarrel, srcRoot, distRoot, toPublished };
+  // There is deliberately no second round-trip assertion for the inverse. It
+  // could not FAIL: `sourceBarrel` above is discovered by the same extension
+  // order `toSource` searches, so the two agree by construction, and a guard
+  // that cannot fire is not protection. The hazard it would have covered — an
+  // inverse that stops landing on source modules — is covered by a check that
+  // CAN fire: {@link classifyEntryForms} then classifies nothing, and the
+  // barrel's own subpath becomes an unclassifiable form and exits 2.
+
+  return { forms, sourceBarrel, publishedBarrel, srcRoot, distRoot, toPublished, toSource };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Which published forms are ENTRY POINTS (objectui#8850).                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Sort every published form into the three things a form can be, and refuse
+ * anything that is none of them.
+ *
+ * The walk is the check, so the question this answers is narrow and mechanical:
+ * which forms are NEW GRAPH ROOTS? A form that is not a root is not thereby
+ * uninteresting — it is one of two shapes that provably add no reachable module
+ * to the enumeration, and each has to be recognised POSITIVELY:
+ *
+ *   - `entry-point`   -- the inverse of the spelling map lands on a source
+ *     module that exists. It is a distinct thing a consumer imports, so it is
+ *     walked. A subpath whose source module another subpath already claimed is
+ *     an ALIAS of that entry: same root, no new modules, recorded as
+ *     `duplicate-entry` rather than silently merged.
+ *   - `alternate-format` -- the form is not a module, but a form under the SAME
+ *     subpath is. Conditions below a subpath choose a build format, not an
+ *     entry: the `require` half of an entry whose `import` half is already a
+ *     root reaches exactly the modules that root reaches. ⭐ Decided from the
+ *     manifest's own structure and NEVER from the filesystem (objectui#9124):
+ *     it is a fact about the DECLARATION, so it must read the same on an
+ *     unbuilt checkout as on a built one.
+ *   - `asset`         -- the form is not a module, no form under its subpath is
+ *     either, and it names a file that exists in the package exactly as
+ *     published. A stylesheet is a resolution target and is not a graph root:
+ *     there is no import to follow out of it. Positive evidence on both halves
+ *     — the file is THERE, and no source module produces it — never "the map
+ *     returned undefined".
+ *
+ * Anything else is UNCLASSIFIED and fails the gate loudly, and that is the
+ * asymmetry this function exists for. "Could not MAP this form" must not be the
+ * error — both forms this workspace publishes beside a barrel today are
+ * unmappable and neither is a defect. "Could not CLASSIFY this form" must be,
+ * because a form quietly skipped is a graph root quietly missing, and a
+ * registrar reachable only from it would never be proposed as MISSING. That is
+ * the gate's own silent-drop failure class, one level up.
+ *
+ * ⛔ Nothing here reads the `sideEffects` array, and nothing here tests a
+ * package name or an extension allow-list. The classification is derived from
+ * the manifest's own subpath structure and from what is on disk.
+ *
+ * @typedef {{subpath: string, kind: 'entry-point' | 'duplicate-entry' | 'asset',
+ *            sources: string[], forms: string[], alternateFormats: string[]}} EntryFormVerdict
+ *
+ * @param {{name: string, dir: string, manifest: any}} pkg
+ * @param {{toSource: (form: string) => (string | undefined)}} map from {@link deriveSpellingMap}
+ * @param {string} [root]
+ * @returns {{entries: EntryFormVerdict[], problems: string[], roots: string[]}}
+ */
+export function classifyEntryForms(pkg, map, root = REPO_ROOT) {
+  const pkgAbs = path.join(root, pkg.dir);
+  const existsInPackage = (rel) => {
+    const abs = path.join(pkgAbs, rel);
+    return fs.existsSync(abs) && fs.statSync(abs).isFile();
+  };
+
+  /** @type {EntryFormVerdict[]} */
+  const entries = [];
+  /** @type {string[]} */
+  const problems = [];
+  /** @type {Map<string, string>} sourceRel -> the subpath that first claimed it as a root. */
+  const claimedBy = new Map();
+
+  for (const { subpath, forms } of manifestEntrySubpaths(pkg.manifest)) {
+    // First pass asks ONE question of each form -- is it a module this gate can
+    // walk? -- and nothing else. Sorting the rest happens below, per SUBPATH,
+    // because what a non-module form IS depends on its siblings (objectui#9124).
+    const classified = forms.map((form) => {
+      const inverted = map.toSource(form);
+      if (inverted) return { form, kind: 'module', sourceRel: inverted };
+      // A form published straight out of the source tree is its own source.
+      if (existsInPackage(form) && MODULE_FILE_RE.test(form) && !/\.d\.ts$/.test(form)) {
+        return { form, kind: 'module', sourceRel: form };
+      }
+      return { form, kind: 'non-module' };
+    });
+
+    const moduleForms = classified.filter((c) => c.kind === 'module');
+    const nonModuleForms = classified.filter((c) => c.kind === 'non-module');
+
+    if (moduleForms.length > 0) {
+      // ⛔ Deliberately WITHOUT asking the filesystem (objectui#9124). A
+      // non-module form under a subpath that already resolves to a module is an
+      // `alternate-format` by the manifest's OWN structure -- conditions below a
+      // subpath choose a build FORMAT, not an entry -- and that is a fact about
+      // the DECLARATION, true of an unbuilt checkout and a built one alike.
+      // Deciding it with `fs.existsSync` made the verdict depend on whether
+      // `dist/` happened to be present, on an input that is `.gitignore`d and so
+      // is not in the tree at all.
+      const sources = [...new Set(moduleForms.map((c) => c.sourceRel))].sort();
+      const fresh = sources.filter((s) => !claimedBy.has(s));
+      for (const s of fresh) claimedBy.set(s, subpath);
+      entries.push({
+        subpath,
+        kind: fresh.length > 0 ? 'entry-point' : 'duplicate-entry',
+        sources,
+        forms,
+        alternateFormats: nonModuleForms.map((c) => c.form),
+      });
+      continue;
+    }
+
+    // No form under this subpath is a module, so nothing here can be a second
+    // build format OF anything -- there is no entry for it to be a format of.
+    // What is left must earn `asset` on POSITIVE evidence, which is the
+    // existence check, unchanged and still the only thing standing between a
+    // DANGLING declaration and a silently skipped graph root.
+    const dangling = nonModuleForms.filter((c) => !existsInPackage(c.form));
+    if (dangling.length === 0) {
+      entries.push({ subpath, kind: 'asset', sources: [], forms, alternateFormats: [] });
+      continue;
+    }
+
+    const unclassified = dangling.map((c) => `"./${c.form}"`);
+    problems.push(
+      `${pkg.name}: the manifest publishes the subpath "${subpath}", and this gate cannot CLASSIFY ` +
+        `${unclassified.join(', ')}. It is not a form the published/source spelling map inverts to a module that ` +
+        `exists, it is not a file present in the package exactly as published, and no other form under the same ` +
+        `subpath is an entry point it could be a second build format of. Teach this gate what it is — a form ` +
+        `skipped here is a graph ROOT skipped, and a registrar reachable only from it would never be proposed as ` +
+        `MISSING. That is this gate's own silent drop, one level up.`,
+    );
+  }
+
+  return { entries, problems, roots: [...claimedBy.keys()].sort() };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -523,14 +1139,23 @@ export function deriveSpellingMap(pkg, root = REPO_ROOT) {
 
 /**
  * A registering module is only retained when a RETAINED module still imports
- * it. This walks back from each registrar to an entry form through COVERED
+ * it. This walks back from each registrar to an entry point through COVERED
  * modules only, so a `barrel -> pure-helper -> registrar` chain — where the
  * shakeable helper takes the registrar's only edge with it — is a failure and
  * not a green tick.
+ *
+ * With several entry points a registrar is retained when ANY of them reaches it
+ * through covered modules: a consumer importing that entry keeps the chain
+ * alive, and it is not this gate's business which entry they picked. So this
+ * check WIDENS with the walk rather than staying anchored on the barrel
+ * (objectui#8850, question 3).
+ *
+ * @param {string | string[]} entryFiles absolute path(s) to the source entry point(s).
  */
-export function checkReachability(graph, registrars, sourceBarrelAbs, root = REPO_ROOT) {
-  const covered = new Set([sourceBarrelAbs, ...registrars]);
-  const reachable = new Set([sourceBarrelAbs]);
+export function checkReachability(graph, registrars, entryFiles, root = REPO_ROOT) {
+  const entryList = Array.isArray(entryFiles) ? entryFiles : [entryFiles];
+  const covered = new Set([...entryList, ...registrars]);
+  const reachable = new Set(entryList);
   let grew = true;
   while (grew) {
     grew = false;
@@ -553,7 +1178,7 @@ export function checkReachability(graph, registrars, sourceBarrelAbs, root = REP
  *
  * @returns {{name: string, ok: boolean, gauge: boolean, expected: string[], declared: string[],
  *            missing: string[], stale: string[], registrars: string[], problems: string[],
- *            modulesWalked: number}}
+ *            modulesWalked: number, entryPoints: string[], entryForms: EntryFormVerdict[]}}
  */
 export function evaluatePackage(pkg, root = REPO_ROOT) {
   const problems = [];
@@ -562,12 +1187,22 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
     return {
       name: pkg.name, ok: false, gauge: true, expected: [], declared: pkg.declared,
       missing: [], stale: [], registrars: [], problems: [map.error], modulesWalked: 0,
+      entryPoints: [], entryForms: [],
     };
   }
 
   const pkgAbs = path.join(root, pkg.dir);
-  const sourceBarrelAbs = path.join(pkgAbs, map.sourceBarrel);
-  const graph = walkEntryGraph(sourceBarrelAbs, root);
+
+  // Every ENTRY POINT is a graph root, not just the barrel (objectui#8850). The
+  // classification is what decides which published forms those are; a form it
+  // cannot classify is reported here rather than skipped, because skipping it
+  // would shrink the enumeration in silence.
+  const classification = classifyEntryForms(pkg, map, root);
+  problems.push(...classification.problems);
+
+  const entryPoints = [...new Set([map.sourceBarrel, ...classification.roots])].sort();
+  const entryAbs = entryPoints.map((rel) => path.join(pkgAbs, rel));
+  const graph = walkEntryGraph(entryAbs, root);
 
   for (const u of graph.unresolved) {
     problems.push(
@@ -594,8 +1229,15 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
   // A registering module needs BOTH spellings: consumers resolve the published
   // one, in-repo bundler aliases resolve the source one, and a bundler reads the
   // same manifest for both.
+  //
+  // Every entry point needs its SOURCE spelling too, for the same reason the
+  // barrel does. Its published spelling is already a manifest form by
+  // construction — it is where the entry point was derived FROM — so it is
+  // taken from `map.forms` rather than re-spelled through `toPublished`, which
+  // would invent a `dist/x.js` for an entry the manifest publishes as
+  // `dist/x.cjs` and report the invention as MISSING.
   const expected = new Set(map.forms);
-  expected.add(map.sourceBarrel);
+  for (const rel of entryPoints) expected.add(rel);
   for (const abs of registrars) {
     const rel = path.relative(pkgAbs, abs).split(path.sep).join('/');
     expected.add(rel);
@@ -615,7 +1257,7 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
     }
   }
 
-  const unreachable = checkReachability(graph, registrars, sourceBarrelAbs, root);
+  const unreachable = checkReachability(graph, registrars, entryAbs, root);
   const reachabilityProblems = unreachable.map(
     (m) =>
       `${pkg.name}: ${m} registers at load time, but no chain of \`sideEffects\`-covered modules reaches it ` +
@@ -625,7 +1267,7 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
 
   if (graph.modules.length < 2) {
     problems.push(
-      `${pkg.name}: the entry graph walked ${graph.modules.length} module(s) from ${map.sourceBarrel} — ` +
+      `${pkg.name}: the entry graph walked ${graph.modules.length} module(s) from ${entryPoints.join(', ')} — ` +
         `an enumeration over an empty graph agrees with any array at all`,
     );
   }
@@ -641,6 +1283,8 @@ export function evaluatePackage(pkg, root = REPO_ROOT) {
     registrars: registrars.map((r) => path.relative(pkgAbs, r).split(path.sep).join('/')),
     problems: [...problems, ...reachabilityProblems],
     modulesWalked: graph.modules.length,
+    entryPoints,
+    entryForms: classification.entries,
   };
 }
 
@@ -669,7 +1313,15 @@ export function main(argv = process.argv.slice(2), root = REPO_ROOT) {
 
   if (argv.includes('--list')) {
     for (const r of results) {
-      console.log(`\n${r.name} — ${r.registrars.length} module(s) with a top-level registration, ${r.modulesWalked} walked`);
+      console.log(
+        `\n${r.name} — ${r.registrars.length} module(s) with a top-level registration, ${r.modulesWalked} walked ` +
+          `from ${r.entryPoints.length} entry point(s)`,
+      );
+      for (const e of r.entryForms ?? []) {
+        const target = e.sources.length > 0 ? e.sources.join(', ') : e.forms.join(', ');
+        const alt = e.alternateFormats.length > 0 ? `  (+ alternate-format ${e.alternateFormats.join(', ')})` : '';
+        console.log(`   [${e.kind}] "${e.subpath}" -> ${target}${alt}`);
+      }
       for (const m of r.registrars) console.log(`   ${m}`);
     }
     return EXIT_OK;
@@ -707,7 +1359,8 @@ export function main(argv = process.argv.slice(2), root = REPO_ROOT) {
     }
     console.log(
       `✅ ${r.name}: \`sideEffects\` names exactly the ${r.registrars.length} module(s) that register at load ` +
-        `time, plus its entry forms (${r.declared.length} entries, ${r.modulesWalked} modules walked).`,
+        `time, plus its entry forms (${r.declared.length} entries, ${r.modulesWalked} modules walked from ` +
+        `${r.entryPoints.length} entry point(s)).`,
     );
   }
 

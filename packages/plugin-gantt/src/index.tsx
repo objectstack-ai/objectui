@@ -65,14 +65,21 @@ export type {
  *
  * `columns` and a row cap are NOT mapped, because neither has a read site: a
  * gantt projects the fields its `gantt` config names (start/end/title/progress/
- * dependencies/…) rather than a column list, and its reload issues no `$top` at
- * all — it loads the whole bar set and lets `GanttView` window it. Writing a
- * view's field list or page size onto either key would hand the block a value it
- * ignores, which is the defect this wiring removes, one layer deeper.
+ * dependencies/…) rather than a column list, and the `$top` its reload does
+ * send is the platform ceiling — a named constant, ⛔ not authorable
+ * (objectui#7210, ruling a′). Writing a view's field list or page size onto
+ * either key would hand the block a value it ignores, which is the defect this
+ * wiring removes, one layer deeper. ⚠️ This paragraph used to say the reload
+ * "issues no `$top` at all"; that stopped being true at objectui#7210 and is
+ * corrected here because objectui#8769 puts the same `$top` on one more path.
  *
- * Inline data still wins, unchanged: `getDataConfig` prefers `schema.data` /
+ * Inline data still WINS: `getDataConfig` prefers `schema.data` /
  * `schema.staticData` over the object name, so a gantt authored with both a
- * binding and inline rows renders the inline rows exactly as it did before.
+ * binding and inline rows renders the inline rows. ⚠️ It no longer renders
+ * them UNPROCESSED — objectui#8769 routes the inline provider through the same
+ * adapter query as every other provider, so a `filter` / `sort` mapped here
+ * narrows and orders inline rows exactly as it does fetched ones, and the row
+ * ceiling applies to them too.
  */
 const OBJECT_GANTT_DATA_SOURCE: ElementDataSourceMapping = {
   filter: true,
@@ -81,7 +88,13 @@ const OBJECT_GANTT_DATA_SOURCE: ElementDataSourceMapping = {
 
 // Register component
 export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceBlock(({ schema }) => {
-  const { dataSource } = useSchemaContext() || {};
+  // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
+  // bound spells absence either way, and the seam declares both
+  // (`DataSource | null | undefined`, objectui#7912). The widget below
+  // declares the single spelling `dataSource?: DataSource`, so collapse the
+  // two absences into that one here rather than widening the widget.
+  const { dataSource: contextDataSource } = useSchemaContext() || {};
+  const dataSource = contextDataSource ?? undefined;
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121). A
   // gantt authored with the binding and no flat `objectName` produced no data
   // config at all, so `resolveDataSource` had nothing to fetch through: an empty
@@ -109,12 +122,45 @@ ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
   ],
 });
 
-ComponentRegistry.register('gantt', ObjectGanttRenderer, {
-  namespace: 'view',
-  label: 'Gantt View',
-  category: 'view',
-  inputs: [
-    { name: 'objectName', type: 'string', required: true },
-    { name: 'gantt', type: 'object', description: 'startDateField, endDateField, titleField, progressField, percentageField, colorField, dependenciesField' },
-  ],
-});
+/**
+ * ⛔ The bare `gantt` node type key is RETIRED (objectui#8008, maintainer
+ * ruling 2026-09-09, route 3). `object-gantt` is the one spelling this plugin
+ * serves.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('gantt', ObjectGanttRenderer, { namespace:
+ * 'view', ... })` — a second key on the SAME renderer, which stored both
+ * `view:gantt` and the bare `gantt` fallback. The declared face admitted only
+ * one of the two: `ObjectGanttSchema.type` is the literal `'object-gantt'`, so
+ * an author who annotated their node could not write the key the registry
+ * accepted (`TS2322`), while an author who left the literal bare got no
+ * checking at all. Two published faces, opposite verdicts.
+ *
+ * ## Why unregistering is the whole retirement here — measured, not assumed
+ *
+ * ⚠️ `BaseSchema` closes with `[key: string]: any` and `BaseSchemaCore` ends
+ * `.passthrough()`, so a dropped MEMBER KEY is KEPT, not refused (the
+ * objectui#7664 failure). That hazard does not reach a TYPE NAME on this
+ * surface, and the reason is structural rather than lucky: no schema face in
+ * `@object-ui/types` ever declared `gantt` as a component node type — measured
+ * whole-repo, zero declarations, against a firing control of two for
+ * `object-gantt` (`objectql.ts` + its Zod mirror). There is no arm to convert
+ * into a named refusal, so unregistering IS the retirement.
+ *
+ * ⇒ Registration-only retirement. Contrast the `kanban` sibling in the same
+ * batch (objectui#8802), which DID have a declared arm and therefore got a
+ * named refusal rather than a deletion.
+ *
+ * ## ⛔ Two layers, and only one of them moved
+ *
+ * The string `gantt` also names a STORED `NamedListView.type` — the value
+ * `CreateViewDialog` writes and every tenant's database holds. That layer is
+ * untouched: `packages/plugin-view/src/ObjectView.tsx`'s `switch (viewType)`
+ * maps the stored `gantt` view type onto the node type it emits, and it already
+ * emits `object-gantt`. ⇒ Every gantt view any user ever created through the
+ * console already renders through the surviving spelling; this retirement moves
+ * zero stored documents.
+ *
+ * Pinned in `src/__tests__/bare-gantt-node-key-retired-8008.test.ts`.
+ */

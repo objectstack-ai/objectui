@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   SPEC_PACKAGE_NAME,
   escapeRegExp,
+  formatConditionReport,
   readSpecExportTargets,
   resolveSpecDistInjection,
 } from '../vite-objectstack-spec-dist';
@@ -132,8 +133,60 @@ function resolveThroughAliases(aliases: Record<string, string>, specifier: strin
   return null;
 }
 
+/**
+ * A package that must resolve, so a run in which the oracle resolved NOTHING is
+ * distinguishable from a run in which it agreed with everything.
+ */
+const VITE_ORACLE_CONTROL = 'react';
+
+/**
+ * What VITE resolves each specifier to, with no alias table in play.
+ *
+ * The oracle for objectui#9408. Node's `import.meta.resolve` cannot express the
+ * `browser` condition — it does not satisfy it — so on the five entries whose
+ * map ranks `browser` first it answers with the Node arm no matter what the map
+ * says, which is the exact failure this hook shipped for. Vite satisfies it, and
+ * Vite is what the console builds with, so it is the resolver the derivation has
+ * to agree with.
+ *
+ * The temp root lives INSIDE the repository on purpose, not at `os.tmpdir()`
+ * like the fixtures elsewhere in this file: bare-specifier resolution walks up
+ * from the importer looking for `node_modules`, and from `/tmp` there is none to
+ * find. Measured, and worth recording because it fails in the direction that
+ * reads as a result: every specifier came back `(unresolved)`, which an oracle
+ * without the control above would have reported as "no disagreements".
+ */
+async function viteResolves(specifiers: string[]): Promise<Map<string, string | null>> {
+  const resolved = new Map<string, string | null>();
+  const dir = fs.mkdtempSync(path.join(repoRoot, '.vite-oracle-9408-'));
+  try {
+    const entry = path.join(dir, 'entry.mjs');
+    fs.writeFileSync(entry, 'export const probe = 1;\n');
+    await build({
+      root: dir,
+      logLevel: 'silent',
+      configFile: false,
+      build: { write: false, lib: { entry, formats: ['es'], fileName: 'oracle' } },
+      plugins: [
+        {
+          name: 'objectui-9408-resolve-oracle',
+          async buildStart(this: { resolve: (id: string, importer: string, opts: object) => Promise<{ id: string } | null> }) {
+            for (const specifier of specifiers) {
+              const hit = await this.resolve(specifier, entry, { skipSelf: true });
+              resolved.set(specifier, hit ? fs.realpathSync(hit.id) : null);
+            }
+          },
+        },
+      ],
+    });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  return resolved;
+}
+
 describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
-  it('maps every exports-map entry to the file Node itself resolves', async () => {
+  it('maps every exports-map entry to the file the BUNDLER resolves', async () => {
     const injection = inject(installedSpecDir);
     expect(injection).not.toBeNull();
 
@@ -152,8 +205,34 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
     expect(declared.length).toBe(19);
     expect(Object.keys(injection!.aliases).length).toBe(declared.length);
 
+    // objectui#9408 — the population splits, and WHICH oracle applies is the
+    // whole point. Node's resolver does not satisfy `browser`, so for an entry
+    // that declares one it answers with the Node arm BY CONSTRUCTION and cannot
+    // be the oracle for a browser bundler. Partitioned off the MANIFEST, never
+    // off this module's own output: an oracle chosen by the thing under test
+    // agrees with it for free.
+    const declaresBrowser = (key: string): boolean => {
+      const value = manifest.exports[key];
+      return (
+        value !== null && typeof value === 'object' && !Array.isArray(value) && Object.hasOwn(value, 'browser')
+      );
+    };
+    const browserKeys = declared.filter(declaresBrowser);
+    const nodeOracleKeys = declared.filter((k) => !declaresBrowser(k));
+
+    // Anti-vacuity, both halves. 5 on @objectstack/spec 17.4.0 (`.`, `./data`,
+    // `./system`, `./kernel`, `./cloud`) — pinned exactly, like the 19 above,
+    // because an unpinned browser set is precisely how this went unnoticed:
+    // objectui#9408 was FILED naming `./api` as browser-first, and by the time
+    // it was worked `./api` had lost its browser arm upstream with nothing
+    // anywhere to notice the move. A bump re-pins this and says what changed.
+    expect(browserKeys.sort()).toEqual(['.', './cloud', './data', './kernel', './system']);
+    expect(nodeOracleKeys.length).toBe(declared.length - browserKeys.length);
+    expect(nodeOracleKeys.length).toBeGreaterThan(0);
+
     const missing: string[] = [];
     const mismatched: string[] = [];
+    const notDiverged: string[] = [];
     for (const key of declared) {
       const specifier = key === '.' ? SPEC_PACKAGE_NAME : `${SPEC_PACKAGE_NAME}/${key.slice(2)}`;
       const aliased = resolveThroughAliases(injection!.aliases, specifier);
@@ -161,16 +240,61 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
         missing.push(specifier);
         continue;
       }
-      // The oracle: what Node's ESM resolver returns for the same specifier
-      // under the `import` condition — the algorithm, not a second reading of
-      // the map.
-      const expected = fs.realpathSync(fileURLToPath(import.meta.resolve(specifier)));
-      if (fs.realpathSync(aliased) !== expected) {
-        mismatched.push(`${specifier}: alias -> ${aliased}, node -> ${expected}`);
+      // What Node's ESM resolver returns for the same specifier under the
+      // `import` condition — the algorithm, not a second reading of the map.
+      const node = fs.realpathSync(fileURLToPath(import.meta.resolve(specifier)));
+      if (declaresBrowser(key)) {
+        // The divergence is the FIX, so it is pinned as such rather than
+        // tolerated: the map ranks `browser` first, this module honours that,
+        // and Node — which cannot — must therefore land somewhere else. Were
+        // these to agree again, the array-order bug would be back.
+        if (fs.realpathSync(aliased) === node) {
+          notDiverged.push(`${specifier}: both -> ${node}`);
+        }
+      } else if (fs.realpathSync(aliased) !== node) {
+        mismatched.push(`${specifier}: alias -> ${aliased}, node -> ${node}`);
       }
     }
     expect(missing, 'exports-map entries with no alias — these keep resolving to the INSTALLED spec').toEqual([]);
-    expect(mismatched, 'aliases disagreeing with Node').toEqual([]);
+    expect(mismatched, 'aliases disagreeing with Node on entries Node CAN express').toEqual([]);
+    expect(
+      notDiverged,
+      'entries whose map ranks `browser` first but that still resolve to the Node arm — objectui#9408'
+    ).toEqual([]);
+  });
+
+  it('agrees with a REAL Vite build on every entry, `browser` arm included', async () => {
+    // The oracle that actually counts. Vite is the resolver this hook MODELS,
+    // and unlike Node it satisfies `browser`, so it can answer for all 19
+    // entries where Node can only answer for 14. Run through a real build
+    // rather than a transcription, for the same reason the alias-matcher cases
+    // below bundle for real: a transcribed algorithm agrees with its own
+    // transcription, not with Vite.
+    const injection = inject(installedSpecDir)!;
+    const specifiers = Object.keys(injection.aliases);
+    const resolved = await viteResolves([...specifiers, VITE_ORACLE_CONTROL]);
+
+    // Control with a KNOWN direction, in the SAME run: a package that must
+    // resolve. Without it an oracle that silently resolved NOTHING would report
+    // every specifier as "no disagreement" and read as a clean pass.
+    expect(resolved.get(VITE_ORACLE_CONTROL), 'Vite oracle resolved nothing — broken instrument').toBeTruthy();
+
+    const disagreed: string[] = [];
+    for (const specifier of specifiers) {
+      const vite = resolved.get(specifier);
+      if (!vite) {
+        disagreed.push(`${specifier}: vite -> (unresolved)`);
+        continue;
+      }
+      const ours = fs.realpathSync(injection.aliases[specifier]);
+      if (ours !== vite) disagreed.push(`${specifier}: hook -> ${ours}, vite -> ${vite}`);
+    }
+    expect(disagreed, 'entries where the hook and Vite pick different files').toEqual([]);
+
+    // Anti-vacuity: the sweep really did exercise the browser arm, i.e. the
+    // agreement above is not agreement about 19 Node-arm files.
+    const browserArm = specifiers.filter((s) => resolved.get(s)?.includes(`${path.sep}browser${path.sep}`));
+    expect(browserArm.length).toBe(5);
   });
 
   it('does not assume `dist/<name>/index.mjs` — `./openapi.json` is the counterexample', () => {
@@ -537,6 +661,172 @@ describe('objectui#5391: the override validates its own dependencies too', () =>
       expect(() => inject(fixture)).toThrow(/does not resolve.*typescript/s);
     } finally {
       fs.rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* objectui#9408 — whose precedence wins, and saying which arm was taken.       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The resolver used to walk its OWN `['import', 'module', 'browser', 'default']`
+ * array, so a consumer-side ranking overrode the precedence the package
+ * declared with its key order. Measured on `@objectstack/spec@17.4.0`, both
+ * sides in one run: the hook returned `dist/index.mjs` for the five
+ * `browser`-first entries while Vite returned `dist/browser/index.mjs`.
+ *
+ * The cases above pin that against the REAL map, which is the strongest form
+ * but also the most perishable — the filed card named `./api` as browser-first
+ * and upstream had already dropped that arm by the time it was worked. These
+ * cases pin the ALGORITHM instead, on fixtures that cannot move under us, so
+ * the rule survives any shape the published map takes next.
+ *
+ * Reverse verification, direction predicted before running: plain RED, and the
+ * mutation is the bug itself. Restoring the array walk
+ * (`for (const condition of ['import','module','browser','default'])` against
+ * `Object.hasOwn`) → the `browser`-first case below fails with
+ * `dist/node.mjs`, and the `import`-first case stays GREEN. That asymmetry is
+ * the point: it is why reordering the array was never the fix, and why a
+ * one-direction fixture would have ratified the bug.
+ */
+describe('objectui#9408: the exports map declares precedence, not this module', () => {
+  /**
+   * A legal spec package whose one subpath declares `browser` and `import` in a
+   * caller-chosen ORDER, with a distinct file behind each arm.
+   */
+  function makeOrderedFixture(order: ('browser' | 'import')[]): string {
+    const fixture = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'spec-dist-9408-')));
+    fs.mkdirSync(path.join(fixture, 'dist'), { recursive: true });
+    for (const name of ['node', 'browser']) {
+      fs.writeFileSync(path.join(fixture, `dist/${name}.mjs`), `export const arm = '${name}';\n`);
+    }
+    // `types` first inside every arm, exactly as the real map spells it — the
+    // condition a key-order walk reaches BEFORE anything it should take.
+    const arms: Record<string, unknown> = {
+      browser: { types: './dist/browser.d.mts', default: './dist/browser.mjs' },
+      import: { types: './dist/node.d.mts', default: './dist/node.mjs' },
+    };
+    fs.writeFileSync(
+      path.join(fixture, 'package.json'),
+      JSON.stringify({
+        name: SPEC_PACKAGE_NAME,
+        // Object key order IS the declaration order for these names: they are
+        // not integer-like, so JavaScript preserves insertion order.
+        exports: { '.': Object.fromEntries(order.map((c) => [c, arms[c]])) },
+      })
+    );
+    return fixture;
+  }
+
+  const armOf = (fixture: string): string =>
+    path.basename(inject(fixture)!.aliases[SPEC_PACKAGE_NAME]);
+
+  it('takes `browser` when the map ranks `browser` first', () => {
+    const fixture = makeOrderedFixture(['browser', 'import']);
+    try {
+      expect(armOf(fixture)).toBe('browser.mjs');
+    } finally {
+      fs.rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it('takes `import` when the SAME two conditions are ranked the other way', () => {
+    // The control, and the reason direction (b) on the card — reordering the
+    // array to put `browser` first — would have been wrong. A module that
+    // simply prefers `browser` passes the case above and fails this one.
+    const fixture = makeOrderedFixture(['import', 'browser']);
+    try {
+      expect(armOf(fixture)).toBe('node.mjs');
+    } finally {
+      fs.rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it('still never takes `types`, which a key-order walk reaches first of all', () => {
+    // Under the old array walk `types` was skipped because it was absent from
+    // the preference list. Under a key-order walk it is the FIRST key in every
+    // arm, so the omission stopped being incidental and became load-bearing.
+    for (const order of [['browser', 'import'], ['import', 'browser']] as const) {
+      const fixture = makeOrderedFixture([...order]);
+      try {
+        const target = inject(fixture)!.aliases[SPEC_PACKAGE_NAME];
+        expect(target.endsWith('.d.mts') || target.endsWith('.d.ts')).toBe(false);
+      } finally {
+        fs.rmSync(fixture, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('names the conditions it satisfies when an entry offers none of them', () => {
+    const fixture = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'spec-dist-9408-')));
+    try {
+      fs.mkdirSync(path.join(fixture, 'dist'));
+      fs.writeFileSync(path.join(fixture, 'dist/index.cjs'), 'module.exports = {};\n');
+      fs.writeFileSync(
+        path.join(fixture, 'package.json'),
+        JSON.stringify({
+          name: SPEC_PACKAGE_NAME,
+          exports: { '.': { require: './dist/index.cjs' } },
+        })
+      );
+      // A `require`-only entry is unreachable for a browser/ESM bundler, and
+      // the message has to say which conditions were on the table — otherwise
+      // "resolves to nothing" is unactionable.
+      expect(() => inject(fixture)).toThrow(/resolves to nothing under/);
+      expect(() => inject(fixture)).toThrow(/browser/);
+      expect(() => inject(fixture)).toThrow(/import/);
+    } finally {
+      fs.rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it('reports the condition path for EVERY entry, and marks the ones it outranked', () => {
+    // The audible half. The card's hazard is not that the arm was wrong, it is
+    // that nothing anywhere said which arm was taken, so the first symptom
+    // would surface as a bundler error at a pin bump nobody connects to this
+    // file. A report that omitted the decided entries would leave that intact.
+    const injection = inject(installedSpecDir)!;
+    expect(injection.resolutions).toHaveLength(19);
+
+    const report = formatConditionReport(injection).join('\n');
+    expect(report).toContain(injection.packageDir);
+
+    for (const resolution of injection.resolutions) {
+      // Every specifier appears, and so does the arm it came from.
+      expect(report).toContain(resolution.specifier);
+    }
+    // The five decided entries name `browser` as the arm TAKEN and `import` as
+    // the one it outranked — the exact sentence that was missing.
+    const decided = injection.resolutions.filter((r) => r.passedOver.length > 0);
+    expect(decided.map((r) => r.specifier).sort()).toEqual([
+      SPEC_PACKAGE_NAME,
+      `${SPEC_PACKAGE_NAME}/cloud`,
+      `${SPEC_PACKAGE_NAME}/data`,
+      `${SPEC_PACKAGE_NAME}/kernel`,
+      `${SPEC_PACKAGE_NAME}/system`,
+    ]);
+    for (const resolution of decided) {
+      expect(resolution.conditionPath[0]).toBe('browser');
+      expect(resolution.passedOver).toContain('import');
+    }
+    expect(report).toContain('browser > import > default');
+    expect(report).toContain('ranked above: import');
+
+    // Anti-vacuity on the other half: entries with no choice to make are still
+    // reported, with their arm, rather than silently dropped.
+    const forced = injection.resolutions.filter((r) => r.passedOver.length === 0);
+    expect(forced.length).toBe(19 - decided.length);
+    expect(forced.length).toBeGreaterThan(0);
+  });
+
+  it('is carried on the injection, so the console config cannot invent its own', () => {
+    // Same lesson as `specModuleTest` (objectui#5388): two consumers reading
+    // one producer. A config that formatted its own table could report an arm
+    // the resolver did not take.
+    const injection = inject(installedSpecDir)!;
+    for (const resolution of injection.resolutions) {
+      expect(injection.aliases[resolution.specifier]).toBe(resolution.target);
     }
   });
 });

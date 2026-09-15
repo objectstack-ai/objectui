@@ -86,13 +86,21 @@ describe('DashboardEditor — display reads of a map-valued widget title (#4163)
 /**
  * The schema from the most recent `onChange` call.
  *
- * Index arithmetic rather than `calls.at(-1)`: the repo compiles at
- * `target`/`lib` `ES2020` (root `tsconfig.json`), and `Array.prototype.at` is
- * ES2022 — so `.at()` type-checks nowhere in this repo even though every
- * runtime it ships on has it. It passes `vitest` (esbuild strips types without
- * checking them) and fails `tsc -p tsconfig.test.json`, which is the half of
- * `type-check` that compiles tests. Left as a named helper so the constraint is
- * stated once instead of re-learned at the next call site.
+ * Index arithmetic rather than `calls.at(-1)`: `Array.prototype.at` is ES2022,
+ * and every package hand-maintains the `lib` level of its own
+ * `tsconfig.test.json` — so "does `.at()` type-check?" is a per-package
+ * question whose answer moves whenever one of those files does. Read it off the
+ * `lib` section of `pnpm census:tsconfig-test-parity`; ⛔ a level, a count or a
+ * list of package names written down here goes stale in silence, which is
+ * exactly what happened to the sentence this one replaces (objectui#9513, which
+ * found it asserting the answer was "nowhere"). Index arithmetic asks no `lib`
+ * question at all, which is why it is kept here rather than modernised.
+ *
+ * ⚠️ Note which tool decides, because `vitest` never does: esbuild strips types
+ * without checking them, so an `.at()` too new for the program's `lib` passes
+ * the suite and fails `tsc -p tsconfig.test.json`, the half of `type-check`
+ * that compiles tests. Left as a named helper so the constraint is stated once
+ * instead of re-learned at the next call site.
  */
 function lastSchema(onChange: ReturnType<typeof vi.fn>): DashboardComponentSchema {
   const calls = onChange.mock.calls;

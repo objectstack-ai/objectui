@@ -24,6 +24,11 @@ import {
   RETIRED_FILTER_OPERATORS,
 } from '@objectstack/spec/data';
 import { emulateBatchTransaction } from './batchTransaction.js';
+import {
+  describeComparand,
+  isRefusedTextComparand,
+  textComparandRefusalReason,
+} from '../utils/text-comparand.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -147,6 +152,72 @@ function refuseArrayComparand(
 }
 
 /**
+ * An `icontains` / `$icontains` comparand that is not a NON-EMPTY STRING —
+ * `{ name: { $icontains: '' } }`, `['name', 'icontains', 42]` (objectui#8748).
+ *
+ * ## Not this file's ruling — the published table already refuses both
+ *
+ * `FILTER_TEXT_CASES` (`@objectstack/spec/data`) carries the two shapes as
+ * REJECTION rows rather than as row-set expectations, each with
+ * `code: 'INVALID_FILTER'` and `mustMention: ['$icontains']`:
+ *
+ * > *an empty `$icontains` comparand is REFUSED* — "Every row contains the
+ * > empty substring, so evaluating it is a predicate that constrains nothing —
+ * > the widening #5240 refused `{ field: {} }` over, one level in."
+ *
+ * > *a non-string `$icontains` comparand is REFUSED* — "Coercing 42 to `"42"`
+ * > would answer a query nobody wrote; the declared comparand type is string."
+ *
+ * Measured on `origin/main` before this guard, over `FILTER_TEXT_ROWS`: the
+ * empty comparand answered ALL NINE ROWS in both dialects with not one console
+ * line — objectui#7349's fail-open signature, and the same widening class
+ * objectui#8447 fixed one level up. The non-string comparand was quieter and
+ * worse to debug: `String(42)` was evaluated and answered `[]`, which is
+ * indistinguishable on screen from "evaluated, matched nothing" — which is why
+ * pinning it as "42 and '42' agree" would pin nothing (they agree before this
+ * guard too). What moves is the REFUSAL: the row is excluded and the operator
+ * is named.
+ *
+ * ## Why only `icontains`, and why the row is excluded rather than thrown
+ *
+ * Only `$icontains` because only `$icontains` is what the table declares; the
+ * sibling positive operators (`$contains` / `$startsWith` / `$endsWith`) have
+ * no such row and are deliberately left alone rather than widened by analogy.
+ * Excluded-and-logged because that is this face's declared refusal shape
+ * (objectui#7349): the wire-side sibling `@object-ui/data-objectstack` throws
+ * `MalformedFilterError` because it is deciding whether to send a query at all,
+ * while this matcher is deciding about one row. Whether this face should carry
+ * the throwing envelope instead is objectui#8600 Q1, and it stays closed.
+ *
+ * ⚠️ The PRODUCER half ships in the same change and is what makes this safe.
+ * `FilterConditionField` emitted `{ [field]: { $icontains: value } }` verbatim,
+ * so a builder row with the operator chosen and the value box still empty
+ * produced exactly this shape — refusing it here alone would flip that list
+ * from "every row" to "no rows", which this file's own `$exists` arm names as
+ * the one outcome worse than the bug.
+ */
+/**
+ * ⚠️ The DISCRIMINATION and the MESSAGE moved to `utils/text-comparand.ts`
+ * (objectui#9048). Nothing about this face's answer changed — the reason string
+ * is the same bytes it has been since objectui#8748, and the pins that drive
+ * both faces and compare their wording verify that without transcribing it.
+ *
+ * What stayed here is the ENVELOPE, which is the half that does NOT transfer:
+ * this matcher is deciding about one ROW and HAS a row to exclude, so it
+ * excludes-and-logs (objectui#7349). Its two siblings each seat the same reason
+ * in their own envelope — `filter-converter` throws `FilterOperatorError`
+ * because it is a PRODUCER with no row to exclude.
+ */
+function refuseTextComparand(
+  refusals: Set<string>,
+  field: string,
+  operator: string,
+  target: unknown,
+): false {
+  return refuseFilterNode(refusals, textComparandRefusalReason(field, operator, target));
+}
+
+/**
  * The operators a `{ $field }` reference is a legal comparand ON, in both
  * dialects — the SIX scalar comparisons and nothing else.
  *
@@ -234,7 +305,7 @@ function resolveFieldReference(
     refuseFilterNode(
       refusals,
       `filter comparand for field '${field}' carries a non-string $field `
-      + `(${JSON.stringify(path) ?? String(path)}); a field reference declares `
+      + `(${describeComparand(path)}); a field reference declares `
       + `$field as a string, so this is not one on any path`,
     );
     return REFUSED_COMPARAND;
@@ -414,8 +485,16 @@ function matchesComparisonNode(
     // to reach for — is the FULL Unicode fold, so it matched `CAFÉ` against
     // `café`; three of the five backends are SQLite underneath, whose `lower()`
     // folds ASCII only, so a Unicode promise here is one the wire cannot keep.
+    // objectui#8748 — the comparand door, checked BEFORE the fold. An empty
+    // comparand made this arm a predicate that constrained nothing (all nine
+    // `FILTER_TEXT_ROWS` came back, in silence); a non-string one was evaluated
+    // after a `String()` coercion nobody wrote. Both are refusals in
+    // `FILTER_TEXT_CASES`; see {@link refuseTextComparand}.
     case 'icontains':
-      return typeof value === 'string' && asciiCaseInsensitiveContains(value, String(target));
+      if (isRefusedTextComparand(target)) {
+        return refuseTextComparand(refusals, field, String(rawOperator), target);
+      }
+      return typeof value === 'string' && asciiCaseInsensitiveContains(value, target);
     // objectui#8452 — this arm answers the PREDICATE, not a TYPE TEST. It used
     // to read `typeof value === 'string' && !value.includes(...)`, so a row
     // whose value is the number 5 failed `contains '5'` (right: a number cannot
@@ -625,8 +704,16 @@ function matchesDollarOperator(
     // case-insensitive member, folding ASCII only on both sides.
     case '$contains':
       return typeof value === 'string' && value.includes(String(target));
+    // objectui#8748 — the `$` twin of the comparand door in the AST arm. Both
+    // dialects have to refuse the same two shapes: `find()` picks between the
+    // matchers on nothing more than whether `$filter` arrived as an array or an
+    // object, so a door on one side only is a result that changes with the
+    // SHAPE of the filter rather than with its meaning (objectui#8447).
     case '$icontains':
-      return typeof value === 'string' && asciiCaseInsensitiveContains(value, String(target));
+      if (isRefusedTextComparand(target)) {
+        return refuseTextComparand(refusals, field, operator, target);
+      }
+      return typeof value === 'string' && asciiCaseInsensitiveContains(value, target);
     // objectui#8452 — the `$` spelling of the same cell, and the same fix: the
     // complement of the `$contains` arm above rather than a `typeof` test
     // standing in for the predicate. objectstack#14079 option A: a stored value
@@ -706,6 +793,71 @@ function matchesDollarOperator(
 }
 
 /**
+ * Evaluate ONE `$and` / `$or` group against a record (objectui#8513).
+ *
+ * ## The identities are the JS reducers, not a special case
+ *
+ * `$and` is `every` and `$or` is `some`, and the empty-array answers those two
+ * reducers already give — `[].every(…)` is `true`, `[].some(…)` is `false` —
+ * ARE the ruled identities. objectstack#5322 (closed `completed`, merged as
+ * objectstack#5365) fixed `{ $and: [] }` as TRUE / every row and `{ $or: [] }`
+ * as FALSE / no row, and `@objectstack/spec` pins all four identity answers in
+ * the cross-backend `FILTER_LOGIC_CASES` table that
+ * `ValueDataSource.filterLogicConformance.test.ts` drives this matcher through.
+ * So there is no identity branch to write here and none to get wrong: writing
+ * one would be a second statement of the rule that could drift from the table.
+ *
+ * A `{}` branch needs no arm either. {@link matchesFilter} answers `true` for a
+ * filter with no entries, which is what makes a `{}` disjunct a TRUE branch
+ * that ABSORBS its `$or` and a `{}` conjunct one that drops out of an `$and` —
+ * the third and fourth identities, for free, from the same recursion.
+ *
+ * ## Why the members are checked BEFORE any of them is evaluated
+ *
+ * `every` / `some` short-circuit, so a lazy shape check would reach a malformed
+ * member for some records and not for others — and `refusals` is drained once
+ * per `find()`, so whether the author sees the diagnostic at all would depend
+ * on which row happened to be tested first. Validating the whole member list up
+ * front makes the refusal a property of the FILTER rather than of the data.
+ *
+ * A refused group excludes the row, the same direction every other refusal in
+ * this file takes. Inside `$or` that is narrowing (one fewer way to match) and
+ * inside `$and` it is exclusion outright; neither can widen a result set.
+ */
+function matchesLogicalGroup(
+  record: any,
+  keyword: '$and' | '$or',
+  value: any,
+  refusals: Set<string>,
+): boolean {
+  if (!Array.isArray(value)) {
+    return refuseFilterNode(
+      refusals,
+      `filter combinator '${keyword}' takes an ARRAY of conditions; received `
+      + `${typeof value === 'object' && value !== null ? 'an object' : typeof value}: `
+      + `${JSON.stringify(value) ?? String(value)}. The spec declares `
+      + `'${keyword}?: FilterCondition[]' (FilterConditionSchema, data/filter.zod.ts)`,
+    );
+  }
+
+  for (const branch of value) {
+    if (branch === null || typeof branch !== 'object' || Array.isArray(branch)) {
+      return refuseFilterNode(
+        refusals,
+        `every member of filter combinator '${keyword}' must be a filter condition `
+        + `OBJECT; received ${JSON.stringify(branch) ?? String(branch)}. The spec `
+        + `declares '${keyword}?: FilterCondition[]' (FilterConditionSchema, `
+        + `data/filter.zod.ts)`,
+      );
+    }
+  }
+
+  return keyword === '$and'
+    ? value.every((branch: any) => matchesFilter(record, branch, refusals))
+    : value.some((branch: any) => matchesFilter(record, branch, refusals));
+}
+
+/**
  * In-memory evaluation of an OBJECT-shaped (`$`-dialect) filter.
  *
  * Reads a flat key/value equality (`{ age: 26 }`) or a `FieldOperatorsSchema`
@@ -714,26 +866,41 @@ function matchesDollarOperator(
  * logged once per distinct refusal per `find()` — rather than adding no
  * constraint, which is what its `default: break` used to do (objectui#8447).
  *
- * ## Combinators are refused here, not implemented (objectui#8447, its own case)
+ * ## `$and` / `$or` are EXECUTED here; `$not` is still refused (objectui#8513)
  *
- * `$and` / `$or` / `$not` are `LOGICAL_OPERATORS`, not field names, and this
- * matcher has no grouping. They were already excluded-and-silent in two of
- * three cases before this card and fail-OPEN in the third, which is why they
- * get an arm now rather than being swept into the operator fix:
+ * The three `LOGICAL_OPERATORS` are not one case and this file must not let a
+ * fix flatten them into one. Before objectui#8447 made the refusal loud, they
+ * failed in two OPPOSITE directions: `{ $and: [...] }` / `{ $or: [...] }` carry
+ * an ARRAY, so they fell to the simple-equality branch below
+ * (`record['$and'] !== [...]` is always true) and excluded EVERY row, while
+ * `{ $not: {...} }` carries an OBJECT (`FilterConditionSchema`, not an array),
+ * entered the operator branch with its own nested FIELD names read as operator
+ * names, and matched every row. Two bugs, opposite signs, one heading.
  *
- * - `{ $and: [...] }` / `{ $or: [...] }` carry an ARRAY, so they fell to the
- *   simple-equality branch below (`record['$and'] !== [...]` is always true) and
- *   excluded every row with no diagnostic. The rows do not move; the silence does.
- * - `{ $not: {...} }` carries an OBJECT (`FilterConditionSchema`, not an array),
- *   so it entered the operator branch, its inner FIELD names were read as
- *   operator names, and every one of them hit `default: break`. It therefore
- *   matched EVERY row — the same fail-open direction as the operators, and the
- *   one behaviour here whose result changes.
+ * **`$and` / `$or` are executed** because the semantics they were waiting on
+ * have been ruled and shipped: objectstack#5322 (merged objectstack#5365)
+ * settled the empty-group identities, and five platform backends already answer
+ * to them through the shared `FILTER_LOGIC_CASES` conformance table. Refusing a
+ * shape the spec DECLARES, this repo's own `convertFiltersToAST` LOWERS, and
+ * every wire face EXECUTES made this adapter the one face that answers "no
+ * rows" to a filter the UI itself offers — the outcome objectui#8515 already
+ * ruled worse than the bug. Executing them is therefore restoring a declared
+ * invariant, not widening an accept set: no new operator, no new key, nothing
+ * admitted that `FilterConditionSchema` does not already declare.
  *
- * Executing them is a feature with its own semantics to settle (the empty-group
- * identities and `$not`'s NULL-safe rule, objectstack#5146 / #5322), not part of
- * this repair. An author who needs a group today writes the AST array `$filter`,
- * which the sibling arm of `find()` already executes.
+ * **`$not` keeps its refusal**, deliberately and with its own message rather
+ * than by falling through to the unknown-`$`-key arm below. objectstack#5146
+ * (merged objectstack#5296) did rule its NULL-safe semantics — the operand
+ * compiles to a TOTAL predicate before being negated — but this repo's own
+ * `convertFiltersToAST` (`../utils/filter-converter.ts`) still THROWS for
+ * `$not`, on a narrowing that is about the AST rather than about the ruling:
+ * `FILTER_ARRAY_LOGIC_KEYWORDS` is `['and', 'or']`, so the array dialect has no
+ * negation keyword, and rewriting the negation inward is silently partial
+ * because `startswith` / `endswith` / `between` / `icontains` have no negated
+ * counterpart in `VALID_AST_OPERATORS`. Whether that objectui-side narrowing
+ * should stand now that upstream has ruled is a question objectui#8513 does not
+ * decide, so `$not` is left exactly where it was — refused, loudly, and
+ * distinguishable in the log from a group that executes.
  */
 function matchesFilter(
   record: any,
@@ -741,11 +908,39 @@ function matchesFilter(
   refusals: Set<string>,
 ): boolean {
   for (const [key, condition] of Object.entries(filter)) {
+    // The two combinators this matcher executes. A group is one ENTRY of the
+    // condition object, so it ANDs with its siblings exactly as a field entry
+    // does — `{ status: 'open', $or: [...] }` is "status AND the group", which
+    // is what `FILTER_LOGIC_CASES` measures in both key orders.
+    if (key === '$and' || key === '$or') {
+      if (!matchesLogicalGroup(record, key, condition, refusals)) return false;
+      continue;
+    }
+
+    // Refused on its own terms, ahead of the generic `$` arm, so the log tells
+    // an author which of the three combinators they hit and why this one is
+    // different. See this function's doc for the reasoning; the short version
+    // is that the AST this repo lowers to has no negation keyword.
+    if (key === '$not') {
+      return refuseFilterNode(
+        refusals,
+        `filter combinator '$not' is not executed by the object-dialect matcher. `
+        + `Its NULL-safe semantics are ruled (objectstack#5146) but this repo's own `
+        + `lowering refuses it too: FILTER_ARRAY_LOGIC_KEYWORDS is ['and', 'or'], so `
+        + `the filter AST has no negation keyword, and rewriting the negation inward `
+        + `would be silently partial ('startswith', 'endswith', 'between' and `
+        + `'icontains' have no negated counterpart). Express the negation with a `
+        + `negated operator instead ($ne, $nin, $notContains); note those follow each `
+        + `operator's own answer for a missing value rather than $not's NULL-safe rule`,
+      );
+    }
+
     if (key.startsWith('$')) {
       return refuseFilterNode(
         refusals,
-        `filter combinator '${key}' is not implemented by the object-dialect matcher; `
-        + `express the group as an AST array $filter, which this adapter executes`,
+        `filter key '${key}' is not a field name and not one of the combinators this `
+        + `matcher executes ($and / $or). The spec's LOGICAL_OPERATORS are `
+        + `$and / $or / $not and nothing else`,
       );
     }
 
@@ -856,8 +1051,27 @@ export class ValueDataSource<T = any> implements DataSource<T> {
   private mutationListeners = new Set<(event: DataSourceMutationEvent<T>) => void>();
 
   constructor(config: ValueDataSourceConfig<T>) {
-    // Deep clone to prevent external mutation
-    this.items = JSON.parse(JSON.stringify(config.items));
+    // Deep clone to prevent external mutation.
+    //
+    // `structuredClone`, NOT a `JSON.parse(JSON.stringify(...))` round-trip
+    // (objectui#9175, maintainer ruling A on objectui#9061). The clone exists
+    // only to stop a caller mutating rows this read-only query source already
+    // handed out; it was never a serialization boundary, and the round-trip
+    // quietly made it one. Everything routed through `provider: 'value'` had to
+    // survive `JSON.stringify` — so a `Date` came back as a string, keys whose
+    // value was `undefined` disappeared, a cycle threw, and objectui#6018's
+    // pinned guarantee ("an inline value never has to be serializable at all")
+    // became false the moment a renderer routed its inline rows through this
+    // adapter to honour `filter` / `sort` / the objectui#7210 ceiling.
+    //
+    // `structuredClone` handles cycles, `Date`, `Map`/`Set`, `BigInt` and typed
+    // arrays, and is already an unguarded runtime requirement of published
+    // ObjectUI packages (`@object-ui/app-shell`, `@object-ui/plugin-designer`).
+    // It still throws `DataCloneError` on a function or a DOM node — that is
+    // deliberate and stays LOUD: ⛔ no `try`/`catch` fallback here, because
+    // falling back to the round-trip would restore exactly the silent
+    // flattening this replaces.
+    this.items = structuredClone(config.items);
     this.idField = config.idField;
   }
 
@@ -1096,8 +1310,13 @@ export class ValueDataSource<T = any> implements DataSource<T> {
     return this.items.length;
   }
 
-  /** Get a snapshot of all items (cloned) */
+  /**
+   * Get a snapshot of all items (cloned).
+   *
+   * Same clone as the constructor and for the same reason — see the note
+   * there: `structuredClone`, never a JSON round-trip (objectui#9175).
+   */
   getAll(): T[] {
-    return JSON.parse(JSON.stringify(this.items));
+    return structuredClone(this.items);
   }
 }

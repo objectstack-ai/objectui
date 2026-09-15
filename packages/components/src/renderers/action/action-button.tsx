@@ -49,6 +49,14 @@ export interface ActionButtonProps {
   className?: string;
   /** Override context for this specific action */
   context?: Record<string, any>;
+  /**
+   * The host-EVALUATED enablement verdict, declared rather than left to the
+   * index signature (objectui#9131). `SchemaRenderer` evaluates the node's
+   * `disabled` / `disabledOn` and forwards the answer under this name as
+   * `disabled: __disabled || undefined`. It is consumed by name below and
+   * therefore never reaches the DOM spread — see the destructure.
+   */
+  disabled?: boolean;
   [key: string]: any;
 }
 
@@ -72,6 +80,22 @@ const ActionButtonRenderer = forwardRef<
       'data-obj-type': dataObjType,
       style,
       data,
+      // The host's EVALUATED verdict, taken by name — and taking it OFF `rest`
+      // is the load-bearing half (objectui#9131, the repair objectui#7238 made
+      // on `ui:button` and `form`). `toFormControlDomProps` forwards `disabled`
+      // deliberately (this host IS a form control) and `pickDomProps` iterates
+      // `Object.keys`, so a `disabled` key PRESENT with the value `undefined`
+      // re-declares and wins. `SchemaRenderer` always hands down exactly that
+      // shape — `disabled: __disabled || undefined`, key unconditional, only
+      // the value conditional — so spread after the computed value it
+      // overwrote this renderer's own verdict with `undefined` on the way to
+      // the DOM. The legacy `enabled` leg took the whole loss: the node gate
+      // never consults `enabled`, so its forwarded value is `undefined` for
+      // every `enabled` shape, and a control the author declared disabled
+      // stayed pressable on the ordinary `SchemaRenderer` path — fail-OPEN.
+      // Destructuring it here removes that second writer; the gate below is now
+      // the only one, and it consumes this verdict instead of losing to it.
+      disabled: hostDisabled,
       ...rest
     } = props;
 
@@ -98,8 +122,11 @@ const ActionButtonRenderer = forwardRef<
     // `enabled`), so a spec-authored `disabled` guard did nothing (#1885,
     // ADR-0049). We now consume `disabled` as the primary control and keep the
     // legacy non-spec `enabled` as a deprecated fallback so existing metadata
-    // keeps working.
-    const isDisabled = useCondition(toPredicateInput((schema as any).disabled), recordData);
+    // keeps working. Uncast since objectui#8648: the mirror declares `disabled`
+    // by derivation from the contract, so the three arms the spec accepts
+    // (boolean, raw CEL, `{ dialect, source }` envelope) are the compiler's
+    // business here instead of `any`'s.
+    const isDisabled = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
 
     // Resolve icon
@@ -189,9 +216,12 @@ const ActionButtonRenderer = forwardRef<
           refreshAfter: schema.refreshAfter,
           // Forward `undoable` (and the row id field) so update actions can
           // offer an Undo affordance — without this the flag is dropped and the
-          // handler never builds the undo operation.
-          undoable: (schema as any).undoable,
-          recordIdField: (schema as any).recordIdField,
+          // handler never builds the undo operation. Both uncast since
+          // objectui#8648: `@objectstack/spec`'s `Action` declares each, so the
+          // mirror declares each, and the forward is compiler-checked against
+          // `ActionDef` instead of arriving as `any`.
+          undoable: schema.undoable,
+          recordIdField: schema.recordIdField,
           // Forward the placement declaration — the console runtime uses it to
           // tell record-scoped actions (also mounted on rows) from pure
           // object-level toolbar actions when no row is selected (#2210).
@@ -201,7 +231,21 @@ const ActionButtonRenderer = forwardRef<
           // exactly once (2FA setup, OAuth client_secret, regenerated
           // backup codes). Without this forward the ActionRunner falls
           // back to the success toast and the user loses the value.
-          resultDialog: (schema as any).resultDialog,
+          //
+          // The READ is uncast since objectui#8648: `resultDialog` is declared
+          // on the mirror, so the compiler types it as the contract's own
+          // block. What the assertion narrows is the WRITE, and it is a
+          // ledgered workaround, not a shrug — removing the read-side `as any`
+          // is what made the compiler name it. `ActionDef['resultDialog']` is
+          // `@object-ui/core`'s hand-written `ResultDialogSpec`, whose own
+          // docblock claims it mirrors the contract's block and does not:
+          // `title` / `description` / `acknowledge` are `string` there and
+          // `I18nLabel` in the contract, so a contract-valid inline locale map
+          // reaches the dialog as an object. Filed as objectui#9542; the fix is
+          // in `@object-ui/core` plus the dialog's own resolver and is outside
+          // this card's declared surface. ⛔ Never widen this back to `as any` —
+          // that spelling hid this AND the missing declaration at once.
+          resultDialog: schema.resultDialog as ActionDef['resultDialog'],
           // Declared post-success navigation — spec's closed strict
           // `{ navigate, openIn }` block, authorable on `ActionSchema` since
           // @objectstack/spec 17.1.0 (objectui#5328). The runner reads it off
@@ -269,8 +313,14 @@ const ActionButtonRenderer = forwardRef<
         // shapes (derivation table in
         // `__tests__/action-disabled-declared-gate.test.tsx`) and keeps one
         // spelling of "declared" on both legs.
-        disabled={(
-          hasDeclaredVisibilityGate((schema as any).disabled)
+        //
+        // `hostDisabled` leads the OR (objectui#9131): the host verdict is a
+        // reason to disable, never a reason to enable. `SchemaRenderer` emits
+        // `true` or `undefined` and never `false`, so OR-ing it is exactly
+        // "the node gate said disable, or this renderer's own gate did, or an
+        // execution is in flight" — one carrier, three sources, no re-declare.
+        disabled={hostDisabled || (
+          hasDeclaredVisibilityGate(schema.disabled)
             ? isDisabled
             : hasDeclaredVisibilityGate(schema.enabled)
               ? !isEnabled

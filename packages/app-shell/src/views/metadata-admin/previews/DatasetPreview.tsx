@@ -25,8 +25,10 @@ import {
   formatMeasure,
   formatDimensionValue,
   buildDatasetFieldHelpers,
+  relabelDimensions,
   type DatasetResultField,
 } from '@object-ui/core';
+import { useDatasetDimensionLabels } from '@object-ui/react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale } from '@object-ui/i18n';
 
 // Lazy-loaded so the (recharts-backed) chart bundle only loads when a dataset
@@ -70,6 +72,43 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
     const d = Array.isArray((draft as any).dimensions) ? ((draft as any).dimensions as Array<Record<string, unknown>>) : [];
     return d.map((x) => String(x?.name ?? '')).filter(Boolean);
   }, [draft]);
+
+  /**
+   * The dataset's `dimension name -> field path` map, read off the DRAFT.
+   *
+   * This is the same map the analytics result reports as `dimensionFields` and
+   * that the three other producers feed the net from — but the draft is the
+   * authority HERE, because this surface previews a possibly-unsaved dataset:
+   * the draft's `dimensions[].field` is present before any server round-trip,
+   * and no result echo is needed to know it. A dotted path (`crm_account
+   * .industry`) resolves against the relationship TARGET, which is the whole
+   * reason the path — not the dimension name — is what the net walks.
+   */
+  const dimensionFields = React.useMemo(() => {
+    const d = Array.isArray((draft as any).dimensions) ? ((draft as any).dimensions as Array<Record<string, unknown>>) : [];
+    const out: Record<string, string> = {};
+    for (const x of d) {
+      const name = String(x?.name ?? '');
+      const field = String(x?.field ?? '');
+      if (name && field) out[name] = field;
+    }
+    return out;
+  }, [draft]);
+
+  // objectui#8187 — the dimension-label net (objectui#4030 / PR #4324, widened
+  // by objectui#4330 / PR #4388), at its FOURTH call site. Analytics groups by
+  // a select's STORED value and resolves nothing at all for a dotted path, so
+  // without this the axis below plots `MFG` where `Manufacturing` belongs — and
+  // a local select plots the object's authored English on every locale. This is
+  // the screen an author uses to judge "is my dataset right?", so a raw enum
+  // here reads as "my dataset is wrong" and invites editing a correct one.
+  //
+  // The hook is the shared React half of that one net (`@object-ui/react`, the
+  // glue objectui#4389 stated once) — it holds the authenticated read and keeps
+  // the fetched metadata LOCALE-FREE, so switching language re-labels in place
+  // instead of re-fetching. Called above the early returns below, as the rules
+  // of hooks require; it issues no read when there is no object or no dimension.
+  const dimensionLabels = useDatasetDimensionLabels(objectName, dimensionFields, dimensionNames);
 
   const canRun = !!objectName && measureNames.length > 0;
 
@@ -147,6 +186,18 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
     builtinAggregateLabels(tt),
   );
   const columns = [...dimensionNames, ...measureNames];
+  /**
+   * The rows as they are DISPLAYED — dimension values resolved to their option
+   * labels. Derived once and fed to BOTH the chart and the table, exactly as
+   * `DatasetWidget` and `DatasetReportRenderer` do: relabelling only the axis
+   * would put `Manufacturing` on a bar and `MFG` in the row directly beneath it.
+   *
+   * Idempotent and best-effort by construction — a value with no mapping (the
+   * server already resolved it, a lookup id, free text) passes through, and a
+   * failed metadata read leaves `dimensionLabels` null and returns `state.rows`
+   * by identity. Measure columns are never touched.
+   */
+  const displayRows = relabelDimensions(state.rows, dimensionLabels);
 
   // A ratio/percent measure (format like `0.0%`) on the same axis as a
   // magnitude measure (currency in the hundred-thousands) renders as an
@@ -209,7 +260,7 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
               <div className="rounded-md border p-2">
                 <ChartRenderer
                   schema={{
-                    data: state.rows as Array<Record<string, unknown>>,
+                    data: displayRows,
                     xAxisKey: dimensionNames[0],
                     chartType: mixedScale ? 'combo' : 'bar',
                     series: measureNames.map((m) => ({
@@ -240,7 +291,7 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
                 </tr>
               </thead>
               <tbody>
-                {state.rows.map((row, i) => (
+                {displayRows.map((row, i) => (
                   <tr key={i} className="border-t">
                     {columns.map((c) => (
                       <td key={c} className="px-2 py-1 tabular-nums whitespace-nowrap">

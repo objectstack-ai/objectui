@@ -187,8 +187,15 @@ export interface BaseSchema {
    * Data-scope path this node draws its rows/value from — the SDUI data-binding
    * vocabulary, resolved by `useDataScope()` (`@object-ui/react`).
    *
+   * The path is resolved against the AMBIENT SCOPE a host publishes through
+   * `PredicateScopeProvider` — the channel app-shell's `ExpressionProvider`
+   * already feeds — and ⛔ not against the injected `DataSource` adapter
+   * (objectui#9308, maintainer ruling 2026-09-13 option B). An adapter answers
+   * no member a `bind` path names, so the old walk resolved `undefined` for
+   * every conformant host and each reader below ran its fallback.
+   *
    * ```json
-   * { "type": "list", "bind": "customerNames" }   // → dataSource.customerNames
+   * { "type": "list", "bind": "customerNames" }   // → scope.customerNames
    * { "type": "object-kanban", "bind": "app.settings.users" }
    * ```
    *
@@ -419,7 +426,32 @@ export interface BaseSchema {
 
   /**
    * Test ID for automated testing.
-   * Rendered as data-testid attribute.
+   * Rendered as the `data-testid` attribute.
+   *
+   * `SchemaRenderer` strips this key from the props it spreads and re-emits it
+   * beside `data-obj-id` / `data-obj-type`, so `screen.getByTestId(...)` and a
+   * `[data-testid=...]` selector both find the node.
+   *
+   * ⚠️ That emission is what makes this sentence true, and it did not exist
+   * until objectui#8268. Before it, the key was not in the metadata strip list:
+   * it fell through into the spread, React refused it as an unknown DOM prop,
+   * and the author got a non-standard lowercase `testid` attribute that no
+   * query helper looks for — while React's own dev warning told them to spell it
+   * `testid`, steering them further from the documented attribute. The other
+   * direction was considered and DECLINED: retiring the promise would have left
+   * `content/docs/api/schema-reference.md`'s "rendered as `data-testid`" row,
+   * that page's own base-schema example authoring `testId`, `@object-ui/cli`'s
+   * `OBJECTUI_STRUCTURAL_KEYS` — which identifies a file as a schema node by
+   * this key — and `SchemaBuilder.testId()` all pointing at a key with no
+   * behaviour, and it runs against ADR-0054 C4 ("the renderer emits
+   * `data-testid` ... derived from metadata"), which shipped.
+   *
+   * ⚠️ The attribute reaches the DOM only where the registered renderer
+   * forwards the props it is handed — the same condition `data-obj-id` has
+   * always been under, not a new one. A renderer that drops unknown props drops
+   * this one too.
+   *
+   * Pinned by `SchemaRenderer.testIdEmission.test.tsx`.
    */
   testId?: string;
 

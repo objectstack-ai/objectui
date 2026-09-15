@@ -19,10 +19,13 @@ import type {
   DashboardWidget as SpecDashboardWidget,
   DateRangeDefaultRange as SpecDateRangeDefaultRange,
   GlobalFilter as SpecGlobalFilter,
-  GroupingConfig,
 } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
-import type { KanbanConditionalFormattingRule } from './objectql.js';
+// `GroupingConfig`, `KanbanConditionalFormattingRule` and `ViewNavigationConfig`
+// were imported for `KanbanSchema`'s `grouping`, `conditionalFormatting` and
+// `navigation` members and had no other reader in this module; they left with
+// the retired `'kanban'` arm (objectui#8802). All three are still declared and
+// still exported from their own modules.
 
 /**
  * Kanban card — the shape the registered `'kanban'` renderer reads.
@@ -135,7 +138,9 @@ export interface KanbanColumn {
   cards: KanbanCard[];
   /**
    * WIP limit — the card count at which the lane warns. Never reaches the
-   * query; the board's fetch window is {@link KanbanSchema.limit}.
+   * query; the board's fetch window is `ObjectKanbanSchema.limit`
+   * (`./objectql.ts`) — the `kanban` arm that used to declare it retired with
+   * the node key (objectui#8802).
    */
   limit?: number;
   className?: string;
@@ -175,216 +180,59 @@ export interface KanbanColumn {
 }
 
 /**
- * Kanban Board component schema — the `'kanban'` arm of {@link ComplexSchema}
- * and the face `ObjectKanbanRenderer` (registered for `'kanban'` and
- * `'object-kanban'`) consumes; `KanbanRenderer` (`'kanban-ui'`) and the
- * `'kanban-enhanced'` registration read the same keys off `schema`.
+ * ⛔ `KanbanSchema` — the `'kanban'` arm — is RETIRED (objectui#8802,
+ * maintainer ruling 2026-09-09: 「从我们的业务需求角度，我应该只需要
+ * `object-kanban`」, recorded verbatim and not translated).
  *
- * Renders a drag-and-drop kanban board for task management: either bound to
- * an object (`objectName` + `groupBy`, lanes materialised from the group
- * field's options) or authored statically (`columns` carrying their `cards`).
+ * ## What this dissolves
+ *
+ * The bare `kanban` node type key published TWO faces with OPPOSITE verdicts on
+ * the same document: `@object-ui/plugin-kanban`'s registry `inputs` declared
+ * `titleField` while this arm refused it by name after batch #70
+ * (objectui#7742). With the key retired there is no arm left to disagree with,
+ * so objectui#8802's four options are moot rather than chosen between.
+ *
+ * ## Where the vocabulary went
+ *
+ * ⛔ Nowhere, and that is the point: `object-kanban` has ALWAYS had its own
+ * declared face, {@link ObjectKanbanSchema} (`./objectql.ts`), and an
+ * `object-kanban` document has always been judged by it alone. Retiring this
+ * arm therefore changes the verdict on `type: 'kanban'` documents only. The
+ * keys this arm alone declared — `columns`, `cardTitle`, `swimlaneField`,
+ * `grouping`, `conditionalFormatting`, `navigation` — were never part of the
+ * `object-kanban` face and are not being removed from it.
+ *
+ * ## ⚠️ Why the Zod mirror is a NAMED REFUSAL and not a deletion
+ *
+ * {@link BaseSchema} closes with `[key: string]: any` and its Zod twin ends
+ * `.passthrough()`. A dropped MEMBER key is therefore KEPT, not refused — the
+ * failure objectui#7664's own first cut shipped at `onCardClick`. A dropped
+ * TYPE LITERAL behaves differently on a DISCRIMINATED union (`AnyComponentSchema`
+ * selects one arm from the authored literal), so removal alone would already
+ * refuse — but only with the union's generic `Invalid input`, naming no remedy.
+ * ⇒ `zod/complex.zod.ts` keeps an arm for the literal and refuses it BY NAME
+ * through `retiredNodeType()`, pointing the author at `object-kanban`.
+ *
+ * The TypeScript half of the refusal is this deletion: with no `kanban` arm in
+ * {@link ComplexSchema} and no `'kanban'` entry in `SchemaRegistry`, `tsc`
+ * refuses the literal at the authoring site.
+ *
+ * ## ⛔ The layer that did NOT move
+ *
+ * `kanban` also names a STORED `NamedListView.type` (`./objectql.ts`) — the
+ * value `CreateViewDialog` writes and every tenant's database holds. It is
+ * UNTOUCHED. `plugin-view`'s `ObjectView` maps a stored `kanban` view onto the
+ * node type `object-kanban` already, as it does for all twelve stored view
+ * types, so every board any user ever created through the console already
+ * renders through the surviving spelling and this retirement moves zero stored
+ * documents.
+ *
+ * {@link KanbanCard}, {@link KanbanColumn}, {@link CardTemplate} and
+ * {@link ColumnWidthConfig} are NOT retired — the renderer, the `CardTemplates`
+ * component and the `useColumnWidths` hook still consume them.
+ *
+ * Pinned in `./__tests__/bare-kanban-node-key-retired-8802.test.ts`.
  */
-export interface KanbanSchema extends BaseSchema {
-  type: 'kanban';
-
-  /**
-   * Object name to fetch data from.
-   */
-  objectName?: string;
-
-  /**
-   * Field to group records by (maps to column IDs).
-   */
-  groupBy?: string;
-
-  /**
-   * Field for swimlane rows (2D grouping). When set, cards are grouped
-   * vertically by `groupBy` (columns) and horizontally by `swimlaneField` (rows).
-   */
-  swimlaneField?: string;
-
-  /**
-   * Field to use as the card title.
-   */
-  cardTitle?: string;
-
-  /**
-   * Fields to display on the card.
-   */
-  cardFields?: string[];
-
-  /**
-   * Static data or bound data. Stays a raw-row input: objectui#7651 (a
-   * record-source ladder for the board) was ruled B and closed not_planned.
-   */
-  data?: any[];
-
-  /**
-   * Row cap for the fetch. Defaults to `DEFAULT_KANBAN_LIMIT` (100); a board
-   * renders every fetched record into a lane and has no pagination control, so
-   * this is the author's window rather than a page size. A bound `dataSource`
-   * writes it here too — the binding's own `limit`, or the named view's
-   * `pagination.pageSize`.
-   *
-   * Not to be confused with {@link KanbanColumn.limit}, one level down: that is
-   * a lane's WIP limit (the card count at which the lane warns) and never
-   * reaches the query.
-   */
-  limit?: number;
-
-  /**
-   * Array of columns to display in the kanban board.
-   * Each column contains an array of cards.
-   */
-  columns?: KanbanColumn[];
-
-  /**
-   * Callback function when a card is moved between columns or reordered.
-   *
-   * RUNTIME SLOT (objectui#6124) — a host-supplied function, NOT authorable
-   * metadata: JSON has no function value, so the zod twin refuses this key by
-   * name and points at the node-type spelling. Kept callable here because
-   * `KanbanRenderer` forwards it (`onCardMove={schema.onCardMove}`); the
-   * object-bound board (`ObjectKanban`) supplies its own persisting handler.
-   */
-  onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void;
-
-  /**
-   * Callback function when a card is clicked.
-   *
-   * RUNTIME SLOT (objectui#6124) — a host-supplied function, NOT authorable
-   * metadata: JSON has no function value, so the zod twin refuses this key by
-   * name and points at the node-type spelling. Kept callable here because it is
-   * read on every channel measured (objectui#7664, the contract review of
-   * PR #7743):
-   *
-   *   - `KanbanRenderer` forwards it (`onCardClick={schema.onCardClick}`) in the
-   *     same block as {@link KanbanSchema.onCardMove} and
-   *     {@link KanbanSchema.onQuickAdd};
-   *   - on the `'kanban'` and `'object-kanban'` keys `ObjectKanban` substitutes
-   *     its own function — and substitutes `onCardMove` in the very same object
-   *     literal, so that reading retires both keys or neither;
-   *   - and its substitute CALLS the authored handler: `ObjectKanban` declares
-   *     an `onCardClick` PROP (`onCardMove` has none), which `SchemaRenderer`
-   *     supplies by spreading every non-metadata schema key as a React prop.
-   *
-   * ⛔ Do not "simplify" this back into a deletion. `BaseSchema` is
-   * `.passthrough()`, so removing the key does not refuse it — it stops being
-   * judged and the value is kept, which is how the first cut of objectui#7664
-   * turned a refused key into an accepted one with every ratchet green.
-   * `plugin-kanban/src/__tests__/kanban-handler-slots-7664.test.tsx` derives the
-   * forwarded key set from the read site and goes red on that deletion.
-   *
-   * The event is `unknown` rather than a mouse event because this package
-   * declares zero dependencies and has no React types; `KanbanImpl` narrows it
-   * to `React.MouseEvent` at the call site.
-   */
-  onCardClick?: (card: KanbanCard, event?: unknown) => void;
-
-  /**
-   * Optional CSS class name to apply custom styling.
-   */
-  className?: string;
-
-  /**
-   * Enable Quick Add button at the bottom of each column.
-   * When true, a "+" button appears allowing inline card creation.
-   * @default false
-   */
-  quickAdd?: boolean;
-
-  /**
-   * Callback when a new card is created via Quick Add.
-   *
-   * RUNTIME SLOT (objectui#6124) — a host-supplied function, NOT authorable
-   * metadata: JSON has no function value, so the zod twin refuses this key by
-   * name and points at the node-type spelling. Kept callable here because
-   * `KanbanRenderer` forwards it (`onQuickAdd={schema.onQuickAdd}`), and
-   * `ObjectKanban` spreads the authored schema into that renderer.
-   */
-  onQuickAdd?: (columnId: string, title: string) => void;
-
-  /**
-   * Field name to use as cover image on cards.
-   * The field value should be a URL string or file object with a `url` property.
-   */
-  coverImageField?: string;
-
-  /**
-   * Allow columns to be collapsed/expanded.
-   * @default false
-   */
-  allowCollapse?: boolean;
-
-  /**
-   * Conditional formatting rules for card coloring. Accepts the native
-   * `{ field, operator, value }` shape and the spec `{ condition, style }` CEL
-   * shape (issue #1584).
-   */
-  conditionalFormatting?: KanbanConditionalFormattingRule[];
-
-  /**
-   * Predefined card templates for quick-add.
-   * Each template pre-fills the quick-add form with default values.
-   */
-  cardTemplates?: CardTemplate[];
-
-  /**
-   * Custom column width configuration.
-   * Supports per-column overrides with min/max constraints.
-   */
-  columnWidths?: ColumnWidthConfig;
-
-  /**
-   * Grouping configuration from ListView.
-   * When set, the first grouping field is used as swimlaneField fallback.
-   */
-  grouping?: GroupingConfig;
-
-  /**
-   * RETIRED with the declarative face (objectui#7664, ADR-0049) — `draggable`
-   * was a `DeclarativeKanbanSchema` member and no registered board reads it
-   * (measured: zero `draggable` read sites in `@object-ui/plugin-kanban`;
-   * drag-and-drop is always on).
-   *
-   * A tombstone rather than a plain removal on PRONG 2 of the discriminator the
-   * precedent changesets state (objectui#5941, #7526; the one-line form is
-   * under correction as objectui#7678) — a tombstone exists (1) to steer
-   * authors to a named live replacement KEY, or (2) to keep loud a key the docs
-   * taught as working. Prong 1 does not apply: drag-and-drop is unconditional,
-   * so there is no replacement key to name, and the remedy is to delete the
-   * member. Prong 2 carries it: `content/docs/api/schema-reference.md` taught
-   * this key as working — before this card its kanban example opened with
-   * `"draggable": true` and its property table read "`draggable` | `boolean` |
-   * Enable drag-and-drop between columns."
-   *
-   * ⚠️ Inertness is why the key is retired, not why it is tombstoned. A key
-   * this documented must be refused by NAME rather than dropped: {@link
-   * BaseSchema} is `.passthrough()`, so dropping it from the mirror would leave
-   * a document naming it silently accepted with the value kept — the failure
-   * this card's own first cut shipped at {@link KanbanSchema.onCardClick}.
-   * @deprecated Not part of this contract — the value was inert.
-   */
-  draggable?: never;
-  /**
-   * RETIRED (objectui#6124, ADR-0049) — JSON has no function value, and the
-   * `kanban` renderer takes `({ schema })` and never reads it. Carried over
-   * from the retired declarative face so the successor arm under the same
-   * `'kanban'` key keeps refusing the spelling by name; author behaviour as a
-   * node type (`{ "type": "toast" }`, an `action:button` node) instead.
-   * @deprecated Not part of this contract — the value was inert.
-   */
-  onColumnAdd?: never;
-  /**
-   * RETIRED (objectui#6124, ADR-0049) — JSON has no function value, and the
-   * `kanban` renderer takes `({ schema })` and never reads it. Carried over
-   * from the retired declarative face so the successor arm under the same
-   * `'kanban'` key keeps refusing the spelling by name; author behaviour as a
-   * node type (`{ "type": "toast" }`, an `action:button` node) instead.
-   * @deprecated Not part of this contract — the value was inert.
-   */
-  onCardAdd?: never;
-}
 
 /**
  * A predefined card template with pre-filled field values.
@@ -561,6 +409,56 @@ export interface CalendarViewSchema extends BaseSchema {
    * (function values only).
    */
   onViewChange?: (view: CalendarViewMode) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`,
+   * `titleField` (in
+   * `packages/plugin-calendar/src/calendar-view-renderer.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `calendar-view` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`,
+   * `titleField` (in
+   * `packages/plugin-calendar/src/calendar-view-renderer.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `calendar-view` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -702,6 +600,54 @@ export interface FilterBuilderSchema extends BaseSchema {
    * further in. Declared by objectui#6150.
    */
   wrapperClass?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `fields`, `label`, `name`, `value`, `wrapperClass` (in
+   * `packages/components/src/renderers/complex/filter-builder.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `filter-builder` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `fields`, `label`, `name`, `value`, `wrapperClass` (in
+   * `packages/components/src/renderers/complex/filter-builder.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `filter-builder` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -727,24 +673,31 @@ export interface FilterField {
    */
   label: string;
   /**
-   * Field type — the value FAMILY the column is edited in.
+   * Field type — the value FAMILY the column is edited in. OPTIONAL: absent
+   * means `text`, which is what `valueFamilyForFieldType` and
+   * `operatorsForFieldType` both read (`fieldType || "text"`,
+   * `custom/filter-builder.tsx:408` and `:964`).
    *
-   * The six ruled members are `FilterValueFamily`
-   * (`custom/filter-builder.tsx:406`) and each draws a distinct control:
-   * `<input type>` `text` / `number` / `date` / `datetime-local` / `time`, and
-   * for `boolean` a two-item Select and no input at all. `string` left this
-   * union as a phantom — it reached the text control by the unrecognised-word
-   * fallthrough, indistinguishable from a nonsense spelling, while `text` is
-   * what the registration's `defaultProps` and every catalog entry author.
+   * The fourteen members are the published doc's
+   * (`content/docs/components/complex/filter-builder.mdx`), which objectui#7562
+   * ruled the authority for this authoring surface, in the doc's own order.
+   * Every one of them was measured to have a renderer branch before this union
+   * widened — the ruling's precondition — and none had to be withdrawn from the
+   * doc. The mirror's docblock (`zod/complex.zod.ts`, `FilterFieldSchema`)
+   * carries the branch-by-branch table with the file:line for each bucket.
    *
-   * `select` is RETAINED against a literal reading of the ruling's six:
-   * `selectLikeTypes` gives it its own operator bucket and the option-driven
-   * Select, so dropping it would refuse a live spelling. `status`, `currency`,
-   * `percent`, `rating`, `lookup`, `master_detail` and `user` are live too and
-   * are still absent — a pre-existing gap reported on objectui#6939, not a
-   * regression introduced here.
+   * `string` is still absent and is the contrast that makes the rest read: it
+   * is named nowhere in the renderer and reaches the text control only by the
+   * unrecognised-word fallthrough, so it is a phantom (objectui#6939). `text`
+   * shares that fallthrough but IS named — line 408 is where an absent `type`
+   * acquires it — which is why one is declared and the other is not.
    */
-  type: 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'time' | 'select';
+  type?:
+    | 'text' | 'number' | 'currency' | 'percent' | 'rating'
+    | 'date' | 'datetime' | 'time'
+    | 'boolean'
+    | 'select' | 'status'
+    | 'lookup' | 'master_detail' | 'user';
   /**
    * Available operators for this field
    */
@@ -847,6 +800,54 @@ export interface CarouselSchema extends BaseSchema {
    * @deprecated Not part of this contract — the value was inert.
    */
   onSlideChange?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `carousel` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `itemClassName`, `items`, `opts`, `orientation`, `showArrows` (in
+   * `packages/components/src/renderers/complex/carousel.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `carousel` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `carousel` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `itemClassName`, `items`, `opts`, `orientation`, `showArrows` (in
+   * `packages/components/src/renderers/complex/carousel.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `carousel` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -976,6 +977,34 @@ export interface ChatToolInvocation {
     | 'output-available'
     | 'output-error'
     | 'output-denied';
+  /**
+   * AI SDK v6 approval envelope — the data a human decision on this tool call
+   * is carried by, and the piece that makes the three approval states
+   * ACTIONABLE rather than merely displayable (objectui#8442).
+   *
+   * The SDK's own tool-part union makes this envelope REQUIRED alongside
+   * `approval-requested`, `approval-responded` and `output-denied`: a value
+   * that claims one of those states without it is not a constructible SDK
+   * part. Carrying it here is what lets a mapper hand a rehydrated pending
+   * approval to a chat surface without the surface re-parsing the tool result.
+   *
+   * Optional because the other seven states never carry one. Pairing the
+   * envelope with the states that require it is objectui#8426's narrowing of
+   * the `state` union above, deliberately NOT done here — this member is
+   * purely additive, so nothing an author writes today stops parsing.
+   */
+  approval?: {
+    /** Approval request id — the key a decision is replied on. */
+    id: string;
+    /** The decision, once made. Absent while the request is outstanding. */
+    approved?: boolean;
+    /** Free-text reason supplied with the decision. */
+    reason?: string;
+    /** True when policy decided without asking a human. */
+    isAutomatic?: boolean;
+    /** Signature over the approval, when the transport signs decisions. */
+    signature?: string;
+  };
 }
 
 /**
@@ -1411,6 +1440,33 @@ export interface ChatbotSchema extends BaseSchema {
    * read by `chatbot-floating` alone and forwarded to `<FloatingChatbot>`.
    */
   floatingConfig?: FloatingChatbotConfig;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
+   * `autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`,
+   * `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`,
+   * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
+   * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
+   * `packages/plugin-chatbot/src/renderer.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `chatbot` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -1531,6 +1587,35 @@ export interface ChatbotEnhancedSchema
    * `plugin-chatbot`'s `handleClear` invokes `schema.onClear?.()`.
    */
   onClear?: () => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `chatbot-enhanced` reads
+   * NEITHER content channel: no renderer read consumes `body` or `children` for
+   * this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
+   * `autoResponseDelay`, `autoResponseText`, `conversationId`,
+   * `enableFileUpload`, `enableMarkdown`, `headers`, `maxHeight`,
+   * `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, `onSend`,
+   * `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`,
+   * `streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`,
+   * `userAvatarUrl` (in `packages/plugin-chatbot/src/renderer.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `chatbot-enhanced` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -1616,6 +1701,35 @@ export interface ChatbotFloatingSchema
    * read by `chatbot-floating` alone and forwarded to `<FloatingChatbot>`.
    */
   floatingConfig?: FloatingChatbotConfig;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `chatbot-floating` reads
+   * NEITHER content channel: no renderer read consumes `body` or `children` for
+   * this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
+   * `autoResponseDelay`, `autoResponseText`, `conversationId`,
+   * `enableFileUpload`, `enableMarkdown`, `floatingConfig`, `headers`,
+   * `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, `onSend`,
+   * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
+   * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
+   * `packages/plugin-chatbot/src/renderer.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `chatbot-floating` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -1983,8 +2097,18 @@ export interface DashboardComponentSchema extends BaseSchema {
    *    every `BaseSchema` slot.
    */
   widgets: Array<DashboardWidgetSlotComponentSchema | DashboardWidgetSchema>;
-  /** Auto-refresh interval in seconds. When set, the dashboard will periodically trigger onRefresh. */
-  refreshInterval?: number;
+  /**
+   * Auto-refresh interval in seconds. When set, the dashboard will periodically
+   * trigger onRefresh.
+   *
+   * Renamed from `refreshInterval` in @objectstack/spec 17.4.0 (objectstack#15680,
+   * ruling B on objectstack#14478: a duration-shaped number carries its unit in
+   * the key name, never only in the describe prose). The spec's `DashboardSchema`
+   * — which this node derives its spec-owned half from — now REFUSES the old
+   * spelling with a `retiredKey` tombstone naming this one, so the two faces
+   * would disagree at parse if this declaration had stayed (objectui#7783).
+   */
+  refreshIntervalSeconds?: number;
   /**
    * Dashboard header configuration.
    * Aligned with @objectstack/spec DashboardHeaderSchema.
@@ -2058,13 +2182,73 @@ export interface DashboardComponentSchema extends BaseSchema {
   // as `any` — this deletion removes the type-level suggestion and the false
   // parity claim, not a key that ever rendered. Pinned by
   // `__tests__/dashboard-aria-retired-contract-twins.test.ts`.
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `dashboard` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `columns`, `dateRange`, `description`, `gap`, `globalFilters`, `header`,
+   * `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets` (in
+   * `packages/plugin-dashboard/src/DashboardGridLayout.tsx`,
+   * `packages/plugin-dashboard/src/DashboardRenderer.tsx`,
+   * `packages/plugin-dashboard/src/DashboardWithConfig.tsx`,
+   * `packages/plugin-designer/src/DashboardEditor.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `dashboard` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `dashboard` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `columns`, `dateRange`, `description`, `gap`, `globalFilters`, `header`,
+   * `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets` (in
+   * `packages/plugin-dashboard/src/DashboardGridLayout.tsx`,
+   * `packages/plugin-dashboard/src/DashboardRenderer.tsx`,
+   * `packages/plugin-dashboard/src/DashboardWithConfig.tsx`,
+   * `packages/plugin-designer/src/DashboardEditor.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `dashboard` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
  * Union type of all complex schemas
  */
 export type ComplexSchema =
-  | KanbanSchema
+  // ⛔ `KanbanSchema` (`type: 'kanban'`) RETIRED here — objectui#8802,
+  // maintainer ruling 2026-09-09. Its Zod twin keeps an arm for the literal so
+  // an authored `type: "kanban"` is refused BY NAME and pointed at
+  // `object-kanban`; on this face the retirement IS the absence, which is what
+  // makes `tsc` refuse the literal at the authoring site.
   | CalendarViewSchema
   | FilterBuilderSchema
   | CarouselSchema

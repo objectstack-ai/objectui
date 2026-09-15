@@ -15,6 +15,7 @@ import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListVie
 import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
 import { buildListFilterKey, readListFilterState, writeListFilterState } from './listFilterStorage.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
+import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
 import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError } from '@object-ui/data-objectstack';
 const ObjectChart = lazy(() =>
   import('@object-ui/plugin-charts').then((m) => ({ default: m.ObjectChart })),
@@ -41,7 +42,7 @@ import { Plus, Upload, Star, StarOff, Table as TableIcon, KanbanSquare, Calendar
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { getIcon } from '../utils/getIcon.js';
-import type { ListViewSchema, ViewNavigationConfig } from '@object-ui/types';
+import type { ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
@@ -412,14 +413,20 @@ export function galleryViewOptions(viewDef: any): Record<string, unknown> {
  * nestings), and neither does the render branch (`groupByField || groupField ||
  * detectStatusField(...)`).
  *
- * ⚠️ WHAT THIS CLOSES AND WHAT IT DOES NOT. `ListView`'s kanban branch
- * destructures `columns`/`groupByField`/`groupField`/`cardFields`/`titleField`
- * out of the merged config and spreads the REST *after* its own
- * `groupBy: laneField`, so a surviving `groupBy` overrides the lane it just
- * resolved. This deletion removes the only producer in this repo that fed that
- * override — it does NOT remove the override, which stays reachable from
- * author-written `kanban.groupBy` riding this repo's `.passthrough()` mirror
- * and is a `plugin-list` change on its own card.
+ * ⚠️ WHAT THIS CLOSED AND WHAT IT DID NOT — and what has since closed the rest.
+ * `ListView`'s kanban branch destructured
+ * `columns`/`groupByField`/`groupField`/`cardFields`/`titleField` out of the
+ * merged config and spread the REST *after* its own `groupBy: laneField`, so a
+ * surviving `groupBy` overrode the lane it had just resolved. This deletion
+ * removed the only producer in this repo that fed that override; the override
+ * itself stayed reachable from an author-written `kanban.groupBy` riding this
+ * repo's `.passthrough()` mirror, and was carried on its own card.
+ * ⭐ THAT CARD HAS LANDED (objectui#8365, maintainer ruling of 2026-09-12 —
+ * decision batch #117 item 5, option B): `groupBy` is now stripped in
+ * `ListView`'s destructure, so the canonical lane wins, AND the view-level
+ * `KanbanConfig` mirror (`@object-ui/types`, `zod/objectql.zod.ts`) declares it
+ * as an alias refusal naming `groupByField`, so the key is refused BY NAME at
+ * the read door instead of riding the passthrough. ⛔ Do not re-file it.
  *
  * ⚠️ `titleField` AND `cardFields` BELOW ARE ALSO OUTSIDE `KanbanConfigSchema`,
  * and are deliberately NOT swept up here. `cardFields` is a DECLARED deprecated
@@ -1020,6 +1027,31 @@ export function buildPersistedViewBody(
     // Identity is stamped LAST for the same reason `updateViewConfig` stamps
     // `object`/`name`/the marker last: nothing in the payload can shadow it.
     return viewKind === undefined ? { ...patch } : { ...patch, viewKind };
+}
+
+/**
+ * The `filter[...]` params of a URL, selected out of the full search params as
+ * their own `URLSearchParams`. Extracted for the same reason `buildViewTabs`
+ * above is: so the shape is assertable without mounting the view.
+ *
+ * Built by APPENDING onto a `URLSearchParams` rather than joining `key=value`
+ * pairs into a string by hand (objectui#9287). `searchParams.entries()` yields
+ * DECODED values, so a hand-joined key re-introduced, unescaped, the two
+ * characters that are structural in a query string: `&` TRUNCATED the value at
+ * its first occurrence (`Smith & Sons` reached the reader as `Smith `, plus a
+ * stray empty-valued param) and `+` came back as a space (`A+B` as `A B`).
+ * Neither produces an absent condition — the list renders, scoped by a silently
+ * WRONG value, and nothing anywhere says the value was cut.
+ *
+ * `toString()` percent-encodes, so the serialized form still round-trips and
+ * still ignores the unrelated `uf_*` params the memo key exists to absorb.
+ */
+export function selectFilterParams(searchParams: URLSearchParams): URLSearchParams {
+    const filterParams = new URLSearchParams();
+    searchParams.forEach((value, key) => {
+        if (key.startsWith('filter[')) filterParams.append(key, value);
+    });
+    return filterParams;
 }
 
 export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: any) {
@@ -2080,24 +2112,37 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
      * to a single parent record. Emitted as ObjectQL triples (`[field, '=', value]`)
      * which matches the shape consumed by the list view's data fetcher when
      * merging base filters.
+     *
+     * Read through `drillUrlFilters` — the ONE module that owns this URL family
+     * — rather than a private regex here (objectui#9196). This route implements
+     * the EQUALITY arm only: an operator suffix it cannot execute
+     * (`?filter[amount][gte]=100`) is DROPPED, never downgraded to equality and
+     * never swallowed into the field name. The greedy capture this replaced did
+     * the last of those, emitting a condition against a field literally named
+     * `amount][gte` that no object declares — a silently wrong query, not an
+     * ignored parameter. Range operators live on the ADR-0055 `/data` surface
+     * (`parseUrlFilterTriples`); giving them to this route would widen an
+     * addressable public surface and is deliberately not done here.
      */
     // Dep on the serialized `filter[...]` entries only — `uf_*` user-filter
     // params also live in the URL and must not invalidate this memo (a new
     // array identity here rebuilds the whole list schema and refetches).
-    const filterParamsKey = Array.from(searchParams.entries())
-        .filter(([k]) => k.startsWith('filter['))
-        .map(([k, v]) => `${k}=${v}`)
-        .join('&');
-    const urlFilters = useMemo(() => {
-        const out: Array<[string, string, any]> = [];
-        new URLSearchParams(filterParamsKey).forEach((value, key) => {
-            const m = /^filter\[(.+)\]$/.exec(key);
-            if (m && m[1] && value !== '') {
-                out.push([m[1], '=', value]);
-            }
-        });
-        return out;
-    }, [filterParamsKey]);
+    const filterParams = selectFilterParams(searchParams);
+    const filterParamsKey = filterParams.toString();
+    const urlFilters = useMemo(
+        // The params object is read DIRECTLY — nothing is serialized here and
+        // parsed back, so there is no round trip left for a character to be
+        // lost in (objectui#9287). `filterParamsKey` is the memo's identity
+        // only.
+        () => parseUrlEqualityFilterTriples(filterParams),
+        // Keyed on the SERIALIZED params, not on the object's identity:
+        // `filterParams` is rebuilt every render, so listing it would
+        // invalidate this memo on every unrelated `uf_*` write — the churn
+        // this key exists to prevent. Equal keys imply equal contents, so the
+        // captured object is never stale.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+        [filterParamsKey],
+    );
 
     /**
      * End-user filter selections restored from `uf_*` URL params (ADR-0047
@@ -2355,6 +2400,25 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // objectui#7029: present only when the view actually declared one.
         const calendarOptions = calendarViewOptions(viewDef);
 
+
+        /**
+         * ⚠️ THE RELAY. Every key below is a rung carrying the ACTIVE VIEW's
+         * value into `ListView`; `...listSchema` carries the HOST's.
+         *
+         * A `ListViewSchema` member with NO rung here is invisible to tsc, to
+         * lint and to the tests — `viewDef` is `Record<string, any>`, so
+         * nothing REQUIRES a key to be written. That silence shipped the same
+         * defect three times (objectui#7199 `description`, objectui#7218
+         * `rowColor`, objectui#7516 `fieldOrder`), and objectui#7559 ended it:
+         * `ObjectView.relayRungCensus-7559.test.ts` re-derives the member set
+         * from the zod mirror at test time and requires every member to have
+         * either a rung here or a DECLARED absence with a reason.
+         *
+         * ⇒ Adding a member to `ListViewSchema` and not relaying it is fine —
+         * but it must be said out loud, in that file's `ABSENCES` ledger. ⛔ The
+         * ledger is not a place to record a rung you did not feel like adding:
+         * the kinds carry evidence, and each one is checked.
+         */
         const fullSchema: ListViewSchema = {
             ...listSchema,
             // The active view's display label (same string the ViewTabBar
@@ -2606,8 +2670,32 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                     // defaultExpandedDepth survive; labelField falls back to the
                     // view's own `tree.titleField`, then to 'name'. parentField
                     // auto-detects when omitted.
-                    ...((viewDef as any).tree || {}),
-                    labelField: (viewDef as any).tree?.labelField || (viewDef as any).tree?.titleField || 'name',
+                    //
+                    // Read AS `TreeViewConfig` (`@object-ui/types`, objectui#8253):
+                    // `viewDef` is `Record<string, any>`, so the canonical rung
+                    // below was an `any` property access and a misspelling was
+                    // invisible. This is the half of objectui#7559 a declaration CAN
+                    // close, on the one block that now has a declaration to close it
+                    // with — it does NOT make a missing rung visible, which is what
+                    // the census pin (`ObjectView.relayRungCensus-7559.test.ts`) is
+                    // for.
+                    //
+                    // ⚠️ The cast is repeated per rung rather than hoisted into a
+                    // local: objectui#6557's convergence pin reads these seam lines
+                    // out of this file and requires each to name `viewDef` itself.
+                    //
+                    // ⛔ The `titleField` rung is deliberately NOT cast (objectui#8841).
+                    // `TreeViewConfig` is now the spec's `ListView.tree` block, and
+                    // `@objectstack/spec@17.4.0` refuses `titleField` there by name,
+                    // so casting to it would not compile and re-declaring the key
+                    // locally would fossilise a renderer-side alias into a second
+                    // contract — AGENTS.md #0.1, and the defect objectui#8841 exists
+                    // to undo. The rung stays as an UNDECLARED tolerant fallback,
+                    // read through `any`, kept so already-stored view records keep
+                    // resolving and so objectui#6557's pin on it stays honest. Its
+                    // retirement is a follow-up, ⛔ not a rider here.
+                    ...((viewDef.tree as TreeViewConfig | undefined) || {}),
+                    labelField: (viewDef.tree as TreeViewConfig | undefined)?.labelField || viewDef.tree?.titleField || 'name',
                 },
                 // The chart block the view DECLARED, forwarded WHOLE — a
                 // pointer, not a copy of its key set (objectui#7823).

@@ -217,7 +217,7 @@ function validateComponent(config: unknown) {
 
 All component schemas follow the @objectstack/spec UI specification format:
 
-```typescript
+```text
 {
   // Required
   type: string,              // Component type identifier
@@ -243,6 +243,8 @@ All component schemas follow the @objectstack/spec UI specification format:
 
 ### Error Messages
 ```typescript
+import { ButtonSchema } from '@object-ui/types/zod';
+
 const result = ButtonSchema.safeParse({
   type: 'button',
   variant: 'invalid-variant'
@@ -264,6 +266,8 @@ const result = ButtonSchema.safeParse({
 
 ### Nested Validation
 ```typescript
+import { CardSchema } from '@object-ui/types/zod';
+
 // Validates nested components in Card
 const cardWithChildren = CardSchema.parse({
   type: 'card',
@@ -279,6 +283,11 @@ const cardWithChildren = CardSchema.parse({
 
 1. **Use safeParse()** for user input validation
    ```typescript
+   import { ButtonSchema } from '@object-ui/types/zod';
+
+   // Whatever arrived from the form, the request body or the config file.
+   declare const userInput: unknown;
+
    const result = ButtonSchema.safeParse(userInput);
    if (!result.success) {
      // Handle errors gracefully
@@ -287,6 +296,11 @@ const cardWithChildren = CardSchema.parse({
 
 2. **Use parse()** for internal configurations
    ```typescript
+   import { ButtonSchema } from '@object-ui/types/zod';
+
+   // A configuration your own code produced, so a throw is the right failure.
+   declare const internalConfig: unknown;
+
    // Throws error on invalid data
    const config = ButtonSchema.parse(internalConfig);
    ```
@@ -301,10 +315,10 @@ const cardWithChildren = CardSchema.parse({
    ```typescript
    import type { ButtonSchema as ButtonType } from '@object-ui/types';
    import { ButtonSchema } from '@object-ui/types/zod';
-   
+
    // Use type for declarations
-   const config: ButtonType = { ... };
-   
+   const config: ButtonType = { type: 'button', label: 'Save', variant: 'default' };
+
    // Use schema for validation
    ButtonSchema.parse(config);
    ```
@@ -322,8 +336,14 @@ Zod schemas are designed for runtime validation:
 
 ### With React Hook Form
 ```typescript
-import { zodResolver } from '@hookform/resolvers/zod';
 import { FormSchema } from '@object-ui/types/zod';
+
+// `react-hook-form` and `@hookform/resolvers` are YOUR app's dependencies, not
+// this package's. These two stand in for `import { useForm } from
+// 'react-hook-form'` and `import { zodResolver } from '@hookform/resolvers/zod'`
+// so the schema half below is still checked against the shipped types.
+declare function useForm(options: { resolver: unknown }): unknown;
+declare function zodResolver(schema: unknown): unknown;
 
 const form = useForm({
   resolver: zodResolver(FormSchema),
@@ -354,6 +374,9 @@ export async function POST(req: Request) {
 ```typescript
 import { AnyComponentSchema } from '@object-ui/types/zod';
 
+// Your own store of validated configurations.
+declare const registry: Map<string, unknown>;
+
 function registerComponent(config: unknown) {
   // Validate before registration
   const validated = AnyComponentSchema.parse(config);
@@ -365,16 +388,22 @@ function registerComponent(config: unknown) {
 
 If you're currently using only TypeScript types:
 
-```typescript
-// Before (TypeScript only)
-import type { ButtonSchema } from '@object-ui/types';
-const button: ButtonSchema = { ... };
+Before — the type alone, checked only where the literal is written:
 
-// After (with runtime validation)
+```typescript
+import type { ButtonSchema } from '@object-ui/types';
+
+const button: ButtonSchema = { type: 'button', label: 'Save' };
+```
+
+After — the same literal, plus a runtime check at the boundary. Import the type
+under an alias, because the Zod twin ships under the same name:
+
+```typescript
 import type { ButtonSchema as ButtonType } from '@object-ui/types';
 import { ButtonSchema } from '@object-ui/types/zod';
 
-const button: ButtonType = { ... };
+const button: ButtonType = { type: 'button', label: 'Save' };
 const validated = ButtonSchema.parse(button);
 ```
 

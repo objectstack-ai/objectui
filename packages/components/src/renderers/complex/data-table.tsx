@@ -14,7 +14,8 @@ import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, getSortValue } from '@object-ui/core';
 import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
-import { SchemaRenderer, useRowPredicate, usePredicateScope } from '@object-ui/react';
+import type { SortDirection } from '@objectstack/spec/shared';
+import { SchemaRenderer, toRenderableSchema, useRowPredicate, usePredicateScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { 
   Table, 
@@ -61,8 +62,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
-
-type SortDirection = 'asc' | 'desc' | null;
 
 /**
  * Inline-edit helpers: convert a stored cell value to the string a native
@@ -928,7 +927,22 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // State management
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  // The sort state's second half. `SortDirection` is `@objectstack/spec`'s own
+  // export, imported rather than re-declared: this module used to hand-write
+  // `'asc' | 'desc' | null` under that exact export name, which is the planted-
+  // premise class `check:spec-symbols` exists to stop (objectui#7265).
+  //
+  // `null` is the ONE divergence, and it lives HERE rather than in the name
+  // because it is not a third direction — it is the absence of one, the
+  // unsorted end of the client-side header cycle in `handleSort`. That is the
+  // same "this half is empty" that `sortColumn` above already spells at its own
+  // slot, which is why folding it into a type would have been the odd one out.
+  // No `null` can reach the protocol's vocabulary: the sort comparator is past
+  // the `!sortDirection` guard in `sortedData`, and `activeSort` emits a
+  // `TableSortItem` only when both halves are set. The cycle that produces the
+  // third state is pinned by the `leaves client-side sorting exactly as it was`
+  // case in data-table-manual-sorting.test.tsx.
+  const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<any>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -1279,7 +1293,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
    * directly, which under `manualSorting` would have written to state nothing
    * reads: a menu item that highlights, closes, and changes nothing.
    */
-  const applySort = (columnKey: string, order: 'asc' | 'desc') => {
+  const applySort = (columnKey: string, order: SortDirection) => {
     if (manualSorting) {
       onSortChange?.([{ field: columnKey, order }]);
       return;
@@ -2156,10 +2170,61 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         `type` is missing or unregistered now gets the
                         platform's uniform "unknown component type" report
                         instead of rendering as silent nothing here — one
-                        answer for malformed metadata, not a private one. */}
-                    {schema.emptyAction && typeof schema.emptyAction === 'object' && (
-                      <SchemaRenderer schema={schema.emptyAction} />
-                    )}
+                        answer for malformed metadata, not a private one.
+
+                        No object-only guard either (objectui#8331), ruled one
+                        slot over together with the declaration: objectui#7105
+                        (director seat, decision batch #69, 2026-09-07) settled
+                        the identical shape on `EmptySchema.action` as RELAX THE
+                        RENDERER, do not narrow the declaration. `emptyAction`
+                        is declared `SchemaNode` on BOTH published faces, and a
+                        `typeof === 'object'` test made this slot narrower than
+                        the thing it declares: a bare string was silently
+                        DROPPED instead of rendering as its own text.
+
+                        The truthiness leg STAYS and the `&&` chain became a
+                        ternary. Both are load-bearing, and together they make
+                        this slot behave exactly as handing the raw node to
+                        `SchemaRenderer` would - the "one answer, not a private
+                        one" rule above, extended to the non-object members of
+                        the union:
+
+                        - `toRenderableSchema` is the repo's permanent bridge
+                          onto `SchemaRendererProps['schema']`, which declares
+                          no `number` / `boolean` (objectui#4548 ruling Q2).
+                          Since objectui#8908 it is behaviour-preserving across
+                          the WHOLE union: a truthy primitive becomes its text,
+                          which is what the renderer's own defensive branch
+                          produces, and a falsy one becomes nothing, which is
+                          what the renderer's first leg produces. Until then it
+                          mapped every `number` / `boolean` onto its `String`
+                          form, so `0` / `false` arrived as the text "0" and
+                          "false" while `SchemaRenderer` renders them as nothing
+                          (pinned, objectui#4548) - and gating on truthiness is
+                          what kept THIS slot out of that defect while the
+                          shipped `empty` renderer, which gates on nullish,
+                          printed a stray "0".
+                        - So the truthiness leg no longer DECIDES the answer;
+                          it reaches the same one a step earlier. It stays
+                          anyway, and objectui#8908 said so rather than letting
+                          it vanish as tidying: it is what makes this slot's
+                          answer independent of the bridge, which is the whole
+                          reason this slot survived the bridge being wrong. ⛔ Do
+                          not drop it as redundant without re-measuring both
+                          paths - the pins below assert the OUTCOME, and they
+                          would stay green through the removal right up until
+                          the bridge regressed again.
+                        - The ternary replaces an `&&` chain that LEAKED: with
+                          `emptyAction: 0` the chain evaluated to the number `0`
+                          itself, which React renders as a stray "0" inside the
+                          empty state. That is the numeric-falsy JSX trap, not a
+                          decision; a ternary yields `null` instead.
+
+                        Both legs are pinned in
+                        `__tests__/data-table-empty-action-primitive-node.test.tsx`. */}
+                    {schema.emptyAction ? (
+                      <SchemaRenderer schema={toRenderableSchema(schema.emptyAction)} />
+                    ) : null}
                   </div>
                 </TableCell>
               </TableRow>

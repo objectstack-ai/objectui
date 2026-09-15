@@ -333,14 +333,20 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
     // grid.import.mappingTemplate, auth.verifyEmail.sentTo,
     // preview.changes.detailChangedKeys, …).
     //
-    // Both of this slice's ja colons end in a predicate (`付与されます`,
+    // Both of this slice's ja colons end in a predicate (`要求します`,
     // `読み込めませんでした`), so both are halfwidth. `loadFailed` additionally
     // matches its same-name sibling `preview.changes.loadFailed` byte for byte;
     // `grantsIntro` has no sibling and is decided by the split alone. Written
     // down because the first draft of this file got `grantsIntro` wrong (it had
     // the fullwidth form) and only the census caught it.
+    // [objectstack#17147] The sentence changed — "will be granted" became
+    // "requests", because the runtime does not yet restrict the package to this
+    // list — but the CONDITION this case pins did not: the ja value is still
+    // predicate-final (`要求します`), so it still takes the halfwidth colon. ⛔ A
+    // future reword that ends this value on a NOUN must flip it to `：` and move
+    // it to the other side of the split, not keep the byte and lose the rule.
     expect(at(builtInLocales.ja, 'marketplace.disclosure.grantsIntro')).toBe(
-      'インストール時に、このパッケージには次の権限が付与されます:',
+      'このパッケージは次の権限を要求します:',
     );
     expect(at(builtInLocales.ja, 'preview.history.loadFailed')).toBe('履歴を読み込めませんでした:');
     for (const key of ['marketplace.disclosure.grantsIntro', 'preview.history.loadFailed']) {
@@ -751,7 +757,7 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
       ['pt', 'marketplace.disclosure.fs', 'Acesso ao sistema de arquivos'],
       ['ru', 'marketplace.disclosure.unreviewed', 'Ещё не проверено'],
       ['ja', 'preview.history.revertFailed', '取り消しに失敗しました'],
-      ['ko', 'marketplace.disclosure.grantsIntro', '설치하면 이 패키지에 다음 권한이 부여됩니다:'],
+      ['ko', 'marketplace.disclosure.grantsIntro', '이 패키지가 요청하는 권한:'],
       ['ar', 'preview.unpublishedBar.published', 'تم النشر! التطبيق مرئي الآن لمستخدميك.'],
     ])('%s renders a user-visible string from the pack', (lang, key, expected) => {
       // One pinned surface per remaining pack, across four writing systems, so a

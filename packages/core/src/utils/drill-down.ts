@@ -22,7 +22,10 @@
  * synthesize an `event` object and rely on the same defaults / templating.
  */
 
+import { parseFilterAST } from '@objectstack/spec/data';
 import type { DrillDownConfig } from '@object-ui/types';
+
+import { mergeFilterNodes } from './filter-converter.js';
 
 /**
  * Generic click payload. Pivots provide row/col, charts provide
@@ -182,4 +185,73 @@ export function resolveDrillTitle(
 export function isDrillEnabled(config: DrillDownConfig | undefined): boolean {
   if (!config) return false;
   return config.enabled !== false;
+}
+
+/**
+ * Compose a widget's OWN filter with the filter a drill click derived, into the
+ * one filter the drilled list is scoped by.
+ *
+ * ## The rule: `widget.filter ∧ drill.filter`
+ *
+ * The two are independent filter SOURCES and a drill must satisfy BOTH. The
+ * widget's filter is what scopes the chart; the click context only says WHICH
+ * bucket of that scope the user asked to see. So a drill may narrow the widget's
+ * scope and may never widen it — which makes the composition a conjunction, not
+ * a merge and emphatically not a spread.
+ *
+ * ⛔ The rule is NOT invented here. It is the contract {@link mergeFilterNodes}
+ * already states — "combine filter sources under a single `and`, each as its OWN
+ * child" — the sink every other multi-source filter in this repo goes through
+ * (`ObjectView`, `RelatedList`, `LineItemsPanel`, `RecordPickerDialog`,
+ * `ElementDataSourceGate`, `buildEffectiveFilter`). This function only applies
+ * it at the drill seam and names it, so the answer is in one place rather than
+ * re-derived per widget.
+ *
+ * ## Why the two arms needed a sink at all (objectui#8944)
+ *
+ * `ObjectChartSchema.filter` admits BOTH a spec `FilterArray`
+ * (`[['stage','=','won']]`) and the ObjectQL `$filter` object
+ * (`{ close_date: { $gte } }`), because both are read — both are forwarded
+ * verbatim to `ds.aggregate` / `ds.find`. The drill seam used to compose them by
+ * SPREADING the widget's filter into an object literal, which is correct for the
+ * object arm and silent nonsense for the array arm: spreading `[['stage','=',
+ * 'won']]` yields the index key `{ '0': ['stage','=','won'] }`, so the widget's
+ * own conditions were replaced by a key the query layer ignores and the drilled
+ * list showed rows the chart itself was scoped to exclude. `toFilterNode` (via
+ * `mergeFilterNodes`) already lowers all three shapes in circulation, so routing
+ * the pair through it is what makes the array arm survive.
+ *
+ * ## Why the result is lowered back to the object dialect
+ *
+ * {@link mergeFilterNodes} answers in the ObjectQL AST
+ * (`['and', <widget>, <drill>]`). Both drill sinks take the `FilterCondition`
+ * OBJECT dialect instead — the drawer hands the value to `object-data-table`'s
+ * `filter` (which becomes `$filter`), and `DrillNavigationContext.openRecordList`
+ * declares `Record<string, unknown>` and serializes it to `filter[...]` URL
+ * params. `parseFilterAST` is the spec's single lowering sink between the two
+ * dialects, so it is what converts, rather than a second local translation.
+ *
+ * ⭐ A lone surviving source lowers back to exactly the flat object the spread
+ * produced (`{ stage: 'won' }`), so a chart with no filter of its own drills
+ * identically to before; only a genuinely composed pair gains the `$and`.
+ *
+ * Returns `undefined` when neither source carries anything, so callers can omit
+ * the key rather than send an empty filter.
+ *
+ * ⚠️ Refusals are the sink's, not this seam's: `mergeFilterNodes` rejects a
+ * comparand the wire would also reject (a bare array on `=`, a `RegExp`) with
+ * the `INVALID_FILTER` / 400 envelope. Such a filter already fails the widget's
+ * OWN query for the same reason, so the drill and the chart now agree instead of
+ * the drill quietly sending something the chart could not.
+ */
+export function composeDrillFilter(
+  widgetFilter: unknown,
+  drillFilter: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  // `FilterCondition` is the spec's object-dialect filter; the drill sinks type
+  // the same value as `Record<string, unknown>`, and this is the one seam where
+  // the two names meet.
+  return parseFilterAST(mergeFilterNodes(widgetFilter, drillFilter)) as
+    | Record<string, unknown>
+    | undefined;
 }

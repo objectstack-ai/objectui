@@ -145,34 +145,62 @@ The `Page` component provides a consistent wrapper for individual pages with opt
 
 ### With Action Buttons
 
+A `page` node has no action row of its own. Buttons are NODES, and they go in `body`:
+
 ```json
 {
   "type": "page",
   "title": "Products",
-  "actions": [
+  "body": [
     {
-      "type": "button",
-      "label": "Add Product",
-      "variant": "default",
-      "icon": "plus"
+      "type": "flex",
+      "justify": "end",
+      "gap": 2,
+      "children": [
+        {
+          "type": "button",
+          "label": "Add Product",
+          "variant": "default",
+          "icon": "plus"
+        },
+        {
+          "type": "button",
+          "label": "Export",
+          "variant": "outline",
+          "icon": "download"
+        }
+      ]
     },
     {
-      "type": "button", 
-      "label": "Export",
-      "variant": "outline",
-      "icon": "download"
+      "type": "object-grid",
+      "object": "products"
     }
-  ],
-  "body": {
-    "type": "object-grid",
-    "object": "products"
-  }
+  ]
 }
 ```
 
 `label` is the button's text key — `text` is not a `ButtonSchema` key, and because
 `BaseSchema` is `.passthrough()` nothing refuses it: the validator keeps the unknown key
 and `button.tsx`, which reads `schema.label`, renders a button with no text.
+
+> **⛔ `actions` on a `page` node is refused by name** (objectui#7926). This page used to
+> teach `"actions": [ … ]` as a sibling of `title`, and it drew **nothing**: `PageRenderer`
+> has never had a read point for the key, and `BaseSchema`'s `.passthrough()` kept the array
+> rather than refusing it — so the author got a green validation and an empty page (before
+> objectui#7933 it also reached the DOM as `actions="[object Object]"`). `PageNodeSchema`
+> now declares the key as a refusal, so the same document fails with the remedy in the
+> message instead of rendering silently short. Buttons in `body`, as above; on a record page,
+> the `page:header` block's own `actions` — which are **action ids**, not nodes
+> (see the [PageHeader reference](/docs/layout/page-header)).
+
+> **⛔ `breadcrumbs` on a `page` node is refused by name** (objectui#8871). This page used
+> to declare it in the Schema API block below and author it in two passages, and it drew
+> **nothing**: no renderer has ever read the key, and `BaseSchema`'s `.passthrough()` kept
+> the array rather than refusing it — the same silent-accept shape as `actions`, retired
+> under the same ADR-0049 enforce-or-remove gate. The trail is a **node**, not a key: put
+> a `breadcrumb` node in `body`, as [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation)
+> shows. ⛔ Not the `page:header` block's `breadcrumb` either — that one is singular and a
+> **boolean** display toggle, not a list of links.
 
 ### Schema API
 
@@ -185,12 +213,9 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
   title?: string,               // Page title
   description?: string,         // Page description/subtitle
   icon?: string,               // Optional icon
-  breadcrumbs?: Array<{        // Breadcrumb navigation
-    label: string,
-    href?: string
-  }>,
-  actions?: SchemaNode[],      // Action buttons
-  
+  // NO `actions` — refused by name (objectui#7926); put the buttons in `body`
+  // NO `breadcrumbs` — refused by name (objectui#8871); put a `breadcrumb` node in `body`
+
   // Content
   body: SchemaNode,            // Main page content
   
@@ -509,39 +534,52 @@ Omit `sidebar` and the content fills the width under the top bar.
 
 ### Detail Page with Actions
 
+Same rule as above, and it governs the trail too: the breadcrumb and the buttons are both
+**nodes in `body`** — never a `breadcrumbs` or an `actions` key on the page.
+
 ```json
 {
   "type": "page",
   "title": "Acme Corporation",
-  "breadcrumbs": [
-    { "label": "Home", "href": "/" },
-    { "label": "Customers", "href": "/customers" },
-    { "label": "Acme Corporation" }
-  ],
-  "actions": [
+  "body": [
     {
-      "type": "action:button",
-      "name": "edit_record",
-      "label": "Edit",
-      "variant": "default",
-      "icon": "pencil",
-      "actionType": "editRecord"
+      "type": "breadcrumb",
+      "items": [
+        { "label": "Home", "href": "/" },
+        { "label": "Customers", "href": "/customers" },
+        { "label": "Acme Corporation" }
+      ]
     },
     {
-      "type": "action:button",
-      "name": "delete_record",
-      "label": "Delete",
-      "variant": "destructive",
-      "icon": "trash",
-      "actionType": "deleteRecord"
+      "type": "flex",
+      "justify": "end",
+      "gap": 2,
+      "children": [
+        {
+          "type": "action:button",
+          "name": "edit_record",
+          "label": "Edit",
+          "variant": "default",
+          "icon": "pencil",
+          "actionType": "editRecord"
+        },
+        {
+          "type": "action:button",
+          "name": "delete_record",
+          "label": "Delete",
+          "variant": "destructive",
+          "icon": "trash",
+          "actionType": "deleteRecord"
+        }
+      ]
+    },
+    {
+      "type": "card",
+      "children": [
+        { "type": "text", "content": "Record details..." }
+      ]
     }
-  ],
-  "body": {
-    "type": "card",
-    "children": [
-      { "type": "text", "content": "Record details..." }
-    ]
-  }
+  ]
 }
 ```
 
@@ -647,32 +685,56 @@ Compose the shell once and let the page JSON change per route:
 
 ### 2. Breadcrumbs for Deep Navigation
 
-Add breadcrumbs to help users navigate:
+Add a breadcrumb trail to help users navigate. It is a **node in `body`**, not a key on the
+page — `breadcrumb`, singular, is the registered renderer:
 
 ```json
 {
-  "breadcrumbs": [
+  "type": "breadcrumb",
+  "items": [
     { "label": "Home", "href": "/" },
     { "label": "Products", "href": "/products" },
     { "label": "Electronics", "href": "/products/electronics" },
     { "label": "Laptops" }
-  ]
+  ],
+  "separator": "/",
+  "maxItems": 3
 }
 ```
 
-### 3. Action Buttons in Headers
+`separator` defaults to `/`, and `maxItems` collapses the middle of a long trail behind an
+ellipsis while keeping the first crumb and the current page. See the
+[Breadcrumb reference](/docs/components/data-display/breadcrumb) for the per-key face.
 
-Place primary actions in page headers:
+⛔ Not `"breadcrumbs"` on the `page` node — that key has no reader and is refused by name
+(objectui#8871), the same way `actions` is. ⛔ Nor the `page:header` block's `breadcrumb`,
+which is a **boolean** display toggle rather than a list of links.
+
+### 3. Action Buttons at the Top of the Body
+
+Place primary actions in the first `body` node, so they sit above the content:
 
 ```json
 {
   "type": "page",
   "title": "Orders",
-  "actions": [
-    { "type": "button", "label": "New Order", "variant": "default" }
+  "body": [
+    {
+      "type": "flex",
+      "justify": "end",
+      "gap": 2,
+      "children": [
+        { "type": "button", "label": "New Order", "variant": "default" }
+      ]
+    }
   ]
 }
 ```
+
+⛔ Not `"actions"` on the `page` node — that key has no reader and is refused by name
+(objectui#7926). A record page has a second door: the `page:header` block, whose `actions`
+are **action ids** resolved from the object's own actions metadata, not nodes
+(see the [PageHeader reference](/docs/layout/page-header)).
 
 ### 4. Max Width for Forms
 

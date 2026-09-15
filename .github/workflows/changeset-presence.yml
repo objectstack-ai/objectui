@@ -124,3 +124,45 @@ jobs:
       # and the one the platform's `bump-objectui.sh` writes a changeset for.
       - name: Verify a changeset declares this change
         run: node scripts/check-changeset-presence.mjs
+
+  # A SECOND job rather than a step in `changeset-presence`, for two reasons.
+  # It answers the OPPOSITE question — `changeset-presence` asks whether THIS
+  # change declares one, this one asks whether SOMEBODY ELSE'S pending
+  # declaration still describes the tree — and it is report-only, so a finding
+  # must never turn the declaration gate's context red.
+  #
+  # Why it lives in THIS workflow and not in `changeset-guard.yml` with the
+  # other two changeset gates: that workflow carries a `paths:` filter. For the
+  # overwrite gate the filter is free, because a change that modifies a
+  # changeset touches `.changeset/**` by definition. This gate's subject is the
+  # opposite — an ordinary source change that falsifies somebody else's pending
+  # claim — and nothing obliges it to touch `.changeset/**` at all. This
+  # workflow has no path filter, which is exactly what that needs; its absence
+  # is pinned in `scripts/__tests__/check-changeset-claims.test.ts`.
+  changeset-claims:
+    name: Changeset Claim Re-read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # Same requirement, same reason, as the job above: the gate compares
+          # this change against its MERGE BASE, and an unresolvable base is a
+          # hard failure in the script rather than a skip.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+
+      # REPORT-ONLY, with no enforcing switch at all, deliberately: "a pending
+      # changeset names a file you edited" is usually still TRUE, and a gate
+      # that failed a build on prose being adjacent is the one triage said
+      # would be turned off within a month. It reads a tree listing and one
+      # batched blob read — measured at ~1.1s against the 1,384 changesets
+      # pending when it was written — so it needs no install and no build.
+      - name: Report pending changesets this change may have falsified
+        run: node scripts/check-changeset-claims.mjs

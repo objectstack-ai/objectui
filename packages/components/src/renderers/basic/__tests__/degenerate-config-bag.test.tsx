@@ -72,6 +72,11 @@ import { readProps } from '../readProps';
 // Registers every `element:*` renderer at module scope, not in a hook
 // (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../../../renderers';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 afterEach(cleanup);
 
@@ -218,7 +223,7 @@ describe('objectui#6783 — one reader, and the pin that keeps it one', () => {
    * would train the next author to stop writing the explanation.
    */
   const stripComments = (source: string) =>
-    source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/[^\n]*/g, '$1');
+    mask(source);
 
   it('no module under renderers/basic reads a config bag with its own `?? {}` fallback', () => {
     const found: string[] = [];

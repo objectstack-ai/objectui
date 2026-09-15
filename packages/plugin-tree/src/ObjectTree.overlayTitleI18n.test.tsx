@@ -54,7 +54,11 @@
  */
 
 import React from 'react';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  assertNoOtherNetworkEscape,
+  installRecordSecurityExplainDouble,
+} from '@object-ui/test-support';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { I18nProvider } from '@object-ui/i18n';
@@ -91,7 +95,27 @@ async function openOverlay() {
   await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
 }
 
-afterEach(() => cleanup());
+/**
+ * objectui#9299 — this renderer's record overlay mounts the shared
+ * `RecordDetailPanel` now, and its `DetailView` asks
+ * `POST /api/v1/security/explain` whether the record may be updated and
+ * deleted. With no host `apiFetch` that call degrades to the global `fetch`,
+ * which under happy-dom is a real HTTP client — so it is served from a double
+ * rather than from the network. Nothing below reads the verdict: the double is
+ * permissive and `useRecordEditable` fails open, so no assertion here moves.
+ */
+beforeEach(() => installRecordSecurityExplainDouble(vi));
+afterEach(() => {
+  // A request to any OTHER endpoint reds here rather than vanishing into
+  // `useRecordEditable`'s best-effort `catch`.
+  assertNoOtherNetworkEscape(expect);
+  // Unmount BEFORE restoring the real `fetch`: vitest runs `afterEach` hooks in
+  // reverse registration order, so this one runs before the root setup's RTL
+  // cleanup, and unstubbing first would leave the tree mounted with the real
+  // global back in place (objectui#7439).
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe('ObjectTree record-detail overlay heading (objectui#3459)', () => {
   it('renders the singular English heading under an en session', async () => {

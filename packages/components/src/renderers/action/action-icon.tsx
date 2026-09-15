@@ -41,6 +41,12 @@ export interface ActionIconProps {
   schema: UIActionSchema & { type: string; className?: string; actionType?: string };
   className?: string;
   context?: Record<string, any>;
+  /**
+   * The host-EVALUATED enablement verdict — see `ActionButtonProps` for the
+   * mechanism (objectui#9131). Declared rather than left to the index
+   * signature, consumed by name below, never re-spread onto the DOM.
+   */
+  disabled?: boolean;
   [key: string]: any;
 }
 
@@ -67,6 +73,16 @@ const ActionIconRenderer = forwardRef<
       // `record.` root), and it must not reach `...rest`, which is spread onto
       // the DOM button.
       data,
+      // The host's EVALUATED verdict, taken by name — same repair, same
+      // mechanism, same card as `action:button` (objectui#9131; the sanctioned
+      // fix is objectui#7238's on `ui:button` / `form`). `SchemaRenderer`
+      // forwards `disabled: __disabled || undefined` with the key
+      // unconditional, `toFormControlDomProps` forwards `disabled` by design,
+      // and `pickDomProps` iterates `Object.keys` — so spread after the
+      // computed value, a PRESENT `undefined` re-declared it and this
+      // renderer's verdict never reached the DOM. Taking it off `rest` removes
+      // that second writer; the gate below consumes it instead.
+      disabled: hostDisabled,
       ...rest
     } = props;
 
@@ -79,8 +95,9 @@ const ActionIconRenderer = forwardRef<
     const isVisible = useCondition(toPredicateInput(schema.visible), recordData);
     // Spec `disabled` (boolean | CEL — disabled when TRUE) primary, legacy
     // non-spec `enabled` fallback (#1885 follow-through — only action-button
-    // was wired; this renderer ignored a spec-authored `disabled`).
-    const isDisabledPred = useCondition(toPredicateInput((schema as any).disabled), recordData);
+    // was wired; this renderer ignored a spec-authored `disabled`). Uncast
+    // since objectui#8648 — see `action-button.tsx` for the reading.
+    const isDisabledPred = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
 
     const Icon = resolveIcon(schema.icon);
@@ -136,8 +153,11 @@ const ActionIconRenderer = forwardRef<
           toast: schema.toast,
           // See action-button.tsx — the one-shot reveal spec (2FA setup, fresh
           // OAuth secret). Without it the runner falls back to the success
-          // toast and the value the user was meant to copy is gone.
-          resultDialog: (schema as any).resultDialog,
+          // toast and the value the user was meant to copy is gone. The READ is
+          // uncast since objectui#8648; the write-side assertion is the same
+          // ledgered `ResultDialogSpec` drift `action-button.tsx` documents
+          // (filed as objectui#9542). ⛔ Never widen it back to `as any`.
+          resultDialog: schema.resultDialog as ActionDef['resultDialog'],
           // See action-button.tsx — the declared post-success hop
           // (objectui#5493). The runner reads it off the forwarded def; dropped
           // here the action succeeds and the authored navigation never runs.
@@ -179,8 +199,12 @@ const ActionIconRenderer = forwardRef<
         // behaviour-preserving (derivation table in
         // `__tests__/action-disabled-declared-gate.test.tsx`) and leaves one
         // spelling of "declared" on both legs.
-        disabled={(
-          hasDeclaredVisibilityGate((schema as any).disabled)
+        //
+        // `hostDisabled` leads the OR (objectui#9131): the host verdict is a
+        // reason to disable, never a reason to enable — `SchemaRenderer` emits
+        // `true` or `undefined`, never `false`. See `action:button`.
+        disabled={hostDisabled || (
+          hasDeclaredVisibilityGate(schema.disabled)
             ? isDisabledPred
             : hasDeclaredVisibilityGate(schema.enabled)
               ? !isEnabled

@@ -129,7 +129,50 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **41 entries** in `KnownDrift`, **64 keys** across them — 41 / 63 until
+ *   - **41 entries** in `KnownDrift`, **72 keys** across them — 41 / 65 until
+ *     objectui#7804's `DataTableSchema` slice DECLARED seven handler keys on
+ *     `data-display.zod.ts#DataTableSchema`, an existing entry (so the entry
+ *     count did not move). ⭐ The largest single move this ledger has taken, and
+ *     the first that is a pure TRANSFER: all seven came out of
+ *     `RuntimeOnlyDeclared`'s entry for the same pair, so this ledger's key
+ *     total and that one's move by the same seven in opposite directions — read
+ *     the two bullets together or the arithmetic looks like growth from nowhere.
+ *     The keys were declared on the TypeScript face and nowhere else while
+ *     `renderers/complex/data-table.tsx` read and RAN each one; declaring the
+ *     mirror's named refusal beside the callable twin is what turns a
+ *     passthrough accept into a refusal BY NAME. It was 41 / 63 until
+ *     objectui#7804's `plugin-detail` slice (batch #69) DECLARED `onNavigate`
+ *     and `onAddComment` on `crud.zod.ts#DetailSchema`, an existing entry (so
+ *     the entry count did not move). ⭐ The first keys this ledger has gained
+ *     from a pair that declared them on NEITHER face: the TypeScript side typed
+ *     them `any` through `BaseSchema`'s index signature and the mirror kept
+ *     them through `.passthrough()`, while the registered renderer read and RAN
+ *     them — so the pair was not "in parity", it was mutually silent, and
+ *     declaring the callable twin against the mirror's named refusal is what
+ *     makes the drift visible. Growth by REPAIR, in a ledger whose entries
+ *     usually shrink by it. ⚠️ Two slices of objectui#7804 land in this bullet
+ *     back to back and both are real, and neither is a copy-paste of the other:
+ *     the `plugin-detail` one here, the `plugin-kanban` one directly below.
+ *     It was 40 / 61 until
+ *     objectui#7804's `plugin-kanban` slice DECLARED
+ *     `objectql.zod.ts#ObjectKanbanSchema`'s
+ *     `onCardClick` and `onQuickAdd` (director seat, decision batch #69), a new
+ *     entry carrying TWO of the three keys the retirement below stranded on the
+ *     surviving face. ⭐ The first entry this ledger has gained from an arm
+ *     RETIREMENT leaving reads behind on a sibling: the keys did not move and
+ *     no face drifted — the face that used to declare them stopped existing,
+ *     and a different one picked up the obligation. ⚠️ TWO of the three, not
+ *     three: `onCardMove` is measured `'retired'` on this face and
+ *     `check:handler-key-reads` refuses that spelling while the renderer still
+ *     reads the key, so neither face declares it and it is not drift at all.
+ *     It was 40 / 61 until then, because
+ *     objectui#8802 RETIRED the bare `kanban` node type key (maintainer ruling
+ *     2026-09-09) and the `complex.zod.ts#KanbanSchema` pair with it, taking that
+ *     entry's three RUNTIME SLOT keys (`onCardMove` / `onCardClick` /
+ *     `onQuickAdd`) out of the ledger — ⭐ the first entry this ledger has lost by
+ *     retiring a whole ARM rather than a key: the pair's TYPE LITERAL went, so a
+ *     `{ "type": "kanban" }` document is refused before any member is compared.
+ *     It was 41 / 64 until then, and 41 / 63 until
  *     objectui#8344 added `component` to `complex.zod.ts#DashboardWidgetSchema`, an
  *     existing entry (so the entry count did not move). 42 / 64 until
  *     objectui#8338 RETIRED the `feedback.zod.ts#ToastSchema` key on BOTH faces
@@ -226,7 +269,15 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **7 entries** in `RuntimeOnlyDeclared`, **24 keys** across them.
+ *   - **7 entries** in `RuntimeOnlyDeclared`, **17 keys** across them — 7 / 24
+ *     until objectui#7804's `DataTableSchema` slice took seven keys out of
+ *     `data-display.zod.ts#DataTableSchema` and into `KnownDrift` above, the
+ *     mirror having declared each as a named refusal. The entry SURVIVES with
+ *     five keys, so the entry count did not move; ⚠️ this ledger shrinking while
+ *     `KnownDrift` grows by the same seven is ONE move seen from both sides, not
+ *     two. ⭐ The direction is the one this ledger is meant to drain in: a
+ *     runtime-only key leaves by being declared on the mirror, never by being
+ *     quietly refiled.
  *     **6 of the 7** are a subset of the **14** pairs above; `TreeViewSchema` is
  *     NOT — it is the first pair whose ONLY ledger entry is a runtime-only one
  *     (objectui#6150 declared `onNodeClick` on an otherwise clean pair), which is why
@@ -239,8 +290,8 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **22 entries** in `WiderThanDeclared`, **35 keys** across them, and **45 arms**
- *     under those keys — split **6** SCHEMA-NODE, **29** CONCRETE, **0** MIXED, **10** unions.
+ *   - **20 entries** in `WiderThanDeclared`, **30 keys** across them, and **37 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **25** CONCRETE, **0** MIXED, **7** unions.
  *     ⭐ objectui#8517 taught the operator to tell an OPEN record — `z.record(z.string(), V)`
  *     — from a partial record over a finite key union, and NOT ONE figure on this line moved
  *     with it. ⛔ Do not read that as the clause measuring nothing. It was built on two live
@@ -392,13 +443,13 @@ import type { z } from 'zod';
 
 import { AppActionSchema, AppComponentSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
 import { BaseSchema, ComponentConfigSchema, ComponentInputSchema, ComponentMetaSchema, KeyedI18nLabelSchema, SchemaNodeSchema } from '../zod/base.zod.js';
-import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, KanbanSchema, CardTemplateSchema, ColumnWidthConfigSchema, FilterBuilderConditionSchema, FilterGroupSchema } from '../zod/complex.zod.js';
+import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, ColumnWidthConfigSchema, FilterBuilderConditionSchema, FilterGroupSchema } from '../zod/complex.zod.js';
 import { ActionSchema, CRUDDialogSchema, DetailSchema } from '../zod/crud.zod.js';
 import { AlertSchema, AvatarSchema, BadgeSchema, BarChartSchema, ChartDataSeriesSchema, ChartSchema, DataTableSchema, DrillDownConfigSchema, HtmlSchema, KbdSchema, ListItemSchema, ListSchema, MarkdownSchema, StaticTableColumnSchema, StatisticSchema, TableColumnSchema, TableSchema, TimelineEventSchema, TimelineSchema, TreeNodeSchema, TreeViewSchema } from '../zod/data-display.zod.js';
 import { AccordionItemSchema, AccordionSchema, CollapsibleSchema, ToggleGroupItemSchema, ToggleGroupSchema } from '../zod/disclosure.zod.js';
 import { EmptySchema, LoadingSchema, ProgressSchema, SkeletonSchema, SonnerSchema, SpinnerSchema, ToasterSchema, ToastSchema } from '../zod/feedback.zod.js';
-import { ButtonSchema, CalendarSchema, CheckboxSchema, CodeEditorSchema, ComboboxOptionSchema, ComboboxSchema, CommandGroupSchema, CommandItemSchema, CommandSchema, DatePickerSchema, FieldConditionSchema, FieldConstraintsSchema, FileUploadSchema, FormFieldSchema, FormSchema, InputOTPSchema, InputSchema, LabelSchema, RadioGroupSchema, RadioOptionSchema, SelectOptionSchema, SelectSchema, SliderSchema, SwitchSchema, TextareaSchema, ToggleSchema } from '../zod/form.zod.js';
-import { AspectRatioSchema, BoxSchema, CardSchema, ContainerSchema, DivSchema, FlexSchema, GridSchema, IconSchema, ImageSchema, PageNodeRegionSchema, PageNodeSchema, ResizablePanelSchema, ResizableSchema, ScrollAreaSchema, SeparatorSchema, StackSchema, TabItemSchema, TabsSchema, TextSchema, TextSpanSchema } from '../zod/layout.zod.js';
+import { ButtonSchema, CalendarSchema, CheckboxSchema, CodeEditorSchema, ComboboxOptionSchema, ComboboxSchema, CommandGroupSchema, CommandItemSchema, CommandSchema, DatePickerSchema, FieldConditionSchema, FieldConstraintsSchema, FileUploadSchema, FormFieldSchema, FormSchema, InputOTPSchema, InputSchema, InputShorthandSchema, LabelSchema, RadioGroupSchema, RadioOptionSchema, SelectOptionSchema, SelectSchema, SliderSchema, SwitchSchema, TextareaSchema, ToggleSchema, UiCalendarSchema } from '../zod/form.zod.js';
+import { AspectRatioSchema, BoxSchema, CardSchema, ContainerSchema, DivSchema, FlexSchema, GridSchema, HtmlElementSchema, IconSchema, ImageSchema, PageNodeRegionSchema, SemanticElementSchema, PageNodeSchema, ResizablePanelSchema, ResizableSchema, ScrollAreaSchema, SeparatorSchema, StackSchema, TabItemSchema, TabsSchema, TextSchema, TextSpanSchema } from '../zod/layout.zod.js';
 import { BreadcrumbItemSchema, BreadcrumbSchema, ButtonGroupButtonSchema, ButtonGroupSchema, HeaderBarSchema, NavigationMenuItemSchema, NavigationMenuSchema, NavLinkSchema, PaginationSchema, SidebarSchema } from '../zod/navigation.zod.js';
 import { ObjectCalendarSchema, ObjectChartSchema, ObjectDataTableSchema, ObjectFormSchema, ObjectGallerySchema, ObjectGanttSchema, ObjectGridSchema, ObjectKanbanSchema, ObjectMapConfigSchema, ObjectMapSchema, ObjectTreeSchema, ObjectViewSchema, SortConfigSchema } from '../zod/objectql.zod.js';
 import { AlertDialogSchema, ContextMenuSchema, DialogSchema, DrawerSchema, DropdownMenuSchema, HoverCardSchema, MenubarMenuSchema, MenubarSchema, MenuItemSchema as OverlayMenuItemSchema, PopoverSchema, SheetSchema, TooltipSchema } from '../zod/overlay.zod.js';
@@ -407,14 +458,14 @@ import { DetailViewFieldSchema, DetailViewSchema, DetailViewSectionSchema, Detai
 
 import type { AppAction as Ts_AppAction, AppComponentSchema as Ts_AppComponentSchema, NavigationArea as Ts_NavigationArea } from '../app';
 import type { BaseSchema as Ts_BaseSchema, ComponentConfig as Ts_ComponentConfig, ComponentInput as Ts_ComponentInput, ComponentMeta as Ts_ComponentMeta, KeyedI18nLabel as Ts_KeyedI18nLabel } from '../base';
-import type { CalendarEvent as Ts_CalendarEvent, CalendarViewSchema as Ts_CalendarViewSchema, CarouselItem as Ts_CarouselItem, CarouselSchema as Ts_CarouselSchema, ChatbotSchema as Ts_ChatbotSchema, ChatbotEnhancedSchema as Ts_ChatbotEnhancedSchema, ChatbotFloatingSchema as Ts_ChatbotFloatingSchema, ChatMessage as Ts_ChatMessage, ChatMessageSource as Ts_ChatMessageSource, ChatToolInvocation as Ts_ChatToolInvocation, DashboardComponentSchema as Ts_DashboardComponentSchema, DashboardWidgetLayout as Ts_DashboardWidgetLayout, DashboardWidgetSchema as Ts_DashboardWidgetSchema, FilterBuilderSchema as Ts_FilterBuilderSchema, FilterField as Ts_FilterField, KanbanCard as Ts_KanbanCard, KanbanColumn as Ts_KanbanColumn, KanbanSchema as Ts_KanbanSchema, CardTemplate as Ts_CardTemplate, ColumnWidthConfig as Ts_ColumnWidthConfig } from '../complex';
+import type { CalendarEvent as Ts_CalendarEvent, CalendarViewSchema as Ts_CalendarViewSchema, CarouselItem as Ts_CarouselItem, CarouselSchema as Ts_CarouselSchema, ChatbotSchema as Ts_ChatbotSchema, ChatbotEnhancedSchema as Ts_ChatbotEnhancedSchema, ChatbotFloatingSchema as Ts_ChatbotFloatingSchema, ChatMessage as Ts_ChatMessage, ChatMessageSource as Ts_ChatMessageSource, ChatToolInvocation as Ts_ChatToolInvocation, DashboardComponentSchema as Ts_DashboardComponentSchema, DashboardWidgetLayout as Ts_DashboardWidgetLayout, DashboardWidgetSchema as Ts_DashboardWidgetSchema, FilterBuilderSchema as Ts_FilterBuilderSchema, FilterField as Ts_FilterField, KanbanCard as Ts_KanbanCard, KanbanColumn as Ts_KanbanColumn, CardTemplate as Ts_CardTemplate, ColumnWidthConfig as Ts_ColumnWidthConfig } from '../complex';
 import type { DashboardConfig as Ts_DashboardConfig, DashboardWidgetConfig as Ts_DashboardWidgetConfig } from '../designer';
 import type { CRUDDialogSchema as Ts_CRUDDialogSchema, DetailSchema as Ts_DetailSchema } from '../crud';
 import type { AlertSchema as Ts_AlertSchema, AvatarSchema as Ts_AvatarSchema, BadgeSchema as Ts_BadgeSchema, BarChartSchema as Ts_BarChartSchema, ChartDataSeries as Ts_ChartDataSeries, ChartSchema as Ts_ChartSchema, DataTableSchema as Ts_DataTableSchema, DrillDownConfig as Ts_DrillDownConfig, HtmlSchema as Ts_HtmlSchema, KbdSchema as Ts_KbdSchema, ListItem as Ts_ListItem, ListSchema as Ts_ListSchema, MarkdownSchema as Ts_MarkdownSchema, StaticTableColumn as Ts_StaticTableColumn, StatisticSchema as Ts_StatisticSchema, TableColumn as Ts_TableColumn, TableSchema as Ts_TableSchema, TimelineEvent as Ts_TimelineEvent, TimelineSchema as Ts_TimelineSchema, TreeViewSchema as Ts_TreeViewSchema, BreadcrumbItem as Ts_BreadcrumbItem, BreadcrumbSchema as Ts_BreadcrumbSchema } from '../data-display';
 import type { AccordionItem as Ts_AccordionItem, AccordionSchema as Ts_AccordionSchema, CollapsibleSchema as Ts_CollapsibleSchema, ToggleGroupItem as Ts_ToggleGroupItem, ToggleGroupSchema as Ts_ToggleGroupSchema } from '../disclosure';
 import type { EmptySchema as Ts_EmptySchema, LoadingSchema as Ts_LoadingSchema, ProgressSchema as Ts_ProgressSchema, SkeletonSchema as Ts_SkeletonSchema, SonnerSchema as Ts_SonnerSchema, SpinnerSchema as Ts_SpinnerSchema, ToasterSchema as Ts_ToasterSchema, ToastSchema as Ts_ToastSchema } from '../feedback';
-import type { ButtonSchema as Ts_ButtonSchema, CalendarSchema as Ts_CalendarSchema, CheckboxSchema as Ts_CheckboxSchema, CodeEditorSchema as Ts_CodeEditorSchema, ComboboxOption as Ts_ComboboxOption, ComboboxSchema as Ts_ComboboxSchema, CommandGroup as Ts_CommandGroup, CommandItem as Ts_CommandItem, CommandSchema as Ts_CommandSchema, DatePickerSchema as Ts_DatePickerSchema, FieldCondition as Ts_FieldCondition, FieldValidationRules as Ts_FieldValidationRules, FileUploadSchema as Ts_FileUploadSchema, FormField as Ts_FormField, FormSchema as Ts_FormSchema, InputOTPSchema as Ts_InputOTPSchema, InputSchema as Ts_InputSchema, LabelSchema as Ts_LabelSchema, RadioGroupSchema as Ts_RadioGroupSchema, RadioOption as Ts_RadioOption, SelectOption as Ts_SelectOption, SelectSchema as Ts_SelectSchema, SliderSchema as Ts_SliderSchema, SwitchSchema as Ts_SwitchSchema, TextareaSchema as Ts_TextareaSchema, ToggleSchema as Ts_ToggleSchema } from '../form';
-import type { AspectRatioSchema as Ts_AspectRatioSchema, BoxSchema as Ts_BoxSchema, CardSchema as Ts_CardSchema, ContainerSchema as Ts_ContainerSchema, DivSchema as Ts_DivSchema, FlexSchema as Ts_FlexSchema, GridSchema as Ts_GridSchema, IconSchema as Ts_IconSchema, ImageSchema as Ts_ImageSchema, PageNodeRegion as Ts_PageNodeRegion, PageNodeSchema as Ts_PageNodeSchema, ResizablePanel as Ts_ResizablePanel, ResizableSchema as Ts_ResizableSchema, ScrollAreaSchema as Ts_ScrollAreaSchema, SeparatorSchema as Ts_SeparatorSchema, StackSchema as Ts_StackSchema, TabItem as Ts_TabItem, TabsSchema as Ts_TabsSchema, TextSchema as Ts_TextSchema, TextSpanSchema as Ts_TextSpanSchema } from '../layout';
+import type { ButtonSchema as Ts_ButtonSchema, CalendarSchema as Ts_CalendarSchema, CheckboxSchema as Ts_CheckboxSchema, CodeEditorSchema as Ts_CodeEditorSchema, ComboboxOption as Ts_ComboboxOption, ComboboxSchema as Ts_ComboboxSchema, CommandGroup as Ts_CommandGroup, CommandItem as Ts_CommandItem, CommandSchema as Ts_CommandSchema, DatePickerSchema as Ts_DatePickerSchema, FieldCondition as Ts_FieldCondition, FieldValidationRules as Ts_FieldValidationRules, FileUploadSchema as Ts_FileUploadSchema, FormField as Ts_FormField, FormSchema as Ts_FormSchema, InputOTPSchema as Ts_InputOTPSchema, InputSchema as Ts_InputSchema, InputShorthandSchema as Ts_InputShorthandSchema, UiCalendarSchema as Ts_UiCalendarSchema, LabelSchema as Ts_LabelSchema, RadioGroupSchema as Ts_RadioGroupSchema, RadioOption as Ts_RadioOption, SelectOption as Ts_SelectOption, SelectSchema as Ts_SelectSchema, SliderSchema as Ts_SliderSchema, SwitchSchema as Ts_SwitchSchema, TextareaSchema as Ts_TextareaSchema, ToggleSchema as Ts_ToggleSchema } from '../form';
+import type { AspectRatioSchema as Ts_AspectRatioSchema, BoxSchema as Ts_BoxSchema, CardSchema as Ts_CardSchema, ContainerSchema as Ts_ContainerSchema, DivSchema as Ts_DivSchema, FlexSchema as Ts_FlexSchema, GridSchema as Ts_GridSchema, HtmlElementSchema as Ts_HtmlElementSchema, IconSchema as Ts_IconSchema, ImageSchema as Ts_ImageSchema, SemanticElementSchema as Ts_SemanticElementSchema, PageNodeRegion as Ts_PageNodeRegion, PageNodeSchema as Ts_PageNodeSchema, ResizablePanel as Ts_ResizablePanel, ResizableSchema as Ts_ResizableSchema, ScrollAreaSchema as Ts_ScrollAreaSchema, SeparatorSchema as Ts_SeparatorSchema, StackSchema as Ts_StackSchema, TabItem as Ts_TabItem, TabsSchema as Ts_TabsSchema, TextSchema as Ts_TextSchema, TextSpanSchema as Ts_TextSpanSchema } from '../layout';
 import type { ButtonGroupButton as Ts_ButtonGroupButton, ButtonGroupSchema as Ts_ButtonGroupSchema, HeaderBarSchema as Ts_HeaderBarSchema, NavigationMenuSchema as Ts_NavigationMenuSchema, PaginationSchema as Ts_PaginationSchema, SidebarSchema as Ts_SidebarSchema } from '../navigation';
 import type { ObjectCalendarSchema as Ts_ObjectCalendarSchema, ObjectChartSchema as Ts_ObjectChartSchema, ObjectDataTableSchema as Ts_ObjectDataTableSchema, ObjectFormSchema as Ts_ObjectFormSchema, ObjectGallerySchema as Ts_ObjectGallerySchema, ObjectGanttSchema as Ts_ObjectGanttSchema, ObjectGridSchema as Ts_ObjectGridSchema, ObjectKanbanSchema as Ts_ObjectKanbanSchema, ObjectMapConfig as Ts_ObjectMapConfig, ObjectMapSchema as Ts_ObjectMapSchema, ObjectTreeSchema as Ts_ObjectTreeSchema, ObjectViewSchema as Ts_ObjectViewSchema, SortConfig as Ts_SortConfig } from '../objectql';
 import type { AlertDialogSchema as Ts_AlertDialogSchema, ContextMenuSchema as Ts_ContextMenuSchema, DialogSchema as Ts_DialogSchema, DrawerSchema as Ts_DrawerSchema, DropdownMenuSchema as Ts_DropdownMenuSchema, HoverCardSchema as Ts_HoverCardSchema, MenubarMenu as Ts_MenubarMenu, MenubarSchema as Ts_MenubarSchema, PopoverSchema as Ts_PopoverSchema, SheetSchema as Ts_SheetSchema, TooltipSchema as Ts_TooltipSchema } from '../overlay';
@@ -1086,7 +1137,6 @@ const MIRRORS = {
   'complex.zod.ts#FilterFieldSchema': FilterFieldSchema,
   'complex.zod.ts#KanbanCardSchema': KanbanCardSchema,
   'complex.zod.ts#KanbanColumnSchema': KanbanColumnSchema,
-  'complex.zod.ts#KanbanSchema': KanbanSchema,
   'complex.zod.ts#CardTemplateSchema': CardTemplateSchema,
   'complex.zod.ts#ColumnWidthConfigSchema': ColumnWidthConfigSchema,
   'crud.zod.ts#CRUDDialogSchema': CRUDDialogSchema,
@@ -1141,6 +1191,8 @@ const MIRRORS = {
   'form.zod.ts#FormSchema': FormSchema,
   'form.zod.ts#InputOTPSchema': InputOTPSchema,
   'form.zod.ts#InputSchema': InputSchema,
+  'form.zod.ts#InputShorthandSchema': InputShorthandSchema,
+  'form.zod.ts#UiCalendarSchema': UiCalendarSchema,
   'form.zod.ts#LabelSchema': LabelSchema,
   'form.zod.ts#RadioGroupSchema': RadioGroupSchema,
   'form.zod.ts#RadioOptionSchema': RadioOptionSchema,
@@ -1155,6 +1207,8 @@ const MIRRORS = {
   'layout.zod.ts#CardSchema': CardSchema,
   'layout.zod.ts#ContainerSchema': ContainerSchema,
   'layout.zod.ts#DivSchema': DivSchema,
+  'layout.zod.ts#HtmlElementSchema': HtmlElementSchema,
+  'layout.zod.ts#SemanticElementSchema': SemanticElementSchema,
   'layout.zod.ts#FlexSchema': FlexSchema,
   'layout.zod.ts#GridSchema': GridSchema,
   'layout.zod.ts#IconSchema': IconSchema,
@@ -1248,7 +1302,6 @@ interface Declared {
   'complex.zod.ts#FilterFieldSchema': Ts_FilterField;
   'complex.zod.ts#KanbanCardSchema': Ts_KanbanCard;
   'complex.zod.ts#KanbanColumnSchema': Ts_KanbanColumn;
-  'complex.zod.ts#KanbanSchema': Ts_KanbanSchema;
   'complex.zod.ts#CardTemplateSchema': Ts_CardTemplate;
   'complex.zod.ts#ColumnWidthConfigSchema': Ts_ColumnWidthConfig;
   'crud.zod.ts#CRUDDialogSchema': Ts_CRUDDialogSchema;
@@ -1303,6 +1356,8 @@ interface Declared {
   'form.zod.ts#FormSchema': Ts_FormSchema;
   'form.zod.ts#InputOTPSchema': Ts_InputOTPSchema;
   'form.zod.ts#InputSchema': Ts_InputSchema;
+  'form.zod.ts#InputShorthandSchema': Ts_InputShorthandSchema;
+  'form.zod.ts#UiCalendarSchema': Ts_UiCalendarSchema;
   'form.zod.ts#LabelSchema': Ts_LabelSchema;
   'form.zod.ts#RadioGroupSchema': Ts_RadioGroupSchema;
   'form.zod.ts#RadioOptionSchema': Ts_RadioOption;
@@ -1317,6 +1372,8 @@ interface Declared {
   'layout.zod.ts#CardSchema': Ts_CardSchema;
   'layout.zod.ts#ContainerSchema': Ts_ContainerSchema;
   'layout.zod.ts#DivSchema': Ts_DivSchema;
+  'layout.zod.ts#HtmlElementSchema': Ts_HtmlElementSchema;
+  'layout.zod.ts#SemanticElementSchema': Ts_SemanticElementSchema;
   'layout.zod.ts#FlexSchema': Ts_FlexSchema;
   'layout.zod.ts#GridSchema': Ts_GridSchema;
   'layout.zod.ts#IconSchema': Ts_IconSchema;
@@ -1484,38 +1541,38 @@ interface KnownDrift {
   /** DISJOINT vocabularies: TS declares `is_empty`/`is_not_empty`, the mirror declares `is_null`/`is_not_null`. One of the two is dead; which one is a ruling. */
   'complex.zod.ts#FilterFieldSchema': 'operators';
   /**
-   * RUNTIME SLOT (objectui#6124) ×3: `plugin-kanban`'s `KanbanRenderer` forwards
-   * `onCardMove`, `onCardClick` and `onQuickAdd` off `schema.*` into the board,
-   * in one block (`plugin-kanban/src/index.tsx`). Re-keyed by objectui#7664
-   * (ruling (a)): the pair was `DeclarativeKanbanSchema` with `onCardMove` /
-   * `onCardClick` until that face retired, and the plugin dialect this arm now
-   * declares carries all three.
+   * ⛔ `complex.zod.ts#KanbanSchema` LEFT this ledger with its pair: objectui#8802
+   * retired the bare `kanban` node type key (maintainer ruling 2026-09-09) and
+   * both faces of the arm retired with it. The three RUNTIME SLOTS it recorded —
+   * `onCardMove`, `onCardClick`, `onQuickAdd` — are not drifting any more
+   * because there is no pair left to drift; a `{ "type": "kanban" }` document is
+   * refused BY NAME by `RetiredKanbanNodeSchema`, pinned in
+   * `./bare-kanban-node-key-retired-8802.test.ts`.
    *
-   * ⚠️ `onCardClick` is here on measurement, not by inheritance. On the
-   * `'kanban'` / `'object-kanban'` keys `ObjectKanban` substitutes its own
-   * function for it — but it substitutes `onCardMove` in the SAME object
-   * literal, and its substitute CALLS an authored `onCardClick` through the prop
-   * `ObjectKanban` declares for it (`SchemaRenderer` spreads every non-metadata
-   * schema key as a React prop; there is no `onCardMove` prop). The first cut of
-   * objectui#7664 read that substitution as "the object-bound board owns the
-   * click" and dropped the key, which under `.passthrough()` ACCEPTED a document
-   * this arm had refused. Per-registration readings:
-   * `plugin-kanban/src/__tests__/kanban-handler-slots-7664.test.tsx`.
-   *
-   * (`onColumnAdd` / `onCardAdd`, carried over as tombstones, and the retired
-   * declarative `draggable` are NOT here: `?: never` meets the refusal arm and
-   * the pair does not drift on them.) The runtime-computed card members —
-   * `cardFieldCells`, a badge's `colorStyle` — are passed through as `z.any()`
-   * (the `headerIcon` precedent, objectui#6424), so `KanbanCardSchema` and the
-   * `columns` key above it do not drift either.
+   * ⚠️ Recorded rather than repaired AT THE TIME: `KanbanRenderer` forwarded
+   * all three and the SURVIVING `objectql.zod.ts#ObjectKanbanSchema` pair
+   * declared none, so they were read-but-undeclared on the surviving face.
+   * Both halves of that have since landed — objectui#7804 declared the two
+   * live slots, and objectui#9342 moved the `onCardMove` READ to an explicit
+   * React prop and tombstoned the key on both faces.
    */
-  'complex.zod.ts#KanbanSchema': 'onCardMove' | 'onCardClick' | 'onQuickAdd';
   /**
    * RUNTIME SLOT (objectui#7344): `register('detail', DetailView)` — `DetailView`'s
    * `handleBack` calls `onBack()` when set. The mirror was `z.any()` (wider than
    * the declared callable, objectui#7069's direction); it now refuses by name.
+   *
+   * `onNavigate` and `onAddComment` joined with objectui#7804 (batch #69), and
+   * they drift for the SAME reason `onBack` does — a callable twin against a
+   * named refusal — but they reach that state from the opposite side. `onBack`
+   * was declared on both faces and the mirror was too WIDE. These two were
+   * declared on NEITHER: the TypeScript face typed them `any` through
+   * `BaseSchema`'s index signature and the mirror kept them through
+   * `.passthrough()`, while `DetailView` read and ran them. ⇒ this entry
+   * GREW by a repair, which is the direction this ledger's drift entries
+   * normally shrink in; the growth is the declaration arriving, not a
+   * regression.
    */
-  'crud.zod.ts#DetailSchema': 'onBack';
+  'crud.zod.ts#DetailSchema': 'onBack' | 'onNavigate' | 'onAddComment';
   /**
    * `rowActions` was the FIFTH key here until objectui#6940 settled the ruling
    * this entry was explicitly waiting on. It read: DISJOINT — TS declares
@@ -1532,12 +1589,31 @@ interface KnownDrift {
    * `resolveSelectionMode` in `renderers/complex/data-table.tsx` implements
    * `'single'` as a real mode.)
    *
-   * The four callbacks — RUNTIME SLOT (objectui#6124) ×4: `renderers/complex/data-table.tsx`
+   * The eleven callbacks — RUNTIME SLOT (objectui#6124) ×11: `renderers/complex/data-table.tsx`
    * CALLS every one of them off `schema.*` (`schema.onRowEdit?.(r)`,
    * `schema.onSelectionChange(selectedData)`, …), so the TS side keeps them callable
    * and the mirror refuses them by name.
+   *
+   * ⭐ It was FOUR until objectui#7804's `DataTableSchema` slice. The other seven
+   * — `onAddRecord`, `onBatchSave`, `onCellChange`, `onColumnResize`,
+   * `onRowActionDef`, `onRowClick`, `onRowSave` — arrived from
+   * `RuntimeOnlyDeclared` below, where they sat as declared-on-TS-only keys while
+   * the registered renderer read and ran each one and `BaseSchema.passthrough()`
+   * ACCEPTED an authored `{ "action": "toast" }` for any of them.
+   *
+   * ⚠️ The disposition was measured per key, and one of the seven does NOT share
+   * the group's channel: `onColumnResize` has no host prop anywhere — `ObjectGrid`
+   * supplies its own closure and folds the resize into the merged column layout it
+   * persists, while the other six arrive as React props a host hands `ObjectGrid`
+   * or `RelatedList`. Still a live function reaching the renderer through the TS
+   * face, so still a runtime slot; had it been read as `'retired'` off its
+   * siblings, the arm would publish "no renderer reads this key" to every author
+   * who trips it, and objectui#6175 wired that read on purpose.
    */
-  'data-display.zod.ts#DataTableSchema': 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder';
+  'data-display.zod.ts#DataTableSchema':
+    | 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder'
+    | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnResize'
+    | 'onRowActionDef' | 'onRowClick' | 'onRowSave';
   /** RUNTIME SLOT (objectui#6124): the `accordion` renderer spreads leftover props onto the Radix `Accordion` root, where `onValueChange` is a real prop. */
   'disclosure.zod.ts#AccordionSchema': 'onValueChange';
   /** RUNTIME SLOT (objectui#6124): the `collapsible` renderer spreads leftover props onto the Radix `Collapsible` root. */
@@ -1626,6 +1702,37 @@ interface KnownDrift {
    * pre-#6124 state of that file, not a rule for new mirrors.
    */
   'objectql.zod.ts#ObjectDataTableSchema': 'onRowClick';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×2 — the
+   * SECOND handler entry on this mirror, and the first anywhere in this ledger
+   * that was born from an ARM RETIREMENT rather than from a mirror or a
+   * declaration moving. The three keys `KanbanRenderer` forwards off `schema.*`
+   * sat on the `complex.zod.ts#KanbanSchema` entry until objectui#8802 retired
+   * the bare `kanban` node type key; the reads stayed, on the surviving
+   * `object-kanban` face, declared by neither side.
+   *
+   * The two here are declared because their function value REACHES the board on
+   * that face, measured one channel at a time and NOT shared across the prefix
+   * (`plugin-kanban`'s `__tests__/handlerKeyDispositionsMeasured-7804.test.tsx`):
+   * `onQuickAdd` arrives at the board implementation BY IDENTITY through
+   * `ObjectKanban`'s schema spread, and `onCardClick` — substituted on that
+   * spread — arrives instead as the React PROP `ObjectKanbanComponentProps`
+   * declares, which `ObjectKanban`'s own wrapper CALLS.
+   *
+   * ⚠️ The THIRD key, `onCardMove`, is still NOT here, and the reason CHANGED
+   * with objectui#9342 — it is not drift either way. It used to be absent
+   * because NEITHER face declared it (`undefined` meeting `undefined`); since
+   * objectui#9342 BOTH faces declare it as a tombstone — `?: never` on the
+   * TypeScript twin, `handlerKeyRefusal(…, 'retired', …)` on this mirror — and
+   * a matched pair of tombstones is the shape `complex.zod.ts#CarouselSchema`
+   * already carries for `onSlideChange`, which is likewise not in this ledger.
+   * Its `'retired'` reading is objectui#7804's measurement (an authored value
+   * reaches nothing: `ObjectKanban` substitutes its own mover and declares no
+   * `onCardMove` React prop); what was missing was the precondition, and
+   * objectui#9342 supplied it by moving `KanbanRenderer`'s read onto an
+   * explicit React prop so `check:handler-key-reads` would accept a tombstone.
+   */
+  'objectql.zod.ts#ObjectKanbanSchema': 'onCardClick' | 'onQuickAdd';
   /**
    * RUNTIME SLOT (objectui#6124): the `alert-dialog` renderer spreads leftover props
    * onto the Radix `AlertDialog` root (`onOpenChange`). `onAction` joined with
@@ -2057,18 +2164,20 @@ interface UnmirroredDeclared {
    *     `viewTabBar` — zero reads; the tab-bar config is `ViewTabBar`'s `config` PROP
    *     from the host, never a node key.
    * ⚠️ `listViews` STAYS, on the ruling's own fallback clause, with the measurement
-   * that triggered it: the declaration's value is the local `NamedListView`, 47
-   * declared top-level members, six of which the renderer reads — `label`, `type`,
-   * `columns`, `filter`, `sort`, `options`. The renderer reads a seventh key off a
-   * named view, `data`, and it is NOT a declared member: it arrives through an
-   * `as any` cast on the named-view config in `plugin-view/src/ObjectView.tsx`, so
-   * it is outside the 47 this ledger counts. The spec slot `ViewSchema.listViews` is
+   * that triggered it — RE-TAKEN at objectui#8980, which moved both halves of it.
+   * The declaration's value is the local `NamedListView`, now 64 declared
+   * top-level members (47 plus the seventeen the protocol declares on this
+   * surface and objectui did not), 21 of which the renderer reads off a named
+   * view. `data` is one of the 21: it used to arrive through an `as any` cast on
+   * the named-view config in `plugin-view/src/ObjectView.tsx` and be outside the
+   * count, and objectui#8980's ruling declared it, which is objectui#7928's open
+   * half answered. The spec slot `ViewSchema.listViews` is
    * a record of the STRICT `ObjectListViewSchema`, which requires `columns` and
    * refuses `options`, ObjectQL tuple filters and `default` — the named views
    * `plugin-view`'s README and `content/docs/api/schema-reference.md` teach fail it
    * at `columns` / `filter.0` / unrecognized_keys. Mirroring the spec value loses
-   * documented behaviour; mirroring the local value enforces 41 unread members
-   * (47 declared, minus the 6 that are both declared and read) into the contract
+   * documented behaviour; mirroring the local value enforces 43 unread members
+   * (64 declared, minus the 21 that are both declared and read) into the contract
    * (the reason ruling B
    * refused option A for the six local keys). Neither is a mirror edit this ledger can
    * authorise; ⛔ `z.any()` was ruled out by name. The value type is the maintainer's
@@ -2208,7 +2317,17 @@ interface UnmirroredDeclared {
  */
 interface RuntimeOnlyDeclared {
   /**
-   * 12 of `DataTableSchema`'s former 29. OVERSIGHT group — this mirror already
+   * ⭐ 5 of `DataTableSchema`'s former 29, down from 12 with objectui#7804's
+   * `DataTableSchema` slice: `onAddRecord`, `onBatchSave`, `onCellChange`,
+   * `onColumnResize`, `onRowActionDef`, `onRowClick` and `onRowSave` are now
+   * DECLARED on the mirror as named refusals and moved to `KnownDrift` above.
+   * The entry survives because the five below are not that class — four of them
+   * (`onPageChange`, `onPageSizeChange`, `onSearchChange`, `onSortChange`) are
+   * host-driven pagination/sort/search slots the grid forwards, and
+   * `onColumnReorder` is read nowhere at all, which is the open ruling recorded
+   * below. ⛔ Draining the rest of this entry is NOT a follow-on of that slice.
+   *
+   * OVERSIGHT group — this mirror already
    * declares four callbacks. ⚠️ `onColumnReorder` is still read NOWHERE, and
    * deliberately so. objectui#6175 repaired the persistence half this entry used to
    * describe: `onColumnResize` is now invoked by `data-table.tsx` (at the end of a
@@ -2224,8 +2343,8 @@ interface RuntimeOnlyDeclared {
    * and that ruling is still OPEN. Nothing about this entry's membership changed.
    */
   'data-display.zod.ts#DataTableSchema':
-    | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnReorder' | 'onColumnResize'
-    | 'onPageChange' | 'onPageSizeChange' | 'onRowActionDef' | 'onRowClick' | 'onRowSave'
+    | 'onColumnReorder'
+    | 'onPageChange' | 'onPageSizeChange'
     | 'onSearchChange' | 'onSortChange';
   /**
    * 1 of `FormSchema`'s former 9. OVERSIGHT group — `onSubmit`, `onChange` and
@@ -2417,17 +2536,18 @@ export type assertionLedgerHalvesAreDisjoint = Expect< Equal< DoubleFiledKey, ne
  */
 interface WiderThanDeclared {
   /**
-   * CONCRETE `label` + SCHEMA-NODE `areas`. (`actions` left under objectui#7760: its
-   * element is a schema-node slot, and once `SchemaNodeSchema` carried its input face
-   * the key measured clean.)
-
-   * `label` is the INLINE-LOCALE class: `BaseSchema`'s mirror spells the key
-   * `I18nLabelSchema` — a plain string OR an inline locale map — while this
-   * declaration restates `label?: string` and so refuses the map its own mirror
-   * accepts. The narrowing lives on the DECLARED side, which is why the forward
-   * comparison reads the pair as clean.
+   * SCHEMA-NODE `areas`. (`actions` left under objectui#7760: its element is a
+   * schema-node slot, and once `SchemaNodeSchema` carried its input face the key
+   * measured clean.)
+   *
+   * `label` LEFT under objectui#9092, the INLINE-LOCALE class: the mirror spelled
+   * the key `I18nLabelSchema` — a plain string OR an inline locale map — while the
+   * declaration restated `label?: string` and refused the map its own mirror
+   * accepted. The declaration now states `string | I18nLabel`, the form
+   * objectui#4580's revised Q1 ruling (option A) put on `BaseSchema.label`, so the
+   * pair measures clean and this entry would be STALE if it stayed.
    */
-  'app.zod.ts#AppComponentSchema': 'label' | 'areas';
+  'app.zod.ts#AppComponentSchema': 'areas';
   /**
    * CONCRETE, and DISJOINT rather than strictly wider — the pair also carries a
    * `KnownDrift` entry for the same key, one of the measured cases where each face
@@ -2502,12 +2622,21 @@ interface WiderThanDeclared {
    */
   'layout.zod.ts#ContainerSchema': 'maxWidth';
   /**
-   * MIXED: `aria` carries the inline-locale widening one level down; `slots` is
-   * SCHEMA-NODE. (`regions` left under objectui#7760 — its element's content is a
-   * schema-node list, so its reading WAS the annotation. `slots` did not move, so the
-   * unconstrained position on ITS path is not one of the ten consts that card filled.)
+   * SCHEMA-NODE `slots`. (`regions` left under objectui#7760 — its element's content
+   * is a schema-node list, so its reading WAS the annotation. `slots` did not move, so
+   * the unconstrained position on ITS path is not one of the ten consts that card
+   * filled.)
+   *
+   * `aria` LEFT under objectui#9092: it carried the inline-locale widening one level
+   * down, on `ariaLabel`. The mirror receives the spec's own `AriaPropsSchema` BY
+   * REFERENCE through `SpecPageFields` (the spec's `PageSchema` declares `aria` at its
+   * top level), and that schema spells `ariaLabel` as `z.union([z.string(),
+   * InlineLocaleMapSchema])`; the declaration restated the string arm alone. It now
+   * states `string | I18nLabel` — the NESTED slot's vocabulary, not the FLAT
+   * `BaseSchema.ariaLabel`'s KEYED one, which objectui#4580 Q2-B deliberately left
+   * narrow.
    */
-  'layout.zod.ts#PageNodeSchema': 'aria' | 'slots';
+  'layout.zod.ts#PageNodeSchema': 'slots';
   /**
    * CONCRETE. `variant` is DISJOINT — one variant spelling on each side the other
    * refuses; also in `KnownDrift`. `logo` ENTERED under objectui#7760: the mirror is
@@ -2520,14 +2649,6 @@ interface WiderThanDeclared {
    * deep.
    */
   'navigation.zod.ts#HeaderBarSchema': 'logo' | 'variant';
-  /** CONCRETE, INLINE-LOCALE: both keys are `I18nLabelSchema` on the mirror and restated as plain strings on this declaration. */
-  'objectql.zod.ts#ObjectGridSchema': 'label' | 'description';
-  /**
-   * SCHEMA-NODE. (`form` left under objectui#7760; `table` did not. Both are inline
-   * `z.lazy` slots with no exported const — `UNNAMED_LAZY_SLOTS` below records them —
-   * and neither carries an annotation of its own, so what moved is what they REACH.)
-   */
-  'objectql.zod.ts#ObjectViewSchema': 'table';
   /**
    * CONCRETE. ENTERED under objectui#7760, unmeasurable before it: the mirror is
    * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` and the declaration states
@@ -2657,7 +2778,6 @@ type WiderArmClass = 'SCHEMA-NODE' | 'CONCRETE';
 const WIDER_ARM_ROW_SEPARATOR = '::';
 
 const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
-  'app.zod.ts#AppComponentSchema::label': ['CONCRETE', 'CONCRETE'],
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
   'complex.zod.ts#ChatbotSchema::body': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::header': ['CONCRETE'],
@@ -2680,13 +2800,9 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'form.zod.ts#SliderSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
   'form.zod.ts#SliderSchema::value': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#ContainerSchema::maxWidth': ['CONCRETE', 'CONCRETE'],
-  'layout.zod.ts#PageNodeSchema::aria': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'navigation.zod.ts#HeaderBarSchema::logo': ['CONCRETE', 'CONCRETE'],
   'navigation.zod.ts#HeaderBarSchema::variant': ['CONCRETE'],
-  'objectql.zod.ts#ObjectGridSchema::label': ['CONCRETE', 'CONCRETE'],
-  'objectql.zod.ts#ObjectGridSchema::description': ['CONCRETE', 'CONCRETE'],
-  'objectql.zod.ts#ObjectViewSchema::table': ['SCHEMA-NODE'],
   'overlay.zod.ts#TooltipSchema::content': ['CONCRETE', 'CONCRETE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
   'views.zod.ts#DetailViewSchema::fields': ['SCHEMA-NODE'],
@@ -2928,6 +3044,16 @@ export type assertionBaseSchemaKeysResolve = Expect<
  * in neither map.
  */
 const EXCLUSIONS: Readonly<Record<string, string>> = {
+  // objectui#8802 — the RETIRED `kanban` node type key's refusal arm. It is not
+  // a mirror of anything and cannot drift: `retiredNodeType()` builds an object
+  // whose only member is the `type` literal it refuses on, so there is no TS
+  // declaration for it to restate. The arm exists purely so
+  // `AnyComponentSchema`'s discriminator routes a `{ "type": "kanban" }`
+  // document to a message naming `object-kanban`, instead of the union's own
+  // remedy-free `Invalid input`. Pinned in
+  // `./bare-kanban-node-key-retired-8802.test.ts`.
+  'complex.zod.ts#RetiredKanbanNodeSchema':
+    'a RETIRED node type refusal arm (objectui#8802), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of an arm in `ComplexSchema`',
   // Renamed from `StylePropsSchema` by objectui#5928. Under the old name the
   // like-named `StyleProps` (../base.ts) — the Tailwind-scale vocabulary, sharing
   // ZERO keys with this `{ className, style }` object — read as its declaration, and
@@ -3010,7 +3136,7 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'objectql.zod.ts#PaginationConfigSchema':
     "spec-owned BY REFERENCE — the local `.extend(…)` adds renderer props that no TS declaration in this package restates",
   'objectql.zod.ts#UserActionsSchema':
-    "spec-owned BY REFERENCE — the local `.extend(…)` adds renderer props that no TS declaration in this package restates",
+    "spec-owned BY REFERENCE — a plain `stripImportedDefaults(Spec…)` re-export since objectui#8992 collapsed its `.extend(…)` (the protocol declares `group` / `hideFields` / `rowColor` itself from 17.3.0), and the TS name for it, `UserActionsConfig`, is re-exported FROM `@objectstack/spec/ui` by `../index.ts` rather than restated here — so there is no second definition to drift from",
   'objectql.zod.ts#ListViewSchema':
     "the DECLARATION is derived FROM this mirror — `ListViewSchema = ListViewInferred & ListViewRuntimeProps`, and `ListViewInferred = z.input<typeof ListViewSchema>` (`../objectql.ts`). Asserting parity here would be true no matter what either side said: a phantom assertion, not a check.",
   'objectql.zod.ts#ObjectQLComponentSchema':
@@ -3083,11 +3209,36 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // and are pinned against the header by 'objectui#7279' below.
   'complex.zod.ts#DashboardComponentSchema',
   'complex.zod.ts#DashboardWidgetSchema',
-  // objectui#7664: `grouping` is `SpecGroupingConfigSchema` by reference, the
-  // same way `ObjectGallerySchema` below spells it.
-  'complex.zod.ts#KanbanSchema',
+  // ⛔ `complex.zod.ts#KanbanSchema` removed with the retired `kanban` arm
+  // (objectui#8802) — it was listed here because `grouping` was
+  // `SpecGroupingConfigSchema` by reference, the way `ObjectGallerySchema` below
+  // still spells it.
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',
+  // ⭐ ONE entry, FOUR spec crossings — two cards put them there and both grounds
+  // are recorded, because either one alone is enough to keep this membership and
+  // deleting the entry needs both to be gone.
+  //   - objectui#7946 (rework round): `aggregate` is `SpecChartAggregateSchema` by
+  //     reference rather than the local near-copy the first cut declared, so a
+  //     spec bump that widens or narrows the object-bound aggregation vocabulary
+  //     moves ONE side of this pair.
+  //   - objectui#8885: the three keys `ObjectChart.tsx` reads that neither
+  //     published face declared are each the SPEC's own schema at the crossing —
+  //     `SpecChartDrillDownSchema`, `SpecI18nLabelSchema`, and
+  //     `SpecDashboardWidgetSchema.shape.compareTo` by reference (the producer's
+  //     own declaration: `DashboardRenderer` forwards `widget.compareTo`
+  //     verbatim). So a spec bump that moves the chart drill vocabulary, the
+  //     i18n label union, or the widget's comparison directive moves ONE side too.
+  // Either way it is exactly what this list exists to make legible rather than
+  // mysterious.
+  // objectui#8651: the `calendar` CONTAINER is the spec's own
+  // `SpecCalendarConfigSchema` — spec-derived, extended with objectui's single
+  // local knob (`allDayField`, the lane objectui#8466 took for the flat spelling
+  // of the same vocabulary) and kept `.passthrough()`. So a spec bump that moves
+  // the four-key calendar config vocabulary moves ONE side of this pair, which
+  // is exactly what this list exists to make legible rather than mysterious.
+  'objectql.zod.ts#ObjectCalendarSchema',
+  'objectql.zod.ts#ObjectChartSchema',
   'objectql.zod.ts#ObjectGallerySchema',
   'objectql.zod.ts#ObjectGanttSchema',
   // objectui#7762: `exportOptions` is the spec's OBJECT ARM by reference — peeled out of
@@ -3119,7 +3270,7 @@ const ZOD_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'zod');
  * MINUEND under it had moved. Nothing failed on any of those days, because nothing
  * compared the registry to a number. objectui#7433 is that absence, not the digits.
  */
-const EXPECTED_MIRROR_PAIRS = 158;
+const EXPECTED_MIRROR_PAIRS = 161;
 
 /**
  * A ledger this file can size from its own AST. `WiderThanDeclared` joined at

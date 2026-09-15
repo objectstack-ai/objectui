@@ -18,6 +18,7 @@ import type { RecordDetailsComponentProps } from '@object-ui/types';
 import {
   columnIdentity,
   deriveTitleField,
+  formatTitleTemplate,
   isObjectInlineEditable,
   recordDisplayValueAt,
   resolveNameField,
@@ -27,6 +28,49 @@ import { deriveFieldGroupDetailSections } from '../synth/buildDefaultPageSchema'
 
 /** Normalize a field entry (string | {field} | {name}) to its machine name. */
 const fieldName = (entry: any): string | null => columnIdentity(entry) ?? null;
+
+/**
+ * The ONE boundary between `record:details`' authored body width and the
+ * internal detail node (objectui#9056).
+ *
+ * `@objectstack/spec`'s `RecordDetailsProps.columns` is a STRING enum
+ * (`z.enum(['1','2','3','4'])`, default `'2'`). Everything this renderer hands
+ * it to is a NUMBER: `DetailViewSchema.columns` and `DetailViewSection.columns`
+ * in `@object-ui/types`, the `columns` parameter of `applyDetailAutoLayout` /
+ * `applyAutoSpan`, and the `DetailViewField.span` that `applyAutoSpan` writes
+ * FROM it. Handing the authored value straight through left every one of those
+ * declared-`number` slots carrying the string `'2'` at runtime — measured, on
+ * the real render: `span` came out `typeof 'string'`.
+ *
+ * TypeScript could not see it because `synthesized` below is annotated `any`,
+ * which launders the assignment. (Measured three ways: the same value written
+ * into a `DetailViewSchema` directly is `TS2322`, from this renderer's own prop
+ * type AND from the bare `RecordDetailsComponentProps` — only the `any` hides
+ * it.)
+ *
+ * ⛔ The direction is contract-first (AGENTS.md #0.1): the protocol keeps its
+ * string enum, `@object-ui/types` keeps `number`, and neither is widened to
+ * meet the other. This function is the TRANSLATION between two declared types,
+ * not a tolerant reader — its parameter is spelled as the contract's own type
+ * so a protocol change arrives here as a compile error rather than as another
+ * silent string.
+ *
+ * ⚠️ NOT `sections[].columns`, one level down. That key is
+ * `z.number().int().min(1).max(4)` — already a number, and correct as one;
+ * objectui#8604 measured that copying either declaration onto the other is
+ * refused at publish. A section's width never passes through here.
+ *
+ * ⚠️ The `undefined` arm is load-bearing, not defensive. `applyDetailAutoLayout`
+ * treats `undefined` as "author said nothing" and infers the width from the
+ * field count; `Number(undefined)` is `NaN`, which is NOT `undefined`, so a
+ * bare `Number(...)` here would silently replace inference with a `NaN` width
+ * on every unauthored body.
+ */
+function detailBodyColumns(
+  columns: RecordDetailsComponentProps['columns'],
+): number | undefined {
+  return columns === undefined ? undefined : Number(columns);
+}
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -77,7 +121,18 @@ export interface RecordDetailsRendererProps {
 }
 
 export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
-  schema = {} as any,
+  // ⛔ NOT `{} as any` (objectui#8649). A destructuring default's type joins
+  // the annotated property type at the binding, so `any` here ERASED
+  // `RecordDetailsRendererProps` for every read site in this file: declared
+  // keys (`hideFields`, `sections`, `columns`, …) and undeclared ones
+  // (`enforceFieldSecurity`, …) all read `any`, indistinguishably. That is what
+  // made objectui#8327's checker census unable to classify eleven of this
+  // card's twelve reads, and it is a LOCAL type defect — the exported
+  // annotation above was always correct, so repairing it moves no published
+  // surface. Spelled THROUGH the annotation rather than restating it, so a
+  // later change to `RecordDetailsRendererProps` cannot silently re-erase it.
+  // Pinned by `__tests__/detailRendererUndeclaredKeys-8649.test.ts`.
+  schema = {} as NonNullable<RecordDetailsRendererProps['schema']>,
   className,
   ...props
 }) => {
@@ -158,7 +213,33 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     );
     return list.filter((e) => {
       const n = fieldName(e);
-      return n ? allowed.has(n) : true;
+      // Fail CLOSED on an entry this fold cannot NAME (objectui#9054). The
+      // else-branch used to KEEP such an entry, so anything that is not a bare
+      // string, `{ field }`, `{ name }` or `{ fieldName }` escaped BOTH
+      // `enforceFieldSecurity` and `redactFields` — a field-security control
+      // defaulting to *permit* on the one input it could not understand.
+      //
+      // The same one-arm repair objectui#8793 / PR objectui#9058 made on
+      // `record:related_list`'s fold, deliberately identical: one defect on two
+      // paths gets one shape. `record-highlights.tsx` expresses the same
+      // semantics by dropping unnamed entries BEFORE its allow-list; that is
+      // this line's meaning, not a third policy.
+      //
+      // ⚠️ What this does NOT claim. On the related list the kept entry
+      // rendered its REAL VALUE, because `RelatedList` resolves a column as
+      // `accessorKey || columnIdentity(c)` — a second read point that could
+      // name what the fold could not. This path has no such second reader:
+      // `DetailSection` renders from `field.name` only, and an entry the fold
+      // cannot name has no `name` for it either, so the kept entry painted a
+      // labelless `—` placeholder row and never a record value (measured on
+      // the real DOM in the pin beside this file). The defect closed here is
+      // therefore the fail-open DEFAULT on a security boundary, not a measured
+      // value leak.
+      //
+      // Scoped to the filtering path only: with neither key set this whole
+      // function returns `list` by reference above, so an ordinary detail
+      // block renders exactly what it always did.
+      return n ? allowed.has(n) : false;
     });
   };
 
@@ -275,14 +356,26 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // lets the fall-through happen here too. When nothing is declared the two
   // return the same name and the first one simply wins.
   //
-  // ⚠️ Two disagreements with the header chain are KNOWN and deliberately NOT
-  // repaired here — both are rungs that name no FIELD, so there is no row to
-  // hide for either, and closing them is a separate ruling:
-  //   - `page:header`'s own `schema.title`, which this package cannot see;
-  //   - `objectSchema.titleFormat`, a render-only template the header ranks
-  //     ABOVE the declared pointer (pinned in `@object-ui/components`'
-  //     `__tests__/page-header-title.test.tsx`, "titleFormat still outranks
-  //     nameField"), interpolating any number of fields.
+  // ⚠️ Two rungs of the header chain name no FIELD at all, so a dedupe keyed
+  // on "which single field is the H1" is structurally unable to answer them
+  // (objectui#8351). They are NOT symmetric and only ONE is answered here:
+  //   - `objectSchema.titleFormat` — ANSWERED, below, by the ruled option B:
+  //     the template's rendered output is compared against the candidates'
+  //     values, and a composite that is no field's value hides no row.
+  //   - `page:header`'s own `schema.title` — NOT answered, and not answerable
+  //     from this package: it is a key on the HEADER schema, which
+  //     `record:details` never receives. Same shape, its own card.
+  //
+  // ⛔ Neither of those is the ORDER question. `PageHeaderRenderer` ranks the
+  // interpolated `titleFormat` ABOVE the ADR-0079 declared pointer, while
+  // `getRecordDisplayName` documents it BELOW (step 3) — pinned green in
+  // `@object-ui/components`' `__tests__/page-header-title.test.tsx` as
+  // "titleFormat still outranks nameField". Closing that divergence moves what
+  // the H1 SHOWS on existing records and retires that pin, so it is a
+  // maintainer ruling and carries its own `needs-user-decision` card. This
+  // ladder deliberately does not depend on which of the two wins: it asks
+  // whether the rendered template IS some candidate's value, which answers the
+  // dedupe under either order.
   //
   // ⛔ `objSchema?.primaryField` used to top this list, and it is gone
   // (objectui#7586). It is a `DetailViewSchema` key (`@object-ui/types`
@@ -337,10 +430,61 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // down: it would still disagree with the header about an expanded lookup
   // object whose display chain yields nothing (`{ id: 'u1' }` is not a title),
   // which the raw test — and a trim of it — both read as a value.
-  for (const candidate of titleCandidates) {
-    if (recordDisplayValueAt(data, candidate) !== undefined) {
-      hideFieldNames.add(candidate);
-      break;
+  //
+  // ⭐ THE `titleFormat` RUNG (objectui#8351, maintainer ruling option B).
+  //
+  // A `titleFormat` H1 is a rendered TEMPLATE, not a field. On a multi-field
+  // format it is no single field's value, so NO row duplicates it and the walk
+  // below must not run at all — it would hide `resolveNameField`'s row, a row
+  // the H1 never showed, exactly the "a field silently vanished" shape
+  // objectui#8175 closed one rung higher.
+  //
+  // ⚠️ "Fully interpolates" is measured, not assumed, and it is measured with
+  // the instruments already here — no new predicate, which is the same rule
+  // the emptiness note below states:
+  //   - `formatTitleTemplate` is THE renderer of this rung. It is what
+  //     `getRecordDisplayName` step 3 calls and what this package's own
+  //     `DetailView.resolveDisplayTitle` step 2 calls, so all three agree
+  //     about what the template produces on a given record.
+  //   - `recordDisplayValueAt` then answers the only question a dedupe has:
+  //     is that string some candidate's value?
+  //
+  // Three outcomes, and the two that are NOT the ruled case are what keep this
+  // honest:
+  //   - composite (no candidate's value equals it) → hide NOTHING. The ruled
+  //     case: "the H1 is not any single field's value, so there is no row to
+  //     hide".
+  //   - empty (no placeholder resolved on this record) → the header has
+  //     ALREADY walked past this rung onto the declared pointer, so the
+  //     value-keyed walk below runs unchanged. Suppressing on the mere
+  //     PRESENCE of a `titleFormat` would blind the dedupe on every record
+  //     where the template renders nothing.
+  //   - collapsed onto ONE field's value (a blank placeholder was dropped with
+  //     its orphan separator, or the format names a single field) → that row
+  //     IS the duplicate, and it still goes. A presence-only rule prints
+  //     "Contract No: HT-0001" directly beneath an H1 reading `HT-0001`, which
+  //     is the duplication Phase P.0 exists to remove.
+  //
+  // Pinned in `__tests__/record-details.titleFormatNoDedupe-8351.test.tsx`,
+  // which asserts which row RENDERS and which row DROPS — never the heading,
+  // which this package does not draw.
+  //
+  // ⚠️ The match is a SCAN of the candidates, not a peek at the first one with
+  // a value: with `titleFormat: '{name}'` over `nameField: 'contract_no'` the
+  // first resolving candidate is `contract_no` and the H1 is `name`'s value,
+  // so stopping early would hide the wrong row AND leave the real duplicate.
+  const interpolatedTitle = formatTitleTemplate(objSchema?.titleFormat, data);
+  if (interpolatedTitle) {
+    const shownAs = titleCandidates.find(
+      (candidate) => recordDisplayValueAt(data, candidate) === interpolatedTitle,
+    );
+    if (shownAs) hideFieldNames.add(shownAs);
+  } else {
+    for (const candidate of titleCandidates) {
+      if (recordDisplayValueAt(data, candidate) !== undefined) {
+        hideFieldNames.add(candidate);
+        break;
+      }
     }
   }
 
@@ -509,7 +653,12 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     // explicit groups, omitting it falls back to the object's highlightFields
     // (see `filteredSections` / `filteredFields` above). objectui#3818.
     layout: 'vertical',
-    columns: schema.columns,
+    // objectui#9056 — the protocol's STRING width becomes the internal node's
+    // NUMBER here, and only here. See `detailBodyColumns` above for why the
+    // coercion belongs on this side of the boundary rather than in
+    // `applyAutoSpan` (which would be a tolerant reader) or in the published
+    // `@object-ui/types` declaration (which would be a surface widening).
+    columns: detailBodyColumns(schema.columns),
     sections: filteredSections,
     fields: filteredFields,
     showBack: false,
@@ -529,7 +678,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     <div className={className} {...designer}>
       <DetailView
         schema={synthesized}
-        dataSource={ctx.dataSource as any}
+        dataSource={ctx.dataSource}
         inlineEdit={inlineEditDefault}
       />
     </div>

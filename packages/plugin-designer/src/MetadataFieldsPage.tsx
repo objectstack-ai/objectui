@@ -46,7 +46,11 @@ import type { DesignerFieldDefinition, DesignerFieldType } from '@object-ui/type
 // 2026-08-28): a barrel import eagerly evaluates every other barrel member,
 // which widened an unrelated consumer's module graph under the prior shape.
 import { retiredFieldKeysFor } from '@object-ui/types/internal/retired-field-keys';
-import { MetadataClient, type MetadataClientConfig } from '@object-ui/data-objectstack';
+import {
+  MetadataClient,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+  type MetadataClientConfig,
+} from '@object-ui/data-objectstack';
 import { FieldDesigner } from './FieldDesigner';
 
 /** Subset of the framework FieldSchema shape we render. */
@@ -69,6 +73,16 @@ interface ServerFieldSchema {
    * (objectui#6041) — `referenceTo` is refused BY NAME by `FieldSchema`, so
    * emitting it made `PUT /api/v1/meta/object/:name` fail 422 and blocked
    * every later save of the object. See {@link RETIRED_FIELD_KEYS}.
+   *
+   * The retired spelling is deliberately NOT declared alongside it, even
+   * though {@link storedRelationshipTarget} now reads it. This interface is
+   * also the WRITE shape (`fromDesignerField` returns it), and a declared
+   * property is precisely what `scripts/check-designer-field-key-parity.mjs`
+   * reads to prove no designer payload can emit a key the spec refuses by
+   * name — declaring `referenceTo` here would put a retired key back inside
+   * that gate's reach for a reader that only ever needs it on the way IN. The
+   * read goes through the index signature below instead, and is narrowed
+   * there, on the same reasoning that keeps `expression` undeclared.
    */
   reference?: string;
   /*
@@ -156,6 +170,63 @@ function isDesignerAuthorableType(raw: unknown): raw is DesignerFieldType {
   return typeof raw === 'string' && KNOWN_FIELD_TYPES.has(raw as DesignerFieldType);
 }
 
+/**
+ * The relationship target a stored field definition holds, under EITHER
+ * spelling — objectui#8058.
+ *
+ * `reference` is the spec's key and is read first; the pre-objectui#6041
+ * `referenceTo` is consulted only when the spec key holds nothing, so a
+ * partly-migrated document carrying both is read from `reference` and the
+ * retired key is ignored.
+ *
+ * ## Why reading the retired spelling is a RENAME here and not a laundering
+ *
+ * `@objectstack/spec` treats the two as one key under two spellings and says
+ * so in the refusal itself. Measured on the installed 17.4.0:
+ *
+ *   FieldSchema.safeParse({ type: 'lookup', label: 'L', referenceTo: 'account' })
+ *     => success = false
+ *     => unrecognized_keys — "Did you mean `referenceTo` → `reference`?"
+ *   FieldSchema.safeParse({ type: 'lookup', label: 'L', reference: 'account' })
+ *     => success = true
+ *
+ * `referenceTo` is one of five spellings `FieldSchema`'s alias map renames onto
+ * `reference` (`relatedTo`, `target`, `targetObject`, `lookupObject` are the
+ * rest). Both sides carry the same value — a single object machine name,
+ * `reference: z.string().optional()` upstream and
+ * `DesignerFieldDefinition.referenceTo?: string` here — and the value this page
+ * emits as `reference` today is read from the SAME designer-model property its
+ * pre-objectui#6041 build emitted as `referenceTo`. Same type, same id form,
+ * same cardinality; nothing about the value changes on the way through.
+ *
+ * ⭐ That is what separates this from objectui#6043, where the identical-looking
+ * `formula` → `expression` rename was REFUSED. The alias map lists that pair
+ * too, but its two sides do NOT carry the same value: `expression` is CEL while
+ * the retired textarea accepted arbitrary text, so adopting the old key would
+ * have laundered non-CEL text into a formula that parses green and evaluates to
+ * null. There is no value grammar to violate here — a target is an object name
+ * at either spelling. ⛔ Do not cite objectui#6043 against this read without
+ * answering that difference; it is a different situation, not a smaller one.
+ *
+ * ## Why a NON-STRING retired value is not adopted
+ *
+ * The narrowing is the designer model's (`referenceTo?: string`), and it is
+ * also the better reading. `carryOver` strips the retired key either way, so a
+ * stored `referenceTo: 42` leaves no target behind whatever we do; refusing it
+ * here means {@link describeUnusableTarget} says "this one has none" — pick a
+ * target — instead of reporting a number the author has no control left to see
+ * or clear. An EMPTY string IS adopted: it is a value the document holds and
+ * the guard has its own answer for it. Filtering values here would make this a
+ * semantic change instead of a spelling one, which is the line objectui#6043
+ * drew.
+ */
+function storedRelationshipTarget(raw: ServerFieldSchema): string | undefined {
+  // Read through the index signature — see the note on `reference` above for
+  // why the retired spelling is not a declared member of this interface.
+  const retired = raw.referenceTo;
+  return raw.reference ?? (typeof retired === 'string' ? retired : undefined);
+}
+
 function toDesignerField(name: string, raw: ServerFieldSchema): DesignerFieldDefinition {
   return {
     id: name,
@@ -177,7 +248,7 @@ function toDesignerField(name: string, raw: ServerFieldSchema): DesignerFieldDef
     isSystem: raw.system,
     externalId: raw.externalId,
     trackHistory: raw.trackHistory,
-    referenceTo: raw.reference,
+    referenceTo: storedRelationshipTarget(raw),
   };
 }
 
@@ -204,10 +275,39 @@ function toDesignerField(name: string, raw: ServerFieldSchema): DesignerFieldDef
  * such an object come out parseable; it is keyed to the tombstones, so every
  * other unknown key the designer does not render still survives.
  *
- * Two of the four cost nothing: `fromDesignerField` re-emits the lookup target
- * under the spec spelling `reference` on the very next line, and the system
- * flag is read back from the spec spelling `system` (never re-emitted — the
- * strip IS the whole write half of objectui#6044). `formula` is the one entry
+ * Two of the four cost nothing on the path through the DESIGNER, and the
+ * `referenceTo` half is true only because the read door was taught to find the
+ * target under BOTH spellings (objectui#8058). `toDesignerField` reads
+ * `reference` and falls back to the retired key — see
+ * {@link storedRelationshipTarget} — so whichever spelling the stored document
+ * used, the target reaches the designer model and `fromDesignerField` re-emits
+ * it under the spec spelling `reference` on the very next line: the strip then
+ * removes a KEY and not the relationship. The system flag is the other
+ * cost-free entry — it is read back from the spec spelling `system` and never
+ * re-emitted (the strip IS the whole write half of objectui#6044), and `system`
+ * is what the framework's system-field injection sends on every load, so no
+ * stored value is being relied on.
+ *
+ * ⛔ The `referenceTo` claim is conditional on that READ, not on the re-emit
+ * line alone. Before objectui#8058 this sentence asserted the same conclusion
+ * with no fallback behind it, and it was FALSE for exactly one shape: a field
+ * whose target survived ONLY as `referenceTo` read as target-less, so the strip
+ * took the stored value with it and the field reached the wire as a `lookup`
+ * with no target at all. Restating the conclusion without the read door is how
+ * it went wrong the first time.
+ *
+ * ⚠️ This function alone is cost-free on the DESIGNABLE half only — the half
+ * that has a read door. {@link toFieldsMap} re-emits the fields this designer
+ * cannot author from the stored document directly (see
+ * {@link partitionStoredFields}), with no `toDesignerField` in the path, so a
+ * stored `master_detail` whose target lived only as `referenceTo` had it
+ * stripped and reached {@link assertRelationshipTargetPresent} with nothing —
+ * worse there than here, because a preserved field is read-only on this page and
+ * the refusal named a control the author had no way to reach. objectui#8896
+ * closed that by routing the preserved branch through
+ * {@link carryPreservedField}, which reads the target with the SAME
+ * {@link storedRelationshipTarget} this half uses; ⛔ the preserved branch calls
+ * that function, never this one. `formula` is the one entry
  * whose strip DROPS a value, and that is objectui#6043's deliberate trade: the
  * server refuses to store it, a blind rename to `expression` would launder
  * non-CEL text into a formula that parses green and evaluates to null, and
@@ -228,6 +328,53 @@ function carryOver(prev?: ServerFieldSchema): ServerFieldSchema {
   if (!prev) return {};
   const next: ServerFieldSchema = { ...prev };
   for (const k of RETIRED_FIELD_KEYS) delete next[k];
+  return next;
+}
+
+/**
+ * Carry one PRESERVED field through, keeping the relationship target the stored
+ * document holds — objectui#8896.
+ *
+ * ## Why the preserved half needs its own function
+ *
+ * objectui#8058 made the `referenceTo` strip cost nothing ON THE DESIGNABLE
+ * HALF, by teaching the read door to find the target under either spelling: the
+ * value reaches the designer model through {@link storedRelationshipTarget} and
+ * `fromDesignerField` re-emits it as `reference`, so the strip removes a KEY and
+ * not the relationship. {@link toFieldsMap} re-emits objectui#8060's preserved
+ * fields from the stored document directly, with no `toDesignerField` in the
+ * path — so there the strip WAS the last thing to touch the field, the target
+ * left with the key, and {@link assertRelationshipTargetPresent} refused the
+ * whole object's save. That refusal names a control this page does not have: a
+ * preserved field is rendered read-only here by design, so "Pick the target
+ * object" has nowhere to go and every later save of the object stayed refused.
+ *
+ * ## It states the SAME rule as the designable half, through the same reader
+ *
+ * `storedRelationshipTarget` is the one place that decides which spelling a
+ * stored target is read from, and both halves now go through it — the sibling
+ * writers' `toFieldsMap` / `carryOver` pair is already a family where a
+ * difference is a defect waiting to be found twice. Whether the value is USABLE
+ * stays entirely `assertRelationshipTargetPresent`'s question, exactly as on the
+ * designable half: this function adopts what the document holds and invents
+ * nothing, so a stored `referenceTo: '   '` is refused by name rather than
+ * smuggled through, and a field with no target under either spelling emits no
+ * `reference` key at all.
+ *
+ * ⛔ The retired KEY still never reaches the wire — `FieldSchema` refuses it by
+ * name, which is what the strip is for. ⛔ And this is NOT a `specEquivalent`
+ * migration driven off the tombstone registry; the registry is explicit that the
+ * field is "Documentation for the reader, NEVER an instruction to migrate a
+ * value mechanically". What makes THIS key readable under either spelling is
+ * argued once, at {@link storedRelationshipTarget}, and applies here unchanged.
+ */
+function carryPreservedField(prev: ServerFieldSchema): ServerFieldSchema {
+  const next = carryOver(prev);
+  const target = storedRelationshipTarget(prev);
+  // Assigned only when the document holds one, so a field with no target keeps
+  // no `reference` key — `describeUnusableTarget` then says "this one has none"
+  // rather than reporting a value the author never wrote.
+  if (target !== undefined) next.reference = target;
   return next;
 }
 
@@ -354,13 +501,35 @@ function fromDesignerField(
  * `saveObject` — so the two writers now state ONE invariant and both exercise
  * it.
  */
-const RELATIONSHIP_TYPES_REQUIRING_REFERENCE = ['lookup', 'master_detail'];
+// objectui#8676 - imported, not declared. The sibling copy this file used to
+// carry lived word-for-word in `MetadataService.ts`, and a pin existed only to
+// notice when the two drifted. One declaration cannot drift: it lives in
+// `@object-ui/data-objectstack` beside the write doors, and a pin there DERIVES
+// it from the installed spec so a contract change reddens CI rather than
+// leaving both writers quietly short of the contract.
 
 /**
  * Why THIS value cannot be a target, and what the contract does about it —
  * both halves, because the four states differ on both. The sibling copy in
  * `MetadataService.ts` is word-for-word the same, and both pins assert all four
  * states so the copies cannot drift silently.
+ *
+ * ⭐ THAT SENTENCE IS CHECKABLE NOW, AND IT WAS NOT WHEN IT WAS WRITTEN. The
+ * two pins are the `objectui#7714 · the refusal message distinguishes the four
+ * states` blocks in `MetadataFieldsPage.specKeyReference.test.tsx` (this
+ * writer) and `MetadataService.specKeyReference.test.ts` (the sibling). Before
+ * objectui#8925 only the sibling had one: mutating this function's `absent`,
+ * `non-string` or `empty` branch left the whole `plugin-designer` package
+ * green, so three of the four states here were free to drift while this
+ * paragraph read as a guarantee. The `whitespace-only` row was the lone
+ * exception, and only incidentally — pinned by
+ * `MetadataFieldsPage.carriedThroughReference-8896.test.tsx`, a card about a
+ * different subject.
+ *
+ * ⛔ Do not restate this parity claim anywhere without naming the files that
+ * would go red. It had been restated three times — objectui#8897's card text,
+ * that card's triage comment, and both docblocks — and not one of the three
+ * was a reading. Repetition is what kept it alive while it was false.
  *
  * Measured for objectui#7714 on `@objectstack/spec` 17.3.0, at field level and
  * again through `ObjectSchema`, which agree on every row:
@@ -403,10 +572,10 @@ function describeUnusableTarget(reference: unknown): string {
   }
   return (
     'and this one is blank — whitespace names no object, so nothing could ever resolve it. '
-      + '`@objectstack/spec` 17.3.0 ACCEPTS this value (measured, at field level and through '
-      + '`ObjectSchema`), so the PUT would succeed and the failure would surface later and further '
-      + 'away — the record picker with no object to query, `$expand` with nothing to resolve. This '
-      + 'writer refuses it deliberately and says so (objectui#7714; upstream objectstack#16126).'
+      + '`@objectstack/spec` applies its non-empty test to the TRIMMED value (since 17.4.0), so the '
+      + 'server refuses the whole object document with 422 `INVALID_METADATA` — which then blocks '
+      + 'EVERY later save of this object, not just this field. This writer refuses it first, at '
+      + 'editor time, naming the field (objectui#7714; upstream objectstack#16920).'
   );
 }
 
@@ -457,21 +626,24 @@ function describeUnusableTarget(reference: unknown): string {
  * Same `custom` issue, same `reference` path, same message absent and `''`
  * already got, so this page and the contract now refuse the identical set.
  *
- * ⚠️ That is the spec FROM THE RELEASE CARRYING objectstack#16920, not the
- * INSTALLED spec. This repo's pin is `@objectstack/spec` 17.3.0
- * (`pnpm-lock.yaml`), which predates the fix (an unreleased `minor` upstream at
- * the time of writing). Measured on the installed 17.3.0 artifact, whose
- * shipped test still reads `field.reference === ''`:
+ * ⭐ That fix SHIPPED IN 17.4.0, and the pin has reached it (objectui#8772):
  *
  *   FieldSchema.safeParse({ type: 'lookup', label: 'L', reference: '   ' })
- *     => success = true
+ *     => success = false, `custom` at path ["reference"]
  *   ObjectSchema.safeParse({ …, fields: { rel: { …, reference: '   ' } } })
- *     => success = true
+ *     => success = false, `custom` at path ["fields","rel","reference"]
  *
- * (controls at that pin: absent and `''` refused as `custom` at `reference`,
- * `'account'` accepted.) Until the pin reaches the fix, this guard is still the
- * only thing refusing `'   '` here. ⛔ Bumping the pin is not this note's
- * business.
+ * (controls in the same run: `'account'` and `' account '` both accepted, so
+ * the schema is consulted and this is a real reading — the trim is for the TEST
+ * only, and a target with surrounding whitespace is still stored as written.)
+ *
+ * ⛔ Those two lines say WHEN the contract changed, not what is installed
+ * today. The claim that rotted here said the opposite — "this repo's pin IS
+ * 17.3.0", a present-tense reading of an artifact — and it went false the
+ * moment the pin moved, while still being shown to authors (objectui#8897).
+ * What is installed is MEASURED, never asserted in prose; the sibling reading
+ * lives in `MetadataService.specKeyReference.test.ts`, which re-parses the
+ * schema on every run.
  *
  * ⭐ Kept — now for its OWN reason rather than the divergence's. It refuses at
  * EDITOR time, before the PUT, naming the field while it is still on screen;
@@ -483,10 +655,12 @@ function describeUnusableTarget(reference: unknown): string {
  * author nothing and only moves the identical failure past the PUT and into a
  * stored document, where it surfaces with no field named.
  *
- * ⚠️ The refusal MESSAGE below still says the spec ACCEPTS this value and still
- * names objectstack#16126. Deliberate: it is version-qualified to 17.3.0, which
- * IS the installed pin, and the pins assert it verbatim. It retires with the
- * pin bump, not with this note.
+ * ⭐ The refusal MESSAGE below has RETIRED its divergence wording, which is what
+ * the note it replaces said would happen — "it retires with the pin bump, not
+ * with this note". objectui#8897 is that retirement. It no longer tells the
+ * author that the spec ACCEPTS a blank target and that the PUT would succeed;
+ * against the installed artifact both halves were false, and that sentence was
+ * the one USER-VISIBLE carrier of this rot.
  */
 function assertRelationshipTargetPresent(
   field: { type?: string; reference?: unknown },
@@ -632,7 +806,7 @@ function toFieldsMap(
       // document verbatim — `type` included — rather than being rebuilt from a
       // designer model that has no way to hold it. The tombstone strip still
       // applies, because those keys 422 whoever wrote them.
-      entries.push([keep.name, carryOver(keep.raw)]);
+      entries.push([keep.name, carryPreservedField(keep.raw)]);
     }
   };
 

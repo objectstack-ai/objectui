@@ -268,6 +268,32 @@ export function composeElementDataSource(
  * have. Built here so the render path and `ViewDataProvider` report the same
  * defect the same way, and so the known-view list (the thing that actually gets
  * an author unstuck) is never omitted by one caller.
+ *
+ * ## Why the empty case may not say "this object has no saved views"
+ *
+ * An EMPTY `knownViews` reaches this function from two different worlds, and
+ * this function cannot tell them apart:
+ *
+ *  1. the saved views were read and there are none;
+ *  2. the read never successfully happened.
+ *
+ * World 2 is not hypothetical and not a bug to be fixed upstream: the shipped
+ * `ObjectStackAdapter.listViews` contract degrades EVERY failure — refused,
+ * offline, malformed — to `[]` on the RESOLVED path (deliberate, and objectui#8151
+ * keeps it), so a broken read arrives at `useElementDataSource` as a successful
+ * empty answer. The hook's own discrimination catches a REJECTION, which is a
+ * shape that contract never produces, so nothing separates the two worlds by the
+ * time the count lands here.
+ *
+ * Framework decision objectstack#13906 decision 1 option A — *a thing that could
+ * not be READ is not a thing that is ABSENT* — therefore binds this branch: it
+ * may only assert what is true in BOTH worlds. It names the possibilities and
+ * commits to neither, because committing is exactly the claim nobody established.
+ *
+ * ⛔ Do not "restore" the shorter sentence by inferring failure from emptiness in
+ * either direction — emptiness is what both worlds produce, so it can never tell
+ * them apart. Saying more than this needs the failure FACT plumbed in from the
+ * adapter (objectui#8151's surface), not a better guess here.
  */
 export function elementDataSourceViewNotFoundMessage(
   object: string,
@@ -276,7 +302,7 @@ export function elementDataSourceViewNotFoundMessage(
 ): string {
   const known = knownViews.length
     ? `Known views: ${[...knownViews].sort().join(', ')}.`
-    : 'This object has no saved views.';
+    : 'No saved views are known for this object. It may have none, or they could not be read.';
   return `dataSource.view "${view}" was not found on object "${object}". ${known}`;
 }
 

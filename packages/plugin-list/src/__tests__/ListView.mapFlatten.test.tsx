@@ -115,10 +115,25 @@ describe('ListView flattens `options.map` through a whitelist, not a raw spread 
     expect(Object.prototype.hasOwnProperty.call(schema, 'totallyUndeclaredKey')).toBe(false);
   });
 
-  it('still emits the `locationField` default when nothing is configured', async () => {
+  it('emits NO `locationField` floor when nothing is configured (objectui#8169)', async () => {
     const schema = await mapSchemaFor({});
 
-    expect(schema.locationField).toBe('location');
+    // The floor that used to stand here — `locationField: … || 'location'` —
+    // was deleted with `getMapConfig`'s own coordinate guesses in one change
+    // (maintainer ruling 2026-09-07 「同意」, option B): bindings are never
+    // fabricated, and an unbound map renders `ObjectMap`'s "Map configuration
+    // required" refusal instead of an empty one.
+    //
+    // ⛔ Deleting this floor ALONE would have widened the guess rather than
+    // closed it — the floor forced `getMapConfig`'s flat branch, which carries
+    // no `latitudeField` / `longitudeField`, so dropping it on its own handed
+    // undeclared views the component's three-name default branch instead of
+    // one name. The joined behaviour is pinned in
+    // `plugin-map/src/ObjectMap.unboundRefusal-8169.test.tsx`; what this row
+    // holds is the producer half: the flatten emits exactly what the view
+    // declared, and nothing else.
+    expect(schema.locationField).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(schema, 'locationField')).toBe(false);
   });
 });
 

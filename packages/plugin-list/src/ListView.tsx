@@ -31,7 +31,7 @@ import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLoc
 // objectui's keyed `{ key, defaultValue, params }` ref — that vocabulary lives
 // on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead
 // (objectui#5134).
-import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator } from '@objectstack/spec/ui';
 import { usePermissions } from '@object-ui/permissions';
 
 /**
@@ -232,8 +232,30 @@ export interface ListViewProps {
    */
   dataSource?: any;
   onViewChange?: (view: ViewType) => void;
-  onFilterChange?: (filters: any) => void;
-  onSortChange?: (sort: any) => void;
+  /**
+   * Fires with the advanced-filter group the toolbar's `FilterBuilder` emitted.
+   *
+   * `FilterGroup` because that is what the one call site actually passes: the
+   * builder's own `onChange` value, handed straight through beside
+   * `setCurrentFilters` — itself `React.useState<FilterGroup>`. Deliberately NOT
+   * the filter AST `normalizeFilters` / `buildEffectiveFilter` speak: those run
+   * later, on the query-building path, and nothing they produce reaches this
+   * callback. A host receives the BUILDER's group verbatim, which is what lets
+   * it round-trip back in through `initialFilters`.
+   */
+  onFilterChange?: (filters: FilterGroup) => void;
+  /**
+   * Fires with the view's sort after a builder edit, a header click or a
+   * "reset to the view's default".
+   *
+   * `SortItem[]` because every emit crosses exactly one boundary —
+   * `emitSortChange` — and both of its legs carry that element type: the array
+   * passed in, and `filterPlatformSortableSort`'s return, which is generic in
+   * the element (readonly T[] in, T[] out) and so preserves whatever it is
+   * given. Normalized-vs-raw therefore does not move the TYPE here; it only
+   * decides whether platform-unsortable entries are still present (#6455).
+   */
+  onSortChange?: (sort: SortItem[]) => void;
   onSearchChange?: (search: string) => void;
   /** Called when the user toggles fields via the Hide Fields popover. */
   onHiddenFieldsChange?: (hidden: string[]) => void;
@@ -241,8 +263,23 @@ export interface ListViewProps {
   onInlineEditChange?: (next: boolean) => void;
   /** Called when the user resizes/reorders columns in the underlying grid. */
   onColumnStateChange?: (state: { order?: string[]; widths?: Record<string, number> }) => void;
-  /** Callback when a row/item is clicked (overrides NavigationConfig) */
-  onRowClick?: (record: Record<string, unknown>) => void;
+  /**
+   * Callback when a row/item is clicked (overrides NavigationConfig).
+   *
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: Record<string, unknown>, event?: any) => void;
   /** Show view type switcher (Grid/Kanban/etc). Default: false (view type is fixed) */
   showViewSwitcher?: boolean;
   /** Initial user-filter selections to restore (field → values; `_tab` for the active preset). */
@@ -278,6 +315,63 @@ export interface ListViewProps {
 // Helper to convert FilterBuilder group to ObjectStack AST.
 // Accepts both the FilterBuilder vocabulary (camelCase) and the
 // @objectstack/spec ViewFilterRule vocabulary (snake_case).
+
+/**
+ * The shared value-less set, re-keyed by the spelling
+ * `normalizeFilterOperator` folds each member to — the lookup table
+ * `convertFilterGroupToAST` reads (objectui#9359).
+ *
+ * DERIVED, never a second literal: a hand-kept canonical copy beside the
+ * exported set is exactly how the two would come to disagree, and the
+ * disagreement is invisible — a filter the panel shows and the query does not
+ * carry.
+ *
+ * Why it exists here instead of the export being widened: the exported set
+ * states a fact about what the BUILDER'S DROPDOWN draws, and its members are
+ * that dropdown's own camelCase ids. Two other layers read it — this function
+ * (what the live grid QUERIES) and `app-shell`'s `foldFilterGroupToSpecRules`
+ * (what a saved view PERSISTS, already documented as this set PLUS the
+ * canonical spellings only that layer sees). Folding the canonical spellings
+ * INTO the export would make that layer's deliberate compensation redundant by
+ * side effect, in a file nobody is editing. The defect was never a set missing
+ * members; it was a reader that forgot to normalize its input, so the reader is
+ * what is repaired. Same shape the sibling repair used at the builder's own
+ * value-input gate (objectui#9302).
+ *
+ * `exists` / `notExists` fold to themselves — the spec's vocabulary has no
+ * existence operator and `VIEW_FILTER_OPERATOR_ALIASES` deliberately has no row
+ * for either — so this set is the same SIZE as the one it derives from.
+ */
+const VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL: ReadonlySet<string> = new Set(
+  [...VALUELESS_FILTER_BUILDER_OPERATORS].map(op => String(normalizeFilterOperator(op))),
+);
+
+/**
+ * Is this row COMPLETE without a value — asked of whichever spelling the row
+ * actually carries (objectui#9359).
+ *
+ * The two halves of one predicate used to speak different vocabularies. The
+ * value-less short-circuit did a raw `has()` on the exported set's camelCase
+ * ids, while the completeness test it falls through to
+ * (`isFilterValueComplete`) DOES fold, through this same
+ * `normalizeFilterOperator`, to decide arity. So a row spelled `is_null` — the
+ * spec's canonical form, which is what `foldFilterGroupToSpecRules` persists
+ * and what any spec-side producer emits — missed the short-circuit, landed on
+ * `scalar`, had its `value: ''` read as an unfinished row and was DROPPED. The
+ * function returned `[]`, the grid queried with no filter at all, and every
+ * record came back while the panel showed a filter applied. Silent.
+ *
+ * That is the same failure objectui#4744 repaired for the dropdown's own
+ * spellings — recorded in the exported set's docblock — reached by the other
+ * vocabulary. Folding here is one more site joining a fold this file already
+ * performs (`mapOperator` already matches case- and underscore-insensitively,
+ * and `isFilterValueComplete` folds through the spec's map) rather than a new
+ * dialect.
+ */
+function isValuelessFilterOperator(operator: string): boolean {
+  return VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL.has(String(normalizeFilterOperator(operator)));
+}
+
 /**
  * Filter-builder / view operator → filter-AST operator.
  *
@@ -569,7 +663,14 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       // `value: ''` by `addCondition`, and left that way because the operator
       // dropdown preserves `value` — was dropped as unfinished. The grid then
       // applied NO filter while the panel showed one.
-      if (VALUELESS_FILTER_BUILDER_OPERATORS.has(c.operator)) return true;
+      //
+      // Read through `isValuelessFilterOperator`, which folds the row's
+      // spelling before the lookup (objectui#9359): the set's members are the
+      // dropdown's camelCase ids, so a stored `is_null` — the canonical form a
+      // saved view carries — used to miss this short-circuit entirely and be
+      // dropped by the completeness test below, which folds. Same silent
+      // outcome as the #4744 defect, reached by the other vocabulary.
+      if (isValuelessFilterOperator(c.operator)) return true;
       // Skip incomplete rows (no value entered yet). Emitting `[field, op, '']`
       // would be a silently-wrong filter (matches only empty) rather than
       // "no filter", excluding all rows. Matches groupToCondition in
@@ -587,8 +688,14 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       return isFilterValueComplete(c.operator, c.value);
     })
     .map(c => {
-      if (c.operator === 'isEmpty') return [c.field, '=', null];
-      if (c.operator === 'isNotEmpty') return [c.field, '!=', null];
+      // Folded, not compared raw (objectui#9359). These two arms resolve to a
+      // null comparison BEFORE `mapOperator` is consulted, so leaving them on
+      // literal camelCase ids would have made the repair below reach `is_null`
+      // and not `is_empty` — trading one spelling-dependent answer for another,
+      // which is the defect this card is about rather than a fix for it.
+      const canonicalOperator = String(normalizeFilterOperator(c.operator));
+      if (canonicalOperator === 'is_empty') return [c.field, '=', null];
+      if (canonicalOperator === 'is_not_empty') return [c.field, '!=', null];
       // A value-less row's third slot is emitted as `null` rather than as
       // whatever `c.value` still holds: the operator dropdown PRESERVES the
       // previous operator's value, so an `Is null` row can carry a leftover
@@ -597,7 +704,13 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       // for `isnull`/`isnotnull` — it emits `{ [field]: { $null: true|false } }`
       // — so `null` is inert on the wire and keeps the emission a function of
       // the operator alone. Same shape the `isEmpty` arms above already use.
-      if (VALUELESS_FILTER_BUILDER_OPERATORS.has(c.operator)) {
+      // The same fold as the short-circuit above (objectui#9359): a row kept
+      // BECAUSE it is value-less must also be EMITTED as value-less, or the
+      // canonical spelling would carry its stale `value` into the third slot
+      // while the camelCase one carried `null` — one operator, two nodes.
+      // `mapOperator` already collapses case and underscores, so `is_null`
+      // lands on the same `isnull` its dropdown twin does.
+      if (isValuelessFilterOperator(c.operator)) {
         return [c.field, mapOperator(c.operator), null];
       }
       return [c.field, mapOperator(c.operator), c.value];
@@ -1967,6 +2080,29 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
           for (const f of collectPredicateFieldRefs(listViewPredicates({
             conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,
+            /**
+             * NON-AUTHOR SURFACE, cast on purpose — objectui#5091's 2026-08-19
+             * ruling, extended to this reader by objectui#8653 item 2.
+             *
+             * `rowActionDefs` is PRODUCER-DERIVED, not authored: `app-shell`'s
+             * `ObjectView` builds it from `objectDef.actions` filtered by
+             * `locations.includes('list_item')` and writes it onto a
+             * `fullSchema: ListViewSchema`; `plugin-view`'s `ObjectView`
+             * composes the same key onto a `list-view` node. `@objectstack/spec/ui`
+             * REFUSES it by name on both the list and the grid surface, and
+             * `@object-ui/types` declares it on neither mirror — which is why
+             * the read is a cast and ⛔ why declaring it would publish a key
+             * the save gate rejects.
+             *
+             * ⛔ DO NOT delete this read to "tidy up" an unexplained cast. The
+             * defs carry `visible` / `disabled` CELs and `recordIdField`, and
+             * this is the harvest that puts their operands into `$select`.
+             * Dropping it returns a row whose predicate operand was never
+             * selected — objectui#3501's fail-closed CEL fault (`No such key`)
+             * arriving with a success receipt. Pinned by name in
+             * `__tests__/listViewNonAuthorKeys-8653.test.tsx` §4 SITE 2; the
+             * declared sibling `bulkActionDefs` is that pin's control.
+             */
             rowActionDefs: (schema as any).rowActionDefs,
             bulkActionDefs: (schema as any).bulkActionDefs,
             objectActions: (objectDef as any)?.actions,
@@ -2524,6 +2660,21 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(groupingConfig ? { grouping: groupingConfig } : {}),
           ...(rowColorConfig ? { rowColor: rowColorConfig } : {}),
           ...(schema.rowActions ? { rowActions: schema.rowActions } : {}),
+          /**
+           * The RELAY half of the same non-author surface documented at the
+           * `listViewPredicates` call above (objectui#5091, extended here by
+           * objectui#8653 item 2). Undeclared on `ListViewSchema` — hence the
+           * cast — but DECLARED one node down: `DataTableSchema.rowActionDefs`
+           * is what `object-grid` hands `RowActionMenu`.
+           *
+           * ⛔ DO NOT delete this read. `baseProps` above is an explicit
+           * picklist, so this line is the ONLY way the host's composed row
+           * actions reach the row menu; dropping it removes the menu with no
+           * type error, no lint finding and no test failure anywhere else in
+           * the tree. Pinned by name in
+           * `__tests__/listViewNonAuthorKeys-8653.test.tsx` §4 SITE 1, with
+           * the declared `bulkActionDefs` below as that pin's control.
+           */
           ...((schema as any).rowActionDefs ? { rowActionDefs: (schema as any).rowActionDefs } : {}),
           ...(schema.bulkActions ? { batchActions: schema.bulkActions } : {}),
           ...((schema as any).bulkActionDefs ? { bulkActionDefs: (schema as any).bulkActionDefs } : {}),
@@ -2544,7 +2695,25 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // own `columns` prop is its LANES, so passing this through verbatim built
         // lanes with undefined id/title. Map it to `cardFields` and strip the
         // vocabulary keys from the passthrough (mirrors plugin-view's adapter).
-        const { columns: kanbanCardColumns, groupByField, groupField, cardFields, titleField, ...restKanban } = kanbanCfg as Record<string, any>;
+        // ⭐ `groupBy` IS STRIPPED HERE (objectui#8365, maintainer ruling of
+        // 2026-09-12 — decision batch #117 item 5, option B). It is a THIRD
+        // spelling of the lane, and because it was NOT in this destructure it
+        // survived into `restKanban`, which the return below spreads AFTER its
+        // own `groupBy: laneField` — so an authored `kanban.groupBy` OVERRODE
+        // the lane this branch had just resolved. Measured on the card's
+        // distinguishing fixture (`options.kanban = { groupBy:
+        // 'LANE_FROM_STRAY_GROUPBY' }` against `kanban = { groupByField:
+        // 'LANE_FROM_CANONICAL' }`): the generated node carried
+        // `groupBy: 'LANE_FROM_STRAY_GROUPBY'`. Stripping it is the half that
+        // makes the CANONICAL lane win; the loud half is the read door, where
+        // the view-level `KanbanConfig` mirror (`@object-ui/types`,
+        // `zod/objectql.zod.ts`) now declares `groupBy` as an alias refusal and
+        // names `groupByField`, so the key is no longer silently accepted by
+        // that object's `.passthrough()`.
+        // ⛔ Deliberately NOT folded onto `laneField`: this branch's own read is
+        // already canonical-first (`groupByField || groupField || detect…`), so
+        // a fold would re-create the override it just closed.
+        const { columns: kanbanCardColumns, groupByField, groupField, cardFields, titleField, groupBy: _strayGroupBy, ...restKanban } = kanbanCfg as Record<string, any>;
         const laneField = groupByField || groupField || detectStatusField(objectDef) || undefined;
         // `groupBy` is the lane key and the ONLY one written here. This node
         // used to carry `groupField: laneField` alongside it — a duplicate the
@@ -2693,24 +2862,88 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // does not throw) — pinned in
         // `plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070.test.tsx`.
         //
-        // ⛔ `progressField` / `dependenciesField` keep their floors here: they
-        // are NOT date axes, their absent-value semantics differ, and #7070
-        // scoped them out deliberately. Leaving them cannot resurrect a config —
-        // `getGanttConfig` gates on the two date fields alone (pinned in the same
-        // file), so the refusal stays reachable with the pair still present.
+        // `progressField` / `dependenciesField` are NOT floored either, as of
+        // objectui#7499 — the flavour-3 card #7070 scoped out and left pinned
+        // here so that whoever retired them had a place to declare it. This is
+        // that declaration. The remedy is OMIT, not refuse, and the two differ:
+        //
+        //   - REFUSING would be wrong. Unlike a date axis, "no progress" and
+        //     "no dependencies" are legitimate and common states — most gantt
+        //     rows have neither — so an absent key must keep rendering exactly
+        //     as it does today. That is why the date-axis conclusion (refuse)
+        //     must NOT be imported here, and #7070's ruling forbids importing it.
+        //   - FABRICATING was also wrong. `|| 'progress'` / `|| 'dependencies'`
+        //     manufactured a binding the author never wrote. Its failure is a
+        //     per-row `undefined`, indistinguishable from the legitimate case
+        //     above — so an author who spelled the key differently got a silent
+        //     accidental hit on a same-named column, with no diagnostic.
+        //
+        // Omitting satisfies both: a declared value still reaches the renderer
+        // verbatim through the `options.gantt` / `gantt` spreads below (which
+        // always had the last word over these lines anyway — the floor was all
+        // they ever contributed), and an undeclared one arrives as an ABSENT
+        // key rather than a fabricated name. Deleting them cannot resurrect a
+        // config: `getGanttConfig` gates on the two date fields alone, so the
+        // refusal screen stays exactly as reachable as it was (pinned in
+        // `plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070.test.tsx`).
         const startDateField = schema.gantt?.startDateField || schema.options?.gantt?.startDateField;
         const endDateField = schema.gantt?.endDateField || schema.options?.gantt?.endDateField;
         return {
           type: 'object-gantt',
           ...baseProps,
+          // objectui#7334 — the view-level `navigation` the author wrote.
+          //
+          // `ObjectGantt` owns a record drawer of its own and resolves
+          // `const navConfig = schema.navigation ?? { mode: 'drawer' }`, then
+          // classifies four overlay modes (`drawer`/`modal`/`split`/`popover`)
+          // to decide whether to suppress the host's `onRowClick`. Nothing put
+          // `navigation` on the node it receives, so that `??` was the ONLY
+          // branch ever taken: a view authoring `navigation: { mode: 'page' }`
+          // got a drawer, with no diagnostic. The component knows four modes
+          // and was only ever handed the default.
+          //
+          // ⭐ ON THE BRANCH, NOT ON `baseProps`, and that is a measurement
+          // rather than a preference. SEVEN other child views read
+          // `schema.navigation` for themselves, each at its own
+          // `useNavigationOverlay` call — `ObjectGrid`, `ObjectGallery`,
+          // `ObjectKanban`, `ObjectCalendar`, `ObjectMap`, `ObjectTimeline`,
+          // `ObjectTree` (⛔ cited by symbol, not by line: objectui#8875). And
+          // every one of them ALSO receives `onRowClick:
+          // navigation.handleClick` from `baseProps`, which
+          // `useNavigationOverlay` gives FULL priority over any `navigation` it
+          // is handed. So putting the key on `baseProps` would deliver it to
+          // seven views in two broken ways at once:
+          //
+          //   - six of them (grid, gallery, kanban, map, timeline, tree) pass
+          //     `onRowClick` UNCONDITIONALLY, so the authored config would
+          //     arrive and then be outranked — declared, delivered, and STILL
+          //     not enforced, which is this card's own defect relocated;
+          //   - calendar alone mirrors gantt's `navIsOverlay ? undefined :
+          //     onRowClick`, so it would genuinely CHANGE BEHAVIOUR: today its
+          //     `navConfig` is always the `{ mode: 'drawer' }` fallback and it
+          //     suppresses the host handler; fed an authored `page` it would
+          //     stop suppressing and defer to ListView's overlay instead.
+          //
+          // That is two sources of truth for one question. `gantt` is the only
+          // branch where forwarding settles the question rather than splitting
+          // it: its wrapper drops host props entirely (objectui#7210 /
+          // objectui#7222), so the schema path is the only live carrier and
+          // `onRowClick` is not there to outrank anything.
+          //
+          // Conditional, not `navigation: schema.navigation` — an ABSENT key,
+          // not present-and-undefined, the same distinction the two non-axis
+          // keys below are omitted for. It is what keeps the `?? { mode:
+          // 'drawer' }` fallback reachable for a view that authored nothing.
+          //
+          // ⛔ This is route A only. Forwarding host PROPS to the chart is
+          // objectui#7210 half 2's scope and collides with objectui#7333.
+          ...(schema.navigation ? { navigation: schema.navigation } : {}),
           // ViewData pass-through: a view authored with `data: {provider:'api',
           // read, write}` (composite endpoint) must reach ObjectGantt, whose
           // getDataConfig prefers schema.data over the objectName fallback.
           ...(schema.data ? { data: schema.data } : {}),
           ...(startDateField ? { startDateField } : {}),
           ...(endDateField ? { endDateField } : {}),
-          progressField: schema.gantt?.progressField || schema.options?.gantt?.progressField || 'progress',
-          dependenciesField: schema.gantt?.dependenciesField || schema.options?.gantt?.dependenciesField || 'dependencies',
           ...(schema.gantt?.titleField ? { titleField: schema.gantt.titleField } : {}),
           ...(schema.options?.gantt || {}),
           ...(schema.gantt || {}),
@@ -2736,11 +2969,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // the author actually wrote, so an undeclared `zoom`/`center` stays
         // absent and `ObjectMap` still fits the camera to the queried records
         // (objectui#5000, objectui#4941).
+        //
+        // ⛔ NO `locationField: … || 'location'` FLOOR (objectui#8169 — ruled
+        // 2026-09-07 「同意」, option B; the same correction objectui#7070 made
+        // to the gantt date axes and objectui#7029 to the calendar). It stood
+        // here as a duplicate of `getMapConfig`'s own default branch, and its
+        // real effect was to SHADOW half of it: the floor forced the flat
+        // branch, which returned that one key and no `latitudeField` /
+        // `longitudeField`, so an undeclared view invented ONE name where the
+        // component would have invented three. Both faces moved in one change:
+        // the component's guesses are gone too, and an unbound map now renders
+        // its "Map configuration required" refusal instead of an empty one.
+        // ⇒ deleting this floor no longer widens anything — it is what makes
+        // the refusal reachable from a list view at all.
         const mapConfig = resolveListMapConfig(schema);
         return {
           type: 'object-map',
           ...baseProps,
-          locationField: mapConfig.locationField || 'location',
           ...mapConfig,
         };
       }
@@ -3122,7 +3367,43 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       prefix: exportConfig?.fileNamePrefix,
       label: translatedLabel,
       objectName: schema.objectName,
-      viewLabel: schema.label || (schema as any).title,
+      /**
+       * The view's own label, resolved against the display locale — `label` is
+       * `string | I18nLabel` (the spec's INLINE locale map) and `viewLabel` is
+       * `string`, so the map has to be resolved before it gets here. Same
+       * resolver, same argument order as `ObjectGrid`'s twin site.
+       *
+       * ⛔ NO legacy `title` arm. This read used to be
+       * `schema.label || (schema as any).title`, and objectui#8653 item 1
+       * retired the second operand — the objectui#7129 route, as taken for
+       * `DashboardComponentSchema.title` at objectui#7623 — on two
+       * measurements:
+       *
+       *   - `@objectstack/spec/ui`'s `ListViewSchema` REFUSES `title` BY NAME
+       *     (`unrecognized_keys: ['title']`) while `ObjectGridPropsSchema`
+       *     ACCEPTS it. `packages/types` mirrors the spec rather than ruling
+       *     over it, so declaring `title` on `ListViewSchema` would make this
+       *     repo accept what the platform save gate rejects. That asymmetry is
+       *     also why objectui#6639 could take the DECLARE branch one package
+       *     over and this site could not.
+       *   - a parse-based census of `apps/ examples/ content/ packages/` found
+       *     ZERO `list-view` nodes authoring `title`, so no author loses a
+       *     filename to the retirement. Over that same corpus the instrument
+       *     reports THREE `object-grid` nodes carrying the key: TWO AUTHORED,
+       *     both in `content/docs/api/schema-reference.md`, plus one that is
+       *     not authored at all — `plugin-view`'s `ObjectView` composes
+       *     `title: schema.table?.title` onto a grid node it builds, so that
+       *     third hit is a producer writing the key, not an author declaring
+       *     it. Say "authored" or the two numbers disagree.
+       *
+       * ⭐ The `as any` was also laundering a defect of its own: `X || any`
+       * collapses the whole expression to `any`, so a locale-map `label`
+       * reached `sanitizeFileNameBase` UNRESOLVED and exported as
+       * `[object Object]`. Both halves are pinned in
+       * `__tests__/listViewNonAuthorKeys-8653.test.tsx` §3, which reads the
+       * download anchor rather than re-implementing the filename.
+       */
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale),
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.

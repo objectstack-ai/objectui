@@ -79,7 +79,10 @@ export interface RecordRelatedListRendererProps {
 }
 
 const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
-  schema = {} as any,
+  // ⛔ NOT `{} as any` — the annotation-erasing default objectui#8649 repaired.
+  // The mechanism and why the spelling tracks the annotation are written once,
+  // at the same site in `record-details.tsx`.
+  schema = {} as NonNullable<RecordRelatedListRendererProps['schema']>,
   className,
   ...props
 }) => {
@@ -128,11 +131,28 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   const relatedActions = useRelatedRecordActions();
   const handlers = React.useMemo(
     () =>
-      relatedActions?.resolve({
-        objectName,
-        relationshipField: schema.relationshipField,
-        parentId: parentLinkValue,
-      }) ?? null,
+      // The `objectName &&` gate is the objectui#8649 erasure repair surfacing a
+      // latent contract violation, not a behaviour change. `schema.objectName`
+      // is OPTIONAL on this component by declaration (see the annotation above:
+      // the gate binds it from `dataSource`, so it can arrive unbound), while
+      // `ResolveRelatedRecordActionsInput.objectName` is `string`. Until the
+      // default stopped erasing the annotation both read `any` and the mismatch
+      // was invisible; `tsc` names it as TS2322 now.
+      //
+      // Output-identical, and both halves are measured rather than assumed:
+      // `resolve` is pure and its only use of the key is
+      // `objects.find((o) => o?.name === objectName)`, which finds nothing for
+      // `undefined` and returns `{}`; and `handlers` is never read on this path
+      // — the `if (!objectName)` placeholder return below (kept AFTER the hooks
+      // for hook-order stability) discards it. So the gate replaces a discarded
+      // `{}` with a discarded `null` and skips a lookup that could never hit.
+      objectName
+        ? (relatedActions?.resolve({
+            objectName,
+            relationshipField: schema.relationshipField,
+            parentId: parentLinkValue,
+          }) ?? null)
+        : null,
     [relatedActions, objectName, schema.relationshipField, parentLinkValue],
   );
 
@@ -189,7 +209,27 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     );
     filteredColumns = rawColumns.filter((c) => {
       const n = colName(c);
-      return n ? allowed.has(n) : true;
+      // Fail CLOSED on an entry this fold cannot NAME (objectui#8793). The
+      // else-branch used to KEEP such an entry, and that was the bypass: the
+      // block resolves identity through `colName`, which deliberately refuses
+      // the table library's own `accessorKey` (objectui#3104), while
+      // `RelatedList` renders a column as `accessorKey || columnIdentity(c)`.
+      // So a column authored `{ accessorKey: 'salary' }` was named by nobody
+      // here, skipped both `enforceFieldSecurity` and `redactFields`, and then
+      // painted its real values through the table's own key. An entry the
+      // security fold cannot check is an entry it must not pass.
+      //
+      // Since objectui#9090 that example has a second gate below it: the block
+      // now hands `redactFields` DOWN and `RelatedList` filters by the same
+      // `accessorKey || columnIdentity` pair, as `filterFLS` beside it always
+      // did for a declared field FLS denies. What this arm alone still decides
+      // is a key the permission evaluator has no opinion about — one the child
+      // object never declares, which `checkField` default-ALLOWS downstream.
+      //
+      // Scoped to the filtering path only: with neither key set this whole
+      // branch is skipped and `columns` is handed down by reference, so an
+      // ordinary related list renders exactly what it always did.
+      return n ? allowed.has(n) : false;
     });
   }
 
@@ -203,6 +243,15 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         referenceField={schema.relationshipField}
         parentId={parentLinkValue as any}
         columns={filteredColumns as any}
+        // [objectui#9053] The same list, pushed down to the component that
+        // DECIDES columns. Filtering the authored array here only ever reached
+        // one of the three paths that decide them: redacting every authored
+        // column emptied this array, `RelatedList` read the empty array as "no
+        // columns were authored", and its auto-derivation — which this list
+        // never reached — brought the redacted field back. Passed by reference
+        // (and `undefined` when unauthored) so the column memo downstream keeps
+        // a stable dependency.
+        redactFields={redact.length > 0 ? redact : undefined}
         pageSize={
           typeof schema.limit === 'number' && schema.limit > 0
             ? schema.limit
@@ -216,7 +265,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         // `ElementDataSourceGate` wrote it here, which is only legitimate now
         // that the value is read.
         filter={schema.filter}
-        dataSource={ctx?.dataSource as any}
+        dataSource={ctx?.dataSource}
         add={
           (schema as any).add
             ? {
@@ -270,7 +319,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
             : (schema as any).add && ctx?.dataSource
               ? async (row: any) => {
                   const id = row?.id ?? row?._id;
-                  if (id != null) await (ctx!.dataSource as any).delete?.(objectName, String(id));
+                  if (id != null) await ctx?.dataSource?.delete?.(objectName, String(id));
                 }
               : undefined
         }
@@ -287,7 +336,9 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
  * (objectstack#6953), because the block DECLARED it and no code read it: writing
  * the composed filter onto a dead key would have reproduced the very defect that
  * change removed, one layer deeper. objectstack#7118 gave it a read site —
- * `RelatedList` now ANDs it with `{ [referenceField]: parentId }` — so the
+ * `RelatedList` now ANDs it with the parent-relationship condition, whose
+ * spelling follows the relationship field's arity (`=` for a single-valued
+ * field, `$contains` for a `multiple: true` one — objectui#7299) — so the
  * mapping follows, and with it the consequence recorded here as open: a saved
  * view named on this block no longer contributes columns/sort/limit while its
  * FILTER is dropped, i.e. the list can no longer be wider than the view it names.

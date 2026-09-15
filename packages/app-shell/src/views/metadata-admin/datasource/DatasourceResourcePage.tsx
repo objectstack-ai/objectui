@@ -71,6 +71,18 @@ import {
 } from '@object-ui/components';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useMetadataClient } from '../useMetadata.js';
+// objectui#7265 — this page used to re-describe the introspection row as a
+// module-local `interface RemoteTable { name; schema?; columnCount? }`. It is
+// the SAME wire shape `GET /datasources/:name/remote-tables` returns, and the
+// sibling client one directory over (`../external/api.ts`) already re-exports
+// the spec's own type for it rather than mirroring it — with the drift that
+// motivated that decision written down in place. The copy here had drifted in
+// the one direction that matters for a READ type: `columnCount` was optional
+// while the spec (and therefore the server) declares it REQUIRED, so the
+// `t.columnCount != null` guard below read as load-bearing when it is only
+// defence in depth. Importing the spec's type keeps this page's row and that
+// client's row incapable of disagreeing.
+import type { RemoteTable } from '@objectstack/spec/contracts';
 
 interface DatasourceRow {
   name: string;
@@ -123,7 +135,6 @@ function StatusChip({ status, reason }: { status?: string; reason?: string }) {
       return chip('bg-muted text-muted-foreground', status);
   }
 }
-interface RemoteTable { name: string; schema?: string; columnCount?: number }
 
 interface JsonProp {
   type?: string;

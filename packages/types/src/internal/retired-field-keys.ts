@@ -139,9 +139,45 @@ export const RETIRED_FIELD_KEY_TOMBSTONES = [
   {
     /*
      * A rename: the spec spells the lookup target `reference`
-     * ("Did you mean `referenceTo` -> `reference`?"). The strip loses nothing —
-     * every write path re-emits the designer's target under `reference`, and
-     * the read door's writers never emit the retired spelling.
+     * ("Did you mean `referenceTo` -> `reference`?").
+     *
+     * ⚠️ "The strip loses nothing" was written here without a qualifier, and
+     * objectui#8896 measured it false at two of the three sites. It was only
+     * ever true where a READ DOOR had already lifted the target out of the
+     * stored document — `fromDesignerField` re-emitting the designer's target
+     * under `reference`. The two sites with no read door in front of them
+     * (`metadataFieldsPageCarryOver`'s objectui#8060 preserved branch, which
+     * re-emits a stored document verbatim, and `metadataAdminFieldsReadDoor`,
+     * which IS the read) deleted the only copy of the target, and
+     * objectui#7714's guard then refused the whole object's save from a page
+     * that renders the field read-only.
+     *
+     * Each of those two sites now lifts the VALUE onto the spec key before
+     * dropping the retired one. The strip itself is unchanged everywhere:
+     * `FieldSchema` refuses this spelling BY NAME, so no site emits it.
+     *
+     * ⚠️ The claim is therefore per site, and is NOT restated as a third
+     * unconditional sentence — restating the conclusion without its condition is
+     * how this entry went wrong the first time:
+     *
+     *   - `metadataFieldsPageCarryOver` — nothing is lost. Its designable branch
+     *     reads through `storedRelationshipTarget` (objectui#8058) and its
+     *     preserved branch through `carryPreservedField` (objectui#8896); both
+     *     re-emit under `reference`.
+     *   - `metadataAdminFieldsReadDoor` — nothing is lost. The door keeps the
+     *     value under `reference` as it drops the key (objectui#8896).
+     *   - `metadataServiceCarryOver` — ⛔ UNMEASURED, deliberately. That site
+     *     strips a stored entry it merges UNDERNEATH an already-built
+     *     `DesignerFieldDefinition`, and `toFieldPayload` writes `reference`
+     *     from that model unconditionally. Whether a target survives therefore
+     *     depends on the CALLER's read door, and `saveFields` has no in-repo
+     *     caller to measure (it is a published service API). Whoever measures
+     *     one: this is the same class, and the answer belongs here.
+     *
+     * ⛔ That recovery is written per site and keyed to THIS key. It is NOT
+     * driven off `specEquivalent` — see the field's own doc, and objectui#6043,
+     * for why a mechanical rename is refused in general. What makes this key
+     * different is that its value is a bare object NAME under both spellings.
      */
     key: 'referenceTo',
     retiredBy: 'objectui#6041',

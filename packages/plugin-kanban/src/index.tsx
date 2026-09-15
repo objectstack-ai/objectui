@@ -67,20 +67,42 @@ export function bucketCardsIntoColumns(
 
   // Build label→id mapping so data values (labels like "In Progress") match
   // column IDs (option values like "in_progress").
-  const labelToColumnId: Record<string, string> = {};
+  // ⚠️ Null prototype, not `{}` (objectui#9043). This map and `groups` below are
+  // keyed by RECORD DATA, which no schema guards — `@objectstack/spec` narrows the
+  // lane `id` (objectui#8913), not the values stored in the grouped field — so a
+  // stored value like 'constructor' or '__proto__' would otherwise be answered by
+  // `Object.prototype` instead of by what this function actually put here:
+  //   - the READ below is `labelToColumnId[k] ?? rawKey`, and `??` only falls back
+  //     on null/undefined, so an INHERITED member is returned as if it were a
+  //     declared lane id;
+  //   - the WRITE `labelToColumnId['__proto__'] = col.id` on a prototype-bearing
+  //     object invokes the `__proto__` setter, which silently ignores a string —
+  //     so a lane legitimately declared with that option value loses its mapping.
+  // `Object.prototype.hasOwnProperty.call(...)` would close the READ only; the
+  // write hazard needs the null prototype, which is why both maps take that route.
+  const labelToColumnId: Record<string, string> = Object.create(null);
   columns.forEach((col: any) => {
     if (col.id) labelToColumnId[String(col.id).toLowerCase()] = col.id;
     if (col.title) labelToColumnId[String(col.title).toLowerCase()] = col.id;
   });
 
   // 1. Group data by key, normalizing via label→id mapping.
+  // ⚠️ Null prototype for the same reason (objectui#9043), and this is the leg that
+  // CRASHES: on a `{}` accumulator `acc['toString']` is the inherited METHOD, which
+  // is truthy, so the array is never created and the next line calls `.push` on a
+  // function — thrown during render, so the user sees a blank board with nothing
+  // naming the record. `acc['__proto__'] = []` would likewise hit the setter and be
+  // dropped, and step 2's `groups[col.id]` read would answer `Object.prototype` for
+  // a lane declared `{ id: '__proto__' }`, which spreads as "not iterable".
+  // ⚠️ The repair keeps every record: an offending one keeps its own value as its
+  // group key and still surfaces in the trailing lane, never discarded (#2792).
   const groups = data.reduce((acc, item) => {
     const rawKey = String(item[groupBy] ?? '');
     const key = labelToColumnId[rawKey.toLowerCase()] ?? rawKey;
     if (!acc[key]) acc[key] = [];
     acc[key].push(mapCoverImage(item));
     return acc;
-  }, {} as Record<string, any[]>);
+  }, Object.create(null) as Record<string, any[]>);
 
   // 2. Inject into declared columns.
   const mapped = columns.map((col: any) => ({
@@ -97,7 +119,20 @@ export function bucketCardsIntoColumns(
   // still counts. Surface them in a trailing "Uncategorized" lane; dragging
   // one out to a real column repairs its status (the drag handler refuses to
   // persist a move INTO here).
-  const knownIds = new Set(columns.map((col: any) => col.id));
+  // ⚠️ Key this membership test the way the injection above keys its READ.
+  // `groups[col.id]` is a property read, so it coerces the id: a lane
+  // `{ id: 1 }` correctly picks up the group stored under `'1'`, and every key
+  // `Object.keys(groups)` yields is a string. A Set built from the RAW id
+  // therefore answers `new Set([1]).has('1') === false` and sweeps the very
+  // records the injection already took — the board renders each of them twice,
+  // once in its lane and once in "Uncategorized" (objectui#8993). Membership is
+  // decided twice here, so both decisions must use the same key spelling.
+  // A symbol is the one id a property read does NOT stringify, so it is kept
+  // as-is rather than pushed through `String()` (which throws on symbols):
+  // `Object.keys` never yields a symbol, so such a lane keeps today's reading.
+  const knownIds = new Set<PropertyKey>(
+    columns.map((col: any) => (typeof col.id === 'symbol' ? col.id : String(col.id))),
+  );
   const uncolumnedCards = Object.keys(groups)
     .filter((key) => !knownIds.has(key))
     .flatMap((key) => groups[key]);
@@ -108,7 +143,8 @@ export function bucketCardsIntoColumns(
 }
 
 // Export types for external use
-export type { KanbanSchema, KanbanCard, KanbanColumn, CardTemplate, ColumnWidthConfig, InlineFieldDefinition } from './types';
+// ⛔ `KanbanSchema` RETIRED with the bare `kanban` node type key (objectui#8802).
+export type { KanbanCard, KanbanColumn, CardTemplate, ColumnWidthConfig, InlineFieldDefinition } from './types';
 export { ObjectKanban };
 export type { ObjectKanbanComponentProps } from './ObjectKanban';
 
@@ -135,7 +171,6 @@ export type { UseQuickAddReorderOptions, UseQuickAddReorderReturn } from './useQ
 
 // 🚀 Lazy load the implementation files
 const LazyKanban = React.lazy(() => import('./KanbanImpl'));
-const LazyKanbanEnhanced = React.lazy(() => import('./KanbanEnhanced'));
 
 export interface KanbanRendererProps {
   schema: {
@@ -146,32 +181,114 @@ export interface KanbanRendererProps {
     data?: Array<any>;
     groupBy?: string;
     swimlaneField?: string;
-    onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void;
-    onCardClick?: (card: any) => void;
+    /**
+     * TWO parameters since objectui#9357. `KanbanRenderer` hands this value
+     * straight to `KanbanImpl` (`onCardClick={schema.onCardClick}` below),
+     * whose `SortableCard` invokes it as `onCardClick?.(card, e)` with the DOM
+     * click event — the modifier payload a host needs for Cmd/Ctrl/middle-click.
+     * Declaring one parameter described a call this component never makes.
+     * `any` rather than `React.MouseEvent` keeps this face in agreement with its
+     * published twin `ObjectKanbanSchema.onCardClick` (objectui#9341), which may
+     * not name a React type.
+     */
+    onCardClick?: (card: any, event?: any) => void;
     quickAdd?: boolean;
     onQuickAdd?: (columnId: string, title: string) => void;
     coverImageField?: string;
     conditionalFormatting?: KanbanConditionalFormattingRule[];
     /**
-     * The object's field definitions, injected by `ObjectKanban` (the only
-     * entry point that fetches an object schema). Card conditional formatting
-     * needs them so a rule comparing a relation field sees the stored foreign
-     * key rather than the record `$expand` substituted for it — the board
-     * expands relations exactly as the grid does, so without this the SAME
-     * rule on the SAME view worked on the grid and silently never matched on
-     * the board (objectui#3501). Absent on the schema-only `kanban-ui` entry,
-     * which has no object schema to offer; there the payload is used verbatim,
-     * as before.
+     * The lane counts below are counts of a fetched WINDOW, not of the group
+     * (objectui#8307). Injected by `ObjectKanban`, the only entry point that
+     * issues the windowed `$top` query and can therefore know the answer;
+     * `ObjectKanban` supplies nothing on the schema-only `kanban-ui` entry,
+     * whose `data` arrives whole from its author and whose counts are complete
+     * by construction. Not MEANT to be an authorable input for exactly that
+     * reason — same shape and same argument as the `objectFields` prop BELOW,
+     * and likewise absent from this component's registry `inputs`. ⚠️ Unlike
+     * that prop it still rides this schema bag, so on `kanban-ui` an author can
+     * in fact write it; batch #70 did not name the key, so it is recorded here
+     * rather than moved (objectui#7742).
      */
-    objectFields?: unknown;
+    countsAreWindowed?: boolean;
   };
+  /**
+   * The object's field definitions, injected by `ObjectKanban` (the only entry
+   * point that fetches an object schema). Card conditional formatting needs
+   * them so a rule comparing a relation field sees the stored foreign key
+   * rather than the record `$expand` substituted for it — the board expands
+   * relations exactly as the grid does, so without this the SAME rule on the
+   * SAME view worked on the grid and silently never matched on the board
+   * (objectui#3501).
+   *
+   * ⛔ INTENDED AS AN INTERNAL CHANNEL, NOT AN AUTHORING SURFACE (objectui#7742,
+   * maintainer decision batch #70, 2026-09-07). It sits HERE — a React prop, a
+   * sibling of `schema` — and deliberately NOT inside `schema`, which is where
+   * it used to live. Inside `schema` it was reachable by an AUTHOR: `BaseSchema`
+   * is `.passthrough()`, `SchemaRenderer` hands the node through, and on the
+   * schema-only `kanban-ui` entry (which has no object schema of its own to
+   * substitute) an authored `objectFields` reached
+   * `resolveConditionalFormatting` verbatim. Nothing declared it on any schema
+   * face, so nothing judged it either.
+   *
+   * ⚠️ THE MOVE CLOSES THE `kanban` ARM, NOT THE KEY — measured through the
+   * real `SchemaRenderer`, so do NOT read this prop as proof that only
+   * `ObjectKanban` can write it. `ObjectKanbanRenderer` serves `type: 'kanban'`
+   * and discards its rest-spread (`void _props;`), so an authored `objectFields`
+   * on a `'kanban'` node reaches nothing — that arm is genuinely closed. But
+   * `objectFields` is NOT on `SchemaRenderer`'s stripped-metadata list (the
+   * destructure that feeds its `...componentProps` rest), so on the `kanban-ui`
+   * registration below — which THIS component serves — an authored
+   * `objectFields` survives the generic prop spread and lands right here, and
+   * still reaches `resolveConditionalFormatting` exactly as it did before.
+   * Stripping the key at that entry is a separate change, not made here.
+   *
+   * `ObjectKanban` supplies nothing on the schema-only `kanban-ui` entry — it
+   * has no object schema to offer — so unless an author wrote the key and it
+   * arrived by the spread above, conditional formatting there reads the card
+   * payload as before.
+   *
+   * ⚠️ `countsAreWindowed` above is the SAME shape and the same argument, and
+   * the batch #70 ruling did not name it — it stays on the schema bag, recorded
+   * rather than fixed here.
+   */
+  objectFields?: unknown;
+
+  /**
+   * The board's card-move callback, injected by the host that owns the write.
+   *
+   * ⛔ A React PROP, a sibling of `schema`, and deliberately NOT a member of the
+   * `schema` bag (objectui#9342, executing the ruling on PR objectui#9338; the
+   * objectui#7742 remedy `objectFields` above already took, one member over,
+   * under maintainer decision batch #70).
+   *
+   * Inside `schema` the key was reachable by an AUTHOR and reached NOTHING.
+   * `BaseSchema` is `.passthrough()`, so `onCardMove` was accepted and KEPT on
+   * an `object-kanban` document, and then dropped: `ObjectKanban` substitutes
+   * its own `handleCardMove` on the schema it hands down — that wrapper owns the
+   * optimistic write, the required-fields dialog and the rollback — and declares
+   * no `onCardMove` React prop of its own (its rest parameter is discarded), so
+   * neither channel delivered. Measured, driven rather than inferred, with
+   * `onCardClick` as the lit control on the same document and the same render
+   * (`__tests__/handlerKeyDispositionsMeasured-7804.test.tsx`).
+   *
+   * Moving the READ here is what lets the `object-kanban` arm tombstone the key
+   * with `handlerKeyRefusal(…, 'retired', …)` and still satisfy
+   * `check:handler-key-reads`, whose contract is that a tombstone "has no read
+   * site BY CONSTRUCTION". What that gate could not see is that the value at the
+   * old read was substituted one hop earlier.
+   *
+   * ⚠️ NARROWS A PUBLISHED PROPS SURFACE. A host that rendered `KanbanRenderer`
+   * directly and wrote the key inside `schema` gets a TS error if it is typed
+   * and a silent drop if it is not; it must move the function to this prop.
+   */
+  onCardMove?: (cardId: string, fromColumnId: string, toColumnId: string, newIndex: number) => void;
 }
 
 /**
  * KanbanRenderer - The public API for the kanban board component
  * This wrapper handles lazy loading internally using React.Suspense
  */
-export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema }) => {
+export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields, onCardMove }) => {
   const { t } = useUncolumnedT();
   // ⚡️ Adapter: Map flat 'data' + 'groupBy' to nested 'cards' structure.
   const processedColumns = React.useMemo(
@@ -190,177 +307,118 @@ export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema }) => {
     <Suspense fallback={<Skeleton className="w-full h-[600px]" />}>
       <LazyKanban
         columns={processedColumns}
-        onCardMove={schema.onCardMove}
+        onCardMove={onCardMove}
         onCardClick={schema.onCardClick}
         className={schema.className}
         quickAdd={schema.quickAdd}
         onQuickAdd={schema.onQuickAdd}
         coverImageField={schema.coverImageField}
         conditionalFormatting={schema.conditionalFormatting}
-        objectFields={schema.objectFields}
+        objectFields={objectFields}
         swimlaneField={schema.swimlaneField}
+        countsAreWindowed={schema.countsAreWindowed}
       />
     </Suspense>
   );
 };
 
-// Register the component with the ComponentRegistry
-ComponentRegistry.register(
-  'kanban-ui',
-  KanbanRenderer,
-  {
-    namespace: 'plugin-kanban',
-    label: 'Kanban Board',
-    icon: 'LayoutDashboard',
-    category: 'plugin',
-    inputs: [
-      { 
-        name: 'columns', 
-        type: 'array', 
-        description: 'Array of { id, title, cards, limit, className }',
-        required: true
-      },
-      { 
-        name: 'onCardMove', 
-        type: 'code',
-        description: 'Callback when a card is moved'      },
-      { 
-        name: 'className', 
-        type: 'string'      }
-    ],
-    defaultProps: {
-      columns: [
-        {
-          id: 'todo',
-          title: 'To Do',
-          cards: [
-            {
-              id: 'card-1',
-              title: 'Task 1',
-              description: 'This is the first task',
-              badges: [
-                { label: 'High Priority', variant: 'destructive' },
-                { label: 'Feature', variant: 'default' }
-              ]
-            },
-            {
-              id: 'card-2',
-              title: 'Task 2',
-              description: 'This is the second task',
-              badges: [
-                { label: 'Bug', variant: 'destructive' }
-              ]
-            }
-          ]
-        },
-        {
-          id: 'in-progress',
-          title: 'In Progress',
-          limit: 3,
-          cards: [
-            {
-              id: 'card-3',
-              title: 'Task 3',
-              description: 'Currently working on this',
-              badges: [
-                { label: 'In Progress', variant: 'default' }
-              ]
-            }
-          ]
-        },
-        {
-          id: 'done',
-          title: 'Done',
-          cards: [
-            {
-              id: 'card-4',
-              title: 'Task 4',
-              description: 'This task is completed',
-              badges: [
-                { label: 'Completed', variant: 'outline' }
-              ]
-            },
-            {
-              id: 'card-5',
-              title: 'Task 5',
-              description: 'Another completed task',
-              badges: [
-                { label: 'Completed', variant: 'outline' }
-              ]
-            }
-          ]
-        }
-      ],
-      className: 'w-full'
-    }
-  }
-);
+/**
+ * ⛔ The `kanban-ui` node type key is RETIRED (objectui#8257, maintainer ruling
+ * 2026-09-09), together with `kanban-enhanced` below. `KanbanRenderer` itself
+ * stays exported and stays in use — `ObjectKanban` renders it — it is only the
+ * REGISTRY KEY that is gone.
+ *
+ * ## The measurement the ruling was taken on
+ *
+ * Exact node-type spellings, whole repo: `kanban-ui` was authored 0 times in
+ * JSON and 0 times in TS/TSX as a registry-resolved node, against a firing
+ * control of 2 JSON / 128 TS occurrences for the live sibling `object-grid` and
+ * a silent control (`zzz-not-a-type`, 0). ⇒ a registered type key no document
+ * in this repository has ever authored. Declaring an arm for it would have
+ * committed the repo to a validation face for a spelling with no writers — the
+ * opposite of what ADR-0049 enforce-or-remove asks.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * ⚠️ `BaseSchema` closes with `[key: string]: any` and `BaseSchemaCore` ends
+ * `.passthrough()`, so a dropped MEMBER KEY is KEPT, not refused (objectui#7664).
+ * That hazard needs a schema face to arise on, and this key never had one:
+ * measured whole-repo, `@object-ui/types` declares `kanban-ui` as a component
+ * node type ZERO times (firing control: `object-kanban`, 2 — `objectql.ts` and
+ * its Zod mirror). There is no arm to convert into a named refusal.
+ * ⇒ Registration-only retirement.
+ *
+ * ## ⭐ What this closes as a side effect — objectui#8818
+ *
+ * `SchemaRenderer` strips a fixed, enumerated metadata list and spreads the
+ * REST as React props. `objectFields` is not on that list, and `KanbanRenderer`
+ * — registered here for `kanban-ui` — declares `objectFields` as a real prop
+ * (objectui#7742). So an AUTHORED `objectFields` reached the predicate layer
+ * verbatim on this entry, with no schema face declaring or judging it.
+ * Retiring this registration closes that path: nothing resolves `kanban-ui` any
+ * more, so no authored node reaches `KanbanRenderer` through the registry.
+ *
+ * ⚠️ This closes the ENTRY, ⛔ not the CLASS. `SchemaRenderer` still spreads
+ * every unstripped key; if another renderer ever declares an `objectFields`
+ * prop the hole returns. objectui#8818's option (a) — stripping at the
+ * `SchemaRenderer` boundary — is the one that would close the class, and it is
+ * still open.
+ *
+ * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`.
+ */
 
-// Standard Export Protocol - for manual integration
+/**
+ * Standard Export Protocol — for manual integration.
+ *
+ * ⛔ The `kanban`, `kanban-enhanced` and `kanban-ui` keys are RETIRED
+ * (objectui#8802 / objectui#8257, maintainer rulings 2026-09-09), so this map
+ * publishes the one surviving spelling. A host that mounted the retired keys
+ * from here was re-teaching them under its own registry; `object-kanban` is the
+ * key to mount.
+ */
 export const kanbanComponents = {
-  'kanban': KanbanRenderer,
-  'kanban-enhanced': LazyKanbanEnhanced,
   'object-kanban': ObjectKanban,
 };
 
-// Register enhanced Kanban
-ComponentRegistry.register(
-  'kanban-enhanced',
-  ({ schema }: { schema: any }) => {
-    const processedColumns = React.useMemo(() => {
-      const { columns = [], data, groupBy } = schema;
-      if (data && groupBy && Array.isArray(data)) {
-        const groups = data.reduce((acc, item) => {
-          const key = item[groupBy];
-          if (!acc[key]) acc[key] = [];
-          acc[key].push(item);
-          return acc;
-        }, {} as Record<string, any[]>);
-        return columns.map((col: any) => ({
-          ...col,
-          cards: [...(col.cards || []), ...(groups[col.id] || [])]
-        }));
-      }
-      return columns;
-    }, [schema]);
-
-    return (
-      <Suspense fallback={<Skeleton className="w-full h-[600px]" />}>
-        <LazyKanbanEnhanced
-          columns={processedColumns}
-          onCardMove={schema.onCardMove}
-          onColumnToggle={schema.onColumnToggle}
-          enableVirtualScrolling={schema.enableVirtualScrolling}
-          virtualScrollThreshold={schema.virtualScrollThreshold}
-          className={schema.className}
-          quickAdd={schema.quickAdd}
-          onQuickAdd={schema.onQuickAdd}
-          conditionalFormatting={schema.conditionalFormatting}
-        />
-      </Suspense>
-    );
-  },
-  {
-    namespace: 'plugin-kanban',
-    label: 'Kanban Board (Enhanced)',
-    icon: 'LayoutGrid',
-    category: 'plugin',
-    inputs: [
-      { name: 'columns', type: 'array', required: true },
-      { name: 'enableVirtualScrolling', type: 'boolean' },
-      { name: 'virtualScrollThreshold', type: 'number' },
-      { name: 'onCardMove', type: 'code' },
-      { name: 'onColumnToggle', type: 'code' },
-      { name: 'className', type: 'string' }
-    ],
-    defaultProps: {
-      columns: [],
-      enableVirtualScrolling: false,
-      virtualScrollThreshold: 50,
-      className: 'w-full'
-    }
-  }
-);
+/**
+ * ⛔ The `kanban-enhanced` node type key is RETIRED (objectui#8257, maintainer
+ * ruling 2026-09-09) — the card's own subject.
+ *
+ * ## What went, and what went with it
+ *
+ * The registration read `onColumnToggle`, `enableVirtualScrolling` and
+ * `virtualScrollThreshold` off `schema` and declared them as `inputs`, while
+ * `@object-ui/types` declared no `kanban-enhanced` arm at all: the type was
+ * dispatched by the registry and validated by nothing but `BaseSchema`'s
+ * passthrough. ⇒ Re-measured on this branch and CONFIRMED rather than assumed:
+ * with the registration gone those three keys have NO authorable surface left
+ * anywhere in the repo — 0 declarations on any schema face, 0 remaining
+ * `inputs` entries, 0 read sites (firing control on the same instrument:
+ * `groupBy`, which keeps 1 declaration + read sites on the surviving
+ * `object-kanban` face). objectui#8257's question is resolved by the removal of
+ * its subject, not by an answer.
+ *
+ * ## The measurement the ruling was taken on
+ *
+ * `kanban-enhanced` was authored 0 times in JSON and 0 times in TS/TSX, against
+ * the same firing control (`object-grid`, 2 JSON / 128 TS) and silent control
+ * (`zzz-not-a-type`, 0) the `kanban-ui` note above cites.
+ *
+ * `KanbanEnhanced.tsx` itself is untouched on disk. ⛔ It is NOT, and never
+ * was, reachable from outside this package: `package.json` `exports` publishes
+ * exactly two entries — `.` and `./style.css` — and this barrel does not
+ * re-export the component, so `@object-ui/plugin-kanban/KanbanEnhanced` has
+ * never been a resolvable specifier for a consumer. (An earlier revision of
+ * this note claimed it was; that claim was wrong and is corrected here rather
+ * than deleted, because it is what a reader would otherwise copy.) What this
+ * card removes is the registry key and the `React.lazy` wrapper that existed
+ * only to serve it; what it leaves behind is a module with zero non-test
+ * importers — `cardPredicateScope.test.tsx` reaches it by relative path.
+ * ⛔ Deleting the file is a FURTHER narrowing of published source and needs its
+ * own maintainer ruling, which this card does not carry, so it stays.
+ *
+ * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`.
+ */
 
 /**
  * What `ObjectKanban` reads for its own query: `objectName`, `filter` and
@@ -393,7 +451,13 @@ const OBJECT_KANBAN_DATA_SOURCE: ElementDataSourceMapping = {
 
 // Register object-kanban for ListView integration
 export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => {
-  const { dataSource } = useSchemaContext() || {};
+  // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
+  // bound spells absence either way, and the seam declares both
+  // (`DataSource | null | undefined`, objectui#7912). The widget below
+  // declares the single spelling `dataSource?: DataSource`, so collapse the
+  // two absences into that one here rather than widening the widget.
+  const { dataSource: contextDataSource } = useSchemaContext() || {};
+  const dataSource = contextDataSource ?? undefined;
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#6953):
   // before this, a board authored with `dataSource: { object, view }` and no
   // `objectName` never fetched — the effect is gated on `schema.objectName` —
@@ -424,8 +488,11 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  *
  * ## Why these keys were added
  *
- * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares thirteen
- * top-level keys; this list published three until objectui#8186 added `filter`.
+ * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares FOURTEEN
+ * top-level keys on the installed 17.4.0 pin; this list published three until
+ * objectui#8186 added `filter`. ⚠️ It declared THIRTEEN when objectui#8201 was
+ * filed — 17.4.0 added `limit` (see below), and the count moved with it. Both
+ * numbers are correct about their own pin, which is why this one names its pin.
  * The gap was STRUCTURAL rather than considered — the console registers this
  * block with `ComponentRegistry.registerLazy` and `getConfig` is loaded-only by
  * design, so the block sat outside the console's reverse-parity population
@@ -491,23 +558,48 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * objectui#8223 (`sort`) cleared on: the SPEC already declares all five and the
  * RENDERER already honours all five, so this restores `declared = enforced`
  * instead of publishing anything new. Measured with a control on the same
- * `safeParse` call — because "the spec declares it" is exactly the assumption
- * objectui#8172 falsified for `limit`, which four faces teach and the strict
- * `ComponentPropsMap` refuses BY NAME. An unrecognised probe key draws
- * `unrecognized_keys` on these calls while none of these five does.
+ * `safeParse` call — because "the spec declares it" is an assumption
+ * objectui#8172 once falsified for `limit`: four faces taught the key and the
+ * strict `ComponentPropsMap` refused it BY NAME. ⚠️ That reading is HISTORY as of
+ * @objectstack/spec 17.4.0. objectstack#16503 (landed as objectstack#16562)
+ * added `limit: z.number().int().positive().optional()` to
+ * `ComponentPropsMap['object-kanban']` — the maintainer's option-A ruling on
+ * objectui#8172, the contract catching up with a capability that was already
+ * implemented, typed, mapped and documented — so `limit` is DECLARED below with
+ * the others. Re-measured here rather than inherited: all four faces now agree
+ * (renderer `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`; BOTH `@object-ui/types`
+ * faces, TS and zod; `content/docs/plugins/plugin-kanban.mdx`; the spec).
+ * ⛔ The declaration carries NO default: a materialised `limit` would defeat the
+ * gate's `readLimit(base) === undefined` branch, and a bound view's
+ * `pagination.pageSize` would then never fill it. `DEFAULT_KANBAN_LIMIT = 100`
+ * stays documented rather than declared. An unrecognised probe key draws
+ * `unrecognized_keys` on these calls while none of the declared keys does.
  *
  * ## What is deliberately NOT here yet
  *
- * ONE of the thirteen keys stays undeclared, keeping its live entry in
+ * ONE of the fourteen keys stays undeclared, keeping its live entry in
  * `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`:
  *
- *   - `quickAdd` is ESCALATED, not deferred: this renderer does not honour it
- *     at all. `KanbanImpl` gates the control on `quickAdd && onQuickAdd`, and
- *     `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod twin refuses by
- *     name; nothing on the `ObjectKanban` path supplies one. Whether that is a
- *     permanent carve-out or a feature gap is a product ruling, not a
- *     measurement, so objectui#8201 hands it to the maintainer rather than
- *     writing a carve-out reason it has no standing to write.
+ *   - `quickAdd` is RULED, and the ruling is PREMATURE. This renderer does not
+ *     honour it at all: `KanbanImpl` gates the control on `quickAdd &&
+ *     onQuickAdd`, and `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod
+ *     twin refuses by name; nothing on the `ObjectKanban` path supplies one.
+ *     objectui#8201 escalated the DISPOSITION rather than guessing it, and the
+ *     PM answered (Q1 = A, 2026-09-07): PREMATURE — the renderer does not
+ *     honour it, and objectui#8285 owns the fix.
+ *     ⭐ PREMATURE commits nobody to building quick-add. It is also NOT the
+ *     stronger reading that the object-bound board is not going to grow it:
+ *     nothing measured supports that, and `KanbanRenderer` below contradicts
+ *     it by forwarding the same `quickAdd` + `onQuickAdd` pair by identity to
+ *     a React host that can supply the function.
+ *     ⛔ The exit is NOT a declaration — publishing the key would advertise
+ *     configuration this renderer drops. objectui#8285 was ruled (director
+ *     seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd`
+ *     from the spec's `ComponentPropsMap`; the day that lands, the key leaves
+ *     the accepted set and the console entry is harvested by its own dangling
+ *     and stale checks. Pinned from this side by
+ *     `__tests__/quickAddIsDiagnosedNotDropped-8285.test.ts` row 5, whose
+ *     reddening IS that day.
  *
  * The declarations are pinned per tag and per key, so removing one from this
  * list reddens a NAMED row rather than a file:
@@ -521,6 +613,7 @@ const OBJECT_KANBAN_INPUTS: ComponentInput[] = [
   { name: 'objectName', type: 'string', required: true },
   { name: 'columns', type: 'array' },
   { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form, narrowing the records the board fetches. Lowered to `$filter` on the query.' },
+  { name: 'limit', type: 'number', description: 'Row cap — the most records the board fetches, lowered to the query’s top-level `$top` (renderer default 100). The board renders every fetched record into a lane and offers no pagination, so this is the author’s window on the object rather than a page size. PRECEDENCE: a node-level `dataSource` binding’s own `limit` wins outright; the `pagination.pageSize` of a view that binding names fills this key only when the node leaves it unset.' },
   { name: 'groupBy', type: 'string', description: 'Record field whose value buckets cards into lanes. Its picklist options become the lanes when `columns` is absent, and a drag between lanes writes the target lane’s value back to the record. A value matching no lane lands in the trailing “Uncategorized” lane rather than disappearing.' },
   { name: 'cardTitle', type: 'string', description: 'Record field rendered as the card title. Read AHEAD of `titleField`, which is the legacy spelling of the same choice; when neither yields a value the shared record-display resolver names the card.' },
   { name: 'titleField', type: 'string', description: 'Legacy spelling of `cardTitle` — the record field rendered as the card title. `cardTitle` wins when both are authored.' },
@@ -542,15 +635,40 @@ ComponentRegistry.register(
     inputs: [...OBJECT_KANBAN_INPUTS],
   }
 );
-ComponentRegistry.register(
-  'kanban',
-  ObjectKanbanRenderer,
-  {
-    namespace: 'view',
-    label: 'Kanban Board',
-    category: 'view',
-    // Same renderer as `object-kanban`, therefore the same declared surface —
-    // now SHARED rather than hand-copied (objectui#8201).
-    inputs: [...OBJECT_KANBAN_INPUTS],
-  }
-);
+/**
+ * ⛔ The bare `kanban` node type key is RETIRED (objectui#8802, maintainer
+ * ruling 2026-09-09: 「从我们的业务需求角度，我应该只需要 `object-kanban`」).
+ * `object-kanban` above is the one spelling this plugin serves.
+ *
+ * ## What this dissolves rather than patches
+ *
+ * The two published faces of this key returned OPPOSITE verdicts on the same
+ * document: the registry `inputs` above (shared into both registrations by
+ * objectui#8201) declared `titleField`, while the `kanban` Zod arm refused it
+ * BY NAME after batch #70. With the key gone there is no arm left to disagree
+ * with — objectui#8802's four options are all moot.
+ *
+ * ## ⚠️ Unlike its `gantt` / `kanban-ui` / `kanban-enhanced` siblings, this one
+ * had a DECLARED FACE, so unregistering is only half of it
+ *
+ * `@object-ui/types` declared `KanbanSchema` with `type: 'kanban'` and mirrored
+ * it in `zod/complex.zod.ts`. A plain deletion there would have been the
+ * objectui#7664 failure: `BaseSchema` is `.passthrough()`, so a document naming
+ * a dropped spelling validates GREEN and renders nothing. The Zod arm is
+ * therefore a NAMED REFUSAL (`retiredNodeType()`, `zod/tombstone.zod.ts`)
+ * pointing the author at `object-kanban`, and the TS face leaves `ComplexSchema`
+ * and `SchemaRegistry` so `tsc` refuses the literal at the authoring site.
+ *
+ * ## ⛔ Two layers, and only one of them moved
+ *
+ * `kanban` is ALSO a STORED `NamedListView.type` — the value `CreateViewDialog`
+ * writes and every tenant's database holds. That layer is untouched:
+ * `packages/plugin-view/src/ObjectView.tsx`'s `switch (viewType)` already emits
+ * `object-kanban` for a stored `kanban` view, as it emits `object-*` for all
+ * twelve view types. ⇒ Every kanban view any user ever created through the
+ * console already renders through the surviving spelling; this retirement moves
+ * zero stored documents.
+ *
+ * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`
+ * and `@object-ui/types`' `__tests__/bare-kanban-node-key-retired-8802.test.ts`.
+ */

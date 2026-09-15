@@ -39,10 +39,17 @@
  * tolerance — and both are BEHAVIOUR CHANGES the migration delivered, not pure
  * refactor:
  *
- *  - **`order` is optional in `SortConfig`**, so an entry that omits it means
- *    ascending (that is what `$orderby`'s own
- *    `Array<{ field: string; order?: 'asc' | 'desc' }>` shape says). The private
- *    copies required BOTH keys and silently dropped such an entry, which lost an
+ *  - **A missing `order` is READ as ascending rather than dropped.** ⚠️ This
+ *    bullet used to say `order` is "optional in `SortConfig`". It is not:
+ *    `SortConfig.order` is required on the interface, on its zod mirror, and on
+ *    `@objectstack/spec`'s `SortItemSchema`, which refuses an entry without it
+ *    (`invalid_value` at `0.order`, measured on `@objectstack/spec@17.4.0`).
+ *    Corrected under objectui#8973, which is where objectui#8767's contract
+ *    review routed this sentence and its twin in
+ *    `@object-ui/types`' `ObjectGridSchema.sort` docblock. The tolerance is
+ *    real but it is a RUNTIME one — types are erased, so an entry missing
+ *    `order` still arrives and still has to mean something. The private copies
+ *    required BOTH keys and silently dropped such an entry, which lost an
  *    authored sort key instead of ordering by it.
  *  - **Nothing usable yields `undefined`, never `{}`.** An empty object is a
  *    truthy value that means "no ordering" only by accident of the adapter's
@@ -69,6 +76,13 @@ export interface QuerySortEntry {
 /**
  * The canonical spelling, quoted in the refusal diagnostic so the message
  * carries the fix and not just the complaint.
+ *
+ * ⚠️ BOTH keys, deliberately. `order` is REQUIRED on `SortConfig`, on its zod
+ * counterpart and on `@objectstack/spec`'s `SortItemSchema`, so an example that
+ * omitted it would make this diagnostic prescribe metadata a publish refuses —
+ * objectui#9031. The pin feeds this very example back through `SortItemSchema`
+ * from the installed artifact rather than eyeballing it, because the way this
+ * regresses is somebody "simplifying" the example, not somebody editing prose.
  */
 const ARRAY_FORM_EXAMPLE = "[{ field: 'name', order: 'desc' }]";
 
@@ -105,6 +119,25 @@ export function resetRetiredSortSpellingReports(): void {
  * for. That is the same severity class as `reportRetiredFieldType`, which is
  * also unconditional, and the opposite of `warnOnUnknownActionKeys`, which only
  * reports keys nothing was ever going to read.
+ *
+ * ⚠️ This text is read at the moment the author is ALREADY being corrected, so
+ * it must not prescribe metadata the spec refuses (objectui#9031). It used to
+ * end "`order` is optional and means `'asc'`" — a RUNTIME tolerance stated as
+ * an AUTHORING permission. Both halves of that are load-bearing and both have to
+ * survive any rewording:
+ *
+ *  - the tolerance is REAL — a missing `order` is read as ascending here rather
+ *    than dropped (see {@link normalizeSortEntries}), because types are erased
+ *    and an entry that arrives without it still has to mean something;
+ *  - and it is NOT permission — `order` is required on `SortConfig`, on its zod
+ *    counterpart and on `@objectstack/spec`'s `SortItemSchema`, which refuses an
+ *    entry without it.
+ *
+ * Stating only the first is what made an author who followed this correction
+ * verbatim get refused a second time, at publish, by a different door. Deleting
+ * the tolerance instead would be the opposite error: it is what this renderer
+ * actually does, and a diagnostic that denies it sends the author hunting for a
+ * dropped sort key that was never dropped.
  */
 function reportRetiredSortSpelling(sort: string): void {
   if (reportedRetiredSpellings.has(sort)) return;
@@ -113,25 +146,60 @@ function reportRetiredSortSpelling(sort: string): void {
     `[object-ui] convertSortToQueryParams: the legacy string \`sort\` clause is retired ` +
       `(objectui#8221) and was REFUSED — received ${JSON.stringify(sort)}, so this query ` +
       `carries no \`$orderby\`. Write the array form instead: ` +
-      `sort: ${ARRAY_FORM_EXAMPLE} (\`order\` is optional and means \`'asc'\`). ` +
+      `sort: ${ARRAY_FORM_EXAMPLE} — both keys, on every entry. \`order\` is required: on ` +
+      `\`SortConfig\`, on its zod counterpart, and on \`@objectstack/spec\`'s \`SortItemSchema\`, ` +
+      `which refuses an entry without it. (A missing \`order\` is still read as \`'asc'\` ` +
+      `here — that is a runtime tolerance, not permission to omit the key: metadata ` +
+      `written that way is refused when it is published.) ` +
       `The array is the only spelling every \`sort\` input declares, and the only one ` +
       `\`@objectstack/spec\` accepts.`,
   );
 }
 
 /**
- * Normalize an authored `sort` into the field→direction map used for
- * `QueryParams.$orderby`.
- *
- * @param sort `SortConfig[]` — the one declared spelling. The legacy string
- * clause (`"name desc"`) is retired (objectui#8221): a string that reaches here
- * at runtime is refused with a diagnostic naming the array form, and this
- * function returns `undefined` so the query carries no `$orderby`.
- * @returns The ordering map, or `undefined` when nothing orderable was authored.
+ * A sort entry after normalization — BOTH keys present, always. That is the
+ * difference from {@link QuerySortEntry}, whose two members are optional
+ * because it describes what an author may WRITE, not what survives this door.
  */
-export function convertSortToQueryParams(
+export interface NormalizedSortEntry {
+  field: string;
+  order: 'asc' | 'desc';
+}
+
+/**
+ * Decide WHICH authored entries survive and WHAT a missing direction means —
+ * the whole of this module's normalization, with no opinion about the wire.
+ *
+ * Split out of {@link convertSortToQueryParams} by objectui#8973, which measured
+ * `object-grid` re-implementing this decision privately and getting it wrong:
+ * its array arm interpolated every key unconditionally, so an entry missing
+ * `field` or `order` reached the wire as the literal text `undefined`
+ * (`$orderby: 'name undefined'`), which the server answers `400 INVALID_QUERY`.
+ *
+ * ⚠️ It is SHAPE-AGNOSTIC on purpose, and that is what makes it reusable where
+ * the map below is not. `object-grid` sends a `"field order"` join string, not
+ * this module's `{field: direction}` map; swapping its wire shape is route B on
+ * objectui#8767, which the maintainer DECLINED by name (2026-09-10) pending a
+ * card that measures the server contract and both readers. Exporting the
+ * decision without the map lets that block share the ONE implementation of the
+ * rule while keeping the wire shape the declination protects — so "one
+ * operation, one implementation" is satisfied for the operation that actually
+ * has two copies, rather than being traded away for a shape change nobody
+ * ruled on.
+ *
+ * The two rules, unchanged from the map builder they were lifted out of:
+ *
+ *  - an entry with no usable `field` is SKIPPED (it names nothing to order by);
+ *  - `order` normalizes to `'asc'` unless it is exactly `'desc'`, so a missing
+ *    direction means ascending and a garbage one does not reach the wire.
+ *
+ * @returns The surviving entries in authored order, or `undefined` when nothing
+ * orderable was authored — never an empty array, so callers can omit the
+ * query key entirely rather than asking for an ordering with no content.
+ */
+export function normalizeSortEntries(
   sort: QuerySortEntry[] | undefined | null,
-): Record<string, 'asc' | 'desc'> | undefined {
+): NormalizedSortEntry[] | undefined {
   if (!sort) return undefined;
 
   // Retired spelling — reachable only at runtime, since the signature above no
@@ -143,13 +211,40 @@ export function convertSortToQueryParams(
   }
 
   if (Array.isArray(sort)) {
-    const out: Record<string, 'asc' | 'desc'> = {};
+    const out: NormalizedSortEntry[] = [];
     for (const entry of sort) {
       if (!entry || typeof entry.field !== 'string' || entry.field === '') continue;
-      out[entry.field] = entry.order === 'desc' ? 'desc' : 'asc';
+      out.push({ field: entry.field, order: entry.order === 'desc' ? 'desc' : 'asc' });
     }
-    return Object.keys(out).length > 0 ? out : undefined;
+    return out.length > 0 ? out : undefined;
   }
 
   return undefined;
+}
+
+/**
+ * Normalize an authored `sort` into the field→direction map used for
+ * `QueryParams.$orderby`.
+ *
+ * The decision about which entries survive lives in
+ * {@link normalizeSortEntries}; this function is only the MAP projection of it.
+ * Duplicate fields therefore collapse last-wins, keeping the position of the
+ * first mention — the same thing the single-pass loop this replaced did, since
+ * an object key keeps its insertion position when it is re-assigned.
+ *
+ * @param sort `SortConfig[]` — the one declared spelling. The legacy string
+ * clause (`"name desc"`) is retired (objectui#8221): a string that reaches here
+ * at runtime is refused with a diagnostic naming the array form, and this
+ * function returns `undefined` so the query carries no `$orderby`.
+ * @returns The ordering map, or `undefined` when nothing orderable was authored.
+ */
+export function convertSortToQueryParams(
+  sort: QuerySortEntry[] | undefined | null,
+): Record<string, 'asc' | 'desc'> | undefined {
+  const entries = normalizeSortEntries(sort);
+  if (!entries) return undefined;
+
+  const out: Record<string, 'asc' | 'desc'> = {};
+  for (const entry of entries) out[entry.field] = entry.order;
+  return out;
 }

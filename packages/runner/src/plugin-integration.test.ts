@@ -16,12 +16,31 @@ describe('Plugin Integration Protocol', () => {
   describe('Kanban Plugin', () => {
     it('should export components object for manual registration', () => {
       expect(kanbanComponents).toBeDefined();
-      expect(kanbanComponents.kanban).toBeDefined();
+      expect(kanbanComponents['object-kanban']).toBeDefined();
     });
 
     it('should contain valid React component', () => {
-      const Component = kanbanComponents.kanban;
+      const Component = kanbanComponents['object-kanban'];
       expect(typeof Component).toBe('function'); // React components are functions
+    });
+
+    /**
+     * Control for the re-key above (objectui#8802 / objectui#8257).
+     *
+     * This map published a bare `kanban` key until those two cards retired the
+     * `kanban`, `kanban-ui` and `kanban-enhanced` node type keys. Asserting the
+     * surviving key on its own would pass just as well against a map that had
+     * merely been renamed wholesale, so pin BOTH directions: the new key
+     * resolves to a component, and the retired spellings resolve to nothing.
+     * `kanbanComponents` is the manual-registration face a host copies keys
+     * from, so a retired key silently reappearing here would re-teach it.
+     */
+    it('publishes only the surviving `object-kanban` key', () => {
+      expect(Object.keys(kanbanComponents)).toEqual(['object-kanban']);
+      const retired = kanbanComponents as Record<string, unknown>;
+      expect(retired.kanban).toBeUndefined();
+      expect(retired['kanban-ui']).toBeUndefined();
+      expect(retired['kanban-enhanced']).toBeUndefined();
     });
   });
 
@@ -45,8 +64,8 @@ describe('Plugin Integration Protocol', () => {
       // Note: In a real app we wouldn't clear, but here we want to prove registration works
       
       // Act: Manually register
-      if (kanbanComponents?.kanban) {
-         ComponentRegistry.register('test-kanban-manual', kanbanComponents.kanban);
+      if (kanbanComponents?.['object-kanban']) {
+         ComponentRegistry.register('test-kanban-manual', kanbanComponents['object-kanban']);
       }
 
       // Assert

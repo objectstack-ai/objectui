@@ -570,13 +570,23 @@ export function ObjectDataPage({ dataSource, objects }: any) {
           <span className="text-xs text-muted-foreground">
             {t('console.objectData.filteredBy', { defaultValue: 'Filtered by' })}
           </span>
-          {filterChips.map(({ field, text }) => (
+          {filterChips.map(({ field, text, textKey }) => (
             <span
               key={field}
               className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-xs"
             >
               <span className="font-medium">{fieldLabel(objectDef.name, field, field)}</span>
-              <span className="text-muted-foreground">{text}</span>
+              {/*
+                A chip carrying `textKey` is one whose text is PROSE rather than
+                the user's own comparand, so it is translated HERE — the same
+                half-chip seam that already draws the field name through
+                `fieldLabel` (objectui#9159). Passed bare, with no inline
+                `defaultValue`: all ten packs define this operator family and its
+                locale-parity pin holds them to it, so a default would only be an
+                unwatched second English spelling that hides a pack miss
+                (objectui#3469 deleted exactly that pattern from this console).
+              */}
+              <span className="text-muted-foreground">{textKey ? t(textKey) : text}</span>
               <button
                 type="button"
                 onClick={() => removeUrlFilter(field)}

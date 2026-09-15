@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { stripAnsi } from './helpers/child-verdict';
+import { childVitestEnv } from './helpers/child-vitest-env';
 
 /**
  * objectui#8537 — the network-escape guard covers EVERY test file in a worker
@@ -70,16 +71,19 @@ import { stripAnsi } from './helpers/child-verdict';
  * because it is invisible locally:
  *
  *   - vitest calls `disableDefaultColors()` when `std-env`'s `isAgent` is true,
- *     and an agent container sets `CLAUDECODE` / `AI_AGENT`. The child inherits
- *     those (only `VITEST*` keys are dropped below), so an agent's local run is
- *     UNCOLOURED and green while CI is coloured and red. Measured: same tree,
- *     `env -u CLAUDECODE -u AI_AGENT` flips the child from 0 to 264 escape
- *     bytes and this file's `Test Files` assertion from pass to fail.
+ *     and an agent container sets `CLAUDECODE` / `AI_AGENT`. The child used to
+ *     inherit those (only `VITEST*` keys were dropped below), so an agent's
+ *     local run was UNCOLOURED and green while CI was coloured and red.
+ *     Measured: same tree, `env -u CLAUDECODE -u AI_AGENT` flipped the child
+ *     from 0 to 264 SGR sequences and this file's `Test Files` assertion from
+ *     pass to fail.
  *
- * Stripping at the READER, rather than putting `NO_COLOR` on the child's env,
- * is deliberate: the child's reporting environment stays byte-for-byte what CI
- * gives it — including the GitHub-Actions annotation reporter it adds itself —
- * so what is asserted on is what CI actually produces.
+ * ⭐ That half is closed at the SPAWN now (objectui#8616): `childVitestEnv()`
+ * removes the agent markers, so the child below emits the CI byte stream here
+ * too and the stripping is exercised locally instead of only in CI. Stripping
+ * at the READER stays, and stays deliberate: the child's reporting environment
+ * is what CI gives it — including the GitHub-Actions annotation reporter CI
+ * adds itself — so what is asserted on is what CI actually produces.
  *
  * ## Recursion
  *
@@ -125,10 +129,9 @@ describe('objectui#8537 — the network-escape guard covers every file in a work
   it.skipIf(IS_CHILD)(
     'a deliberate escape reds in a file that is NOT first in its worker',
     () => {
-      const env: NodeJS.ProcessEnv = { ...process.env };
-      // A fresh CLI, not a nested worker of this run.
-      for (const key of Object.keys(env)) if (key.startsWith('VITEST')) delete env[key];
-      env.OBJECTUI_ESCAPE_PIN_CHILD = '1';
+      // A fresh CLI, not a nested worker of this run — and one whose reporting
+      // is decided the way CI decides it (objectui#8616).
+      const env = childVitestEnv({ OBJECTUI_ESCAPE_PIN_CHILD: '1' });
       const ledgerDir = fs.mkdtempSync(path.join(os.tmpdir(), 'objectui-escape-pin-8537-'));
       const ledgerPath = path.join(ledgerDir, 'ledger.txt');
       env.OBJECTUI_ESCAPE_PIN_LEDGER = ledgerPath;

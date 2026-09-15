@@ -675,7 +675,12 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
       onOpenChange={(open) => setIsCollapsed(!open)}
       className={className}
     >
-      <Card>
+      {/*
+        objectui#9218 — the SAME decision branch 2 above makes, and only that
+        one. `className` stays on the outer `Collapsible`: relocating it is a
+        different behaviour, unmeasured by that card.
+      */}
+      <Card className={cn(section.showBorder === false ? 'border-none shadow-none' : '')}>
         <CollapsibleTrigger asChild>
           <CardHeader className={cn(
             "py-3 px-4 sm:py-4 sm:px-6 cursor-pointer hover:bg-muted/50 transition-colors",

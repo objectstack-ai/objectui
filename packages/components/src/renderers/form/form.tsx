@@ -116,6 +116,121 @@ function unclaimedFields(
 const panePercent = (size: number | undefined): string | undefined =>
   typeof size === 'number' && Number.isFinite(size) ? String(size) : undefined;
 
+/**
+ * Breakpoint ladder, narrowest first. Shared by the container-query family
+ * (`@md:`) and the viewport family (`md:`) — the two never appear in the same
+ * container class, but ordering both off one list keeps the walk in
+ * {@link spanLadderFor} deterministic regardless of the order the prefixes
+ * happen to be written in.
+ */
+const SPAN_BREAKPOINTS = ['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl'] as const;
+
+/**
+ * Every col-span class {@link spanLadderFor} can emit, written out as a
+ * literal. ⛔ Never build one with a template string: Tailwind's scanner reads
+ * source text, so a computed class is scanned out and the utility silently
+ * does not exist in the built CSS.
+ *
+ * Keyed `<prefix>:<span>`, exhaustive over the prefixes the tier regex matches
+ * × the spans a form field can take (2-4). Exhaustive on purpose: the previous
+ * table was partial, and its `||` fallback answered an unmapped key with a
+ * BARE `col-span-N` — the one answer that must never be given under a
+ * single-column base tier, because CSS grid then synthesizes an implicit
+ * track. A missing key now yields no class at all, which under-spans (visibly
+ * wrong, recoverable) instead of distorting every column width.
+ */
+const SPAN_CLASS: Record<string, string> = {
+  '@sm:2': '@sm:col-span-2', '@sm:3': '@sm:col-span-3', '@sm:4': '@sm:col-span-4',
+  '@md:2': '@md:col-span-2', '@md:3': '@md:col-span-3', '@md:4': '@md:col-span-4',
+  '@lg:2': '@lg:col-span-2', '@lg:3': '@lg:col-span-3', '@lg:4': '@lg:col-span-4',
+  '@xl:2': '@xl:col-span-2', '@xl:3': '@xl:col-span-3', '@xl:4': '@xl:col-span-4',
+  '@2xl:2': '@2xl:col-span-2', '@2xl:3': '@2xl:col-span-3', '@2xl:4': '@2xl:col-span-4',
+  '@3xl:2': '@3xl:col-span-2', '@3xl:3': '@3xl:col-span-3', '@3xl:4': '@3xl:col-span-4',
+  '@4xl:2': '@4xl:col-span-2', '@4xl:3': '@4xl:col-span-3', '@4xl:4': '@4xl:col-span-4',
+  '@5xl:2': '@5xl:col-span-2', '@5xl:3': '@5xl:col-span-3', '@5xl:4': '@5xl:col-span-4',
+  '@6xl:2': '@6xl:col-span-2', '@6xl:3': '@6xl:col-span-3', '@6xl:4': '@6xl:col-span-4',
+  '@7xl:2': '@7xl:col-span-2', '@7xl:3': '@7xl:col-span-3', '@7xl:4': '@7xl:col-span-4',
+  'sm:2': 'sm:col-span-2', 'sm:3': 'sm:col-span-3', 'sm:4': 'sm:col-span-4',
+  'md:2': 'md:col-span-2', 'md:3': 'md:col-span-3', 'md:4': 'md:col-span-4',
+  'lg:2': 'lg:col-span-2', 'lg:3': 'lg:col-span-3', 'lg:4': 'lg:col-span-4',
+  'xl:2': 'xl:col-span-2', 'xl:3': 'xl:col-span-3', 'xl:4': 'xl:col-span-4',
+  '2xl:2': '2xl:col-span-2', '2xl:3': '2xl:col-span-3', '2xl:4': '2xl:col-span-4',
+  '3xl:2': '3xl:col-span-2', '3xl:3': '3xl:col-span-3', '3xl:4': '3xl:col-span-4',
+  '4xl:2': '4xl:col-span-2', '4xl:3': '4xl:col-span-3', '4xl:4': '4xl:col-span-4',
+  '5xl:2': '5xl:col-span-2', '5xl:3': '5xl:col-span-3', '5xl:4': '5xl:col-span-4',
+  '6xl:2': '6xl:col-span-2', '6xl:3': '6xl:col-span-3', '6xl:4': '6xl:col-span-4',
+  '7xl:2': '7xl:col-span-2', '7xl:3': '7xl:col-span-3', '7xl:4': '7xl:col-span-4',
+};
+
+/** Bare (unprefixed) col-span, for a container that is multi-column at every width. */
+const BARE_SPAN_CLASS: Record<number, string> = {
+  2: 'col-span-2',
+  3: 'col-span-3',
+  4: 'col-span-4',
+};
+
+/**
+ * The col-span classes a field must carry to occupy `targetCols` cells of
+ * `containerClass` — ONE CLASS PER TIER, not one class for the widest tier
+ * (objectui#9244).
+ *
+ * The form's column count is resolved per tier, by container queries on the
+ * field container (`grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3` is three
+ * different column counts on one screen). `@objectstack/spec`'s `FormField.
+ * span` declares `'full'` as «whole row at ANY column count», so a whole-row
+ * field needs a span at every tier where the grid is multi-column. Emitting
+ * only the widest tier's class satisfies the declaration at the widest tier
+ * and nowhere else: at `@md` the field takes 1 of 2 cells, which is
+ * pixel-identical to authoring nothing at all (measured in Chromium at 285px
+ * of a 586px grid — objectstack#17328).
+ *
+ * ⚠️ The prefixing itself is deliberate and stays. A bare `col-span-2` while
+ * the grid is still `grid-cols-1` makes CSS grid synthesize an implicit second
+ * track and distorts every column width, so a tier only gets a class once that
+ * tier actually has the columns to give.
+ *
+ * The walk: tiers narrowest-first, each wanting `min(tierCols, targetCols)`
+ * cells, skipping any tier whose want is not an INCREASE. Tailwind prefixes
+ * are min-width, so a class emitted at `@md` is still in force at `@2xl`;
+ * re-emitting the same span there would be dead weight in the class attribute
+ * and in the generated CSS. That skip is also what keeps `colSpan: 2` in a
+ * 3-column container at exactly `@md:col-span-2`, unchanged by this card.
+ *
+ * ⭐ `plugin-detail`'s `getResponsiveSpanClass` has always returned this ladder
+ * for the viewport family (`md:col-span-2 lg:col-span-3 xl:col-span-4`); it
+ * hard-codes that ladder, while this derives the tiers from the container
+ * class and therefore also covers the container-query family.
+ */
+function spanLadderFor(containerClass: string, targetCols: number): string {
+  const re = /(@)?(sm|md|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl):grid-cols-(\d+)/g;
+  const tiers = Array.from(containerClass.matchAll(re))
+    .map((m) => ({ at: m[1] || '', bp: m[2], cols: Number(m[3]) }))
+    .sort(
+      (a, b) =>
+        SPAN_BREAKPOINTS.indexOf(a.bp as (typeof SPAN_BREAKPOINTS)[number]) -
+        SPAN_BREAKPOINTS.indexOf(b.bp as (typeof SPAN_BREAKPOINTS)[number]),
+    );
+  if (!tiers.length) {
+    // No responsive/container prefix found — the bare class is safe because
+    // the grid is already multi-column at all widths.
+    return BARE_SPAN_CLASS[Math.min(Math.max(targetCols, 2), 4)];
+  }
+  const ladder: string[] = [];
+  // The base tier of every container this renderer builds is one column, so a
+  // tier only earns a class once it can give MORE than the one cell the field
+  // already occupies.
+  let spanned = 1;
+  for (const tier of tiers) {
+    const want = Math.min(tier.cols, targetCols);
+    if (want <= spanned) continue;
+    const cls = SPAN_CLASS[`${tier.at}${tier.bp}:${want}`];
+    if (!cls) continue;
+    ladder.push(cls);
+    spanned = want;
+  }
+  return ladder.join(' ');
+}
+
 const useSafeFormTranslation = createSafeTranslation(
   {
     'common.selectOption': 'Select an option',
@@ -475,6 +590,79 @@ function resolvesToRegisteredFieldWidget(type: string): boolean {
     return type.startsWith('field:') && !!ComponentRegistry.get(type);
   }
   return !!ComponentRegistry.get(`field:${type}`);
+}
+
+/**
+ * Will this field render {@link BuiltinSelectEmptyState} — the built-in
+ * `select` branch's CONTROL-LESS output — objectui#3991?
+ *
+ * `<FormLabel>` emits `htmlFor={formItemId}` for every field by default, and
+ * `for` may only reference a LABELABLE element (`button`, `input`, `meter`,
+ * `output`, `progress`, `select`, `textarea`). When the built-in `select`
+ * branch's option list resolves empty — unconfigured, or a `dependsOn` gate
+ * withholding it (#2284) — the branch returns a `<div>` carrying the status
+ * text and NO control at all, so that `for` lands on a `div`. Measured on
+ * `origin/main` @ `b6d07df4b`, for `{ name: 'empty', label: 'Empty', type:
+ * 'select', options: [] }`:
+ *
+ * ```
+ *   label for="_r_2_-form-item"  ->  ownerTag = DIV
+ *   getByLabelText('Empty')      ->  throws "the element associated with this
+ *                                    label (<div />) is non-labellable"
+ * ```
+ *
+ * Inert HTML, and a test-side error that reads like a broken renderer when it
+ * is a correctly-rendered empty state. The honest output is a label with no
+ * `for` and the message beside it: nothing is lost, because nothing was ever
+ * associated — there is no focusable control in this state for a name to name.
+ *
+ * ## Why the answer is knowable HERE, and only here
+ *
+ * This is the third mirror of `renderFieldComponent`'s resolution, alongside
+ * `resolveFieldLabelling` and `resolvesToRegisteredFieldWidget`, and it is a
+ * mirror for the same reason: producer and consumer must not be able to
+ * disagree about which component actually renders.
+ *
+ *  - WHICH component: decided on the RAW type against `BUILTIN_FIELD_TYPES`,
+ *    exactly as there — a bare `select` renders this branch and the registry is
+ *    never consulted, while a `field:`-qualified `field:select` resolves to the
+ *    registered widget and never reaches it;
+ *  - WHETHER it takes the empty branch: read from `options`, which the call
+ *    site passes down as the very argument `renderFieldComponent`'s
+ *    `!options || options.length === 0` tests. One expression, two readers.
+ *
+ * ## ⛔ Deliberately NOT extended to the registered-widget path
+ *
+ * `@object-ui/fields`' `OptionsEmptyState` was the same FAULT on the
+ * `field:select` path — measured there, the `for` dangled instead, pointing at
+ * an id no element carried — but it is NOT the same mechanism, so it was never
+ * fixable by this predicate:
+ *
+ *  - the branch belongs to a component `ComponentRegistry` resolves, not to
+ *    this file. Any third party may register a `field:select` that renders a
+ *    real control for an empty list, and suppressing the `for` on a host-side
+ *    GUESS would break the association for a widget that had it right;
+ *  - what a widget renders is a widget DECLARATION (`labelling`,
+ *    objectui#3961), which is why the three group-labelled option widgets
+ *    (`radio` / `checkboxes` / `multiselect`) are already correct in this state
+ *    — they publish the label's id and answer with `aria-labelledby`
+ *    (objectui#3990 / #4005). Single `select` declares `labelling: 'control'`
+ *    and has no such channel; giving it one is a ruling, not a mirror.
+ *
+ * That half was repaired in the WIDGET, by objectui#8803, and it did not need
+ * a ruling after all: `'control'` already promises "the outermost rendered
+ * element is a LABELABLE HTML element", and the zero-option branch simply was
+ * not keeping that promise. It now renders an `<output>` carrying the host id,
+ * so this file's `for` reaches it unchanged — nothing here was extended, and
+ * the host still makes no guess about what a registered widget renders.
+ */
+function rendersBuiltinSelectEmptyState(
+  type: string,
+  options: readonly unknown[] | undefined,
+): boolean {
+  if (!BUILTIN_FIELD_TYPES.has(type)) return false;
+  if (type !== 'select') return false;
+  return !options || options.length === 0;
 }
 
 /**
@@ -1199,8 +1387,10 @@ ComponentRegistry.register('form',
 
     // Global predicate scope (from the host shell's ExpressionProvider) — carries
     // `current_user` (plus the ADR-0068 D1 `user` / `ctx.user` / `os.user` aliases,
-    // `app`, `data`, `features`) so a `visibleWhen` can gate on role/context in
+    // `data`, `features`) so a `visibleWhen` can gate on role/context in
     // addition to sibling field values. Empty object when no provider is mounted.
+    // ⛔ No `app` root: objectui#8155 unbound it (the engine's `SCOPE_ROOTS`
+    // never declared one).
     //
     // ⛔ Declared HERE, above `readonlyFieldNames`, and not at its historical spot
     // ~75 lines down (#6010). It used to sit below, which is exactly why the
@@ -2588,59 +2778,12 @@ ComponentRegistry.register('form',
       // `fieldContainerClass` (overrides, typically container-query based)
       // or the locally-computed `gridClass` (viewport-based).
       const containerClass = schema.fieldContainerClass || gridClass;
-      // Match both container-query (`@md:`) and viewport (`md:`) prefixes.
-      // Return an explicit, statically-detectable class so Tailwind JIT
-      // can scan and include it.
-      const pickSpanClass = (targetCols: number): string => {
-        const re = /(@)?(sm|md|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl):grid-cols-(\d+)/g;
-        const matches = Array.from(containerClass.matchAll(re)).map(m => ({
-          at: m[1] || '',
-          bp: m[2],
-          cols: Number(m[3]),
-        }));
-        if (!matches.length) {
-          // No responsive/container prefix found — bare class is safe
-          // because the grid is already multi-column at all widths.
-          if (targetCols === 2) return 'col-span-2';
-          if (targetCols === 3) return 'col-span-3';
-          return 'col-span-4';
-        }
-        const hit = matches.find(m => m.cols >= targetCols) || matches[matches.length - 1];
-        const key = `${hit.at}${hit.bp}:${targetCols}`;
-        // Explicit literal map so Tailwind JIT discovers these classes.
-        const table: Record<string, string> = {
-          '@sm:2':  '@sm:col-span-2',
-          '@md:2':  '@md:col-span-2',
-          '@lg:2':  '@lg:col-span-2',
-          '@xl:2':  '@xl:col-span-2',
-          '@2xl:2': '@2xl:col-span-2',
-          '@sm:3':  '@sm:col-span-3',
-          '@md:3':  '@md:col-span-3',
-          '@lg:3':  '@lg:col-span-3',
-          '@xl:3':  '@xl:col-span-3',
-          '@2xl:3': '@2xl:col-span-3',
-          '@4xl:3': '@4xl:col-span-3',
-          '@sm:4':  '@sm:col-span-4',
-          '@md:4':  '@md:col-span-4',
-          '@lg:4':  '@lg:col-span-4',
-          '@xl:4':  '@xl:col-span-4',
-          '@2xl:4': '@2xl:col-span-4',
-          '@4xl:4': '@4xl:col-span-4',
-          'sm:2':   'sm:col-span-2',
-          'md:2':   'md:col-span-2',
-          'lg:2':   'lg:col-span-2',
-          'xl:2':   'xl:col-span-2',
-          'sm:3':   'sm:col-span-3',
-          'md:3':   'md:col-span-3',
-          'lg:3':   'lg:col-span-3',
-          'xl:3':   'xl:col-span-3',
-          'sm:4':   'sm:col-span-4',
-          'md:4':   'md:col-span-4',
-          'lg:4':   'lg:col-span-4',
-          'xl:4':   'xl:col-span-4',
-        };
-        return table[key] || (targetCols === 2 ? 'col-span-2' : targetCols === 3 ? 'col-span-3' : 'col-span-4');
-      };
+      // One class PER TIER, derived from the container class — see
+      // {@link spanLadderFor} for why a single widest-tier class under-spans
+      // every intermediate width (objectui#9244), and for why the tier
+      // prefixes are load-bearing rather than decoration.
+      const pickSpanClass = (targetCols: number): string =>
+        spanLadderFor(containerClass, targetCols);
 
       const colSpanClass = colSpan && colSpan > 1
         ? colSpan === 2 ? pickSpanClass(2)
@@ -2724,6 +2867,27 @@ ComponentRegistry.register('form',
       // double channel #3978 removed.
       const groupLabelId = groupLabelled ? hostLabelId : undefined;
 
+      // The option set the field will actually be rendered with. Hoisted to a
+      // single const because TWO readers need the identical value: it is passed
+      // down as `options` below, and `rendersBuiltinSelectEmptyState` reads it
+      // here to decide whether the branch about to render has a control at all
+      // (objectui#3991). Two spellings of one expression is exactly how the
+      // label and the branch would come to disagree.
+      const resolvedOptions = isOptionField ? effectiveOptions : fieldProps.options;
+
+      // The built-in `select` branch renders `BuiltinSelectEmptyState` — a
+      // `<div>`, no control — when that set is empty, so the `for` `<FormLabel>`
+      // emits by default would name a non-labelable element: inert HTML
+      // (objectui#3991). No control ⇒ no `for`. ⛔ Not an `aria-labelledby`
+      // IDREF and ⛔ not a synthetic role: both name a thing that is not a
+      // control, which is the same category error spelled differently. See
+      // {@link rendersBuiltinSelectEmptyState} for why this is knowable here
+      // and why the registered-widget path is deliberately excluded.
+      const builtinBranchHasNoControl = rendersBuiltinSelectEmptyState(
+        resolvedType,
+        resolvedOptions as readonly unknown[] | undefined,
+      );
+
       return (
         <FormField
           key={fieldKey}
@@ -2755,6 +2919,18 @@ ComponentRegistry.register('form',
                   // reason: it was measurably DANGLING there, pointing at an
                   // id no element in the document carried.
                   {...(hostLabelId ? { id: hostLabelId, htmlFor: undefined } : null)}
+                  // No control renders in this branch, so there is nothing a
+                  // `for` could legally name (objectui#3991). `htmlFor:
+                  // undefined` is not a no-op — `<FormLabel>` sets
+                  // `htmlFor={formItemId}` BEFORE spreading its props, so this
+                  // key removes the attribute; the label stays visible text
+                  // beside the message. Mutually exclusive with the branch
+                  // above by construction: `hostLabelId` needs `groupLabelled`
+                  // or `hostWrappedDisplay`, and a BUILTIN type is neither
+                  // (`resolveFieldLabelling` answers `'control'` for it and
+                  // `resolvesToRegisteredFieldWidget` answers `false`) — pinned
+                  // from the DOM, not assumed.
+                  {...(builtinBranchHasNoControl ? { htmlFor: undefined } : null)}
                 >
                   {label}
                   {required && (
@@ -2805,7 +2981,7 @@ ComponentRegistry.register('form',
                   // accessible name. Renderer-only: both strips drop it, so it
                   // reaches no DOM attribute and no registered widget.
                   label,
-                  options: isOptionField ? effectiveOptions : fieldProps.options,
+                  options: resolvedOptions,
                   placeholder: fieldProps.placeholder ?? (resolvedType === 'select' ? t('common.selectOption') : undefined),
                   // `disabled` means "not interactive, muted"; `readonly` means
                   // "shown plainly, not editable" — keep them distinct so widgets

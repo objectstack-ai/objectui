@@ -25,7 +25,7 @@ import type { Field as SpecField } from '@objectstack/spec/data';
  * sibling field names, or `{ field, param }` entries mapping a sibling onto the
  * remote query parameter a dependent lookup filters by.
  *
- * Measured on the installed `@objectstack/spec` 17.3.0, `FieldSchema` declares
+ * Measured on the installed `@objectstack/spec` (17.4.0), `FieldSchema` declares
  * `dependsOn` as an OPTIONAL ARRAY of `string | { field, param? }` — never a
  * bare string. That is deliberately narrower than `DependsOnInput` (`form.ts`),
  * the shape the widget prop `FieldWidgetComponentProps.dependsOn` and
@@ -345,12 +345,18 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  * is pinned separately, in
  * `packages/types/src/__tests__/select-option-spec-extension-7014.test.ts`.
  *
- * ⚠️ Two form-side sites do NOT reach `richtext`, and this key claims no
- * coverage there: `ObjectForm` forwards `max_length` to the HTML `maxlength`
- * attribute for `text | textarea | markdown | html` only, and
- * `EmbeddableForm`'s `DEFAULT_MAX_LENGTH` caps `markdown` and `html` only.
- * `richtext` is absent from both. Those omissions predate this member and are
- * not corrected here.
+ * ⚠️ The two form-side sites this docblock used to name as not reaching
+ * `richtext` were RE-MEASURED by objectui#8438, and the reading did not hold:
+ * `ObjectForm`'s `text | textarea | markdown | html` list writes
+ * `formField.maxLength`, which no registered widget reads (the carrier is
+ * `formField.field`), so it forwarded the cap for NONE of its four types; and
+ * `EmbeddableForm`'s `DEFAULT_MAX_LENGTH` did deliver 5000 for `markdown` and
+ * `html`, where `RichTextField` then dropped it unread. ⇒ the cap was invisible
+ * for all three of this widget's registry keys, not for `richtext` alone.
+ * objectui#8438 fixed it where it was actually lost — `RichTextField` now
+ * dual-reads `maxLength ?? max_length` — so a `max_length` authored here is
+ * honoured by the native stop, the character counter and `aria-describedby`,
+ * as well as at submit.
  *
  * Omitting the key would have left `richtext` the one type of the three whose
  * ceiling cannot be authored under an annotation, while the submit-time rule
@@ -442,6 +448,22 @@ export interface DateTimeFieldMetadata extends BaseFieldMetadata {
   format?: string;
   min_date?: string | Date;
   max_date?: string | Date;
+  /**
+   * Marks this field as due/deadline-semantic — the same key, with the same
+   * meaning, as {@link DateFieldMetadata.dueLike} one interface up.
+   *
+   * It is declared here because the runtime honours it here (objectui#8958).
+   * `DetailViewFieldSchema.dueLike` has always described itself as marking "a
+   * date/datetime field", and `DateTimeCellRenderer` now reads it; leaving it
+   * off this interface would keep the mismatch alive with the sign flipped —
+   * a key the renderer honours but the authoring type rejects.
+   *
+   * ⚠️ Day granularity, inherited from the shared relative-time path: the
+   * overdue wording gates on whole calendar days, so a datetime a few hours
+   * past its deadline is not yet overdue. Sub-day precision is a separate
+   * call and was not taken.
+   */
+  dueLike?: boolean;
 }
 
 /**

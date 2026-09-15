@@ -107,9 +107,12 @@ Every `ui:*` / `page:*` renderer reads its configuration off the node —
 `schema.title`, `schema.content`, `schema.value`, `schema.columns`.
 `SchemaRenderer` does **not** merge `schema.props` into the node; it spreads it
 as React props (`packages/react/src/SchemaRenderer.tsx`), which those renderers
-ignore. A key parked under `props` is therefore silently dropped: the component
-renders an empty frame, and the envelope itself lands in the DOM as the invalid
-attribute `props="[object Object]"`.
+ignore. A key parked under `props` is therefore dropped: the component renders
+an empty frame, and the envelope itself lands in the DOM as the invalid
+attribute `props="[object Object]"`. Silent for every key except the node-gate
+predicates (`visibleWhen` / `visible` / `visibleOn` / `visibility` / `hidden` /
+`hiddenOn` / `disabled` / `disabledOn`), which are refused by name on the
+console, with the migration, instead of gating nothing (objectui#9108).
 
 **❌ WRONG — renders an empty card:**
 <!-- os:check -->
@@ -280,7 +283,7 @@ form-supported type (`select`, `lookup`, `date`, `file`, `image`, `richtext`,
   options, lookup config, `multiple`/`accept`/`maxSize` from the object field;
   inline properties override.
 - `required` blocks submit; `visible` is a CEL predicate
-  (`features` / `current_user` / `app` / `data`) that hides the param.
+  (`data` / `features` / `current_user`) that hides the param.
 
 **❌ DO NOT** invent param-only type spellings — use spec `FieldType` values.
 **❌ DO NOT** add bespoke per-type render branches to `ActionParamDialog`;

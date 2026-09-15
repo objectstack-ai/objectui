@@ -51,7 +51,7 @@ export const RecordHistoryRenderer: React.FC<RecordHistoryRendererProps> = ({
   ...props
 }) => {
   const { designer } = splitDesigner(props);
-  const ctx = useRecordContext() as any;
+  const ctx = useRecordContext();
 
   // Spec bridge inlines `properties.*` onto the node but also preserves the raw
   // bag. Read from either location for compatibility.

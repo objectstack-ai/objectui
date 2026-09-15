@@ -374,7 +374,11 @@ describe('ObjectCalendar gates its standalone query on the object schema (object
     // resolution nothing was going to produce. This is the deadlock pin.
     const adapter = resolvesSchema();
     const { findAllByTestId } = renderCalendar(adapter, {
-      data: { provider: 'value', items: [{ ...ROW, _from: 'inline' }] },
+      // `staticData` since objectui#8348 — this block's published `data` row is
+      // `z.array(...)`, so `{ provider: 'value', items }` is no longer a record
+      // source here. Rung 2 wraps `staticData` into that same config, so the
+      // inline-`value` branch this test is about is reached exactly as before.
+      staticData: [{ ...ROW, _from: 'inline' }],
     });
 
     const events = await findAllByTestId('event');

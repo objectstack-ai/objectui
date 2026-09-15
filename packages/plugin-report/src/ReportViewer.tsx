@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button, Badge, Skeleton } from '@object-ui/components';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button, Badge, Skeleton, renderNodeSlot } from '@object-ui/components';
 import { SchemaRenderer, toRenderableSchema } from '@object-ui/react';
 import type { ReportViewerSchema, ReportSection, ReportExportFormat, ReportField, ReportGroupBy } from '@object-ui/types';
 import { Download, Printer, RefreshCw } from 'lucide-react';
@@ -411,14 +411,22 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ schema, onRefresh })
                     inside the renderer produced an index-keyed object and the
                     section rendered the red "Unknown component type: undefined"
                     box instead of its content. Arrays are mapped here rather
-                    than widened into the renderer's declared input. */}
+                    than widened into the renderer's declared input.
+
+                    ⛔ The single-node arm carries no `&&` guard (objectui#9162):
+                    `&&` evaluates to the slot itself, so a legal authored
+                    `content: 0` — the published node union carries a
+                    `z.number()` arm — painted the character "0".
+                    `renderNodeSlot` runs the arm only when the slot has
+                    content, and `object-ui/no-bare-node-slot-guard` keeps the
+                    `&&` spelling from coming back. */}
                 {Array.isArray(section.content)
                   ? section.content.map((node, nodeIndex) => (
                       <SchemaRenderer key={nodeIndex} schema={toRenderableSchema(node)} />
                     ))
-                  : section.content && (
-                      <SchemaRenderer schema={toRenderableSchema(section.content)} />
-                    )}
+                  : renderNodeSlot(section.content, (content) => (
+                      <SchemaRenderer schema={toRenderableSchema(content)} />
+                    ))}
               </div>
             );
           })}

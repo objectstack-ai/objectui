@@ -56,15 +56,27 @@
  * thing — the requiredness of `objectName` — and this file fails if a later
  * change quietly adds a rung under the same heading.
  *
- * ## ⛔ `groupBy` is untouched, and that is pinned too
+ * ## `groupBy` was untouched HERE — and was moved later, by objectui#8990
  *
  * objectui#7322 / PR #7774 made `groupBy` the REQUIRED lane key. Its
  * requiredness measurement deliberately EXCLUDED two readings from counting as
  * a lane-less mode: the `dataSource` json fragment in
  * `content/docs/utilities/data-objectstack.mdx`, and `ListView.tsx`'s
  * runtime-generated node. A presence rule over `bind` / `data` / `objectName`
- * must not incidentally overturn that, so the `groupBy` half of the vector is
- * asserted here alongside the record-source half.
+ * must not incidentally overturn that, so the `groupBy` half of the vector was
+ * asserted here alongside the record-source half — as a CONTROL on this card's
+ * blast radius, not as an endorsement of the requiredness.
+ *
+ * ⚠️ objectui#8990 then overturned it deliberately: `@objectstack/spec` declares
+ * `groupBy: z.string().optional()`, so requiring it made this package refuse a
+ * document the protocol accepts. Those two excluded readings turned out to be
+ * the corpus evidence — a documented board and a node this repo's own
+ * `ListView` emits, both lane-less, both refused. The `groupBy` half of the
+ * vector below is therefore INVERTED, and it now carries the sharper assertion:
+ * a lane-less board is accepted, while a SOURCE-less one is still refused AT
+ * THE REFINEMENT. Keeping the refusal PATH in the assertion is what stops the
+ * record-source rule this card exists for from decaying into a bare
+ * `success === false` that any reason could satisfy.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -137,13 +149,19 @@ export const OBJECT_BOARD: TsObjectKanbanSchema = {
 };
 
 /**
- * `groupBy` stayed REQUIRED (objectui#7322). This is the ONE deliberate error
- * in this file, and it is the control that keeps the widening from having
- * reached the lane key: delete `groupBy`'s requiredness and `TS2578` (unused
- * `@ts-expect-error`) reddens `tsconfig.test.json`.
+ * `groupBy` stayed REQUIRED at objectui#7780 (objectui#7322), and this was the
+ * ONE deliberate `@ts-expect-error` in this file — the control proving THIS
+ * card's widening had not reached the lane key.
+ *
+ * objectui#8990 moved the lane key deliberately, on its own card and for its
+ * own reason (`@objectstack/spec` declares `groupBy` optional; requiring it
+ * made this package narrower than the protocol). So the directive is gone and
+ * the annotation stands on its own — the node below is now accepted. What this
+ * file still controls is the RECORD-SOURCE half: see the refinement pins below,
+ * where a board with no `bind`/`data`/`objectName` is still refused, now at the
+ * refinement rather than at `groupBy`.
  */
-// @ts-expect-error — groupBy is still required on ObjectKanbanSchema (the one deliberate error here)
-export const LANELESS_BOARD_STILL_REFUSED: TsObjectKanbanSchema = {
+export const LANELESS_BOARD_NOW_ACCEPTED: TsObjectKanbanSchema = {
   type: 'object-kanban',
   objectName: 'task',
 };
@@ -204,37 +222,65 @@ describe('objectui#7780 — the four documents, through the member and the publi
   });
 });
 
-describe('objectui#7780 — `groupBy` requiredness is NOT overturned (objectui#7322 / PR #7774)', () => {
-  it.each(DOCUMENT_NAMES)('%s without `groupBy` is still refused AT `groupBy`', (name) => {
+// objectui#8990 — this block asserted the opposite: that `groupBy` requiredness
+// survived objectui#7780. It did not survive objectui#8990, which moved it for
+// its own reason. The block is kept, inverted, because its DOCUMENTS are the
+// evidence that mattered: PR #7774 excluded two readings from its requiredness
+// measurement, and both are real lane-less producers this package was refusing.
+//
+// ⭐ The two halves must not blur. A lane key and a record source are different
+// requirements: dropping `groupBy` is now fine, dropping all of
+// `bind`/`data`/`objectName` is still refused — AT THE REFINEMENT, not at
+// `groupBy`. Asserting the refusal PATH is what keeps this honest; a bare
+// `success === false` would have gone on passing for the wrong reason.
+describe('objectui#8990 — `groupBy` requiredness IS overturned; the record-source rule is not', () => {
+  it.each(DOCUMENT_NAMES)('%s without `groupBy` now parses green', (name) => {
     const { groupBy: _dropped, ...rest } = DOCUMENTS[name];
     void _dropped;
     const laneless = { type: 'object-kanban', ...rest };
     const r = ObjectKanbanSchema.safeParse(laneless);
-    expect(r.success).toBe(false);
-    if (r.success) return;
-    expect(r.error.issues.map((i) => i.path[0])).toContain('groupBy');
-    expect(safeValidateSchema(laneless).success).toBe(false);
+    // `none` carries no record source, so it is still refused — at the
+    // refinement. Every other document has one and must now be accepted.
+    if (name === 'none') {
+      expect(r.success).toBe(false);
+      if (!r.success) {
+        expect(r.error.issues.map((i) => i.path[0])).not.toContain('groupBy');
+        expect(r.error.issues.map((i) => (i as unknown as { params?: { code?: string } }).params?.code))
+          .toContain('RECORD_SOURCE_REQUIRED');
+      }
+      return;
+    }
+    expect(r.success, `${name} has a record source and no lane key: the protocol accepts it`).toBe(true);
+    expect(safeValidateSchema(laneless).success).toBe(true);
   });
 
-  it("PR #7774's two EXCLUDED readings stay refused — a record source is not a lane key", () => {
+  it("PR #7774's two EXCLUDED readings — the corpus evidence that the requiredness was wrong", () => {
     // The `dataSource` json fragment taught in
     // `content/docs/utilities/data-objectstack.mdx`. `dataSource` is not a rung
     // of this ladder (`ElementDataSourceGate` maps its `object` ONTO
     // `objectName` upstream of the node), so this document has no record source
-    // AND no lane key, and is refused for both.
+    // — and it is STILL refused for that, which is the record-source rule doing
+    // its job. What changed is that `groupBy` is no longer among the reasons.
     const fragment = { type: 'object-kanban', dataSource: { object: 'task', filter: { project: 'acme' } } };
     const f = ObjectKanbanSchema.safeParse(fragment);
     expect(f.success).toBe(false);
     if (!f.success) {
-      expect(f.error.issues.map((i) => i.path[0])).toContain('groupBy');
+      expect(
+        f.error.issues.map((i) => i.path[0]),
+        'the lane key is no longer a reason to refuse this documented fragment',
+      ).not.toContain('groupBy');
+      expect(f.error.issues.map((i) => (i as unknown as { params?: { code?: string } }).params?.code))
+        .toContain('RECORD_SOURCE_REQUIRED');
     }
     // `ListView.tsx`'s runtime-generated node, in the shape it emits when the
     // view declared no lane field: `groupBy: laneField` with `laneField`
-    // undefined. Still refused, at `groupBy`.
+    // undefined (`laneField = groupByField || groupField ||
+    // detectStatusField(objectDef) || undefined`). It carries `objectName`, so
+    // it now parses green — this package no longer refuses a node its own
+    // sibling emits and its own renderer serves.
     const generated = { type: 'object-kanban', objectName: 'task', groupBy: undefined, cardFields: [] };
     const g = ObjectKanbanSchema.safeParse(generated);
-    expect(g.success).toBe(false);
-    if (!g.success) expect(g.error.issues.map((i) => i.path[0])).toContain('groupBy');
+    expect(g.success, "ListView's generated lane-less node must be annotatable").toBe(true);
   });
 
   it('the retired `groupField` is still refused BY NAME — the tombstone is untouched', () => {
@@ -248,7 +294,7 @@ describe('objectui#7780 — the member is still an object, and NO rung was added
   const shape = () =>
     (ObjectKanbanSchema as unknown as { shape: Record<string, { safeParse: (v: unknown) => { success: boolean } }> }).shape;
 
-  it('`.shape` is exposed, with `objectName` optional and `groupBy` not', () => {
+  it('`.shape` is exposed, with `objectName` and `groupBy` both optional (objectui#8990)', () => {
     // zod 4 attaches a refinement in place; had it wrapped the object, `.shape`
     // would be gone — `object-kanban-group-by-limit-7322.test.ts` reads it, and
     // the parity census in `zod-mirror-parity.test.ts` would read the pair as
@@ -256,7 +302,11 @@ describe('objectui#7780 — the member is still an object, and NO rung was added
     expect(Object.keys(shape())).toEqual(expect.arrayContaining(['objectName', 'groupBy', 'groupField', 'limit']));
     expect(shape().objectName.safeParse(undefined).success).toBe(true);
     expect(shape().objectName.safeParse(5).success).toBe(false);
-    expect(shape().groupBy.safeParse(undefined).success).toBe(false);
+    // objectui#8990 — was `false`. Optional on the shape, and still TYPED when
+    // present, which is the control that separates optional from undeclared.
+    expect(shape().groupBy.safeParse(undefined).success).toBe(true);
+    expect(shape().groupBy.safeParse('status').success).toBe(true);
+    expect(shape().groupBy.safeParse(5).success).toBe(false);
   });
 
   it('⛔ NO `staticData` rung, and `data` / `bind` are INHERITED, not re-declared — objectui#7651 refused both', () => {

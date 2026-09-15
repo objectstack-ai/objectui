@@ -22,6 +22,8 @@
  * `npm test` in a freshly scaffolded plugin was red on the very first run.
  */
 
+import { PLUGIN_LICENSES, findLicense } from './licenses';
+
 /** Values interpolated into the templates for one generated plugin. */
 export interface PluginTemplateVars {
   /** Full package name, e.g. `@object-ui/plugin-heatmap`. */
@@ -32,6 +34,21 @@ export interface PluginTemplateVars {
   pascalName: string;
   description: string;
   author: string;
+  /**
+   * SPDX id of the licence the author chose, e.g. `MIT` (objectui#8041).
+   *
+   * Always one of {@link PLUGIN_LICENSES}' ids — `index.ts` runs the prompt's
+   * answer through `resolveLicenseId` first, so a non-TTY run, a cancelled
+   * prompt and a junk value all arrive here as `MIT`. It is a REQUIRED field
+   * rather than an optional one with a default here, because a default in two
+   * places is two answers to one question.
+   *
+   * ENFORCED, not merely documented: {@link buildLicenseFile} refuses anything
+   * else (objectui#8892). Five of the six places this id is emitted interpolate
+   * it verbatim, so a value the licence table has no text for would ship a
+   * plugin whose LICENSE contradicts its own manifest, README and headers.
+   */
+  license: string;
   version: string;
   year: number;
 }
@@ -133,7 +150,7 @@ export function buildPackageJson(vars: PluginTemplateVars): Record<string, unkno
     name: vars.packageName,
     version: vars.version,
     type: 'module',
-    license: 'MIT',
+    license: vars.license,
     description: vars.description,
     main: 'dist/index.umd.cjs',
     module: 'dist/index.js',
@@ -353,9 +370,38 @@ pnpm lint
 
 ## License
 
-MIT © ${vars.author}
+${vars.license} © ${vars.author}
 `;
 }
+
+/**
+ * ⛔ The four emitted `src/*` files carry NO copyright header (objectui#8778).
+ *
+ * `buildIndexFile`, `buildImplFile`, `buildTypesFile` and `buildTestFile` — the
+ * four builders below, and the only four that write source into the author's
+ * package — each used to open the file they emit with
+ * `Copyright (c) <year>-present ObjectStack Inc.` under an `ObjectUI` title
+ * line. That is this project asserting ownership of code a third party has not
+ * written yet, in a package they publish under their own name: a false
+ * statement the tool emitted, not a style preference, which is why it is gone
+ * rather than reworded.
+ *
+ * ⛔ Do not put anything back in its place. Every candidate — a placeholder, an
+ * SPDX line, `vars.author`, this project's name — is a fresh legal assertion
+ * about somebody else's code, and none has been ruled on. Emitting nothing is
+ * the only option that asserts nothing. If a specific string ever does belong
+ * here it arrives as a maintainer decision, never as a template edit.
+ *
+ * What REMAINS is the licence pointer, and it stays because it is TRUE.
+ * `vars.license` is the licence the author chose at the prompt (objectui#8041),
+ * the LICENSE file the sentence points at really is emitted beside these four
+ * (see {@link buildPluginFiles}), and {@link buildLicenseFile} refuses an id it
+ * has no text for (objectui#8892) — so it cannot name a licence the package
+ * does not carry. It is also one of the six agreeing licence statements those
+ * two cards built: for any one of these files the other five are the manifest,
+ * the README and its three sibling headers. Deleting the whole block, rather
+ * than the ownership lines alone, would silently drop four of the six.
+ */
 
 /**
  * The generated plugin's `src/index.tsx` (entry point + registry registration).
@@ -379,10 +425,7 @@ MIT © ${vars.author}
  */
 export function buildIndexFile(vars: PluginTemplateVars): string {
   return `/**
- * ObjectUI
- * Copyright (c) ${vars.year}-present ObjectStack Inc.
- *
- * This source code is licensed under the MIT license found in the
+ * This source code is licensed under the ${vars.license} license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -415,10 +458,7 @@ ComponentRegistry.register('${vars.pluginName}', ${vars.pascalName}Renderer, {
 /** The generated plugin's `src/<Pascal>Impl.tsx`. */
 export function buildImplFile(vars: PluginTemplateVars): string {
   return `/**
- * ObjectUI
- * Copyright (c) ${vars.year}-present ObjectStack Inc.
- *
- * This source code is licensed under the MIT license found in the
+ * This source code is licensed under the ${vars.license} license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -464,10 +504,7 @@ export const ${vars.pascalName}: React.FC<${vars.pascalName}Props> = ({ classNam
  */
 export function buildTypesFile(vars: PluginTemplateVars): string {
   return `/**
- * ObjectUI
- * Copyright (c) ${vars.year}-present ObjectStack Inc.
- *
- * This source code is licensed under the MIT license found in the
+ * This source code is licensed under the ${vars.license} license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -489,10 +526,7 @@ export interface ${vars.pascalName}Schema extends BaseSchema {
 /** The generated plugin's example test, `src/<Pascal>Impl.test.tsx`. */
 export function buildTestFile(vars: PluginTemplateVars): string {
   return `/**
- * ObjectUI
- * Copyright (c) ${vars.year}-present ObjectStack Inc.
- *
- * This source code is licensed under the MIT license found in the
+ * This source code is licensed under the ${vars.license} license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -511,6 +545,62 @@ describe('${vars.pascalName}', () => {
 }
 
 /**
+ * Who the emitted LICENSE names as the copyright holder.
+ *
+ * The author prompt's `initial` is the empty string and nothing makes it
+ * required, so a scaffold really can arrive here with `author: ''` — and
+ * objectui#8041 moves the licence question and no other prompt, so making it
+ * required is not this change's to make. A licence with a blank holder grants
+ * nothing to nobody, which would leave the emitted text as untrue as the
+ * missing one it replaces, so the blank case names the package's authors
+ * instead of emitting a copyright line that trails off after the year.
+ */
+export function licenseCopyrightHolder(vars: PluginTemplateVars): string {
+  return vars.author.trim() || `the ${vars.packageName} authors`;
+}
+
+/**
+ * The generated plugin's `LICENSE` — the full text of whatever
+ * {@link buildPackageJson} declares (objectui#8041).
+ *
+ * The two are ONE decision read twice, which is why this reads `vars.license`
+ * rather than taking a licence of its own: the defect this file used to carry
+ * was precisely a manifest field and an emitted file set that could disagree.
+ *
+ * REFUSES an id nothing offers instead of substituting the default licence's
+ * text for it (objectui#8892). The substitution used to be defended here as
+ * making one state unreachable — a manifest claiming a licence with no text
+ * beside it — and it did, by making a worse one reachable in its place.
+ * `vars.license` reaches a scaffolded plugin through SIX statements and this is
+ * the only one that resolves it: {@link buildPackageJson}, {@link buildReadme}
+ * and the four source headers interpolate it verbatim. So an unoffered id used
+ * to emit a package whose manifest, README and four file headers all named that
+ * id while the LICENSE beside them carried MIT — the author then carries the
+ * disagreement into their own distribution. Agreement cannot be restored at
+ * this end for the other five, so the id is refused for all six.
+ *
+ * Refusing costs nothing that the fallback bought. `resolveLicenseId` is total
+ * onto the offered ids and `index.ts` is the only caller, so the CLI cannot
+ * produce this throw; nothing outside this package can call it at all
+ * (`package.json` declares `bin` only — no `exports`, `main` or `types` — and
+ * the build emits one bundled `dist/index.js`); and {@link buildPluginFiles}
+ * runs before `index.ts` creates anything on disk (objectui#8786), so the throw
+ * lands on a run that has written nothing rather than half a plugin.
+ */
+export function buildLicenseFile(vars: PluginTemplateVars): string {
+  const license = findLicense(vars.license);
+  if (!license) {
+    throw new Error(
+      `create-plugin has no text for licence "${vars.license}", so it will not scaffold a ` +
+        'plugin whose manifest, README and source headers name a licence its LICENSE file ' +
+        `does not carry. Offered ids: ${PLUGIN_LICENSES.map((offered) => offered.id).join(', ')}. ` +
+        'Resolve the answer with resolveLicenseId() before building PluginTemplateVars.'
+    );
+  }
+  return license.text({ year: vars.year, holder: licenseCopyrightHolder(vars) });
+}
+
+/**
  * The whole generated plugin as `relative path -> file contents`.
  *
  * Single source of truth for what a scaffolded plugin contains, so the writer
@@ -523,6 +613,7 @@ export function buildPluginFiles(vars: PluginTemplateVars): Record<string, strin
     'tsconfig.json': `${JSON.stringify(buildTsconfig(), null, 2)}`,
     'vite.config.ts': buildViteConfig(vars),
     [VITEST_SETUP_FILE]: buildVitestSetup(),
+    LICENSE: buildLicenseFile(vars),
     'README.md': buildReadme(vars),
     'src/index.tsx': buildIndexFile(vars),
     [`src/${vars.pascalName}Impl.tsx`]: buildImplFile(vars),

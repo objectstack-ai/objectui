@@ -997,11 +997,15 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
 
 
   // ── objectui#8176: the two lazily-registered blocks, judged for the first ──
-  //     time. FOUR keys left of the eighteen that entered. Three of them are
-  //     still A DECLARATION SOMEONE OWES (the arm this map's docblock above
-  //     says must name itself); the fourth, `object-kanban.quickAdd`, is the
-  //     one ESCALATED entry — see the note further down. None has become a
-  //     ruled carve-out, because nobody with standing has ruled yet.
+  //     time. ONE key left of the eighteen that entered, and as of objectui#8201
+  //     slice 2 it is no longer A DECLARATION SOMEONE OWES.
+  //     `object-kanban.quickAdd` is the RULED CARVE-OUT arm of the choice this
+  //     map's docblock above requires an entry to name: the PM ruled it
+  //     PREMATURE (objectui#8201, Q1 = A, 2026-09-07), and objectui#8285 owns
+  //     the fix. `LAZY_BLOCK_RULED_CARVE_OUTS` below is where that ruling is
+  //     recorded MECHANICALLY, which is what takes the key out of the backlog
+  //     the ceiling counts — the reason text alone could not, since the ceiling
+  //     reads keys and not prose.
   //
   //     ⚠️ IT STARTED AT EIGHTEEN, and the two that left are the ledger doing
   //     its job rather than a correction to it. `object-kanban.filter` and
@@ -1067,8 +1071,12 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //   a `MEMBER_PINS` entry apiece for the two array keys (registered below,
   //   never an exemption — objectui#8212's three-part obligation). Every
   //   `object-calendar` key the spec declares is now discoverable, and with
-  //   objectui#8313's four gone too the entire remaining backlog is one key:
-  //   `object-kanban.quickAdd`, the escalated one.
+  //   objectui#8313's four gone too the entire remaining list is one key:
+  //   `object-kanban.quickAdd`, the escalated one — and objectui#8201's slice 2
+  //   then ruled THAT one (PM Q1 = A, PREMATURE, objectui#8285 owns the fix),
+  //   which empties the BACKLOG without emptying the map. The entry below is
+  //   still live cover for a key the spec still declares; what changed is that
+  //   nobody owes a declaration for it any more.
   //   ⚠️ The `loading` clause above was slice 1's REASONING and objectui#8314
   //   measured it: authored `loading: true` replaces a `data`-fed calendar with
   //   its loading placeholder and does nothing at all to a `staticData`-fed
@@ -1097,7 +1105,7 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //   and a member with no usable `field` dropped rather than invented). That
   //   is a SHARPER member claim than a pass-through, not a weaker one.
   'object-kanban.quickAdd':
-    'Newly JUDGED rather than newly missing: the console registers this block with `registerLazy`, so it sat outside the population of this gate entirely until objectui#8176 loaded it. A DECLARATION SOMEONE OWES, not a ruled carve-out — nobody has yet asked, per key, against the read sites in the renderer, whether it should be published or carved out. objectui#8201 owns that question and its answer deletes this entry. objectui#8176.',
+    'RULED CARVE-OUT — PREMATURE, not "wrong" (PM ruling on objectui#8201, Q1 = A, 2026-09-07). The renderer does not honour this key; objectui#8285 owns the fix. Measured, and re-measured at @objectstack/spec 17.4.0 rather than inherited: `KanbanImpl` gates the Quick Add control on `quickAdd && onQuickAdd`, `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod twin refuses BY NAME, and nothing on the `ObjectKanban` path supplies one — so an authored `quickAdd: true` reaches the board and changes nothing. The key is still a live `z.boolean().optional()` on the installed pin, with a control key drawing `unrecognized_keys` on the same safeParse call, so this cover is describing something. WHAT THIS ENTRY DOES NOT SAY, deliberately: it does not claim the object-bound board cannot grow quick-add. That is a strictly stronger claim than anything measured, and the sibling `KanbanRenderer` host contradicts it by honouring the same `quickAdd` + `onQuickAdd` pair by identity. Declaring the input is the one resolution FORBIDDEN here — it would publish a key the renderer cannot honour, which is the failure mode this whole gate exists to catch. THE EXIT IS NOT A DECLARATION: objectui#8285 was ruled (director seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd` from the spec ComponentPropsMap, so the day that lands the key leaves the accepted set, this entry goes dangling AND stale, and it is harvested exactly as the eight ADR-0087 tombstones above were. objectui#8176.',
 
   // ── record:reference_rail.entries — a nested collection, newly JUDGED ──────
   //                                                                   (1 key)
@@ -1140,6 +1148,73 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   'record:reference_rail.entries':
     'An array of {objectName, relationshipField, title, limit, displayField} objects; `inputs` is a flat scalar carrier and cannot express it. Newly judged rather than newly missing — @objectstack/spec 17.1.0 added record:reference_rail to ComponentPropsMap, and the registration (plugin-detail/src/index.tsx:675) has always published only `hideEmpty` — the 17.1.0 pin, objectui#5328. The flat-carrier shape limit is the entire reason: the `icon` divergence that once also blocked an entries editor was settled by Option B (maintainer 2026-08-22, objectui#5494).',
 };
+
+/**
+ * Exemption ids on a newly-judged block that have been RULED rather than owed.
+ *
+ * The backlog ceiling below counts `UNPUBLISHED_EXEMPTIONS` entries on
+ * `LAZY_REGISTERED_BLOCKS`, and until objectui#8201's slice 2 every one of them
+ * was the same thing: a declaration someone owed. That is no longer true of
+ * `object-kanban.quickAdd`, so counting it as backlog reports work nobody is
+ * going to do. The ruling is therefore recorded HERE, as data, and subtracted.
+ * The reason text cannot carry it: the ceiling reads KEYS, and no assertion can
+ * read prose.
+ *
+ * ## ⚠️ What moving the number 1 -> 0 does NOT buy, measured rather than argued
+ *
+ * It does NOT close a hole. The obvious story — "a ceiling one above the real
+ * number banks headroom, so a fresh divergence could be greened by writing an
+ * entry under it" — is FALSE here, and the ablation on objectui#8201's slice 2
+ * says so rather than reasoning about it. The same fresh divergence (a declared
+ * key removed from `OBJECT_KANBAN_INPUTS` and greened with a new entry) was run
+ * against BOTH shapes of this ceiling: it reddens at `expected 1 to be less
+ * than or equal to 0` on this branch, and at `expected 2 to be less than or
+ * equal to 1` on the shape that preceded it. The `toBe` half is EXACT in both
+ * directions, so growth was already refused at 1; there was never headroom to
+ * bank.
+ *
+ * ⇒ What the move buys is that the number stays TRUE. It is a MEASUREMENT of
+ * how many declarations are owed on these two blocks, and after the ruling that
+ * count is zero. Leaving it at 1 would have made this ceiling say one is owed
+ * when none is — the same stale-number-beside-a-correct-assertion drift this
+ * file has already had to correct twice (see the ladder in the ceiling's own
+ * comment). A ratchet whose number has stopped describing anything is the thing
+ * a reader stops trusting.
+ *
+ * ## Three things make this a record of a ruling and not a new hiding place
+ *
+ * `the one ruled carve-out on a newly judged block is real` below asserts all
+ * three, because a subtraction that licensed anything would be strictly worse
+ * than the ceiling it adjusts:
+ *
+ *   1. PINNED BY NAME. The list is asserted to equal exactly this one id. A
+ *      second entry cannot ride in on the mechanism — adding one is a visible
+ *      edit to a pinned literal, which is the same bargain
+ *      `NEWLY_JUDGED_UNPINNED_MEMBERS` makes one layer in.
+ *   2. NON-VACUOUS. Every id must really carry an `UNPUBLISHED_EXEMPTIONS`
+ *      entry on a lazy-registered block, so the list cannot claim credit for
+ *      cover that is not there, nor quietly reach a key on some other block.
+ *   3. IT NAMES ITS OWNING CARD. Every id's reason must cite objectui#8285.
+ *      ⭐ This is the mechanical difference between the ruling that was made
+ *      and the one that was refused. PREMATURE (Q1 = A) says the renderer does
+ *      not honour the key TODAY and names who owns the fix, so an owning card
+ *      must exist and stay open. The rejected reading — that the object-bound
+ *      board is not going to grow quick-add — needs no owning card at all, and
+ *      would have closed objectui#8285 as not-planned. An entry that stopped
+ *      naming the card would have quietly become the stronger claim, and this
+ *      row is what stops that happening silently.
+ *
+ * ## How this list empties
+ *
+ * ⛔ NOT by a declaration — that resolution is forbidden for this key, since
+ * the renderer cannot honour it. objectui#8285 was ruled (director seat
+ * 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd` from the
+ * spec's `ComponentPropsMap`. When that lands, the key leaves the accepted set,
+ * the exemption entry goes dangling AND stale, and deleting it is the only way
+ * back to green — at which point assertion 2 above fails until this list is
+ * emptied in the same change. The two halves cannot drift apart.
+ */
+const LAZY_BLOCK_RULED_CARVE_OUTS = ['object-kanban.quickAdd'];
 
 /**
  * Exemption entries whose KEY the installed spec is allowed not to declare yet.
@@ -1969,14 +2044,106 @@ const MULTI_KIND_MEMBER_CONTRACTS: Record<string, string> = {
 // demonstration the paragraph above claims: FOUR new array keys at once could
 // not be absorbed by room, because there is none to absorb them with.
 //
-// 58 is the transition case, and this file already owns the pattern for it —
+// ⚠️ AND THE TRANSITION HAS STARTED SPENDING ITSELF DOWN. objectui#8071's
+// first slice converted FOUR keys from exemption to pin — `object-form.fields`,
+// `object-grid.exportOptions`, `object-grid.bulkActions` and
+// `object-grid.bulkActionDefs` — the four the card singled out because a
+// near-miss contract test already existed for each. Measured over this file's
+// own ledger, before and after: 90 array/object-armed inputs, 28 pinned, 62
+// exempt -> 90, 32 pinned, 58 exempt. The population does not move (a pin and
+// an exemption are the two halves of one partition), and
+// `MEMBER_PIN_EXEMPTION_CEILING` moves WITH the list, 62 -> 58 — see its own
+// docblock for why a ceiling that does not follow the count down is a budget
+// rather than a ratchet.
+//
+// ⛔ What those near-miss tests were NOT. Two of the three the card named cover
+// a NEIGHBOURING key rather than the one they were credited with.
+// `sectionFields.spec-parity.test.ts` pins `sections[].fields`, whose member is
+// the spec `FormFieldSchema` object keyed on `field`, while the top-level
+// `object-form.fields` reads BARE NAMES and drops that very object in silence;
+// `bulk-action-spec-parity.test.ts` pins the `BulkActionDef` TYPE against the
+// spec and never touches either key's member read. So three of these four pins
+// are new behavioural files rather than one added assertion, and the fourth
+// (`exportOptions`) grew a third direction on an existing scanner. The locator
+// would have accepted the first file on its STRINGS alone — it already contains
+// both `object-form` and `fields` — which is the concrete reason `MEMBER_PINS`
+// is reviewed rather than computed.
+//
+// ⚠️ SECOND SLICE, AND THE FIRST ONE TAKEN A BLOCK AT A TIME. objectui#8071's
+// second slice converted four keys on ONE block — `record:related_list`'s
+// `columns`, `dataSource`, `filter` and `sort` — chosen for a coherent file
+// surface rather than for near-miss tests: one renderer
+// (`renderers/record-related-list.tsx` over `RelatedList.tsx`) and one existing
+// spec-parity file. Measured over this file's own ledger, before and after: 90
+// array/object-armed inputs, 32 pinned, 58 exempt -> 90, 36 pinned, 54 exempt,
+// and `MEMBER_PIN_EXEMPTION_CEILING` follows 58 -> 54 in the same commit.
+//
+// ⭐ Two of the four were PROMOTED pre-existing files, and slice 1's trap is the
+// reason that sentence needs the qualifier. `RelatedList.listFilter.test.tsx`
+// and `RecordRelatedListRenderer.elementDataSource.test.tsx` were read end to
+// end before being credited, and they really do pin the member shape their key
+// names. The second one ALSO names `columns` and `sort` — it asserts a saved
+// view's `columns`/`sort` reach the list — so the locator would have accepted it
+// for those two keys as well, on its strings, while pinning nothing about what
+// an authored member of either key IS. Those two got new behavioural files
+// instead. That is `sectionFields.spec-parity.test.ts` one slice on, in the same
+// file the correct credit came from.
+//
+// ⛔ AND THE BLOCK IS NOT EMPTY. `record:related_list.actions` stays exempt on a
+// reason of its own: nothing reads it. The registration declares it
+// (`of: 'string'`, "Action IDs available for related records"), the SPEC
+// declares it (`RecordRelatedListProps.actions`), and the renderer never touches
+// `schema.actions` — the row and toolbar actions it draws come from the host
+// bridge `useRelatedRecordActions()`. A member pin constrains what the RENDERER
+// READS, so there is nothing here to constrain; the honest pin available is "the
+// key is dead", which is a statement that the contract is wrong rather than a
+// member shape, and fixing it is an ADR-0049 enforce-or-remove decision the spec
+// owns. See `NO_READ_SITE_TO_PIN`.
+//
+// ⭐ THIRD SLICE, AND THE FIRST BLOCK LEFT WITH NO EXEMPTIONS AT ALL.
+// objectui#8071's third slice converted the four remaining keys of
+// `element:record_picker` — `dataSource`, `label`, `placeholder` and `sort` —
+// the batch this card's own dispatch names as the example of "one block
+// family". Unlike `record:related_list`, nothing here needed a
+// `NO_READ_SITE_TO_PIN`: every declared key on this block has a real read site,
+// so the block drops out of `MEMBER_PIN_EXEMPTIONS` entirely rather than
+// leaving one entry behind. Measured over this file's own ledger, before and
+// after: 90 array/object-armed inputs, 36 pinned, 54 exempt -> 90, 40 pinned,
+// 50 exempt, and `MEMBER_PIN_EXEMPTION_CEILING` follows 54 -> 50 in the same
+// commit. Two of the four pins PROMOTE pre-existing files (`dataSource`, and
+// one file covering both `label` and `placeholder`), read end to end first;
+// `sort` — the standalone `properties.sort` key, as opposed to the
+// `dataSource.sort` sub-member the promoted `dataSource` file already
+// exercised — had no existing candidate anywhere in the repo, so it is a new
+// file. See `MEMBER_PIN_EXEMPTION_CEILING`'s own docblock for the accounting.
+//
+// ⭐ FOURTH SLICE, THE SECOND WHOLE BLOCK CLOSED, AND A TWO-KEY FAMILY.
+// objectui#8071's fourth slice converted both remaining keys of ONE block —
+// `record:quick_actions`'s `actionNames` and `requiredPermissions` — chosen
+// because the block's remaining population is small enough to close outright
+// (the shape this card's own dispatch names, over an arbitrary four). Neither
+// key needed `NO_READ_SITE_TO_PIN`: `actionNames` drives a real
+// `useMetadataItem` lookup against the object's own `actions`, and
+// `requiredPermissions` is a block-level gate (`required.every((p) =>
+// perms.can(objectName, p))`) that hides the whole bar before anything is
+// drawn — a DIFFERENT mechanism from an `ActionDef`'s own per-action field of
+// the same name, which a pre-existing fixture already exercised without
+// touching this key at all. Measured over this file's own ledger, before and
+// after: 90 array/object-armed inputs, 40 pinned, 50 exempt -> 90, 42 pinned,
+// 48 exempt, and `MEMBER_PIN_EXEMPTION_CEILING` follows 50 -> 48 in the same
+// commit. One of the two pins PROMOTES a pre-existing file
+// (`recordQuickActionsInputs.actionNamesFallback.test.tsx`); the other
+// (`requiredPermissions`) is new, for the reason above.
+//
+// A list this size is the transition case, and this file already owns the
+// pattern for it —
 // `OFF_SPEC_EXEMPTIONS` / `UNPUBLISHED_EXEMPTIONS` / `OFF_SPEC_ARM_EXEMPTIONS`
 // are explicit, reasoned, issue-backed, and go RED once stale. This is the same
-// mechanism, not a second one: `MEMBER_PIN_EXEMPTIONS` below lists all 58 BY
-// NAME, every entry cites objectui#8071 (which owns writing the pins), and an
+// mechanism, not a second one: `MEMBER_PIN_EXEMPTIONS` below lists all 50
+// remaining keys BY NAME, every entry cites an issue, and an
 // entry whose key acquires a pin is reported STALE and must be deleted in the
 // same change. The list has a CEILING as well as a stale check, because the
-// cheap way to green a new array key is to add a 59th entry rather than a pin.
+// cheap way to green a new array key is to add a 51st entry rather than a pin.
 //
 // ## WHAT IS DELIBERATELY NOT IN THE POPULATION, stated rather than dropped
 //
@@ -2057,9 +2224,21 @@ interface MemberPin {
  * was built for.
  */
 const MEMBER_PINS: Record<string, MemberPin> = {
+  'element:button.action': {
+    file: 'packages/components/src/__tests__/elementButtonActionMembers-8071.test.tsx',
+    pins: 'The inline ActionDef\'s member set as a WHITELIST, driven through the real renderer and asserted on what the ActionRunner is handed: the forwarded keys are pinned as a SORTED SET, so a member silently added to or dropped from `ElementButtonRenderer`\'s explicit forward list is red in either direction — the defect shape objectstack#6837 (`bodyExtra`) and objectstack#6938 (`bodyShape`) were both filed for, an authored key that validates, publishes and then evaporates one hop before the runner. Three off-list keys are authored alongside and asserted ABSENT: `bodyShape` (deliberately not inline vocabulary — `action-bodyShape-forward.test.tsx` argues the boundary in prose, this pins it as behaviour) plus `icon` and `variant`, the block\'s own sibling props misplaced one level in. `actionType` OUTRANKS `type` with the losing spelling\'s handler asserted un-run, an ARRAY `params` is re-routed to `actionParams` while an OBJECT `params` stays `params` (objectstack#5777 direction A) with each arm controlling the other, the navigation members reach the navigation handler, and an omitted `action` dispatches nothing at all — the non-vacuity control for every row. LIMIT: `confirmText` is on the whitelist but unexercised, because the runner awaits confirmation before the dispatch this file observes. New file (objectui#8071 slice 7).',
+  },
   'element:button.label': {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
     pins: 'The `object` arm is the inline translation map `{ en, "zh-CN" }` and nothing else — driven through the real `manifestFromConfigs` + `validateTree` pair the JSX-page compiler and the save gate use, each positive paired with a value matching NEITHER arm that must still be reported (objectui#4970).',
+  },
+  'element:number.filter': {
+    file: 'packages/components/src/renderers/basic/__tests__/elementNumberFilterMembers-8071.test.tsx',
+    pins: 'The TWO wire spellings one authored predicate takes, chosen by an adapter capability the author cannot see, plus the re-query rule — asserted through the real renderer on a stubbed adapter. `aggregate()` receives it FLAT under its own name and beside the members that make the call an aggregate (`field`, `function`, `groupBy: \'_all\'`), asserted as the whole options bag rather than the one key; the `find()` fallback receives it WRAPPED as `$filter`; and an unfiltered metric sends `undefined` rather than an empty envelope some adapters read as "match nothing". Collapsing the two spellings into one drops the predicate silently and the metric paints a confidently wrong number over every row, with no diagnostic and no empty state. The third half is that the key is read BY VALUE, not by identity (`filterKey` is a `JSON.stringify` memo): a deep-equal filter rebuilt by a re-rendering parent must NOT re-probe, while a changed comparand MUST and carries the new predicate — each arm the other\'s control, so a dependency array "simplified" to the raw object (a per-render fetch storm) is red. New file (objectui#8071 slice 7).',
+  },
+  'element:record_picker.dataSource': {
+    file: 'packages/components/src/__tests__/record-picker-element-data-source.test.tsx',
+    pins: 'The per-element binding\'s own members, read through the REAL renderer and asserted at the query it fires: `view` resolves a saved view whose `filter`/`sort`/row cap become the picker\'s baseline, an authored binding key WINS over the same key from the view, the binding\'s own `filter` arrives AND-combined with the view\'s rather than replacing it, and an unresolvable `view` reports instead of falling back to every record of the object — the quieter failure mode objectstack#6953 fixed, one class below the throw objectstack#5576 fixed on `list-view`. A `view`-less binding leaves every one of the four flat keys (`object`/`filter`/`sort`/`limit`) behaving exactly as it did before a `dataSource` was authored at all, which is the control that keeps the override rows from reading as a coincidence. `columns` is deliberately absent from this pin: unlike `record:related_list.dataSource` (objectui#8071 slice 2), this renderer never reads `composed.columns` at all — a select dropdown has no column list to narrow. Pre-existing file, promoted to a pin here after being read end to end (objectui#8071).',
   },
   'element:record_picker.emptyText': {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
@@ -2067,7 +2246,19 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'element:record_picker.filter': {
     file: 'packages/components/src/__tests__/record-picker-inputs-spec-parity.test.ts',
-    pins: 'The `object` arm is `FilterConditionSchema` — field keys plus `$and`/`$or`/`$not` — with the rule-ARRAY spelling every sibling `filter` uses rejected outright, and the description pinned to the renderer\'s own precedence read (`composed?.filter ?? props.filter`), objectui#3830.',
+    pins: 'The `array` arm is `ViewFilterRuleSchema[]` — the one filter orthography this map\'s array-declared `filter` doors share — with the MongoDB-style RECORD spelling (`{ status }`, `{ $and }`) refused by kind at `filter` and a bare tuple refused at `filter.0`, and the description pinned to the renderer\'s own precedence read (`composed?.filter ?? props.filter`). objectui#3830 declared the key; objectstack#14406 converged it off the record form and objectui#7663 moved this side onto the array arm.',
+  },
+  'element:record_picker.label': {
+    file: 'packages/components/src/renderers/basic/__tests__/record-picker-label-placeholder-i18n.test.tsx',
+    pins: 'The I18nLabel object arm, resolved at ITS OWN read site rather than through the row-value helper `toText` it used to share: the map resolves to the active language rather than always to its `en` entry (the pre-fix harm rendered ENGLISH to a zh-CN viewer), a region tag falls back to the base language an author actually wrote, and — the quiet failure — a legal map that simply omits `en` used to delete the `<label>` element with nothing thrown and nothing logged; this pin asserts the element\'s PRESENCE first, then its text, so a fix that resolved the string but left the element gone still fails here. A plain-string control and the "absent key renders no label at all" control both stay green in every case, which is what keeps the object-arm rows from being satisfied by an always-render fix (objectui#5637).',
+  },
+  'element:record_picker.placeholder': {
+    file: 'packages/components/src/renderers/basic/__tests__/record-picker-label-placeholder-i18n.test.tsx',
+    pins: 'The I18nLabel trio\'s other object arm, on the sharper of the two pre-fix failures: an authored map THREW `Objects are not valid as a React child` at `SelectValue`, taking the whole control down rather than merely mis-rendering. Same resolver, same fallback chain and the same base-language control as `label` above; see that entry (objectui#5637).',
+  },
+  'element:record_picker.sort': {
+    file: 'packages/components/src/__tests__/record-picker-sort-members.test.tsx',
+    pins: 'An IDENTITY pin, unlike the sibling block\'s: `record-picker.tsx` assigns `query.$orderby = sort` with no `normalizeSortSpec` in between, so a member missing `field` is NOT dropped the way `record:related_list.sort` (objectui#8071 slice 2) drops one — pinned as the current, undocumented divergence between two blocks whose registrations both say only "array of objects". Order is preserved for a multi-member array, no `$orderby` is sent when the key is absent, and PRECEDENCE against `dataSource` is pinned in both directions: a binding that declares its own `sort` replaces the flat key outright, and the flat key still applies when the binding carries none — `composed?.sort ?? props.sort`, identical to `filter`\'s read (objectui#8071).',
   },
   'element:text.content': {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
@@ -2085,9 +2276,17 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/components/src/__tests__/text-input-inputs-spec-parity.test.ts',
     pins: 'The I18nLabel trio — see `element:text_input.description` (objectui#5717).',
   },
+  'object-calendar.calendar': {
+    file: 'packages/plugin-calendar/src/__tests__/objectCalendarConfigMembers-8071.test.tsx',
+    pins: 'Members are FIELD NAMES the calendar projects onto an event: `startDateField` and `endDateField` name the record fields that become the event\'s `start`/`end` (an unauthored `endDateField` leaves `end` undefined rather than inventing one), and `titleField` OUTRANKS the object\'s own default display-name resolution (`getRecordDisplayName`) rather than only supplementing it. The sharp claim is PRECEDENCE: `getCalendarConfig` returns `schema.calendar` OUTRIGHT the moment it is set — never merged against the flat legacy spelling (`startDateField/endDateField/titleField/colorField` authored directly on the schema) it falls back to only when `calendar` is absent — so a schema carrying BOTH, with the two disagreeing, is read entirely from the nested object and not at all from the flat siblings, even for the keys the nested object leaves unset. `colorField`\'s own resolution ladder and `allDayField` (an objectui-local extra key inside the same object) are each pinned narrowly already and are not re-asserted here: `ObjectCalendar.colorFieldLadder-7243.test.tsx`, `ObjectCalendar.allDayFieldIsHonoured-8026.test.tsx`. The spec side is a `strictObject` of exactly the four documented keys, so it fixes the NAMES but nothing about how they are used once read — the read site is the whole member contract (objectui#8071).',
+  },
   'object-calendar.data': {
     file: 'packages/plugin-calendar/src/__tests__/ObjectCalendar.recordSourceMembers-8314.test.tsx',
     pins: 'The members are RECORDS, and the keys read inside one are the fields the declared `calendar` config names plus `id`: every member arrives in authored order, `allDay` is derived PER MEMBER from the declared end field, a member with no value in the start field is counted in the unscheduled area rather than dropped or given a fabricated date (objectui#7071 at the member level), and a member with no `id` gets a synthesised one rather than being discarded. Asserted through the REAL `SchemaRenderer`, because this key\'s sink is the props channel `index.tsx` resolves (`resolveExternalData`), not the schema. ⛔ NOT pinned on "the internal query is skipped": an authored array reaches this renderer on BOTH carriers, and the schema-channel one returns it as a config with no `provider`, so no query is issued on a tree where the boundary drops `data` either — measured by ablation, that row stays green while the ROWS-ARE-DRAWN rows go red, so it is kept as a labelled companion and the rows carry the claim. The spec side cannot supply any of it: the row is `z.array(z.unknown())`, so every coarse member kind parses and the read site is the whole member contract (objectui#8314).',
+  },
+  'object-calendar.dataSource': {
+    file: 'packages/plugin-calendar/src/ObjectCalendar.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s own members, read through the REAL `ElementDataSourceGate` + renderer pair and the same shared mapping mechanism `element:record_picker.dataSource` and `record:related_list.dataSource` already pin: `object` WRITES onto `objectName` (this block\'s own top-level key), a named `view`\'s `filter`/`sort` reach the fetch as `$filter`/`$orderby`, a `sort` member missing `order` reads as ascending rather than dropped (the shared `QueryParams.$orderby` member contract, objectui#4022), an unresolvable `view` reports instead of fetching the whole object, and a calendar carrying no binding at all behaves exactly as it did before one existed. `columns` and a row cap are deliberately UNMAPPED and asserted absent from the mapping\'s own declaration (`OBJECT_CALENDAR_DATA_SOURCE = { filter: true, sort: true }` in `index.tsx`) rather than pinned here, because this block projects fields off its own `calendar` config and fetches the whole window — neither key has a read site to write to. Pre-existing file, promoted to a pin here after being read end to end (objectstack#6953, objectui#8071).',
   },
   'object-calendar.filter': {
     file: 'packages/plugin-calendar/src/__tests__/ObjectCalendar.filterIsNotAConfigSlot-7711.test.tsx',
@@ -2100,6 +2299,22 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-calendar.staticData': {
     file: 'packages/plugin-calendar/src/__tests__/ObjectCalendar.recordSourceMembers-8314.test.tsx',
     pins: 'The members are read EXACTLY as `data`\'s are (same record keys, same per-member unscheduled treatment), plus the two POSITION claims its description makes and no other direction of this gate can see: it is rung 2 of the shared record-source ladder, so an authored `data` wins and this key contributes nothing, and it is read ABOVE `objectName`, so a calendar carrying both draws the inline rows and never queries the object. Both negatives are proven through the same wait a CONTROL row shows a real query completing in, so "no query" can never read as a race. The spec row is `z.array(z.unknown())` — unconstrained members, read site is the whole contract (objectui#8314).',
+  },
+  'object-form.fields': {
+    file: 'packages/plugin-form/src/__tests__/objectFormFieldsMembers-8071.test.tsx',
+    pins: 'Members are BARE FIELD NAMES resolved against the object schema — authored order preserved (against a control with no `fields`, whose order differs), a name the object does not declare dropped rather than rendered as an untyped stub, and the `{ name }` object spelling recorded as the read site\'s tolerance rather than a second contract. The sharp row is the one no other file can make: `object-form` carries a SECOND surface spelled `fields` (`sections[].fields`), whose canonical member is the spec `FormFieldSchema` object keyed on `field` — and that exact entry as a member of the TOP-LEVEL key resolves to no name and is dropped from render (no throw) — SILENTLY until objectui#8738 route 1 added a named `console.warn` for exactly this case (also pinned in the same file), with the same entry inside a section rendering as the live control so the negative cannot come from an object that never renders that field. Asserted through the real `ObjectForm`, because the sink is its own `fieldsToShow` loop rather than the `normalizeSectionField` chokepoint the sibling key uses. The spec row is `z.array(z.unknown())` and the registration declares no `of`, so the read site is the whole member contract (objectui#8071).',
+  },
+  'object-grid.bulkActionDefs': {
+    file: 'packages/plugin-grid/src/__tests__/bulkActionMembers-8071.test.tsx',
+    pins: 'Members are FULL `BulkActionDef` OBJECTS, left as authored and never resolved against `objectDef.actions` — proven with a def naming an action the object does NOT declare, which still renders carrying its authored label. The negative is the pair\'s sharper half and is NOT silent: a bare-name member (the sibling key\'s vocabulary, which nothing on either declared side refuses) reaches `BulkActionBar` with no `name` and `formatActionLabel(undefined)` THROWS during render, taking the whole selection bar down — pinned as current behaviour, filed as objectui#8730, and it reds when that lands. The spec row is `z.array(z.unknown())`, so the read site is the whole member contract (objectui#8071).',
+  },
+  'object-grid.bulkActions': {
+    file: 'packages/plugin-grid/src/__tests__/bulkActionMembers-8071.test.tsx',
+    pins: 'Members are BARE ACTION NAMES resolved against `objectDef.actions` and PROMOTED — read off a button carrying the object action\'s own label, which is deliberately not the humanized form of the name, so a renderer treating the member as a display string could not pass. Two companions make it a reading rather than a claim: a name matching no declared action still reaches the bar BY NAME (the `registerHandler` path), and an object member — the `page:header.actions` hole (objectstack#11592) transposed onto this key — is skipped by `resolveBulkActions`\' `typeof name !== \'string\'` guard with no diagnostic at all. `selection` is declared explicitly on every row, because the grid derives multi-select from these very keys and a negative row would otherwise lose its selection UI for the reason under test. The spec row is `z.array(z.unknown())` (objectui#8071).',
+  },
+  'object-grid.exportOptions': {
+    file: 'packages/plugin-grid/src/__tests__/ObjectGrid.exportOptionsKeys.test.ts',
+    pins: 'The member KEY SET the renderer reads off `schema.exportOptions` (and off the alias bound to it), scanned out of `ObjectGrid.tsx` with comments and string literals stripped, against the `object-grid` REGISTRATION\'s own member enumeration — which is this block\'s only statement of member shape, since the registration declares `type: \'object\'` with no `of` and the spec row is `z.unknown()`. Two directions: the registration may advertise NO member key the renderer ignores (the declaration-side form of the objectstack#11592 hole), and the reverse gap is asserted as an EXACT named set — `streaming`, read at two sites to choose server-streamed vs client-assembled export and absent from the enumeration, filed as objectui#8731 — so a second undocumented key cannot join it and landing the fix reds the row. Carries objectui#4535\'s read-subset-of-declared-type direction as before (objectui#8071).',
   },
   'object-grid.data': {
     file: 'packages/plugin-grid/src/__tests__/gridDataInputContract.test.ts',
@@ -2125,6 +2340,34 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'ONE nested position and no more: `schema.grouping?.fields?.[0]?.field` is the FALLBACK source of `swimlaneField`, and that is the entire member contract this board carries for the key. Three rows make it a reading rather than a claim — the swimlane layout appears keyed by `fields[0].field` where without the key there is none; an explicit `swimlaneField` WINS over it; and a second `fields` entry changes nothing, which is what pins the read at `[0]` rather than at "the fields list". The declared description says the rest is inert precisely so the declaration does not recommend a write the renderer cannot honour — this file is what keeps that sentence true. The spec row is `z.unknown()`, so the read site is the whole member contract (objectui#8313).',
   },
+  'object-metric.aggregate': {
+    file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
+    pins: 'A three-member options bag whose members are read TWICE — once into the adapter call, once back out of the response. `field`/`function`/`groupBy` become `ds.aggregate(object, { field, function, groupBy, filter })` with `groupBy` OPTIONAL and defaulting to `\'_all\'` (one bucket) and an authored value outranking it; the bag is asserted AS A WHOLE so a member added to or dropped from the call is red in either direction. The readback is the half that has no second chance: `function: \'count\'` sums `<field>_count` across EVERY returned row while any other function reads the FIRST row\'s `<field>_<function>`, and the two arms run on the SAME two-row response so only a readback reading both members can answer 120 on one and 7 on the other — a `field`/`function` that reached the query but not the readback paints 0 over a response that carried the right number. `<field>` unsuffixed is pinned as the chain\'s second limb. The key\'s ABSENCE is a member semantic in its own right and is the file\'s non-vacuity floor: with no `aggregate` the query VERB changes to `find()` and the value becomes the row count. Driven through the registered block, not the bare widget. New file (objectui#8071 slice 8).',
+  },
+  'object-metric.compareTo': {
+    file: 'packages/plugin-dashboard/src/__tests__/ObjectMetricWidget.compareTo.test.tsx',
+    pins: 'The `{ kind, dimension? }` member set under objectstack#5011\'s converged shape: `kind` alone chooses BOTH the comparison window and the trend label, pinned on a QUARTER-scoped filter so the two admitted values disagree about each (`previousYear` = the same quarter one year back and "vs last year"; `previousPeriod` = the quarter before and "vs last quarter") — a year-scoped fixture would have let a `previousYear` that fell through to the other branch pass. `dimension` is CARRIED but inert on this inline path (it addresses a dataset time dimension the executor resolves), asserted by the query\'s filter keys being unchanged by it. An absent `compareTo` runs a single pass and paints no trend, which is the control that keeps the other rows from reading as a coincidence. Pre-existing file (objectui#3337), promoted here after being read end to end; objectui#8071 slice 8 added the row that mounts `type: \'object-metric\'` through `SchemaRenderer`, so the claim that the block\'s gate forwards this key untouched is asserted rather than assumed.',
+  },
+  'object-metric.dataSource': {
+    file: 'packages/plugin-dashboard/src/ObjectMetric.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s members as a WHITELIST in both directions. Acting: `object` is what gets aggregated, and a named `view`\'s own `filter` becomes the metric\'s scope — with an unresolvable `view` REPORTING instead of aggregating the whole object, which for a metric is the quiet failure (one number, no rows, nothing to notice). Not acting: the same view fixture declares `columns`, `sort` and `pagination`, and the aggregate options bag is asserted whole to keep all three OUT — `OBJECT_METRIC_DATA_SOURCE` names only `filter`, because a metric is one aggregated number with no projection, ordering or page for the rest to act on. A metric with NO binding behaving exactly as before is the control. Pre-existing file (objectstack#6953), promoted here after being read end to end; objectui#8071 slice 8 added the whole-bag row, without which the pin would have been satisfied by a mapping that forwarded everything.',
+  },
+  'object-metric.drillDown': {
+    file: 'packages/plugin-dashboard/src/__tests__/objectMetricDrillDownMembers-8071.test.tsx',
+    pins: 'The click-through config\'s member set, read through the registered block on a LIVE drawer. `enabled` is `!== false`, not truthiness, and all four arms (absent, `{}`, `true`, `false`) are pinned against each other, so a "simplification" to `!!config.enabled` — which would silently disable every `{}` config — is red; and it is not sufficient on its own, because without an object name AND a data source the tile stays unclickable rather than opening a list it cannot fetch. `target` chooses the panel SHAPE (`\'dialog\'` = centred modal, anything else the edge-anchored sheet), each arm the other\'s control. `title` OUTRANKS the tile\'s own `title` and `label`, with the chain below it (`title`, then `label`, then the literal "Details") pinned as its fallback. `report` selects the drawer BODY by its own SHAPE — an `objectName`-bearing (or array-`columns`) report goes to a `spec-report` body while anything else falls through to the inline record list, and whether the record list is fetched at all is the observable that separates them. The invariant the key hangs off is pinned too: the drilled list is scoped by the METRIC\'s resolved filter with macros already substituted — the registration\'s own promise that the number and the records behind it agree, and a drawer listing every row of the object is the quiet failure it exists to stop. LIMIT, stated and deliberately NOT asserted: `filter` and `mode` have no read site on this block — a metric has no click event for `${event.*}` to resolve against, and its registration promises the drilled list agrees with the number — so they are left to objectui#8970\'s open question rather than frozen into the pin, because an assertion that a member is dead has to be deleted before the gap can be closed. The other three the shared component honours (`columns`, `maxRows`, `target: \'navigate\'`) were dead here for the same reason and are now LIVE: objectui#8970 routed this block through `DrillDownDrawer`, and they are pinned on their effects in `ObjectMetricWidget.drillRoutedToSharedDrawer-8970.test.tsx`. The spec row is `z.unknown()`, so the read site is the whole member contract. New file (objectui#8071 slice 9).',
+  },
+  'object-metric.filter': {
+    file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
+    pins: 'No named member set — the renderer never inspects the predicate — so the member shape is the SPELLING it arrives under, and there are two, chosen by an adapter capability the author cannot see: FLAT under its own name inside the aggregate options bag, and WRAPPED as `$filter` on the no-`aggregate()` `find()` fallback. Collapsing them into one drops the predicate on whichever path lost and the tile counts every row — the same defect `element:number.filter` was pinned for (slice 7) on a different renderer. Two further halves: placeholders are resolved BEFORE the query (an authored `{current_quarter_start}` reaches the adapter as a real date, and a macro surviving onto the wire is a literal nobody matches), and the key is read BY VALUE rather than by identity (`JSON.stringify` memo) — a deep-equal rebuild by a re-rendering parent must NOT re-probe while a changed comparand MUST and carries the new predicate, each arm the other\'s control against a dependency "simplified" to the raw object. New file (objectui#8071 slice 8).',
+  },
+  'object-metric.trend': {
+    file: 'packages/plugin-dashboard/src/__tests__/objectMetricTrendMembers-8071.test.tsx',
+    pins: 'The static badge\'s three members, each pinned on an observable only that member can move, driven through the registered block. `value` is painted as a PERCENTAGE — the `%` is the badge\'s own, asserted beside a metric whose `format` and `suffix` shape the NUMBER differently. `direction` chooses the glyph and is pinned as a SET (`up` / `down` / `neutral`, plus the OMITTED arm, which still paints the value and draws no glyph at all), so "renders an up arrow" cannot pass on a renderer that draws one unconditionally; an off-list member is asserted not to reach the badge, and a tile with neither `trend` nor `description` draws no badge row — the file\'s non-vacuity floor. The two rows with real semantics to get wrong: the tile-level `description` OUTRANKS `trend.label` in the one caption slot they share, so a tile that authors both silently loses the trend\'s own words; and a `compareTo`-DERIVED trend REPLACES the authored badge outright (`derivedTrend ?? trend`) rather than merging with it. That override is pinned against a no-`compareTo` control on the SAME schema, where 120-vs-100 derives +20% up while the authored badge says 99% down, so neither arm can pass by painting the other\'s numbers — which is what makes the registration\'s own sentence ("Use `compareTo` instead when the trend should be computed from data") true rather than advisory. The spec row is `z.unknown()`, so the read site is the whole member contract. New file (objectui#8071 slice 9).',
+  },
+  'page:accordion.items': {
+    file: 'packages/components/src/__tests__/pageAccordionItemMembers-8071.test.tsx',
+    pins: 'Which member of one panel definition becomes which part of the rendered accordion — the four `PageAccordionItem` members (`label`, `icon`, `collapsed`, `children`) asserted as a SET through the real renderer, which nothing did before: `label` becomes the trigger\'s accessible name and `children` the panel BODY, asserted against each other so a renderer painting the wrong one cannot pass. `collapsed` is the reading with real semantics to get wrong and it is strictly `=== false`: `collapsed: false` OPENS a panel while `collapsed: true` AND an omitted `collapsed` both leave it shut — the omitted-key arm is the control an "obvious" edit to `!it.collapsed` breaks, and a no-opener fixture keeps the two shut rows from passing on a renderer that opens nothing. The single/multiple split is pinned on the SAME items so only `allowMultiple` varies: single mode takes `defaultOpen[0]` and drops later openers, multiple mode opens them all without opening panels that never asked. `icon` is covered narrowly on purpose — `page-accordion-icon.test.tsx` (objectui#4721) is its pin and is not re-litigated. New file (objectui#8071 slice 7).',
+  },
   'page:card.title': {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
     pins: 'The `object` arm is the inline translation map, with a non-matching control that must still be reported (objectui#3832).',
@@ -2141,6 +2384,18 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
     pins: 'The `object` arm is the inline translation map, with a non-matching control (objectui#3832).',
   },
+  'page:tabs.items': {
+    file: 'packages/components/src/__tests__/pageTabsItemMembers-8071.test.tsx',
+    pins: 'The SIX members of one tab definition (`label`, `value`, `icon`, `count`, `visibleWhen`, `children`) mapped to the six different parts of the strip they each become, driven through the real renderer — the mapping as a set, which none of the five pre-existing `page:tabs` suites asserts (each pins one member, so none would fail if `count` and `value` swapped roles). `label` becomes the trigger name and `children` the PANEL, with the inactive tab\'s body asserted absent since Radix renders only the active one. `value` is pinned BEHAVIOURALLY through `defaultTab` — the host key app-shell restores `?tab=` with — so selecting a tab by its authored value proves the member is the tab\'s identity without reaching into Radix\'s generated ids; both fallback arms follow, an absent `value` and an EMPTY-STRING one each becoming the positional `tab-INDEX`, which is what separates the real read from a bare `typeof value === \'string\'`. `count` is gated on `Number(count) > 0`, NOT on presence: an authored `count: 0` paints no badge, with a positive count on the same strip as its control. `icon` and `count` are asserted per-item against a neighbour declaring neither, so neither can be strip-wide. `visibleWhen` is covered narrowly — `page-tabs-visibility.test.tsx` is its pin. New file (objectui#8071 slice 7).',
+  },
+  'record:activity.types': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordActivityFeed.test.ts',
+    pins: 'The allow-list\'s MEMBERS, asserted on `applyFeedConfig` — the call `record-activity.tsx` makes on every render — rather than through a DOM: each entry must name a `FeedItemType` the spec declares (the vocabulary is read from `@objectstack/spec`, never re-typed), a recognised list narrows the timeline to exactly those kinds, and the three ways a list can fail to name anything are kept APART from "no filter at all" (objectui#5841): `types: []`, an all-unrecognised list, and a non-array `types: \'comment\'` each render an EMPTY timeline, while an omitted `types` renders every kind. A mixed list keeps the recognised members and drops the rest. Both diagnostic channels are asserted in both directions with controls that a well-formed filter stays silent — including the objectui#5877 channel for a declared kind no producer emits, whose populations are derived from the producers rather than hand-listed. Pre-existing file, promoted to a pin here after being read end to end (objectui#8071 slice 6).',
+  },
+  'record:alert.action': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordAlertActionMembers-8071.test.tsx',
+    pins: 'The CTA member object `{ actionName, label?, variant? }`, read through the real renderer with only `useMetadataItem` doubled. `actionName` is a REFERENCE resolved against the object metadata `actions[]`, so a name resolving to nothing renders NO button rather than an inert one — controlled by emptying `actions[]`, and by declaring a second action to show the named one is what dispatches. `label` OVERRIDES the resolved `ActionDef.label`, falls back to it and then to the action NAME, and accepts an inline translation map resolved to the session language (controlled against the same map under a second language). `variant` reaches the button\'s paint and OUTRANKS the severity-derived default, pinned on the discriminating case where the two disagree — an `error` banner with an authored `variant` (objectui#8071 slice 6).',
+  },
   'record:alert.body': {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
     pins: 'The `object` arm is the inline translation map, with a non-matching control (objectui#3832).',
@@ -2148,6 +2403,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'record:alert.title': {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
     pins: 'The `object` arm is the inline translation map, with a non-matching control (objectui#3832).',
+  },
+  'record:alert.visible': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-alert.celEnvelope.test.tsx',
+    pins: 'The `object` arm is the CEL predicate envelope `{ dialect: \'cel\', source }` and nothing else, driven through the REAL renderer mounted under the real `SchemaRenderer` — which is the only mount that can see this key\'s defect, because the envelope used to be flattened to a bare string one layer ABOVE the renderer and a normalizer-return assertion passed throughout (objectui#9100). Both members carry a verdict: `dialect` selects the ENGINE (`cel` reaches `@objectstack/formula`, where the stdlib call `has()` resolves; anything else falls to the legacy JS path, where it is not a function), and `source` is the predicate itself, asserted on three rows that differ in one field plus a fourth with the field ABSENT. ⚠️ Every row is asserted on the HIDDEN case: this call site is fail-soft, so a predicate that cannot be evaluated renders the banner and a shown-only suite cannot fail. The bare-string arm is pinned in the same file as the other half of the card\'s own ablation, with the two arms required to AGREE on every row, so a regression cannot pass by repairing one — and group A holds the paired controls (no predicate at all; a constant envelope in both directions) that keep a hidden verdict from reading as one of this renderer\'s four other `return null` paths.',
+  },
+  'record:chatter.feed': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordChatterFeedMembers-8071.test.tsx',
+    pins: 'The nested activity-feed config\'s MEMBERS, and the fact that authoring the object REPLACES rather than merges. `record-chatter.tsx` composes `{ position, collapsible, feed: DEFAULTS, ...schema }` — a shallow spread — so an authored `feed` displaces the renderer\'s three defaults wholesale and every member not restated falls back to `RecordActivityTimeline`\'s own default. Those defaults are NOT uniform, which is the trap this pin exists for and is asserted per member: `showCommentInput` is `!== false` (ON when absent) while `enableReactions` and `enableThreading` are `?? false` (OFF), so `feed: {}` silently takes reactions and threading down while leaving the composer up. Each of the three carries its own observable — composer placeholder, the `Add reaction` affordance, and whether a reply is pulled out of the ROOT row list — each with the absent-`feed` control (objectui#8071 slice 6).',
   },
   'record:details.fields': {
     file: 'packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts',
@@ -2161,13 +2424,45 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts',
     pins: 'Members are OBJECTS: every spec member key must be discoverable from the description, the retired section-id spelling must be ruled out by name, and the three renderer-only keys the spec refuses (`title`, `showBorder`, `hideEmpty`) may not be taught — filtered through the spec at runtime so a stale prohibition drops out on its own (objectui#3807).',
   },
+  'record:discussion.feed': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordChatterFeedMembers-8071.test.tsx',
+    pins: 'The same key on the same renderer under its other registered name — `record:chatter` and `record:discussion` are one `RecordChatterRenderer` sharing `CHATTER_INPUTS`, so both rows point at the one file, which runs every case against BOTH names. See `record:chatter.feed` for what it constrains (objectui#8071 slice 6).',
+  },
   'record:highlights.fields': {
     file: 'packages/plugin-detail/src/__tests__/recordHighlightsInputs.spec-parity.test.ts',
     pins: 'Members are objects carrying `readonly` PER ENTRY — asserted to be per-entry rather than top-level, and every spec entry key must be discoverable from the `fields` description (objectui#3407).',
   },
+  'record:path.stages': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/recordPathStagesMembers-8071.test.tsx',
+    pins: 'The stage member set `{ value, label, terminal? }`, read through the real renderer. `value` is stage IDENTITY — compared against the record\'s `statusField` to choose the current stage, controlled by moving the RECORD rather than the array, by an unmatched value leaving NO stage current, and by a record carrying some stage\'s LABEL still matching nothing. `label` is the rendered text and the `value` behind it never appears. `terminal` OUTRANKS the `WON_TOKENS`/`LOST_TOKENS` heuristic, pinned only on fixtures where the member CONTRADICTS the heuristic and each paired with the identical stage minus `terminal` to show which way the heuristic was pointing, plus an unclassified control. Deliberately the DESKTOP row only: `record-path.crossRowClassification.test.tsx` owns the cross-row agreement invariant, which is a different claim (objectui#8071 slice 6).',
+  },
+  'record:quick_actions.actionNames': {
+    file: 'packages/plugin-detail/src/__tests__/recordQuickActionsInputs.actionNamesFallback.test.tsx',
+    pins: 'Members are action-id STRINGS resolved against the object\'s own `actions` through the real renderer: with no `actionNames` (and no host `actions`) the metadata layer is NEVER queried and the bar\'s empty placeholder renders, while naming an id drives the same `useMetadataItem` lookup and the resolved action\'s button actually appears — the positive control that keeps the negative case from reading as "the wiring was never exercised". Pre-existing file, promoted to a pin here after being read end to end; it was written for objectui#4663 (the registered description promised a fallback that exists on no path) rather than for this direction, but its second case already drives the exact read this key needs pinned (objectui#8071).',
+  },
+  'record:quick_actions.requiredPermissions': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-quick-actions.requiredPermissions-gate.test.tsx',
+    pins: 'The BLOCK-LEVEL gate (`required.every((p) => perms.can(objectName, p))`) that hides the whole bar before any action is drawn — distinct from an `ActionDef`\'s own per-action `requiredPermissions`, which `record-quick-actions.declared-action-ids-7182.test.tsx`\'s `gated` fixture already covers. No key at all: the bar renders on the (empty) grant set, so the gate is provably driven by the key\'s PRESENCE. A single held permission gates as expected, and the discriminating row is a PARTIAL grant on a two-entry array — gated only when read as `.every` over the WHOLE array rather than its first element — with the all-granted case as that row\'s own positive control. New file: no existing test drove `schema.requiredPermissions` itself, only the unrelated per-action field of the same name (objectui#8071).',
+  },
   'record:related_list.add': {
     file: 'packages/plugin-detail/src/__tests__/recordRelatedListInputs.spec-parity.test.ts',
     pins: 'Every spec member key of `add` must be discoverable from its description, the published defaults must be the RENDERER\'s rather than the spec\'s prose, and `picker.filter` must be documented as a real restriction (objectui#3808).',
+  },
+  'record:related_list.columns': {
+    file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.columnMembers.test.tsx',
+    pins: 'THE `page:header.actions` HOLE ON THIS KEY, asserted as the gap it is: the registration declares `of: \'string\'` and the block folds FIVE member spellings — a bare string, the spec-canonical `{ field }`, the legacy `{ name }` / `{ fieldName }`, and `{ key }`, a tail fallback that is this block\'s alone (`columnIdentity` REFUSES it, asserted next to it, which is the whole content of "tail"). Canonical-first is proven both ways on one mixed `{ field, name }` member, so a fold reading either key alone fails. Two rows carry the sharp edge: a member whose identity does not resolve is DROPPED — the fold fails closed (objectui#8793), because an entry it cannot name is an entry it cannot check, while `RelatedList` renders that entry anyway as `accessorKey || columnIdentity` (`accessorKey` is the instance, excluded from `columnIdentity` on purpose), so keeping it was a field-security bypass — ⚠️ two of the three legs of that bypass now have a SECOND gate downstream, `filterFLS` for a declared field that field security denies and, since objectui#9090, `filterRedacted` for a redacted one, both resolving the very `accessorKey || columnIdentity` pair this fold refuses, so what THIS fold alone still decides is a key the permission evaluator has no opinion about (one the child object never declares), measured by ablation on the merged base and pinned as THE RESIDUAL LEG in `RecordRelatedListRenderer.unresolvedIdentityFailClosed-8793.test.tsx`; the same row pins that the drop is by unresolvability rather than by matching the redacted name, and that an UNFILTERED list still hands the member down untouched — and a mixed set must come back SHORTER and in order, which is the non-vacuity a single-member array cannot give. Every positive carries its control in the same call (the member survives when a DIFFERENT field is redacted), and the instrument itself — `redactFields`, a renderer-only key on neither the spec nor `inputs` — is asserted to be undeclared so the file cannot be read as licensing it. The end-to-end half (an object member reaching the screen with VALUES) is objectui#5022\'s file, which drives `RelatedList` directly and never runs this fold (objectui#8071).',
+  },
+  'record:related_list.dataSource': {
+    file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s own members, each read through the REAL renderer and asserted at what reaches `RelatedList`: `object` becomes the `objectName` this block lists, `view` resolves a saved view whose `columns` / `sort` / row cap land on the three keys `RECORD_RELATED_LIST_DATA_SOURCE` maps, an authored key WINS over the same key from the view, an unresolvable `view` reports instead of listing every child row, and the binding\'s own `filter` arrives ANDed with the view\'s rather than replacing it — so the mapping can never widen a named view. `baseFilter` is asserted to stay undefined in the same row, because routing the list scope onto the add-picker\'s restriction would filter the dialog and leave the list wide. Pre-existing file, promoted to a pin here after being READ rather than credited on its strings: it also names `columns` and `sort`, which it does NOT pin — those two are the objectui#8071 slice-1 trap, one slice on (objectui#8071).',
+  },
+  'record:related_list.filter': {
+    file: 'packages/plugin-detail/src/__tests__/RelatedList.listFilter.test.tsx',
+    pins: 'Members are spec `ViewFilterRule` entries, pinned at the WIRE rather than at a prop: `{ field, operator, value }` reaches `dataSource.find` as `[[field, operator, value]]` through the shared sink, ANDed BEHIND the parent relationship so "additional criteria" can only ever narrow this record\'s children. The negatives are what make it a member contract: an empty `filter: []` is unauthored (the query stays the byte-identical MongoDB-style object, not a freshly lowered AST that means the same), the composed AST a binding leaves on this key is accepted WITHOUT being converted twice, the filter survives onto the windowed fetch, and on the raw-URL fallback — a channel that cannot carry an operator — the block REFUSES to fetch rather than answering wider than the metadata asked. Pre-existing file, promoted after being read (objectui#8071).',
+  },
+  'record:related_list.sort': {
+    file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.sortMembers.test.tsx',
+    pins: 'Members are `{ field, order }` and reach `$orderby` verbatim and IN ORDER, driven through the block to the wire because `normalizeSortSpec` — not the block — is what reads them. The rows a declaration reading only "array" can never publish: a member with no `field` is dropped SILENTLY while its siblings survive (a two-key order quietly becomes one-key), an all-unusable array sends no `$orderby` rather than an empty clause, and the STRING arm the registration does not declare at all is read as the OData-ish `field` / `-field` — deliberately NOT `ListView.sort`\'s legacy space-separated clause, which the same spec union spells the same way and means differently (objectui#8221 retired that one at the derivation boundary only, and this key still accepts what it accepts). A CONTROL row pins the declaration as a bare array with no `of` and no description, so making it honest reds this file and forces the pins to be re-read (objectui#8071).',
   },
 };
 
@@ -2214,6 +2509,48 @@ const AWAITING_A_PIN_NEWLY_JUDGED =
   'objectui#8071 owns writing the pin; delete this entry in the same change that registers it.';
 
 /**
+ * The reason a key carries when there is no read site for a pin to constrain.
+ *
+ * The `Record<string, string>` shape exists for exactly this: a key that needs a
+ * DIFFERENT reason gets its own string rather than a second mechanism.
+ * `AWAITING_A_PIN` says "objectui#8071 owns writing the pin", and for this key
+ * that sentence would be FALSE in a way nothing else here could report — a
+ * member pin constrains the shape the RENDERER READS (objectui#8068's
+ * criterion), and this key is not read at all.
+ *
+ * Measured on `record:related_list.actions` while writing slice 2's four pins:
+ * `renderers/record-related-list.tsx` never touches `schema.actions`, and the
+ * row actions it does render come from `useRelatedRecordActions()` — the HOST's
+ * bridge, keyed on the child object, not on this array. The declaration
+ * (`type: 'array', of: 'string'`, "Action IDs available for related records")
+ * and the spec key `RecordRelatedListProps.actions` therefore both publish an
+ * authoring surface that changes nothing: no diagnostic, no `unknown-prop`, and
+ * a page that behaves identically with the key and without it.
+ *
+ * ⛔ NOT convertible by writing a better test. The honest pin available today is
+ * "this key is dead", which is a pin on CURRENT behaviour whose whole content is
+ * that the contract is wrong — and whether that is fixed by giving the key a
+ * read site or by retiring it is an ADR-0049 enforce-or-remove question the SPEC
+ * owns, not one a renderer-side member pin should settle.
+ *
+ * NOT filed as a card of its own, deliberately: objectui#7300 is open on the
+ * same mechanism from the other side — a page cannot declare its related lists
+ * read-only BECAUSE the affordances are host-resolved from the child object
+ * rather than from the node. This key is what that mechanism looks like on the
+ * authoring surface, so it belongs to that decision rather than beside it. This
+ * entry moves when it lands, in whichever direction it lands.
+ */
+const NO_READ_SITE_TO_PIN =
+  'No member pin is possible: nothing reads this key. A member pin constrains the shape the ' +
+  'RENDERER reads (objectui#8068), and `renderers/record-related-list.tsx` never touches ' +
+  '`schema.actions` — the row/toolbar actions it renders come from the host bridge ' +
+  '`useRelatedRecordActions()`, keyed on the child object. Declared by the registration AND by ' +
+  'the spec (`RecordRelatedListProps.actions`) while changing nothing that renders. Measured by ' +
+  'objectui#8071 slice 2; the fix is an ADR-0049 enforce-or-remove decision the spec owns ' +
+  '(give the key a read site, or retire it), not a pin. Same mechanism as objectui#7300, which ' +
+  'is open on the affordance side of it.';
+
+/**
  * Array/object-armed inputs accepted WITHOUT a member pin for now, each with the
  * reason. Key format: `BLOCK.INPUT`.
  *
@@ -2226,25 +2563,23 @@ const AWAITING_A_PIN_NEWLY_JUDGED =
  *
  * The ceiling below is the other half, and it is what makes this a transition
  * rather than an allowlist: a NEW array-typed key cannot be absorbed by adding a
- * 59th entry, because the count may only go down.
+ * 51st entry, because the count may only go down.
  */
 const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
-  // element:button
-  'element:button.action': AWAITING_A_PIN,
+  // element:button — objectui#8071 slice 7 pinned `action`, the block's one
+  // remaining key; fully pinned, header kept as a landmark for a future grep.
 
-  // element:number
-  'element:number.filter': AWAITING_A_PIN,
+  // element:number — objectui#8071 slice 7 pinned `filter`, the block's one
+  // remaining key; fully pinned.
 
-  // element:record_picker
-  'element:record_picker.dataSource': AWAITING_A_PIN,
-  'element:record_picker.label': AWAITING_A_PIN,
-  'element:record_picker.placeholder': AWAITING_A_PIN,
-  'element:record_picker.sort': AWAITING_A_PIN,
+  // element:record_picker — objectui#8071 slice 3 pinned all four remaining
+  // keys (`dataSource`, `label`, `placeholder`, `sort`); the block is now
+  // fully pinned and this header stays only as a note for the next reader who
+  // greps for it.
 
   // object-form
   'object-form.customFields': AWAITING_A_PIN,
   'object-form.dataSource': AWAITING_A_PIN,
-  'object-form.fields': AWAITING_A_PIN,
   'object-form.initialData': AWAITING_A_PIN,
   'object-form.initialValues': AWAITING_A_PIN,
   'object-form.mobile': AWAITING_A_PIN,
@@ -2254,12 +2589,9 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // object-grid
   'object-grid.aggregations': AWAITING_A_PIN,
   'object-grid.batchActions': AWAITING_A_PIN,
-  'object-grid.bulkActionDefs': AWAITING_A_PIN,
-  'object-grid.bulkActions': AWAITING_A_PIN,
   'object-grid.columns': AWAITING_A_PIN,
   'object-grid.conditionalFormatting': AWAITING_A_PIN,
   'object-grid.dataSource': AWAITING_A_PIN,
-  'object-grid.exportOptions': AWAITING_A_PIN,
   'object-grid.filter': AWAITING_A_PIN,
   'object-grid.grouping': AWAITING_A_PIN,
   'object-grid.navigation': AWAITING_A_PIN,
@@ -2279,67 +2611,70 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   'object-master-detail-form.initialValues': AWAITING_A_PIN,
   'object-master-detail-form.sections': AWAITING_A_PIN,
 
-  // object-metric
-  'object-metric.aggregate': AWAITING_A_PIN,
-  'object-metric.compareTo': AWAITING_A_PIN,
-  'object-metric.dataSource': AWAITING_A_PIN,
-  'object-metric.drillDown': AWAITING_A_PIN,
-  'object-metric.filter': AWAITING_A_PIN,
-  'object-metric.trend': AWAITING_A_PIN,
+  // object-metric — objectui#8071 slice 8 pinned the four QUERY members
+  // (`dataSource`, `aggregate`, `filter`, `compareTo`) and slice 9 the two
+  // PRESENTATION members (`trend`, `drillDown`); the block is now fully pinned
+  // and this header stays only as a note for the next reader who greps for it.
 
-  // page:accordion
-  'page:accordion.items': AWAITING_A_PIN,
+  // page:accordion — objectui#8071 slice 7 pinned `items`, the block's one
+  // remaining key; fully pinned.
 
-  // page:tabs
-  'page:tabs.items': AWAITING_A_PIN,
+  // page:tabs — objectui#8071 slice 7 pinned `items`, the block's one
+  // remaining key; fully pinned.
 
-  // record:activity
-  'record:activity.types': AWAITING_A_PIN,
+  // record:activity — objectui#8071 slice 6 pinned `types`, the block's one
+  // remaining key; fully pinned, header kept as a landmark for a future grep.
 
-  // record:alert
-  'record:alert.action': AWAITING_A_PIN,
+  // record:alert — objectui#8071 slice 6 pinned `action`, joining the `title`
+  // and `body` pins this block already carried; fully pinned.
 
-  // record:chatter
-  'record:chatter.feed': AWAITING_A_PIN,
+  // record:chatter / record:discussion — ONE renderer under two names, so
+  // objectui#8071 slice 6 pinned both `feed` keys in one file; both fully
+  // pinned.
 
-  // record:discussion
-  'record:discussion.feed': AWAITING_A_PIN,
+  // record:path — objectui#8071 slice 6 pinned `stages`, the block's one
+  // remaining key; fully pinned.
 
-  // record:path
-  'record:path.stages': AWAITING_A_PIN,
+  // record:quick_actions — objectui#8071 slice 4 pinned both remaining keys
+  // (`actionNames`, `requiredPermissions`); the block is now fully pinned and
+  // this header stays only as a note for the next reader who greps for it.
 
-  // record:quick_actions
-  'record:quick_actions.actionNames': AWAITING_A_PIN,
-  'record:quick_actions.requiredPermissions': AWAITING_A_PIN,
+  // record:related_list — objectui#8071 slice 2 pinned `columns`, `dataSource`,
+  // `filter` and `sort`. `actions` is the one left, and it is left for a
+  // DIFFERENT reason: see the constant.
+  'record:related_list.actions': NO_READ_SITE_TO_PIN,
 
-  // record:related_list
-  'record:related_list.actions': AWAITING_A_PIN,
-  'record:related_list.columns': AWAITING_A_PIN,
-  'record:related_list.dataSource': AWAITING_A_PIN,
-  'record:related_list.filter': AWAITING_A_PIN,
-  'record:related_list.sort': AWAITING_A_PIN,
+  // object-calendar — objectui#8176 brought both `calendar` and `dataSource`
+  // into this population (see `NEWLY_JUDGED_UNPINNED_MEMBERS`'s docblock);
+  // objectui#8071 slice 5 pinned both, so the block is now fully pinned and
+  // this header stays only as a note for the next reader who greps for it.
 
-  // objectui#8176 — the four this direction could not see. See
+  // objectui#8176 — the other two this direction could not see. See
   // `NEWLY_JUDGED_UNPINNED_MEMBERS` below, which pins them BY NAME so the
   // ceiling correction cannot absorb anything else.
-  'object-calendar.calendar': AWAITING_A_PIN_NEWLY_JUDGED,
-  'object-calendar.dataSource': AWAITING_A_PIN_NEWLY_JUDGED,
   'object-kanban.columns': AWAITING_A_PIN_NEWLY_JUDGED,
   'object-kanban.dataSource': AWAITING_A_PIN_NEWLY_JUDGED,
 };
 
 /**
- * The four ids the ceiling below moves for, named so the move is auditable.
+ * The ids the ceiling below moved for, named so the move is auditable, MINUS
+ * whichever of them objectui#8071 has since converted to a real pin.
  *
  * A ceiling that goes up is worth exactly as much as the account of why, and
  * "+4, trust me" is not an account. Pinning the four by name means the
- * correction admits four SPECIFIC pre-existing keys and nothing else: a fifth
- * entry cannot hide inside the same headroom, because `the member-pin exemption
- * list only ratchets DOWN` still reads the total.
+ * correction admitted four SPECIFIC pre-existing keys and nothing else: a
+ * fifth entry cannot hide inside the same headroom, because `the member-pin
+ * exemption list only ratchets DOWN` still reads the total.
+ *
+ * This list is CHECKED against the live `MEMBER_PIN_EXEMPTIONS` state (`the
+ * ceiling correction admits exactly the four keys objectui#8176 made
+ * visible`), so it shrinks as the four are pinned rather than staying a
+ * frozen record of four forever — the frozen record of WHY the ceiling went
+ * up is `MEMBER_PIN_EXEMPTION_CEILING`'s own docblock below, not this array.
+ * objectui#8071 slice 5 pinned `object-calendar.calendar` and
+ * `object-calendar.dataSource`, so two of the original four remain here.
  */
 const NEWLY_JUDGED_UNPINNED_MEMBERS = [
-  'object-calendar.calendar',
-  'object-calendar.dataSource',
   'object-kanban.columns',
   'object-kanban.dataSource',
 ];
@@ -2380,8 +2715,341 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * if `states the size of the population it judges` and
  * `no spec-carried block is registered but unloaded` ever stop holding, this
  * paragraph stops being true and the number owes a re-derivation, not a bump.
+ *
+ * ## 62 -> 58, and why the number MOVES WITH the list rather than trailing it
+ *
+ * objectui#8071's first slice converted four keys to pins — `object-form.fields`
+ * and `object-grid`'s `exportOptions` / `bulkActions` / `bulkActionDefs` — and
+ * deleted their four entries. A ceiling left at 62 would then have held FOUR
+ * unused slots, and unused slots are exactly the thing this constant exists to
+ * deny: the next genuinely new array-typed key could have been greened with an
+ * exemption entry and no pin, which is the "voluntary" state the ratchet was
+ * built to end. So the ceiling follows the list down in the same change that
+ * shortens it. That is what "may only ever go DOWN" has to mean to be worth
+ * anything — a number nobody lowers is a budget, not a ratchet.
+ *
+ * ## 58 -> 54, the second slice, and the rule applied rather than restated
+ *
+ * objectui#8071's second slice converted four keys on ONE block —
+ * `record:related_list`'s `columns`, `dataSource`, `filter` and `sort` — and
+ * deleted their four entries, so the ceiling follows to 54 in the same commit.
+ * Nothing about the argument above changes; this is the paragraph existing to
+ * show it is a rule and not a one-off.
+ *
+ * ⚠️ The block is NOT emptied: `record:related_list.actions` stays exempt, and
+ * on a reason of its own (`NO_READ_SITE_TO_PIN`) rather than the shared one. A
+ * ceiling of 54 counts it like any other entry — a key that cannot be pinned
+ * still occupies a slot, because the ratchet counts EXEMPTIONS, not excuses.
+ *
+ * ## 54 -> 50, the third slice, and the first WHOLE BLOCK closed
+ *
+ * objectui#8071's third slice converted all four remaining keys of ONE block —
+ * `element:record_picker`'s `dataSource`, `label`, `placeholder` and `sort` —
+ * and deleted their four entries, so the ceiling follows to 50 in the same
+ * commit. Unlike `record:related_list` (slice 2), this block has no
+ * `NO_READ_SITE_TO_PIN` leftover: every key it declares now carries a real
+ * member pin, and the `element:record_picker` header comment above stays only
+ * as a landmark for a future grep, not because anything under it is exempt.
+ *
+ * Two of the four were PROMOTED pre-existing files, read end to end before
+ * being credited rather than trusted on their strings — the same discipline
+ * slices 1 and 2 applied: `record-picker-element-data-source.test.tsx` (for
+ * `dataSource`) and `record-picker-label-placeholder-i18n.test.tsx` (for BOTH
+ * `label` and `placeholder`, which is why those two rows in `MEMBER_PINS` point
+ * at the same file — it was written to cover the pair). `sort` had no
+ * candidate at all — nothing in the repo exercised the flat, standalone
+ * `properties.sort` key before this slice — so it is the one genuinely new
+ * file.
+ *
+ * ## 50 -> 48, the fourth slice, and a two-key block closed the same way
+ *
+ * objectui#8071's fourth slice converted both remaining keys of ONE block —
+ * `record:quick_actions`'s `actionNames` and `requiredPermissions` — and
+ * deleted their two entries, so the ceiling follows to 48 in the same commit.
+ * Like `element:record_picker` (slice 3) and unlike `record:related_list`
+ * (slice 2), this block has no `NO_READ_SITE_TO_PIN` leftover: both declared
+ * keys have a real read site in `renderers/record-quick-actions.tsx` — the
+ * `actionNames` -> `useMetadataItem` lookup, and the `requiredPermissions`
+ * block-level gate that runs before any action is drawn — so the block drops
+ * out of `MEMBER_PIN_EXEMPTIONS` entirely.
+ *
+ * One of the two pins PROMOTES a pre-existing file
+ * (`recordQuickActionsInputs.actionNamesFallback.test.tsx`, written for
+ * objectui#4663 but already driving the exact `actionNames` read this key
+ * needs, read end to end before being credited); `requiredPermissions` had no
+ * candidate — every existing reference to that name in this renderer's test
+ * suite is an ActionDef's own PER-ACTION field, a different mechanism — so it
+ * is a new file.
+ *
+ * ## 48 -> 46, the fifth slice, and a whole `object-calendar` block closed
+ *
+ * objectui#8071's fifth slice converted the two keys objectui#8176 had left
+ * unpinned on `object-calendar` — `calendar` and `dataSource` — and deleted
+ * their two entries, so the ceiling follows to 46 in the same commit. Every
+ * OTHER key this block declares (`data`, `filter`, `sort`, `staticData`) was
+ * already pinned, so the block now carries zero exemptions, the same shape
+ * `element:record_picker` (slice 3) and `record:quick_actions` (slice 4)
+ * closed in — chosen for exactly that reason: a two-key remainder on one
+ * already-mostly-pinned block, closeable outright rather than left with a
+ * straggler.
+ *
+ * `dataSource` is the per-element binding every `elementDataSourceBlock`
+ * publishes (`ELEMENT_DATA_SOURCE_INPUT`, `@object-ui/core`) — the same
+ * mechanism `element:record_picker.dataSource` and
+ * `record:related_list.dataSource` already pin — and it PROMOTES a
+ * pre-existing file, `ObjectCalendar.elementDataSource.test.tsx`, read end to
+ * end before being credited: it already drove the binding's `object` write
+ * onto `objectName`, `filter`/`sort` read off the named view, an unresolvable
+ * `view` reporting instead of fetching unfiltered, and a calendar with no
+ * binding behaving exactly as before. `calendar` had no single candidate that
+ * covered its own member set (which keys of the config object become which
+ * part of an event, and which of the two spellings — the nested object or the
+ * flat legacy fields `getCalendarConfig` falls back to — wins when a schema
+ * somehow carries both) — the ladder and all-day pieces of that config were
+ * each already pinned narrowly (`ObjectCalendar.colorFieldLadder-7243.test.tsx`,
+ * `ObjectCalendar.allDayFieldIsHonoured-8026.test.tsx`) but neither, nor
+ * anything else, asserted `startDateField`/`endDateField` reaching an event's
+ * `start`/`end`, `titleField` outranking the object's own display-name
+ * resolution, or the object-vs-flat precedence — so it is a new file,
+ * `objectCalendarConfigMembers-8071.test.tsx`.
+ *
+ * ## 46 -> 41, the sixth slice, and FIVE whole blocks closed at once
+ *
+ * objectui#8071's sixth slice took the five `record:*` detail-panel blocks that
+ * each carried exactly ONE unpinned key — `record:activity.types`,
+ * `record:alert.action`, `record:chatter.feed`, `record:discussion.feed` and
+ * `record:path.stages` — and pinned all five, so the ceiling follows to 41 in
+ * the same commit. Every one of the five blocks now carries zero exemptions,
+ * the shape `element:record_picker` (slice 3), `record:quick_actions` (slice 4)
+ * and `object-calendar` (slice 5) each closed in; this slice is the first to
+ * close more than one block, and the batch is coherent rather than opportunistic
+ * — one package (`packages/plugin-detail`), one family, and the selection rule
+ * is stateable in a sentence (every block whose remainder was exactly one key).
+ *
+ * `record:chatter.feed` and `record:discussion.feed` are ONE key on ONE
+ * renderer: the console registers `RecordChatterRenderer` under both names
+ * against the same `CHATTER_INPUTS`, so both rows point at one file that runs
+ * every case against both names — the shape slice 3 used for
+ * `record-picker-label-placeholder-i18n.test.tsx`, which covered `label` and
+ * `placeholder` together.
+ *
+ * One of the five PROMOTES a pre-existing file: `recordActivityFeed.test.ts`
+ * for `record:activity.types`, read end to end before being credited rather
+ * than trusted on its greps — it already asserts the allow-list's member
+ * semantics directly on `applyFeedConfig` (the call the renderer makes on every
+ * render), including objectui#5841's three distinct ways an authored list can
+ * name nothing and why none of them is "no filter". The other three files are
+ * new: the six existing `record:path` suites all use `stages[]` as a FIXTURE
+ * for a different subject (accessible names, the container label, the readout's
+ * inertness, cross-row agreement) and none would fail if `value`, `label` and
+ * `terminal` swapped roles; the six `record:alert` suites reference `action`
+ * only inside a props bag whose subject is `resultDialog` or the `visible`
+ * predicate; and the one `record:chatter` suite is about the host's `loading`
+ * signal and never authors `feed` at all.
+ *
+ * ⚠️ RE-POINTED by objectui#8934, which reversed the reading this paragraph
+ * used to carry. It recorded the `feed` pin as a LIMIT: `config.feed` reached
+ * `RecordActivityTimeline`, which read the five AFFORDANCE members only, while
+ * `record:activity`'s FILTER members (`types`, `limit`, `showCompleted`,
+ * `unifiedTimeline`) were applied by `applyFeedConfig`, which only
+ * `record-activity.tsx` called — so they were inert nested inside `feed`, and
+ * that was called a contract defect. It was an IMPLEMENTATION GAP against a
+ * WIDER protocol instead: `@objectstack/spec` declares
+ * `RecordChatterProps.feed` as `RecordActivityProps` (`component.zod.ts:1366`),
+ * so objectui#8934 closed the gap in `renderers/record-chatter.tsx` rather than
+ * narrowing the declaration, and the four filter members are live on that path
+ * now. (`filterMode` and `enableMentions` are still unread there —
+ * objectui#8968.) This block's own row is unaffected either way: nothing in
+ * this file asserts on that description string.
+ *
+ * ## 41 -> 37, the seventh slice, and the LAST four one-key blocks closed
+ *
+ * objectui#8071's seventh slice applied slice 6's selection rule to what it left
+ * behind: every block whose remainder was exactly one key. Four qualified —
+ * `element:button.action`, `element:number.filter`, `page:accordion.items` and
+ * `page:tabs.items` — so the ceiling follows to 37 in the same commit, and all
+ * four blocks now carry zero exemptions.
+ *
+ * The batch is coherent rather than opportunistic on the same terms slice 6 set:
+ * one package (`packages/components`) registers all four, the two `element:*`
+ * keys sharing `renderers/basic/elements.tsx` and the two `page:*` keys sharing
+ * `renderers/layout/containers.tsx`, and the rule is stateable in a sentence.
+ *
+ * ⚠️ TWO one-key blocks were deliberately NOT taken, and neither is a leftover
+ * this slice could have absorbed:
+ *
+ *   - `record:related_list.actions` is the `NO_READ_SITE_TO_PIN` sentinel, and
+ *     the reading was RE-MEASURED here rather than inherited: on this tree
+ *     `renderers/record-related-list.tsx` still contains ZERO case-sensitive
+ *     occurrences of `actions` (control: `import` reads 9 in the same file), and
+ *     the only near-matches are `useRelatedRecordActions` / `relatedActions` —
+ *     the host bridge the constant already names. Nothing to pin, still.
+ *   - `object-kanban`'s `columns` / `dataSource` are the
+ *     `NEWLY_JUDGED_UNPINNED_MEMBERS` pair, held by an unruled contract question
+ *     (objectui#8913) about whether `columns` survives as judged structure at
+ *     all. Pinning a shape a pending ruling may delete would be worse than
+ *     leaving it exempt, so `NEWLY_JUDGED_UNPINNED_MEMBERS` is UNCHANGED by this
+ *     slice — no block it names was touched.
+ *
+ * ⇒ After this slice every remaining exemption sits on one of four
+ * MULTI-key blocks (`object-grid` 15, `object-form` 7,
+ * `object-master-detail-form` 6, `object-metric` 6) plus the two held keys. The
+ * "close a block outright by taking its last key" shape is now EXHAUSTED, and
+ * the next slice is the first that has to take a partial block or close a
+ * multi-key one whole — stated here so the next reader does not spend the
+ * search rediscovering it.
+ *
+ * Three of the four pins are new files; none of the four keys had a
+ * pre-existing file covering its member SET, and each candidate was read end to
+ * end before being rejected rather than dismissed on its greps.
+ * `element-button-action.test.tsx` drives only `type` and `to` on one
+ * navigation action; `action-bodyExtra-forward.test.tsx` pins one member across
+ * four renderers; `page-accordion-icon.test.tsx` pins `icon` alone; the five
+ * `page:tabs` suites pin one member each; and
+ * `element-number.contractEnvelope-6726.test.tsx` drives the same `find()`
+ * fallback branch but never authors a `filter`, so the locator itself would
+ * refuse it. ⚠️ `action-bodyShape-forward.test.tsx` is the one that had to be
+ * refused rather than merely passed over: it NAMES `element:button` and the key
+ * `action`, so it would satisfy the locator, while what it actually says is
+ * that `element:button` is deliberately out of its scope. Crediting it would
+ * have been a pin that asserts the opposite of its claim — the false-negative
+ * shape objectui#8068 exists to end. Its boundary is instead pinned as
+ * behaviour in the new file, which authors `bodyShape` and asserts it is
+ * dropped.
+ *
+ * ## 37 -> 33, the eighth slice, and the FIRST partial bite of a multi-key block
+ *
+ * objectui#8071's eighth slice is the first that could not close a block by
+ * taking its last key — slice 7 exhausted that shape — so it takes a PART of
+ * one, and the part is chosen by a rule rather than by convenience:
+ *
+ *   **every `object-metric` member that shapes the aggregate query behind the
+ *   NUMBER the tile paints.**
+ *
+ * Four qualify — `dataSource`, `aggregate`, `filter` and `compareTo` — so the
+ * ceiling follows to 33 in the same commit. The rule is mechanical, not
+ * editorial: those four are exactly the members that reach
+ * `ObjectMetricWidget`'s `fetchMetric` / `computeOne` (`dataSource` gates the
+ * effect; `aggregateKey`, `resolvedFilterKey` and `compareToKey` are its other
+ * dependencies), and the two left — `trend` and `drillDown` — reach neither.
+ * They shape what is drawn AROUND the number once it exists: a STATIC badge
+ * beside it, and a drawer opened by clicking it. Neither can change the number.
+ *
+ * ⇒ That is what the next slice inherits, and it is cheap to state: the two
+ * PRESENTATION members of `object-metric`, `trend` and `drillDown`. They were
+ * left together on purpose rather than one being swept in — `drillDown` does
+ * issue a query of its own (the drawer's record list, off the same resolved
+ * filter), so "reaches an adapter" would have been the wrong cut and is stated
+ * here so the next reader does not have to re-derive why it was not used.
+ *
+ * TWO of the four pins PROMOTE pre-existing files, each read end to end before
+ * being credited and each given the one row it was missing:
+ *
+ *   - `ObjectMetric.elementDataSource.test.tsx` (objectstack#6953) already drove
+ *     the binding's `object` and `view` members through the real renderer, with
+ *     an unresolvable `view` reporting rather than aggregating the whole object
+ *     and a binding-less metric unchanged. What it did not have was the
+ *     NEGATIVE direction, so this slice adds it: the view fixture's `columns`,
+ *     `sort` and `pagination` are asserted absent from the aggregate call.
+ *     Without that the pin would have been satisfied by a mapping that forwarded
+ *     everything, which here would mean a metric silently ordered and paged by a
+ *     list view's presentation settings.
+ *   - `ObjectMetricWidget.compareTo.test.tsx` (objectui#3337) already asserted
+ *     the `{ kind, dimension? }` member set — `kind` choosing both window and
+ *     label on a quarter-scoped fixture where the two values disagree about
+ *     each, `dimension` carried but inert, and the no-`compareTo` single-pass
+ *     control. It drove `ObjectMetricWidget` directly, so this slice adds the
+ *     row that mounts `type: 'object-metric'` through `SchemaRenderer`: the
+ *     block's `ElementDataSourceGate` shell re-binds only `objectName` and
+ *     `filter` and forwards the rest untouched, and that is now asserted rather
+ *     than assumed. ⚠️ It is also why the file names the block at all — the
+ *     locator requires it, and a docblock mention alone would have been the
+ *     locator satisfied by prose rather than by behaviour.
+ *
+ * `aggregate` and `filter` share ONE new file,
+ * `objectMetricQueryMembers-8071.test.tsx` — the shape slice 3 used for
+ * `record-picker-label-placeholder-i18n.test.tsx` and slice 6 for the
+ * chatter/discussion pair — because the two keys meet inside a single adapter
+ * call and the assertions have to be written against each other to stay
+ * independent: the `aggregate` rows author NO filter (so the bag comparison is
+ * blind to the filter spelling), and the `filter` rows are the ones that pin it.
+ *
+ * Every other candidate was read end to end and rejected with a reason, not
+ * dismissed on its greps: `public-block-binding-reach.test.tsx` states its own
+ * narrowness — one question per block, "did any call carry the object name" —
+ * and lists `aggregate` only as a plausible sample value;
+ * `widget-dom-leak-sweep.test.tsx` is the DOM-attribute canary, where
+ * `aggregate` is a stub returning `[]`; `ObjectMetricWidget.i18nLabel.test.tsx`
+ * authors `aggregate`, `trend` and `drillDown` purely to make the drill-down
+ * reachable, and its subject is `I18nLabel` resolution — crediting it for
+ * `trend` or `drillDown` would have been slice 7's
+ * `action-bodyShape-forward.test.tsx` mistake in a new place. The remaining
+ * seven files that name `object-metric` do so in prose, in a membership list,
+ * or in a designer-inspector fixture.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here because this slice took a different block —
+ * slice 7's measurement stands as the last one taken.
+ *
+ * ## 33 -> 31, the ninth slice, and the first multi-key block closed by halves
+ *
+ * objectui#8071's ninth slice takes what slice 8 left and named: the two
+ * PRESENTATION members of `object-metric`, `trend` and `drillDown`, so the
+ * ceiling follows to 31 in the same commit and the block drops out of
+ * `MEMBER_PIN_EXEMPTIONS` entirely — the first block closed in TWO bites rather
+ * than one, which is the shape every remaining block (`object-grid` 15,
+ * `object-form` 7, `object-master-detail-form` 6) now has to be closed in.
+ *
+ * The cut is slice 8's, restated because it is the part that is easy to get
+ * wrong: `drillDown` DOES issue a query of its own — the drawer's record list
+ * runs off the same resolved filter — so "reaches an adapter" is not the line.
+ * The line is `fetchMetric` / `computeOne`, the path that produces the NUMBER.
+ * Neither of these two can change it; they shape what is drawn around it.
+ *
+ * BOTH pins are new files, and the measurement that decided it is worth
+ * recording because it corrects the prior note rather than repeating it.
+ * `ObjectMetricWidget.i18nLabel.test.tsx` was flagged for this slice as prior
+ * art that "satisfies any mechanical locator for either" key. Re-measured here,
+ * that is true only of a locator keyed on the KEY NAME: the file contains ZERO
+ * occurrences of the string `object-metric` (control: `ObjectMetricWidget`
+ * reads 15 in the same file), and `memberPinProblem` requires the BLOCK name
+ * too, so this repo's own locator would have refused it. The substance of the
+ * warning stands — it authors `trend` and `drillDown` purely to make the drill
+ * reachable, and its subject is `I18nLabel` resolution — so it is left intact
+ * rather than promoted. The only other file naming block AND key is
+ * `ObjectMetricWidget.compareTo.test.tsx`, already the `compareTo` pin, which
+ * never authors a `trend` prop at all: crediting it would have been slice 7's
+ * `action-bodyShape-forward.test.tsx` mistake in a third place.
+ *
+ * ⚠️ `drillDown` is pinned on the members that ACT and deliberately not on the
+ * ones that do not. When this slice landed, `ObjectMetricWidget` hand-rolled its
+ * own drawer instead of using the shared `DrillDownDrawer`, so five members the
+ * shared component honours had no read site here (`columns`, `maxRows`,
+ * `target: 'navigate'`, `filter`, `mode`). That was filed (objectui#8970) rather
+ * than frozen into the pin — the same choice slice 6 made for
+ * `record:activity`'s filter members (objectui#8934), and for the same reason:
+ * an assertion that a member is dead has to be deleted before anyone can make it
+ * live.
+ *
+ * ⇒ That reason has since paid out. objectui#8970 routed the block through
+ * `DrillDownDrawer`, and three of the five (`columns`, `maxRows`,
+ * `target: 'navigate'`) now act; nothing had to be deleted to let them. They are
+ * pinned on their effects in
+ * `ObjectMetricWidget.drillRoutedToSharedDrawer-8970.test.tsx`. `filter` and
+ * `mode` still have no read site — the shared drawer honours neither — and are
+ * still not asserted, for the reason above.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here either — slice 7's measurement still stands
+ * as the last one taken.
+ *
+ * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
+ * the pin, and set this constant to the new count. Not to the new count plus
+ * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 62;
+const MEMBER_PIN_EXEMPTION_CEILING = 31;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -2398,7 +3066,7 @@ const MEMBER_PIN_EXEMPTION_CEILING = 62;
  * LAZY on purpose. `eager: true` would inline the raw text of every test file in
  * the repo — 2,000+ files, ~3 MB — into this module on every run of a gate that
  * already loads the whole registration graph. Lazy hands back loaders, so the
- * cost is the glob itself plus one read per REGISTERED pin (21 today).
+ * cost is the glob itself plus one read per REGISTERED pin (40 today).
  */
 const PIN_SOURCES = import.meta.glob(
   [
@@ -2957,10 +3625,16 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // direction — greening a fresh divergence on these two blocks by writing a
     // nineteenth entry instead of declaring the input.
     //
-    // ONE is the MEASURED backlog today, not a budget: a single
-    // undiscoverable key on `object-kanban`, and NONE on `object-calendar` —
-    // objectui#8313 emptied the board and objectui#8314 emptied the calendar,
-    // in that order. The number has come down five times and every step was
+    // ZERO is the MEASURED backlog today, not a budget. `object-calendar`
+    // publishes all nine keys its spec row declares; `object-kanban` publishes
+    // thirteen of fourteen, and the fourteenth is RULED rather than owed —
+    // objectui#8313 emptied the board, objectui#8314 emptied the calendar, and
+    // objectui#8201's slice 2 ruled what was left.
+    // ⚠️ Measured at @objectstack/spec 17.4.0, which is NOT the pin the card
+    // was filed on: 17.4.0 added `object-kanban.limit` (objectstack#16562, the
+    // option-A ruling on objectui#8172), so the block's spec row went 13 keys
+    // to 14 and the declaration followed it in the same release. A reader
+    // checking this arithmetic against the card's own 13 will not reproduce it. The number has come down five times and every step was
     // this ceiling's paired EXIT — a declaration retiring its own cover —
     // rather than a re-derivation:
     //
@@ -2975,6 +3649,16 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //        `staticData` and `loading`, paying the same three-part obligation
     //        for its two array-armed keys; `MEMBER_PIN_EXEMPTION_CEILING` did
     //        not move on either card
+    //    0  objectui#8201 slice 2 lands the PM's Q1 = A ruling on the last
+    //        entry — `object-kanban.quickAdd` becomes a RULED CARVE-OUT and
+    //        moves into `LAZY_BLOCK_RULED_CARVE_OUTS`
+    //
+    // ⚠️ THE LAST STEP IS THE ONLY ONE THAT IS NOT A DECLARATION, and reading
+    // it as one would be the wrong lesson. Every step above was this ceiling's
+    // paired exit: an input got declared and its cover went stale. The step to
+    // ZERO is a RULING — the entry is still here, still covering a real
+    // undeclared key, and it left the BACKLOG rather than the map. The backlog
+    // is what someone still owes; a ruled carve-out is owed by nobody.
     //
     // ⚠️ The prose that stood here read "Sixteen … ten on `object-kanban`, six
     // on `object-calendar`" while both assertions already read 15: objectui#8223
@@ -2987,39 +3671,94 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // A new divergence on these blocks is a plain defect and gets declared,
     // exactly as it would on any other covered block.
     //
-    // ⚠️ THE ONLY KEY LEFT MAY NOT LEAVE BY A DECLARATION AT ALL — and after
-    // objectui#8313 and objectui#8314 it is the whole of this list's
-    // remainder, not just this block's, so the next reader must not take
-    // "one key left" for "nearly done".
+    // ⚠️ THE ONE KEY LEFT MAY NOT LEAVE BY A DECLARATION AT ALL, and it is now
+    // RULED rather than pending — so the backlog this number counts is EMPTY
+    // while the map below still carries an entry. Those are two different
+    // statements and the next reader must not collapse them.
     // `object-kanban.quickAdd` is measured NOT honoured by this renderer
     // (objectui#8201): `KanbanImpl` gates the control on `quickAdd &&
     // onQuickAdd`, and no producer on the `ObjectKanban` path supplies that
-    // runtime slot. Its disposition — permanent carve-out, or a feature gap
-    // whose fix makes the key declarable — is a PRODUCT ruling that card
-    // escalated rather than guessed, so its entry is unchanged. A future card
-    // lowering this number on that entry must say which of the two happened.
+    // runtime slot. Its disposition was the PRODUCT ruling that card escalated
+    // rather than guessed, and the PM answered it: PREMATURE (Q1 = A,
+    // 2026-09-07) — the renderer does not honour it and objectui#8285 owns the
+    // fix. ⭐ Which of the two happened, as this comment used to demand of
+    // whoever lowered the number: PREMATURE, not permanent. The distinction is
+    // load-bearing rather than decorative — PREMATURE commits nobody to
+    // building quick-add, and it also refuses the stronger claim that the
+    // object-bound board is not going to grow it, which nothing measured
+    // supports and which the sibling `KanbanRenderer` host contradicts by
+    // honouring the same `quickAdd` + `onQuickAdd` pair by identity.
+    // The ruling is recorded as data in `LAZY_BLOCK_RULED_CARVE_OUTS` above,
+    // not as prose here, and `the one ruled carve-out on a newly judged block
+    // is real` keeps that record honest in three directions.
     //
     // ⚠️ BOTH assertions below carry the ceiling and BOTH must move together.
     // The `toBe` is EXACT in both directions on purpose, so the card that lands
     // a declaration lowers this number in the same change; lowering only the
     // `toBe` would leave `toBeLessThanOrEqual` banking headroom the ratchet
     // exists to refuse.
-    const backlog = Object.keys(UNPUBLISHED_EXEMPTIONS).filter((key) =>
-      LAZY_REGISTERED_BLOCKS.includes(splitExemptionKey(key)[0]),
-    );
+    const backlog = Object.keys(UNPUBLISHED_EXEMPTIONS)
+      .filter((key) => LAZY_REGISTERED_BLOCKS.includes(splitExemptionKey(key)[0]))
+      .filter((key) => !LAZY_BLOCK_RULED_CARVE_OUTS.includes(key));
     expect(
       backlog.length,
       'a new unpublished-key exemption was added on a block objectui#8176 newly ' +
         'judged — declare the input at its registration site instead; the ' +
         'backlog list is shrink-only',
-    ).toBeLessThanOrEqual(1);
+    ).toBeLessThanOrEqual(0);
     // Lower it here when the owning cards land, so the ceiling keeps ratcheting
     // rather than banking the headroom their fixes free up.
     expect(
       backlog.length,
       'the objectui#8176 backlog shrank — lower the ceiling above to match, in ' +
         'the same change that declared the input',
-    ).toBe(1);
+    ).toBe(0);
+  });
+
+  it('the one ruled carve-out on a newly judged block is real, and names its exit', () => {
+    // The three assertions `LAZY_BLOCK_RULED_CARVE_OUTS`' docblock promises.
+    // Subtracting from a ratchet is only safe if the subtrahend is itself
+    // pinned, non-vacuous, and unable to drift into the stronger claim the PM
+    // ruling refused — otherwise this list is a better hiding place than the
+    // entry it adjusts, which would make the ceiling worse than leaving it
+    // alone.
+    //
+    // 1. PINNED BY NAME. Growing the list has to be a visible edit to a
+    //    literal, never a side effect of writing one more exemption.
+    expect(
+      [...LAZY_BLOCK_RULED_CARVE_OUTS].sort(),
+      'a ruled carve-out was added on a newly judged block — a ruling is a ' +
+        'maintainer or PM decision on the record, so name it here and cite it',
+    ).toEqual(['object-kanban.quickAdd']);
+
+    for (const id of LAZY_BLOCK_RULED_CARVE_OUTS) {
+      const [type] = splitExemptionKey(id);
+      // 2. NON-VACUOUS, both halves. The id must cover a real entry, and that
+      //    entry must sit on a block this ceiling actually counts — otherwise
+      //    the subtraction reaches somewhere it was never argued for.
+      expect(
+        Object.keys(UNPUBLISHED_EXEMPTIONS),
+        `${id} is ruled but carries no exemption entry — if the entry was ` +
+          'deleted (the upstream retirement landing), empty this list in the ' +
+          'same change',
+      ).toContain(id);
+      expect(
+        LAZY_REGISTERED_BLOCKS,
+        `${id} is not on a block this ceiling counts, so ruling it here ` +
+          'subtracts from a population it was never part of',
+      ).toContain(type);
+      // 3. IT NAMES ITS OWNING CARD — the mechanical difference between
+      //    PREMATURE (an open card owns the fix) and the stronger claim the
+      //    ruling refused (which would need no card and would have closed
+      //    objectui#8285 as not-planned). An entry that stopped naming the card
+      //    would have become that stronger claim silently.
+      expect(
+        UNPUBLISHED_EXEMPTIONS[id],
+        `${id} is ruled PREMATURE but its reason no longer names objectui#8285, ` +
+          'the card that owns the fix — a premature carve-out without an owning ' +
+          'card is the permanent one, which is not what was ruled',
+      ).toContain('objectui#8285');
+    }
   });
 
   it('the eight tombstoned keys are recognised, not exempted — and not published either', () => {
@@ -3734,7 +4473,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
 
   it('the member-pin exemption list only ratchets DOWN', () => {
     // The other half. A new array-typed key must be answered with a pin, not
-    // with a 63rd entry carrying the same reason as its neighbours — that move
+    // with a 51st entry carrying the same reason as its neighbours — that move
     // is what made the discipline voluntary in the first place, one layer in.
     expect(Object.keys(MEMBER_PIN_EXEMPTIONS).length).toBeLessThanOrEqual(
       MEMBER_PIN_EXEMPTION_CEILING,

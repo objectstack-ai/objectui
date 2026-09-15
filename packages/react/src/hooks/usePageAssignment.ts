@@ -18,10 +18,13 @@
  *     `buildDefaultPageSchema(objectDef, { slots })` so omitted slots
  *     fall through to synthesized defaults.
  *
- * Future work (deferred): recordType / profile / app / formFactor filtering
- * and priority-based selection. For now we return the first match so that
- * callers can deterministically fall back to the auto-generated DetailView
- * when no record Page is authored.
+ * Selection is by DECLARATION ORDER: the first matching page wins, so callers
+ * can deterministically fall back to the auto-generated DetailView when no
+ * record Page is authored.
+ *
+ * Future work (deferred): recordType / profile / app / formFactor filtering.
+ * Any author-driven ordering would have to be DECLARED on `PageSchema` in
+ * `@objectstack/spec` first — see the note on the selection itself below.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -134,9 +137,21 @@ export function usePageAssignment(
 
     if (!candidates.length) return null;
 
-    // Stable ordering: respect explicit `priority` if present (higher wins),
-    // otherwise fall back to declaration order.
-    candidates.sort((a, b) => (b?.priority ?? 0) - (a?.priority ?? 0));
+    // Declaration order decides: the first match wins.
+    //
+    // This used to sort on a `priority` key read off the candidate. No author
+    // could ever set it: `PageSchema` is a `strictObject` and does not declare
+    // `priority`, so a page carrying one is a HARD PARSE ERROR, not a page that
+    // sorts first. Every candidate therefore read `0`, the comparator returned
+    // `0` for every pair, and a stable sort left declaration order untouched —
+    // the sort documented an affordance the schema refuses (objectui#7298).
+    //
+    // `isDefault` is not consulted here either. It IS declared on `PageSchema`,
+    // so unlike `priority` it is writable — but nothing in this decision reads
+    // it, which makes the flag on a shipped page (e.g. the platform's
+    // `sys_user_detail`) inert while looking decisive. Reading it would be new
+    // behaviour, not a repair; it is recorded here so the next reader does not
+    // mistake the flag for the thing that picks the page.
     return candidates[0];
   }, [meta.pages, objectName, opts.pageName, opts.recordType, opts.profile, opts.app, opts.formFactor]);
 

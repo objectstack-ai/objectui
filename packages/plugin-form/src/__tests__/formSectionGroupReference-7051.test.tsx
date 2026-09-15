@@ -448,7 +448,7 @@ describe('objectui#7051 — resolveSectionGroupReferences', () => {
 /**
  * ⭐ The second axis. The card asks that group-owned presentation keys beside
  * `group`, and `group` on a wizard step, not be SILENTLY accepted. Measured
- * against the installed `@objectstack/spec` 17.3.0: both are refused at PARSE
+ * against the installed `@objectstack/spec` (17.4.0): both are refused at PARSE
  * — a stronger door than the lint that objectui#8497 concluded owns EXISTENCE
  * checking, and a different one. So authored metadata carrying either never
  * reaches this renderer at all; the renderer's own reports above exist for the

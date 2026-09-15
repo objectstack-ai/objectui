@@ -18,7 +18,9 @@ import {
   shapeMemberTypeName,
 } from '@object-ui/test-support';
 // The NODE face of the block vocabulary — `object-kanban`'s own schema, where
-// objectui#7322 declared `groupBy` REQUIRED and tombstoned `groupField`. The
+// objectui#7322 declared `groupBy` and tombstoned `groupField` (that card also
+// made `groupBy` REQUIRED; objectui#8990 made it OPTIONAL again, to match the
+// protocol — it is still DECLARED and still typed). The
 // spec imports above cover the PAGE face; the two are different contracts and
 // this file now reads both.
 import { ObjectKanbanSchema } from '@object-ui/types/zod';
@@ -570,11 +572,15 @@ describe('page:accordion `title` / items `value` — dead designer inputs (#5212
  *     the same query, so that zero is a reading) and which objectui#7322
  *     retired BY NAME — `retirementTombstone()` on the zod face, `?: never` on
  *     the TS one;
- *   - `groupBy`, which the same card declared REQUIRED, had no control at all.
+ *   - `groupBy`, which the same card declared (REQUIRED then; OPTIONAL since
+ *     objectui#8990, which aligned it with `@objectstack/spec`), had no control
+ *     at all.
  *
- * So the panel stably emitted a node that was missing a required key AND
- * carrying a name-retired one, and rendered a board that grouped nothing with
- * no diagnostic anywhere. `limit` is the third declared key it never offered:
+ * So the panel stably emitted a node that carried a name-retired key and no
+ * lane key at all, and rendered a board that grouped nothing with no diagnostic
+ * anywhere. ⚠️ Under today's contract the missing lane key is no longer itself a
+ * refusal — which is precisely why the CONTROL that the panel offers a `groupBy`
+ * box matters more than it did: the schema no longer backstops its absence. `limit` is the third declared key it never offered:
  * `ObjectKanban.tsx` sends it as a real `$top`, so a board over
  * `DEFAULT_KANBAN_LIMIT` records was silently truncated with no way to widen it.
  *
@@ -582,7 +588,7 @@ describe('page:accordion `title` / items `value` — dead designer inputs (#5212
  * read the CONTRACT rather than a spelling, so the next control added here is
  * measured against the schema instead of against a reviewer's memory.
  */
-describe('object-kanban — the required `groupBy` control, and the retired `groupField` (objectui#7772)', () => {
+describe('object-kanban — the `groupBy` control, and the retired `groupField` (objectui#7772)', () => {
   const fieldNames = () => BLOCK_CONFIG['object-kanban'].map((f) => f.name);
 
   /** A block node as the canvas hoists it: `properties.*` at the top level. */
@@ -659,10 +665,18 @@ describe('object-kanban — the required `groupBy` control, and the retired `gro
 
   // FALSIFICATION for the probe above — the pre-fix control set, verbatim. A
   // green "it parses" means nothing unless the node this panel used to emit
-  // goes red, and it must go red TWICE: once for the key that is missing and
-  // once for the key that is refused by name. Either issue alone would be a
-  // different, smaller defect.
-  it('the node the pre-fix panel emitted is refused twice — missing `groupBy`, named `groupField`', () => {
+  // goes red.
+  //
+  // ⚠️ It used to go red TWICE — once for the MISSING `groupBy` and once for the
+  // name-retired `groupField`. objectui#8990 made `groupBy` OPTIONAL on both
+  // faces (`@objectstack/spec` declares it optional, and requiring it made this
+  // repository narrower than the protocol), so the first half is gone: an
+  // absent lane key is no longer a refusal anywhere. The falsification still
+  // holds on the half that was always the sharper one — the retired key refused
+  // BY NAME — and it is now asserted as the SOLE issue, which is a strictly
+  // tighter statement than the old two-key set: it fails if a future change
+  // either stops refusing `groupField` or starts refusing something else here.
+  it('the node the pre-fix panel emitted is still refused — at the name-retired `groupField`', () => {
     const result = ObjectKanbanSchema.safeParse(
       nodeFrom({ objectName: 'opportunity', groupField: 'stage', titleField: 'name' }),
     );
@@ -670,15 +684,28 @@ describe('object-kanban — the required `groupBy` control, and the retired `gro
     const byPath = Object.fromEntries(
       (result.error?.issues ?? []).map((i) => [i.path.join('.'), i]),
     );
-    expect(Object.keys(byPath).sort()).toEqual(['groupBy', 'groupField']);
-    // The required key, absent.
-    expect(byPath.groupBy.code).toBe('invalid_type');
+    // objectui#8990 — was `['groupBy', 'groupField']`. The absent lane key is no
+    // longer among the reasons, and asserting the WHOLE key set is what records
+    // that rather than letting it pass unnoticed.
+    expect(Object.keys(byPath).sort()).toEqual(['groupField']);
     // The retired key, refused BY NAME — the tombstone's guidance reaches the
     // author verbatim, which is the whole point of `retirementTombstone()` over
     // a silent strip. Asserted on the message because `invalid_type` alone
     // cannot tell a tombstone from an ordinary type mismatch.
     expect(byPath.groupField.message).toContain('RETIRED (objectui#7322)');
     expect(byPath.groupField.message).toContain('author `groupBy`');
+  });
+
+  // CONTROL for the pin above — `groupBy` being optional must not be mistaken
+  // for `groupBy` being unjudged. The panel's own control writes a string, and
+  // a non-string still fails.
+  it('CONTROL — an optional `groupBy` is still TYPED when the panel writes one', () => {
+    expect(
+      ObjectKanbanSchema.safeParse(nodeFrom({ objectName: 'opportunity', groupBy: 'stage' })).success,
+    ).toBe(true);
+    const bad = ObjectKanbanSchema.safeParse(nodeFrom({ objectName: 'opportunity', groupBy: 42 }));
+    expect(bad.success).toBe(false);
+    expect((bad.error?.issues ?? []).map((i) => i.path.join('.'))).toContain('groupBy');
   });
 
   /* ── the placeholder states the real default ──────────────────────────── */

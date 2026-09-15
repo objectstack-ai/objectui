@@ -371,7 +371,9 @@
  *
  * The one that remains, `CONTEXT_TOKEN_SUGGESTIONS` (@object-ui/core), is a
  * real mirror and goes to CLAIM_DEBT — see the note there for why a
- * shrink-only block is allowed to grow on a jurisdiction widening. Zero
+ * shrink-only block is allowed to grow on a jurisdiction widening. (Burned
+ * down at objectui#7265; the figures in this paragraph are the #6291
+ * measurement and stay as measured.) Zero
  * legitimate-local fallout, zero CLAIM_ALLOW entries, and the named pin in
  * `scripts/__tests__/check-spec-symbol-derivation.test.ts` was REWRITTEN
  * rather than deleted: it now asserts that a module-local claim IS flagged,
@@ -527,6 +529,27 @@ const ALLOW = {
       "`columns`, `filter` alongside legacy `filters`), or someone adds a local key outside " +
       "the sanctioned set.",
     issue: 4115,
+  },
+  "@object-ui/types:UserFiltersSchema": {
+    reason:
+      "Declared dialect of the spec's user-filter surface, not a copy of it (objectui#7265, the " +
+      "@object-ui/types slice). Three divergences, each measured against the RESOLVED pin " +
+      "@objectstack/spec@17.4.0 rather than the version the seeding card asserted against, and " +
+      "each load-bearing: (1) `element` is REQUIRED and admits only `dropdown | tabs`, where the " +
+      "spec defaults it to `dropdown` and keeps `toggle` in ITS enum so shipped configs keep " +
+      "rendering (ADR-0047 3.4a) - ADR-0053 makes `toggle` unauthorable on this side, and the " +
+      "refusal is what `phase2-schemas.test.ts` pins; (2) `tabs` is this package's legacy preset " +
+      "dialect, where the spec's slot is a strict ViewTabSchema that requires `name` and therefore " +
+      "REJECTS the `{ id, filters, default }` documents this schema accepts and " +
+      "`normalizeTabPresets` (@object-ui/plugin-list) normalises at runtime - binding it would 422 " +
+      "metadata that renders today; (3) the shape STRIPS unknown keys where the spec's is strict, " +
+      "and closing it is a protocol decision about this surface, not a side effect of a burn-down. " +
+      "The sibling name in the same block, `UserFilterFieldSchema`, went the OTHER way in the same " +
+      "slice - it IS the spec's concept and is now derived from it, with its own two divergences " +
+      "confined to the members that carry them. Both are pinned by " +
+      "packages/types/src/__tests__/spec-symbol-parity.test.ts, in both directions, so this waiver " +
+      "goes red rather than quiet on the day the gap closes.",
+    issue: 7265,
   },
   "@object-ui/types:BulkActionParam": {
     reason:
@@ -837,12 +860,23 @@ const ALLOW = {
 // Re-anchored at objectui#6291. It was `4115` (objectstack#4115) while the block
 // was EMPTY — burned down in objectui#3162, and objectstack#4115 itself closed by
 // objectstack#6883. A ledger whose anchor is CLOSED makes the stale-entry message
-// below ("…and close #N once the ledger is empty") a dead instruction, and #6291
-// could not serve either, being the card its own PR closes. objectui#7265 is the
-// open burn-down card for the population seeded here.
+// below — the one that tells you the anchor can be ended once the ledger is empty
+// — a dead instruction, and #6291 could not serve either, being the card its own
+// PR closes. objectui#7265 is the open burn-down card for the population seeded
+// here. (That message used to spell its own instruction with a GitHub closing
+// keyword in front of the number; the reason it no longer does is written at the
+// ratchet that emits it, not restated here.)
 // ⚠️ `CLAIM_DEBT_ISSUE` a few screens down has the same defect — objectui#4592 is
-// closed while its 19-entry block is live — and is deliberately NOT changed here,
-// because rule 2's ledger is not what objectui#6291 widened.
+// closed while its block is still live — and is deliberately NOT changed here,
+// because rule 2's ledger is not what objectui#6291 widened. (Still deliberate at
+// objectui#7265: its slices have burned names out of BOTH blocks, by BIND, by
+// RENAME and by ALLOW as each site allowed, and each one moved a count while
+// leaving the dead anchor exactly where it was. How large either block is today
+// is deliberately NOT written here — `--ledger` and `--claim-ledger` regenerate
+// them from the working tree and the run banner prints both counts, so a figure
+// spelled out in this sentence could only be a second, staler answer to a
+// question the script already answers, and the sentence it used to end with is
+// the one this note now refuses to write again.)
 const DEBT_ISSUE = 7265;
 // Re-seeded at objectui#6291, mechanically (`--ledger`), when rule 1 stopped
 // skipping module-local declarations. ⚠️ The block is SHRINK-ONLY and this is the
@@ -850,41 +884,148 @@ const DEBT_ISSUE = 7265;
 // pre-existing mirrors it could not previously SEE, not forks anybody wrote. A
 // name may not be added here for any other reason.
 //
-// All 13 are real mirrors, classified by reading each site — the four
-// different-concept collisions the same widening surfaced went to ALLOW with
+// Every name still listed is a real mirror, classified by reading its site —
+// the different-concept collisions the same widening surfaced went to ALLOW with
 // reasons instead, and the two carrying standalone defects beyond the mirroring
 // already have cards (objectui#6286, objectui#6287). Re-adding a name here still
 // means "collides, not yet triaged"; a name whose triage concluded "deliberate
-// divergence" belongs in ALLOW instead.
+// divergence" belongs in ALLOW instead. ⚠️ How many are left is deliberately NOT
+// written here: `--ledger` regenerates the block and the run banner prints the
+// count, so a figure copied into this comment could only be a second, staler
+// answer to a question the script already answers (AGENTS.md #9).
+//
+// Burned down so far, in slices, each by the route its own site allowed:
+// `TreeConfig` (@object-ui/plugin-tree), then the @object-ui/core pair
+// `CONTEXT_TOKEN_SUGGESTIONS` / `isContextToken` at objectui#7265 — both
+// imported from `@objectstack/spec/data` after the identity the seeding card
+// asserted against 17.2.0 was RE-MEASURED against the resolved 17.4.0 pin,
+// because "byte-identical" is a statement about a version, not a property.
+//
+// Then the whole `@object-ui/app-shell` group at objectui#7265 — six names, seven
+// sites, and deliberately NOT one route for all of them, which is the part worth
+// carrying forward. Four were the spec's own concept and were BOUND to it
+// (`RemoteTable` imported outright, the sibling client in that same package
+// having already made that call; `AdminScope` and `FlowRuntimeState` derived as
+// `Partial<>` of the spec type, the widening confined to requiredness and
+// documented at each site; `ObjectLike` in `useTrackRouteAsRecent` PICKed down to
+// the two members it reads). Three were a DIFFERENT concept wearing the spec's
+// name and were renamed instead: `AppLike` → `AppRouteLike` (the ADR-0048 route
+// key `_packageId`, which the spec's translator shape does not declare),
+// `ObjectLike` in `deriveRelatedLists` → `MergedObjectLike` (carries `list`, a key
+// `MetadataProvider` merges on and the spec's closed shape cannot hold), and the
+// `FlowEdge` copy in `FlowEdgeInspector`, which was a third hand copy of this
+// package's OWN declared dialect `FlowDesignerEdge` and now uses it. Both ratchets
+// for the renames live in packages/app-shell/src/__tests__/spec-symbol-parity.test.ts.
+//
+// Then the `@object-ui/types` pair at objectui#7265, which is the slice where the
+// THIRD route finally got used: one name BOUND, one name moved to ALLOW, and the
+// two decided by reading their sites rather than by one policy for the group.
+// `UserFilterFieldSchema` is the spec's own concept under the spec's own name --
+// re-measured against the RESOLVED pin 17.4.0, the two shapes already agreed on
+// `field`, `type`, `showCount` and `defaultValues`, the five-member control-type
+// enum included -- so it now derives from `@objectstack/spec/ui` through this
+// package's import boundary, with TWO divergences confined to the members that
+// carry them (`label` stays a plain string because @object-ui/plugin-list renders
+// it as a React child, and `options[]` keeps the local element for the same reason
+// on its own label) and the object's strip posture restored so no accept set moved.
+// `UserFiltersSchema` went to ALLOW instead: `element` is required and refuses the
+// spec's `toggle` (ADR-0053), `tabs` is this package's legacy `{ id, filters,
+// default }` preset dialect that the spec's strict ViewTabSchema rejects, and
+// binding it would 422 metadata that renders today. Both are pinned, in both
+// directions, by packages/types/src/__tests__/spec-symbol-parity.test.ts.
+//
+// Then the `@object-ui/components` slice at objectui#7265, where the route was
+// decided by what the extra member MEANS rather than by how many members there
+// were. The DataTable renderer declared `SortDirection` as `'asc' | 'desc' |
+// null`, and that third state made the RENAME question genuinely live: the
+// spec's `SortDirection` -- re-measured at the RESOLVED pin 17.4.0, on the
+// `@objectstack/spec/shared` subpath, because byte-identical is a statement
+// about a version and so is two-member -- is the direction and nothing else.
+// Reading the site settled it the other way. `null` is not a third DIRECTION,
+// it is the ABSENCE of one: it is written at exactly one place (the end of the
+// client-side header cycle in `handleSort`) and read only by guards that guard
+// `sortColumn` in the same breath -- and `sortColumn`, the other half of the
+// same state pair, already spelled its own empty case as `useState<string |
+// null>` at the slot instead of folding it into a type name. So the concept IS
+// the spec's, and the strongest BIND form was available: the type is now
+// IMPORTED outright, the local declaration is gone rather than derived, and the
+// third state is confined to the one state slot that carries it with the reason
+// written there. `applySort`, one screen down, was a second hand copy of the
+// same two members inline in its signature and now takes the bound type too.
+// The spec-side properties the binding rests on are pinned in this package's
+// existing spec-symbol file, packages/components/src/__tests__/
+// share-filter-sort-spec-parity.test.ts (appended to, not duplicated); the site
+// and the block are pinned in
+// scripts/__tests__/spec-symbol-ledger-components-7265.test.ts.
+//
+// Then the `@object-ui/data-objectstack` slice at objectui#7265, the first where
+// the mirror was a FUNCTION rather than a type -- which narrows the routes before
+// anybody reads the site. Rule 1 records a function declaration with
+// `derived: false` unconditionally (see `rendersJsx`, whose narrowing exists so
+// that it keeps doing so), meaning there is no derive-in-place form for a
+// function at all: the only exits are to delete the declaration and import the
+// spec's, to rename, or to waive.
+//
+// BIND was refused on a measurement rather than a preference. The spec's
+// `normalizeFilterOperator` (`@objectstack/spec/ui`, re-measured against the
+// RESOLVED 17.4.0 pin, because "same behaviour" is a statement about a version
+// exactly as "byte-identical" is) folds an authored spelling to the canonical
+// VIEW vocabulary so `ViewFilterRuleSchema`'s enum can judge it. This package's
+// folded the same input to the server's filter-AST SYMBOLS -- a different
+// codomain, not a different spelling of one: the spec answers `equals` and
+// `before` where this one answers `=` and `<`. Swapping it in would have changed
+// what goes on the wire for most of the operators a stored view can carry.
+//
+// Two things came out of that measurement which the seeding note had predicted
+// the other way round, and they are the part worth carrying forward. The `?? op`
+// tail is NOT where the two differ: both hand an unrecognised STRING back
+// unchanged, so the lenient tail is COMMON ground, and the guess that the spec's
+// version "refuses instead" does not survive being run. The tail does diverge,
+// but in the opposite direction and on the other arm -- the spec's returns a
+// NON-string verbatim (its body ends `return op as string`), where this one
+// returns `null`, and `objectFilterEntryToAST` reads that `null` one line later
+// into a `MalformedFilterError`. So binding the spec here would have WIDENED what
+// this adapter accepts onto the wire, not tightened it: a number in the operator
+// slot of a tuple it is about to send, instead of a 400-shaped refusal.
+//
+// Renamed, therefore -- to `toAstFilterOperator`, which names the codomain that
+// makes it a different function from the one the rest of this monorepo imports
+// from the spec under the old name. Nothing about the behaviour moved with it.
+// Both directions are pinned: the NAME in this package's own spec-symbol file,
+// packages/data-objectstack/src/spec-symbol-batch6.test.ts (appended to its
+// RENAMES table, not duplicated), and the site, the block and the measured
+// behaviour in
+// scripts/__tests__/spec-symbol-ledger-data-objectstack-7265.test.ts.
+//
+// Then the `@object-ui/plugin-detail` slice at objectui#7265, the LAST group, and
+// the one where the route was settled by the tree rather than by the shape. The
+// site was a non-exported `interface RecordAlertProps` used at exactly one place,
+// the `React.FC<…>` type argument of `RecordAlertRenderer`. Being a TYPE, it had
+// the derive-in-place route a function does not -- and reading it took that route
+// off the table rather than onto it. At the RESOLVED pin the spec's
+// `RecordAlertProps` is the AUTHORED property bag of the `record:alert` block,
+// while the local one is the React props the renderer is called with: a `schema`
+// node, a `className`, an open tail, with the spec's bag NESTED inside it under
+// `schema.properties` and mirrored FLAT beside it for legacy nodes. Not the same
+// concept, so BIND was refused; and an `interface` derives only through
+// `extends`, which a wrapper around a type cannot use on the type it wraps.
+//
+// What decided it is that the collision was a SPELLING SLIP against a convention
+// this repo already keeps. `@objectstack/spec/ui` owns a `Record<Block>Props`
+// for every block that directory renders, and every sibling renderer beside this
+// one already spells its own props type `Record<Block>RendererProps` -- which is
+// exactly why none of them was ever in this ledger and this one was. RENAMED to
+// `RecordAlertRendererProps`, therefore: not a dialect minted for the occasion
+// but the name the file should have carried, and no published face moves with it
+// (the declaration was never exported, and `index.tsx` imports the COMPONENT).
+// Pinned in both directions -- the spec still owns the plain name, the spec does
+// not own the new one, and the sibling convention is re-derived from the
+// directory rather than restated -- in this package's own spec-symbol file,
+// packages/plugin-detail/src/__tests__/spec-symbol-batch7.test.ts (appended to,
+// not duplicated), with the site, the block and the empty-ledger path in
+// scripts/__tests__/spec-symbol-ledger-plugin-detail-7265.test.ts.
 const DEBT = {
-  "@object-ui/app-shell": [
-    "AdminScope",
-    "AppLike",
-    "FlowEdge",
-    "FlowRuntimeState",
-    "ObjectLike",
-    "RemoteTable",
-  ],
-  "@object-ui/core": [
-    "CONTEXT_TOKEN_SUGGESTIONS",
-    "isContextToken",
-  ],
-  "@object-ui/types": [
-    "UserFilterFieldSchema",
-    "UserFiltersSchema",
-  ],
-  "@object-ui/components": [
-    "SortDirection",
-  ],
-  "@object-ui/data-objectstack": [
-    "normalizeFilterOperator",
-  ],
-  "@object-ui/plugin-detail": [
-    "RecordAlertProps",
-  ],
-  "@object-ui/plugin-tree": [
-    "TreeConfig",
-  ],
+
 };
 
 // Files under these paths are not objectui's own authored surface.
@@ -990,7 +1131,9 @@ export const CLAIM_ALLOW = {
 // re-export precisely because "the copy was byte-identical, so every value
 // comparison and every behavioural test passed while it sat here". Burning it
 // down is the same edit that fixed the neighbour; it is listed rather than
-// excused because nothing about it is deliberate. Widening a rule's
+// excused because nothing about it is deliberate. ⇒ DONE at objectui#7265: the
+// site imports the spec's map, the claim went with the declaration that carried
+// it, and the entry left this block by `--claim-ledger`. Widening a rule's
 // jurisdiction is the ONLY sanctioned way this block grows, and it must be
 // mechanically regenerated (`--claim-ledger`) in that same commit.
 //
@@ -1029,7 +1172,6 @@ const CLAIM_DEBT = {
     "SubmitBehavior",
   ],
   "@object-ui/core": [
-    "CONTEXT_TOKEN_SUGGESTIONS",
     "ResultDialogFieldSpec",
     "ViewDataConfig",
   ],
@@ -1048,7 +1190,12 @@ const CLAIM_DEBT = {
 // Types AND values: the drifted symbols in the table above are mostly types, and
 // a runtime `import()` only sees values. The compiler's own view of each
 // subpath's `.d.ts` is the only source that covers both.
-function specExportNames() {
+//
+// Exported for the pins in `scripts/__tests__/`, for the same reason `scanFile`
+// is: a ledger test that builds its own name map is asserting against a COPY of
+// the spec's export set, which is the exact failure this whole guard exists to
+// catch, one level up. A pin that reads THIS function reads what the gate reads.
+export function specExportNames() {
   const require = createRequire(import.meta.url);
   let pkgPath;
   try {
@@ -1961,6 +2108,27 @@ for (const [pkg, found] of byPackage) {
 
 // 2. Ratchet — a ledger entry whose symbol is fixed (or gone) must be deleted.
 //    Left in, it reserves the name: the next fork under it would land silently.
+//
+// ⚠️ The tail's WORDING is constrained, and not by taste (objectui#7265). This
+// message names the ledger's anchor card, and taking the INTERMEDIATE reading —
+// the site burned down, the block not yet regenerated — is standing practice on
+// that card, because it is the only proof the edit reached the symbol rather than
+// the block being rewritten around it. So this text is pasted into pull-request
+// bodies and commit messages BY DESIGN. GitHub's closing-keyword parser reads one
+// of its keywords (the close / fix / resolve families, in every tense) sitting
+// immediately before an issue reference, and it does not parse sentences: the
+// tail this line replaced put such a keyword directly in front of the anchor's
+// own number, so every slice that quoted its own reading carried a trigger that
+// would have ended the card on merge — silently, from a body whose author was
+// being careful. ⛔ Never write one of those keywords in front of the reference
+// here, and keep the `objectui#` prefix rather than a bare `#`. Pinned by
+// scripts/__tests__/spec-symbol-ledger-plugin-detail-7265.test.ts, which reads
+// this module's emitted text rather than trusting the comment.
+//
+// ⛔ The `CLAIM_DEBT` twin further down is deliberately NOT given the same
+// treatment. Its anchor is a CLOSED issue — the note beside `DEBT_ISSUE` above
+// records that exclusion and why it stands — so the keyword there triggers
+// nothing, and changing it would quietly make that note false.
 for (const [pkg, names] of Object.entries(DEBT)) {
   const live = new Set((byPackage.get(pkg) ?? []).map((v) => v.name));
   const stale = names.filter((n) => !live.has(n));
@@ -1970,7 +2138,7 @@ for (const [pkg, names] of Object.entries(DEBT)) {
       ` — \`${stale.join("`, `")}\`.\n` +
       `      Delete them from scripts/check-spec-symbol-derivation.mjs (\`--ledger\` regenerates the\n` +
       `      block) so the names cannot be re-forked silently` +
-      `${DEBT_ISSUE ? ` (and close #${DEBT_ISSUE} once the ledger is empty)` : ""}.`
+      `${DEBT_ISSUE ? `, and objectui#${DEBT_ISSUE} can be ended once the ledger is empty` : ""}.`
   );
 }
 

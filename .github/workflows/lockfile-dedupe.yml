@@ -1,0 +1,158 @@
+name: Lockfile Dedupe
+
+# objectui#8333 — the committed `pnpm-lock.yaml` must already be DEDUPED, i.e.
+# `pnpm dedupe` on it may not collapse anything. The mechanism, what it catches
+# and what its green does NOT mean are documented at length in
+# `scripts/check-lockfile-dedupe.mjs`.
+#
+# ── Why this exists next to `lockfile-integrity.yml` rather than inside it ────
+#
+# They answer different questions. objectui#8326's gate reports a DELTA against
+# the merge base — "did THIS change duplicate something?" — and needs two
+# revisions of one file to do it. This one reports a PROPERTY of a single tree —
+# "would `pnpm dedupe` still have work to do here?" — and needs no base at all,
+# but does need pnpm and the registry. Different subject, different cost,
+# different failure modes, so they are separate jobs and each stays readable.
+#
+# ── Why it is path-filtered ──────────────────────────────────────────────────
+#
+# Its subject is one file. A pull request that does not touch `pnpm-lock.yaml`
+# cannot change whether that lockfile is deduped, so the filter costs no
+# coverage. A manifest edit that WOULD change the resolution cannot reach `main`
+# without moving the lockfile either, because `ci.yml` installs with
+# `--frozen-lockfile` and fails first. Same argument shape as its neighbour.
+#
+# The filter also lists this gate's RUNTIME CLOSURE — the files the job actually
+# executes — which is this repository's convention for a path-filtered gate
+# (`performance-budget.yml` states it at length): without that, a change to the
+# checker itself ships having never run once, and the wiring bug then surfaces on
+# somebody else's next lockfile PR, reading to them as a problem of their own.
+#
+# ⚠️ The filter is also what makes it UNREQUIRABLE: objectui#3523's rule,
+# enforced by `scripts/__tests__/dependabot-merge-gate.test.ts`, is that a
+# REQUIRED context must come from a workflow whose `pull_request` trigger has no
+# path filter. It is enrolled as an OPTIONAL context instead — blocking when it
+# runs, not waited for when the filter keeps it out. `Bundle Analysis` is
+# enrolled on exactly those terms and its filter also includes `pnpm-lock.yaml`.
+#
+# ── ⚠️ It IS a blocking context, and that is a decision, not a default ────────
+#
+# `scripts/dependabot-merge-gate.mjs` classifies `Lockfile Dedupe Check` in
+# `OPTIONAL_CONTEXTS`, so a red here stops a Dependabot auto-merge. Its
+# neighbour `Lockfile Integrity Check` is deliberately NOT enrolled, and that
+# difference is intentional rather than an inconsistency to tidy away:
+#
+#   * #8326's gate reports a duplication and leaves the ANSWER open — re-lock,
+#     pin, or accept the split — so enrolling it would block pull requests on a
+#     judgement call with no mechanical remedy. Its header reserves that for the
+#     maintainer, and ⛔ this file does not touch that reservation.
+#   * This gate has exactly ONE remedy and pnpm prints it: run `pnpm dedupe` and
+#     commit the lockfile. No declaration, range or override changes. There is no
+#     judgement call to reserve.
+#
+# The cost of enrolling it was measured before it was taken, and it is near zero
+# TODAY only because objectui#9215 landed first: on `main` after that collapse
+# this gate is green, so nothing currently-mergeable is blocked by it. On `main`
+# BEFORE it, the same command reds. ⇒ what this gate really defends is that
+# objectui#9215's paydown does not silently accrue again — which is the whole
+# reason the bump PR's `pnpm dedupe` is cheap enough to require at all.
+#
+# ⇒ ⚠️ If this ever needs to stop blocking, the flip is one line: move
+# `Lockfile Dedupe Check` from `OPTIONAL_CONTEXTS` to `NOT_A_GATE` in
+# `scripts/dependabot-merge-gate.mjs`. The partition test keeps either state
+# honest; ⛔ deleting the name from both buckets fails that test rather than
+# quietly shrinking the gate.
+#
+# ── No `merge_group` trigger ─────────────────────────────────────────────────
+#
+# Deliberate, and the same shape as `lockfile-integrity.yml` and
+# `performance-budget.yml`: under objectui#3523 a required context that does not
+# report on a queue build stalls the queue until the ruleset timeout fails it, so
+# a path-filtered, non-required gate must not subscribe one.
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'pnpm-lock.yaml'
+      # This gate's runtime closure — the files this job executes. An edit to any
+      # of them must be able to red this gate on its OWN pull request.
+      - '.github/workflows/lockfile-dedupe.yml'
+      - 'scripts/check-lockfile-dedupe.mjs'
+      # `isEntrypoint` decides whether `main()` runs at all, so a regression in it
+      # makes this checker exit 0 having measured nothing — the exact silent-green
+      # failure the rest of this gate exists to prevent. Same reason
+      # `performance-budget.yml` and `half-state-patrol.yml` list it.
+      - 'scripts/invoked-as.mjs'
+      # The toolchain step this job runs before pnpm is on PATH.
+      - 'scripts/ci-setup-pnpm.sh'
+  workflow_dispatch:
+
+concurrency:
+  group: lockfile-dedupe-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile-dedupe:
+    name: Lockfile Dedupe Check
+    runs-on: ubuntu-latest
+
+    # ── The job ceiling, DERIVED FOR THIS JOB ────────────────────────────────
+    #
+    # ⛔ NOT inherited from `lockfile-integrity.yml`'s 5 or `ci.yml`'s ladder —
+    # objectui#7048 fences exactly that. The arithmetic below is this job's own,
+    # and its weakness is stated rather than hidden.
+    #
+    #   - Population: `pnpm dedupe --check` on a clean `origin/main` worktree,
+    #     n=3 consecutive runs, pnpm 10.31.0 / Node 22.22.2, WARM pnpm metadata
+    #     cache, on a developer box and not a runner: 22.8s / 22.9s / 23.2s, all
+    #     exit 0. Spread 0.4s, so the command itself is not variable.
+    #   - ⚠️ That population is the wrong one for a ceiling and is known to be:
+    #     this workflow has no run history yet, and a runner starts with a COLD
+    #     metadata cache, which is the dominant term. So the max is not measured
+    #     but BOUNDED, pessimistically, at 5 minutes for checkout + Node + the
+    #     Corepack fetch + a cold resolve of ~1,767 identities.
+    #
+    # Ceiling = the smallest round number that is both >= 3x that bound (15min)
+    # and >= bound + 15min (20min); the second leg binds => 20.
+    #
+    # ⚠️ Re-derive this from real runs once this workflow has a history — the
+    # instrument is the Actions jobs endpoint (`completed_at` minus
+    # `started_at`, per job, never the run total), the same one
+    # `performance-budget.yml` names. ⛔ Do not copy the number above forward as
+    # if it were a measurement of this job in CI; it is a bound on one.
+    timeout-minutes: 20
+
+    steps:
+      # No `fetch-depth: 0` here, unlike its neighbour: this gate's subject is a
+      # single tree, not a delta, so it needs no merge base and no history.
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+          # No `cache: 'pnpm'` — that action's store probe shells out to pnpm
+          # before the step below has put it on PATH (objectui#8099 documents
+          # that exact ordering trap), and this job runs no `pnpm install`, so
+          # there is no node_modules for a cache to pay for.
+
+      - name: Enable Corepack and download the pinned pnpm
+        run: bash scripts/ci-setup-pnpm.sh
+
+      - name: Verify pnpm version
+        run: pnpm --version
+
+      # The checker's own cases, before the checker is trusted to judge anything.
+      - name: Self-test the checker
+        run: node scripts/check-lockfile-dedupe.mjs --self-test
+
+      # No `pnpm install`: `pnpm dedupe --check` resolves and reports without
+      # writing a lockfile or a node_modules tree (verified on objectui#8333 —
+      # the lockfile's sha256 is unchanged across repeated runs).
+      - name: Check the committed lockfile is deduped
+        run: node scripts/check-lockfile-dedupe.mjs

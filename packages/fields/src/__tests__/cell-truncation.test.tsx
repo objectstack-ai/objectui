@@ -54,14 +54,34 @@ describe('cell renderers truncate for real and expose the full text (issue #3466
     expectTruncating(screen.getByText(LONG), LONG);
   });
 
-  it('LookupCellRenderer: primitive non-opaque value', () => {
+  // ⚠️ UPDATED by objectui#8695, and the update is the finding, not a
+  // formality: this case used to assert `expectTruncating(...)` on a
+  // `LookupCellRenderer` primitive, which means #3466 pinned the CONFIDENT
+  // bare-text rendering of a reference nothing had resolved — the reading was
+  // deliberate once. objectui#8695 ruled that reading out (it is byte-identical
+  // to a `text` cell, so the screen states a fact it does not have), so the arm
+  // now draws the unresolved-reference affordance. #3466's contract is what
+  // survives and is what is asserted here: a single-line value must not expand
+  // its column, and its full text must stay reachable. The shape that meets it
+  // moved — `truncate` sits on the text span inside an `inline-flex` wrapper
+  // (`overflow: hidden` gives a flex item an automatic minimum size of zero,
+  // so it shrinks rather than pushing the row wider), and the full value is
+  // exposed through the wrapper's stated `title` rather than a bare one.
+  it('LookupCellRenderer: primitive value nothing resolved — objectui#8695 affordance, still truncating', () => {
     const ds = { find: vi.fn(), findOne: vi.fn() } as any;
-    render(
+    const { container } = render(
       <SchemaRendererProvider dataSource={ds}>
         <LookupCellRenderer value={LONG} field={{ type: 'lookup' } as any} />
       </SchemaRendererProvider>,
     );
-    expectTruncating(screen.getByText(LONG), LONG);
+
+    const mark = container.querySelector<HTMLElement>('[data-slot="unresolved-reference"]')!;
+    expect(mark, 'the unresolved arm states itself').not.toBeNull();
+    expect(mark).toHaveClass('inline-flex', 'min-w-0', 'max-w-full');
+    // The full text stays reachable, inside the sentence that names it.
+    expect(mark.getAttribute('title')).toContain(LONG);
+    // …and the value itself still ellipsises instead of growing the column.
+    expect(screen.getByText(LONG)).toHaveClass('truncate');
   });
 
   it('UserCellRenderer: display name beside the avatar', () => {

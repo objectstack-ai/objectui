@@ -139,16 +139,23 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // here rather than guessed at in the change that adds the instrument.
   ['button::ButtonSchema.onSuccess', 'objectui#7804'],
   ['icon::IconSchema.onSuccess', 'objectui#7804'],
-  ['data-table::DataTableSchema.onAddRecord', 'objectui#7804'],
-  ['data-table::DataTableSchema.onBatchSave', 'objectui#7804'],
-  ['data-table::DataTableSchema.onCellChange', 'objectui#7804'],
-  ['data-table::DataTableSchema.onColumnResize', 'objectui#7804'],
-  ['data-table::DataTableSchema.onRowActionDef', 'objectui#7804'],
-  ['data-table::DataTableSchema.onRowClick', 'objectui#7804'],
-  ['data-table::DataTableSchema.onRowSave', 'objectui#7804'],
+  // ⭐ ALL SEVEN `data-table::DataTableSchema` rows LANDED and are gone —
+  // objectui#7804's `DataTableSchema` slice. `onAddRecord`, `onBatchSave`,
+  // `onCellChange`, `onColumnResize`, `onRowActionDef`, `onRowClick` and
+  // `onRowSave` are objectui#6124 RUNTIME SLOTS on the arm, each measured at its
+  // OWN channel rather than assumed from its siblings: five arrive as React
+  // props a host hands `ObjectGrid` or `RelatedList`, which forward them onto
+  // the `data-table` node they build; `onRowClick` has three suppliers at once;
+  // and `onColumnResize` has NO host prop anywhere — `ObjectGrid` supplies its
+  // own closure, folding the resize into the merged column layout it persists.
+  // That last one is why the disposition could not be read off the group: the
+  // key is still READ and still RUN, so `'retired'` ("no renderer reads this
+  // key") would have published a false statement to every author who trips it.
+  //
+  // Draining a row is part of the landing, not cleanup after it: a row that
+  // outlived its read reddens `staleExemptions()` below — which is exactly the
+  // intermediate reading that proved the arm edit had reached these keys.
   ['tree-view::TreeViewSchema.onNodeClick', 'objectui#7804'],
-  ['detail::DetailSchema.onAddComment', 'objectui#7804'],
-  ['detail::DetailSchema.onNavigate', 'objectui#7804'],
   ['object-form::ObjectFormSchema.onCancel', 'objectui#7804'],
   ['object-form::ObjectFormSchema.onError', 'objectui#7804'],
   ['object-form::ObjectFormSchema.onOpenChange', 'objectui#7804'],
@@ -160,9 +167,21 @@ export const KNOWN_UNDECLARED_READS = new Map([
   ['form::FormSchema.onSuccess', 'objectui#7804'],
   ['object-grid::ObjectGridSchema.onNavigate', 'objectui#7804'],
   ['grid::GridSchema.onNavigate', 'objectui#7804'],
-  ['object-kanban::ObjectKanbanSchema.onCardClick', 'objectui#7804'],
-  ['object-kanban::ObjectKanbanSchema.onCardMove', 'objectui#7804'],
-  ['object-kanban::ObjectKanbanSchema.onQuickAdd', 'objectui#7804'],
+  // ⭐ ALL THREE `object-kanban::ObjectKanbanSchema` rows LANDED and are gone.
+  // `onCardClick` and `onQuickAdd` went with objectui#7804's `plugin-kanban`
+  // slice — objectui#6124 RUNTIME SLOTS on the arm, each measured at its own
+  // channel, the first by the React PROP `ObjectKanban` declares and its click
+  // wrapper CALLS, the second by identity through the schema spread.
+  //
+  // `onCardMove` went with objectui#9342, and it is the one row this gate
+  // itself blocked. Its disposition was `'retired'` — an authored value reaches
+  // NOTHING, `ObjectKanban` substituting its own mover — but a tombstone "has
+  // no read site BY CONSTRUCTION", so this gate refused the spelling as
+  // `retired-but-read` while `KanbanRenderer` still read `schema.onCardMove`.
+  // That read is now an explicit React prop on `KanbanRendererProps`, the
+  // objectui#7742 remedy `objectFields` took one file over, and the arm carries
+  // the tombstone. Draining a row is part of the landing, not cleanup after it:
+  // a row that outlived its read reddens `staleExemptions()` below.
   ['list-view::ListViewSchema.onAddRecord', 'objectui#7804'],
   ['list-view::ListViewSchema.onBulkAction', 'objectui#7804'],
   ['list-view::ListViewSchema.onDensityChange', 'objectui#7804'],
@@ -176,6 +195,22 @@ export const KNOWN_UNDECLARED_READS = new Map([
   ['object-gallery::ObjectGallerySchema.onCardClick', 'objectui#7804'],
   ['object-gallery::ObjectGallerySchema.onRowClick', 'objectui#7804'],
   ['object-view::ObjectViewSchema.onNavigate', 'objectui#7804'],
+  // ⭐ objectui#9344 — the two rows this ledger could not have held before, and
+  // the reason its population was never a total. Both reads are spelled
+  // `(schema as any).onTabChange`, and a cast receiver was invisible to the
+  // census until objectui#9344 taught `handlerReadsIn` to read through one. They
+  // are the SAME defect as every row above — a registered renderer reading a key
+  // its arm never declared, accepted and KEPT by the passthrough — so they name
+  // the same parent, which owns the per-key disposition.
+  //
+  // ⚠️ The two are NOT co-judgeable, and objectui#9344 ruled that they must not
+  // be disposed alike without measuring: `TabsSchema` already declares a
+  // DIFFERENT spelling, `onValueChange`, for what looks like the same event, so
+  // the `'tabs'` row may be an ALIAS question rather than a declaration one,
+  // while `DetailSchema` declares neither spelling. Deciding either is
+  // objectui#9344's item ②, which lands in the zod arms and not in this file.
+  ['tabs::TabsSchema.onTabChange', 'objectui#7804'],
+  ['detail::DetailSchema.onTabChange', 'objectui#7804'],
 ]);
 
 /**
@@ -584,11 +619,59 @@ export function relativeImportsIn(sourceFile) {
 }
 
 /**
+ * The name a receiver expression denotes once every TYPE-ONLY wrapper is peeled
+ * off it, or `null` when what is left is not a plain identifier.
+ *
+ * A cast is erasure: `(schema as any).onTabChange` and `schema.onTabChange` emit
+ * the same property access on the same object, so a census that sees one and not
+ * the other is not describing the runtime. This gate saw only the second until
+ * objectui#9344 measured two live reads it had never counted — the
+ * `(schema as any).onTabChange` in `plugin-detail`'s `DetailView` (registered
+ * `detail` / `detail-view`) and the `(schema as any)?.onTabChange` in
+ * `components`' layout `containers` (registered `tabs`). Both are the exact
+ * passthrough exposure this file exists to find, and neither was among the
+ * boundaries above: the five things this gate declares it does not answer are
+ * about channels it cannot DERIVE a read site from, and a cast is not one of
+ * them — the read site is right there in the AST, one node deeper.
+ *
+ * Only wrappers that vanish at runtime are peeled, so this widens what the gate
+ * SEES without widening what it JUDGES: the identifier underneath still has to
+ * be `schema` or the component's own props parameter.
+ */
+function erasedReceiverName(expression) {
+  let current = expression;
+  // Bounded rather than `while (true)`: these nest (`((schema as any)!)`), but a
+  // real source never stacks them deeply, and a bound cannot loop on a cycle.
+  for (let hop = 0; hop < 8; hop += 1) {
+    if (ts.isIdentifier(current)) return current.text;
+    // ⚠️ The angle-bracket assertion `(<any>schema).onX` is deliberately NOT
+    // here, and its absence is measured rather than assumed: `parseSource`
+    // hard-codes `ts.ScriptKind.TSX` for EVERY file, and under TSX `<any>schema`
+    // parses as JSX — the property access does not survive the parse at all, in
+    // a `.ts` source as much as a `.tsx` one. A branch for it would be dead
+    // code, not coverage.
+    if (
+      ts.isParenthesizedExpression(current) ||
+      ts.isAsExpression(current) ||
+      ts.isNonNullExpression(current) ||
+      ts.isSatisfiesExpression(current)
+    ) {
+      current = current.expression;
+      continue;
+    }
+    return null;
+  }
+  return null;
+}
+
+/**
  * The `schema.onX` / `<props>.onX` property accesses inside one node.
  *
  * `schema` is the authored document as every renderer in this repository spells
  * it; the second half is the props parameter's own name, so a renderer written
  * `(props) => props.onChange(…)` counts and an unrelated local object does not.
+ * The receiver is read through type-only wrappers (see `erasedReceiverName`), so
+ * a cast does not hide a read from this census.
  */
 export function handlerReadsIn(node) {
   const objects = new Set(['schema', ...propsParameterNames(node)]);
@@ -596,8 +679,7 @@ export function handlerReadsIn(node) {
   const walk = (current) => {
     if (
       ts.isPropertyAccessExpression(current) &&
-      ts.isIdentifier(current.expression) &&
-      objects.has(current.expression.text) &&
+      objects.has(erasedReceiverName(current.expression)) &&
       isHandlerKey(current.name.text)
     ) {
       const line = current.getSourceFile().getLineAndCharacterOfPosition(current.getStart()).line + 1;

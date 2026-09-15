@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { childVitestEnv } from './helpers/child-vitest-env';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -55,13 +56,15 @@ const vitestCli = (() => {
 /**
  * Run the real vitest CLI from the repo root with a deliberately clean env:
  * `OBJECTUI_DIST_PINS` deleted so the guard's precondition is the one under
- * test, and the `VITEST*` markers this process runs under deleted so the child
- * is a fresh CLI rather than a nested worker.
+ * test, and `childVitestEnv()` for the rest — the `VITEST*` markers this
+ * process runs under deleted so the child is a fresh CLI rather than a nested
+ * worker, and the agent markers deleted so what the assertions below read is
+ * the stream CI produces rather than the uncoloured one an agent container
+ * talks vitest into (objectui#8616).
  */
 function runVitest(args: string[]): { status: number | null; output: string } {
-  const env = { ...process.env };
+  const env = childVitestEnv();
   delete env.OBJECTUI_DIST_PINS;
-  for (const key of Object.keys(env)) if (key.startsWith('VITEST')) delete env[key];
 
   const result = spawnSync(process.execPath, [vitestCli, ...args], {
     cwd: repoRoot,

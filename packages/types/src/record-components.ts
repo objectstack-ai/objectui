@@ -37,10 +37,29 @@ export interface RecordComponentAriaProps {
  * Aligned with @objectstack/spec RecordDetailsProps.
  */
 export interface RecordDetailsComponentProps {
-  /** Number of columns for field layout (1-4) */
-  columns?: number;
-  /** Detail layout mode */
-  layout?: 'stacked' | 'inline' | 'compact';
+  /**
+   * Field-grid width for the WHOLE body, as the STRING the contract declares
+   * (`@objectstack/spec` `RecordDetailsProps.columns` is
+   * `z.enum(['1','2','3','4'])`, schema default `'2'`).
+   *
+   * It was `number` here until objectui#8604, which is the wrong PRIMITIVE
+   * TYPE, not merely a wider range: `{ columns: 2 }` compiled locally and the
+   * contract refused it at publish with `invalid_value` at `columns` (measured
+   * on the installed pin, 17.4.0, against a control — `columns: '2'` — that
+   * parses green on the same instrument). Contract-first (Commandment #0.1):
+   * the code moves to the contract's spelling, and today's `columns: 2`
+   * authors are the defect surfacing rather than collateral damage.
+   *
+   * WARNING — this is NOT the spelling `sections[].columns` uses one level
+   * down. That key is `z.number().int().min(1).max(4)`, so a section takes the
+   * NUMBER `2` and refuses the string, exactly inverting this key. The same
+   * word names two different types one level apart; copying either declaration
+   * onto the other is refused at publish. See the `columns` member on the
+   * `sections[]` entry below, and
+   * `__tests__/record-details-columns-8604.test.ts`, which pins both directions
+   * against the installed spec.
+   */
+  columns?: '1' | '2' | '3' | '4';
   /** Sections to organize fields */
   sections?: Array<{
     /** Stable identifier for i18n key resolution (e.g. 'info', 'forecast'). */
@@ -75,6 +94,13 @@ export interface RecordDetailsComponentProps {
      * and `DetailSection` derives the width from the field count. Permitted
      * beside `group`: it describes how this page lays the section out, not
      * anything the group itself declares.
+     *
+     * WARNING — `number` is correct HERE and only here (objectui#8604): the
+     * per-section key is `z.number().int().min(1).max(4)`, while the body-wide
+     * `columns` at the top of this interface is a string enum. A section
+     * carrying `columns: '2'` is refused with `invalid_type` at
+     * `sections.N.columns`; the top-level key refuses `2`. Two types, one word,
+     * one level apart.
      */
     columns?: number;
     /**
@@ -120,6 +146,51 @@ export interface RecordDetailsComponentProps {
   }>;
   /** Specific fields to display (overrides auto-detection from object) */
   fields?: string[];
+  /**
+   * Field names to OMIT from the body — applied to `fields` above and to every
+   * section's `fields` (`@objectstack/spec` `RecordDetailsProps.hideFields`,
+   * `z.array(z.string())`). It is how a page stops repeating the fields already
+   * shown in `record:highlights` or as the page title.
+   *
+   * Bare field NAMES only, deliberately. `RecordDetailsRenderer` also tolerates
+   * `{name}` / `{field}` entries at its read site, but the contract declares
+   * `z.array(z.string())` and refuses those values on parse — declaring them
+   * here would publish a second dialect the contract rejects (Commandment
+   * #0.1). The registry manifest holds the same fence.
+   *
+   * Declared here since objectui#9040. Every other layer already declared it —
+   * the spec, `RecordDetailsRenderer` (`renderers/record-details.tsx`, in the
+   * highlight-dedup path) and `@object-ui/plugin-detail`'s registry manifest
+   * (objectui#3808) — so this published TypeScript face was the one layer that
+   * gave a spec-valid, renderer-honoured, registry-published document `TS2353`.
+   */
+  hideFields?: string[];
+  /**
+   * Allow inline field editing in the detail body
+   * (`@objectstack/spec` `RecordDetailsProps.inlineEdit`, `z.boolean()`).
+   *
+   * There is no schema default: the RENDERER's default is on, ANDed with the
+   * object's own editability and with the server's effective `apiOperations`,
+   * so `undefined` is not the same fact as `false`. `false` force-disables the
+   * affordance whatever the object permits (`schema.inlineEdit ?? true` at
+   * `renderers/record-details.tsx`).
+   *
+   * Declared here since objectui#9040, with `showHeader` below — the two keys
+   * `@objectstack/spec` 17.0.0 GA added to this block, already declared by the
+   * registry manifest under objectui#4668.
+   */
+  inlineEdit?: boolean;
+  /**
+   * Render the detail body's OWN heading
+   * (`@objectstack/spec` `RecordDetailsProps.showHeader`, `z.boolean()`).
+   *
+   * Renderer default off (`schema.showHeader ?? false`), because a
+   * `record:details` composed under a `page:header` would otherwise draw a
+   * second title/star/copy chip beside the page's own.
+   *
+   * Declared here since objectui#9040 (see `inlineEdit` above).
+   */
+  showHeader?: boolean;
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }
@@ -136,18 +207,73 @@ export interface RecordDetailsComponentProps {
 export interface RecordHighlightsComponentProps {
   /**
    * Fields to display as highlights — bare names or
-   * `{name,label?,icon?,type?,readonly?}` for inline overrides.
+   * `{name,label?,type?,readonly?}` for inline overrides, as the CLOSED SET
+   * the contract declares.
    *
    * `readonly: true` suppresses the chip's inline-edit affordance
    * (objectstack#5077) without touching the object field, which is what
    * hook-maintained columns need: marking the object field `readonly` would
    * also strip the hook's own write-back.
+   *
+   * The object arm offered a fifth key, `icon`, until objectui#9280, and the
+   * contract never accepted it. `@objectstack/spec`
+   * `RecordHighlightsProps.fields[]`'s object arm declares exactly
+   * `name`/`label`/`type`/`readonly` and carries a `never` catchall, i.e. it is
+   * `$strict`: an unlisted key is REFUSED, not stripped, and the refusal takes
+   * the WHOLE document with it. Measured on the installed pin, 17.4.0,
+   * `RecordHighlightsProps.safeParse({ fields: [{ name: 'x', icon: 'star' }] })`
+   * is RED with `invalid_union` at `fields.0`. So `{ name: 'amount', icon:
+   * 'dollar-sign' }` type-checked here and was refused at the door — a green
+   * local build and a rejection at the only layer that matters. Three controls
+   * on the same instrument fired as they should: a declared key
+   * (`{ name, label }`) parses green, so the arm is not refusing everything; an
+   * arbitrary key (`zzzNonsense`) is refused with the SAME `invalid_union`
+   * code, so `icon` was not special-cased; and the bare-string arm parses
+   * green, so only the object arm moved. Contract-first (Commandment #0.1):
+   * the declaration moves to the contract, the contract is not widened.
+   *
+   * ⚠️ Whether a highlight chip SHOULD be able to carry an icon is a separate
+   * question this narrowing does not answer. The route for it is an upstream
+   * spec widening (an `@objectstack/spec` decision, on its own card), ⛔ never
+   * a redeclaration here.
+   *
+   * ⚠️ Do NOT copy this retirement onto `sections[].icon` one screen up. That
+   * is a DIFFERENT key on a different face — `DetailSection` genuinely draws
+   * it and the contract declares it — the same word, not the same member.
+   * `__tests__/record-highlights-fields-icon-9280.test.ts` pins this arm
+   * against the installed spec in both directions.
    */
   fields: Array<
-    string | { name: string; label?: string; icon?: string; type?: string; readonly?: boolean }
+    string | { name: string; label?: string; type?: string; readonly?: boolean }
   >;
-  /** Layout mode for highlights display */
-  layout?: 'horizontal' | 'vertical' | 'grid';
+  /**
+   * Layout mode for the highlights strip, as the CLOSED SET the contract
+   * declares (`@objectstack/spec` `RecordHighlightsProps.layout` is
+   * `z.enum(['horizontal','vertical'])` behind a `.default('horizontal')`).
+   *
+   * It offered a third value, `grid`, until objectui#9187, and the contract
+   * never accepted it: measured on the installed pin, 17.4.0,
+   * `RecordHighlightsProps.safeParse({ fields: ['name'], layout: 'grid' })` is
+   * RED with `invalid_value` at `layout`. So `{ layout: 'grid' }` type-checked
+   * here and was refused at the door — a green local build and a rejection at
+   * the only layer that matters. Two controls on the same instrument fired as
+   * they should: an arbitrary value is refused with the SAME code, so `grid`
+   * was not special-cased, and omitting the key parses green, so the schema is
+   * not refusing everything. Contract-first (Commandment #0.1): the
+   * declaration moves to the contract, the contract is not widened.
+   *
+   * Every other layer already agreed with the contract — `@object-ui/plugin-detail`
+   * publishes `enum: ['horizontal', 'vertical']` for this input in its registry
+   * manifest, and `RecordHighlightsRenderer` reads no `layout` at all. This
+   * declaration was the last live holdout of the spelling.
+   *
+   * ⚠️ Do NOT copy this set onto the `layout` one interface up. That one is a
+   * tombstone the contract refuses BY NAME (objectui#9040, still open) — the
+   * same word, a different divergence, a different repair.
+   * `__tests__/record-highlights-layout-9187.test.ts` pins this union against
+   * the installed spec in both directions.
+   */
+  layout?: 'horizontal' | 'vertical';
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }
@@ -166,6 +292,21 @@ export interface RecordRelatedListComponentProps {
   objectName: string;
   /** Field on the related object that links back to this record */
   relationshipField: string;
+  /**
+   * Parent-record field whose value `relationshipField` stores — the spec's own
+   * wording. Defaults to `'id'`; `'name'` for a name-keyed junction.
+   *
+   * Declared here by objectui#8649. The contract has always declared it
+   * (`@objectstack/spec` `RecordRelatedListProps.relationshipValueField`,
+   * `z.string().default('id')`), `RecordRelatedListRenderer` has always read it,
+   * and `@object-ui/plugin-detail`'s registry has published it as an input since
+   * objectui#3808 — every layer declared it except this published TypeScript
+   * face, so a spec-valid, renderer-honoured, registry-published document was
+   * refused here with `TS2353`. That is objectui#9040's Direction 1, one
+   * interface over. Declaring it ALIGNS THE MIRROR rather than widening it: the
+   * accept set of this face moves to the contract's, never past it.
+   */
+  relationshipValueField?: string;
   /** Columns to display in the related list */
   columns?: string[];
   /** Sort configuration — `'field'` / `'-field'` string or explicit array (spec union) */

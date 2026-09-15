@@ -10,10 +10,16 @@
  *
  *  - forwarded, because the chart block measurably draws it (the DOM half of
  *    that claim lives in `DatasetWidget.chartConfig.dom.test.tsx` for the keys
- *    drawn outside the plot and in plugin-charts'
- *    `ChartRenderer.dashboardChartConfig.test.tsx` for the ones drawn inside it):
+ *    drawn outside the plot and in `DatasetWidget.chartConfigMarks-9203.test.tsx`
+ *    for the ones drawn inside it):
  *    `title`, `subtitle`, `description`, `height`, `colors`, `showDataLabels`,
  *    `annotations`, `interaction` — beside the pre-existing `showLegend`;
+ *
+ *    ⛔ That second citation used to name plugin-charts'
+ *    `ChartRenderer.dashboardChartConfig.test.tsx`, and it was wrong:
+ *    objectui#9203 deleted this face's forwarding and that file did not redden,
+ *    because it hand-builds its own chart schema and never travels this seam.
+ *    ⛔ Do not cite it as this face's coverage again — see its own header.
  *  - refused, because the value is DERIVED from the dataset selection and an
  *    authored one would shadow it: `type`, and the BINDING keys inside
  *    `xAxis`/`yAxis`/`series` (`ChartAxis.field`, `ChartSeries.name`);

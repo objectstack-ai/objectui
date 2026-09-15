@@ -259,24 +259,35 @@ describe('DetailView', () => {
     expect(screen.getByText('Activity')).toBeInTheDocument();
   });
 
-  it('should render related lists when provided', () => {
-    const schema: DetailViewSchema = {
+  it('no longer renders a related list — the entry is retired (objectui#7997)', () => {
+    // WAS `should render related lists when provided`, and its inversion is the
+    // point of objectui#7997: `DetailViewSchema.related` retired under ADR-0049
+    // enforce-or-remove (maintainer ruling 2026-09-10). The capability moved to
+    // its one protocol-governed entry, `record:related_list`.
+    //
+    // The cast is load-bearing, not laziness: the member is a `?: never`
+    // tombstone, so this object cannot be authored without one — which is the
+    // TypeScript half of the refusal. It is cast anyway so the RUNTIME half is
+    // read too: a host that ignores `tsc`, or a plain JSON document, still gets
+    // nothing rendered rather than a silently honoured second door.
+    const schema = {
       type: 'detail-view',
       title: 'Account Details',
       data: { name: 'Acme Corp' },
       fields: [{ name: 'name', label: 'Name' }],
-      related: [
-        {
-          title: 'Contacts',
-          type: 'table',
-          data: [],
-        },
-      ],
-    };
+      related: [{ title: 'Contacts', type: 'table', data: [] }],
+    } as unknown as DetailViewSchema;
 
     render(<DetailView schema={schema} />);
-    
-    expect(screen.getByText('Contacts')).toBeInTheDocument();
+
+    expect(screen.queryByText('Contacts')).not.toBeInTheDocument();
+    // The section heading went with it — this row absorbed the former
+    // `should use i18n fallback for related section heading` test, whose whole
+    // subject was that heading.
+    expect(screen.queryByText('Related')).not.toBeInTheDocument();
+    // CONTROL: the rest of the node still renders, so the two absences above
+    // are readings and not a component that failed to mount.
+    expect(screen.getByText('Account Details')).toBeInTheDocument();
   });
 
   it('should show loading skeleton when loading is true', () => {
@@ -762,23 +773,4 @@ describe('DetailView', () => {
     );
   });
 
-  it('should use i18n fallback for related section heading', () => {
-    const schema: DetailViewSchema = {
-      type: 'detail-view',
-      title: 'Account Details',
-      data: { name: 'Acme Corp' },
-      fields: [{ name: 'name', label: 'Name' }],
-      related: [
-        {
-          title: 'Contacts',
-          type: 'table',
-          data: [],
-        },
-      ],
-    };
-
-    render(<DetailView schema={schema} />);
-    // The "Related" heading uses t('detail.related')
-    expect(screen.getByText('Related')).toBeInTheDocument();
-  });
 });

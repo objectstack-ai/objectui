@@ -22,6 +22,38 @@ export default tseslint.config({
     // fumadocs-mdx codegen for apps/site (gitignored — see apps/site/.gitignore).
     // Linting generated output only reports on the generator's choices.
     '**/.source',
+    // objectui#8592 — the three remaining build artefacts that `eslint .`
+    // still walked. Same principle as `**/.source` and `**/dist` directly
+    // above: linting generated output only reports on the generator's
+    // choices, and the report names a file:line nobody wrote. Measured on
+    // 290de3724 after a full `turbo run build`:
+    // `apps/console/plugin.d.ts` reported 1 warning
+    // (`@typescript-eslint/no-explicit-any` at 41:17) while the other two
+    // reported 0 in the same invocation — the two zeros are what make the 1
+    // a reading rather than a broken invocation.
+    //
+    // Why three literal paths and not a `.gitignore` import: the claim this
+    // change has to keep true is that ONLY git-ignored build output leaves
+    // the linted population and not one source file does. A literal path is
+    // auditable one entry at a time against `git check-ignore` /
+    // `git ls-files`; a gitignore-derived ignore set is not, because it
+    // cannot see tracking — git stops ignoring a path the moment it is
+    // tracked, and a pattern-only reader would keep dropping it, silently
+    // removing a source file from the gate. Each entry below is a git-ignored,
+    // untracked, generated-by-build path, verified that way.
+    //
+    // These mirror the declarations that already exist:
+    //   - `apps/console/plugin.{js,d.ts}` — emitted by
+    //     `tsc -p tsconfig.plugin.json` (apps/console `build:plugin`),
+    //     git-ignored at `apps/console/.gitignore` under "Compiled plugin
+    //     output".
+    //   - `apps/site/next-env.d.ts` — minted by Next's build/typegen,
+    //     git-ignored at `apps/site/.gitignore`.
+    // ⛔ Not a suppression at the report's site: the files are regenerated on
+    // every build, so an inline disable would vanish and the finding return.
+    'apps/console/plugin.js',
+    'apps/console/plugin.d.ts',
+    'apps/site/next-env.d.ts',
   ],
 }, {
   // objectui#4853 — a stale `eslint-disable` is an ERROR, not a warning.
@@ -389,5 +421,51 @@ export default tseslint.config({
   plugins: { 'object-ui': objectUi },
   rules: {
     'object-ui/no-unpaired-badge-color-classes': 'error',
+  },
+}, {
+  // objectui#9162 ratchet — a `SchemaNode` slot may never guard itself.
+  //
+  // `{schema.footer && <CardFooter>…</CardFooter>}` does not evaluate to
+  // `false` when the slot is falsy: it evaluates to the SLOT, and React renders
+  // numbers. A node slot's published zod face carries a `z.number()` arm
+  // (`nodeUnionOptions`, `packages/types/src/zod/base.zod.ts`), so `footer: 0`
+  // is legal authored input that paints a stray "0" into the DOM. Worse, `&&`
+  // short-circuits, so `renderChildren`'s own `isEmptyNodeSlot` first leg is
+  // never reached — the objectui#8908 bridge repair cannot help either.
+  //
+  // Why it earns the ratchet: the class was patched ONE INSTANCE AT A TIME
+  // three times — objectui#8331 (`DataTableSchema.emptyAction`), objectui#9033
+  // (`header-bar`'s `rightContent`), and then objectui#9162's census found
+  // ELEVEN more, because objectui#9033's grep was keyed on the spelling of the
+  // RIGHT operand while the trap depends only on the LEFT one. Eleven ternaries
+  // would have left the error-permitting construct in the tree for the twelfth
+  // slot. Nothing else rejects it: it type-checks, it renders, and it is
+  // correct for every value except a falsy number.
+  //
+  // The rule derives its slot set PER FILE from the file's own text — an
+  // expression is a node slot here if this file hands it to `renderChildren`,
+  // `renderNodeSlot`, `toRenderableSchema` or `<SchemaRenderer schema={…}>`.
+  // ⛔ Deliberately NOT a list of slot names: a list would answer for today's
+  // names and go quiet on the twelfth, which is the objectui#9033 mistake one
+  // level up.
+  //
+  // `**/src/ui/**` is the upstream Shadcn zone, overwritten by the sync script
+  // and never hand-edited (AGENTS.md #7) — enforcing there would demand an edit
+  // the repo forbids. It reports zero today in any case. Tests are IN scope: a
+  // fixture that writes the construct is modelling the defect, and a deliberate
+  // reproduction can say so with a disable directive.
+  //
+  // Measured on 7d6439c4b: 19 reports across 8 files (the eleven sites
+  // objectui#9162 probed, plus `page:card`'s `body`/`footer`, `plugin-detail`'s
+  // `header`/`footer`, `plugin-report`'s `section.content` and
+  // `plugin-timeline`'s two `item.content`). `header-bar.tsx` — objectui#9033's
+  // ternary, already fixed — was NOT reported, which is the control that the
+  // instrument separates fixed from unfixed. All 19 are repaired in the same
+  // change, so this lints clean with no allowlist.
+  files: ['**/*.tsx'],
+  ignores: ['**/src/ui/**'],
+  plugins: { 'object-ui': objectUi },
+  rules: {
+    'object-ui/no-bare-node-slot-guard': 'error',
   },
 });

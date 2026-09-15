@@ -51,8 +51,20 @@ vi.mock('react-map-gl/maplibre', () => ({
   Popup: ({ children }: any) => <div data-testid="map-popup">{children}</div>,
 }));
 
-/** Rows whose coordinates live under NON-default field names. */
-const ROWS = [{ id: '1', name: 'HQ', lat: 40, lng: -74 }];
+/**
+ * Rows whose coordinates live under NON-default field names.
+ *
+ * ⭐ `owner: 'me'` is LOAD-BEARING since objectui#9061, and only since then.
+ * Describe (d) authors `filter: [['owner', '=', 'me']]` beside the map config;
+ * that filter used to be inert on an inline `value` set (the very fail-OPEN bug
+ * #9061 repairs), so the row survived it by accident. Now the inline path
+ * lowers `schema.filter` onto `$filter` exactly as the fetching path does, so a
+ * row that does not satisfy the authored filter is correctly dropped and the
+ * config assertion below would be measuring an empty set instead of the config.
+ * Satisfying the filter — rather than removing it — keeps BOTH readings: the
+ * filter is honoured AND it did not eat `schema.map`.
+ */
+const ROWS = [{ id: '1', name: 'HQ', lat: 40, lng: -74, owner: 'me' }];
 /** The same place, spelled the way the DEFAULT config expects. */
 const ROWS_DEFAULT_SPELLING = [{ id: '1', name: 'HQ', latitude: 40, longitude: -74 }];
 
@@ -69,8 +81,24 @@ afterEach(() => {
   warnSpy.mockRestore();
 });
 
-const renderMap = async (schema: Record<string, unknown>) => {
-  const utils = render(<ObjectMap schema={schema as any} />);
+/**
+ * `hostRows`, when given, hands the records down the `data` PROP — the path a
+ * host component (`ListView`) uses, which bypasses this component's own query
+ * and is therefore exempt from `filter` / `sort` / the row ceiling by design.
+ *
+ * ⭐ Why describe (a) needs it, post-objectui#9061: the legacy shape under test
+ * there is authored under `filter`, and `filter` is the QUERY FILTER and nothing
+ * else (objectui#4034) — so `{ map: DECLARED_MAP }` is now read as "the field
+ * named `map` equals that object", which no row satisfies, and the inline set
+ * comes back EMPTY. That is correct behaviour and the same thing the fetching
+ * path has always sent on the wire; but it makes a marker count unable to say
+ * anything about CONFIG resolution, which is the only thing this file grades.
+ * Handing those rows down the exempt prop puts the config back as the single
+ * variable. `filter` still reaches the query verbatim — describe (c) grades
+ * that separately, against a mock adapter.
+ */
+const renderMap = async (schema: Record<string, unknown>, hostRows?: any[]) => {
+  const utils = render(<ObjectMap schema={schema as any} data={hostRows} />);
   await waitFor(() => expect(screen.queryByText('Loading map...')).toBeNull());
   return utils;
 };
@@ -81,31 +109,48 @@ const warnings = () => warnSpy.mock.calls.map((c: unknown[]) => String(c[0])).jo
 // (a) The legacy shape is no longer consumed — and does not vanish silently.
 // ---------------------------------------------------------------------------
 describe('legacy `filter.map` is not map configuration (objectui#4034)', () => {
-  it('ignores a MapConfig stashed under `filter.map` and falls to the default config', async () => {
-    await renderMap({
-      type: 'object-map',
-      data: { provider: 'value', items: ROWS },
-      filter: { map: DECLARED_MAP },
-    });
+  it('ignores a MapConfig stashed under `filter.map`, and refuses for want of a binding', async () => {
+    await renderMap(
+      {
+        type: 'object-map',
+        filter: { map: DECLARED_MAP },
+      },
+      ROWS,
+    );
 
-    // The stash named `lat`/`lng`; it is not read, so the default config
-    // (`latitude`/`longitude`) applies and finds no coordinates on these rows.
+    // The stash named `lat`/`lng`; it is not read, so this schema declares no
+    // coordinate binding at all and the map refuses (objectui#8169).
+    //
+    // ⚠️ The rows come down the exempt host prop deliberately. Read as an
+    // inline `value` set this row would still assert 0 — but for the WRONG
+    // reason (the stash-as-query-filter selecting nothing), and it would go on
+    // passing with config resolution completely broken. Its whole job is to be
+    // the 0 half of a 0/1 pair with the row below.
     expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+    expect(screen.queryByTestId('map-missing-location-binding')).not.toBeNull();
   });
 
-  it('really is the DEFAULT config that applies, not "no config at all"', async () => {
-    await renderMap({
-      type: 'object-map',
-      data: { provider: 'value', items: ROWS_DEFAULT_SPELLING },
-      filter: { map: { latitudeField: 'lat', longitudeField: 'lng' } },
-    });
+  it('really is "no config at all" — rows spelled the OLD default way do not plot', async () => {
+    await renderMap(
+      {
+        type: 'object-map',
+        filter: { map: { latitudeField: 'lat', longitudeField: 'lng' } },
+      },
+      ROWS_DEFAULT_SPELLING,
+    );
 
-    // Same legacy stash, rows spelled the default way: the default config is
-    // live and places the marker. (Pre-fix this rendered nothing — the stash
-    // won and looked for `lat`/`lng`.)
-    const markers = screen.getAllByTestId('map-marker');
-    expect(markers).toHaveLength(1);
-    expect(markers[0]).toHaveAttribute('data-lat', '40');
+    // ⭐ The 1 half of the pair, INVERTED by objectui#8169 and load-bearing in
+    // its new direction. Same legacy stash, rows spelled `latitude`/`longitude`
+    // — the exact names `getMapConfig`'s deleted default branch guessed. It
+    // used to place this marker, which was the proof that a DEFAULT config
+    // applied rather than none. Guessing is over: an unbound map refuses, and a
+    // record set that happens to carry the conventional column names is
+    // precisely the population that must not plot unbound.
+    //
+    // This row goes red if either face of the guess comes back — the
+    // component's default branch, or a relay floor that feeds it.
+    expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+    expect(screen.queryByTestId('map-missing-location-binding')).not.toBeNull();
   });
 
   it('warns in dev, naming the legacy shape and pointing at `schema.map`', async () => {
@@ -126,6 +171,12 @@ describe('legacy `filter.map` is not map configuration (objectui#4034)', () => {
     await renderMap({
       type: 'object-map',
       data: { provider: 'value', items: ROWS_DEFAULT_SPELLING },
+      // A declared binding, so the map MOUNTS and there is a `mapStyle` prop to
+      // grade at all: since objectui#8169 an unbound map renders the refusal
+      // instead of `MapGL`. It names the rows' own columns and carries no
+      // `style`, so the only style this assertion can read is the demo default
+      // — which is the whole question here.
+      map: { latitudeField: 'latitude', longitudeField: 'longitude' },
       filter: { map: { style: 'https://legacy.example.com/style.json' } },
     });
 

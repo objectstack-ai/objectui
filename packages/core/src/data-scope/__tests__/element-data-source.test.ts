@@ -176,8 +176,28 @@ describe('elementDataSourceViewNotFoundMessage', () => {
     expect(msg).toContain('account.tabular, all');
   });
 
-  it('says so plainly when the object has no saved views', () => {
-    expect(elementDataSourceViewNotFoundMessage('account', 'hot', []))
-      .toContain('no saved views');
+  /**
+   * objectui#8900 — the empty branch used to read "This object has no saved
+   * views.", which is a claim about the OBJECT derived from a count that is
+   * equally zero when the read never happened: `ObjectStackAdapter.listViews`
+   * degrades every failure to `[]` on the RESOLVED path, and the hook's own
+   * discrimination only catches a rejection. objectstack#13906 decision 1
+   * option A (*a thing that could not be READ is not a thing that is ABSENT*)
+   * therefore binds this branch to what is true in BOTH worlds.
+   */
+  it('names both worlds for an empty view list, because it cannot tell them apart', () => {
+    const msg = elementDataSourceViewNotFoundMessage('account', 'hot', []);
+
+    // The two CONTROLS. Both are green before and after the objectui#8900 fix,
+    // by design: they guard the wrong fix of deleting the empty-case sentence
+    // (or the whole message) instead of correcting what it asserts — an author
+    // who loses the view name and the object name is worse off than one who
+    // read an over-confident second sentence.
+    expect(msg).toContain('"hot"');
+    expect(msg).toContain('"account"');
+
+    // The SUBJECT. Red before the fix, green after.
+    expect(msg).not.toContain('has no saved views');
+    expect(msg).toContain('could not be read');
   });
 });

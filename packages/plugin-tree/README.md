@@ -66,13 +66,65 @@ declares no `views` member at all. The `tree` branch runs only when a **host**
 composes `ObjectView` with a `views` prop, whose entries carry `id` and `label`
 and are typed `ViewType`. That was ruled deliberate on objectui#5321
 (2026-08-20): `tree` and `chart` are recorded as host-composition-only surfaces
-rather than added to the authored unions. The per-view `tree` config block that
-path reads is host config, so it is not documented here as authoring surface.
+rather than added to the authored unions.
 
 The live consumer is the console: it passes stored view records to `ObjectView`
 as `views`, and its create-view dialog offers `tree` among the types a console
 user can create. To render a tree from authored metadata, write the
 `object-tree` node above.
+
+#### The host config has a type — `TreeViewConfig`
+
+Host config is **not** untyped config. A block a host stores and re-writes is a
+contract, so the per-view `tree` block is exported from `@object-ui/types` and
+the renderer imports it rather than keeping a private copy (objectui#8253,
+ruled 2026-09-07).
+
+⚠️ It is **not the single declaration of that shape**, and saying so was itself
+the defect objectui#8841 fixed. `@objectstack/spec` owns this block — it
+declares it as `TreeConfig` and hangs it on `ListView.tree` — and
+`@object-ui/types` already publishes it a second way, derived, as
+`ListViewSchema['tree']`. `TreeViewConfig` is now a **derivation of the
+protocol's block** rather than a copy of it — in `packages/types/src/views.ts`
+it is a one-line alias of `NonNullable<ListView['tree']>`, taken from
+`@objectstack/spec/ui`. So the accurate claim is the narrower one: this is the
+name a host writes against, and it tracks the protocol by construction rather
+than by anyone remembering to update it.
+
+```ts
+import type { TreeViewConfig } from '@object-ui/types';
+
+// The block a host writes as `tree` on a `views` entry, or as `options.tree`
+// on a stored view record. Every key is optional; a host writes the subset it
+// means.
+const treeConfig: TreeViewConfig = {
+  parentField: 'parent',        // single-parent pointer (auto-detected if omitted)
+  labelField: 'name',           // indented first column
+  fields: ['name', 'manager'],  // additional flat columns
+  defaultExpandedDepth: 1,      // 0 = roots only; omit = expand all
+};
+```
+
+Annotating the block is what turns a typo into a diagnostic: `parentFeild` used
+to be stored, read by nobody and reported by nothing, because the `views` entry
+admits any key. Against this type it is a compile error.
+
+⛔ `titleField` is **not** part of this block. objectui#8253 declared it as a
+legacy second rung for `labelField`; `@objectstack/spec@17.4.0` refuses
+`tree.titleField` by name (`TreeConfigSchema` is strict since spec #15469), so
+declaring it published a key the protocol rejects — an author who followed this
+type was refused at publish. objectui#8841 removed it.
+
+The renderers still *tolerate* a `titleField` already stored on a view record:
+`plugin-view`, `plugin-list` and the console's own composition each fall back to
+it when `labelField` is absent, so nothing that renders today stops rendering.
+Those reads are untyped tolerance awaiting a follow-up, ⛔ not a declaration —
+write `labelField`, which is the protocol's spelling and wins wherever both are
+present.
+
+⛔ This does not make `tree` an authorable view type. objectui#5321 is
+unchanged: the block is written by a **host**, never by a document author, and
+the authored node is the flat `object-tree` schema at the top of this file.
 
 ## License
 

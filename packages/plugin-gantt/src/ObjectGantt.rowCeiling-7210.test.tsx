@@ -29,7 +29,9 @@
  * REVERSE VERIFICATION — MEASURED, and corrected from what this docblock used
  * to predict (objectui#7507). Removing `$top: NON_GRID_ROW_CEILING_TOP` from
  * `ObjectGantt`'s reload turns the truncation case red at the **`$top`
- * assertion**, 1 failed / 2 passed; the below-ceiling case stays green.
+ * assertion**; the below-ceiling case stays green. ⚠️ The pass/fail TALLY that
+ * used to be quoted here is deliberately gone: objectui#8769 changed how many
+ * cases this file has, and a stale count reads as a measurement.
  *
  * ⚠️ It does NOT go red at the footnote. The prediction that it would — "no
  * probe row ⇒ `truncated` false ⇒ no note" — reads the mechanism backwards,
@@ -159,17 +161,53 @@ describe('objectui#7210 ruling a′ — the gantt draws at most the platform cei
     expect(screen.queryByRole('note')).toBeNull();
   });
 
-  it('an inline `value` data set is never capped by us, and never footnoted', async () => {
+  /**
+   * ⚠️ THIS CASE WAS INVERTED (objectui#8769). It used to read "an inline
+   * `value` data set is never capped by us, and never footnoted", and it was
+   * green because `reload` returned before the query — the same short-circuit
+   * that dropped an authored `filter` on that provider. It pinned the
+   * SHORT-CIRCUIT, not ruling a′: the ruling's budget is measured in DOM
+   * ELEMENTS PER RECORD, its own measurement table was taken over "real child
+   * views, inline `value` provider", and its text carves out no provider. An
+   * inline row costs the browser exactly what a fetched row costs.
+   *
+   * The inline provider's own three-key pin lives in
+   * `ObjectGantt.inlineQueryKeys-8769.test.tsx`; this one stays here so the
+   * ceiling's own file states the exemption boundary in one place.
+   */
+  it('an inline `value` data set IS capped, and says so', async () => {
+    const total = NON_GRID_ROW_CEILING_TOP + 500;
     const inline: any = {
       ...schema,
-      data: { provider: 'value', items: makeRows(NON_GRID_ROW_CEILING_TOP + 500) },
+      data: { provider: 'value', items: makeRows(total) },
     };
 
     render(<ObjectGantt schema={inline} />);
 
     await waitFor(() =>
       expect(screen.getByTestId('gantt-view').getAttribute('data-task-count')).toBe(
-        String(NON_GRID_ROW_CEILING_TOP + 500),
+        String(NON_GRID_ROW_CEILING),
+      ),
+    );
+    const note = await screen.findByRole('note');
+    expect(note.textContent).toContain(String(NON_GRID_ROW_CEILING));
+    expect(note.textContent).toContain(String(total));
+  });
+
+  /**
+   * The exemption that REMAINS, and the reason the case above is not a
+   * contradiction: rows a HOST component hands down through the `data` prop
+   * are not ours to cap — we did not issue the query that produced them and
+   * have no `total` to name in a footnote.
+   */
+  it('a host `data` prop is still never capped, and never footnoted', async () => {
+    const rows = makeRows(NON_GRID_ROW_CEILING_TOP + 500);
+
+    render(<ObjectGantt schema={schema} {...({ data: rows } as any)} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('gantt-view').getAttribute('data-task-count')).toBe(
+        String(rows.length),
       ),
     );
     expect(screen.queryByRole('note')).toBeNull();

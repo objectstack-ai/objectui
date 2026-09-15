@@ -44,6 +44,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../../..');
@@ -57,7 +62,7 @@ const read = (rel: string) => readFileSync(path.join(repoRoot, rel), 'utf8');
  * subject, and the pressure would be to delete the explanation.
  */
 function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  return mask(src);
 }
 
 /** The chrome's Home affordances: file → the expression each must resolve to. */

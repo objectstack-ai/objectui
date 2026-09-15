@@ -155,9 +155,9 @@ const en = {
     // numbers, a missing one cannot name how many. Same split as
     // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
     // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework` — a ceiling set 8,924 B above the
-    // baseline it was measured from, about sixty short keys' worth across ten
-    // locales. `pnpm check:eager-closure` prints the figure in force.
+    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
+    // deliberately NOT restated here — it moves on every re-baseline, and the
+    // figure that was here went stale. `pnpm check:eager-closure` prints it.
     rowCeilingNote: 'Showing the first {{shown}} of {{total}} records. Narrow the filter.',
     rowCeilingNoteUnknownTotal: 'Showing the first {{shown}} records. Narrow the filter.',
   },
@@ -194,7 +194,6 @@ const en = {
   form: {
     noPermissionToSave: "You don't have permission to save this record.",
     submitFailed: 'Could not save. Please try again.',
-    addItem: 'Add item',
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',
@@ -1114,6 +1113,7 @@ const en = {
     sortBy: 'Sort by',
     filterPlaceholder: 'Filter…',
     highlightFields: 'Key Fields',
+    highlightsLabel: 'Record highlights',
     // Comments
     comments: 'Comments',
     searchComments: 'Search comments…',
@@ -1240,6 +1240,26 @@ const en = {
     hideEmptyFields: 'Hide empty fields',
     noValue: 'No value',
     unresolvedReference: 'Unresolved reference: {{value}} was not resolved to a user',
+    unresolvedLookupReference: 'Unresolved reference: {{value}} was not resolved to a record on this screen',
+    // Cell-level COUNT phrases for the `repeater` and file cells
+    // (objectui#8441). Both were written straight into the renderer before this
+    // — `repeater` as a number plus a hardcoded Chinese unit word, which every
+    // reader on every locale saw, and `FileCellRenderer` as an English-only
+    // `count === 1 ? 'file' : 'files'`, which is not plural-safe anywhere else.
+    // One channel, two call sites.
+    //
+    // REAL i18next plural families (base + `_one` + `_other`), NOT the
+    // two-sibling-key `xxxCountOne` shape used by `common.itemCount` above: the
+    // BASE key is load-bearing (objectui#3863). i18next asks `Intl.PluralRules`
+    // for the ONE suffix a number needs and, finding no such slot, walks
+    // `fallbackLng` to `en` — so without it `ru` renders English at counts 2-20
+    // and `ar` at 2-99. `all-locales-key-parity.test.ts` owns that rule.
+    repeaterItemCount: '{{count}} items',
+    repeaterItemCount_one: '{{count}} item',
+    repeaterItemCount_other: '{{count}} items',
+    fileCount: '{{count}} files',
+    fileCount_one: '{{count}} file',
+    fileCount_other: '{{count}} files',
     // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
     // used no translation hook at all, so every one of these read English in
     // every session; swept in one pass rather than converting the timestamps
@@ -1323,7 +1343,6 @@ const en = {
   },
   dashboard: {
     addWidget: 'Add widget',
-    removeWidget: 'Remove widget',
     editLayout: 'Edit layout',
     saveLayout: 'Save layout',
     resetLayout: 'Reset layout',
@@ -1503,7 +1522,6 @@ const en = {
     addGroup: 'Add Group',
     addUrl: 'Add URL',
     addSeparator: 'Add Separator',
-    noNavItems: 'No navigation items yet.',
     logoUrl: 'Logo URL',
     primaryColor: 'Primary Color',
     faviconUrl: 'Favicon URL',
@@ -1536,7 +1554,6 @@ const en = {
     stepBrandingDesc: 'Logo, colors, and favicon',
     noObjectsFound: 'No objects found.',
     noNavItemsHint: 'No navigation items yet. Select objects in the previous step or add items manually.',
-    separator: 'Separator',
     separatorLabel: '— Separator —',
     newGroup: 'New Group',
     newLink: 'New Link',
@@ -1674,6 +1691,9 @@ const en = {
     importMappingsUnavailable: 'Saved import mappings for {{object}} could not be loaded',
     importMappingsRefused: 'The server refused this request, so this list is empty because it could not be read — not because nothing is registered. Sign in again, or ask an administrator for access.',
     importMappingsUnreadable: 'This list is empty because it could not be read, not because nothing is registered. Try again, and report this if it keeps happening.',
+    savedViewsUnavailable: 'Saved views for {{object}} could not be loaded',
+    savedViewsRefused: 'The server refused this request, so this list is empty because it could not be read — not because this object has no saved views. Sign in again, or ask an administrator for access.',
+    savedViewsUnreadable: 'This list is empty because it could not be read, not because this object has no saved views. Try again, and report this if it keeps happening.',
     title: 'ObjectOS',
     initializing: 'Initializing application…',
     search: 'Search…',
@@ -2177,7 +2197,6 @@ const en = {
       importedToast: 'Imported {{count}} row(s).',
       importedWithSkipped: 'Imported {{ok}} row(s); skipped {{skipped}}.',
       configureView: 'Configure View',
-      toolbar: 'Toolbar',
       toolbarEnabledCount: '{{count}} of {{total}} enabled',
       searchFields: 'Search fields…',
       title: 'Title',
@@ -2249,7 +2268,6 @@ const en = {
       xAxisFieldHelp: 'The categorical or time dimension.',
       yAxisField: 'Y-axis field',
       yAxisFieldHelp: 'The numeric field to aggregate.',
-      groupBy: 'Group by',
       endDateField: 'End date field',
       ufTabs: 'Tabs',
       ufAddField: '+ Add filter field…',
@@ -2582,7 +2600,6 @@ const en = {
     label: 'Workspaces',
     default: 'My Workspace',
     switch: 'Switch workspace',
-    create: 'Create workspace',
     createTitle: 'Create a workspace',
     createDescription: 'A workspace is a shared space for your team to collaborate.',
     createButton: 'Create workspace',
@@ -2605,7 +2622,6 @@ const en = {
   },
   sidebar: {
     settings: 'Settings',
-    help: 'Help',
     helpTooltip: 'Help & Documentation',
     activityFeed: 'Activity feed',
     notifications: 'Notifications',
@@ -2645,7 +2661,6 @@ const en = {
   },
   home: {
     title: 'Home',
-    subtitle: 'Your workspace dashboard',
     nav: 'Home',
     allApps: 'All Applications',
     yourApps: 'Your apps',
@@ -2673,8 +2688,6 @@ const en = {
     },
     open: 'Open',
     loading: 'Loading workspace…',
-    recent: 'Recent',
-    starred: 'Starred',
     welcome: 'Build your business system with AI',
     welcomeDescription: 'Describe your business in one sentence — AI generates the objects, screens, APIs and agent tools. Or start from scratch.',
     welcomeAdminDescription: 'Describe your business in one sentence — AI generates the objects, screens, APIs and agent tools. Or set things up yourself from the menu on the left.',
@@ -2824,7 +2837,11 @@ const en = {
     noAppsConfigured: 'No Apps Configured',
     noAppsConfiguredDescription: 'No applications have been registered. Create your first app or visit System Settings to configure your environment.',
     appNotAvailable: 'App not available',
-    appNotAvailableDescription: 'This app is not available yet — it may still be publishing. Try again in a moment.',
+    appNotAvailableDescription: 'This app is not available — try again in a moment.',
+    appNotFound: "This app can't be opened",
+    appNotFoundDescription: 'The server did not return this app for your account.',
+    appUnreachable: "Couldn't reach the server",
+    appUnreachableDescription: 'This app could not be checked. Try again in a moment.',
     appAccessDenied: "You don't have access to this app",
     appAccessDeniedDescription: 'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
     appAccessDeniedHome: 'Back to home',
@@ -3320,6 +3337,13 @@ const en = {
   //   `toolState.*` — the card-header badge + activity-chip vocabulary. ONE
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
+  //   `build.*`    — the apply_blueprint BUILD PANEL's own copy (objectui#7388).
+  //                   Everything else on that panel is fed by the host as an
+  //                   already-translated prop; these strings were literals in
+  //                   the component, so they stayed English in every language.
+  //                   `building`/`built` interpolate `appFallback` when the
+  //                   build has no app label, so each pack must keep BOTH
+  //                   frames in the one case/gender that noun phrase is in.
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
   //                   FAMILIES (base key + `_one`): i18next resolves every
   //                   CLDR category a pack does not enumerate to the base key,
@@ -3389,6 +3413,20 @@ const en = {
       countDashboards: '{{count}} dashboards',
       countDashboards_one: '{{count}} dashboard',
       countSeedData: 'sample data',
+    },
+    build: {
+      building: 'Building {{app}}…',
+      built: 'Built {{app}}',
+      appFallback: 'your app',
+      addingSampleData: 'adding sample data',
+      group: {
+        object: 'Objects',
+        view: 'Views',
+        dashboard: 'Dashboards',
+        app: 'App',
+        seed: 'Sample data',
+      },
+      moreArtifacts: '+{{n}} more',
     },
   },
   chatbotError: {
@@ -3571,7 +3609,8 @@ const en = {
         reviewed: 'Reviewed & approved',
         unreviewed: 'Not yet reviewed',
         signed: 'Signed',
-        grantsIntro: 'On install, this package will be granted:',
+        grantsIntro: 'This package requests:',
+        notEnforced: 'Recorded at install, and re-confirmed if a later version asks for more — but the runtime does not yet restrict the package to this list.',
         services: 'Platform services',
         hooks: 'Lifecycle hooks',
         network: 'Network access',
@@ -3622,14 +3661,6 @@ const en = {
         storage: 'Storage',
         other: 'Other',
       },
-      pricing: {
-        free: 'Free',
-        freemium: 'Freemium',
-        paid: 'Paid',
-        subscription: 'Subscription',
-        'usage-based': 'Usage-based',
-        'contact-sales': 'Contact Sales',
-      },
       relativeTime: {
         today: 'today',
         daysAgo: '{{count}}d ago',
@@ -3637,14 +3668,6 @@ const en = {
         yearsAgo: '{{count}}y ago',
       },
     },
-  approvals: {
-    approve: 'Approve',
-    reject: 'Reject',
-    comment: 'Comment (optional)',
-    approveSuccess: 'Approved',
-    rejectSuccess: 'Rejected',
-    rejectConfirm: 'Reject this approval request?',
-  },
   approvalsInbox: {
     loadMore: 'Load more',
     loadingMore: 'Loading…',

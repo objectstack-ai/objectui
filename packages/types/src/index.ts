@@ -170,6 +170,22 @@ export type {
   FileUploadSchema,
   DatePickerSchema,
   CalendarSchema,
+  // The two names on `form.ts`'s export list that this barrel did not carry,
+  // added by objectui#9406 (director seat, decision batch #133 item 2, letter
+  // (a), maintainer 2026-09-14). Both narrow a schema already on this list
+  // — `InputShorthandSchema` is `Omit<InputSchema, 'type' | 'inputType'>`,
+  // `UiCalendarSchema` is `Omit<CalendarSchema, 'type'>` — and both were
+  // already published on `@object-ui/types/form` and `@object-ui/types/zod`,
+  // so these two lines ALIGN the third entry point rather than widen the
+  // surface. Purely ADDITIVE, the same route objectui#7697 took for
+  // `ComboboxOption` above. What made the absence worse than "not found": the
+  // root spelling answered `Did you mean 'InputOTPSchema'?` — a different
+  // component — steering an author to a compiling, semantically wrong import.
+  // `form-barrel-mirror-9406.test.ts` re-derives this list against `form.ts`'s
+  // own exports on every run and names whatever is missing, so the gap these
+  // lines close cannot reopen unseen.
+  InputShorthandSchema,
+  UiCalendarSchema,
   FieldValidationRules,
   FieldCondition,
   DependsOnInput,
@@ -309,7 +325,9 @@ export type {
 export type {
   KanbanCard,
   KanbanColumn,
-  KanbanSchema,
+  // ⛔ `KanbanSchema` RETIRED with the bare `kanban` node type key
+  // (objectui#8802, maintainer ruling 2026-09-09) — `ObjectKanbanSchema` below
+  // is the surviving kanban face.
   CardTemplate,
   ColumnWidthConfig,
   CalendarViewMode,
@@ -444,6 +462,7 @@ export type {
   ViewNavigationConfig,
   ViewTabBarConfig,
   ObjectQLComponentSchema,
+  ObjectCalendarBlockConfig,
   BulkActionDef,
   BulkActionParam,
   BulkActionOperation,
@@ -879,6 +898,10 @@ export type {
 export type {
   // View System Enhancements
   ViewType,
+  // Host-composition config for the `tree` view type (objectui#8253). The
+  // ONE declaration of the block `ObjectViewProps.views[n].tree` carries;
+  // `plugin-tree` imports it instead of re-deriving a module-local copy.
+  TreeViewConfig,
   DetailViewSchema,
   DetailViewField,
   DetailViewSection,

@@ -18,24 +18,35 @@ import {
   declaredUserMessage,
   useSettledSchema,
 } from '@object-ui/react';
-import { toast } from '@object-ui/components';
+import {
+  NavigationOverlay,
+  legacyRecordDrawerWidthKey,
+  recordOverlayWidthStorageKey,
+  toast,
+  useOverlayAnchor,
+} from '@object-ui/components';
 import { createSafeTranslation } from '@object-ui/i18n';
-import { RecordDetailDrawer, deriveRecordPageHref } from '@object-ui/plugin-detail';
+import {
+  RECORD_OVERLAY_DEFAULT_WIDTH,
+  RecordDetailPanel,
+  deriveRecordPageHref,
+} from '@object-ui/plugin-detail';
 import {
   extractRecords,
   buildExpandFields,
   getRecordDisplayName,
+  isEmptyValue,
   resolveNameField,
 } from '@object-ui/core';
 import { getBadgeColorClasses, getBadgeHexAppearance, getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
 import { KanbanRenderer, KANBAN_UNCOLUMNED_ID } from './index';
-import type { KanbanSchema } from './types';
 import {
   collectRequiredWhenPromptFields,
   type RequiredWhenPromptField,
 } from './requiredWhenPrompt';
 import { RequiredFieldsDialog } from './RequiredFieldsDialog';
+import { KanbanRecordsSettledContext } from './KanbanRecordsSettled';
 
 /**
  * English fallbacks for the record-detail drawer heading this board opens on
@@ -126,6 +137,74 @@ export function resolveKanbanCardFields(
 }
 
 /**
+ * The two spellings of the ONE card-title choice, as this board reads them off
+ * a node. Structural on purpose: both declared arms of
+ * {@link ObjectKanbanComponentProps.schema} satisfy it and neither declares
+ * both keys — `KanbanSchema` declares `cardTitle` and tombstones `titleField`
+ * (`titleField?: never`, objectui#7742), `ObjectKanbanSchema` declares
+ * `titleField` and reaches `cardTitle` through `BaseSchema`'s index signature.
+ */
+interface KanbanTitleFieldSource {
+  /** Canonical spelling: the record field rendered as the card title. */
+  cardTitle?: string;
+  /** Legacy spelling of the same choice, live on the `object-kanban` arm. */
+  titleField?: string;
+}
+
+/**
+ * Resolve WHICH RECORD FIELD titles a card, from the one authoring choice this
+ * board spells two ways — `cardTitle` (canonical) and `titleField` (the legacy
+ * alias). Returns `undefined` when the author named neither, which is the
+ * caller's signal to fall through to the shared record-display resolver
+ * (ADR-0079) rather than a field of its own.
+ *
+ * ## `''` MEANS UNSET (objectui#8308) — the one thing nothing used to say
+ *
+ * `cardTitle` names a record FIELD, and `''` cannot name any field, so an empty
+ * string has no meaningful reading on either key: it can only be the residue of
+ * an empty input — an authoring surface that writes a cleared text box back as
+ * `''` instead of dropping the key, or a stored view whose kanban block
+ * round-trips an unset value the same way. So `''` falls through exactly as an
+ * absent key does, and `cardTitle` wins when it is NON-EMPTY. That extends the
+ * precedence `index.tsx` already publishes in prose — "`cardTitle` wins when
+ * both are authored" — to the single case that prose never covered, and it is
+ * the ONLY reading under which the empty string is not silently taken for a
+ * field name no record can have.
+ *
+ * ## Why this is a function and not two operators
+ *
+ * The two read sites — the card list's `effectiveData` memo and the
+ * record-detail drawer's heading — used to spell this same fallback with two
+ * DIFFERENT operators, `||` in one and `??` in the other. Those two differ on
+ * exactly the falsy-but-present values, and on a string key that value is `''`,
+ * so a board authored `{ cardTitle: '', titleField: 'name' }` titled its CARDS
+ * from `name` while its DRAWER heading fell through to the `Record #<id>` floor:
+ * one authored document, two answers to one question.
+ *
+ * Making the two operators agree would have repaired those two sites and left
+ * the property that produced them — the pair is readable ad hoc, anywhere —
+ * fully intact, so a third read site would invent a third precedence. Every
+ * read of the pair goes through here instead; the source census in
+ * `__tests__/ObjectKanban.titleFieldPrecedence-8308.test.tsx` reddens on a
+ * property read of either key outside this function.
+ *
+ * Exported for unit testing and kept pure (no React), like
+ * {@link resolveKanbanCardFields}.
+ */
+export function resolveKanbanTitleField(
+  schema: KanbanTitleFieldSource | null | undefined,
+): string | undefined {
+  // Non-empty, not merely present — see the `''` ruling above. Deliberately a
+  // truthiness test and not a `typeof === 'string'` narrowing: on a string key
+  // the two agree, and narrowing here would ALSO start dropping off-contract
+  // non-string values that both former operators passed through, which is a
+  // change objectui#8308 did not rule on.
+  if (schema?.cardTitle) return schema.cardTitle;
+  if (schema?.titleField) return schema.titleField;
+  return undefined;
+}
+
+/**
  * Props of the `ObjectKanban` React component.
  *
  * Renamed off the bare `ObjectKanbanProps` (objectui#4650): from 17.0.0
@@ -143,67 +222,72 @@ export function resolveKanbanCardFields(
  */
 export interface ObjectKanbanComponentProps {
   /**
-   * The board node. A UNION of the two declared node types this component is
-   * registered for (objectui#7322 item ②) — `KanbanSchema` (`type: 'kanban'`)
-   * and `ObjectKanbanSchema` (`type: 'object-kanban'`).
+   * The board node — `ObjectKanbanSchema` (`type: 'object-kanban'`), the ONE
+   * declared node type this component is now registered for.
    *
-   * ## Why a union and not either type alone
+   * ## Why it is one arm again
    *
-   * `index.tsx` registers ONE component under TWO keys —
-   * `ComponentRegistry.register('object-kanban', ObjectKanbanRenderer, …)` and
-   * `ComponentRegistry.register('kanban', ObjectKanbanRenderer, …)`, and
-   * `kanban-plugin-dialect-authoritative-7664.test.ts` pins that they resolve to
-   * the same renderer. The two keys have DIFFERENT declared node types, and the
-   * discriminants are disjoint literals, so naming one of them makes the prop
-   * lie about the other half of the nodes this component serves. That is the
-   * defect this member carried: it named `KanbanSchema` alone, so no
-   * `object-kanban` node was assignable to it, and every in-package test that
-   * mounts one had to escape the prop with `as never`.
+   * objectui#7322 item ② widened this to a two-arm union because `index.tsx`
+   * registered ONE renderer under TWO keys with DIFFERENT declared node types,
+   * so naming either alone made the prop lie about half the nodes the component
+   * served. That note closed with a standing condition: *"⛔ Do not narrow this
+   * back to one arm without first removing a registration."*
    *
-   * ## The read set that settled it (measured on `origin/main` `21d7989fb`)
+   * ⇒ The registration WAS removed. objectui#8802 retired the bare `kanban`
+   * node type key (maintainer ruling 2026-09-09) and `KanbanSchema` retired
+   * with it, so the union's second arm no longer names anything the registry
+   * dispatches here. The condition is met, and this is the narrowing it
+   * authorised.
    *
-   * `ObjectKanban` reads thirteen keys off `schema`. Neither declaration covers
-   * them; the two TOGETHER cover twelve:
+   * ## What that costs, measured rather than waved past
    *
-   * | key | `BaseSchema` | `KanbanSchema` | `ObjectKanbanSchema` |
-   * |---|---|---|---|
-   * | `objectName`, `groupBy`, `limit`, `cardFields` | — | yes | yes |
-   * | `columns`, `cardTitle`, `swimlaneField`, `grouping` | — | yes | — |
-   * | `titleField` | — | — | yes |
-   * | `data`, `bind`, `className` | yes | — / yes | — |
-   * | `filter` | — | — | — |
+   * `ObjectKanban` reads thirteen keys off `schema`. `ObjectKanbanSchema`
+   * declares `objectName`, `groupBy`, `limit`, `cardFields`, `titleField`; the
+   * retired arm was the only declaration of `columns`, `cardTitle`,
+   * `swimlaneField` and `grouping`. Those four now resolve through
+   * {@link BaseSchema}'s `[key: string]: any` — as `filter` always has, and as
+   * every one of them ALREADY did on an `object-kanban` document, which was
+   * never judged by the `kanban` arm. ⇒ No `object-kanban` node changes
+   * meaning; what changed is that `kanban` nodes no longer exist.
    *
-   * So each arm is load-bearing: dropping `ObjectKanbanSchema` loses the
-   * `titleField` read at `:350` / `:1024` (which is why that read was spelled
-   * `(schema as any).titleField` before this card), and dropping `KanbanSchema`
-   * loses four reads AND the `'kanban'` registration. `filter` (`:310`,
-   * `$filter` on the fetch) is declared by NEITHER face and still rides
-   * {@link BaseSchema}'s `[key: string]: any` — measured, filed, and NOT fixed
-   * here: this card moves the prop, not the two published schema faces.
-   *
-   * ## What the union does and does not claim
-   *
-   * It claims exactly the accept set the registry dispatches to this component,
-   * no wider: a node of some third type is still turned away. Every key above
-   * that only one arm declares reads as `any` on the union (through the other
-   * arm's index signature) — the same resolution it had before, so no read
-   * changes meaning. Widening a member of an exported prop type is additive:
-   * every caller that passed a `KanbanSchema` still compiles.
-   *
-   * ⛔ Do not narrow this back to one arm without first removing a
-   * registration. `__tests__/object-kanban-component-props-7322.test.ts`
-   * derives the registered key set from `index.tsx` off disk and goes red if
-   * the two ever stop agreeing.
+   * `__tests__/object-kanban-component-props-7322.test.ts` derives the
+   * registered key set from `index.tsx` off disk and goes red if the prop and
+   * the registrations ever stop agreeing.
    */
-  schema: KanbanSchema | ObjectKanbanSchema;
+  schema: ObjectKanbanSchema;
   dataSource?: DataSource;
   className?: string; // Allow override
   /** Pre-fetched records passed by a parent (e.g. ListView). When provided, skips internal data fetching. */
   data?: any[];
   /** Loading state propagated from a parent. Respected only when `data` is also provided. */
   loading?: boolean;
-  onRowClick?: (record: any) => void;
-  onCardClick?: (record: any) => void;
+  /**
+   * TWO parameters since objectui#9357, and the second is not decoration: this
+   * prop reaches `useNavigationOverlay` as its `onRowClick`, and `handleClick`
+   * invokes it as `onRowClick(record, event)` — the modifier payload a host
+   * needs to implement Cmd/Ctrl/middle-click for itself. Declaring one
+   * parameter hid the second on the ONE line a host reads. Spelled `any` and
+   * not `HandleClickModifiers` for the reason objectui#9341 measured on
+   * `ObjectKanbanSchema.onCardClick`: that interface lives in
+   * `@object-ui/react`, the published twins in `@object-ui/types` may not name
+   * it, and a host that discovered the payload from the implementation
+   * annotated it `React.MouseEvent` — which a narrower declaration refuses
+   * contravariantly. `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`
+   * already use this spelling for exactly this situation.
+   */
+  onRowClick?: (record: any, event?: any) => void;
+  /**
+   * ⚠️ TWO parameters, and the second one is not decoration: this prop is the
+   * `onCardClick` arm of `externalClick` below, which is handed to
+   * `useNavigationOverlay` as its `onRowClick` and invoked as
+   * `onRowClick(record, event)` — the modifier payload a host needs for
+   * Cmd/Ctrl/middle-click. Spelled `any` because `packages/types` declares the
+   * published twin of this key and may not name `HandleClickModifiers` (it lives
+   * in `@object-ui/react`, which depends on `@object-ui/types`), and the two
+   * faces must not disagree. `KanbanImpl` types the same channel as
+   * `React.MouseEvent`, which is what actually arrives.
+   */
+  onCardClick?: (record: any, event?: any) => void;
 }
 
 export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
@@ -228,6 +312,37 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   const hasExternalData = Array.isArray(externalData);
 
   const [fetchedData, setFetchedData] = useState<any[]>([]);
+  /**
+   * Did the last fetch come back SATURATED — as many rows as the window
+   * allowed (objectui#8307)?
+   *
+   * The fetch below is windowed at a real `$top` (objectui#4025). The board
+   * then groups WHAT CAME BACK into lanes client-side, so every lane header
+   * counts fetched rows that fell into that lane, not the size of the group.
+   * Over any object with more rows than the window every one of those numbers
+   * is wrong, they sum to the window, and nothing on screen says so — the
+   * measured case on this card displayed 77 / 19 / 2 against a true
+   * 88 / 46 / 28 / 14 / 9 / 15.
+   *
+   * This flag is what lets the header say `77+` instead of `77`. It is the
+   * only truthful statement available without a second query: a per-lane
+   * total needs a server-side group-count aggregate over the whole filtered
+   * set (the card's option 1), which this board does not issue.
+   *
+   * SATURATION, not equality. The card suggests `rows.length === limit`;
+   * `>=` is the predicate that cannot be talked into a false claim, because a
+   * source that ignores `$top` and over-returns still yields a count that is
+   * merely a LOWER BOUND as far as this component can tell. `<` the window is
+   * the one case where the client knows the result set was exhausted, and
+   * that is the case where the bare number is the truth.
+   *
+   * Held as STATE captured at fetch time rather than derived from
+   * `fetchedData.length` at render: the optimistic move/create/delete paths
+   * below rewrite `fetchedData`, and a delete would otherwise drop the array
+   * to `window - 1` and silently retract the marker from a board that is
+   * still showing a window.
+   */
+  const [fetchWindowSaturated, setFetchWindowSaturated] = useState(false);
   // The object-definition read and the fact that it has SETTLED are one piece
   // of state, keyed by the object it belongs to (objectui#6271) — now the
   // SHARED hook rather than this component's hand copy of it (objectui#7225,
@@ -259,6 +374,70 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // reaches that effect (objectui#7429, same structural note PR #7229 /
   // PR #7428 recorded for `ListView`'s memo and `ObjectCalendar`'s effect).
   const perms = usePermissions();
+
+  /**
+   * Have the RECORDS this board is about to draw SETTLED? (objectui#8827)
+   *
+   * The full argument — the measured false "No cards", why a `loading` boolean
+   * cannot express this, why the channel is a package-private context, and why
+   * the default is `true` — lives on `KanbanRecordsSettledContext`. What lives
+   * here is the half that is component-private, exactly as objectui#6482 split
+   * `useSettledSchema`: the RESOLUTION shape is shared, deciding WHAT THIS
+   * BOARD IS WAITING FOR is not.
+   *
+   * Shape copied from `useSettledSchema`, deliberately: ONE piece of state
+   * carrying the key it settled for, with "settled" DERIVED at render by
+   * comparing that key against the one this render is asking about. The
+   * alternative — a `settled` boolean latched by the fetch effect — is
+   * objectui#6481's defect verbatim: a one-way latch reads as settled for the
+   * NEXT object while its query is still in flight. With one keyed value that
+   * is unrepresentable, because the comparison flips in the very commit the key
+   * changes, before any effect runs.
+   *
+   * The key is `schemaKey` — the SAME key the definition read is settled
+   * against — so "settled for the wrong object" cannot be spelled on either
+   * signal. It is deliberately NOT a digest of the whole query (filter, window,
+   * `refreshKey`): those re-ASK the same question rather than asking a
+   * different one, and a key recomputed from an object that a parent rebuilds
+   * each render could churn, which would starve the settle and leave the board
+   * empty forever — the one failure mode this must not have. A re-issue of the
+   * same question keeps the previous answer on screen, which is the safe
+   * direction.
+   */
+  const [recordsResolution, setRecordsResolution] = useState<{ key: string } | null>(null);
+
+  /**
+   * Is this board's OWN query what the records are waiting on?
+   *
+   * `false` means the records are settled BY CONSTRUCTION and no effect has to
+   * remember to say so — which is how exits 3 and 4 of the settle contract are
+   * held open structurally rather than by hand:
+   *
+   *   - external/bound/inline data (`rawData`'s first three sources below)
+   *     arrive whole with the render, so they are settled from the first frame;
+   *   - no `objectName`, no `dataSource`, or an adapter with no `find` is a
+   *     board with NO READABLE SOURCE — settled with nothing, exactly as
+   *     `useSettledSchema` settles when there is nothing to read from. Waiting
+   *     on a query that will never be issued is the "empty forever" regression.
+   *
+   * The conditions are the same ones the fetch effect below branches on (its
+   * `hasExternalData` guard, its `schema.objectName && !boundData &&
+   * !schema.data` test, and `fetchData`'s own source guard). The effect ALSO
+   * settles at each of its exits, so the two mechanisms are redundant on
+   * purpose and redundant in the safe direction: it takes both of them failing
+   * to strand a board.
+   */
+  const recordsComeFromFetch =
+    !hasExternalData &&
+    !boundData &&
+    !schema.data &&
+    !!schema.objectName &&
+    !!dataSource &&
+    typeof dataSource.find === 'function';
+
+  const recordsSettled =
+    !recordsComeFromFetch ||
+    (recordsResolution !== null && recordsResolution.key === schemaKey);
 
   // P2: Auto-subscribe to DataSource mutation events (standalone mode only).
   // When rendered as a child of ListView, data is managed externally and this is skipped.
@@ -305,8 +484,26 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     if (!objectDefReady) return;
 
     let isMounted = true;
+    /**
+     * objectui#8827 — record the fact that a read for THIS object has SETTLED,
+     * whatever it settled to. Idempotent, so the redundant call at the exit
+     * below cannot cost a render once the key is already recorded.
+     */
+    const settleRecords = () => {
+        if (!isMounted) return;
+        setRecordsResolution((prev) =>
+            prev !== null && prev.key === schemaKey ? prev : { key: schemaKey },
+        );
+    };
     const fetchData = async () => {
-        if (!dataSource || typeof dataSource.find !== 'function' || !schema.objectName) return;
+        if (!dataSource || typeof dataSource.find !== 'function' || !schema.objectName) {
+            // Exit 3 — NO READABLE SOURCE. Already settled structurally by
+            // `recordsComeFromFetch` above; settled here too so that a future
+            // edit which tightens this guard without touching that predicate
+            // cannot silently strand the board (objectui#8827).
+            settleRecords();
+            return;
+        }
         if (isMounted) setLoading(true);
         try {
             // Auto-inject $expand for lookup/master_detail fields. Reached only
@@ -360,23 +557,45 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // `QueryParams` field and that nothing in this repo reads. The number
             // is unchanged; it just reaches the wire now, and `limit` (authored,
             // or a bound view's `pagination.pageSize`) can set it.
-            const results = await dataSource.find(schema.objectName, {
+            //
+            // The query is a NAMED OBJECT rather than an inline literal so that
+            // the saturation reading below (objectui#8307) compares the row
+            // count against `query.$top` — the very number this request
+            // carried. One spelling of the window, read back from the request
+            // itself: a second `schema.limit ?? DEFAULT_KANBAN_LIMIT` kept in a
+            // local for the comparison could drift from the one on the wire,
+            // and a marker computed against a window the server was never asked
+            // for is exactly the silent wrongness objectui#8307 is about.
+            // Keeping it inline here also keeps the spelling objectui#7322
+            // pins off disk (`object-kanban-group-by-limit-7322.test.ts`).
+            const query = {
                 $filter: schema.filter,
                 $top: schema.limit ?? DEFAULT_KANBAN_LIMIT,
                 ...(expand.length > 0 ? { $expand: expand } : {}),
-            });
+            };
+            const results = await dataSource.find(schema.objectName, query);
             
             // Handle { value: [] } OData shape or { data: [] } shape or direct array
             const data = extractRecords(results);
 
             if (isMounted) {
                 setFetchedData(data);
+                // objectui#8307 — see `fetchWindowSaturated`. Recorded HERE,
+                // against the window THIS request carried, because that is the
+                // only point where the two numbers are both in hand.
+                setFetchWindowSaturated(data.length >= query.$top);
             }
         } catch (e) {
             console.error('[ObjectKanban] Fetch error:', e);
             if (isMounted) setError(e as Error);
         } finally {
             if (isMounted) setLoading(false);
+            // Exits 1 and 2 — the fetch SUCCEEDING and the fetch THROWING, in
+            // one place so neither can be added to without the other
+            // (objectui#8827). A read that resolved to nothing is a settled
+            // answer; a read that threw is a settled answer too. Only a board
+            // still waiting for one is allowed to withhold its empty state.
+            settleRecords();
         }
     };
 
@@ -389,22 +608,35 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     // `objectDef` stays listed because the body reads it, and with the gate in
     // place the two flip together in one commit — the pre-resolution run now
     // returns above without querying instead of issuing an unexpanded one.
-  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms]);
+  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, schema.filter, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms]);
 
   // Determine which data to use: external -> bound -> inline -> fetched
   const rawData = (hasExternalData ? externalData : undefined) || boundData || schema.data || fetchedData;
+
+  /**
+   * Are the lane counts about to be drawn counts of a WINDOW (objectui#8307)?
+   *
+   * Only when the rows on screen are the ones this component fetched. External,
+   * bound and inline data arrive whole from whoever owns them; this board
+   * applied no window to them and has nothing truthful to say about whether
+   * someone else did, so those boards keep the bare number. The identity
+   * comparison is deliberate — it asks the exact question `rawData`'s own
+   * precedence chain just answered, so the two can never disagree.
+   */
+  const countsAreWindowed = fetchWindowSaturated && rawData === fetchedData;
 
   // Enhance data with title mapping and ensure IDs
   const effectiveData = useMemo(() => {
     if (!Array.isArray(rawData)) return [];
 
-    // Support cardTitle property from schema (passed by ObjectView)
-    // Fallback to legacy titleField for backwards compatibility
-    const explicitTitleField: string | undefined =
-      schema.cardTitle || schema.titleField;
+    // The author's card-title choice — `cardTitle`, else the legacy
+    // `titleField`, and `''` on either counts as unset. Resolved by the shared
+    // `resolveKanbanTitleField` so this site and the detail drawer's heading
+    // below cannot answer one authored document two ways (objectui#8308).
+    const explicitTitleField: string | undefined = resolveKanbanTitleField(schema);
 
     // Title is resolved per-item below via:
-    //   1. explicit titleField (schema.cardTitle / schema.titleField), if it
+    //   1. the explicit title field (`resolveKanbanTitleField`), if it
     //      yields a non-empty value for the record;
     //   2-4. otherwise the unified `@object-ui/core#getRecordDisplayName`
     //      (ADR-0079): objectDef.titleFormat → objectDef.displayNameField →
@@ -453,7 +685,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     return rawData.map(item => {
       let resolvedTitle: any = undefined;
 
-      // 1. Explicit titleField (schema.cardTitle / schema.titleField).
+      // 1. The explicit title field (`resolveKanbanTitleField`).
       if (explicitTitleField) {
         resolvedTitle = item[explicitTitleField];
         if (typeof resolvedTitle === 'string') resolvedTitle = resolvedTitle.trim();
@@ -525,7 +757,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       // value didn't get expanded (so we never show "8UY9zHWBfjYjYor4").
       const resolveDisplay = (key: string): string | undefined => {
         const raw = (item as any)[key];
-        if (raw == null || raw === '') return undefined;
+        // THE FLOOR by name (objectui#8496). `[]` is a member and used to reach
+        // the object branch below, which walked six name-ish keys over zero
+        // entries and returned `undefined` anyway — the same answer, spelled
+        // twice.
+        if (isEmptyValue(raw)) return undefined;
         if (typeof raw === 'object') {
           const obj = raw as Record<string, unknown>;
           const candidates = ['name', 'full_name', 'display_name', 'label', 'title', 'username'];
@@ -601,7 +837,15 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           if (titleFieldsToSkip.has(f)) continue;
           const def = objectDef?.fields?.[f];
           const raw = (item as any)[f];
-          if (raw == null || raw === '') continue;
+          // THE FLOOR by name (objectui#8496), no extension: a card field with
+          // nothing in it is OMITTED, so this asks the floor and nothing more.
+          // ⚠️ `[]` is a MEMBER and used to fall through here — into the
+          // picklist branch, where it resolved to no label and drew a fully
+          // coloured pill with no children in it until objectui#8489 caught it
+          // one step later. That guard STAYS: it also answers every non-array
+          // value that resolves to nothing, which the floor says nothing about.
+          // ⛔ Do NOT trim — `'   '` is deliberately a value on this surface.
+          if (isEmptyValue(raw)) continue;
           const isPicklist =
             def?.type === 'picklist' ||
             def?.type === 'multipicklist' ||
@@ -718,8 +962,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       // from semantic fields below (avoids "8UY9zHWBfjYjYor4" appearing as subtitle).
       const incomingDesc = (item as any).description;
       const descMissing =
-        incomingDesc == null ||
-        incomingDesc === '' ||
+        // THE FLOOR by name (objectui#8496) — `[]` is a member, and a card
+        // subtitle has no more to draw for it than for `null`.
+        isEmptyValue(incomingDesc) ||
+        // THE EXTENSION: an id-shaped string is gibberish as a subtitle, the
+        // same rule about the VALUE that `resolveDisplay` applies above.
         (typeof incomingDesc === 'string' && isOpaqueId(incomingDesc));
 
       // P2-4: keep the original record's `description` field intact so the
@@ -843,7 +1090,16 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // CLOSED, not open — do not re-open it as a cleanup. If bucket-vocabulary
   // unification ever becomes a product direction that is a fresh ruling,
   // with visual-regression evidence across all four surfaces in one stroke.
-  const navConfig = (schema as any).navigation ?? { mode: 'drawer' };
+  // ⚠️ `navigation` was DECLARED on `KanbanSchema` by objectui#7742 (gantt
+  // precedent objectui#5903). That arm RETIRED with the bare `kanban` node key
+  // (objectui#8802), and the surviving `ObjectKanbanSchema` face never declared
+  // the key — so on an `object-kanban` document this read has ALWAYS ridden
+  // `BaseSchema`'s `[key: string]: any`, exactly as `filter` does. ⛔ Nothing
+  // about an `object-kanban` board changed here; what went is the only face
+  // that ever declared the key, and it only ever judged `kanban` documents.
+  // The designer face still declares it — `OBJECT_KANBAN_INPUTS` (`index.tsx`).
+  // Reported on the retirement PR as a follow-up for the `object-kanban` face.
+  const navConfig = schema.navigation ?? { mode: 'drawer' };
   // When this kanban is embedded in an ObjectView, the parent provides
   // `onRowClick`/`onCardClick` and owns the unified record-detail overlay.
   // We must always forward to the parent in that case — otherwise we'd open
@@ -856,6 +1112,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     objectName: schema.objectName,
     onRowClick: externalClick,
   });
+
+  // objectui#9299 item 3 — `popover` anchors to the CARD the user clicked.
+  // `SortableCard` already hands its click event down, so this site captures
+  // the anchor directly rather than through a container-level listener.
+  const { anchorRef, captureAnchor } = useOverlayAnchor();
 
   // Fallback heading of the record-detail drawer opened on card click, used
   // when the board declares no card-title field (or the record's is empty).
@@ -1082,22 +1343,144 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     );
   }
 
-  return (
+  /**
+   * The record overlay — ONE payload in whichever shell the author declared.
+   *
+   * ⭐ objectui#9299. This used to be `<RecordDetailDrawer>`, which brought its
+   * own `Sheet` and had no `mode` parameter, so an authored `modal`, `split` or
+   * `popover` silently rendered the drawer (measured on PR objectui#9296). The
+   * payload now mounts through the shared `NavigationOverlay` — the same shell
+   * `ObjectGrid` and `ObjectTree` use — so the four declared modes mean the
+   * same thing on every view type.
+   *
+   * `mainContent` is what `split` needs: the board itself goes in the left
+   * panel beside the record panel (item 2). `popoverAnchorRef` is what
+   * `popover` needs: the card the user clicked (item 3).
+   */
+  const renderRecordOverlay = (mainContent?: React.ReactNode): React.ReactNode => {
+    if (!navigation.isOverlay || !navigation.isOpen || !navigation.selectedRecord) return null;
+    const objectName = schema.objectName;
+    const rec = navigation.selectedRecord as Record<string, any>;
+    const recordId = rec.id ?? rec._id;
+    if (!objectName || recordId == null) return null;
+    // Same resolver as the card list's `explicitTitleField` above — one
+    // read of the pair, one precedence (objectui#8308). This site used to
+    // spell the fallback `??`, which kept an authored `''` and dropped this
+    // heading to the `Record #<id>` floor on a board whose cards were
+    // titled from `titleField`.
+    const titleField = resolveKanbanTitleField(schema);
+    const titleText = titleField && rec[titleField]
+      ? String(rec[titleField])
+      : detailTitle;
+    return (
+      <NavigationOverlay
+        {...navigation}
+        title={titleText}
+        mainContent={mainContent}
+        popoverAnchorRef={anchorRef}
+        // One drag-resize implementation, one key, and a width the user had
+        // already chosen under the retired `objectui.drawerWidth.OBJECT`
+        // carries over rather than resetting (item 4).
+        storageKey={recordOverlayWidthStorageKey(objectName)}
+        legacyStorageKey={legacyRecordDrawerWidthKey(objectName)}
+        // ⛔ Not `navigation.width` alone: an unauthored width has to land on
+        // the ruled default (objectui#6584 / #6303) rather than on the shell's
+        // own `42rem` floor, which would narrow this surface.
+        width={navigation.width ?? RECORD_OVERLAY_DEFAULT_WIDTH}
+      >
+        {() => (
+          <div className="px-6 pt-6 pb-6">
+            <RecordDetailPanel
+              record={rec}
+              objectName={objectName}
+              recordId={recordId}
+              dataSource={dataSource}
+              objectSchema={objectDef as any}
+              onClose={navigation.close}
+              fullPageHref={deriveRecordPageHref(objectName, recordId) ?? undefined}
+              onFieldSave={async (field, value) => {
+                if (!dataSource?.update) return;
+                await dataSource.update(objectName, String(recordId), { [field]: value });
+                setFetchedData((prev) => prev.map((r) =>
+                  String(r.id ?? r._id) === String(recordId)
+                    ? { ...r, [field]: value }
+                    : r,
+                ));
+              }}
+              onDelete={async () => {
+                if (!dataSource?.delete) return;
+                await dataSource.delete(objectName, String(recordId));
+                setFetchedData((prev) => prev.filter((r) =>
+                  String(r.id ?? r._id) !== String(recordId),
+                ));
+              }}
+            />
+          </div>
+        )}
+      </NavigationOverlay>
+    );
+  };
+
+  const boardView = (
     <>
-      <KanbanRenderer schema={{
-        ...effectiveSchema,
+      {/* objectui#8827 — the settle signal reaches `KanbanImpl` through a
+          package-private context rather than a `KanbanRendererProps` member,
+          because `KanbanRendererProps` is published and no caller outside this
+          package may set this. Context crosses `KanbanRenderer`'s
+          `Suspense`/`React.lazy` boundary normally, which is what makes the
+          private channel possible at all. Full argument on the context. */}
+      <KanbanRecordsSettledContext.Provider value={recordsSettled}>
+      <KanbanRenderer
         // Card conditional formatting evaluates against the card record, and
         // this fetch expands relations (`buildExpandFields` above) exactly as
         // the grid's does. Handing the renderer the object's field types is
         // what lets a rule comparing a relation see the stored foreign key
         // instead of the expanded record (objectui#3501).
-        objectFields: objectDef?.fields,
-        onCardClick: (card: any, event?: any) => {
-          navigation.handleClick(card, event);
-          onCardClick?.(card);
-        },
-        onCardMove: handleCardMove,
-      }} />
+        //
+        // A PROP, not a schema key (objectui#7742, decision batch #70): it is an
+        // internal channel from the one caller that fetched the object
+        // definition, never an authoring surface. On the schema bag it was
+        // reachable by an author through `BaseSchema`'s passthrough.
+        objectFields={objectDef?.fields}
+        // A PROP, not a schema key (objectui#9342, executing the ruling on PR
+        // objectui#9338) — the same remedy `objectFields` above took one card
+        // earlier. `handleCardMove` owns the optimistic write, the
+        // required-fields dialog and the objectui#4138 rollback, so it is this
+        // board's mover and never an authored one. While it rode the `schema`
+        // bag below, an authored `onCardMove` was accepted by the passthrough,
+        // substituted here, and silently dropped; the arm can only tombstone the
+        // key once no renderer reads it off the document.
+        onCardMove={handleCardMove}
+        schema={{
+          ...effectiveSchema,
+          // objectui#8307 — the lane headers count rows that came back, so when
+          // the fetch saturated its window they must say `77+`, not `77`.
+          countsAreWindowed,
+          // ⛔ Calls `handleClick` and NOTHING ELSE. An authored `onCardClick`
+          // already travels this one line: it is the `onCardClick` arm of
+          // `externalClick` above, which is `handleClick`'s `onRowClick`, and
+          // that arm has FULL PRIORITY inside the hook — it is called and the
+          // hook returns. A second `onCardClick?.(card)` here therefore ran the
+          // SAME function again, twice per card click (objectui#9341, measured
+          // 2 by objectui#9338's pin before it was relaxed).
+          //
+          // Of the two calls the DELETED one was the poorer: `handleClick`
+          // forwards `onRowClick(record, event)`, so the host can implement
+          // Cmd/Ctrl/middle-click, while the second call passed the record
+          // only. Dropping it also leaves `onRowClick ?? onCardClick` untouched
+          // — a board inside an `ObjectView` still gives the parent's handler
+          // priority, and now gives it OUTRIGHT rather than also running the
+          // authored one. `ObjectGallery` has written exactly this shape, with
+          // no second call, all along.
+          onCardClick: (card: any, event?: any) => {
+            // Record the clicked card BEFORE opening, so `popover` mode has an
+            // anchor by the time it renders (objectui#9299 item 3).
+            captureAnchor(event);
+            navigation.handleClick(card, event);
+          },
+        }}
+      />
+      </KanbanRecordsSettledContext.Provider>
       {pendingMove && (
         <RequiredFieldsDialog
           open
@@ -1126,49 +1509,30 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           }}
         />
       )}
-      {navigation.isOverlay && navigation.isOpen && navigation.selectedRecord && (() => {
-        const objectName = schema.objectName;
-        const rec = navigation.selectedRecord as Record<string, any>;
-        const recordId = rec.id ?? rec._id;
-        if (!objectName || recordId == null) return null;
-        const titleField = schema.cardTitle ?? schema.titleField;
-        const titleText = titleField && rec[titleField]
-          ? String(rec[titleField])
-          : detailTitle;
-        return (
-          <RecordDetailDrawer
-            open
-            onClose={navigation.close}
-            title={titleText}
-            record={rec}
-            objectName={objectName}
-            recordId={recordId}
-            dataSource={dataSource}
-            objectSchema={objectDef as any}
-            // No `?? 'min(960px, 60vw)'` fallback on purpose — `undefined` has
-            // to reach the drawer for its OWN identical default to apply. See
-            // the `navConfig` comment above (objectui#6303).
-            width={navigation.width as any}
-            fullPageHref={deriveRecordPageHref(objectName, recordId) ?? undefined}
-            onFieldSave={async (field, value) => {
-              if (!dataSource?.update) return;
-              await dataSource.update(objectName, String(recordId), { [field]: value });
-              setFetchedData((prev) => prev.map((r) =>
-                String(r.id ?? r._id) === String(recordId)
-                  ? { ...r, [field]: value }
-                  : r,
-              ));
-            }}
-            onDelete={async () => {
-              if (!dataSource?.delete) return;
-              await dataSource.delete(objectName, String(recordId));
-              setFetchedData((prev) => prev.filter((r) =>
-                String(r.id ?? r._id) !== String(recordId),
-              ));
-            }}
-          />
-        );
-      })()}
+    </>
+  );
+
+  // `split` (item 2): the board IS the main content — it moves into the
+  // overlay's left panel with the record panel beside it, rather than being
+  // covered by a drawer. Guarded on an OPEN overlay because the split shell
+  // renders nothing when closed; with nothing open the board renders alone,
+  // exactly as before.
+  if (
+    navigation.isOverlay
+    && navigation.mode === 'split'
+    && navigation.isOpen
+    && navigation.selectedRecord
+  ) {
+    const splitOverlay = renderRecordOverlay(boardView);
+    // `null` means this record has no overlay at all (no object name / no id)
+    // — the board still has to render.
+    if (splitOverlay) return <>{splitOverlay}</>;
+  }
+
+  return (
+    <>
+      {boardView}
+      {renderRecordOverlay()}
     </>
   );
 }

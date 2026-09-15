@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
-import { activityRowToFeedItem, RecordChatterPanel, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
+import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
@@ -24,7 +24,7 @@ import { SkeletonDetail } from '../skeletons/index.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
 import { resolveEffectiveCrudAffordances } from '../utils/crudAffordances.js';
 import { deriveRelatedLists } from '../utils/deriveRelatedLists.js';
-import { hasExplicitDiscussion, hasExplicitAttachments, hasExplicitApprovals } from '../utils/pageSchemaIntrospect.js';
+import { stripDiscussionNodes, hasExplicitAttachments, hasExplicitApprovals } from '../utils/pageSchemaIntrospect.js';
 import { ActionConfirmDialog, type ConfirmDialogState } from './ActionConfirmDialog.js';
 import { ActionParamDialog, type ParamDialogState } from './ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from './ActionResultDialog.js';
@@ -172,9 +172,15 @@ export function isSecondaryField(fieldName: string, fieldDef: any): boolean {
 /**
  * The discussion feed of a record that has none. A module-level constant, not
  * a fresh `[]` per render: `feedItems` is handed straight to
- * `DiscussionContextProvider` / `RecordChatterPanel` as a prop, so a new array
- * identity every render would defeat every memo downstream of it. Read-only by
- * convention — every write path below produces a NEW array.
+ * `DiscussionContextProvider` as a prop, so a new array identity every render
+ * would defeat every memo downstream of it. Read-only by convention — every
+ * write path below produces a NEW array.
+ *
+ * ⚠️ That identity carries MORE weight since objectui#8983, not less. Both
+ * chatter surfaces now read their rows off that one provider and run them
+ * through `applyFeedConfig` inside a `useMemo` keyed on the array identity
+ * (`record-chatter.tsx`), so a fresh `[]` per render would re-run the feed
+ * pipeline on every render of a record with no comments.
  */
 const EMPTY_FEED: FeedItem[] = [];
 
@@ -2170,16 +2176,6 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
   // A page always exists past the guards above — authored (assignedPage)
   // or synthesized (buildDefaultPageSchema).
-  const disableDiscussion = (effectivePage as any)?.disableDiscussion === true;
-  // When the page schema embeds an explicit `record:discussion` /
-  // `record:chatter` slot, skip the bottom auto-append so the
-  // author placement (or synth default) wins. The walker recurses
-  // into `regions[]` so `buildDefaultPageSchema` output and
-  // full-Lightning authored pages are both detected.
-  const hasDiscussion = hasExplicitDiscussion(effectivePage as any);
-  // `enable.feeds: false` (#2707) suppresses the discussion panel outright —
-  // same opt-out contract the server enforces on sys_comment creation.
-  const showAutoDiscussion = !disableDiscussion && !hasDiscussion && feedsEnabled;
   // Synthesized pages place `record:attachments` beside the discussion feed
   // (objectstack#4358); the legacy bottom-of-page append below stays only as
   // the fallback for authored pages that don't slot the panel themselves.
@@ -2325,7 +2321,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // synth/slotted pages AND authored full-Lightning pages without
   // mutating the assignedPage tree. `PageHeaderRenderer` dedupes by
   // name so authored business actions still win on collision.
-  const renderedPage = assignedPage
+  const composedPage = assignedPage
     ? effectivePage
     : buildDefaultPageSchema(objectDef as any, {
         sections: synthParts.sections,
@@ -2341,6 +2337,30 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         // there as a renderer capability).
         ...(assignedSlots ? { slots: assignedSlots } : {}),
       });
+
+  // objectui#7298 — A RECORD PAGE SHOWS A DISCUSSION PANEL BECAUSE IT COMPOSES
+  // ONE. Maintainer ruling 2026-09-12 (decision batch #120 item 5): *"a page is
+  // what its author composes … nothing is appended by default and then removed
+  // by a negative flag."* This view used to append `RecordChatterRenderer`
+  // below the page whenever the tree placed no `record:discussion` /
+  // `record:chatter` node, and the only documented way out was
+  // `assignedPage.disableDiscussion = true` — a key `PageSchema` is a
+  // `strictObject` about, so authoring it is a hard PARSE ERROR, not a dropped
+  // key. The append is gone with the read; the node is now the whole answer,
+  // and the panel's own `feed` config is honoured as authored. The synthesized
+  // default page still shows the panel because `buildDefaultPageSchema`
+  // composes `record:discussion` itself — out-of-the-box record pages are
+  // unchanged; AUTHORED pages that relied on the append add one node.
+  //
+  // `enable.feeds` (#2707) stays the OBJECT's switch and OUTRANKS the page: an
+  // object with feeds off shows no panel, declared or not. That is the one half
+  // of the ruling this tree did not already do — the old `feedsEnabled` gate
+  // sat on the append alone, so a declared (or synthesized) node rendered a
+  // panel on a feeds-off object, over a feed the view deliberately never
+  // fetched. Pruning the composed tree is what makes the precedence real rather
+  // than documented, and it is identity-preserving: a feeds-ON page is handed
+  // through untouched.
+  const renderedPage = feedsEnabled ? composedPage : stripDiscussionNodes(composedPage);
 
   // Same split as attachments, but introspected on `renderedPage` — the tree
   // actually rendered — NOT `effectivePage` (#3461): the Approvals tab exists
@@ -2537,31 +2557,6 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                     recordId={pureRecordId}
                     dataSource={dataSource}
                     currentUserId={currentUser?.id}
-                  />
-                </div>
-              )}
-              {/* Auto-append RecordChatterPanel only when the page
-                  schema doesn't already place a `record:discussion` /
-                  `record:chatter` component. Hard opt-out via
-                  `assignedPage.disableDiscussion = true`. */}
-              {showAutoDiscussion && (
-                <div className="mt-6">
-                  <RecordChatterPanel
-                    config={{
-                      position: 'bottom',
-                      collapsible: false,
-                      feed: {
-                        enableReactions: true,
-                        enableThreading: true,
-                        showCommentInput: true,
-                      },
-                    }}
-                    items={feedItems}
-                    loading={feedLoading}
-                    onAddComment={handleAddComment}
-                    onAddReply={handleAddReply}
-                    onToggleReaction={handleToggleReaction}
-                    mentionSuggestions={mentionSuggestions}
                   />
                 </div>
               )}

@@ -44,7 +44,13 @@ import { selfTestCases, stripAnsi } from './helpers/child-verdict';
  *     still derived, by workflow and job rather than by count;
  *  4. **the wiring** — a gate nobody runs is indistinguishable from a gate that
  *     passes, so the workflow, the alias and the Dependabot classification are
- *     asserted here rather than trusted by reading.
+ *     asserted here rather than trusted by reading;
+ *  5. **the header states its population and never counts it** — objectui#8606.
+ *     The header sentence describing this run carried a literal population of
+ *     workflow files, derived from the same directory the gate derives from,
+ *     and it had gone stale by double digits with nothing red in between. This
+ *     is the fourth carrier of objectui#7448's document-count pin, and the
+ *     first one pointed at this header.
  *
  * Deliberately NOT asserted: the total number of pre-install steps. That number
  * is the gate's own output and moves whenever a workflow does; a hand-copied
@@ -356,5 +362,220 @@ describe('the gate is wired, not merely present', () => {
       selfTestCases(out, 'check-pre-install-import-graph'),
       'a self-test that ran no cases is not a passing self-test',
     ).toBeGreaterThan(0);
+  });
+});
+
+// ── 5. the header states its population, and never counts it ─────────────────
+
+/**
+ * A numeral that qualifies a document-population noun, as `match: text`.
+ *
+ * The FOURTH copy of objectui#7448's pin, and the pattern is carried character
+ * for character from the three that exist (`check-doc-fence-languages.test.ts`,
+ * `check-doc-component-types.test.ts`, `check-links-workflow.test.ts`). WHY it
+ * is narrow exactly here — the two intervening words, the negative lookbehind
+ * that rules out issue references — is argued at those copies and deliberately
+ * not restated.
+ *
+ * A fresh `RegExp` per call: `lastIndex` on a shared global literal is exactly
+ * the kind of state that makes the second caller in a run measure something
+ * different from the first.
+ */
+const POPULATION_COUNT =
+  /(?<![#\w.])\d+(?:,\d{3})*\s+(?:[A-Za-z][\w-]*\s+){0,2}`?(?:\.mdx|\.md|documents?|pages?|docs?|files?)\b/i;
+
+const documentCounts = (text: string): string[] =>
+  [...text.matchAll(new RegExp(POPULATION_COUNT.source, 'gi'))].map((m) => m[0].replace(/\s+/g, ' ').trim());
+
+/**
+ * The workflow header's comment prose, as the count pin reads it.
+ *
+ * Stripped, not kept: a sentence that wraps across two comment lines has a `#`
+ * sitting in the middle of it, and a scan that reads the raw lines cannot see a
+ * numeral and the noun it qualifies as adjacent when the line break falls
+ * between them. Removing the marker is what makes the count pin below read the
+ * header the way a person does.
+ *
+ * That paragraph is carried verbatim from the three copies that already run it,
+ * and THIS header is the instance it was written about. Two independent things
+ * had to be true for objectui#7448's family to miss the count here, and both
+ * were: no pin read this header, AND the count wrapped a comment line, so a
+ * per-line unit could not have seen it even if one had. The `extractionControl`
+ * fixture below is that second half written down as a test rather than as
+ * prose, so the unit cannot quietly drift back — the same subtlety
+ * objectui#8629's thread measured from the documentation end, where the pin
+ * carriers were found to run their pattern over JOINED text rather than per
+ * line, which is why `\s+` in the pattern above spans the line break at all.
+ */
+const headerComments = (yaml: string): string =>
+  yaml
+    .split('\n')
+    .filter((line) => /^\s*#/.test(line))
+    .map((line) => line.replace(/^\s*#\s?/, ''))
+    .join('\n');
+
+/** The same extraction with the marker LEFT IN — the blind unit, kept only as a control. */
+const headerCommentsKeepingMarkers = (yaml: string): string =>
+  yaml
+    .split('\n')
+    .filter((line) => /^\s*#/.test(line))
+    .join('\n');
+
+/**
+ * The floor the extracted prose must clear before an empty count list means
+ * anything, carried from the three existing copies.
+ *
+ * Why a floor at all: `documentCounts('')` is `[]`. A header this extraction has
+ * stopped reading — the workflow renamed or deleted, its comment markers
+ * changed, the path moved — therefore satisfies the pin perfectly, and the pin
+ * reports a clean surface it never read. The floor is what makes "no counts
+ * here" a reading rather than the absence of one.
+ */
+const MIN_HEADER_PROSE = 400;
+
+/**
+ * This file's own leading block comment — the second surface the count pin reads.
+ *
+ * objectui#7825 found the drifted counts in a workflow header duplicated, word
+ * for word, in the header of the very file that pins it. One of the two copies
+ * being guarded and the other not is how the guarded one gets "corrected" from
+ * the stale twin later, so both are read here.
+ */
+function ownHeaderComment(): string {
+  const source = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  const block = /\/\*\*[\s\S]*?\*\//.exec(source);
+  expect(block, "this file's own leading block comment is gone").not.toBeNull();
+  return block![0];
+}
+
+/**
+ * The directory the gate derives its population from, read OUT OF THE GATE.
+ *
+ * Derived, not copied: spelling the path here would make this file a second
+ * copy of the gate's own declaration, free to drift from it — which is the
+ * class of defect this whole section exists to close. Move `WORKFLOW_DIR` and
+ * this goes red the same day instead of pointing at a directory nobody reads.
+ */
+function derivedPopulationDir(): string {
+  const source = fs.readFileSync(path.join(repoRoot, SCRIPT), 'utf8');
+  const match = /\bWORKFLOW_DIR\s*=\s*'([^']+)'/.exec(source);
+  expect(match, `${SCRIPT} no longer declares a WORKFLOW_DIR to derive the population from`).not.toBeNull();
+  return match![1];
+}
+
+describe("the header's population is a pointer, not a copy", () => {
+  /**
+   * objectui#8606 — the header said the run covered a literal number of
+   * workflow files, and `scripts/check-pre-install-import-graph.mjs` DERIVES
+   * that population from the same directory, so the two are the same
+   * measurement written twice. Only one of them was live. It had drifted by
+   * double digits and drifted again between the card being filed and the fix
+   * landing, which is the whole argument for not writing the second copy at
+   * all.
+   *
+   * ⛔ Correcting the numeral would only have reloaded the trap — this family
+   * has already spent two hand-corrections elsewhere making exactly that point
+   * (objectui#7837, objectui#7978). The header names the directory and the
+   * command that prints the reading; the rule pinned below is that no number
+   * may be written back that adding a workflow would falsify.
+   *
+   * Only the negative half is asserted about counts, as in all three existing
+   * copies: a positive assertion about the wording would pin prose. The one
+   * positive claim made here is that the pin READ something — an empty scan is
+   * the failure mode this gate family exists to catch.
+   */
+  it('states no count that adding a workflow would falsify', () => {
+    const surfaces = [
+      [WORKFLOW, headerComments(readWorkflow(WORKFLOW))],
+      ["this test file's own header", ownHeaderComment()],
+    ] as const;
+
+    for (const [label, prose] of surfaces) {
+      expect(
+        prose.length,
+        `${label}: the prose this pin reads came back empty or near-empty, so it asserted over nothing`,
+      ).toBeGreaterThan(MIN_HEADER_PROSE);
+
+      const counts = documentCounts(prose);
+      expect(
+        counts,
+        `${label} states a population count (${counts.join(', ')}). Nothing fails when it drifts, so it ` +
+          'will. Name the population — which directory, which files — or point at the live reading ' +
+          '(`--list`), instead of copying a number into a comment (objectui#7448, objectui#8606).',
+      ).toEqual([]);
+    }
+  });
+
+  it('names the directory the gate actually derives the population from', () => {
+    // The measurement point, asserted as a path rather than as a sentence: the
+    // header has to say WHERE the population comes from, and that "where" is
+    // read out of the gate. A header that stops naming it leaves the reader
+    // with no way to take the reading, which is the state this card found.
+    const dir = derivedPopulationDir();
+    const prose = headerComments(readWorkflow(WORKFLOW));
+    expect(prose, `${WORKFLOW}'s header must name \`${dir}\` — the population's one live source`).toContain(dir);
+
+    // …and the pointer must point at something. A named directory that holds no
+    // workflows is a measurement point in form only.
+    const present = fs.readdirSync(path.join(repoRoot, dir)).filter((f) => /\.ya?ml$/.test(f));
+    expect(present.length, `${dir} holds no workflow files — the pointer above resolves to nothing`).toBeGreaterThan(0);
+    expect(present).toContain(WORKFLOW);
+  });
+
+  /**
+   * The unit control, and the reason this pin is not a per-line scan.
+   *
+   * The fixture is this header's own pre-fix sentence, verbatim, wrapping across
+   * two comment lines exactly as it did. Under the marker-KEEPING extraction the
+   * pattern reads nothing at all — the `#` lands between the numeral and its
+   * noun and the pattern's own negative lookbehind rules the marker out. Under
+   * the stripping extraction it reads the count. Both legs are asserted, so
+   * "clean" can never again mean "unreadable".
+   */
+  it('reads a count that wraps a comment line — the unit is stripped prose, not raw lines', () => {
+    const wrapped = ['# a checkout plus one `node` call over 24', '# workflow files and a dozen scripts'].join('\n');
+
+    expect(
+      documentCounts(headerCommentsKeepingMarkers(wrapped)),
+      'the marker-keeping unit is blind to a wrapped count — that is why it is not the unit here',
+    ).toEqual([]);
+    expect(
+      documentCounts(headerComments(wrapped)),
+      'the stripping unit must see the count this header actually carried',
+    ).toEqual(['24 workflow files']);
+  });
+
+  /**
+   * The positive control for the pin. A pin that cannot fail is not a pin, and
+   * this repository has shipped one with zero demonstrated power before
+   * (objectui#7466), so the shapes that actually rotted are fixtured as
+   * POSITIVES rather than trusted to a reading of the regex. The negatives are
+   * every number a workflow header of this shape legitimately carries.
+   */
+  it('fires on the shapes that rotted, and on none of the numbers this header may keep', () => {
+    const rotted = [
+      'a checkout plus one `node` call over 24 workflow files and a dozen scripts',
+      'the same 35 workflow files the gate derives from',
+      'one `node` call over 36 files, well under a second',
+      '184 pages (144 `.mdx` + 40 `.md`)',
+      'roughly 1,204 markdown files under the two trees',
+    ];
+    for (const line of rotted) {
+      expect(documentCounts(line), `the pin must fire on: ${line}`).not.toEqual([]);
+    }
+
+    const legitimate = [
+      'an unclassified blocking check is one a Dependabot merge would be let past (objectui#6135)',
+      'Merge queue (objectui#3523 — see `ci.yml`s trigger block for the full note)',
+      'stalls the queue until the rulesets 60-minute timeout fails it',
+      'uses: actions/checkout@v7',
+      'node-version: 22',
+      'timeout-minutes: 10',
+      'the fourth instance of the same shape in this repository',
+      'its whole input is `.github/workflows/**` plus the `scripts/` files those steps name',
+    ];
+    for (const line of legitimate) {
+      expect(documentCounts(line), `the pin must NOT fire on: ${line}`).toEqual([]);
+    }
   });
 });

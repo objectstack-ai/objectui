@@ -188,7 +188,12 @@ const TREE_CONTROL = { type: 'tree-view', nodes: [] };
 const CHECKBOX_CONTROL = { type: 'checkbox', label: 'Accept' };
 const UPLOAD_CONTROL = { type: 'file-upload', label: 'Attach' };
 const HOVER_CONTROL = { type: 'hover-card', content: NODE, trigger: NODE };
-const MENU_CONTROL = { type: 'context-menu', items: [], children: NODE };
+// ⚠️ NO `children` here (objectui#9256). This control carried one until the
+// family-D sweep measured `context-menu`: its renderer reads `items` and
+// `trigger`, and NOTHING reads `children` on it — the key was a silent empty
+// box, and is now a declared refusal. Authoring it made every case in this
+// block fail on a key the block is not about.
+const MENU_CONTROL = { type: 'context-menu', items: [] };
 
 const R = 'packages/components/src/renderers/';
 

@@ -170,6 +170,26 @@ const card: MetricCardNode = {
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
 
+#### Percent `format` patterns (`'0%'`, `'0.00%'`)
+
+A numeral pattern ending in `%` is handed whole to `formatPercent`
+(`@object-ui/fields`), the same call the list-view percent cell and this
+package's own record-field renderer already make. Two consequences, both of
+them shared with every other percent surface in the console rather than decided
+by the tile:
+
+- **Magnitude** follows `percentDisplayValue` in `@object-ui/core` — a stored
+  value strictly between `-1` and `1` is a fraction and is scaled (`0.25` reads
+  `25%`); anything at or outside that band is already in percentage points and
+  passes through (`1` reads `1%`, `-5` reads `-5%`, `12.3` reads `12%`).
+- **The percent sign is the locale's**, not a literal `%`: a `de-DE` session
+  gets the no-break space German writes before the sign, and grouping follows
+  the locale (`1234.5` reads `1,235%` in `en`).
+
+The pattern's decimal count still belongs to the tile — `'0.00%'` renders two
+decimals — because that is an author declaration on the widget rather than a
+guess about the value.
+
 ## Examples
 
 ### Basic Dashboard
@@ -271,17 +291,19 @@ it has no row in the spec's expression carriage map, so a `${…}` written in
 read live data is one of the `object-*` types above — they resolve the spec's
 per-element `dataSource` binding and query the object themselves.
 
+**The adapter is not a schema key.** A schema is a serialisable document; a live
+adapter is an object with methods, so it cannot travel in one. An `object-*`
+widget reads its adapter from React context — `useContext(SchemaRendererContext)`
+at `src/ObjectMetricWidget.tsx:159`, with an explicit `dataSource` prop taking
+precedence when the host renders the widget directly.
+
+So the document stays plain data — every value in it survives `JSON.stringify`:
+
 ```typescript
-import { createObjectStackAdapter } from '@object-ui/data-objectstack';
+import type { DashboardComponentSchema } from '@object-ui/types';
 
-const dataSource = createObjectStackAdapter({
-  baseUrl: 'https://api.example.com',
-  token: 'your-auth-token'
-});
-
-const schema = {
+const schema: DashboardComponentSchema = {
   type: 'dashboard',
-  dataSource,
   widgets: [
     {
       type: 'metric-card',
@@ -292,6 +314,38 @@ const schema = {
   ]
 };
 ```
+
+The adapter is installed once, above the whole tree, and every `object-*` widget
+underneath reads it from context:
+
+```tsx
+import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';
+import { createObjectStackAdapter } from '@object-ui/data-objectstack';
+import '@object-ui/plugin-dashboard';
+import type { DashboardComponentSchema } from '@object-ui/types';
+
+// The document from the block above.
+declare const schema: DashboardComponentSchema;
+
+const dataSource = createObjectStackAdapter({
+  baseUrl: 'https://api.example.com',
+  token: 'your-auth-token'
+});
+
+export const App = () => (
+  <SchemaRendererProvider dataSource={dataSource}>
+    <SchemaRenderer schema={schema} />
+  </SchemaRendererProvider>
+);
+```
+
+> A `dataSource` key **does** mean something on a schema node, but it is not this:
+> it is the spec's element **binding** (`PageComponentSchema.dataSource`) — a
+> declarative descriptor such as `{ object: 'orders', view: 'my_view' }`, resolved
+> against the host and mapped onto the widget's own keys by the `object-*`
+> registry shells in `src/index.tsx`. It belongs on the widget that reads it, not
+> on the dashboard node, and a live adapter written into that slot wires nothing
+> up — it is a different kind of thing wearing the same name.
 
 ## Dashboard-level filters
 
@@ -424,7 +478,7 @@ The authored shape is typed by `@object-ui/types`:
 
 | Import from `@object-ui/types` | What it types |
 | --- | --- |
-| `DashboardComponentSchema` | the whole `type: 'dashboard'` node — `columns`, `gap`, `widgets`, `header`, `globalFilters`, `dateRange`, `refreshInterval`, … |
+| `DashboardComponentSchema` | the whole `type: 'dashboard'` node — `columns`, `gap`, `widgets`, `header`, `globalFilters`, `dateRange`, `refreshIntervalSeconds`, … |
 | `DashboardWidgetSchema` | one entry of `widgets[]` — the spec's `DashboardWidget` keys, plus objectui's own (`component`, `layout`, `options`, …) |
 | `DashboardWidgetSlotComponentSchema` | the other kind of `widgets[]` entry — a component node placed directly in the slot, `type` one of the closed component set (`metric-card`); every other key is that component's own prop |
 | `DashboardWidgetLayout` | a widget's `{ x, y, w, h }` grid box |

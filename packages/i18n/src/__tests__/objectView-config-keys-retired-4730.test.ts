@@ -97,8 +97,30 @@ const at = (pack: unknown, path: string): unknown =>
  * since objectui#5232 added `viewConfigPermissionDenied`, the refusal shown when
  * a session without `manage_metadata` tries to change ORG-WIDE view config
  * (objectstack#7494's ruling). An ADDITION to a live namespace is not a
- * regression of the retirement this file pins: none of the 116 retired keys
+ * regression of the retirement this file pins: none of the retired keys
  * came back, which is what the `it` below actually asserts.
+ *
+ * ## The objectui#8754 addition — 116 retired become 118
+ *
+ * `groupBy` and `toolbar` joined the retired list in objectui#8754's deletion
+ * round, and they are here rather than in that card's own pin because THIS file
+ * owns the namespace's arithmetic: a `console.objectView.*` key retired anywhere
+ * else would move the surviving count out from under the assertions below.
+ *
+ * Both were dead all along and were held out of objectui#4730's sweep by a
+ * measurement defect, not by a reader. `check-i18n-dead-keys`' text net matched
+ * on a plain substring, so each was demoted by a LONGER live sibling that merely
+ * contains it — `groupBy` by `groupByField` / `groupByFieldHelp`
+ * (`CreateViewDialog.tsx`), `toolbar` by `toolbarEnabledCount`. PR objectui#8753
+ * put a key-boundary requirement on both sides of the probe, which is what moved
+ * them into CONFIRMED. Note that `toolbarHint` was ALREADY retired here while
+ * `toolbar` was not — a split with no reason behind it, which is the shape a
+ * substring false-positive leaves.
+ *
+ * ⚠️ The total below stays 210 and that is deliberate: 210 is the count of keys
+ * that ever EXISTED in this namespace, split into a retired half that only
+ * grows and a surviving half that shrinks to match. A retirement moves the
+ * split; only a genuinely new key moves the total.
  */
 const RETIRED_OBJECT_VIEW_KEYS = [
   'accessibility',
@@ -162,6 +184,7 @@ const RETIRED_OBJECT_VIEW_KEYS = [
   'general',
   'generalHint',
   'gridOptionsHint',
+  'groupBy',
   'hiddenFields',
   'hideAllFields',
   'inlineEdit',
@@ -204,6 +227,7 @@ const RETIRED_OBJECT_VIEW_KEYS = [
   'sortBy',
   'sortsCount',
   'source',
+  'toolbar',
   'toolbarHint',
   'typeOptions',
   'ufAddTab',
@@ -220,20 +244,21 @@ const RETIRED_OBJECT_VIEW_KEYS = [
 ] as const;
 
 /** How many keys the namespace keeps — the live + indirect-reference remainder. */
-const SURVIVING_KEY_COUNT = 94;
+const SURVIVING_KEY_COUNT = 92;
 
 describe('console.objectView config-panel keys are retired (objectui#4730)', () => {
   it('the retired list is the measured set', () => {
     // Guards the premise the rest of the file rests on. If this arithmetic ever
     // stops holding, the assertions below are checking a set nobody chose.
-    expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(116);
-    expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(116);
+    expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(118);
+    expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(118);
     // 209 at objectui#4730's landing; 210 since objectui#5232 added
-    // `viewConfigPermissionDenied`. The RETIRED half is the ratchet that must
-    // never move — it is pinned twice above — while the surviving half is a
-    // live namespace that legitimately grows. Splitting them is the point:
-    // folding a new key into the total would be indistinguishable from a
-    // retired key coming back.
+    // `viewConfigPermissionDenied`. The RETIRED half is a ratchet that never
+    // runs BACKWARDS — it is pinned twice above, and objectui#8754 advanced it
+    // 116 -> 118 — while the surviving half is a live namespace that grows on a
+    // new key and shrinks by exactly what the retired half gains. Splitting
+    // them is the point: folding a new key into the total would be
+    // indistinguishable from a retired key coming back.
     expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(210);
     expect(LANGS).toHaveLength(10);
   });

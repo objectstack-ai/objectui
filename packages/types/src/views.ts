@@ -18,7 +18,6 @@
 
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { ActionSchema } from './crud.js';
-import type { TableColumn } from './data-display.js';
 import type { SelectOptionMetadata } from './field-types.js';
 import type { ListView as SpecListView } from '@objectstack/spec/ui';
 
@@ -51,6 +50,101 @@ import type { ListView as SpecListView } from '@objectstack/spec/ui';
  * on here rather than pushed upstream.
  */
 export type ViewType = NonNullable<SpecListView['type']> | 'list' | 'detail';
+
+/**
+ * Per-view `tree` configuration — the HOST-composition contract
+ * (objectui#8253), DERIVED from `@objectstack/spec` rather than re-declared
+ * (objectui#8841).
+ *
+ * This is the block a host writes as `tree` on a `views` entry
+ * (`ObjectViewProps.views[n].tree`, or `options.tree` on a stored view record).
+ * ⛔ Do not re-derive a private copy of it: the module-local `TreeConfig` in
+ * `plugin-tree/src/ObjectTree.tsx` that used to be the only description of these
+ * keys is now an import of this type, and objectui#7646 is the shape a second
+ * copy takes.
+ *
+ * ## Why this is an ALIAS and not an interface (objectui#8841)
+ *
+ * The spec owns this block. `@objectstack/spec` declares it as `TreeConfig` and
+ * hangs it on `ListView.tree`, and this package already publishes that same
+ * block derived — `zod/objectql.zod.ts` extends `SpecListViewSchema.shape` by
+ * reference and `tree` is not in `LIST_VIEW_LOCAL_OVERRIDES`. objectui#8253
+ * shipped this name as a hand-written INTERFACE instead: a faithful copy of a
+ * spec object under a second name. That is objectui#4592's blind spot stated
+ * exactly — `scripts/check-spec-symbol-derivation.mjs` matches BY NAME, so a
+ * hand copy RENAMED away from the spec's symbol has nothing for rule 1 to
+ * match, and it passes every run while it drifts.
+ *
+ * It had already drifted when it landed. The copy declared a fifth key,
+ * `titleField`, which `@objectstack/spec@17.4.0` REFUSES on `ListView.tree` by
+ * name — `TreeConfigSchema` is a `strictObject` since spec #15469 closed the
+ * `.passthrough()` window 17.3.0 left open. So this package's published face
+ * accepted what the protocol rejects, and an author who followed this type was
+ * refused at publish. 协议为基准: this type now IS the spec's, so the next key
+ * the protocol adds, renames or retypes arrives here without an edit, and a key
+ * the protocol never declared cannot be added here at all.
+ *
+ * ⛔ Not a `Pick` of the spec's keys. A `Pick` restates the key list, and a
+ * restated key list is exactly what let `titleField` through. The `Pick`
+ * interim objectui#8841 offered was conditional on the 17.4.0 bump not having
+ * happened yet — it landed on `main` before this change (`chore(deps): take the
+ * 17.4.0 @objectstack/* line`), so the pinned spec is already strict and the
+ * plain alias is available.
+ *
+ * ## `titleField` is NOT declared here; the reads that survive are tolerance
+ *
+ * objectui#8253's own ruling put the key to a measurement — declare it if the
+ * console WRITES it, else delete the read — and the measured answer is no: the
+ * console's create-view dialog collects `parentField` alone in its `tree` slot
+ * (`app-shell/src/views/CreateViewDialog.tsx`), while `titleField` is what its
+ * calendar / timeline / gantt slots collect. The `schema.titleField` rung in
+ * `getTreeConfig` goes with this change; the three `labelField || titleField`
+ * dual-reads (`plugin-view`, `plugin-list`, `app-shell`) stay as ⛔ UNDECLARED
+ * tolerant fallbacks, reading through `any` and declared by nothing on either
+ * side. They are recorded for a follow-up, ⛔ not re-declared: fossilising a
+ * renderer-side alias into a second contract is what AGENTS.md #0.1 bans, and
+ * it is what this change undoes.
+ *
+ * ## Why it is a contract at all (objectui#8253, ruling batch #78, 2026-09-07)
+ *
+ * Maintainer 「同意」 on option (a): a configuration a real host STORES and
+ * RE-WRITES is a contract and has a type. The live host is the console — it
+ * passes stored view records to `ObjectView` as `views`, and its create-view
+ * dialog offers `tree`. Until this declaration existed a console user's
+ * misspelled `parentFeild` was admitted by the `[key: string]: any` on the
+ * views entry, read by nobody, and reported by nothing: declared ≠ enforced on
+ * a surface a non-author re-writes.
+ *
+ * ## Why the name is aliased here, and what it is NOT
+ *
+ * `tree` is a HOST-COMPOSITION-ONLY view type, ruled deliberate on objectui#5321
+ * (maintainer ruling B, 2026-08-20): it is a member of neither
+ * `ObjectViewSchema.defaultViewType` nor `NamedListView.type`, so no AUTHORED
+ * document selects a tree view and the branch runs only when a host passes a
+ * `views` prop. ⛔ That ruling is untouched — aliasing the host path does not
+ * put `tree` on an authored union, and this type is NOT the `object-tree` NODE
+ * schema. The node an author writes is `ObjectTreeSchema` (`./objectql.ts`),
+ * whose keys sit FLAT on the node; this block sits nested under a view entry
+ * and is written by a host, never by a document author.
+ *
+ * ## The reader census this alias is exactly total over
+ *
+ * Every key is read, and every read of this BLOCK is of a key the spec declares:
+ *
+ *   - `plugin-tree/src/ObjectTree.tsx`      `getTreeConfig` — the resolver
+ *   - `plugin-view/src/ObjectView.tsx`      the `'tree'` branch of `generateViewSchema`
+ *   - `plugin-list/src/ListView.tsx`        the `'tree'` branch
+ *   - `app-shell/src/views/ObjectView.tsx`  `options.tree`, the console's own composition
+ *
+ * ⚠️ `fields` is `string[]`, matching `ObjectTreeSchema.fields`, even though
+ * `ObjectTree`'s `fieldKey` also normalises a column OBJECT
+ * (`{ name | fieldName | field | key }`). That tolerance exists because hosts
+ * like `ListView` forward their own already-resolved column entries into the
+ * same slot; it is a reader's resilience, ⛔ not an invitation to write column
+ * objects here — and it is now the SPEC that refuses the wider form, not a
+ * local choice.
+ */
+export type TreeViewConfig = NonNullable<SpecListView['tree']>;
 
 /**
  * Detail View Field Configuration
@@ -678,44 +772,43 @@ export interface DetailViewSchema extends BaseSchema {
    */
   onNavigate?: (url: string, options?: { replace?: boolean; newTab?: boolean }) => void;
   /**
-   * Related records section
+   * RETIRED (objectui#7997, ADR-0049 enforce-or-remove; maintainer ruling
+   * 2026-09-10, quoted verbatim and untranslated because a paraphrase is a
+   * different ruling: 「关掉详情页那个入口（推荐）」 — "close that entry point on
+   * the detail page (recommended)").
+   *
+   * This was objectui's own second entry to a capability the protocol already
+   * governs. `@objectstack/spec` declares NO `DetailView` schema at all — every
+   * `DetailView` occurrence in `packages/spec/src` is prose about this repo's
+   * own `RecordDetailView.tsx` — so this array mirrored nothing and drifted
+   * freely: it declared `columns` as `TableColumn[]` while the renderer it fed
+   * also accepted bare field names, `{ field, label }` and the legacy
+   * `{ name, label }` spellings.
+   *
+   * ⛔ Do NOT read the retirement as "related lists are gone". The capability
+   * moves to its one DECLARED, protocol-governed entry — `record:related_list`
+   * (`RecordRelatedListComponentProps`, mirroring `@objectstack/spec`
+   * `RecordRelatedListProps`), whose `columns` is an array of FIELD-NAME
+   * strings. Both entries always rendered through the same `RelatedList`
+   * component, so nothing about the rendered result is lost — only the second
+   * door.
+   *
+   * What was measured, and what carried the ruling: ZERO pull. No application
+   * code authored this member; both internal producers of a `detail-view` node
+   * (`RecordDetailDrawer`, `renderers/record-details.tsx`) pass no `related`;
+   * the only in-tree authorings carrying real columns were two documents, both
+   * rewritten by the same change.
+   *
+   * `?: never` is the twin of `zod/views.zod.ts`'s `retirementTombstone` arm,
+   * and the pair is deliberate: a BARE DELETE would not refuse this key, it
+   * would KEEP it. `BaseSchema` closes with an any-valued index signature and
+   * `BaseSchemaCore` ends `.passthrough()`, so an undeclared member is passed
+   * through silently — the mechanism objectui#7963 measured. Declared-and-
+   * unwritable is what makes the refusal loud.
+   *
+   * @deprecated Not part of this contract. Author a `record:related_list` block.
    */
-  related?: Array<{
-    /**
-     * Relation title
-     */
-    title: string;
-    /**
-     * Relation type
-     */
-    type: 'list' | 'grid' | 'table';
-    /**
-     * API endpoint for related data
-     */
-    api?: string;
-    /**
-     * Static data
-     */
-    data?: any[];
-    /**
-     * Columns for table view
-     */
-    columns?: TableColumn[];
-    /**
-     * Fields for list view
-     */
-    fields?: string[];
-    /**
-     * Optional foreign-key field on the child records that points back to the
-     * parent record. When provided, the renderer hides this column from the
-     * default related-list table because the parent is implicit context.
-     */
-    referenceField?: string;
-    /**
-     * Optional Lucide-style icon name to render next to the section title.
-     */
-    icon?: string;
-  }>;
+  related?: never;
   /**
    * Optional audit history feed for this record. When provided, a "History" tab
    * is rendered alongside Details/Related. The renderer treats the data as
@@ -867,6 +960,56 @@ export interface ViewSwitcherSchema extends BaseSchema {
     type: 'share' | 'settings' | 'duplicate' | 'delete';
     icon?: string;
   }>;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `view-switcher` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `activeView`, `allowCreateView`, `defaultView`, `id`, `onViewChange`,
+   * `persistPreference`, `position`, `storageKey`, `variant`, `viewActions`,
+   * `views` (in `packages/plugin-view/src/ViewSwitcher.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `view-switcher` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `view-switcher` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `activeView`, `allowCreateView`, `defaultView`, `id`, `onViewChange`,
+   * `persistPreference`, `position`, `storageKey`, `variant`, `viewActions`,
+   * `views` (in `packages/plugin-view/src/ViewSwitcher.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `view-switcher` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -927,6 +1070,54 @@ export interface FilterUISchema extends BaseSchema {
    * Filter layout
    */
   layout?: 'inline' | 'popover' | 'drawer';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `filter-ui` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values` (in
+   * `packages/plugin-view/src/FilterUI.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `filter-ui` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `filter-ui` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values` (in
+   * `packages/plugin-view/src/FilterUI.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `filter-ui` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -976,6 +1167,52 @@ export interface SortUISchema extends BaseSchema {
    * UI variant
    */
   variant?: 'dropdown' | 'buttons';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `sort-ui` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `fields`, `multiple`, `onChange`, `sort`, `variant` (in
+   * `packages/plugin-view/src/SortUI.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `sort-ui` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `sort-ui` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, across all 24
+   * packages that register components plus the generic traversers — a docblock
+   * mention is not a read, and `body: schema.requestBody` in
+   * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
+   * scores. Every read is filed under the TYPE of the object it is read from;
+   * this declaration carries none. What the renderer DOES read off this node:
+   * `fields`, `multiple`, `onChange`, `sort`, `variant` (in
+   * `packages/plugin-view/src/SortUI.tsx`).
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `sort-ui` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

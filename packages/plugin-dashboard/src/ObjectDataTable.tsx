@@ -887,11 +887,48 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
       return { ...col, name: fieldMeta.name, type: columnType, align: inferredAlign, cell };
     };
 
+    // The DECLARED half's header, and the FALLBACK it hands `fieldLabel`
+    // (objectui#9000). Both halves of this memo call the same lookup; only the
+    // fallback used to differ, and that difference was the whole defect: the
+    // auto-derived half fell back to `humanizeFieldKey(k)`, this half fell back
+    // to whatever `header` the caller put on the column. Both drill callers
+    // build `{ accessorKey: c, header: c }` out of a `drillDown.columns` string
+    // list, so `col.header` IS the raw field key — and with no bundle entry to
+    // resolve (the ordinary case in a drill) an authored whitelist rendered
+    // `close_date` where the same table without one rendered `Close Date`.
+    // Narrowing the table also stopped finishing it, which is backwards: the
+    // MORE deliberate configuration produced the LESS finished result.
+    //
+    // ⭐ The fallback is CONDITIONAL, and that is not caution — it is the whole
+    // correctness of the fix. This branch is not reached only by the two drill
+    // callers: `normalizeColumns` resolves the spec-canonical `{ field, label }`
+    // and the adapter-canonical `{ accessorKey, header }` into this same
+    // `col.header` (objectui#5351), and `DashboardRenderer` forwards an authored
+    // widget's `columns` here verbatim. So a genuine author-written label
+    // arrives on exactly the key an unconditional `humanizeFieldKey` would
+    // overwrite — trading this defect for a strictly worse one (a silently
+    // discarded label instead of an unpolished one). The fallback therefore
+    // fires only where the caller supplied NO display text, or supplied the raw
+    // field key itself, which is the drill callers' shape and carries no
+    // authorial intent to preserve. Pinned both ways in
+    // `ObjectDataTable.whitelistHeaderParity-9000.test.tsx`: PARITY for the
+    // derived case, AUTHORED LABEL for the case the condition protects.
     if (schema.columns && schema.columns.length > 0) {
       const normalized = normalizeColumns(schema.columns);
-      const withHeaders = !objectName
-        ? normalized
-        : normalized.map((col) => ({ ...col, header: fieldLabel(objectName, col.accessorKey, col.header) }));
+      const withHeaders = normalized.map((col) => {
+        // Nothing to key a lookup or a humanization on. `normalizeColumns`
+        // returns such an entry untouched and so does this.
+        if (!col?.accessorKey) return col;
+        const authoredHeader = col.header && col.header !== col.accessorKey ? col.header : undefined;
+        const fallback = authoredHeader ?? humanizeFieldKey(col.accessorKey);
+        // The i18n wrapper is unchanged: a bundle entry still wins, and this is
+        // only its fallback — the same shape `buildHeader` above already has,
+        // including its `objectName` guard.
+        const header = objectName ? fieldLabel(objectName, col.accessorKey, fallback) : fallback;
+        // Unchanged entries stay BY REFERENCE, the property objectui#4618 made
+        // load bearing for data-table's column-state re-seed.
+        return header === col.header ? col : { ...col, header };
+      });
       return withHeaders.map(enrich);
     }
     if (finalData.length === 0) return [];

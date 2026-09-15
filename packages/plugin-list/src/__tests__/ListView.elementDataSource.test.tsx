@@ -268,7 +268,14 @@ describe('list-view — an unresolvable dataSource.view fails loudly', () => {
     expect(adapter.find).not.toHaveBeenCalled();
   });
 
-  it('reports it on an object with no saved views at all', async () => {
+  /**
+   * objectui#8900 — an empty view list is not evidence that the object has no
+   * views. The panel used to say "This object has no saved views."; here the
+   * read genuinely succeeded and found none, and even THAT world may not carry
+   * the old sentence, because the renderer cannot know which world it is in
+   * (see the pair below).
+   */
+  it('reports it without claiming the object has none, when no views came back', async () => {
     const adapter = makeAdapter({});
     const { container } = renderPageComponent(
       { type: 'list-view', dataSource: { object: 'account', view: 'hot' } },
@@ -280,8 +287,77 @@ describe('list-view — an unresolvable dataSource.view fails loudly', () => {
       expect(el).not.toBeNull();
       return el as HTMLElement;
     });
-    expect(panel.textContent).toContain('no saved views');
+    // SUBJECT: red before the objectui#8900 fix, green after.
+    expect(panel.textContent).not.toContain('has no saved views');
+    expect(panel.textContent).toContain('could not be read');
+    // CONTROL, green in both worlds: guards the wrong fix of softening the
+    // message by softening the FAILURE — a mistyped view name must still refuse
+    // to widen into "every record in the object".
     expect(adapter.find).not.toHaveBeenCalled();
+  });
+
+  /**
+   * objectui#8900, the measurement the copy change rests on.
+   *
+   * The two worlds the empty branch is reached from, rendered through the real
+   * hook and the real gate:
+   *
+   *  - `readFoundNone` — every metadata read succeeded and the object has no views;
+   *  - `readFailed`     — the metadata reads FAILED. The object-def leg rejects,
+   *    and the overlay leg reproduces the shipped `ObjectStackAdapter.listViews`
+   *    contract, which degrades every failure to `[]` on the RESOLVED path
+   *    (deliberate; objectui#8151 keeps it) rather than rejecting.
+   *
+   * `useElementDataSource` sees a successful empty answer in both, so the panel
+   * is BYTE-IDENTICAL in both — which is the whole reason its sentence may not
+   * pick one of them. objectstack#13906 decision 1 option A.
+   */
+  describe('an empty view list arrives from two indistinguishable worlds (objectui#8900)', () => {
+    /** Reads succeed; the object genuinely has no saved views. */
+    const readFoundNone = () => ({
+      find: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+      getObjectSchema: vi.fn().mockResolvedValue({ name: 'account', fields: [], listViews: {} }),
+      listViews: vi.fn().mockResolvedValue([]),
+    });
+
+    /** Both reads fail — the overlay one exactly as the shipped adapter fails. */
+    const readFailed = () => ({
+      find: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+      getObjectSchema: vi.fn().mockRejectedValue(new Error('metadata store unavailable')),
+      // ⛔ NOT `mockRejectedValue`: `ObjectStackAdapter.listViews` catches and
+      // returns `[]`. Rejecting here would test a shape the contract never
+      // produces, and would pass for the wrong reason.
+      listViews: vi.fn().mockResolvedValue([]),
+    });
+
+    const renderPanel = async (adapter: unknown) => {
+      const { container } = renderPageComponent(
+        { type: 'list-view', dataSource: { object: 'account', view: 'hot' } },
+        adapter as ReturnType<typeof makeAdapter>,
+      );
+      const panel = await waitFor(() => {
+        const el = container.querySelector('[data-testid="list-view-datasource-error"]');
+        expect(el).not.toBeNull();
+        return el as HTMLElement;
+      });
+      return panel.textContent ?? '';
+    };
+
+    it('renders the same words in both, so the words may not name one world', async () => {
+      const found = await renderPanel(readFoundNone());
+      const failed = await renderPanel(readFailed());
+
+      // CONTROL, green before and after the fix — the two worlds always rendered
+      // identically; that is the defect, not the repair. It guards the wrong fix
+      // of GUESSING which world this is (inferring "the read failed" from an
+      // empty array, which is what both worlds produce).
+      expect(failed).toBe(found);
+
+      // SUBJECT: red before the fix, green after. One sentence, true in both.
+      expect(found).not.toContain('has no saved views');
+      expect(found).toContain('No saved views are known for this object');
+      expect(found).toContain('could not be read');
+    });
   });
 
   it('distinguishes "cannot answer" from "the view does not exist"', async () => {

@@ -20,14 +20,14 @@
  *
  * ⚠️ That route is NOT free, and this set is the measurement that says so. A
  * Badge is a `whitespace-nowrap rounded-full` pill — a much smaller surface
- * than a cell — and 15 of the 53 registered types draw something a pill cannot
+ * than a cell — and 18 of the 53 registered types draw something a pill cannot
  * host. Measured, not assumed: every registered type was rendered through
  * `getCellRenderer` INSIDE the real chip Badge against the object value
  * `{ id: 'acct-1', name: 'Acme Corp' }`, and the DOM inside the pill counted.
  * The instrument is `__tests__/summaryChip.badgeFitCensus-8464.test.tsx`,
  * which re-derives the whole table and fails if this set stops matching it.
  *
- * ## The four measured refusals
+ * ## The five measured refusals
  *
  * | class                         | types                                                  | what the pill got                                     |
  * |-------------------------------|--------------------------------------------------------|-------------------------------------------------------|
@@ -35,8 +35,9 @@
  * | an avatar composite           | `user`                                                  | TWO `rounded-full` nodes (Radix `Avatar.Root` + `AvatarFallback`) and the initials glued onto the name: `ACAcme Corp` |
  * | an image and no text          | `image` `avatar` `signature`                            | an `<img>` and `textContent === ''` — a pill with nothing to say, and nothing for the accessible name |
  * | a "No value" face             | `boolean` `toggle` `datetime` `repeater` (`EmptyValue`), `date` (`formatDate`'s own em-dash, objectui#8581) | the chip is drawn only AFTER `hasCellValue` called the value FILLED; a renderer answering "empty" one band later re-opens exactly the cross-band contradiction objectui#8394 closed |
+ * | an interactive control        | `file` `video` `audio` (objectui#9161)                  | an `<a href>` view/download link per file — a control, and the page-title row hosts text |
  *
- * The other 38 types draw plain inline text inside the pill — `Acme Corp` for
+ * The other 35 types draw plain inline text inside the pill — `Acme Corp` for
  * the nameable families, the JSON literal for `location` / `geolocation` /
  * `address` / `json` / `object` / `composite` / `record` behind objectui#8481's
  * declared json-literal fence, and the value-independent faces (`password`,
@@ -48,7 +49,7 @@
  * answer to "what text does a cell draw for a value that is not a string".
  * objectui#8596 ruled `select` / `status` / `multiselect` / `radio` /
  * `checkboxes` / `tags` / `user` onto exactly that text for an object value, so
- * for 7 of these 15 the chip is BYTE-EQUAL to its own cell. ⛔ Nothing here
+ * for 7 of these 18 the chip is BYTE-EQUAL to its own cell. ⛔ Nothing here
  * invents a renderer-side format (AGENTS.md #0.1): every kind lands either on
  * its own renderer or on the one coercion this repo already had.
  */
@@ -72,6 +73,18 @@ export const CHIP_UNFIT_RENDERER_TYPES: ReadonlySet<string> = new Set<string>([
   'date',
   'datetime',
   'repeater',
+  // an interactive control a pill may not host (objectui#9161). The media
+  // family's cell renderer gained a per-file view/download anchor — the card's
+  // whole subject: a read-only `file` field named its attachments and gave no
+  // way to open one. The chip's own rule is unchanged and is what moves them
+  // here: "the pill hosts text, not a control". ⛔ The alternative — teaching
+  // the cell renderer which SURFACE it is drawing into — was refused on #9161:
+  // it widens published surface for a distinction neither card asks for.
+  // These three keep their chip TEXT byte for byte: `coerceToSafeValue` reads
+  // the same `name` the cell renderer does, which the census records.
+  'file',
+  'video',
+  'audio',
 ]);
 
 /**

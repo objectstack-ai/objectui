@@ -17,7 +17,12 @@
  */
 
 import { stripReadDecorations } from '@objectstack/spec/kernel';
-import { viewItemObjectName, type ObjectStackAdapter } from '@object-ui/data-objectstack';
+import {
+  assertObjectMetadataWritable,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+  viewItemObjectName,
+  type ObjectStackAdapter,
+} from '@object-ui/data-objectstack';
 import type { ObjectDefinition, DesignerFieldDefinition } from '@object-ui/types';
 // The retired-field-key tombstone registry lives at a dedicated internal
 // subpath, not the main barrel — objectui#6527 option B (maintainer ruling,
@@ -187,24 +192,21 @@ function toObjectPayload(obj: ObjectDefinition, fields?: FieldMetadataPayload[])
   };
 }
 
-/**
- * Field types whose `reference` — the target object a relationship links to —
- * `@objectstack/spec` requires to be present and non-empty.
+/*
+ * `RELATIONSHIP_TYPES_REQUIRING_REFERENCE` — the field types whose `reference`
+ * `@objectstack/spec` requires to be present and non-empty — is imported above
+ * and no longer declared here.
  *
- * Re-measured for objectui#7714 against the 17.3.0 artifact by parsing
- * `{ type, label: 'L' }` for every one of `FieldType`'s 49 declared members:
- * exactly two are refused at path `reference`, both with code `custom`, and
- * the other 47 are not refused at all on that minimal document.
- *
- * ⛔ Deliberately NOT "parse every field through `FieldSchema` before the PUT".
- * That would refuse plugin-registered keys the SERVER accepts — measured on the
- * installed 17.2.0, `x_plugin_thing` is `unrecognized_keys` to the schema while
- * the server that sent it takes it back — which is the same reason
- * {@link RETIRED_FIELD_KEYS} is a named list rather than a schema filter. This
- * guard states one invariant; it is not a client-side revalidation of the
- * document.
+ * objectui#8676: it used to be declared here AND word-for-word again in
+ * `plugin-designer`'s `MetadataFieldsPage`. Two remembered copies of one
+ * contract fact is the same hazard as a remembered list of writers, so both
+ * writers now read the single declaration in `@object-ui/data-objectstack`,
+ * beside the write doors, where a pin DERIVES the set from the installed spec
+ * on every run instead of restating a measurement. The reasoning that used to
+ * sit here — including ⛔ why this is one invariant and not a client-side
+ * revalidation of the document through `FieldSchema` — moved with it, to
+ * `object-metadata-write-guard.ts`.
  */
-const RELATIONSHIP_TYPES_REQUIRING_REFERENCE = ['lookup', 'master_detail'];
 
 /**
  * Why THIS value cannot be a target, and what the contract does about it —
@@ -252,10 +254,10 @@ function describeUnusableTarget(reference: unknown): string {
   }
   return (
     'and this one is blank — whitespace names no object, so nothing could ever resolve it. ' +
-    '`@objectstack/spec` 17.3.0 ACCEPTS this value (measured, at field level and through ' +
-    '`ObjectSchema`), so the PUT would succeed and the failure would surface later and further ' +
-    'away — the record picker with no object to query, `$expand` with nothing to resolve. This ' +
-    'writer refuses it deliberately and says so (objectui#7714; upstream objectstack#16126).'
+    '`@objectstack/spec` applies its non-empty test to the TRIMMED value (since 17.4.0), so the ' +
+    'server refuses the whole object document with 422 `INVALID_METADATA` — which then blocks ' +
+    'EVERY later save of this object, not just this field. This writer refuses it first, at ' +
+    'editor time, naming the field (objectui#7714; upstream objectstack#16920).'
   );
 }
 
@@ -304,6 +306,15 @@ function describeUnusableTarget(reference: unknown): string {
  * input types on different paths and neither owns the other's. Both are pinned,
  * and each pin asserts the same four states so the copies cannot drift.
  *
+ * ⭐ The two pins are named here so the sentence above can be re-run rather
+ * than believed: `objectui#7714 · the refusal message distinguishes the four
+ * states`, in `MetadataService.specKeyReference.test.ts` (this writer) and in
+ * `MetadataFieldsPage.specKeyReference.test.tsx` (the sibling). The naming is
+ * the repair objectui#8925 made: the designer-side pin did not exist, so that
+ * sentence was false on three of its four rows — its `absent`, `non-string`
+ * and `empty` branches could all be rewritten with the whole `plugin-designer`
+ * package still green — while three separate places went on restating it.
+ *
  * ## The `.trim()` MIRRORS the contract — it is no longer a local opinion
  *
  * The predicate is `typeof reference === 'string' && reference.trim() !== ''`.
@@ -323,22 +334,25 @@ function describeUnusableTarget(reference: unknown): string {
  * already got. The notion of blank is `.trim()` at both ends, so this guard and
  * the contract refuse the identical set: nothing here is stricter any more.
  *
- * ⚠️ That is the spec FROM THE RELEASE CARRYING objectstack#16920, not the
- * INSTALLED spec. This repo's pin is `@objectstack/spec` 17.3.0
- * (`pnpm-lock.yaml`), which predates the fix; the fix is an unreleased `minor`
- * upstream at the time of writing. Measured on the installed 17.3.0 artifact,
- * whose shipped test still reads `field.reference === ''`:
+ * ⭐ That fix SHIPPED IN 17.4.0, and the pin has reached it (objectui#8772):
  *
  *   FieldSchema.safeParse({ type: 'lookup', label: 'L', reference: '   ' })
- *     => success = true
+ *     => success = false, `custom` at path ["reference"]
  *   ObjectSchema.safeParse({ …, fields: { rel: { …, reference: '   ' } } })
- *     => success = true
+ *     => success = false, `custom` at path ["fields","rel","reference"]
  *
- * (controls at that same pin: absent and `''` are refused as `custom` at
- * `reference`; `'account'` is accepted — so the schema is consulted and this is
- * a real reading.) Until the pin reaches the fix, this guard is still the only
- * thing refusing `'   '` in this repo. ⛔ Bumping the pin is not this note's
- * business, and this note is not an argument for bumping it.
+ * (controls in the same run: `'account'` and `' account '` are both accepted,
+ * so the schema is consulted and this is a real reading — and the trim is for
+ * the TEST only, so a target with surrounding whitespace is still stored as
+ * written.)
+ *
+ * ⛔ Those two lines say WHEN the contract changed, not what is installed
+ * today. The claim that rotted here said the opposite — "this repo's pin IS
+ * 17.3.0", a present-tense reading of an artifact — and it went false the
+ * moment the pin moved, while still being shown to authors (objectui#8897).
+ * What is installed is MEASURED, never asserted in prose: the reading lives in
+ * `MetadataService.specKeyReference.test.ts`, which re-parses the schema on
+ * every run and is the only thing here entitled to an opinion about the pin.
  *
  * ⭐ Kept — and now kept for its OWN reason rather than the divergence's. It
  * refuses at EDITOR time, before the PUT, naming the field while it is still on
@@ -351,10 +365,14 @@ function describeUnusableTarget(reference: unknown): string {
  * failure past the guard, past the PUT and into a STORED document, where it
  * surfaces with no field named and no save to attach the message to.
  *
- * ⚠️ The refusal MESSAGE below still says the spec ACCEPTS this value and still
- * names objectstack#16126. That is deliberate, not an oversight: the message is
- * version-qualified to 17.3.0, which IS the installed pin, and the pins assert
- * it verbatim. It retires with the pin bump, not with this note.
+ * ⭐ The refusal MESSAGE below has RETIRED its divergence wording, which is what
+ * the note it replaces said would happen — "it retires with the pin bump, not
+ * with this note". objectui#8897 is that retirement. It no longer tells the
+ * author that the spec ACCEPTS a blank target and that the PUT would succeed;
+ * against the installed artifact both halves were false, and that sentence was
+ * the one USER-VISIBLE carrier of this rot. It now names the trim, which is
+ * what still distinguishes a blank target from an empty one in the four-state
+ * split, and the verbatim pin moved with it.
  */
 function assertRelationshipTargetPresent(
   field: { type?: string; reference?: unknown },
@@ -612,6 +630,35 @@ export class MetadataService {
   }
 
   /**
+   * The ONE place this class puts metadata on the wire (objectui#8676).
+   *
+   * `@objectstack/client`'s `meta.saveItem` is the third of the three in-repo
+   * transports that can PUT `/meta/:type/:name`, and the only one that lives in
+   * a package this repo does not own — so the invariant cannot be pushed down
+   * into it the way it is pushed into `MetadataClient.save`. This method is the
+   * compensating seam: the SDK door is reached through it and through nothing
+   * else in this class, so the guard runs once rather than three times, and
+   * `scripts/check-object-metadata-write-doors.mjs` has one site to judge.
+   *
+   * ⚠ The guard here is a BACKSTOP, not the primary refusal for the two
+   * object-shaped callers. `saveObject` and `saveFields` both build their
+   * `fields` through {@link toFieldsMap}, which refuses the same half-filled
+   * relationship EARLIER and with the designer-facing four-state wording those
+   * writers' pins assert. Nothing here replaces that; this covers the callers
+   * that do NOT pass through a conversion — `saveMetadataItem`, whose `category`
+   * is a runtime value and can be `'object'`, and whoever calls it next.
+   */
+  private async putMetadataItem(
+    category: string,
+    name: string,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    assertObjectMetadataWritable(category, data, 'MetadataService');
+    const client = this.adapter.getClient();
+    await client.meta.saveItem(category, name, data);
+  }
+
+  /**
    * Persist a metadata item (upsert) for any category.
    *
    * `${category}:${name}` is the key the adapter's generic metadata read
@@ -633,8 +680,7 @@ export class MetadataService {
    * private copy of "which object is this?".
    */
   async saveMetadataItem(category: string, name: string, data: Record<string, unknown>): Promise<void> {
-    const client = this.adapter.getClient();
-    await client.meta.saveItem(category, name, data);
+    await this.putMetadataItem(category, name, data);
     this.adapter.invalidateCache(`${category}:${name}`);
     if (category === 'view') {
       const objectName = viewItemObjectName(data);
@@ -734,9 +780,8 @@ export class MetadataService {
    *     its own terms (ADR-0049 shape).
    */
   async saveObject(obj: ObjectDefinition, existingFields: FieldMetadataPayload[]): Promise<void> {
-    const client = this.adapter.getClient();
     const payload = toObjectPayload(obj, existingFields);
-    await client.meta.saveItem('object', obj.name, payload);
+    await this.putMetadataItem('object', obj.name, payload as unknown as Record<string, unknown>);
     this.adapter.invalidateCache(`object:${obj.name}`);
   }
 
@@ -873,7 +918,7 @@ export class MetadataService {
       fields: toFieldsMap(fields.map((field) => toFieldPayload(field, previousFieldEntry(previousFields, field.name)))),
     }) as Record<string, unknown>;
 
-    await client.meta.saveItem('object', objectName, updatedObject);
+    await this.putMetadataItem('object', objectName, updatedObject);
     this.adapter.invalidateCache(`object:${objectName}`);
   }
 

@@ -28,7 +28,7 @@
  */
 
 import * as React from 'react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 // Same pre-warm as the sibling `DatasetPreview.test.tsx`, for the same reason:
 // the preview renders its chart behind `React.lazy(() => import(...))`, and
@@ -46,9 +46,31 @@ vi.mock('../../../providers/AdapterProvider', () => ({
   useAdapter: () => ({ queryDataset }),
 }));
 
+/**
+ * objectui#8187 — the preview now resolves its dimensions' option labels
+ * through the shared label net, which issues `GET /api/v1/meta/object/<name>`.
+ * happy-dom resolves that relative URL against `localhost:3000`, so without a
+ * double every test here reaches a real socket and the network-escape guard
+ * (objectui#6640) fails the file.
+ *
+ * The double serves the base object with NO select options, which is what these
+ * cases have always assumed: nothing resolves, `relabelDimensions` returns the
+ * server's rows by identity, and every assertion below is byte-identical to
+ * what it pinned before that card. Label resolution itself is pinned in
+ * `__tests__/DatasetPreview.dimensionLabels-8187.test.tsx`, not here.
+ */
+const realFetch = global.fetch;
+beforeEach(() => {
+  global.fetch = vi.fn(async () => ({
+    ok: true,
+    json: async () => ({ item: { name: 'opportunity', fields: {} } }),
+  })) as any;
+});
+
 afterEach(() => {
   cleanup();
   queryDataset.mockReset();
+  global.fetch = realFetch;
 });
 
 /**

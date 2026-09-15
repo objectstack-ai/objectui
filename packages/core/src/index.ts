@@ -23,6 +23,13 @@ export * from './utils/dom-props.js';
 export * from './utils/filter-converter.js';
 export * from './utils/managedBy.js';
 export * from './utils/extract-records.js';
+// The emptiness FLOOR (objectui#8496, director seat, decision batch #86): the
+// weakest common claim about "is this value empty" — `null`, `undefined`, the
+// empty string, the empty array — below `plugin-detail`, `plugin-list`,
+// `plugin-kanban` and `@object-ui/fields`, each of which used to spell those
+// four members privately. Surfaces EXTEND it or DECLINE a member out loud; ⛔
+// the floor itself never grows past the four.
+export * from './utils/emptiness.js';
 export * from './utils/expand-fields.js';
 // The RETIREMENT gate (objectui#4914, maintainer ruling B). Homed here rather
 // than in `@object-ui/fields` because `@object-ui/components` is one of its six
@@ -81,6 +88,11 @@ export * from './utils/chart-measure-key.js';
 // floor the x-axis binding on a literal the aggregate contradicts
 // (objectui#8269).
 export * from './utils/chart-category-key.js';
+// "Which CALL does an object-bound aggregate make when its `groupBy` is the
+// structured date-bucketing node?" — the same move on the REQUEST rather than
+// on a result column, so the chart and the metric cannot post two different
+// wires for one authored shape (objectui#8613).
+export * from './utils/object-aggregate-query.js';
 // The AUTHORED half of a dataset-bound chart (objectui#4229's data/presentation
 // split), shared by the dashboard widget and the report's embedded chart so the
 // same spec keys are lowered identically on both (objectui#4877).
@@ -113,6 +125,10 @@ export * from './utils/reference-keys.js';
 // `toPredicateRecord` for why an unnormalized one gives the same predicate
 // different verdicts on different surfaces.
 export * from './utils/predicate-record.js';
+// The parent-relationship condition a detail-page related list is scoped by.
+// One implementation, imported by BOTH the row query and the tab-badge count
+// probe — objectui#8882 is what two of them cost.
+export * from './utils/parent-scope.js';
 // The other half of a view's field appetite: the fields its PREDICATES read,
 // which the column-derived `$select` never asked the server for.
 export * from './utils/predicate-fields.js';

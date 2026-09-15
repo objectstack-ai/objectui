@@ -22,6 +22,7 @@
  * right documents, in the right order, and feeds the results to the renderer).
  */
 
+import type { DataSource } from '@object-ui/types';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, waitFor } from '@testing-library/react';
@@ -37,6 +38,18 @@ vi.mock('./ChartRenderer', () => ({
 }));
 
 import { ObjectChart } from './ObjectChart';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are partial stubs carrying only the members the path under test calls;
+ * completing them would change which capability probes fire, and so would
+ * change what these tests measure.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 /**
  * Records every URL and answers only the documents it is given, so an escape
@@ -111,8 +124,8 @@ describe('ObjectChart — category option colors (objectui#4106)', () => {
     render(
       <ObjectChart
         schema={{
-          type: 'object-chart',
-          chartType: 'bar',
+          type: 'object-chart' as const,
+          chartType: 'bar' as const,
           objectName: 'opportunity',
           xAxisKey: 'stage',
           data: [
@@ -166,8 +179,8 @@ describe('ObjectChart — category option colors (objectui#4106)', () => {
     render(
       <ObjectChart
         schema={{
-          type: 'object-chart',
-          chartType: 'bar',
+          type: 'object-chart' as const,
+          chartType: 'bar' as const,
           dataset: 'showcase_task_metrics',
           dimensions: ['status'],
           values: ['task_count'],
@@ -209,8 +222,8 @@ describe('ObjectChart — category option colors (objectui#4106)', () => {
     render(
       <ObjectChart
         schema={{
-          type: 'object-chart',
-          chartType: 'bar',
+          type: 'object-chart' as const,
+          chartType: 'bar' as const,
           objectName: 'opportunity',
           xAxisKey: 'stage',
           data: [{ stage: 'won', amount: 42 }],
@@ -255,8 +268,8 @@ describe('ObjectChart — option-color probe routing (objectui#4114)', () => {
   };
 
   const OBJECT_CHART_SCHEMA = {
-    type: 'object-chart',
-    chartType: 'bar',
+    type: 'object-chart' as const,
+    chartType: 'bar' as const,
     objectName: 'opportunity',
     xAxisKey: 'stage',
     data: [{ stage: 'won', amount: 42 }],
@@ -268,7 +281,7 @@ describe('ObjectChart — option-color probe routing (objectui#4114)', () => {
 
     render(
       <SchemaRendererProvider
-        dataSource={{ find: async () => ({ data: [] }) }}
+        dataSource={{ find: async () => ({ data: [] }) } as unknown as DataSource}
         apiFetch={host.fn}
       >
         <ObjectChart schema={OBJECT_CHART_SCHEMA} />
@@ -321,13 +334,13 @@ describe('ObjectChart — option-color probe routing (objectui#4114)', () => {
             rows: [{ status: 'todo', task_count: 3 }],
             fields: [{ name: 'status', label: 'Status' }, { name: 'task_count', label: 'Tasks' }],
           }),
-        }}
+        } as unknown as DataSource}
         apiFetch={host.fn}
       >
         <ObjectChart
           schema={{
-            type: 'object-chart',
-            chartType: 'bar',
+            type: 'object-chart' as const,
+            chartType: 'bar' as const,
             dataset: 'showcase_task_metrics',
             dimensions: ['status'],
             values: ['task_count'],
@@ -368,7 +381,7 @@ describe('ObjectChart — option-color probe routing (objectui#4114)', () => {
     const globalCalls = installMetaFetchDouble(OPPORTUNITY_DOC);
 
     render(
-      <SchemaRendererProvider dataSource={{ find: async () => ({ data: [] }) }}>
+      <SchemaRendererProvider dataSource={{ find: async () => ({ data: [] }) } as unknown as DataSource}>
         <ObjectChart schema={OBJECT_CHART_SCHEMA} />
       </SchemaRendererProvider>,
     );

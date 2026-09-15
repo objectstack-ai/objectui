@@ -323,6 +323,27 @@ decision as a defect is how a warning channel gets ignored:
 }
 ```
 
+<Callout type="info">
+  `feed` is the **same shape as `record:activity`** — `@objectstack/spec`
+  declares `RecordChatterProps.feed` as `RecordActivityProps` — and since
+  objectui#8934 an **authored `record:chatter` / `record:discussion` block**,
+  and every synthesized default page (which emits `record:discussion`), applies
+  it with the same pipeline `record:activity` uses. Its **defaults** come with
+  it: `showCompleted` is `false`, so completed activities are hidden unless
+  asked for, and an unauthored `limit` is `20`, so a longer feed pages with
+  **Load more** rather than rendering whole.
+
+  Two members of the shape are **not** read on this path and authoring them
+  does nothing here: `filterMode` and `enableMentions` (objectui#8968).
+
+  There is no third path left to disagree with: the host used to auto-append a
+  panel below any page that omitted a discussion block, and objectui#7298
+  retired that append — a record page shows a discussion panel if and only if it
+  composes one. Every panel a user sees is therefore an authored or synthesized
+  block running this pipeline. The object's `enable.feeds: false` still
+  outranks the page and suppresses the panel either way.
+</Callout>
+
 ### RecordActivityTimeline Config
 
 ```plaintext

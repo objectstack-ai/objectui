@@ -8,7 +8,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import { App } from './App';
-import { I18nProvider } from '@object-ui/i18n';
+import { I18nProvider, preloadBootstrapLocale } from '@object-ui/i18n';
 import { MobileProvider, generatePWAManifest } from '@object-ui/mobile';
 import { registerPlaceholders } from '@object-ui/components';
 import { initSentry, initRuntimeConfig, getProductName, getProductShortName, getFaviconUrl, getPwaDescription, getPwaThemeColor } from '@object-ui/app-shell';
@@ -74,7 +74,25 @@ Promise.all([
   initRuntimeConfig(SERVER_BASE),
   preflightAuth(AUTH_URL),
   seedTenantLanguage(SERVER_BASE),
-]).finally(() => {
+]).finally(async () => {
+  // The active locale's catalogue, fetched before the first render
+  // (objectui#7479). `@object-ui/i18n` ships its ten catalogues as separate
+  // chunks now, so without this await a `zh-CN` viewer would paint once in the
+  // `en` fallback and re-render in Chinese a moment later — the flash the
+  // seed race above already refuses to introduce, arriving from a different
+  // direction.
+  //
+  // ⛔ Ordering is load-bearing: this runs AFTER the `Promise.all`, never
+  // inside it. `seedTenantLanguage` is what writes the tenant seed this reads,
+  // and tier 2 of the precedence chain is that seed — resolving concurrently
+  // would preload whatever the previous boot left behind.
+  //
+  // `hasLoader: true` because this app passes `loadLanguage` below; the two
+  // must agree or the provider boots into a language other than the one
+  // preloaded here. It never rejects: a catalogue that will not download must
+  // not take the boot down, and the provider retries on mount.
+  await preloadBootstrapLocale({ hasLoader: true });
+
   // Kick off Sentry init (no-op unless this runtime served a DSN on
   // `telemetry.errorReporting`). Still not awaited — observability must never
   // block first paint.

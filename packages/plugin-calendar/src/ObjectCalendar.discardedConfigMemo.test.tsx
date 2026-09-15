@@ -30,6 +30,7 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { resolveRecordSourceConfig } from '@object-ui/core';
 import { ObjectCalendar } from './ObjectCalendar';
 
 afterEach(cleanup);
@@ -51,13 +52,31 @@ const CALENDAR = { startDateField: 'starts_at', titleField: 'name' };
 describe('ObjectCalendar — record-fetch effect survives a discarded `dataConfig` memo (objectui#6592)', () => {
   it('does not re-fire the fetch when `dataConfig` recomputes to a new identity with the SAME primitive fields', async () => {
     const dataSource = makeDataSource();
-    // Two different `data` object references, byte-identical content — forces
-    // `dataConfig`'s own memo to recompute to a NEW object (its `data` dep is
-    // compared by reference) while `provider`/`object` stay unchanged.
-    const schemaA: any = { type: 'object-calendar', calendar: CALENDAR, data: { provider: 'object', object: 'visit' } };
-    const schemaB: any = { type: 'object-calendar', calendar: CALENDAR, data: { provider: 'object', object: 'visit' } };
-    expect(schemaA.data).not.toBe(schemaB.data);
-    expect(schemaA.data).toEqual(schemaB.data);
+    // Two different SCHEMA object references, byte-identical content — enough to
+    // force `dataConfig`'s own memo to recompute to a NEW config object while
+    // `provider`/`object` stay unchanged, which is the condition this file is
+    // about.
+    //
+    // Spelled through `objectName` rather than `data: { provider: 'object',
+    // object: 'visit' }` since objectui#8348: `ComponentPropsMap`'s
+    // `object-calendar.data` row is `z.array(...)`, so the config OBJECT is no
+    // longer a record source on this block and the ladder resolves rung 3
+    // instead. Rung 3 builds `{ provider: 'object', object: 'visit' }` FRESH on
+    // every call, so the discarded-memo condition is reproduced exactly as
+    // before — the resolved config is identical and only its identity moves.
+    const schemaA: any = { type: 'object-calendar', calendar: CALENDAR, objectName: 'visit' };
+    const schemaB: any = { type: 'object-calendar', calendar: CALENDAR, objectName: 'visit' };
+    // ⛔ The instrument check this file rests on: the two schemas really are
+    // distinct references carrying equal content, so a re-render with the second
+    // one really does hand the memo a changed dependency.
+    expect(schemaA).not.toBe(schemaB);
+    expect(schemaA).toEqual(schemaB);
+    expect(resolveRecordSourceConfig(schemaA, 'array')).not.toBe(
+      resolveRecordSourceConfig(schemaB, 'array'),
+    );
+    expect(resolveRecordSourceConfig(schemaA, 'array')).toEqual(
+      resolveRecordSourceConfig(schemaB, 'array'),
+    );
 
     const { rerender } = render(<ObjectCalendar schema={schemaA} dataSource={dataSource} />);
     await waitFor(() => expect(screen.getByText('Site visit')).toBeTruthy());

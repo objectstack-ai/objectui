@@ -73,6 +73,7 @@ const GOVERNED = ['react', 'react-dom'] as const;
 interface WorkspacePackage {
   name: string;
   dir: string;
+  dependencies: Record<string, string>;
   peerDependencies: Record<string, string>;
 }
 
@@ -132,6 +133,7 @@ function readWorkspacePackages(): WorkspacePackage[] {
       found.push({
         name: json.name,
         dir: path.relative(repoRoot, dir),
+        dependencies: json.dependencies ?? {},
         peerDependencies: json.peerDependencies ?? {},
       });
     }
@@ -198,6 +200,99 @@ describe('React peer ranges state the fixed version group norm', () => {
         'change, and say so in a changeset - the version group releases as one.',
       ].join('\n'),
     ).toEqual([]);
+  });
+
+  /**
+   * objectui#8303, the second invariant this file carries: a package must not ask its host
+   * for React as a PEER and also pin a React of its own in `dependencies`. Those are two
+   * contradictory statements in one manifest, and the one that wins is the wrong one — a
+   * consumer on React 18 satisfies the peer range and STILL gets the pinned React 19
+   * installed on this package's account. Two React copies in one tree is the classic cause
+   * of `Invalid hook call`, and the failure is not at install time: it is at first render,
+   * in the consumer's own component, pointing nowhere near here.
+   *
+   * `packages/layout` and `packages/plugin-dashboard` were the only two packages in the
+   * workspace doing this, against 20+ siblings that declare the peer range and keep React
+   * in `devDependencies` (or not at all). The fix converged on that existing shape rather
+   * than inventing one.
+   *
+   * ## Why an existing gate could not catch it, and why this one is here
+   *
+   * `check:unused-deps` asks whether a declared runtime dependency has a CONSUMER.
+   * `react` is imported by both packages, so the declaration has one, and that gate is
+   * green on this shape by construction — it is not a weak reading, it is the wrong
+   * question. objectui#8198 removed the `react-dom` half of this same defect from these
+   * same two manifests precisely because `react-dom` had no consumer and so was visible to
+   * it; the `react` half survived that sweep for exactly that reason. A green from an
+   * instrument on a class it cannot see by design is not a reading.
+   *
+   * `check-changeset-presence.mjs` cannot see it either, and says so in its own docblock:
+   * `CONTRACT_FIELDS` is an eight-field allowlist that includes `peerDependencies` and
+   * deliberately excludes `dependencies` ("a runtime dependency bump can be just as
+   * user-visible as any of the eight, and this gate still does not see it").
+   *
+   * ## What this asserts, and what it deliberately does NOT
+   *
+   * The invariant is the CONTRADICTION, not "React in `dependencies`". `@object-ui/runner`,
+   * `@object-ui/site` and the `examples/*` consoles all pin React in `dependencies` and
+   * declare no React peer: they are applications that supply React rather than libraries
+   * that ask for it, they make one statement instead of two, and they are correctly out of
+   * scope here. Widening this to "no React in `dependencies` anywhere" would go red on them
+   * for doing the right thing.
+   *
+   * Vacuity is covered by the floors in the first test: this iterates `declarations`, the
+   * same >= 50 peer declarations the norm assertion walks.
+   */
+  it('declares no React runtime dependency in a package that also asks for it as a peer', () => {
+    const violations = declarations
+      .filter((d) => d.pkg.dependencies[d.dep] !== undefined)
+      .map(
+        (d) =>
+          `${d.pkg.name} (${d.pkg.dir}/package.json) declares "${d.dep}" as a peer (${d.range}) ` +
+          `AND pins it in dependencies (${JSON.stringify(d.pkg.dependencies[d.dep])})`,
+      );
+
+    expect(
+      violations,
+      [
+        'A package may ask its host for React as a peer, or install a React of its own, but not both:',
+        '',
+        ...violations,
+        '',
+        'A consumer that satisfies the peer range still gets the pinned copy pulled into their graph,',
+        'so a React 18 consumer ends up with two Reacts in one tree. That surfaces as `Invalid hook',
+        "call` at FIRST RENDER, attributed to their component, with nothing pointing back at this",
+        'manifest (objectui#8303).',
+        '',
+        'Fix: move the entry to `devDependencies` at the same pin, which is what the local build and',
+        'test run actually need, and leave `peerDependencies` untouched. `app-shell`, `auth`,',
+        '`collaboration`, `i18n`, `mobile` and `permissions` already have exactly that shape.',
+        '',
+        'There is deliberately NO exemption list here, for the same reason the norm assertion above',
+        'has none: at the time of writing every declaration satisfies this, so an exemption would be',
+        'indistinguishable from the bug it was added to hide.',
+      ].join('\n'),
+    ).toEqual([]);
+  });
+
+  it('pins the two packages fixed in objectui#8303', () => {
+    // The general assertion above catches a regression here too, but naming these two means a
+    // revert points straight at the card that explains why the entry moved, rather than at a
+    // rule someone has to go and read. Both halves are asserted: the dependency is GONE, and
+    // the peer range is untouched — the fix is only correct if both are true at once.
+    for (const name of ['@object-ui/layout', '@object-ui/plugin-dashboard']) {
+      const pkg = packages.find((p) => p.name === name);
+      expect(pkg, `${name} must exist in the workspace`).toBeDefined();
+      expect(
+        pkg!.dependencies.react,
+        `${name} pinned react 19.2.8 in dependencies while also declaring the React peer range. ` +
+          'It moved to devDependencies at the same pin in objectui#8303.',
+      ).toBeUndefined();
+      expect(
+        pkg!.peerDependencies.react,
+        `${name} must still ask its host for React — objectui#8303 moved the dependency, not the peer.`,
+      ).toBe(REACT_PEER_NORM);
+    }
   });
 
   it('pins the package fixed in objectui#3741', () => {

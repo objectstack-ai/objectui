@@ -91,11 +91,16 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // Studio designer/palette), so it never throws — call it unconditionally to
   // keep hook order stable across renders. A null record just means "no parent
   // record bound", which the optional chaining below already handles.
-  const record = useRecordContext() as any;
+  const record = useRecordContext();
 
   const parentObject = schema.parentObject || record?.objectName;
-  const parentId =
-    schema.parentId || schema.recordId || (record?.recordId as string | undefined);
+  // No assertion: `RecordContextValue.recordId` is the protocol's `string`
+  // (narrowed once at the `RecordContextProvider` injection boundary) and
+  // `buildMasterDetailEditBatch` takes a `string` parent id, so the two
+  // declarations meet on their own. objectui#9304 left a documented assertion
+  // here as evidence that they did not; objectui#9333 repaired the declaration
+  // and discharged the evidence.
+  const parentId = schema.parentId || schema.recordId || record?.recordId;
 
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [original, setOriginal] = useState<Record<string, any>[]>([]);

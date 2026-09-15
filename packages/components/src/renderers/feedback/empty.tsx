@@ -50,9 +50,19 @@ ComponentRegistry.register('empty',
     // `toRenderableSchema` is the repo's permanent bridge from the `SchemaNode`
     // union onto `SchemaRendererProps['schema']`, which deliberately declares no
     // `number` / `boolean` (objectui#4548 ruling Q2). It is a total function
-    // mapping those two members onto the text form the renderer's own defensive
-    // branch already produces, so it changes no behaviour — ⛔ do not "tidy" it
-    // into a direct forward, and ⛔ do not reach for a cast instead.
+    // mapping each of those two members onto whatever `SchemaRenderer` renders
+    // for it itself — the text form when truthy, nothing when falsy — so it
+    // changes no behaviour. ⛔ Do not "tidy" it into a direct forward, and ⛔ do
+    // not reach for a cast instead.
+    //
+    // ⚠️ The falsy half of that is only true since objectui#8908, and THIS slot
+    // is where it was found. The bridge used to map every `number` / `boolean`
+    // onto its `String` form; those strings are non-empty and therefore truthy,
+    // so the nullish gate above let `action: 0` reach one and
+    // `{ type: 'empty', title: 'T', action: 0 }` painted a stray "T0". The gate
+    // is still nullish and still right — widening it to truthiness would drop a
+    // bare string again, which is the defect objectui#7105 closed. Pinned in
+    // `packages/components/src/__tests__/empty-action-falsy-primitive-8908.test.tsx`.
     const actionNode = schema.action == null
       ? undefined
       : <SchemaRenderer schema={toRenderableSchema(schema.action)} />;

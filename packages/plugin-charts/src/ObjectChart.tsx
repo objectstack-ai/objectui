@@ -3,11 +3,11 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from 're
 import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, type ElementDataSourceMapping } from '@object-ui/react';
 import { ChartRenderer } from './ChartRenderer';
 import { normalizeChartSchema } from './normalizeChartSchema';
-import { ComponentRegistry, chartMeasureKey, humanizeLabel, extractRecords, computeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
+import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
-import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate } from '@object-ui/i18n';
-import type { DrillDownConfig } from '@object-ui/types';
+import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import type { DrillDownConfig, ObjectChartSchema } from '@object-ui/types';
 
 /**
  * Humanize a snake_case or kebab-case string into Title Case.
@@ -108,6 +108,17 @@ const OBJECT_BOUND_CHART_CATEGORY_BINDINGS = [
  *
  * Returns `undefined` only when the schema names no category by any declared
  * spelling — a real answer, and what {@link ObjectChart}'s refusal keys on.
+ *
+ * ⚠️ LEDGERED, on purpose: this is the one `normalizeChartSchema` call in the
+ * package that passes NO language (objectui#8943). It is safe here and only
+ * here — the call reads `.xAxisKey`, a COLUMN NAME, and nothing else. No
+ * `I18nLabel` slot on the result is ever read through this path, so there is no
+ * label for a language to resolve. Keeping the function pure (it is called from
+ * plain module scope, outside any component) is worth more than a language
+ * argument that would change no byte of its answer. ⛔ If this ever starts
+ * reading `title` / `subtitle` / `description` / an axis `title` / a series
+ * `label`, it needs the viewer's language and can no longer be called from
+ * outside a component.
  */
 export function resolveChartCategoryField(schema: {
   aggregate?: { groupBy?: unknown } | undefined;
@@ -127,13 +138,45 @@ export function resolveChartCategoryField(schema: {
 export const COMPARISON_SUFFIX = '__comparison';
 
 /**
+ * The COLUMN an inline `aggregate` projects its group under — the string every
+ * column lookup in this file needs.
+ *
+ * `groupBy` is a union: a bare field name, or the structured date-bucketing
+ * node `{ field, dateGranularity, alias }` the engine takes, in which case the
+ * projected column is the `alias` (or the `field` it defaults to). This is that
+ * normalisation, hoisted out of the comparison-merge leg below, which has
+ * spelled it inline since the structured node arrived — "Normalise to the
+ * underlying string field name so all column lookups work".
+ *
+ * ⚠️ Module-local on purpose: it is a spelling this file already owned twice,
+ * not a new published export. It is also NOT a fourth answer to "what is the
+ * category axis" — {@link resolveChartCategoryField} remains that one, and it
+ * answers a wider question (it also resolves the spec's `xAxis` through
+ * `normalizeChartSchema`). This one answers only "which column did the
+ * aggregate project the group under", which is what a row lookup needs.
+ */
+function aggregateGroupByKey(
+  aggregate: ObjectChartSchema['aggregate'],
+): string | undefined {
+  const gb = aggregate?.groupBy;
+  if (gb && typeof gb === 'object' && !Array.isArray(gb)) return gb.alias || gb.field;
+  return typeof gb === 'string' ? gb : undefined;
+}
+
+/**
  * Client-side aggregation for fetched records.
  * Groups records by `groupBy` field and applies the aggregation function
  * to the `field` values in each group.
+ *
+ * `function` is optional because the `switch` below already implements that:
+ * an absent (or unknown) function falls through to `sum`. The parameter used to
+ * say `function: string`, which was a claim about the CALLER rather than about
+ * this body — and no caller could satisfy it once `ObjectChartSchema.aggregate`
+ * was declared with the requiredness its own reads have (objectui#7946).
  */
 export function aggregateRecords(
   records: any[],
-  aggregate: { field?: string; function: string; groupBy: string }
+  aggregate: { field?: string; function?: string; groupBy: string }
 ): any[] {
   const { field, function: aggFn, groupBy } = aggregate;
   const valueKey = aggregateValueKey(aggregate);
@@ -286,13 +329,13 @@ export async function resolveGroupByLabels(
     // the SERVE path runs no parse — `ObjectStackAdapter.getObjectSchema` returns
     // the server document plus only `normalizeSchemaReferenceKeys` and
     // `applyFieldWidgetOverrides` — so a stored pre-strict def still arrives here.
-    // And there is NO camel leg below to fall back to: retiring these reads would
-    // delete the only read of the value, not re-point it. Adding a `displayField`
-    // leg (the spelling `FieldSchema` declares) is a separate, contract-shaped
-    // change. `idField` is NOT such a leg: measured on the pinned spec 17.2.0,
-    // `FieldSchema` refuses `idField` with `unrecognized_keys` exactly as it
-    // refuses `id_field` (the spec's only `idField` sits on `InlineGridColumnSchema`,
-    // a different shape), so the id read has no declared spelling to re-point to.
+    // ⛔ `idField` is NOT a leg this read may gain, and the carve-out is
+    // RE-MEASURED on the pin actually resolved here (`@objectstack/spec@17.4.0`,
+    // not the 17.2.0 the note used to cite): `FieldSchema` refuses `idField`
+    // with `unrecognized_keys` exactly as it refuses `id_field` (the spec's only
+    // `idField` sits on `InlineGridColumnSchema`, a different shape), so the id
+    // read has no declared spelling to re-point to. Adding one would fossilise
+    // an undeclared spelling. Routed to objectui#7650 option A.
     const idField: string = fieldDef.id_field || 'id';
 
     try {
@@ -302,9 +345,47 @@ export async function resolveGroupByLabels(
       });
       const records = extractRecords(results);
 
-      // Build id→label map using display field from metadata with sensible fallbacks
+      // Build id→label map using display field from metadata with sensible fallbacks.
+      //
+      // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST. Until this
+      // change the chain had no `FieldSchema` leg at all, so `displayField` —
+      // the only display spelling a spec-compliant author can emit, and the one
+      // `getObjectSchema` serves — could not reach this reader in any shape. The
+      // chart fell through to the generic `'name'` heuristic and drew the wrong
+      // axis label. This is the shape objectui#7155 established (declared leg
+      // first, recorded dialect behind it), not a new lenient alias: the two
+      // snake legs below are PRE-EXISTING reads, kept in their pre-existing
+      // relative order, and this change only puts the contract ahead of them.
+      //
+      // MEASURED on the pin resolved here, `@objectstack/spec@17.4.0`:
+      // `FieldSchema.safeParse` ACCEPTS `displayField` and REFUSES
+      // `reference_field` / `display_field` with `unrecognized_keys` (controls
+      // lit in the same run — a minimal lookup def ACCEPTED, `zzz_not_a_real_key`
+      // REJECTED).
+      //
+      // ⚠️ Why the two snake legs STAY. A producer sweep for this site found no
+      // in-repo producer of either spelling (every occurrence in this repo is a
+      // test fixture) and zero key-position occurrences in the producer repo
+      // (control: `displayField`, 23 files). They are kept anyway, because
+      // neither measurement covers the two producers that can still emit them:
+      // a document stored before the key was tightened (the serve path runs no
+      // parse — objectui#7650), and a HOST `DataSource` whose `getObjectSchema`
+      // is not `ObjectStackAdapter`'s and therefore never passes through
+      // `normalizeSchemaReferenceKeys`. Dropping a leg here would be a silent
+      // regression for existing authored data; that is a retirement decision
+      // with its own evidence, not a side effect of adding the declared leg.
+      //
+      // ⚠️ `reference_field` in particular is graded `no-producer` by this
+      // repo's own register (`plugin-grid/src/relationalMetaKeys.ts`), and the
+      // verdict was re-derived for this change and HOLDS. It keeps its place
+      // relative to `display_field` on purpose — reordering two legs nothing
+      // produces would be an unmeasured behaviour change on top of a measured
+      // one. What this change does fix is that it is no longer read FIRST.
       const displayField: string =
-        fieldDef.reference_field || fieldDef.display_field || 'name';
+        fieldDef.displayField
+        || fieldDef.reference_field
+        || fieldDef.display_field
+        || 'name';
       const idToName: Record<string, string> = {};
       for (const rec of records) {
         const id = String(rec[idField] ?? rec.id ?? rec._id ?? '');
@@ -358,11 +439,53 @@ export async function resolveGroupByLabels(
 // Re-export extractRecords from @object-ui/core for backward compatibility
 export { extractRecords } from '@object-ui/core';
 
-export const ObjectChart = (props: any) => {
+/**
+ * Props of {@link ObjectChart} — anchored to the published `ObjectChartSchema`
+ * (objectui#7946, maintainer ruling 2026-09-09 option A), as objectui#6576 did
+ * for `ObjectGalleryProps.schema`.
+ *
+ * ## What this replaces, and what it buys
+ *
+ * This component was published as `(props: any)`, so every `schema={{ … }}`
+ * literal handed to it — including the two in `app-shell`'s `ObjectView` — was
+ * type-checked against NOTHING. That is the mechanism that let objectui#7891's
+ * undeclared `config` rung live from the day it was written until someone read
+ * the spec by hand, and it is why the two `as any` casts on those literals
+ * measured INERT: an `any` consumer accepts a cast and its absence alike.
+ *
+ * With the anchor, a wrong VALUE TYPE on a declared key is a compile error at
+ * the producer (`xAxisKey: 42`, `series: 'x'`, `type: 'chart'`, and every
+ * `BaseSchema` member — `visible: 42`). ⚠️ A MISSPELLED key is still accepted:
+ * `BaseSchema` carries `[key: string]: any` (objectui#5155), the same ceiling
+ * objectui#6576 accepted knowingly. `__tests__/ObjectChart.schemaAnchor-7946.test.ts`
+ * pins both halves, the ceiling included, so the anchor is not read as more
+ * than it is.
+ */
+export interface ObjectChartProps {
+  /**
+   * The `object-chart` node — anchored to the exported schema type. Every
+   * `BaseSchema` member is writable, `bind` / `className` / `data` included;
+   * the widget's own keys are declared there.
+   */
+  schema: ObjectChartSchema;
+  /**
+   * Host data source. `any` deliberately, and it is NOT a residue of the shape
+   * this card removed: it is the type `SchemaRendererContext.dataSource`
+   * itself carries, and this component falls back to that context value, so a
+   * narrower declaration here would claim a guarantee the fallback cannot
+   * keep. Narrowing it is a repo-wide `dataSource` interface, not this card.
+   */
+  dataSource?: any;
+  /**
+   * Optional host-owned segment click. When provided (e.g. a dataset widget
+   * that owns precise drill-through), it takes over the chart click and the
+   * widget's own object-drill drawer is suppressed.
+   */
+  onSegmentClick?: (ev: ChartSegmentClickEvent) => void;
+}
+
+export const ObjectChart = (props: ObjectChartProps) => {
   const { schema } = props;
-  // Optional host-owned segment click. When provided (e.g. a dataset widget
-  // that owns precise drill-through), it takes over the chart click and the
-  // widget's own object-drill drawer is suppressed.
   const onSegmentClick: ((ev: ChartSegmentClickEvent) => void) | undefined = props.onSegmentClick;
   const context = useContext(SchemaRendererContext);
   const dataSource = props.dataSource || context?.dataSource;
@@ -414,6 +537,15 @@ export const ObjectChart = (props: any) => {
   // Host-provided "open in list" navigation for the drill escape hatch.
   const { openRecordList } = useDrillNavigation();
   const tt = useSafeTranslate();
+  // The active UI language, for `pickLocalized` on the drill heading below.
+  // Read HERE rather than at the read site because that site lives inside
+  // `drillDrawer`, which runs after this component's conditional early returns —
+  // a hook called there would desync hook order between renders.
+  //
+  // `useObjectTranslation` is provider-safe (optional context read, falling back
+  // to the react-i18next global instance), which is why it can sit beside
+  // `useSafeTranslate` above without a provider in tests.
+  const { language } = useObjectTranslation();
 
   // Stable JSON keys for aggregate/filter so that callers passing a fresh
   // object literal on each render (e.g. DashboardRenderer.getComponentSchema)
@@ -427,8 +559,8 @@ export const ObjectChart = (props: any) => {
     [schema.filter],
   );
   const compareToKey = useMemo(
-    () => ((schema as any).compareTo ? JSON.stringify((schema as any).compareTo) : ''),
-    [(schema as any).compareTo],
+    () => (schema.compareTo ? JSON.stringify(schema.compareTo) : ''),
+    [schema.compareTo],
   );
   // ADR-0021 (#1890): a chart can bind to a semantic-layer `dataset` instead of
   // the legacy inline `objectName` + `aggregate` query. Stable key over the
@@ -577,32 +709,33 @@ export const ObjectChart = (props: any) => {
   // windows). Extracted so the two queries share identical logic.
   const runAggregate = useCallback(async (ds: any, filterForRun: any): Promise<any[]> => {
     if (schema.aggregate && typeof ds.aggregate === 'function') {
-      const gb = schema.aggregate.groupBy as any;
+      // ⚠️ The RAW union, deliberately — this is the one read in the file that
+      // must NOT go through `aggregateGroupByKey`. The structured node is sent
+      // to the server verbatim as the query's `groupBy`, so normalising it to
+      // its projected column here would drop `dateGranularity` and turn a
+      // date-bucketed query into an ungrouped one. Every read that indexes a ROW
+      // or names a FIELD uses the helper instead. The `as any` this line used to
+      // carry is gone with objectui#7946's by-reference `aggregate`: the union is
+      // declared now, so `Array.isArray` narrows it without a cast.
+      const gb = schema.aggregate.groupBy;
       // Structured GroupBy node (e.g. `{ field, dateGranularity: 'day' }`)
       // requires the spec-shape `{ groupBy: GroupByNode[], aggregations,
       // where }` payload so the server-side date-bucket engine kicks in.
       // The legacy `{ field, function, groupBy, filter }` cube/analytics
       // path does NOT honour `dateGranularity`.
-      const isStructured = gb && typeof gb === 'object' && !Array.isArray(gb);
-      if (isStructured) {
-        const aggField = schema.aggregate.field;
-        const aggFn = schema.aggregate.function;
-        // Project the measure under its plain field name so downstream
-        // (xAxisKey + series.dataKey lookups) finds it unchanged — the
-        // object-bound result-column convention (framework#3701).
-        const alias = aggregateValueKey(schema.aggregate);
-        // For `count`, omit `field` so the engine emits `count(*)` /
-        // `COUNT(*)`. The upstream dashboard wiring defaults `field: 'value'`
-        // for charts without an explicit valueField, which crashes on SQL
-        // drivers ("no such column: value") since dashboards typically
-        // count rows, not a measure column.
-        const aggregationNode: Record<string, unknown> = { function: aggFn, alias };
-        if (aggFn !== 'count' && aggField) aggregationNode.field = aggField;
-        const results = await ds.aggregate(schema.objectName, {
-          groupBy: [gb],
-          aggregations: [aggregationNode],
-          where: filterForRun,
-        });
+      //
+      // Both halves — the test and the payload — now live in
+      // `objectAggregateSpecQuery` (`@object-ui/core`, objectui#8613), because
+      // the metric family needs the identical call and a transcription there
+      // was the second opinion that let the two wires disagree. The alias it
+      // projects is `chartMeasureKey`'s answer, i.e. what `aggregateValueKey`
+      // above already delegates to, so the column this branch produces is
+      // unchanged.
+      if (isStructuredGroupBy(gb)) {
+        const results = await ds.aggregate(
+          schema.objectName,
+          objectAggregateSpecQuery(schema.aggregate, gb, filterForRun),
+        );
         return Array.isArray(results) ? results : [];
       }
       const results = await ds.aggregate(schema.objectName, {
@@ -616,8 +749,16 @@ export const ObjectChart = (props: any) => {
     if (typeof ds.find === 'function') {
       const results = await ds.find(schema.objectName, { $filter: filterForRun });
       let data = extractRecords(results);
-      if (schema.aggregate && data.length > 0) {
-        data = aggregateRecords(data, schema.aggregate);
+      // `aggregateRecords` buckets on `record[groupBy]`, so it needs the
+      // projected COLUMN, not the raw union: a structured `groupBy` node used
+      // as an index stringifies, and every row lands in one bucket keyed by
+      // that stringification. Declaring the key (objectui#7946) is what made
+      // that reachable to a compiler. When no column resolves there is nothing
+      // to group by, and the chart is already refused for exactly that reason
+      // by the absent-category screen below (objectui#8168).
+      const clientGroupBy = aggregateGroupByKey(schema.aggregate);
+      if (schema.aggregate && clientGroupBy && data.length > 0) {
+        data = aggregateRecords(data, { ...schema.aggregate, groupBy: clientGroupBy });
       }
       return data;
     }
@@ -670,7 +811,7 @@ export const ObjectChart = (props: any) => {
           // value apart from its presence: the ONE discriminator (`.kind`) is
           // read where the shift is computed — `shiftFilterByCompareTo` — so
           // this file has no second copy of the branch table to drift from it.
-          const compareTo: CompareToConfig | undefined = (schema as any).compareTo;
+          const compareTo: CompareToConfig | undefined = schema.compareTo;
           const wantsComparison = !!compareTo && supportsCompareTo(schema.chartType);
           // shiftFilterByCompareTo expects the raw filter (with date macros)
           // so it can substitute `{current_*}` tokens or re-resolve macros
@@ -696,10 +837,15 @@ export const ObjectChart = (props: any) => {
           // groupBy may be a bare string or a structured `{field, dateGranularity}`
           // node (when categoryGranularity is configured upstream). Normalise
           // to the underlying string field name so all column lookups work.
-          const gbRaw = schema.aggregate?.groupBy as any;
-          const groupByField: string | undefined = (gbRaw && typeof gbRaw === 'object' && !Array.isArray(gbRaw))
-            ? gbRaw.alias || gbRaw.field
-            : (gbRaw || schema.xAxisKey);
+          //
+          // ⭐ Through {@link aggregateGroupByKey}, the SAME spelling the drill /
+          // label leg below uses — the whole point of hoisting it (objectui#7946).
+          // This site carried its own inline copy of the normalisation behind an
+          // `as any`; while the two were spelled separately, one of them could
+          // drift without the other, which is precisely how the drill leg came to
+          // be missing it. One expression, two call sites, no cast.
+          const groupByField: string | undefined =
+            aggregateGroupByKey(schema.aggregate) || schema.xAxisKey;
           if (wantsComparison && comparisonRows.length > 0 && schema.aggregate) {
             const aggField = schema.aggregate.field;
             const aggFn = schema.aggregate.function;
@@ -753,15 +899,23 @@ export const ObjectChart = (props: any) => {
           // Resolve groupBy value→label using field metadata. Now that the
           // merge has happened on raw keys, the resolver can convert the
           // shared groupBy column (e.g. 'closed_won' → 'Closed Won') uniformly.
-          if (groupByField && typeof ds.getObjectSchema === 'function') {
+          // `schema.objectName` joins the guard rather than being asserted:
+          // it is OPTIONAL since ADR-0021 (a chart may bind a `dataset`
+          // instead), and every read in this leg — the metadata fetch and the
+          // per-option label lookup — is keyed by an object NAME. Naming the
+          // precondition is what `props: any` used to hide (objectui#7946);
+          // the leg is on the object-bound path, so it is the shape it already
+          // assumed.
+          if (groupByField && schema.objectName && typeof ds.getObjectSchema === 'function') {
+              const objectName = schema.objectName;
               try {
-                  const objectSchema = await ds.getObjectSchema(schema.objectName);
+                  const objectSchema = await ds.getObjectSchema(objectName);
                   data = await resolveGroupByLabels(
                     data,
                     groupByField,
                     objectSchema,
                     ds,
-                    (value, fallback) => fieldOptionLabel(schema.objectName, groupByField, value, fallback),
+                    (value, fallback) => fieldOptionLabel(objectName, groupByField, value, fallback),
                   );
               } catch {
                   // Schema fetch failed — continue with raw values
@@ -840,20 +994,35 @@ export const ObjectChart = (props: any) => {
   // — including `'navigate'` — is honoured below, and the two keys no renderer
   // read at all (`view`, `sort`) are gone from `DrillDownConfig`.
   //
-  // That leaves ONE asymmetry, deliberately not papered over here. The spec's
-  // `ChartDrillDownSchema` declares `target: 'drawer' | 'dialog'`, and its
-  // stated rationale was a measurement — every key has an `ObjectChart` read
-  // site, and at the time this component ignored `'navigate'`. That measurement
-  // changed with this issue, so the protocol's union is now narrower than what
-  // the renderer delivers. The fix belongs in the spec (extend the union), not
-  // here (objectstack#5435): widening the union renderer-side is free, but
-  // ADVERTISING it before
-  // the protocol does would collide with the publish gate that parses the
-  // strict schema. Until the spec moves, `'navigate'` works for any host that
-  // composes an `object-chart` schema directly, and stays absent from the
-  // registry `inputs` below.
+  // ⚠️ The asymmetry this paragraph used to describe IS GONE, and the correction
+  // is recorded rather than quietly deleted because the stale claim outlived the
+  // fact by two releases. It said `ChartDrillDownSchema` declares
+  // `target: 'drawer' | 'dialog'`, so the protocol's union was narrower than
+  // what this renderer delivers and `'navigate'` could not be advertised without
+  // colliding with the publish gate. objectstack#5435 extended the union — the
+  // spec now declares `['drawer', 'dialog', 'navigate']`
+  // (`@objectstack/spec/ui`, `ChartDrillDownSchema.target`), and the publish
+  // gate parses that same schema, so it accepts `'navigate'` today.
+  //
+  // ⇒ What is left is NOT a protocol gap: it is an unmade decision about the
+  // designer palette. The `description` on the registry `inputs` below still
+  // lists two arms, and `index.test.ts` pins that withholding by name. Widening
+  // an advertised authoring vocabulary is a contract decision about `drillDown`,
+  // a key objectui#7946 declares on NEITHER published face — it belongs to
+  // objectui#8885, which owns `drillDown` there and already records these sites.
+  // So this round corrects the false statement and leaves the advertisement
+  // alone; see this PR's acceptance notes for the named successor.
+  //
+  // `'navigate'` works today for any host that composes an `object-chart`
+  // schema directly.
   const drillDown = (schema as { drillDown?: DrillDownConfig }).drillDown;
-  const groupByField = schema.aggregate?.groupBy || schema.xAxisKey;
+  // Spelled through the shared normalisation rather than `aggregate?.groupBy`
+  // raw: this value is used as a ROW INDEX (`row[groupByField]`), as a FIELD
+  // NAME (`fieldOptionLabel`) and as a drill-filter key, and a structured
+  // `groupBy` node is none of those. The comparison-merge leg above has always
+  // normalised before its own column lookups; this site did not, and `props:
+  // any` is why nothing said so (objectui#7946).
+  const groupByField = aggregateGroupByKey(schema.aggregate) || schema.xAxisKey;
 
   // Build a label→raw map from the resolved chart data. resolveGroupByLabels
   // stashes the original raw enum/id under `__raw_${groupByField}`. The chart
@@ -880,12 +1049,23 @@ export const ObjectChart = (props: any) => {
   // target needs it from an effect, and effects may not live after an early
   // return. The drawer reads the same value, so both targets drill by exactly
   // one filter.
+  //
+  // ⛔ Composed through `composeDrillFilter`, NOT by spreading the widget's
+  // filter into an object literal. `schema.filter` admits two arms — a spec
+  // `FilterArray` and the ObjectQL `$filter` object, both of them read (both go
+  // to `ds.aggregate` / `ds.find` verbatim above) — and a spread is only correct
+  // for the second. Spreading the ARRAY arm produced index keys
+  // (`{ '0': ['stage','=','won'] }`), so the widget's own conditions were
+  // dropped for a key the query layer ignores and the drilled list showed rows
+  // this chart is scoped to exclude (objectui#8944). The seam's docblock names
+  // the composition rule (`widget.filter ∧ drill.filter`, via the repo's single
+  // filter sink `mergeFilterNodes`); it is not decided here.
   const drillFilter = useMemo(() => {
     if (!drillEvent) return undefined;
-    return {
-      ...(schema.filter || {}),
-      ...computeDrillFilter(drillDown, drillEvent, { groupByField }),
-    };
+    return composeDrillFilter(
+      schema.filter,
+      computeDrillFilter(drillDown, drillEvent, { groupByField }),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drillEvent, drillDown, groupByField, filterKey]);
 
@@ -922,7 +1102,7 @@ export const ObjectChart = (props: any) => {
   // Merge data if not provided in schema. When `compareTo` is configured
   // for a supported chart type, also synthesize a second series so the
   // chart implementation renders the comparison overlay (dashed / muted).
-  const compareToConfig: CompareToConfig | undefined = (schema as any).compareTo;
+  const compareToConfig: CompareToConfig | undefined = schema.compareTo;
   // The result column this aggregate projects its value under, and the column
   // the comparison overlay arrives in (framework#3701).
   const valueKey = schema.aggregate ? aggregateValueKey(schema.aggregate) : undefined;
@@ -934,7 +1114,7 @@ export const ObjectChart = (props: any) => {
     finalData.some((row: Record<string, any>) => row[comparisonKey] != null);
 
   const augmentedSeries = useMemo(() => {
-    const existing = Array.isArray((schema as any).series) ? (schema as any).series : null;
+    const existing = Array.isArray(schema.series) ? schema.series : null;
     if (!enableComparisonSeries) return existing;
     const primary = existing || [{ dataKey: valueKey }];
     const labelMap: Record<string, string> = {
@@ -955,7 +1135,7 @@ export const ObjectChart = (props: any) => {
         variant: 'comparison',
       },
     ];
-  }, [enableComparisonSeries, (schema as any).series, valueKey, comparisonKey, schema.filter, compareToConfig]);
+  }, [enableComparisonSeries, schema.series, valueKey, comparisonKey, schema.filter, compareToConfig]);
 
   // ADR-0021 (#1759): when the chart binds to a dataset, derive data/xAxisKey/
   // series from its dimensions/measures via the shared buildChartSeries helper —
@@ -1002,11 +1182,11 @@ export const ObjectChart = (props: any) => {
   // over the field's option colors. We split the two and pass the palette as
   // `colors` and the merged map as `categoryColors`.
   const explicitColorMap: Record<string, string> | null =
-    (schema as any).colors && !Array.isArray((schema as any).colors) && typeof (schema as any).colors === 'object'
-      ? ((schema as any).colors as Record<string, string>)
+    schema.colors && !Array.isArray(schema.colors) && typeof schema.colors === 'object'
+      ? schema.colors
       : null;
   const paletteColors: string[] | undefined =
-    Array.isArray((schema as any).colors) ? ((schema as any).colors as string[]) : undefined;
+    Array.isArray(schema.colors) ? schema.colors : undefined;
   const mergedCategoryColors = (fieldOptionColors || explicitColorMap)
     ? { ...(fieldOptionColors || {}), ...(explicitColorMap || {}) }
     : undefined;
@@ -1227,7 +1407,31 @@ export const ObjectChart = (props: any) => {
   // drill to the host's list page, so the in-place drawer must not flash.
   const drillDrawer = !onSegmentClick && drillEvent && schema.objectName && !navigateOnly ? (() => {
     const merged = drillFilter ?? {};
-    const title = resolveDrillTitle(drillDown, drillEvent, schema.title || 'Details');
+    // `schema.title` is the drill drawer's heading FALLBACK, and it is not a
+    // plain string: `@objectstack/spec`'s `ChartConfigSchema.title` is
+    // `I18nLabel` — a string OR an inline locale map — and this package's
+    // `normalizeChartSchema` already resolves the chart's own heading through
+    // `label()`, which accepts both. This site did not, so an author who wrote
+    // the locale-map arm got the OBJECT here, stringified into the heading.
+    //
+    // ⛔ Resolved through `pickLocalized` from `@object-ui/i18n` — the published,
+    // locale-aware resolver whose docblock names avoiding exactly this
+    // stringification, and which is pinned as the twin of the spec's own
+    // `resolveI18nLabel` (`i18nLabel-resolver-parity.test.ts`). ⛔ NOT through
+    // this module's private `labelOf`-style helpers: those are not locale-aware,
+    // and a second answer here would disagree with the published resolver on the
+    // same value.
+    //
+    // `pickLocalized` answers `''` for an absent value, so `|| 'Details'` keeps
+    // the pre-existing fallback exactly as it was for the string arm.
+    //
+    // The asymmetry this comment used to record — drill heading locale-aware,
+    // chart heading beside it decided by key order — is CLOSED (objectui#8943).
+    // `normalizeChartSchema`'s `label()` now delegates to this same
+    // `pickLocalized`, and `ChartRenderer` hands it the same
+    // `useObjectTranslation().language` read above. One union, one resolver, two
+    // read sites that agree. ⛔ Do not reintroduce a local pick at either end.
+    const title = resolveDrillTitle(drillDown, drillEvent, pickLocalized(schema.title, language) || 'Details');
     const target = drillDown?.target ?? 'drawer';
     const tableSchema = {
       type: 'object-data-table',
@@ -1363,16 +1567,21 @@ ComponentRegistry.register('object-chart', ObjectChartBlock, {
         // framework#5022 closed — one layer down, in the designer palette.
         //
         // `target: 'navigate'` is DELIVERED by this component since
-        // objectui#3354 but is deliberately NOT advertised here yet, and the
-        // asymmetry is on purpose. `ChartDrillDownSchema` (`@objectstack/spec`)
-        // landed the chart drill as `target: 'drawer' | 'dialog'` — strict, and
-        // enforced at publish by `validate-react-page-props`, which PARSES it
-        // against the authored `drillDown={{…}}` literal. Listing `'navigate'`
-        // in this palette would therefore hand an author a value the publish
-        // gate then rejects: the platform's authority for a key its own gate
-        // refuses, which is precisely the failure framework#5022 was opened to
-        // stop. The protocol's union is the thing that has to move first; until
-        // it does, this description tracks the spec, not the renderer.
+        // objectui#3354 and is still NOT advertised here — but ⚠️ NOT for the
+        // reason this comment used to give. It said `ChartDrillDownSchema`
+        // "landed the chart drill as `target: 'drawer' | 'dialog'` — strict",
+        // so listing `'navigate'` would hand an author a value
+        // `validate-react-page-props` then rejects. That is FALSE as of
+        // objectstack#5435: the spec declares `['drawer','dialog','navigate']`
+        // and the publish gate parses that same schema, so it accepts the value.
+        //
+        // What remains is an unmade decision, not a protocol gap: widening an
+        // ADVERTISED authoring vocabulary is a contract decision about
+        // `drillDown` — a key objectui#7946 declares on neither published face
+        // and objectui#8885 does. Until that card takes it, the description
+        // below and the pin in `index.test.ts` stay as they are, with the reason
+        // written down where the next reader will find it rather than
+        // rediscovered from a claim that has already gone stale twice.
         //
         // `view` / `sort` are gone from `DrillDownConfig` entirely
         // (objectui#3354) — no renderer ever read them, so there is no longer a

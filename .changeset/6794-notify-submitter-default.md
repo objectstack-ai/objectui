@@ -28,6 +28,9 @@ alongside it fails if the spec ever stops materialising the key at all, so the
 comparison can never quietly become a comparison against `undefined`.
 
 Deliberately scoped to `notifySubmitter`. The sibling controller
-`escalation.enabled` is a separate, on-hold card (objectui#6620) whose default
-flips on a *future* spec bump; installed spec and table agree on it today, and
-generalising this assertion across the block would arm that card's tripwire here.
+`escalation.enabled` is a separate card (objectui#6620) whose default flipped on
+a spec bump that has since landed — installed `@objectstack/spec` 17.4.0 returns
+`enabled: true`, and PR objectui#8615 has matched the table's declaration to it,
+so installed spec and table agree on it today. When this was written that bump
+was still ahead, and generalising this assertion across the block would have
+armed that card's tripwire here.

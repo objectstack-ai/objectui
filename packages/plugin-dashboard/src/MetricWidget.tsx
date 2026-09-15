@@ -1,6 +1,12 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, getLazyIcon } from '@object-ui/components';
 import { cn } from '@object-ui/components';
+// The percent display path, read from the same package `renderFieldValue` in
+// this file's own package already reads it from (objectui#5607).
+// `@object-ui/fields` publishes one implementation, whose scaling half is
+// `percentDisplayValue` in `@object-ui/core` — so this adds no dependency edge,
+// and no second percent rule.
+import { formatPercent } from '@object-ui/fields';
 import {
   createSafeTranslation,
   useDisplayLocale,
@@ -61,7 +67,10 @@ function trendLabelKey(label: string): string | undefined {
  * Honors a numeral.js-style `format` pattern:
  * - `'0,0'` / `'0,0.00'` → thousands separators with explicit decimals
  * - leading `$/¥/€/£` or `currency` prop → currency formatting
- * - trailing `%` → percent (assumes already in 0-100 unless < 1)
+ * - trailing `%` → percent, handed WHOLE to `formatPercent`
+ *   (`@object-ui/fields`), which owns both the fraction-vs-points scaling and
+ *   the locale's percent convention. This function makes neither decision —
+ *   see the branch's own note (objectui#9165).
  *
  * When no format is given but the value is a finite number, defaults to
  * thousands separators with no decimals — that's what users expect for
@@ -119,8 +128,38 @@ function formatMetricValue(
   }
 
   if (isPercent) {
-    const v = (value as number) > 1 ? (value as number) : (value as number) * 100;
-    return `${v.toFixed(decimals)}%`;
+    // objectui#9165 — the percent decision is NOT made here any more.
+    //
+    // This branch held a SECOND copy of the repo's percent display rule,
+    // spelled inside out, which is why objectui#9071's census could not see it:
+    //
+    //   const v = value > 1 ? value : value * 100;
+    //   return `${v.toFixed(decimals)}%`;
+    //
+    // `percentDisplayValue` in `@object-ui/core` is the symmetric
+    // `value > -1 && value < 1`; written this way round it scaled everything at
+    // or BELOW 1 and passed through everything above, so the negative half was
+    // unguarded and the boundary sat on the wrong side of 1. Measured against
+    // the list cell in the same run: a stored `1` read `100%` on the tile and
+    // `1%` in the cell beside it, `-1` read `-100%`, `-5` read `-500%`. A user
+    // reports that as a data bug, not a formatting one.
+    //
+    // The raw stored value now goes to `formatPercent` — the identical call
+    // `renderFieldValue` in this same package already makes (objectui#5607),
+    // and the one the list-view percent cell makes (`PercentCellRenderer`).
+    // It carries BOTH halves `percentDisplayValue`'s doc comment demands of a
+    // third surface:
+    //  - the SCALING, so the fraction/points boundary has one home; and
+    //  - the CONVENTION, via `style: 'percentPoints'`, so the percent affix is
+    //    the LOCALE's and not a literal '%'. Taking only the first is the drift
+    //    objectui#4576 already paid for once: `1.234,5 %` in a German list cell
+    //    beside `1.234,5%` from a dashboard, the same number under two
+    //    conventions.
+    //
+    // `decimals` still comes from this surface's numeral PATTERN (`'0.00%'` →
+    // 2), which is the one percent decision that genuinely belongs here — it is
+    // an author declaration on the widget, not a magnitude heuristic.
+    return formatPercent(value as number, decimals, locale);
   }
 
   // MEASURED EXCEPTION to objectui#4033's ordinal no-grouping default, and the

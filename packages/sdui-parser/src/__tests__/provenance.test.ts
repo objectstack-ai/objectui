@@ -51,15 +51,46 @@ describe('html-tier provenance (#4000)', () => {
     const root = tree as SchemaElement;
 
     expect(JSON.parse(JSON.stringify(root))).toEqual({ type: 'div', className: 'a' });
-    expect(Object.keys(root)).toEqual(['type', 'className']);
+    // ⚠️ Key ORDER, not key SET: `type` moved from first to last when the
+    // discriminator collision was closed (objectui#7235) and the node became
+    // `{ ...props, type: tag }`. The set, the values and the round-trip are
+    // unchanged — this line is the one visible consequence of that reversal,
+    // and it is here rather than adjusted away because an order pin that
+    // silently follows the implementation pins nothing.
+    expect(Object.keys(root)).toEqual(['className', 'type']);
     const seen: string[] = [];
     for (const k in root) seen.push(k);
-    expect(seen).toEqual(['type', 'className']);
+    expect(seen).toEqual(['className', 'type']);
 
     // The round-trip is the anti-forgery pin: a persisted tree comes back
     // unmarked, so a saved (or AI-generated) document cannot carry the
     // exemption back in with it.
     expect(isHtmlTierNode(JSON.parse(JSON.stringify(root)))).toBe(false);
+  });
+
+  it('survives the reversed spread — the marking is applied AFTER every key', () => {
+    // objectui#7235 reversed `markHtmlTierNode({ type: tag, ...props })` into
+    // `markHtmlTierNode({ ...props, type: tag })`. The wrapper is objectui-only
+    // (objectstack's copy of this parser builds a bare object), so the reversal
+    // is the one edit in that port where the stamp could have been dropped —
+    // e.g. by moving the call inside the literal, or by spreading a marked
+    // object into a fresh unmarked one. Pinned at every depth and for the
+    // shapes the reversal actually moves: props present, props absent, and a
+    // container whose children were attached after the stamp.
+    const { tree } = parseJsx('<flex direction="col" gap={4}><grid columns={2} /><div /></flex>');
+    const root = tree as SchemaElement;
+
+    expect(isHtmlTierNode(root)).toBe(true);
+    expect(root.type).toBe('flex');
+    // `children` is assigned after `markHtmlTierNode` returns; the stamp is on
+    // the same object, so it must still read true once they are attached.
+    expect(root.children).toHaveLength(2);
+    for (const child of root.children as SchemaElement[]) {
+      expect(isHtmlTierNode(child)).toBe(true);
+    }
+    // The propless element — `{ ...{}, type: tag }` — is the degenerate case
+    // of the reversal and has its own way of going wrong.
+    expect(isHtmlTierNode((root.children as SchemaElement[])[1])).toBe(true);
   });
 
   it('does not mark JSON smuggled in through a braced attribute', () => {

@@ -60,7 +60,17 @@ import { iconNames } from 'lucide-react/dynamic.mjs';
  * That middle pair is why the surface choice is load-bearing rather than
  * pedantic: a pin written against the `icons` record would fail three names
  * that render perfectly well and look thorough while being wrong. Only
- * `CheckCircle2` is dead on the surface that decides, and only it was a defect.
+ * `CheckCircle2` was dead on the surface that decides, and only it was a
+ * defect.
+ *
+ * ⚠ The last row of that table is a READING TAKEN ON 2026-09-04 and it has
+ * since moved — objectui#9414, not a lucide release. `iconNames` always held
+ * `check-circle-2`; what could not reach it was the SEAM's tokeniser, which had
+ * no `letter -> digit` boundary, so `CheckCircle2` became `check-circle2`. The
+ * row is left standing because it is what made the defect legible, and the
+ * control at the bottom of this file is where the move is recorded. ⛔ Do not
+ * read the row as live — the instrument is `isLucideIconName`, not this table
+ * (AGENTS.md #9).
  *
  * ## Why the table is read from source instead of imported
  *
@@ -154,15 +164,27 @@ describe('record-alert SEVERITY_STYLES icons resolve (objectui#7593)', () => {
     expect(isLucideIconName('circle-check')).toBe(true);
     expect(isLucideIconName('CircleCheck')).toBe(true);
 
-    // DARK: names that must NOT resolve. The first is the exact spelling that
-    // shipped the defect — `CheckCircle2` is still a live NAMED EXPORT of
-    // `lucide-react` (it is an alias of `CircleCheck`; the two are the same
-    // object), which is why it looks correct at a glance and why static
-    // `import { CheckCircle2 }` call-sites elsewhere in the repo are fine. It
-    // is dead only for NAME-BASED lookup, which is the route this constant
-    // takes. Should lucide ever add `check-circle2` to the dynamic surface,
-    // this line goes red — deliberately, because that would be worth a look.
-    expect(isLucideIconName('CheckCircle2')).toBe(false);
+    // The tripwire this file armed FIRED, and this is the look it asked for.
+    //
+    // It used to read `expect(isLucideIconName('CheckCircle2')).toBe(false)`,
+    // with the note: "Should lucide ever add `check-circle2` to the dynamic
+    // surface, this line goes red — deliberately, because that would be worth
+    // a look." It went red for a cause the note did not anticipate and which
+    // is worth exactly the same look: lucide added nothing, and objectui#9414
+    // taught the SEAM the `letter -> digit` boundary it never had. The dynamic
+    // surface held `check-circle-2` the whole time; `toKebabIconName` produced
+    // `check-circle2` and missed it. ⇒ `CheckCircle2` moves from DARK to LIT,
+    // and it is a LIT case now rather than a deleted one because the spelling
+    // that shipped the defect resolving is the whole outcome of that card.
+    expect(isLucideIconName('CheckCircle2')).toBe(true);
+
+    // DARK: names that must NOT resolve. `LucideCheckCircle2` keeps this half
+    // of the control on the SAME footing the old line stood on — a live NAMED
+    // EXPORT of `lucide-react` that is dead for NAME-BASED lookup, which is the
+    // route `SEVERITY_STYLES` takes — so a seam that started accepting
+    // anything at all still reds here. ⛔ It is a lucide PREFIX ALIAS, not a
+    // canonical key, which is why #9414 did not and must not reach it.
+    expect(isLucideIconName('LucideCheckCircle2')).toBe(false);
     expect(isLucideIconName('no-such-glyph-xyz')).toBe(false);
   });
 });

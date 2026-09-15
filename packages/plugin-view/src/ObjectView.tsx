@@ -33,6 +33,7 @@ import type {
   NamedListView,
   ViewNavigationConfig,
   ObjectMapConfig,
+  TreeViewConfig,
 } from '@object-ui/types';
 import { ObjectGrid } from '@object-ui/plugin-grid';
 import { ObjectForm } from '@object-ui/plugin-form';
@@ -307,6 +308,39 @@ export interface ObjectViewProps {
     columns?: string[];
     sort?: Array<{ field: string; order: 'asc' | 'desc' }>;
     filter?: any[];
+    /**
+     * Per-view `tree` config — the block the `'tree'` branch of
+     * `generateViewSchema` below reads (objectui#8253, ruling batch #78,
+     * option (a), maintainer 「同意」).
+     *
+     * ⭐ This declaration can only NARROW, and that is the whole of its value.
+     * The `[key: string]: any` on the line under it already ADMITTED a `tree`
+     * key of any shape, so nothing that used to be refused becomes accepted;
+     * what changes is that a host writing this entry as an object LITERAL now
+     * gets `parentFeild` reported as an excess property instead of stored,
+     * dropped and never mentioned. That is the class-(c) defect this card was
+     * filed for.
+     *
+     * ⛔ Declared, ⛔ not re-declared: the shape is `TreeViewConfig` in
+     * `@object-ui/types`, which `plugin-tree`'s resolver imports as well. One
+     * declaration, three readers.
+     *
+     * ⭐ And since objectui#8841 that one declaration is the PROTOCOL's:
+     * `TreeViewConfig` is `NonNullable<ListView['tree']>` from
+     * `@objectstack/spec/ui`, not a hand copy of it under a second name. What
+     * this prop admits is therefore exactly what `@objectstack/spec` admits on
+     * `ListView.tree` — including its refusal of `titleField`, which the copy
+     * declared and the protocol rejects.
+     *
+     * ⚠️ Reach, measured on this tree and NOT claimed wider than it is: the
+     * console's own call site passes `mergedViews`, built by
+     * `app-shell/src/views/ObjectView.tsx` as `views.map((v: any) => …)` over
+     * STORED view records, so it arrives here as `any[]` and this declaration
+     * reports nothing about it. It bites a host that composes the entry inline
+     * against this prop's type. Typing the stored-record path is a separate
+     * change on app-shell, recorded rather than smuggled in here.
+     */
+    tree?: TreeViewConfig;
     [key: string]: any;
   }>;
 
@@ -1283,7 +1317,51 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
     // Resolve type-specific options from current named view or active view
     // Per @objectstack/spec, type-specific config MUST be nested under the view type key
-    const viewOptions = currentNamedViewConfig?.options || activeView || {};
+    const legacyViewOptions: Record<string, any> = currentNamedViewConfig?.options || activeView || {};
+
+    // ⭐ objectui#8980 — THE CANONICAL, PROTOCOL-DECLARED PLACE FOR THE EIGHT
+    // VIEW-KIND BLOCKS, read here for the first time.
+    //
+    // The protocol carries `kanban` / `calendar` / `gallery` / `timeline` /
+    // `gantt` / `map` / `chart` / `tree` at the TOP LEVEL of a list view
+    // (`ObjectListViewSchema`, the declared value type of `ViewSchema.listViews`).
+    // objectui read them only out of the legacy untyped `options` bag above, so
+    // all eight were undeclared on `NamedListView` and an author writing the
+    // shape the protocol teaches got a view that rendered as if nothing had been
+    // configured. Director-seat ruling of 2026-09-13 on objectui#8980, item 2:
+    // each declared member gets a read point in the same delivery.
+    //
+    // MERGE, not replace, and per-KIND rather than wholesale: the legacy nesting
+    // stays working (stored views carry it, and it is where the legacy field
+    // aliases `groupField` / `imageField` / `dateField` live), while a canonical
+    // block wins key-by-key over the legacy one for the same kind. A partially
+    // declared canonical block therefore does not blank its legacy neighbour.
+    //
+    // ⚠️ IDENTITY IS PRESERVED WHEN NOTHING CANONICAL IS DECLARED — the `else`
+    // arm hands back the very object the line above produced. That is the whole
+    // population today (the keys could not be authored before this change), so
+    // this change is provably inert on every existing document.
+    const canonicalViewKindBlocks: Record<string, unknown> = {
+      kanban: currentNamedViewConfig?.kanban,
+      calendar: currentNamedViewConfig?.calendar,
+      gallery: currentNamedViewConfig?.gallery,
+      timeline: currentNamedViewConfig?.timeline,
+      gantt: currentNamedViewConfig?.gantt,
+      map: currentNamedViewConfig?.map,
+      chart: currentNamedViewConfig?.chart,
+      tree: currentNamedViewConfig?.tree,
+    };
+    const declaredKinds = Object.keys(canonicalViewKindBlocks)
+      .filter((kind) => canonicalViewKindBlocks[kind] != null);
+    const viewOptions: Record<string, any> = declaredKinds.length === 0
+      ? legacyViewOptions
+      : declaredKinds.reduce(
+          (acc, kind) => ({
+            ...acc,
+            [kind]: { ...(legacyViewOptions[kind] ?? {}), ...(canonicalViewKindBlocks[kind] as object) },
+          }),
+          { ...legacyViewOptions } as Record<string, any>,
+        );
 
     // Dev-mode warning for flat property access violations
     if (process.env.NODE_ENV === 'development') {
@@ -1327,7 +1405,38 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           (Array.isArray(kanbanCfg.columns) && kanbanCfg.columns.length > 0
             ? kanbanCfg.columns
             : baseProps.fields) || [];
-        const { columns: _kanbanColumns, groupByField: _gbf, groupField: _gf, titleField: _tf, conditionalFormatting: _kanbanCf, ...restKanban } = kanbanCfg;
+        // ⭐ `groupBy` IS STRIPPED HERE (objectui#9242, maintainer ruling of
+        // 2026-09-12 — decision batch #117 item 5, option B). It is a THIRD
+        // spelling of the lane, and because it was NOT in this destructure it
+        // survived into `restKanban`, which the return below spreads AFTER the
+        // branch's own `groupBy` — so an authored `kanban.groupBy` OVERRODE the
+        // lane this branch had just resolved from `groupByField`.
+        //
+        // THE SECOND ROUTE. objectui#8365 / PR objectui#9236 closed the same
+        // shape in `ListView`, but `generateViewSchema` runs precisely when no
+        // host supplied `renderListView` — the authored `object-view` element —
+        // so that fix does not reach here. Same distinction the `calendar`
+        // branch below records for objectui#7029.
+        //
+        // ⚠️ ONE MEASURED DIFFERENCE FROM THE TWIN, and it is not cosmetic: the
+        // lane above floors at the LITERAL `'status'`, where `ListView` floors
+        // at `detectStatusField(objectDef)`. So with the stray key ALONE this
+        // route answers `'status'` — measured, including against an object that
+        // declares no `status` field — and the twin would answer `undefined`.
+        // ⛔ Do not "align" the two by swapping in the detector: that is a
+        // behaviour change on stored views and belongs on its own card.
+        //
+        // The contract half is NOT here and must not be duplicated here: the
+        // view-level `KanbanConfig` mirror (`@object-ui/types`,
+        // `zod/objectql.zod.ts`) already declares `groupBy` as a named alias
+        // refusal pointing at `groupByField`, and it covers BOTH routes. What
+        // this line closes is the residual BEHAVIOUR gap — a stored document
+        // that never passed through a validator.
+        // ⚠️ NODE-LOCAL vs VIEW-LEVEL, as everywhere in this branch: the
+        // `kanbanCfg.groupField` alias read above is LIVE and untouched, and
+        // `groupBy` on the RETURNED node is the canonical lane key
+        // `ObjectKanban` reads. Only the stray VIEW-CONFIG spelling is stripped.
+        const { columns: _kanbanColumns, groupByField: _gbf, groupField: _gf, titleField: _tf, conditionalFormatting: _kanbanCf, groupBy: _strayGroupBy, ...restKanban } = kanbanCfg;
         // Forward conditional formatting to kanban (issue #1584): nested
         // `options.kanban.conditionalFormatting` wins, then the view-level rule.
         // Those are the two places the key is DECLARED — `ObjectKanbanSchema`
@@ -1464,10 +1573,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // (measured — it does not render empty and does not throw); pinned in
         // `plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070.test.tsx`.
         //
-        // ⛔ `progressField` / `dependenciesField` keep their floors: not date
-        // axes, different absent-value semantics, scoped out of #7070. They
-        // cannot resurrect a config on their own — `getGanttConfig` gates on the
-        // two date fields alone.
+        // `progressField` / `dependenciesField` are NOT floored either, as of
+        // objectui#7499 — the flavour-3 card #7070 scoped out and left pinned
+        // here so that whoever retired them had a place to declare it. OMIT,
+        // not refuse: "no progress" and "no dependencies" are legitimate and
+        // common states (unlike an absent date axis), so refusing would break
+        // the common case — but `|| 'progress'` / `|| 'dependencies'` invented
+        // a binding no author wrote, and its failure mode is a per-row
+        // `undefined` INDISTINGUISHABLE from that legitimate absence, so a
+        // misspelt key hit a same-named column silently. Omitting keeps the
+        // legitimate case rendering exactly as before while a declared value
+        // still passes verbatim through the `viewOptions.gantt` spread below.
+        // Deleting them cannot resurrect a config — `getGanttConfig` gates on
+        // the two date fields alone, so the refusal screen stays as reachable
+        // as it was (`plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070`).
         return {
           type: 'object-gantt',
           ...baseProps,
@@ -1477,8 +1596,6 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(viewOptions.gantt?.endDateField
             ? { endDateField: viewOptions.gantt.endDateField }
             : {}),
-          progressField: viewOptions.gantt?.progressField || 'progress',
-          dependenciesField: viewOptions.gantt?.dependenciesField || 'dependencies',
           ...(viewOptions.gantt || {}),
         };
       case 'map':
@@ -1486,10 +1603,21 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `viewOptions.map` is an untyped bag (`NamedListView.options`); a raw
         // spread here forwarded every key the author wrote, including `style`,
         // which `ObjectMap`'s `FlatMapConfigKeys` declares OUT of this flat form.
+        //
+        // ⛔ NO `locationField: … || 'location'` FLOOR (objectui#8169 — ruled
+        // 2026-09-07 「同意」, option B), for the same reason the gantt branch
+        // above carries no date floors: only ever restate a binding the view
+        // actually DECLARED. This floor was worse than a duplicate of
+        // `getMapConfig`'s own default branch — it SHADOWED half of it, forcing
+        // the flat branch to return that one key with no `latitudeField` /
+        // `longitudeField` beside it. Both faces moved together: the
+        // component's coordinate guesses are gone, and an undeclared map now
+        // renders `ObjectMap`'s "Map configuration required" refusal instead of
+        // an empty map — pinned in
+        // `plugin-map/src/ObjectMap.unboundRefusal-8169.test.tsx`.
         return {
           type: 'object-map',
           ...baseProps,
-          locationField: viewOptions.map?.locationField || 'location',
           ...pickFlatMapConfig(viewOptions.map),
         };
       case 'tree':
@@ -1507,6 +1635,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // Single-parent pointer field; auto-detected from the object's
           // `tree`/self-reference field when not specified.
           parentField: viewOptions.tree?.parentField,
+          // ⚠️ `titleField` is an UNDECLARED tolerant fallback (objectui#8841),
+          // not part of the block: `@objectstack/spec@17.4.0` refuses
+          // `tree.titleField` by name and `TreeViewConfig` no longer carries it.
+          // The read survives because `viewOptions` is untyped here, and it is
+          // kept so view records already storing the key keep resolving.
+          // ⛔ Not to be re-declared anywhere; its retirement is a follow-up.
           labelField: viewOptions.tree?.labelField || viewOptions.tree?.titleField || 'name',
           // The view's columns double as the tree-grid's flat columns.
           fields: viewOptions.tree?.fields || baseProps.fields,
@@ -1652,6 +1786,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       sort: viewSort || schema.table?.sort,
       pagination: schema.table?.pagination,
       selection: schema.table?.selection,
+      // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
+      // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
+      // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),
+      // and this default content renderer is where an authored `object-view`
+      // with a `type: 'grid'` named view actually lands — the `renderListView`
+      // delegation above runs only for a HOST (objectui#5097).
+      //
+      // NAMED-VIEW SOURCED ONLY. ⛔ No `activeView` rung: the host `views` path
+      // has never fed these two slots on this branch, and widening it here would
+      // be a behaviour change on a surface this card does not own. Undefined is
+      // what `ObjectGrid` reads today for both keys, so the value only ever
+      // changes for a document that authors the protocol key.
+      grouping: currentNamedViewConfig?.grouping,
+      rowColor: currentNamedViewConfig?.rowColor,
       pageSize: schema.table?.pageSize,
       selectable: schema.table?.selectable,
       className: schema.table?.className,
@@ -1873,7 +2021,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           densityMode: activeView?.densityMode,
           groupBy: activeView?.groupBy,
           groupBy2: activeView?.groupBy2,
-          grouping: activeView?.grouping,
+          // objectui#8980 — the protocol declares `grouping` on a named list
+          // view and `ListView` reads it (`schema.grouping`); the named view had
+          // no rung here at all. Canonical source first, host `views` entry
+          // second — the precedence every other pair on this branch uses.
+          grouping: currentNamedViewConfig?.grouping ?? activeView?.grouping,
           options: currentNamedViewConfig?.options || activeView,
           // Toolbar policy — one vocabulary (#2890). The host node and the
           // active view may still carry the legacy bare `show*` flags, so both
@@ -1883,6 +2035,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           userActions: {
             ...(normalizeListViewSchema(schema ?? {}) as { userActions?: object }).userActions,
             ...(normalizeListViewSchema(activeView ?? {}) as { userActions?: object }).userActions,
+            // objectui#8980 — the named view is the most specific source, so it
+            // folds in LAST. Spread rather than `??` on purpose: this slot is a
+            // merge of toggle sets, not a winner-takes-all pick, and a named
+            // view that toggles one action must not blank the rest.
+            ...currentNamedViewConfig?.userActions,
           },
           compactToolbar: activeView?.compactToolbar ?? (schema as any).compactToolbar,
           allowExport: activeView?.allowExport ?? (schema as any).allowExport,
@@ -1901,7 +2058,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // the objectui#5097 HOST-COMPOSITION exemption the 2026-08-18
           // ruling fixed at 27, which is a ruling and not a refactor.
           // `grouping` above is the precedent for a view-only rung here.
-          rowColor: activeView?.rowColor,
+          // objectui#8980 adds the named-view rung ahead of it — still
+          // VIEW-SOURCED ONLY, still no `(schema as any)` fallback, so the
+          // objectui#5097 exemption stays fixed at 27 names.
+          rowColor: currentNamedViewConfig?.rowColor ?? activeView?.rowColor,
           // Propagate view-config properties (Bug 4 / items 14-22)
           inlineEdit: activeView?.inlineEdit ?? (schema as any).inlineEdit,
           wrapHeaders: activeView?.wrapHeaders ?? (schema as any).wrapHeaders,
@@ -1915,7 +2075,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // ViewData source override (spec `data` key) — e.g. gantt views fed
           // by a composite api endpoint; without this pick the api provider
           // never reaches the renderer.
-          data: (currentNamedViewConfig as any)?.data ?? (activeView as any)?.data ?? (schema as any).data,
+          // objectui#8980 / objectui#7928's open half: the cast on the
+          // named-view config is GONE — `data` is a declared `NamedListView`
+          // member now, so the read and the declaration are one fact. The
+          // `activeView` and node rungs keep their casts: the host `views` entry
+          // is an untyped host shape and `data` on the node is one of the 27
+          // objectui#5097 host-composition keys.
+          data: currentNamedViewConfig?.data ?? (activeView as any)?.data ?? (schema as any).data,
           // Propagate new spec properties (P0/P1/P2)
           navigation: activeView?.navigation ?? (schema as any).navigation,
           selection: activeView?.selection ?? (schema as any).selection,
@@ -1924,6 +2090,23 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           filterableFields: activeView?.filterableFields ?? (schema as any).filterableFields,
           resizable: activeView?.resizable ?? (schema as any).resizable,
           hiddenFields: activeView?.hiddenFields ?? (schema as any).hiddenFields,
+          // objectui#8980 — TWO SLOTS THAT HAD NO RUNG ON THIS BRANCH AT ALL.
+          //
+          // `fieldOrder` is the live third key of the protocol's
+          // `columns` x `hiddenFields` x `fieldOrder` composition — objectstack#15184
+          // ruling B (2026-09-11) KEPT it and ruled the composition into the
+          // contract: `columns` projects, `hiddenFields` (the line above)
+          // subtracts, `fieldOrder` orders what survives. `ListView` applies all
+          // three in one memo; only this relay never carried the third.
+          //
+          // `appearance` carries `showDescription` and the ADR-0047
+          // `allowedVisualizations` whitelist, both read by `ListView`.
+          //
+          // View-sourced only, like `grouping` / `rowColor` above: ⛔ no
+          // `(schema as any)` fallback, so the objectui#5097 exemption is
+          // untouched.
+          fieldOrder: currentNamedViewConfig?.fieldOrder,
+          appearance: currentNamedViewConfig?.appearance ?? activeView?.appearance,
           rowActions: activeView?.rowActions ?? (schema as any).rowActions,
           rowActionDefs: (activeView as any)?.rowActionDefs ?? (schema as any).rowActionDefs,
           bulkActions: activeView?.bulkActions ?? (schema as any).bulkActions,
@@ -1999,7 +2182,19 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         <TabsList className="w-auto">
           {entries.map(([key, view]) => (
             <TabsTrigger key={key} value={key} className="text-sm">
-              {view.label || key}
+              {/*
+                * objectui#8980 — `name` is the protocol's own identity for a
+                * view, distinct from the record KEY it is filed under. It slots
+                * between the two as the display fallback: a view that declares
+                * one shows it instead of a synthetic key.
+                *
+                * ⚠️ MEASURED INERT ON THE LIVE PRODUCER, deliberately:
+                * `@object-ui/app-shell`'s `applyViewItem` stamps `name: key` on
+                * every composed `listViews` entry, so `view.name || key` is the
+                * same string there and no existing tab label moves. It changes
+                * only for an authored view whose `name` differs from its key.
+                */}
+              {view.label || view.name || key}
             </TabsTrigger>
           ))}
         </TabsList>

@@ -87,7 +87,6 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.recordNotFoundDescription': 'The record you are looking for does not exist or may have been deleted.',
   'detail.goBack': 'Go back',
   'detail.details': 'Details',
-  'detail.related': 'Related',
   'detail.relatedRecords': '{{count}} records',
   'detail.relatedRecordOne': '{{count}} record',
   'detail.noRelatedRecords': 'No related records found',
@@ -114,6 +113,11 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.sortBy': 'Sort by',
   'detail.filterPlaceholder': 'Filter…',
   'detail.highlightFields': 'Key Fields',
+  // objectui#4645 — `HeaderHighlight`'s own container name. The strip is a
+  // bare `<section>` with no visible label of its own, so this `aria-label`
+  // IS the landmark to a screen reader; it was an English literal in every
+  // locale. Same shape and same argument as `detail.pathLabel` (#5956).
+  'detail.highlightsLabel': 'Record highlights',
   // Comments
   'detail.comments': 'Comments',
   'detail.searchComments': 'Search comments…',

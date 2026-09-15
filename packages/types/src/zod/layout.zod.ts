@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
@@ -76,6 +76,14 @@ export const DivSchema = BaseSchema.extend({
 export const BoxSchema = BaseSchema.extend({
   type: z.literal('box'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this box node',
+    '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/box.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -85,6 +93,14 @@ export const TextSpanSchema = BaseSchema.extend({
   type: z.literal('span'),
   value: z.string().optional().describe('Text content'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this span node',
+    '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/basic/span.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -93,7 +109,7 @@ export const TextSpanSchema = BaseSchema.extend({
 export const TextSchema = BaseSchema.extend({
   type: z.literal('text'),
   content: z.string().optional()
-    .describe('Text content — the one content spelling `text` reads, at renderers/basic/text.tsx:162,167 as `{schema.content}` (declared by objectui#6150; its `value` fallback spelling was retired by objectui#6951)'),
+    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired by objectui#6951)'),
   // ADR-0049 RETIREMENT TOMBSTONE (objectui#6951 / objectui#7016, maintainer
   // ruling A1 of 2026-09-04). `value` was the second spelling of the one
   // content slot; the renderer now reads `content` alone, so a plain deletion
@@ -111,6 +127,26 @@ export const TextSchema = BaseSchema.extend({
     .optional()
     .describe('Text variant/style'),
   align: z.enum(['left', 'center', 'right', 'justify']).optional().describe('Text alignment'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `text` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `align`, `className`, `content`, `variant`. '
+    + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `text` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `align`, `className`, `content`, `variant`. '
+    + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -123,6 +159,26 @@ export const ImageSchema = BaseSchema.extend({
   width: z.union([z.string(), z.number()]).optional().describe('Image width'),
   height: z.union([z.string(), z.number()]).optional().describe('Image height'),
   objectFit: z.enum(['contain', 'cover', 'fill', 'none', 'scale-down']).optional().describe('Object fit property'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `image` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `alt`, `src`. '
+    + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `image` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `alt`, `src`. '
+    + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -190,6 +246,26 @@ export const IconSchema = BaseSchema.extend({
     .describe('Lucide glyph name, kebab-case (objectui#5631: was `name`)'),
   size: z.number().optional().describe('Icon size in pixels'),
   color: z.string().optional().describe('Icon color'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `icon` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
+    + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `icon` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
+    + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -199,6 +275,20 @@ export const SeparatorSchema = BaseSchema.extend({
   type: z.literal('separator'),
   orientation: z.enum(['horizontal', 'vertical']).optional().describe('Separator orientation'),
   decorative: z.boolean().optional().describe('Whether decorative'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `orientation`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `orientation`.',
+  ),
 });
 
 /**
@@ -213,6 +303,14 @@ export const ContainerSchema = BaseSchema.extend({
   centered: z.boolean().optional().describe('Center the container'),
   padding: z.number().optional().describe('Padding value'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this container node',
+    '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/container.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -232,6 +330,14 @@ export const FlexSchema = BaseSchema.extend({
   gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
   wrap: z.boolean().optional().describe('Allow items to wrap'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this flex node',
+    '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -245,6 +351,14 @@ export const StackSchema = BaseSchema.extend({
   gap: z.number().optional(),
   wrap: z.boolean().optional(),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this stack node',
+    '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/stack.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -273,6 +387,14 @@ export const GridSchema = BaseSchema.extend({
   ]).optional().describe('Number of columns (responsive)'),
   gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this grid node',
+    '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/grid.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -313,6 +435,26 @@ export const TabsSchema = BaseSchema.extend({
   orientation: z.enum(['horizontal', 'vertical']).optional().describe('Tabs orientation'),
   items: z.array(TabItemSchema).describe('Tab items configuration'),
   onValueChange: handlerKeyRefusal('onValueChange', 'runtime-slot', 'Change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tabs` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
+    + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `tabs` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
+    + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -324,6 +466,14 @@ export const ScrollAreaSchema = BaseSchema.extend({
   width: z.union([z.string(), z.number()]).optional().describe('Width of scroll container'),
   orientation: z.enum(['vertical', 'horizontal', 'both']).optional().describe('Scrollbar orientation'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
+  body: aliasKeyRefusal(
+    'body',
+    'children',
+    'this scroll-area node',
+    '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/complex/scroll-area.tsx`). '
+    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
+    + 'an EMPTY element — no error, no warning. objectui#8284.',
+  ),
 });
 
 /**
@@ -346,6 +496,20 @@ export const ResizableSchema = BaseSchema.extend({
   minHeight: z.union([z.string(), z.number()]).optional().describe('Minimum height'),
   withHandle: z.boolean().optional().describe('Show resize handle'),
   panels: z.array(ResizablePanelSchema).describe('Resizable panels'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
+    + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
+    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
+  ),
 });
 
 /**
@@ -439,12 +603,168 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
 ] as const);
 
 /**
+ * The `actions` REFUSAL on the `page` node (objectui#7926, maintainer ruling
+ * 2026-09-09, decision batch #107 item 2 — option A).
+ *
+ * ## What was measured
+ *
+ * `PageNodeSchema` never declared `actions`, and `PageRenderer` never read it:
+ * `git grep -ni action packages/components/src/renderers/layout/page.tsx`
+ * returns only the `PageVariableActionBridge` import and its render, with
+ * `schema.title` / `schema.pageType` (3 hits in the same file) as the lit
+ * control. Rendered through the real `SchemaRenderer`, a `page` node carrying
+ * `actions: [{type:'button',label:'Add Product'}, …]` drew **0** buttons and
+ * the label appeared nowhere in the DOM; the SAME two buttons moved into
+ * `body` drew **2**.
+ *
+ * `BaseSchema` is `.passthrough()`, so the array was not refused — it was KEPT,
+ * and until objectui#7933 it was spread onto the wrapper element as
+ * `actions="[object Object],[object Object]"`. That half is closed (`toDomProps`,
+ * `page.tsx:521`), which leaves the silent half: an author writes a key, the
+ * validator says yes, and nothing draws.
+ *
+ * ## Why a REFUSAL rather than a reader
+ *
+ * This was the THIRD surface carrying an `actions` array no reader consumes
+ * (objectui#7469 — the app node; objectui#7693 — the alert-dialog fixtures),
+ * and the authorable action FORM was already ruled on 2026-08-25 for
+ * objectui#6497 / #6182 (option A: the declarative action object). Growing a
+ * reader here would have minted a FOURTH `actions` shape, so the ruling pulls
+ * the node back to its declared contract instead.
+ *
+ * ⛔ NOT `.strict()` on the node, and that is the census talking rather than
+ * taste. Measured over this tree before the refusal was written: 91 authored
+ * `page`-tagged objects, 8 sites the census could not read (7 elided doc fences
+ * plus one literal carrying a spread), and the undeclared keys that survive
+ * passthrough on a real `page` NODE are exactly `actions` (3 sites, all of them
+ * the `content/docs/guide/layout.md` passages this card rewrites) and
+ * `breadcrumbs` (its own question — objectui#7926 does not rule on it; RULED
+ * and refused separately by objectui#8871, see {@link PAGE_BREADCRUMBS_REFUSAL}
+ * below, which also corrects the "1 site" reading recorded here to THREE — two
+ * were missed for two DIFFERENT reasons: one passage's literal does carry
+ * `type: 'page'` but sits inside a markdown `typescript` fence, a fence
+ * LANGUAGE the census's `json`-fence reader never visits; the other is a
+ * `json`-fenced fragment that never writes `type` at all).
+ * Every other undeclared key the grep found sits on a DIFFERENT declaration
+ * that merely spells `type: 'page'` — nav items (`pageName`, `href`, `badge`,
+ * `labelKey`, `requiredPermissions`), `registerMetadataResource` rows
+ * (`domain`, `listColumns`, `anchors`, `create*`) and spec `page` LIST VIEWS
+ * (`pageName` + empty `columns`) — none of which this schema parses. And
+ * `page-app-dashboard-spec-parity.test.ts` PINS the node staying open
+ * ("the component envelope still passes unknown renderer props through"), so a
+ * strict node would have taken a living pin with it. One key, by name.
+ *
+ * Same helper and the same reasoning as `MenuItemSchema.type`
+ * (`./overlay.zod.ts`, objectui#6523): a spelling the type never declared,
+ * turned into a named refusal that carries the remedy.
+ */
+const PAGE_ACTIONS_REFUSAL =
+  '`actions` is not a key of the `page` node and never was (objectui#7926): no renderer ' +
+  'reads it, so an authored array drew nothing and rode `.passthrough()` onto the wrapper ' +
+  'element. Author the buttons as NODES in `body` (a `button` node, or an `action:button` ' +
+  'node with a declared `actionType`); on a record page declare them on a `page:header` ' +
+  'block instead, whose own `actions` are ACTION IDS resolved from the object metadata ' +
+  '(objectui#7182), not nodes.';
+
+/**
+ * The `breadcrumbs` REFUSAL on the `page` node (objectui#8871) — the key
+ * objectui#7926 measured on this same node and deliberately left parsing, so
+ * that retiring it would be a DECISION rather than an accident. This is that
+ * decision, taken under ADR-0049 enforce-or-remove.
+ *
+ * ## Why ADR-0049 governs this, and not a fresh ruling
+ *
+ * objectui#7926's maintainer ruling covers `actions` and, by its own comments,
+ * nothing else — so it is NOT borrowed here. What reaches this key instead is
+ * the standing enforce-or-remove discipline, which this repository applies to
+ * this exact face: {@link retirementTombstone} is documented as the "ADR-0049
+ * RETIREMENT TOMBSTONE" helper and is internal to these zod modules; 63
+ * changesets under `.changeset/` cite the ADR; and `PageNodeSchema` itself
+ * already carries one of its refusal arms one member up. "Declared-or-authored
+ * but unread" is the population the gate names, and this key is in it.
+ *
+ * ## What was measured (objectui#8871, on this branch's BASE `93127bd6f`)
+ *
+ * ZERO readers — and the FRAME is load-bearing: every number below is a
+ * reading on the BASE unless it says HEAD. On the base,
+ * `git grep -E "\.breadcrumbs"` over the whole tree returns nothing (exit 1);
+ * the same shape one letter shorter, `"\.breadcrumb\b"`, returns 12 files
+ * tree-wide (10 under `packages/`) — the lit control that says the probe
+ * runs. At HEAD those two read 16 and 13, and `\.breadcrumbs` itself turns
+ * exit 0 over 4 files / 6 lines, because THIS branch's own four files — the
+ * changeset, `page-breadcrumbs-refusal-8871.test.ts`, `layout.ts` and this one
+ * — QUOTE the probe string; subtract the eight exclusions the tree-scoped pin
+ * spells out and HEAD is back at exit 1. `layout.ts`'s twin docblock states the
+ * same frame, and the two must not be allowed to drift apart on it again.
+ * ⛔ A BARE-WORD probe is useless here and the reason this note
+ * spells the shape out: `breadcrumbs` is heavily overloaded in this tree, and
+ * a bare grep hits Sentry's own unrelated breadcrumbs concept
+ * (`app-shell/src/observability/sentry.ts`) plus two comments listing UI
+ * surfaces (`core/src/utils/record-title.ts`, `layout/src/NavigationRenderer.tsx`)
+ * — three prose sites, no reader, no declaration. A bare probe reads "5
+ * readers" and every one of them is false.
+ *
+ * THREE author sites, all of them teaching passages in one file — and the
+ * count corrects objectui#7926's "1 site", which came from a census that
+ * reads every git-tracked JSON file, every `json` fence in `.md`/`.mdx`, and
+ * every TS/TSX object literal via the TypeScript AST (PR #8870). It
+ * undercounted for TWO DIFFERENT reasons: the Schema API block declared the
+ * member outright and its literal does carry `type: 'page'`, but that literal
+ * sits inside a markdown `typescript` fence — a fence LANGUAGE the census's
+ * `json`-fence reader never visits, so it was never read at all. Best
+ * Practices §2 authored it on a fragment inside a `json` fence the census
+ * DOES read, but that fragment never writes `type`, so a `page`-TAGGED filter
+ * correctly excluded it. The "Detail Page with Actions" fence is the one site
+ * both instruments would see — a `json` fence, tagged `type: 'page'` — and is
+ * the "1 site" the earlier census counted. No example app, catalog fixture,
+ * template or customer document writes the key; this refusal therefore
+ * strands no authored document in the tree.
+ *
+ * ## Why a REFUSAL and not a bare deletion
+ *
+ * There is nothing to delete: the key was never in the shape. `BaseSchema` is
+ * `.passthrough()`, so an undeclared key is not refused, it is KEPT — deleting
+ * a declaration that does not exist would leave the silent accept exactly as it
+ * is. Declaring the refusal is what makes it audible, and it is what converts a
+ * write from OUTSIDE this repository — the half no in-tree census can read —
+ * into a named refusal carrying its own remedy.
+ *
+ * ## Why a REFUSAL and not a reader
+ *
+ * The remedy is a NODE, and it already ships. `breadcrumb` is a REGISTERED,
+ * live component (`ComponentRegistry.register('breadcrumb', …)` in
+ * `packages/components/src/renderers/data-display/breadcrumb.tsx`) whose
+ * `BreadcrumbSchema.items` takes the very `{ label, href }` shape these
+ * passages authored, and which honours `separator`, `maxItems` and per-item
+ * `icon` besides. Growing a second road to the same trail would mint a rival
+ * spelling for a vocabulary that already renders — the `wrap` test
+ * (objectui#5453) run in the opposite direction: there the key was retired
+ * because it had NO second road to a consumer; here it is retired because the
+ * road that exists is the one that draws.
+ *
+ * ⛔ NOT `.strict()` on the node, for the reason {@link PAGE_ACTIONS_REFUSAL}
+ * records above: the census found only these two keys on a real `page` node,
+ * and `page-app-dashboard-spec-parity.test.ts` pins the node staying open to
+ * unknown renderer props. One key, by name — again.
+ */
+const PAGE_BREADCRUMBS_REFUSAL =
+  '`breadcrumbs` is not a key of the `page` node and never was (objectui#8871, ADR-0049 ' +
+  'enforce-or-remove): no renderer reads it, so an authored trail drew nothing and rode ' +
+  '`.passthrough()` through the validator as a silent accept. Author the trail as a NODE ' +
+  'in `body` instead — { "type": "breadcrumb", "items": [{ "label": "Home", "href": "/" }] } ' +
+  '— which is a registered renderer and takes the same item shape, plus `separator` and ' +
+  '`maxItems`. ⛔ Not the `page:header` block\'s `breadcrumb` either: that one is SINGULAR ' +
+  'and a BOOLEAN display toggle, not a list of links.';
+
+/**
  * Page Schema — top-level page layout, derived from `@objectstack/spec/ui`
  * `PageSchema` (see {@link SpecPageFields}). The drift guard is
  * `__tests__/page-app-dashboard-spec-parity.test.ts`.
  */
 export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   type: z.literal('page'),
+  actions: retirementTombstone(PAGE_ACTIONS_REFUSAL),
+  breadcrumbs: retirementTombstone(PAGE_BREADCRUMBS_REFUSAL),
   title: z.string().optional().describe('Page title'),
   icon: z.string().optional().describe('Page icon (Lucide icon name)'),
   description: z.string().optional().describe('Page description'),
@@ -453,10 +773,123 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   template: z.string().optional().describe('Layout template name'),
   variables: z.array(PageVariableSchema).optional().describe('Local page state variables'),
   regions: z.array(PageNodeRegionSchema).optional().describe('Page layout regions'),
-  body: z.array(SchemaNodeSchema).optional().describe('Main content array'),
+  // objectui#8310: ONE node or a list, mirroring the TS face and the runtime.
+  // `FlatContent` in `page.tsx` normalizes a bare node into a one-element list,
+  // and the root README's flagship example authors exactly that; array-only here
+  // made this the only `body` in this file that is not the union (`CardSchema`
+  // and `AspectRatioSchema` already spell it, as does `BaseSchema`).
+  body: z
+    .union([SchemaNodeSchema, z.array(SchemaNodeSchema)])
+    .optional()
+    .describe('Main content — one node or a list of nodes'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Alternative content prop'),
   isDefault: z.boolean().optional().describe('Whether this is the default page'),
   assignedProfiles: z.array(z.string()).optional().describe('Profiles that can access this page'),
+});
+
+/**
+ * Semantic Element Schema — the seven HTML sectioning tags
+ * `packages/components/src/renderers/layout/semantic.tsx` registers
+ * (objectui#8499).
+ *
+ * ## The defect this closes
+ *
+ * These seven are REGISTERED, LIVE renderers with nine catalog fixtures of
+ * their own under `examples/schema-catalog/src/schemas/components-layout-semantic/`,
+ * and `AnyComponentSchema` had no arm for any of them. So a document that
+ * renders correctly in the browser was REFUSED by `objectui check` — the
+ * expensive direction, because the author's likely reaction is to stop trusting
+ * the validator rather than to fix the document (objectui#8499 triage).
+ *
+ * The two faces disagreed BY CONSTRUCTION: `check:doc-types` judges a `type`
+ * literal against the RENDERER registry (656 keys at the time of writing), not
+ * against this union (107 arms), and nothing compared them at a node slot.
+ * `../__tests__/node-slot-registered-arms-8499.test.ts` compares the literal set
+ * below against `semantic.tsx`'s own `tags` array, so a tag added there without
+ * an arm here goes red instead of diverging silently.
+ *
+ * ## Why one arm and not seven
+ *
+ * The factory in `semantic.tsx` builds ONE component over all seven tags: it
+ * renders `renderChildren(schema.children || schema.body)` inside the tag and
+ * declares exactly one authoring input, `className`. Seven arms would restate
+ * the same shape seven times with no key to tell them apart.
+ *
+ * ## What is NOT declared here, and why
+ *
+ * Nothing beyond `type` and the child slot. Every other key the factory touches
+ * — `data-obj-id`, `data-obj-type`, `style` — is a DESIGNER prop injected by the
+ * renderer host, never authored metadata, and `className` is already a
+ * {@link BaseSchema} member. Following the `BarChartSchema` discipline (`./data-display.zod.ts`):
+ * only keys the renderer demonstrably reads, nothing on the strength of what a
+ * sectioning tag "should" accept.
+ */
+export const SemanticElementSchema = BaseSchema.extend({
+  type: z.enum(['aside', 'main', 'header', 'nav', 'footer', 'section', 'article'])
+    .describe('HTML sectioning tag — the seven `renderers/layout/semantic.tsx` registers'),
+  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
+    .describe('Child components — read as `schema.children || schema.body` by the factory'),
+});
+
+/**
+ * Html Element Schema — the safe flow/inline HTML passthrough set
+ * `packages/components/src/renderers/basic/html-elements.tsx` registers
+ * (objectui#8499).
+ *
+ * ## Why these must resolve
+ *
+ * That module's own docblock states the purpose: a `kind:'html'` page is PARSED
+ * (never executed) into the SDUI tree, so "the everyday HTML tags an author
+ * reaches for — headings, paragraphs, lists, links, images, emphasis — must each
+ * resolve to a renderer (otherwise the parser flags them `unknown-component`)".
+ * They resolved in the RENDERER registry and in no arm of `AnyComponentSchema`,
+ * which is objectui#8499: `content/docs/utilities/runner.mdx` teaches the reader
+ * to save a document carrying `h1`, and the document it teaches renders and is
+ * refused.
+ *
+ * ⚠️ One arm over the whole set, deliberately, and it is a real cost: `h1`
+ * becomes legal at EVERY node slot, including slots where it is absurd (a
+ * `header-bar`'s `logo`, a `dialog`'s `trigger`). That is not new laxity
+ * — every one of the 107 pre-existing arms is already legal at every one of the
+ * 249 declared node slots, because there is exactly ONE node-slot vocabulary in
+ * this face ({@link SchemaNodeSchema}) and a discriminated union selects its arm
+ * from the authored literal alone, with no way for a slot to narrow it. A
+ * per-slot vocabulary is a different programme, not a variant of this arm.
+ *
+ * ## The per-tag keys, and why they are typed wider than the registration
+ *
+ * `PER_TAG_INPUTS` in that module declares `img`'s `width`/`height` as
+ * `number`. The renderer FORWARDS them verbatim onto the DOM element, which
+ * accepts `"100"` as readily as `100`, so a number-only declaration here would
+ * refuse a document the renderer draws — this card's own defect, rebuilt one
+ * key down. The declaration follows the read site, not the authoring hint.
+ *
+ * ⚠️ The keys are declared on the whole set rather than per tag, so
+ * `{ type: 'p', href: '…' }` parses. {@link BaseSchema} passes unknown keys
+ * through, so it parsed before this arm existed too — declaring them narrows
+ * nothing and gains the author a typed surface.
+ */
+export const HtmlElementSchema = BaseSchema.extend({
+  type: z.enum([
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'p', 'a', 'blockquote', 'pre',
+    'strong', 'em', 'b', 'i', 'u', 'small', 'mark', 'sub', 'sup', 'del', 'ins', 'abbr',
+    'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+    'figure', 'figcaption', 'img', 'hr', 'br', 'time', 'address', 'cite', 'q',
+  ]).describe('Safe HTML tag — the set `renderers/basic/html-elements.tsx` registers'),
+  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
+    .describe('Child components — read as `schema.children ?? schema.body`; ignored for the void tags `img` / `hr` / `br`'),
+  href: z.string().optional()
+    .describe('`a` link target; scheme-sanitised (`javascript:` / `data:` / `vbscript:` are dropped)'),
+  target: z.string().optional().describe('`a` browsing context — an internal link navigates through the SPA router unless this names another target'),
+  rel: z.string().optional().describe('`a` link relationship'),
+  title: z.string().optional().describe('Advisory title — declared for `a`, `img` and `abbr`'),
+  src: z.string().optional().describe('`img` source URL'),
+  alt: z.string().optional().describe('`img` alternative text'),
+  width: z.union([z.string(), z.number()]).optional().describe('`img` width — forwarded verbatim to the DOM attribute'),
+  height: z.union([z.string(), z.number()]).optional().describe('`img` height — forwarded verbatim to the DOM attribute'),
+  dateTime: z.string().optional().describe('`time` machine-readable datetime'),
+  cite: z.string().optional().describe('`q` / `blockquote` source URL'),
 });
 
 /**
@@ -480,4 +913,6 @@ export const LayoutSchema = z.discriminatedUnion('type', [
   ResizableSchema,
   AspectRatioSchema,
   PageNodeSchema,
+  SemanticElementSchema,
+  HtmlElementSchema,
 ]);

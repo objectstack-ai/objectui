@@ -7,5 +7,6 @@
     "label": "Delete Account"
   },
   "cancelText": "Cancel",
-  "actionText": "Continue"
+  "actionText": "Continue",
+  "actionVariant": "destructive"
 }

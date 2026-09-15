@@ -70,10 +70,26 @@ describe('objectui#6493 — buildExpressionScope binds one user object under all
     expect(scope.os.user).toBe(user);
   });
 
-  it('binds app, data and features, and defaults every root to an empty object', () => {
+  it('binds features — and NOT `app`, NOT `data` — defaulting every root to an empty object', () => {
     const scope = buildExpressionScope();
+    // ⛔ No `app` (objectui#8155, ruled 2026-09-07). Neither ADR-0068 nor
+    // `@objectstack/formula`'s SCOPE_ROOTS declares such a root, so binding it
+    // made this tier the only place it existed: advertised by the
+    // conditional-formatting editor and refused by the linter judging the very
+    // same field, with no spelling that did both.
+    //
+    // ⛔ No `data` (objectui#8166, ruled 2026-09-10) — the mirror case. The
+    // engine ACCEPTS `data` at `scope: 'record'`, which is precisely why an
+    // ambient binding here was worse than `app`'s: the lint stayed green and
+    // the predicate resolved, against this bag instead of against the row that
+    // objectui#5741 made `record.*`. Unbound, it faults with the engine's own
+    // `Unknown variable: data`.
+    //
+    // `toStrictEqual` is what makes this a fence rather than a sample — a root
+    // added BACK reddens here just as loudly as one removed, and `app` or
+    // `data` returning to this bag is the drift the rulings guard against.
     expect(scope).toStrictEqual({
-      current_user: {}, user: {}, ctx: { user: {} }, os: { user: {} }, app: {}, data: {}, features: {},
+      current_user: {}, user: {}, ctx: { user: {} }, os: { user: {} }, features: {},
     });
     // The identity above holds for the defaults too — the hand-written fallback
     // in `useExpressionContext` used to mint three separate empty objects.

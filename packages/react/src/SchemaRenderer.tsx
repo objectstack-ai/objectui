@@ -31,7 +31,7 @@ import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
-import { reportDroppedPropsBag } from './utils/propsBagDiagnostic.js';
+import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { expressionBindableTextKeysFor } from '@objectstack/spec/ui';
 import {
   reportUnresolvableVisibilityPredicate,
@@ -252,6 +252,221 @@ const VISIBILITY_HIDE_KEYS = ['hidden', 'hiddenOn'] as const;
 type VisibilityChainKey =
   | (typeof VISIBILITY_SHOW_KEYS)[number]
   | (typeof VISIBILITY_HIDE_KEYS)[number];
+
+/**
+ * The same six legs as a lookup, so the config-bag evaluation loops below can
+ * ask "is this key a visibility predicate?" off the SAME declaration the chain
+ * is built from rather than a second list that can drift from it.
+ *
+ * Since objectui#9107 those loops ask {@link PREDICATE_CHAIN_KEYS} — this set
+ * unioned with the enablement chain's — so this one is the VISIBILITY HALF of
+ * that union rather than the whole of it. Each chain still has exactly one
+ * declaration, which is the property this constant was added for.
+ */
+const VISIBILITY_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
+  ...VISIBILITY_SHOW_KEYS,
+  ...VISIBILITY_HIDE_KEYS,
+]);
+
+/**
+ * The ENABLEMENT-chain keys — the SECOND predicate chain this file carries, and
+ * deliberately not a seventh leg of the visibility chain above (objectui#9107).
+ *
+ * Split the way this file actually consults them, which is not a polarity split:
+ *
+ *   * {@link ENABLEMENT_NODE_GATE_KEYS} are the two legs
+ *     {@link evaluateEnablementPredicate} consults HERE, in this precedence
+ *     order, as one early-return chain — the enablement counterpart of
+ *     `shouldHide`. Their `true` means DISABLED, un-negated.
+ *   * {@link ENABLEMENT_RENDERER_KEYS} is the legacy, non-spec `enabled` alias.
+ *     This component never evaluates it: the node gate does not consult it at
+ *     all, and the action renderers (`action:button`, `action:icon`) read it one
+ *     layer down off the schema and NEGATE it (`disabled = !isEnabled`). It is
+ *     declared here because the config-bag loops below flatten it exactly like
+ *     the other two — which is the whole defect — not because anything in this
+ *     file decides with it.
+ *
+ * ## Why a second declaration instead of widening the visibility chain
+ *
+ * {@link VisibilityChainKey} exists "so a seventh cannot be added to the chain
+ * without also being classified below", and {@link visibilityGateKind} is that
+ * classification — it hands each leg the consequence copy for ITS polarity.
+ * These three keys have neither property: they route through
+ * {@link evaluateEnablementPredicate}, which states `'enablement'` at its own
+ * call site, and `enabled` is not consulted here at all. Adding them to
+ * {@link VISIBILITY_SHOW_KEYS} / {@link VISIBILITY_HIDE_KEYS} to reach the
+ * guard would make that closed type assert something false about them, and
+ * would silently enrol them in `shouldHide`'s early-return chain and in the
+ * visibility consequence copy as a side effect of a config-bag repair.
+ *
+ * So the two chains stay two declarations, and the GUARD takes their union
+ * ({@link PREDICATE_CHAIN_KEYS}) — one lookup, derived, declared nowhere twice.
+ * The alternative shape (one flat predicate-chain set that both chains derive
+ * FROM) was rejected for the opposite reason: the chains do not share an order,
+ * a declared-test or a consequence, so the thing they genuinely share is only
+ * the guard's question, and that is exactly what a derived union expresses.
+ */
+const ENABLEMENT_NODE_GATE_KEYS = ['disabled', 'disabledOn'] as const;
+const ENABLEMENT_RENDERER_KEYS = ['enabled'] as const;
+
+/**
+ * The two legs the node gate itself consults, as ONE closed type — the
+ * enablement counterpart of {@link VisibilityChainKey}, load-bearing for the
+ * same reason: a third node-gate leg cannot be handed to
+ * {@link evaluateEnablementPredicate} without being declared above, which is
+ * the same edit that puts it into the config-bag guard below.
+ */
+type EnablementNodeGateKey = (typeof ENABLEMENT_NODE_GATE_KEYS)[number];
+
+/**
+ * Every key either predicate chain owns, as ONE lookup for the config-bag
+ * evaluation loops. DERIVED from the four declarations above and declared
+ * nowhere else, so a leg added to either chain is covered by the guard in the
+ * same edit that adds it.
+ */
+const PREDICATE_CHAIN_KEYS: ReadonlySet<string> = new Set<string>([
+  ...VISIBILITY_CHAIN_KEYS,
+  ...ENABLEMENT_NODE_GATE_KEYS,
+  ...ENABLEMENT_RENDERER_KEYS,
+]);
+
+/**
+ * Every key a NODE GATE in this file actually consults, as ONE lookup for the
+ * objectui#9108 refusal below. DERIVED from the same two declarations the gates
+ * are built from, so a leg added to either chain is refused under `props` by the
+ * same edit that adds it.
+ *
+ * {@link PREDICATE_CHAIN_KEYS} minus {@link ENABLEMENT_RENDERER_KEYS}, and the
+ * subtraction is the whole reason this is a second derivation rather than a
+ * reuse: `enabled` is in that union because the config-bag evaluation loops
+ * flatten it, but NO gate here consults it - the action renderers read it one
+ * layer down off the schema and negate it. Refusing it here would state, of a
+ * key this file never asks about, that a gate in this file could not see it.
+ * Its own `props` drop is objectui#6708's subject and is reported there.
+ */
+const NODE_GATE_PREDICATE_KEYS: ReadonlySet<string> = new Set<string>([
+  ...VISIBILITY_CHAIN_KEYS,
+  ...ENABLEMENT_NODE_GATE_KEYS,
+]);
+
+/**
+ * Is this value the canonical CEL envelope — `{ dialect: 'cel', source }` —
+ * that `@objectstack/spec` normalizes an authored predicate into?
+ *
+ * Deliberately narrower than "has a `source`": `cron` and `template` envelopes
+ * are NOT matched, so the `${…}` / template behaviour of the loops below is
+ * byte-for-byte what it was. Only the dialect that `evaluateCondition` routes
+ * to the canonical `@objectstack/formula` engine is held back from the
+ * flattening described in {@link preservePredicateEnvelope}.
+ *
+ * The object-shape half is {@link isConfigBag}, ASKED rather than re-spelled:
+ * objectui#6761 pins that predicate to one definition, and an envelope is the
+ * same question about the same kind of value (a real object, never an array).
+ * This is a third READ of that one answer, not a fourth spelling of it.
+ */
+const isCelEnvelope = (value: unknown): boolean =>
+  isConfigBag(value)
+  && (value as { dialect?: unknown }).dialect === 'cel'
+  && typeof (value as { source?: unknown }).source === 'string';
+
+/**
+ * Evaluate ONE value of a node's config bag (`properties` — the spec spelling
+ * — or its legacy `props` alias), EXCEPT a CEL predicate envelope, which is
+ * returned untouched.
+ *
+ * ## The defect this closes (objectui#9100)
+ *
+ * `ExpressionEvaluator.evaluate` unwraps ANY `{ source: string }` object to its
+ * bare `source` before it does anything else — that unwrap is what lets a
+ * `{ dialect: 'template', source: '${data.total}' }` value interpolate. Applied
+ * to a `{ dialect: 'cel' }` PREDICATE it is destructive instead: the envelope
+ * is the only thing that tells {@link ExpressionEvaluator.evaluateCondition}
+ * to route to the canonical `@objectstack/formula` engine, and the bag loops
+ * run BEFORE the hoist, so by the time either consumer sees the key the
+ * envelope is gone.
+ *
+ * Both consumers then read a bare string and both take the legacy JS path:
+ *
+ *   1. this component's own `shouldHide` chain, off the post-hoist node; and
+ *   2. the RENDERER's `toPredicateInput(…)` → `useCondition(…)` call, one
+ *      layer down (`record:alert`, the four `action:*` blocks, …), which wraps
+ *      the bare string as `${…}` exactly as it is documented to.
+ *
+ * On the legacy engine a CEL stdlib call is simply not a function, so
+ * `has(record.x) && …` throws — and the two polarities of the chain then fail
+ * in OPPOSITE directions, both silently:
+ *
+ *   * on the four SHOW legs the fail-soft `true` is negated to "do not hide",
+ *     so a gate authored to conceal renders on every row — measured in a real
+ *     browser against a real app instance (the card), where a duplicate-lead
+ *     banner showed on 6 of 6 leads whose field was `null`;
+ *   * on the two HIDE legs the same `true` sets `_hidden`, so the node is not
+ *     on screen at all.
+ *
+ * Neither is distinguishable from a predicate that said so on purpose. That is
+ * what makes this a fail-OPEN visibility gate rather than a rendering glitch.
+ *
+ * ## Why the fix is HERE and not in the normalizer
+ *
+ * `toPredicateInput` already preserves a `cel` envelope — that is its whole
+ * documented reason to exist (#2661 / #3314) — and the ACTION path that works
+ * calls the very same function. Measured: mounting the renderer DIRECTLY with
+ * the envelope gates correctly, and only the `SchemaRenderer` route fails, so
+ * the envelope dies upstream of every consumer, in the loops below. What makes
+ * the action path survive is that those loops are per-value and SHALLOW: an
+ * action's predicate sits one level down inside the `actions[]` ARRAY, and
+ * `evaluate` returns a non-string untouched, so nothing walks into it. A
+ * `record:alert` `properties.visible` is a TOP-LEVEL bag key and is hit
+ * head-on. Same normalizer, different depth.
+ *
+ * ## The enablement chain carries the identical defect (objectui#9107)
+ *
+ * `disabled` / `disabledOn` / `enabled` sit in the same two bags and are
+ * flattened by the same two loops, but they are NOT visibility legs — they
+ * route through {@link evaluateEnablementPredicate} and the action renderers'
+ * own `useCondition` call. Measured on the pre-fix tree through this component,
+ * with a CEL stdlib predicate authored at `properties` top level, and the two
+ * halves fail in OPPOSITE directions just as the visibility polarities do:
+ *
+ *   * `disabled` / `disabledOn` — BOTH a holding and a failing predicate left
+ *     the control DISABLED. The flattened source faults on the legacy engine
+ *     and `evaluateCondition`'s fail-soft `true` is un-negated here, so every
+ *     CEL-authored enablement gate greyed its control out on every row, with
+ *     no predicate an author could write to re-enable it.
+ *   * `enabled` — BOTH left the control ENABLED, because the renderers negate
+ *     that leg (`disabled = !isEnabled`), so the same fail-soft `true` lands on
+ *     "not disabled": a control the author disabled stayed pressable.
+ *
+ * ⇒ neither polarity alone detects this. A disabled-only suite is green on the
+ * broken `disabled` legs; an enabled-only suite is green on the broken
+ * `enabled` leg. Both are pinned, per key, in
+ * `__tests__/SchemaRenderer.enablementEnvelopeConfigBag.test.tsx`.
+ *
+ * ## Scope
+ *
+ * Restricted to {@link PREDICATE_CHAIN_KEYS} — the union of the two closed
+ * chain declarations this file already carries, which `shouldHide` /
+ * {@link winningVisibilityKey} and {@link evaluateEnablementPredicate} already
+ * consult. Every consumer of those nine keys takes the envelope by contract
+ * (`evaluateCondition`, `toPredicateInput`). A non-predicate key keeps the
+ * flattening it has always had.
+ *
+ * Eight of the nine are stripped by the metadata destructure near
+ * `createElement`, so no object value can reach the DOM through them. The
+ * ninth, the legacy `enabled` alias, is not stripped — the action renderers
+ * read it off the schema, not off React props. Measured on a renderer that
+ * spreads what it is handed onto a DOM node: that attribute already carried the
+ * raw CEL SOURCE TEXT before this change and carries `[object Object]` after
+ * it, which is the same inert shape the `properties` bag itself already puts on
+ * every such node, with no React warning in either direction. Both spellings
+ * are meaningless to the DOM; the leak is pre-existing and is deliberately NOT
+ * repaired here.
+ */
+const preservePredicateEnvelope = (
+  key: string,
+  value: unknown,
+  evaluate: (v: unknown) => unknown,
+): unknown => (PREDICATE_CHAIN_KEYS.has(key) && isCelEnvelope(value) ? value : evaluate(value));
 
 /**
  * Which CONSEQUENCE the diagnostic should print for a faulting predicate on
@@ -559,7 +774,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
 > = forwardRef<unknown, SchemaRendererProps>(({ schema, ...props }: SchemaRendererProps & ForwardedProps, _ref) => {
   const context = useContext(SchemaRendererContext);
   const dataSource = context?.dataSource || NO_DATA_SOURCE;
-  // Ambient host scope (user / app / features), fed by app-shell's
+  // Ambient host scope (user / features), fed by app-shell's
   // ExpressionProvider. Threaded into `visible`/expression evaluation so
   // component predicates can gate on the signed-in user & deployment flags.
   const predicateScope = usePredicateScope();
@@ -627,11 +842,33 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // an object spread.
     if (!schema || typeof schema !== 'object') return schema;
 
-    // `data` (record/datasource) plus the ambient host scope. `current_user`
-    // is aliased to `user` so both `user.email` and `current_user.email`
-    // resolve in component `visible`/`visibleOn` expressions. `page` exposes
-    // page-local state so predicates can gate on `page.<var>` (e.g. a record
-    // picker's selection toggling another component's visibility).
+    // The ambient host scope, plus the roots this tier can answer itself.
+    // `current_user` is aliased to `user` so both `user.email` and
+    // `current_user.email` resolve in component `visible`/`visibleOn`
+    // expressions. `page` exposes page-local state so predicates can gate on
+    // `page.<var>` (e.g. a record picker's selection toggling another
+    // component's visibility).
+    //
+    // ⛔ `data` is NOT here, and the absence is the decision (objectui#9308,
+    // maintainer ruling 2026-09-13 option B). This used to read
+    // `data: dataSource` — the host's injected ADAPTER, published as an
+    // expression root. `ExpressionProvider` states the governing principle for
+    // the tier above: "Every root below is one the engine accepts AND one this
+    // tier can actually answer", and objectui#8155 (`app`) and objectui#8166
+    // (`data`) applied it there. Against a conformant `DataSource` adapter
+    // every `data.*` path resolves `undefined`, so this tier could not answer
+    // the root it bound: it published a name that was silently constant on
+    // every row. ADR-0089 D3 puts `data` at the METADATA layer
+    // (`CANONICAL_ROOT_BY_LAYER = { runtime: 'record', metadata: 'data' }`) and
+    // the engine's per-surface `FIELD_RULE_BOUND_ROOTS` is
+    // `['record','previous','parent']`. The row is `record`.
+    //
+    // ⭐ Ordering consequence, and the second half of the same ruling: the
+    // spread below used to be followed by `data: dataSource`, so a host that
+    // legitimately published `data` through the documented scope channel
+    // (`PredicateScopeProvider`) was silently OVERWRITTEN by the adapter.
+    // Removing the line un-shadows that channel — a host root named `data` now
+    // survives, like every other root a host publishes.
     //
     // `record` is written AFTER the ambient spread so a page's own row wins
     // over anything a host put in the scope — the same precedence
@@ -648,7 +885,6 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
         ? { record: boundRecord }
         : null),
-      data: dataSource,
       page: pageVariables,
     });
     // Shallow copy
@@ -763,7 +999,19 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         // `false`. Verdict untouched — `verdict` is returned exactly as
         // computed, which is what keeps the ruling's "no verdict changes" true
         // by construction rather than by review.
-        reportAdapterOnlyDataPredicate(newSchema.type, newSchema.id, key, raw, dataSource);
+        //
+        // objectui#9308: the object handed over is the `data` the HOST
+        // published in the ambient scope — the one the evaluator above
+        // actually resolved `data.*` against — and no longer the adapter. The
+        // renderer binds no `data` of its own, so passing the adapter here
+        // would report reads the evaluator never made against it.
+        reportAdapterOnlyDataPredicate(
+          newSchema.type,
+          newSchema.id,
+          key,
+          raw,
+          (predicateScope as any)?.data,
+        );
         return verdict;
       } catch (err) {
         reportUnresolvableVisibilityPredicate(
@@ -840,6 +1088,15 @@ export const SchemaRenderer: ForwardRefExoticComponent<
      * that copy, and it carries the same #5330 dissolution pointer #5687's
      * entry does: both legs retire together when that window closes.
      *
+     * ## The `key` parameter is CLOSED (objectui#9107)
+     *
+     * Typed {@link EnablementNodeGateKey} rather than `string`, mirroring what
+     * {@link VisibilityChainKey} does for the sibling chain: the two legs this
+     * function serves are declared in ONE place, and the config-bag guard
+     * ({@link preservePredicateEnvelope}) reads that same declaration, so a
+     * third leg cannot arrive here without the same edit also carrying its CEL
+     * envelope through the bag loops.
+     *
      * Reachable only on the branch where the predicate evaluated CLEANLY —
      * `faulted` mirrors {@link evaluateVisibilityPredicate}'s try/catch split
      * without paying for a second (`throwOnError`) engine call: `onFault` is
@@ -848,7 +1105,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
      * re-deriving it. A predicate that faults is the OTHER reporter's case,
      * immediately above, in the same way it already is on the visibility leg.
      */
-    const evaluateEnablementPredicate = (raw: VisibilityPredicate, key: string): boolean => {
+    const evaluateEnablementPredicate = (raw: VisibilityPredicate, key: EnablementNodeGateKey): boolean => {
       let faulted = false;
       const verdict = evaluator.evaluateCondition(raw, {
         onFault: (reason) => {
@@ -868,7 +1125,15 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         },
       });
       if (__DEV__ && !faulted) {
-        reportAdapterOnlyDataPredicate(newSchema.type, newSchema.id, key, raw, dataSource, 'enablement');
+        // objectui#9308 — same re-aim as the visibility leg above.
+        reportAdapterOnlyDataPredicate(
+          newSchema.type,
+          newSchema.id,
+          key,
+          raw,
+          (predicateScope as any)?.data,
+          'enablement',
+        );
       }
       return verdict;
     };
@@ -940,7 +1205,9 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     if (rawPropertiesBag) {
       const newProperties: Record<string, any> = { ...rawPropertiesBag };
       for (const [key, val] of Object.entries(newProperties)) {
-        newProperties[key] = evaluator.evaluate(val as any);
+        // objectui#9100 — a CEL predicate envelope survives this loop; see
+        // `preservePredicateEnvelope`. Every other value evaluates as before.
+        newProperties[key] = preservePredicateEnvelope(key, val, (v) => evaluator.evaluate(v as any));
       }
       newSchema.properties = newProperties;
     }
@@ -1168,10 +1435,51 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     if (isConfigBag(newSchema.props)) {
       const newProps = { ...newSchema.props };
       for (const [key, val] of Object.entries(newProps)) {
-        newProps[key] = evaluator.evaluate(val as any);
+        // objectui#9100, same guard as the `properties` branch above — the two
+        // channels must not disagree about whether a `cel` envelope survives.
+        newProps[key] = preservePredicateEnvelope(key, val, (v) => evaluator.evaluate(v as any));
       }
       newSchema.props = newProps;
     }
+
+    /**
+     * REFUSE, by name, a node-gate predicate parked under the legacy `props`
+     * alias (objectui#9108, maintainer ruling 2026-09-13, verbatim 「同意」 on
+     * the `domain:spec` seat's recommendation).
+     *
+     * ## Sited HERE, immediately in front of the two gates
+     *
+     * This is the one point where the gates' own input is final: the
+     * `properties` hoist above has run, both config-bag evaluation loops have
+     * run, and neither gate has consulted anything yet. It is also the only
+     * placement that survives its own subject - the late diagnostics near
+     * `createElement` are downstream of `if (shouldHide) return null`, so a node
+     * that parks `visible` under `props` while ALSO hiding through the canonical
+     * spelling would never reach them, and the refusal would go missing on the
+     * one shape that carries both spellings at once.
+     *
+     * ## Read-only, and that is the ruled outcome rather than a limitation
+     *
+     * Nothing below changes. The gates still read the post-hoist node only, so
+     * every verdict, every hoisted value and every byte the element receives is
+     * what it was - the alias is REFUSED, not honoured. The opposite arm was
+     * built and closed (PR objectui#9144): honouring it would have made *"8
+     * predicate keys work while the rest stayed silently dropped - and partly
+     * working is harder to learn from than not working"*.
+     *
+     * The bag handed over is {@link propsWithoutCanonicalKeys}'s, the SAME
+     * subtraction the outgoing props bag uses, so a key the canonical bag also
+     * declares is not reported as parked: there the author is already getting
+     * the canonical answer (objectui#5123). The key SET is
+     * {@link NODE_GATE_PREDICATE_KEYS}, derived from the two chain declarations
+     * above rather than re-listed here.
+     */
+    reportRefusedPropsPredicate(
+      newSchema.type,
+      newSchema.id,
+      NODE_GATE_PREDICATE_KEYS,
+      propsWithoutCanonicalKeys(newSchema.props, newSchema.properties),
+    );
 
     // Evaluate visibility: visibleWhen / visible / visibleOn / visibility / hidden / hiddenOn
     const shouldHide = (() => {
@@ -1474,6 +1782,15 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // documents BROKE the component (objectstack#5576). An explicit React
     // `dataSource` prop is unaffected: it arrives via `...props`, spread last.
     dataSource: _dataSource,
+    // stripped: `BaseSchema.testId` is the author's stable-locator handle, and
+    // this renderer is what makes its declaration true — it is re-emitted as
+    // `data-testid` beside `data-obj-id` below (objectui#8268, ADR-0054 C4).
+    // Leaving it in the spread was the defect: React does not recognise a
+    // `testId` DOM prop, so it landed as a non-standard lowercase `testid`
+    // attribute that no test-library query helper looks for, while React's own
+    // dev warning told the author to spell it `testid` — steering them further
+    // from the documented `data-testid`.
+    testId: _testId,
     _hidden: __hidden,    // stripped: internal visibility flag
     _disabled: __disabled, // stripped: internal disabled flag
     responsiveStyles: _responsiveStyles, // stripped: compiled to scoped CSS, not a DOM prop
@@ -1496,11 +1813,17 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // Read-only: it reports what evaluation already produced and changes nothing
   // about what is rendered — no DOM attribute either, so no snapshot moves.
   if (__DEV__) {
+    // `testId` is stripped above but stays in THIS scan set. The strip list is
+    // this diagnostic's exclusion list because every other member holds raw
+    // predicate SOURCE by design; `testId` holds a literal, so excluding it
+    // would silently narrow objectui#4795's coverage by one key — measured on
+    // `93127bd6f`, an authored `testId: '${data.x}'` was reported before this
+    // change, and must still be.
     reportUnevaluatedExpressions(
       schema as object,
       evaluatedSchema.type,
       evaluatedSchema.id,
-      componentProps,
+      _testId === undefined ? componentProps : { ...componentProps, testId: _testId },
       evaluatedSchema.properties,
       evaluatedSchema.props
     );
@@ -1585,6 +1908,21 @@ export const SchemaRenderer: ForwardRefExoticComponent<
         className: mergedClassName,
         'data-obj-id': evaluatedSchema.id,
         'data-obj-type': evaluatedSchema.type,
+        // objectui#8268 — `BaseSchema.testId`'s declaration promises this
+        // attribute. Emitted here, not spread above, so the author gets the
+        // `data-testid` every query helper looks for instead of the
+        // non-standard `testid` the raw spread produced.
+        //
+        // ⚠️ CONDITIONALLY, and that is load-bearing, not tidiness. Passing
+        // `'data-testid': undefined` unconditionally would put the key in every
+        // node's props bag, and a component that sets its own `data-testid` and
+        // then spreads what it is handed — the ADR-0054 C4 shape, which many
+        // renderers here have — would have its locator overwritten with
+        // `undefined` and lose it. Measured: the unconditional form turned 9
+        // tests red across 5 files, including the three that assert the props
+        // bag is byte-for-byte unchanged (objectui#6708 / #6752 / #6760). A node
+        // that authors no `testId` must be byte-identical to before this card.
+        ...(_testId === undefined ? {} : { 'data-testid': _testId }),
         ...(__DEV__ && !_validation.valid ? { 'data-obj-schema-invalid': 'true' } : {}),
         ...props
       })}

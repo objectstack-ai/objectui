@@ -28,10 +28,23 @@
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 // Module-scope side-effect import, not a `beforeAll` — see
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../index';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
+ * it feeds — declare the published `DataSource` adapter contract. The values
+ * this file injects are deliberately NOT adapters —
+ * they are the `data` ROOT of the expression scope — the renderer binds
+ * `SchemaRendererContext.dataSource` as `data` for every predicate, which is
+ * the second meaning this one key carries.
+ * Each injection therefore crosses the contract with an explicit
+ * `as unknown as DataSource`. Every injected value is byte-for-byte what it
+ * was before: this marks the crossing, it changes no assertion.
+ */
 
 const PEOPLE = [
   { name: 'Ada', role: 'Engineer' },
@@ -59,9 +72,11 @@ const DATA_SOURCE = {
 
 const renderBound = (schema: Record<string, unknown>) =>
   render(
-    <SchemaRendererProvider dataSource={DATA_SOURCE}>
+    <PredicateScopeProvider scope={DATA_SOURCE}>
+      <SchemaRendererProvider dataSource={DATA_SOURCE as unknown as DataSource}>
       <SchemaRenderer schema={schema as never} />
-    </SchemaRendererProvider>,
+    </SchemaRendererProvider>
+    </PredicateScopeProvider>,
   );
 
 describe('`table` keeps exactly the behaviour it has today (objectui#5125)', () => {

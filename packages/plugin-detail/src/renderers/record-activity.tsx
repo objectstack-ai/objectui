@@ -96,7 +96,7 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
   ...props
 }) => {
   const { designer } = splitDesigner(props);
-  const ctx = useRecordContext() as any;
+  const ctx = useRecordContext();
   const discussion = useDiscussionContext();
   const tt = useSafeTranslate();
 
@@ -135,10 +135,7 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
 
   const objectName: string | undefined = ctx?.objectName;
   const recordId = ctx?.data?.id ?? ctx?.data?._id ?? ctx?.recordId;
-  // `RecordContextValue.dataSource` is typed `string` (a datasource id) while
-  // every host passes the object; `record:history` / `record:reference_rail`
-  // cast the same way. Matching the runtime beats matching the declaration.
-  const dataSource = ctx?.dataSource as any;
+  const dataSource = ctx?.dataSource;
 
   // Self-fetch only when nobody else owns the feed. A mounted DiscussionContext
   // has already merged `sys_comment` + `sys_activity` for this record; fetching

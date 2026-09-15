@@ -35,6 +35,8 @@ function App() {
 
 ### useAuth hook
 
+Guard `user` on its own, not through `isAuthenticated`: in guest mode (`enabled: false`) and in preview mode, `AuthProvider` hardcodes `isAuthenticated` to `true` while `user` stays `null`, so a signed-in-looking context can still carry no user. The shipped `UserMenu` guards both members the same way.
+
 ```typescript
 import { useAuth } from '@object-ui/auth';
 
@@ -42,7 +44,7 @@ function UserBadge() {
   const { user, isAuthenticated, isLoading, error, signOut } = useAuth();
 
   if (isLoading) return <Spinner />;
-  if (!isAuthenticated) return <LoginButton />;
+  if (!isAuthenticated || !user) return <LoginButton />;
 
   return (
     <div>
@@ -309,7 +311,7 @@ Then in schema — note the `data.` root:
 |---|---|---|
 | `data` | the `dataSource` passed to `SchemaRendererProvider` | `${data.canDeleteContacts}` |
 | `user` / `current_user` | the ambient host scope (app-shell's `ExpressionProvider`) | `${user.id}` |
-| `app`, `features` | the ambient host scope | `${features.multiOrgEnabled}` |
+| `features` | the ambient host scope | `${features.multiOrgEnabled}` |
 | `page` | `PageSchema.variables`, inside a Page | `${page.selectedId}` |
 
 The ambient roots exist only while a host scope is mounted — `ExpressionProvider`

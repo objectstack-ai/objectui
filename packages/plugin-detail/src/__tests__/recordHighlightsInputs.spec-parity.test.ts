@@ -147,6 +147,34 @@ describe('record:highlights — registry inputs vs @objectstack/spec', () => {
     expect(description).toContain('readonly');
   });
 
+  it('the `fields` entry-shape sketch advertises no key the spec refuses', () => {
+    // The REVERSE direction of the check above, and the one objectui#9280 was
+    // filed for: the description sketched the entry as
+    // `{name,label?,icon?,type?,readonly?}` while the spec's object arm is
+    // `$strict` over four keys, so the manifest was teaching authors a key that
+    // gets the WHOLE document refused at publish. Under-documenting a key is a
+    // discoverability bug; over-advertising one is an impossible promise.
+    const description = fieldsInput()?.description ?? '';
+    const sketch = /\{([a-zA-Z?,\s]+)\}/.exec(description)?.[1];
+    expect(sketch, 'the description must keep an entry-shape sketch to check').toBeDefined();
+
+    const advertised = (sketch ?? '')
+      .split(',')
+      .map((k) => k.trim().replace(/\?$/, ''))
+      .filter(Boolean)
+      .sort();
+
+    // Derived from the spec at runtime, so a spec that WIDENS the arm fails
+    // here instead of leaving the sketch quietly short.
+    expect(advertised).toEqual(specEntryKeys().sort());
+
+    // ⭐ LIT CONTROL for this matcher: it really does read keys out of the
+    // sketch rather than returning an empty list that trivially compares
+    // equal. `name` is the one key the arm cannot lose.
+    expect(advertised).toContain('name');
+    expect(advertised).not.toContain('icon');
+  });
+
   it('declares no top-level input the spec does not accept', () => {
     const allowed = new Set(specTopLevelKeys());
     const offSpec = inputs().map((i) => i.name).filter((name) => !allowed.has(name));

@@ -4,13 +4,14 @@ import 'react-grid-layout/css/styles.css';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button } from '@object-ui/components';
 import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
 import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { useObjectTranslation, useObjectLabel, pickLocalized } from '@object-ui/i18n';
 import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
-import { chartCategoryKey, chartMeasureKey } from '@object-ui/core';
-import { isObjectProvider, deriveStaticTableColumns } from './utils';
+import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
+import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
 import { classifyWidgetType } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
+import { useWidgetSubCaption } from './widgetSubCaption';
 
 /** Bridges editMode transitions to the ObjectUI DnD system when a DndProvider is present. */
 function DndEditModeBridge({ editMode }: { editMode: boolean }) {
@@ -132,7 +133,44 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   // Active UI language, for resolving inline per-locale widget titles below.
   // `useObjectTranslation` is provider-safe (react-i18next falls back to its
   // global instance and never throws), so a standalone grid still renders.
-  const { language } = useObjectTranslation();
+  const { t, language } = useObjectTranslation();
+  // `fieldLabel` — the bundle lookup `composeSeriesLabel` (below) consults
+  // before falling back to the humanized key. Same provider-safe contract as
+  // `useObjectTranslation` above: a bundle miss degrades to the fallback
+  // argument rather than throwing.
+  const { fieldLabel } = useObjectLabel();
+  /**
+   * Resolve a chart series label — objectui#9172. This relay used to compose
+   * `series: [{ dataKey }]` on both chart branches below with NO `label` key
+   * at all, so `ChartRenderer`'s `s.label || s.dataKey` fallback rendered the
+   * raw field key in the legend/tooltip while `DashboardRenderer`, the sibling
+   * relay composing a chart node for the same stored widget, rendered the
+   * humanized one (objectui#9055). `composeSeriesLabel` (`./utils`) is that
+   * sibling's three-arm decision moved to a single shared authority rather
+   * than grown a second time here — see its docblock for the arms. This
+   * `useCallback` only binds it to THIS component's own `t` / `fieldLabel`.
+   */
+  const resolveSeriesLabel = React.useCallback(
+    (objectName: string | undefined, yField: string, aggFn: string | undefined) =>
+      composeSeriesLabel(t, fieldLabel, objectName, yField, aggFn),
+    [t, fieldLabel],
+  );
+  /**
+   * The metric tile's sub-caption resolver — objectui#8889.
+   *
+   * This surface routes a dataset-bound widget to `DatasetWidget` exactly as
+   * `DashboardRenderer` does (objectui#4614), so it owes that component the
+   * same resolved sub-caption. It is the SAME hook the sibling calls, not a
+   * second copy of the composition: the field's invariant is that its two
+   * channels "can never disagree", and two independent resolvers are precisely
+   * how they would.
+   *
+   * `schema.name` is the dashboard name every convention key on this surface is
+   * built from (`BaseSchema.name`, which `DashboardComponentSchema` extends).
+   * Absent it the hook degrades to the authored value alone — the same silent
+   * degradation the sibling's title/description lookups perform.
+   */
+  const tWidgetSubCaption = useWidgetSubCaption(schema.name);
   const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleRefresh = React.useCallback(() => {
@@ -142,14 +180,16 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     setTimeout(() => setRefreshing(false), 600);
   }, [onRefresh]);
 
-  // Auto-refresh interval
+  // Auto-refresh interval — seconds → milliseconds, as the key now says
+  // (objectui#7783; the spec renamed `refreshInterval` to
+  // `refreshIntervalSeconds`, value unchanged).
   React.useEffect(() => {
-    if (!schema.refreshInterval || schema.refreshInterval <= 0 || !onRefresh) return;
-    intervalRef.current = setInterval(handleRefresh, schema.refreshInterval * 1000);
+    if (!schema.refreshIntervalSeconds || schema.refreshIntervalSeconds <= 0 || !onRefresh) return;
+    intervalRef.current = setInterval(handleRefresh, schema.refreshIntervalSeconds * 1000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [schema.refreshInterval, onRefresh, handleRefresh]);
+  }, [schema.refreshIntervalSeconds, onRefresh, handleRefresh]);
   const [layouts, setLayouts] = React.useState<{ lg: RGLLayout[] }>(
     () => buildDefaultLayouts(schema),
   );
@@ -227,6 +267,18 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       const xAxisKey = options.xField || 'name';
       const yField = options.yField || 'value';
 
+      // The widget's declared `chartConfig`, lowered onto the chart schema —
+      // objectui#4044, and the twin of the block in `DashboardRenderer`. This
+      // surface is the EDITABLE dashboard grid over the same stored widget
+      // metadata, so an author whose `chartConfig` drew nothing here but drew
+      // on the read-only renderer would read the difference as a bug in the
+      // editor. `isLegacyRetiredWidget` above is the settled precedent for the
+      // pair (objectui#4612): one shared implementation, imported rather than
+      // restated — here that shared implementation is core's
+      // `chartConfigPresentation`, the same whitelist `DatasetWidget` lowers
+      // through.
+      const chartPresentation = chartConfigPresentation(widget.chartConfig);
+
       // provider: 'object' — delegate to ObjectChart for async data loading.
       // Field/aggregate config comes from the nested data provider (the
       // pre-ADR-0021 top-level analytics keys were retired in framework#3320).
@@ -261,11 +313,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           objectName: widgetData.object,
           aggregate: effectiveAggregate,
           xAxisKey: effectiveXAxisKey,
-          series: [{ dataKey: effectiveYField }],
+          series: [{
+            dataKey: effectiveYField,
+            label: resolveSeriesLabel(widgetData.object, effectiveYField, effectiveAggregate?.function),
+          }],
           colors: CHART_COLORS,
           // Deterministic first paint inside the grid (#2756).
           isAnimationActive: false,
-          className: "h-full"
+          className: "h-full",
+          ...chartPresentation,
         };
       }
 
@@ -276,11 +332,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
         chartType: dispatch.chartType,
         data: dataItems,
         xAxisKey: xAxisKey,
-        series: [{ dataKey: yField }],
+        series: [{
+          dataKey: yField,
+          label: resolveSeriesLabel(undefined, yField, undefined),
+        }],
         colors: CHART_COLORS,
         // Deterministic first paint inside the grid (#2756).
         isAnimationActive: false,
-        className: "h-full"
+        className: "h-full",
+        ...chartPresentation,
       };
     }
 
@@ -388,7 +448,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       ...widget,
       ...options
     };
-  }, []);
+  }, [resolveSeriesLabel]);
 
   return (
     <div ref={containerRef} className={cn("w-full", className)} data-testid="grid-layout">
@@ -581,7 +641,17 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                           is mirrored here, not the stranded limb.
                         */}
                         {datasetBound
-                          ? <DatasetWidget widget={widget} dataSource={dataSource} />
+                          ? <DatasetWidget
+                              widget={widget}
+                              dataSource={dataSource}
+                              /* objectui#8889 — dispatch site 2 of 2, and the half that
+                                 objectui#4614 exists to stop anyone from forgetting: the
+                                 sibling passing this alone would fix one surface and leave
+                                 this one silently unchanged. `?? null` says "a surface
+                                 resolved it, to nothing", which is NOT the same as the
+                                 prop being absent — see the prop's docblock. */
+                              subCaption={tWidgetSubCaption(widget) ?? null}
+                            />
                           : <SchemaRenderer schema={componentSchema} />}
                       </div>
                     </CardContent>

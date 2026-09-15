@@ -74,7 +74,28 @@ ComponentRegistry.registerLazy('chart', () => import('@object-ui/plugin-charts')
 });
 // Additional chart variants registered by @object-ui/plugin-charts so the
 // renderer can lazy-load when any chart type appears in a schema.
-for (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart', 'scatter-chart', 'line-chart', 'area-chart', 'advanced-chart', 'chart:bar']) {
+//
+// ⛔ Every key in this list must be one `@object-ui/plugin-charts` ACTUALLY
+// REGISTERS. A stub for a key the loaded module never registers does not fail
+// — it succeeds at being useless (objectui#8760). `Registry.loadLazy` resolves
+// "whether or not the loaded module actually registered the expected type",
+// and the renderer's lazy branch re-checks `hasLazy` on every pass, so an
+// unfulfilled stub leaves `SchemaRenderer` painting `Loading <type>…` FOREVER:
+// no OBJUI-001, no error, no console warning. Meanwhile the key is in
+// `getKnownTypes()`, so `check:doc-types` and the CLI's `KNOWN_SCHEMA_TYPES`
+// snapshot both bless it and the documentation is free to teach it.
+//
+// ⛔ `line-chart`, `area-chart` and `advanced-chart` are RETIRED from this list
+// (objectui#8760) — they were stubs this package never fulfilled. Authors
+// reach those chart families the way the plugin actually registers them:
+// `{ "type": "chart", "chartType": "line" | "area" }`, which
+// `CHART_TYPE_KEYWORD_FAMILIES` resolves. `advanced-chart` was never a family
+// at all — it named `AdvancedChartImpl`, an internal module.
+// ⛔ Do not re-add a key here without a matching `ComponentRegistry.register()`
+// in `packages/plugin-charts/src`: `unfulfilled-chart-stubs-8760.test.ts`
+// drives this very list through the real loader and fails on the first key
+// that resolves to nothing.
+for (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart', 'scatter-chart', 'chart:bar']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), {
     namespace: 'plugin-charts',
     category: 'chart',
@@ -85,10 +106,11 @@ ComponentRegistry.registerLazy('object-gantt', () => import('@object-ui/plugin-g
   namespace: 'plugin-gantt',
   category: 'view',
 });
-ComponentRegistry.registerLazy('gantt', () => import('@object-ui/plugin-gantt'), {
-  namespace: 'view',
-  category: 'view',
-});
+// ⛔ The bare `gantt` node type key is RETIRED (objectui#8008, maintainer
+// ruling 2026-09-09, route 3) — `object-gantt` above is the surviving spelling.
+// The STORED `NamedListView.type` value `gantt` is a different layer and is
+// untouched: `ObjectView`'s `switch (viewType)` already emits `object-gantt`
+// for it.
 
 ComponentRegistry.registerLazy('markdown', () => import('@object-ui/plugin-markdown'), {
   namespace: 'plugin-markdown',
@@ -121,16 +143,11 @@ ComponentRegistry.registerLazy('object-kanban', () => import('@object-ui/plugin-
   namespace: 'plugin-kanban',
   category: 'view',
 });
-ComponentRegistry.registerLazy('kanban', () => import('@object-ui/plugin-kanban'), {
-  namespace: 'view',
-  category: 'view',
-});
-for (const variant of ['kanban-ui', 'kanban-enhanced']) {
-  ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-kanban'), {
-    namespace: 'plugin-kanban',
-    category: 'view',
-  });
-}
+// ⛔ The bare `kanban` key (objectui#8802) and the `kanban-ui` /
+// `kanban-enhanced` variants (objectui#8257) are RETIRED — maintainer rulings
+// 2026-09-09. `object-kanban` above is the surviving spelling. The STORED
+// `NamedListView.type` value `kanban` is a different layer and is untouched:
+// `ObjectView`'s `switch (viewType)` already emits `object-kanban` for it.
 
 ComponentRegistry.registerLazy('report', () => import('@object-ui/plugin-report'), {
   namespace: 'plugin-report',

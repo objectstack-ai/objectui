@@ -8,6 +8,16 @@
  * objectui#7322 — `ObjectKanbanSchema.groupBy` / `.limit` declared and
  * `.groupField` RETIRED, on both faces.
  *
+ * ⚠️ SUPERSEDED IN ONE RESPECT (objectui#8990): this card also made `groupBy`
+ * REQUIRED, and that half is reversed — `@objectstack/spec` declares
+ * `groupBy: z.string().optional()`, so requiring it made this package refuse a
+ * document the protocol accepts. The two pins that asserted requiredness now
+ * assert optionality and say so at their site. Everything else this file pins
+ * — that `groupBy`/`limit` are DECLARED and ENFORCED, that `groupField` is a
+ * tombstone with zero read sites, and the read-site census — is unchanged, and
+ * the CONTROL added beside the flipped pin is what keeps "optional" from
+ * quietly decaying into "undeclared".
+ *
  * ## The defect
  *
  * `packages/plugin-kanban/src/ObjectKanban.tsx` — the component the
@@ -130,12 +140,17 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 /** An object with no keys is assignable to `Pick<T, K>` only when `K` is optional on `T`. */
 type IsOptional<T, K extends keyof T> = Record<string, never> extends Pick<T, K> ? true : false;
 
-// `groupBy`: declared `string`, REQUIRED, not `any`. Were the member removed
-// the indexed access would fall back to the index signature and resolve to
-// `any`, and `Equal<any, string>` is false.
-export type _GroupByIsString = Expect<Equal<TsObjectKanbanSchema['groupBy'], string>>;
+// `groupBy`: declared `string`, OPTIONAL since objectui#8990, not `any`. Were
+// the member removed the indexed access would fall back to the index signature
+// and resolve to `any`, and `Equal<any, string | undefined>` is false — so the
+// DECLARED-ness this card pinned is still pinned; only its requiredness moved.
+export type _GroupByIsString = Expect<Equal<TsObjectKanbanSchema['groupBy'], string | undefined>>;
 export type _GroupByIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['groupBy']>, false>>;
-export type _GroupByIsRequired = Expect<Equal<IsOptional<TsObjectKanbanSchema, 'groupBy'>, false>>;
+// objectui#8990 — `@objectstack/spec` declares `groupBy: z.string().optional()`;
+// requiring it here made this package narrower than the protocol. The lane-key
+// facts this card measured are untouched: the renderer still reads `groupBy`
+// and never `groupField`, which is what the read-site census below pins.
+export type _GroupByIsOptional = Expect<IsOptional<TsObjectKanbanSchema, 'groupBy'>>;
 // `limit`: declared `number`, optional, not `any`.
 export type _LimitIsNumberOrUndefined = Expect<Equal<TsObjectKanbanSchema['limit'], number | undefined>>;
 export type _LimitIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['limit']>, false>>;
@@ -158,9 +173,11 @@ const literal: TsObjectKanbanSchema = { ...NODE, limit: 250 };
 // the tombstone is deleted or widened back to `string`.
 // @ts-expect-error — `groupField` is RETIRED on this node (objectui#7322); author `groupBy`
 const retiredLiteral: TsObjectKanbanSchema = { ...NODE, groupField: 'stage' };
-// …and REFUSES a lane-less node (TS2741): `groupBy` is required, as the retired
-// `groupField` was. Making it optional turns this directive unused.
-// @ts-expect-error — `groupBy` is required: a board is a grouping of records by one field
+// …and ACCEPTS a lane-less node since objectui#8990. This was a
+// `@ts-expect-error` (TS2741) while `groupBy` was required; the protocol
+// declares the key optional, and the renderer guards every read of it, so the
+// node below is one this package must annotate rather than refuse. Restoring
+// the requirement turns this line red.
 const lanelessLiteral: TsObjectKanbanSchema = { type: 'object-kanban', objectName: 'opportunity' };
 
 /* ── Off-disk derivations ─────────────────────────────────────────────────── */
@@ -273,16 +290,32 @@ describe('objectui#7322 — the zod mirror declares `groupBy` and `limit`', () =
     expect(safeValidateSchema(NODE).success).toBe(true);
   });
 
-  it('`groupBy` is REQUIRED: a lane-less node is refused AT `groupBy` on both entry paths', () => {
-    // The retired contract required a lane field too; this is the
-    // required-ness carried across, not a new constraint.
+  // objectui#8990 — this `it` asserted the opposite until that card: a lane-less
+  // node was refused AT `groupBy` on both entry paths. `@objectstack/spec`
+  // declares `groupBy` OPTIONAL, so the refusal made this package narrower than
+  // the protocol on a published key. The requiredness is what moved; every
+  // other fact objectui#7322 established is asserted unchanged above and below.
+  it('`groupBy` is OPTIONAL (objectui#8990): a lane-less node parses green on both entry paths', () => {
     const laneless = { type: 'object-kanban', objectName: 'opportunity' };
     const r = ObjectKanbanSchema.safeParse(laneless);
-    expect(r.success).toBe(false);
-    if (!r.success) expect(issuePaths(r.error.issues as readonly Issue[])).toContain('groupBy');
+    expect(r.success, 'the protocol accepts a lane-less board; so must this face').toBe(true);
+    if (r.success) expect((r.data as Record<string, unknown>).groupBy).toBeUndefined();
     const u = safeValidateSchema(laneless);
-    expect(u.success).toBe(false);
-    if (!u.success) expect(issuePaths(u.error.issues as readonly Issue[])).toContain('groupBy');
+    expect(u.success, 'the union entry path must agree with the direct one').toBe(true);
+  });
+
+  // CONTROL for the pin above — the key is still DECLARED and still ENFORCED
+  // when present. A widening that lost the declaration (letting `groupBy` fall
+  // back to `BaseSchema`'s index signature) would keep the lane-less pin green
+  // while silently un-judging every authored value; this is what separates the
+  // two. The wrong-typed case is covered by the table below.
+  it('CONTROL — optional does not mean unjudged: an authored `groupBy` is still typed', () => {
+    const good = ObjectKanbanSchema.safeParse({ type: 'object-kanban', objectName: 'opportunity', groupBy: 'stage' });
+    expect(good.success).toBe(true);
+    if (good.success) expect((good.data as Record<string, unknown>).groupBy).toBe('stage');
+    const bad = ObjectKanbanSchema.safeParse({ type: 'object-kanban', objectName: 'opportunity', groupBy: 42 });
+    expect(bad.success, 'a non-string lane key is still refused').toBe(false);
+    if (!bad.success) expect(issuePaths(bad.error.issues as readonly Issue[])).toContain('groupBy');
   });
 
   it.each([

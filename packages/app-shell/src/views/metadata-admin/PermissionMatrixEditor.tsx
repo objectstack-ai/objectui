@@ -742,9 +742,34 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       let toSave = payload;
       if (packageId) {
         const scope = objects.map((o) => o.name);
+        // objectui#9420 — the guarantee above is only KEEPABLE with a fresh
+        // read in hand, so a REJECTED re-read refuses the save instead of
+        // falling back to `payload`. The load path already narrowed `payload`
+        // down to this package's objects, so `mergePermissionSlice` would have
+        // no out-of-scope rows left to copy and the PUT would DELETE every
+        // other package's contributed rows — 200, no error, no warning, on a
+        // security surface. A save that cannot keep the promise IS the defect,
+        // not a degraded form of the fix; the information needed to preserve
+        // those rows is simply not in hand.
+        //
+        // ⚠️ Only a REJECTION refuses. A record the server does not hold
+        // answers the 404 shape, which `MetadataClient.layered` resolves as
+        // `{ effective: null, … }` — that arm keeps the `?? payload` base on
+        // purpose: a set that exists only as a package draft (what the Studio
+        // Access pillar's "+ New" creates) has no published rows for anyone to
+        // lose, and refusing there would block its first save.
+        let rereadFailed = false;
         const fresh = await client
           .layered<PermissionSetDraft>(type, payload.name)
-          .catch(() => null);
+          // Kept on `.catch` so the rejection can never escape as an unhandled
+          // one; the refusal is raised below, inside this `try`'s own body, and
+          // reaches the author on the same error channel a failed
+          // `client.save` already uses.
+          .catch(() => {
+            rereadFailed = true;
+            return null;
+          });
+        if (rereadFailed) throw new Error(t('perm.save.rereadFailed'));
         const base = (fresh?.effective ?? payload) as PermissionSetDraft;
         toSave = mergePermissionSlice(base, payload, scope);
       }

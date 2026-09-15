@@ -25,7 +25,7 @@ interface PageSchema {
   description?: string;                 // Page description
   
   // Content
-  body?: SchemaNode[];                  // Main content array
+  body?: SchemaNode | SchemaNode[];     // Main content — one node or a list
   children?: SchemaNode | SchemaNode[]; // Alternative content prop
   
   // Styling

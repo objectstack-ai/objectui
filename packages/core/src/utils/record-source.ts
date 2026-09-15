@@ -68,7 +68,7 @@ import type { ViewData } from '@object-ui/types';
  *
  * @example
  * ```ts
- * const dataConfig = useMemo(() => resolveRecordSourceConfig(schema), [schema]);
+ * const dataConfig = useMemo(() => resolveRecordSourceConfig(schema, 'view-data'), [schema]);
  * const objectName = resolveRecordSourceObjectName(schema, dataConfig);
  * ```
  */
@@ -80,8 +80,53 @@ export function resolveRecordSourceObjectName(
 }
 
 /**
+ * Which arm of `data` a block's PUBLISHED row declares — the only shape rung 1
+ * of the ladder honours for that block (objectui#8348).
+ *
+ * Maintainer ruling, decision batch #83 (2026-09-08), verbatim: 「8348 以协议为准」
+ * — the contract decides. A renderer honours the `data` spelling its block's
+ * published row declares and no other: what `os validate` and the save gate
+ * refuse, the renderer refuses too.
+ *
+ *  - `'view-data'` — the row is the spec's `ViewData` discriminated union, four
+ *    strict OBJECT arms on `provider`. A bare array under `data` is NOT a record
+ *    source for such a block.
+ *  - `'array'` — the row is `z.array(...)`: an array of PRE-FETCHED RECORDS. The
+ *    `{ provider, items }` config object is NOT a record source for such a
+ *    block.
+ *  - `'undeclared'` — no published face declares a `data` row for the block at
+ *    all, so neither arm of the ruling reaches it and rung 1 keeps its pre-8348
+ *    verbatim behaviour. ⛔ NOT a tolerance to copy: it is the honest answer for
+ *    a block the ruling does not decide, and it is reported rather than guessed.
+ *
+ * The arm is passed BY THE CALL SITE rather than looked up from `schema.type`
+ * on purpose. Every one of these renderers is registered twice — `object-grid`
+ * and the `view:grid` alias `grid`, `object-calendar` and `calendar`, and so on
+ * — so a node reaches the same component under either spelling, and a table
+ * keyed by `type` would answer for one tag and silently miss the other. A
+ * REQUIRED parameter makes the arm a compile-time obligation at each of the
+ * five sites instead.
+ */
+export type RecordSourceDataArm = 'view-data' | 'array' | 'undeclared';
+
+/**
+ * Does the authored `data` match the arm this block's published row declares?
+ *
+ * Falsy `data` is never a record source — the pre-8348 `if (schema.data)`
+ * truthiness test, kept, so `data: null` and `data: undefined` still fall
+ * through to `staticData`.
+ */
+function authoredDataIsOnTheDeclaredArm(authored: unknown, arm: RecordSourceDataArm): boolean {
+  if (!authored) return false;
+  if (arm === 'array') return Array.isArray(authored);
+  if (arm === 'view-data') return !Array.isArray(authored);
+  return true;
+}
+
+/**
  * The block's record source, resolved from the ruled three-rung ladder
- * (objectui#7632).
+ * (objectui#7632), with rung 1 judged against the block's own published `data`
+ * row (objectui#8348).
  *
  * ## The ruled contract this is the ONE implementation of
  *
@@ -89,9 +134,9 @@ export function resolveRecordSourceObjectName(
  * published contract and pinned by
  * `objectql-record-source-refinement-6939.test.ts`:
  *
- *  1. **`data`** — *"Data source configuration. Read FIRST by `getDataConfig`"*.
- *     Returned verbatim, so an `api`/`value`/`object` provider config reaches
- *     the caller exactly as the author wrote it.
+ *  1. **`data`** — *"Data source configuration. Read FIRST by `getDataConfig`"*,
+ *     honoured ONLY on the arm `dataArm` names. Returned verbatim, so a config
+ *     on the declared arm reaches the caller exactly as the author wrote it.
  *  2. **`staticData`** — *"Inline records — read SECOND by `getDataConfig`,
  *     wrapped into a `{ provider: value }` config"*.
  *  3. **`objectName`** — *"the THIRD record source `getDataConfig` resolves,
@@ -107,22 +152,42 @@ export function resolveRecordSourceObjectName(
  * together, which is the AGENTS.md #0.1 drift class: a change to the ruled
  * order had five edit sites and nothing noticed a missed one.
  *
+ * ## Rung 1 is judged against the block's own row (objectui#8348)
+ *
+ * ⛔ This docblock used to state, as a fact about the whole ladder, that *"an
+ * array under `data` cannot be published"*. That is true of the blocks whose row
+ * is `ViewData` and FALSE of `object-calendar`, whose published row
+ * (`ComponentPropsMap['object-calendar'].data` on `@objectstack/spec` 17.4.0) is
+ * `z.array(z.unknown()).optional()` — *"Pre-fetched records — skips the internal
+ * fetch"*. Both directions of that disagreement were live at once: the renderers
+ * honoured the `{ provider, items }` object on a block whose row refuses it by
+ * kind, and `ObjectGrid` / `ObjectMap` lifted a bare array on blocks whose row
+ * refuses THAT by kind. Decision batch #83 settled it — the row decides — and
+ * `dataArm` is where each block says which row it has.
+ *
+ * MEASURED, per block, at the version this repo resolves:
+ *
+ *  - `object-grid` — `ComponentPropsMap['object-grid'].data` is the `ViewData`
+ *    union, and its own description names the refusal: *"the bare-array shortcut
+ *    is refused — see migration `object-grid-data-view-data-converged`"*.
+ *    ⇒ `'view-data'`, and the site's normalizing head is gone.
+ *  - `object-calendar` — `z.array(z.unknown()).optional()`, and the registration
+ *    publishes the same arm (`{ name: 'data', type: 'array' }`). ⇒ `'array'`.
+ *  - `object-map`, `object-gantt` — no `ComponentPropsMap` row exists for either
+ *    block; the published row that governs them is this repo's own
+ *    `ObjectMapSchema.data` / `ObjectGanttSchema.data`, both
+ *    `ViewDataSchema.optional()`. ⇒ `'view-data'`, and `ObjectMap`'s normalizing
+ *    head is gone too.
+ *  - `object-tree` — NO published face declares a `data` row: not
+ *    `ComponentPropsMap`, not `ObjectTreeSchema` (which declares `objectName`
+ *    REQUIRED and no `data`), not the registration's `inputs`. Neither arm of
+ *    the ruling reaches it, so it passes `'undeclared'` and nothing about it
+ *    changes here.
+ *
  * ## No lenient rung was added (AGENTS.md #0.1)
  *
- * Two things the hand-copies did are deliberately NOT folded in here:
- *
- *  - **The bare-array `data` shorthand.** `ObjectGrid` and `ObjectMap` normalize
- *    `data: [...]` to `{ provider: 'value', items }`; calendar, gantt and tree
- *    do not, and return the array verbatim. That shorthand is off-contract —
- *    `ViewData` is a `z.discriminatedUnion('provider', [...])` over OBJECT
- *    variants, so an array under `data` cannot be published — and the two sites
- *    that accept it keep it as their own documented head, exactly as the
- *    objectui#7627 collapse left `ObjectGrid`'s and `ObjectTree`'s off-contract
- *    `{ provider: 'object' }` tails at the site. Hoisting their check is
- *    behaviour-neutral because an array is ALWAYS truthy, `[]` included, so it
- *    could never have reached rung 2 or 3.
- *  - **Null tolerance.** All five copies dereference `schema` unguarded and
- *    would throw on `null`; no site passes one, so no `?.` was added.
+ * **Null tolerance** stays out: all five copies dereference `schema` unguarded
+ * and would throw on `null`; no site passes one, so no `?.` was added.
  *
  * `ObjectCalendar`'s copy guarded with `'data' in schema && schema.data`
  * because its parameter is the union `ObjectGridSchema | CalendarSchema` and
@@ -135,21 +200,27 @@ export function resolveRecordSourceObjectName(
  *
  * @param schema - The block's schema; only `data`, `staticData` and
  *   `objectName` are read.
+ * @param dataArm - The arm the CALLING BLOCK's published `data` row declares.
+ *   Required: there is no repo-wide default, because the answer differs per
+ *   block and a default is how the second de-facto contract got in.
  * @returns The resolved data config, or `null` when nothing is bound.
  *
  * @example
  * ```ts
- * const dataConfig = useMemo(() => resolveRecordSourceConfig(schema), [schema]);
+ * const dataConfig = useMemo(() => resolveRecordSourceConfig(schema, 'view-data'), [schema]);
  * const objectName = resolveRecordSourceObjectName(schema, dataConfig);
  * ```
  */
-export function resolveRecordSourceConfig(schema: {
-  objectName?: string;
-  data?: ViewData;
-  staticData?: any[];
-}): ViewData | null {
-  if (schema.data) {
-    return schema.data;
+export function resolveRecordSourceConfig(
+  schema: {
+    objectName?: string;
+    data?: ViewData;
+    staticData?: any[];
+  },
+  dataArm: RecordSourceDataArm,
+): ViewData | null {
+  if (authoredDataIsOnTheDeclaredArm(schema.data, dataArm)) {
+    return schema.data as ViewData;
   }
 
   if (schema.staticData) {

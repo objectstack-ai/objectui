@@ -75,21 +75,63 @@ interface BaseSchema {
 
 ## Data Context
 
-The `SchemaRenderer` accepts a `data` prop that provides context for expressions:
+Expression scope does **not** arrive as a prop. `SchemaRenderer` declares exactly one prop,
+`schema`, and forwards every other prop it is handed straight through to the component the
+schema names — so a `data`, `dataSource` or `debug` written on the element is neither read nor
+refused. Nothing throws, and there is one line on the console; the expression simply never
+resolves, and an unresolvable template is returned as its own source text, so the characters
+you typed are what the reader sees. The scope comes from `PredicateScopeProvider`, which
+publishes each name you give it as an expression root:
 
-<!-- doc-snippet: fragment — continues the block above — SchemaRenderer and schema are already in scope there; the closing JSX line is the call shown in place, not a statement that parses on its own -->
 ```tsx
-const data = {
-  user: { name: "John", role: "admin" },
-  stats: { totalUsers: 1234 }
+import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+// The page schema from the first example on this page.
+declare const schema: BaseSchema
+
+// Every name here becomes a root the schema's expressions can read.
+const scope = {
+  user: { name: 'John', role: 'admin' },
+  stats: { totalUsers: 1234 },
 }
 
-<SchemaRenderer schema={schema} data={data} />
+function App() {
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
 ```
+
+An app built on `@object-ui/app-shell` does not mount this provider itself: the shell's
+`ExpressionProvider` already feeds the same channel with `user` (the signed-in user, also
+readable as `current_user`) and `features`.
+
+The scope the evaluator builds is what you published, plus three names the renderer supplies:
+
+| name | what it holds |
+|---|---|
+| every key of `scope` | exactly what you put there — `user`, `stats`, whatever the page needs |
+| `page` | page-local variables, for predicates that gate on another component's state |
+| `record` | the row a record surface is bound to, when there is one |
+| `current_user` | an alias of whatever you published as `user`; the host's `ExpressionProvider` publishes the signed-in user there |
+
+A name outside that set resolves to nothing, and an unresolvable template is not an error:
+the evaluator hands back its own source text and writes one line to the console, so the
+characters you typed are what the reader sees.
+
+> **`dataSource` is not an expression root.** `SchemaRendererProvider`'s `dataSource` carries
+> the host's `DataSource` *adapter* — the object renderers call `find()` on. The renderer used
+> to publish that adapter under the name `data`; an adapter answers no `data.*` path, so the
+> root was constant for every conformant host, and objectui#9308 removed it. A `${data.…}`
+> expression now reads whatever *you* published under `data`, and nothing if you published
+> none. At the runtime layer the row is `record` (ADR-0089).
 
 ### Accessing Data in Schemas
 
-Use expression syntax `${}` to reference data:
+Use expression syntax `${}` to reference the scope, by the name you published it under:
 
 ```json
 {
@@ -128,7 +170,7 @@ Schemas can be nested to create complex UIs:
   "body": {
     "type": "grid",
     "columns": 2,
-    "items": [
+    "children": [
       {
         "type": "card",
         "title": "Card 1",
@@ -172,7 +214,7 @@ Use arrays for multiple items:
 ```json
 {
   "type": "container",
-  "body": [
+  "children": [
     { "type": "text", "content": "First item" },
     { "type": "text", "content": "Second item" },
     { "type": "text", "content": "Third item" }
@@ -198,10 +240,16 @@ Object UI includes a powerful expression system for dynamic behavior:
 ```json
 {
   "type": "card",
-  "title": "${status === 'active' ? 'Active' : 'Inactive'}",
-  "description": "${status === 'active' ? 'This record is in use.' : 'This record is archived.'}"
+  "title": "${record.status === 'active' ? 'Active' : 'Inactive'}",
+  "description": "${record.status === 'active' ? 'This record is in use.' : 'This record is archived.'}"
 }
 ```
+
+`record.status` rather than a bare `status`, because this example is about a row: `record` is
+the row a record surface is bound to, and it is the only spelling a row field has — the bare
+shorthand and the wrong-layer `data.status` were both retired on runtime record surfaces
+(objectui#5330 phase 2). A head name the host publishes itself stays bare; this one is not
+one of those.
 
 `card` here rather than `badge`, because an expression is evaluated only on a key the
 node's own type carries. `expressionBindableTextKeysFor` — the lookup `SchemaRenderer`
@@ -379,18 +427,33 @@ const pageSchema = {
 
 ### 2. Use Data Context Effectively
 
-Pass all necessary data upfront:
+Put everything the schema's expressions need on one scope, mounted above the tree — not on
+the renderer, which does not read it:
 
-<!-- doc-snippet: fragment — best-practice excerpt: userData, userSettings and dashboardStats are the reader's own values, and the closing JSX line is shown in place rather than as a parseable statement -->
 ```tsx
-// ✅ Good
-const data = {
+import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
+import type { BaseSchema } from '@object-ui/types'
+
+// The reader's own values.
+declare const schema: BaseSchema
+declare const userData: { name: string }
+declare const userSettings: { theme: string }
+declare const dashboardStats: { totalUsers: number }
+
+// ✅ Good — one provider, and every expression reads a name published on it
+const scope = {
   user: userData,
   settings: userSettings,
-  stats: dashboardStats
+  stats: dashboardStats,
 }
 
-<SchemaRenderer schema={schema} data={data} />
+function Dashboard() {
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
 ```
 
 ### 3. Leverage Expressions
@@ -429,7 +492,7 @@ Always type your schemas for better IDE support and fewer runtime errors.
 ```json
 {
   "type": "container",
-  "body": {
+  "children": {
     "type": "spinner",
     "visibleOn": "${loading}"
   }

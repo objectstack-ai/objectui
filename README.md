@@ -8,11 +8,11 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/objectstack-ai/objectui/workflows/CI/badge.svg)](https://github.com/objectstack-ai/objectui/actions/workflows/ci.yml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.0+-38bdf8.svg)](https://tailwindcss.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18%20%7C%2019-61dafb.svg)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8.svg)](https://tailwindcss.com/)
 
-[**Documentation**](https://www.objectui.org) | [**Quick Start**](#quick-start) | [**Changelog (summary)**](./CHANGELOG.md) | [**Roadmap**](./ROADMAP.md)
+[**Documentation**](https://www.objectui.org) | [**Quick Start**](#quick-start) | [**Examples**](./examples) | [**Changelog**](./CHANGELOG.md) | [**Roadmap**](./ROADMAP.md)
 
 </div>
 
@@ -33,8 +33,6 @@ Operate   →  ObjectOS      the commercial runtime environment (Cloud & Enterpr
   <br><sub>A JSON schema in, a production React UI out — no component code.</sub>
 </p>
 
-### See what it renders
-
 One schema, many view types — dashboards, Gantt schedules, kanban boards, calendars — plus visual designers to build them without code.
 
 <p align="center">
@@ -51,51 +49,79 @@ One schema, many view types — dashboards, Gantt schedules, kanban boards, cale
 </p>
 <p align="center"><sub><b>Dashboard, Gantt, Kanban, Calendar</b> rendered from metadata, plus <b>visual designers</b> for objects and flows — all from the plugin packages listed below.</sub></p>
 
-## Examples
+## Quick Start
 
-Everything under [`examples/`](examples) — in learning order. The
-[examples catalog](examples/README.md) has the full "which one should I use?" table.
+Pick the path that matches where you are starting from:
 
-- **[examples/hello-world](examples/hello-world)** - The smallest JSON → UI demo: one `schema.json` (a `Page` holding a `Card` with text and a button) rendered by `<SchemaRenderer>` from a single `App.tsx`. Start here to see how a `type` resolves against the component registry.
-- **[examples/byo-backend-console](examples/byo-backend-console)** ⭐ - Minimal custom console in ~100 lines showing third-party integration without full console infrastructure. Uses `@object-ui/app-shell` and `@object-ui/providers` with custom routing and a mock REST adapter (BYO backend).
-- **[examples/console-starter](examples/console-starter)** - Opinionated, fork-ready console template with the full plugin set (grid, kanban, dashboard, designer, charts, …) wired up against an ObjectStack backend. Use this as the starting point when you want a complete console rather than a minimal integration.
-- **[examples/schema-catalog](examples/schema-catalog)** - Not a runnable app — the canonical JSON schema catalog that is the single source of truth for the schemas shipped elsewhere: the docs site renders them via `<SchemaExample id="…" />`, a smoke test mounts every entry, and AI agents use it as a few-shot corpus.
+| You want to… | Start here | Install |
+|---|---|---|
+| Render a JSON schema inside your React app | [`examples/hello-world`](examples/hello-world) | `@object-ui/react @object-ui/components` |
+| Embed views in an existing app, against **your own** backend | [`examples/byo-backend-console`](examples/byo-backend-console) | `@object-ui/app-shell @object-ui/plugin-view @object-ui/providers` |
+| Stand up a complete console on an **ObjectStack** backend | [`examples/console-starter`](examples/console-starter) | fork the example |
+| Build a UI from a JSON file, no React code at all | [`@object-ui/cli`](packages/cli) | `npm install -g @object-ui/cli` |
 
-### Running an example
+The [examples catalog](examples/README.md) explains each one in more depth.
 
-```bash
-# From the monorepo root
-pnpm install
-pnpm -w build
-
-# Vite dev server — byo-backend-console or console-starter
-cd examples/console-starter
-pnpm dev
-```
-
-`hello-world` ships no dev server: copy its `App.tsx` and `schema.json` into your own
-Vite/Next.js app. `schema-catalog` is a data package — its smoke test mounts every
-schema in it (`pnpm --filter @object-ui/example-schema-catalog test`).
-
-## 📦 For React Developers
-
-### Option 1: Full Console (ObjectStack Backend)
-
-Install the core packages to use `<SchemaRenderer>` inside your Next.js or Vite app with ObjectStack backend:
+### Render a schema
 
 ```bash
-npm install @object-ui/react @object-ui/components @object-ui/data-objectstack
+npm install @object-ui/react @object-ui/components
 ```
 
-### Option 2: Minimal Integration (Any Backend) ⭐ **NEW!**
+#### Basic Usage
 
-Use ObjectUI components without the full console infrastructure. Perfect for integrating into existing apps:
+```tsx
+import React from 'react'
+import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
+// Importing the package registers every default renderer as a side effect —
+// there is no separate registration call.
+import '@object-ui/components'
+
+const schema = {
+  type: "page",
+  title: "Dashboard",
+  body: {
+    type: "grid",
+    columns: 3,
+    children: [
+      { type: "statistic", label: "Total Users", value: "${stats.users}" },
+      { type: "statistic", label: "Revenue", value: "${stats.revenue}" },
+      { type: "statistic", label: "Orders", value: "${stats.orders}" }
+    ]
+  }
+}
+
+function App() {
+  // Every key of this object becomes a root the schema's expressions can read —
+  // `stats` here is what answers `${stats.users}`.
+  const scope = {
+    stats: { users: 1234, revenue: "$56,789", orders: 432 }
+  }
+
+  return (
+    <PredicateScopeProvider scope={scope}>
+      <SchemaRenderer schema={schema} />
+    </PredicateScopeProvider>
+  )
+}
+
+export default App
+```
+
+Expression scope reaches the renderer through the provider, never through a prop on the
+element. `SchemaRenderer` declares exactly one prop, `schema`, and forwards every other prop
+it is handed to the component the schema names — so a value passed as `data={…}` is neither
+read nor refused, and the expression that wanted it is returned as its own source text, with
+nothing thrown and one line on the console.
+
+### Bring your own backend
+
+Use the shell and views without the full console infrastructure — your routing, your auth, your API:
 
 ```bash
 npm install @object-ui/app-shell @object-ui/plugin-view @object-ui/providers
 ```
 
-Then build your own console in ~100 lines:
 ```tsx
 import type { FC } from 'react';
 import { AppShell } from '@object-ui/app-shell';
@@ -128,131 +154,38 @@ function ContactList() {
 }
 ```
 
-**Benefits:**
-- 🎯 **Lightweight**: ~50KB vs 500KB+ full console
-- 🔌 **Any Backend**: REST, GraphQL, custom APIs (not just ObjectStack)
-- 🎨 **Full Control**: Custom routing, auth, layouts
-- 📦 **Cherry-pick**: Use only what you need
+[`examples/byo-backend-console`](examples/byo-backend-console) is the complete working version, with a mock REST adapter.
 
-See [examples/byo-backend-console](examples/byo-backend-console) for a complete working example, or [examples/console-starter](examples/console-starter) if you want the full ObjectStack-bound console as a fork-ready template.
-
-## Why Object UI?
-
-### For You as a Developer
-
-**Stop Writing Repetitive UI Code**
-```tsx
-import type { ObjectFormSchema } from '@object-ui/types';
-
-// Traditional React: 200+ lines
-function UserForm() {
-  // ... useState, validation, handlers, JSX
-}
-
-// Object UI: 20 lines
-const schema: ObjectFormSchema = {
-  type: "object-form",
-  objectName: "user",
-  mode: "create",
-  fields: ["name", "email", "role"]
-}
-```
-
-**Better Performance, Smaller Bundle**
-- Automatic code splitting
-- Lazy-loaded components
-- Zero runtime CSS overhead
-- Optimized for production
-
-**Full Control & Flexibility**
-- Mix with existing React code
-- Override any component
-- Custom themes with Tailwind
-- Export to standard React anytime
-
-### vs Other Solutions
-
-| Feature | Object UI | Amis | Formily | Material-UI |
-|---------|-----------|------|---------|-------------|
-| **Tailwind Native** | ✅ | ❌ | ❌ | ❌ |
-| **Bundle Size** | 50KB | 300KB+ | 200KB+ | 500KB+ |
-| **TypeScript** | ✅ Full | Partial | ✅ Full | ✅ Full |
-| **Tree Shakable** | ✅ | ❌ | ⚠️ Partial | ⚠️ Partial |
-| **Server Components** | ✅ | ❌ | ❌ | ⚠️ Coming |
-| **Visual Designer** | ✅ | ✅ | ❌ | ❌ |
-
-## Quick Start
-
-### Option 1: Using CLI (Fastest Way) 🚀
-
-The easiest way to get started is using the Object UI CLI:
+### No React at all
 
 ```bash
-# Install the CLI globally
 npm install -g @object-ui/cli
-
-# Create a new app from JSON schema
-objectui init my-app
-
-# Start the development server
+objectui init my-app      # scaffold an app with a sample schema
 cd my-app
-objectui dev app.json
+objectui dev app.json     # dev server on http://localhost:3000
 ```
 
-Your app will be running at http://localhost:3000! 🎉
+Edit `app.json` to build your UI.
 
-Just edit `app.json` to build your UI - no React code needed.
-
-### Option 2: Using as a Library
-
-#### Installation
+### Run the examples from this repo
 
 ```bash
-# Using npm
-npm install @object-ui/react @object-ui/components
+pnpm install
+pnpm -w build
 
-# Using yarn
-yarn add @object-ui/react @object-ui/components
-
-# Using pnpm
-pnpm add @object-ui/react @object-ui/components
+cd examples/console-starter   # or examples/byo-backend-console
+pnpm dev
 ```
 
-#### Basic Usage
+`hello-world` ships no dev server: copy its `App.tsx` and `schema.json` into your own
+Vite/Next.js app. `schema-catalog` is a data package — the canonical JSON schemas the
+docs render, a smoke test mounts, and AI agents use as a few-shot corpus.
 
-```tsx
-import React from 'react'
-import { SchemaRenderer } from '@object-ui/react'
-// Importing the package registers every default renderer as a side effect —
-// there is no separate registration call.
-import '@object-ui/components'
+## Copy-Paste Schemas
 
-const schema = {
-  type: "page",
-  title: "Dashboard",
-  body: {
-    type: "grid",
-    columns: 3,
-    items: [
-      { type: "statistic", label: "Total Users", value: "${stats.users}" },
-      { type: "statistic", label: "Revenue", value: "${stats.revenue}" },
-      { type: "statistic", label: "Orders", value: "${stats.orders}" }
-    ]
-  }
-}
-
-function App() {
-  const data = {
-    stats: { users: 1234, revenue: "$56,789", orders: 432 }
-  }
-  
-  return <SchemaRenderer schema={schema} data={data} />
-}
-
-export default App
-```
-
-### Copy-Paste Schema Examples
+A `${name.…}` in any of these reads the root `name` off the scope the host published — see
+["Basic Usage"](#basic-usage) for the provider that publishes one. A head name nothing
+published is not an error: the expression is returned as its own source text.
 
 #### 📝 Contact Form
 
@@ -315,7 +248,7 @@ export default App
 
 ```json
 {
-  "type": "kanban",
+  "type": "object-kanban",
   "objectName": "tasks",
   "groupBy": "status",
   "titleField": "title",
@@ -329,71 +262,24 @@ export default App
 }
 ```
 
-> 📖 **More examples:** See [examples/](./examples/) for complete working applications.
-
-## 📦 Packages
-
-Object UI is a modular monorepo with packages designed for specific use cases:
-
-### Core Packages
-
-| Package | Description | Size |
-|---------|-------------|------|
-| **[@object-ui/types](./packages/types)** | TypeScript definitions and protocol specs | 10KB |
-| **[@object-ui/core](./packages/core)** | Core logic, validation, registry, expression evaluation | 20KB |
-| **[@object-ui/react](./packages/react)** | React bindings and `SchemaRenderer` | 15KB |
-| **[@object-ui/components](./packages/components)** | Standard UI components (Tailwind + Shadcn) | 50KB |
-| **[@object-ui/fields](./packages/fields)** | Field renderers and registry | 12KB |
-| **[@object-ui/layout](./packages/layout)** | Layout components with React Router integration | 18KB |
-
-### CLI & Tools
-
-| Package | Description | Size |
-|---------|-------------|------|
-| **[@object-ui/cli](./packages/cli)** | CLI tool for building apps from JSON schemas | 25KB |
-| **[@object-ui/runner](./packages/runner)** | Universal application runner for testing schemas | 30KB |
-| **[vscode-extension](./packages/vscode-extension)** | VSCode extension with IntelliSense and live preview | 32KB |
-
-### Data Adapters
-
-| Package | Description | Size |
-|---------|-------------|------|
-| **[@object-ui/data-objectstack](./packages/data-objectstack)** | ObjectStack data adapter | 8KB |
-
-### Plugins (Lazy-Loaded)
-
-| Plugin | Description | Size |
-|--------|-------------|------|
-| **[@object-ui/plugin-calendar](./packages/plugin-calendar)** | Calendar and event management | 25KB |
-| **[@object-ui/plugin-charts](./packages/plugin-charts)** | Chart components powered by Recharts | 80KB |
-| **[@object-ui/plugin-chatbot](./packages/plugin-chatbot)** | Chatbot interface components | 35KB |
-| **[@object-ui/plugin-dashboard](./packages/plugin-dashboard)** | Dashboard layouts and widgets | 22KB |
-| **[@object-ui/plugin-editor](./packages/plugin-editor)** | Rich text editor powered by Monaco | 120KB |
-| **[@object-ui/plugin-form](./packages/plugin-form)** | Advanced form components | 28KB |
-| **[@object-ui/plugin-gantt](./packages/plugin-gantt)** | Gantt chart visualization | 40KB |
-| **[@object-ui/plugin-grid](./packages/plugin-grid)** | Advanced data grid | 45KB |
-| **[@object-ui/plugin-kanban](./packages/plugin-kanban)** | Kanban boards with drag-and-drop | 100KB |
-| **[@object-ui/plugin-map](./packages/plugin-map)** | Map visualization | 60KB |
-| **[@object-ui/plugin-markdown](./packages/plugin-markdown)** | Markdown rendering | 30KB |
-| **[@object-ui/plugin-timeline](./packages/plugin-timeline)** | Timeline components | 20KB |
-| **[@object-ui/plugin-view](./packages/plugin-view)** | ObjectQL-integrated views (grid, form, detail) | 35KB |
+> 📖 **More schemas:** [`examples/schema-catalog`](examples/schema-catalog) is the canonical catalog; [examples/](./examples/) has complete working applications.
 
 ## 🔌 Data Integration
 
-Object UI is designed to work with any backend through its universal DataSource interface:
+Object UI talks to any backend through one `DataSource` interface.
 
-### ObjectStack Integration
+### ObjectStack
 
 ```bash
 npm install @object-ui/data-objectstack
 ```
 
-```typescript
+```tsx
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import type { BaseSchema } from '@object-ui/types';
 
-// Your page schema — "Basic Usage" above writes one out in full.
+// Your page schema — "Render a schema" above writes one out in full.
 declare const schema: BaseSchema;
 
 const dataSource = createObjectStackAdapter({
@@ -401,13 +287,21 @@ const dataSource = createObjectStackAdapter({
   token: 'your-auth-token'
 });
 
-// Use with any component
-<SchemaRenderer schema={schema} dataSource={dataSource} />
+// The adapter is injected through the provider — `SchemaRenderer` does not read
+// a `dataSource` prop, it forwards it to the component the schema names.
+<SchemaRendererProvider dataSource={dataSource}>
+  <SchemaRenderer schema={schema} />
+</SchemaRendererProvider>
 ```
+
+⛔ `dataSource` is the **adapter** — the object data renderers call `find()` on — and not an
+expression root. It is a different channel from the expression scope above: publish the values
+your `${…}` expressions read with `PredicateScopeProvider`, and inject the adapter your data
+components query with `SchemaRendererProvider`.
 
 ### Custom Data Sources
 
-You can create adapters for any backend (REST, GraphQL, Firebase, etc.) by implementing the `DataSource` interface:
+Adapt any backend (REST, GraphQL, Firebase, …) by implementing `DataSource`:
 
 ```typescript
 import type { DataSource, QueryParams, QueryResult } from '@object-ui/types';
@@ -427,112 +321,145 @@ declare class MyCustomDataSource<T = unknown> implements DataSource<T> {
 
 [**Data Source Examples →**](./packages/types/examples/rest-data-source.ts)
 
-## 🎯 What Can You Build?
+## Why Object UI?
 
-Object UI is perfect for:
+**Stop writing repetitive UI code.** A form is a schema, not a component:
 
-- ✅ **Admin Panels** - Complete CRUD interfaces in minutes
-- ✅ **Dashboards** - Data visualization and analytics
-- ✅ **Forms** - Complex multi-step forms with validation
-- ✅ **CMS** - Content management systems
-- ✅ **Internal Tools** - Business applications
-- ✅ **Prototypes** - Rapid UI prototyping
+```tsx
+import type { ObjectFormSchema } from '@object-ui/types';
 
-## 🛣️ Roadmap
+// Traditional React: useState, validation, handlers, JSX — per form
+function UserForm() {
+  // ...
+}
 
-**Phase 1-2 (Q4 2025 - Q1 2026)** ✅ **COMPLETED**:
-- ✅ Core schema rendering engine
-- ✅ 40+ production-ready components (Shadcn + Tailwind)
-- ✅ Expression system with field references
-- ✅ Action system (AJAX, chaining, conditions)
-- ✅ Theme system (light/dark mode)
-- ✅ Report builder with exports
-- ✅ Visual designer (beta)
+// Object UI: declare it
+const schema: ObjectFormSchema = {
+  type: "object-form",
+  objectName: "user",
+  mode: "create",
+  fields: ["name", "email", "role"]
+}
+```
 
-**Phase 3 (Q1-Q2 2026)** ✅ **COMPLETED**:
-- ✅ **Advanced Field Types**: Vector (AI embeddings), Grid (sub-tables), Formula, Summary
-- ✅ **ObjectSchema Enhancements**: Inheritance, triggers, advanced permissions, metadata caching
-- ✅ **QuerySchema AST**: SQL-like query building with joins, aggregations, subqueries
-- ✅ **Advanced Filtering**: 40+ operators, date ranges, lookup filters, full-text search
-- ✅ **Validation Engine**: 30+ rules, async validation, cross-field validation
-- ✅ **DriverInterface**: Transactions, batch operations, connection pooling, query caching
-- ✅ **DatasourceSchema**: Multi-datasource management, health monitoring
+- **Shadcn-native.** Components follow Shadcn's DOM structure and Tailwind utilities, so every schema node accepts `className` overrides and dark mode just works.
+- **Backend-agnostic.** One `DataSource` interface; adapters for ObjectStack, REST, or anything you write.
+- **Full control.** Mix with existing React, override any component in the registry, lazy-load heavy plugins only where they render.
+- **Typed protocol.** Every schema is a TypeScript type in `@object-ui/types`, derived from `@objectstack/spec`.
 
-**Phase 4+ (Q2-Q4 2026)**:
-- 🔄 Real-time collaboration features
-- 🔄 Mobile-optimized components
-- 🔄 AI-powered schema generation
-- 🔄 Advanced workflow automation
+| | Object UI | Amis | Formily | Material-UI |
+|---------|-----------|------|---------|-------------|
+| **Tailwind native** | ✅ | ❌ | ❌ | ❌ |
+| **TypeScript** | ✅ Full | Partial | ✅ Full | ✅ Full |
+| **Tree shakable** | ✅ | ❌ | ⚠️ Partial | ⚠️ Partial |
+| **Visual designer** | ✅ | ✅ | ❌ | ❌ |
+| **Backend-agnostic data layer** | ✅ | ✅ | ⚠️ Forms only | ❌ |
 
-See [ROADMAP.md](./ROADMAP.md) for the complete development roadmap.
+## 📦 Packages
+
+Grouped by dependency weight — atoms and fields stay light, heavy widgets live in plugins.
+
+### Core
+
+| Package | Description |
+|---------|-------------|
+| **[@object-ui/types](./packages/types)** | Pure TypeScript definitions — the protocol layer |
+| **[@object-ui/core](./packages/core)** | Registry, validation, expression evaluation; zero React |
+| **[@object-ui/react](./packages/react)** | React bindings and `SchemaRenderer` |
+| **[@object-ui/components](./packages/components)** | Standard UI components (Tailwind + Shadcn) |
+| **[@object-ui/fields](./packages/fields)** | Field renderers and registry |
+| **[@object-ui/layout](./packages/layout)** | Layout components with React Router integration |
+
+### Application shell
+
+| Package | Description |
+|---------|-------------|
+| **[@object-ui/app-shell](./packages/app-shell)** | Minimal application shell — the base of every console |
+| **[@object-ui/providers](./packages/providers)** | Theme, data-source, and other reusable context providers |
+| **[@object-ui/auth](./packages/auth)** | `AuthProvider`, `useAuth`, `AuthGuard`, sign-in forms |
+| **[@object-ui/permissions](./packages/permissions)** | Object / field / row-level permission guards and hooks |
+| **[@object-ui/i18n](./packages/i18n)** | Language packs, RTL layout, date and currency formatting |
+| **[@object-ui/mobile](./packages/mobile)** | Responsive components, PWA support, touch gestures |
+| **[@object-ui/collaboration](./packages/collaboration)** | Presence, live cursors, conflict resolution, comment threads |
+| **[@object-ui/console](./apps/console)** | Fork-ready runtime console with the full plugin set, shipped as a Hono plugin |
+
+### Data adapters
+
+| Package | Description |
+|---------|-------------|
+| **[@object-ui/data-objectstack](./packages/data-objectstack)** | ObjectStack data adapter |
+
+### Plugins (lazy-loaded)
+
+| Plugin | Description |
+|--------|-------------|
+| **[@object-ui/plugin-view](./packages/plugin-view)** | ObjectQL-integrated object views (grid, form, detail) |
+| **[@object-ui/plugin-grid](./packages/plugin-grid)** | Advanced data grid |
+| **[@object-ui/plugin-form](./packages/plugin-form)** | Advanced form components |
+| **[@object-ui/plugin-detail](./packages/plugin-detail)** | Detail pages with sections, tabs, and related lists |
+| **[@object-ui/plugin-list](./packages/plugin-list)** | Unified list view with view-type switching |
+| **[@object-ui/plugin-kanban](./packages/plugin-kanban)** | Kanban boards with drag-and-drop (dnd-kit) |
+| **[@object-ui/plugin-calendar](./packages/plugin-calendar)** | Calendar views |
+| **[@object-ui/plugin-gantt](./packages/plugin-gantt)** | Gantt charts |
+| **[@object-ui/plugin-timeline](./packages/plugin-timeline)** | Timelines |
+| **[@object-ui/plugin-tree](./packages/plugin-tree)** | Tree and tree-grid views |
+| **[@object-ui/plugin-map](./packages/plugin-map)** | Map visualization |
+| **[@object-ui/plugin-charts](./packages/plugin-charts)** | Charts powered by Recharts |
+| **[@object-ui/plugin-dashboard](./packages/plugin-dashboard)** | Dashboard layouts and widgets |
+| **[@object-ui/plugin-report](./packages/plugin-report)** | Pivot tables, grouped aggregations, printable reports |
+| **[@object-ui/plugin-designer](./packages/plugin-designer)** | Visual page, data-model, process, and report designers |
+| **[@object-ui/plugin-editor](./packages/plugin-editor)** | Rich text editor powered by Monaco |
+| **[@object-ui/plugin-markdown](./packages/plugin-markdown)** | Markdown rendering |
+| **[@object-ui/plugin-chatbot](./packages/plugin-chatbot)** | Chatbot interface |
+| **[@object-ui/plugin-ai](./packages/plugin-ai)** | Schema generation and conversational assistants (Vercel AI SDK) |
+
+### Tooling
+
+| Package | Description |
+|---------|-------------|
+| **[@object-ui/cli](./packages/cli)** | Scaffold, develop, build, and validate schema-driven apps |
+| **[@object-ui/create-plugin](./packages/create-plugin)** | Scaffold a new Object UI plugin |
+| **[@object-ui/runner](./packages/runner)** | Universal application runner for testing schemas |
+| **[@object-ui/sdui-parser](./packages/sdui-parser)** | Constrained JSX source → schema tree compiler (parse, never execute) |
+| **[@object-ui/react-runtime](./packages/react-runtime)** | Trusted runtime execution for `kind: 'react'` pages |
+| **[vscode-extension](./packages/vscode-extension)** | IntelliSense and live preview for schema files |
 
 ## 🤝 Contributing
 
-We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md) for details.
+Contributions are welcome — read the [Contributing Guide](./CONTRIBUTING.md) first.
 
-### For Developers
-
-- 📖 [Contributing Guide](./CONTRIBUTING.md) — How to contribute to the project
-- 🏗️ [Architecture Overview](https://www.objectui.org/docs/guide/architecture-overview) — Package topology and boundaries
-- 🔄 [ObjectStack Spec](https://github.com/objectstack-ai/spec) — The underlying protocol this project implements
-- 🗺️ [Roadmap](./ROADMAP.md) — Current status and upcoming milestones
-
-### Development Setup
-
-**Quick Setup (Recommended):**
 ```bash
-# Clone the repository
 git clone https://github.com/objectstack-ai/objectui.git
 cd objectui
-
-# Run automated setup script
-./scripts/setup.sh
-```
-
-**Manual Setup:**
-```bash
-# Clone the repository
-git clone https://github.com/objectstack-ai/objectui.git
-cd objectui
-
-# Install dependencies
-pnpm install
-
-# Build all packages
-pnpm build
-
-# Run the development site
-pnpm dev
-
-# Run tests
+./scripts/setup.sh    # or: pnpm install && pnpm build
+pnpm dev              # development site
 pnpm test
 ```
 
-## 📄 License
-
-Object UI is [MIT licensed](./LICENSE).
+- 📖 [Quick Reference](./QUICK_REFERENCE.md) — the one-page command cheat-sheet for this monorepo
+- 🧭 [AGENTS.md](./AGENTS.md) — the working rules, for humans and coding agents alike
+- 🏗️ [Architecture Overview](https://www.objectui.org/docs/guide/architecture-overview) — package topology and boundaries
+- 🔄 [@objectstack/spec](https://github.com/objectstack-ai/objectstack/tree/main/packages/spec) — the protocol this renderer implements
+- 🗺️ [Roadmap](./ROADMAP.md) — current status and upcoming milestones
 
 ## 🌟 Community & Support
 
-- ⭐ [Star on GitHub](https://github.com/objectstack-ai/objectui) - Show your support!
-- 📖 [Documentation](https://www.objectui.org) - Comprehensive guides and API reference
-- 🐛 [Report Issues](https://github.com/objectstack-ai/objectui/issues) - Found a bug? Let us know
-- 📧 [Email Us](mailto:hello@objectui.org) - Get in touch
+- ⭐ [Star on GitHub](https://github.com/objectstack-ai/objectui) — it helps others find the project
+- 📖 [Documentation](https://www.objectui.org) — guides and API reference
+- 🐛 [Report Issues](https://github.com/objectstack-ai/objectui/issues) — found a bug? Let us know
 - 🧠 **Agent skill** — `npx skills add objectstack-ai/objectui` installs an Object UI skill for Claude Code, Cursor, Copilot, and more
 
-## 🙏 Acknowledgments
+## 📄 License
 
-Object UI is inspired by and builds upon ideas from:
-- [Amis](https://github.com/baidu/amis) - Schema-driven UI framework
-- [Formily](https://github.com/alibaba/formily) - Form solution
-- [Shadcn/UI](https://ui.shadcn.com/) - UI component library
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+Object UI is [MIT licensed](./LICENSE). Object UI is inspired by and builds upon ideas from
+[Amis](https://github.com/baidu/amis), [Formily](https://github.com/alibaba/formily),
+[Shadcn/UI](https://ui.shadcn.com/), and [Tailwind CSS](https://tailwindcss.com/).
 
 ---
 
 <div align="center">
 
-**Built with ❤️ by the [ObjectQL Team](https://github.com/objectql)**
+**Built with ❤️ by the [ObjectStack team](https://github.com/objectstack-ai)**
 
 [Website](https://www.objectui.org) · [Documentation](https://www.objectui.org) · [GitHub](https://github.com/objectstack-ai/objectui)
 

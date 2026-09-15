@@ -129,7 +129,22 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **41 entries** in `KnownDrift`, **72 keys** across them — 41 / 65 until
+ *   - **45 entries** in `KnownDrift`, **83 keys** across them — 41 / 72 until
+ *     objectui#7804's `objectql.ts` slice DECLARED nine handler keys across FOUR
+ *     arms in that one mirror file, three of them NEW entries here
+ *     (`ObjectFormSchema`, `ObjectGridSchema`, `ObjectViewSchema`) plus a fourth
+ *     (`ObjectGallerySchema`) — the entry count moved by four because every one
+ *     of the four was absent from this ledger. ⚠️ The key total moved by
+ *     ELEVEN, not nine, and the two extra are NOT keys of the slice: declaring
+ *     the form and grid arms propagated into `ObjectViewSchema`'s nested `form`
+ *     and `table` slots, which are those sibling mirrors BY REFERENCE while the
+ *     declaration types them off `ObjectFormSlotKey` / `ObjectGridSlotKey` —
+ *     two unions that list exactly these handler keys. ⚠️ And only SEVEN of the
+ *     nine came out of `RuntimeOnlyDeclared` below; the two
+ *     `ObjectGallerySchema` keys were in NEITHER ledger, because they were
+ *     declared on NEITHER face. ⛔ Read those three sentences together, or the
+ *     arithmetic (+4 entries, +11 keys, −3 entries and −7 keys next door) reads
+ *     as growth from nowhere. It was 41 / 65 until
  *     objectui#7804's `DataTableSchema` slice DECLARED seven handler keys on
  *     `data-display.zod.ts#DataTableSchema`, an existing entry (so the entry
  *     count did not move). ⭐ The largest single move this ledger has taken, and
@@ -269,7 +284,17 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **7 entries** in `RuntimeOnlyDeclared`, **17 keys** across them — 7 / 24
+ *   - **4 entries** in `RuntimeOnlyDeclared`, **10 keys** across them — 7 / 17
+ *     until objectui#7804's `objectql.ts` slice took three WHOLE entries out —
+ *     `objectql.zod.ts#ObjectFormSchema` (five keys),
+ *     `objectql.zod.ts#ObjectGridSchema` and `objectql.zod.ts#ObjectViewSchema`
+ *     (one each) — the mirror having declared every one as a named refusal.
+ *     ⭐ The first time this ledger lost ENTRIES rather than keys: each pair's
+ *     whole runtime-only debt went at once, so there was nothing left to
+ *     shorten. ⚠️ Read it beside the `KnownDrift` bullet above, which gained
+ *     eleven keys where this lost seven — the difference is the two
+ *     `ObjectGallerySchema` keys that were in neither ledger and the two nested
+ *     `ObjectViewSchema` slots the declaration propagated into. It was 7 / 24
  *     until objectui#7804's `DataTableSchema` slice took seven keys out of
  *     `data-display.zod.ts#DataTableSchema` and into `KnownDrift` above, the
  *     mirror having declared each as a named refusal. The entry SURVIVES with
@@ -278,7 +303,7 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **6 of the 7** are a subset of the **14** pairs above; `TreeViewSchema` is
+ *     **3 of the 4** are a subset of the **14** pairs above; `TreeViewSchema` is
  *     NOT — it is the first pair whose ONLY ledger entry is a runtime-only one
  *     (objectui#6150 declared `onNodeClick` on an otherwise clean pair), which is why
  *     the union of the two unmirrored ledgers is **15** pairs and not **14**.
@@ -409,7 +434,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 41 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 45 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -1703,6 +1728,88 @@ interface KnownDrift {
    */
   'objectql.zod.ts#ObjectDataTableSchema': 'onRowClick';
   /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×5 — the
+   * `objectql.ts` slice, which drained this pair's whole `RuntimeOnlyDeclared`
+   * entry rather than shortening it. `plugin-form`'s `ObjectForm` reads every
+   * one off `schema.*` and forwards it onto the variant node it renders, and
+   * `ObjectFormComponentProps` declares only `schema` / `dataSource` /
+   * `className` — so the `object-form` NODE a host builds in TypeScript is the
+   * channel, and the TS side keeps all five callable while the mirror refuses
+   * them by name.
+   *
+   * ⚠️ The disposition was measured per key, and one of the five does NOT share
+   * the group's supplier: `onStepChange` has NO in-repo host filling it, while
+   * `onSuccess` / `onCancel` have ten between them, `onOpenChange` three and
+   * `onError` one. Its channel is wired end to end all the same — forwarded
+   * onto the wizard node, then CALLED as `schema.onStepChange(step)` — so what
+   * is missing is a supplier, not a read, and `'retired'` would have published
+   * "no renderer reads this key" against a read that runs.
+   */
+  'objectql.zod.ts#ObjectFormSchema':
+    | 'onCancel' | 'onError' | 'onOpenChange' | 'onStepChange' | 'onSuccess';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×2 — the
+   * `objectql.ts` slice again, and the only pair in it whose keys were declared
+   * on NEITHER face before. They are this ledger's PROPS-half shape:
+   * `SchemaRenderer` spreads an authored node's leftover keys into the props
+   * bag, and `ObjectGallery` reads both on ONE line
+   * (`props.onRowClick ?? props.onCardClick`) before handing the winner to
+   * `useNavigationOverlay` as the function it calls. So an authored value
+   * reached a renderer through a face that declared nothing — with
+   * `BaseSchema`'s index signature admitting it untyped — which is why
+   * declaring them is a NARROWING on both faces at once.
+   *
+   * ⚠️ Measured per key: `onRowClick` has two in-repo suppliers (`ListView`'s
+   * `baseProps`, `RelatedList`'s mobile branch), `onCardClick` has none and is
+   * the `??` fallback spelling `ObjectGalleryProps` declares for a host that
+   * uses that name.
+   */
+  'objectql.zod.ts#ObjectGallerySchema': 'onCardClick' | 'onRowClick';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) — the key the
+   * maintainer's 2026-08-19 ruling on objectui#5234 (option C) kept DECLARED
+   * for programmatic callers and kept OFF the authoring surface. "Not offered"
+   * was true of the manifest and the designer panel; the validator still said
+   * yes, because `BaseSchema` is `.passthrough()`. The named refusal closes
+   * that half, and it makes this mirror agree with `@objectstack/spec`, whose
+   * `ComponentPropsMap['object-grid']` `strictObject` already refused the key.
+   *
+   * ⚠️ No in-repo host builds an `object-grid` node carrying it — measured. The
+   * read is live and deliberate (`onNavigate: schema.onNavigate` into
+   * `useNavigationOverlay`), and `plugin-grid`'s `gridNonAuthorKeys.test.tsx`
+   * supplies it from a schema and asserts the call fires.
+   */
+  'objectql.zod.ts#ObjectGridSchema': 'onNavigate';
+  /**
+   * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) — the same
+   * key NAME as the entry above and nothing else in common: a different second
+   * parameter (`mode: 'view' | 'edit'` rather than `action?: string`), a
+   * different renderer, a different supplier. Judged separately for exactly
+   * that reason.
+   *
+   * `plugin-view`'s `ObjectView` invokes it at four sites —
+   * `schema.onNavigate('new', 'edit')` on create, and the record id with
+   * `'edit'` / `'view'` on the other three. Supplied by `@object-ui/app-shell`'s
+   * `ObjectView`, which builds the `object-view` node in TypeScript and puts
+   * `onNavigate: (recordId, mode) => …` on it.
+   *
+   * ⭐ `form` and `table` are the SAME slice reaching one level down, and they
+   * are here by measurement rather than by intent: this pair's two nested
+   * config slots are the sibling mirrors BY REFERENCE
+   * (`ObjectFormSchema.omit({ type, objectName, mode }).partial()` and
+   * `ObjectGridSchema.omit({ type, objectName }).partial()`), while the
+   * declaration types them `Partial<Pick<…, ObjectFormSlotKey>>` /
+   * `Partial<Pick<…, ObjectGridSlotKey>>` — and those two slot-key unions list
+   * exactly the handler keys this slice declared (`onCancel`, `onError`,
+   * `onOpenChange`, `onStepChange`, `onSuccess` on the form union;
+   * `onNavigate` on the grid union). So the named refusals propagate into the
+   * nested config and an authored `form: { onSuccess: … }` is refused there
+   * too. ⛔ NOT worked around by omitting the keys from the nested lazy: that
+   * would keep accepting an un-authorable function value one level down, which
+   * is the defect, not the fix.
+   */
+  'objectql.zod.ts#ObjectViewSchema': 'onNavigate' | 'form' | 'table';
+  /**
    * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×2 — the
    * SECOND handler entry on this mirror, and the first anywhere in this ledger
    * that was born from an ARM RETIREMENT rather than from a mirror or a
@@ -2353,23 +2460,28 @@ interface RuntimeOnlyDeclared {
    */
   'form.zod.ts#FormSchema': 'onDirtyChange';
   /**
-   * 5 of `ObjectFormSchema`'s former 26. POLICY group — `objectql.zod.ts` mirrors no
-   * callback at all. All five are read in `plugin-form/src/ObjectForm.tsx`.
+   * ⭐ THREE `objectql.zod.ts` entries LEFT this ledger with objectui#7804's
+   * `objectql.ts` slice, and they left the way this ledger is meant to drain —
+   * by the mirror DECLARING each key as a named refusal, never by refiling:
+   *
+   *   - `ObjectFormSchema` — all five (`onCancel`, `onError`, `onOpenChange`,
+   *     `onStepChange`, `onSuccess`), so the entry is gone, not shortened;
+   *   - `ObjectGridSchema` — `onNavigate`, the key the 2026-08-19 ruling on
+   *     objectui#5234 kept declared for programmatic callers and off the
+   *     authoring surface; the mirror now says on this face what
+   *     `@objectstack/spec`'s `strictObject` already said on the other;
+   *   - `ObjectViewSchema` — `onNavigate`, a DIFFERENT key of the same name:
+   *     different signature, different supplier, judged separately.
+   *
+   * ⚠️ The pairs are gone from this ledger and present in `KnownDrift` above,
+   * which is ONE move seen from both sides. And `KnownDrift` gained NINE keys
+   * where this one lost SEVEN: the other two are `ObjectGallerySchema`'s
+   * `onCardClick` / `onRowClick`, which were in NEITHER ledger because they
+   * were declared on NEITHER face — they reached the renderer through
+   * `SchemaRenderer`'s props spread while `BaseSchema`'s index signature
+   * admitted them untyped. ⛔ Read the two bullets together or the arithmetic
+   * looks like growth from nowhere.
    */
-  'objectql.zod.ts#ObjectFormSchema':
-    | 'onCancel' | 'onError' | 'onOpenChange' | 'onStepChange' | 'onSuccess';
-  /** 1 of `ObjectGridSchema`'s former 17. POLICY group. Read at `ObjectGrid.tsx:1334`. */
-  'objectql.zod.ts#ObjectGridSchema': 'onNavigate';
-  /**
-   * 1 of `ObjectViewSchema`'s former 11 — the one key that sits in both stories. Of
-   * its other ten keys, nine closed with objectui#7779 (eight mirrored, `viewTabBar`
-   * retired) and `listViews` stays in `UnmirroredDeclared`; reclassifying its callback
-   * did not re-route the pair, and neither did objectui#7279's move of that entry from
-   * the split's SPEC-DERIVED half to its LOCAL one (the pair had never been
-   * spec-derived until #7779 gave the mirror real spec references — see the entry
-   * above). POLICY group.
-   */
-  'objectql.zod.ts#ObjectViewSchema': 'onNavigate';
   /**
    * `TreeViewSchema`'s ONLY entry in either ledger — the pair was clean before
    * objectui#6150 and this key is the whole of its debt.

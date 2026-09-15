@@ -252,9 +252,16 @@ const TS_ONLY_BACKLOG = new Set<string>([
   // measurement (`zod-mirror-parity.test.ts`, `UnmirroredDeclared`) until the
   // maintainer decides. ⛔ Not closed with `z.any()`.
   'listViews',
-  // Not a zod gap: a function, so it CANNOT be declared in a JSON protocol
-  // schema. Recorded here rather than exempted silently.
-  'onNavigate',
+  // ⭐ `onNavigate` LEFT this backlog with objectui#7804's `objectql.ts` slice,
+  // and the sentence it used to carry here was the thing that needed correcting
+  // — not the entry. It read "a function, so it CANNOT be declared in a JSON
+  // protocol schema", and the second half does not follow from the first: a
+  // function value cannot be AUTHORED, but the key can absolutely be DECLARED —
+  // as a named refusal (`handlerKeyRefusal`, the objectui#6124 shape), which is
+  // what the mirror now carries. Leaving it undeclared did not keep the key out
+  // of an authored document; `BaseSchema` is `.passthrough()`, so an authored
+  // `onNavigate` was ACCEPTED, KEPT, and handed to the four call sites in
+  // `plugin-view`'s `ObjectView` that invoke it.
 ]);
 
 /**
@@ -406,8 +413,14 @@ describe('ObjectViewSchema declared-surface consistency (#2890 scope B)', () => 
     // `viewTabBar` tombstone, which is a shape member so it can refuse by name):
     // 11 + 9 = 20 non-envelope keys, 20 + 2 = 22 declared. The TS figure below
     // did not move — every one of the nine was already declared there.
-    expect(ouiZodKeys.filter((k) => !ENVELOPE.has(k))).toHaveLength(20);
-    expect(ouiDeclaredKeys).toHaveLength(22);
+    //
+    // objectui#7804's `objectql.ts` slice added the TWENTY-FIRST: `onNavigate`,
+    // a shape member that refuses by name, the same way `viewTabBar` is one. So
+    // 21 non-envelope keys, 21 + 2 = 23 declared — and the TS figure below again
+    // does not move, because the key was already declared there. That is the
+    // whole shape of this slice: it closes gaps on the ZOD side only.
+    expect(ouiZodKeys.filter((k) => !ENVELOPE.has(k))).toHaveLength(21);
+    expect(ouiDeclaredKeys).toHaveLength(23);
     // The interface's own surface beyond the envelope. The audit counted 25
     // declared fields including the 3 whose names the envelope also owns
     // (`type`, `description`, `className`); 22 is that figure with those three

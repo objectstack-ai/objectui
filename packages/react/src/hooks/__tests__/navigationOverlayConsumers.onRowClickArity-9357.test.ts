@@ -154,13 +154,35 @@ function splitParams(src: string, open: number): string[] | null {
   return null;
 }
 
-/** Parameters of the inline function TYPE declared for `member`, or null. */
-function declParams(src: string, member: string): string[] | null {
+/**
+ * Parameters of the inline function TYPE declared for `member`, or null.
+ *
+ * `after` scopes the search to the text following a literal anchor — the
+ * declaring interface's own `export interface X` line. ⚠️ It is not a
+ * convenience: without it this reader answers for the FIRST declaration of
+ * `member` in the file and silently reattributes the site the moment a second
+ * one appears above it. objectui#7804's `objectql.ts` slice made that concrete —
+ * that file now carries TWO `onRowClick` declarations with DIFFERENT contracts
+ * (`ObjectGallerySchema`'s two-parameter modifier-forwarding one, and
+ * `ObjectDataTableSchema`'s one-parameter `row: any`), and they sit in opposite
+ * halves of this file's ledger. A file-scoped reader cannot express that.
+ *
+ * A missing anchor returns `null` rather than falling back to the whole file,
+ * so a renamed or deleted interface REDS here instead of quietly answering
+ * about some other declaration.
+ */
+function declParams(src: string, member: string, after?: string): string[] | null {
+  let text = src;
+  if (after !== undefined) {
+    const at = src.indexOf(after);
+    if (at < 0) return null;
+    text = src.slice(at);
+  }
   const re = new RegExp(`(^|[^\\w$])${member}\\??\\s*:\\s*\\(`, 'm');
-  const m = re.exec(src);
+  const m = re.exec(text);
   if (!m) return null;
-  const open = src.indexOf('(', m.index + m[0].length - 1);
-  const params = splitParams(src, open);
+  const open = text.indexOf('(', m.index + m[0].length - 1);
+  const params = splitParams(text, open);
   if (!params) return null;
   return params;
 }
@@ -175,7 +197,7 @@ function readSource(rel: string): string {
  * the criterion.
  */
 const HOOK_CALL = /useNavigationOverlay\s*\(/;
-const IN_SITES: Array<{ rel: string; member: string; why: string; hop: RegExp }> = [
+const IN_SITES: Array<{ rel: string; member: string; why: string; hop: RegExp; after?: string }> = [
   { rel: 'packages/plugin-grid/src/ObjectGrid.tsx', member: 'onRowClick',
     why: 'fed to useNavigationOverlay as its onRowClick', hop: HOOK_CALL },
   { rel: 'packages/plugin-kanban/src/ObjectKanban.tsx', member: 'onRowClick',
@@ -201,6 +223,21 @@ const IN_SITES: Array<{ rel: string; member: string; why: string; hop: RegExp }>
   { rel: 'packages/plugin-detail/src/RelatedList.tsx', member: 'onRowClick',
     why: 'placed on the object-gallery schema it renders, reaching ObjectGallery props',
     hop: /type: 'object-gallery'/ },
+  // ⭐ objectui#7804's `objectql.ts` slice closed the remaining hole on this
+  // exact path. `RelatedList` above is IN *because* it writes `onRowClick` onto
+  // the `object-gallery` NODE — and until that slice the node type declared
+  // neither key, so `BaseSchema`'s index signature typed both `any` and a host
+  // writing the node learned nothing about the second parameter. That is this
+  // card's own defect ("Declaring one parameter hid the second on the ONE line a
+  // host reads") one hop further out. Both are anchored to their interface: the
+  // same file's `ObjectDataTableSchema.onRowClick` is a CONTROL below, with a
+  // different arity and a different contract.
+  { rel: 'packages/types/src/objectql.ts', member: 'onRowClick',
+    why: 'the object-gallery node face ListView and RelatedList write onto; SchemaRenderer spreads it into the props fed to useNavigationOverlay',
+    hop: /type: 'object-gallery'/, after: 'export interface ObjectGallerySchema' },
+  { rel: 'packages/types/src/objectql.ts', member: 'onCardClick',
+    why: 'the onCardClick arm of the same `??` inside ObjectGallery, on the same node face',
+    hop: /type: 'object-gallery'/, after: 'export interface ObjectGallerySchema' },
   { rel: 'packages/plugin-kanban/src/index.tsx', member: 'onCardClick',
     why: 'handed to KanbanImpl, whose SortableCard invokes it with the DOM event',
     hop: /onCardClick=\{schema\.onCardClick\}/ },
@@ -212,7 +249,7 @@ const IN_SITES: Array<{ rel: string; member: string; why: string; hop: RegExp }>
  * If a later change widens one of these, this file reds and the reasoning below
  * gets revisited instead of the edit going through unremarked.
  */
-const OUT_SITES: Array<{ rel: string; member: string; arity: number; param: RegExp; why: string }> = [
+const OUT_SITES: Array<{ rel: string; member: string; arity: number; param: RegExp; why: string; after?: string }> = [
   { rel: 'packages/plugin-grid/src/VirtualGrid.tsx', member: 'onRowClick', arity: 2,
     param: /^index: number$/, why: 'its second parameter is `index: number` — a DIFFERENT contract, not this one' },
   { rel: 'packages/plugin-view/src/ManageViewsDialog.tsx', member: 'onRowClick', arity: 1,
@@ -220,7 +257,12 @@ const OUT_SITES: Array<{ rel: string; member: string; arity: number; param: RegE
   { rel: 'packages/types/src/data-display.ts', member: 'onRowClick', arity: 1,
     param: /^row: any$/, why: '`data-table` invokes `schema.onRowClick(row)` with ONE argument; the declaration is accurate, and widening it would promise a payload that renderer never hands over' },
   { rel: 'packages/types/src/objectql.ts', member: 'onRowClick', arity: 1,
-    param: /^row: any$/, why: 'ObjectDataTable forwards it into the same `data-table` channel above' },
+    param: /^row: any$/, why: 'ObjectDataTable forwards it into the same `data-table` channel above',
+    // Anchored since objectui#7804: `ObjectGallerySchema.onRowClick` now stands
+    // EARLIER in this same file with the opposite contract, so a file-scoped
+    // read would answer about the IN site and score this control green for the
+    // wrong declaration.
+    after: 'export interface ObjectDataTableSchema' },
   { rel: 'packages/plugin-view/src/ObjectView.tsx', member: 'onRowClick', arity: 1,
     param: /^record: Record<string, unknown>$/, why: 'its own `handleRowClick` truncates to `onRowClick(record)`; that hop DROPS the payload, which is a separate defect from an understated declaration and is reported rather than fixed here' },
 ];
@@ -246,6 +288,22 @@ describe('objectui#9357 — the arity counter, before it is pointed at the tree'
     }
   });
 
+  it('the `after` anchor scopes the read, and a missing anchor reads NULL', () => {
+    // objectui#7804: `objectql.ts` gained a SECOND `onRowClick` with the opposite
+    // contract, above the one the CONTROLS block pins. Unanchored, the reader
+    // answers for whichever comes first — so these three legs are what keep the
+    // IN site and the OUT site in that one file from swapping places unnoticed.
+    const two = 'export interface A { onRowClick?: (record: Record<string, unknown>, event?: any) => void; }\n'
+      + 'export interface B { onRowClick?: (row: any) => void; }';
+    expect(declParams(two, 'onRowClick'), 'unanchored reads the FIRST declaration').toHaveLength(2);
+    expect(declParams(two, 'onRowClick', 'export interface B'), 'anchored reads B').toHaveLength(1);
+    expect(declParams(two, 'onRowClick', 'export interface B')![0]).toBe('row: any');
+    expect(
+      declParams(two, 'onRowClick', 'export interface Nope'),
+      'a missing anchor must read NULL, never fall back to the whole file',
+    ).toBeNull();
+  });
+
   it('pins the naive counter\'s WRONG answer, so the two are never confused', () => {
     const oneParam = 'onRowClick?: (record: Record<string, unknown>) => void;';
     const naive = /\(([^)]*)\)/.exec(oneParam)![1].split(',').length;
@@ -257,8 +315,8 @@ describe('objectui#9357 — the arity counter, before it is pointed at the tree'
 });
 
 describe('objectui#9357 — consumers on the modifier-forwarding path declare the payload', () => {
-  it.each(IN_SITES)('$rel declares two parameters for $member ($why)', ({ rel, member }) => {
-    const params = declParams(readSource(rel), member);
+  it.each(IN_SITES)('$rel declares two parameters for $member ($why)', ({ rel, member, after }) => {
+    const params = declParams(readSource(rel), member, after);
     expect(params, `${rel} :: ${member} — no inline function-type declaration found`).not.toBeNull();
     expect(params, `${rel} :: ${member}`).toHaveLength(2);
     // The second parameter is optional, so no existing caller is forced to pass it.
@@ -277,8 +335,8 @@ describe('objectui#9357 — consumers on the modifier-forwarding path declare th
 });
 
 describe('objectui#9357 — CONTROLS: sites that share the shape and are deliberately OUT', () => {
-  it.each(OUT_SITES)('$rel keeps $member at arity $arity ($why)', ({ rel, member, arity, param }) => {
-    const params = declParams(readSource(rel), member);
+  it.each(OUT_SITES)('$rel keeps $member at arity $arity ($why)', ({ rel, member, arity, param, after }) => {
+    const params = declParams(readSource(rel), member, after);
     expect(params, `${rel} :: ${member}`).toHaveLength(arity);
     // The LAST parameter is what says which contract this is. `VirtualGrid`
     // has arity 2 and is still out of scope because its second parameter is an
@@ -289,8 +347,8 @@ describe('objectui#9357 — CONTROLS: sites that share the shape and are deliber
   it('the instrument is live on the control tree too (a silent zero would fake every control)', () => {
     // Same counter, same files, a member that IS declared there — so a control
     // reading "arity 1" cannot be the counter failing to find anything.
-    for (const { rel, member } of OUT_SITES) {
-      expect(declParams(readSource(rel), member), `${rel} :: ${member}`).not.toBeNull();
+    for (const { rel, member, after } of OUT_SITES) {
+      expect(declParams(readSource(rel), member, after), `${rel} :: ${member}`).not.toBeNull();
     }
   });
 });

@@ -380,6 +380,128 @@ function emitEagerClosureReport(reportFileName = 'eager-closure.json'): Plugin {
 }
 
 /**
+ * Emits `dist/chunk-membership.json` — which CHUNK each workspace package's
+ * modules were written to, counted over EVERY chunk in the bundle.
+ *
+ * ## Why this exists (objectui#9345)
+ *
+ * `advancedChunks.groups` declares membership by regex, and a group can end up
+ * holding modules no regex of its own matches: rolldown's
+ * `includeDependenciesRecursively` lets a higher-priority group take a
+ * lower-priority group's declared members along an import edge. When that
+ * happened to `packages/core` the per-chunk ceilings above it went GREEN — the
+ * bytes had moved to a chunk with no ceiling, while the browser went on
+ * downloading every one of them. A budget that weighs named chunks is bypassed
+ * by moving bytes between chunks, and nothing in this repository could see it.
+ *
+ * So the verdict this feeds (`evaluatePerChunkMembership` in
+ * `scripts/check-eager-closure-budget.mjs`) asks a question no byte count can:
+ * did each budgeted group's declared packages actually land where the config
+ * says? ⛔ It is an EXACT claim, not a ratchet — a single stray module is a
+ * finding, named.
+ *
+ * ## Why a separate file rather than a field of `eager-closure.json`
+ *
+ * That report's `reportVersion` is a contract with a SECOND reader —
+ * `scripts/check-eager-locale-catalogues.mjs` pins the version it accepts, and
+ * its own tests pin that a later version is REFUSED. Growing a new required
+ * field there means bumping that version and revising a deliberate refusal in
+ * a gate this card does not touch. A separate artifact with its own version
+ * costs one file and bends no existing contract.
+ *
+ * ## What it counts, said in words
+ *
+ * The population is every module in every emitted chunk whose id contains a
+ * `packages/<name>/` segment — workspace source, not `node_modules`, and not
+ * limited to the eager closure: a budgeted package's module hiding in a LAZY
+ * chunk is exactly as much a membership breach as one hiding in an eager
+ * neighbour, and the eager-closure walk cannot see it.
+ *
+ * ⚠️ This plugin only MEASURES — same split as `emitEagerClosureReport` above,
+ * and for the same reason: a membership verdict that failed `vite build` would
+ * fail every preview deploy too, which is how a gate gets switched off.
+ */
+function emitChunkMembershipReport(reportFileName = 'chunk-membership.json'): Plugin {
+  // The module ids rolldown records are realpaths, so a workspace module reads
+  // as `<repo>/packages/<name>/src/...` no matter which symlink resolved it —
+  // the same assumption the `advancedChunks` group tests above are written on.
+  const WORKSPACE_MODULE = /[\\/]packages[\\/]([^\\/]+)[\\/]/;
+
+  return {
+    name: 'emit-chunk-membership-report',
+    writeBundle(options, bundle) {
+      const outDir = options.dir ?? path.resolve(import.meta.dirname, 'dist');
+
+      /** package name -> chunk name -> how many of its modules landed there. */
+      const packages: Record<string, Record<string, number>> = {};
+      let totalChunkCount = 0;
+      let unnamedChunks = 0;
+
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk') continue;
+        totalChunkCount += 1;
+        const chunkName = output.name;
+        if (typeof chunkName !== 'string' || chunkName === '') {
+          unnamedChunks += 1;
+          continue;
+        }
+        for (const id of Object.keys(output.modules)) {
+          const match = WORKSPACE_MODULE.exec(id);
+          if (!match) continue;
+          const pkg = match[1];
+          (packages[pkg] ??= {})[chunkName] = (packages[pkg][chunkName] ?? 0) + 1;
+        }
+      }
+
+      // Counter-probe 1 — an unnamed chunk is a HOLE in this report, not a
+      // cosmetic gap: a budgeted package's module sitting in one would be
+      // counted nowhere, and "nowhere" reads to the checker exactly like "not
+      // in a chunk it should not be in". Refused rather than published, in the
+      // same direction as every probe in `emitEagerClosureReport` above.
+      if (unnamedChunks > 0) {
+        this.error(
+          `[emit-chunk-membership-report] ${unnamedChunks} emitted chunk(s) carry no \`name\`, so ` +
+            `any workspace module inside them would be attributed to NOTHING. A membership check ` +
+            `reads an absent attribution as "no stray module", which is the silent direction: it ` +
+            `would pass by measuring less, not by finding less. Fix the chunk naming before ` +
+            `publishing this report.`,
+        );
+      }
+
+      // Counter-probe 2 — the other direction, and the one that matters most
+      // for a check whose green state is "nothing was found somewhere it should
+      // not be". A report naming no workspace package at all makes every
+      // membership claim vacuously true.
+      const packageCount = Object.keys(packages).length;
+      if (packageCount === 0) {
+        this.error(
+          `[emit-chunk-membership-report] not one emitted module id matched ` +
+            `\`${WORKSPACE_MODULE}\`, so this report attributes NOTHING and every membership ` +
+            `assertion built on it would agree with everything. Either the bundle contains no ` +
+            `workspace source — which the console cannot be built without — or module ids have ` +
+            `stopped being realpaths under \`packages/\` and this matcher needs rewriting.`,
+        );
+      }
+
+      const report = {
+        // Independent of `eager-closure.json`'s version on purpose; see the
+        // docblock above. Bump when the shape below changes, so a stale report
+        // is REFUSED rather than read for fields it does not carry.
+        membershipReportVersion: 1,
+        totalChunkCount,
+        packages,
+      };
+
+      fs.writeFileSync(path.join(outDir, reportFileName), `${JSON.stringify(report, null, 2)}\n`);
+      this.info(
+        `chunk membership: ${packageCount} workspace packages attributed across the bundle ` +
+          `→ ${reportFileName}`,
+      );
+    },
+  };
+}
+
+/**
  * Dev-only Vite plugin: serves runtime branding assets at /runtime/assets/*.
  *
  * When the console dev server runs standalone (port 5180), the backend does
@@ -654,6 +776,13 @@ export default defineConfig({
     // 0.67% of it (objectui#5324). Measurement only: the verdict is the
     // workflow's, so a size regression never blocks a preview deploy.
     emitEagerClosureReport(),
+    // Writes `dist/chunk-membership.json` — which chunk each workspace
+    // package's modules were written to. The per-chunk ceilings weigh BYTES,
+    // and bytes can be moved off a budgeted line without shrinking by one
+    // (objectui#9345); this is the artifact that lets the same gate assert
+    // WHERE a budgeted group's declared packages landed. Measurement only,
+    // same as above.
+    emitChunkMembershipReport(),
     // Rolldown's `INEFFECTIVE_DYNAMIC_IMPORT` warnings, pinned to a ledger
     // instead of scrolling past 43 at a time (objectui#5325). The pinned ones
     // are replaced by one summary line; an UNPINNED one keeps rolldown's own
@@ -844,13 +973,18 @@ export default defineConfig({
             // chunks that now name two files where they named one. Nothing here
             // may be read as headroom that was earned.
             //
-            // ⚠️ Disclosed rather than smoothed over: `data-adapter` now also
-            // holds 5 modules (8.5 KB raw) from `core`/`types` that are reached
-            // ONLY through `data-objectstack`. That is the same shared-module
-            // pull-in this comment is about, one tier down and three orders of
-            // magnitude smaller. It is rolldown's behaviour, not a choice
-            // available here: `framework` cannot be lifted above these two
-            // without re-absorbing the catalogue, which is the whole defect.
+            // ⚠️ This paragraph used to disclose that `data-adapter` ALSO held a
+            // handful of `core`/`types` modules reached only through
+            // `data-objectstack` — "rolldown's behaviour, not a choice available
+            // here". ⛔ The second half of that was wrong, and objectui#9345 is
+            // what it cost: the same pull-in grew from a handful to the whole of
+            // `packages/core` on a tree-shaking change made in another package,
+            // and the budgeted line stopped being able to see its own members.
+            // There WAS a choice available — `includeDependenciesRecursively`,
+            // read out in full at the `data-adapter` group below, which now
+            // declares it `false`. The escape the paragraph correctly refused
+            // (lifting `framework` above these two) is still refused, for the
+            // reason it gave.
             //
             // ## Why there are ELEVEN i18n groups and not one (objectui#7479)
             //
@@ -888,7 +1022,66 @@ export default defineConfig({
             { name: 'i18n-locale-ru', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ru\.ts$/, priority: 84 },
             { name: 'i18n-locale-ar', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ar\.ts$/, priority: 84 },
             { name: 'i18n-runtime', test: /[\\/]packages[\\/]i18n[\\/]/, priority: 83 },
-            { name: 'data-adapter', test: /[\\/]packages[\\/]data-objectstack[\\/]/, priority: 84 },
+            //
+            // ## `includeDependenciesRecursively: false` — the rule that decides
+            // ## membership here, named (objectui#9345)
+            //
+            // ⭐ This flag is rolldown's `CodeSplittingGroup.includeDependenciesRecursively`
+            // and its DEFAULT IS `true`. With it on, a group captures the modules
+            // its `test` matches AND, transitively, everything those modules
+            // import — and the priority doc for the same option states the other
+            // half: "when converting the group to a chunk, modules of that group
+            // will be removed from other groups". So a group can take modules
+            // that its own regex does not match, out of a lower-priority group
+            // whose regex does.
+            //
+            // That is what happened here. `packages/data-objectstack` imports
+            // `@object-ui/core`, this group outranks `framework` (84 over 80), and
+            // so the recursive half of this rule handed `framework`'s declared
+            // members to a group whose regex never mentioned them. The size of
+            // the transfer tracks TREE-SHAKING, which is why it moved without any
+            // edit here: while `@object-ui/core` was only ever imported by name,
+            // the retained slice reachable through `data-objectstack` was 5
+            // modules (the disclosure below, written when it was 5). objectui#9185
+            // added an `import('@object-ui/core')` of the BARREL in
+            // `packages/app-shell`, every export of core became live, and the same
+            // recursive walk then reached all 92 of them. Measured on the console
+            // build of `ff1d5ea8d1`: `packages/core` contributed 92 modules to
+            // `data-adapter` and 0 to `framework`, and `packages/types` split 3/19
+            // across the two.
+            //
+            // ⛔ The repair is NOT a priority change. Lifting `framework` above 84
+            // would re-run objectui#7399 exactly: `@object-ui/react` depends on
+            // both `@object-ui/i18n` and `@object-ui/data-objectstack`, so a
+            // recursive `framework` sitting above them would swallow the locale
+            // catalogues and this group in one move — the defect the two-tier
+            // layout above exists to prevent. Turning the recursive half OFF for
+            // this group leaves every priority untouched and makes this group's
+            // membership exactly what its `test` declares.
+            //
+            // Measured across the repair, same tree, console build either side:
+            // `data-adapter` 78,110 -> 18,537 gzipped and holds only
+            // `packages/data-objectstack`; `framework` 45,278 -> 104,636 and holds
+            // core|react|types and nothing else; the whole eager closure moves by
+            // -461 bytes. ⚠️ Those bytes were ALWAYS downloaded — `data-adapter`
+            // is in the eager closure — so this is a re-attribution and ⛔ must not
+            // be read as a payload change in either direction.
+            //
+            // ⚠️ `framework` is over its ceiling at that reading, by an amount
+            // `scripts/check-eager-closure-budget.mjs` prints on every run. That
+            // is this repair making a pre-existing overage VISIBLE, not causing
+            // it; ⛔ no constant was moved to absorb it (objectui#9345 rules that
+            // none may be).
+            //
+            // ⚠️ Rolldown documents a cost for turning this off: recursive capture
+            // "reduces the chance of generating circular chunks", and the same
+            // paragraph recommends `preserveEntrySignatures: false` and
+            // `strictExecutionOrder: true` alongside disabling it. Neither is set
+            // here, and neither was needed: the build emits the same chunk
+            // population as before, with the ONE group narrowed. A future group
+            // taking this flag should re-check that rather than inherit the
+            // reading.
+            { name: 'data-adapter', test: /[\\/]packages[\\/]data-objectstack[\\/]/, priority: 84, includeDependenciesRecursively: false },
             { name: 'framework', test: /[\\/]packages[\\/](core|react|types)[\\/]/, priority: 80 },
             { name: 'ui-components', test: /[\\/]packages[\\/](components|fields)[\\/]/, priority: 80 },
             { name: 'ui-layout', test: /[\\/]packages[\\/]layout[\\/]/, priority: 80 },

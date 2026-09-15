@@ -1063,6 +1063,20 @@ export interface ObjectGridSchema extends BaseSchema {
    * cycle, for zero measured harm. The exemption comment at the read site
    * (`plugin-grid/src/ObjectGrid.tsx`) carries the same statement, and both are
    * pinned by `plugin-grid/src/__tests__/gridNonAuthorKeys.test.tsx`.
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — the zod twin now
+   * refuses this key BY NAME instead of letting `BaseSchema.passthrough()`
+   * accept and KEEP an authored value that reaches `useNavigationOverlay` and
+   * is CALLED. That closes the gap the ruling above left open on this face:
+   * "not offered" was true of the manifest and the designer panel, but the
+   * validator still said yes. The two faces now agree, and they agree with
+   * `@objectstack/spec`, whose `strictObject` already refused the key.
+   *
+   * ⚠️ No host in this repository builds an `object-grid` node carrying it —
+   * measured, and reported rather than smoothed over. The slot is nonetheless
+   * real: the renderer reads and runs it, and the pin named above supplies it
+   * from a schema and asserts the call. What is absent is a supplier, not the
+   * channel, so `'retired'` ("no renderer reads this key") would be false.
    */
   onNavigate?: (recordId: string | number, action?: string) => void;
 
@@ -1457,6 +1471,20 @@ export interface ObjectFormSchema extends BaseSchema {
   
   /**
    * Called when wizard step changes. Only used when formType is 'wizard'.
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is READ and RUN by the registered renderer.
+   * The read: `ObjectForm` forwards it onto the wizard node it builds
+   * (`onStepChange: schema.onStepChange`) and `WizardForm` calls
+   * `schema.onStepChange(step)`.
+   *
+   * ⚠️ Its supplier is NOT the one its four siblings have, and the difference
+   * was measured rather than inferred: NO host in this repository fills this
+   * key. The channel is nonetheless wired end to end — forwarded, then called —
+   * so a host that fills it is run, and `'retired'` ("no renderer reads this
+   * key") would be false. What is absent is a supplier, not the channel.
    */
   onStepChange?: (step: number) => void;
   
@@ -1558,6 +1586,19 @@ export interface ObjectFormSchema extends BaseSchema {
 
   /**
    * Callback on successful submission
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is READ and RUN by the registered renderer.
+   * The read: `ObjectForm` forwards it onto every variant node it builds
+   * (`onSuccess: schema.onSuccess`). Supplied by hosts that build the
+   * `object-form` node in TypeScript — `AppContent`, `RecordFormPage`,
+   * `ScreenView`, `FlowRunner` and `useActionModal` in `@object-ui/app-shell`,
+   * `ObjectManager` / `FieldDesigner` in `@object-ui/plugin-designer`,
+   * `MasterDetailForm` / `EmbeddableForm` in `@object-ui/plugin-form`, and
+   * `plugin-view`'s `ObjectView`. `ObjectFormComponentProps` declares only
+   * `schema`, `dataSource` and `className`, so the NODE is the channel.
    */
   onSuccess?: (data: any) => void | Promise<void>;
 
@@ -1593,11 +1634,27 @@ export interface ObjectFormSchema extends BaseSchema {
 
   /**
    * Callback on error
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is READ and RUN by the registered renderer.
+   * The read: `ObjectForm` forwards it onto the master-detail node
+   * (`onError: schema.onError`). Supplied by `MasterDetailForm`
+   * (`@object-ui/plugin-form`), beside its {@link onSuccess}.
    */
   onError?: (error: Error) => void;
-  
+
   /**
    * Callback on cancel
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is READ and RUN by the registered renderer.
+   * The read: `ObjectForm` forwards it onto every variant node it builds
+   * (`onCancel: schema.onCancel`). Supplied by the same hosts as
+   * {@link onSuccess}, one line below their `onSuccess`.
    */
   onCancel?: () => void;
   
@@ -1643,6 +1700,16 @@ export interface ObjectFormSchema extends BaseSchema {
   
   /**
    * Callback when open state changes. Only used when formType is 'drawer'.
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is READ and RUN by the registered renderer.
+   * The read: `ObjectForm` forwards it onto the drawer / modal node
+   * (`onOpenChange: schema.onOpenChange`). Supplied by `AppContent`
+   * (`if (!open) closeRecordForm()`) in `@object-ui/app-shell` and by
+   * `ObjectManager` / `FieldDesigner` (`handleFormClose`) in
+   * `@object-ui/plugin-designer`.
    */
   onOpenChange?: (open: boolean) => void;
   
@@ -2007,6 +2074,19 @@ export interface ObjectViewSchema extends BaseSchema {
   
   /**
    * Callback when navigating to detail page (page layout mode)
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is READ and RUN by the registered renderer.
+   * The read: `plugin-view`'s `ObjectView` invokes it at four sites —
+   * `schema.onNavigate('new', 'edit')` on create, and the record id with
+   * `'edit'` / `'view'` on the other three. Supplied by
+   * `@object-ui/app-shell`'s `ObjectView`, which builds the `object-view` node
+   * in TypeScript and puts `onNavigate: (recordId, mode) => …` on it.
+   *
+   * ⚠️ Shares a key NAME with `ObjectGridSchema.onNavigate` and nothing else:
+   * different second parameter, different supplier, judged separately.
    */
   onNavigate?: (recordId: string | number, mode: 'view' | 'edit') => void;
   
@@ -4073,6 +4153,50 @@ export interface ObjectGallerySchema extends BaseSchema {
   imageField?: string;
   /** @deprecated Use `gallery.titleField` instead */
   titleField?: string;
+  /**
+   * Card click handler.
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is READ and RUN by the registered renderer.
+   *
+   * ⭐ Its channel is the PROPS half of the slot, not the `schema.*` half: this
+   * key was declared on `ObjectGalleryProps` (`@object-ui/plugin-list`) and
+   * nowhere on this node, while `SchemaRenderer` spreads an authored node's
+   * leftover keys into the very props bag `ObjectGallery` reads
+   * (`props.onRowClick ?? props.onCardClick`, handed to `useNavigationOverlay`
+   * as the function it calls on a card click). So an authored value DID reach
+   * the renderer through a face that never declared it. Declaring it here
+   * NARROWS: the key was already admitted, untyped, by `BaseSchema`'s index
+   * signature.
+   *
+   * ⚠️ No host in this repository supplies this spelling — it is the second arm
+   * of that `??`, the name a host may use instead of {@link onRowClick}.
+   * Measured and reported rather than smoothed: what is absent is a supplier,
+   * not the channel.
+   */
+  onCardClick?: (record: Record<string, unknown>, event?: any) => void;
+  /**
+   * Row/item click handler — overrides {@link navigation}.
+   *
+   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name and points at the node-type spelling. Kept
+   * callable here because it is READ and RUN by the registered renderer, on the
+   * same `props.onRowClick ?? props.onCardClick` line as {@link onCardClick}.
+   *
+   * Supplied by two in-repo hosts, each putting it on the `object-gallery` node
+   * it builds: `ListView` (`onRowClick: navigation.handleClick`, from the
+   * `baseProps` every child view receives) and `RelatedList`'s mobile branch
+   * (its own React prop of this name).
+   *
+   * TWO parameters, matching `ObjectGalleryProps.onRowClick`: the second is the
+   * modifier payload a host needs for Cmd/Ctrl/middle-click, and it is spelled
+   * `any` for the reason objectui#9341 measured — `HandleClickModifiers` lives
+   * in `@object-ui/react`, which the published twins here may not name.
+   */
+  onRowClick?: (record: Record<string, unknown>, event?: any) => void;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this

@@ -133,6 +133,24 @@
  *
  * ## Limits, stated rather than discovered later
  *
+ *   - ⛔ DYNAMICALLY TYPED REGISTRATIONS ARE OUTSIDE THE CENSUS, and this is the
+ *     largest exclusion in it. A factory that calls
+ *     `ComponentRegistry.register(tag, …)` inside a loop registers one component
+ *     type per iteration and this reader can name NONE of them -- the key exists
+ *     only at run time. The families behind those call sites (`ui:HTML-TAG` from
+ *     the html-element and semantic factories, `field:*` from the field-widget
+ *     map) are not in the judged count and produce no finding. They are reported
+ *     as the `dynamicRegistrations` coverage bucket, with every call site printed
+ *     -- because a later card reading "zero" over a population that never
+ *     contained them would be reading nothing at all. ⛔ Enumerating the loops by
+ *     guessing is worse than naming the exclusion: a half-enumerated family is a
+ *     census nobody can reconstruct. objectui#4631 review, F1.
+ *   - ⛔ THE SPEC ARM CAN BE INERT, and the run says so when it is. Only a type
+ *     with BOTH a `ComponentPropsMap` entry and a resolvable interface can
+ *     produce a spec-caused `interface-missing-key`; the counters print that
+ *     INTERSECTION beside its two halves, and shout when it is zero. Where it is
+ *     zero the spec half only ever widens the accept set -- it suppresses, never
+ *     raises. objectui#4631 review, F2.
  *   - `register()` splices `ELEMENT_DATA_SOURCE_INPUT` into `inputs` at RUNTIME
  *     for a block wrapping `ElementDataSourceGate`
  *     (`withElementDataSourceInput`). A source read cannot see it. The key it
@@ -142,7 +160,17 @@
  *     interface it cannot name or find, are reported as COVERAGE GAPS in their
  *     own buckets and are never silently counted as "no reads" / "no keys". A
  *     zero read set read as truth would report every declared key as extra.
- *   - `schema: any` is not an interface. It is counted as unresolved.
+ *   - `schema: any` is not an interface. It is counted as unresolved. Nor is
+ *     `schema: BaseSchema`: it resolves, but to an interface with no OWN
+ *     members, so such a block can never produce `interface-extra-key`. The
+ *     counters name that subset inside the "with a TS interface" number rather
+ *     than letting it read as full coverage. objectui#4631 review, F5.
+ *   - a rule is only as good as its own coverage gap is guarded. Both interface
+ *     rules skip a type whose interface did not resolve, and the `inputs` rule
+ *     skips a type whose RENDERER did not resolve, for the identical reason: an
+ *     empty read set read as truth reports every declared key as outside the key
+ *     set. Those rows stay in the `rendererUnresolved` bucket. objectui#4631
+ *     review, F3.
  *   - value TYPES are out of reach here, as they are for every key-name parity
  *     check in this tree: a key in perfect name parity whose declared type is
  *     narrower than the contract passes.
@@ -665,6 +693,51 @@ export function registrationSitesIn(sourceFile) {
   return sites;
 }
 
+/**
+ * Every `ComponentRegistry.register(SOMETHING, …)` call whose type argument is
+ * not a readable literal -- the factory registrations.
+ *
+ * `register(tag, Component, …)` inside `for (const tag of TAGS)` registers one
+ * component type per iteration, and this reader can name none of them: the key
+ * exists only at run time. Enumerating the loop is not mechanical (the list may
+ * be imported, filtered, or built from a record), so the honest answer is to
+ * report the CALL SITE and the expression it registers under, and to say in the
+ * corpus note that these families are outside the census.
+ *
+ * ⛔ Never resolved by guessing. A census that half-enumerated `TAGS` would be
+ * worse than one that names the exclusion: a later ratchet reading "zero" would
+ * be reading zero over a population nobody can reconstruct.
+ */
+export function dynamicRegistrationsIn(sourceFile, root, file) {
+  const found = [];
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression;
+      if (
+        ts.isPropertyAccessExpression(callee) &&
+        callee.name.text === "register" &&
+        ts.isIdentifier(callee.expression) &&
+        callee.expression.text === "ComponentRegistry"
+      ) {
+        const [typeArgument] = node.arguments;
+        const readable =
+          typeArgument &&
+          (ts.isStringLiteral(typeArgument) || ts.isNoSubstitutionTemplateLiteral(typeArgument));
+        if (typeArgument && !readable) {
+          found.push({
+            file: root && file ? rel(root, file) : String(file ?? ""),
+            line: lineOf(node),
+            spelledAs: typeArgument.getText().slice(0, 60),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sourceFile, visit);
+  return found;
+}
+
 function propertyNamed(objectLiteral, name) {
   for (const property of objectLiteral.properties) {
     if (!ts.isPropertyAssignment(property) || !property.name) continue;
@@ -1110,7 +1183,7 @@ export async function specKeySets(importSpec = (id) => import(id)) {
 
 /**
  * @param {string} root
- * @param {{importSpec?: Function, seedLedger?: Record<string,string>, frameworkReadSet?: Set<string>}} [options]
+ * @param {{importSpec?: Function, seedLedger?: Record<string,string>, ambientKeys?: Set<string>}} [options]
  */
 export async function analyze(root = REPO_ROOT, options = {}) {
   const seedLedger = options.seedLedger ?? DESIGNER_SEED_ROWS;
@@ -1137,7 +1210,14 @@ export async function analyze(root = REPO_ROOT, options = {}) {
   }
 
   const types = [];
-  const coverage = { rendererUnresolved: [], interfaceUnresolved: [], inputsUnreadable: [] };
+  const coverage = {
+    rendererUnresolved: [],
+    interfaceUnresolved: [],
+    inputsUnreadable: [],
+    // F1: `register(variable, …)` -- a real registration whose TYPE this reader
+    // cannot name. Named bucket, never a silent pass.
+    dynamicRegistrations: [],
+  };
   let registrationCount = 0;
 
   for (const [pkg, index] of parsedByPackage) {
@@ -1148,11 +1228,24 @@ export async function analyze(root = REPO_ROOT, options = {}) {
       // Non-vacuity: the tree's own registration reader must not see MORE calls
       // than this walk did. A silently short AST read is the one failure that
       // looks like a clean census.
+      //
+      // The `dynamic` term is NOT a tolerance. A `register(tag, …)` call over a
+      // list of tags is a real registration this reader cannot name, and every
+      // one of them is carried into {@link coverage}.dynamicRegistrations and
+      // PRINTED, exactly as the three other coverage buckets are. The earlier
+      // shape of this guard added `crossCheck.unreadable.length` to the right
+      // and said nothing further, which made the largest exclusion in the census
+      // its quietest one: the whole `ui:HTML-TAG` family (37 + 7 tags) and the
+      // whole `field:*` family (45 widgets) sat outside a population presented
+      // as covering the registered tree. objectui#4631 review, F1.
       const crossCheck = findComponentRegistrations(text);
-      if (crossCheck.calls > sites.length + crossCheck.unreadable.length) {
+      const dynamic = dynamicRegistrationsIn(sourceFile, root, file);
+      for (const entry of dynamic) coverage.dynamicRegistrations.push(entry);
+      if (crossCheck.calls > sites.length + dynamic.length) {
         fail(
           `${rel(root, file)}: scripts/component-registrations.mjs counts ${crossCheck.calls} register call(s),\n` +
-            `    this walk read ${sites.length}. An under-read is a type dropped from the census in silence.`
+            `    this walk read ${sites.length} named and ${dynamic.length} dynamically typed. An under-read\n` +
+            "    beyond those is a type dropped from the census in silence."
         );
       }
       for (const site of sites) {
@@ -1194,10 +1287,24 @@ export async function analyze(root = REPO_ROOT, options = {}) {
       withSpec: types.filter((t) => t.spec.declared).length,
       withInterface: types.filter((t) => !t.iface.unresolvedReason).length,
       withRenderer: types.filter((t) => !t.renderer.unresolved).length,
+      // F2 (objectui#4631 review). The INTERSECTION, printed beside its two
+      // halves, because only a type with BOTH a spec entry and a resolvable
+      // interface can produce a spec-caused finding. Where this is 0 the spec
+      // arm of `interface-missing-key` never fires and can only ever suppress
+      // -- true of this tree today, and invisible in the two halves alone.
+      withSpecAndInterface: types.filter((t) => t.spec.declared && !t.iface.unresolvedReason)
+        .length,
+      // F5. A registration annotated `schema: BaseSchema` resolves to an
+      // interface with no OWN members, so it can never produce
+      // `interface-extra-key`. Counted inside `withInterface` and named here,
+      // because a block with no type of its own is thinner coverage than the
+      // bare number suggests.
+      withBaseAsItsOwnInterface: types.filter((t) => t.iface.name === BASE_INTERFACE).length,
       ambientKeys: framework.size,
       restSpread: types.filter((t) => t.renderer.forwardsRest).length,
       specEntries: spec.size,
       interfaces: interfaces.size,
+      dynamicRegistrationSites: coverage.dynamicRegistrations.length,
     },
     findings: types.flatMap((t) => t.findings),
     ...seedRows,
@@ -1284,6 +1391,16 @@ function judgeRegistration(context) {
         type: site.fullType,
         key,
         at,
+        // ⛔ deliberately NOT tagged `restSpread`. The caveat is about a key that
+        // LOOKS unread and may be honoured through the spread; this finding says
+        // the key IS read and the interface fails to declare it, which a spread
+        // forward does not soften. Tagging it would inflate the hedged column
+        // with rows the instrument is not hedging.
+        restSpread: false,
+        // F2: which arm of the disjunction actually fired, per finding, so the
+        // spec arm's contribution is a measured number rather than an inference
+        // from `withSpec`.
+        cause: specKeys.has(key) ? (blockReads.has(key) ? "spec+renderer" : "spec") : "renderer",
         detail:
           `\`${iface.name}\` (${iface.file}) does not declare \`${key}\`, which ` +
           [
@@ -1309,7 +1426,16 @@ function judgeRegistration(context) {
     }
   }
 
-  for (const name of inputs.names) {
+  // F3 (objectui#4631 review). Guarded on `renderer.unresolved` exactly as both
+  // interface rules are guarded on `iface.unresolvedReason`, and for the same
+  // reason this file's header already states: a zero read set read as TRUTH
+  // reports every declared key as outside the key set. Measured before the
+  // guard: `plugin-list:list-view` and `view:list` wrap their renderer as
+  // `elementDataSourceBlock(React.forwardRef(...))`, a double wrap this walk
+  // cannot hop, and produced 12 findings over six keys their own package reads
+  // by name. The rows stay in the `rendererUnresolved` coverage bucket, which is
+  // where an unreadable renderer belongs.
+  for (const name of renderer.unresolved ? [] : inputs.names) {
     if (acceptSet.has(name)) continue;
     const onInterface = !iface.unresolvedReason && iface.own.has(name);
     findings.push({
@@ -1564,7 +1690,21 @@ async function main() {
   console.log(`  registrations judged     ${counters.judged}`);
   console.log(`  ... with a spec entry    ${counters.withSpec}  (of ${counters.specEntries} ComponentPropsMap entries)`);
   console.log(`  ... with a TS interface  ${counters.withInterface}  (index: ${counters.interfaces} declarations under ${TYPES_SRC})`);
+  console.log(
+    `      of which annotated \`${BASE_INTERFACE}\` itself: ${counters.withBaseAsItsOwnInterface}  ` +
+      "(no OWN members, so they can never produce interface-extra-key)"
+  );
   console.log(`  ... with a resolved body ${counters.withRenderer}`);
+  console.log(
+    `  spec AND interface       ${counters.withSpecAndInterface}  ` +
+      "<- only these can produce a SPEC-caused finding" +
+      (counters.withSpecAndInterface === 0
+        ? "\n      = 0: the spec arm of `interface-missing-key` fires on NOTHING in this tree today.\n" +
+          "      Every spec-declared type resolves to no interface, so the spec half can only\n" +
+          "      SUPPRESS a finding (it widens the accept set), never raise one. The authority\n" +
+          "      order is mechanised and pinned by the suite; it is not doing work on THIS corpus."
+        : "")
+  );
   console.log(
     `  ambient key set          ${counters.ambientKeys} keys, derived from \`${BASE_INTERFACE}\` + ${FRAMEWORK_READ_SOURCE}`
   );
@@ -1594,10 +1734,34 @@ async function main() {
     if (!byKind.has(finding.kind)) byKind.set(finding.kind, []);
     byKind.get(finding.kind).push(finding);
   }
-  console.log("\n  Disagreements, by kind:");
+  console.log("\n  Disagreements, by kind -- split by the caveat the findings themselves carry:");
+  console.log(
+    `    ${"".padEnd(26)} ${"total".padStart(5)} ${"named-read".padStart(11)} ${"rest-spread".padStart(12)}`
+  );
   for (const kind of Object.keys(KIND_HEADINGS)) {
-    console.log(`    ${String((byKind.get(kind) ?? []).length).padStart(4)}  ${kind}`);
+    const list = byKind.get(kind) ?? [];
+    const spread = list.filter((finding) => finding.restSpread).length;
+    console.log(
+      `    ${kind.padEnd(26)} ${String(list.length).padStart(5)} ${String(list.length - spread).padStart(11)} ${String(spread).padStart(12)}`
+    );
   }
+  const spreadTotal = findings.filter((finding) => finding.restSpread).length;
+  console.log(
+    `    ${"TOTAL".padEnd(26)} ${String(findings.length).padStart(5)} ${String(findings.length - spreadTotal).padStart(11)} ${String(spreadTotal).padStart(12)}`
+  );
+  console.log(
+    "    rest-spread = this instrument does NOT claim the row is a defect: the renderer forwards\n" +
+      "    its unnamed props, so the key may be honoured without a named read. ⛔ Quote the total\n" +
+      "    without this split and you are quoting rows the gate itself hedges (objectui#4631 review F4)."
+  );
+  const byCause = new Map();
+  for (const finding of byKind.get("interface-missing-key") ?? []) {
+    byCause.set(finding.cause, (byCause.get(finding.cause) ?? 0) + 1);
+  }
+  console.log(
+    `    interface-missing-key by cause: ` +
+      ["spec", "spec+renderer", "renderer"].map((c) => `${c}=${byCause.get(c) ?? 0}`).join("  ")
+  );
   for (const [kind, list] of byKind) {
     console.log(`\n  ${kind} -- ${KIND_HEADINGS[kind] ?? ""}`);
     for (const finding of list.slice(0, 200)) {
@@ -1623,8 +1787,24 @@ async function main() {
 
   console.log("\n  Coverage gaps -- reported, never counted as agreement:");
   console.log(`    ${coverage.rendererUnresolved.length} registration(s) whose component body this walk could not reach`);
+  console.log("        (the `inputs` rule is SKIPPED for these -- see the F3 note at its loop)");
   console.log(`    ${coverage.interfaceUnresolved.length} registration(s) with no resolvable TS schema interface`);
   console.log(`    ${coverage.inputsUnreadable.length} registration(s) with an \`inputs\` entry this reader cannot name`);
+  console.log(
+    `    ${coverage.dynamicRegistrations.length} DYNAMICALLY TYPED registration call site(s) -- \`register(variable, …)\`.`
+  );
+  for (const entry of coverage.dynamicRegistrations) {
+    console.log(`        ${entry.file}:${entry.line}  registers under \`${entry.spelledAs}\``);
+  }
+  if (coverage.dynamicRegistrations.length) {
+    console.log(
+      "        Each is a FACTORY: one component type per loop iteration, none of them nameable\n" +
+        "        from source. The families behind these sites (the `ui:HTML-TAG` blocks and the\n" +
+        "        `field:*` widgets) are OUTSIDE every number above -- they are not in the judged\n" +
+        "        count and not in any finding. ⛔ A census read as covering the registered tree is\n" +
+        "        reading a population that never contained them (objectui#4631 review F1)."
+    );
+  }
 
   console.log(
     "\ncomponent-surface-parity: REPORT-ONLY -- exit 0. The ruling's sequencing is\n" +

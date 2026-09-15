@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ComponentPropsMap } from '@objectstack/spec/ui';
+import { parseSource } from '../check-handler-key-read-sites.mjs';
 
 // Plain-JS CI helper. Its types are INFERRED from the .mjs source by
 // `tsconfig.scripts.json` (`allowJs`), so no `@ts-expect-error` here.
@@ -14,6 +15,7 @@ import {
   TYPES_SRC,
   ambientKeys,
   analyze,
+  dynamicRegistrationsIn,
   frameworkReads,
   interfaceKeySet,
   readInterfaceIndex,
@@ -136,6 +138,13 @@ ${meta}
 });
 `,
   };
+}
+
+/** A standalone source file for the reader-level unit tests. */
+function parseFixture(source: string) {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'surface-parse-')), 'f.tsx');
+  fs.writeFileSync(file, source);
+  return parseSource(fs.readFileSync(file, 'utf8'), file);
 }
 
 const run = (root: string, options: Record<string, unknown> = {}) =>
@@ -456,6 +465,190 @@ ComponentRegistry.register('widget', WidgetRenderer, {
       );
       const { coverage } = await run(root);
       expect(coverage.inputsUnreadable).toHaveLength(1);
+    });
+  });
+
+  /**
+   * objectui#4631 instrument review, round 2. Each of these covers one repair,
+   * and the first two FIRE: a bucket that prints nothing and a guard that never
+   * skips are both invisible in a green run.
+   */
+  describe('F1 -- a dynamically typed registration is a named bucket, never a silent pass', () => {
+    it('reports a `register(variable, …)` factory instead of dropping its types', async () => {
+      const root = tree('dynamic-reg', {
+        'packages/widget/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+ComponentRegistry.register('widget', () => null, { namespace: 'ui' });
+for (const tag of ['h1', 'p']) {
+  ComponentRegistry.register(tag, () => null, { namespace: 'ui' });
+}
+`,
+      });
+      const { coverage, counters } = await run(root);
+      expect(coverage.dynamicRegistrations).toHaveLength(1);
+      expect(coverage.dynamicRegistrations[0]).toMatchObject({
+        file: 'packages/widget/src/index.tsx',
+        spelledAs: 'tag',
+      });
+      expect(counters.dynamicRegistrationSites).toBe(1);
+      // The types behind it are NOT invented: the census judges only the one it
+      // can name, and says so through the bucket rather than through silence.
+      expect(counters.judged).toBe(1);
+    });
+
+    it('still FAILS on an under-read that is neither named nor dynamic', async () => {
+      const root = tree('under-read-still', {
+        'packages/widget/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+ComponentRegistry.register('widget', () => null, { namespace: 'ui' });
+ComponentRegistry.register('orphan');
+`,
+      });
+      await expect(run(root)).rejects.toThrow(ExtractionError);
+    });
+
+    it('reads the factory sites on the real tree, and they are outside the judged population', async () => {
+      const { coverage, types } = await analyze(repoRoot);
+      expect(coverage.dynamicRegistrations.length).toBeGreaterThan(0);
+      const judged = new Set(types.map((record) => record.type));
+      // Controls that FIRE in the same population, so "absent" is a reading.
+      for (const present of ['nav:menu', 'ui:toast', 'ui:sonner']) expect(judged.has(present)).toBe(true);
+      for (const absent of ['ui:h1', 'ui:p', 'field:text']) expect(judged.has(absent)).toBe(false);
+    }, 120_000);
+
+    it('`dynamicRegistrationsIn` sees a variable key and does not see a literal one', () => {
+      const dynamic = dynamicRegistrationsIn(
+        parseFixture("ComponentRegistry.register(tag, C, {});"),
+        null,
+        'f.tsx',
+      );
+      expect(dynamic).toHaveLength(1);
+      expect(
+        dynamicRegistrationsIn(parseFixture("ComponentRegistry.register('x', C, {});"), null, 'f.tsx'),
+      ).toHaveLength(0);
+    });
+  });
+
+  describe('F3 -- the `inputs` rule is guarded on its own coverage gap', () => {
+    it('does NOT report inputs for a registration whose renderer body it cannot reach', async () => {
+      const root = tree('inputs-guarded', {
+        'packages/types/src/widget.ts': `
+import type { BaseSchema } from './base';
+export interface WidgetSchema extends BaseSchema { type: 'widget'; }
+`,
+        'packages/widget/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+import { Renderer } from '@some/package-outside-this-walk';
+ComponentRegistry.register('widget', Renderer, {
+  namespace: 'ui',
+  inputs: [{ name: 'objectName' }, { name: 'columns' }],
+});
+`,
+      });
+      const { findings, coverage, types } = await run(root);
+      expect(types.map((record) => record.renderer.unresolved)).toEqual([
+        'component-body-not-reachable',
+      ]);
+      expect(coverage.rendererUnresolved).toHaveLength(1);
+      // The row stays in the bucket; it does not become two false findings.
+      expect(kinds(findings)).toEqual([]);
+    });
+
+    it('FIRES on the same inputs once the renderer body IS reachable -- so the guard is the gap, not the rule', async () => {
+      const root = tree('inputs-unguarded', {
+        'packages/types/src/widget.ts': `
+import type { BaseSchema } from './base';
+export interface WidgetSchema extends BaseSchema { type: 'widget'; }
+`,
+        'packages/widget/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+function Renderer({ schema }: { schema: any }) { return schema.somethingElse; }
+ComponentRegistry.register('widget', Renderer, {
+  namespace: 'ui',
+  inputs: [{ name: 'objectName' }, { name: 'columns' }],
+});
+`,
+      });
+      const { findings } = await run(root);
+      expect(kinds(findings)).toEqual([
+        'input-outside-keyset:columns',
+        'input-outside-keyset:objectName',
+      ]);
+    });
+  });
+
+  describe('F2 / F4 / F5 -- what the census must disclose about itself', () => {
+    it('counts the spec-and-interface INTERSECTION, not just its two halves', async () => {
+      const aligned = tree(
+        'intersection',
+        block({ type: 'widget', iface: '  content?: string;', body: 'return schema.content;' }),
+      );
+      const { counters } = await run(aligned, { importSpec: specStub({ 'ui:widget': ['content'] }) });
+      expect(counters.withSpec).toBe(1);
+      expect(counters.withInterface).toBe(1);
+      expect(counters.withSpecAndInterface).toBe(1);
+
+      // A spec-declared type whose renderer takes `schema: any` -- the real
+      // tree's whole shape -- has both halves non-zero and the intersection 0.
+      const inert = tree('intersection-inert', {
+        'packages/widget/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+function WidgetRenderer({ schema }: { schema: any }) { return schema.content; }
+ComponentRegistry.register('widget', WidgetRenderer, { namespace: 'ui' });
+`,
+        'packages/types/src/other.ts': `
+import type { BaseSchema } from './base';
+export interface OtherSchema extends BaseSchema { type: 'other'; x?: string; }
+`,
+      });
+      const inertCounters = (await run(inert, { importSpec: specStub({ 'ui:widget': ['content'] }) }))
+        .counters;
+      expect(inertCounters.withSpec).toBe(1);
+      expect(inertCounters.withSpecAndInterface).toBe(0);
+    });
+
+    it('attributes every `interface-missing-key` to the arm that actually fired', async () => {
+      const root = tree('cause', block({ type: 'widget', body: 'return schema.readOnly;' }));
+      const { findings } = await run(root, { importSpec: specStub({ 'ui:widget': ['specOnly'] }) });
+      const causes = Object.fromEntries(findings.map((f) => [f.key, f.cause]));
+      expect(causes).toEqual({ specOnly: 'spec', readOnly: 'renderer' });
+    });
+
+    it('never tags `interface-missing-key` with the rest-spread caveat, which is about UNREAD keys', async () => {
+      const root = tree('missing-not-hedged', {
+        'packages/types/src/widget.ts': `
+import type { BaseSchema } from './base';
+export interface WidgetSchema extends BaseSchema { type: 'widget'; }
+`,
+        'packages/widget/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+import type { WidgetSchema } from '@object-ui/types';
+function Renderer({ schema, ...props }: { schema: WidgetSchema; [k: string]: any }) {
+  return <div {...props}>{schema.deep}</div>;
+}
+ComponentRegistry.register('widget', Renderer, { namespace: 'ui' });
+`,
+      });
+      const { types, findings } = await run(root);
+      expect(types[0].renderer.forwardsRest).toBe(true);
+      const missing = findings.filter((finding) => finding.kind === 'interface-missing-key');
+      expect(missing.length).toBeGreaterThan(0);
+      expect(missing.every((finding) => finding.restSpread === false)).toBe(true);
+    });
+
+    it('names the registrations whose declared interface is the base itself', async () => {
+      const root = tree('base-annotated', {
+        'packages/widget/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+import type { BaseSchema } from '@object-ui/types';
+function Renderer({ schema }: { schema: BaseSchema }) { return schema.anything; }
+ComponentRegistry.register('widget', Renderer, { namespace: 'ui' });
+`,
+      });
+      const { counters, findings } = await run(root);
+      expect(counters.withBaseAsItsOwnInterface).toBe(1);
+      // No OWN members, so `interface-extra-key` is structurally impossible here.
+      expect(findings.some((finding) => finding.kind === 'interface-extra-key')).toBe(false);
     });
   });
 

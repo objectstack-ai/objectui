@@ -242,11 +242,21 @@ describe('objectui#6939 — PRESERVED: the rewrite cost no pixel', () => {
   it('the identity legs can fail — a DIFFERENT operator moves the render', () => {
     // Without this, the equalities above would be satisfied by a `measure` that
     // reported the same thing for every tree it was given.
+    //
+    // ⭐ The swap table is DERIVED from whatever the entry currently spells,
+    // never keyed on the spellings this card happens to have landed. Measured:
+    // a hard-coded `{ equals: …, greater_than: … }` table makes this leg an
+    // identity transform — and so, silently, a passing assertion about nothing
+    // — the moment the corpus is re-authored in another dialect. That is the
+    // failure this whole card is about, reproduced inside its own pin.
     const id = 'components-complex-filter-builder/product-search' as const;
-    const authored = measure(asAuthored(id));
-    const different = measure(
-      withOperators(id, { equals: 'is_null', greater_than: 'contains', less_than: 'contains' }),
+    const table = Object.fromEntries(
+      operatorsOf(asAuthored(id)).map((op) => [op, op === 'is_null' ? 'contains' : 'is_null']),
     );
+    const authored = measure(asAuthored(id));
+    const different = measure(withOperators(id, table));
+    // The swap really reached the tree it was given.
+    expect(operatorsOf(withOperators(id, table))).not.toEqual(operatorsOf(asAuthored(id)));
     expect(different.operatorTriggers).not.toEqual(authored.operatorTriggers);
     expect(different.text).not.toBe(authored.text);
   });

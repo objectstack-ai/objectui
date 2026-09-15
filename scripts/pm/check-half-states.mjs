@@ -495,13 +495,18 @@
  *       state-model row (its protocol face) and applying the label to the
  *       specimen card, which is a seat's write.
  *
- * ## H26 — the block that nothing can ever release
+ * ## H26 — the block whose releaser nobody is scheduled to be
  *
  *   H26 an open `pm:blocked` card whose resolvable `Blocked-by:` target is OPEN
- *       and parked in a state that can never close — `pm:on-hold` or
- *       `needs-user-decision`, both by definition states a card sits in WHILE
- *       OPEN. The unlock predicate is "the target closed", so such a block is
- *       structurally indefinite and nothing reported it: the waiting card is
+ *       and parked in `pm:on-hold` or `needs-user-decision` — states nothing in
+ *       the machinery is scheduled to leave, so the wait has NO SCHEDULED
+ *       RELEASER. ⛔ NOT that such a state cannot be exited: cards measurably do
+ *       close out of both, and objectui#9317 retired that claim from this row
+ *       after counting them (the census is in the rationale below, dated and
+ *       with its population named). The unlock predicate is "the target closed",
+ *       so the release has to be WANTED by someone, and nothing schedules that
+ *       wanting — which is what this row reports, and nothing reported it: the
+ *       waiting card is
  *       perfectly well-formed (H4 clean, target resolves, target open, so H19
  *       clean, label correct), and H9 — the nearest neighbour — audits the HELD
  *       card rather than the waiting one. Six measured instances, all found by
@@ -516,7 +521,7 @@
  *       cycle. FREE: H19 already resolves every distinct target, and a resolved
  *       target's labels rode in on a payload this sweep had already paid for.
  *       ⛔ Not a judgement that the block is wrong — waiting on a deferred card
- *       is sometimes right; the row says the wait has no releasing mechanism,
+ *       is sometimes right; the row says the wait has no SCHEDULED releaser,
  *       which is a fact a human should be handed rather than discover.
  *       Deliberately NOT reported: a target labelled `pm:queue` while titled
  *       `[Decision]` (one of the six). That is a mislabelling, not a fact in
@@ -4505,12 +4510,48 @@ export function h31ContractReviewCarrierSplit(issue, openPrs) {
 }
 
 // ---------------------------------------------------------------------------
-// H26 — a block whose target can never CLOSE, and the stale chain (#11219).
+// H26 — a block with no scheduled releaser, and the stale chain (#11219).
 //
-// The unlock predicate is "the `Blocked-by:` target CLOSED". `pm:on-hold` and
-// `needs-user-decision` are, by definition, states a card sits in WHILE OPEN.
-// A block naming such a target is therefore structurally indefinite: nothing in
-// the machinery can ever fire it, and until this row nothing said so.
+// The unlock predicate is "the `Blocked-by:` target CLOSED". Nothing in the
+// machinery is SCHEDULED to close a `pm:on-hold` / `needs-user-decision`
+// target: the release has to come from a human deciding to unpark it. A block
+// naming such a target is therefore indefinite in the only sense this row can
+// measure — no scheduled releaser — and until this row nothing said so.
+//
+// ## ⛔ What this row used to say, and why it no longer says it (objectui#9317)
+//
+// Until #9317 this row asserted that `pm:on-hold` and `needs-user-decision` are
+// "by definition states a card sits in WHILE OPEN", so the block had "NO
+// MECHANISM THAT WILL EVER RELEASE IT". That was asserted, never counted, and
+// counting refuted it. Re-derived on this branch, 2026-09-13, objectui only,
+// REST `/issues?labels=<L>&state=<S>&per_page=100`, pull requests excluded, the
+// population being every ISSUE in this repository carrying the label:
+//
+//   label                    open issues   closed issues   closed `state_reason`
+//   `pm:on-hold`                     62               7   6 completed, 1 not_planned
+//   `needs-user-decision`             3               3   3 completed
+//   `pm:blocked` (control)          100               7   —
+//
+// Control with a known direction, and it HIT: the same enumerator returned
+// non-zero on all three closed rows (7, 3, 7), so the closed column is not a
+// query artefact — a broken `state=closed` would have returned 0 on all three.
+// ⇒ cards DO close out of both states, and 9 of the 10 measured closures were
+// `completed` — the hold lifted and the work finished, which is exactly the
+// release the old wording said could not exist. ⚠️ Those are dated counts, not
+// live ones: the instrument is the command above, re-run it rather than trust
+// the row. The EXISTENCE claim is what this row now rests on, and existence
+// does not rot — a card that has closed out of `pm:on-hold` stays closed.
+//
+// ⭐ This file had already counted the refutation against itself: the objectui
+// port census below records `pm:on-hold` on 1 closed card in a 6.2-day window,
+// written 15 days before the "by definition" sentence was relied upon; and H22's
+// own docblock says `needs-user-decision` is "a perfectly good state for a closed
+// card to have ended in" — the direct converse, in the same file.
+//
+// ⚠️ The cost of the old wording was not a wrong report body: it was quoted
+// outward as a structural verdict ("this card's unlock predicate can never
+// fire") and used as grounds to abandon locks that would otherwise have been
+// opened. A gate's assertion travels further than its evidence.
 //
 // ## Why every existing check passes on these cards
 //
@@ -4551,15 +4592,17 @@ export function h31ContractReviewCarrierSplit(issue, openPrs) {
 //
 // Report-only, and pointedly not a judgement that the block is WRONG: waiting
 // on a deferred card is sometimes exactly right. The row says this block has no
-// mechanism that will ever release it, which is the thing a human should see
+// SCHEDULED releaser — someone has to want the unpark, and nothing in the
+// machinery wants it on a timetable — which is the thing a human should see
 // rather than discover in a hand sweep.
 // ---------------------------------------------------------------------------
 
 /**
- * Target states that can never satisfy the unlock predicate, because they are
- * states an OPEN card sits in. `pm:blocked` is deliberately not here — that is
- * the chain leg below, and it says something different: the target CAN close,
- * once its own blocker does.
+ * Target states whose exit nothing SCHEDULES, so the unlock predicate has no
+ * dated releaser — ⛔ not states the target cannot leave (objectui#9317 counted
+ * the closures; the census is in the rationale above). `pm:blocked` is
+ * deliberately not here — that is the chain leg below, and it says something
+ * different: the target's release is itself scheduled, behind its own blocker.
  */
 export const INDEFINITE_TARGET_LABELS = ['pm:on-hold', 'needs-user-decision'];
 
@@ -4610,10 +4653,12 @@ export function h26BlockOnIndefiniteTarget(issue, resolutions) {
         ? ` +${indefinite.length - H19_TARGET_LIST_CAP} more`
         : '';
     parts.push(
-      `\`pm:blocked\` on ${indefinite.length} target(s) that can never CLOSE: ${named}${more}. ` +
-        'The unlock predicate is "the `Blocked-by:` target closed", and `pm:on-hold` / ' +
-        '`needs-user-decision` are by definition states a card sits in WHILE OPEN — so this ' +
-        'block has NO MECHANISM THAT WILL EVER RELEASE IT. Every existing check passes on this ' +
+      `\`pm:blocked\` on ${indefinite.length} target(s) with NO SCHEDULED RELEASER: ${named}${more}. ` +
+        'The unlock predicate is "the `Blocked-by:` target closed", and nothing in the ' +
+        'machinery is SCHEDULED to close a `pm:on-hold` / `needs-user-decision` target — so ' +
+        'this block is WAITING ON A RELEASER NOBODY HAS BEEN ASSIGNED TO BE. ⛔ Not a claim ' +
+        'that the state cannot be exited: cards do close out of both (objectui#9317 counted ' +
+        'them and retired that wording from this row). Every existing check passes on this ' +
         'card (the line is present, the target resolves, the target is open, the label is ' +
         'correct), which is why the measured instances were found by a human reading and by no ' +
         'gauge; H9 asks the mirror question about the HELD card and nothing asked about the ' +
@@ -8825,8 +8870,9 @@ async function sweepInto(findings, seen, seenPrs, seenMerged, seenUnscoped, seen
   // waiting on one epic is the normal shape, and it costs one read.
   //
   // The map holds the ISSUE, not just its number, because H26 (#11219) asks a
-  // second question of the same target — is it parked in a state that can never
-  // close? — and the answer is a field the payload already carried. Free by
+  // second question of the same target — is it parked in a state nothing is
+  // scheduled to take it out of? — and the answer is a field the payload
+  // already carried. Free by
   // construction: a locally-open target is answered from a listing in hand, and
   // a fetched one arrives with its labels on the same response. Nothing here
   // adds a request; the resolution rows simply stop discarding the labels.
@@ -12153,7 +12199,7 @@ function selfTest() {
   t('windows: a zero cadence has no overlap', sweepOverlap(2, 0), null);
   t('windows: an unusable coverage has no overlap', sweepOverlap(null), null);
 
-  // -- H26: a block whose target can never close, + the stale chain (#11219) --
+  // -- H26: a block with no scheduled releaser, + the stale chain (#11219) ----
   // The measured cards, by name, and both directions of every leg.
   const waiting = (number = 1119) => ({
     number,
@@ -12172,7 +12218,16 @@ function selfTest() {
     ...extra,
   });
   t('H26: target parked in pm:on-hold -> finding', typeof h26BlockOnIndefiniteTarget(waiting(), [tgt(987, ['pm:on-hold'])]), 'string');
-  t('H26: …and the row says the block has no releasing mechanism', h26row(waiting(), [tgt(987, ['pm:on-hold'])]).includes('NO MECHANISM THAT WILL EVER RELEASE IT'), true);
+  // The wording pins, objectui#9317. The POSITIVE pin is what makes the
+  // negative ones readable: without it, "green" could equally mean the row was
+  // fixed or that the assertion was deleted along with the sentence it named.
+  t('H26: …and the row says the releaser is not SCHEDULED, not that it cannot exist', h26row(waiting(), [tgt(987, ['pm:on-hold'])]).includes('NO SCHEDULED RELEASER'), true);
+  t('H26: …and names who is missing, not what is impossible', h26row(waiting(), [tgt(987, ['pm:on-hold'])]).includes('WAITING ON A RELEASER NOBODY HAS BEEN ASSIGNED TO BE'), true);
+  t('H26: …and the refuted wording is GONE from the row', h26row(waiting(), [tgt(987, ['pm:on-hold'])]).includes('NO MECHANISM THAT WILL EVER RELEASE IT'), false);
+  t('H26: …and so is "can never CLOSE" — the half that travelled outward as a verdict', h26row(waiting(), [tgt(987, ['pm:on-hold'])]).includes('can never CLOSE'), false);
+  // ⭐ The accurate half, kept deliberately (objectui#9317 acceptance 2) and now
+  // pinned so a later rewrite cannot quietly take it with the retired half.
+  t('H26: …and KEEPS the accurate half: the release must be wanted', h26row(waiting(), [tgt(987, ['pm:on-hold'])]).includes('and someone has to want that'), true);
   t('H26: …and names the target and its state', h26row(waiting(), [tgt(987, ['pm:on-hold'])]).includes('`#987` (`pm:on-hold`)'), true);
   t('H26: target parked in needs-user-decision -> finding', typeof h26BlockOnIndefiniteTarget(waiting(75), [tgt(68, ['needs-user-decision'])]), 'string');
   t('H26: a target carrying BOTH indefinite states names both', h26row(waiting(), [tgt(987, ['pm:on-hold', 'needs-user-decision'])]).includes('`pm:on-hold` + `needs-user-decision`'), true);
@@ -12193,14 +12248,15 @@ function selfTest() {
   // The chain leg.
   t('H26: a target that is itself pm:blocked -> the transitive row', typeof h26BlockOnIndefiniteTarget(waiting(1395), [tgt(10101, ['pm:blocked'])]), 'string');
   t('H26: …and it says to look one level further', h26row(waiting(1395), [tgt(10101, ['pm:blocked'])]).includes('TRANSITIVE'), true);
-  t('H26: …and does not claim the block can never release', h26row(waiting(1395), [tgt(10101, ['pm:blocked'])]).includes('NO MECHANISM'), false);
+  t('H26: …and does not claim the block has no scheduled releaser', h26row(waiting(1395), [tgt(10101, ['pm:blocked'])]).includes('NO SCHEDULED RELEASER'), false);
+  t('H26: …nor carries the retired wording', h26row(waiting(1395), [tgt(10101, ['pm:blocked'])]).includes('NO MECHANISM'), false);
   // Both legs at once, on two different targets, in one row.
   const bothLegs = String(h26BlockOnIndefiniteTarget(waiting(), [tgt(987, ['pm:on-hold']), tgt(10101, ['pm:blocked'])]) ?? '');
-  t('H26: both legs report together', bothLegs.includes('NO MECHANISM THAT WILL EVER RELEASE IT') && bothLegs.includes('TRANSITIVE'), true);
+  t('H26: both legs report together', bothLegs.includes('NO SCHEDULED RELEASER') && bothLegs.includes('TRANSITIVE'), true);
   // A target that is BOTH parked and blocked is named ONCE, under the reading
   // that ends the wait forever rather than the one that merely lengthens it.
   const bothOnOne = String(h26BlockOnIndefiniteTarget(waiting(), [tgt(987, ['pm:on-hold', 'pm:blocked'])]) ?? '');
-  t('H26: a parked AND blocked target is named once, as indefinite', bothOnOne.includes('NO MECHANISM THAT WILL EVER RELEASE IT'), true);
+  t('H26: a parked AND blocked target is named once, as indefinite', bothOnOne.includes('NO SCHEDULED RELEASER'), true);
   t('H26: …and not a second time as a chain', bothOnOne.includes('TRANSITIVE'), false);
   // A partially indefinite block still reports: one live blocker does not make
   // the indefinite one fireable.

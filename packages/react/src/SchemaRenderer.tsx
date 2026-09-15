@@ -23,6 +23,7 @@ import {
   hasResponsiveStyles,
   scopeClassFor,
   compileScopedStyles,
+  recordSourceDataArmForType,
 } from '@object-ui/core';
 import { SchemaRendererContext } from './context/SchemaRendererContext.js';
 import { useRecordContext } from './context/RecordContext.js';
@@ -690,6 +691,56 @@ export class SchemaErrorBoundary extends Component<
  * `useState` wiped (objectui#2954's latent hazard, made real by this line).
  */
 const NO_DATA_SOURCE: Record<string, any> = {};
+
+/**
+ * Warn ONCE per distinct refused node, not once per render (objectui#9571).
+ *
+ * The strip below runs on every render of the node, and a warning that floods
+ * the console is a warning that gets muted — the same warn-once discipline
+ * `ObjectMap`'s legacy-config notice and the visibility-predicate diagnostics
+ * already use. Keyed on the node's type plus its id, which is the pair an
+ * author can act on; a node with no `id` is keyed on its type alone and so
+ * warns once per type, which is the honest ceiling for something that cannot be
+ * told apart.
+ */
+const warnedRefusedDataPropNodes = new Set<string>();
+
+/**
+ * Say why an authored `data` key did not reach the block (objectui#9571,
+ * ruling objectui#8348 Q2-C, decision batch #136 item 3, maintainer 「同意」).
+ *
+ * ## Why this diagnostic is part of the change and not decoration
+ *
+ * ⛔ MEASURED, and it corrects the card's own premise: the ladder emits NO
+ * runtime signal when it refuses an off-arm `data`. `resolveRecordSourceConfig`
+ * returns `null` and falls through silently, and `validateSchema` — the
+ * `__DEV__` pass in this file — never reads `data` against the block's row at
+ * all. The refusal is loud at AUTHORING time (`os validate`, the save gate and
+ * the zod row all reject a bare array) and mute at render time.
+ *
+ * So without this line, retiring the props carrier is exactly the failure shape
+ * AGENTS.md #0.1 and `ObjectGrid`'s own column diagnostic exist to prevent:
+ * renderer and author disagree, and the author gets a success receipt — a page
+ * whose rows were on screen yesterday is blank today, with nothing anywhere
+ * naming the key that was dropped or the spelling that would work.
+ *
+ * Read-only and `__DEV__`-only: it reports the decision made at the call site
+ * and changes nothing about what is rendered.
+ */
+function reportRefusedDataPropSpread(type: string, id: string | undefined): void {
+  const key = id === undefined ? type : `${type}#${id}`;
+  if (warnedRefusedDataPropNodes.has(key)) return;
+  warnedRefusedDataPropNodes.add(key);
+  console.warn(
+    `[ObjectUI] SchemaRenderer: the authored \`data\` key on <${type}${
+      id === undefined ? '' : ` id="${id}"`
+    }> was NOT passed to the component as a React prop. This block's published ` +
+      '`data` row is the `ViewData` OBJECT arm, so `data` is read from the schema ' +
+      'and judged by that row (objectui#8348). Inline rows go at ' +
+      '`data: { provider: "value", items: [...] }`; a bare array under `data` is ' +
+      'refused. A HOST passing rows down as a React `data` prop is unaffected.',
+  );
+}
 
 /**
  * The props `SchemaRenderer` DECLARES and reads itself (objectui#4548).
@@ -1801,14 +1852,22 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // `${…}` about to be placed verbatim in front of a user.
   //
   // Sited HERE, after the metadata destructure, on purpose. `componentProps` is
-  // precisely the set of values that leaves this component for the DOM — it is
-  // spread as React props below, and the same values are what renderers read as
-  // `schema.<key>`. Everything the destructure stripped is schema METADATA:
+  // the set of values the node OFFERS the component — spread as React props
+  // below, and the same values renderers read as `schema.<key>`. Everything the
+  // destructure stripped is schema METADATA:
   // `visible` / `visibleWhen` / `hidden` / `disabled` / … hold raw predicate
   // SOURCE by design (they are evaluated as conditions, never placed), so
   // scanning before the strip would report every correctly-authored predicate
   // in the repo. The strip list is therefore the diagnostic's exclusion list,
   // for free and without a second copy of it to drift.
+  //
+  // ⚠️ It scans `componentProps`, NOT the narrower bag the objectui#9571 strip
+  // builds below. Deliberate, and the objectui#8268 `testId` precedent applied a
+  // second time: `data` loses its PROPS seat on the object arm, but it is still
+  // authored, still evaluated, and still read off the schema by the block — so
+  // an unevaluated expression inside it is still in front of a user, and
+  // excluding it here would narrow objectui#4795's coverage by one key for
+  // exactly the blocks the ruling touches.
   //
   // Read-only: it reports what evaluation already produced and changes nothing
   // about what is rendered — no DOM attribute either, so no snapshot moves.
@@ -1867,6 +1926,56 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     );
   }
 
+  /**
+   * objectui#9571 (ruling objectui#8348 Q2-C, decision batch #136 item 3,
+   * maintainer 「同意」): an authored `data` key does NOT take a React prop seat
+   * on a block whose published `data` row is the OBJECT arm (`ViewData`).
+   *
+   * ## The defect this closes
+   *
+   * The spread below hands every non-metadata node key to the component, so an
+   * authored `data` reached such a block TWICE — as `schema.data`, which the
+   * shared ladder judges against the block's row (`resolveRecordSourceConfig`,
+   * objectui#8348), and as the `data` PROP, which `ObjectGrid` (`passedData`),
+   * `ObjectMap` (`dataProp`) and `ObjectGantt` each lift with an unconditional
+   * `Array.isArray` at HIGHER priority than that ladder. The ruling had one
+   * carrier it did not reach, and it was the one that wins: a bare array under
+   * `data` still drew through this renderer after the ladder had retired it.
+   *
+   * ## ⛔ The HOST path is NOT touched, and that is the ruled half
+   *
+   * Option B — gating the PROP on the arm — was refused, because the prop is how
+   * a host (`plugin-list`'s `ListView`, `ObjectView`) hands down rows it already
+   * fetched. Only the AUTHORED key loses its seat: `...props` below is this
+   * component's own React props, spread LAST, so a host rendering
+   * `<SchemaRenderer data={rows} …/>` still delivers `rows`, and a host that
+   * renders the block component directly never passes through here at all.
+   *
+   * ## Scope is the ARM, not a block list
+   *
+   * `recordSourceDataArmForType` answers per registered type, and every type it
+   * does not list keeps today's behaviour verbatim. ⛔ No allowlist of block
+   * NAMES is minted here — that is the second de-facto contract AGENTS.md #0.1
+   * forbids, and the ruling is stated over the arm, not over a census.
+   *
+   * ## Byte-identical when nothing is authored
+   *
+   * The `in` test comes FIRST, so a node that authors no `data` is handed
+   * `componentProps` itself — the same object, in the same spread position, with
+   * no copy allocated. Same discipline as the conditional `data-testid` below,
+   * and for the same measured reason.
+   */
+  let outgoingComponentProps = componentProps;
+  if (
+    'data' in componentProps &&
+    recordSourceDataArmForType(evaluatedSchema.type) === 'view-data'
+  ) {
+    const { data: _refusedAuthoredData, ...withoutAuthoredData } =
+      componentProps as Record<string, unknown>;
+    outgoingComponentProps = withoutAuthoredData as typeof componentProps;
+    if (__DEV__) reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
+  }
+
   // SDUI scoped styling (ADR-0065) — computed in the memo hoisted above the
   // early returns; see the doc comment there for why it cannot live here.
   const { scopeClass, scopedCss, mergedClassName, schemaForComponent } = scopedStyling;
@@ -1896,7 +2005,9 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       ) : null}
       {React.createElement(Component, {
         schema: schemaForComponent,
-        ...componentProps,  // Spread non-metadata schema properties as props
+        // Spread non-metadata schema properties as props — minus an authored
+        // `data` on the object arm, which the objectui#9571 strip above removed.
+        ...outgoingComponentProps,
         // The legacy `props` alias still overrides plain top-level keys, but no
         // longer overrides the canonical `properties` bag (objectui#5123,
         // maintainer ruling 2026-08-18). Computed above rather than inline, so

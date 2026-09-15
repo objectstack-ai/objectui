@@ -17,6 +17,10 @@
  *   const pct = (value > -1 && value < 1) ? value * 100 : value;
  *   formatted = `${pct.toFixed(decimals)}%`;
  *
+ * ⚠️ That block is quoted as HISTORY and left verbatim. Line 1 has since
+ * moved again: objectui#9295 answered the member question this card fenced,
+ * and the arm now reads `column?.scale ?? 0`.
+ *
  * Line 2 is `percentDisplayValue` in `@object-ui/core` character for
  * character, so the SCALING agreed — by duplication, not by reference. The
  * CONVENTION was not taken at all. `percentDisplayValue`'s own doc comment
@@ -195,18 +199,23 @@ describe('the grid summary percent arm takes BOTH halves from the declared sourc
   );
 
   /**
-   * `decimals` still comes from `column.precision`, unchanged by this card.
+   * `decimals` comes from `column.scale`.
    *
-   * ⚠️ Whether `precision` is the RIGHT member to read here is a separate,
-   * explicitly NOT MEASURED question (the neighbouring currency arm reads
-   * `scale`, with an in-code note from objectui#2131). This case pins only
-   * that the repair did not move it.
+   * ⭐ This case used to read `column.precision` and fenced the member as an
+   * explicitly NOT MEASURED question. objectui#9295 ANSWERED it: the spec
+   * declares `precision` as the column's total digit count and `scale` as its
+   * decimal places, so the percent arm joined the currency arm on `scale` and
+   * the branch this case pinned is gone. The CLAIM is unchanged — the footer
+   * honours the width the column declares — only the member that declares it.
+   *
+   * The repair itself is pinned in `useColumnSummary.percentScale-9295`; this
+   * case keeps objectui#9269's convergence claim true across it.
    */
-  it('still honours the width declared by the column precision', () => {
-    expect(summaryLabel(0.12345, 'en', { precision: 2 })).toBe(
+  it('still honours the width declared by the column scale', () => {
+    expect(summaryLabel(0.12345, 'en', { scale: 2 })).toBe(
       `${PREFIX}${formatPercent(0.12345, 2, 'en')}`,
     );
-    expect(summaryLabel(0.12345, 'de-DE', { precision: 2 })).toBe(
+    expect(summaryLabel(0.12345, 'de-DE', { scale: 2 })).toBe(
       `${PREFIX}${formatPercent(0.12345, 2, 'de-DE')}`,
     );
   });

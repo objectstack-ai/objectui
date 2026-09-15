@@ -794,7 +794,31 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   if (isBlankCellText(safe)) return <EmptyValue />;
 
   const percentField = field as any;
-  const precision = percentField.precision ?? 0;
+  // Decimal places come from `scale`, NOT `precision` — the same correction
+  // objectui#2131 made on the currency arm and objectui#2134 on the number
+  // arm, arriving one type later (objectui#9295). `@objectstack/spec` declares
+  // the pair on the field face in its own words: `precision` is "Total digits
+  // (non-negative integer)" and `scale` is "Decimal places (non-negative
+  // integer)", so reading `precision` here padded every value out to the
+  // column's TOTAL width — a decimal(10, 2) percent field rendered
+  // `25.0000000000%`, and the grid footer beneath it read
+  // `Sum: 25.0000000000%` for the same reason.
+  //
+  // ⛔ NOT `CurrencyConfigSchema.precision`, which is a different surface with
+  // the opposite convention and its own `scale` alias — the spec warns against
+  // conflating them at the field-face declaration itself.
+  //
+  // An ABSENT `scale` keeps today's `0`, deliberately, and ⛔ NOT the
+  // `undefined` (min 0 / max 20) that `NumberCellRenderer` above uses for the
+  // same absence. The two are not interchangeable HERE because this path
+  // multiplies by 100 first (`percentDisplayValue`), and `Intl` renders from
+  // the shortest decimal representation of the resulting double: measured, a
+  // stored `0.07` becomes `7.000000000000001` and `0.29` becomes
+  // `28.999999999999996`, so an unbounded maximum prints binary residue
+  // straight to the user. `NumberCellRenderer` can afford max 20 because it
+  // does no arithmetic on the value. The grid footer's currency arm spells the
+  // same absence the same way (`?? 0`), so the cell and the footer agree.
+  const scale = percentField.scale ?? 0;
   const numValue = Number(safe);
   if (isNaN(numValue)) {
     return <span className="tabular-nums whitespace-nowrap">{String(safe)}</span>;
@@ -813,8 +837,8 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // would have made ONE grid internally inconsistent, which is worse than the
   // uniform defect it had.
   const formatted = isWholePercentField
-    ? formatPercentBody(numValue, precision, locale)
-    : formatPercent(numValue, precision, locale);
+    ? formatPercentBody(numValue, scale, locale)
+    : formatPercent(numValue, scale, locale);
   const clampedBar = Math.max(0, Math.min(100, barValue));
   
   // Layout contract (objectstack#5066): THE NUMBER IS THE CONTENT, THE BAR IS

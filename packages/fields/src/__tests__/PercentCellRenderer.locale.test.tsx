@@ -128,14 +128,20 @@ describe('PercentCellRenderer keeps its scaling contract (objectui#4553 must-not
 
     renderCell(0.5, { name: 'progress' }, 'en');
     // Whole-percent field: 0.5 really is half a percent, rounded to 1% at
-    // precision 0 — NOT 50%.
+    // zero fraction digits (this field declares no `scale`) — NOT 50%.
     expect(cellText()).toContain('1%');
     expect(cellText()).not.toContain('50%');
   });
 
-  /** PIN: small-value English output is byte-identical across the change. */
+  /**
+   * PIN: small-value English output is byte-identical across the change.
+   *
+   * The two-decimal width is declared with `scale`, ⛔ not `precision`
+   * (objectui#9295) — `precision` is the column's TOTAL digit count and this
+   * renderer no longer reads it.
+   */
   it('en small-value output is unchanged (must-not-change)', () => {
-    renderCell(33.33, { name: 'win_rate', precision: 2 }, 'en');
+    renderCell(33.33, { name: 'win_rate', scale: 2 }, 'en');
     expect(cellText()).toContain('33.33%');
   });
 

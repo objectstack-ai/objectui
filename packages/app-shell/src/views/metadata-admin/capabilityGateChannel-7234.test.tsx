@@ -112,6 +112,8 @@ function renderInspector(draft: Record<string, unknown>) {
       name={String(draft.name ?? '')}
       draft={draft}
       onPatch={() => {}}
+      readOnly={false}
+      locale="en-US"
     />,
   );
 }
@@ -194,6 +196,9 @@ describe('objectui#7234 — the designer states why a gated action is missing', 
   it('H: the preview is declaration-side — the held set does not move it', () => {
     heldCapabilities = [];
     renderPreview({ ...GATED });
+    // Positive first: without it both reads are `undefined` and the comparison
+    // below passes for a deleted notice as readily as for a stable one.
+    expect(previewNote()).toBeTruthy();
     const withEmptyHeld = previewNote()?.textContent;
     cleanup();
     heldCapabilities = ['duly.catalog.apply'];

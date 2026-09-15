@@ -366,6 +366,11 @@ describe('objectui#7234 — object-declared actions reach the list toolbar', () 
 
     expect(toolbarButton()).toBeNull();
 
+    // Paired positive: the list surface itself DID render. Without it an empty
+    // tree would satisfy every negative below for the wrong reason — the same
+    // asymmetry this file's ablation note states for cases B / C / F / H.
+    expect(screen.getByText('Catalog item')).toBeTruthy();
+
     // Nothing names the capability, and no notice stands in for the button.
     // Asserted over the whole rendered tree rather than one node, because the
     // route this must refuse is "surface it somewhere in the running app",

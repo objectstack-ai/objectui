@@ -108,6 +108,30 @@ const SANCTIONED_LOCAL = new Set<string>([
   'options',
 ]);
 
+/**
+ * A THIRD category, and deliberately not a row in `SANCTIONED_LOCAL`: members
+ * that are not authorable fields at all (objectui#7804).
+ *
+ * Each of these is a `handlerKeyRefusal` arm — a key a REGISTERED renderer
+ * reads off the authored document, declared here only so that
+ * `BaseSchema.passthrough()` stops KEEPING an authored value and the author
+ * gets a refusal that names the key. Neither branch the docblock above offers
+ * fits one: promoting it into `@objectstack/spec` would ask the protocol to
+ * declare a key JSON cannot express, and calling it a "genuine objectui-only
+ * extension" would say the arm accepts something. It accepts nothing.
+ *
+ * ⚠️ Membership here is still a deliberate act — and it is CHECKED. The test
+ * below refuses a member that is not actually a refusal arm, so this set
+ * cannot be used to park a real authorable field outside the drift guard.
+ */
+const HANDLER_KEY_REFUSALS = new Set<string>([
+  'onAddRecord',
+  'onBulkAction',
+  'onDensityChange',
+  'onNavigate',
+  'onPageSizeChange',
+]);
+
 describe('ListView spec parity (#2231 drift guard)', () => {
   it('covers every @objectstack/spec ListView field (spec cannot grow a field objectui ignores)', () => {
     // Fails when the spec adds a field that objectui neither imports nor envelope-owns —
@@ -126,9 +150,40 @@ describe('ListView spec parity (#2231 drift guard)', () => {
   it('declares no objectui-only field outside the sanctioned-local set', () => {
     // Fails when a new objectui-only field is added without deciding local-vs-upstream.
     const rogue = [...ouiKeys].filter(
-      (k) => !specShape[k] && !ENVELOPE.has(k) && !SANCTIONED_LOCAL.has(k),
+      (k) =>
+        !specShape[k] &&
+        !ENVELOPE.has(k) &&
+        !SANCTIONED_LOCAL.has(k) &&
+        !HANDLER_KEY_REFUSALS.has(k),
     );
     expect(rogue).toEqual([]);
+  });
+
+  it('every HANDLER_KEY_REFUSALS member really refuses — the set cannot hide an authorable field', () => {
+    const node = (extra: Record<string, unknown>) => ({
+      type: 'list-view',
+      objectName: 'accounts',
+      ...extra,
+    });
+
+    // ⭐ CONTROL first: the same probe on a sanctioned-local key that IS
+    // authorable must be accepted, or the loop below proves nothing.
+    expect(OuiListViewSchema.safeParse(node({ viewType: 'grid' })).success).toBe(true);
+
+    for (const key of HANDLER_KEY_REFUSALS) {
+      expect(ouiKeys.has(key), `${key} is listed but not declared on the arm`).toBe(true);
+      // Both faces of "accepts nothing": the authored action object this card
+      // exists for, and a live function, which is the only value a host could
+      // ever have meant.
+      expect(
+        OuiListViewSchema.safeParse(node({ [key]: { action: 'toast' } })).success,
+        `${key} must refuse an authored action object`,
+      ).toBe(false);
+      expect(
+        OuiListViewSchema.safeParse(node({ [key]: () => undefined })).success,
+        `${key} must refuse a function value too`,
+      ).toBe(false);
+    }
   });
 
   it('preserves the component discriminator + required objectName', () => {

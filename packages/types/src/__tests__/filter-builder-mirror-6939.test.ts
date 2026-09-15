@@ -102,20 +102,32 @@
  * reviewable change. ⛔ Never narrow the doc to match the mirror — under
  * decision batch #88 a contract does not retract what it published to authors.
  *
- * ## What this change does NOT reach, stated rather than left as an absence
+ * ## The FOURTH divergence, and how it was settled
  *
- * Two of the four census entries — `product-search` and `with-conditions`, plus
- * the `filter-builder` nested inside `search-interface` — still refuse
- * afterwards, on a FOURTH divergence the ruling does not address: they author
- * `conditions[].operator` as `eq` / `gt` / `lt`, and `FilterOperatorSchema` is
- * the spec's canonical `equals` / `greater_than` / `less_than`.
- * `assertion the residual refusal is the operator alias and nothing else`
- * pins that mechanically — swapping only those three spellings makes both
- * entries parse — so the claim "the three ruled divergences are gone from all
- * four" is measured rather than asserted. The operator vocabulary is a genuine
- * fork (the builder's own dropdown ids are `notEquals` / `greaterThan`, which
- * this mirror ALSO refuses, while the canonical spellings it accepts render a
- * blank operator trigger) and needs its own ruling.
+ * This file once recorded a residual: two of the four census entries — plus the
+ * `filter-builder` nested inside `search-interface` — still refused afterwards,
+ * because they authored `conditions[].operator` as `eq` / `gt` / `lt` while
+ * `FilterOperatorSchema` declares the spec's canonical `equals` /
+ * `greater_than` / `less_than`. That residual was filed as objectui#7561 and is
+ * now CLOSED, in two landings that must not be confused with one another:
+ *
+ *   1. objectui#7561 (PR #9305) routed the operator trigger's identity
+ *      comparison through `normalizeFilterOperator`, so all three spellings of
+ *      one operator DRAW the same label. It deliberately changed no catalog
+ *      data and widened no accepted set.
+ *   2. objectui#6939's own remainder then rewrote the seven authored spellings
+ *      in those three files to the declared vocabulary — the contract-first
+ *      direction, `@objectstack/spec` being the side that is right. ⛔ The enum
+ *      was NOT widened to meet them; `the alias dialect is still REFUSED` below
+ *      is the control that says so, and it is the assertion that would redden
+ *      if a later change reached for the lenient repair instead.
+ *
+ * ⚠️ The fork itself is only half closed, and the open half is named here
+ * rather than left as an absence: the builder's own dropdown emits camelCase
+ * ids (`notEquals`, `greaterThan`), which this mirror still refuses, so a
+ * filter a user edits in the UI and stores is refused exactly as these fixtures
+ * once were. `the dropdown's own dialect is still REFUSED` pins that, so the
+ * gap is a recorded decision rather than a silence.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -168,16 +180,33 @@ function reasons(schema: unknown): string[] {
   return r.success ? [] : r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
 }
 
-/** The three alias spellings the fixtures use, mapped to what this mirror declares. */
-const CANONICAL: Record<string, string> = { eq: 'equals', gt: 'greater_than', lt: 'less_than' };
+/**
+ * The three spellings these fixtures authored BEFORE objectui#6939's remainder,
+ * keyed by the declared member each was rewritten to. Read in this direction it
+ * is a control rather than a repair recipe: putting the old dialect back must
+ * still be REFUSED, which is what says the enum was not widened to meet it.
+ */
+const FORMER_ALIAS: Record<string, string> = { equals: 'eq', greater_than: 'gt', less_than: 'lt' };
 
-function withCanonicalOperators(doc: Record<string, unknown>): Record<string, unknown> {
+/** The dropdown's OWN camelCase id for the same three operators — the half of
+ * the fork that is still open, and still refused. ⛔ Not a recommendation. */
+const DROPDOWN_ID: Record<string, string> = {
+  equals: 'equals',
+  greater_than: 'greaterThan',
+  less_than: 'lessThan',
+};
+
+/** Rewrite every `conditions[].operator` through `table`, changing nothing else. */
+function withOperators(
+  doc: Record<string, unknown>,
+  table: Record<string, string>,
+): Record<string, unknown> {
   const group = doc.value as { conditions: { operator: string }[] };
   return {
     ...doc,
     value: {
       ...group,
-      conditions: group.conditions.map((c) => ({ ...c, operator: CANONICAL[c.operator] ?? c.operator })),
+      conditions: group.conditions.map((c) => ({ ...c, operator: table[c.operator] ?? c.operator })),
     },
   };
 }
@@ -698,28 +727,57 @@ describe('objectui#6939 — the catalog entries the mirror refused', () => {
   );
 
   it.each(['product-search', 'with-conditions'])(
-    '%s: the residual refusal is the operator alias and NOTHING else',
+    '%s now validates too — the operator residual is gone',
     (name) => {
-      // ⛔ Do NOT "repair" this by widening `FilterOperatorSchema` or by
-      // rewriting the fixtures. Both are outside the ruling and both need one:
-      // the builder's dropdown ids (`greaterThan`) and the spec's canonical
-      // spellings (`greater_than`) are a genuine fork, and this mirror refuses
-      // the former while the RENDERER draws a blank operator trigger for the
-      // latter. Reported on objectui#6939.
-      expect(reasons(entry(name))).not.toEqual([]);
-      expect(reasons(withCanonicalOperators(entry(name)))).toEqual([]);
+      // objectui#6939's remainder: the authored spelling is the DECLARED one.
+      expect(reasons(entry(name))).toEqual([]);
     },
   );
 
-  it('the `stack`-rooted fifth entry: its nested filter-builder behaves the same way', () => {
+  it('the `stack`-rooted fifth entry: its nested filter-builder validates as well', () => {
     // `search-interface.json` roots at `stack`, so `objectui check` (which runs
-    // `safeValidateSchema` on the ROOT only — `packages/cli/src/commands/check.ts:137`)
-    // counts four entries for this row, not five. The nested node is measured
-    // here so the fifth file is not silently unexamined.
-    const node = nestedSearchInterface();
-    expect(reasons(node)).not.toEqual([]);
-    expect(reasons(withCanonicalOperators(node))).toEqual([]);
+    // `safeValidateSchema` on the ROOT only — the `check` command validates the
+    // parsed document, not its children) counts four entries for this row, not
+    // five. The nested node is measured here so the fifth file is not silently
+    // unexamined.
+    expect(reasons(nestedSearchInterface())).toEqual([]);
   });
+
+  it.each(['product-search', 'with-conditions'])(
+    '%s: ⛔ the alias dialect is still REFUSED — the enum was not widened',
+    (name) => {
+      // The control that carries the contract-first claim. If a later change
+      // repairs a red here by adding `eq` / `gt` / `lt` to
+      // `FilterOperatorSchema`, THIS is what goes green and must not.
+      const aliased = withOperators(entry(name), FORMER_ALIAS);
+      expect(reasons(aliased)).not.toEqual([]);
+      // Anti-vacuity: the rewrite really did change the tree it was given, so
+      // the refusal above is about the alias and not about an unchanged doc
+      // that was refused for some other reason.
+      const ops = (d: Record<string, unknown>) =>
+        ((d.value as { conditions: { operator: string }[] }).conditions).map((c) => c.operator);
+      expect(ops(aliased)).not.toEqual(ops(entry(name)));
+      expect(ops(aliased).length).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(['product-search', 'with-conditions'])(
+    '%s: ⛔ the dropdown\'s own dialect is still REFUSED — the open half of the fork',
+    (name) => {
+      // `FILTER_BUILDER_OPERATORS` is the vocabulary the UI EMITS, so a filter a
+      // user edits and stores is refused exactly as these fixtures once were.
+      // Named here, ⛔ not ruled here: widening to meet it is the lenient repair
+      // this whole card argues against, and narrowing the dropdown is a UI
+      // ruling nobody has made. Recorded so the gap cannot go quiet.
+      const dropdown = withOperators(entry(name), DROPDOWN_ID);
+      const ops = (d: Record<string, unknown>) =>
+        ((d.value as { conditions: { operator: string }[] }).conditions).map((c) => c.operator);
+      // `equals` is spelled the same in both vocabularies — the overlap is real
+      // and is why this arm needs an anti-vacuity leg of its own.
+      expect(ops(dropdown)).not.toEqual(ops(entry(name)));
+      expect(reasons(dropdown)).not.toEqual([]);
+    },
+  );
 
   it.each(CENSUS)('%s: none of the THREE ruled divergences is left in it', (name) => {
     // The positive statement behind the split above, key by key.

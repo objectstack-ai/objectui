@@ -268,10 +268,11 @@ describe('objectui#6939 — the fixtures were the side that was right', () => {
     // ⚠️ Read on `fieldTriggers`, not on every combobox on the tile. Until
     // objectui#7561 the two were interchangeable here ONLY because the operator
     // trigger was blank as well — and it was blank for an unrelated defect,
-    // these entries authoring `eq` / `lt` / `gt`. Now that the operator cell
-    // renders its label, an all-triggers reading would be answering about the
-    // operator repair rather than about the lost field, which is the one thing
-    // this probe exists to discriminate.
+    // these entries authoring the spec's alias table (`eq` / `lt` / `gt`;
+    // rewritten to the canonical members by objectui#6939's remainder). Now
+    // that the operator cell renders its label, an all-triggers reading would
+    // be answering about the operator repair rather than about the lost field,
+    // which is the one thing this probe exists to discriminate.
     expect(authored.fieldTriggers.some((t) => t !== '')).toBe(true);
     expect(corrected.fieldTriggers.every((t) => t === '')).toBe(true);
     // Anti-vacuity for the line above: `every` over an EMPTY list is true, so

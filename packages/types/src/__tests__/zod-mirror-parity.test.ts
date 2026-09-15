@@ -3187,8 +3187,6 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a bare vocabulary with no `.shape`; it is checked where a mirrored KEY declares it",
   'base.zod.ts#HTMLAttributesSchema':
     "an index signature, not a declared key set — there are no keys to compare",
-  'base.zod.ts#EventHandlersSchema':
-    "an index signature, not a declared key set — there are no keys to compare",
   'complex.zod.ts#CalendarViewModeSchema':
     "a bare vocabulary with no `.shape`; it is checked where a mirrored KEY declares it",
   'complex.zod.ts#DashboardWidgetTypeSchema':

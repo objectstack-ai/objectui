@@ -470,10 +470,12 @@ const RETIRED: readonly Site[] = [
 
 const ALL_SITES: readonly Site[] = [...RUNTIME_SLOT, ...RETIRED];
 
-/** The nine mirror files the census covers; `base.zod.ts` holds only
- *  `EventHandlersSchema` (a record, objectui#6910's card) and no named key.
- *  `objectql.zod.ts` joined with objectui#6576 — it declared no handler key
- *  at all until `ObjectDataTableSchema.onRowClick`. */
+/** The nine mirror files the census covers; `base.zod.ts` is not among them —
+ *  it declares no named handler key. The record-valued `EventHandlersSchema`
+ *  that once stood there was never one either, and objectui#6910 retired it;
+ *  the NOTE left at its site records why no JSON-authorable handler record
+ *  replaces it. `objectql.zod.ts` joined with objectui#6576 — it declared no
+ *  handler key at all until `ObjectDataTableSchema.onRowClick`. */
 const MIRROR_FILES = [
   'complex.zod.ts',
   'data-display.zod.ts',

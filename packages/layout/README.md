@@ -108,6 +108,12 @@ ADR-0087 D2 conversion `page-header-subtitle-alias`.
 
 Navigation sidebar component with React Router integration.
 
+`NavigationRenderer` also exports `resolveActiveNavTrail`. Given the same
+navigation items, route, base path, and template context used to create links,
+it returns the active item together with every ancestor group. App shells use
+this inverse mapping to keep deep-linked routes aligned with their declared
+navigation hierarchy.
+
 ```typescript
 import { SidebarNav, type NavItem } from '@object-ui/layout';
 import { Home, Settings, Users } from 'lucide-react';

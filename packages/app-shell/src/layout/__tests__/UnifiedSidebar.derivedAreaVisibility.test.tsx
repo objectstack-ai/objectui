@@ -74,12 +74,16 @@ vi.mock('../../providers/ExpressionProvider', () => ({
   evaluateVisibility: (expr: unknown) => expr !== false && expr !== 'false',
 }));
 
-vi.mock('../../utils', () => ({
-  resolveKeyedI18nLabel: (label: unknown) => (typeof label === 'string' ? label : ''),
-  matchAppBySegment: (apps: Array<{ name?: string }>, segment?: string) =>
-    apps.find((a) => a?.name === segment),
-  appRouteSegment: (app: { name?: string }) => app?.name,
-}));
+vi.mock('../../utils', async () => {
+  const { resolveAppNavigationContext } = await import('../../utils/navigationContext');
+  return {
+    resolveKeyedI18nLabel: (label: unknown) => (typeof label === 'string' ? label : ''),
+    matchAppBySegment: (apps: Array<{ name?: string }>, segment?: string) =>
+      apps.find((a) => a?.name === segment),
+    appRouteSegment: (app: { name?: string }) => app?.name,
+    resolveAppNavigationContext,
+  };
+});
 
 // Lazy lucide DynamicIcon would suspend mid-test; a null icon is enough here.
 vi.mock('../../utils/getIcon', () => ({ getIcon: () => () => null }));
@@ -140,13 +144,13 @@ const gatedSales: NavigationArea = {
   navigation: [{ ...salesArea.navigation[0], visible: false }],
 };
 
-function sidebarUi(areas: NavigationArea[]) {
+function sidebarUi(areas: NavigationArea[], initialEntry = '/apps/crm') {
   metadataState = {
     apps: [{ name: 'crm', label: 'CRM', active: true, areas }],
     objects: [],
   };
   return (
-    <MemoryRouter initialEntries={['/apps/crm']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <SidebarProvider>
         <UnifiedSidebar activeAppName="crm" />
       </SidebarProvider>
@@ -176,6 +180,12 @@ describe('UnifiedSidebar derived area visibility (#3319)', () => {
     // Switching among visible areas still works.
     fireEvent.click(screen.getByText('Marketing'));
     expect(screen.getByText('Campaigns')).toBeInTheDocument();
+    expect(screen.queryByText('Opportunities')).not.toBeInTheDocument();
+  });
+
+  it('elects the area that owns a direct route instead of the first visible area', () => {
+    render(sidebarUi([salesArea, serviceArea], '/apps/crm/case'));
+    expect(screen.getByText('Cases')).toBeInTheDocument();
     expect(screen.queryByText('Opportunities')).not.toBeInTheDocument();
   });
 

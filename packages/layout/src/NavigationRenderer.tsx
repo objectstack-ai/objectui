@@ -836,6 +836,39 @@ export function resolveActiveNavItem(
 }
 
 /**
+ * Resolve the active item's full navigation trail, including ancestor groups.
+ *
+ * This is the structural inverse of {@link resolveHref}: shell surfaces use
+ * the same winning leaf as {@link resolveActiveNavItem}, then recover the
+ * groups that contain it. Keeping the lookup here prevents sidebars and
+ * breadcrumbs from inventing separate route-matching rules.
+ */
+export function resolveActiveNavTrail(
+  items: NavigationItem[],
+  pathname: string,
+  search: string,
+  basePath: string,
+  templateContext?: NavTemplateContext,
+): NavigationItem[] {
+  const active = resolveActiveNavItem(items, pathname, search, basePath, templateContext);
+  if (!active) return [];
+
+  const findTrail = (nodes: NavigationItem[] | undefined): NavigationItem[] | null => {
+    if (!nodes) return null;
+    for (const node of nodes) {
+      if (node === active) return [node];
+      if (node.type === 'group') {
+        const childTrail = findTrail(node.children);
+        if (childTrail) return [node, ...childTrail];
+      }
+    }
+    return null;
+  };
+
+  return findTrail(items) ?? [];
+}
+
+/**
  * The elected active item id, provided once at the tree root by
  * {@link NavigationRenderer} — per-item active state is a plain id
  * comparison, so at most one row can ever highlight.

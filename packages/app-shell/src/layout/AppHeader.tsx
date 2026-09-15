@@ -69,7 +69,7 @@ import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@object-ui/types';
 import { useAuth, getUserInitials, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useMetadata } from '../providers/MetadataProvider.js';
-import { resolveKeyedI18nLabel, preferLocal, matchAppBySegment, appRouteSegment, appStudioRoutePath } from '../utils/index.js';
+import { resolveKeyedI18nLabel, preferLocal, matchAppBySegment, appRouteSegment, appStudioRoutePath, resolveAppNavigationContext } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
 import { useMobileViewSwitcher } from './MobileViewSwitcherContext.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
@@ -86,6 +86,25 @@ import { PreviewBadge } from './PreviewBadge.js';
 
 function humanizeSlug(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type TranslationFn = ReturnType<typeof useObjectTranslation>['t'];
+type KeyedNavigationLabel = Exclude<Parameters<typeof resolveKeyedI18nLabel>[0], string | undefined>;
+
+function isKeyedNavigationLabel(label: unknown): label is KeyedNavigationLabel {
+  return typeof label === 'object' && label !== null && 'key' in label && typeof label.key === 'string';
+}
+
+function navigationLabel(label: unknown, t: TranslationFn): string {
+  if (typeof label === 'string') return label;
+  if (isKeyedNavigationLabel(label)) {
+    return resolveKeyedI18nLabel(label, t) || label.key;
+  }
+  if (label && typeof label === 'object') {
+    const localized = Object.values(label).find((value) => typeof value === 'string');
+    if (typeof localized === 'string') return localized;
+  }
+  return '';
 }
 
 /** Muted `/` separator between path segments */
@@ -331,31 +350,66 @@ export function AppHeader({
 
   const extraSegments: BreadcrumbItemType[] = [];
 
+  // Recover the business navigation context from the current route. The
+  // sidebar and header both rely on resolveActiveNavItem's canonical inverse
+  // mapping, so a deep link cannot select one area while naming a different
+  // hierarchy in the breadcrumb.
+  const {
+    area: activeNavigationArea,
+    trail: activeNavigationTrail,
+  } = resolveAppNavigationContext({
+    areas: currentApp?.areas || [],
+    navigation: currentApp?.navigation || [],
+    pathname: location.pathname,
+    search: location.search,
+    basePath: baseHref,
+  });
+
+  if (activeNavigationArea) {
+    const label = navigationLabel(activeNavigationArea.label, t);
+    if (label) extraSegments.push({ label });
+  }
+  for (const ancestor of activeNavigationTrail.slice(0, -1)) {
+    const label = navigationLabel(ancestor.label, t);
+    if (label) extraSegments.push({ label });
+  }
+  const hasNavigationContext = activeNavigationTrail.length > 0;
+  const activeNavigationLabel = navigationLabel(
+    activeNavigationTrail[activeNavigationTrail.length - 1]?.label,
+    t,
+  );
+
   if (isApp) {
     if (routeType === 'dashboard') {
-      extraSegments.push({ label: t('console.breadcrumb.dashboards'), href: baseHref });
+      if (!hasNavigationContext) extraSegments.push({ label: t('console.breadcrumb.dashboards'), href: baseHref });
       if (pathParts[3]) {
         const dashboardName = pathParts[3];
         // ADR-0048 Phase 2 — prefer the current app's package (container-scoped).
         const dashboardDef = preferLocal(metadataDashboards as any[], dashboardName, (currentApp as any)?._packageId);
         const fallback = dashboardDef?.label || humanizeSlug(dashboardName);
-        extraSegments.push({ label: dashboardLabel({ name: dashboardName, label: fallback }) });
+        extraSegments.push({
+          label: activeNavigationLabel || dashboardLabel({ name: dashboardName, label: fallback }),
+        });
       }
     } else if (routeType === 'page') {
-      extraSegments.push({ label: t('console.breadcrumb.pages'), href: baseHref });
+      if (!hasNavigationContext) extraSegments.push({ label: t('console.breadcrumb.pages'), href: baseHref });
       if (pathParts[3]) {
         const pageName = pathParts[3];
         const pageDef = preferLocal(metadataPages as any[], pageName, (currentApp as any)?._packageId);
         const fallback = pageDef?.label || humanizeSlug(pageName);
-        extraSegments.push({ label: pageLabel({ name: pageName, label: fallback }) });
+        extraSegments.push({
+          label: activeNavigationLabel || pageLabel({ name: pageName, label: fallback }),
+        });
       }
     } else if (routeType === 'report') {
-      extraSegments.push({ label: t('console.breadcrumb.reports'), href: baseHref });
+      if (!hasNavigationContext) extraSegments.push({ label: t('console.breadcrumb.reports'), href: baseHref });
       if (pathParts[3]) {
         const reportName = pathParts[3];
         const reportDef = preferLocal(metadataReports as any[], reportName, (currentApp as any)?._packageId);
         const fallback = reportDef?.label || humanizeSlug(reportName);
-        extraSegments.push({ label: reportLabel({ name: reportName, label: fallback }) });
+        extraSegments.push({
+          label: activeNavigationLabel || reportLabel({ name: reportName, label: fallback }),
+        });
       }
     } else if (routeType === 'system') {
       extraSegments.push({ label: t('console.breadcrumb.system') });

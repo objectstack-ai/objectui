@@ -108,6 +108,9 @@ function MyDashboard() {
   constrained reading width for long conversations
 - **Notification Surfaces**: `ConsoleShell` mounts `NotificationProvider` and
   every spec `displayType` presents distinctly — no per-app wiring
+- **Route-Aware Navigation**: Direct links, refreshes, and browser history
+  recover the owning area and navigation trail, keeping the sidebar selection
+  and business breadcrumb aligned with app metadata
 
 ## Notifications
 

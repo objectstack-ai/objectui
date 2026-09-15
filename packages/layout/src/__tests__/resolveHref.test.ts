@@ -127,7 +127,7 @@ describe('resolveHref — non-object targets unchanged', () => {
 // resolveActiveNavItem — the inverse mapping (#2272)
 // ---------------------------------------------------------------------------
 
-import { resolveActiveNavItem } from '../NavigationRenderer';
+import { resolveActiveNavItem, resolveActiveNavTrail } from '../NavigationRenderer';
 
 /** Split an href into the (pathname, search) pair resolveActiveNavItem takes. */
 function locOf(href: string): { pathname: string; search: string } {
@@ -194,6 +194,16 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
   it('dashboard / page items match inside groups', () => {
     expect(activeId(`${BASE}/dashboard/kpis`)).toBe('nav_kpis');
     expect(activeId(`${BASE}/page/home`)).toBe('nav_home');
+  });
+
+  it('returns the ancestor groups and winning leaf as one route trail', () => {
+    expect(
+      resolveActiveNavTrail(NAV, `${BASE}/page/home`, '', BASE, CTX).map((item) => item.id),
+    ).toEqual(['grp', 'nav_home']);
+  });
+
+  it('returns an empty trail for an unrelated route', () => {
+    expect(resolveActiveNavTrail(NAV, `${BASE}/search`, '', BASE, CTX)).toEqual([]);
   });
 
   it('unrelated route → no active item', () => {

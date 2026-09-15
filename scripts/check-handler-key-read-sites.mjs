@@ -196,11 +196,36 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // objectui#7742 remedy `objectFields` took one file over, and the arm carries
   // the tombstone. Draining a row is part of the landing, not cleanup after it:
   // a row that outlived its read reddens `staleExemptions()` below.
-  ['list-view::ListViewSchema.onAddRecord', 'objectui#7804'],
-  ['list-view::ListViewSchema.onBulkAction', 'objectui#7804'],
-  ['list-view::ListViewSchema.onDensityChange', 'objectui#7804'],
-  ['list-view::ListViewSchema.onNavigate', 'objectui#7804'],
-  ['list-view::ListViewSchema.onPageSizeChange', 'objectui#7804'],
+  // ⭐ ALL FIVE `list-view::ListViewSchema` rows LANDED and are gone —
+  // objectui#7804's `ListViewSchema` slice. `onAddRecord`, `onBulkAction`,
+  // `onDensityChange`, `onNavigate` and `onPageSizeChange` are objectui#6124
+  // RUNTIME SLOTS on the arm, each measured at its OWN channel rather than
+  // assumed from its siblings — and the channel is not the same face for all
+  // five. `onNavigate` / `onDensityChange` are read off the NODE
+  // (`schema.onX`) and declared on `ListViewRuntimeProps`; the other three are
+  // read off the PROPS bag (`props.onX`) and declared as React props on
+  // `ListViewProps` in `@object-ui/plugin-list`. `'retired'` was refused for
+  // all five: every one is read AND invoked.
+  //
+  // ⚠️ This arm is the first one this card drained that FEEDS ITS OWN
+  // TypeScript face — `ListViewSchema` is `z.input` of the mirror intersected
+  // with `ListViewRuntimeProps`, and a refusal arm's `z.input` is
+  // `never | undefined`, which ANDs the runtime declaration down to
+  // `undefined`. The slice added the precedence (`ListViewAuthored`,
+  // `packages/types/src/objectql.ts`) in the same stroke; a later arm added to
+  // a mirror whose `z.input` is someone's declared type needs the same check.
+  //
+  // ⚠️ THE FIVE `list::ListSchema` ROWS BELOW ARE THE SAME FIVE READS,
+  // scored a second time. `@object-ui/plugin-list` registers `ListViewRenderer`
+  // under `'list'` as well, with `{ namespace: 'view', skipFallback: true }` —
+  // and `skipFallback` is exactly what stops that alias claiming the bare
+  // `list` key, which belongs to the bullet/numbered-list DISPLAY primitive in
+  // `@object-ui/components`. This census keys a registration by its raw type
+  // string, so the alias's reads are judged against `ListSchema` (`items` /
+  // `ordered` / `dividers` / `dense`), an arm that has nothing to do with them.
+  // ⛔ Do NOT drain these by declaring the five on `ListSchema`: that would
+  // publish a density handler on a bullet list. Their disposition is a
+  // different question from this slice's and it is not this slice's to answer.
   ['list::ListSchema.onAddRecord', 'objectui#7804'],
   ['list::ListSchema.onBulkAction', 'objectui#7804'],
   ['list::ListSchema.onDensityChange', 'objectui#7804'],

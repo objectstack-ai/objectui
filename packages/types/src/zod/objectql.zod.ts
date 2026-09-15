@@ -1116,6 +1116,57 @@ export const ListViewSchema = BaseSchema
     calendar: CalendarConfig.optional().describe('Calendar-specific configuration'),
     gallery: GalleryConfig.optional().describe('Gallery-specific configuration'),
     timeline: TimelineConfig.optional().describe('Timeline-specific configuration'),
+    // ⭐ objectui#7804 — the five keys the REGISTERED `list-view` renderer reads
+    // off the authored document while this arm declared none. `BaseSchema` is
+    // `.passthrough()`, so an undeclared key is NOT refused: it stops being
+    // judged and the value is KEPT. `SchemaRenderer` then spreads every
+    // non-metadata top-level key of the node into the component props bag (the
+    // rest element of its `= evaluatedSchema` destructure, commented there as
+    // "Spread non-metadata schema properties as props"), so an authored
+    // `onAddRecord: { action: 'toast' }` arrives as `props.onAddRecord` and
+    // `ListView`'s add-record button calls it — a plain object invoked as a
+    // function, at click.
+    //
+    // ⛔ DISPOSITION MEASURED PER KEY, never read off the group. `'retired'`
+    // publishes "no renderer reads this key"; all five are read AND invoked, so
+    // it would have published a false sentence for every one of them. They are
+    // `'runtime-slot'` — and the TypeScript channel each one names is NOT the
+    // same face, which is the split this slice turned on:
+    //
+    //   `onNavigate` · `onDensityChange`  read off the NODE (`schema.onX`, into
+    //     `useNavigationOverlay` and `useDensityMode`) and declared on
+    //     `ListViewRuntimeProps` (`../objectql.ts`), which is intersected into
+    //     the `ListViewSchema` TYPE precisely so a host can put a function
+    //     there. `@object-ui/app-shell`'s `ObjectView` builds a
+    //     `const fullSchema: ListViewSchema` node carrying `onDensityChange`;
+    //     `onNavigate` has no in-repo supplier on a `list-view` node, yet the
+    //     channel is wired end to end and the read still fires.
+    //   `onAddRecord` · `onBulkAction` · `onPageSizeChange`  read off the PROPS
+    //     bag (`props.onX`) and declared as React props on `ListViewProps`
+    //     (`@object-ui/plugin-list`), the interface objectui#4528 wrote out by
+    //     name. `StudioDesignSurface` supplies `onAddRecord` as a React prop;
+    //     the other two have no in-repo supplier and are still read and still
+    //     invoked.
+    //
+    // ⇒ nothing is ADDED to `ListViewRuntimeProps` by this slice: every one of
+    // the five already has a declared TypeScript home, and the three props-half
+    // keys never belonged on the node type at all.
+    //
+    // ⚠️ Unlike the plain `interface X extends BaseSchema` arms this card
+    // drained before it, THIS arm feeds its own TypeScript face:
+    // `ListViewInferred` is `z.input` of this schema and `ListViewSchema`
+    // intersects it with `ListViewRuntimeProps`. A refusal arm's `z.input` is
+    // `never | undefined`, and `undefined & ((…) => void) | undefined)` is
+    // `undefined` — so declaring these five here ANNIHILATES the two runtime
+    // declarations unless the intersection gives the runtime half precedence.
+    // It now does; see `ListViewAuthored` in `../objectql.ts`, which is what
+    // keeps `'runtime-slot'`'s promise ("the TypeScript twin stays callable")
+    // true on this face. ⛔ Do not collapse that back to a bare intersection.
+    onAddRecord: handlerKeyRefusal('onAddRecord', 'runtime-slot', 'Add-record handler'),
+    onBulkAction: handlerKeyRefusal('onBulkAction', 'runtime-slot', 'Bulk action handler'),
+    onDensityChange: handlerKeyRefusal('onDensityChange', 'runtime-slot', 'Row density change handler'),
+    onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
+    onPageSizeChange: handlerKeyRefusal('onPageSizeChange', 'runtime-slot', 'Page size change handler'),
   });
 
 /**

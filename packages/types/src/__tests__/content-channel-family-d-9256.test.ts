@@ -38,11 +38,32 @@
  *
  * ## What is held OUT of this file, and why — each is a measurement, not appetite
  *
- *   - the nine `type` names carrying 2+ registrations with different
- *     declarations (`accordion`, `tabs`, `text`, `image`, `icon`, `list`,
- *     `calendar`, `timeline`, and the `UIActionSchema` arm of `button`):
+ *   - ⭐ SIX of the nine bare-name hold-outs are narrowed HERE, by objectui#9256
+ *     slice 2, and the reason is a measurement rather than a ruling.
  *     `ComponentRegistry.register` writes a bare-name fallback LAST-ONE-WINS, so
- *     which declaration governs an authored node depends on import order.
+ *     which declaration governs an authored node was unmeasured — that is what
+ *     held them. `check:registry-bare-names` (objectui#9264, the gate; run it
+ *     with `--table` for the population) now measures it, and `text`, `image`,
+ *     `icon`, `tabs` and `accordion` each have ONE claimant of the bare key
+ *     because every rival passes `skipFallback: true`, while `calendar`'s
+ *     several claimants name ONE full type. `ui:calendar` rides along on
+ *     `calendar`'s tombstone by declaration (`Omit` on the TS face, `.extend()`
+ *     on the mirror) and is pinned as its own row so the propagation is
+ *     measured and not assumed.
+ *   - `list` and `timeline` stay out: both declare in `data-display.ts`, which
+ *     objectui#7804 slice 1 is editing on another branch. A serial constraint,
+ *     not a verdict.
+ *   - ⛔ `button` stays out, and the reason CHANGED under re-derivation.
+ *     `check:registry-bare-names` reports `ui:button` as the sole owner of the
+ *     bare key — but that owner's renderer reads
+ *     `schema.label || renderChildren(schema.body || schema.children)`, a LIVE
+ *     `body || children` fallback. `button` is therefore family C, not family D:
+ *     removing a live read is a behaviour change, and AGENTS.md #0.1 says the
+ *     fallback itself is the defect. That pulls the other way, and it is the
+ *     maintainer's call on objectui#8284. The `UIActionSchema` arm has nothing
+ *     to tombstone at all — it does not extend `BaseSchema` and carries only
+ *     `bodyExtra` / `bodyShape`, the prefix keys grep confuses for the channel.
+ *     A LIVE CONTROL below keeps `button` parsing both channels.
  *   - `InputSchema`: `InputShorthandSchema` is declared as an `Omit` of it, so a
  *     tombstone here would propagate onto the `email` / `password` shorthand
  *     face, whose registrations are `any`-typed — family E, frozen.
@@ -70,6 +91,10 @@ import type { z } from 'zod';
 import {
   SeparatorSchema as SeparatorMirror,
   ResizableSchema as ResizableMirror,
+  TextSchema as TextMirror,
+  ImageSchema as ImageMirror,
+  IconSchema as IconMirror,
+  TabsSchema as TabsMirror,
 } from '../zod/layout.zod';
 import {
   HtmlSchema as HtmlMirror,
@@ -100,6 +125,9 @@ import {
   FileUploadSchema as FileUploadMirror,
   ComboboxSchema as ComboboxMirror,
   CommandSchema as CommandMirror,
+  CalendarSchema as CalendarMirror,
+  UiCalendarSchema as UiCalendarMirror,
+  ButtonSchema as ButtonFamilyCControl,
 } from '../zod/form.zod';
 import {
   ProgressSchema as ProgressMirror,
@@ -125,6 +153,7 @@ import {
 import {
   CollapsibleSchema as CollapsibleMirror,
   ToggleGroupSchema as ToggleGroupMirror,
+  AccordionSchema as AccordionMirror,
 } from '../zod/disclosure.zod';
 import {
   CarouselSchema as CarouselMirror,
@@ -161,6 +190,9 @@ import type { CarouselSchema, ChatbotSchema } from '../complex';
 import type { ReportViewerSchema } from '../reports';
 import type { ViewSwitcherSchema } from '../views';
 import type { NLQuerySchema } from '../ai';
+import type { TextSchema, ImageSchema, IconSchema, TabsSchema } from '../layout';
+import type { AccordionSchema } from '../disclosure';
+import type { CalendarSchema, UiCalendarSchema } from '../form';
 
 type Mirror = {
   safeParse: (v: unknown) => { success: boolean; error?: z.ZodError };
@@ -236,6 +268,20 @@ const ROWS: ReadonlyArray<readonly [
   ['view-switcher', ViewSwitcherMirror as unknown as Mirror, ['body', 'children'], {"views":[]}],
   ['filter-ui', FilterUIMirror as unknown as Mirror, ['body', 'children'], {"filters":[]}],
   ['sort-ui', SortUIMirror as unknown as Mirror, ['body', 'children'], {"fields":[]}],
+  // ── objectui#9256 slice 2 — six of the nine bare-name hold-outs ─────────
+  // Each name's owner is MEASURED (`pnpm check:registry-bare-names --table`,
+  // objectui#9264) rather than guessed, which is the whole reason these six
+  // could move while `list`, `timeline`, `input` and `app-schema-renderer`
+  // could not. `ui:calendar` rides along because its declaration is an `Omit`
+  // of `calendar`'s on the TypeScript face and a `.extend()` of it on the
+  // mirror — the propagation is pinned here rather than assumed.
+  ['text', TextMirror as unknown as Mirror, ['body', 'children'], {}],
+  ['image', ImageMirror as unknown as Mirror, ['body', 'children'], {"src":"/a.png"}],
+  ['icon', IconMirror as unknown as Mirror, ['body', 'children'], {"icon":"check"}],
+  ['tabs', TabsMirror as unknown as Mirror, ['body', 'children'], {"items":[]}],
+  ['accordion', AccordionMirror as unknown as Mirror, ['body', 'children'], {"items":[]}],
+  ['calendar', CalendarMirror as unknown as Mirror, ['body', 'children'], {}],
+  ['ui:calendar', UiCalendarMirror as unknown as Mirror, ['body', 'children'], {}],
 ];
 
 const CONTENT = [{ type: 'text', content: 'measured' }];
@@ -250,9 +296,9 @@ const CASES = ROWS.flatMap(([type, mirror, dead, required]) =>
 
 describe('objectui#9256 — family D refuses the content channels its renderers never read', () => {
   it('the population is the measured one — a row dropped from the table fails here', () => {
-    expect(ROWS).toHaveLength(58);
+    expect(ROWS).toHaveLength(65);
     // 3 fewer than 2x: the chatbot faces carry `children` only.
-    expect(CASES).toHaveLength(58 * 2 - 3);
+    expect(CASES).toHaveLength(65 * 2 - 3);
   });
 
   it.each(CASES)('%s is refused at that key\'s own path', (_label, mirror, key, required) => {
@@ -304,6 +350,30 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
     const r = (ChatbotBodyControl as unknown as Mirror)
       .safeParse({ type: 'chatbot', messages: [], body: { temperature: 0.2 } });
     expect(r.success).toBe(true);
+  });
+
+  it('LIVE CONTROL — `button` still accepts BOTH channels: it is family C, not family D', () => {
+    // Re-derived at this branch point, and it contradicts the table this slice
+    // was dispatched from: `ui:button` owns the bare `button` key, and that
+    // renderer reads `schema.label || renderChildren(schema.body || schema.children)`
+    // — a LIVE fallback. Narrowing it would REMOVE A LIVE READ, which is a
+    // behaviour change and the maintainer's call (objectui#8284), so `button`
+    // is untouched and this line is what keeps the rows above a reading about
+    // the six that moved rather than about the whole mirror.
+    const mirror = ButtonFamilyCControl as unknown as Mirror;
+    expect(issues(mirror, { type: 'button', body: CONTENT })).toBeNull();
+    expect(issues(mirror, { type: 'button', children: CONTENT })).toBeNull();
+  });
+
+  it('LIVE CONTROL — the ITEM-level channel is untouched: a `tabs` item still parses `content`', () => {
+    // `tabs.tsx` renders `item.content || (item as any).body` — an ITEM key,
+    // filed under `TabItem` and not under `TabsSchema`. An instrument that
+    // attributed that read to the NODE would have made `tabs` a body reader and
+    // this whole row a mistake, so the item channel is pinned as still live.
+    expect(issues(TabsMirror as unknown as Mirror, {
+      type: 'tabs',
+      items: [{ value: 't1', label: 'One', content: CONTENT }],
+    })).toBeNull();
   });
 
   it('LIVE CONTROL — family C is NOT narrowed: a `div` still accepts both channels', () => {
@@ -376,12 +446,54 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
     const pivotBody: PivotTableSchema = { type: 'pivot', body: CONTENT };
     // @ts-expect-error objectui#9256 — `chatbot` reads neither channel; `children` is narrowed, `body` is held out
     const chatbotChildren: ChatbotSchema = { type: 'chatbot', messages: [], children: CONTENT };
+    // ── slice 2: the six bare-name hold-outs, one NAMED pair each ─────────
+    // @ts-expect-error objectui#9256 — `text` reads `content`, never a content channel
+    const textBody: TextSchema = { type: 'text', body: CONTENT };
+    // @ts-expect-error objectui#9256 — `text` reads `content`, never a content channel
+    const textChildren: TextSchema = { type: 'text', children: CONTENT };
+    // @ts-expect-error objectui#9256 — `image` reads `src` / `alt`
+    const imageBody: ImageSchema = { type: 'image', src: '/a.png', body: CONTENT };
+    // @ts-expect-error objectui#9256 — `image` reads `src` / `alt`
+    const imageChildren: ImageSchema = { type: 'image', src: '/a.png', children: CONTENT };
+    // @ts-expect-error objectui#9256 — `icon` reads `icon` / `size` / `color`
+    const iconBody: IconSchema = { type: 'icon', icon: 'check', body: CONTENT };
+    // @ts-expect-error objectui#9256 — `icon` reads `icon` / `size` / `color`
+    const iconChildren: IconSchema = { type: 'icon', icon: 'check', children: CONTENT };
+    // @ts-expect-error objectui#9256 — `tabs` renders `items[].content`, never the node's own channel
+    const tabsBody: TabsSchema = { type: 'tabs', items: [], body: CONTENT };
+    // @ts-expect-error objectui#9256 — `tabs` renders `items[].content`, never the node's own channel
+    const tabsChildren: TabsSchema = { type: 'tabs', items: [], children: CONTENT };
+    // @ts-expect-error objectui#9256 — `accordion` renders `items[].content`, never the node's own channel
+    const accordionBody: AccordionSchema = { type: 'accordion', items: [], body: CONTENT };
+    // @ts-expect-error objectui#9256 — `accordion` renders `items[].content`, never the node's own channel
+    const accordionChildren: AccordionSchema = { type: 'accordion', items: [], children: CONTENT };
+    // @ts-expect-error objectui#9256 — `calendar` reads neither channel on either of its two readers
+    const calendarBody: CalendarSchema = { type: 'calendar', body: CONTENT };
+    // @ts-expect-error objectui#9256 — `calendar` reads neither channel on either of its two readers
+    const calendarChildren: CalendarSchema = { type: 'calendar', children: CONTENT };
+    // ⚠️ TRIPWIRE, and deliberately NOT a `@ts-expect-error`. `UiCalendarSchema`
+    // is declared as `Omit<CalendarSchema, 'type'>`, and `BaseSchema` carries an
+    // index signature — so `Omit` resolves through `Exclude<string, 'type'>` =
+    // `string` and collapses every member into that signature. MEASURED with the
+    // checker: `UiCalendarSchema['body']` answers `any`, and so does
+    // `UiCalendarSchema['mode']`, which is a key this change never touched. That
+    // face therefore carries NONE of `CalendarSchema`'s members, tombstones
+    // included, and the line below compiles today. Its MIRROR does refuse the
+    // key — the `ui:calendar` row above is the reading — so this is a measured
+    // asymmetry between the two published faces, not a gap in the mirror.
+    // When the collapse is repaired this line goes RED, which is the signal to
+    // restate the two tombstones on `UiCalendarSchema` and turn it back into a
+    // `@ts-expect-error` pair.
+    const uiCalendarBody: UiCalendarSchema = { type: 'ui:calendar', body: CONTENT };
 
     expect([
       separatorBody, separatorChildren, kbdBody, skeletonChildren, checkboxBody, paginationChildren,
       dialogChildren, collapsibleChildren, carouselBody, galleryBody, viewSwitcherChildren, reportBody,
       nlQueryChildren, pivotBody, chatbotChildren,
-    ]).toHaveLength(15);
+      textBody, textChildren, imageBody, imageChildren, iconBody, iconChildren,
+      tabsBody, tabsChildren, accordionBody, accordionChildren, calendarBody, calendarChildren,
+      uiCalendarBody,
+    ]).toHaveLength(28);
   });
 
   it('CONTROL — the same nodes WITHOUT a content channel compile (no `@ts-expect-error` here, and `tsc` is the reader)', () => {

@@ -532,6 +532,34 @@ export const CalendarSchema = BaseSchema.extend({
   minDate: z.union([z.string(), z.date()]).optional().describe('Minimum date'),
   maxDate: z.union([z.string(), z.date()]).optional().describe('Maximum date'),
   onChange: handlerKeyRefusal('onChange', 'retired', 'Change handler'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `calendar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `defaultValue`, `mode`, `value`. '
+    + 'Both readers answer NEITHER: the bare key resolves to plugin-calendar’s calendar VIEW, and this '
+    + 'key set describes the `ui:calendar` date-picker primitive. This refusal propagates onto '
+    + '`UiCalendarSchema`, which `.extend()`s this mirror — on the MIRROR only; the TypeScript `Omit` '
+    + 'collapses into `BaseSchema`’s index signature and carries no member of this declaration at all. '
+    + '`view:calendar` is the measured SOLE owner of the bare `calendar` key (`ui:calendar` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `calendar` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `defaultValue`, `mode`, `value`. '
+    + 'Both readers answer NEITHER: the bare key resolves to plugin-calendar’s calendar VIEW, and this '
+    + 'key set describes the `ui:calendar` date-picker primitive. This refusal propagates onto '
+    + '`UiCalendarSchema`, which `.extend()`s this mirror — on the MIRROR only; the TypeScript `Omit` '
+    + 'collapses into `BaseSchema`’s index signature and carries no member of this declaration at all. '
+    + '`view:calendar` is the measured SOLE owner of the bare `calendar` key (`ui:calendar` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**

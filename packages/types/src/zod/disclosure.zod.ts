@@ -42,6 +42,26 @@ export const AccordionSchema = BaseSchema.extend({
   value: z.union([z.string(), z.array(z.string())]).optional().describe('Controlled open item(s)'),
   onValueChange: handlerKeyRefusal('onValueChange', 'runtime-slot', 'Value change handler'),
   variant: z.enum(['default', 'bordered', 'separated']).optional().describe('Accordion variant'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `accordion` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `accordionType`, `collapsible`, `items`. '
+    + '`ui:accordion` is the measured SOLE owner of the bare `accordion` key (`page:accordion` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `accordion` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
+    + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
+    + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
+    + 'error, no warning, no element. '
+    + 'What it renders instead: `accordionType`, `collapsible`, `items`. '
+    + '`ui:accordion` is the measured SOLE owner of the bare `accordion` key (`page:accordion` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**

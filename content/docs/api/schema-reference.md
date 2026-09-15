@@ -118,7 +118,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
   "regions": [
     {
       "name": "header",
-      "body": [{ "type": "text", "body": "Welcome back" }]
+      "body": [{ "type": "text", "content": "Welcome back" }]
     }
   ],
   "body": [
@@ -153,7 +153,7 @@ A generic container element. The simplest layout primitive.
   "type": "div",
   "className": "flex items-center gap-4 p-6",
   "children": [
-    { "type": "text", "body": "Hello World" },
+    { "type": "text", "content": "Hello World" },
     { "type": "button", "label": "Click me" }
   ]
 }
@@ -246,7 +246,7 @@ A tabbed interface for organizing content into switchable panels.
       "value": "overview",
       "label": "Overview",
       "icon": "Info",
-      "content": { "type": "div", "body": [{ "type": "text", "body": "Overview content" }] }
+      "content": { "type": "div", "body": [{ "type": "text", "content": "Overview content" }] }
     },
     {
       "value": "settings",
@@ -443,7 +443,7 @@ did; authoring them is now refused by validation instead of silently ignored).
     { "id": 1, "customer": "Acme Corp", "amount": "$1,200", "status": "Paid" },
     { "id": 2, "customer": "Globex Inc", "amount": "$3,400", "status": "Pending" }
   ],
-  "footer": { "type": "text", "body": "Showing 2 of 156 orders" }
+  "footer": { "type": "text", "content": "Showing 2 of 156 orders" }
 }
 ```
 

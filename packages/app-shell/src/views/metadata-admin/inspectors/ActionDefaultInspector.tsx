@@ -40,6 +40,7 @@ import {
 import {
   Button, Label, Textarea,
 } from '@object-ui/components';
+import { usePermissions } from '@object-ui/permissions';
 import type { MetadataDefaultInspectorProps } from '../default-inspector-registry.js';
 import { SchemaForm } from '../SchemaForm.js';
 import { t } from '../i18n.js';
@@ -440,6 +441,35 @@ export function ActionDefaultInspector({
   const params: ActionParam[] = Array.isArray(draft.params) ? (draft.params as ActionParam[]) : [];
   const locations: string[] = Array.isArray(draft.locations) ? (draft.locations as string[]) : [];
 
+  /* ─── objectui#7234 — the OTHER way a correctly-placed action never appears ──
+   *
+   * `requiredPermissions` (ADR-0066 D4, `action.requiredPermissions`: "Enforced
+   * with 403 on the platform action route … and mirrored as a UI hide") filters
+   * the action out of every ticked surface at once — no button, no greyed-out
+   * control, no message, no 4xx. The card was opened by an admin who had
+   * configured the buttons, saw none of them anywhere, and read it as a broken
+   * feature; nothing in the product said otherwise.
+   *
+   * Maintainer ruling 2026-09-08 (option B): end-user behaviour is UNCHANGED —
+   * the action stays hidden — and the REASON becomes visible where the person
+   * who configures the app looks. This panel is that channel; the sibling
+   * notice below it (the empty-`locations` case) is the same idea for the other
+   * way an action never surfaces.
+   *
+   * The held set comes from `MePermissionsProvider` via `usePermissions()` —
+   * the same signal `useCanAuthorMetadata` reads, NOT a second client-side
+   * permission derivation. `undefined` there means the host reported nothing
+   * (no provider, or a backend predating ADR-0066), which the gate itself
+   * treats as unknown and fails OPEN on, so the "you do not hold it" half stays
+   * silent rather than guessing. */
+  const requiredPermissions: string[] = Array.isArray(draft.requiredPermissions)
+    ? (draft.requiredPermissions as unknown[]).filter((c): c is string => typeof c === 'string')
+    : [];
+  const { systemPermissions: heldCapabilities } = usePermissions();
+  const unheldCapabilities = Array.isArray(heldCapabilities)
+    ? requiredPermissions.filter((c) => !heldCapabilities.includes(c))
+    : [];
+
   // AI exposure — flattened keys (objectui/server convention, read by ActionPreview).
   const aiExposed = draft.aiExposed === true;
   const aiDescription = typeof draft.aiDescription === 'string' ? (draft.aiDescription as string) : '';
@@ -634,6 +664,31 @@ export function ActionDefaultInspector({
           <div className="text-[11px] text-destructive">
             No placement selected — this action will not appear on any record or list surface. Tick a
             placement above, or place it from a view’s bulk actions.
+          </div>
+        )}
+        {/* [#7234] The capability gate, stated where the person configuring the
+            app looks. Deliberately NOT an error: the hide is correct behaviour
+            under ADR-0066 D4 and the maintainer ruled it stays. What was
+            missing is that it was the one kind of disappearance nothing
+            anywhere explained. See the decode block above for the ruling. */}
+        {requiredPermissions.length > 0 && (
+          <div className="text-[11px] text-amber-700" data-testid="action-capability-gate-note">
+            Capability-gated on{' '}
+            <span className="font-mono">{requiredPermissions.join(' + ')}</span> — every placement
+            ticked above hides this action from anyone who does not hold{' '}
+            {requiredPermissions.length > 1 ? 'all of them' : 'it'}. Not greyed out and not an
+            error: the button is simply absent, and the server refuses the invocation with a 403
+            either way.
+            {unheldCapabilities.length > 0 && (
+              <>
+                {' '}
+                <span data-testid="action-capability-gate-self">
+                  This session does not hold{' '}
+                  <span className="font-mono">{unheldCapabilities.join(' + ')}</span>, so the button
+                  is hidden from you too — grant it through a permission set to see it in the app.
+                </span>
+              </>
+            )}
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 pt-1">

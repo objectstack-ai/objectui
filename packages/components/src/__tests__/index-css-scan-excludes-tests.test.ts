@@ -7,7 +7,8 @@
  */
 
 /**
- * `src/index.css` must not scan this package's own TEST files — objectui#8446.
+ * `src/index.css` must not scan this package's own TEST files (objectui#8446),
+ * nor its own PROSE (objectui#9569).
  *
  * ## What was wrong
  *
@@ -38,15 +39,29 @@
  * production-sourced utility and a floor on the rule count, so an empty or
  * gutted sheet fails.
  *
- * ## Why `base` is passed explicitly
+ * ## Why `base` is still passed explicitly
  *
- * `src/index.css` opens with a bare `@import 'tailwindcss'`, so Tailwind's
- * automatic source detection is ON and resolves against the PROCESS CWD. Vitest
- * runs from the repo root while `pnpm build` runs from this package directory,
- * and the two produce different stylesheets from the same bytes (measured:
- * 3430 rules vs 1385). Pinning `base` to the package root makes this reading
- * reproduce the artifact the BUILD produces, from either working directory.
- * The CWD dependence itself is out of scope here and reported separately.
+ * It no longer has to be. `src/index.css` used to open with a bare
+ * `@import 'tailwindcss'`, leaving automatic source detection ON and rooted at
+ * the PROCESS CWD: vitest runs from the repo root while `pnpm build` runs from
+ * this package directory, and the two compiled different stylesheets from the
+ * same bytes. That entry now carries `source(none)` (objectui#9569), so nothing
+ * is detected automatically and this reading is CWD-independent by construction
+ * -- `base` governs only the automatic root, never the `@source` lines, which
+ * resolve against the entry stylesheet's own directory. It is kept because it
+ * costs nothing and still pins this reading to the directory the build runs in
+ * if that entry ever loses the `source(none)`.
+ *
+ * ## The prose half (objectui#9569)
+ *
+ * Automatic detection scanned every non-ignored file in the package, so class
+ * names quoted in `CHANGELOG.md`, `README.md` and the docs beside the renderers
+ * compiled into the published sheet. `changeset:version` writes changeset bodies
+ * into `CHANGELOG.md`, which made that a live channel from a release note into
+ * `dist/index.css` -- and, through the plugin builders' subtraction, out of the
+ * sibling packages' sheets. The second test below pins the door shut with its
+ * own lit control, because a negative assertion about a token nothing mentions
+ * any more would pass for the wrong reason.
  */
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -72,6 +87,12 @@ const SENTINEL = 'mt-[3.7331px]';
  * negative assertion from passing for the wrong reason.
  */
 const SENTINEL_VALUE = '3.7331px';
+
+/**
+ * Named by this package's `CHANGELOG.md` and by no shipped source in it. Under
+ * the pre-objectui#9569 entry this compiled a real rule into `dist/index.css`.
+ */
+const PROSE_ONLY_CLASS = 'flex-shrink-0';
 
 async function compilePublishedStylesheet(): Promise<{
   css: string;
@@ -99,5 +120,23 @@ describe('packages/components/src/index.css @source scan', () => {
     // NEGATIVE — this file is scanned only if the exclusions are gone.
     expect(SENTINEL).toContain(SENTINEL_VALUE);
     expect(css).not.toContain(SENTINEL_VALUE);
+  }, 60_000);
+
+  it("does not compile a class that only this package's CHANGELOG prose names", async () => {
+    const changelog = await readFile(resolve(packageRoot, 'CHANGELOG.md'), 'utf8');
+
+    // CONTROL — the door this asserts is shut must still exist. `CHANGELOG.md`
+    // is append-only, so an entry that once named this class keeps naming it; if
+    // this ever goes red the probe needs re-pointing at a token the file does
+    // carry, NOT deleting.
+    expect(changelog).toContain(PROSE_ONLY_CLASS);
+
+    // `flex-shrink-0` is the deprecated Tailwind v3 alias this repo migrated
+    // away from, so no shipped source emits it — compiling it would not merely
+    // be waste, it would be wrong. The only reason it was ever in the published
+    // sheet is the changelog entry announcing that migration.
+    const { css, selectors } = await compilePublishedStylesheet();
+    expect(selectors.has(`.${PROSE_ONLY_CLASS}`)).toBe(false);
+    expect(css).not.toContain(`.${PROSE_ONLY_CLASS}`);
   }, 60_000);
 });

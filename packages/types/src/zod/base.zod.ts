@@ -733,12 +733,26 @@ export const HTMLAttributesSchema = z.record(z.string(), z.any()).describe('HTML
  *
  * Why no JSON-authorable replacement can be written here, i.e. why this is a
  * NOTE and not a narrower schema: on the JSON face handlers are not values at
- * all. Events are declared on the node as `BaseSchema.events` — an event-name
- * string keying `ActionSchema[]` — and actions are DATA dispatched by
- * `@object-ui/core`, never functions (AGENTS.md commandment #4). The
+ * all. The per-node `on*` handler keys that do exist are declared through
+ * `handlerKeyRefusal()` in `./tombstone.zod.ts`, which refuses EVERY value —
+ * an authored object and a live function alike — and carries the remedy in
+ * its own message: author behaviour as a NODE TYPE, an `action:` node with a
+ * declared action, the spelling PR #6498 established. A record of function
+ * values is that same unauthorable shape with the key set left open as well,
+ * so narrowing it could only make the refusal harder to read. The
  * function-valued face is a TypeScript prop shape, declared as `EventHandlers`
  * in `../base.ts`; a zod mirror of it would mirror something that never
  * crosses the wire.
+ *
+ * ⚠️ `BaseSchema` declares NO `events` key, and this note asserted that it did
+ * until the claim was checked against the tree. AGENTS.md's abridged protocol
+ * sketch shows `events?: Record<string, ActionSchema[]>` and its action-system
+ * commandment authors one, but `BaseSchemaCore` has no such member, no
+ * renderer reads `schema.events`, and every authored `events` in the corpus is
+ * `TimelineSchema.events`, an unrelated array. `BaseSchemaCore` is
+ * `.passthrough()`, so a node written from that sketch is KEPT, judged by
+ * nothing and run by nothing. ⛔ Do not send an author there; the finding is
+ * carded separately.
  *
  * ⚠️ Do not conclude from a clean sweep that no second one of these exists.
  * Both standing instruments are structurally blind to this shape: the

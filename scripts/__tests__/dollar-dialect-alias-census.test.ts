@@ -200,7 +200,13 @@ describe('payload versus mention, and role by path', () => {
     expect(roleOf('packages/core/src/utils/__tests__/filter-converter.test.ts')).toBe('converter-ledger');
     expect(roleOf('packages/data-objectstack/README.md')).toBe('converter-ledger');
     expect(roleOf('packages/core/src/adapters/README.md')).toBe('refusal-ledger');
-    expect(roleOf('.changeset/8447-valuedatasource-dollar-operator-refusal.md')).toBe('release-notes');
+    // ⛔ A synthetic name, never a PENDING declaration this repository carries
+    // (objectui#9583). `roleOf` routes by path PREFIX — see the `.changeset/`
+    // row of the census's role map — so the basename carries no meaning here
+    // beyond sitting under the changeset directory, while a real one makes this
+    // literal a `markdown-test-inputs` ledger entry that `changeset version`
+    // deletes out from under. `check-pending-changeset-literals.mjs` holds it.
+    expect(roleOf('.changeset/fixture-pending-declaration.md')).toBe('release-notes');
   });
 
   it('routes the trees an author writes in to the authored corpus', () => {

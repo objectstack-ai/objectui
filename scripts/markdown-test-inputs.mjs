@@ -676,6 +676,20 @@ export const ADJUDICATED = new Map([
       reads: ['content/docs/guide/ci-cd-pipeline.md'],
     },
   ],
+  // Reads no markdown: the three documents below are ARGUMENTS to a path
+  // predicate — `isPendingDeclaration` classifies a string and opens nothing.
+  // They are real paths on purpose (a synthetic one would prove nothing about
+  // the shapes the predicate has to decline), and permanent ones on purpose:
+  // the suite pins the gate that stops a test naming a file `changeset version`
+  // deletes, so naming a pending declaration here would make it an instance of
+  // its own subject (objectui#9583).
+  [
+    'scripts/__tests__/check-pending-changeset-literals.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', 'CHANGELOG.md', 'packages/core/README.md'],
+    },
+  ],
   // Reads no markdown: reads workflow YAML and sources, no markdown.
   [
     'scripts/__tests__/check-pre-install-import-graph.test.ts',

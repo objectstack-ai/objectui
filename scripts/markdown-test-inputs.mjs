@@ -478,6 +478,13 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/page-breadcrumbs-refusal-8871.test.ts',
     { reads: ['content/docs/guide/layout.md'] },
   ],
+  // objectui#8256. Reads the root README's "Kanban Board" `json` fence and runs
+  // it through `safeValidateSchema` -- so an edit to that page IS an edit to
+  // this test's input, and a README-only pull request has to run the shard.
+  [
+    'packages/types/src/__tests__/readme-kanban-example-8256.test.ts',
+    { reads: ['README.md'], notRead: ['packages/types/README.md'] },
+  ],
   [
     'packages/types/src/__tests__/schema-reference-named-list-view-keys-7923.test.ts',
     { reads: ['content/docs/api/schema-reference.md'] },
@@ -858,15 +865,6 @@ export const ADJUDICATED = new Map([
     {
       reads: ['QUICK_REFERENCE.md'],
       walker: 'not-markdown: package and app directories',
-    },
-  ],
-  // objectui#8256. Reads the root README's "Kanban Board" `json` fence and runs
-  // it through `safeValidateSchema` -- so an edit to that page IS an edit to
-  // this test's input, and a README-only pull request has to run the shard.
-  [
-    'scripts/__tests__/readme-kanban-example-8256.test.ts',
-    {
-      reads: ['README.md'],
     },
   ],
   [

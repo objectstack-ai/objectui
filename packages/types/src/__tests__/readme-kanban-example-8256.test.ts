@@ -48,7 +48,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { safeValidateSchema } from '@object-ui/types/zod';
+import { safeValidateSchema } from '../zod/index.zod';
 
 /** Walk up to the workspace root, so the README is found by repo layout. */
 function repoRoot(): string {

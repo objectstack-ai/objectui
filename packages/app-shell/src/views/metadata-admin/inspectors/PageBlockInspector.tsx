@@ -747,6 +747,14 @@ export function PageBlockInspector({ selection, draft, onPatch, onClearSelection
         onCommit={(v) => patch({ visibleWhen: writeExpressionSource(block.visibleWhen, v) })}
         objectName={pageObject}
         disabled={readOnly}
+        /* `record`, because that is what the renderer binds — see the reading
+           above. Written EXPLICITLY, which is the half of the ruling that is
+           easy to skip: the value is not the interesting part, the fact that
+           this mount now states one is. Before this, the scope was nobody's
+           decision — every mount fell through `celAuthoring`'s own
+           `hint.scope ?? 'flattened'`, so a bare `status == 'done'` typed here
+           linted CLEAN and then never matched on any row. */
+        scope="record"
         onBlockingIssuesChange={reportCel}
       />
 

@@ -36,8 +36,8 @@
  * ## The control half
  *
  * Two of them, because "unchanged" is the load-bearing half of the ruling on
- * objectui#8167: three further mounts (page block, hook, and the schema-driven
- * `ConditionWidget`) were deliberately left passing nothing while their tier
+ * objectui#8167: two further mounts (hook, and the schema-driven
+ * `ConditionWidget`) are still passing nothing while their tier
  * question is open. `HookDefaultInspector` stands for that set as a real
  * rendered mount, and a bare `ConditionBuilder` with no `scope` stands for the
  * default itself. Both must still lint the bare shorthand CLEAN. If a later
@@ -70,9 +70,12 @@ vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,
 }));
 
+import { PageSchema } from '@objectstack/spec/ui';
+
 import { ConditionBuilder } from './ConditionBuilder';
 import { ActionDefaultInspector } from './ActionDefaultInspector';
 import { HookDefaultInspector } from './HookDefaultInspector';
+import { PageBlockInspector } from './PageBlockInspector';
 import { ObjectValidationsPanel } from '../../studio-design/ObjectValidationsPanel';
 
 afterEach(cleanup);
@@ -199,6 +202,58 @@ describe('ObjectValidationsPanel — the SERVER binds a rule condition to `recor
 
   it('still accepts the canonical spelling in a rule condition', async () => {
     const { container } = render(<ValidationsHarness />);
+    const box = rawEditorIn(container as HTMLElement);
+    fireEvent.change(box, { target: { value: CANONICAL } });
+    await expectAccepted(box);
+  });
+});
+
+/* ── Mount 4 — a page block's `visibleWhen` ────────────────────────────── */
+
+function pageDraft(): Record<string, unknown> {
+  return PageSchema.parse({
+    name: 'home',
+    label: 'Home',
+    type: 'home',
+    template: 'default',
+    regions: [{ name: 'main', components: [{ type: 'text', id: 'b1' }] }],
+  }) as unknown as Record<string, unknown>;
+}
+
+function PageBlockHarness() {
+  const [draft, setDraft] = React.useState<Record<string, unknown>>(pageDraft);
+  return (
+    <PageBlockInspector
+      type="page"
+      name="home"
+      draft={draft}
+      selection={{ kind: 'block', id: 'regions[0].components[0]' }}
+      onPatch={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+      onClearSelection={() => {}}
+      onSelectionChange={() => {}}
+      onBlockingIssuesChange={() => {}}
+      readOnly={false}
+      locale={'en-US' as never}
+    />
+  );
+}
+
+describe('PageBlockInspector — the node tier IS a row surface here (objectui#8167)', () => {
+  // MEASURED, not assumed — this is the mount the ruling refused to settle from
+  // a mount list. A page block is handed to `SchemaRenderer`, whose `shouldHide`
+  // answers `visibleWhen` from an evaluator that binds the row as the `record`
+  // ROOT ONLY ("NOT as bare fields", in the renderer's own words), and
+  // `SchemaRenderer.visibleWhenRecordBinding.test.tsx` pins that a bare
+  // `status == 'in_review'` shows the block on BOTH polarities of the row.
+  it('rejects the bare shorthand in the block visibility gate and names the record.<field> fix', async () => {
+    const { container } = render(<PageBlockHarness />);
+    const box = rawEditorIn(container as HTMLElement);
+    fireEvent.change(box, { target: { value: BARE } });
+    await expectRejected(box);
+  });
+
+  it('still accepts the canonical spelling in the block visibility gate', async () => {
+    const { container } = render(<PageBlockHarness />);
     const box = rawEditorIn(container as HTMLElement);
     fireEvent.change(box, { target: { value: CANONICAL } });
     await expectAccepted(box);

@@ -48,11 +48,15 @@
  * not. The escape hatch is real this time — `hideEmpty: false` parses green on
  * the strict section object, which is what #7129 measured it could not do.
  *
- * ⚠️ The unauthored all-empty default therefore moved back: a section whose
- * fields are ALL empty renders nothing unless the page writes `false`. What
- * did NOT move back is the shape #7064 removed — the renderer still does not
- * force a default at the mapping, so `undefined` and `true` stay
- * distinguishable everywhere except at the one read that resolves them.
+ * ⚠️ The unauthored all-empty default therefore moved back: an AUTHORED
+ * section whose fields are ALL empty renders nothing unless the page writes
+ * `false`. WHERE that default is resolved is the design, and the last describe
+ * block below is what pins it: `RecordDetailsRenderer` applies `?? true` to an
+ * authored section and `DetailSection` tests `=== true`, so a section nobody
+ * could have written the key on — the direct-`fields` fallback body, the
+ * `detail-section` node — keeps its skeleton. A hide there would be a hide
+ * with no declarable spelling to ask the skeleton back, which is the defect
+ * upstream declared the key to fix.
  *
  * Deliberately no i18n provider, so the row labels below are rung 2 of the
  * label ladder: the object's own DECLARED `label`. They read as field NAMES
@@ -346,5 +350,45 @@ describe('record:details — an authored `hideEmpty` decides the ALL-EMPTY secti
 
     expect(renderedFor({ hideEmpty: true })).toEqual(absent);
     expect(renderedFor({ hideEmpty: false })).toEqual(absent);
+  });
+});
+
+describe('record:details — the default reaches ONLY the surface that declares the key (#8603)', () => {
+  it('the direct-`fields` fallback body keeps its skeleton when every field is empty', () => {
+    // No `sections`, so the body falls back to the authored `fields` list and
+    // `DetailView` synthesizes the section itself. There is no entry for an
+    // author to write `hideEmpty` on, in the spec or anywhere else, so the
+    // default must not reach it — otherwise a brand-new record renders a blank
+    // page with nothing the page could say to get its structure back.
+    //
+    // ⚠️ This case is what makes `=== true` in `DetailSection` load-bearing
+    // rather than stylistic: under `!== false` the synthesized section would
+    // take the hide, and this body would be empty.
+    renderDetails({ fields: ['stage', 'amount', 'close_date', 'next_step'] }, {});
+
+    for (const label of ['Stage', 'Amount', 'Close Date', 'Next Step']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(emptyPlaceholders()).toHaveLength(4);
+  });
+
+  it('an AUTHORED section in the same render DOES take the default', () => {
+    // The discriminating half: same document, same record, one authored
+    // section and — through a second render — the same field list authored as
+    // the fallback body. The pair is what shows the two surfaces are treated
+    // differently on purpose rather than by accident of fixture shape.
+    renderDetails({
+      sections: [
+        { name: 'deal_terms', label: 'Deal Terms', fields: ['stage', 'amount', 'close_date', 'next_step'] },
+        // CONTROL: this one has the record's one filled field, so it renders.
+        { name: 'firmographics', label: 'Firmographics', fields: ['industry'] },
+      ],
+    });
+
+    expect(screen.getByText('Firmographics')).toBeInTheDocument();
+    expect(screen.queryByText('Deal Terms')).not.toBeInTheDocument();
+    for (const label of ['Stage', 'Amount', 'Close Date', 'Next Step']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
   });
 });

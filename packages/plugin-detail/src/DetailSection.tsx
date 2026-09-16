@@ -266,20 +266,27 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   // nothing at all (no heading, no skeleton), and `false` keeps the heading
   // and the label skeleton on an all-empty record.
   //
-  // ⚠️ Read as `!== false`, NOT as a truthiness test. `!section.hideEmpty`
-  // is what made an authored `false` indistinguishable from unauthored under
-  // the pre-#7129 code, and an override nobody can write is the defect this
-  // restoration must not reintroduce.
+  // ⚠️ `=== true`, and the DEFAULT IS NOT HERE. `RecordDetailsRenderer`
+  // resolves it (`hideEmpty: s.hideEmpty ?? true` on the authored section),
+  // because "the renderer default" in that describe() is the default of the
+  // renderer the key is DECLARED on. This component also receives sections
+  // nobody could write the key on — the `record:details` direct-`fields`
+  // fallback body and the `detail-section` node both synthesize one, and
+  // neither surface declares `hideEmpty` — and hiding those would be a hide
+  // with no declarable spelling to ask the skeleton back, which is the exact
+  // defect upstream declared the key to fix. A truthiness test
+  // (`!section.hideEmpty`) is banned for the mirror-image reason: it is what
+  // made an authored `false` indistinguishable from unauthored before #7129.
   //
   // ⚠️ `!isEditing` is this renderer's boundary on the contract, and it is
   // deliberate: inline-edit mode is the surface where those empty rows are the
   // INPUTS. Hiding an all-empty section there would put its fields out of the
   // author's and the user's reach entirely, which no describe() asks for and
-  // which would be a new defect rather than a restored behaviour. The reading
-  // the contract governs is what a READER sees, and that is what this leaves
+  // which would be a new defect rather than a restored behaviour. What the
+  // contract governs is what a READER sees, and that is what this leaves
   // unchanged.
   const allFieldsEmpty = section.fields.length > 0 && filledCount === 0;
-  const hideAllEmptySection = section.hideEmpty !== false && allFieldsEmpty && !isEditing;
+  const hideAllEmptySection = section.hideEmpty === true && allFieldsEmpty && !isEditing;
 
   const hideEmptyEffective =
     !showEmptyOverride && (shouldAutoHideEmpty || hideAllEmptySection);

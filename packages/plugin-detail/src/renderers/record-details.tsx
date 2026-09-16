@@ -584,23 +584,38 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         // flat sections stay borderless so the page chrome alone provides
         // containment. Authors can override explicitly via `showBorder`.
         showBorder: s.showBorder ?? (translatedTitle ? true : false),
-        // The authored empty-section key, passed through verbatim.
+        // The authored empty-section key, and THE RENDERER DEFAULT ITSELF.
         //
-        // ⚠️ Measured, so the next reader does not have to: this slot is a
-        // STATEMENT, not the behaviour. The `...s` above already spreads every
-        // authored key, so `hideEmpty` reaches `DetailSection` with or without
-        // this line — which is why #7129's ablation found deleting the slot
-        // alone changed nothing and left its suite green. The behaviour lives
-        // in `DetailSection`, and that is where the ablation for this change
-        // turns red. The slot is kept so the key this renderer contracts on is
-        // visible at the mapping, beside `showBorder`.
+        // `@objectstack/spec` declares `hideEmpty` on this renderer's section
+        // entry with no schema default, and states the fallback as the
+        // renderer's: hiding is on, so a section whose fields are ALL empty
+        // renders nothing at all — no heading, no skeleton — and `false` keeps
+        // the heading and the label skeleton a brand-new record needs.
         //
-        // ⛔ Deliberately NOT defaulted here. `?? true` at this line is the
-        // shape objectui#7064 removed (maintainer ruling 2026-08-31): it makes
-        // an unauthored section indistinguishable from an authored `true` at
-        // every later read, so the one place that can tell them apart —
-        // `DetailSection`, which owns the all-empty decision — loses the
-        // distinction before it is asked.
+        // ⭐ The default is resolved HERE, on an AUTHORED section, and that
+        // placement is the whole design. `DetailSection` tests `=== true`, so
+        // the default reaches exactly the surface that declares the key.
+        // Sections nobody can write it on stay out: the direct-`fields`
+        // fallback body below and the `detail-section` node each synthesize a
+        // section, and a hide there would be one with no declarable spelling
+        // to ask the skeleton back — the defect upstream declared this key to
+        // fix, reintroduced one surface over.
+        //
+        // ⚠️ `?? true` is the spelling objectui#7064 removed, and it is back
+        // deliberately. That ruling's objection was to the BEHAVIOUR — an
+        // all-empty section vanishing with no way for a spec-validated page to
+        // ask it back, because the spec refused the key. objectui#8603 reverses
+        // the behaviour (the spec declares the key, so the way back exists and
+        // parses), and the spelling is what now CONFINES the default to the
+        // authored surface instead of applying it to every section this file
+        // hands on.
+        //
+        // ⚠️ Measured, so the next reader does not have to: the `...s` above
+        // already spreads an authored value through, which is why #7129's
+        // ablation found deleting this slot alone changed nothing and left its
+        // suite green. This line is not a pass-through — it is the default —
+        // but an ablation that only deletes it still has to reach
+        // `DetailSection` to turn anything red on an AUTHORED `true`.
         //
         // History, because this key has been reversed twice: the slot forced
         // `s.hideEmpty ?? true` until objectui#7064 passed the authored value
@@ -615,7 +630,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         // Q2-C — the auto-hide heuristic owning the empty ROWS of a
         // partly-filled section — is untouched. Pinned four ways in
         // `__tests__/record-details.hideEmptyRetired-7129.test.tsx`.
-        hideEmpty: s.hideEmpty,
+        hideEmpty: s.hideEmpty ?? true,
         fields: dropHidden(normaliseList(filterList(s.fields))),
       });
       })

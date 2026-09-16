@@ -38,8 +38,19 @@ interface DatePickerSchema {
   
   // Styling
   className?: string;
+  wrapperClass?: string;
 }
 ```
+
+<Callout type="warn">
+  `wrapperClass` is now typed. The renderer has read it all along — it lands on the
+  wrapper element around the date picker and its label — but it went undeclared until
+  objectui#7722, surviving on `BaseSchema`'s index signature and the zod mirror's
+  `.passthrough()`. Declared as `string` on both faces, a **non-string**
+  `wrapperClass` that used to parse green is now refused by name — on
+  `DatePickerSchema` and through `safeValidateSchema` alike. Pass the Tailwind class
+  string; a number or an object gets a parse error where it used to get silence.
+</Callout>
 
 ## Examples
 

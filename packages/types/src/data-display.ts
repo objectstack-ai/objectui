@@ -303,6 +303,92 @@ export interface ListSchema extends BaseSchema {
    * Distinct from `className`, which the renderer hands to the `ul` / `ol`.
    */
   wrapperClass?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `list` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program built from the repo-root `tsconfig.json` on a BUILT tree — an
+   * unbuilt tree resolves a workspace package to `any`, and `any` reads as
+   * NEITHER, which is the shape that hides a hit. A docblock mention is not an
+   * AST node and `schema.bodyExtra` is a different property, so neither can
+   * score. Every read is filed under the DECLARED TYPE of the object it is read
+   * from; this declaration carries none. What the renderer DOES read off this
+   * node, from the same instrument: `bind`, `items`, `ordered`, `title`,
+   * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
+   *
+   * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
+   * each entry as `item.content || renderChildren(item.body)` — a read filed
+   * under {@link ListItem}, NOT under this node. An instrument that attributed
+   * it here would have made `list` a `body` reader and this tombstone a
+   * mistake, so the item channel is pinned as still live in
+   * `__tests__/content-channel-family-d-9256.test.ts`.
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9544, AND WHAT CHANGED. It was
+   * held for a SERIAL constraint, ⛔ never a verdict: this file was being
+   * edited by another slice. Ownership is separately measured —
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:list`
+   * as the SOLE claimant of the bare `list` key, because `view:list` in
+   * `packages/plugin-list` passes `skipFallback: true`. Re-derive from that
+   * instrument rather than from this sentence. ⚠️ Ownership and readership are
+   * DIFFERENT questions: settling who owns a bare key does not license a
+   * tombstone, and reading the one for the other is what would have narrowed
+   * `button`, which reads both channels live.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `list` reads — nothing renders it. Author the
+   * rows as `items`, whose entries carry `content`.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `list` reads NEITHER content
+   * channel: no renderer read consumes `body` or `children` for this node.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program built from the repo-root `tsconfig.json` on a BUILT tree — an
+   * unbuilt tree resolves a workspace package to `any`, and `any` reads as
+   * NEITHER, which is the shape that hides a hit. A docblock mention is not an
+   * AST node and `schema.bodyExtra` is a different property, so neither can
+   * score. Every read is filed under the DECLARED TYPE of the object it is read
+   * from; this declaration carries none. What the renderer DOES read off this
+   * node, from the same instrument: `bind`, `items`, `ordered`, `title`,
+   * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
+   *
+   * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
+   * each entry as `item.content || renderChildren(item.body)` — a read filed
+   * under {@link ListItem}, NOT under this node. An instrument that attributed
+   * it here would have made `list` a `body` reader and this tombstone a
+   * mistake, so the item channel is pinned as still live in
+   * `__tests__/content-channel-family-d-9256.test.ts`.
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9544, AND WHAT CHANGED. It was
+   * held for a SERIAL constraint, ⛔ never a verdict: this file was being
+   * edited by another slice. Ownership is separately measured —
+   * `pnpm check:registry-bare-names --table` (objectui#9264) reports `ui:list`
+   * as the SOLE claimant of the bare `list` key, because `view:list` in
+   * `packages/plugin-list` passes `skipFallback: true`. Re-derive from that
+   * instrument rather than from this sentence. ⚠️ Ownership and readership are
+   * DIFFERENT questions: settling who owns a bare key does not license a
+   * tombstone, and reading the one for the other is what would have narrowed
+   * `button`, which reads both channels live.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `list` reads — nothing renders it. Author the
+   * rows as `items`, whose entries carry `content`.
+   */
+  children?: never;
 }
 
 /**
@@ -2501,6 +2587,90 @@ export interface TimelineSchema extends BaseSchema {
    * @default 'left'
    */
   position?: 'left' | 'right' | 'alternate';
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `timeline` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node, on EITHER of its two readers.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program built from the repo-root `tsconfig.json` on a BUILT tree — an
+   * unbuilt tree resolves a workspace package to `any`, and `any` reads as
+   * NEITHER, which is the shape that hides a hit. Every read is filed under the
+   * DECLARED TYPE of the object it is read from; this declaration carries none.
+   * What `TimelineRenderer` DOES read off this node, from the same instrument:
+   * `items`, `minDate`, `maxDate`, `rowLabel` — plus `variant`, `dateFormat`
+   * and `scale`, which reach it by destructuring.
+   *
+   * ⭐ BOTH readers were measured, not just the declared one. The bare
+   * `timeline` key is owned by `view:timeline` (`ObjectTimelineRenderer` in
+   * `packages/plugin-timeline`), whose props are `any`-typed, so a
+   * receiver-type sweep alone would have scored it as "reads neither" for the
+   * wrong reason. It was attributed directly instead: `packages/plugin-timeline`
+   * contains NO `body` / `children` read of any kind, on any receiver.
+   * `plugin-timeline:timeline` — the presentational `TimelineRenderer` this
+   * declaration types — passes `skipFallback: true` and stands down from the
+   * bare key. Re-derive ownership with
+   * `pnpm check:registry-bare-names --table` (objectui#9264).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9544: a SERIAL constraint on this
+   * file, ⛔ never a verdict. ⚠️ Ownership and readership are DIFFERENT
+   * questions — settling who owns a bare key does not license a tombstone, and
+   * reading the one for the other is what would have narrowed `button`, which
+   * reads both channels live.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `timeline` reads — nothing renders it. Author the
+   * rows as `items`.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `timeline` reads NEITHER
+   * content channel: no renderer read consumes `body` or `children` for this
+   * node, on EITHER of its two readers.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program built from the repo-root `tsconfig.json` on a BUILT tree — an
+   * unbuilt tree resolves a workspace package to `any`, and `any` reads as
+   * NEITHER, which is the shape that hides a hit. Every read is filed under the
+   * DECLARED TYPE of the object it is read from; this declaration carries none.
+   * What `TimelineRenderer` DOES read off this node, from the same instrument:
+   * `items`, `minDate`, `maxDate`, `rowLabel` — plus `variant`, `dateFormat`
+   * and `scale`, which reach it by destructuring.
+   *
+   * ⭐ BOTH readers were measured, not just the declared one. The bare
+   * `timeline` key is owned by `view:timeline` (`ObjectTimelineRenderer` in
+   * `packages/plugin-timeline`), whose props are `any`-typed, so a
+   * receiver-type sweep alone would have scored it as "reads neither" for the
+   * wrong reason. It was attributed directly instead: `packages/plugin-timeline`
+   * contains NO `body` / `children` read of any kind, on any receiver.
+   * `plugin-timeline:timeline` — the presentational `TimelineRenderer` this
+   * declaration types — passes `skipFallback: true` and stands down from the
+   * bare key. Re-derive ownership with
+   * `pnpm check:registry-bare-names --table` (objectui#9264).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9544: a SERIAL constraint on this
+   * file, ⛔ never a verdict. ⚠️ Ownership and readership are DIFFERENT
+   * questions — settling who owns a bare key does not license a tombstone, and
+   * reading the one for the other is what would have narrowed `button`, which
+   * reads both channels live.
+   *
+   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
+   * whose own docblock admits "some components use `children` instead of
+   * `body`" without saying which — so authoring either here type-checked,
+   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
+   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
+   * it spreads, so neither reaches the component by another route either.
+   *
+   * @deprecated Not a channel `timeline` reads — nothing renders it. Author the
+   * rows as `items`.
+   */
+  children?: never;
 }
 
 /**

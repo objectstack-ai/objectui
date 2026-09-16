@@ -50,9 +50,28 @@
  *     `calendar`'s tombstone by declaration (`Omit` on the TS face, `.extend()`
  *     on the mirror) and is pinned as its own row so the propagation is
  *     measured and not assumed.
- *   - `list` and `timeline` stay out: both declare in `data-display.ts`, which
- *     objectui#7804 slice 1 is editing on another branch. A serial constraint,
- *     not a verdict.
+ *   - ⭐ `list` and `timeline` are narrowed HERE, by objectui#9256 slice 3. They
+ *     were held for a SERIAL constraint and ⛔ never for a verdict: both declare
+ *     in `data-display.ts`, which another slice was editing. That constraint is
+ *     discharged, and READERSHIP was re-derived for both rather than inherited —
+ *     ownership (objectui#9264) settles who answers a bare key and licenses
+ *     NOTHING about which channel a renderer reads, which is the conflation that
+ *     would have narrowed `button`. `ListSchema` and `TimelineSchema` each file
+ *     ZERO channel reads under their declared type while the same sweep fires
+ *     `ButtonSchema` 2 · `DivSchema` 2 · `CardSchema` 2 · `ContainerSchema` 1, and
+ *     both target types ARE seen as receivers in the same program (`ListSchema`
+ *     for `bind` / `items` / `ordered` / `title` / `wrapperClass`, `TimelineSchema`
+ *     for `items` / `minDate` / `maxDate` / `rowLabel`) — so the zeros are
+ *     readings and not instrument blindness.
+ *   - ⚠️ `timeline`'s bare key is owned by `view:timeline`, whose renderer is
+ *     `any`-typed, so a receiver-type sweep alone would have scored it "reads
+ *     neither" for the wrong reason. Attributed directly instead: the whole of
+ *     `packages/plugin-timeline` contains NO `body` / `children` read, on any
+ *     receiver.
+ *   - ⚠️ `list`'s renderer DOES read a `body` — `item.content ||
+ *     renderChildren(item.body)` — but that is the ITEM channel, filed under
+ *     `ListItem` and not under `ListSchema`, the same shape as `tabs`. A LIVE
+ *     CONTROL below keeps the item channel parsing.
  *   - ⛔ `button` stays out, and the reason CHANGED under re-derivation.
  *     `check:registry-bare-names` reports `ui:button` as the sole owner of the
  *     bare key — but that owner's renderer reads
@@ -97,6 +116,8 @@ import {
   TabsSchema as TabsMirror,
 } from '../zod/layout.zod';
 import {
+  ListSchema as ListMirror,
+  TimelineSchema as TimelineMirror,
   HtmlSchema as HtmlMirror,
   AvatarSchema as AvatarMirror,
   TreeViewSchema as TreeViewMirror,
@@ -182,7 +203,7 @@ import type { CollapsibleSchema } from '../disclosure';
 import type { DialogSchema } from '../overlay';
 import type { SeparatorSchema } from '../layout';
 import type { CheckboxSchema } from '../form';
-import type { KbdSchema, PivotTableSchema } from '../data-display';
+import type { KbdSchema, PivotTableSchema, ListSchema, TimelineSchema } from '../data-display';
 import type { SkeletonSchema } from '../feedback';
 import type { PaginationSchema } from '../navigation';
 import type { ObjectGallerySchema } from '../objectql';
@@ -282,6 +303,11 @@ const ROWS: ReadonlyArray<readonly [
   ['accordion', AccordionMirror as unknown as Mirror, ['body', 'children'], {"items":[]}],
   ['calendar', CalendarMirror as unknown as Mirror, ['body', 'children'], {}],
   ['ui:calendar', UiCalendarMirror as unknown as Mirror, ['body', 'children'], {}],
+  // ── objectui#9256 slice 3 — the two names a SERIAL constraint held back ──
+  // Readership re-derived for both rather than inherited from the slice that
+  // held them; ownership is a different question and licenses nothing here.
+  ['list', ListMirror as unknown as Mirror, ['body', 'children'], {"items":[]}],
+  ['timeline', TimelineMirror as unknown as Mirror, ['body', 'children'], {}],
 ];
 
 const CONTENT = [{ type: 'text', content: 'measured' }];
@@ -296,9 +322,9 @@ const CASES = ROWS.flatMap(([type, mirror, dead, required]) =>
 
 describe('objectui#9256 — family D refuses the content channels its renderers never read', () => {
   it('the population is the measured one — a row dropped from the table fails here', () => {
-    expect(ROWS).toHaveLength(65);
+    expect(ROWS).toHaveLength(67);
     // 3 fewer than 2x: the chatbot faces carry `children` only.
-    expect(CASES).toHaveLength(65 * 2 - 3);
+    expect(CASES).toHaveLength(67 * 2 - 3);
   });
 
   it.each(CASES)('%s is refused at that key\'s own path', (_label, mirror, key, required) => {
@@ -373,6 +399,19 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
     expect(issues(TabsMirror as unknown as Mirror, {
       type: 'tabs',
       items: [{ value: 't1', label: 'One', content: CONTENT }],
+    })).toBeNull();
+  });
+
+  it('LIVE CONTROL — `list`\'s ITEM channel is untouched: an item still parses `content`', () => {
+    // `list.tsx` draws each entry as `item.content || renderChildren(item.body)`
+    // — an ITEM read, filed under `ListItem` and NOT under `ListSchema`. An
+    // instrument that attributed it to the NODE would have made `list` a `body`
+    // reader and the row above a mistake, so the item channel is pinned as still
+    // live. `content` is the key `ListItemSchema` declares; the row above is
+    // about the node's own two keys and touches neither.
+    expect(issues(ListMirror as unknown as Mirror, {
+      type: 'list',
+      items: [{ label: 'One', content: CONTENT }],
     })).toBeNull();
   });
 
@@ -471,6 +510,15 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
     const calendarBody: CalendarSchema = { type: 'calendar', body: CONTENT };
     // @ts-expect-error objectui#9256 — `calendar` reads neither channel on either of its two readers
     const calendarChildren: CalendarSchema = { type: 'calendar', children: CONTENT };
+    // ── slice 3: the two names a SERIAL constraint held back ──────────────
+    // @ts-expect-error objectui#9256 — `list` renders `items[]`, never the node's own channel
+    const listBody: ListSchema = { type: 'list', items: [], body: CONTENT };
+    // @ts-expect-error objectui#9256 — `list` renders `items[]`, never the node's own channel
+    const listChildren: ListSchema = { type: 'list', items: [], children: CONTENT };
+    // @ts-expect-error objectui#9256 — `timeline` reads neither channel on either of its two readers
+    const timelineBody: TimelineSchema = { type: 'timeline', body: CONTENT };
+    // @ts-expect-error objectui#9256 — `timeline` reads neither channel on either of its two readers
+    const timelineChildren: TimelineSchema = { type: 'timeline', children: CONTENT };
     // ⚠️ TRIPWIRE, and deliberately NOT a `@ts-expect-error`. `UiCalendarSchema`
     // is declared as `Omit<CalendarSchema, 'type'>`, and `BaseSchema` carries an
     // index signature — so `Omit` resolves through `Exclude<string, 'type'>` =
@@ -493,7 +541,8 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
       textBody, textChildren, imageBody, imageChildren, iconBody, iconChildren,
       tabsBody, tabsChildren, accordionBody, accordionChildren, calendarBody, calendarChildren,
       uiCalendarBody,
-    ]).toHaveLength(28);
+      listBody, listChildren, timelineBody, timelineChildren,
+    ]).toHaveLength(32);
   });
 
   it('CONTROL — the same nodes WITHOUT a content channel compile (no `@ts-expect-error` here, and `tsc` is the reader)', () => {
@@ -504,8 +553,12 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
       { type: 'checkbox' } satisfies CheckboxSchema,
       { type: 'dialog', content: CONTENT } satisfies DialogSchema,
       { type: 'collapsible', trigger: CONTENT, content: CONTENT } satisfies CollapsibleSchema,
+      // The ITEM channel of `list`, on the TypeScript face: `ListItem.content`
+      // is declared and stays authorable. `tsc` is the reader of this line, and
+      // it is what keeps the two `list` rows above a statement about the NODE.
+      { type: 'list', items: [{ label: 'One', content: CONTENT }] } satisfies ListSchema,
     ];
-    expect(ok).toHaveLength(6);
+    expect(ok).toHaveLength(7);
   });
 
   it('CONTROL — `chatbot` still TYPE-CHECKS with `body`, the held-out key', () => {

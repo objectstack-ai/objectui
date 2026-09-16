@@ -217,12 +217,15 @@ export interface WidgetSourceRegistry {
  *
  * ## Where this face still diverges from `ComponentInput` — recorded, not repaired
  *
- * Two differences remain (a third, recorded below, was ADDED by a later
- * retirement), and the ruling on both is NOT NOW rather than "these
+ * Two differences remain, and the ruling on both is NOT NOW rather than "these
  * are the same thing" (objectui#5675). Widget authoring and component
  * registration are not obviously one surface, and nothing measured is pulling
  * for the merge. They are written down here so the next reader meets a
  * decision instead of an accident.
+ *
+ * A third entry below is NOT a divergence: item 3 records the one place the
+ * two faces once disagreed and now AGREE, kept because the agreement was
+ * ruled and a later reader would otherwise re-open it.
  *
  * 1. **The enum slot is spelled `options` here and `enum` on `ComponentInput`.**
  *    One concept, two names, one package. It is adapted rather than broken:
@@ -260,20 +263,36 @@ export interface WidgetSourceRegistry {
  *    record. ⇒ The fork this block used to report as OPEN is CLOSED; do not
  *    re-read it as a pending question.
  *
- * 3. **Three keys this face DOES declare are tombstones on `ComponentInput`**
- *    — `label`, `defaultValue`, `advanced` (objectui#7493 / objectui#7781,
- *    maintainer ruling A of 2026-09-06, ADR-0049): the serializer forwards
- *    six keys and none of these, and no consumer of `ComponentMeta.inputs`
- *    read them. `WidgetRegistry.load()` therefore no longer copies them
- *    across the seam — that copy was the one non-test write of the three and
- *    it fed nothing. They stay declared and WRITABLE here: this is the
- *    widget-manifest face, authored outside this repository, and nothing has
- *    ruled on it. What that leaves is measured, not repaired: after the copy
- *    went, no reader of `WidgetInput.label` / `defaultValue` / `advanced`
- *    exists in this repository either — recorded as objectui#7911 for a
- *    ruling of its own, in the shape objectui#7781 took for the other face.
+ * 3. **`label`, `defaultValue` and `advanced`: BOTH FACES AGREE — all three are
+ *    ADR-0049 retirement tombstones.** They were retired on `ComponentInput`
+ *    first (objectui#7493 / objectui#7781, maintainer ruling A of 2026-09-06):
+ *    the manifest serializer forwards a fixed key list and none of these is on
+ *    it, and no consumer of `ComponentMeta.inputs` read them, so
+ *    `WidgetRegistry.load()` stopped copying them across the seam — that copy
+ *    was the one non-test write of the three and it fed nothing. This face then
+ *    held them for one more ruling, because a widget manifest is authored
+ *    OUTSIDE this repository and the in-repo zero is only half the question.
+ *    Maintainer ruling A of 2026-09-15 (objectui#7911) carried the retirement
+ *    here: `?: never` on all three. The asymmetry this block used to report is
+ *    CLOSED; ⛔ do not re-read it as a pending question, and ⛔ do not "restore"
+ *    a member to keep the two lists different lengths.
  *
- * Pin: `__tests__/widget-input-control-vocabulary.test.ts`.
+ *    ⚠️ **What the tombstone does and does not buy — stated because the
+ *    difference is the whole cost of the ruling.** There is no zod mirror of
+ *    this interface (measured 0 against a live `ComponentInput` control), so
+ *    unlike the `ComponentInput` retirement this one has NO runtime face: it is
+ *    a `tsc` error at a TypeScript authoring site and nothing else. A widget
+ *    manifest that arrives as JSON is not parsed through this type by anything
+ *    in this repository — `WidgetRegistry` does no validation and no
+ *    deserialization — so an out-of-repo author who writes `label` today gets
+ *    exactly what they got before: the key is ignored, silently. Making that
+ *    refusal loud for the authors who actually exist would take a runtime
+ *    mirror for the manifest face, which was offered as option C on
+ *    objectui#7911 and deliberately NOT opened.
+ *
+ * Pin: `__tests__/widget-input-control-vocabulary.test.ts` (the vocabulary and
+ * the divergence record) and `__tests__/widget-input-retired-keys-7911.test.ts`
+ * (the three tombstones, in both directions).
  */
 export interface WidgetInput {
   /** Input field name (maps to prop name) */
@@ -286,18 +305,53 @@ export interface WidgetInput {
    * for why the single-kind form is deliberate.
    */
   type: ComponentInputControlType;
-  /** Human-readable label */
-  label?: string;
-  /** Default value */
-  defaultValue?: unknown;
+  /**
+   * RETIRED (objectui#7911, ADR-0049) — never read on this face either.
+   *
+   * `WidgetRegistry.load()` is the only consumer of a manifest's `inputs` in
+   * this repository, and it forwards `name`, `type`, `required`, `options`
+   * (as `enum`) and `description` — not this key. Its twin on
+   * `ComponentInput` is already a tombstone (objectui#7493 / objectui#7781),
+   * so the copy that used to carry this value across the seam is gone and
+   * nothing took its place.
+   *
+   * What an author writes instead: NOTHING. An input is identified by its
+   * `name` on every path that reaches it, and no consumer ever rendered a
+   * label for one; `description` is the published place to tell an author
+   * anything about an input.
+   *
+   * @deprecated Not part of `WidgetInput`'s contract — the value was inert.
+   */
+  label?: never;
+  /**
+   * RETIRED (objectui#7911, ADR-0049) — never read on this face either.
+   *
+   * No renderer, registry or designer surface in this repository ever read a
+   * declared default off a widget input; the seam that once copied it onto
+   * `ComponentInput.defaultValue` was deleted when that key became a tombstone
+   * (objectui#7493). Delete the key: the renderer's own fallback read IS the
+   * default, and `description` — which IS forwarded — is where to state it.
+   *
+   * @deprecated Not part of `WidgetInput`'s contract — the value was inert.
+   */
+  defaultValue?: never;
   /** Whether this input is required */
   required?: boolean;
   /** Enum options (for type: 'enum') */
   options?: string[] | Array<{ label: string; value: unknown }>;
   /** Help text */
   description?: string;
-  /** Whether this is an advanced setting (hidden by default) */
-  advanced?: boolean;
+  /**
+   * RETIRED (objectui#7911, ADR-0049) — never read on this face either.
+   *
+   * No designer surface in this repository ever hid an "advanced" input, on
+   * either face; its `ComponentInput` twin was retired for that reason
+   * (objectui#7781) and the seam copy went with it (objectui#7493). There is
+   * nothing to write instead.
+   *
+   * @deprecated Not part of `WidgetInput`'s contract — the value was inert.
+   */
+  advanced?: never;
 }
 
 /**

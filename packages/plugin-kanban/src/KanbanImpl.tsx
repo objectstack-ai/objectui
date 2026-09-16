@@ -20,7 +20,6 @@ import {
 } from "@dnd-kit/core"
 import {
   SortableContext,
-  arrayMove,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
@@ -597,13 +596,18 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
     }));
   }, [columns]);
 
-  // The board keeps its own copy of the columns, and that mirror STAYS: the drag
-  // path writes it optimistically (`handleDragEnd` below), and the `columns`
-  // prop never carries card ORDER back. A same-column reorder notifies nobody —
-  // `handleDragEnd` takes its local branch without calling `onCardMove` — and
-  // `ObjectKanban.handleCardMove` early-returns on `fromColumnId === toColumnId`
-  // and discards `newIndex` outright. Order truth is local-only, so deriving
-  // this away would roll a committed reorder back on the next prop change.
+  // The board keeps its own copy of the columns, and that mirror STAYS: the
+  // cross-column drag path writes it optimistically (`handleDragEnd` below), so
+  // a card the user moved between columns is in its new column on screen before
+  // any data round-trip carries that membership back — and on the ownership
+  // where a parent owns the records, nothing re-renders this board until that
+  // parent reflows. Deriving the mirror away would strand such a move.
+  //
+  // ⚠️ What the mirror no longer holds is card ORDER (objectui#8826). The
+  // `columns` prop never carried order back, so an optimistic reorder was a
+  // claim nothing could keep; the same-column branch below now leaves the
+  // mirror alone, and the cross-column branch appends rather than honouring the
+  // slot the card was dropped in. Order is whatever the data round-trip says.
   //
   // What does NOT stay is syncing it from a passive effect. An effect runs after
   // commit, so every prop-driven column change reached the DOM one commit late:
@@ -701,17 +705,24 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
     }
 
     if (activeColumn.id === overColumn.id) {
-      // Same column reordering
-      const cards = [...activeColumn.cards]
-      const oldIndex = cards.findIndex((c) => c.id === activeId)
-      const newIndex = cards.findIndex((c) => c.id === overId)
-
-      const newCards = arrayMove(cards, oldIndex, newIndex)
-      setBoardColumns((prev) =>
-        prev.map((col) =>
-          col.id === activeColumn.id ? { ...col, cards: newCards } : col
-        )
-      )
+      // Same-column drop: the board does NOTHING, deliberately (objectui#8826).
+      //
+      // Card ORDER is persisted nowhere. This branch notifies nobody, the
+      // `onCardMove` consumer this board is given (`ObjectKanban`'s mover)
+      // returns early when the source and target columns are equal, and the
+      // write it would otherwise send carries the grouped field and no
+      // positional key. There is no declared ordering slot in
+      // `@objectstack/spec` to write one to.
+      //
+      // An optimistic `arrayMove` here therefore showed the user a success the
+      // board cannot keep: the reorder landed on screen, nothing recorded it,
+      // and the next prop change — a refetch, a poll, any data round-trip —
+      // re-synced this mirror from `columns` and silently put the card back.
+      // A drop that visibly returns the card to its position is duller and
+      // TRUE: nothing is persisted, so nothing is shown as persisted.
+      //
+      // ⛔ Do not restore the reorder without an ordering slot to write it to.
+      // Ruled on objectui#8826 (letter B); a spec card is that slot's entry.
     } else {
       // Moving between columns
       const activeCards = [...activeColumn.cards]
@@ -725,7 +736,18 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
         : overCards.findIndex((c) => c.id === overId)
 
       const [movedCard] = activeCards.splice(activeIndex, 1)
-      overCards.splice(overIndex, 0, movedCard)
+      // Membership moves; the landing POSITION is not claimed (objectui#8826).
+      // `overIndex` is where the pointer was released. It is still handed to
+      // `onCardMove` below — the prop's contract is unchanged — and the
+      // consumer still discards it, so nothing persists it. Splicing the card
+      // in at that slot painted a position the next data round-trip cannot
+      // reproduce: the board re-buckets in record order, and on the ownership
+      // that re-renders it snapped out of the dropped slot within the same
+      // commit, while on the ownership that does not it sat in a slot no
+      // reload would ever reproduce. Appending claims only what the board can
+      // say for itself — the card is in this column now — and leaves the
+      // position to the round-trip, which is the only thing that decides it.
+      overCards.push(movedCard)
 
       setBoardColumns((prev) =>
         prev.map((col) => {

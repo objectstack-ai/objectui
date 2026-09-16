@@ -831,6 +831,7 @@ export function resolveActiveNavItem(
   const filterParams = parseFilterParams(search);
   let best: NavigationItem | null = null;
   let bestScore = 0;
+  const unqualifiedPathMatches: NavigationItem[] = [];
   const visit = (nodes: NavigationItem[] | undefined) => {
     if (!nodes) return;
     for (const node of nodes) {
@@ -843,10 +844,26 @@ export function resolveActiveNavItem(
         best = node;
         bestScore = score;
       }
+      if (score === 0 && node.type !== 'object') {
+        const { href, external } = resolveHref(node, basePath, templateContext);
+        if (!external && href !== '#') {
+          const [hrefPath, hrefSearch = ''] = href.split('?');
+          const expected = new URLSearchParams(hrefSearch);
+          const expectedEntries = [...expected];
+          const hasAnyQualifier = expectedEntries.some(([key]) => searchParams.has(key));
+          if (pathname === hrefPath && expectedEntries.length > 0 && !hasAnyQualifier) {
+            unqualifiedPathMatches.push(node);
+          }
+        }
+      }
     }
   };
   visit(items);
-  return best;
+  // A direct URL or bookmark may omit navigation-only params. Infer its menu
+  // context when exactly one authored item owns the pathname; shared routes
+  // remain intentionally unresolved until a qualifier (for example `nav`)
+  // identifies the intended item.
+  return best ?? (unqualifiedPathMatches.length === 1 ? unqualifiedPathMatches[0] : null);
 }
 
 /**

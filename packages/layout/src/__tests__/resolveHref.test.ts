@@ -206,6 +206,23 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
     ).toBe('profit_report');
   });
 
+  it('infers a unique parameterized page from a direct URL without nav params', () => {
+    const uniquePageNav: NavigationItem[] = [
+      { id: 'output_invoices', type: 'page', label: 'Output invoices', pageName: 'output_invoices', params: { nav: 'output_invoices' } },
+    ];
+    expect(
+      resolveActiveNavItem(uniquePageNav, `${BASE}/page/output_invoices`, '?verify=browser', BASE)?.id,
+    ).toBe('output_invoices');
+  });
+
+  it('does not guess when an unqualified pathname is shared by multiple items', () => {
+    const sharedPageNav: NavigationItem[] = [
+      { id: 'sales_report', type: 'page', label: 'Sales', pageName: 'reports', params: { nav: 'sales_report' } },
+      { id: 'profit_report', type: 'page', label: 'Profit', pageName: 'reports', params: { nav: 'profit_report' } },
+    ];
+    expect(resolveActiveNavItem(sharedPageNav, `${BASE}/page/reports`, '', BASE)).toBeNull();
+  });
+
   it('returns the ancestor groups and winning leaf as one route trail', () => {
     expect(
       resolveActiveNavTrail(NAV, `${BASE}/page/home`, '', BASE, CTX).map((item) => item.id),

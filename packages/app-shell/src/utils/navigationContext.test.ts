@@ -16,7 +16,13 @@ const areas: NavigationArea[] = [
       id: 'project_management',
       type: 'group',
       label: 'Project Management',
-      children: [{ id: 'timesheet', type: 'page', label: 'Timesheets', pageName: 'page_project_timesheet_cost' }],
+      children: [{
+        id: 'timesheet',
+        type: 'page',
+        label: 'Timesheets',
+        pageName: 'page_project_timesheet_cost',
+        params: { nav: 'timesheet' },
+      }],
     }],
   },
 ];
@@ -26,7 +32,7 @@ describe('resolveAppNavigationContext', () => {
     const result = resolveAppNavigationContext({
       areas,
       pathname: `${BASE}/page/page_project_timesheet_cost`,
-      search: '',
+      search: '?verify=direct-link',
       basePath: BASE,
     });
 

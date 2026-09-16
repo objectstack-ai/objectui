@@ -79,7 +79,6 @@ interface BaseSchema {
   className?: string;                      // Tailwind overrides
   hidden?: boolean | ExpressionWire;       // expression or boolean: "${data.role != 'admin'}"
   disabled?: boolean | ExpressionWire;     // same wire as hidden
-  events?: Record<string, ActionSchema[]>; // onClick -> [Action1, Action2]
   children?: SchemaNode | SchemaNode[];    // layout slots; primitives admitted too
 }
 ```
@@ -94,14 +93,11 @@ interface BaseSchema {
 - **#1 — Protocol-agnostic.** Never hardcode `objectql.find()`. Use the DataSource interface; inject `dataSource` via `<SchemaRendererProvider dataSource={...} />`.
 - **#2 — Docs-driven.** For every feature/refactor, update package `README.md` **and** `content/docs/guide/*.md`. Not done until docs reflect the code.
 - **#3 — "Shadcn-native" aesthetics.** We are "serializable Shadcn". Follow Shadcn's DOM structure (`CardHeader`/`CardTitle`/`CardContent`). Always expose `className` in schema props so users can override via JSON.
-- **#4 — Action system.** Actions are **data, not functions**. `@object-ui/core` is an event bus dispatching them:
+- **#4 — Action system (objectui#7898, objectui#6497).** Actions are **data, not functions**, and a control that RUNS something is its own NODE TYPE — `action:button` — never a handler key or an event bag on an ordinary node. `actionType` names the executor the action runner dispatches to; the node's own keys carry that executor's arguments:
   ```json
-  "events": { "onClick": [
-    { "action": "validate", "target": "form_1" },
-    { "action": "submit", "target": "form_1" },
-    { "action": "navigate", "params": { "url": "/success" } }
-  ] }
+  { "type": "action:button", "label": "Open details", "actionType": "url", "target": "/users/ada" }
   ```
+  ⛔ Never author an `events` bag: `BaseSchema` declares no `events` member and no renderer reads `schema.events` — the node is `.passthrough()`, so one authored there is kept, judged by nothing and run by nothing. `ButtonSchema.onClick` is a runtime slot for a host-supplied function and is refused by name for the same reason.
 - **#5 — Layout as components.** Treat `Grid`/`Stack`/`Container` as first-class. Layout schemas declare responsive columns on the node as `columns` — a number, or a breakpoint object (`columns: { xs: 1, md: 2, lg: 4 }`); never `cols`, which nothing reads (objectui#4001).
 - **#6 — Type safety over magic.** No `any` — use strict generics. Map `"type": "button"` → React component via a central `ComponentRegistry`. **No `eval()` / runtime dynamic imports** to load components (security).
 - **#7 — No-Touch zones (Shadcn purity).** `packages/components/src/ui/**/*.tsx` are upstream 3rd-party files overwritten by sync scripts — **never edit their logic/styles**. To change `Button`/`Dialog` behavior: create/edit a wrapper in `packages/components/src/custom/`, import the primitive from `@/ui/...`, and wrap it.

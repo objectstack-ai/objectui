@@ -178,20 +178,21 @@ describe('ObjectGrid — column-header sorting is server-side (#3106)', () => {
     });
   });
 
-  it('DIVERGENCE, pinned not tolerated (objectui#8961): a retired STRING sort still draws the arrow while the wire carries NO ordering', async () => {
-    // objectui#8767 made the fetch path REFUSE a string `sort`. The header
-    // indicators are fed by `parseSchemaSort`, a second private reader that
-    // the ruling deliberately left alone — and it still parses a string. So
-    // the two readers of one key now disagree, and this asserts BOTH halves of
-    // that disagreement.
+  it('a retired STRING sort lights NO arrow — the header reads the key exactly as the fetch path does (objectui#8961)', async () => {
+    // Both readers of one key, in agreement. objectui#8767 made the fetch path
+    // REFUSE a string `sort`; the header indicators are fed by
+    // `parseSchemaSort`, a second private reader that went on parsing one, so
+    // this very schema drew a confident `status desc` arrow over rows the
+    // server had returned in NO declared order — and the first click on that
+    // column then asked for `asc` on a list that was in no order at all.
     //
-    // Asserting only the arrow (which is what this file did before) leaves a
-    // green test that reads as "string sort ⇒ arrow, as intended". A green
-    // test does not make a divergence visible; it certifies it. Naming both
-    // halves is what makes the state a recorded defect instead of an expected
-    // one, and makes THIS the case that has to change when objectui#8961
-    // closes the gap — narrowing the reader moves the wire shape and takes the
-    // export path with it, the route objectui#8767 did not take.
+    // This case used to pin that divergence rather than tolerate it: it
+    // asserted the arrow WAS drawn beside the empty query, so the state read
+    // as a recorded defect instead of an expected one. The ruling on
+    // objectui#8961 (director batch #135 item 5, letter A) closed it by
+    // narrowing the reader to the declared array, so the ARROW half flips
+    // here. The wire half is unchanged and stays asserted: "no arrow" is the
+    // right answer only while the query really does carry no ordering.
     resetRetiredSortSpellingReports();
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
@@ -199,10 +200,16 @@ describe('ObjectGrid — column-header sorting is server-side (#3106)', () => {
       const { container } = renderGrid(ds, { sort: 'status desc' });
       await waitFor(() => expect(screen.getByText('Row 0')).toBeInTheDocument());
 
-      // Half one — the header still tells the user this list is `status desc`.
-      expect(
-        headerCell(container, 'Status').querySelector('[class*="chevron-down"]'),
-      ).not.toBeNull();
+      // Half one — the header states nothing about an ordering this list does
+      // not have. NEITHER direction, not merely "not descending".
+      const status = headerCell(container, 'Status');
+      expect(status.querySelector('[class*="chevron-down"]')).toBeNull();
+      expect(status.querySelector('[class*="chevron-up"]')).toBeNull();
+      // CONTROL, non-vacuity — the column is still sortable and still renders
+      // its header chrome, so the two nulls above mean "no ACTIVE sort" rather
+      // than "no icons here at all", which is how they would also pass if the
+      // harness or the column had silently stopped offering sorting.
+      expect(status.querySelector('[class*="chevrons-up-down"]')).not.toBeNull();
 
       // Half two — and the query it was fetched with carries no ordering at
       // all. `hasOwnProperty`, not `toBeUndefined`: the key is absent, which is
@@ -210,7 +217,9 @@ describe('ObjectGrid — column-header sorting is server-side (#3106)', () => {
       const params = lastFindParams(ds);
       expect(Object.prototype.hasOwnProperty.call(params, '$orderby')).toBe(false);
 
-      // …and the disagreement is announced once, by PR #8758's own reporter.
+      // …and the author is told once, by PR #8758's own reporter on the fetch
+      // path. STILL once: narrowing the header reader deliberately did not add
+      // a second diagnostic for the same spelling — one refusal, one voice.
       const retired = errorSpy.mock.calls.filter((c) =>
         String(c[0]).includes('objectui#8221'),
       );
@@ -237,34 +246,58 @@ describe('ObjectGrid — column-header sorting is server-side (#3106)', () => {
 });
 
 /**
- * ⚠️ This block pins the header reader's OWN contract, which since
- * objectui#8767 is WIDER than the fetch path's — hence the renamed title. The
- * cases below still admit the retired string spellings because this reader
- * still admits them; the fetch path refuses them (see the divergence pin
- * above). Re-judging these inputs belongs to objectui#8961, which narrows this
- * reader and moves the wire shape with it. Until then they are read as "what
- * `parseSchemaSort` accepts", never as "what the grid queries with".
+ * ⚠️ This block pins the header reader's OWN contract. Since objectui#8961
+ * that contract is exactly as wide as the fetch path's: the declared
+ * `[{ field, order }]` array and nothing else (objectui#8221 retired the string
+ * clauses, objectui#8767 made the fetch path refuse them). The cases below used
+ * to admit the retired spellings because this reader still did, and re-judging
+ * them was named as this card's work; that is what has happened.
+ *
+ * These refusals are the unit-level half of the rendered pin above — the `[]`
+ * here is what the "no arrow" there is made of.
+ *
+ * Non-vacuity: every refusal is paired with a CONTROL in the same shape — the
+ * declared array must still parse, single- and multi-key. A reader that had
+ * simply stopped returning anything would fail those controls, so `[]` is a
+ * verdict here and not silence.
  */
-describe('parseSchemaSort — the header reader\'s own contract, wider than the fetch path (objectui#8961)', () => {
-  it('reads the bare-string form', () => {
-    expect(parseSchemaSort('name desc')).toEqual([{ field: 'name', order: 'desc' }]);
+describe('parseSchemaSort — the header reader reads the ONE declared spelling (objectui#8961)', () => {
+  it('REFUSES the bare-string form — no arrow, matching the `$orderby` the fetch path does not send', () => {
+    expect(parseSchemaSort('name desc')).toEqual([]);
+    // The one-word spelling too, not just the two-word one.
+    expect(parseSchemaSort('name')).toEqual([]);
   });
 
-  it('defaults an omitted direction to ascending', () => {
-    expect(parseSchemaSort('name')).toEqual([{ field: 'name', order: 'asc' }]);
+  it('REFUSES string entries INSIDE an array, entry by entry', () => {
+    expect(parseSchemaSort(['status asc', 'name desc'])).toEqual([]);
+    // Per entry, not a whole-value veto: one retired entry cannot blank the
+    // keys the author did spell in the declared form.
+    expect(parseSchemaSort(['status asc', { field: 'name', order: 'desc' }])).toEqual([
+      { field: 'name', order: 'desc' },
+    ]);
   });
 
-  it('reads the array-of-strings form', () => {
-    expect(parseSchemaSort(['status asc', 'name desc'])).toEqual([
+  it('CONTROL — reads the declared `SortConfig[]` form, single- and multi-key', () => {
+    expect(parseSchemaSort([{ field: 'name', order: 'desc' }])).toEqual([
+      { field: 'name', order: 'desc' },
+    ]);
+    expect(
+      parseSchemaSort([
+        { field: 'status', order: 'asc' },
+        { field: 'name', order: 'desc' },
+      ]),
+    ).toEqual([
       { field: 'status', order: 'asc' },
       { field: 'name', order: 'desc' },
     ]);
   });
 
-  it('reads the SortNode[] form', () => {
-    expect(parseSchemaSort([{ field: 'name', order: 'desc' }])).toEqual([
-      { field: 'name', order: 'desc' },
-    ]);
+  it('CONTROL — a declared entry with no `order` still reads ascending', () => {
+    // Untouched by objectui#8961, and named here so the narrowing is not read
+    // as a second, stricter judgement of the ENTRY: what moved is which
+    // SPELLING of the key is admitted, not how a declared entry is read. This
+    // is also the shape `defaultSort` arrives in, wrapped by the read site.
+    expect(parseSchemaSort([{ field: 'name' }])).toEqual([{ field: 'name', order: 'asc' }]);
   });
 
   it('yields nothing for an absent or unreadable sort', () => {

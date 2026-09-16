@@ -172,7 +172,7 @@ export const SchemaRenderer = ({ schema }: { schema: BaseSchema }) => {
   - 别再按"feature 要写、bug 修复不用"来判断 —— 正是这个旧判据让三条用户可见的修复(`19716b5bf` fix(charts)、`5e7ef1141` fix(i18n)、`0e50440` #3518)搭顺风车发了出去,任何 CHANGELOG/版本号/发布记录里都查不到:平台侧的发布判据(objectstack#4731/#4843)读的就是本仓声明的 changeset。
   - 本地先自查:`node scripts/check-changeset-presence.mjs`(未提交的 changeset 也算)。
 
-### 怎么跑测试(有两种写法会静默假绿 —— 现已机械拦截)
+### 怎么跑测试(有些写法会静默假绿 —— 现已机械拦截)
 
 **唯一正确的跑法:在【仓库根目录】执行,路径相对仓根书写,前面不要加 `--`。**
 
@@ -201,9 +201,12 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
   pnpm 把 `--` **原样**转发进脚本,vitest 的 CLI 解析在 `--` 处停止,后面的一切(包括你的路径)
   在 vitest 看到之前就没了 —— 不是「被忽略并警告」,是压根不存在。于是退回默认集合(叠加陷阱一
   就是别人的包),新加的测试文件零执行、输出全绿。
-- **两条现在都会直接失败**,由 `scripts/vitest-invocation-guard.mjs` 拦下:vitest root 不是仓根
-  → 拒绝;`--` 后面还有参数 → 拒绝。报错正文会指出机制并给出上面的正确命令。包级 `test` 脚本的
-  存废是 objectui#3240;在那之前它们只失败,不撒谎。
+- **上面的陷阱现在都会直接失败**,由 `scripts/vitest-invocation-guard.mjs` 拦下。⛔ **它今天拒绝
+  哪些形态不写在这里** —— 以 `scripts/__tests__/vitest-invocation-guard.test.ts` 为准,那份 pin
+  测试逐条钉住每个 verdict,guard 自己的文件头也是这么指的。⚠️ 理由是本文件的诫条 **#9**:写进散文的计数
+  只推导一次、此后永不复核,下一条拒绝加上来就把它证伪 —— 所以⛔ 别把本节展开的陷阱读成「就这些」,
+  拒绝集比它们大。报错正文会指出机制并给出上面的正确命令。包级 `test` 脚本的存废是 objectui#3240;
+  在那之前它们只失败,不撒谎。
   - **拦截点不止 `vitest.config.mts` 一处**(objectui#5406 / objectui#3240)。vitest 只加载
     「启动目录里的那份」config,所以根 config 顶部那一次调用,只覆盖得到「本目录没有任何
     config(向上找到根 config)」或「本目录 config import 了根 config」这两条路。

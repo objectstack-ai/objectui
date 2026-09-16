@@ -1158,3 +1158,8 @@ async function main() {
 if (isEntrypoint(import.meta.url)) {
   await main();
 }
+
+// ⚠️ PROBE (objectui#9140) — ONE-SHOT, reverted with its sibling in the next
+// commit on this branch. It changes the delivery step's finding set so the
+// re-run can be observed UPDATING the existing comment rather than stacking a
+// second one. ⛔ Not part of this change; it must not reach `main`.

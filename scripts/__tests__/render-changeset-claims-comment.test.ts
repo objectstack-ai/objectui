@@ -46,9 +46,33 @@ const WORKFLOW = '.github/workflows/changeset-presence.yml';
 /** The shape GitHub deletes on save — the reason the marker is plain text. */
 const TAG_SHAPED = /<[^<>\s][^<>]*>/;
 
+/**
+ * The pending declaration the fixtures describe.
+ *
+ * ⛔ Never a filename this repository's own `.changeset/` directory carries,
+ * and that is correctness rather than tidiness (objectui#9472).
+ * `scripts/markdown-test-inputs.mjs` resolves markdown path literals out of
+ * every test's source and offers only the ones that EXIST in the tree, so a
+ * literal naming a PENDING declaration becomes a ledger entry — and
+ * `pnpm changeset:version` deletes exactly those files, which turns that entry
+ * into a `stale-not-read` finding and reddens `Validate the post-version tree`
+ * on every scheduled release run afterwards.
+ *
+ * The `fixture-` prefix belongs to neither namespace a committed name can come
+ * from: `pnpm changeset` generates `adjective-animal-verb`, and this repository
+ * commits an issue-number-and-slug name. The tail still says what the fixture
+ * is ABOUT — objectui#9140's fifth instance, the body that coordinates itself
+ * by symbol and names no file at all — because that is why this shape is worth
+ * a fixture, and the name is the only place left to say it.
+ */
+const PENDING_CHANGESET = '.changeset/fixture-grid-dependent-values.md';
+
+/** A second pending declaration, for the "count changesets, not findings" pin. */
+const OTHER_PENDING_CHANGESET = '.changeset/fixture-other-declaration.md';
+
 function finding(overrides: Record<string, unknown> = {}) {
   return {
-    changeset: '.changeset/7165-grid-dependent-values.md',
+    changeset: PENDING_CHANGESET,
     span: 'packages/plugin-grid/src/ObjectGrid.tsx',
     file: 'packages/plugin-grid/src/ObjectGrid.tsx',
     severity: 'edited',
@@ -132,13 +156,13 @@ describe('spellOutTags', () => {
 // ── 3. both directions of the verdict ────────────────────────────────────────
 
 describe('a finding set with something to re-read', () => {
-  const body = renderClaimsComment(result([finding(), finding({ changeset: '.changeset/other.md' })]), {
+  const body = renderClaimsComment(result([finding(), finding({ changeset: OTHER_PENDING_CHANGESET })]), {
     runUrl: 'https://example.invalid/run/1',
   });
 
   it('names every changeset, the span, and the file it resolved to', () => {
-    expect(body).toContain('.changeset/7165-grid-dependent-values.md');
-    expect(body).toContain('.changeset/other.md');
+    expect(body).toContain(PENDING_CHANGESET);
+    expect(body).toContain(OTHER_PENDING_CHANGESET);
     expect(body).toContain('packages/plugin-grid/src/ObjectGrid.tsx');
   });
 
@@ -200,7 +224,7 @@ describe('the hand-off from the gate', () => {
     const file = path.join(dir, 'claims.json');
     fs.writeFileSync(file, JSON.stringify(result([finding()])));
     try {
-      expect(renderFromFile(file, {})).toContain('.changeset/7165-grid-dependent-values.md');
+      expect(renderFromFile(file, {})).toContain(PENDING_CHANGESET);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

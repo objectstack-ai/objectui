@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { join } from 'node:path';
 
 /**
  * REAL-CONSOLE import-wizard E2E — the most faithful "how a user actually does
@@ -38,6 +39,24 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const APP = process.env.LIVE_APP_URL || 'http://localhost:5180';
 
+/**
+ * `storageState` is a string this config hands to Playwright, and Playwright
+ * resolves a relative one against the PROCESS CWD — measured on this tree with
+ * playwright 1.62.1: a run launched from a subdirectory loaded the state file
+ * under that subdirectory and ignored the one beside the config (it failed with
+ * `Error reading storage state from state/probe-state.json` when only the
+ * config-dir copy existed). `testDir` and `globalSetup` above are config-dir
+ * rooted, this option is not — so it is rooted here, on this file, the same way
+ * the specs root their read (objectui#9188) and the global setup roots its
+ * write (objectui#9519).
+ */
+const SELF_DEPTH_BELOW_REPO_ROOT = 1; // this file, at the repo root
+const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
+  .split('/')
+  .slice(0, -SELF_DEPTH_BELOW_REPO_ROOT)
+  .join('/');
+const STATE_PATH = join(REPO_ROOT, 'e2e/live/.auth/state.json');
+
 export default defineConfig({
   testDir: './e2e/import-console',
   fullyParallel: false,
@@ -47,7 +66,7 @@ export default defineConfig({
   globalSetup: './e2e/live/global-setup.ts',
   use: {
     baseURL: APP,
-    storageState: 'e2e/live/.auth/state.json',
+    storageState: STATE_PATH,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

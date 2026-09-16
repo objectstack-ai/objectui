@@ -639,14 +639,6 @@ export const LEDGER = [
     why: "\"installed spec (17.2.0) rather than assumed\" \u2014 stamps a `GetMetaItemLayeredResponseSchema` reading.",
   },
   {
-    file: "packages/fields/src/widgets/LookupField.optionDescription.test.tsx",
-    package: "@objectstack/spec",
-    version: "17.2.0",
-    sites: 1,
-    class: "stale",
-    why: "\"installed @objectstack/spec 17.2.0 has no such key and REFUSES it BY NAME\" \u2014 both halves are re-measurable and both have to be.",
-  },
-  {
     file: "packages/i18n/src/utils/spec-formatters.ts",
     package: "@objectstack/spec",
     version: "17.0.0-rc.5",
@@ -805,14 +797,6 @@ export const LEDGER = [
     sites: 1,
     class: "stale",
     why: "\"the pin is still 17.2.0, which PRE-dates the ...\" \u2014 the whole sentence is an argument from the pin's age.",
-  },
-  {
-    file: "packages/types/src/field-types.ts",
-    package: "@objectstack/spec",
-    version: "17.2.0",
-    sites: 1,
-    class: "stale",
-    why: "\"installed @objectstack/spec 17.2.0: `SelectOptionSchema` is `.strict()`\" \u2014 re-parse the schema before moving the number.",
   },
   {
     file: "packages/types/src/mobile.ts",

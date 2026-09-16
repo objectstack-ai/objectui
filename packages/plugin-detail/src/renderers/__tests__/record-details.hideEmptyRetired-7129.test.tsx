@@ -30,19 +30,19 @@
  * honoured it — and the declaration was the only thing that made the key
  * writable, so on a spec-validated page the "author escape hatch" the
  * 2026-08-31 ruling described existed nowhere. The maintainer converged the
- * four on the spec's answer (2026-09-01, 总监批 #28): retire the declaration
- * and the read, keep the spec refusing, keep the mirror absent.
+ * four on the spec's answer (2026-09-01, director-seat batch #28): retire the
+ * declaration and the read, keep the spec refusing, keep the mirror absent.
  *
  * `@objectstack/spec` 17.3.0 then RE-DECLARED `hideEmpty` on the
  * `record:details` section entry (upstream #11289, maintainer ruling
- * 2026-08-23 direction 1, written from a measured symptom and with 「the
- * renderer is unchanged」 in the declaration). The clause "keep the spec
+ * 2026-08-23 direction 1, written from a measured symptom and with "the
+ * renderer is unchanged" written into the declaration). The clause "keep the spec
  * refusing" thereby described nothing, through no act of this repo — and the
  * premise it rested on had been false upstream since before the ruling was
  * written.
  *
- * objectui#8603 (director seat batch #137 item 3, maintainer 「同意」
- * 2026-09-15) ruled the protocol correct and RESTORED the read, superseding
+ * objectui#8603 (director seat batch #137 item 3, with the maintainer's
+ * assent, 2026-09-15) ruled the protocol correct and RESTORED the read, superseding
  * #7129's Q1-A for this key. Q2-C — `DetailSection`'s auto-hide heuristic
  * owning the empty ROWS of a section that still has a filled one — is
  * untouched, and `record-details.emptySectionDefault.test.tsx` is where that
@@ -155,7 +155,7 @@ describe('DetailViewSection.hideEmpty — all four parties declare and honour it
     // ⭐ READ THIS BEFORE CHANGING ANYTHING ELSE IN THIS FILE.
     //
     // This is the party objectui does not control, and it is why the other
-    // three below say what they say. The 2026-09-01 ruling (总监批 #28)
+    // three below say what they say. The 2026-09-01 ruling (batch #28)
     // converged four disagreeing contracts on the spec's answer, in these
     // words: "retire the declaration and the read, keep the spec refusing,
     // keep the mirror absent". `@objectstack/spec` 17.3.0 then declared

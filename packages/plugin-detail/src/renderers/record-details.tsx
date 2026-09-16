@@ -602,13 +602,33 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         // fix, reintroduced one surface over.
         //
         // ⚠️ `?? true` is the spelling objectui#7064 removed, and it is back
-        // deliberately. That ruling's objection was to the BEHAVIOUR — an
-        // all-empty section vanishing with no way for a spec-validated page to
-        // ask it back, because the spec refused the key. objectui#8603 reverses
-        // the behaviour (the spec declares the key, so the way back exists and
-        // parses), and the spelling is what now CONFINES the default to the
-        // authored surface instead of applying it to every section this file
-        // hands on.
+        // deliberately. ⛔ Read that ruling's ground as it was written, not as
+        // this line makes convenient: the maintainer ruled on 2026-08-31 that
+        // an empty detail body is a PLATFORM concern and that a metadata
+        // application should not have to author its way out of one. (The
+        // ruling's own wording is on objectui#7064; it is deliberately not
+        // transcribed here — AGENTS.md commandment #-1 keeps this codebase
+        // English-only, and a translation of a ruling is not the ruling.) The
+        // objection was to the AUTHORING
+        // SHAPE — every application hand-writing `hideEmpty: false` per section
+        // as per-app tax — and it was made KNOWING the key was declared
+        // upstream (objectstack PR #11662); the deliverable was a sparse record
+        // keeping a full structural skeleton with zero app-side authoring. The
+        // spec-refusal reading came later, out of that card's own execution,
+        // and was routed to objectui#7129; ⛔ it was not this ruling's ground.
+        //
+        // ⇒ objectui#8603 REVERSES the behavioural half of that ruling, and
+        // the authoring it rejected is what a page now writes to keep the
+        // skeleton. The reversal is undisclosed — the #8603 ruling does not
+        // name objectui#7064 — and its standing was ruled on this change's
+        // isolated at-tier contract review (Decision 1): a director-seat batch
+        // item carrying the maintainer's assent has the same authority as the
+        // live ruling it reverses, so it stands. ⛔ Whether it SHOULD is not a
+        // question this file answers.
+        //
+        // What the spelling does here is narrower than either ruling: it
+        // CONFINES the default to the authored surface instead of applying it
+        // to every section this file hands on.
         //
         // ⚠️ Measured, so the next reader does not have to: the `...s` above
         // already spreads an authored value through, which is why #7129's

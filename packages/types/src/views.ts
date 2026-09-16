@@ -344,10 +344,34 @@ export interface DetailViewSection {
     | 'destructive/10';
   /**
    * Hide this section's empty fields, and — when EVERY field is empty — hide
-   * the whole section: no heading, no skeleton. Omitted behaves as `true`.
+   * the whole section: no heading, no skeleton.
    *
    * Set `false` to keep an all-empty section's heading and label skeleton, the
    * spelling a brand-new record needs so its authored sections do not vanish.
+   *
+   * ## ⚠️ Omitting it does NOT mean the same thing on both consumers
+   *
+   * This type is consumed by two authorable renderers, and only one of them
+   * resolves a default — so this member deliberately carries no default tag:
+   *
+   * - **`record:details`** (`RecordDetailsRenderer`) maps every authored
+   *   section with `hideEmpty ?? true`, so an omitted key behaves as `true`
+   *   and an all-empty section renders nothing. That is the default the spec's
+   *   own `describe()` states, and this renderer is the one the key is
+   *   declared on.
+   * - **`detail-view`** (`DetailViewRenderer`, whose registration takes a
+   *   `sections` input) hands each section to `DetailSection` unchanged. No
+   *   default is applied there, so an omitted key leaves the all-empty section
+   *   rendering its heading and skeleton. Only an explicit `true` hides it.
+   *
+   * Measured at objectui#8603, non-vacuously — a sibling control section that
+   * must render was present in every case, and it rendered in all six:
+   * `detail-view` unauthored keeps heading and rows, `true` hides, `false`
+   * keeps; `record:details` unauthored hides, `true` hides, `false` keeps.
+   * A single default tag on a member two renderers read would be true of one
+   * of them and false of the other, which is the objectui#7361 /
+   * objectui#7735 class (maintainer 2026-09-09: a docs-vs-implementation
+   * mismatch is a docs fix).
    *
    * ## What this key decides, and what it does NOT
    *
@@ -379,8 +403,6 @@ export interface DetailViewSection {
    * `hideEmpty` (`packages/plugin-detail/src/renderers/record-reference-rail.tsx`),
    * which folds zero-count entry cards, nor the `detail.hideEmptyFields` i18n
    * label, which is the reader toggle's copy — a prefix match on the name.
-   *
-   * @default true
    */
   hideEmpty?: boolean;
 }

@@ -46,7 +46,6 @@ export const KNOWN_SCHEMA_TYPES: readonly string[] = [
   'ai:suggestion',
   'alert',
   'alert-dialog',
-  'app',
   'app-creation-wizard',
   'app-schema-renderer',
   'app-shell:cloud-connection:panel',

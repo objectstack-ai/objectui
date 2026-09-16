@@ -584,36 +584,38 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         // flat sections stay borderless so the page chrome alone provides
         // containment. Authors can override explicitly via `showBorder`.
         showBorder: s.showBorder ?? (translatedTitle ? true : false),
-        // ⛔ There is deliberately NO `hideEmpty` slot here, and re-adding one
-        // would reopen objectui#7129.
+        // The authored empty-section key, passed through verbatim.
         //
-        // ⚠️ Measured, so the next reader does not have to: this slot's removal
-        // is a STATEMENT change, not the behavioural one. The `...s` above
-        // spreads every authored key verbatim, so an off-spec document
-        // carrying `hideEmpty` still delivers it to `DetailSection` — which no
-        // longer reads it. Re-adding the slot alone changes nothing; the
-        // behaviour lives in `DetailSection`, and that is where the ablation
-        // for this change turns red.
+        // ⚠️ Measured, so the next reader does not have to: this slot is a
+        // STATEMENT, not the behaviour. The `...s` above already spreads every
+        // authored key, so `hideEmpty` reaches `DetailSection` with or without
+        // this line — which is why #7129's ablation found deleting the slot
+        // alone changed nothing and left its suite green. The behaviour lives
+        // in `DetailSection`, and that is where the ablation for this change
+        // turns red. The slot is kept so the key this renderer contracts on is
+        // visible at the mapping, beside `showBorder`.
         //
-        // Emptiness on a section is decided by
-        // `DetailSection`'s auto-hide heuristic alone — hide empty rows only
-        // while the section still has at least one filled row, never on an
-        // all-empty section (there the labels ARE the structural skeleton a
-        // sparse or brand-new record needs), with the reader's "Show N empty
-        // fields" toggle as the escape hatch.
+        // ⛔ Deliberately NOT defaulted here. `?? true` at this line is the
+        // shape objectui#7064 removed (maintainer ruling 2026-08-31): it makes
+        // an unauthored section indistinguishable from an authored `true` at
+        // every later read, so the one place that can tell them apart —
+        // `DetailSection`, which owns the all-empty decision — loses the
+        // distinction before it is asked.
         //
-        // This slot used to force `s.hideEmpty ?? true`, then (objectui#7064)
-        // passed the authored value through verbatim. The pass-through
-        // measured the key on all four contracts and found three answers:
-        // `@object-ui/types` declared it, this renderer honoured it, the
-        // `DetailViewSectionSchema` zod mirror omitted it, and
-        // `@objectstack/spec` REFUSES it — `RecordDetailsProps.safeParse` on a
-        // section carrying it returns `unrecognized_keys` naming `hideEmpty`,
-        // so on any spec-validated page the key never reached this line at
-        // all. The maintainer converged the four on the spec's answer
-        // (2026-09-01, objectui#7129): the declaration is retired and the
-        // heuristic is the whole contract. Pinned four ways in
+        // History, because this key has been reversed twice: the slot forced
+        // `s.hideEmpty ?? true` until objectui#7064 passed the authored value
+        // through, and objectui#7129 (maintainer 2026-09-01) then retired the
+        // key outright — four contracts, three answers, and
+        // `@objectstack/spec` REFUSING it at the 17.2.0 pin. The pin moved to
+        // 17.3.0, which DECLARES `hideEmpty` on the `record:details` section
+        // entry with a describe() promising the behaviour this repo had just
+        // removed, so that premise expired. objectui#8603 (director seat batch
+        // #137 item 3, maintainer 2026-09-15) ruled the protocol correct and
+        // restored the read; #7129's Q1-A is superseded for this key, and its
+        // Q2-C — the auto-hide heuristic owning the empty ROWS of a
+        // partly-filled section — is untouched. Pinned four ways in
         // `__tests__/record-details.hideEmptyRetired-7129.test.tsx`.
+        hideEmpty: s.hideEmpty,
         fields: dropHidden(normaliseList(filterList(s.fields))),
       });
       })

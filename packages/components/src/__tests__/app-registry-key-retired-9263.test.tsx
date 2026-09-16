@@ -73,7 +73,9 @@ const authoredAppNode = (type: string) =>
       {
         name: 'main',
         width: 'large',
-        components: [{ type: 'element:text', properties: { text: 'body marker' } }],
+        // `content`, the key `element:text` declares (objectui#4970) — a
+        // marker that does not reach the DOM would make the control vacuous.
+        components: [{ type: 'element:text', properties: { content: 'body marker' } }],
       },
     ],
   }) as never;

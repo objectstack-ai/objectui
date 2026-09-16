@@ -142,6 +142,44 @@ function allGreenSnapshot() {
   return [...fromIncident, ...addedSince];
 }
 
+/**
+ * Names `INCIDENT_4959` recorded that this repository no longer produces.
+ *
+ * objectui#9499 replaced the four `Test (shard N/4)` contexts with ONE
+ * aggregator context, `Test`, and widened the matrix to eight legs whose names
+ * nothing waits for individually. Two rules meet here and neither may bend: the
+ * incident record is a verbatim August-2026 reading and must never be edited,
+ * and the gate's buckets may not name a context no pull-request workflow
+ * produces (the partition assertion below). So the reconciliation is this one
+ * dated list, read by exactly one assertion.
+ *
+ * ⛔ It is not an escape hatch. The control beneath that assertion re-derives
+ * the produced set and fails if any name here IS still produced, so a live
+ * unclassified context cannot be parked in it.
+ */
+const RENAMED_SINCE_4959 = [
+  'Test (shard 1/4)',
+  'Test (shard 2/4)',
+  'Test (shard 3/4)',
+  'Test (shard 4/4)',
+];
+
+/**
+ * The incident's runs plus the ONE context that speaks for the shards today.
+ *
+ * The record stays frozen; the aggregator is appended, exactly as
+ * `allGreenSnapshot` appends the contexts added since. Its position in time is
+ * not free either: `ci.yml`'s `test-aggregate` job `needs` every shard, so the
+ * earliest instant it can report is after the last shard completes — 08:22:33Z
+ * on this run, ten minutes after the merge that #4959 is about.
+ */
+function withAggregator(
+  runs: ReturnType<typeof snapshotAt>,
+  conclusion: string,
+): ReturnType<typeof snapshotAt> {
+  return [...runs, { id: 95_325_280_000, name: 'Test', status: 'completed', conclusion }];
+}
+
 describe('the #4959 counterfactual: this gate stops the merge that happened', () => {
   it('is PENDING at 08:13:36Z — the instant the old workflow merged #4959', () => {
     const result = evaluateGate({ checkRuns: snapshotAt(MERGED_AT) });
@@ -151,24 +189,32 @@ describe('the #4959 counterfactual: this gate stops the merge that happened', ()
     // `gate == 'green'` and nothing else.
     expect(result.verdict).not.toBe('green');
 
-    // Nine contexts were still running when the merge landed: these eight
-    // required ones plus `Bundle Analysis`, which is optional-if-present and was
-    // also in flight. The exact count is asserted so a fixture edit cannot
-    // quietly weaken the case.
-    expect(result.pending).toHaveLength(9);
+    // Five contexts were still running when the merge landed and are still
+    // required by name today: these four plus `Bundle Analysis`, which is
+    // optional-if-present and was also in flight. The exact count is asserted so
+    // a fixture edit cannot quietly weaken the case.
+    //
+    // ⚠️ It was NINE until objectui#9499. The four `Test (shard N/4)` contexts
+    // that made up the difference were not dropped from the case — they moved
+    // from `pending` to `missing`, under the one name that replaced them: the
+    // aggregator `Test` had not reported at that instant either, because it
+    // cannot report until every shard has. `missing` and `pending` are both
+    // not-green and both hold the merge; the assertion below says so rather
+    // than letting the count drop stand for a weakened case.
+    expect(result.pending).toHaveLength(5);
     expect(result.pending).toContain('Bundle Analysis (in_progress)');
     expect(result.pending).toEqual(
       expect.arrayContaining([
         'Type Check (in_progress)',
-        'Test (shard 1/4) (in_progress)',
-        'Test (shard 2/4) (in_progress)',
-        'Test (shard 3/4) (in_progress)',
-        'Test (shard 4/4) (in_progress)',
         'Build & E2E (in_progress)',
         'Build Docs (in_progress)',
         'Lint (in_progress)',
       ]),
     );
+    expect(
+      result.missing,
+      'the one required test context had not reported when #4959 merged either',
+    ).toContain('Test');
 
     // And nothing had failed YET. This is why no configuration that only looks
     // at *reported* checks could have caught it, and why the fix has to be a
@@ -179,22 +225,58 @@ describe('the #4959 counterfactual: this gate stops the merge that happened', ()
     }
   });
 
-  it('turns RED the moment shard 3/4 reports, 5m25s after the old merge', () => {
+  it('is still not green at 08:21:01Z — the aggregator cannot have reported yet', () => {
+    // Shard 3 has just failed. Under the required set objectui#9499 installed
+    // the gate is not reading shard names at all, and this is the instant that
+    // shows why that is not a weakening: `Test` is MISSING, missing is not
+    // green, and the merge is held exactly as it was when four shard names were
+    // waited for.
     const result = evaluateGate({ checkRuns: snapshotAt('2026-08-17T08:21:01Z') });
 
-    expect(result.verdict).toBe('red');
-    expect(result.failing).toContain('Test (shard 3/4) (failure)');
+    expect(result.verdict).not.toBe('green');
+    expect(result.missing).toContain('Test');
   });
 
-  it('names both failing shards once the run has finished', () => {
-    const result = evaluateGate({ checkRuns: snapshotAt('2026-08-17T08:22:33Z') });
+  it('turns RED when the aggregator reports the shards it waited for', () => {
+    // 08:22:33Z is the last completion in the record, so it is the earliest
+    // instant `test-aggregate` could run: it `needs` every shard. Two of them
+    // failed, so the aggregator's own conclusion is `failure`.
+    //
+    // ⚠️ THE OLD WARNING HERE, and why it does not apply to this shape. This
+    // case used to end "a gate that waited for `Test` as one name, or for
+    // whichever shard reported first, would have merged this pull request".
+    // That is true of a single check PRODUCED BY a shard — it reports while its
+    // siblings are still running, and shards 2 and 4 passed. It is not true of
+    // `ci.yml`'s `test-aggregate`, which has a `needs:` edge to every leg and
+    // therefore cannot report before the last of them, and which is red unless
+    // each leg's OWN conclusion is `success`. The two assertions below are that
+    // difference, stated as behaviour rather than as an argument.
+    const finished = snapshotAt('2026-08-17T08:22:33Z');
+    const result = evaluateGate({ checkRuns: withAggregator(finished, 'failure') });
 
     expect(result.verdict).toBe('red');
-    expect(result.failing.sort()).toEqual(['Test (shard 1/4) (failure)', 'Test (shard 3/4) (failure)']);
-    // Shards 2 and 4 passed. A gate that waited for "Test" as one name, or for
-    // whichever shard reported first, would have merged this pull request.
-    expect(result.failing.join()).not.toContain('shard 2/4');
-    expect(result.failing.join()).not.toContain('shard 4/4');
+    expect(result.failing).toContain('Test (failure)');
+
+    // The control, in the same command: the SAME snapshot with the SAME two
+    // failed shards is GREEN when the aggregator says `success` — so the red
+    // above is the aggregator speaking, not a residual shard name still being
+    // read somewhere.
+    const lying = evaluateGate({ checkRuns: withAggregator(finished, 'success') });
+    expect(lying.failing).toEqual([]);
+    expect(lying.failing.join()).not.toContain('shard');
+  });
+
+  it('refuses an aggregator that reported `skipped` — the objectui#9499 acceptance', () => {
+    // A required context that is `skipped` counts as SUCCESS in branch
+    // protection, which is why the aggregator must never be able to skip; this
+    // gate reads the conclusion itself and refuses it here too.
+    const runs = allGreenSnapshot().map((run) =>
+      run.name === 'Test' ? { ...run, conclusion: 'skipped' } : run,
+    );
+    const result = evaluateGate({ checkRuns: runs });
+
+    expect(result.verdict).toBe('red');
+    expect(result.failing).toEqual(['Test (skipped)']);
   });
 
   it('is green when the incident\'s contexts, and every one added since, all pass', () => {
@@ -210,17 +292,34 @@ describe('the #4959 counterfactual: this gate stops the merge that happened', ()
       ...Object.keys(NOT_A_GATE),
     ]);
 
-    for (const run of INCIDENT_4959) expect(classified).toContain(run.name);
+    const produced = producedCheckNames();
+
+    // The control for the exemption: a name may only sit in
+    // `RENAMED_SINCE_4959` while the repository really has stopped producing
+    // it. Without this, parking a live unclassified context in that list would
+    // silently shrink the gate — the failure mode this whole file is about.
+    for (const name of RENAMED_SINCE_4959) {
+      expect(
+        produced.has(name),
+        `${name} is exempted as renamed-since-#4959, but a pull_request workflow still produces ` +
+          `it — classify it in one of the three buckets instead of exempting it`,
+      ).toBe(false);
+    }
+
+    for (const run of INCIDENT_4959) {
+      if (RENAMED_SINCE_4959.includes(run.name)) continue;
+      expect(classified).toContain(run.name);
+    }
   });
 });
 
 describe('absence is never green (#3523 in mirror image)', () => {
   it('waits for a required context that has not reported at all', () => {
-    const runs = allGreenSnapshot().filter((run) => run.name !== 'Test (shard 1/4)');
+    const runs = allGreenSnapshot().filter((run) => run.name !== 'Test');
     const result = evaluateGate({ checkRuns: runs });
 
     expect(result.verdict).toBe('pending');
-    expect(result.missing).toEqual(['Test (shard 1/4)']);
+    expect(result.missing).toEqual(['Test']);
   });
 
   it('refuses a required context that reported `skipped`', () => {
@@ -314,10 +413,14 @@ describe('waitForGate: the deadline fails closed', () => {
     expect(result.timedOut).toBe(false);
   });
 
-  it('stops at the first red without waiting for the rest of the matrix', async () => {
+  it('stops at the first red instead of polling out the deadline', async () => {
+    // 08:22:33Z is the last completion in the record, i.e. the earliest instant
+    // `test-aggregate` could report; two shards failed, so it reports `failure`.
+    // The point of the case is unchanged by objectui#9499 — a decided red ends
+    // the wait on the FIRST poll rather than costing the author the timeout.
     const clock = fakeClock();
     const result = await waitForGate({
-      api: { listCheckRuns: async () => snapshotAt('2026-08-17T08:21:01Z') },
+      api: { listCheckRuns: async () => withAggregator(snapshotAt('2026-08-17T08:22:33Z'), 'failure') },
       sha: 'deadbeef',
       timeoutMs: 60_000,
       intervalMs: 1_000,
@@ -327,7 +430,7 @@ describe('waitForGate: the deadline fails closed', () => {
 
     expect(result.verdict).toBe('red');
     expect(result.polls).toBe(1);
-    expect(result.failing).toContain('Test (shard 3/4) (failure)');
+    expect(result.failing).toContain('Test (failure)');
   });
 
   it('turns an undecided gate RED at the deadline — a timeout is not a pass', async () => {
@@ -385,15 +488,14 @@ describe('main(): a misconfigured deadline fails loudly, not silently', () => {
 describe('the refusal is legible', () => {
   it('says nothing was merged, and names what refused', () => {
     const body = renderVerdict({
-      ...evaluateGate({ checkRuns: snapshotAt('2026-08-17T08:22:33Z') }),
+      ...evaluateGate({ checkRuns: withAggregator(snapshotAt('2026-08-17T08:22:33Z'), 'failure') }),
       sha: '31745d8b6805dc829c05660a9592e92ca537bc3b',
       elapsedMs: 540_000,
     });
 
     expect(body).toContain('NOT merged');
     expect(body).toContain('31745d8');
-    expect(body).toContain('Test (shard 1/4) (failure)');
-    expect(body).toContain('Test (shard 3/4) (failure)');
+    expect(body).toContain('Test (failure)');
   });
 
   it('distinguishes a deadline from a failure', () => {
@@ -424,7 +526,7 @@ describe('the declared buckets partition what a pull request actually produces',
   it('found the workflows and the shard matrix (the parser still parses)', () => {
     expect(workflows.map((w) => w.file)).toContain('ci.yml');
     expect([...produced.keys()]).toEqual(
-      expect.arrayContaining(['Test (shard 1/4)', 'Test (shard 4/4)', 'Lint', 'dependabot', 'label']),
+      expect.arrayContaining(['Test (shard 1/8)', 'Test (shard 8/8)', 'Test', 'Lint', 'dependabot', 'label']),
     );
     // No unexpanded template survived the matrix expansion.
     for (const name of produced.keys()) expect(name).not.toContain('${{');

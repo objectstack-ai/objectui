@@ -528,7 +528,7 @@ export const ADJUDICATED = new Map([
     'scripts/__tests__/check-changeset-overwrite.test.ts',
     {
       reads: [],
-      notRead: ['.changeset/README.md', '.changeset/olive-donkeys-smile.md'],
+      notRead: ['.changeset/README.md'],
     },
   ],
   // Reads no markdown: drives the gate against a fixture repository it writes in a temp directory.
@@ -636,7 +636,7 @@ export const ADJUDICATED = new Map([
     'scripts/__tests__/check-installed-spec-pin-claims.test.ts',
     {
       reads: ['.claude/skills/**', '.github/prompts/component.prompt.md', '.github/prompts/engine.prompt.md', '.github/prompts/ui-library.prompt.md', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'LICENSE-THIRD-PARTY.md', 'QUICK_REFERENCE.md', 'README.md', 'ROADMAP.md', 'apps/**', 'content/docs/**', 'docs/ARCHITECTURE.md', 'docs/CONSOLE-STREAMLINING-SUMMARY.md', 'docs/adr/**', 'docs/audits/**', 'examples/**', 'packages/**', 'patches/README.md', 'skills/objectui/**'],
-      notRead: ['.changeset/8897-installed-spec-pin-claims.md', 'CHANGELOG.md'],
+      notRead: ['CHANGELOG.md'],
     },
   ],
   [

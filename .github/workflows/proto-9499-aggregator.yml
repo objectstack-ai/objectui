@@ -1,0 +1,100 @@
+# PROTOTYPE for objectui#9499 — this file exists ONLY on branch
+# `claude/issue-9499-proto` and is never part of the pull request. It stands in
+# for `ci.yml`'s shard matrix with trivial jobs so that the only thing under
+# test is the AGGREGATOR MECHANISM: what a matrix rollup reports, what a naive
+# aggregator does, and what `scripts/check-test-shard-results.mjs` does, on a
+# run where one shard has been forced to `skipped`.
+name: PROTO 9499
+
+on:
+  push:
+    branches: ['claude/issue-9499-proto']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  # Three legs that succeed. Shard 3 is deliberately NOT in this matrix.
+  test:
+    name: Test (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 4]
+    steps:
+      - name: Stand in for the suite
+        run: echo "shard ${{ matrix.shard }} ran"
+
+  # ⭐ THE FORCED-SKIPPED SHARD. GitHub does not expose the `matrix` context to
+  # a job-level `if:`, so a single leg of a matrix cannot be skipped while its
+  # siblings succeed; the shard is therefore its own job, under the name the
+  # aggregator looks for.
+  test-shard-3:
+    name: Test (shard 3/4)
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Never reached
+        run: echo "this shard was forced to skipped"
+
+  # The other reachable shape: the whole matrix skipped by its job-level `if:`.
+  allskip:
+    name: PROTO allskip (${{ matrix.shard }})
+    if: false
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - name: Never reached
+        run: echo "unreachable"
+
+  # The measurement Zone 3 asked for: what the rollup actually returns.
+  rollup-report:
+    name: PROTO rollup reading
+    needs: [test, test-shard-3, allskip]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: What needs.JOB.result returns
+        env:
+          MIXED_MATRIX: ${{ needs.test.result }}
+          FORCED_SKIP: ${{ needs.test-shard-3.result }}
+          ALL_SKIPPED: ${{ needs.allskip.result }}
+        run: |
+          echo "needs.test.result        = $MIXED_MATRIX   (3 legs, all success)"
+          echo "needs.test-shard-3.result = $FORCED_SKIP   (one job, if: false)"
+          echo "needs.allskip.result      = $ALL_SKIPPED   (matrix, whole job if: false)"
+
+  # ⛔ The phantom gate, run for the record: `needs:` with NO `always()`.
+  naive-aggregate:
+    name: PROTO naive aggregator
+    needs: [test, test-shard-3]
+    runs-on: ubuntu-latest
+    steps:
+      - name: A naive aggregator would report this
+        run: echo "the naive aggregator RAN and is green"
+
+  # ⭐ The real gate, exactly as `ci.yml` runs it.
+  test-aggregate:
+    name: Test
+    needs: [test, test-shard-3]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Every test shard reported success, one shard at a time
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_MATRIX_ROLLUP: ${{ needs.test.result }}
+        run: |
+          echo "needs.test.result (the matrix rollup this gate deliberately does NOT trust) = $TEST_MATRIX_ROLLUP"
+          node scripts/check-test-shard-results.mjs --shards 4 --job-name 'Test'

@@ -25,6 +25,7 @@
  */
 
 import { afterAll, describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -33,6 +34,12 @@ import {
   census,
   scanNodes,
   keepFencedCodeOnly,
+  resolvePopulation,
+  parseKeys,
+  finalVerdict,
+  ALL_KEYS,
+  KNOWN_LIMITS,
+  EXIT_UNREADABLE,
   BODY_ONLY,
   RULED_BUT_NOT_A_READER,
   BODY_ONLY_UNRULED,
@@ -259,5 +266,150 @@ describe('the census skips `.objectui-tmp` (objectui#9201)', () => {
     // Lit control — without this the assertion below passes on an empty walk.
     expect(files).toContain('packages/scanned-control/page.json');
     expect(files.some((file) => file.startsWith('.objectui-tmp/'))).toBe(false);
+  });
+});
+
+/**
+ * A zero names the population it was taken over (objectui#9545).
+ *
+ * The defect: the scan filtered every node against a hard-coded name set and
+ * threw the set away before printing, so `hits: 0` for a name OUTSIDE it was
+ * indistinguishable from a real zero. It was hit for real — a
+ * breaking-change census over six narrowed names read zero from this tool, and
+ * the only way to take the real reading was to patch the name list in a
+ * scratchpad copy of the script.
+ *
+ * ⚠️ Every assertion below is two-sided, for the same reason the first
+ * block of this file is: an instrument that resolved NOTHING satisfies a bare
+ * "reads 0" assertion on its own. The lit half is not decoration.
+ */
+describe('the population travels with the reading (objectui#9545)', () => {
+  const roots: string[] = [];
+  afterAll(() => {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  });
+
+  /** A corpus with one IN-population node and one OUT-of-population node. */
+  const plantedRoot = () => {
+    const root = mkdtempSync(join(tmpdir(), 'body-dialect-census-9545-'));
+    roots.push(root);
+    const full = join(root, 'packages/planted/page.json');
+    mkdirSync(dirname(full), { recursive: true });
+    writeFileSync(
+      full,
+      JSON.stringify({ type: 'page', body: [{ type: 'text', body: [] }] }, null, 2) + '\n',
+    );
+    return root;
+  };
+
+  it('DIFFERENTIAL — the same bytes read 0 or non-zero depending only on the population', () => {
+    const root = plantedRoot();
+
+    const dflt = census(root);
+    const inPopulation = dflt.hits.filter((h: { type: string }) => h.type === 'page');
+    const outOfPopulation = dflt.hits.filter((h: { type: string }) => h.type === 'text');
+    // Lit control: the walk resolved something, so the zero below is about the
+    // population and not about a blind instrument.
+    expect(inPopulation.length).toBeGreaterThan(0);
+    expect(outOfPopulation.length).toBe(0);
+
+    // Same root, same bytes, population named explicitly — the "zero" was an artifact.
+    const asked = census(root, { keys: ['text', 'page'] });
+    expect(asked.hits.filter((h: { type: string }) => h.type === 'text').length).toBeGreaterThan(0);
+    expect(asked.hits.filter((h: { type: string }) => h.type === 'page').length).toBe(inPopulation.length);
+  });
+
+  it('the reading CARRIES the key set it was taken over, so the zero is readable', () => {
+    const root = plantedRoot();
+    const dflt = census(root);
+    expect(dflt.population.keySource).toBe('default');
+    expect(dflt.population.keys).toEqual([...ALL_KEYS].sort());
+    // The fact a reader of the zero above needs, present in the payload itself.
+    expect(dflt.population.keys).not.toContain('text');
+    expect(dflt.population.keys).toContain('page');
+
+    const asked = census(root, { keys: ['text', 'page'] });
+    expect(asked.population.keySource).toBe('--keys');
+    expect(asked.population.keys).toEqual(['page', 'text']);
+  });
+
+  it('names keys with no renderer evidence rather than REFUSING them', () => {
+    // The card offered "exit non-zero on a name outside the list" as an option.
+    // Refusing would delete the measurement this card was filed over: the six
+    // narrowed names are deliberately NOT reader keys and asking about them is
+    // the legitimate question. So an unknown key is NAMED, not refused.
+    const p = resolvePopulation(['text', 'badge']);
+    expect(p.unknownKeys).toEqual(['text']);
+    expect(finalVerdict({ population: p, filesScanned: 1 }).exit).toBe(0);
+    // Lit control — a key with renderer evidence is not named as unknown.
+    expect(resolvePopulation(['badge']).unknownKeys).toEqual([]);
+  });
+
+  it('`--keys` with a missing value REFUSES rather than silently using the default set', () => {
+    // The defect one level up: answering a question about one key set with a
+    // count taken over a different one. `undefined` (flag absent) and `[]`
+    // (flag present, value missing) must not collapse.
+    expect(parseKeys(['--root', '.'])).toBeUndefined();
+    expect(parseKeys(['--keys', '--json'])).toEqual([]);
+    expect(parseKeys(['--keys', 'text,image', '--keys', 'icon'])).toEqual(['text', 'image', 'icon']);
+    expect(parseKeys(['--keys', ' text , image '])).toEqual(['text', 'image']);
+  });
+
+  it('refuses the two zeros that naming the population cannot make readable', () => {
+    const empty = finalVerdict({ population: resolvePopulation([]), filesScanned: 99 });
+    expect(empty.exit).toBe(EXIT_UNREADABLE);
+    expect(empty.refusal?.join(' ')).toContain('Empty key population');
+
+    const blind = finalVerdict({ population: resolvePopulation(undefined), filesScanned: 0 });
+    expect(blind.exit).toBe(EXIT_UNREADABLE);
+    expect(blind.refusal?.join(' ')).toContain('Zero files scanned');
+
+    // Lit control, and the point of the whole card: a REAL zero over a real
+    // population on a real corpus is a legitimate reading and is NOT refused.
+    const honest = finalVerdict({ population: resolvePopulation(['text']), filesScanned: 99 });
+    expect(honest.exit).toBe(0);
+    expect(honest.refusal).toBeNull();
+  });
+
+  it('the header\'s "stated so a zero is readable" promise is EMITTED, not just written', () => {
+    // The limits are one declaration, emitted by the run. A prose list beside a
+    // machine-maintained one is how the key-population limit came to be missing
+    // from the header in the first place.
+    const ids = KNOWN_LIMITS.map((l: { id: string }) => l.id);
+    expect(ids).toContain('key-population');
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const limit of KNOWN_LIMITS) expect(limit.what.length).toBeGreaterThan(0);
+    expect(resolvePopulation(undefined).notScanned).toBe(KNOWN_LIMITS);
+
+    // The old prose bullets named a `--group` flag this script has never had.
+    const src = read('scripts/body-dialect-census.mjs');
+    expect(src, 'the header names a flag that does not exist').not.toContain('--group');
+  });
+
+  it('CLI — the payload always carries the population, and a refusal reaches the exit code', () => {
+    const script = join(REPO_ROOT, 'scripts', 'body-dialect-census.mjs');
+    const run = (args: string[]) =>
+      spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
+
+    // Lit control: a real run exits 0 and its payload names the population.
+    const ok = run(['--root', plantedRoot(), '--json']);
+    expect(ok.status).toBe(0);
+    const payload = JSON.parse(ok.stdout) as {
+      population: { keys: string[]; notScanned: Array<{ id: string }> };
+      hits: unknown[];
+    };
+    expect(payload.population.keys.length).toBeGreaterThan(0);
+    expect(payload.population.notScanned.map((l) => l.id)).toContain('key-population');
+
+    // ⭐ There is no spelling of this payload that reports `hits` without
+    // reporting what `hits` was counted over: no flag suppresses it.
+    expect(Object.keys(payload)).toContain('population');
+
+    // A blind walk exits non-zero with nothing on stdout, where it used to
+    // print a full table of confident zeros and exit 0.
+    const blind = run(['--root', join(REPO_ROOT, 'no-such-directory-9545'), '--json']);
+    expect(blind.status).toBe(EXIT_UNREADABLE);
+    expect(blind.stdout).toBe('');
+    expect(blind.stderr).toContain('Zero files scanned');
   });
 });

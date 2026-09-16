@@ -48,10 +48,14 @@
  *     pinned as refused — that door has to be seen to stay shut.
  *
  * ⚠️ The prose in `packages/types/src/field-types.ts` and
- * `packages/types/src/select-option.ts` still describes the 17.2.0 boundary and
- * is now false in the other direction. Correcting it is objectui#7635's
- * declared surface (the comment/prose sites), not this file's — recorded here
- * so the two halves are not repaired twice or, worse, once.
+ * `packages/types/src/select-option.ts` described the 17.2.0 boundary and was
+ * false in the other direction for as long as this note stood. objectui#7635
+ * corrected those sites, so both halves now read the same boundary — this file
+ * asserts it, and their docblocks point here instead of restating it. ⭐ The
+ * repair also moved two of them INTO the reach of
+ * `scripts/check-installed-spec-pin-claims.mjs`: written as a claim about the
+ * installed pin on one line, they are now re-derived by that gate at every
+ * bump, rather than sitting in its ledger as known-stale debt.
  *
  * Every assertion pairs its verdict with a CONTROL that changes exactly one
  * thing, so a red here reads "the key's status changed" and never "the fixture

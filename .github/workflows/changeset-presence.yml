@@ -144,6 +144,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    # ⚠️ A JOB-LEVEL block, so `pull-requests: write` reaches THIS job and not
+    # the declaration gate above it, which needs nothing but a checkout. A
+    # job-level block REPLACES the workflow-level one rather than extending it,
+    # so `contents: read` has to be named again here or checkout loses it.
+    #
+    # ⛔ Not a new permission (objectui#9140's ruling required this to be
+    # checked): `pull-requests: write` on the run's `GITHUB_TOKEN` is what
+    # `performance-budget.yml` already uses to post the Console Performance
+    # Budget report, and four other workflows here hold it too. There is no new
+    # secret, no personal token, no app, and no `pull_request_target`.
+    permissions:
+      contents: read
+      pull-requests: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -165,4 +179,118 @@ jobs:
       # batched blob read — measured at ~1.1s against the 1,384 changesets
       # pending when it was written — so it needs no install and no build.
       - name: Report pending changesets this change may have falsified
-        run: node scripts/check-changeset-claims.mjs
+        # `--json` is the hand-off to the delivery steps below, written from the
+        # same run that prints the log — ⛔ never a second measurement, which
+        # could disagree with the log it claims to report.
+        run: node scripts/check-changeset-claims.mjs --json claims.json
+
+      # ── Delivery (objectui#9140, director ruling, maintainer 「同意」) ──────
+      #
+      # The finding is a REQUEST TO READ, and objectui#9140 measured that request
+      # at zero answers out of four because it was addressed to a job log nobody
+      # opens on a green check. So it is carried to the pull request, where the
+      # seat that can answer it already is.
+      #
+      # ⛔ Report-only is UNCHANGED and must stay that way: the step above still
+      # exits 0 on findings, this job is still not a required context, and the
+      # rendered comment says both in its own opening lines. Delivery moves where
+      # the finding is READ, never what it does.
+      #
+      # Rendering lives in a script for the reason the budget report's does:
+      # logic embedded in YAML cannot be unit tested, and the failure this
+      # rendering can carry — an empty finding set rendered as a request to
+      # re-read — is the same class of bug as objectui#3152.
+      - name: Render the claim re-read comment
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/render-changeset-claims-comment.mjs --from claims.json > claims-comment.md
+
+      # One comment per pull request, updated in place on re-runs rather than
+      # stacked. The marker it finds itself by is the FIRST LINE of the body it
+      # is about to post — plain text, never an HTML comment, because this
+      # repository has measured that GitHub deletes tag-shaped fragments from a
+      # stored body and that a first-line HTML comment is eaten with them
+      # (AGENTS.md). A marker that vanishes does not degrade gracefully: every
+      # re-run would fail to find its predecessor and post again, which is the
+      # stacking this is required to avoid.
+      #
+      # ⛔ The marker is not spelled here. It is read off the rendered body, so
+      # there is only ever one copy of it.
+      - name: Deliver the finding to the pull request
+        if: ${{ github.event_name == 'pull_request' }}
+        # A fork's pull request gets a read-only token, so the API call fails for
+        # a reason that says nothing about changesets. `continue-on-error` plus
+        # the try/catch below keep that from painting this job red — the same
+        # pairing, for the same reason, as the budget report's comment step.
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          # GitHub's API intermittently rejects valid run tokens with 401
+          # (seen on PR #1627), so 401/403 must stay retryable here.
+          retries: 3
+          retry-exempt-status-codes: 400,404,422
+          script: |
+            const fs = require('fs');
+
+            if (!fs.existsSync('claims-comment.md')) {
+              core.warning('claims-comment.md was not rendered; skipping the pull request comment.');
+              return;
+            }
+            const body = fs.readFileSync('claims-comment.md', 'utf8');
+            const marker = body.split('\n', 1)[0].trim();
+            if (!/^[a-z][a-z0-9-]{4,}$/.test(marker)) {
+              core.warning(
+                `Rendered body does not open with a marker line (read: ${JSON.stringify(marker)}). ` +
+                  'Posting without in-place update — this comment may stack.',
+              );
+            }
+
+            let findings = 0;
+            try {
+              findings = JSON.parse(fs.readFileSync('claims.json', 'utf8')).findings.length;
+            } catch (error) {
+              core.warning(`Could not read the finding count: ${error.message}`);
+            }
+
+            const target = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            };
+
+            try {
+              const all = await github.paginate(github.rest.issues.listComments, {
+                ...target,
+                per_page: 100,
+              });
+              const mine = all
+                .filter((comment) => (comment.body ?? '').split('\n', 1)[0].trim() === marker)
+                .sort((a, b) => a.id - b.id);
+
+              if (mine.length === 0) {
+                // ⛔ Never CREATE a comment for an empty finding set. Most pull
+                // requests here have nothing to re-read, and a reassuring "all
+                // clear" on every one of them is how a channel gets muted — the
+                // channel this ruling exists to un-mute.
+                if (findings === 0) {
+                  core.info('Nothing to re-read, and no earlier request on this pull request.');
+                  return;
+                }
+                const created = await github.rest.issues.createComment({ ...target, body });
+                core.info(`Posted the request to re-read: ${created.data.html_url}`);
+                return;
+              }
+
+              await github.rest.issues.updateComment({ ...target, comment_id: mine[0].id, body });
+              core.info(`Updated the request to re-read in place: ${mine[0].html_url}`);
+              if (mine.length > 1) {
+                core.warning(
+                  `${mine.length} comments carry this marker; updated the earliest and left the ` +
+                    'rest alone. ⛔ Not this job\'s to delete — somebody else may own them.',
+                );
+              }
+            } catch (error) {
+              core.warning(`Could not deliver the finding to the pull request: ${error.message}`);
+              await core.summary.addRaw(body).write();
+            }

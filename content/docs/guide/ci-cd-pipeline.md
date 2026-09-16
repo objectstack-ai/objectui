@@ -2425,6 +2425,26 @@ filter, and this gate's subject — an ordinary source change that falsifies a p
 under no obligation to touch `.changeset/**` at all. Run it locally with
 `pnpm check:changeset-claims`.
 
+**That finding is delivered onto the pull request, not left in the job log.**
+[#9140](https://github.com/objectstack-ai/objectui/issues/9140) re-ran the gate over five live
+instances of the shape it exists for: it named four of them, and **none of the four was acted on**.
+The finding calls itself a *request to read*, and it was addressed to a job log nobody opens on a
+green check. So the job now runs `scripts/check-changeset-claims.mjs --json claims.json`, renders
+that hand-off with `scripts/render-changeset-claims-comment.mjs`, and posts it as a comment on the
+pull request through `actions/github-script` — the same channel the Console Performance Budget
+report uses, on the same existing `pull-requests: write` grant, declared on this job only.
+
+- **One comment per pull request, updated in place.** The job finds its previous comment by the
+  first line of the body, which is a plain-text marker rather than the usual hidden HTML comment:
+  GitHub deletes tag-shaped fragments from a stored body — an HTML comment alone on the first line
+  included — and a marker that vanishes makes every re-run post a *new* comment. See AGENTS.md.
+- **A revision that resolves the finding updates the same comment** to say so, rather than leaving
+  a stale request at the top of the thread. A pull request with nothing to re-read and no earlier
+  comment gets no comment at all.
+- **Nothing about enforcement moved.** The step still exits 0 on findings, the job is still not a
+  required context, and the comment says both in its own opening lines. Failing a build over prose
+  being adjacent is the shape triage fenced, and it stays fenced.
+
 **Why this is separate from `changeset-guard.yml`, which also polices changesets:** that workflow's
 trigger is `paths: ['.changeset/**']`, and the inversion is deliberate — on a PR that adds *only* a
 changeset, every gate inside `ci.yml` and `lint.yml` short-circuits, so nothing in either of them

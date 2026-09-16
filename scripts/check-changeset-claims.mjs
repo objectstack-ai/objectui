@@ -5,6 +5,7 @@
  *
  * Run:  node scripts/check-changeset-claims.mjs   (also `pnpm check:changeset-claims`)
  *       node scripts/check-changeset-claims.mjs --base <ref> --head <ref>
+ *       node scripts/check-changeset-claims.mjs --json <file>
  *       node scripts/check-changeset-claims.mjs --audit
  * Exit: 0 = nothing to re-read, or findings (this gate is REPORT-ONLY and has
  *           no enforcing mode — see "Why it can never block" below)
@@ -142,17 +143,37 @@
  * deliberately not taken here. The numbers are on objectui#9140; ⛔ they are not
  * copied into this header, which is rule #9 applied to this paragraph.
  *
- * ## Where it runs
+ * ## Where it runs, and where the finding is DELIVERED
  *
  * `changeset-presence.yml`, as a second job. That workflow carries NO path
  * filter, which is what this gate needs and what `changeset-guard.yml` cannot
  * give it: the change that falsifies a pending claim is an ordinary source
  * change, and nothing guarantees it touches `.changeset/**` at all. It needs no
  * install and no build - a checkout, a tree listing and one batched blob read.
+ *
+ * On a pull request the finding is POSTED TO THAT PULL REQUEST, not left in a
+ * job log (objectui#9140, director ruling, maintainer approved). HALF ONE above
+ * measured the "REQUEST TO READ" theory of change at zero answers out of four,
+ * and the seat that could answer cheaply is the one reading the pull request —
+ * so the request is carried to where that seat already is. The channel is the
+ * one the Console Performance Budget report uses: `actions/github-script`
+ * calling the issue-comments API with the repository's existing
+ * `pull-requests: write` grant on `GITHUB_TOKEN`.
+ *
+ * ⛔ Delivery changes NOTHING about enforcement. Exit is still 0 on findings,
+ * the job is still not a required context, and the comment says so in its own
+ * first sentences. "Why it can never block" above still rules, and the
+ * measurement it rests on is untouched.
+ *
+ * `--json <file>` is the hand-off: this run's finding set, written once and
+ * rendered by `scripts/render-changeset-claims-comment.mjs`. One comment per
+ * pull request, updated in place on every re-run rather than stacked — the
+ * renderer's own header carries the marker convention and why the marker is
+ * plain text rather than an HTML comment.
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isEntrypoint } from './invoked-as.mjs';
@@ -531,6 +552,43 @@ if (isEntrypoint(import.meta.url)) {
         '    whether anything needs re-reading (objectui#4690).',
     );
     process.exit(1);
+  }
+
+  // The DELIVERY hand-off (objectui#9140). One measurement, two consumers: the
+  // log below, which a human reads by opening the job, and this file, which
+  // `render-changeset-claims-comment.mjs` turns into the pull request comment.
+  //
+  // A file rather than a second `claims()` call in the renderer, for the reason
+  // `performance-budget.yml` passes its measurement through step outputs: a
+  // report that re-derives its own subject can disagree with the log it claims
+  // to be reporting, and the disagreement is invisible to both.
+  //
+  // A write that fails is a WARNING, never a failure. The verdict is the log and
+  // it is already printed; losing the hand-off loses the delivery, which the
+  // comment step reports as a missing file. Exit 1 here would be this gate
+  // failing a build over its own plumbing — the one thing "report-only" forbids.
+  const jsonPath = argOf('--json');
+  if (jsonPath) {
+    try {
+      writeFileSync(
+        resolve(root, jsonPath),
+        `${JSON.stringify(
+          {
+            base: base.ref,
+            baseHow: base.how,
+            head,
+            changed: result.subject.length,
+            pending: result.pending,
+            considered: result.considered,
+            findings: result.findings,
+          },
+          null,
+          2,
+        )}\n`,
+      );
+    } catch (error) {
+      console.error(`⚠️  Could not write ${jsonPath}: ${error.message} — the log below is unaffected.`);
+    }
   }
 
   console.log(

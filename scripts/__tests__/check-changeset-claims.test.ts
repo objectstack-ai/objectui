@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -148,20 +148,23 @@ interface Run {
   output: string;
 }
 
-/** Runs the real gate against a fixture, capturing status and both streams. */
+/**
+ * Runs the real gate against a fixture, capturing status and both streams.
+ *
+ * BOTH streams on the success path too, not just on failure: this gate warns on
+ * stderr while still exiting 0 — losing the DELIVERY hand-off is a warning, not
+ * a verdict — and a harness that reads only stdout on a green run cannot see
+ * that half of the output. In the job log the two streams are interleaved
+ * anyway, so this is what a reader actually gets.
+ */
 function runGate(root: string, args: string[] = [], env: Record<string, string> = {}): Run {
-  try {
-    const stdout = execFileSync('node', [path.join(repoRoot, GATE), '--root', root, ...args], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, ...env },
-    });
-    return { status: 0, output: stdout };
-  } catch (error) {
-    const failure = error as { status?: number; stdout?: string; stderr?: string };
-    return { status: failure.status ?? -1, output: `${failure.stdout ?? ''}${failure.stderr ?? ''}` };
-  }
+  const run = spawnSync('node', [path.join(repoRoot, GATE), '--root', root, ...args], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, ...env },
+  });
+  return { status: run.status ?? -1, output: `${run.stdout ?? ''}${run.stderr ?? ''}` };
 }
 
 /** base..head for a fixture's last commit. */
@@ -193,6 +196,63 @@ describe('changeset-presence.yml — where this gate has to live', () => {
     // to touch `.changeset/**` at all. A path filter added here would blind the
     // gate with no red anywhere, so its ABSENCE is pinned.
     expect(workflowYaml).not.toMatch(/^\s*paths(-ignore)?:/m);
+  });
+});
+
+// ── 1b. the finding is DELIVERED, not archived (objectui#9140) ───────────────
+
+describe('delivery — the ruling that the finding reaches the pull request', () => {
+  // objectui#9140 measured the "REQUEST TO READ" at zero answers out of four
+  // live instances, because it was addressed to a job log nobody opens on a
+  // green check. The director's ruling (maintainer 「同意」) moves WHERE the
+  // finding is read and ⛔ nothing else: exit 0, not a required context,
+  // nothing blocks.
+  it('hands this run\'s finding set to the renderer instead of re-measuring it', () => {
+    // One measurement, two consumers. A report that re-derives its own subject
+    // can disagree with the log it claims to report, and the disagreement is
+    // invisible to both sides.
+    expect(workflowYaml).toMatch(/node\s+scripts\/check-changeset-claims\.mjs\s+--json\s+claims\.json/);
+    expect(workflowYaml).toMatch(
+      /node\s+scripts\/render-changeset-claims-comment\.mjs\s+--from\s+claims\.json/,
+    );
+  });
+
+  it('posts through the channel the Console Performance Budget report uses', () => {
+    expect(workflowYaml).toMatch(/uses:\s*actions\/github-script@/);
+    const budget = withoutComments(
+      fs.readFileSync(path.join(repoRoot, '.github/workflows/performance-budget.yml'), 'utf8'),
+    );
+    expect(budget).toMatch(/uses:\s*actions\/github-script@/);
+  });
+
+  it('holds `pull-requests: write` on the JOB, leaving the declaration gate with a read-only token', () => {
+    // A job-level block REPLACES the workflow-level one, so `contents: read`
+    // has to be named again or checkout loses it. The workflow-level block must
+    // stay read-only: the declaration gate above needs nothing but a checkout,
+    // and a grant it does not use is a grant nobody is auditing.
+    expect(workflowYaml).toMatch(/permissions:\n\s+contents: read\n\s+pull-requests: write/);
+    expect(workflowYaml).toMatch(/^permissions:\n\s+contents: read\n/m);
+    expect(workflowYaml).not.toMatch(/^permissions:\n\s+contents: read\n\s+pull-requests/m);
+  });
+
+  it('⛔ never subscribes `pull_request_target`, which would run this on a fork\'s branch with a write token', () => {
+    expect(workflowYaml).not.toMatch(/pull_request_target/);
+  });
+
+  it('comments only on a pull request', () => {
+    // A `merge_group` build has no pull request to comment on, and the gate
+    // still has to REPORT there — so the delivery steps are conditioned and the
+    // measuring step is not.
+    const conditions = workflowYaml.match(/if: \$\{\{ github\.event_name == 'pull_request' \}\}/g) ?? [];
+    expect(conditions.length).toBe(2);
+  });
+
+  it('cannot paint this job red by failing to post', () => {
+    // A fork's pull request gets a read-only token and the API call fails for a
+    // reason that says nothing about changesets. Report-only means the gate
+    // declines to fail on its FINDINGS; it must not start failing on its
+    // PLUMBING either.
+    expect(workflowYaml).toMatch(/continue-on-error: true/);
   });
 });
 
@@ -510,5 +570,56 @@ describe('objectui#9140 — bodies this gate can never reach', () => {
     expect(run.output, 'the gate was not simply silent about everything').toContain(
       '.changeset/6794-declared-default.md',
     );
+  });
+});
+
+// ── 6. the delivery hand-off is a real artefact of the real run ──────────────
+
+describe('--json, the hand-off the pull request comment is rendered from', () => {
+  const fixture = fixtureRepo('json-handoff');
+  fixture.write('packages/alpha/src/reconciliation.test.ts', 'export const pinned = false;\n');
+  fixture.commit('fix(alpha): flip the reconciliation pin');
+  const handOff = path.join(fixture.root, 'claims.json');
+  const run = runGate(fixture.root, [...lastCommitRange(fixture), '--json', handOff]);
+
+  it('writes the finding set this run measured', () => {
+    const written = JSON.parse(fs.readFileSync(handOff, 'utf8'));
+    expect(written.findings).toHaveLength(1);
+    expect(written.findings[0].changeset).toBe('.changeset/6794-declared-default.md');
+    expect(written.findings[0].file).toBe('packages/alpha/src/reconciliation.test.ts');
+    expect(written.findings[0].paragraph).toContain('keeps the two sides pinned');
+  });
+
+  it('carries the population the log reports, so the comment cannot contradict it', () => {
+    const written = JSON.parse(fs.readFileSync(handOff, 'utf8'));
+    expect(run.output).toContain(`read against ${written.considered} pending declaration(s)`);
+    expect(run.output).toContain(`(${written.pending} pending in total)`);
+  });
+
+  it('still exits 0 — delivery moved where the finding is read, never what the gate does', () => {
+    expect(run.status).toBe(0);
+  });
+
+  it('writes an EMPTY finding list rather than no file, so the renderer can resolve a stale request', () => {
+    const quiet = fixtureRepo('json-handoff-quiet');
+    quiet.write('packages/alpha/src/untouched.ts', 'export const untouched = false;\n');
+    quiet.commit('fix(alpha): change a file nothing pending names');
+    const quietHandOff = path.join(quiet.root, 'claims.json');
+    const quietRun = runGate(quiet.root, [...lastCommitRange(quiet), '--json', quietHandOff]);
+    expect(quietRun.status).toBe(0);
+    expect(JSON.parse(fs.readFileSync(quietHandOff, 'utf8')).findings).toEqual([]);
+  });
+
+  it('⛔ never fails the gate over its own plumbing', () => {
+    // An unwritable hand-off loses the DELIVERY. The verdict is the log and it
+    // is already printed, so exit 1 here would be this gate failing a build
+    // over a broken pipe — the one thing report-only forbids.
+    const broken = runGate(fixture.root, [
+      ...lastCommitRange(fixture),
+      '--json',
+      path.join(fixture.root, 'no-such-directory', 'claims.json'),
+    ]);
+    expect(broken.status).toBe(0);
+    expect(broken.output).toContain('Could not write');
   });
 });

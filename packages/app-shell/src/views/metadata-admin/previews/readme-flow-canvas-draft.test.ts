@@ -58,6 +58,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from 'jsonc-parser';
+
 import { FlowSchema } from '@objectstack/spec/automation';
 
 /**
@@ -102,43 +104,21 @@ function fenceBody(): string {
   return fence[1];
 }
 
-/**
- * Strip `//` line comments the way a jsonc reader does — string-aware.
- *
- * A blunt `replace(/\/\/.*$/gm, '')` would also cut inside a string value, and
- * this fence carries expression and template syntax in its values. Scanning for
- * the string state costs six lines and cannot silently truncate a value.
- */
-function stripLineComments(jsonc: string): string {
-  let out = '';
-  let inString = false;
-  let escaped = false;
-  for (let i = 0; i < jsonc.length; i += 1) {
-    const ch = jsonc[i];
-    if (inString) {
-      out += ch;
-      if (escaped) escaped = false;
-      else if (ch === '\\') escaped = true;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') { inString = true; out += ch; continue; }
-    if (ch === '/' && jsonc[i + 1] === '/') {
-      while (i < jsonc.length && jsonc[i] !== '\n') i += 1;
-      out += '\n';
-      continue;
-    }
-    out += ch;
-  }
-  return out;
-}
-
 /** The documented draft, exactly as a reader would paste it. */
 function readmeDraft(): Record<string, unknown> {
   // Not wrapped in a try/catch: `JSON.parse`'s own `SyntaxError` names the
   // offending token and is thrown from this line, which is louder than anything
-  // a re-throw could add.
-  const parsed: unknown = JSON.parse(stripLineComments(fenceBody()));
+  // a re-throw could add. The comments are blanked with spaces rather than
+  // deleted so the line the `SyntaxError` names is the line of the fence.
+  //
+  // objectui#9323 — the strip is `jsonc-parser`'s, replacing a string-state
+  // scanner private to this file. That scanner stated its own invariant ("a
+  // blunt replace … cannot silently truncate a value") and held it for `//`,
+  // but was blind to `/* */`: a block comment in this fence threw here instead
+  // of being stripped. `packages/cli/src/commands/check.ts` had already ruled
+  // `jsonc-parser` the reader for exactly this question. Measured: this fence
+  // parses to a byte-identical value before and after.
+  const parsed: unknown = JSON.parse(stripComments(fenceBody(), ' '));
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error("the README's flow draft is not a JSON object");
   }

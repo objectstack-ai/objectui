@@ -35,14 +35,19 @@
  *
  * ## The control half
  *
- * Two of them, because "unchanged" is the load-bearing half of the ruling on
- * objectui#8167: two further mounts (hook, and the schema-driven
- * `ConditionWidget`) are still passing nothing while their tier
- * question is open. `HookDefaultInspector` stands for that set as a real
- * rendered mount, and a bare `ConditionBuilder` with no `scope` stands for the
- * default itself. Both must still lint the bare shorthand CLEAN. If a later
- * change makes the prop default to `'record'` — or derives it from
- * `subjects.fieldPrefix` — these two go red, which is the point.
+ * "Unchanged" is the load-bearing half of the ruling on objectui#8167, so the
+ * default itself is pinned: a bare `ConditionBuilder` with no `scope` must
+ * still lint the bare shorthand CLEAN. If a later change makes the prop default
+ * to `'record'` — or derives it from `subjects.fieldPrefix` — that case goes
+ * red, which is the point.
+ *
+ * ⚠️ `HookDefaultInspector` used to stand beside it as a second control, on the
+ * ground that its tier was unsettled. It is settled now (ruling of
+ * 2026-09-16), so the same mount appears BELOW as a rejecting case instead.
+ * That is a re-homing, not a weakened pin: the control asserted "no claim is
+ * made here", and a claim is now made. The one mount still passing nothing is
+ * the schema-driven `ConditionWidget` in `widgets.tsx`, which has no rendered
+ * harness of its own — see that card for why it is still open.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -84,6 +89,8 @@ afterEach(cleanup);
 const BARE = "status == 'done'";
 /** Its canonical twin — the must-not-break half of every narrowing. */
 const CANONICAL = "record.status == 'done'";
+/** The transition idiom: only expressible where `previous` is bound too. */
+const TRANSITION = "previous.status != 'done' && record.status == 'done'";
 
 /** `CelPredicateField` renders its editor as a combobox TEXTAREA. */
 function rawEditorIn(root: HTMLElement): HTMLTextAreaElement {
@@ -260,7 +267,7 @@ describe('PageBlockInspector — the node tier IS a row surface here (objectui#8
   });
 });
 
-/* ── Controls — every mount that passes nothing is unchanged ───────────── */
+/* ── Mount 5 — a hook's `condition` ────────────────────────────────────── */
 
 function HookHarness() {
   const [draft, setDraft] = React.useState<Record<string, unknown>>({
@@ -294,17 +301,45 @@ function BareBuilderHarness() {
   );
 }
 
-describe('mounts that pass no `scope` are byte-for-byte unchanged (objectui#8167)', () => {
-  it('a hook guard — an OUT mount — still lints the bare shorthand clean', async () => {
-    // Server-trigger tier. objectui#8167 left it passing nothing on purpose:
-    // an explicit value is a claim, and that claim is what is unsettled. This
-    // case is what makes "left alone" falsifiable rather than asserted.
+describe('HookDefaultInspector — the SERVER binds a hook condition to `record` (objectui#8167)', () => {
+  // `@objectstack/objectql`'s `wrapDeclarativeHook` compiles the condition once
+  // and evaluates it as
+  //   `ExpressionEngine.evaluate<boolean>(expr, { record: record ?? {}, previous })`
+  // — `record` and `previous`, and nothing else. An unevaluable condition there
+  // throws `HookConditionError` rather than resolving false, so a bare
+  // reference is not merely a gate that never fires. The editor linted it
+  // clean; that mismatch is the defect this pair closes.
+  it('rejects the bare shorthand in a hook condition and names the record.<field> fix', async () => {
     render(<HookHarness />);
     const box = rawEditorIn(builderLabelled('Run only when (optional CEL)'));
     fireEvent.change(box, { target: { value: BARE } });
+    await expectRejected(box);
+  });
+
+  it('still accepts the canonical spelling in a hook condition', async () => {
+    render(<HookHarness />);
+    const box = rawEditorIn(builderLabelled('Run only when (optional CEL)'));
+    fireEvent.change(box, { target: { value: CANONICAL } });
     await expectAccepted(box);
   });
 
+  it('accepts `previous.<field>` — the transition idiom the server binds beside `record`', async () => {
+    // The ruling asked for `previous` to be reachable in this mount's scope.
+    // Measured on the installed engine, it already is: at `scope: 'record'`
+    // `validateExpression` returns no finding for a `previous.*` reference and
+    // `introspectScope` already advertises `previous` among its roots, so the
+    // narrowing to `record` does not cost this surface the one root that makes
+    // a transition expressible. This case is what keeps that true.
+    render(<HookHarness />);
+    const box = rawEditorIn(builderLabelled('Run only when (optional CEL)'));
+    fireEvent.change(box, { target: { value: TRANSITION } });
+    await expectAccepted(box);
+  });
+});
+
+/* ── Control — the mount that still passes nothing is unchanged ────────── */
+
+describe('mounts that pass no `scope` are byte-for-byte unchanged (objectui#8167)', () => {
   it('the component default is still the engine default, not `record`', async () => {
     // Omitting `scope` must forward `undefined`, so `celAuthoring`'s
     // `hint.scope ?? 'flattened'` answers exactly what it answered before the

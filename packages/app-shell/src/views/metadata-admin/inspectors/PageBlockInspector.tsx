@@ -705,6 +705,42 @@ export function PageBlockInspector({ selection, draft, onPatch, onClearSelection
           and the spec's parse error already names `visibleWhen` as the fix.
           `visibleWhen` is `ExpressionInputSchema`, so it goes through the same
           envelope read/write pair as the hook / action guards (#3218). */}
+      {/* ── The renderer reading this mount's lint scope follows (objectui#8167)
+          ────────────────────────────────────────────────────────────────────
+          The 2026-09-16 ruling on objectui#8167 settled the RULE, not this
+          mount: a mount's lint scope is decided by what the evaluator binds at
+          RUNTIME, never by what a neighbouring editor does. It then declined to
+          guess this one — the director did not read the objectui renderer side,
+          and recorded the "node tier, therefore flattened" reading as a default
+          to be measured rather than an assumption to ship on.
+
+          Measured here, on this tree. A page block is a SDUI node: the designer
+          canvas and the page preview both hand each block to `SchemaRenderer`
+          (`previews/PageBlockCanvas.tsx` renders `<SchemaRenderer schema={…} />`
+          per block), and `visibleWhen` is enforced once and generically inside
+          it — `shouldHide` short-circuits on `if (newSchema.visibleWhen !==
+          undefined)`. The evaluator that answers it is built in `@object-ui/
+          react`'s `SchemaRenderer.tsx` as
+
+              new ExpressionEvaluator({ ...predicateScope,
+                current_user: …, ...( … ? { record: boundRecord } : null),
+                page: pageVariables })
+
+          whose own comment states the shape in as many words: *"Bound as the
+          `record` ROOT ONLY — the exact three roots the describe promises, and
+          nothing else … NOT as bare fields."*
+
+          ⇒ the node tier IS a row surface here, and the default reading is
+          FALSIFIED. It is already pinned, so this is a citation and not a new
+          claim: `SchemaRenderer.visibleWhenRecordBinding.test.tsx`, the case
+          named "binds the `record` ROOT only — bare row fields stay unbound, as
+          the spec declares", mounts `visibleWhen: "status == 'in_review'"` over
+          BOTH polarities of the row and asserts the block renders on both. A
+          bare field reference on this key does not resolve; the surface is
+          fail-soft, so it resolves to SHOWN — forever, on every row, with no
+          signal anywhere.
+
+          The mount below follows that reading. */}
       <ConditionBuilder
         label={t('engine.inspector.pageBlock.visibleWhen', locale)}
         value={expressionSource(block.visibleWhen)}

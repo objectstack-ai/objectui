@@ -4,6 +4,31 @@
  * Every hand-written zod mirror in `../zod/` accepts everything its TypeScript
  * declaration declares (objectui#5684).
  *
+ * ## Which instrument checks which assertion (stated, because they differ)
+ *
+ * The `Expect< Equal< … > >` lines and the `: never`-typed `assertion*` declarations
+ * are TYPE-level and are judged by `pnpm --filter @object-ui/types type-check`, whose
+ * third leg is `tsc -p tsconfig.test.json` — the project that exists precisely because
+ * `tsconfig.json` excludes every `.test.ts` file. ⛔ They are NOT judged by `vitest`,
+ * which strips types. Read that against this file's own extension, which is the whole
+ * reason it is said here rather than left to be inferred (objectui#9546): the obvious
+ * way to "check parity" is to run a `.test.ts` with vitest, and that exercises the one
+ * half of this file which cannot see the ratchet.
+ *
+ * The `expect(…)` lines in the `describe` blocks at the bottom are RUNTIME and are
+ * judged by vitest. They check that the population is CLOSED and that the figures this
+ * header writes down are derived from the ledgers — they never compare any mirror's
+ * keys against the declaration it restates, which is the parity claim itself. ⛔ So
+ * reading the runtime half for evidence about drift measures the wrong instrument and
+ * concludes the guard does nothing; the same warning stands beside `UnmirroredDeclared`
+ * below, where it was first written for that one ledger rather than for the file.
+ *
+ * Measured both ways on one tree, `.omit()`-ing both content channels off a registered
+ * mirror (objectui#9256's verification, re-measured on objectui#9546): `vitest` exited 0
+ * with its summary line unmoved from the clean run, while `tsc -p tsconfig.test.json`
+ * exited 2 with `TS2322`. That clause RECORDS a measurement and is historical; the
+ * guidance above it is LIVE, under this file's own split.
+ *
  * ## The class
  *
  * A mirror restates a TS declaration by hand. When the declaration widens and the

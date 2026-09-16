@@ -48,7 +48,7 @@ import { useRecentItems } from '../hooks/useRecentItems.js';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
-import { matchAppBySegment, appRouteSegment } from '../utils/index.js';
+import { matchAppBySegment, appRouteSegment, resolveAppNavigationContext } from '../utils/index.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 // Aliased for symmetry with objectui's own `resolveKeyedI18nLabel` above (the
 // names stopped colliding in objectui#4167): this is the spec's resolver (new in
@@ -205,6 +205,15 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const activeApps = apps.filter((a: any) => a.active !== false && a.hidden !== true);
   // ADR-0048 (A) — route segment may be a package id; match by it (name fallback).
   const activeApp = matchAppBySegment(apps.filter((a: any) => a.active !== false), activeAppName || currentAppName) || activeApps[0];
+  const appBasePath = context === 'app' && activeApp ? `/apps/${appRouteSegment(activeApp)}` : '';
+
+  // App-level context selectors (e.g. Studio's package scope). Their values
+  // participate in route matching as well as href generation.
+  const { contextValues, element: contextSelectorsUI } = useAppContextSelectors(
+    activeApp?.name || 'home',
+    activeApp?.contextSelectors,
+    t,
+  );
 
   // Drag-reorder and pin persistence
   const { applyOrder, handleReorder } = useNavOrder(activeApp?.name || 'home');
@@ -285,32 +294,37 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   );
 
   const visibleAreaIds = visibleAreas.map((a) => a.id).join(',');
+  const routeAreaId = appBasePath
+    ? resolveAppNavigationContext({
+      areas: visibleAreas,
+      pathname: location.pathname,
+      search: location.search,
+      basePath: appBasePath,
+      templateContext: {
+        currentUserId: user?.id ?? null,
+        currentOrgId: activeOrganization?.id ?? null,
+        contextValues,
+      },
+    }).area?.id ?? null
+    : null;
 
-  // Re-elect when the app changes or the visible-area set changes. Keeping
-  // `prev` whenever it is still visible means merely REVEALING a new area
-  // never steals the user's current selection.
+  // A deep link, refresh, or browser history transition elects the area that
+  // owns the active navigation item. Routes outside the navigation tree keep
+  // a still-visible manual choice, preserving area-switcher behaviour on app
+  // landing and auxiliary pages.
   React.useEffect(() => {
     if (visibleAreas.length > 0) {
-      setActiveAreaId(prev => visibleAreas.some((a) => a.id === prev) ? prev : visibleAreas[0].id);
+      setActiveAreaId(prev => routeAreaId ?? (visibleAreas.some((a) => a.id === prev) ? prev : visibleAreas[0].id));
     } else {
       setActiveAreaId(null);
     }
-  }, [activeApp?.name, visibleAreaIds]);
+  }, [activeApp?.name, routeAreaId, visibleAreaIds]);
 
   // Resolve navigation items. The render-time `?? visibleAreas[0]` fallback
   // covers the frame between a gating change hiding the active area and the
   // effect above re-electing.
   const activeArea = visibleAreas.find((a) => a.id === activeAreaId) ?? visibleAreas[0];
   const appNavigation: NavigationItem[] = activeArea?.navigation || activeApp?.navigation || [];
-
-  // App-level context selectors (e.g. Studio's package scope). Their
-  // values are injected into nav items as `{<id>}` template vars so a
-  // single dropdown transparently scopes every secondary menu.
-  const { contextValues, element: contextSelectorsUI } = useAppContextSelectors(
-    activeApp?.name || 'home',
-    activeApp?.contextSelectors,
-    t,
-  );
 
   // Home navigation items. For workspace admins we surface the full system
   // ("Administration") nav right here on /home — previously the home context
@@ -386,7 +400,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
 
   // Determine which navigation to show based on context
   const navigationItems = context === 'home' ? homeNavigation : appNavigation;
-  const basePath = context === 'app' && activeApp ? `/apps/${appRouteSegment(activeApp)}` : '';
+  const basePath = appBasePath;
   const isStudioApp = context === 'app' && activeApp?.name === 'studio';
   // Studio's home link carries the active package scope. Read (and re-emit)
   // it through the SAME per-selector key derivation the selector writes with,

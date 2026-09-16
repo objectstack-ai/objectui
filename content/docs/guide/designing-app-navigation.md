@@ -108,6 +108,25 @@ Object entries also support record deep-links — `recordId` (with template
 variables like `{current_user_id}`) opens a specific record, which is how
 "My Profile"-style entries are built.
 
+## Direct Links Preserve Navigation Context
+
+The console resolves the current route back through the same navigation tree
+that generated its URL. Opening, refreshing, or returning to a page,
+dashboard, report, object, named view, filtered object slice, or record link
+therefore selects the area that owns the entry and renders its ancestor groups
+in the breadcrumb. For example, a direct link to a page declared under
+`Projects > Time Management` keeps the Projects area active and shows that
+business hierarchy instead of a generic Pages category.
+
+When two entries intentionally reuse one page, give each entry a distinct
+`params` value. The generated query string then preserves which entry the user
+opened, and the same value restores the correct area, group, and breadcrumb
+after a refresh.
+
+This behavior depends on a declared navigation target. Routes that are not in
+the app's navigation remain valid, but the shell cannot infer an owning area or
+business hierarchy for them.
+
 ## Quick Checklist
 
 Before publishing an app, scan the navigation for:

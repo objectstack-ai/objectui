@@ -707,6 +707,7 @@ export function resolveHref(
  */
 const MATCH_RECORD = 50;
 const MATCH_FILTERS = 40;
+const MATCH_PARAMS = 35;
 const MATCH_VIEW = 30;
 const MATCH_EXACT = 25;
 const MATCH_OBJECT_SUBROUTE = 10;
@@ -733,6 +734,7 @@ function stripViewQualifier(objectName: string, view: string): string {
 function itemMatchScore(
   item: NavigationItem,
   pathname: string,
+  searchParams: URLSearchParams,
   filterParams: Map<string, string>,
   basePath: string,
   ctx: NavTemplateContext | undefined,
@@ -786,10 +788,21 @@ function itemMatchScore(
     return segs.length === 0 ? MATCH_EXACT : MATCH_OBJECT_SUBROUTE;
   }
 
-  // Non-object types match against their canonical href (metadata component
-  // hrefs may carry a query string — compare pathnames only).
-  const hrefPath = href.split('?')[0];
-  if (pathname === hrefPath) return MATCH_EXACT;
+  // Non-object targets may share a pathname and use authored params to name
+  // the exact navigation context. Compare those params when present so two
+  // menu entries that intentionally reuse one page still round-trip to the
+  // correct item, group, and area. Unrelated runtime params remain ignored.
+  const [hrefPath, hrefSearch = ''] = href.split('?');
+  if (pathname === hrefPath) {
+    const expected = new URLSearchParams(hrefSearch);
+    if ([...expected].length > 0) {
+      for (const [key, value] of expected) {
+        if (searchParams.get(key) !== value) return 0;
+      }
+      return MATCH_PARAMS;
+    }
+    return MATCH_EXACT;
+  }
 
   // Directory/index components (e.g. `metadata:directory`) link to a parent
   // route that also hosts more-specific child items (`metadata:resource`
@@ -814,9 +827,11 @@ export function resolveActiveNavItem(
   basePath: string,
   templateContext?: NavTemplateContext,
 ): NavigationItem | null {
+  const searchParams = new URLSearchParams(search);
   const filterParams = parseFilterParams(search);
   let best: NavigationItem | null = null;
   let bestScore = 0;
+  const unqualifiedPathMatches: NavigationItem[] = [];
   const visit = (nodes: NavigationItem[] | undefined) => {
     if (!nodes) return;
     for (const node of nodes) {
@@ -824,15 +839,64 @@ export function resolveActiveNavItem(
         visit(node.children);
         continue;
       }
-      const score = itemMatchScore(node, pathname, filterParams, basePath, templateContext);
+      const score = itemMatchScore(node, pathname, searchParams, filterParams, basePath, templateContext);
       if (score > bestScore) {
         best = node;
         bestScore = score;
       }
+      if (score === 0 && node.type !== 'object') {
+        const { href, external } = resolveHref(node, basePath, templateContext);
+        if (!external && href !== '#') {
+          const [hrefPath, hrefSearch = ''] = href.split('?');
+          const expected = new URLSearchParams(hrefSearch);
+          const expectedEntries = [...expected];
+          const hasAnyQualifier = expectedEntries.some(([key]) => searchParams.has(key));
+          if (pathname === hrefPath && expectedEntries.length > 0 && !hasAnyQualifier) {
+            unqualifiedPathMatches.push(node);
+          }
+        }
+      }
     }
   };
   visit(items);
-  return best;
+  // A direct URL or bookmark may omit navigation-only params. Infer its menu
+  // context when exactly one authored item owns the pathname; shared routes
+  // remain intentionally unresolved until a qualifier (for example `nav`)
+  // identifies the intended item.
+  return best ?? (unqualifiedPathMatches.length === 1 ? unqualifiedPathMatches[0] : null);
+}
+
+/**
+ * Resolve the active item's full navigation trail, including ancestor groups.
+ *
+ * This is the structural inverse of {@link resolveHref}: shell surfaces use
+ * the same winning leaf as {@link resolveActiveNavItem}, then recover the
+ * groups that contain it. Keeping the lookup here prevents sidebars and
+ * breadcrumbs from inventing separate route-matching rules.
+ */
+export function resolveActiveNavTrail(
+  items: NavigationItem[],
+  pathname: string,
+  search: string,
+  basePath: string,
+  templateContext?: NavTemplateContext,
+): NavigationItem[] {
+  const active = resolveActiveNavItem(items, pathname, search, basePath, templateContext);
+  if (!active) return [];
+
+  const findTrail = (nodes: NavigationItem[] | undefined): NavigationItem[] | null => {
+    if (!nodes) return null;
+    for (const node of nodes) {
+      if (node === active) return [node];
+      if (node.type === 'group') {
+        const childTrail = findTrail(node.children);
+        if (childTrail) return [node, ...childTrail];
+      }
+    }
+    return null;
+  };
+
+  return findTrail(items) ?? [];
 }
 
 /**

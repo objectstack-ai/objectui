@@ -32,6 +32,8 @@ export { deriveRelatedLists } from './deriveRelatedLists.js';
 export type { DerivedRelatedList } from './deriveRelatedLists.js';
 
 export { preferLocal } from './preferLocal.js';
+export { resolveAppNavigationContext } from './navigationContext.js';
+export type { AppNavigationContext } from './navigationContext.js';
 
 // Admin-override affordance + audit marker (objectui#5178). Exported because
 // the Approval Center (`apps/console`) renders the second timeline and must ask

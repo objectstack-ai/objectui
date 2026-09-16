@@ -127,7 +127,7 @@ describe('resolveHref — non-object targets unchanged', () => {
 // resolveActiveNavItem — the inverse mapping (#2272)
 // ---------------------------------------------------------------------------
 
-import { resolveActiveNavItem } from '../NavigationRenderer';
+import { resolveActiveNavItem, resolveActiveNavTrail } from '../NavigationRenderer';
 
 /** Split an href into the (pathname, search) pair resolveActiveNavItem takes. */
 function locOf(href: string): { pathname: string; search: string } {
@@ -194,6 +194,43 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
   it('dashboard / page items match inside groups', () => {
     expect(activeId(`${BASE}/dashboard/kpis`)).toBe('nav_kpis');
     expect(activeId(`${BASE}/page/home`)).toBe('nav_home');
+  });
+
+  it('uses authored page params to distinguish items that share a page', () => {
+    const sharedPageNav: NavigationItem[] = [
+      { id: 'sales_report', type: 'page', label: 'Sales', pageName: 'reports', params: { nav: 'sales_report' } },
+      { id: 'profit_report', type: 'page', label: 'Profit', pageName: 'reports', params: { nav: 'profit_report' } },
+    ];
+    expect(
+      resolveActiveNavItem(sharedPageNav, `${BASE}/page/reports`, '?nav=profit_report', BASE)?.id,
+    ).toBe('profit_report');
+  });
+
+  it('infers a unique parameterized page from a direct URL without nav params', () => {
+    const uniquePageNav: NavigationItem[] = [
+      { id: 'output_invoices', type: 'page', label: 'Output invoices', pageName: 'output_invoices', params: { nav: 'output_invoices' } },
+    ];
+    expect(
+      resolveActiveNavItem(uniquePageNav, `${BASE}/page/output_invoices`, '?verify=browser', BASE)?.id,
+    ).toBe('output_invoices');
+  });
+
+  it('does not guess when an unqualified pathname is shared by multiple items', () => {
+    const sharedPageNav: NavigationItem[] = [
+      { id: 'sales_report', type: 'page', label: 'Sales', pageName: 'reports', params: { nav: 'sales_report' } },
+      { id: 'profit_report', type: 'page', label: 'Profit', pageName: 'reports', params: { nav: 'profit_report' } },
+    ];
+    expect(resolveActiveNavItem(sharedPageNav, `${BASE}/page/reports`, '', BASE)).toBeNull();
+  });
+
+  it('returns the ancestor groups and winning leaf as one route trail', () => {
+    expect(
+      resolveActiveNavTrail(NAV, `${BASE}/page/home`, '', BASE, CTX).map((item) => item.id),
+    ).toEqual(['grp', 'nav_home']);
+  });
+
+  it('returns an empty trail for an unrelated route', () => {
+    expect(resolveActiveNavTrail(NAV, `${BASE}/search`, '', BASE, CTX)).toEqual([]);
   });
 
   it('unrelated route → no active item', () => {

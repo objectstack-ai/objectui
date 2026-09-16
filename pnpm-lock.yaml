@@ -1153,6 +1153,9 @@ importers:
       autoprefixer:
         specifier: ^10.5.4
         version: 10.5.4(postcss@8.5.28)
+      jsonc-parser:
+        specifier: ^3.3.1
+        version: 3.3.1
       postcss:
         specifier: ^8.5.26
         version: 8.5.28

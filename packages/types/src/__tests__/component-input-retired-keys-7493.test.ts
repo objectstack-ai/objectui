@@ -48,9 +48,11 @@
  * because a glob inside a docblock reads as a comment terminator), tests
  * included, and scores the three keys at depth 1 of every object literal in
  * every `inputs: [` array and every `ComponentInput[] = [` array. Its own
- * controls (`name`, `type`) prove the walk found the corpus. The only files it
- * skips are this pin and the sibling tombstone pin, because both AUTHOR the keys
- * on purpose under `@ts-expect-error` — a reason stated here, not an allow-list.
+ * controls (`name`, `type`) prove the walk found the corpus. The files it skips
+ * are the tombstone PINS — this one, the constraint-key sibling, and the
+ * widget-face one (objectui#7911) — because each AUTHORS the keys on purpose
+ * under `@ts-expect-error`; a reason stated here, not an allow-list. `SKIPPED`
+ * below is the enumeration, and it is the only place the list lives.
  *
  * The `@ts-expect-error` directives are REAL enforcement: this package
  * type-checks its tests through `tsconfig.test.json`, so re-widening a
@@ -308,10 +310,14 @@ describe('the publication path: `manifestFromConfigs` forwards every live key', 
 
 /* ── tree-scoped absence: no registration authors the three keys ─────────── */
 
-/** Skipped by path, with the reason: both files author the keys on purpose under `@ts-expect-error`. */
+/** Skipped by path, with the reason: each file authors the keys on purpose under `@ts-expect-error`. */
 const SKIPPED = new Set([
   resolve(ROOT, 'packages/types/src/__tests__/component-input-retired-keys-7493.test.ts'),
   resolve(ROOT, 'packages/types/src/__tests__/component-input-retired-constraint-keys.test.ts'),
+  // The widget-face twin of this pin (objectui#7911): it authors `defaultValue`
+  // inside a `RuntimeWidgetManifest.inputs` literal under `@ts-expect-error`,
+  // which this walk's `inputs: [` regex cannot tell apart from a registration.
+  resolve(ROOT, 'packages/types/src/__tests__/widget-input-retired-keys-7911.test.ts'),
 ]);
 
 function* walk(dir: string): Generator<string> {

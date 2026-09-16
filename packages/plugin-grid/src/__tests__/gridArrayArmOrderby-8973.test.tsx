@@ -46,10 +46,20 @@
  *
  * ## Deliberately untouched
  *
- * The header-arrow reader `parseSchemaSort` (objectui#8961, `pm:blocked`) and
- * the export path's `{field, direction}` projection. The `headerSort` arm also
- * keeps sending `SortNode[]` objects rather than a join string — a documented,
- * deliberate difference, not a defect.
+ * The export path's `{field, direction}` projection, and the header-arrow
+ * reader `parseSchemaSort` — untouched BY THIS CARD. ⛔ Do not read the latter
+ * as a standing description of that reader: objectui#8961 has since narrowed it
+ * to the declared `[{ field, order }]` array (ruled letter A, director batch
+ * #135 item 5), so a retired string spelling now lights no arrow either and the
+ * two readers of this key agree. Nothing below reads the header indicators, so
+ * this file's pins are unaffected. The `headerSort` arm also keeps sending
+ * `SortNode[]` objects rather than a join string — a documented, deliberate
+ * difference, not a defect.
+ *
+ * ⚠️ The sentence this replaces cited objectui#8961 by its LABEL
+ * (`pm:blocked`), which had moved before anyone read the line again. A card's
+ * label is state nothing in this file re-derives; its RULING does not move, so
+ * that is what is named here.
  *
  * ⭐ The CONTROL rows are what make the rest a measurement rather than a block
  * that mangles everything: if the fix had broken lowering outright, the

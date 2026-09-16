@@ -66,6 +66,7 @@ import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from 'jsonc-parser';
 import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
 
 // The REAL renderers, imported at module scope so `data-table` / `list` are in
@@ -120,15 +121,34 @@ function jsonBlocks(md: string): string[] {
 }
 
 /**
- * Parse a doc block that may carry `//` comments (the guides annotate their
- * examples inline). Only `//` at line start or after whitespace is stripped,
- * so a `https://` inside a string value is safe. Returns undefined for blocks
- * that are illustrative rather than complete (e.g. `"columns": [...]`).
+ * Parse a doc block that may carry comments (the guides annotate their examples
+ * inline). Returns undefined for blocks that are illustrative rather than
+ * complete (e.g. `"columns": [...]`).
+ *
+ * objectui#9323 — the comment strip is `jsonc-parser`'s, not a regex private to
+ * this file. This tree had already ruled on who answers "is this span a jsonc
+ * comment"; `packages/cli/src/commands/check.ts` states the ruling verbatim:
+ * "The reader is `jsonc-parser` ... NOT a comment-stripping regex: a `//`
+ * inside a string value — say a URL — is not a comment, and a stripper that
+ * cannot tell the difference corrupts valid files instead of reading them."
+ *
+ * The regex this replaced cut every `//` that followed whitespace — including
+ * one INSIDE a string value — and left any `//` glued to a non-whitespace byte
+ * (`"a": 1,// note`) in place. Both shapes end the same way: `JSON.parse`
+ * throws, the `catch` returns `undefined`, and the block leaves this file's
+ * population without failing anything. ⚠️ Neither shape is reachable in today's
+ * corpus — over the 47 fenced blocks these three guides carry, the old regex
+ * and this reader parse all 47 to byte-identical values. This closes a latent
+ * hazard; it does not repair a live wrong answer.
+ *
+ * ⛔ NOT `scripts/js-comment-mask.mjs`. That module answers the same question
+ * for JAVASCRIPT and is graded against a JavaScript parser; its narrowness is a
+ * decision, not a gap, and aiming it at jsonc would substitute a fresh guess
+ * for a graded answer.
  */
 function parseBlock(body: string): unknown {
-  const stripped = body.replace(/(^|\s)\/\/[^\n]*/g, '$1');
   try {
-    return JSON.parse(stripped) as unknown;
+    return JSON.parse(stripComments(body, ' ')) as unknown;
   } catch {
     return undefined;
   }

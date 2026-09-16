@@ -55,8 +55,12 @@ type change.
 
 **What is deliberately unchanged.** The wire shape. The array arm still lowers
 to this block's own `"field order[, field order]"` join string, and the export
-path and the header-arrow reader `parseSchemaSort` still read the key exactly as
-before. Routing the whole key through the shared sink would send its
+path still reads the key exactly as before. The header-arrow reader
+`parseSchemaSort` was left untouched here as well — which is precisely what left
+it reading this key more widely than the refusal above, drawing an arrow for an
+ordering the query no longer carried. objectui#8961 has since narrowed it to the
+declared array, so a retired string lights no arrow either and the two readers
+agree again. Routing the whole key through the shared sink would send its
 `{ field: direction }` map where every grid today sends a string; that is a
 separate change with its own blast radius, and this ruling explicitly did not
 take it.

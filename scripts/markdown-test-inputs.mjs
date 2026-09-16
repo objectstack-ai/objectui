@@ -860,6 +860,15 @@ export const ADJUDICATED = new Map([
       walker: 'not-markdown: package and app directories',
     },
   ],
+  // objectui#8256. Reads the root README's "Kanban Board" `json` fence and runs
+  // it through `safeValidateSchema` -- so an edit to that page IS an edit to
+  // this test's input, and a README-only pull request has to run the shard.
+  [
+    'scripts/__tests__/readme-kanban-example-8256.test.ts',
+    {
+      reads: ['README.md'],
+    },
+  ],
   [
     'scripts/__tests__/sync-quick-reference-release.test.ts',
     {

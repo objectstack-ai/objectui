@@ -251,13 +251,13 @@ published is not an error: the expression is returned as its own source text.
   "type": "object-kanban",
   "objectName": "tasks",
   "groupBy": "status",
-  "titleField": "title",
+  "cardTitle": "title",
   "cardFields": ["assignee", "priority", "due_date"],
   "columns": [
-    { "value": "todo", "label": "To Do", "color": "#6366f1" },
-    { "value": "in_progress", "label": "In Progress", "color": "#f59e0b" },
-    { "value": "review", "label": "In Review", "color": "#3b82f6" },
-    { "value": "done", "label": "Done", "color": "#22c55e" }
+    { "id": "todo", "title": "To Do", "className": "border-t-2 border-indigo-500" },
+    { "id": "in_progress", "title": "In Progress", "className": "border-t-2 border-amber-500" },
+    { "id": "review", "title": "In Review", "className": "border-t-2 border-blue-500" },
+    { "id": "done", "title": "Done", "className": "border-t-2 border-green-500" }
   ]
 }
 ```

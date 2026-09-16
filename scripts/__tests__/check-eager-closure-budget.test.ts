@@ -1344,7 +1344,8 @@ describe('main', () => {
    * purpose. `docs-route-eager-closure.yml` and `performance-budget.yml` are
    * not among this repo's required merge-queue contexts, so a regression in
    * the fold would not block a merge through the gate's own job. This file
-   * runs inside `Test (shard N/4)`, which is required (objectui#9098 landed
+   * runs inside `Test (shard N/8)`, whose verdict is required through the
+   * `Test` aggregator since objectui#9499 (objectui#9098 landed
    * the same reasoning one card earlier).
    */
   describe('the fold recognises exactly the statuses the halves declare (objectui#9006)', () => {

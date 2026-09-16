@@ -156,18 +156,33 @@ export const EXIT_BREACHED = 3;
 export const PINNED_CONTEXTS = Object.freeze(['Type Check']);
 
 /**
- * The rest of the required set as measured on 2026-09-14. Absence is reported,
- * never red. Kept as a literal rather than derived: deriving the expectation
- * from the live answer would make the gate agree with whatever it found, which
- * is the vacuous reading this whole card is about.
+ * The rest of the required set. Absence is reported, never red. Kept as a
+ * literal rather than derived: deriving the expectation from the live answer
+ * would make the gate agree with whatever it found, which is the vacuous
+ * reading this whole card is about.
+ *
+ * ⚠️ MEASURED 2026-09-14 AS NINE NAMES, AND DELIBERATELY NOT NINE HERE. The
+ * four `Test (shard N/4)` members were replaced by one aggregator context,
+ * `Test`, under objectui#9499's ruling. That is a THREE-STEP change and only
+ * the middle step is a commit: the maintainer removes the four contexts, the
+ * workflow pull request merges, the maintainer adds `Test`. The old and new
+ * names are never both satisfiable, so no single snapshot of the live endpoint
+ * is consistent with the tree during that window.
+ *
+ * ⇒ this list names the set the ruling installs, and the patrol REPORTS
+ * `drifted` — exit 0, printed in the run summary, never red — from the moment
+ * this lands until the third step is clicked. That is the two-tier split doing
+ * exactly what objectui#9422 built it for: a rename must not manufacture a red.
+ * `scripts/__tests__/check-required-check-set.test.ts` holds the dated
+ * 2026-09-14 answer as a fixture and asserts that this evaluator reads it as
+ * `drifted` naming both halves, so the window is observable rather than
+ * assumed. ⛔ Re-take the live reading after the click; do not edit this list
+ * to agree with whatever the endpoint says.
  */
 export const WATCHED_CONTEXTS = Object.freeze([
   'Lint',
   'Build & E2E',
-  'Test (shard 1/4)',
-  'Test (shard 2/4)',
-  'Test (shard 3/4)',
-  'Test (shard 4/4)',
+  'Test',
   'Build Docs',
   'Changeset Declaration',
 ]);
@@ -461,7 +476,15 @@ export async function selfTest() {
   const live = read(LIVE);
   t('the-live-set-is-INTACT', live.verdict === 'intact', live.verdict);
   t('an-intact-reading-exits-0', exitCodeFor(live.verdict) === EXIT_OK);
-  t('the-live-set-is-nine-contexts', live.contexts.length === 9, String(live.contexts.length));
+  // ⚠️ NINE until objectui#9499 replaced the four `Test (shard N/4)` members
+  // with one aggregator context. The number is asserted from the declaration
+  // rather than typed, so it can never be the stale half of this pair; what it
+  // still catches is a `LIVE` corpus that stopped covering the declared tiers.
+  t(
+    'the-live-corpus-covers-exactly-the-declared-tiers',
+    live.contexts.length === PINNED_CONTEXTS.length + WATCHED_CONTEXTS.length,
+    String(live.contexts.length),
+  );
   t('the-live-reading-names-every-context-it-read', PINNED_CONTEXTS.concat(WATCHED_CONTEXTS).every((c) => renderReading(live).includes(`\`${c}\``)));
 
   // ── ⭐ THE ABLATION: the gate must RED when a pinned member is gone ────────
@@ -480,10 +503,10 @@ export async function selfTest() {
   t('a-near-miss-spelling-is-reported-as-undeclared', nonsense.unexpected.includes('Type Checq'));
 
   // ── the tiers really are two tiers ────────────────────────────────────────
-  const shardGone = read(withContexts([...PINNED_CONTEXTS, ...WATCHED_CONTEXTS.filter((c) => c !== 'Test (shard 3/4)')]));
+  const shardGone = read(withContexts([...PINNED_CONTEXTS, ...WATCHED_CONTEXTS.filter((c) => c !== 'Build Docs')]));
   t('a-WATCHED-context-going-missing-is-DRIFTED-not-breached', shardGone.verdict === 'drifted', shardGone.verdict);
   t('a-drift-exits-0', exitCodeFor(shardGone.verdict) === EXIT_OK);
-  t('a-drift-names-what-left', renderReading(shardGone).includes('`Test (shard 3/4)`'));
+  t('a-drift-names-what-left', renderReading(shardGone).includes('`Build Docs`'));
   t('a-drift-never-renders-as-intact', !/✅/.test(renderReading(shardGone)));
 
   // ── the empty answer, measured against `zzz-no-such-branch-9422` ──────────
@@ -543,7 +566,7 @@ export async function selfTest() {
     return 1;
   }
   console.log(
-    `✓ check-required-check-set self-test: ${cases.length} cases pass (the live nine, the same corpus one PINNED member short, a near-miss spelling, a watched member leaving, an empty answer, both rule types, and every ungrounded verdict refused).`,
+    `✓ check-required-check-set self-test: ${cases.length} cases pass (the declared set, the same corpus one PINNED member short, a near-miss spelling, a watched member leaving, an empty answer, both rule types, and every ungrounded verdict refused).`,
   );
   return 0;
 }

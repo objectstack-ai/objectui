@@ -718,7 +718,7 @@ jobs:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-type-check-${{ github.sha }}
 
-  # PRs run the suite split across 4 runners. The suite is dominated by fixed
+  # PRs run the suite split across 8 runners. The suite is dominated by fixed
   # per-file cost rather than by the assertions: a PR run reported 495s wall
   # clock of which only 178s was `tests` — the rest was `setup` (831s
   # cumulative), `import` (199s) and `environment` (156s), each paid once per
@@ -728,10 +728,30 @@ jobs:
   # (checkout + Node + a warm-pnpm-store install), so 4 shards cut wall clock
   # ~3x for ~26% more runner minutes.
   #
+  # ⭐ 4 -> 8 (objectui#9499). At four shards this job had grown into its own
+  # `timeout-minutes: 20`. Measured on the card over the 14 most recent
+  # `merge_group` runs and the 14 most recent `pull_request` runs: the longest
+  # SUCCEEDING shard-1 job was 1199 s against the 1200 s ceiling -- a ONE-SECOND
+  # margin -- and two runs crossed it and were CANCELLED, one of them dequeuing
+  # a pull request whose tests had already passed, because the merge queue
+  # cannot tell `cancelled` from `failure`.
+  #
+  # ⛔ The ceiling is NOT raised (see `:641`, which ruled that out), ⛔ no test
+  # is skipped, disabled or quarantined, and ⛔ the relevance gate is not
+  # widened. The work is spread over twice the runners instead, and the one
+  # step in this job that was never sharded at all -- the built-artifact pin
+  # lane, which ran on shard 1 only and is what pushed the longest shard over --
+  # moved out into `test-dist-pins` below.
+  #
+  # Doubling the matrix is only possible because the required-check set no
+  # longer names the legs: `test-aggregate` below is the single required `Test`
+  # context, so the width here is an ordinary workflow edit rather than a
+  # repository-settings change that renames four live required contexts.
+  #
   # Vitest shards by hashing each test file's path, so `unit` and `dom` files
   # interleave across shards on their own — no manual balancing needed.
   test:
-    name: Test (shard ${{ matrix.shard }}/4)
+    name: Test (shard ${{ matrix.shard }}/8)
     # Coverage instrumentation (v8 adds 40-100% overhead) is skipped on PRs;
     # the `test-coverage` job below runs the coverage lane on push.
     #
@@ -739,7 +759,11 @@ jobs:
     # third event this workflow now sees is `merge_group`, and a queue build
     # that runs no tests is the hole this repository just paid for. `push` is
     # still excluded because the coverage lane below is the push lane: it is
-    # sharded the same 4 ways since objectui#5403, and its `coverage-report`
+    # sharded 4 ways of its own since objectui#5403 -- ⛔ INDEPENDENTLY of the
+    # matrix above, which objectui#9499 widened to 8 without touching it: the
+    # two lanes declare their own `shard:` matrix and their own `--shard=N/M`,
+    # and the coverage blobs are named `blob-N-4.json` by the coverage job's own
+    # flag -- and its `coverage-report`
     # job merges the four blob reports into ONE complete report, which is where
     # the coverage thresholds are enforced (and, since objectui#5436, where the
     # report is published as an artifact rather than uploaded to Codecov). PR
@@ -755,7 +779,7 @@ jobs:
       # Report every shard's failures, not just the first one to break.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Checkout code
@@ -914,27 +938,202 @@ jobs:
       # here starts one Vitest process per package; several package configs
       # intentionally inherit the root monorepo project list, so CI ends up
       # repeating large chunks of the suite and can starve slower plugin tests.
-      - name: Run tests (shard ${{ matrix.shard }}/4)
+      - name: Run tests (shard ${{ matrix.shard }}/8)
         if: steps.relevant.outputs.should_run == 'true'
-        run: pnpm test --shard=${{ matrix.shard }}/4
-      # The built-artifact lane (objectui#7183). The step above resolves every
-      # workspace package to its `src` — that is what the root alias map is for
-      # — so no test in it can observe its own package's BUILT output. This is
-      # the only place a `dist`-importing pin runs, and `turbo run test:dist`
-      # carries `dependsOn: ["build"]` for the package under test, so the bundle
-      # exists before the pin reads it. Before this step such a pin could not be
-      # committed at all: it landed with no `dist` to import, which is
-      # NOT MEASURED rather than a red pin, and the usual repair (delete it, or
-      # let it skip) leaves a green suite that measures nothing.
-      #
-      # Shard 1 only, and NOT sharded itself. The four shards are independent
-      # runners, so running this on all four would pay for the same build four
-      # times to measure the same bundle; the lane is a handful of files, so it
-      # runs whole, here. No `timeout-minutes` change and no heavy-test
-      # allowlist entry: the cost is one package build in one shard.
+        run: pnpm test --shard=${{ matrix.shard }}/8
+
+  # ── The built-artifact pin lane, lifted out of the shard matrix ──────────
+  # (objectui#7183 for the lane itself; objectui#9499 for this job.)
+  #
+  # `pnpm test --shard=N/8` above resolves every workspace package to its `src`
+  # -- that is what the root alias map is for -- so no test in it can observe
+  # its own package's BUILT output. This is the only place a `dist`-importing
+  # pin runs, and `turbo run test:dist` carries `dependsOn: ["build"]` for the
+  # package under test, so the bundle exists before the pin reads it. Before
+  # the lane existed such a pin could not be committed at all: it landed with
+  # no `dist` to import, which is NOT MEASURED rather than a red pin, and the
+  # usual repair (delete it, or let it skip) leaves a green suite that measures
+  # nothing.
+  #
+  # ⭐ Why it is a JOB and not a step on shard 1 any more. It was never sharded
+  # -- it ran whole, once, on shard 1 only -- so it made shard 1 structurally
+  # the longest leg of a matrix bounded by `timeout-minutes: 20`. Measured on
+  # objectui#9499 across 28 full CI runs it costs 31-58 s (median ~53 s), and
+  # in BOTH observed ceiling kills the job died in this step with the test step
+  # already green: the tests passed and the check reported `cancelled`. A
+  # separate job pays for one more runner (~30 s of checkout + install) and
+  # takes the asymmetry out of the matrix entirely, without touching a single
+  # budget, skipping a single test, or widening the relevance gate.
+  #
+  # The relevance gate below is the `test` job's, verbatim including its
+  # markdown second stage. ⛔ Not simplified: this lane used to run whenever
+  # that job's gate said run, and a narrower gate here would silently stop
+  # running the built-artifact pins on the markdown-only pull requests
+  # objectui#9096 deliberately brought back into scope. The reasoning for every
+  # line of it is on the `test` job above; it is not repeated here.
+  test-dist-pins:
+    name: Test (dist pins)
+    # Same event guard as the shard matrix above: the push lane is the coverage
+    # lane, and `test-aggregate` below asserts this job's result, so the two
+    # must skip together or the aggregator would judge a job that never ran.
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    # The same bound the matrix carries. This job builds one package and runs a
+    # handful of files, so it sits nowhere near it -- the bound is here for the
+    # reason it is there, a stalled runner failing fast instead of hanging for
+    # six hours.
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+          # `fetch-depth: 0` for the gate step below (objectui#3523): it diffs
+          # against the merge base, which a depth-1 clone cannot resolve.
+          fetch-depth: 0
+
+      - name: Decide whether this change needs a full run
+        id: relevant
+        run: |
+          if [ "${{ github.event_name }}" != 'pull_request' ]; then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Not a pull request: push is filtered at the trigger, and a merge_group build is the last validation before main. Running everything.'
+            exit 0
+          fi
+          if ! CHANGED=$(git diff --name-only \
+            '${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}' -- \
+            . \
+            ':(exclude,glob)**/*.md' \
+            ':(exclude,glob)content/**' \
+            ':(exclude,glob)docs/**' \
+            ':(exclude,glob)apps/site/**' \
+            ':(exclude,glob).changeset/**'); then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Could not diff against the merge base. Running everything rather than skipping silently.'
+            exit 0
+          fi
+          if [ -n "$CHANGED" ]; then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo "$CHANGED"
+            exit 0
+          fi
+          if ! CHANGED=$(git diff --name-only \
+            '${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}'); then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Could not diff against the merge base. Running everything rather than skipping silently.'
+            exit 0
+          fi
+          if ! TEST_INPUTS=$(printf '%s\n' "$CHANGED" | node scripts/markdown-test-inputs.mjs --changed -); then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Could not tell whether the changed markdown is a test input. Running everything rather than skipping silently.'
+            exit 0
+          fi
+          if [ -n "$TEST_INPUTS" ]; then
+            echo 'should_run=true' >> "$GITHUB_OUTPUT"
+            echo 'Markdown changed that a test reads as its input. Running everything:'
+            echo "$TEST_INPUTS"
+          else
+            echo 'should_run=false' >> "$GITHUB_OUTPUT"
+            echo 'Only ignored paths changed, and no test reads the markdown among them. Skipping the steps below; this check still reports.'
+          fi
+
+      - name: Enable Corepack and download the pinned pnpm
+        if: steps.relevant.outputs.should_run == 'true'
+        run: bash scripts/ci-setup-pnpm.sh
+
+      - name: Verify pnpm version
+        if: steps.relevant.outputs.should_run == 'true'
+        run: pnpm --version
+
+      - name: Setup Node.js
+        if: steps.relevant.outputs.should_run == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: steps.relevant.outputs.should_run == 'true'
+        run: pnpm install --frozen-lockfile
+
       - name: Run built-artifact pins (dist project)
-        if: steps.relevant.outputs.should_run == 'true' && matrix.shard == 1
+        if: steps.relevant.outputs.should_run == 'true'
         run: pnpm test:dist
+
+  # ── ⭐ The single required test context (objectui#9499, ruling letter C) ──
+  #
+  # Until this job the required-check set named the matrix legs one by one --
+  # `Test (shard 1/4)` … `Test (shard 4/4)` -- which welded the SHARD COUNT to
+  # repository settings no workflow edit can reach. Changing 4 to 8 renames four
+  # live required contexts: every pull request then blocks forever on a check
+  # that can no longer report, and every queue build burns the ruleset's
+  # 60-minute status-check timeout. One aggregator context instead means the
+  # matrix width above is an ordinary workflow edit again.
+  #
+  # ⚠️ `needs.test.result` ALONE WOULD BE A PHANTOM GATE, and that is why this
+  # job runs a script rather than reading an expression. A matrix job's
+  # `needs.<job>.result` is a single ROLLUP over every leg, and a rollup cannot
+  # distinguish "all eight ran green" from "five ran green and three were
+  # SKIPPED". A shard dropped from the matrix, or given a job-level `if:` that
+  # is false, would leave this context GREEN while a fraction of the suite never
+  # ran -- the objectui#8857 / objectui#3523 shape, a check reporting success
+  # having run nothing. `scripts/check-test-shard-results.mjs` therefore reads
+  # this run's own job list from the Actions API and asserts each shard BY NAME
+  # and by its OWN conclusion, and it fails closed: an unreadable answer is a
+  # red context, never a pass.
+  #
+  # `if: always()` so a red, skipped or cancelled shard still produces a verdict
+  # here instead of skipping this job -- a skipped required context counts as
+  # SUCCESS in branch protection, which on the one context that speaks for the
+  # whole test lane is the failure mode itself. The event guard matches the two
+  # jobs above: on `push` they do not run, and neither does this.
+  test-aggregate:
+    name: Test
+    needs: [test, test-dist-pins]
+    if: always() && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Declaring any `permissions:` block sets every unlisted scope to `none`,
+    # so both are named: `contents` for the checkout, `actions` for
+    # `GET /actions/runs/{id}/attempts/{n}/jobs`. Nothing here writes.
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # No pnpm and no install: the gate is one `fetch` and runs on the
+      # runner's own node, exactly as the relevance gates above do. That keeps
+      # the one required test context cheap enough to report in seconds on a
+      # pull request whose shards did no work.
+      - name: Every test shard reported success, one shard at a time
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Printed, never trusted -- see the header above. Having the rollup in
+          # the log next to the per-shard reading is what lets a future reader
+          # check the claim rather than take it.
+          TEST_MATRIX_ROLLUP: ${{ needs.test.result }}
+        run: |
+          echo "needs.test.result (the matrix rollup this gate deliberately does NOT trust) = $TEST_MATRIX_ROLLUP"
+          node scripts/check-test-shard-results.mjs --shards 8 --job-name 'Test'
+
+      # The dist-pin lane is NOT a matrix, so its `needs` result is that one
+      # job's own conclusion and `skipped` is visible in it -- no API read is
+      # needed to say anything true about it. It is asserted here rather than
+      # left as a second required context so that the whole test lane still
+      # speaks through one name.
+      - name: The built-artifact pin job reported success
+        env:
+          DIST_PINS_RESULT: ${{ needs.test-dist-pins.result }}
+        run: |
+          if [ "$DIST_PINS_RESULT" != 'success' ]; then
+            echo "::error title=Test::the test-dist-pins job reported '$DIST_PINS_RESULT', not 'success'"
+            exit 1
+          fi
+          echo "test-dist-pins: success"
 
   # Push to main/develop: the coverage lane, sharded 4 ways with a blob-report
   # merge (objectui#5403). The comment that used to sit here declined to shard

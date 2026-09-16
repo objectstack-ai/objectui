@@ -709,7 +709,17 @@ const pageMeta: any = {
 };
 
 ComponentRegistry.register('page', PageRenderer, pageMeta);
-ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' });
+// ⛔ `app` is NOT a registry key. It names an app-level DOCUMENT
+// (`AppComponentSchema`, the runner/layout channel), and registering the
+// page-shaped node under the same spelling made one name mean two things:
+// an author who type-checked a node against `AppComponentSchema` and handed it
+// to `SchemaRenderer` reached `PageRenderer`, which reads `PageNodeSchema` —
+// silently, with every key they wrote ignored and type-checking green.
+// The registration never even delivered the layout its `'App Page'` label
+// promised: `pageType` is read from `schema.pageType` and defaults to
+// `'record'`, never from `schema.type`. Page-shaped nodes are `page`;
+// `{ type: 'page', pageType: 'app' }` still reaches `AppPageLayout`.
+// Ruled by the maintainer as option A on objectui#9263.
 ComponentRegistry.register('utility', PageRenderer, { ...pageMeta, label: 'Utility Page' });
 ComponentRegistry.register('home', PageRenderer, { ...pageMeta, label: 'Home Page' });
 ComponentRegistry.register('record', PageRenderer, { ...pageMeta, label: 'Record Page' });

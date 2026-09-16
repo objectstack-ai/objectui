@@ -568,6 +568,8 @@ const DOC_TYPE_EXEMPTIONS = {
       'literal string, by design.',
   },
   'content/docs/core/app-schema.mdx': {
+    app:
+      'AppComponentSchema discriminant — the app-DOCUMENT type, not a node type. `app` was ALSO an SDUI registry key until objectui#9263 removed it (maintainer ruling, option A): `PageRenderer` was registered under that spelling while `AppComponentSchema` declared it for something else entirely, so a node authored against the published declaration was silently served the page renderer. Until the removal the value passed here by coincidence, the two vocabularies sharing one spelling — the same shape as the `kanban` entries above, from objectui#8802. \u26d4 The DOCUMENT spelling is deliberately NOT retired: it is what `packages/runner` and `packages/layout` read, and what the VS Code extension\'s file association matches on.',
     item: 'AppSchema menu entry kind — a navigation item, sibling of `group`. Not a rendered node.',
     group: 'AppSchema menu entry kind — a navigation group holding `children` items.',
   },
@@ -666,6 +668,10 @@ const DOC_TYPE_EXEMPTIONS = {
       'names explicitly. A field\'s data type, not a node type.',
   },
   'content/docs/guide/schema-overview.md': {
+    app: 'AppComponentSchema discriminant in a `const app: AppComponentSchema = { … }` tour entry ' +
+      'and in the `safeParse` example below it — the app-DOCUMENT type, not a node type. Same ' +
+      'vocabulary as core/app-schema.mdx, and needed from objectui#9263, which removed the ' +
+      'colliding `app` REGISTRY key.',
     action:
       'ActionSchema discriminant in a `const action: ActionSchema = { … }` declaration — this page ' +
       'tours each schema family by declaring one of each, so the literal is the document\'s own ' +
@@ -742,6 +748,10 @@ const DOC_TYPE_EXEMPTIONS = {
       'Deliberate placeholder in the "load your own plugin" walkthrough — the reader registers it.',
   },
   'content/docs/utilities/vscode-extension.mdx': {
+    app: 'AppComponentSchema discriminant — the `objectui-app` block on this page is an app ' +
+      'DOCUMENT (it carries `pages[]`), which is exactly what the extension\'s file association ' +
+      'matches on. Not a node type. Same vocabulary as core/app-schema.mdx, and needed from ' +
+      'objectui#9263, which removed the colliding `app` REGISTRY key.',
     ajax: 'ActionSchema discriminant under a form\'s `onSubmit`, not a node type.',
     api: 'Data source kind under a node\'s `dataSource`, not a node type.',
   },

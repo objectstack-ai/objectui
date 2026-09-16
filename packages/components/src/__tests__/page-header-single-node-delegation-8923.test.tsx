@@ -60,7 +60,9 @@ function titledHeader(props: Record<string, unknown> = { title: HEADER_TITLE }) 
  */
 function pageWith(extra: Record<string, unknown>) {
   return {
-    type: 'app',
+    // `page`, not `app`: the `app` registry key was removed (objectui#9263) —
+    // `pageType` is what selects the app layout, and it always was.
+    type: 'page',
     pageType: 'app',
     name: 'single_node_body_page',
     // Spec pages carry `label`; PageRenderer dual-reads it as the page title.

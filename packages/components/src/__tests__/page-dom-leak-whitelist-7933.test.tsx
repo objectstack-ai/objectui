@@ -64,14 +64,22 @@
 
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-// Module scope, not a hook: registers PageRenderer under all five of its
+// Module scope, not a hook: registers PageRenderer under all of its
 // registry keys. A cold `await import()` inside a hook is billed to
 // `hookTimeout` and races the assertions (AGENTS.md §测试纪律, objectui#3010).
 import { ActionProvider, SchemaRenderer } from '@object-ui/react';
 import '../renderers';
 
-/** The five registry keys `PageRenderer` is registered under. */
-const PAGE_REGISTRY_KEYS = ['page', 'app', 'home', 'utility', 'record'] as const;
+/**
+ * The registry keys `PageRenderer` is registered under. `app` was one of them
+ * until objectui#9263 removed it: that spelling names an app-level DOCUMENT
+ * (`AppComponentSchema`, the runner/layout channel), not a node, and an
+ * authored `{ type: 'app' }` is now refused by `SchemaRenderer` rather than
+ * silently served a page. The layout the key claimed to select is still
+ * reachable — as `{ type: 'page', pageType: 'app' }`, which is where it always
+ * lived, since `pageType` is never derived from `type`.
+ */
+const PAGE_REGISTRY_KEYS = ['page', 'home', 'utility', 'record'] as const;
 
 /**
  * Everything the wrapper `<div>` may legitimately carry. Declared here rather

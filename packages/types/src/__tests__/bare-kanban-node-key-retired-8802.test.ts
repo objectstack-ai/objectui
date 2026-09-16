@@ -159,11 +159,29 @@ describe('suite 3 — the SIBLING `object-kanban` arm keeps every verdict it had
   // ARM-SCOPED, so retiring the arm must not move the sibling's answers.
   it.each([
     ['titleField', 'name'],
-    ['allowCollapse', true],
     ['quickAdd', true],
     ['coverImageField', 'cover'],
   ])('accepts `%s`, exactly as it did before the retirement', (key, value) => {
     expect(refusals({ type: 'object-kanban', objectName: 'tasks', groupBy: 'status', [key]: value })).toEqual([]);
+  });
+
+  // ⭐ `allowCollapse` LEFT this row, and the distinction is the whole point of
+  // the suite rather than an exception to it. Its verdict did not move because
+  // the `kanban` arm retired — that is precisely what this suite denies, and it
+  // went on being accepted here for a week after objectui#8802 landed. It moved
+  // because objectui#8801 ruled on THIS arm on its own protocol reading
+  // (`ComponentPropsMap['object-kanban']` never declared the key; no registered
+  // board reads it). ⛔ Do not read this line as batch #70 finally reaching the
+  // sibling: an arm-scoped refusal still cannot cross an arm, and the three rows
+  // above are still the measurement that says so.
+  it('REFUSES `allowCollapse` — not inherited from the retired arm, ruled for this one (objectui#8801)', () => {
+    const found = refusals({
+      type: 'object-kanban',
+      objectName: 'tasks',
+      groupBy: 'status',
+      allowCollapse: true,
+    });
+    expect(found.filter((f) => f.path === 'allowCollapse')).not.toEqual([]);
   });
 
   it('and still REFUSES what it always refused — `groupField`, its own tombstone', () => {

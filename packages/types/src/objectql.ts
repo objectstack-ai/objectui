@@ -3735,11 +3735,71 @@ export interface ObjectKanbanSchema extends BaseSchema {
   coverImageField?: string;
 
   /**
-   * Allow columns to be collapsed/expanded.
-   * Collapsed columns show only the title and card count.
-   * @default false
+   * RETIRED (objectui#8801, ADR-0049 enforce-or-remove; director seat, class-1
+   * self-adjudication of 2026-09-16, letter A). An authored `allowCollapse` was
+   * accepted by BOTH published faces of this arm and collapsed nothing.
+   *
+   * ## The protocol row is what decides it
+   *
+   * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` —
+   * `ObjectKanbanPropsSchema` — has never declared the key, and the token
+   * occurs nowhere in the installed package's published sources (re-measured
+   * against the pinned install, with `groupBy` and `coverImageField` firing as
+   * controls in the same pass). That schema is a `strictObject`, so the
+   * PLATFORM already refuses an authored `allowCollapse` by name at publish
+   * while this declaration said yes: `tsc` agreed, and the document was
+   * rejected whole. This tombstone is what makes `tsc` say the same thing.
+   *
+   * ## Zero read sites, and both unnamed channels terminate
+   *
+   * `@object-ui/plugin-kanban` names the token in ZERO files — the firing
+   * controls on the same instrument and the same run are `groupBy` (45 files),
+   * `conditionalFormatting` (8), `quickAdd` (6) and `coverImageField` (3), so
+   * the zero is a reading and not a dead grep. A source grep alone cannot
+   * answer the inertness question, because a renderer may consume a key it
+   * never names; both such channels were traced to their ends:
+   *
+   *   - the PROP channel — `SchemaRenderer` spreads every non-metadata key as a
+   *     React prop, `ObjectKanbanRenderer` destructures `schema` and forwards
+   *     its rest into `ObjectKanban`, whose first statement after its own
+   *     destructure is `void _props;`. The rest is discarded and never spread
+   *     onward.
+   *   - the SCHEMA channel — the key does ride `ObjectKanban`'s `{ ...schema }`
+   *     spread into `effectiveSchema`, which reaches `KanbanRenderer`; that
+   *     component destructures `schema` / `objectFields` / `onCardMove` and
+   *     NAMES every key it hands to the lazy board. An unnamed key stops there.
+   *
+   * ## Where collapse actually lives, so the remedy is not a second fiction
+   *
+   * Lane collapse is {@link KanbanColumn.collapsed}'s — a PER-LANE member, not
+   * a board-level authored toggle. ⚠️ Measured rather than inherited: on the
+   * board THIS arm renders, collapse is the VIEWER's and not the author's at
+   * all. `KanbanImpl` collapses a swimlane when its header button is clicked
+   * and persists that set per `swimlaneField` under the storage key
+   * `objectui:kanban-collapsed:` + that field; it reads no `collapsed` member
+   * on a lane. The implementation that does honour one, `KanbanEnhanced`, is
+   * referenced by no registration since the `kanban-enhanced` node key retired
+   * (objectui#8257). ⇒ delete the key; there is no board-level replacement to
+   * rename it to, and nothing that worked stops working.
+   *
+   * ## Why a tombstone rather than a plain deletion
+   *
+   * {@link BaseSchema} carries `[key: string]: any` and its mirror ends
+   * `.passthrough()`, so a deleted member is KEPT, not refused — one silent
+   * no-op traded for another. The member therefore stays declared and
+   * unwritable on both faces, paired with a `retirementTombstone()` on the zod
+   * twin so the value is refused BY NAME instead of stripped, which is also
+   * what keeps the two faces' key sets equal for the parity ratchet.
+   *
+   * ⚠️ The sibling `kanban` arm's same-spelled key is NOT this one and its
+   * retirement did not reach here. Batch #70 tombstoned `allowCollapse` on
+   * `KanbanSchema`, and objectui#8802 then removed that arm whole — those
+   * refusals were arm-scoped by construction, so a `type: "object-kanban"`
+   * document went on being accepted. This is the decision for this arm.
+   *
+   * @deprecated Not part of this contract — the value was accepted and dropped.
    */
-  allowCollapse?: boolean;
+  allowCollapse?: never;
 
   /**
    * Conditional formatting rules for card coloring.

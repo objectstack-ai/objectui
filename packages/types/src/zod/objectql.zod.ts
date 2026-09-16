@@ -1778,7 +1778,28 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   cardFields: z.array(z.string()).optional().describe('Card fields'),
   quickAdd: z.boolean().optional().describe('Enable Quick Add button at column bottom'),
   coverImageField: z.string().optional().describe('Field name for cover image on cards'),
-  allowCollapse: z.boolean().optional().describe('Allow columns to collapse/expand'),
+  // objectui#8801 — RETIRED on this arm (ADR-0049; director seat, class-1
+  // self-adjudication of 2026-09-16, letter A). Zero read sites under
+  // `@object-ui/plugin-kanban`, and both channels a key can travel WITHOUT
+  // being named terminate before any sink: `ObjectKanban` discards its rest
+  // props (`void _props;`), and `KanbanRenderer` names every key it forwards
+  // to the lazy board. The TS twin in `../objectql.ts` carries the full
+  // reading, including why the remedy is a deletion rather than a rename.
+  //
+  // A tombstone rather than a deleted member because `BaseSchema` ends
+  // `.passthrough()`: dropping the key would KEEP an authored value instead
+  // of refusing it, trading one silent no-op for another, and would also move
+  // this mirror's key set away from the declaration's for the parity ratchet.
+  allowCollapse: retirementTombstone(
+    '`allowCollapse` is RETIRED (objectui#8801, ADR-0049) — it was declared on both faces of the ' +
+      '`object-kanban` arm and read by NO registered board, so an authored `true` validated green ' +
+      "and collapsed nothing. `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` never " +
+      'declared the key and refuses it by name at publish, so a document carrying it was already ' +
+      'being rejected whole. Lane collapse is `KanbanColumn.collapsed`’s — a PER-LANE member — not ' +
+      'a board-level authored toggle, and on the board this arm renders it is the VIEWER’s rather ' +
+      'than the author’s: `KanbanImpl` collapses a swimlane when its header is clicked and persists ' +
+      'that per `swimlaneField`. Delete the key; there is no board-level replacement to rename it to.',
+  ),
   conditionalFormatting: z.array(KanbanConditionalFormattingRuleSchema).optional().describe('Card conditional formatting rules'),
   // ── objectui#7804 — the three handler keys `KanbanRenderer` reads off the
   // document this arm judges, MEASURED one at a time (director seat ruling of

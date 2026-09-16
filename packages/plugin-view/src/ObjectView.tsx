@@ -128,9 +128,8 @@ function pickFlatMapConfig(mapConfig: unknown): Record<string, unknown> {
  * declares (objectui#5269).
  *
  * `ObjectGridSchema.columns` is `string[] | ListColumn[]`, but the slot the
- * non-grid branch forwards into is a names slot: both segments ahead of the
- * `table` one declare `string[]` (`NamedListView.columns`, the `views` prop),
- * and its consumers treat every entry as a field name — `ObjectKanban` indexes
+ * non-grid branch forwards into is a names slot, and its consumers treat every
+ * entry as a field name — `ObjectKanban` indexes
  * the record by it (`resolveKanbanCardFields` casts straight to `string[]`).
  * Handing a `ListColumn[]` down raw would therefore arrive as a non-empty card
  * field list naming nothing, which renders WORSE than the empty one this card
@@ -155,6 +154,44 @@ function tableColumnFieldNames(columns: unknown): string[] | undefined {
   if (!Array.isArray(columns) || columns.length === 0) return undefined;
   const names = columns.map(columnIdentity).filter((n): n is string => !!n);
   return names.length > 0 ? names : undefined;
+}
+
+/**
+ * A NAMED VIEW's `columns` as a field-name list — the same identity fold as
+ * {@link tableColumnFieldNames}, at the two name slots a named view reaches
+ * (objectui#8254).
+ *
+ * ⭐ WHY THIS EXISTS NOW, AND WHY IT IS NOT A TOLERANCE LAYER. The header above
+ * used to justify forwarding the two view segments RAW on the ground that they
+ * "declare `string[]`". That ground is what objectui#7928's option A removes:
+ * the protocol's value type for `listViews` (`ObjectListViewSchema`,
+ * `@objectstack/spec/ui`) declares `columns` as the SAME `string[] |
+ * ListColumn[]` union `table.columns` carries — measured on this branch by
+ * `__tests__/ObjectView.specShapedNamedView-8254.test.tsx`, which builds its
+ * fixture by PARSING it with that schema rather than by asserting it looks
+ * right. So a spec-shaped named view can hold the `ListColumn[]` half, and
+ * handing it down raw is verbatim the failure the header above describes: a
+ * non-empty card field list naming nothing. Narrowing a declared union to the
+ * branch a slot can hold is the boundary fix objectui#5269 already ruled for
+ * `table.columns`; it accepts no spelling `columnIdentity` did not already
+ * accept, and the union slots on the same branches (`gridSchema.columns`, the
+ * delegated `list-view` `columns`) keep taking the value raw because their
+ * declared shape holds it.
+ *
+ * ⚠️ PRESENCE-PRESERVING, and that is the ONE way it differs from
+ * {@link tableColumnFieldNames}: `[]` in, `[]` out. That sibling folds an empty
+ * list to `undefined` so its `||` chain falls through to the deprecated
+ * `table.fields` alias — a PRECEDENCE decision belonging to that chain. This
+ * fold changes SHAPE only: an authored empty `columns` (which
+ * `ObjectListViewSchema` accepts) still stops the `||` chain exactly where it
+ * stops today, so no view's source of columns moves. A list whose every entry
+ * resolves to no identity does collapse to `[]` — the improvement, not a
+ * precedence change: `ObjectKanban` then reaches its `highlightFields`
+ * fallback instead of rendering a non-empty list of nameless columns.
+ */
+function viewColumnFieldNames(columns: unknown): string[] | undefined {
+  if (!Array.isArray(columns)) return undefined;
+  return columns.map(columnIdentity).filter((n): n is string => !!n);
 }
 
 /**
@@ -1306,7 +1343,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // function for why raw forwarding would regress the `ListColumn[]` half.
       // The delegated `list-view` slot below declares the same union, so it
       // takes the value raw; each site gets the shape its slot declares.
-      fields: currentNamedViewConfig?.columns || activeView?.columns
+      //
+      // objectui#8254: the NAMED-VIEW segment now goes through the same fold
+      // (`viewColumnFieldNames`, presence-preserving — see its header). The
+      // protocol's value type for `listViews` declares that same union, so a
+      // spec-shaped named view reaches this names slot carrying the
+      // `ListColumn[]` half, and this is the last place that can narrow it.
+      // The `views`-prop segment beside it still declares `string[]` and is
+      // the objectui#5097 host-composition surface, so it is untouched here.
+      fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns
         || tableColumnFieldNames(schema.table?.columns) || schema.table?.fields,
       className: 'h-full w-full',
       showSearch: activeView?.showSearch ?? schema.showSearch ?? false,
@@ -1760,7 +1805,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       objectName: schema.objectName,
       title: schema.table?.title,
       description: schema.table?.description,
-      fields: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.fields,
+      // objectui#8254 — the same names-slot/union-slot split the non-grid
+      // branch above makes, on the pair this memo emits together: `fields` is
+      // `ObjectGridSchema.fields` (`string[]`) so the named-view segment is
+      // folded to identities, and `columns` is `string[] | ListColumn[]` so it
+      // takes the authored value raw. One value, two slots, each given the
+      // shape it declares.
+      fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
       columns: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
       operations: {
         ...operations,
@@ -2001,7 +2052,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           viewType: currentViewType as any,
           // Active view's display label — ListView appends it to export
           // download filenames.
-          label: (currentNamedViewConfig as any)?.label ?? activeView?.label,
+          label: currentNamedViewConfig?.label ?? activeView?.label,
           // Spec-canonical key (#2890) — the view configs this reads from are
           // already `columns`-keyed, so emitting `fields` here was a pure
           // canonical→legacy downgrade.

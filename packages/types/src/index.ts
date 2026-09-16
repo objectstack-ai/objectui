@@ -884,7 +884,15 @@ export type {
   AIRecommendationsSchema,
   NLQueryResult,
   NLQuerySchema,
-  AIInsightsSchema,
+  // `AIInsightsSchema` is GONE from this block, not emptied out of it:
+  // `type: 'ai-insights'` was RETIRED whole in objectui#8800 (ADR-0049
+  // enforce-or-remove, director ruling of 2026-09-15, decision batch #137
+  // item 2, maintainer verbatim 「同意」, letter A). Nothing ever registered
+  // the discriminant, so the declaration could only ever route an author to a
+  // node that type-checks and then renders the OBJUI-001 panel. The reasoning,
+  // the boundary against the three AI schemas that DO render, and the in-repo
+  // limit on its census live at the tombstone in `./ai.ts`; the executable half
+  // is `./__tests__/ai-insights-retired-8800.test.ts`.
 } from './ai.js';
 
 // The Block System re-export block is GONE, not emptied: `BlockSchema`,

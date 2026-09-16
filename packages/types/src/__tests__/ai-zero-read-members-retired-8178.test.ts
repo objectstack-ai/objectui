@@ -112,13 +112,28 @@ export type assertionLiveMembersKeepTheirTypes = [
 ];
 
 /**
- * `AIInsightsSchema.objectName` is NOT in this retirement — the ruling names
- * three schemas and that fourth one was neither screened nor decided. Pinned so
- * a later sweep of "the AI `objectName`s" cannot quietly take it too.
+ * ⚠️ The `AIInsightsSchema.objectName` EXCLUSION that used to be pinned here is
+ * REWRITTEN BY RULING, and this paragraph is what it was rewritten into.
+ *
+ * What stood here was a type-level `Equal` holding that member at
+ * string-or-undefined, with the reason that objectui#8178's ruling named three
+ * schemas and that fourth one "was neither screened nor decided". Both halves of
+ * that reason have since been discharged: objectui#8800 screened it and the
+ * director seat decided it (decision batch #137 item 2, 2026-09-15, maintainer
+ * verbatim 「同意」, letter A), retiring `AIInsightsSchema` and the `ai-insights`
+ * node type WHOLE from the published type face under ADR-0049. The member is not
+ * reachable to be pinned, because the interface that declared it is gone.
+ *
+ * ⛔ That exclusion changed by RULING, ⛔ never by refactor — which is exactly what
+ * the note it replaces existed to enforce, and the authorisation is on
+ * objectui#8800 in those words. ⛔ It authorises this paragraph and nothing else
+ * in this file: the seven tombstones below are objectui#8178's, they are
+ * untouched, and no part of that retirement moves with this one.
+ *
+ * The successor pin — the symbol's absence, the spelling's absence, and the lit
+ * controls that keep both from passing vacuously — is
+ * `ai-insights-retired-8800.test.ts`, beside this file.
  */
-export type assertionInsightsObjectNameUntouched = Expect<
-  Equal<import('../ai').AIInsightsSchema['objectName'], string | undefined>
->;
 
 const suggestions: AIFieldSuggestion[] = [
   { fieldName: 'company', value: 'ObjectStack Inc.', confidence: 0.92 },

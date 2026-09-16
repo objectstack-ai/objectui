@@ -92,8 +92,7 @@ import { ButtonSchema, InputSchema } from '@object-ui/types/zod';
 const buttonConfig = {
   type: 'button',
   label: 'Click Me',
-  variant: 'primary',
-  onClick: () => console.log('clicked'),
+  variant: 'secondary',
 };
 
 const result = ButtonSchema.safeParse(buttonConfig);
@@ -104,6 +103,25 @@ if (result.success) {
   console.error('Validation errors:', result.error);
 }
 ```
+
+> ⚠️ Two refusals this first example used to walk straight into, both made **by
+> name** by the schema (objectui#9522):
+>
+> - **`variant` is an enum.** `ButtonSchema`'s own declaration in `form.zod.ts`
+>   is the list of accepted values — `'primary'` is not among them. A spelling
+>   outside the enum is rejected exactly the way the *Error Messages* section
+>   below shows.
+> - **There is no `onClick`** — nor any other `on*` handler key on this surface.
+>   JSON has no function value, so those keys are declared as refusals
+>   (`handlerKeyRefusal`, objectui#6124) and every authored value is rejected,
+>   an object and a live function alike. The refusal message carries the remedy:
+>   author behaviour as a **node type** — an `action:` node with a declared
+>   action. ⛔ Not as an `events` key either: `BaseSchema` declares none and
+>   nothing reads one.
+>
+> Both are pinned against this page by
+> `__tests__/zod-readme-examples-9522.test.ts`, which re-extracts every worked
+> example below and re-runs it through the schema it names.
 
 ### Form Validation
 

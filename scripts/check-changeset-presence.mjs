@@ -1220,3 +1220,9 @@ if (invokedDirectly) {
     See the header of scripts/check-changeset-presence.mjs.`);
   process.exit(1);
 }
+
+// ⚠️ PROBE (objectui#9140) — ONE-SHOT, reverted in the next commit on this branch.
+// It exists to make this pull request's own diff touch a file that pending
+// changesets name, so the new delivery step has a real finding to deliver and the
+// ruling's "one measured delivery on a real pull request" can be observed rather
+// than asserted. ⛔ Not part of this change; it must not reach `main`.

@@ -176,7 +176,7 @@ const RENAMED_SINCE_4959 = [
 function withAggregator(
   runs: ReturnType<typeof snapshotAt>,
   conclusion: string,
-): ReturnType<typeof snapshotAt> {
+): { id: number; name: string; status: string; conclusion: string | null }[] {
   return [...runs, { id: 95_325_280_000, name: 'Test', status: 'completed', conclusion }];
 }
 

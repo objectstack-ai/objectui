@@ -302,6 +302,14 @@ export const ADJUDICATED = new Map([
     'packages/data-objectstack/src/readme-filter-operator-table.test.ts',
     { reads: ['packages/data-objectstack/README.md'] },
   ],
+  // objectui#7989. Reads this package's OWN README and compares the built-in
+  // locale count that document states against what the package EXPORTS -- so an
+  // edit to that README IS an edit to this test's input, and a markdown-only
+  // pull request touching it has to run the shard.
+  [
+    'packages/i18n/src/__tests__/readme-locale-count-7989.test.ts',
+    { reads: ['packages/i18n/README.md'] },
+  ],
   [
     'packages/layout/src/__tests__/app-shell-branding-title-surfaces.test.ts',
     {

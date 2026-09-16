@@ -173,12 +173,12 @@ export class WidgetRegistry {
           icon: manifest.icon,
           category: manifest.category,
           // `WidgetInput.label` / `defaultValue` / `advanced` are NOT copied
-          // across: their `ComponentInput` twins are ADR-0049 retirement
-          // tombstones (objectui#7493 / objectui#7781) — the manifest serializer
-          // never forwarded them and no consumer of `ComponentMeta.inputs` read
-          // them, so this copy was the one non-test write of the three keys and
-          // it fed nothing. The widget-manifest face keeps its own three members
-          // (`packages/types/src/widget.ts`); they stay writable there.
+          // across: they are ADR-0049 retirement tombstones on BOTH faces now
+          // (`ComponentInput` by objectui#7493 / objectui#7781,
+          // `WidgetInput` by objectui#7911) — the manifest serializer never
+          // forwarded them and no consumer of `ComponentMeta.inputs` read them,
+          // so this copy was the one non-test write of the three keys and it
+          // fed nothing. Restoring a line here would assign from a `never`.
           inputs: manifest.inputs?.map((input) => ({
             name: input.name,
             type: input.type,

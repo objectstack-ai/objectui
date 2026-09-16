@@ -239,3 +239,113 @@ export function resolveRecordSourceConfig(
 
   return null;
 }
+
+/**
+ * The arm each REGISTERED BLOCK TYPE declares — the one reading available to a
+ * caller that cannot be handed the arm as a parameter (objectui#9571).
+ *
+ * ## Why a type-keyed table exists beside the REQUIRED parameter
+ *
+ * {@link RecordSourceDataArm}'s docblock states, correctly, why
+ * {@link resolveRecordSourceConfig} takes the arm as a required PARAMETER: each
+ * of these renderers is registered under two spellings, a node reaches the same
+ * component under either, and a table keyed by `type` would answer for one tag
+ * and silently miss the other. That argument is about a call site that already
+ * has one block in front of it — there a parameter is strictly better, and it
+ * stays exactly as it is.
+ *
+ * `SchemaRenderer` is the one reader that has no such site. It is generic over
+ * every registered type and holds nothing but `schema.type`, and ruling
+ * objectui#8348 Q2-C (decision batch #136 item 3, maintainer 「同意」) makes it a
+ * reader anyway: it must stop spreading an authored `data` key as a React prop
+ * for blocks whose published row is the OBJECT arm, because that prop is the
+ * carrier the 「8348 以协议为准」 ruling did not otherwise reach. So "which arm
+ * does this TYPE declare" has to be askable, and this is the ONE place that
+ * answers it.
+ *
+ * ## The alias hazard is closed by ENUMERATION plus a registry-derived pin
+ *
+ * Every registered spelling is listed, and the listing is pinned per plugin
+ * AGAINST THE REGISTRY rather than against itself: each affected plugin's pin
+ * walks the keys its own `index.tsx` actually produced, groups them by the
+ * renderer they resolve to, and requires every member of a group to get the
+ * same answer here. An alias added without a row goes red there instead of
+ * quietly answering `'undeclared'` and keeping the prop seat.
+ *
+ * ⚠️ ONE `register()` CALL PRODUCES SEVERAL KEYS, and a row must be written for
+ * each of them — `SchemaRenderer` looks this table up with the raw
+ * `schema.type`, which is whatever spelling the author wrote. A registration
+ * with `namespace: 'view'` is reachable as `view:map` AND as bare `map`; one
+ * with `skipFallback` is reachable ONLY under its namespaced key. MEASURED via
+ * `ComponentRegistry.getAllTypes()` with the five plugins loaded, grouped by
+ * the renderer each key resolves to.
+ *
+ * ⛔ `grid` IS NOT A GRID KEY, and this is the trap the registry-derived pin
+ * caught on its first run. `plugin-grid` registers its `view` alias with
+ * `skipFallback: true` precisely so the bare key stays with
+ * `@object-ui/components`' LAYOUT grid container (`ui:grid`) — so `object-grid`
+ * resolves to `view:grid`, never to `grid`. A row for `grid` here would strip
+ * `data` from a layout container, which declares no `data` row at all.
+ *
+ * ## The rows are the call sites' literals — ⛔ not a second measurement
+ *
+ * Each value below is the literal its block already passes to
+ * {@link resolveRecordSourceConfig}, and each of those literals carries its own
+ * per-block measurement in a comment at that call site. ⛔ Do not re-derive the
+ * arm here and ⛔ do not let the two disagree: this table transports an answer,
+ * it does not compute one.
+ *
+ *  - `ObjectGrid.tsx`'s `getDataConfig` — `'view-data'`.
+ *  - `ObjectMap.tsx`'s `getDataConfig` — `'view-data'`.
+ *  - `ObjectGantt.tsx`'s `rawDataConfig` — `'view-data'`. One block spelling
+ *    only: the bare `gantt` key is retired (objectui#8008).
+ *  - `ObjectCalendar.tsx`'s `dataConfig` — `'array'`.
+ *  - `ObjectTree.tsx`'s `dataConfig` — `'undeclared'`. Its rows are
+ *    DOCUMENTARY: they repeat the default, so they decide nothing and cannot
+ *    drift into a decision. They are here so the tree reads as "measured, and
+ *    the ruling does not reach it" rather than as a block nobody looked at.
+ */
+const RECORD_SOURCE_DATA_ARM_BY_TYPE: Readonly<Record<string, RecordSourceDataArm>> =
+  Object.freeze({
+    // — object arm: `ViewData`, a bare array under `data` is off the row —
+    'object-grid': 'view-data',
+    'plugin-grid:object-grid': 'view-data',
+    'view:grid': 'view-data',
+    'object-map': 'view-data',
+    'plugin-map:object-map': 'view-data',
+    'view:map': 'view-data',
+    map: 'view-data',
+    'object-gantt': 'view-data',
+    'plugin-gantt:object-gantt': 'view-data',
+    // — array arm: `z.array(...)`, pre-fetched records —
+    'object-calendar': 'array',
+    'plugin-calendar:object-calendar': 'array',
+    'view:calendar': 'array',
+    calendar: 'array',
+    // — no published `data` row at all; documentary, equal to the default —
+    'object-tree': 'undeclared',
+    'plugin-tree:object-tree': 'undeclared',
+    'view:tree': 'undeclared',
+    tree: 'undeclared',
+  });
+
+/**
+ * Which `data` arm the block registered under `type` declares.
+ *
+ * `'undeclared'` for every type not listed above — the same verdict the ladder
+ * gives a block no published face declares a `data` row for, and the same
+ * behaviour those types have today. That default is deliberately the
+ * NO-CHANGE direction: a caller acting on this reading (today:
+ * `SchemaRenderer`'s props spread) leaves an unlisted type exactly as it was,
+ * so a block that has never been measured is never silently re-decided by this
+ * table's mere existence.
+ *
+ * @param type - The node's registry key, either spelling.
+ * @returns The arm that type's published `data` row declares.
+ */
+export function recordSourceDataArmForType(
+  type: string | null | undefined,
+): RecordSourceDataArm {
+  if (typeof type !== 'string') return 'undeclared';
+  return RECORD_SOURCE_DATA_ARM_BY_TYPE[type] ?? 'undeclared';
+}

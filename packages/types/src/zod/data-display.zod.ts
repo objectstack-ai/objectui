@@ -170,6 +170,30 @@ export const ListSchema = BaseSchema.extend({
   dense: z.boolean().optional().describe('Dense spacing'),
   wrapperClass: z.string().optional()
     .describe('Classes on the wrapper div around the title and the list — merged with the base `space-y-2` (objectui#7722)'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `list` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program built from the repo-root tsconfig on a BUILT tree, no '
+    + 'renderer read consumes `body` or `children` for this node, and `SchemaRenderer` strips both out '
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no '
+    + 'warning, no element. '
+    + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
+    + 'The ITEM channel is a different key and stays live: each entry is drawn as '
+    + '`item.content || renderChildren(item.body)`, a read filed under ListItem and not under this node. '
+    + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `list` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program built from the repo-root tsconfig on a BUILT tree, no '
+    + 'renderer read consumes `body` or `children` for this node, and `SchemaRenderer` strips both out '
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no '
+    + 'warning, no element. '
+    + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
+    + 'The ITEM channel is a different key and stays live: each entry is drawn as '
+    + '`item.content || renderChildren(item.body)`, a read filed under ListItem and not under this node. '
+    + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
+    + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**
@@ -976,6 +1000,26 @@ export const TimelineSchema = BaseSchema.extend({
   events: z.array(TimelineEventSchema).optional().describe('DEPRECATED — zero read points; renders an empty rail. Use items'),
   orientation: z.enum(['vertical', 'horizontal']).optional().describe('DEPRECATED — zero read points. Use variant'),
   position: z.enum(['left', 'right', 'alternate']).optional().describe('DEPRECATED — zero read points'),
+  body: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `timeline` reads NEITHER content channel, on EITHER of its '
+    + 'two readers: measured with the TypeScript type checker over one program built from the repo-root '
+    + 'tsconfig on a BUILT tree, and `packages/plugin-timeline` contains no `body` / `children` read of '
+    + 'any kind, on any receiver. `SchemaRenderer` strips both out of the props bag it spreads, so an '
+    + 'authored value rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `variant`, `items`, `dateFormat`, `scale`, `rowLabel`, `minDate`, `maxDate`. '
+    + '`view:timeline` is the measured owner of the bare `timeline` key (`plugin-timeline:timeline` passes '
+    + '`skipFallback: true`); re-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
+  children: retirementTombstone(
+    'REFUSED (objectui#9256, ADR-0049) — `timeline` reads NEITHER content channel, on EITHER of its '
+    + 'two readers: measured with the TypeScript type checker over one program built from the repo-root '
+    + 'tsconfig on a BUILT tree, and `packages/plugin-timeline` contains no `body` / `children` read of '
+    + 'any kind, on any receiver. `SchemaRenderer` strips both out of the props bag it spreads, so an '
+    + 'authored value rendered NOTHING — no error, no warning, no element. '
+    + 'What it renders instead: `variant`, `items`, `dateFormat`, `scale`, `rowLabel`, `minDate`, `maxDate`. '
+    + '`view:timeline` is the measured owner of the bare `timeline` key (`plugin-timeline:timeline` passes '
+    + '`skipFallback: true`); re-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
+  ),
 });
 
 /**

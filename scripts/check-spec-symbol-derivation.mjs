@@ -81,6 +81,15 @@
  *   canonical                                   source of truth
  *   copy of / copied from                       conforms to
  *
+ * EVERY occurrence of each phrase is tested, not just the first (objectui#8819).
+ * One `exec` per pattern meant an innocent early "mirror"/"match" — ordinary
+ * English in technical prose — consumed the single examination, and a real claim
+ * sitting beside a mention LATER in the same block went unexamined. That failed
+ * PERMISSIVE: the gate returned green on precisely the planted premise its own
+ * failure text is written against. Measured on the tree that landed the repair:
+ * the verdict set over every scanned package source is unchanged, 0 newly
+ * flagged — the masking condition was demonstrable, an escaped claim was not.
+ *
  * Three precision rules, each of which removed real false positives from the
  * measured run — they are load-bearing, not decoration:
  *
@@ -1083,6 +1092,26 @@ export const CLAIM_PATTERNS = [
   /\bconforms?\s+to\b/i,
 ];
 
+/**
+ * The same patterns, `/g`, for `findClaim`'s all-occurrences scan (objectui#8819).
+ *
+ * ⛔ The `/g` deliberately does NOT go on the exported literals above. `/g` makes
+ * `exec` and `test` STATEFUL through `lastIndex`, and `CLAIM_PATTERNS` is a
+ * shared module-level array an importer may call either on: the second call
+ * would resume mid-string and the gate's verdict would depend on how many
+ * docblocks preceded it. A non-deterministic gate is worse than the
+ * first-occurrence-only bug it would be fixing.
+ *
+ * `matchAll` is what makes a SHARED `/g` regex safe here: it clones the pattern
+ * through the species constructor and never mutates the source's `lastIndex`.
+ * The same idiom is already load-bearing in this file for `MEMBER_CITATION`.
+ * These copies are module-private precisely so nothing can `exec` them — that,
+ * not the cloning, is what keeps their `lastIndex` at 0 for every scan.
+ */
+const CLAIM_PATTERNS_ALL = CLAIM_PATTERNS.map(
+  (p) => new RegExp(p.source, p.flags.includes("g") ? p.flags : p.flags + "g")
+);
+
 // Deliberate, reasoned duplications — the rule-1 ALLOW map's governance exactly:
 // declared, reasoned, shrink-only, and stale entries fail the guard. An entry
 // belongs here only when the declaration's OWN comment already states why the
@@ -1477,41 +1506,46 @@ export function findClaim(docText) {
   for (let i = text.indexOf(SPEC_MENTION); i !== -1; i = text.indexOf(SPEC_MENTION, i + 1)) mentions.push(i);
   if (mentions.length === 0) return null;
 
-  for (const pattern of CLAIM_PATTERNS) {
-    const hit = pattern.exec(text);
-    if (!hit) continue;
-    const start = hit.index;
-    const end = hit.index + hit[0].length;
-    for (const at of mentions) {
-      const distance = at >= end ? at - end : start - (at + SPEC_MENTION.length);
-      if (distance < 0 || distance > CLAIM_WINDOW) continue;
-      // Proximity alone is not enough: the claim and the mention must be in the
-      // SAME sentence. `ChartDataSeries` reads "positionally aligned with the
-      // chart's `categories`. Renamed off `ChartSeries`: `@objectstack/spec/ui`
-      // owns that name…" — two sentences, two subjects, 53 characters apart, and
-      // the alignment claim is about the categories array rather than the spec.
-      // A window without this test flags it, which the measured run confirmed.
-      const between = at >= end ? text.slice(end, at) : text.slice(at + SPEC_MENTION.length, start);
-      if (/[.;!?](?:\s|$)/.test(between)) continue;
-      const symbols = [];
-      for (const m of mentions) {
-        // `@objectstack/spec/ui ReactionSchema` — take the identifiers the claim
-        // names just after the mention (its subpath included, then skipped).
-        let tail = text.slice(m + SPEC_MENTION.length, m + SPEC_MENTION.length + 48);
-        // Stop at the end of the SENTENCE, the same discipline the claim/mention
-        // pairing above applies. Without it the window scrapes the capitalised
-        // opening words of the NEXT sentence and reports them as cited symbols:
-        // `ActionDef` (packages/core/src/actions/ActionRunner.ts) reads
-        // "…mirroring `@objectstack/spec`'s `ActionSchema`. Open key set on a
-        // data bag is correct", and `Open` is prose, not a citation. Harmless
-        // while `symbols` only decorated a message; since objectui#4607 it
-        // decides whether the tie test applies, and a claim whose only "cited
-        // symbols" are prose words would read as citing nothing but dangling.
-        const sentenceEnd = tail.search(/[.;!?](?:\s|$)/);
-        if (sentenceEnd !== -1) tail = tail.slice(0, sentenceEnd);
-        for (const s of tail.matchAll(/[`'"\s(]([A-Z][A-Za-z0-9_]{2,})\b/g)) symbols.push(s[1]);
+  for (const pattern of CLAIM_PATTERNS_ALL) {
+    // EVERY occurrence, not the first (objectui#8819). `exec` once per pattern
+    // tested only the first occurrence of each phrase in the block, so an
+    // innocent early "mirror"/"match" masked a real claim sitting beside a
+    // mention later in the SAME block — and it failed PERMISSIVE: the gate went
+    // green on the planted premise its own failure text is written against.
+    for (const hit of text.matchAll(pattern)) {
+      const start = hit.index;
+      const end = hit.index + hit[0].length;
+      for (const at of mentions) {
+        const distance = at >= end ? at - end : start - (at + SPEC_MENTION.length);
+        if (distance < 0 || distance > CLAIM_WINDOW) continue;
+        // Proximity alone is not enough: the claim and the mention must be in the
+        // SAME sentence. `ChartDataSeries` reads "positionally aligned with the
+        // chart's `categories`. Renamed off `ChartSeries`: `@objectstack/spec/ui`
+        // owns that name…" — two sentences, two subjects, 53 characters apart, and
+        // the alignment claim is about the categories array rather than the spec.
+        // A window without this test flags it, which the measured run confirmed.
+        const between = at >= end ? text.slice(end, at) : text.slice(at + SPEC_MENTION.length, start);
+        if (/[.;!?](?:\s|$)/.test(between)) continue;
+        const symbols = [];
+        for (const m of mentions) {
+          // `@objectstack/spec/ui ReactionSchema` — take the identifiers the claim
+          // names just after the mention (its subpath included, then skipped).
+          let tail = text.slice(m + SPEC_MENTION.length, m + SPEC_MENTION.length + 48);
+          // Stop at the end of the SENTENCE, the same discipline the claim/mention
+          // pairing above applies. Without it the window scrapes the capitalised
+          // opening words of the NEXT sentence and reports them as cited symbols:
+          // `ActionDef` (packages/core/src/actions/ActionRunner.ts) reads
+          // "…mirroring `@objectstack/spec`'s `ActionSchema`. Open key set on a
+          // data bag is correct", and `Open` is prose, not a citation. Harmless
+          // while `symbols` only decorated a message; since objectui#4607 it
+          // decides whether the tie test applies, and a claim whose only "cited
+          // symbols" are prose words would read as citing nothing but dangling.
+          const sentenceEnd = tail.search(/[.;!?](?:\s|$)/);
+          if (sentenceEnd !== -1) tail = tail.slice(0, sentenceEnd);
+          for (const s of tail.matchAll(/[`'"\s(]([A-Z][A-Za-z0-9_]{2,})\b/g)) symbols.push(s[1]);
+        }
+        return { phrase: hit[0], distance, symbols: [...new Set(symbols)], text };
       }
-      return { phrase: hit[0], distance, symbols: [...new Set(symbols)], text };
     }
   }
   return null;

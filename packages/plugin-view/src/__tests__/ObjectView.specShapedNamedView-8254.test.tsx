@@ -55,12 +55,26 @@
  * `filter`, `sort`, `label` and `data` needed no renderer change and are pinned
  * anyway, because "already works" is exactly the claim that rots silently.
  *
- * ## Reverse verification — direction predicted BEFORE the run
+ * ## Reverse verification — prediction, and where the prediction was WRONG
  *
- * The four `columns` cases were predicted RED with the two
- * `viewColumnFieldNames(...)` call sites reverted to their raw forwards, and
- * every other case GREEN — a control that moves with the fix is a control that
- * was carrying the fix. Measured outcome on the PR.
+ * Predicted before the run: the four `columns` cases RED with the two
+ * `viewColumnFieldNames(...)` call sites reverted to their raw forwards, every
+ * other case GREEN. Measured: THREE red, and the prediction was wrong about
+ * which three — recorded here rather than quietly re-fitted, because the miss
+ * is the useful part. Two of the four `columns` cases assert a UNION slot
+ * (`ObjectGridSchema.columns`, the delegated `list-view` `columns`), which the
+ * fix never touched, so they stayed green exactly as they should — they are
+ * controls, not fix cases, and the prediction had mis-sorted them. The third
+ * red came from the controls block instead: the no-identity case, which rides
+ * the fold. ⇒ RED = the two NAME-slot cases plus the no-identity case; GREEN =
+ * everything else, the two union-slot cases included. A control that moves with
+ * the fix is a control that was carrying the fix; these did not move.
+ *
+ * The mutation reached the code under test directly — this file imports
+ * `../ObjectView` by relative path, so no `dist/` sits between the edit and the
+ * run and no rebuild can mask it. Both legs (mutate, restore) proved the edit
+ * on disk by occurrence count and by `git hash-object` against the `HEAD` blob;
+ * the run log and the two hashes are quoted on the PR.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

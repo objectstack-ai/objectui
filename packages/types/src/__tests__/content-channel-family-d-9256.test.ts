@@ -95,6 +95,13 @@
  *     records that key as "two different meanings of one key — a naming
  *     collision to rule on". Their `children` channel is narrowed here, and the
  *     LIVE CONTROL below proves `body` still parses there.
+ *     ⚠️ AMENDED (objectui#8572): that ruling has since been made and it reaches
+ *     ONE of the three faces — `ChatbotSchema`'s own `body`, whose disposition is
+ *     that card's to state and ⛔ is not restated here. The hold-out this card
+ *     recorded still stands on the two TWIN faces, so both controls below are
+ *     RE-POINTED at a twin rather than inverted; what this card asserts — that it
+ *     narrowed `children` on the chatbot faces and left their `body` alone — is
+ *     unmoved.
  *
  * ## ⚠️ Half of this file is a COMPILE-TIME assertion and vitest CANNOT read it
  *
@@ -197,7 +204,6 @@ import {
   FilterUISchema as FilterUIMirror,
   SortUISchema as SortUIMirror,
 } from '../zod/views.zod';
-import { ChatbotSchema as ChatbotBodyControl } from '../zod/complex.zod';
 import { AnyComponentSchema } from '../zod/index.zod';
 import type { CollapsibleSchema } from '../disclosure';
 import type { DialogSchema } from '../overlay';
@@ -207,7 +213,7 @@ import type { KbdSchema, PivotTableSchema, ListSchema, TimelineSchema } from '..
 import type { SkeletonSchema } from '../feedback';
 import type { PaginationSchema } from '../navigation';
 import type { ObjectGallerySchema } from '../objectql';
-import type { CarouselSchema, ChatbotSchema } from '../complex';
+import type { CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema } from '../complex';
 import type { ReportViewerSchema } from '../reports';
 import type { ViewSwitcherSchema } from '../views';
 import type { NLQuerySchema } from '../ai';
@@ -367,14 +373,18 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
     expect(Object.keys(mirror.shape)).toContain(key);
   });
 
-  it('LIVE CONTROL — `chatbot` still accepts `body`, the key held out of this card', () => {
-    // The parity ledger records `body` here as "two different meanings of one
-    // key — a naming collision to rule on": the mirror declares it as API
-    // request params, the declaration inherits the base's content channel.
-    // Refusing it would have been a guess, so it is untouched — and this line
-    // is what keeps the row above a reading about `children`.
-    const r = (ChatbotBodyControl as unknown as Mirror)
-      .safeParse({ type: 'chatbot', messages: [], body: { temperature: 0.2 } });
+  it('LIVE CONTROL — the chatbot family still accepts `body`, the channel held out of this card', () => {
+    // The held-out channel, still held out — RE-POINTED, not inverted, by
+    // objectui#8572. This control was aimed at `ChatbotSchema`, whose own `body`
+    // the parity ledger recorded as "two different meanings of one key — a naming
+    // collision to rule on"; that ruling has since been made and belongs to its
+    // own card, ⛔ which is why this line does not restate its verdict here. The
+    // hold-out this card recorded still stands on the two TWIN faces: they
+    // inherit `body` as the content channel and only their `children` is
+    // narrowed above — so the control keeps doing its job, which is to keep the
+    // chatbot rows a reading about `children` rather than about the whole mirror.
+    const r = (ChatbotEnhancedMirror as unknown as Mirror)
+      .safeParse({ type: 'chatbot-enhanced', messages: [], body: CONTENT });
     expect(r.success).toBe(true);
   });
 
@@ -561,15 +571,15 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
     expect(ok).toHaveLength(7);
   });
 
-  it('CONTROL — `chatbot` still TYPE-CHECKS with `body`, the held-out key', () => {
-    // ⚠️ The VALUE differs from the mirror control above, and that difference
-    // IS the ledgered collision: the TypeScript face inherits `body` from
-    // `BaseSchema` as a content channel (`SchemaNode | SchemaNode[]`), while
-    // the mirror declares it as `Record` of unknown, "additional API body
-    // params". One key, two meanings, on the two published faces of one node —
-    // which is why objectui#9256 refuses to tombstone it on a measurement and
-    // leaves it for a ruling.
-    const held = { type: 'chatbot', messages: [], body: CONTENT } satisfies ChatbotSchema;
-    expect(held.type).toBe('chatbot');
+  it('CONTROL — the chatbot family still TYPE-CHECKS with `body`, the held-out channel', () => {
+    // RE-POINTED by objectui#8572, for the reason spelled out at the mirror
+    // control above, and ⛔ deliberately not restating that card's verdict here.
+    // What survives unchanged is this card's own claim: it narrowed `children`
+    // on the chatbot faces and left their `body` channel alone. On a TWIN that
+    // is still visible on both faces — `body` arrives from `BaseSchema` as the
+    // content channel and `tsc` admits it — and `tsc`, not vitest, is the reader
+    // of this line.
+    const held = { type: 'chatbot-enhanced', messages: [], body: CONTENT } satisfies ChatbotEnhancedSchema;
+    expect(held.type).toBe('chatbot-enhanced');
   });
 });

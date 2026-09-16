@@ -133,15 +133,30 @@ export const KeyedI18nLabelSchema = z.object({
 export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
   // ⭐ objectui#8344 F2 — what goes into the slot is the union WRAPPED, never the bare union.
   //
-  // `ChatbotSchema.body` mirrors the chat API's body params as a record, which is WIDER than
-  // `BaseSchemaCore.body`. It is the only wider redeclaration among the 109 base-key
-  // redeclarations across the arms, so installing the bare union would narrow at 108 child
-  // slots and WIDEN at one: a `chatbot` node carrying a record `body` is refused at a child
-  // slot on `main` and would be accepted here. The card's appetite forbids widening in
-  // flight, so the arm carries the check and the PUBLISHED mirror is untouched — a root
-  // `chatbot` with a record `body` still parses, the same node one slot down does not.
-  // ⛔ Do not "simplify" this by narrowing `ChatbotSchema` itself: that is a change to a
-  // published face this card does not own, and it is recorded on objectui#8572.
+  // WHY THE CLAUSE WAS WRITTEN. `ChatbotSchema.body` mirrored the chat API's body params as a
+  // record, which was WIDER than `BaseSchemaCore.body` — the only wider redeclaration among the
+  // 109 base-key redeclarations across the arms — so installing the bare union would have
+  // narrowed at 108 child slots and WIDENED at one. #8344's appetite forbade widening in
+  // flight, so the arm took the check and the published mirror was left alone, which is why a
+  // root `chatbot` with a record `body` parsed while the same node one slot down did not.
+  //
+  // ⚠️ AMENDED (objectui#8572, ruling A). That ruling was made: `ChatbotSchema.body` is an
+  // ADR-0049 retirement tombstone on both published faces now, pointing the author at
+  // `requestBody`. Three consequences, stated because the sentences above would otherwise read
+  // as live:
+  //   1. the arm refuses the key BY ITSELF, at every depth, so the asymmetry this clause
+  //      existed to prevent no longer exists and the clause is REDUNDANT;
+  //   2. ⛔ redundant is not removable. The WRAPPER is load-bearing independently of what it
+  //      checks: `__tests__/node-recursion-point-8344.test.ts`'s `the fill is LIVE` leg reads
+  //      that slot 0 holds the WRAPPED union and not the bare one, and the read-back assertion
+  //      below throws when the recursion point did not take. Dropping the clause means
+  //      rebuilding what gets installed — surgery on #8344's recursion point, not a deletion —
+  //      so it stays exactly as it is until a card decides otherwise;
+  //   3. the old instruction here said ⛔ not to narrow `ChatbotSchema` because that face was
+  //      not #8344's to move and the question was recorded on objectui#8572. That question has
+  //      been answered, so the instruction is retired with it: what ⛔ must not happen now is
+  //      the opposite — do not restore a record `body` arm on that mirror to make this clause
+  //      meaningful again.
   const installed = union.superRefine((value, ctx) => {
     const node = value as { type?: unknown; body?: unknown } | null | undefined;
     if (!node || node.type !== 'chatbot' || node.body === undefined) return;

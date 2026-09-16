@@ -52,13 +52,23 @@ const AUTHORED = [{ id: 'a1', name: 'Authored row' }];
 /** Rows a HOST pre-fetched and handed down — the other carrier. */
 const HOSTED = [{ id: 'h1', name: 'Host row' }];
 
-/** The last props bag `SchemaRenderer` handed the component. */
-let seen: Record<string, unknown> | null = null;
+/**
+ * The last props bag `SchemaRenderer` handed the component.
+ *
+ * A container whose PROPERTY is written, not an outer `let` reassigned:
+ * `react-hooks/globals` refuses the reassignment form during render, and it is
+ * right to — this capture is the whole point of the probe, so it is spelled the
+ * way the rule permits rather than silenced.
+ */
+const captured: { props: Record<string, unknown> | null } = { props: null };
 
 const Probe = (props: Record<string, unknown>) => {
-  seen = props;
+  captured.props = props;
   return <div data-testid="probe" />;
 };
+
+/** The captured bag, read as a plain object. */
+const seen = () => captured.props;
 
 /**
  * Every REGISTRY KEY the five ladder blocks are reachable under — one
@@ -94,7 +104,7 @@ const ALL_PROBE_TYPES = [...OBJECT_ARM_TYPES, ...ARRAY_ARM_TYPES, ...UNDECLARED_
 
 describe('SchemaRenderer — an authored `data` is refused a prop seat on the object arm (objectui#9571)', () => {
   beforeEach(() => {
-    seen = null;
+    captured.props = null;
     for (const type of ALL_PROBE_TYPES) ComponentRegistry.register(type, Probe as never);
   });
 
@@ -109,8 +119,8 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
     (type) => {
       render(<SchemaRenderer schema={{ type, id: `n-${type}`, data: AUTHORED } as never} />);
 
-      expect(seen).not.toBeNull();
-      expect('data' in (seen as object)).toBe(false);
+      expect(seen()).not.toBeNull();
+      expect('data' in (seen() as object)).toBe(false);
     },
   );
 
@@ -119,7 +129,7 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
     (type) => {
       render(<SchemaRenderer schema={{ type, id: `s-${type}`, data: AUTHORED } as never} />);
 
-      expect((seen as { schema: { data: unknown } }).schema.data).toEqual(AUTHORED);
+      expect((seen() as { schema: { data: unknown } }).schema.data).toEqual(AUTHORED);
     },
   );
 
@@ -135,8 +145,8 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
       />,
     );
 
-    expect('data' in (seen as object)).toBe(false);
-    expect((seen as { schema: { data: unknown } }).schema.data).toEqual({
+    expect('data' in (seen() as object)).toBe(false);
+    expect((seen() as { schema: { data: unknown } }).schema.data).toEqual({
       provider: 'value',
       items: AUTHORED,
     });
@@ -147,7 +157,7 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
     (type) => {
       render(<SchemaRenderer schema={{ type, id: `c-${type}`, data: AUTHORED } as never} />);
 
-      expect((seen as { data: unknown }).data).toEqual(AUTHORED);
+      expect((seen() as { data: unknown }).data).toEqual(AUTHORED);
     },
   );
 
@@ -162,7 +172,7 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
       />,
     );
 
-    expect((seen as { data: unknown }).data).toEqual(HOSTED);
+    expect((seen() as { data: unknown }).data).toEqual(HOSTED);
   });
 
   it('6. ⛔ MUST NOT CHANGE: a host prop still wins over an authored key on the object arm', () => {
@@ -173,7 +183,7 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
       />,
     );
 
-    expect((seen as { data: unknown }).data).toEqual(HOSTED);
+    expect((seen() as { data: unknown }).data).toEqual(HOSTED);
   });
 
   it('7. ⛔ MUST NOT CHANGE: a node that authors no `data` gets a byte-identical props bag', () => {
@@ -186,7 +196,7 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
       />,
     );
 
-    expect(Object.keys(seen as object).sort()).toEqual(
+    expect(Object.keys(seen() as object).sort()).toEqual(
       ['className', 'columns', 'data-obj-id', 'data-obj-type', 'disabled', 'id', 'objectName', 'schema'].sort(),
     );
   });
@@ -237,7 +247,7 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
     ComponentRegistry.register('grid', Probe as never);
     try {
       render(<SchemaRenderer schema={{ type: 'grid', id: 'layout', data: AUTHORED } as never} />);
-      expect((seen as { data: unknown }).data).toEqual(AUTHORED);
+      expect((seen() as { data: unknown }).data).toEqual(AUTHORED);
     } finally {
       ComponentRegistry.unregister?.('grid');
     }
@@ -255,7 +265,7 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
       render(
         <SchemaRenderer schema={{ type: 'probe-unlisted-9571', data: AUTHORED } as never} />,
       );
-      expect((seen as { data: unknown }).data).toEqual(AUTHORED);
+      expect((seen() as { data: unknown }).data).toEqual(AUTHORED);
     } finally {
       ComponentRegistry.unregister?.('probe-unlisted-9571');
     }

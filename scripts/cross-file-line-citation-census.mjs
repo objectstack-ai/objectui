@@ -83,13 +83,20 @@
  *      clean sheet as nothing new to look at.
  *
  *      ⛔ WHAT THIS SYNTAX STILL DOES NOT COVER, stated so it cannot be cited
- *      as coverage it does not have. Scope reaches `CONT_WINDOW` lines below
- *      the last thing that named a file and stops at a blank line, so an
- *      address restated further down -- past a paragraph break, with no
- *      filename near it -- is NOT read. That is deliberate and measured: it is
- *      the guard that keeps a bare `:NNN` from being a colon and a number, and
- *      the docblock above is read five of six for exactly this reason. The
- *      sixth is pinned as blind by name in this file's test.
+ *      as coverage it does not have. TWO rules end scope and they do ⛔ NOT
+ *      cover the same ground -- reading them as one mechanism is the defect
+ *      objectui#9216 found here. DISTANCE (`CONT_WINDOW`) applies everywhere.
+ *      The blank-line break in `carryScope` applies ONLY where a separator line
+ *      really is empty, so it holds in Markdown prose and is INERT inside a
+ *      block comment: a JSDoc separator trims to `*`, ⛔ never to the empty
+ *      string.
+ *
+ *      ⇒ an address restated further down with no filename near it is NOT
+ *      read, and inside a block comment DISTANCE ALONE is the reason. The
+ *      docblock above is read five of six on distance; the fixture that pins it
+ *      contains no line that trims to empty, so ⛔ the paragraph break must not
+ *      be credited for that sixth. Both facts -- the inertness and its firing
+ *      control, and the blind sixth -- are pinned by name in this file's test.
  *
  * The extension list (`SOURCE_EXT`) is what makes `NAME.ext:NNN` a SOURCE
  * ADDRESS rather than a coincidence, and it is copied in spirit from
@@ -324,17 +331,31 @@ const RE_NAME_ONLY = new RegExp(String.raw`(${NAME})`, 'g');
  *
  * DELIBERATE, and left at its shipped value on purpose: a bare `:NNN` on its
  * own really is a colon and a number, and this is the guard that keeps it from
- * becoming a citation. Measured on this tree, widening it to 5 would admit 14
- * more rows -- 11 real citations and 3 that are a port, a cron minute and a
- * Chinese enumeration. That trade is a judgement about a false-positive guard,
- * ⛔ not something objectui#9026 was asked to make, so the number stayed.
+ * becoming a citation. Widening it buys real citations and pays in false ones;
+ * that trade is a judgement about a false-positive guard, ⛔ not something
+ * objectui#9026 was asked to make, so the number stayed. objectui#9083 owns the
+ * width and ⛔ nothing here decides it.
+ *
+ * ⛔ THE PRICE OF WIDENING IS NOT WRITTEN DOWN HERE, per AGENTS.md #9. This
+ * docblock shipped carrying a one-time count of what a width of 5 would admit,
+ * and objectui#9216 re-derived it: it had already moved, in size AND in
+ * composition, while reading exactly as live. ⇒ re-derive it instead --
+ * `pnpm census:cross-file-line-citations --json` with this constant at 2 and
+ * again at 5, and diff the `rows` -- and ⛔ do not reason from any figure a
+ * comment hands you.
  *
  * ⚠️ Its consequence is stated rather than hidden: an address more than this
  * many lines below the last thing that named a file is NOT read. In the
  * docblock above, five of the six are read and the sixth -- restated eight
- * lines lower, past a paragraph break, with no filename of its own anywhere
- * near it -- is not. `scripts/__tests__/cross-file-line-citation-census.test.ts`
- * pins that residual blindness by name so it cannot be mistaken for coverage.
+ * lines lower, with no filename of its own anywhere near it -- is not.
+ *
+ * ⛔ DISTANCE IS THE WHOLE REASON FOR THAT SIXTH, and this docblock used to
+ * credit `carryScope`'s paragraph break for it (objectui#9216). It cannot be:
+ * the pinned fixture is a JSDoc body and contains ZERO lines that trim to
+ * empty, so that guard never fires on it -- and it fires in no block comment at
+ * all, for the same reason. `scripts/__tests__/cross-file-line-citation-census.test.ts`
+ * pins the residual blindness AND its true cause by name, each beside a firing
+ * control, so neither can be mistaken for coverage again.
  */
 export const CONT_WINDOW = 2;
 
@@ -604,12 +625,33 @@ export function scanFile(relPath, text) {
     };
 
     /**
-     * Hands scope to the lines below. A BLANK line ends it: a citation and its
-     * continuation belong to one piece of prose, and crossing a paragraph is
-     * how a filename in one sentence captures a port number in the next. It
-     * costs nothing to say so -- measured on this tree it removes no existing
-     * row at all and drops three readings that were `:3000`, `:5180` and a cron
-     * minute. Otherwise the line's LAST filename is what carries, by column and
+     * Hands scope to the lines below. A line that TRIMS TO EMPTY ends it: a
+     * citation and its continuation belong to one piece of prose, and crossing
+     * a paragraph is how a filename in one sentence captures a port number in
+     * the next.
+     *
+     * ⛔ ITS REACH IS MARKDOWN PROSE, AND ⛔ NOT BLOCK COMMENTS. `'   *'`
+     * trims to `'*'`, ⛔ not to `''`, so this branch CANNOT FIRE inside a JSDoc
+     * or a `//` run -- and a JSDoc is where syntax 5's population actually
+     * lives. What such a comment lays out as two paragraphs is one unbroken
+     * prose unit to this scanner; only `CONT_WINDOW` ends scope there. ⛔ So do
+     * not cite this guard as covering a block comment, and ⛔ do not credit it
+     * for an address that distance alone put out of reach -- that
+     * misattribution is what objectui#9216 was filed for, and it had reached
+     * two docblocks in this file plus a reader reasoning about `CONT_WINDOW`.
+     *
+     * ⚠️ Whether it SHOULD reach a `*`-prefixed line is a live judgement
+     * (objectui#9216), ⛔ not a repair to make on the way past, even though
+     * `NON_SUBSTANTIVE` in this file already spells the delimiters-only
+     * predicate such a change would need. Price it by re-running the census
+     * with the predicate swapped; ⛔ no count is written down here, per
+     * AGENTS.md #9.
+     *
+     * The inertness, the Markdown case it does hold for, and a firing control
+     * for both are pinned in
+     * `scripts/__tests__/cross-file-line-citation-census.test.ts`.
+     *
+     * Otherwise the line's LAST filename is what carries, by column and
      * ⛔ not by whatever matched last, for the reason `scopeFor` records.
      */
     const carryScope = () => {

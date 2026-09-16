@@ -32,6 +32,13 @@ shorthand face, whose registrations are `any`-typed), `AppComponentSchema` and
 `body` key of the three chatbot faces (the parity ledger records it as a naming
 collision awaiting a ruling — their `children` is narrowed).
 
+⚠️ **AMENDED (objectui#8572, ruling A — landing in THIS release).** That ruling has since
+been made, so the hold-out above has ended for ONE of the three faces: `ChatbotSchema`'s own
+`body` is retired on both published faces and points the author at `requestBody`. The two
+twins are unchanged and go on inheriting `body` as the content slot, and the reason this card
+held the key out — it was a naming collision to rule on, not a family-D read-site verdict —
+is the part that stayed true.
+
 Four published documents in the schema catalog and three component reference pages were
 authoring `children` on `dialog`, `drawer`, `popover` and `collapsible`, all of which
 read `content`. They rendered empty boxes and are corrected here.

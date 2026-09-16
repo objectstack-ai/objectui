@@ -160,9 +160,13 @@ describe('the late-binding wiring, read by IDENTITY on the exported wrapper', ()
     // `z.union` re-reads its option array on every parse, so the recursion point is whatever
     // slot 0 holds NOW — not whatever it held when some other file in this worker first
     // parsed something (the unit project runs `isolate: false`, one module graph per worker).
-    // ⛔ Do not assert `toBe(AnyComponentSchema)` here: what is installed is deliberately the
-    // `superRefine` WRAPPER that keeps the `chatbot` arm from widening the node slot, and a
-    // pin on the bare union would go green the moment that narrowing was dropped.
+    // ⛔ Do not assert `toBe(AnyComponentSchema)` here: what is installed is deliberately a
+    // `superRefine` WRAPPER rather than the bare union, and a pin on the bare union would go
+    // green the moment the wrapper stopped being installed. ⚠️ The clause that wrapper carries
+    // is objectui#8344's `chatbot` body narrowing, and objectui#8572 retired the arm it
+    // narrowed — so what this leg reads is the wrapper's INSTALLATION, not the clause's
+    // usefulness; the clause's disposition belongs to `../zod/base.zod.ts` and is not made
+    // here.
     const arm = (SchemaNodeSchema as unknown as {
       _zod: { def: { getter: () => { _zod: { def: { options: readonly { _zod: { propValues?: Record< string, unknown >; def: { checks?: unknown[] } } }[] } } } } };
     })._zod.def.getter()._zod.def.options[0];
@@ -180,40 +184,63 @@ describe('the late-binding wiring, read by IDENTITY on the exported wrapper', ()
  * The EXACT bound on the one assertion `base.zod.ts` needs to make.
  *
  * `SchemaNodeSchema` keeps its objectui#7760 annotation `z.ZodType< SchemaNode,
- * SchemaNode >`, and `z.output< typeof AnyComponentSchema >` is not assignable to
- * `SchemaNode` for exactly ONE of its 106 arms: `complex.zod.ts#ChatbotSchema`
- * mirrors the chat API body params under the key `body`, which is `BaseSchema`'s
- * CHILDREN slot. That collision is pre-existing (the parity ledger carries it under
- * `KnownDrift`, the TS declaration renamed the key to `requestBody`, and
- * `ChatbotSharedMirrorShape` says a ruling on `ChatbotSchema`'s own `body` arm is a
- * separate question), and objectui#8344 does not decide it.
+ * SchemaNode >`, and this reads back which arms of `AnyComponentSchema` are NOT
+ * assignable to it.
  *
- * ⇒ the fill site takes a loose bound and this states the real one instead. A SECOND
- * arm drifting the same way turns this red — where a wide bound would have said
- * nothing. ⛔ Do not repair a red here by adding the new name to the union below:
- * that records a second declaration defect as if it were a contract.
+ * ⭐ INVERTED by ruling A on objectui#8572, ⛔ not deleted. It read `'chatbot'` for as long
+ * as `complex.zod.ts#ChatbotSchema` mirrored the chat API body params under the key `body`,
+ * which is `BaseSchema`'s CHILDREN slot — that collision WAS the whole exclusion, the parity
+ * ledger carried it under `KnownDrift`, and objectui#8344 was not allowed to decide it. The
+ * ruling retires the record arm on both faces, so every arm's output is assignable and the
+ * honest bound is `never`.
+ *
+ * ⇒ the fill site takes a loose bound and this states the real one instead. A SECOND arm
+ * drifting the same way turns this red — where a wide bound would have said nothing.
+ * ⛔ Do not repair such a red by adding the new name to the union below: that records a
+ * declaration defect as if it were a contract. ⛔ And do not delete this pin now that it
+ * reads `never`: an empty exclusion set nothing asserts is indistinguishable from an
+ * exclusion set nobody has looked at since.
+ *
+ * ⚠️ The `[…] extends [never]` guard is not decoration, and ⛔ it may not be simplified
+ * away. The bare projection `Exclude< … > extends { type: infer K } ? K : never` does NOT
+ * resolve to `never` on an EMPTY exclusion set: `never` is assignable to the probe shape,
+ * so the true branch is taken and `K` is inferred from nothing — measured on this branch,
+ * the bare spelling resolves to `unknown`. Written that way the pin can only ever be red,
+ * which reads as drift where there is none. The guard answers the empty case first and
+ * leaves the projection to do exactly what it did before: NAME the arm when there is one.
  */
 type ArmsNotAssignableToSchemaNode =
-  Exclude< z.output< typeof AnyComponentSchema >, SchemaNode > extends { type: infer K } ? K : never;
+  [Exclude< z.output< typeof AnyComponentSchema >, SchemaNode >] extends [never]
+    ? never
+    : Exclude< z.output< typeof AnyComponentSchema >, SchemaNode > extends { type: infer K } ? K : never;
 
 export type NodeRecursionPointDeclarationDrift = [
-  Expect< Equal< ArmsNotAssignableToSchemaNode, 'chatbot' > >,
+  Expect< Equal< ArmsNotAssignableToSchemaNode, never > >,
 ];
 
 
 /**
- * The one arm the redirect would have WIDENED, narrowed on the arm itself.
+ * The one arm the redirect would have WIDENED — retired at the source by objectui#8572.
  *
- * `ChatbotSchema.body` mirrors the chat API's body params as a record — the only wider
- * redeclaration among the 109 base-key redeclarations across the union's arms. Without the
- * `superRefine` on the installed arm the redirect would narrow at 108 slots and widen at
- * this one, which is what the card's appetite forbids in as many words.
+ * `ChatbotSchema.body` mirrored the chat API's body params as a record: the one
+ * redeclaration across the union's arms that was WIDER than the base key it restated.
+ * objectui#8344 was not allowed to move the published mirror, so it carried the narrowing on
+ * the INSTALLED arm (`defineNodeComponentUnion`'s `superRefine` in `../zod/base.zod.ts`) and
+ * this suite pinned the asymmetry that left behind: refused one slot down, still accepted at
+ * the root.
  *
- * ⛔ Both directions are load-bearing, and a fix that only satisfies the first is the
- * failure this pin exists to catch: narrowing the ROOT mirror would also refuse the nested
- * node, and it would be a change to a published face this card does not own.
+ * ⭐ Maintainer ruling A on objectui#8572 (decision batch #137, item 4, 2026-09-15) retired
+ * that arm — `retirementTombstone` on the mirror, `?: never` on the declaration — so the ROOT
+ * leg below is INVERTED, ⛔ not deleted: it is the only assertion in this file that reads the
+ * published face at the depth the retirement is about, and an inverted pin keeps the history
+ * of the key readable where a deleted one would leave the ROOT unwatched.
+ *
+ * ⛔ Both directions stay load-bearing, for a reason that OUTLIVED the asymmetry. The nested
+ * refusal is now produced by the ARM itself rather than by the wrapper clause, and the root
+ * refusal is the only one that can see the published mirror move; a repair that satisfies one
+ * and not the other is exactly the failure this suite exists to catch.
  */
-describe('objectui#8344 — the `chatbot` record `body` is refused NESTED and still accepted at the ROOT', () => {
+describe('objectui#8572 — the `chatbot` record `body` is refused at the ROOT and one slot down alike', () => {
   const CHATBOT = {
     type: 'chatbot',
     messages: [{ id: '1', role: 'assistant', content: 'hi' }],
@@ -225,8 +252,20 @@ describe('objectui#8344 — the `chatbot` record `body` is refused NESTED and st
     expect(AnyComponentSchema.safeParse({ type: 'div', children: [withRecordBody] }).success).toBe(false);
   });
 
-  it('is still ACCEPTED at the ROOT — the published mirror is untouched', () => {
-    expect(AnyComponentSchema.safeParse(withRecordBody).success).toBe(true);
+  it('is REFUSED at the ROOT too — objectui#8572 retired the published record arm', () => {
+    // INVERTED by ruling A on objectui#8572. Until that ruling this leg read `toBe(true)`,
+    // and the `superRefine` clause on the installed arm was the only thing narrowing the
+    // nested form. ⛔ Do not read a failure here as "the wrapper leaked to the root": the
+    // refusal below comes from the ARM, and its path and code say so.
+    const result = AnyComponentSchema.safeParse(withRecordBody);
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const bodyIssue = result.error.issues.find((issue) => issue.path.join('.') === 'body');
+    expect(bodyIssue?.code).toBe('invalid_type');
+    // The REMEDY reaches the author by name — `retirementTombstone` writes one string into
+    // both the parse-time message and the published `.describe()`, so this asserts the named
+    // replacement key rather than the sentence carrying it.
+    expect(bodyIssue?.message).toContain('requestBody');
   });
 
   it('NON-VACUITY: the same node without `body` is accepted at both depths', () => {

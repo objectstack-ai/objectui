@@ -154,7 +154,15 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **45 entries** in `KnownDrift`, **83 keys** across them — 41 / 72 until
+ *   - **45 entries** in `KnownDrift`, **82 keys** across them — 45 / 83 until
+ *     objectui#8572 RULED `complex.zod.ts#ChatbotSchema`'s `body`, the naming collision
+ *     this ledger carried as "two different meanings of one key": the record arm is
+ *     retired on both faces, the key measures clean and LEFT. ⚠️ One key moved and NO
+ *     entry did — the entry survives on its two runtime slots — so this figure moved
+ *     while the entry count above did not, and the objectui#7733 block stayed green
+ *     while this one failed. That asymmetry is the shape a whole-entry departure does
+ *     NOT have; read it before assuming both figures always travel together.
+ *     It was 41 / 72 until
  *     objectui#7804's `objectql.ts` slice DECLARED nine handler keys across FOUR
  *     arms in that one mirror file, three of them NEW entries here
  *     (`ObjectFormSchema`, `ObjectGridSchema`, `ObjectViewSchema`) plus a fourth
@@ -340,8 +348,16 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **20 entries** in `WiderThanDeclared`, **30 keys** across them, and **37 arms**
- *     under those keys — split **5** SCHEMA-NODE, **25** CONCRETE, **0** MIXED, **7** unions.
+ *   - **19 entries** in `WiderThanDeclared`, **29 keys** across them, and **36 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **24** CONCRETE, **0** MIXED, **7** unions.
+ *     It read 20 / 30 / 37 — 5 / 25 / 0 / 7 — until objectui#8572 RETIRED
+ *     `complex.zod.ts#ChatbotSchema::body`, that entry's whole content, so the entry, its
+ *     one key and its one arm left together. ⚠️ Compare the objectui#8338 move below: the
+ *     same DEPARTURE shape, but that key carried TWO arms, so CONCRETE and `arms` fell by
+ *     different amounts there and by the same amount here — which is why the arithmetic is
+ *     ⛔ not steppable by hand in either direction, and why both moves are written out.
+ *     ⭐ The key left because the mirror stopped being wider, not because it was reclassified:
+ *     the retirement makes the mirror REFUSE what the declaration also refuses.
  *     ⭐ objectui#8517 taught the operator to tell an OPEN record — `z.record(z.string(), V)`
  *     — from a partial record over a finite key union, and NOT ONE figure on this line moved
  *     with it. ⛔ Do not read that as the clause measuring nothing. It was built on two live
@@ -1524,15 +1540,25 @@ interface KnownDrift {
    */
   'complex.zod.ts#CalendarViewSchema': 'onEventClick' | 'onViewChange';
   /**
-   * `body` — TS declares `SchemaNode | SchemaNode[]` (a rendered slot); the mirror
-   * declares `Record<string, unknown>` ("additional API body params"). Two different
-   * meanings of one key — a naming collision to rule on, not a widening.
+   * ⭐ `body` — RULED, and therefore GONE from this row (objectui#8572, maintainer
+   * ruling A, decision batch #137 item 4, 2026-09-15). It was ledgered here as two
+   * different meanings of one key: `SchemaNode | SchemaNode[]` on the declaration (the
+   * content slot) against `Record<string, unknown>` on the mirror ("Additional API body
+   * params") — the naming collision this entry recorded as "to rule on, not a widening",
+   * and the thing that made `chatbot` the one arm whose output was not assignable to
+   * `SchemaNode`. The ruling does not pick one of the two meanings: it RETIRES the
+   * record arm — `retirementTombstone()` on the mirror, `?: never` on the declaration —
+   * and leaves the chat API's params where the renderer already read them,
+   * `requestBody`. ⇒ the two faces now say the same thing about the key, it measures
+   * clean, and the entry would be STALE if it kept naming it (the `a listed key that has
+   * been fixed` half of this ledger's own ratchet). ⛔ Do not re-add `body` to keep the
+   * history readable — the history is this paragraph, beside the keys that remain.
    *
    * `onError` / `onSend` — RUNTIME SLOT (objectui#6124): `plugin-chatbot` forwards both off
    * `schema.*` into `useObjectChat`, so the TS side keeps the callables; the mirror
    * refuses them by name (`handlerKeyRefusal`). See the class note above `ButtonSchema`.
    */
-  'complex.zod.ts#ChatbotSchema': 'body' | 'onError' | 'onSend';
+  'complex.zod.ts#ChatbotSchema': 'onError' | 'onSend';
   /**
    * RUNTIME SLOT (objectui#6124) — pairs born ledgered by objectui#7655, which gave
    * the `chatbot-enhanced` and `chatbot-floating` registrations their own faces.
@@ -2685,13 +2711,15 @@ interface WiderThanDeclared {
    * pair measures clean and this entry would be STALE if it stayed.
    */
   'app.zod.ts#AppComponentSchema': 'areas';
-  /**
-   * CONCRETE, and DISJOINT rather than strictly wider — the pair also carries a
-   * `KnownDrift` entry for the same key, one of the measured cases where each face
-   * refuses something the other admits. The mirror restates `body` as an arbitrary
-   * record; the declaration inherits the base's schema-node-or-list.
-   */
-  'complex.zod.ts#ChatbotSchema': 'body';
+  // `complex.zod.ts#ChatbotSchema` recorded `body` here (CONCRETE, and DISJOINT rather
+  // than strictly wider — the pair carried a `KnownDrift` entry for the same key, one of
+  // the measured cases where each face refuses something the other admits: the mirror
+  // restated `body` as an arbitrary record, the declaration inherited the base's
+  // schema-node-or-list). objectui#8572 ruled the collision — the record arm is retired on
+  // both faces and the chat API's params stay at `requestBody` — so the mirror accepts
+  // nothing the declaration refuses and the entry is GONE, per clause 4 of this ledger's
+  // "when it fires" note. The pair keeps its `KnownDrift` entry above, which records the
+  // ruling beside the two runtime slots that remain.
   /**
    * CONCRETE. `header` and `globalFilters` carry the inline-locale widening one level
    * down (a nested `label`) and `dateRange.defaultRange` is a bare string on the
@@ -2916,7 +2944,6 @@ const WIDER_ARM_ROW_SEPARATOR = '::';
 
 const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
-  'complex.zod.ts#ChatbotSchema::body': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::header': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::globalFilters': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::dateRange': ['CONCRETE'],

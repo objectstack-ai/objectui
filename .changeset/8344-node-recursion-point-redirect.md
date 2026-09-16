@@ -62,6 +62,16 @@ none. The published `ChatbotSchema` is untouched — whether its own `body` shou
 chat API's params is a separate question, recorded on objectui#8572 and deliberately not
 decided here.
 
+⚠️ **AMENDED (objectui#8572, ruling A — landing in THIS release).** Two statements in the
+paragraph above were true of this card's head and are no longer true of the release they
+ship in, so they are corrected here rather than left to contradict the entry beside them:
+`ChatbotSchema.body` is no longer the record — it is an ADR-0049 retirement tombstone on
+both published faces, pointing the author at `requestBody` — and the root document above is
+now REFUSED, not accepted. The separate question this paragraph deferred has been answered,
+and the deferral itself is the part that stayed true. ⛔ Nothing else in the paragraph moved:
+the nested verdict, the installed arm's check and the "narrows at all 109, widens at none"
+reading are all readings of THIS card's head and cannot rot.
+
 **3. ⚠️ KNOWN GAP, declared rather than papered over: a bundled consumer that never reads
 `AnyComponentSchema` can tree-shake the redirect away.** This package declares
 `"sideEffects": false` and the arm is filled by a statement in the `./zod` barrel's body, so a

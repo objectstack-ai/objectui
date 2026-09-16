@@ -1441,6 +1441,53 @@ export interface ChatbotSchema extends BaseSchema {
    */
   floatingConfig?: FloatingChatbotConfig;
   /**
+   * REFUSED BY NAME (objectui#8572, ADR-0049) — the chat API's body params are
+   * authored as `requestBody`, and `body` on this node means what it means on
+   * every other component: the content slot. Write `requestBody`.
+   *
+   * ⚠️ The two faces were not saying the same thing, and only one of them
+   * carried the record. HERE `body` has always arrived from {@link BaseSchema}
+   * as the node slot, with the params declared beside it as `requestBody` since
+   * that rename; the record-shaped arm — "Additional API body params" — lived
+   * on the ZOD twin alone, and that is the published face this retirement
+   * narrows. The `?: never` here is what makes `tsc` say the same thing at the
+   * authoring site. ⇒ the pair stops being two meanings of one key, the
+   * collision `__tests__/zod-mirror-parity.test.ts` carried under `KnownDrift`
+   * and the state maintainer ruling A on objectui#8572 (decision batch #137,
+   * item 4, 2026-09-15) ends.
+   *
+   * ⛔ It was NOT narrowed to the node slot — that reading was option C on the
+   * card and was refused by name: `chatbot` reads NEITHER content channel, so a
+   * node-slot `body` would be legal and inert, which is the silence the
+   * retirement exists to end. It is refused instead, the disposition the
+   * sibling `children` tombstone below already carries — and that tombstone's
+   * own measurement names `body` in the same sentence.
+   *
+   * What the renderer does instead: it spells the chat runtime's `body` option
+   * off `requestBody` (`body: schema.requestBody`), which is why a `body`
+   * authored here reached nothing — `SchemaRenderer` strips both content keys
+   * out of the props bag it spreads, and no read in `packages/plugin-chatbot`
+   * names `schema.body`. ⛔ That absence is not restated here as a count: the
+   * instruments that re-derive it are the read-site census in
+   * `__tests__/content-channel-family-d-9256.test.ts` and the arm pins in
+   * `__tests__/node-recursion-point-8344.test.ts`.
+   *
+   * ⚠️ DELIVERY SURFACE, stated because it bounds what this buys. The zod
+   * refusal is PARSE-TIME and this member is COMPILE-TIME, and the runtime
+   * render path is neither: `SchemaRenderer` validates in dev builds only, and
+   * through `@object-ui/core`'s hand-written `validateSchema`, which walks base
+   * keys and recurses into content — it never consults these mirrors, so it has
+   * no per-component key to refuse. ⇒ an authored `body` that meets neither
+   * `tsc` nor a root parse (`objectui validate` / `objectui check`, which call
+   * `safeValidateSchema`) is dropped exactly as silently after this change as
+   * before it. The refusal is delivered where documents are AUTHORED and
+   * CHECKED, not where they are rendered.
+   *
+   * @deprecated Not a channel `chatbot` reads — author the chat API's body
+   * params as `requestBody`.
+   */
+  body?: never;
+  /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content
    * channel: no renderer read consumes `body` or `children` for this node.
    *

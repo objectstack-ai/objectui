@@ -682,7 +682,14 @@ export const ChatbotSchema = BaseSchema.extend({
   model: z.string().optional().describe('AI model identifier'),
   streamingEnabled: z.boolean().optional().describe('Enable streaming responses'),
   headers: z.record(z.string(), z.string()).optional().describe('Additional API headers'),
-  body: z.record(z.string(), z.unknown()).optional().describe('Additional API body params'),
+  body: retirementTombstone(
+    'REFUSED (objectui#8572, ADR-0049) — `body` is the CONTENT slot on every other component, and '
+    + '`chatbot` reads NEITHER content channel; this arm restated it as the chat API body params, the one '
+    + 'place in this vocabulary where the key carried two meanings. Author the chat API params as '
+    + '`requestBody` instead — the key the registration forwards to the chat runtime as its `body` option, '
+    + 'and the key the `chatbot-enhanced` and `chatbot-floating` twins already declare. Delete `body` here: '
+    + 'nothing renders it, and nothing sends it.',
+  ),
   /** @deprecated objectui#5605 — inert; nothing reads it. Cap loops on the agent (`planning.maxIterations`). Slated for removal. */
   maxToolRoundtrips: z.number().optional()
     .describe('DEPRECATED (inert, slated for removal) — Max tool-calling round-trips. Nothing reads this; cap tool loops on the agent via planning.maxIterations'),
@@ -721,13 +728,19 @@ export const ChatbotSchema = BaseSchema.extend({
  * Not exported: it is a census, not a mirror, and the parity census in
  * `__tests__/zod-mirror-parity.test.ts` registers `export const`s only.
  *
- * `requestBody` is deliberately NOT in this pick. `ChatbotSchema` above mirrors
- * the API body params under the key `body`, which collides with `BaseSchema`'s
- * `body` children slot — the naming collision the parity ledger records under
- * `KnownDrift`. The two twins below mirror the key the renderer actually reads,
- * `requestBody`, and inherit `body` as the children slot, so they are born
- * without the collision. Ruling on `ChatbotSchema`'s own `body` arm is a
- * separate question and is not decided here.
+ * `requestBody` is deliberately NOT in this pick, and cannot be: the two twins
+ * below mirror the key the renderer actually reads, while `ChatbotSchema` above
+ * does not declare it at all — it rides through `.passthrough()` there, the
+ * state `__tests__/zod-mirror-parity.test.ts` records under
+ * `UnmirroredDeclared`. Picking a key this shape does not hold would pick
+ * nothing.
+ *
+ * ⚠️ This note used to end "ruling on `ChatbotSchema`'s own `body` arm is a
+ * separate question and is not decided here". It has been decided: ruling A on
+ * objectui#8572 (decision batch #137, item 4, 2026-09-15) retires that arm, and
+ * `body` is a `retirementTombstone` on `ChatbotSchema` above. ⇒ the naming
+ * collision this pick was built to sidestep no longer exists on any of the
+ * three chatbot faces — they now agree that `body` is not theirs to read.
  */
 const ChatbotSharedMirrorShape = ChatbotSchema.pick({
   messages: true,

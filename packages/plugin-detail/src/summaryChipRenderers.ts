@@ -20,12 +20,19 @@
  *
  * ⚠️ That route is NOT free, and this set is the measurement that says so. A
  * Badge is a `whitespace-nowrap rounded-full` pill — a much smaller surface
- * than a cell — and 18 of the 53 registered types draw something a pill cannot
- * host. Measured, not assumed: every registered type was rendered through
+ * than a cell — and some registered types draw something a pill cannot host.
+ * Measured, not assumed: every registered type was rendered through
  * `getCellRenderer` INSIDE the real chip Badge against the object value
  * `{ id: 'acct-1', name: 'Acme Corp' }`, and the DOM inside the pill counted.
  * The instrument is `__tests__/summaryChip.badgeFitCensus-8464.test.tsx`,
  * which re-derives the whole table and fails if this set stops matching it.
+ *
+ * ⛔ The size of that population is deliberately NOT written down here
+ * (objectui#8734, AGENTS.md #9). It used to read "18 of the 53 registered
+ * types" — a figure derived once, re-derived never, and still true on the day
+ * it went stale. The census now takes its population from
+ * `listCellRendererTypes()`, `@object-ui/fields`' live reading of the registry,
+ * so the count lives in the instrument that re-derives it and nowhere else.
  *
  * ## The five measured refusals
  *
@@ -37,7 +44,8 @@
  * | a "No value" face             | `boolean` `toggle` `datetime` `repeater` (`EmptyValue`), `date` (`formatDate`'s own em-dash, objectui#8581) | the chip is drawn only AFTER `hasCellValue` called the value FILLED; a renderer answering "empty" one band later re-opens exactly the cross-band contradiction objectui#8394 closed |
  * | an interactive control        | `file` `video` `audio` (objectui#9161)                  | an `<a href>` view/download link per file — a control, and the page-title row hosts text |
  *
- * The other 35 types draw plain inline text inside the pill — `Acme Corp` for
+ * Every other registered type draws plain inline text inside the pill —
+ * `Acme Corp` for
  * the nameable families, the JSON literal for `location` / `geolocation` /
  * `address` / `json` / `object` / `composite` / `record` behind objectui#8481's
  * declared json-literal fence, and the value-independent faces (`password`,
@@ -93,6 +101,17 @@ export const CHIP_UNFIT_RENDERER_TYPES: ReadonlySet<string> = new Set<string>([
  * Takes the type ALREADY resolved through `resolveCellRendererType`, because
  * that is the key `getCellRenderer` dispatches on — asking this question of the
  * authored spelling would answer for a renderer the chip is not about to use.
+ *
+ * ⚠️ **The default is PERMISSIVE, and what makes that safe is the census, not
+ * this function** (objectui#8734). A type absent from
+ * {@link CHIP_UNFIT_RENDERER_TYPES} is admitted, so an UNMEASURED type is
+ * admitted too. Inverting that — unknown ⇒ refused — is not the free repair it
+ * looks like: it would silently downgrade a legitimately-fitting new type to
+ * `coerceToSafeValue`, which is a product decision about the chip and not a
+ * defect. What objectui#8734 closed instead is the way an unknown type used to
+ * arrive: unnoticed. The census reconciles its table against
+ * `listCellRendererTypes()`, so a newly registered type turns CI red and names
+ * itself before it can reach this predicate in a release.
  */
 export function chipTakesCellRenderer(rendererType: string): boolean {
   return !CHIP_UNFIT_RENDERER_TYPES.has(rendererType);

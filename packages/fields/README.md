@@ -107,6 +107,21 @@ The app-shell `ActionParamDialog` uses these to render declared action params
 through the exact same widgets as the object form — with a drift test pinning
 param support ⊇ form support.
 
+### Enumerating the CELL renderer registry
+
+`listCellRendererTypes()` is the read-side twin of `FORM_FIELD_TYPES`: every
+field type `getCellRenderer` resolves to a renderer **of its own**, as opposed
+to the `TextCellRenderer` fallback every other spelling lands on.
+
+⚠️ It is a **function**, not a frozen constant, and the difference is
+load-bearing. `registerFieldRenderer` is published, so the cell registry can
+grow after this module is evaluated; a constant would be a snapshot taken at
+import time. Consumers that reason about "all registered cell types" — the two
+censuses in `@object-ui/fields` and `@object-ui/plugin-detail` that measure what
+every type draws — reconcile their tables against this reading so a newly
+registered type fails them by name instead of slipping past a frozen
+population (objectui#8734).
+
 ### File uploads in line-item grids
 
 `GridField` (the master-detail line-items grid) supports `type: 'file'` columns:

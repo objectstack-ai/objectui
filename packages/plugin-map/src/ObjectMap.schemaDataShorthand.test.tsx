@@ -35,17 +35,21 @@
  * `staticData`, then to `objectName`, and such a map queries its object instead
  * — or draws nothing when it names neither.
  *
- * Through `SchemaRenderer` (row 3): the array STILL DRAWS. `SchemaRenderer`
- * spreads every non-metadata node key as a React prop and
+ * Through `SchemaRenderer` (rows 3, 3b): the array no longer draws there
+ * either, SINCE objectui#9571. When this file was written it still did:
+ * `SchemaRenderer` spread every non-metadata node key as a React prop and
  * `plugin-map/src/index.tsx` forwards `{...props}`, so an authored `data` array
- * also arrives on the props channel — the one a host such as `ListView`
- * legitimately uses for pre-fetched rows, and which outranks the schema
- * (objectui#5003 order, row 6). Collapsing the two carriers would take the host
- * path with it and is outside objectui#8348; it is reported on the card.
+ * also arrived on the props channel and outranked the schema (objectui#5003
+ * order). Ruling objectui#8348 Q2-C (decision batch #136 item 3, maintainer
+ * 「同意」) closed that second carrier: the spread now skips an authored `data`
+ * for blocks whose published row is the OBJECT arm, which is this one.
  *
- * ⇒ the ruling's accepted cost lands squarely on `object-calendar`, where the
- * off-arm spelling had exactly ONE carrier. On this block the ruling removes the
- * second read, not the last one.
+ * ⛔ The PROP itself is untouched, and rows 3c and 6 are that leg — option B
+ * (gating the prop on the arm) was REFUSED, because it is the channel a host
+ * such as `ListView` legitimately uses for pre-fetched rows.
+ *
+ * ⇒ `object-calendar` is untouched throughout: its row is the ARRAY arm, so
+ * neither the ladder nor the spread refuses its bare array.
  *
  * ## Why the file keeps its name and its controls
  *
@@ -60,6 +64,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { ComponentRegistry, recordSourceDataArmForType } from '@object-ui/core';
 import { ObjectMap } from './ObjectMap';
 // Registers `object-map` and its `view:map` alias — row 3 renders through it.
 import './index';
@@ -124,7 +129,14 @@ describe('ObjectMap — the bare-array `schema.data` shorthand is retired (objec
     expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
   });
 
-  it('3. ⛔ REPORTED, NOT CHANGED: through `SchemaRenderer` the array still draws, from the PROPS channel', async () => {
+  it('3. ⭐ through `SchemaRenderer` the array no longer draws either — the second carrier is closed (objectui#9571)', async () => {
+    // Was: "REPORTED, NOT CHANGED — the array still draws, from the PROPS
+    // channel". `SchemaRenderer` spread every non-metadata node key, so the
+    // authored array arrived as a `data` PROP too and `dataProp` lifted it
+    // above the ladder. objectui#9571 (ruling objectui#8348 Q2-C, decision
+    // batch #136 item 3, maintainer 「同意」) stops that spread for blocks whose
+    // published row is the OBJECT arm, which is this one — so the authored key
+    // now has exactly ONE carrier and the ladder's verdict is end-to-end.
     const dataSource = makeDataSource();
     render(
       <SchemaRendererProvider dataSource={dataSource as any}>
@@ -134,8 +146,62 @@ describe('ObjectMap — the bare-array `schema.data` shorthand is retired (objec
       </SchemaRendererProvider>,
     );
 
+    await waitFor(() => expect(screen.queryByText('Loading map...')).toBeNull());
+    expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+  });
+
+  it('3b. …and with an `objectName` beside it, the block QUERIES through `SchemaRenderer` too', async () => {
+    // The other face, and the one that separates "the prop stopped arriving"
+    // from "the component stopped drawing anything at all".
+    const dataSource = makeDataSource();
+    render(
+      <SchemaRendererProvider dataSource={dataSource as any}>
+        <SchemaRenderer
+          schema={{ type: 'object-map', objectName: 'locations', map: MAP_CONFIG, data: ROWS } as never}
+        />
+      </SchemaRendererProvider>,
+    );
+
+    await waitFor(() => expect(dataSource.find).toHaveBeenCalled());
+    expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+  });
+
+  it('3c. ⛔ MUST NOT CHANGE: a HOST `data` prop threaded through `SchemaRenderer` still paints', async () => {
+    // `...props` is spread LAST in `SchemaRenderer`, after the schema keys, so
+    // a host that renders the node and hands the window down still reaches the
+    // map. Option B — gating the prop on the arm — was refused to keep this.
+    const dataSource = makeDataSource();
+    render(
+      <SchemaRendererProvider dataSource={dataSource as any}>
+        <SchemaRenderer
+          schema={{ type: 'object-map', map: MAP_CONFIG } as never}
+          data={ROWS as never}
+        />
+      </SchemaRendererProvider>,
+    );
+
     await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2));
     expect(dataSource.find).not.toHaveBeenCalled();
+  });
+
+  it('3d. every KEY this plugin registers onto the map renderer answers the SAME arm', () => {
+    // The alias hazard `RecordSourceDataArm`'s docblock names, closed against
+    // the REGISTRY and not against the table: one `register()` call produces a
+    // namespaced key and a bare one, and `SchemaRenderer` looks the arm up with
+    // the raw `schema.type`. A key added without a row in
+    // `recordSourceDataArmForType` turns this red instead of silently answering
+    // `'undeclared'` and keeping the prop seat. Unlike `plugin-grid`, this
+    // plugin claims the bare `map` key too — no `skipFallback` here.
+    const siblings = ComponentRegistry.getAllTypes().filter(
+      (type) => ComponentRegistry.get(type) === ComponentRegistry.get('object-map'),
+    );
+
+    expect(siblings).toEqual(
+      expect.arrayContaining(['object-map', 'plugin-map:object-map', 'view:map', 'map']),
+    );
+    for (const type of siblings) {
+      expect([type, recordSourceDataArmForType(type)]).toEqual([type, 'view-data']);
+    }
   });
 
   it('⛔ CONTROL: the declared `{ provider: value, items }` form still paints', async () => {

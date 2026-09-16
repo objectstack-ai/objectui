@@ -79,27 +79,6 @@ import type { BulkResult } from './hooks/useBulkExecutor';
 import type { BulkActionDef } from '@object-ui/types';
 
 /**
- * A view's declared `sort` → the shape the table's header indicators read.
- *
- * `[{ field, order }, …]` is the ONE spelling `@objectstack/spec` still
- * declares (objectui#8221 retired the string clauses). The headers have to
- * agree with the fetch path on it: a view that arrives sorted by
- * `created_at desc` should show that arrow before anyone clicks anything —
- * otherwise the first click on that column produces `asc` while the list was
- * already `desc`, and the arrow tells the truth only from the second click on.
- *
- * ⚠️ This reader is WIDER than the fetch path as of objectui#8767, and the
- * sentence this docblock used to carry — that the fetch path reads all three
- * spellings — is no longer true. The fetch path now REFUSES a string and sends
- * no `$orderby` at all, while this reader still parses `"name desc"` and
- * `["name desc", …]`, so a grid authored with a retired spelling shows an
- * arrow for an ordering its query does not carry. Narrowing this reader moves
- * the wire shape and takes the export path with it — the route the #8767
- * ruling deliberately did not take. It is NOT fixed here.
- *
- * Exported for the test that pins it against the fetch path's own reading.
- */
-/**
  * A declared `sort` → the `"field order"` join string THIS block sends as
  * `$orderby` (objectui#8973).
  *
@@ -131,14 +110,44 @@ function toOrderByClause(sort: QuerySortEntry[] | undefined | null): string | un
   return ordered.map((s) => `${s.field} ${s.order}`).join(', ');
 }
 
+/**
+ * A view's declared `sort` → the shape the table's header indicators read.
+ *
+ * `[{ field, order }, …]` is the ONE spelling `@objectstack/spec` still
+ * declares for `ObjectGridPropsSchema.sort` (objectui#8221 retired the string
+ * clauses), and since objectui#8961 it is the only spelling this reader
+ * admits. The headers agree with the fetch path on it: a view that arrives
+ * sorted by `created_at desc` shows that arrow before anyone clicks anything —
+ * otherwise the first click on that column produces `asc` while the list was
+ * already `desc`, and the arrow tells the truth only from the second click on.
+ *
+ * ⭐ A retired string spelling (`"name desc"`, `["name desc", …]`) yields
+ * NOTHING here, so it lights no arrow. That is the agreement, not an omission:
+ * the fetch path REFUSES the same spelling and sends no `$orderby`
+ * (objectui#8767). Between #8767 and objectui#8961 this reader was WIDER than
+ * that path — it parsed the string and drew a confident arrow for an ordering
+ * the query did not carry, a UI element stating something untrue about the rows
+ * beside it, with nothing but a console line to say so.
+ *
+ * ⛔ Do not re-widen it for a stored `sys_metadata` row still carrying the old
+ * spelling. The author is already told, once per spelling, by PR #8758's own
+ * diagnostic at the fetch path — it quotes the offending value and prescribes
+ * the array form. A second reading here would restore exactly the arrow the
+ * wire cannot honour.
+ *
+ * The wire shape is NOT what moved: this block still sends its own
+ * `"field order"` join string (see {@link toOrderByClause}), the shared sink's
+ * `{field: direction}` map stays declined, and the server-side export path
+ * reads `schema.sort` itself rather than through this function, so it was
+ * already array-only and is untouched.
+ *
+ * Exported for the test that pins it against the fetch path's own reading.
+ */
 export function parseSchemaSort(sort: unknown): TableSortItem[] {
-  const entries = typeof sort === 'string' ? [sort] : Array.isArray(sort) ? sort : [];
+  const entries = Array.isArray(sort) ? sort : [];
   const items: TableSortItem[] = [];
   for (const entry of entries) {
-    if (typeof entry === 'string') {
-      const [field, order] = entry.trim().split(/\s+/);
-      if (field) items.push({ field, order: order?.toLowerCase() === 'desc' ? 'desc' : 'asc' });
-    } else if (entry && typeof entry === 'object' && typeof (entry as any).field === 'string') {
+    if (entry && typeof entry === 'object' && typeof (entry as any).field === 'string') {
       const { field, order } = entry as { field: string; order?: string };
       items.push({ field, order: String(order).toLowerCase() === 'desc' ? 'desc' : 'asc' });
     }
@@ -2008,10 +2017,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // spelling and answers `undefined`, so the query carries no
               // `$orderby`. Its return value is deliberately unused — the wire
               // shape stays this block's, and the array arm below is untouched
-              // (with it the export path and `parseSchemaSort`). Routing the
-              // whole key through the sink is a different card: it would send
-              // the sink's `{field: direction}` map where every grid today
-              // sends a `"field order"` string.
+              // (with it the export path). The header-arrow reader
+              // `parseSchemaSort` was left parsing the string HERE, and read
+              // this same key more widely than this refusal until objectui#8961
+              // narrowed it to the declared array; the two now agree. Routing
+              // the whole key through the sink is still a different card: it
+              // would send the sink's `{field: direction}` map where every grid
+              // today sends a `"field order"` string.
               //
               // Read through `unknown`, exactly as the sink does: types are
               // erased, so the array-only `ObjectGridSchema.sort` declaration
@@ -4263,10 +4275,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // arrow, and the first click on that column would ask for `asc` on a list
   // that was already `desc`.
   //
-  // ⚠️ One spelling now escapes that agreement: since objectui#8767 the fetch
-  // path REFUSES a string `sort` and sends no `$orderby`, while
-  // {@link parseSchemaSort} still parses one. Closing that gap narrows this
-  // reader and moves the wire shape with it — the route #8767 did not take.
+  // ⭐ That agreement now covers the SPELLING too (objectui#8961). One used to
+  // escape it: since objectui#8767 the fetch path REFUSES a string `sort` and
+  // sends no `$orderby`, while {@link parseSchemaSort} went on parsing one, so
+  // a grid authored `sort: 'name desc'` painted a descending arrow over rows
+  // the server returned in no declared order. That reader now admits only the
+  // declared `[{ field, order }]` array — the one spelling the fetch path
+  // still lowers — so the arrow on screen and the `$orderby` on the wire read
+  // the same key the same way, and a retired spelling lights nothing on either
+  // side. What did NOT move is the wire shape: the array arm still lowers to
+  // this block's own `"field order"` join string, and the shared sink's
+  // `{field: direction}` map stays declined (see {@link toOrderByClause}).
   //
   // A plain expression, not a `useMemo`: this sits below the component's early
   // returns, where a hook would be skipped on some renders and change the hook

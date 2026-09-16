@@ -3120,24 +3120,21 @@ function RepeaterCellRenderer({ value }: CellRendererProps): React.ReactElement 
 }
 
 /**
- * Get the appropriate cell renderer for a field type
+ * THE standard cell-renderer table, built fresh on every call.
+ *
+ * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant, and the
+ * difference is pinned rather than stylistic: several entries here are INLINE
+ * arrows (`password`, `secret`, `vector`, `grid`), so hoisting this object to
+ * module scope would freeze their identity. `cellRenderers.countLabelI18n-8441`
+ * pins BOTH halves of today's behaviour — a module-level entry is stable across
+ * calls, an inline arrow is not — and hoisting flips the second one. This
+ * extraction therefore changes nothing a caller can observe: `getCellRenderer`
+ * rebuilds the table per call exactly as it did when the literal sat in its
+ * body, and {@link listCellRendererTypes} reads the SAME builder rather than a
+ * second copy of the key list, so the two cannot drift.
  */
-export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> {
-  // 1. Try exact match in registry
-  if (fieldRegistry.has(fieldType)) {
-    return fieldRegistry.get(fieldType)!;
-  }
-
-  // 1b. A RETIRED spelling reaching the read path says a stored column is still
-  //     typed with a name this renderer no longer honours. There is no visible
-  //     alert a table CELL can carry without wrecking the row, so the console
-  //     prescription is the loud half here (once per spelling —
-  //     `reportRetiredFieldType`), and the cell degrades to text deliberately
-  //     rather than by omission (objectui#4814).
-  reportRetiredFieldType(fieldType);
-
-  // 2. Fallback to standard mappings if not overridden
-  const standardMap: Record<string, React.FC<CellRendererProps>> = {
+function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererProps>> {
+  return {
     text: TextCellRenderer,
     textarea: TextCellRenderer,
     // `markdown` / `html` / `richtext` — spread from THE table rather than
@@ -3196,6 +3193,60 @@ export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> 
     vector: () => <span className="text-gray-500 italic">[Vector]</span>,
     grid: () => <span className="text-gray-500 italic">[Grid]</span>,
   };
+}
+
+/**
+ * Every field type that resolves to a cell renderer OF ITS OWN — a LIVE
+ * reading of the registry, taken when you call it (objectui#8734).
+ *
+ * ## Why this exists
+ *
+ * Two censuses — `cellRenderers.objectLiteral-8596` in this package and
+ * `summaryChip.badgeFitCensus-8464` in `@object-ui/plugin-detail` — declare in
+ * prose that they measure "every type `getCellRenderer` resolves to a renderer
+ * of its own", and each enforced that declaration with a hard-coded population
+ * size. A newly registered type is absent from such a table, so every row in it
+ * still passes: the census goes on measuring a snapshot while claiming to
+ * measure the registry. This function is what those censuses reconcile against,
+ * so a new type turns a silent pass into a red row that NAMES the type.
+ *
+ * ## ⭐ A function, ⛔ not a frozen constant
+ *
+ * `FORM_FIELD_TYPES` next door may be `Object.freeze(Object.keys(...))` because
+ * `fieldWidgetMap` is a module literal that never changes. This registry DOES
+ * change: {@link registerFieldRenderer} is published, and a host may add or
+ * override a type after this module is evaluated. A frozen constant here would
+ * be a snapshot taken at import time — the very defect the censuses are being
+ * repaired for, one level down. Every call re-reads.
+ *
+ * The answer is the UNION of the runtime registry and the standard table,
+ * because {@link getCellRenderer} dispatches on both; it is sorted so callers
+ * get a stable order, and `TextCellRenderer` is the TOTAL fallback for
+ * everything else, which is exactly why "everything else" is not listed here.
+ */
+export function listCellRendererTypes(): readonly string[] {
+  return [...new Set([...fieldRegistry.keys(), ...Object.keys(buildStandardCellRendererMap())])].sort();
+}
+
+/**
+ * Get the appropriate cell renderer for a field type
+ */
+export function getCellRenderer(fieldType: string): React.FC<CellRendererProps> {
+  // 1. Try exact match in registry
+  if (fieldRegistry.has(fieldType)) {
+    return fieldRegistry.get(fieldType)!;
+  }
+
+  // 1b. A RETIRED spelling reaching the read path says a stored column is still
+  //     typed with a name this renderer no longer honours. There is no visible
+  //     alert a table CELL can carry without wrecking the row, so the console
+  //     prescription is the loud half here (once per spelling —
+  //     `reportRetiredFieldType`), and the cell degrades to text deliberately
+  //     rather than by omission (objectui#4814).
+  reportRetiredFieldType(fieldType);
+
+  // 2. Fallback to standard mappings if not overridden
+  const standardMap = buildStandardCellRendererMap();
 
   // 3. Register standard renderers implicitly if not present
   // This ensures that if we call registerFieldRenderer('text', Custom), it works,

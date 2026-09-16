@@ -71,13 +71,27 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, act } from '@testing-library/react';
 import * as React from 'react';
 import { Badge } from '@object-ui/components';
-import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
+import { getCellRenderer, listCellRendererTypes, resolveCellRendererType } from '@object-ui/fields';
 import { CHIP_UNFIT_RENDERER_TYPES, chipTakesCellRenderer } from '../summaryChipRenderers';
 
 afterEach(() => cleanup());
 
-/** Every type `getCellRenderer` resolves to a renderer of its own (objectui#8596). */
-const REGISTERED_TYPE_COUNT = 53;
+/**
+ * Every type `getCellRenderer` resolves to a renderer of its own (objectui#8596)
+ * — READ from the registry, ⛔ never written down (objectui#8734).
+ *
+ * This was the literal `53`, and a literal is a population this census can no
+ * longer notice moving: register a 54th cell renderer and its row is simply
+ * absent from the table below, every assertion here still passes, and the chip
+ * draws the new type with its own renderer — unmeasured, because
+ * `chipTakesCellRenderer` admits anything not named in
+ * `CHIP_UNFIT_RENDERER_TYPES`. `listCellRendererTypes()` is
+ * `@object-ui/fields`' live reading of that same registry, so the size
+ * assertion and `THE CENSUS IS THE REGISTRY` below both fail — by NAME — the
+ * moment the population moves.
+ */
+const REGISTERED_TYPES: readonly string[] = listCellRendererTypes();
+const REGISTERED_TYPE_COUNT = REGISTERED_TYPES.length;
 
 /** The object value the defect is about: an expanded reference payload. */
 const OBJ = { id: 'acct-1', name: 'Acme Corp' };
@@ -203,7 +217,7 @@ const nestedPills = (chip: HTMLElement) =>
 describe('objectui#8464 — the Badge-fit census: A is not free, and here is which kinds it costs', () => {
   it('THE CENSUS — the guard refuses a short or EMPTY set (a census over nothing passes)', () => {
     expect(() => assertCensusComplete([], REGISTERED_TYPE_COUNT, 'census')).toThrowError(
-      /expected exactly 53 registered field types, got 0/,
+      new RegExp(`expected exactly ${REGISTERED_TYPE_COUNT} registered field types, got 0`),
     );
     expect(() =>
       assertCensusComplete(CENSUS, REGISTERED_TYPE_COUNT, 'census'),
@@ -213,7 +227,29 @@ describe('objectui#8464 — the Badge-fit census: A is not free, and here is whi
     );
   });
 
-  it('THE CENSUS — all 53 registered types draw their measured face inside the chip Badge', async () => {
+  it('⭐ THE CENSUS IS THE REGISTRY — a newly registered type cannot escape it silently', () => {
+    // objectui#8734. The size check above is necessary and NOT sufficient: it
+    // would still pass if one type were swapped for another. These name the
+    // difference, so a 54th renderer arrives as a red row calling itself out
+    // rather than as an absence nobody can see — which matters here more than
+    // in a cell census, because `chipTakesCellRenderer` defaults PERMISSIVE:
+    // an unknown type is routed to its own renderer, and this is the instrument
+    // that makes "unknown" impossible to ship.
+    const measured = new Set(CENSUS.map(([t]) => t));
+    expect(
+      REGISTERED_TYPES.filter((t) => !measured.has(t)),
+      'registered types this census never measured inside the chip Badge',
+    ).toEqual([]);
+    expect(
+      [...measured].filter((t) => !REGISTERED_TYPES.includes(t)).sort(),
+      'types this census measures that the registry does not have',
+    ).toEqual([]);
+    // The reading is a reading, not a second constant: an empty answer here
+    // would make every assertion above vacuously true.
+    expect(REGISTERED_TYPE_COUNT, 'the registry reading is not empty').toBeGreaterThan(0);
+  });
+
+  it('THE CENSUS — every registered type draws its measured face inside the chip Badge', async () => {
     assertCensusComplete(CENSUS, REGISTERED_TYPE_COUNT, 'census');
     let measured = 0;
     for (const [type, text] of CENSUS) {

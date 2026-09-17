@@ -1,5 +1,6 @@
 import React from 'react';
 import { Input, EmptyValue } from '@object-ui/components';
+import { formatDateTime } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
@@ -17,12 +18,26 @@ export function DateTimeField({ value, onChange, field, readonly, error, ...prop
   const locale = useDisplayLocale();
   if (readonly) {
     if (!value) return <EmptyValue />;
-    const date = new Date(value);
-    return (
-      <span className="text-sm">
-        {date.toLocaleDateString(locale)} {date.toLocaleTimeString(locale)}
-      </span>
-    );
+    // `formatDateTime`'s DEFAULT (verbose) face — the one home for the
+    // `datetime` display convention (objectui#7443), on the face the
+    // maintainer ruled for this register on objectui#8209. This branch used to
+    // compose `toLocaleDateString(locale)` and `toLocaleTimeString(locale)`
+    // with NO options bag and join them with a space, so a readonly `datetime`
+    // FORM field carried seconds (`7/4/2026 7:00:00 AM`) that no `datetime`
+    // cell on the same screen showed — the objectui#4576 shape, one concept
+    // with two option bags kept in step by nothing.
+    //
+    // The register is what picks the face: form / detail takes the verbose
+    // default (`Jul 4, 2026, 07:00 AM` in `en`), which every non-cell caller
+    // already gets; the sub-grid CELL takes `'compact'` (see `GridField`'s
+    // `temporalText`). ⛔ The year is NOT dropped here: that rule is
+    // `formatDate`'s date-only cell rule (objectui#7620) and the ruling on
+    // #8209 declines to extend it to `datetime`.
+    //
+    // An unparseable value now reaches `formatDateTime`'s shared empty face
+    // (`—`) instead of the literal `Invalid Date Invalid Date`, exactly as
+    // objectui#8194 left the four `date` widgets it converged.
+    return <span className="text-sm">{formatDateTime(value, { locale })}</span>;
   }
 
   const domProps = toDomProps(props);

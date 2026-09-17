@@ -140,6 +140,42 @@ function resolveThroughAliases(aliases: Record<string, string>, specifier: strin
 const VITE_ORACLE_CONTROL = 'react';
 
 /**
+ * A throwaway root for the Vite oracle below, made under `node_modules/`.
+ *
+ * Two constraints decide this path and they pull in opposite directions.
+ *
+ * 1. It may NOT sit at `os.tmpdir()` like the fixtures elsewhere in this file.
+ *    Bare-specifier resolution walks up from the importer looking for
+ *    `node_modules`, and from `/tmp` there is none to find. Measured, and worth
+ *    recording because it fails in the direction that reads as a result: every
+ *    specifier came back `(unresolved)`, which an oracle without
+ *    `VITE_ORACLE_CONTROL` would have reported as "no disagreements".
+ * 2. It may NOT sit directly in the repo root either (objectui#9468). The i18n
+ *    dead-key gate sweeps the whole repo root in one `grep -rFn` pass, and that
+ *    grep exits 2 — not 1 — when a directory it has already enumerated is
+ *    removed before it descends into it. `textFootprint()` in
+ *    `scripts/check-i18n-dead-keys.mjs` rethrows every status but 1 deliberately
+ *    and its comment says why, so an oracle run scheduled concurrently with that
+ *    gate's test in the same shard took the whole shard down with it. The
+ *    occurrences, with their job ids, are recorded on objectui#9468 — including
+ *    one that ejected an already-green pull request from the merge queue.
+ *
+ * `<repoRoot>/node_modules` satisfies both: it is still inside the repository,
+ * so the walk-up in (1) finds it, and it is skipped by the repo-wide scanners in
+ * `scripts/` — the i18n sweep's own skip set among them — so nothing transient
+ * placed here is ever walked. `check-action-ref-convention.test.ts` already puts
+ * its throwaway root in the same place.
+ *
+ * ⚠ The invariant is POSITIONAL, not a name. Teaching one scanner to skip a
+ * `.vite-oracle-*` prefix would fix that scanner and leave every other repo-root
+ * sweep exposed to the next scratch directory anyone adds; the pin below
+ * therefore asserts the position, not the prefix.
+ */
+function makeOracleScratchRoot(): string {
+  return fs.mkdtempSync(path.join(repoRoot, 'node_modules', '.vite-oracle-9408-'));
+}
+
+/**
  * What VITE resolves each specifier to, with no alias table in play.
  *
  * The oracle for objectui#9408. Node's `import.meta.resolve` cannot express the
@@ -149,16 +185,12 @@ const VITE_ORACLE_CONTROL = 'react';
  * Vite is what the console builds with, so it is the resolver the derivation has
  * to agree with.
  *
- * The temp root lives INSIDE the repository on purpose, not at `os.tmpdir()`
- * like the fixtures elsewhere in this file: bare-specifier resolution walks up
- * from the importer looking for `node_modules`, and from `/tmp` there is none to
- * find. Measured, and worth recording because it fails in the direction that
- * reads as a result: every specifier came back `(unresolved)`, which an oracle
- * without the control above would have reported as "no disagreements".
+ * The throwaway root it builds in comes from `makeOracleScratchRoot()`, whose
+ * docstring carries the two constraints that decide where such a root may live.
  */
 async function viteResolves(specifiers: string[]): Promise<Map<string, string | null>> {
   const resolved = new Map<string, string | null>();
-  const dir = fs.mkdtempSync(path.join(repoRoot, '.vite-oracle-9408-'));
+  const dir = makeOracleScratchRoot();
   try {
     const entry = path.join(dir, 'entry.mjs');
     fs.writeFileSync(entry, 'export const probe = 1;\n');
@@ -184,6 +216,22 @@ async function viteResolves(specifiers: string[]): Promise<Map<string, string | 
   }
   return resolved;
 }
+
+describe('objectui#9468: the oracle\'s scratch root is never a repo-root entry', () => {
+  it('makes it under node_modules, which the repo-wide sweeps already skip', () => {
+    // Asserts the REAL creation rather than a constant: a scratch directory
+    // that is a direct child of the repo root is what `grep -r <repoRoot>`
+    // enumerates and then trips over when it vanishes mid-walk. Moving it back
+    // there would keep every other assertion in this file green, which is why
+    // the position needs an assertion of its own.
+    const dir = makeOracleScratchRoot();
+    try {
+      expect(path.relative(repoRoot, dir).split(path.sep)[0]).toBe('node_modules');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
   it('maps every exports-map entry to the file the BUNDLER resolves', async () => {

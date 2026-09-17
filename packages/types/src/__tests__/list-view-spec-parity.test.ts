@@ -238,7 +238,13 @@ describe('per-view-type configs derive from the spec', () => {
     // It belongs on this list because the list asks which keys the mirror
     // declares beyond the spec — declaring a refusal is still declaring.
     kanban: { spec: SpecKanbanConfigSchema, local: ['groupField', 'cardFields', 'groupBy'] },
-    calendar: { spec: SpecCalendarConfigSchema, local: ['defaultView'] },
+    // `dateField` / `endField` are the same shape one config over: objectui#8355
+    // alias-refusal arms, declared exactly so the two retired spellings are
+    // refused BY NAME instead of riding this mirror's `.passthrough()` into
+    // `ListView`'s calendar branch. ⚠️ Their presence here is NOT a widening —
+    // `z.input` of each is `undefined`, so no document that parsed green starts
+    // parsing green, and the TypeScript face carries `?: never`.
+    calendar: { spec: SpecCalendarConfigSchema, local: ['defaultView', 'dateField', 'endField'] },
     gantt: { spec: SpecGanttConfigSchema, local: [] },
     gallery: { spec: SpecGalleryConfigSchema, local: ['imageField'] },
     timeline: { spec: SpecTimelineConfigSchema, local: ['dateField'] },
@@ -284,6 +290,24 @@ describe('per-view-type configs derive from the spec', () => {
       calendar: { startDateField: 'starts_at', defaultView: 'week' },
     });
     expect(result.success).toBe(true);
+  });
+
+  it('⛔ …but the CALENDAR pair is retired — objectui#8355 narrowed exactly those two', () => {
+    // The row above says the deprecated vocabulary still validates, and it is
+    // still true for every alias it names. This row is the exception the
+    // director seat ruled, kept beside it so the two cannot be read as one
+    // blanket promise: `calendar.dateField` / `calendar.endField` are refused
+    // BY NAME now, while `timeline.dateField` one line up is untouched and
+    // stays live. The full refusal contract is pinned in
+    // `calendar-date-alias-refusal-8355.test.ts`.
+    for (const alias of ['dateField', 'endField']) {
+      const result = OuiListViewSchema.safeParse({
+        type: 'list-view',
+        objectName: 'accounts',
+        calendar: { startDateField: 'starts_at', [alias]: 'ends_at' },
+      });
+      expect(result.success, `calendar.${alias} still parses green`).toBe(false);
+    }
   });
 
   it('does not require the spec-required sub-fields the product authors partially', () => {

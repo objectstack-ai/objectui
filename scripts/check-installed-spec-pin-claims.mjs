@@ -738,9 +738,9 @@ export const LEDGER = [
     file: "packages/plugin-detail/src/index.tsx",
     package: "@objectstack/spec",
     version: "17.2.0",
-    sites: 2,
+    sites: 1,
     class: "stale",
-    why: "Two sites, both \"measured on the installed pin, 17.2.0\" with a named control.",
+    why: "One site, \"measured on the installed pin, 17.2.0\" with a named control, on the `record:highlights` `readonly` refusal. It was TWO until objectui#8603: the `record:details` never-teach paragraph carried the same stamp for `hideEmpty`, and the restoration of that key rewrote the paragraph, which now points at the instrument that re-derives the set (`packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts`) instead of stamping a measurement. The count moving DOWN is this ledger ratcheting, not a hole.",
   },
   {
     file: "packages/plugin-form/src/sectionFields.spec-parity.test.ts",

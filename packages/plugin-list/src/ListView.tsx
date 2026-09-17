@@ -2760,6 +2760,39 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           schema.calendar?.endDateField || schema.options?.calendar?.endDateField;
         const titleField =
           schema.calendar?.titleField || schema.options?.calendar?.titleField;
+        // ⭐ THIS BRANCH FORWARDS THE CANONICAL KEYS ONLY (objectui#8355,
+        // director seat 2026-09-16). It used to end with two raw spreads of the
+        // authored block, which is how `dateField` / `endField` reached the
+        // generated `object-calendar` node WITHOUT this file ever naming them —
+        // and why a text census of producers came back a confident zero
+        // (objectui#8651 records that census and its two holes). The rungs are
+        // now destructured out, exactly as the kanban branch above strips its own
+        // stray `groupBy`.
+        //
+        // ⛔ STRIPPING IS ONLY THE QUIET HALF. The loud half is the read door:
+        // `@object-ui/types` declares both spellings as `aliasKeyRefusal()` arms
+        // on the view-level calendar block, on the legacy `options.calendar`
+        // nesting and on the flat node face, so an author meets a by-name
+        // refusal naming `startDateField` / `endDateField` instead of a calendar
+        // that silently stops binding. Removing one half without the other is
+        // what broke a live authoring path once already.
+        //
+        // ⛔ Deliberately NOT folded onto the canonical keys. Option A
+        // (normalise here) was put to the director seat and REFUSED as the end
+        // state: it keeps a second spelling alive at the producer, which is the
+        // lenient alias AGENTS.md #0.1 names. The reads above are already
+        // canonical-only, so a fold would re-create the dialect this closes.
+        //
+        // The merge-then-strip-then-spread-once shape is equivalent to the two
+        // sequential spreads it replaces — object spread is left-to-right, so
+        // `{ ...options.calendar, ...calendar }` merged first and spread once
+        // yields the identical node for every key but the two removed.
+        const calendarCfg = { ...(schema.options?.calendar || {}), ...(schema.calendar || {}) };
+        const {
+          dateField: _retiredDateField,
+          endField: _retiredEndField,
+          ...restCalendar
+        } = calendarCfg as Record<string, any>;
         return {
           type: 'object-calendar',
           ...baseProps,
@@ -2767,8 +2800,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(endDateField ? { endDateField } : {}),
           ...(titleField ? { titleField } : {}),
           ...(schema.calendar?.defaultView ? { defaultView: schema.calendar.defaultView } : {}),
-          ...(schema.options?.calendar || {}),
-          ...(schema.calendar || {}),
+          ...restCalendar,
         };
       }
       case 'gallery': {

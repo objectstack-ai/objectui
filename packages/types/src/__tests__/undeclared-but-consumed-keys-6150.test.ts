@@ -73,14 +73,24 @@
  * undeclared key of the wrong type is still admitted, exactly as before, on
  * every one of the 8 mirrors.
  *
- * ## One of the 13 is not mirrored, deliberately
+ * ## One of the 13 carries a REFUSAL where the other twelve carry a SHAPE
  *
  * `TreeViewSchema.onNodeClick` is INVOKED (`schema.onNodeClick(node)`), not read
  * as a value. A function cannot appear in an authored JSON document, so it is a
- * runtime slot; objectui#6152 ruled that class never gets a zod mirror and is
- * recorded in `zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared` instead. Its
- * assertions below are the mirror-image of the other twelve: declared on the TS
- * face, ABSENT from the mirror shape, and pinned as a call signature.
+ * runtime slot, and objectui#6152's ruling that the class never gets a zod SHAPE
+ * stands: `z.function()` is unsatisfiable by any serialized document.
+ *
+ * ⭐ AMENDED by objectui#7804's `TreeViewSchema` slice. Until then this key was
+ * ABSENT from the mirror shape, and the paragraph here said so. Absence is not
+ * neutral under `BaseSchema.passthrough()` — it meant an authored
+ * `{ "type": "tree-view", "onNodeClick": { "action": "toast" } }` parsed GREEN and
+ * the action object was handed to a call site expecting a function. The mirror now
+ * DECLARES the key as a named refusal (`handlerKeyRefusal(…, 'runtime-slot', …)`),
+ * so the key is a member of the shape and any authored value is refused BY NAME
+ * with the objectui#6124 guidance. Its assertions below are still the mirror-image
+ * of the other twelve — those pin a shape that ACCEPTS the declared value, this one
+ * pins a member that accepts NOTHING — and the pair is now recorded in
+ * `zod-mirror-parity.test.ts`'s `KnownDrift`, ⛔ no longer in `RuntimeOnlyDeclared`.
  *
  * ## The read sites are pinned, not just described
  *
@@ -159,7 +169,13 @@ interface Case {
   /** Mirror + TS type name, for the test title. */
   type: string;
   key: string;
-  /** The zod mirror, or `null` for the one runtime-only key. */
+  /**
+   * The zod mirror, or `null` for the one runtime-only key — which stays `null`
+   * after objectui#7804 mirrored it, deliberately. The shared `mirror` legs below
+   * assert that the declared value is ACCEPTED and SURVIVES the parse; a named
+   * refusal accepts nothing, so running them against it would assert the opposite
+   * of the contract. The `else` branch reads the same mirror by name instead.
+   */
   mirror: {
     shape: Record< string, unknown >;
     safeParse: (v: unknown) => {
@@ -222,7 +238,9 @@ const CASES: Case[] = [
   { type: 'TreeViewSchema', key: 'title', mirror: TreeViewSchema as never, control: TREE_CONTROL,
     legal: 'Folders', illegal: 42,
     reader: R + 'data-display/tree-view.tsx', readText: '{schema.title}' },
-  // INVOKED, not read as a value — no mirror, by objectui#6152's ruling.
+  // INVOKED, not read as a value — no zod SHAPE, by objectui#6152's ruling; since
+  // objectui#7804 the mirror declares it as a NAMED REFUSAL instead. `mirror: null`
+  // routes it to the `else` branch, which pins that refusal directly.
   { type: 'TreeViewSchema', key: 'onNodeClick', mirror: null, control: TREE_CONTROL,
     legal: () => {}, illegal: undefined,
     reader: R + 'data-display/tree-view.tsx', readText: 'schema.onNodeClick(node)' },
@@ -306,15 +324,41 @@ describe('objectui#6150 — the 13 renderer-read keys are declared on their ship
         if (r.success) expect(r.data![SENTINEL]).toEqual(illegal);
       });
     } else {
-      it('is DECLARED on the TS face but ABSENT from the mirror — a runtime slot, per objectui#6152', () => {
+      it('is DECLARED on the TS face AND on the mirror — as a named refusal, per objectui#7804', () => {
         // The type-level pin `_OnNodeClickIsNodeHandler` above carries the
-        // declaration half; this is the deliberate asymmetry, recorded in
-        // `zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared`.
-        expect(Object.keys(TreeViewSchema.shape)).not.toContain(key);
+        // declaration half. ⭐ This leg asserted `.not.toContain(key)` until
+        // objectui#7804: membership, not acceptance, is what separates "refused by
+        // name" from "admitted unexamined", and under `.passthrough()` the second
+        // one is invisible at the parse. The pair is recorded in
+        // `zod-mirror-parity.test.ts`'s `KnownDrift`.
+        expect(Object.keys(TreeViewSchema.shape)).toContain(key);
       });
 
-      it('a document carrying it is admitted unexamined, exactly as before', () => {
+      it('a document carrying it is REFUSED AT THE KEY — the enforcement objectui#7804 adds', () => {
+        // ⭐ This leg asserted `success === true` until objectui#7804 — the
+        // passthrough admitting the key unexamined, which is the defect, recorded
+        // here as the before-state it was. A LIVE FUNCTION is used on purpose: the
+        // JSON mirror is not the programmatic channel, so even the value the TS
+        // face declares is refused on this face, and the issue is reported AT the
+        // key rather than swallowed.
         const r = TreeViewSchema.safeParse({ ...control, [key]: legal });
+        expect(r.success).toBe(false);
+        if (!r.success) {
+          expect(r.error!.issues.map((i) => i.path.join('.'))).toContain(key);
+        }
+      });
+
+      it('control: the same document WITHOUT the key still parses green', () => {
+        // Non-vacuity for the leg above: the refusal has to be about this key, not
+        // about the control document having become illegal for some other reason.
+        expect(TreeViewSchema.safeParse(control).success).toBe(true);
+      });
+
+      it('control: the SAME function under an UNDECLARED key is still admitted unexamined', () => {
+        // The before-state, kept as the contrast that makes the refusal readable:
+        // `.passthrough()` has not changed, so an undeclared key of any type is
+        // still accepted. What moved is membership of THIS key.
+        const r = TreeViewSchema.safeParse({ ...control, [SENTINEL]: legal });
         expect(r.success).toBe(true);
       });
 

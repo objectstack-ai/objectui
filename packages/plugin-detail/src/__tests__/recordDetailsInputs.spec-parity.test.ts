@@ -112,20 +112,34 @@ const specSectionKeys = (): string[] =>
  * `renderers/record-details.tsx`: `s.showBorder` is honoured there beyond the
  * spec's four; `title` was honoured as a strict-priority ALIAS of the heading
  * slot (`s.title ?? s.label`) until objectui#6190 converged on the declared
- * `label` and dropped the limb; `hideEmpty` was honoured until objectui#7129
- * RETIRED the key (maintainer 2026-09-01) and left `DetailSection`'s auto-hide
- * heuristic as the whole contract.
+ * `label` and dropped the limb.
  *
- * `title` and `hideEmpty` stay in this list on purpose, and dropping either
- * would weaken the file. Membership is not "keys the renderer reads today" —
- * it is "keys the spec refuses that the description must not advertise", and
- * the spec refuses both whether or not anything reads them. A hand-kept list,
- * but the ASSERTION
- * filters it through the spec at runtime, so the day upstream declares one of
- * these it drops out of the forbidden set on its own instead of pinning a stale
- * prohibition.
+ * A hand-kept CANDIDATE set — keys this renderer honours on a section beyond
+ * the spec's original four — and ⛔ not a statement about which of them the
+ * spec refuses. The ASSERTION derives that per run by filtering this list
+ * through the installed schema, so a candidate upstream declares drops out of
+ * the forbidden set on its own instead of pinning a stale prohibition, and
+ * one upstream retires re-arms without an edit here. ⛔ Do not read the
+ * membership as a claim; read `stripped` in the assertion below.
+ *
+ * ⚠️ Which is why both names stay although they answer differently today:
+ * `title` is refused by the installed spec, `showBorder` is declared by it.
+ * Neither fact is written down as a verdict anywhere in this file.
+ *
+ * ⚠️ `hideEmpty` was a member and is GONE from the list under objectui#8603
+ * (director seat batch #137 item 3, maintainer 2026-09-15), which restored the
+ * renderer read after objectui#7129 retired it on the premise — falsified
+ * upstream by the 17.3.0 pin move — that the spec refused the key. The spec
+ * DECLARES it on the section entry, so it fails the membership criterion in
+ * its own words: it is not a key the spec refuses. The runtime filter above
+ * already dropped it from `stripped` before this edit, which is why removing
+ * it changes no verdict here — the list is what states the criterion, and
+ * leaving a declared key in it would state a prohibition the contract
+ * contradicts. The `sections` description now teaches `hideEmpty`, and the
+ * "every spec section member key is discoverable" case above is what requires
+ * that.
  */
-const RENDERER_ONLY_SECTION_KEYS = ['title', 'showBorder', 'hideEmpty'];
+const RENDERER_ONLY_SECTION_KEYS = ['title', 'showBorder'];
 
 /**
  * Does the installed spec REFUSE an undeclared key inside a `sections[]` entry,
@@ -239,11 +253,28 @@ describe('record:details — registry inputs vs @objectstack/spec', () => {
   });
 
   it('publishes no section member key the spec refuses to carry', () => {
-    // The renderer honours `showBorder` per section (and once honoured `title`
-    // and `hideEmpty`), but the spec's section object does not declare any of
-    // the three, so an author who writes them gets nothing back from the
-    // contract — a refusal, in fact. Documenting them here
-    // would teach keys the contract does not carry — the member-level twin of
+    // ⛔ Which of the candidates above the spec REFUSES is not stated here, and
+    // that is the point: it is derived below, per run, from the installed
+    // schema. `stripped` is that derivation, and only its members are the
+    // subject of the assertions that follow.
+    //
+    // ⚠️ Read the derivation, ⛔ not a remembered list. Of the two candidates,
+    // only `title` is refused by the installed spec today; `showBorder` IS
+    // declared on the section entry and therefore leaves `stripped` on its
+    // own. An earlier revision of this comment said the spec "does not declare
+    // it" of `showBorder` — false since the entry grew to its current member
+    // set, and false in a sentence no gate reads, which is commandment #9's
+    // own failure mode. The list stays a hand-kept CANDIDATE set (keys this
+    // renderer honours on a section beyond the spec's original four); the
+    // filter is what decides membership of the forbidden set, so a candidate
+    // the spec has since declared costs nothing and re-arms by itself if
+    // upstream ever retires it.
+    //
+    // The fixture below carries `hideEmpty`, which the spec DOES declare since
+    // 17.3.0 (the read restored here by objectui#8603): it is the live control
+    // on that filter — a key that leaves `stripped` and must therefore NOT
+    // appear among the refused names. Documenting a refused key here would
+    // teach one the contract does not carry — the member-level twin of
     // publishing a top-level input the props schema rejects.
     const stripped = RENDERER_ONLY_SECTION_KEYS.filter(
       (key) => !specSectionKeys().includes(key),
@@ -267,6 +298,9 @@ describe('record:details — registry inputs vs @objectstack/spec', () => {
       expect(refused).toEqual(expect.arrayContaining(stripped));
       expect(refused).not.toContain('label');
       expect(refused).not.toContain('fields');
+      // …and the key objectui#8603 restored is on the DECLARED side of that
+      // line: the same strict object that names `title` must not name it.
+      expect(refused).not.toContain('hideEmpty');
     } else {
       // The pinned rc.6: dropped in silence, which is the harm this file was
       // filed over — success receipt, section renders without them.

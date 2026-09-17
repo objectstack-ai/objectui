@@ -105,6 +105,7 @@
     "check:handler-key-reads": "node scripts/check-handler-key-read-sites.mjs",
     "check:metadata-write-doors": "node scripts/check-object-metadata-write-doors.mjs",
     "check:changeset-claims": "node scripts/check-changeset-claims.mjs",
+    "check:pending-changeset-literals": "node scripts/check-pending-changeset-literals.mjs",
     "cli": "node packages/cli/dist/cli.js",
     "objectui": "node packages/cli/dist/cli.js",
     "create-plugin": "node packages/create-plugin/dist/index.js",

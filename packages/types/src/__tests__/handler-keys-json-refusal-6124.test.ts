@@ -322,6 +322,14 @@ const RUNTIME_SLOT: readonly Site[] = [
   ['data-display.zod.ts', 'DataTableSchema', 'onRowActionDef', DataTableZod],
   ['data-display.zod.ts', 'DataTableSchema', 'onRowClick', DataTableZod],
   ['data-display.zod.ts', 'DataTableSchema', 'onRowSave', DataTableZod],
+  // objectui#7804 — the `TreeViewSchema` slice, one site. `tree-view.tsx` gates on
+  // `if (schema.onNodeClick)` and CALLS `schema.onNodeClick(node)`; the TS face
+  // already declared the callable twin, so the mirror's named refusal is what the
+  // JSON face was missing. ⚠️ `'retired'` was refused even though NO in-repo host
+  // builds a `tree-view` node carrying it: the read is live, and this ledger's two
+  // `TreeViewSchema` tombstones below (`onSelectChange`, `onExpandChange`) are the
+  // keys that really are dead — the contrast is measured, not stylistic.
+  ['data-display.zod.ts', 'TreeViewSchema', 'onNodeClick', TreeViewZod],
   ['disclosure.zod.ts', 'AccordionSchema', 'onValueChange', AccordionZod],
   ['disclosure.zod.ts', 'CollapsibleSchema', 'onOpenChange', CollapsibleZod],
   ['disclosure.zod.ts', 'ToggleGroupSchema', 'onValueChange', ToggleGroupZod],
@@ -543,7 +551,7 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     ]);
   });
 
-  it('81 sites are ledgered, 60 runtime slots + 21 retired, with no key filed twice', () => {
+  it('82 sites are ledgered, 61 runtime slots + 21 retired, with no key filed twice', () => {
     // 58 from objectui#6124; the 59th is `ObjectDataTableSchema.onRowClick`,
     // minted with its arm by objectui#6576 / #6914; the 60th is
     // `AlertDialogSchema.onAction`, declared by objectui#7104 for a key the
@@ -588,10 +596,10 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     // them. All seven land on the RUNTIME SLOT half, each measured at its own
     // channel; `onColumnResize` is the one that does not share the group's, and
     // the site comment beside the rows records why that mattered.
-    expect(RUNTIME_SLOT).toHaveLength(60);
+    expect(RUNTIME_SLOT).toHaveLength(61);
     expect(RETIRED).toHaveLength(21);
     const ids = ALL_SITES.map(([file, schema, key]) => `${file}#${schema}.${key}`);
-    expect(new Set(ids).size).toBe(81);
+    expect(new Set(ids).size).toBe(82);
   });
 
   it.each(ALL_SITES)('%s %s.%s is DECLARED on the mirror shape, with the objectui#6124 guidance as its description', (_file, _schema, key, mirror) => {
@@ -758,6 +766,9 @@ export type assertionRuntimeSlotsKeepTheirFunctionType = [
   Expect<KeepsFunction<DataTableSchema['onCellChange']>>,
   Expect<KeepsFunction<DataTableSchema['onColumnResize']>>,
   Expect<KeepsFunction<DataTableSchema['onRowActionDef']>>,
+  // objectui#7804 — the `TreeViewSchema` slice. Same rule: the TS twin stays
+  // callable because the function value REACHES the renderer and is INVOKED there.
+  Expect<KeepsFunction<TreeViewSchema['onNodeClick']>>,
   Expect<KeepsFunction<DataTableSchema['onRowClick']>>,
   Expect<KeepsFunction<DataTableSchema['onRowSave']>>,
   // objectui#7804 — the `objectql.ts` slice. Each TS twin stays callable

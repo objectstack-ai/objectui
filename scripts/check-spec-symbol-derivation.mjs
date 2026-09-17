@@ -1215,6 +1215,115 @@ const CLAIM_DEBT = {
   ],
 };
 
+// ── Ledger anchors: is the card each ledger names still open? ────────────────
+// objectui#9537, ruled 2026-09-16 (letter 3, with letter 1 as its companion).
+//
+// Both ledgers above end their stale-entry message by naming an anchor card —
+// "objectui#<n> can be ended once the ledger is empty". That instruction is
+// only followable while the card is OPEN. When the anchor has been ended and
+// the block is non-empty, the ratchet hands a contributor an instruction nobody
+// can follow, and it does so SILENTLY. That has already happened twice:
+// objectstack#4115 was ended by objectstack#6883 while rule 1's block was live
+// (which is why objectui#6291 re-anchored), and rule 2's anchor went the same
+// way while its block stayed live, which is the exclusion recorded below.
+//
+// The note beside `DEBT_ISSUE` DECLARES that state to be a defect and nothing
+// enforced the declaration — the ADR-0049 shape. This table is the enforcement
+// point, and `ledgerAnchorDiagnostic` below is the rule.
+//
+// ⚠️ WHAT THIS DOES NOT DO, written down rather than left to be assumed (root
+// AGENTS.md #9). `state` is DECLARED here, never fetched. This gate is an
+// offline static scan with no token, and a gate that reached GitHub for issue
+// state would go red on a rate limit or an outage — failing on the network
+// instead of on the tree. So the two halves are not symmetric:
+//   - CAUGHT mechanically: a block re-seeded under an anchor already known to
+//     be ended. A jurisdiction widening is the one sanctioned way either block
+//     grows, it is a deliberate edit to THIS file, and it is the same edit that
+//     must re-anchor (objectui#6291's precedent) — so a red lands on exactly
+//     the pull request that owes the re-anchoring.
+//   - NOT CAUGHT: an anchor card ending OUT OF BAND while its block is live and
+//     its `state` here still reads "open". Nothing in this repository
+//     re-derives that; only something holding a token can. Whoever ends an
+//     anchor card is the one who must flip its `state` here.
+// ⛔ Do not "improve" this by teaching the gate to fetch issue state.
+//
+// Adding a third ledger means adding its anchor here. The coverage pin in
+// scripts/__tests__/spec-symbol-ledger-anchor-liveness-9537.test.ts reds if an
+// anchor constant declared in this file has no entry below, so "any ledger
+// anchor it reads" stays true by mechanism rather than by memory.
+export const LEDGER_ANCHORS = [
+  {
+    ledger: "DEBT",
+    constant: "DEBT_ISSUE",
+    issue: DEBT_ISSUE,
+    entries: DEBT,
+    regenerator: "--ledger",
+    // objectui#7265 was ended 2026-09-14 by its own final slice — the burn-down
+    // card recreating, on finishing, the condition it was opened to remove.
+    // Left pointing there deliberately: objectui#9537's ruling keeps the anchor
+    // and buys the detection instead, because inventing a card purely to hold
+    // an anchor is the shape this repository already rejected.
+    state: "closed",
+    excludedByName: null,
+  },
+  {
+    ledger: "CLAIM_DEBT",
+    constant: "CLAIM_DEBT_ISSUE",
+    issue: CLAIM_DEBT_ISSUE,
+    entries: CLAIM_DEBT,
+    regenerator: "--claim-ledger",
+    state: "closed",
+    excludedByName: "`CLAIM_DEBT_ISSUE` (objectui#4592) — excluded BY NAME because it is the deliberate, standing exclusion recorded beside `DEBT_ISSUE` and re-affirmed by objectui#9537's ruling: rule 2's ledger is not what objectui#6291 widened, so re-anchoring it is a separate decision and ⛔ not this detector's to force.",
+  },
+];
+
+/**
+ * The ruled condition, as a pure function of ONE anchor so that both acceptance
+ * legs are measurable without a repository scan: an anchor that has been ended
+ * while its block still holds entries is a dead instruction; every other
+ * combination is silence.
+ *
+ * Returns `null`, or `{ kind, message }` with `kind` one of:
+ *   "dead-anchor"      — the ruled condition.
+ *   "bad-declaration"  — `state` is neither "open" nor "closed". Judged FIRST
+ *                        and judged loudly: a typo there would turn the
+ *                        detection off while leaving it looking wired, which is
+ *                        the exact failure this check exists to end.
+ *
+ * `ignoreExclusion` answers "would this have fired if it were not excluded?" —
+ * used only to keep the standing exclusion visible in the run banner, so it
+ * cannot go quiet, and to retire itself the day it stops applying.
+ */
+export function ledgerAnchorDiagnostic(anchor, { ignoreExclusion = false } = {}) {
+  if (anchor.state !== "open" && anchor.state !== "closed") {
+    return {
+      kind: "bad-declaration",
+      message:
+        `${anchor.constant}'s declared \`state\` is ${JSON.stringify(anchor.state)} — neither "open" nor "closed".\n` +
+        `      An anchor whose state does not parse is one this check cannot judge, and a typo here would\n` +
+        `      silently turn the dead-anchor detection off while leaving it looking wired.`,
+    };
+  }
+  if (!ignoreExclusion && anchor.excludedByName) return null;
+  // No anchor at all is not a DEAD anchor: the ratchet's tail is written behind
+  // a truthiness guard, so it renders no instruction to be followed.
+  if (!anchor.issue) return null;
+  if (anchor.state === "open") return null;
+  const entryCount = Object.values(anchor.entries).reduce((sum, names) => sum + names.length, 0);
+  if (entryCount === 0) return null;
+  return {
+    kind: "dead-anchor",
+    message:
+      `${anchor.ledger}'s anchor \`${anchor.constant}\` names objectui#${anchor.issue}, a card that has already been\n` +
+      `      ended, and the block under it holds ${entryCount} entr${entryCount === 1 ? "y" : "ies"}. So the ratchet that reads this ledger\n` +
+      `      ends its message by telling you objectui#${anchor.issue} can be ended once the ledger is empty — an\n` +
+      `      instruction nobody can follow, because that card is ended already.\n` +
+      `      Re-anchor \`${anchor.constant}\` to the OPEN burn-down card for this seeding and set that entry's\n` +
+      `      \`state\` in LEDGER_ANCHORS to "open". objectui#6291 is the precedent: the pull request that\n` +
+      `      re-seeds a block is the one that re-anchors it (\`${anchor.regenerator}\` regenerates the block).`,
+  };
+}
+
 // ── 1. Enumerate every `@objectstack/spec` export name, per subpath ──────────
 // Types AND values: the drifted symbols in the table above are mostly types, and
 // a runtime `import()` only sees values. The compiler's own view of each
@@ -2261,10 +2370,27 @@ if (memberCitations.length > 0) {
   );
 }
 
+// ── 8. The ledgers' own health: can each anchor still receive its instruction? ─
+// objectui#9537. Rules 1-7 judge the tree; this one judges the ledgers' own
+// anchors, because the two ratchets above end their messages by naming a card.
+// The reasoning, the declared-state boundary and the standing exclusion are all
+// at `LEDGER_ANCHORS`; this loop is only the wiring.
+const anchorErrors = [];
+const excludedAnchorNotes = [];
+for (const anchor of LEDGER_ANCHORS) {
+  const finding = ledgerAnchorDiagnostic(anchor);
+  if (finding) anchorErrors.push(finding.message);
+  // Keep a standing exclusion VISIBLE on green runs, and let it retire itself:
+  // the note stops printing the day the excluded anchor would no longer fire.
+  if (anchor.excludedByName && ledgerAnchorDiagnostic(anchor, { ignoreExclusion: true })) {
+    excludedAnchorNotes.push(anchor.excludedByName);
+  }
+}
+
 const outstanding = Object.values(DEBT).reduce((sum, names) => sum + names.length, 0);
 const outstandingClaims = Object.values(CLAIM_DEBT).reduce((sum, names) => sum + names.length, 0);
 
-if (errors.length === 0 && claimErrors.length === 0) {
+if (errors.length === 0 && claimErrors.length === 0 && anchorErrors.length === 0) {
   console.log(
     `✅  spec symbol derivation: ${files.length} files scanned against ${specNames.size} spec export names; ` +
       `${Object.keys(ALLOW).length} declared dialect${Object.keys(ALLOW).length === 1 ? "" : "s"}, ` +
@@ -2274,7 +2400,9 @@ if (errors.length === 0 && claimErrors.length === 0) {
       `${outstandingClaims} unbacked claim${outstandingClaims === 1 ? "" : "s"} in ` +
       `${Object.keys(CLAIM_DEBT).length} packages.\n` +
       `✅  spec member citations: ${files.length} sources + ${proseSources.length} documentation pages; ` +
-      `nothing cites a key its spec symbol does not declare.`
+      `nothing cites a key its spec symbol does not declare.\n` +
+      `✅  ledger anchors: ${LEDGER_ANCHORS.length} declared; none renders an instruction its anchor card can no longer receive.` +
+      excludedAnchorNotes.map((note) => `\n    ⚠️  excluded by name: ${note}`).join("")
   );
   process.exit(0);
 }
@@ -2299,6 +2427,18 @@ if (claimErrors.length > 0) {
       "keys, drifted on `mode`, and passed every CI run under the comment \"Aligned with\n" +
       "@objectstack/spec ListView.navigation\". The claim is the part both known instances shared.\n" +
       "See https://github.com/objectstack-ai/objectui/issues/4592."
+  );
+}
+
+if (anchorErrors.length > 0) {
+  console.error("❌  a ledger anchor no longer points at a card anyone can act on:\n");
+  for (const message of anchorErrors) console.error(`    • ${message}\n`);
+  console.error(
+    "Both ratchets above end their stale-entry message by naming the ledger's anchor card, so an\n" +
+      "ended anchor turns that message into an instruction nobody can follow — and it went that way\n" +
+      "silently twice before this check existed. What this check does and does not see is written at\n" +
+      "`LEDGER_ANCHORS` in this file.\n" +
+      "See https://github.com/objectstack-ai/objectui/issues/9537.\n"
   );
 }
 

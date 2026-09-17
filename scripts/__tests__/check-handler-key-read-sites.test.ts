@@ -649,7 +649,11 @@ describe('check-handler-key-read-sites — this repository', () => {
     // two are NOT co-judgeable and this leg deliberately asserts nothing about
     // which disposition either should get: `TabsSchema` declares a DIFFERENT
     // spelling for what looks like the same event, so `'tabs'` may be an ALIAS
-    // question rather than a declaration one. That is objectui#9344's item ②.
+    // question rather than a declaration one. ⛔ That decision is NOT
+    // objectui#9344's — that card closed `completed` on 2026-09-13 with its item
+    // ② undone, and this comment was one of the three places still routing a
+    // reader to it (objectui#9456). The owner is objectui#7804, the card each
+    // ledger row below carries.
     expect(census('tabs', 'onTabChange')?.declared).toBe(false);
     expect(census('detail', 'onTabChange')?.declared).toBe(false);
     expect(KNOWN_UNDECLARED_READS.has('tabs::TabsSchema.onTabChange')).toBe(true);

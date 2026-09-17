@@ -3247,6 +3247,7 @@ const fr = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: 'Cet enregistrement ne peut pas être ouvert',
     loadMore: 'Charger plus',
     loadingMore: 'Chargement…',
     loadedOf: '{{loaded}} sur {{total}} chargées',

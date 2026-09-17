@@ -324,7 +324,16 @@ describe('the enforcement state is declared once, and this pin states what lande
     // Run twice over a real fixture through the real CLI, since exit codes are
     // the only thing CI reads. A gate whose failing path is never exercised is
     // one nobody has shown can fail.
-    const scratch = fs.mkdtempSync(path.join(repoRoot, '.tmp-citation-gate-'));
+    // The throwaway repo goes under `node_modules/`, never straight into the
+    // repo root. `textFootprint()` in `scripts/check-i18n-dead-keys.mjs` sweeps
+    // the repo root in one `grep -rFn` pass, and a directory that disappears
+    // between that grep enumerating it and descending into it makes grep exit
+    // 2 — a status that sweep rethrows deliberately, taking the whole shard
+    // down with it. objectui#9468 holds the occurrences, one of them an
+    // already-green pull request ejected from the merge queue. `node_modules`
+    // is skipped by the repo-wide scanners under `scripts/`, so nothing
+    // transient placed here is ever walked by one.
+    const scratch = fs.mkdtempSync(path.join(repoRoot, 'node_modules', '.tmp-citation-gate-'));
     try {
       execFileSync('git', ['init', '-q'], { cwd: scratch });
       execFileSync('git', ['config', 'user.email', 'gate@example.invalid'], { cwd: scratch });

@@ -7,38 +7,56 @@
  */
 
 /**
- * `record:details` — who owns the empty-section default (objectui#7064).
+ * `record:details` — who owns the empty-section default (objectui#7064,
+ * objectui#7129 Q2-C, objectui#8603).
+ *
+ * TWO DISJOINT DOMAINS, and every case below belongs to exactly one:
+ *
+ *   - the EMPTY ROWS of a section that still has a filled row — owned by
+ *     `DetailSection`'s auto-hide heuristic and the reader's "Show N empty
+ *     fields" toggle, with no authored override in either polarity
+ *     (objectui#7129 Q2-C, which objectui#8603 leaves untouched);
+ *   - an ALL-EMPTY section — owned by the authored `hideEmpty`, hiding by
+ *     renderer default, `false` keeping the heading and the label skeleton.
+ *
+ * The heuristic requires `filledCount > 0` and `hideEmpty` applies only where
+ * there is none, so no fixture can be governed by both.
+ *
+ * ## Why this file has been rewritten twice
  *
  * `RecordDetailsRenderer` used to map every authored section with
- * `hideEmpty: s.hideEmpty ?? true`. That forced default overrode the one case
- * `DetailSection`'s own heuristic explicitly reserves:
+ * `hideEmpty: s.hideEmpty ?? true`. That forced default made an unauthored
+ * section indistinguishable from an authored `true` at every later read, so
+ * every application had to hand-write `hideEmpty: false` per section to stop a
+ * hand-created record collapsing to a two-row body — per-app tax for a
+ * platform concern (maintainer ruling 2026-08-31, objectui#7064), and the
+ * force went.
  *
- *   "If a section is entirely empty (e.g., loading state, brand-new record),
- *    do NOT auto-hide — the labels themselves are useful as a structural
- *    skeleton."
+ * That pass-through then measured the key on all four of its contracts and
+ * found three answers (objectui#7129): `@objectstack/spec` 17.2.0 REFUSED
+ * `hideEmpty` on a `record:details` section, so on any spec-validated page the
+ * "author escape hatch" existed only where nothing validated. The maintainer
+ * converged the four on the spec's answer (2026-09-01): the declaration and
+ * the read were RETIRED.
  *
- * With the force in place an all-empty section took `DetailSection`'s
- * all-fields-hidden early return instead, so a hand-created record lost whole
- * sections and collapsed to a two-row body, and every application had to
- * hand-write `hideEmpty: false` per section to stop looking broken — per-app
- * tax for a platform concern (maintainer ruling 2026-08-31).
+ * `@objectstack/spec` 17.3.0 then DECLARED the key on that same section entry
+ * (upstream #11289, maintainer ruling 2026-08-23), with a `describe()`
+ * promising the behaviour this repo had just removed — so the retirement's
+ * premise was false before the pin carrying it moved. objectui#8603 (director
+ * seat batch #137 item 3, maintainer 2026-09-15) ruled the protocol correct
+ * and RESTORED the read: Q1-A of #7129 is superseded for this key, Q2-C is
+ * not. The escape hatch is real this time — `hideEmpty: false` parses green on
+ * the strict section object, which is what #7129 measured it could not do.
  *
- * The renderer then passed the authored value through untouched — and that
- * pass-through measured the key on all four of its contracts, finding three
- * answers (objectui#7129). `@objectstack/spec` REFUSES `hideEmpty` on a
- * `record:details` section, so on any spec-validated page it never reached the
- * renderer at all; the "author escape hatch" existed only where nothing
- * validated. The maintainer converged the four on the spec's answer
- * (2026-09-01): the declaration is RETIRED and `DetailSection`'s heuristic is
- * the whole contract.
- *
- * These pins hold both halves of that contract:
- *   - the default is the heuristic's, not the renderer's — unchanged, and the
- *     three cases below are exactly the ones #7064 landed;
- *   - an authored `hideEmpty` of EITHER polarity is now INERT. Its describe
- *     block is RESTATED, not deleted (ruling clause 4): the same fixtures and
- *     the same controls now assert the key does nothing, which is what proves
- *     the heuristic survived the retirement intact.
+ * ⚠️ The unauthored all-empty default therefore moved back: an AUTHORED
+ * section whose fields are ALL empty renders nothing unless the page writes
+ * `false`. WHERE that default is resolved is the design, and the last describe
+ * block below is what pins it: `RecordDetailsRenderer` applies `?? true` to an
+ * authored section and `DetailSection` tests `=== true`, so a section nobody
+ * could have written the key on — the direct-`fields` fallback body, the
+ * `detail-section` node — keeps its skeleton. A hide there would be a hide
+ * with no declarable spelling to ask the skeleton back, which is the defect
+ * upstream declared the key to fix.
  *
  * Deliberately no i18n provider, so the row labels below are rung 2 of the
  * label ladder: the object's own DECLARED `label`. They read as field NAMES
@@ -188,31 +206,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('record:details — the UNAUTHORED empty-section default is DetailSection\'s heuristic (#7064)', () => {
-  it('an ALL-empty section renders its skeleton: heading, every field label, an empty placeholder each', () => {
-    renderDetails({
-      sections: [
-        { name: 'deal_terms', label: 'Deal Terms', fields: ['stage', 'amount', 'close_date', 'next_step'] },
-      ],
-    });
-
-    // The heading survives — the whole section used to disappear here.
-    expect(screen.getByText('Deal Terms')).toBeInTheDocument();
-
-    // Every field keeps its row, so the record reads as a structure waiting to
-    // be filled rather than as a blank page.
-    for (const label of ['Stage', 'Amount', 'Close Date', 'Next Step']) {
-      expect(screen.getByText(label)).toBeInTheDocument();
-    }
-    expect(emptyPlaceholders()).toHaveLength(4);
-  });
-
+describe('record:details — the empty-ROW default is DetailSection\'s heuristic, unauthored (#7064)', () => {
   it('a SMALL partly-empty section (below the auto-hide threshold) now shows its empty row', () => {
     // 2 fields, 1 empty: under DetailSection's minimum field count in both the
     // desktop (4) and mobile (3) variant, so the auto-hide heuristic never
-    // fires and the empty row is shown. Under the old forced default this row
-    // was hidden. This is the second half of the user-visible behaviour change
-    // the changeset names — it is not limited to all-empty sections.
+    // fires and the empty row is shown. Under the pre-#7064 forced default
+    // this row was hidden — the half of that change that was never limited to
+    // all-empty sections, and the half objectui#8603 did NOT restore.
     renderDetails({
       sections: [
         { name: 'summary', label: 'Summary', fields: ['industry', 'stage'] },
@@ -228,9 +228,10 @@ describe('record:details — the UNAUTHORED empty-section default is DetailSecti
   it('the label-graveyard guard is INTACT: a large mostly-empty section still auto-hides', () => {
     // 4 fields, 3 empty, 1 filled — at/above both threshold variants
     // (min fields 4/3, empty ratio 25%/20%) with at least one filled row, so
-    // `shouldAutoHideEmpty` still fires exactly as before. Flipping the
-    // unauthored default did NOT turn populated pages into label graveyards;
-    // it only stopped overriding the all-empty case the heuristic reserves.
+    // `shouldAutoHideEmpty` still fires exactly as before — through #7064's
+    // flip of the unauthored default, through #7129's retirement, and through
+    // #8603's restoration. None of the three touched a populated page: this
+    // branch has never been an authored decision, in either polarity.
     renderDetails({
       sections: [
         {
@@ -249,19 +250,24 @@ describe('record:details — the UNAUTHORED empty-section default is DetailSecti
   });
 });
 
-describe('record:details — an authored `hideEmpty` is INERT: the key is retired (#7129)', () => {
+describe('record:details — an authored `hideEmpty` decides the ALL-EMPTY section, and only that (#8603)', () => {
   /**
-   * The fixtures below are #7064's, unchanged, and so are their controls. What
-   * moved is the verdict: each now asserts the render the UNAUTHORED heuristic
-   * produces, so a reader can see that reintroducing a read of the key would
-   * have to break one of them.
+   * The fixtures are #7064's, unchanged, and so are their controls. What moved
+   * is the verdict: objectui#8603 restored the read, so the all-empty cases
+   * below assert the behaviour `@objectstack/spec`'s `describe()` promises,
+   * while the partly-filled case still asserts the heuristic deciding alone.
+   *
+   * Every all-empty case carries the sibling CONTROL section #7064 introduced —
+   * a section that MUST render. Without it an absence assertion passes just as
+   * well when the renderer produced no output at all, which is the one way a
+   * "nothing rendered" pin can be green for the wrong reason.
    */
-  it('`hideEmpty: true` no longer hides an all-empty section — the skeleton renders', () => {
+  it('`hideEmpty: true` HIDES an all-empty section: no heading, no skeleton', () => {
     renderDetails({
       sections: [
         { name: 'deal_terms', label: 'Deal Terms', fields: ['stage', 'amount', 'close_date', 'next_step'], hideEmpty: true },
         // CONTROL, kept from #7064: a sibling section that MUST render, so the
-        // presences below are a decision about `hideEmpty` and not an artefact
+        // absences below are a decision about `hideEmpty` and not an artefact
         // of a render that never happened.
         { name: 'firmographics', label: 'Firmographics', fields: ['industry'] },
       ],
@@ -270,8 +276,44 @@ describe('record:details — an authored `hideEmpty` is INERT: the key is retire
     expect(screen.getByText('Firmographics')).toBeInTheDocument();
     expect(screen.getByText('Manufacturing')).toBeInTheDocument();
 
-    // Under the retired key this section vanished. The heuristic reserves the
-    // all-empty case, and it is now the only thing deciding.
+    // "renders nothing at all: no heading, no skeleton" — the spec's words,
+    // asserted on both halves: the heading AND every row it would have drawn.
+    expect(screen.queryByText('Deal Terms')).not.toBeInTheDocument();
+    for (const label of ['Stage', 'Amount', 'Close Date', 'Next Step']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(emptyPlaceholders()).toHaveLength(0);
+  });
+
+  it('UNAUTHORED behaves as `true`: the renderer default hides an all-empty section', () => {
+    // The default is the renderer's, not the schema's — `@objectstack/spec`
+    // declares the key with NO default, and states the fallback as measured on
+    // this renderer. Same fixture as the case above with the key removed, so
+    // the pair reads as one measurement of the default.
+    renderDetails({
+      sections: [
+        { name: 'deal_terms', label: 'Deal Terms', fields: ['stage', 'amount', 'close_date', 'next_step'] },
+        { name: 'firmographics', label: 'Firmographics', fields: ['industry'] },
+      ],
+    });
+
+    expect(screen.getByText('Firmographics')).toBeInTheDocument();
+    expect(screen.queryByText('Deal Terms')).not.toBeInTheDocument();
+    expect(emptyPlaceholders()).toHaveLength(0);
+  });
+
+  it('`hideEmpty: false` KEEPS the heading and the label skeleton of an all-empty section', () => {
+    // The escape hatch, and the half that makes the key worth declaring: a
+    // brand-new record keeps the structure its author wrote. Under objectui#7129
+    // this spelling parsed nowhere and read nowhere; it now does both.
+    renderDetails({
+      sections: [
+        { name: 'deal_terms', label: 'Deal Terms', fields: ['stage', 'amount', 'close_date', 'next_step'], hideEmpty: false },
+        { name: 'firmographics', label: 'Firmographics', fields: ['industry'] },
+      ],
+    });
+
+    expect(screen.getByText('Firmographics')).toBeInTheDocument();
     expect(screen.getByText('Deal Terms')).toBeInTheDocument();
     for (const label of ['Stage', 'Amount', 'Close Date', 'Next Step']) {
       expect(screen.getByText(label)).toBeInTheDocument();
@@ -279,41 +321,21 @@ describe('record:details — an authored `hideEmpty` is INERT: the key is retire
     expect(emptyPlaceholders()).toHaveLength(4);
   });
 
-  it('`hideEmpty: true` no longer hides the empty rows of a small partly-filled section', () => {
+  it('the OTHER domain is untouched: all three spellings render the same partly-filled section (#7129 Q2-C)', () => {
     // 2 fields, 1 empty — below the auto-hide minimum in both threshold
-    // variants (4 desktop / 3 mobile), so nothing hides the row any more.
-    renderDetails({
-      sections: [
-        { name: 'summary', label: 'Summary', fields: ['industry', 'stage'], hideEmpty: true },
-      ],
-    });
+    // variants (4 desktop / 3 mobile), so nothing hides the row. This is the
+    // fixture where the PRE-#7129 read decided something and where the
+    // restored one deliberately does not: `hideEmpty` owns the all-empty case
+    // alone, so an authored value may not move an empty ROW in either
+    // direction. ⚠️ Deliberately NOT run on a large sparse section: there the
+    // heuristic fires anyway, so all three spellings would agree even if the
+    // key had swallowed the whole contract, and the assertion could not fail.
+    const fields = ['industry', 'stage'];
 
-    expect(screen.getByText('Manufacturing')).toBeInTheDocument();
-    expect(screen.getByText('Stage')).toBeInTheDocument();
-    expect(emptyPlaceholders()).toHaveLength(1);
-  });
-
-  it('the three spellings — absent, `true`, `false` — render the SAME section', () => {
-    // The retirement stated as one assertion, over the two fixtures where the
-    // old read actually decided something. ⚠️ It is deliberately NOT run on a
-    // large sparse section: there the heuristic fires anyway, so all three
-    // spellings agreed even under the old code and the assertion could not
-    // fail. (Measured — the first draft of this test used exactly that fixture
-    // and stayed green through the ablation that reddened everything else.)
-    const fixtures = {
-      // All-empty: the case `DetailSection`'s heuristic reserves. Old code hid
-      // the whole section for `true`.
-      'all-empty': { fields: ['stage', 'amount', 'close_date', 'next_step'], filled: 0, placeholders: 4 },
-      // Small partly-empty: below the auto-hide minimum in both threshold
-      // variants (4 desktop / 3 mobile), so the heuristic never fires. Old code
-      // hid the empty row for `true`.
-      'small partly-empty': { fields: ['industry', 'stage'], filled: 1, placeholders: 1 },
-    };
-
-    const renderedFor = (fields: string[], section: Record<string, unknown>) => {
-      const view = renderDetails({ sections: [{ name: 'deal_terms', label: 'Deal Terms', fields, ...section }] });
+    const renderedFor = (section: Record<string, unknown>) => {
+      const view = renderDetails({ sections: [{ name: 'summary', label: 'Summary', fields, ...section }] });
       const shown = {
-        heading: screen.queryAllByText('Deal Terms').length,
+        heading: screen.queryAllByText('Summary').length,
         filled: screen.queryAllByText('Manufacturing').length,
         placeholders: emptyPlaceholders().length,
       };
@@ -321,14 +343,52 @@ describe('record:details — an authored `hideEmpty` is INERT: the key is retire
       return shown;
     };
 
-    for (const [name, { fields, filled, placeholders }] of Object.entries(fixtures)) {
-      const absent = renderedFor(fields, {});
-      // The live control: the unauthored render really produced the skeleton,
-      // so "all three agree" is not three renders that all produced nothing.
-      expect(absent, name).toEqual({ heading: 1, filled, placeholders });
+    const absent = renderedFor({});
+    // The live control: the unauthored render really produced the skeleton, so
+    // "all three agree" is not three renders that all produced nothing.
+    expect(absent).toEqual({ heading: 1, filled: 1, placeholders: 1 });
 
-      expect(renderedFor(fields, { hideEmpty: true }), name).toEqual(absent);
-      expect(renderedFor(fields, { hideEmpty: false }), name).toEqual(absent);
+    expect(renderedFor({ hideEmpty: true })).toEqual(absent);
+    expect(renderedFor({ hideEmpty: false })).toEqual(absent);
+  });
+});
+
+describe('record:details — the default reaches ONLY the surface that declares the key (#8603)', () => {
+  it('the direct-`fields` fallback body keeps its skeleton when every field is empty', () => {
+    // No `sections`, so the body falls back to the authored `fields` list and
+    // `DetailView` synthesizes the section itself. There is no entry for an
+    // author to write `hideEmpty` on, in the spec or anywhere else, so the
+    // default must not reach it — otherwise a brand-new record renders a blank
+    // page with nothing the page could say to get its structure back.
+    //
+    // ⚠️ This case is what makes `=== true` in `DetailSection` load-bearing
+    // rather than stylistic: under `!== false` the synthesized section would
+    // take the hide, and this body would be empty.
+    renderDetails({ fields: ['stage', 'amount', 'close_date', 'next_step'] }, {});
+
+    for (const label of ['Stage', 'Amount', 'Close Date', 'Next Step']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(emptyPlaceholders()).toHaveLength(4);
+  });
+
+  it('an AUTHORED section in the same render DOES take the default', () => {
+    // The discriminating half: same document, same record, one authored
+    // section and — through a second render — the same field list authored as
+    // the fallback body. The pair is what shows the two surfaces are treated
+    // differently on purpose rather than by accident of fixture shape.
+    renderDetails({
+      sections: [
+        { name: 'deal_terms', label: 'Deal Terms', fields: ['stage', 'amount', 'close_date', 'next_step'] },
+        // CONTROL: this one has the record's one filled field, so it renders.
+        { name: 'firmographics', label: 'Firmographics', fields: ['industry'] },
+      ],
+    });
+
+    expect(screen.getByText('Firmographics')).toBeInTheDocument();
+    expect(screen.queryByText('Deal Terms')).not.toBeInTheDocument();
+    for (const label of ['Stage', 'Amount', 'Close Date', 'Next Step']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
 });

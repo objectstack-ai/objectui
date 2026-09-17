@@ -3249,6 +3249,7 @@ const es = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: 'Este registro no se puede abrir',
     loadMore: 'Cargar más',
     loadingMore: 'Cargando…',
     loadedOf: '{{loaded}} de {{total}} cargadas',

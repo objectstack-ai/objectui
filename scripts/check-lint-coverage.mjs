@@ -102,6 +102,24 @@ for (const pkg of packages) {
 }
 
 // 2. Ratchet — a declared gap that has been closed must leave the list.
+//
+// ⛔ The tail this ratchet appends may not put a GitHub closing keyword
+// (`close`/`fix`/`resolve`, any tense) immediately in front of the anchor it
+// names. This message exists to be QUOTED: the discipline around a DEBT entry
+// is to take the INTERMEDIATE reading — the package linted, the entry not yet
+// deleted — and paste it into the pull request as proof the work landed. A
+// keyword in front of the number makes every such quote a card-closing trigger
+// in the merge path, which ends the anchor silently, from a body whose author
+// was being careful. GitHub's parser does no sentence parsing, so hedging the
+// sentence around it buys nothing. Keep the instruction, lose the keyword, and
+// spell the anchor `objectui#` rather than a bare `#` so the reference cannot
+// match the closing grammar at all. The landed precedent is the rule-2
+// stale-entry message in scripts/check-spec-symbol-derivation.mjs; the same
+// shape still stands in scripts/check-type-check-coverage.mjs and
+// scripts/check-action-forward-parity.mjs, which this change deliberately does
+// not reach. Pinned by
+// scripts/__tests__/check-lint-coverage-closing-keyword.test.ts, which reads
+// this module's text rather than trusting this comment.
 for (const name of Object.keys(DEBT)) {
   const pkg = byName.get(name);
   if (!pkg) {
@@ -109,7 +127,7 @@ for (const name of Object.keys(DEBT)) {
   } else if (pkg.hasScript) {
     errors.push(
       `${name} now has a "lint" script — delete its DEBT entry so the gap cannot reopen` +
-        `${DEBT[name].issue ? ` (and close #${DEBT[name].issue} if it is done)` : ""}.`
+        `${DEBT[name].issue ? `, and objectui#${DEBT[name].issue} can be ended once that work is done` : ""}.`
     );
   }
 }

@@ -1761,10 +1761,23 @@ export interface TreeViewSchema extends BaseSchema {
    * `schema.onNodeClick(node)`), where `node` is the clicked
    * {@link TreeNode}. The handler's return value is discarded.
    *
-   * ⚠️ NOT mirrored in `../zod/data-display.zod.ts`, deliberately: a function
-   * cannot appear in an authored JSON document, so it is a runtime slot.
-   * objectui#6152 ruled that class never gets a mirror; it is recorded in
-   * `__tests__/zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared` instead.
+   * ⚠️ THE MIRROR NOW DECLARES IT — as a NAMED REFUSAL, not as a shape
+   * (objectui#7804, the `TreeViewSchema` slice; `handlerKeyRefusal(…,
+   * 'runtime-slot', …)` in `../zod/data-display.zod.ts`). ⛔ This paragraph
+   * used to say the key was "NOT mirrored, deliberately", citing
+   * objectui#6152's ruling that a runtime slot never gets a mirror. That
+   * ruling is intact and this is not an exception to it: what landed is not a
+   * SHAPE for the function — `z.function()` is unsatisfiable by any serialized
+   * document — but a refusal BY NAME, so the author of
+   * `{ "type": "tree-view", "onNodeClick": { "action": "toast" } }` is told why
+   * instead of having the object accepted by `BaseSchema`'s `.passthrough()`
+   * and handed to this call site, which expects a function.
+   *
+   * ⇒ the key therefore sits in `__tests__/zod-mirror-parity.test.ts`'s
+   * `KnownDrift` (declared on both faces, deliberately different shapes) and
+   * ⛔ NO LONGER in `RuntimeOnlyDeclared`. The programmatic channel is
+   * unchanged: a TypeScript host that builds this node still supplies the
+   * function through THIS member, which is why it stays callable here.
    */
   onNodeClick?: (node: TreeNode) => void;
   /**

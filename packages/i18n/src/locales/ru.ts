@@ -3258,6 +3258,7 @@ const ru = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: 'Эту запись невозможно открыть',
     loadMore: 'Загрузить ещё',
     loadingMore: 'Загрузка…',
     loadedOf: 'Загружено {{loaded}} из {{total}}',

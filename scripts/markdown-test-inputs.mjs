@@ -497,6 +497,15 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/schema-reference-named-list-view-keys-7923.test.ts',
     { reads: ['content/docs/api/schema-reference.md'] },
   ],
+  // objectui#9522. Reads the zod README's own `typescript` fences and runs each
+  // worked example through the schema that fence names -- so an edit to that page
+  // IS an edit to this test's input, and a README-only pull request has to run
+  // the shard. Same relationship `readme-kanban-example-8256.test.ts` has to the
+  // root README, one page down.
+  [
+    'packages/types/src/__tests__/zod-readme-examples-9522.test.ts',
+    { reads: ['packages/types/src/zod/README.md'] },
+  ],
   [
     'packages/vscode-extension/src/__tests__/export-to-react-compiles.test.ts',
     {
@@ -674,6 +683,20 @@ export const ADJUDICATED = new Map([
     'scripts/__tests__/check-new-cross-file-line-citations.test.ts',
     {
       reads: ['content/docs/guide/ci-cd-pipeline.md'],
+    },
+  ],
+  // Reads no markdown: the three documents below are ARGUMENTS to a path
+  // predicate — `isPendingDeclaration` classifies a string and opens nothing.
+  // They are real paths on purpose (a synthetic one would prove nothing about
+  // the shapes the predicate has to decline), and permanent ones on purpose:
+  // the suite pins the gate that stops a test naming a file `changeset version`
+  // deletes, so naming a pending declaration here would make it an instance of
+  // its own subject (objectui#9583).
+  [
+    'scripts/__tests__/check-pending-changeset-literals.test.ts',
+    {
+      reads: [],
+      notRead: ['.changeset/README.md', 'CHANGELOG.md', 'packages/core/README.md'],
     },
   ],
   // Reads no markdown: reads workflow YAML and sources, no markdown.

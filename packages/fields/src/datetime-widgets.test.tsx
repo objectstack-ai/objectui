@@ -81,11 +81,27 @@ describe('Date/Time Widgets', () => {
         it('renders formatted datetime in readonly mode', () => {
             const val = '2023-01-01T12:00:00.000Z';
             render(<DateTimeField {...baseProps} readonly value={val} />);
+            // Since objectui#8209 the readonly face is `formatDateTime`'s
+            // DEFAULT (verbose) style — the form / detail register — not a
+            // `toLocaleDateString` + `toLocaleTimeString` pair with no options
+            // bag: `Jan 1, 2023, 12:00 PM` rather than `1/1/2023 12:00:00 PM`.
+            // The grid-cell register took `'compact'` instead; both faces are
+            // pinned in `datetime-widget-faces-8209.test.tsx`.
+            // No provider is mounted here, so the widget resolves the `'en'`
+            // last-resort tag; the expectation is built from that same tag, as
+            // the `DateField` case above does.
             const date = new Date(val);
-            const span = screen.getByText((content) => {
-                return content.includes(date.toLocaleDateString());
-            });
-            expect(span).toBeInTheDocument();
+            expect(
+                screen.getByText(
+                    date.toLocaleDateString('en', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                    }),
+                ),
+            ).toBeInTheDocument();
         });
     });
 

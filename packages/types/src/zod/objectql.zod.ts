@@ -517,7 +517,13 @@ export const ObjectViewSchema = BaseSchema.extend({
   // signature (`mode: 'view' | 'edit'` rather than the grid's `action?: string`)
   // and a different supplier. Judged separately for that reason.
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
-});
+})
+  // ⭐ objectui#8355 — the ONE thing this object judges about a named view, and
+  // ⛔ NOT a mirror of `listViews`. Declared and explained at
+  // `checkNamedViewCalendarAliases` below (a hoisted function declaration, so
+  // the forward reference resolves at module init and the body runs at parse
+  // time, long after the refusal arms it reads are built).
+  .check(checkNamedViewCalendarAliases);
 
 /**
  * User Filters — field-level filter option
@@ -815,11 +821,289 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
   groupBy: KanbanStrayGroupByRefusal,
 }).passthrough();
 
+/**
+ * THE TWO PRE-#2231 CALENDAR DATE ALIASES — DECLARED REFUSALS, BOTH FACES
+ * (objectui#8355, director-seat ruling of 2026-09-16, class-1 self-adjudication:
+ * "retire the aliases at both faces, now").
+ *
+ * `dateField` and `endField` are legacy objectui spellings of the calendar date
+ * axis the protocol spells `startDateField` / `endDateField`. Neither was ever a
+ * MEMBER of a calendar shape here: they rode `.passthrough()` on the two blocks
+ * below and `BaseSchema`'s own `.passthrough()` on the node, so an authored
+ * value was KEPT unexamined, flattened onto the generated `object-calendar` node
+ * by `ListView`'s calendar branch, and read by `ObjectCalendar`'s alias ladder.
+ *
+ * THE REFUSAL IS THE HALF THAT MAKES THE LADDER REMOVABLE, and the ruling says
+ * so in as many words. An earlier attempt (recorded on objectui#8651) removed
+ * the ladder while the producer kept spreading the alias, so the same documents
+ * stopped drawing and nothing said why — they fell through to `ObjectCalendar`'s
+ * generic "Calendar configuration required" screen, which names the canonical
+ * keys and says nothing about the key the author actually wrote. The tombstone
+ * is what turns that silence into a by-name refusal at the authoring door.
+ * ⛔ Do not remove one half without the other.
+ *
+ * ⚠️ THE CANONICAL TARGET IS objectui's, AND UPSTREAM ANSWERS DIFFERENTLY — but
+ * ⛔ NOT BECAUSE IT HOLDS A CONTRARY ALIAS ENTRY. This paragraph said "upstream's
+ * alias table points this spelling at the END of the event" and that was WRONG
+ * about the protocol; the corrected mechanism, re-derived by RUNNING the
+ * installed pin (`@objectstack/spec` 17.4.0) rather than reading it:
+ *
+ *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
+ *     `history` and NOTHING ELSE. There is no `aliases` entry, so upstream holds
+ *     no opinion at all about either spelling. ⭐ Lit control that the option
+ *     exists and is simply unused here: `GanttQuickFilterSchema`'s nested option
+ *     object, in that same generated module, DOES pass
+ *     `aliases: { text: 'label', title: 'label', … }`.
+ *   - the hint an author sees comes from `findClosestMatches` — a Levenshtein
+ *     near-miss suggester the refusal formatter falls back to, budgeted
+ *     `max(2, floor(key.length / 3))`. MEASURED against the four known keys:
+ *     `dateField` (length 9, budget 3) resolves to `endDateField`, which is 3
+ *     edits away, while `startDateField` is 5 and therefore out of budget;
+ *     `endField` (length 8, budget 2) reaches nothing, which is why it draws no
+ *     hint — and neither does a nonsense control key. ⭐ Positive control that
+ *     the suggester is alive and correct for what it is for: a genuine one-char
+ *     typo of the canonical key resolves to `startDateField`.
+ *
+ * ⇒ a generic typo-distance suggester picked the wrong sibling. It is not a
+ * declaration, it contradicts no declaration, and ⛔ no upstream text says
+ * `dateField` means the end of an event.
+ *
+ * The author-facing hazard is real all the same: an author who copies that hint
+ * writes `endDateField` and binds the END of an event to the date they meant as
+ * the START — accepted by every layer, wrong on screen. Every objectui read site
+ * folds this spelling onto the START: the ladder this card retires did,
+ * `normalizeListViewSchema`'s `timeline` fold does, `resolveTimelineDateBinding`
+ * documents it as "the pre-#2231 alias for `startDateField`", and this package
+ * has published "Deprecated alias for startDateField" on `TimelineConfig` for
+ * releases. So these arms name `startDateField`, and the remedy upstream needs
+ * is an explicit `aliases` (or `guidance`) entry for the two spellings so the
+ * suggester never answers for them. ⛔ Not fixed here — it is upstream's
+ * formatter, on upstream's card.
+ *
+ * ONE detail STEM, four installed arms, plus ONE consequence clause PER KEY.
+ * ⚠️ The per-key split is not tidiness: the two spellings fail DIFFERENTLY when
+ * left unrefused (see the clauses below), so a single shared consequence made
+ * the `endField` arms publish something that does not happen. The surface noun
+ * is quoted verbatim from the measurement above, which is what makes this face
+ * and the protocol's answer alike.
+ */
+const CALENDAR_DATE_ALIAS_STEM =
+  '`dateField` and `endField` are the pre-#2231 objectui spellings of the calendar date axis, '
+  + 'retired at both faces by objectui#8355. `@objectstack/spec` spells the axis `startDateField` '
+  + 'and `endDateField` only. ⚠️ This package accepted BOTH legacy spellings green until that '
+  + 'retirement — they rode a `.passthrough()` straight through `safeValidateSchema` into '
+  + '`ListView`\'s calendar branch, which flattened them onto the generated `object-calendar` node '
+  + 'where the renderer\'s alias ladder read them. That ladder is gone, so the key is refused here '
+  + 'instead of being kept and then ignored. ';
+
+/**
+ * WHERE THE AUTHORED VALUE LANDS, which is what decides the consequence clause.
+ *
+ *   - `'binding'` — the value reaches `ObjectCalendar` as a FLAT member of the
+ *     node. Every producer-fed surface is this: the view-level `calendar` block
+ *     and its legacy `options.calendar` twin, a named view's two nestings, and
+ *     the flat node face itself.
+ *   - `'container'` — the `object-calendar` element's OWN `calendar` container,
+ *     which `getCalendarConfig` reads FIRST and returns WHOLE rather than
+ *     lifting member by member.
+ */
+type CalendarAliasSurfaceKind = 'binding' | 'container';
+
+/**
+ * The consequence clause, PER KEY **and** PER SURFACE KIND.
+ *
+ * ⚠️ TWO ROUNDS OF THIS CARD PUT A FALSE SENTENCE IN AN AUTHOR'S HANDS, and
+ * both times the sentence was true somewhere and installed somewhere else.
+ * Round 2 split it per KEY after one clause published the `dateField` outcome on
+ * the `endField` arms; this is the per-SURFACE split, after the `dateField`
+ * clause turned out to be false on the container it was also installed on. ⇒ the
+ * way out is measuring every surface an arm is installed on, ⛔ not writing the
+ * prose more carefully. Re-measure this table when an arm is installed anywhere
+ * new.
+ *
+ * MEASURED on the head renderer, each row rendered and read, with both controls
+ * in the same pass (a canonical binding DRAWS; no binding at all REFUSES, so a
+ * "does not refuse" reading is never vacuous):
+ *
+ *   | authored                                  | screen                         |
+ *   | ----------------------------------------- | ------------------------------ |
+ *   | flat `dateField` alone                    | "Calendar configuration req…"  |
+ *   | `calendar: { dateField, titleField }`     | DRAWS, every record unscheduled|
+ *   | `calendar: { startDateField, endField }`  | DRAWS, event end dropped       |
+ *   | `calendar: { startDateField }`  (CONTROL) | DRAWS                          |
+ *   | no binding at all               (CONTROL) | "Calendar configuration req…"  |
+ *
+ * The container row is the one that broke the shared clause: `getCalendarConfig`
+ * returns `schema.calendar` WHOLE, so the config is not null, the refusal screen
+ * is never reached, and the calendar mounts with zero placeable events.
+ * `endField` reads the same on both kinds, so it keeps ONE clause — ⛔ not
+ * duplicated for symmetry's sake.
+ */
+const CALENDAR_DATE_ALIAS_CONSEQUENCE: Record<
+  'dateField' | 'endField',
+  Record<CalendarAliasSurfaceKind, string>
+> = {
+  dateField: {
+    binding:
+      'Write `startDateField` for the event start. Kept rather than refused, an authored '
+      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required. '
+      + 'Please specify startDateField and titleField.", a screen that names the canonical keys and '
+      + 'never the key you wrote.',
+    container:
+      'Write `startDateField` for the event start. Kept rather than refused, an authored '
+      + '`dateField` fails without even reaching that refusal screen: this container is read WHOLE, '
+      + 'so the calendar still mounts and simply places nothing — every record ends up under '
+      + '"Unscheduled" with no date to draw it on.',
+  },
+  endField: {
+    binding:
+      'Write `endDateField` for the event end. Kept rather than refused, an authored `endField` '
+      + 'fails even more quietly than its sibling: a calendar that also carries a start binding '
+      + 'still DRAWS, and only the end of every event is silently dropped.',
+    container:
+      'Write `endDateField` for the event end. Kept rather than refused, an authored `endField` '
+      + 'fails even more quietly than its sibling: a calendar that also carries a start binding '
+      + 'still DRAWS, and only the end of every event is silently dropped.',
+  },
+};
+
+/** The composed guidance one arm publishes, for one spelling, on one surface. */
+const calendarAliasDetail = (alias: 'dateField' | 'endField', surface: CalendarAliasSurfaceKind) =>
+  CALENDAR_DATE_ALIAS_STEM + CALENDAR_DATE_ALIAS_CONSEQUENCE[alias][surface];
+
+/**
+ * The two arms as a VIEW-level calendar block wears them — the list view's
+ * `calendar:` block below, its legacy `options.calendar` twin, and a named
+ * view's two nestings on `ObjectViewSchema`. Every one of those is producer-fed,
+ * so the authored value reaches the renderer as a flat node binding.
+ */
+const CalendarBlockDateAliasRefusals = {
+  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this calendar configuration', calendarAliasDetail('dateField', 'binding')),
+  endField: aliasKeyRefusal('endField', 'endDateField', 'this calendar configuration', calendarAliasDetail('endField', 'binding')),
+};
+
+/**
+ * The same two arms as the `object-calendar` ELEMENT'S OWN `calendar` CONTAINER
+ * wears them. ⚠️ Same surface noun as the view-level block above and a DIFFERENT
+ * consequence, which is the whole reason this is a third group rather than a
+ * reuse: `getCalendarConfig` reads this container FIRST and returns it WHOLE, so
+ * a retired spelling here never reaches the refusal screen the view-level
+ * clause names. Measured — see the consequence table.
+ */
+const CalendarContainerDateAliasRefusals = {
+  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this calendar configuration', calendarAliasDetail('dateField', 'container')),
+  endField: aliasKeyRefusal('endField', 'endDateField', 'this calendar configuration', calendarAliasDetail('endField', 'container')),
+};
+
+/**
+ * The same two arms as the `object-calendar` NODE wears them. This is the FLAT
+ * spelling `ListView` used to flatten the block into, and where the retired
+ * ladder actually read — a binding surface, so it takes the binding clause; only
+ * the surface noun differs from the view-level group.
+ */
+const CalendarNodeDateAliasRefusals = {
+  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this object-calendar node', calendarAliasDetail('dateField', 'binding')),
+  endField: aliasKeyRefusal('endField', 'endDateField', 'this object-calendar node', calendarAliasDetail('endField', 'binding')),
+};
+
+/**
+ * THE SECOND ROUTE'S READ DOOR — `ObjectViewSchema`'s named views (objectui#8355).
+ *
+ * `plugin-view`'s `generateViewSchema` is, in its own words, "the SECOND route
+ * to `ObjectCalendar`": it runs when no host supplied `renderListView`, so a
+ * named view never passes through `ListView` and nothing `ListViewSchema`
+ * declares reaches it. Its calendar branch used to end `...(viewOptions.calendar
+ * || {})`, flattening the authored block — including the two retired spellings —
+ * onto the `object-calendar` node. This card strips that spread; this check is
+ * the loud half, without which the strip would only make the failure CONSISTENT
+ * and still mute, which is the shape the ruling refuses.
+ *
+ * ## ⛔ WHY THIS IS NOT A MIRROR OF `listViews`, AND DOES NOT TOUCH THAT RULING
+ *
+ * `listViews` is unmirrored on purpose (the reading is on `ObjectViewSchema`
+ * above), and that ruling turns on the key's VALUE TYPE: neither the spec's
+ * strict `ObjectListViewSchema` nor the local `NamedListView` can be the
+ * declared value without losing documented behaviour or enforcing 43 unread
+ * members, so the key waits for the maintainer to decide that type — and ⛔ not
+ * `z.any()`.
+ *
+ * This check decides none of that. It declares no value type, puts no key in
+ * `.shape` (so the parity ledger's unmirrored reading is untouched), enforces
+ * none of the 43 unread members, requires no `columns`, and refuses no
+ * undeclared key or legacy `options` bag. It judges exactly the two spellings
+ * this card retires, at the two nestings the producer actually merges. Three
+ * SCOPE CONTROLS in `plugin-view`'s
+ * `ObjectView.calendarAliasRefused-8355.test.tsx` assert each of those
+ * non-effects, so a later edit that quietly grew this into a mirror goes red.
+ *
+ * The in-module precedent is `ListViewSchema.options`: an untyped bag that
+ * declares no member and still carries a `.check()` refusing `kanban.groupBy`
+ * (objectui#8365) and this card's two calendar spellings by name.
+ *
+ * ⚠️ A PREMISE THAT DIED ON CONTACT, recorded because it changes what this
+ * check is for. The gap here is NOT specific to the calendar and was NOT opened
+ * by this card: measured on the same instrument, a named view carrying the
+ * objectui#8365 stray `kanban.groupBy` is ACCEPTED, while the identical key on a
+ * `list-view` document is refused. Every alias refusal this module declares
+ * stops at `listViews`. What this card regressed on the object-view route is the
+ * BEHAVIOUR — a document that drew at the merge-base goes mute once the ladder
+ * is gone — and this check is what makes that failure loud. ⛔ It is not a
+ * general repair of the unmirrored key, and the kanban twin is still silent
+ * here; that belongs to objectui#8365's own text, not to this card.
+ *
+ * ⛔ Scoped to the TWO keys under `calendar`: `timeline.dateField` on a named
+ * view stays accepted (the timeline alias is live by ruling), and nothing else
+ * about a named view is judged.
+ */
+function checkNamedViewCalendarAliases(ctx: { value: unknown; issues: unknown[] }): void {
+  const doc = ctx.value as { listViews?: Record<string, unknown> } | undefined;
+  const named = doc?.listViews;
+  if (!named || typeof named !== 'object' || Array.isArray(named)) return;
+  const isBlock = (v: unknown): v is Record<string, unknown> =>
+    !!v && typeof v === 'object' && !Array.isArray(v);
+  for (const [viewKey, view] of Object.entries(named)) {
+    if (!isBlock(view)) continue;
+    // The two nestings `generateViewSchema` merges, in its own order: the
+    // canonical block wins key-by-key over the legacy `options` bag, and the
+    // file's own note says that bag "is where the legacy field aliases …
+    // `dateField` live". Refusing only one of them would leave exactly the
+    // stored population silent.
+    const nestings: Array<[Record<string, unknown> | undefined, string[]]> = [
+      [isBlock(view.calendar) ? view.calendar : undefined, ['listViews', viewKey, 'calendar']],
+      [
+        isBlock(view.options) && isBlock((view.options as Record<string, unknown>).calendar)
+          ? ((view.options as Record<string, unknown>).calendar as Record<string, unknown>)
+          : undefined,
+        ['listViews', viewKey, 'options', 'calendar'],
+      ],
+    ];
+    for (const [block, path] of nestings) {
+      if (!block) continue;
+      for (const alias of ['dateField', 'endField'] as const) {
+        const written = block[alias];
+        if (written === undefined) continue;
+        // ⛔ One string, read off the arm's own `.description`, so this door and
+        // the four declared ones cannot answer an author differently.
+        ctx.issues.push({
+          code: 'custom',
+          message: CalendarBlockDateAliasRefusals[alias].description as string,
+          input: written,
+          path: [...path, alias],
+        });
+      }
+    }
+  }
+}
+
 const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
   // objectui-only: the calendar renderer's initial view mode. No spec counterpart —
   // promote it rather than growing this extension. `'agenda'` was retired
   // (objectui#5784, following #5740): `CalendarView` renders no agenda view.
   defaultView: z.enum(['month', 'week', 'day']).optional().describe("Initial calendar view mode — 'month' | 'week' | 'day' ('agenda' was retired: objectui#5784)"),
+  // ⭐ The two named alias-refusal arms — objectui#8355. Declared above with the
+  // whole reading; ⛔ do not re-spell either message here, each has ONE source.
+  dateField: CalendarBlockDateAliasRefusals.dateField,
+  endField: CalendarBlockDateAliasRefusals.endField,
 }).passthrough();
 
 /**
@@ -882,6 +1166,15 @@ const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfig
   // and the lane. The renderer honours it in BOTH positions: this container and
   // the flat member of the node.
   allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
+  // ⭐ objectui#8355 — the same two spellings the view-level block above refuses,
+  // and deliberately NOT the same string: `getCalendarConfig` reads this
+  // container FIRST and returns it WHOLE, so a retired spelling here never
+  // reaches the refusal screen the view-level clause names — it mounts a
+  // calendar that places nothing. Measured per surface; see the consequence
+  // table. Leaving this nesting silent is the half-measure the objectui#8365
+  // precedent names and refuses.
+  dateField: CalendarContainerDateAliasRefusals.dateField,
+  endField: CalendarContainerDateAliasRefusals.endField,
 }).passthrough();
 
 /**
@@ -1039,14 +1332,40 @@ export const ListViewSchema = BaseSchema
       .check((ctx) => {
         const bag = ctx.value as Record<string, any> | undefined;
         const kanban = bag?.kanban;
-        if (!kanban || typeof kanban !== 'object' || Array.isArray(kanban)) return;
-        if ((kanban as Record<string, unknown>).groupBy === undefined) return;
-        ctx.issues.push({
-          code: 'custom',
-          message: KanbanStrayGroupByRefusal.description as string,
-          input: (kanban as Record<string, unknown>).groupBy,
-          path: ['kanban', 'groupBy'],
-        });
+        if (kanban && typeof kanban === 'object' && !Array.isArray(kanban)
+            && (kanban as Record<string, unknown>).groupBy !== undefined) {
+          ctx.issues.push({
+            code: 'custom',
+            message: KanbanStrayGroupByRefusal.description as string,
+            input: (kanban as Record<string, unknown>).groupBy,
+            path: ['kanban', 'groupBy'],
+          });
+        }
+        // ⭐ objectui#8355 — the SECOND key family that reaches into this bag,
+        // for the same reason and through the same door. `ListView` merges
+        // `{ ...options.calendar, ...calendar }` before it reads anything, and
+        // app-shell's `calendarViewOptions` forwards a view's declared block
+        // into THIS nesting — so a stored view carries the retired aliases here
+        // as readily as under the declared `calendar` slot. Same guidance
+        // strings, read off the arms' own `.description` so the two channels
+        // cannot drift, reported as `custom` at `options.calendar.<alias>` (the
+        // declared slot reports `invalid_type` at `calendar.<alias>` — two
+        // codes, one message, and the pin asserts both).
+        // ⛔ Scoped to the TWO keys: no other member of `options.calendar`, and
+        // nothing else under `options`, is judged here.
+        const calendar = bag?.calendar;
+        if (calendar && typeof calendar === 'object' && !Array.isArray(calendar)) {
+          for (const alias of ['dateField', 'endField'] as const) {
+            const written = (calendar as Record<string, unknown>)[alias];
+            if (written === undefined) continue;
+            ctx.issues.push({
+              code: 'custom',
+              message: CalendarBlockDateAliasRefusals[alias].description as string,
+              input: written,
+              path: ['calendar', alias],
+            });
+          }
+        }
       })
       .optional().describe('Component overrides (legacy)'),
     operations: z.object({
@@ -1525,6 +1844,14 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container — startDateField, endDateField, titleField, colorField (plus objectui\'s allDayField); read FIRST by getCalendarConfig, ahead of the flat spelling'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),
+  // ⭐ objectui#8355 — the FLAT spelling the retired ladder actually read, and
+  // the one position where an unrefused alias is worst: `BaseSchema` ends
+  // `.passthrough()`, so the key was KEPT, carried into the renderer, and — with
+  // the ladder gone — ignored. Declared and unwritable, it is refused BY NAME
+  // instead. `z.input` is `undefined`, so `../objectql.ts` carries the matching
+  // `?: never` twin and `tsc` refuses the key at the authoring site too.
+  dateField: CalendarNodeDateAliasRefusals.dateField,
+  endField: CalendarNodeDateAliasRefusals.endField,
   titleField: z.string().optional().describe('Title field'),
   // objectui#8466 — the last two members of the FLAT field-name face, which
   // `ObjectCalendar.tsx`'s `getCalendarConfig` reads bare off the node and

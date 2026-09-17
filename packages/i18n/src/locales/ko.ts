@@ -3244,6 +3244,7 @@ const ko = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: '이 레코드를 열 수 없습니다',
     loadMore: '더 보기',
     loadingMore: '로딩 중…',
     loadedOf: '{{total}}개 중 {{loaded}}개 로드됨',

@@ -123,8 +123,9 @@ describe('registrations whose options arrive by reference (objectui#9641)', () =
    * The MECHANISM is pinned over fixture trees in
    * `check-doc-component-types.test.ts` — `resolves a namespace passed by
    * SPREAD` and its neighbours for what the derivation READS, and the
-   * `reports options it cannot read` family for everything it refuses — which
-   * is where a pin can fail on the old derivation and pass on the new one.
+   * `reports options it cannot read` and `refuses a name` families for what it
+   * refuses — which is where a pin can fail on the old derivation and pass on
+   * the new one.
    * What belongs HERE is the live-tree consequence: these keys reach the
    * shipped list. The two halves are
    * deliberately separate — an assertion about key strings alone would also be

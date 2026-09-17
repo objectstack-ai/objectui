@@ -89,7 +89,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ListViewSchema, ObjectCalendarSchema } from '../zod/objectql.zod';
+import { ListViewSchema, ObjectCalendarSchema, ObjectViewSchema, ObjectQLComponentSchema } from '../zod/objectql.zod';
 import type { ListViewInferred } from '../zod/objectql.zod';
 import type { ObjectCalendarSchema as TsObjectCalendarSchema } from '../objectql';
 
@@ -253,6 +253,82 @@ describe('objectui#8355 · surfaces 3 and 4 — the `object-calendar` node', () 
   it('PASSTHROUGH CONTROL: an undeclared flat key still rides `BaseSchema`', () => {
     const ok = calendarNode({ startDateField: 'kickoff', [CONTROL_KEY]: 'x' });
     expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
+  });
+
+  it('⭐ the CONTAINER carries its OWN consequence clause, because the two surfaces fail differently', () => {
+    // ⚠️ THE PER-SURFACE PIN. The flat face lands as a node BINDING, so a
+    // retired `dateField` leaves the axis unbound and the renderer shows its
+    // refusal screen. The element's own container is read WHOLE by
+    // `getCalendarConfig`, so the config is never null, the refusal screen is
+    // never reached, and the calendar mounts placing nothing. Both were
+    // rendered and read; a shared clause published the first outcome on the
+    // second surface for two rounds of this card.
+    const flat = calendarNode({ dateField: 'kickoff' });
+    const flatMsg = flat.success
+      ? ''
+      : flat.error.issues.find((i) => i.path.join('.') === 'dateField')?.message ?? '';
+    expect(flatMsg).toContain('Calendar configuration required');
+    expect(flatMsg).not.toContain('Unscheduled');
+
+    const nested = calendarNode({ calendar: { dateField: 'kickoff' } });
+    const nestedMsg = nested.success
+      ? ''
+      : nested.error.issues.find((i) => i.path.join('.') === 'calendar.dateField')?.message ?? '';
+    expect(nestedMsg).toContain('Unscheduled');
+    expect(nestedMsg).not.toContain('Calendar configuration required');
+
+    // CONTROL: the two messages are otherwise the same string, so the split is
+    // a tail and not two unrelated sentences that can drift apart.
+    const stem = 'retired at both faces by objectui#8355';
+    expect(flatMsg).toContain(stem);
+    expect(nestedMsg).toContain(stem);
+  });
+
+  it('CONTROL: `endField` keeps ONE clause — it reads the same on both surfaces', () => {
+    // Measured: on the container AND on the flat face, an `endField` beside a
+    // start binding still DRAWS and only the event end is dropped. ⛔ Not
+    // duplicated for symmetry; if that ever diverges, this row is where it shows.
+    const flat = calendarNode({ startDateField: 'kickoff', endField: 'wrapup' });
+    const nested = calendarNode({ calendar: { startDateField: 'kickoff', endField: 'wrapup' } });
+    const msg = (r: typeof flat, path: string) =>
+      r.success ? '' : r.error.issues.find((i) => i.path.join('.') === path)?.message ?? '';
+    const tail = 'only the end of every event is silently dropped';
+    expect(msg(flat, 'endField')).toContain(tail);
+    expect(msg(nested, 'calendar.endField')).toContain(tail);
+  });
+});
+
+describe('objectui#8355 · surface 5 — a NAMED VIEW, and the ledger it must not disturb', () => {
+  it('⭐ `listViews` is STILL ABSENT from `ObjectViewSchema.shape` — the check is not a mirror', () => {
+    // THE STRUCTURAL GUARD for the unmirrored ruling. That ruling waits on the
+    // key's VALUE TYPE; the round-3 refusal is a `.check()` on the object, so it
+    // declares nothing and the key never enters the shape. If a later edit turns
+    // it into a member — of any type — this row reddens before the parity
+    // ledger has to notice.
+    const keys = Object.keys(ObjectViewSchema.shape);
+    expect(keys).not.toContain('listViews');
+    expect(keys, 'the shape is unreadable — the row above would pass vacuously').toContain('objectName');
+  });
+
+  it('the union still routes an `object-view`, and still refuses an unknown discriminator', () => {
+    // `.check()` on a discriminated-union arm is the one structural risk the
+    // round-3 mechanism carries, so it is asserted rather than assumed.
+    expect(ObjectQLComponentSchema.safeParse({ type: 'object-view', objectName: 'duly_task' }).success).toBe(true);
+    expect(ObjectQLComponentSchema.safeParse({ type: 'zzz-no-such-node' }).success).toBe(false);
+  });
+
+  it.each(RETIRED)('a named view authoring `calendar.%s` is refused through the union, naming `%s`', (alias, canonical) => {
+    const r = ObjectQLComponentSchema.safeParse({
+      type: 'object-view',
+      objectName: 'duly_task',
+      listViews: { v1: { type: 'calendar', calendar: { [alias]: 'kickoff' } } },
+    });
+    expect(r.success, `listViews.v1.calendar.${alias} still parses green`).toBe(false);
+    const issue = r.success
+      ? undefined
+      : r.error.issues.find((i) => i.path.join('.') === `listViews.v1.calendar.${alias}`);
+    expect(issue?.code).toBe('custom');
+    expect(issue?.message).toContain(`Did you mean \`${alias}\` → \`${canonical}\`?`);
   });
 });
 

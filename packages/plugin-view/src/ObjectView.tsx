@@ -1544,7 +1544,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(kanbanConditionalFormatting ? { conditionalFormatting: kanbanConditionalFormatting } : {}),
         };
       }
-      case 'calendar':
+      case 'calendar': {
         // objectui#7029: the SECOND route to `ObjectCalendar`. `generateViewSchema`
         // runs precisely when no host supplied `renderListView` — the authored
         // `object-view` element — so it never passes through `ListView`, and the
@@ -1554,6 +1554,28 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // screen unreachable (it decides by asking whether a start-date binding
         // is PRESENT). Ruled on objectstack#13748: ⛔ either way no invented field
         // names — so both routes forward only what the author declared.
+        //
+        // ⭐ objectui#8355 — AND IT FORWARDS THE CANONICAL KEYS ONLY. The trailing
+        // spread below used to carry the authored block RAW, so the retired
+        // `dateField` / `endField` spellings reached the generated node without
+        // this file ever naming them — the same blindness that let a text census
+        // of producers come back a confident zero on the first route
+        // (objectui#8651). `ListView`'s calendar branch strips them the same way.
+        //
+        // ⛔ STRIPPING IS ONLY THE QUIET HALF, and on its own it would make this
+        // route fail CONSISTENTLY and still mutely, which is the shape the
+        // ruling refuses. The loud half is the read door:
+        // `@object-ui/types`' `ObjectViewSchema` carries a `.check()` that
+        // refuses both spellings BY NAME under `listViews[*].calendar` and
+        // `listViews[*].options.calendar`, naming `startDateField` /
+        // `endDateField`. ⛔ Never land one half without the other.
+        //
+        // ⛔ Deliberately NOT folded onto the canonical keys: option A was put to
+        // the director seat and refused as the end state on the first route, and
+        // this route follows it rather than forking. The three reads above are
+        // already canonical-only.
+        const { dateField: _retiredDateField, endField: _retiredEndField, ...restCalendar } =
+          (viewOptions.calendar || {}) as Record<string, any>;
         return {
           type: 'object-calendar',
           ...baseProps,
@@ -1566,8 +1588,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(viewOptions.calendar?.titleField
             ? { titleField: viewOptions.calendar.titleField }
             : {}),
-          ...(viewOptions.calendar || {}),
+          ...restCalendar,
         };
+      }
       case 'gallery':
         return {
           type: 'object-gallery',

@@ -119,8 +119,48 @@ function measurement(result) {
  * @param {string} [options.runUrl]  link back to the workflow run that measured it
  * @returns {string} the comment body, opening with {@link MARKER}
  */
+/**
+ * The BORN-FALSE half (objectui#9509), rendered above the went-false half.
+ *
+ * Above it deliberately: this half is about the prose the reader is publishing
+ * RIGHT NOW, which is the one thing they can still change for free, and
+ * objectui#9509's triage ruling is that nothing later will ever turn it red.
+ */
+function bornFalseSection(rows) {
+  const lines = [
+    `## ⚠️ ${rows.length} address(es) in this pull request's own prose name a tree it replaced`,
+    '',
+    'Each was read from a tree **this change itself moves**, so a reader who follows it lands ' +
+      'somewhere else. ⛔ Nothing here blocks and nothing here says the sentence is false — the ' +
+      'question asked is arithmetic: does this diff move the line that number points at?',
+    '',
+  ];
+  for (const row of rows) {
+    const what =
+      row.verdict === 'unanchored'
+        ? `\`${row.file}\` is **added by this change**, so \`:${row.line}\` exists in no tree outside this pull request`
+        : row.movedTo === null || row.movedTo === undefined
+          ? `this change **rewrites** \`${row.file}:${row.line}\``
+          : `this change moves \`${row.file}:${row.line}\` to **\`:${row.movedTo}\`**`;
+    lines.push(`- in ${row.origin === 'the pull request body' ? 'this body' : `\`${row.origin}\``}, \`${row.span}\` — ${what}`);
+    if (row.sentence) lines.push('', `  > ${spellOutTags(row.sentence)}`);
+    lines.push('');
+  }
+  lines.push(
+    '⛔ **The repair is not to correct the number.** Changing `:246` to `:274` is true today and ' +
+      'born false again on the next insertion — objectui#9509 states that before anything else. ' +
+      '**Bind the number to the tree it was read from** (`` `:246` at `b8a006883d`, `:274` at this ' +
+      'head ``), which cannot re-stale because each number names its own tree; or state a **rule** ' +
+      'instead of a coordinate, the way objectui#9495 replaced a file count with "every file in ' +
+      '`git diff --name-only` against the merge base".',
+    '',
+  );
+  return lines;
+}
+
 export function renderClaimsComment(result = {}, { runUrl = '' } = {}) {
   const findings = Array.isArray(result.findings) ? result.findings : [];
+  const born = Array.isArray(result.bornFalse) ? result.bornFalse : [];
   const grouped = byChangeset(findings);
   const trailer = runUrl ? `\n\n${measurement(result)} · [run](${runUrl})\n` : `\n\n${measurement(result)}\n`;
 
@@ -129,21 +169,24 @@ export function renderClaimsComment(result = {}, { runUrl = '' } = {}) {
   // It has to exist all the same: a pull request that fixed the thing, or whose
   // diff moved off the named file, would otherwise keep a stale request to
   // re-read at the top of its thread forever.
-  if (grouped.size === 0) {
+  if (grouped.size === 0 && born.length === 0) {
     return (
       `${MARKER}\n\n` +
-      '## ✅ Nothing pending names a file this change touches\n\n' +
-      'An earlier revision of this pull request did. That request to re-read does **not** apply to ' +
-      'the current diff.\n\n' +
+      '## ✅ Nothing to re-read\n\n' +
+      'No pending changeset names a file this change touches, and no address in this pull ' +
+      "request's own prose points at a line this change moves. An earlier revision did. That " +
+      'request to re-read does **not** apply to the current diff.\n\n' +
       'This comment is updated in place on every re-run rather than posted again, so the thread ' +
       'does not grow one per push.' +
       trailer
     );
   }
 
-  const lines = [
-    MARKER,
-    '',
+  const lines = [MARKER, ''];
+  if (born.length > 0) lines.push(...bornFalseSection(born));
+  // ⛔ Never printed as an empty section: a heading over nothing reads as a
+  // measurement that came back clean, and this half may simply not have run.
+  if (grouped.size > 0) lines.push(
     `## ⚠️ ${grouped.size} pending changeset(s) describe a file this change touches`,
     '',
     'Their bodies publish **verbatim** into the CHANGELOG at the next release, so this is a ' +
@@ -155,7 +198,7 @@ export function renderClaimsComment(result = {}, { runUrl = '' } = {}) {
       'pending body names a file you touched. "Is this sentence still true?" is the one question ' +
       'it will not answer, and the one you are being asked to answer.',
     '',
-  ];
+  );
 
   let repaired = false;
   for (const [changeset, hits] of grouped) {
@@ -173,19 +216,24 @@ export function renderClaimsComment(result = {}, { runUrl = '' } = {}) {
     }
   }
 
+  if (grouped.size > 0) {
+    lines.push(
+      'Read the **paragraph**, not the line: both false halves of the objectui#8617 claim sat in ' +
+        'one paragraph, and correcting either alone would have left it asserting the same wrong ' +
+        'thing.',
+      '',
+      'If a claim did go false, **correct the body**. That is precedented and prose-only, ' +
+        'frontmatter untouched; `check-changeset-overwrite.mjs` will report the correction as its ' +
+        'own case 2 ("correcting a declaration on purpose … legitimate"), which is the intended ' +
+        'shape — one gate asks for the read, the other records the write.',
+      '',
+    );
+  }
   lines.push(
-    'Read the **paragraph**, not the line: both false halves of the objectui#8617 claim sat in ' +
-      'one paragraph, and correcting either alone would have left it asserting the same wrong ' +
-      'thing.',
-    '',
-    'If a claim did go false, **correct the body**. That is precedented and prose-only, ' +
-      'frontmatter untouched; `check-changeset-overwrite.mjs` will report the correction as its ' +
-      'own case 2 ("correcting a declaration on purpose … legitimate"), which is the intended ' +
-      'shape — one gate asks for the read, the other records the write.',
-    '',
-    'Not covered, stated so nobody reads this as more: a claim that was born false (a changeset ' +
-      'this change adds is excluded by construction), a claim spelled as a symbol or a package ' +
-      'rather than a backticked file name, and a file named ambiguously.',
+    'Not covered, stated so nobody reads this as more: a born-false claim that spells no line ' +
+      'address at all (objectui#9495 coordinated one by ORDINAL — "a grep finds that member ' +
+      'first" — and deciding that means reading what the sentence means), a claim spelled as a ' +
+      'symbol or a package rather than a backticked file name, and a file named ambiguously.',
   );
 
   // ⛔ Only when a span was ACTUALLY rewritten. A standing note about a repair

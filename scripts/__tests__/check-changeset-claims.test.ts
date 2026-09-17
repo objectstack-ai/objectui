@@ -5,7 +5,19 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { audit, namedFiles, paragraphNaming, resolveNamed, treeIndex } from '../check-changeset-claims.mjs';
+import {
+  BORN_FALSE_VERDICTS,
+  audit,
+  evaluateBornFalseControls,
+  judgeAddress,
+  lineAddresses,
+  mapLine,
+  namedFiles,
+  paragraphNaming,
+  resolveNamed,
+  sentenceAround,
+  treeIndex,
+} from '../check-changeset-claims.mjs';
 
 /**
  * objectui#9003 — a pending changeset's prose is judged by nothing.
@@ -30,8 +42,10 @@ import { audit, namedFiles, paragraphNaming, resolveNamed, treeIndex } from '../
  *     file left alone — so a green can never come from the gate looking at
  *     nothing.
  *  3. **The exclusions are deliberate, not accidents.** A changeset this change
- *     ADDS is never reported (which is also why the gate is blind to a BORN
- *     FALSE claim — objectui#8759 — and that limit is pinned as a limit). A
+ *     ADDS is never reported BY THE WENT-FALSE HALF. ⚠️ That is no longer the
+ *     same sentence as "the gate is blind to BORN FALSE": objectui#9509 added a
+ *     second reading with its own corpus and its own coordinate, and section 6
+ *     below pins it. The exclusion itself is unchanged and still load-bearing. A
  *     changeset declaring no bump is never reported: its body never publishes.
  *     An ambiguously-named file is never reported: a span resolving to many
  *     files names none of them.
@@ -158,11 +172,20 @@ interface Run {
  * anyway, so this is what a reader actually gets.
  */
 function runGate(root: string, args: string[] = [], env: Record<string, string> = {}): Run {
+  // ⚠️ EVERY case decides its own corpus. `GITHUB_EVENT_PATH` is exported to every
+  // process on a runner, and the gate reads it when `--pr-body` is absent — so an
+  // inherited environment fed the gate under test the REAL pull request body of
+  // whatever build was running, in a temp repository that has nothing to do with
+  // it (objectui#9509, patch round 1: measured, off by exactly one body). The
+  // cases that did not redden survived it by luck, not by hermeticity, so it is
+  // stripped here for all of them rather than at the two that noticed. A case
+  // that WANTS the variable sets it back through `env`.
+  const { GITHUB_EVENT_PATH: _inherited, ...hermetic } = process.env;
   const run = spawnSync('node', [path.join(repoRoot, GATE), '--root', root, ...args], {
     cwd: repoRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, ...env },
+    env: { ...hermetic, ...env },
   });
   return { status: run.status ?? -1, output: `${run.stdout ?? ''}${run.stderr ?? ''}` };
 }
@@ -339,14 +362,23 @@ describe('a changeset THIS change adds', () => {
   fixture.commit('fix(alpha): rewrite untouched');
   const run = runGate(fixture.root, lastCommitRange(fixture));
 
-  it('is never reported — and that is the BORN-FALSE blind spot, pinned as a limit', () => {
-    // objectui#8759 was born false: authored against the merge base while
-    // describing the head. Excluding a change's own changesets is what makes the
-    // gate readable at all (they name their own files by construction), and it
-    // is exactly why this gate cannot see that sub-shape. It says so in its own
-    // output rather than letting a reader assume coverage.
+  it('is never reported by the WENT-FALSE half — the exclusion that keeps it readable', () => {
+    // Excluding a change's own changesets is what makes that half readable at
+    // all: they name their own files by construction, so it would fire on
+    // nearly every change here. objectui#9509 ⛔ did not relax this — it took
+    // those same bodies on a different coordinate (section 6).
     expect(run.output).toContain('No pending changeset names a file this change touches');
     expect(run.status).toBe(0);
+  });
+
+  it('⛔ reports a corpus it read but could not judge as neither clean nor a finding', () => {
+    // This fixture's own changeset IS in the born-false corpus and spells no
+    // line address. "Read, but nothing to judge" and "every address checked
+    // out" are different answers, and one tick for both teaches the reader to
+    // skim the tick.
+    expect(run.output).toContain('Corpus: 1 body(ies)');
+    expect(run.output).toContain('Read, but nothing to judge');
+    expect(run.output).not.toContain('either names the tree it was read');
   });
 });
 
@@ -395,6 +427,20 @@ describe('a file the change DELETES', () => {
     expect(run.output).toContain('.changeset/6794-declared-default.md');
     expect(run.output).toContain('THIS CHANGE LEAVES NO SUCH FILE');
     expect(run.status).toBe(0);
+  });
+
+  it('⛔ no longer prints that a born-false claim is outside the gate entirely', () => {
+    // ⚠️ THE CARRIER INVERTED, so a bare count of the words "BORN false" across
+    // this landing proves nothing — the phrase survives in both trees. What
+    // changed is what the sentence SAYS. The footer used to name born-false as a
+    // whole class the gate cannot see ("a changeset this change adds is excluded
+    // by construction"); it now names the ONE born-false shape still out of
+    // reach — an ordinal claim spelling no line address — and the section above
+    // it reads the rest. This is asserted on a run that HAS went-false findings,
+    // because that footer prints nowhere else.
+    expect(run.output).not.toContain('A changeset this change adds is excluded by construction');
+    expect(run.output).toContain('A born-false claim carrying no LINE ADDRESS');
+    expect(run.output).toContain('Born false — claims this change publishes about a tree it replaced');
   });
 });
 
@@ -621,5 +667,384 @@ describe('--json, the hand-off the pull request comment is rendered from', () =>
     ]);
     expect(broken.status).toBe(0);
     expect(broken.output).toContain('Could not write');
+  });
+});
+
+// ── 6. the BORN-FALSE reading (objectui#9509) ────────────────────────────────
+
+/**
+ * objectui#9509: a claim written against the MERGE BASE while describing the
+ * HEAD, falsified by the diff's OWN insertion. It fails worse than went-false —
+ * it is false at the moment of publication, and ⛔ no later event will ever turn
+ * it red.
+ *
+ * The geometry every case below uses is objectui#9496's, because that pull
+ * request published the arithmetic independently of this file: its body and the
+ * docblock it landed both state `:246`@`b8a006883d` = `:274`@head. ⇒ 274 is
+ * attested OUTSIDE this test and cannot be quietly re-derived to match a mapper
+ * that drifts.
+ */
+describe('mapLine — where this change moves a base line', () => {
+  // `@@ -220,0 +221,28 @@` then `@@ -223 +251 @@`, measured on 8700d6d93.
+  const hunks = [
+    { oldStart: 220, oldCount: 0, newCount: 28 },
+    { oldStart: 223, oldCount: 1, newCount: 1 },
+  ];
+
+  it('reproduces the figure objectui#9496 published: :246 at the base is :274 at the head', () => {
+    expect(mapLine(hunks, 246)).toBe(274);
+  });
+
+  it('reports a rewritten line as gone rather than as some other number', () => {
+    // Base `:223` IS the line the repair rewrites. Returning 251 for it would be
+    // the worst possible answer: a number that resolves, to the wrong thing.
+    expect(mapLine(hunks, 223)).toBeNull();
+  });
+
+  it('leaves the insertion point itself alone — the off-by-one that would fake a finding', () => {
+    // git spells a pure insertion as "after old line 220", so 220 is untouched
+    // and 221 is not. An implementation that moved 220 would report stable
+    // citations as displaced, which is the false positive this reading can
+    // least afford on a report-only channel.
+    expect(mapLine(hunks, 220)).toBe(220);
+    expect(mapLine(hunks, 221)).toBe(249);
+  });
+
+  it('leaves a line above every hunk where it is', () => {
+    expect(mapLine(hunks, 100)).toBe(100);
+  });
+});
+
+describe('lineAddresses — what counts as an address, and what binds it', () => {
+  const resolve = (span: string): string | null =>
+    span.includes('imported-defaults.ts') ? 'packages/types/src/zod/imported-defaults.ts' : null;
+
+  it('binds a bare `:246` to the file named earlier in ITS paragraph', () => {
+    // Both carded instances were written this way. Reading `:246` without that
+    // binding would turn every port number and every `key: 246` into a citation.
+    const rows = lineAddresses('The shape recurs in `imported-defaults.ts`: `:223` and `:246`.', resolve);
+    expect(rows.map((r) => r.line)).toEqual([223, 246]);
+    expect(rows.every((r) => r.file.endsWith('imported-defaults.ts'))).toBe(true);
+  });
+
+  it('⛔ never carries that binding across a blank line into somebody else\'s subject', () => {
+    const rows = lineAddresses('See `imported-defaults.ts` for the walker.\n\nThe frame is at `:246`.', resolve);
+    expect(rows).toEqual([]);
+  });
+
+  it('reads the sha binding per SENTENCE, ⛔ not per paragraph', () => {
+    // THE load-bearing choice. objectui#9496's §2 paragraph names a sha, and a
+    // paragraph-wide window would have exempted the very claim the card is
+    // about. A sha three sentences away binds nothing.
+    const bound = lineAddresses('At `b8a006883d` the shape recurs in `imported-defaults.ts`: `:246`.', resolve);
+    expect(bound[0].bound).toBe(true);
+
+    const adrift = lineAddresses(
+      'The repair landed at `b8a006883d`. The shape recurs in `imported-defaults.ts`: `:246`.',
+      resolve,
+    );
+    expect(adrift[0].bound).toBe(false);
+  });
+
+  it('accepts `at this head` as a binding — it names a tree as definitely as a sha', () => {
+    const rows = lineAddresses('At this head `imported-defaults.ts:274` is the tuple arm.', resolve);
+    expect(rows[0].bound).toBe(true);
+  });
+
+  it('⛔ does not read a bare decimal as a sha', () => {
+    // `12345678` is a number. Accepting it would let any figure in a sentence
+    // silence every address beside it.
+    const rows = lineAddresses('Run 12345678 read `imported-defaults.ts:246` as the tuple arm.', resolve);
+    expect(rows[0].bound).toBe(false);
+  });
+
+  it('keeps a column and a range, because the FIRST number is the one that moves', () => {
+    const rows = lineAddresses(
+      'The frame is `imported-defaults.ts:281:75` and the arm is `imported-defaults.ts:221-228`.',
+      resolve,
+    );
+    expect(rows.map((r) => r.line)).toEqual([281, 221]);
+  });
+
+  it('drops a spelling that resolves to no tracked file — it names nothing definite', () => {
+    expect(lineAddresses('The frame is at `…9088:189:7`.', resolve)).toEqual([]);
+  });
+});
+
+describe('sentenceAround', () => {
+  it('stops at the sentence boundary rather than running to the paragraph end', () => {
+    const paragraph = 'First at `abc1234`. Second cites `:246`. Third.';
+    expect(sentenceAround(paragraph, paragraph.indexOf('`:246`'))).not.toContain('abc1234');
+  });
+});
+
+describe('judgeAddress — the arithmetic, never the meaning', () => {
+  const hunks = [{ oldStart: 220, oldCount: 0, newCount: 28 }];
+  const address = { file: 'a.ts', line: 246, bound: false };
+
+  it('reports a moved line in a file this change MODIFIES', () => {
+    const verdict = judgeAddress(address, () => 'modified', () => hunks);
+    expect(verdict).toEqual({ verdict: 'moved', movedTo: 274 });
+    expect(BORN_FALSE_VERDICTS.has(verdict.verdict)).toBe(true);
+  });
+
+  it('reports any address into a file this change ADDS as unanchored', () => {
+    // Instance 1's shape: the frame moved TWICE, between revisions of one
+    // branch. There is no tree outside the pull request in which that number can
+    // be read, so binding it is the only thing that can make it durable.
+    const verdict = judgeAddress(address, () => 'added', () => hunks);
+    expect(verdict.verdict).toBe('unanchored');
+  });
+
+  it('⛔ says nothing about a file this change does not touch', () => {
+    // That address may well be false, but nothing about THIS diff made it so.
+    // It is the citation census's population (`check-new-cross-file-line-citations.mjs`)
+    // and ⛔ not this one's — one reader per population.
+    expect(judgeAddress(address, () => null, () => hunks).verdict).toBe('untouched');
+  });
+
+  it('⛔ says nothing about an address bound to the tree it was read from', () => {
+    // The durable form. A gate that reported it would be teaching authors to
+    // unbind, which is the opposite of what objectui#9509 asks for.
+    const verdict = judgeAddress({ ...address, bound: true }, () => 'modified', () => hunks);
+    expect(verdict.verdict).toBe('anchored');
+  });
+
+  it('distinguishes a stable line from a moved one — without this it is an absolute count', () => {
+    expect(judgeAddress({ ...address, line: 100 }, () => 'modified', () => hunks).verdict).toBe('stable');
+  });
+});
+
+describe('the born-false controls', () => {
+  it('all pass against objectui#9496\'s own geometry', () => {
+    const failures = evaluateBornFalseControls().filter((control) => !control.ok);
+    expect(failures.map((f) => `${f.id}: ${f.detail}`)).toEqual([]);
+  });
+
+  it('CAN fail — a judge that lies is caught rather than passed', () => {
+    // ⭐ The firing control on the controls. A suite that cannot be made to fail
+    // is decoration, and a differential reader that reports zero because its
+    // differ broke is indistinguishable from prose with nothing wrong in it.
+    const lying = (): { verdict: string; movedTo: null } => ({ verdict: 'stable', movedTo: null });
+    const failed = evaluateBornFalseControls(lying).filter((control) => !control.ok);
+    expect(failed.map((f) => f.id)).toEqual([
+      'unbound-address-into-a-line-this-diff-moves',
+      'an-address-into-a-file-this-change-adds-is-unanchored',
+    ]);
+  });
+
+  it('keeps BOTH directions — a control suite that only ever fires proves nothing', () => {
+    const controls = evaluateBornFalseControls();
+    expect(controls.filter((c) => c.detail === '(silent)').length).toBeGreaterThan(0);
+    expect(controls.filter((c) => c.detail !== '(silent)').length).toBeGreaterThan(0);
+  });
+});
+
+describe('end to end — a pull request body read against its own diff', () => {
+  const fixture = fixtureRepo('born-false');
+  // 20 lines, so a citation into the middle of it has somewhere to be moved to.
+  fixture.write(
+    'packages/alpha/src/walker.ts',
+    Array.from({ length: 20 }, (_, i) => `export const step${i + 1} = ${i + 1};\n`).join(''),
+  );
+  fixture.commit('feat(alpha): the walker');
+  // The change under test INSERTS above the cited line, exactly as objectui#9496
+  // did, and adds a brand-new file.
+  fixture.write(
+    'packages/alpha/src/walker.ts',
+    '// inserted\n// inserted\n// inserted\n' +
+      Array.from({ length: 20 }, (_, i) => `export const step${i + 1} = ${i + 1};\n`).join(''),
+  );
+  fixture.write('packages/alpha/src/brand-new.ts', 'export const fresh = 1;\n');
+  const head = fixture.commit('feat(alpha): insert above the cited line');
+  const base = fixture.git('rev-parse', 'HEAD~1');
+
+  const bodyFile = path.join(fixture.root, 'body.md');
+  fs.writeFileSync(
+    bodyFile,
+    'The subject is `walker.ts:10`.\n\n' +
+      `At \`${base}\` the subject is \`walker.ts:10\`.\n\n` +
+      'The new pin is `brand-new.ts:1`.\n\n' +
+      'Untouched: `reconciliation.test.ts:1`.\n',
+  );
+  const run = runGate(fixture.root, ['--base', base, '--head', head, '--pr-body', bodyFile]);
+
+  it('reports the unbound address the diff moved, and says where it went', () => {
+    expect(run.output).toContain('this change moves packages/alpha/src/walker.ts:10 to :13');
+  });
+
+  it('reports an address into a file this change ADDS as having no tree outside the pull request', () => {
+    expect(run.output).toContain('exists in no tree outside this pull request');
+  });
+
+  it('⛔ stays silent on the same address bound to a sha — the discrimination', () => {
+    // ⛔ A checker that flags everything is not a checker. Four addresses were
+    // read; two were reported. Both halves of that split are the measurement.
+    expect(run.output).toContain('Line addresses read in them: 4');
+    expect(run.output).toContain('2 address(es) in the prose this change publishes');
+  });
+
+  it('⛔ stays silent on an address into a file this change does not touch', () => {
+    expect(run.output).not.toContain('reconciliation.test.ts:1');
+  });
+
+  it('asks for the number to be BOUND, ⛔ never for it to be corrected', () => {
+    // The card states this before anything else: correcting `:246` to `:274`
+    // produces a claim that is true today and born false again on the next
+    // insertion. ⇒ the instruction has to be the durable form, or the gate
+    // manufactures the next instance.
+    expect(run.output).toContain('BIND THE NUMBER TO THE TREE IT WAS READ FROM');
+    expect(run.output).toContain('not an instruction to');
+  });
+
+  it('is REPORT-ONLY — findings do not fail the run', () => {
+    expect(run.status).toBe(0);
+  });
+});
+
+describe('the floor under the born-false census', () => {
+  const fixture = fixtureRepo('born-false-floor');
+  fixture.write('packages/alpha/src/untouched.ts', 'export const untouched = 2;\n');
+  fixture.commit('chore(alpha): touch a file, publish no prose');
+  const run = runGate(fixture.root, lastCommitRange(fixture));
+
+  it('⛔ never reports an empty corpus as clean', () => {
+    // A merge_group build has no pull request body, and a change may add no
+    // changeset. Reading NOTHING and printing a tick would be reporting "this
+    // change publishes no false claim" on a run that read no prose at all
+    // (objectstack#4928).
+    expect(run.output).toContain('Corpus: 0 body(ies)');
+    expect(run.output).toContain('NOT a clean verdict');
+    expect(run.output).toContain('measured NOTHING');
+  });
+
+  it('⛔ does not print the all-clear line it prints when it DID read prose', () => {
+    expect(run.output).not.toContain('either names the tree it was read');
+  });
+});
+
+describe('the corpus is the prose this change publishes about itself', () => {
+  it('reads the pull request body from the event payload the job already receives', () => {
+    // ⛔ No new workflow, no new required context, no new permission and no API
+    // call: `GITHUB_EVENT_PATH` is a file on the runner, and
+    // `check-governed-queue-guard.mjs` already reads it the same way.
+    const gate = fs.readFileSync(path.join(repoRoot, GATE), 'utf8');
+    expect(gate).toContain('GITHUB_EVENT_PATH');
+    expect(gate).toContain('pull_request?.body');
+  });
+
+  it('⛔ does not take the tree at large — that population has a reader already', () => {
+    // A citation written into an ordinary source file is
+    // `check-new-cross-file-line-citations.mjs`'s differential population. Two
+    // readers over one population is how two answers start disagreeing.
+    expect(fs.existsSync(path.join(repoRoot, 'scripts/check-new-cross-file-line-citations.mjs'))).toBe(true);
+    const gate = fs.readFileSync(path.join(repoRoot, GATE), 'utf8');
+    expect(gate).toContain('check-new-cross-file-line-citations.mjs');
+  });
+
+  it('delivers a born-false-only finding instead of leaving it in the job log', () => {
+    // objectui#9140 measured the job-log channel at zero answers out of four.
+    // The comment step decides whether to post from the finding COUNT, so a run
+    // whose only finding is born-false has to be counted there too.
+    expect(workflowYaml).toContain('measured.findings.length + (measured.bornFalse ?? []).length');
+  });
+});
+
+describe('the boundary control the first ablation of this change exposed', () => {
+  it('catches the off-by-one that the other four controls all pass', () => {
+    // ⚠️ MEASURED, not anticipated. The first ablation of this change mutated
+    // `line <= hunk.oldStart` to `line <`, and the pin in section 6 went red
+    // while ALL FOUR of the gate's own controls stayed green — so the gate
+    // would have reported "instrument fine" while silently marking every stable
+    // citation at an insertion point as moved. A control suite that cannot see
+    // the mutation its own unit tests can see is not a self-check.
+    const ids = evaluateBornFalseControls().map((control) => control.id);
+    expect(ids).toContain('the-insertion-point-itself-does-not-move');
+    expect(evaluateBornFalseControls().every((control) => control.ok)).toBe(true);
+  });
+});
+
+// ── 7. the corpus may not be AMBIENT (objectui#9509, patch round 1) ──────────
+
+/**
+ * ⭐ Found by this file's own empty-corpus floor, in CI, ⛔ not by review.
+ *
+ * `GITHUB_EVENT_PATH` is exported to every process on a runner. The gate reads
+ * it when `--pr-body` is absent, so a run against a throwaway fixture repository
+ * picked up the REAL pull request body of the build that happened to be running
+ * and counted it as "the prose this change publishes about itself" — off by
+ * exactly one body. The floor whose whole job is "this run measured NOTHING"
+ * slid up to the next floor instead. ⇒ the reading built to be unfakeable was
+ * being fed by the environment.
+ *
+ * The repair is a predicate about the TREE rather than about how the process was
+ * launched: the payload names `pull_request.head.sha`, and a tree that cannot
+ * resolve that commit is not the tree the event is about.
+ */
+describe('an event payload from another tree', () => {
+  const fixture = fixtureRepo('ambient-corpus');
+  fixture.write('packages/alpha/src/untouched.ts', 'export const untouched = 3;\n');
+  fixture.commit('chore(alpha): touch a file, publish no prose');
+
+  // A payload shaped exactly like a real one, naming a head this tree cannot
+  // have. `.json`, ⛔ never `.md`: a markdown literal here would become a
+  // candidate for the ledger in `scripts/markdown-test-inputs.mjs`.
+  const foreign = path.join(fixture.root, 'foreign-event.json');
+  fs.writeFileSync(
+    foreign,
+    JSON.stringify({
+      pull_request: { number: 4242, head: { sha: '0'.repeat(40) }, body: 'The frame is at `untouched.ts:1`.' },
+    }),
+  );
+  const run = runGate(fixture.root, lastCommitRange(fixture), { GITHUB_EVENT_PATH: foreign });
+
+  it('is ⛔ ignored, and the run says so rather than counting it', () => {
+    expect(run.output).toContain('THIS TREE DOES NOT CARRY');
+    expect(run.output).not.toContain('The frame is at');
+  });
+
+  it('leaves the empty-corpus floor standing — BOTH halves of it', () => {
+    // ⚠️ The control the patch round set, reasoned before it was read: a run
+    // that prints `Corpus: 0` while having silently skipped the section is the
+    // same lie one level down. Both, ⛔ never either.
+    expect(run.output).toContain('Corpus: 0 body(ies)');
+    expect(run.output).toContain('NOT a clean verdict');
+    expect(run.output).toContain('measured NOTHING');
+  });
+
+  it('⛔ does not move the five born-false controls, which are hermetic by construction', () => {
+    // If ANY of them moved when the environment changed, the hermeticity claim in
+    // the gate's own docblock would be false — and that, not the test, would be
+    // the finding.
+    expect(run.output.match(/^\s+PASS\s/gm)?.length).toBe(5);
+    expect(run.output).not.toMatch(/^\s+FAIL\s/m);
+  });
+});
+
+describe('an event payload for THIS tree', () => {
+  const fixture = fixtureRepo('carried-corpus');
+  fixture.write('packages/alpha/src/walker.ts', Array.from({ length: 12 }, (_, i) => `export const s${i} = ${i};\n`).join(''));
+  fixture.commit('feat(alpha): the walker');
+  fixture.write(
+    'packages/alpha/src/walker.ts',
+    '// inserted\n// inserted\n' + Array.from({ length: 12 }, (_, i) => `export const s${i} = ${i};\n`).join(''),
+  );
+  const head = fixture.commit('feat(alpha): insert above the cited line');
+  const base = fixture.git('rev-parse', 'HEAD~1');
+
+  const payload = path.join(fixture.root, 'event.json');
+  fs.writeFileSync(
+    payload,
+    JSON.stringify({ pull_request: { number: 1, head: { sha: head }, body: 'The subject is `walker.ts:6`.' } }),
+  );
+  const run = runGate(fixture.root, ['--base', base, '--head', head], { GITHUB_EVENT_PATH: payload });
+
+  it('IS read — the mechanism the whole no-new-workflow design rests on still works', () => {
+    // ⛔ The repair must not throw the mechanism away to silence the tests. The
+    // pull request body is where two of the three carded instances lived, and
+    // the event payload is the only way to reach it without a new workflow.
+    expect(run.output).toContain('carried by this tree');
+    expect(run.output).toContain('Corpus: 1 body(ies)');
+    expect(run.output).toContain('this change moves packages/alpha/src/walker.ts:6 to :8');
   });
 });

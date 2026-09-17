@@ -206,7 +206,12 @@ describe('an empty finding set', () => {
     // The inversion this pins is objectui#3152's in this gate's costume:
     // rendering "not measured" or "nothing found" as a finding is how a channel
     // gets muted — and this channel was just un-muted by ruling.
-    expect(body).toContain('Nothing pending names a file this change touches');
+    // ⚠️ The resolved body now speaks for BOTH halves (objectui#9509): a stale
+    // request at the top of a thread is as misleading about the born-false half
+    // as about the went-false one.
+    expect(body).toContain('Nothing to re-read');
+    expect(body).toContain('No pending changeset names a file this change touches');
+    expect(body).toContain("no address in this pull request's own prose");
     expect(body).not.toContain('pending changeset(s) describe a file');
     expect(body).not.toContain('⚠️');
   });
@@ -243,5 +248,103 @@ describe('the hand-off from the gate', () => {
 
   it('refuses a hand-off that is not there at all', () => {
     expect(() => renderFromFile(path.join(os.tmpdir(), 'absent-claims-hand-off.json'), {})).toThrow();
+  });
+});
+
+// ── the born-false half (objectui#9509) ──────────────────────────────────────
+
+describe('the born-false section', () => {
+  const moved = {
+    origin: 'the pull request body',
+    span: ':246',
+    file: 'packages/types/src/zod/imported-defaults.ts',
+    line: 246,
+    verdict: 'moved',
+    movedTo: 274,
+    sentence: 'The shape recurs exactly twice: `:223` and `:246`.',
+  };
+  const unanchored = {
+    // ⛔ A name no committed declaration can wear. `pnpm changeset` generates
+    // `adjective-animal-verb` and this repository commits an issue-number-and-slug
+    // name, so a `fixture-` prefix belongs to neither namespace — and the file does
+    // not exist, so `scripts/markdown-test-inputs.mjs` never offers it as a ledger
+    // candidate. Naming a LIVE pending declaration here made `changeset:version`
+    // delete the thing a ledger entry pointed at, and reddened the release lane days
+    // later (objectui#9583).
+    origin: '.changeset/fixture-born-false-origin.md',
+    span: 'pin.test.ts:281',
+    file: 'packages/types/src/__tests__/pin.test.ts',
+    line: 281,
+    verdict: 'unanchored',
+    movedTo: null,
+    sentence: 'The deep-clean control is at `pin.test.ts:281`.',
+  };
+
+  it('is rendered even when NO pending changeset names anything', () => {
+    // The two halves are independent. A born-false-only run must still produce
+    // a body, or the half nothing later will ever turn red is delivered to the
+    // job log objectui#9140 measured at zero answers out of four.
+    const body = renderClaimsComment({ findings: [], bornFalse: [moved] });
+    expect(body).toContain("address(es) in this pull request's own prose name a tree it replaced");
+    expect(body).not.toContain('Nothing to re-read');
+  });
+
+  it('says where the number went, rather than only that it is wrong', () => {
+    const body = renderClaimsComment({ findings: [], bornFalse: [moved] });
+    expect(body).toContain('to **`:274`**');
+  });
+
+  it('names an added file as having no tree outside the pull request', () => {
+    const body = renderClaimsComment({ findings: [], bornFalse: [unanchored] });
+    expect(body).toContain('added by this change');
+    expect(body).toContain('exists in no tree outside this pull request');
+  });
+
+  it('⛔ asks for the number to be BOUND, never for it to be corrected', () => {
+    // Correcting `:246` to `:274` is true today and born false again on the
+    // next insertion. A comment that asked for the correction would manufacture
+    // the next instance of the class it reports.
+    const body = renderClaimsComment({ findings: [], bornFalse: [moved] });
+    expect(body).toContain('The repair is not to correct the number');
+    expect(body).toContain('Bind the number to the tree it was read from');
+  });
+
+  it('⛔ prints no went-false heading when that half found nothing', () => {
+    // A heading over an empty list reads as a measurement that came back clean.
+    const body = renderClaimsComment({ findings: [], bornFalse: [moved] });
+    expect(body).not.toContain('pending changeset(s) describe a file');
+  });
+
+  it('repairs tag-shaped spans in the quoted sentence too', () => {
+    // GitHub deletes tag-shaped fragments from a stored body, and this half
+    // quotes prose that was never written for this channel either.
+    const body = renderClaimsComment({
+      findings: [],
+      bornFalse: [{ ...moved, sentence: 'The frame is in `FieldWidgetProps<T>` at `:246`.' }],
+    });
+    expect(body).toContain('ANGLE-BRACKETS(T)');
+    expect(body).not.toContain('<T>');
+  });
+
+  it('renders both halves together, born-false first', () => {
+    const body = renderClaimsComment({
+      findings: [{ changeset: '.changeset/a.md', span: 'x.ts', file: 'packages/alpha/src/x.ts', severity: 'edited', paragraph: 'p' }],
+      bornFalse: [moved],
+    });
+    expect(body.indexOf("this pull request's own prose")).toBeLessThan(
+      body.indexOf('pending changeset(s) describe a file'),
+    );
+  });
+
+  it('opens with the marker whichever halves fired', () => {
+    // The workflow finds its own earlier comment by the FIRST LINE of the body
+    // it is about to post. A body that opened with a section heading instead
+    // would stack one comment per push.
+    for (const result of [
+      { findings: [], bornFalse: [moved] },
+      { findings: [], bornFalse: [] },
+    ]) {
+      expect(renderClaimsComment(result).split('\n', 1)[0]).toBe(MARKER);
+    }
   });
 });

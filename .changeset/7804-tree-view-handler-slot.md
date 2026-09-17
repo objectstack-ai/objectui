@@ -29,13 +29,23 @@ same shape as `ObjectFormSchema.onStepChange` in this card's `objectql.ts` slice
 and is not evidence of a dead read. The TypeScript declaration is unchanged and
 still callable, so a programmatic host supplies it exactly as before.
 
-**Authored-document census, with lit controls.** No document in this repository
-authors the key: `"onNodeClick"` reads 0 files over all 2630 tracked
-`.json` / `.md` / `.mdx` / `.yml` / `.yaml` files and 0 over the 275 tracked
-`apps/` + `examples/` TypeScript sources, while the controls fire on the same
-corpora in the same pass (`"nodes"` 8 files, `"tree-view"` 9; and 31 / 4 on the
-TypeScript half). Per this repository's fixed-version-group rule a `major` is not
-available, so the narrowing ships `minor` with the break spelled out here.
+**Authored-document census, with lit controls — every figure a reading at this
+branch's base (`0b7be13`), ⛔ not a standing claim about any later tree.** No
+document in this repository authors the key: `"onNodeClick"` read 0 files over all
+2630 tracked `.json` / `.md` / `.mdx` / `.yml` / `.yaml` files and 0 over the 275
+tracked `apps/` + `examples/` TypeScript sources, while the controls fired on the
+same corpora in the same pass (`"nodes"` 8 files, `"tree-view"` 9; and 31 / 4 on
+the TypeScript half).
+
+⚠️ **That quoted-key figure has already moved, by this branch's own hand.** At the
+branch head the same query reads **2**, and both hits are RELEASE NOTES quoting the
+refused example in prose — this note and `6150-undeclared-but-consumed-keys.md`.
+⛔ Neither is an authored document, so the lead claim is untouched; the digit is
+dated because a release note is itself a file the corpus counts. The TypeScript
+half still reads 0 at the head.
+
+Per this repository's fixed-version-group rule a `major` is not available, so the
+narrowing ships `minor` with the break spelled out here.
 
 The pair moves from `zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared` to its
 `KnownDrift`, which empties the former of the one entry the latter did not also

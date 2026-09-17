@@ -10,7 +10,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 // declaration at the SPECIFIER line, not at the `import {` the comment guards.)
 import {
   cliHasTestFilters,
+  escapeNamePattern,
   evaluateVitestInvocation,
+  judgeNamePattern,
+  literalReadingOfNamePattern,
   parseVitestArgv,
   repoRootFrom,
 } from '../vitest-invocation-guard.mjs';
@@ -302,6 +305,146 @@ describe('evaluateVitestInvocation — objectui#7814, the appended filter that W
     expect(
       judge([...CAPTURED, APPENDED], { ...AT_PKG, env: { OBJECTUI_VITEST_GUARD: 'off' } })
     ).toBeNull();
+  });
+});
+
+describe('evaluateVitestInvocation — objectui#9660, the `-t` name filter read as a regex', () => {
+  // Measured on this card, from the repo root, against a real file whose
+  // `describe` title ends in a card reference the way this repo's do:
+  //
+  //   pnpm exec vitest run scripts/__tests__/body-dialect-census.test.ts \
+  //     -t 'the population travels with the reading (objectui#9545)'
+  //   => Test Files  1 skipped (1) / Tests 22 skipped (22)   exit 0, tests 0ms
+  //
+  // and the LIT CONTROL on the SAME instrument and the SAME corpus — the same
+  // title with the parenthesised reference dropped:
+  //
+  //   => Test Files  1 passed (1) / Tests 7 passed | 15 skipped (22)   exit 0
+  //
+  // Two zeros on one instrument would have been a broken instrument; the
+  // control is what makes the first reading a reading.
+  const PASTED = 'the population travels with the reading (objectui#9545)';
+  const SUBSTRING = 'the population travels with the reading';
+  const ESCAPED = String.raw`the population travels with the reading \(objectui#9545\)`;
+
+  it('refuses the natural copy-paste of a title carrying a card reference', () => {
+    const verdict = judge(['run', 'scripts/__tests__/body-dialect-census.test.ts', '-t', PASTED]);
+
+    expect(verdict?.code).toBe('unmatchable-name-pattern');
+    expect(verdict?.message).toContain('objectui#9660');
+    // The message has to carry the mechanism — "skipped, and exit 0" is the
+    // fingerprint the reader just saw on their own screen.
+    expect(verdict?.message).toContain('skipped');
+    expect(verdict?.message).toContain('passWithNoTests');
+    // ...and hand back a command that works, not just a refusal.
+    expect(verdict?.message).toContain(`-t '${ESCAPED}'`);
+  });
+
+  it('is the lit control: the metacharacter-free substring of that SAME title runs', () => {
+    // The negative half. Without it this check could be refusing every `-t`,
+    // and the test above would not be able to tell.
+    expect(
+      judge(['run', 'scripts/__tests__/body-dialect-census.test.ts', '-t', SUBSTRING])
+    ).toBeNull();
+  });
+
+  it('allows the escaped spelling the refusal hands back', () => {
+    // The message is only a repair if the thing it prints is accepted. Measured
+    // end to end on the card: this spelling ran `Tests 7 passed | 15 skipped`.
+    expect(judge(['run', '-t', ESCAPED])).toBeNull();
+  });
+
+  it('does not read anchors as the defect', () => {
+    // `^…$` is a deliberate regex over a plain title and matches it exactly;
+    // refusing it would make the guard fire on the most precise spelling there
+    // is.
+    expect(judge(['run', '-t', `^${SUBSTRING}$`])).toBeNull();
+    expect(judge(['run', '-t', 'a|b'])).toBeNull();
+    expect(judge(['run', '-t', 'renders.*empty'])).toBeNull();
+  });
+
+  it('reads the long spelling too', () => {
+    expect(judge(['run', '--testNamePattern', PASTED])?.code).toBe('unmatchable-name-pattern');
+    expect(judge(['run', `--testNamePattern=${PASTED}`])?.code).toBe('unmatchable-name-pattern');
+  });
+
+  it('refuses a pattern that is not a regex at all, under the same verdict', () => {
+    // One step further along the same root cause: a title with an unbalanced
+    // parenthesis. Vitest's own failure mode for this is not the point — the
+    // caller still typed a literal name into a regex slot.
+    expect(judge(['run', '-t', 'renders a card (objectui#1'])?.code).toBe(
+      'unmatchable-name-pattern'
+    );
+  });
+
+  it('says nothing about a run that passes no name filter', () => {
+    expect(judge(['run'])).toBeNull();
+    expect(judge(['run', '-t'])).toBeNull();
+    expect(judge(['run', '-t', ''])).toBeNull();
+  });
+
+  it('leaves the one programmatic `-t` caller in this repo alone', () => {
+    // `vitest-timezone-pin-8366.test.ts` spawns a child Vitest filtered by
+    // `--testNamePattern` to one case. It is the only `-t` in the tree that a
+    // gate runs, so a guard that refused it would turn a green pin red for a
+    // reason that has nothing to do with timezones. Read from the source rather
+    // than copied, so a retitled case is judged and not remembered.
+    const source = fs.readFileSync(
+      path.join(repoRoot, 'scripts/__tests__/vitest-timezone-pin-8366.test.ts'),
+      'utf8'
+    );
+    const declared = source.match(/const AMBIENT_CASE = '([^']+)'/);
+
+    expect(declared, 'the AMBIENT_CASE declaration moved or was respelled').not.toBeNull();
+    expect(judgeNamePattern(declared![1])).toBeNull();
+  });
+
+  it('yields to the older verdicts, so this check only ever ADDS refusals', () => {
+    // Every earlier trap keeps its own code when a vacuous `-t` rides along:
+    // the new check runs last, so no invocation that was refused before is
+    // refused differently now.
+    expect(judge(['run', '--', '-t', PASTED])?.code).toBe('double-dash-args');
+    expect(judge(['run', '-t', PASTED], { cwd: FAKE_PKG })?.code).toBe('package-cwd');
+    expect(
+      judge(['run', 'packages/fields/src/typo.test.ts', '-t', PASTED], { exists: () => false })
+        ?.code
+    ).toBe('missing-path-filter');
+    expect(judge(['run', 'packages/cli/', 'packages/cli/a.test.ts', '-t', PASTED])?.code).toBe(
+      'subsumed-positional-filter'
+    );
+    // With none of those in play, the new verdict is what is left.
+    expect(judge(['run', '-t', PASTED])?.code).toBe('unmatchable-name-pattern');
+  });
+
+  it('stands down for the escape hatch like every other verdict', () => {
+    expect(judge(['run', '-t', PASTED], { env: { OBJECTUI_VITEST_GUARD: 'off' } })).toBeNull();
+  });
+});
+
+describe('the name-pattern helpers — what "the text it appears to spell" means', () => {
+  it('reconstructs the pasted title from what the caller typed', () => {
+    expect(literalReadingOfNamePattern(String.raw`prose \(objectui#7733\)`)).toBe(
+      'prose (objectui#7733)'
+    );
+    expect(literalReadingOfNamePattern('^exact$')).toBe('exact');
+    // Nothing to undo: a plain substring reads back as itself.
+    expect(literalReadingOfNamePattern('plain title')).toBe('plain title');
+  });
+
+  it('escapes a title into a pattern that matches it', () => {
+    const title = 'renders (objectui#1) [a] + b?';
+    const escaped = escapeNamePattern(title);
+
+    expect(new RegExp(escaped).test(title)).toBe(true);
+    expect(judgeNamePattern(escaped)).toBeNull();
+    // ...and the unescaped title is exactly what the guard refuses.
+    expect(judgeNamePattern(title)).toBe('vacuous');
+  });
+
+  it('separates "cannot match" from "is not a regex"', () => {
+    expect(judgeNamePattern('a (b)')).toBe('vacuous');
+    expect(judgeNamePattern('a (b')).toBe('invalid');
+    expect(judgeNamePattern('a b')).toBeNull();
   });
 });
 

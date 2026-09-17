@@ -59,10 +59,25 @@
  * The key universe comes from `deriveRegistryKeys` in
  * `scripts/check-doc-component-types.mjs` — deliberately the SAME derivation
  * that judges documentation snippets (objectui#4823), not a second scanner
- * with its own bugs. It already handles the forms this repo actually uses
- * (balanced-span `namespace` / `skipFallback` reads, loop and indirect
- * registrations, declared open sites), and any registration form it cannot
- * resolve fails there rather than silently shrinking the universe here.
+ * with its own bugs. It handles the forms this repo actually uses
+ * (balanced-span `namespace` / `skipFallback` reads, options passed by
+ * identifier or spread, loop and indirect registrations, declared open sites),
+ * and any registration form it cannot resolve fails there rather than silently
+ * shrinking the universe here.
+ *
+ * ⚠️ That last clause is a PROPERTY OF THAT MODULE, and this header asserted it
+ * while it was false. objectui#9641: a registration whose options arrive by
+ * spread — `register('app', PageRenderer, { ...pageMeta, label: 'App Page' })`,
+ * with `pageMeta.namespace` of `'ui'` — has no `namespace:` inside its own call
+ * span, so the derivation produced the bare half alone and reported NOTHING.
+ * Five real runtime keys (`ui:page` `ui:app` `ui:utility` `ui:home` `ui:record`)
+ * were therefore missing from a generated list whose entire job is to say which
+ * keys are real, and `objectui check` called documents spelling them unknown
+ * while the renderer painted them. The repair is in `deriveRegistryKeys`, not
+ * here, for the same reason this paragraph gives: a second resolver in this
+ * file would be the second scanner it exists to refuse. What belongs here is
+ * the record that this clause is load-bearing — the reason the list was wrong
+ * is that nothing ever failed.
  *
  * The universe is taken WHOLE, with no filtering — bare keys, namespaced keys
  * and the `protocol-placeholder:` spellings alike. A filter would be a second

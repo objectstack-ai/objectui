@@ -276,6 +276,104 @@ describe('the registered-key universe is derived from the registration calls', (
     expect(findings.map((f) => f.reason)).toEqual(['unresolved-registration']);
   });
 
+  // ── objectui#9641: options that arrive by REFERENCE ────────────────────────
+  //
+  // A registration may hand `register()` an options object it does not spell
+  // out at the call — a bare identifier, or an object literal that spreads one.
+  // The namespace is then nowhere inside the call's own span, and a derivation
+  // that reads only that span produces the BARE half alone and says nothing.
+  //
+  // These pins are written against the MECHANISM, over a fixture tree, for the
+  // reason objectui#9641 exists at all: a pin that asserted the five key
+  // strings the live tree lost would pass just as happily against a
+  // hand-edited generated file, which is the failure mode to exclude. Each of
+  // the four below fails on the derivation as it stood before objectui#9641 and
+  // passes after it.
+
+  it('⭐ resolves a namespace passed by SPREAD, not only one spelled out at the call (objectui#9641)', () => {
+    // The live shape this was filed for: one options object, one registration
+    // taking it whole, four more spreading it to vary a label. Every one of
+    // them is a namespaced registration at runtime.
+    const keys = withTree((write) => {
+      write(
+        'packages/demo/src/page.tsx',
+        [
+          'const pageMeta: any = {',
+          "  namespace: 'ui',",
+          "  label: 'Page',",
+          "  inputs: [{ name: 'title', type: 'string' }],",
+          '};',
+          "ComponentRegistry.register('page', PageRenderer, pageMeta);",
+          "ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' });",
+          // The firing control, in the same fixture: a namespaced registration
+          // whose options ARE spelled out at the call. It read correctly before
+          // this repair and must keep reading correctly after it — that
+          // asymmetry is what made the spread case a defect and not a design
+          // choice, so the pin keeps both halves of it in one tree.
+          "ComponentRegistry.register('header', HeaderRenderer, { namespace: 'page', label: 'Page Header' });",
+        ].join('\n'),
+      );
+    }, keysOf);
+    expect(keys).toEqual(['app', 'header', 'page', 'page:header', 'ui:app', 'ui:page']);
+  });
+
+  it('carries `skipFallback` through the reference too, so a bare key is not invented', () => {
+    // The other direction of the same read: options reached by reference decide
+    // whether the BARE key exists at all. Missing the flag here would put a key
+    // into the universe that the registry never stores — a phantom, the
+    // direction objectui#5115 was filed for.
+    const keys = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "const barMeta = { namespace: 'action', skipFallback: true, label: 'Action Bar' };",
+          "ComponentRegistry.register('action-bar', Bar, barMeta);",
+          "ComponentRegistry.register('toolbar', Bar, { ...barMeta, label: 'Toolbar' });",
+        ].join('\n'),
+      );
+    }, keysOf);
+    expect(keys).toEqual(['action:action-bar', 'action:toolbar']);
+  });
+
+  it('lets a literal `namespace:` after the spread win, as the runtime does', () => {
+    // `{ ...base, namespace: 'x' }` is `'x'` and `{ namespace: 'x', ...base }`
+    // is whatever `base` carries. Reading the first `namespace:` in the span
+    // would get the second case backwards, so the entries are read in order.
+    const keys = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "const base = { namespace: 'ui', label: 'Base' };",
+          "ComponentRegistry.register('after', C, { ...base, namespace: 'view' });",
+          "ComponentRegistry.register('before', C, { namespace: 'view', ...base });",
+        ].join('\n'),
+      );
+    }, keysOf);
+    expect(keys).toEqual(['after', 'before', 'ui:before', 'view:after']);
+  });
+
+  it('⭐ reports a spread it cannot follow rather than reading the registration as bare', () => {
+    // The clause the regeneration script's header leans on — "any registration
+    // form it cannot resolve fails HERE rather than silently shrinking the
+    // universe there" — asserted about a form that failed nowhere. An options
+    // object imported from another module may carry a namespace; assuming it
+    // does not is the objectui#9641 defect with a new address.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "import { sharedMeta } from './shared';",
+          "ComponentRegistry.register('widget', C, { ...sharedMeta, label: 'Widget' });",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    // The key itself is still collected: the namespace is what could not be
+    // read, and dropping the bare half too would shrink the universe further
+    // than the defect being reported.
+    expect([...keys.keys()].sort()).toEqual(['widget']);
+  });
+
   it('ignores registrations that live in test files', () => {
     // `probe`, `crashing-widget`, `test-widget` and friends are registered by
     // suites all over this repo. Letting them into the universe would let a doc

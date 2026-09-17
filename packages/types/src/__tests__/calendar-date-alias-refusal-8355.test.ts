@@ -58,12 +58,23 @@
  *   `.strict()` would satisfy every other assertion here.
  * - CANONICAL-TARGET CONTROL — the message points at `startDateField` for
  *   `dateField` and at `endDateField` for `endField`. ⚠️ This is the arm that
- *   catches the upstream divergence recorded at the declaration site:
- *   `@objectstack/spec` 17.4.0's own alias table answers `dateField` with
- *   "Did you mean `dateField` -> `endDateField`?" — the END of the event —
- *   while every objectui read site folds the spelling onto the START. If a
- *   later bump ever makes this package follow upstream's table, this arm
- *   reddens rather than silently re-binding authors' axes.
+ *   holds the line against the upstream divergence recorded at the declaration
+ *   site, and ⛔ the divergence is NOT an alias table: an earlier cut of this
+ *   comment said `@objectstack/spec` "answers `dateField`" out of one, and that
+ *   was wrong about the protocol. Re-derived by RUNNING the installed pin
+ *   (17.4.0): `CalendarConfigSchema`'s `strictObject` options carry `surface`
+ *   and `history` only — no `aliases` entry, so upstream holds no opinion about
+ *   either spelling — and the "Did you mean `dateField` -> `endDateField`?" an
+ *   author sees is a fallback `findClosestMatches` LEVENSHTEIN suggestion,
+ *   budgeted `max(2, floor(len/3))`: `endDateField` is 3 edits from `dateField`
+ *   and inside its budget of 3, `startDateField` is 5 and outside it, and
+ *   `endField`'s budget of 2 reaches nothing at all — which is exactly why the
+ *   passthrough control above and `endField` both draw no hint. ⇒ a generic
+ *   typo-distance suggester picked the wrong sibling; it declares nothing and
+ *   contradicts nothing. The hazard is still real for an author who copies it,
+ *   which is why this arm exists: if a later edit ever makes this package answer
+ *   `endDateField` for `dateField`, it reddens rather than silently re-binding
+ *   authors' axes from start to end.
  *
  * ⚠️ `@ts-expect-error` is an ASSERTION, not a suppression: if a later edit
  * makes the alias compile again, tsc reports the directive itself as unused

@@ -20,16 +20,38 @@ value is rejected **by name**, at its own key path, pointed at `startDateField` 
 { type: 'list-view', objectName: 'task', calendar: { startDateField: 'kickoff', endDateField: 'wrapup' } }
 ```
 
-**The refusal an author now meets**, verbatim from the arm's own message (one
-string feeds both the parse-time issue and the `.describe()` metadata):
+**The refusal an author now meets**, verbatim from the arms' own messages (one
+string per arm feeds both the parse-time issue and the `.describe()` metadata):
 
 ```text
 Unrecognized key(s) on this calendar configuration: `dateField`. Did you mean
 `dateField` → `startDateField`? `dateField` and `endField` are the pre-#2231
 objectui spellings of the calendar date axis, retired at both faces by
-objectui#8355. …Write `startDateField` for the event start and `endDateField`
-for the event end. …
+objectui#8355. `@objectstack/spec` spells the axis `startDateField` and
+`endDateField` only. ⚠️ This package accepted BOTH legacy spellings green until
+that retirement — they rode a `.passthrough()` straight through
+`safeValidateSchema` into `ListView`'s calendar branch, which flattened them onto
+the generated `object-calendar` node where the renderer's alias ladder read them.
+That ladder is gone, so the key is refused here instead of being kept and then
+ignored. Write `startDateField` for the event start. Kept rather than refused, an
+authored `dateField` binds nothing: the calendar falls through to "Calendar
+configuration required. Please specify startDateField and titleField.", a screen
+that names the canonical keys and never the key you wrote.
 ```
+
+⚠️ **The consequence clause is per key, because the two spellings fail
+differently.** `endField` gets the same stem and this tail instead — measured on
+the renderer, not assumed:
+
+```text
+…Write `endDateField` for the event end. Kept rather than refused, an authored
+`endField` fails even more quietly than its sibling: a calendar that also carries
+a start binding still DRAWS, and only the end of every event is silently dropped.
+```
+
+On the flat node face the surface noun is `this object-calendar node`; the rest
+of each message is identical, so an author meets one remedy per spelling on every
+surface.
 
 **ADR-0087 disposition — D2 tombstone, no conversion entry and no migration
 prescription.** The keys stay DECLARED and unwritable rather than being deleted,
@@ -81,19 +103,31 @@ it keeps a second spelling alive at the producer, which is the lenient alias
 AGENTS.md #0.1 names. The aliased view therefore produces **no** date binding,
 and the author is told why at the door instead.
 
-⚠️ **The canonical target is objectui's, and upstream's alias table disagrees.**
-Measured on the installed pin (`@objectstack/spec` 17.4.0) with controls in the
-same pass: `CalendarConfigSchema` answers an authored `dateField` with "Did you
-mean `dateField` → `endDateField`?", and answers `endField` and a nonsense
-control key with the same `unrecognized_keys` diagnostic carrying no alias hint
-at all. Every objectui read site folds the spelling onto the **start** — the
-retired ladder did, `normalizeListViewSchema`'s `timeline` fold does,
-`resolveTimelineDateBinding` documents it as "the pre-#2231 alias for
+⚠️ **Upstream's refusal suggests the wrong canonical key for `dateField`, and it
+is a typo-distance suggester rather than a declaration.** Re-derived by running
+the installed pin (`@objectstack/spec` 17.4.0), with controls in the same pass:
+`CalendarConfigSchema`'s `strictObject` options carry `surface` and `history` and
+no `aliases` entry, so the protocol declares nothing about either spelling. The
+"Did you mean `dateField` → `endDateField`?" an author meets is a fallback
+`findClosestMatches` Levenshtein suggestion budgeted `max(2, floor(len/3))`:
+`endDateField` is 3 edits from `dateField` and inside its budget of 3, while
+`startDateField` is 5 and outside it — and `endField`, budgeted 2, reaches
+nothing, which is why it and a nonsense control key both draw no suggestion at
+all. A one-character typo of the canonical key does resolve to `startDateField`,
+so the suggester is working as designed; it simply has no opinion to offer about
+a legacy alias.
+
+⇒ **nothing upstream says `dateField` means the end of an event.** The hazard is
+author-facing rather than contractual: someone who copies that suggestion writes
+`endDateField` and binds the END of an event to the date they meant as the START,
+which every layer accepts. Every objectui read site folds this spelling onto the
+**start** — the retired ladder did, `normalizeListViewSchema`'s `timeline` fold
+does, `resolveTimelineDateBinding` documents it as "the pre-#2231 alias for
 `startDateField`", and this package has published "Deprecated alias for
-startDateField" for releases. Answering an author with `endDateField` would
-silently re-bind their axis, so these arms name `startDateField`. The divergence
-is stated at the declaration and pinned as a control, not fixed here — it is
-upstream's table and needs upstream's card.
+startDateField" for releases. So these arms name `startDateField` and a control
+pin holds that line. The remedy upstream needs is an explicit `aliases` (or
+`guidance`) entry for the two spellings so the suggester never answers for them;
+that is upstream's formatter, on upstream's card, and is not fixed here.
 
 ⛔ **The timeline alias is NOT retired by this change.** `timeline.dateField`
 stays a live, accepted alias with live consumers (`normalizeListViewSchema` folds

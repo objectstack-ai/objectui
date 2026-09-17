@@ -429,12 +429,30 @@ describe('objectui#8355 — the `dateField` / `endField` rungs are RETIRED at bo
     expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
   });
 
-  it('THE PRODUCER HALF: `ListView`\'s calendar branch no longer flattens the authored block raw', () => {
+  it('THE PRODUCER HALF (SECONDARY, spelling-bound): the calendar branch no longer flattens the block raw', () => {
     // The carrier assertion, inverted. The branch used to end by spreading the
     // authored `calendar` block FLAT onto the `object-calendar` node it emits,
     // which is the whole reason an authored `calendar.dateField` ever reached
     // this renderer as a flat key. It now strips the two retired spellings
     // first, exactly as the kanban branch strips its own stray `groupBy`.
+    //
+    // ⭐ THIS ROW IS SECONDARY, AND THE NEXT READER SHOULD KNOW WHICH ONE IS NOT.
+    // The LOAD-BEARING witness is `plugin-list`'s
+    // `ListView.calendarAliasRefused-8355.test.tsx` half 1, which reads the node
+    // the producer really EMITS. Measured across three revert shapes: it
+    // reddened on every one of them, while this row caught only two.
+    //
+    // ⚠️ The shape it missed, measured rather than imagined (contract review of
+    // objectui#8355, ablation "B2"): keep the strip and re-add a raw
+    // `...(schema.calendar || {})` as the LAST property with NO trailing comma.
+    // The emitted node carries the alias again — the runtime row goes red — and
+    // every text assertion below stays GREEN, because the tokens they key on are
+    // still present. A text census cannot see what a spread produces, which is
+    // the same blindness that produced the false producer census this file
+    // records; this row narrows it, it does not close it.
+    //
+    // ⇒ ⛔ Do not read a green here as "the producer is correct", and ⛔ do not
+    // delete the runtime row on the grounds that this one covers it.
     const producer = mask(readRepo(PRODUCER));
     const at = producer.indexOf("case 'calendar':");
     expect(at, `${PRODUCER}: the calendar branch is gone; re-derive this ledger`).toBeGreaterThan(-1);

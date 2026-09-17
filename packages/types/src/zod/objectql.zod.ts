@@ -836,44 +836,98 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  * is what turns that silence into a by-name refusal at the authoring door.
  * ⛔ Do not remove one half without the other.
  *
- * ⚠️ THE CANONICAL TARGET IS objectui's, AND UPSTREAM DISAGREES — measured on
- * the installed pin (`@objectstack/spec` 17.4.0) with a control in the same
- * pass, not inherited. `CalendarConfigSchema` is a `strictObject` of
- * `startDateField` / `endDateField` / `titleField` / `colorField`. It answers an
- * authored `dateField` with "Did you mean `dateField` -> `endDateField`?", and
- * answers `endField` AND a nonsense control key with the same
- * `unrecognized_keys` diagnostic carrying no alias hint at all. ⇒ upstream's
- * alias table points this spelling at the END of the event. Every objectui read
- * site folds it onto the START: the ladder this card retires did,
+ * ⚠️ THE CANONICAL TARGET IS objectui's, AND UPSTREAM ANSWERS DIFFERENTLY — but
+ * ⛔ NOT BECAUSE IT HOLDS A CONTRARY ALIAS ENTRY. This paragraph said "upstream's
+ * alias table points this spelling at the END of the event" and that was WRONG
+ * about the protocol; the corrected mechanism, re-derived by RUNNING the
+ * installed pin (`@objectstack/spec` 17.4.0) rather than reading it:
+ *
+ *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
+ *     `history` and NOTHING ELSE. There is no `aliases` entry, so upstream holds
+ *     no opinion at all about either spelling. ⭐ Lit control that the option
+ *     exists and is simply unused here: `GanttQuickFilterSchema`'s nested option
+ *     object, in that same generated module, DOES pass
+ *     `aliases: { text: 'label', title: 'label', … }`.
+ *   - the hint an author sees comes from `findClosestMatches` — a Levenshtein
+ *     near-miss suggester the refusal formatter falls back to, budgeted
+ *     `max(2, floor(key.length / 3))`. MEASURED against the four known keys:
+ *     `dateField` (length 9, budget 3) resolves to `endDateField`, which is 3
+ *     edits away, while `startDateField` is 5 and therefore out of budget;
+ *     `endField` (length 8, budget 2) reaches nothing, which is why it draws no
+ *     hint — and neither does a nonsense control key. ⭐ Positive control that
+ *     the suggester is alive and correct for what it is for: a genuine one-char
+ *     typo of the canonical key resolves to `startDateField`.
+ *
+ * ⇒ a generic typo-distance suggester picked the wrong sibling. It is not a
+ * declaration, it contradicts no declaration, and ⛔ no upstream text says
+ * `dateField` means the end of an event.
+ *
+ * The author-facing hazard is real all the same: an author who copies that hint
+ * writes `endDateField` and binds the END of an event to the date they meant as
+ * the START — accepted by every layer, wrong on screen. Every objectui read site
+ * folds this spelling onto the START: the ladder this card retires did,
  * `normalizeListViewSchema`'s `timeline` fold does, `resolveTimelineDateBinding`
  * documents it as "the pre-#2231 alias for `startDateField`", and this package
  * has published "Deprecated alias for startDateField" on `TimelineConfig` for
- * releases. Answering an author with `endDateField` would silently re-bind their
- * axis, so these arms name `startDateField` and the divergence is stated here
- * rather than inherited in silence. ⛔ Not fixed here — it is upstream's table,
- * and it needs upstream's card.
+ * releases. So these arms name `startDateField`, and the remedy upstream needs
+ * is an explicit `aliases` (or `guidance`) entry for the two spellings so the
+ * suggester never answers for them. ⛔ Not fixed here — it is upstream's
+ * formatter, on upstream's card.
  *
- * ONE detail string, four installed arms, so the sentence an author meets cannot
- * depend on which surface they wrote it on. The surface noun is quoted verbatim
- * from the measurement above, which is what makes the two faces answer alike.
+ * ONE detail STEM, four installed arms, plus ONE consequence clause PER KEY.
+ * ⚠️ The per-key split is not tidiness: the two spellings fail DIFFERENTLY when
+ * left unrefused (see the clauses below), so a single shared consequence made
+ * the `endField` arms publish something that does not happen. The surface noun
+ * is quoted verbatim from the measurement above, which is what makes this face
+ * and the protocol's answer alike.
  */
-const CALENDAR_DATE_ALIAS_DETAIL =
+const CALENDAR_DATE_ALIAS_STEM =
   '`dateField` and `endField` are the pre-#2231 objectui spellings of the calendar date axis, '
   + 'retired at both faces by objectui#8355. `@objectstack/spec` spells the axis `startDateField` '
-  + 'and `endDateField` only, so a calendar carrying either spelling never came through the '
-  + 'validated path. Write `startDateField` for the event start and `endDateField` for the event '
-  + 'end. Until this refusal both rode a `.passthrough()` into `ListView`\'s calendar branch, which '
-  + 'flattened them onto the generated `object-calendar` node where the renderer\'s alias ladder '
-  + 'read them; that ladder is retired, so an unrefused key would now leave the axis unbound and '
-  + 'the calendar would refuse WITHOUT naming the key you wrote.';
+  + 'and `endDateField` only. ⚠️ This package accepted BOTH legacy spellings green until that '
+  + 'retirement — they rode a `.passthrough()` straight through `safeValidateSchema` into '
+  + '`ListView`\'s calendar branch, which flattened them onto the generated `object-calendar` node '
+  + 'where the renderer\'s alias ladder read them. That ladder is gone, so the key is refused here '
+  + 'instead of being kept and then ignored. ';
+
+/**
+ * The consequence clause, PER KEY — because the two spellings fail differently
+ * when a retired key is kept rather than refused, and one shared clause
+ * published the `dateField` outcome on the `endField` arms.
+ *
+ * MEASURED, both on the renderer:
+ *
+ *   - `dateField` alone: `getCalendarConfig` gates on `startDateField`, finds
+ *     none, returns `null`, and the author meets "Calendar configuration
+ *     required. Please specify startDateField and titleField." — a screen naming
+ *     the canonical keys and never the key they wrote.
+ *   - `endField` beside a start binding: the calendar DRAWS. Only the end of
+ *     every event is dropped. `../objectql.ts`'s tombstone docblock states the
+ *     same thing, which is what made the shared clause self-contradictory.
+ */
+const CALENDAR_DATE_ALIAS_CONSEQUENCE: Record<'dateField' | 'endField', string> = {
+  dateField:
+    'Write `startDateField` for the event start. Kept rather than refused, an authored '
+    + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required. '
+    + 'Please specify startDateField and titleField.", a screen that names the canonical keys and '
+    + 'never the key you wrote.',
+  endField:
+    'Write `endDateField` for the event end. Kept rather than refused, an authored `endField` '
+    + 'fails even more quietly than its sibling: a calendar that also carries a start binding '
+    + 'still DRAWS, and only the end of every event is silently dropped.',
+};
+
+/** The composed guidance one arm publishes, for one spelling, on one surface. */
+const calendarAliasDetail = (alias: 'dateField' | 'endField') =>
+  CALENDAR_DATE_ALIAS_STEM + CALENDAR_DATE_ALIAS_CONSEQUENCE[alias];
 
 /**
  * The two arms as a calendar CONFIGURATION BLOCK wears them — the view-level
  * `calendar:` block below and the `object-calendar` element's own container.
  */
 const CalendarBlockDateAliasRefusals = {
-  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this calendar configuration', CALENDAR_DATE_ALIAS_DETAIL),
-  endField: aliasKeyRefusal('endField', 'endDateField', 'this calendar configuration', CALENDAR_DATE_ALIAS_DETAIL),
+  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this calendar configuration', calendarAliasDetail('dateField')),
+  endField: aliasKeyRefusal('endField', 'endDateField', 'this calendar configuration', calendarAliasDetail('endField')),
 };
 
 /**
@@ -882,8 +936,8 @@ const CalendarBlockDateAliasRefusals = {
  * the block into, and it is where the retired ladder actually read.
  */
 const CalendarNodeDateAliasRefusals = {
-  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this object-calendar node', CALENDAR_DATE_ALIAS_DETAIL),
-  endField: aliasKeyRefusal('endField', 'endDateField', 'this object-calendar node', CALENDAR_DATE_ALIAS_DETAIL),
+  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this object-calendar node', calendarAliasDetail('dateField')),
+  endField: aliasKeyRefusal('endField', 'endDateField', 'this object-calendar node', calendarAliasDetail('endField')),
 };
 
 const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({

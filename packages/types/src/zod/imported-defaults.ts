@@ -158,9 +158,19 @@ const walk = (schema: z.ZodType): z.ZodType => {
    * the day `@objectstack/spec` adopts the same principle, with nothing to roll
    * back, and today it leaves every already-clean imported schema binding by
    * reference exactly as it was before batch #90.
+   *
+   * ⚠️ `| null` on the sides, because the `tuple` arm below hands this helper
+   * `def.rest` RAW — comparing like with like is the whole of objectui#9088's
+   * repair, and zod spells a rest-less tuple's `rest` as `null`. ⛔ NOT a
+   * relaxation of the comparison: it stays `===`, so `null` still matches only
+   * `null` and `undefined` still matches only `undefined`. Widening the
+   * parameter is what lets the arm keep passing the value zod actually minted
+   * instead of normalising it back into the objectui#9088 defect to satisfy a
+   * signature (objectui#9491).
    */
-  const unchanged = (children: readonly (readonly [z.ZodType | undefined, z.ZodType | undefined])[]): boolean =>
-    children.every(([before, after]) => before === after);
+  const unchanged = (
+    children: readonly (readonly [z.ZodType | null | undefined, z.ZodType | null | undefined])[],
+  ): boolean => children.every(([before, after]) => before === after);
 
   let out: z.ZodType;
   switch (def.type) {
@@ -237,10 +247,10 @@ const walk = (schema: z.ZodType): z.ZodType => {
     // `null == undefined` true for every arm at once and erase a real zod-4
     // spelling distinction another arm may come to depend on.
     //
-    // ⚠️ `WalkableDef.rest` is declared `z.ZodType | undefined`, which does not
-    // admit the `null` zod actually mints — that inaccurate declaration is what
-    // made `: undefined` look correct. The value flows through untyped here;
-    // widening the shared type is objectui#9491.
+    // ⚠️ `WalkableDef.rest` is declared `z.ZodType | null` (objectui#9491) —
+    // it admits the `null` zod actually mints, so the value below is typed as
+    // what it is. Until that landed the declaration said `z.ZodType |
+    // undefined`, and that is what made `: undefined` look correct here.
     //
     // ⭐ PROVING REMOVAL: put `: undefined` back and
     // `__tests__/imported-defaults-rest-less-tuple-9088.test.ts` reddens on

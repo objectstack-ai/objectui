@@ -36,8 +36,8 @@ block above.
 
 ## What settled it: the read set
 
-`ObjectKanban` reads thirteen keys off `schema`. Neither declaration covers them; the two
-TOGETHER cover twelve, and each arm is load-bearing:
+`ObjectKanban` reads more keys off `schema` than either declaration covered on its own —
+that read set is the bullet list below, and each arm is load-bearing:
 
 - `objectName`, `groupBy`, `limit`, `cardFields` — declared on both;
 - `columns`, `cardTitle`, `swimlaneField`, `grouping` — `KanbanSchema` only **as of
@@ -52,6 +52,21 @@ TOGETHER cover twelve, and each arm is load-bearing:
   `BaseSchema`'s index signature then; objectui#8174 (PR objectui#8788) declared it on
   `ObjectKanbanSchema` on 2026-09-09. Measured and reported, **not** changed here: this
   card moves the prop, not the two published schema faces.
+
+⏱ **Two cardinals removed on 2026-09-17 (objectui#9726), ⛔ not replaced with newer
+ones.** This paragraph read 「reads thirteen keys off `schema`」 and 「the two TOGETHER cover
+twelve」. Re-measured BY BINDING — property reads off the component's own `schema` prop, with
+`resolveKanbanTitleField`'s same-named parameter excluded by region — the read set is **14**
+today and was **14** at this entry's own measurement commit `6ca6e12a7`, because the bullets
+above omit `navigation`, which this entry's own 「Casts this removes」 section names as a read
+(`(schema as any).navigation` then, `schema.navigation` now). ⇒ 「thirteen」 was one short when
+it was written — **born false**, ⛔ not rotted afterwards, which is why it gets no row in
+the dated table above: that table records readings something LATER falsified, and nothing
+falsified this one, it arrived wrong. ⛔ The table's 「none was born false」 is a statement
+about those five rows, not about this cardinal. It is not restated as 14: a cardinal in an
+entry that publishes verbatim is derived once and then never again, and the bullets above
+already ARE the set. Which face declares each of them is `ObjectKanbanSchema`'s answer, and
+`tsc` already reads it.
 
 So naming `ObjectKanbanSchema` alone — the remedy the original card implied — would have
 been wrong in the other direction: it drops four declared reads and the `'kanban'`

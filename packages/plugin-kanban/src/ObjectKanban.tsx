@@ -1110,9 +1110,14 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // precedent objectui#5903). That arm RETIRED with the bare `kanban` node key
   // (objectui#8802), and the surviving `ObjectKanbanSchema` face never declared
   // the key — so on an `object-kanban` document this read has ALWAYS ridden
-  // `BaseSchema`'s `[key: string]: any`, exactly as `filter` does. ⛔ Nothing
-  // about an `object-kanban` board changed here; what went is the only face
-  // that ever declared the key, and it only ever judged `kanban` documents.
+  // `BaseSchema`'s `[key: string]: any`. ⛔ This line used to name a companion
+  // key here — 「exactly as `filter` does」 — and that comparison was false
+  // when it was written: `filter` had been a declared member of
+  // `ObjectKanbanSchema` for 26 hours by then (objectui#8174). Ask
+  // `ObjectKanbanSchema` about any other key, ⛔ never a neighbouring comment
+  // (objectui#9726). ⛔ Nothing about an `object-kanban` board changed here;
+  // what went is the only face that ever declared the key, and it only ever
+  // judged `kanban` documents.
   // The designer face still declares it — `OBJECT_KANBAN_INPUTS` (`index.tsx`).
   // Reported on the retirement PR as a follow-up for the `object-kanban` face.
   const navConfig = schema.navigation ?? { mode: 'drawer' };

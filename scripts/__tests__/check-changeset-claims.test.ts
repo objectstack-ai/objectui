@@ -172,11 +172,20 @@ interface Run {
  * anyway, so this is what a reader actually gets.
  */
 function runGate(root: string, args: string[] = [], env: Record<string, string> = {}): Run {
+  // ⚠️ EVERY case decides its own corpus. `GITHUB_EVENT_PATH` is exported to every
+  // process on a runner, and the gate reads it when `--pr-body` is absent — so an
+  // inherited environment fed the gate under test the REAL pull request body of
+  // whatever build was running, in a temp repository that has nothing to do with
+  // it (objectui#9509, patch round 1: measured, off by exactly one body). The
+  // cases that did not redden survived it by luck, not by hermeticity, so it is
+  // stripped here for all of them rather than at the two that noticed. A case
+  // that WANTS the variable sets it back through `env`.
+  const { GITHUB_EVENT_PATH: _inherited, ...hermetic } = process.env;
   const run = spawnSync('node', [path.join(repoRoot, GATE), '--root', root, ...args], {
     cwd: repoRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, ...env },
+    env: { ...hermetic, ...env },
   });
   return { status: run.status ?? -1, output: `${run.stdout ?? ''}${run.stderr ?? ''}` };
 }
@@ -952,5 +961,90 @@ describe('the boundary control the first ablation of this change exposed', () =>
     const ids = evaluateBornFalseControls().map((control) => control.id);
     expect(ids).toContain('the-insertion-point-itself-does-not-move');
     expect(evaluateBornFalseControls().every((control) => control.ok)).toBe(true);
+  });
+});
+
+// ── 7. the corpus may not be AMBIENT (objectui#9509, patch round 1) ──────────
+
+/**
+ * ⭐ Found by this file's own empty-corpus floor, in CI, ⛔ not by review.
+ *
+ * `GITHUB_EVENT_PATH` is exported to every process on a runner. The gate reads
+ * it when `--pr-body` is absent, so a run against a throwaway fixture repository
+ * picked up the REAL pull request body of the build that happened to be running
+ * and counted it as "the prose this change publishes about itself" — off by
+ * exactly one body. The floor whose whole job is "this run measured NOTHING"
+ * slid up to the next floor instead. ⇒ the reading built to be unfakeable was
+ * being fed by the environment.
+ *
+ * The repair is a predicate about the TREE rather than about how the process was
+ * launched: the payload names `pull_request.head.sha`, and a tree that cannot
+ * resolve that commit is not the tree the event is about.
+ */
+describe('an event payload from another tree', () => {
+  const fixture = fixtureRepo('ambient-corpus');
+  fixture.write('packages/alpha/src/untouched.ts', 'export const untouched = 3;\n');
+  fixture.commit('chore(alpha): touch a file, publish no prose');
+
+  // A payload shaped exactly like a real one, naming a head this tree cannot
+  // have. `.json`, ⛔ never `.md`: a markdown literal here would become a
+  // candidate for the ledger in `scripts/markdown-test-inputs.mjs`.
+  const foreign = path.join(fixture.root, 'foreign-event.json');
+  fs.writeFileSync(
+    foreign,
+    JSON.stringify({
+      pull_request: { number: 4242, head: { sha: '0'.repeat(40) }, body: 'The frame is at `untouched.ts:1`.' },
+    }),
+  );
+  const run = runGate(fixture.root, lastCommitRange(fixture), { GITHUB_EVENT_PATH: foreign });
+
+  it('is ⛔ ignored, and the run says so rather than counting it', () => {
+    expect(run.output).toContain('THIS TREE DOES NOT CARRY');
+    expect(run.output).not.toContain('The frame is at');
+  });
+
+  it('leaves the empty-corpus floor standing — BOTH halves of it', () => {
+    // ⚠️ The control the patch round set, reasoned before it was read: a run
+    // that prints `Corpus: 0` while having silently skipped the section is the
+    // same lie one level down. Both, ⛔ never either.
+    expect(run.output).toContain('Corpus: 0 body(ies)');
+    expect(run.output).toContain('NOT a clean verdict');
+    expect(run.output).toContain('measured NOTHING');
+  });
+
+  it('⛔ does not move the five born-false controls, which are hermetic by construction', () => {
+    // If ANY of them moved when the environment changed, the hermeticity claim in
+    // the gate's own docblock would be false — and that, not the test, would be
+    // the finding.
+    expect(run.output.match(/^\s+PASS\s/gm)?.length).toBe(5);
+    expect(run.output).not.toMatch(/^\s+FAIL\s/m);
+  });
+});
+
+describe('an event payload for THIS tree', () => {
+  const fixture = fixtureRepo('carried-corpus');
+  fixture.write('packages/alpha/src/walker.ts', Array.from({ length: 12 }, (_, i) => `export const s${i} = ${i};\n`).join(''));
+  fixture.commit('feat(alpha): the walker');
+  fixture.write(
+    'packages/alpha/src/walker.ts',
+    '// inserted\n// inserted\n' + Array.from({ length: 12 }, (_, i) => `export const s${i} = ${i};\n`).join(''),
+  );
+  const head = fixture.commit('feat(alpha): insert above the cited line');
+  const base = fixture.git('rev-parse', 'HEAD~1');
+
+  const payload = path.join(fixture.root, 'event.json');
+  fs.writeFileSync(
+    payload,
+    JSON.stringify({ pull_request: { number: 1, head: { sha: head }, body: 'The subject is `walker.ts:6`.' } }),
+  );
+  const run = runGate(fixture.root, ['--base', base, '--head', head], { GITHUB_EVENT_PATH: payload });
+
+  it('IS read — the mechanism the whole no-new-workflow design rests on still works', () => {
+    // ⛔ The repair must not throw the mechanism away to silence the tests. The
+    // pull request body is where two of the three carded instances lived, and
+    // the event payload is the only way to reach it without a new workflow.
+    expect(run.output).toContain('carried by this tree');
+    expect(run.output).toContain('Corpus: 1 body(ies)');
+    expect(run.output).toContain('this change moves packages/alpha/src/walker.ts:6 to :8');
   });
 });

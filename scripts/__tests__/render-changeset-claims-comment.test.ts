@@ -264,7 +264,14 @@ describe('the born-false section', () => {
     sentence: 'The shape recurs exactly twice: `:223` and `:246`.',
   };
   const unanchored = {
-    origin: '.changeset/9088-rest-less-tuple-identity.md',
+    // ⛔ A name no committed declaration can wear. `pnpm changeset` generates
+    // `adjective-animal-verb` and this repository commits an issue-number-and-slug
+    // name, so a `fixture-` prefix belongs to neither namespace — and the file does
+    // not exist, so `scripts/markdown-test-inputs.mjs` never offers it as a ledger
+    // candidate. Naming a LIVE pending declaration here made `changeset:version`
+    // delete the thing a ledger entry pointed at, and reddened the release lane days
+    // later (objectui#9583).
+    origin: '.changeset/fixture-born-false-origin.md',
     span: 'pin.test.ts:281',
     file: 'packages/types/src/__tests__/pin.test.ts',
     line: 281,

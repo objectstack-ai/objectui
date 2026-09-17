@@ -968,11 +968,33 @@ if (isEntrypoint(import.meta.url)) {
       prBodyHow = `--pr-body ${prBodyFile} (UNREADABLE — this run read no pull request body)`;
     }
   } else if (process.env.GITHUB_EVENT_PATH) {
+    // ⚠️ GATED, and the gate is the whole point (objectui#9509, patch round 1).
+    //
+    // `GITHUB_EVENT_PATH` is exported to EVERY process on a runner, not just the
+    // workflow step this reading was written for. An ungated read made this gate's
+    // corpus AMBIENT: run against a throwaway fixture repository in CI, it picked
+    // up the real pull request body of whatever build happened to be running and
+    // counted it as "the prose this change publishes about itself" — which in that
+    // tree it provably was not. Measured, by this gate's own empty-corpus floor
+    // going soft in CI while passing locally.
+    //
+    // The predicate is about the TREE, not about how the process was launched: the
+    // payload names `pull_request.head.sha`, and if the tree under this run cannot
+    // resolve that commit then the payload describes some other repository at some
+    // other head. Fails CLOSED and says so — ⛔ never silently.
     try {
       const payload = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-      if (typeof payload?.pull_request?.body === 'string') {
-        prBody = payload.pull_request.body;
-        prBodyHow = 'GITHUB_EVENT_PATH → pull_request.body';
+      const body = payload?.pull_request?.body;
+      const sha = payload?.pull_request?.head?.sha;
+      const carried = typeof sha === 'string' && git(root, ['cat-file', '-e', `${sha}^{commit}`], { allowFailure: true }) !== null;
+      if (typeof body === 'string' && carried) {
+        prBody = body;
+        prBodyHow = `GITHUB_EVENT_PATH → pull_request.body (head ${String(sha).slice(0, 9)}, carried by this tree)`;
+      } else if (typeof body === 'string') {
+        prBodyHow =
+          `GITHUB_EVENT_PATH names a pull request at ${sha ? String(sha).slice(0, 9) : 'an unstated head'} ` +
+          'which THIS TREE DOES NOT CARRY — ⛔ ignored, because a body from another tree is not the prose ' +
+          'this change publishes about itself';
       }
     } catch (error) {
       prBodyHow = `GITHUB_EVENT_PATH unreadable (${error.message}) — this run read no pull request body`;

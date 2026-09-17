@@ -288,12 +288,39 @@ export function HookDefaultInspector({
             carries the ADR-0089 envelope, not the authored string. Read and
             write it through the shared pair so the guard is visible and an
             edit cannot rewrite its dialect or drop its `meta` (#3218). */}
+        {/* `record`, because that is what the SERVER binds (objectui#8167).
+            `@objectstack/objectql`'s `wrapDeclarativeHook` compiles the
+            condition once and evaluates it as
+
+                ExpressionEngine.evaluate<boolean>(
+                  expr, { record: record ?? {}, previous })
+
+            — `record` and `previous`, and nothing else. This editor linted
+            `flattened`, so a bare `status == 'done'` typed here came back CLEAN
+            and then met a scope that has no top-level `status`.
+
+            ⚠️ And on this surface the consequence is worse than a gate that
+            never fires. An unevaluable condition does not resolve false: it
+            throws `HookConditionError`, deliberately (the objectstack#4775
+            fail-LOUD ruling — "Fail LOUD. Not `false`"). The author's write is
+            what pays for the editor's success receipt.
+
+            `previous` stays reachable, and that needed checking rather than
+            assuming: measured on the installed `@objectstack/formula`, a
+            `previous.*` reference draws no finding at `scope: 'record'` and
+            `introspectScope` already lists `previous` among the roots it
+            advertises, so nothing had to be added for it. Pinned in
+            `ConditionBuilder.mountScope.test.tsx` by the case named "accepts
+            `previous.<field>` — the transition idiom the server binds beside
+            `record`", so a later narrowing of the root list cannot take it away
+            in silence. */}
         <ConditionBuilder
           label="Run only when (optional CEL)"
           value={expressionSource(draft.condition)}
           onCommit={(v) => onPatch({ condition: writeExpressionSource(draft.condition, v) })}
           objectName={conditionObject}
           disabled={readOnly}
+          scope="record"
           onBlockingIssuesChange={reportCel}
         />
       </div>

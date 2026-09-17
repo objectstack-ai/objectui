@@ -705,6 +705,59 @@ export function PageBlockInspector({ selection, draft, onPatch, onClearSelection
           and the spec's parse error already names `visibleWhen` as the fix.
           `visibleWhen` is `ExpressionInputSchema`, so it goes through the same
           envelope read/write pair as the hook / action guards (#3218). */}
+      {/* ── This mount passes NO `scope`, and that is a measured verdict
+          ────────────────────────────────────────────────────────────────────
+          objectui#8167's ruling settled the RULE — a mount's lint scope is
+          decided by what the evaluator binds at RUNTIME — and left this mount
+          to a reading. The reading was taken, and its answer is that NEITHER
+          lint scope expresses what this surface binds.
+
+          What the renderer binds. A page block is a SDUI node: the designer
+          canvas and the page preview both hand each block to `SchemaRenderer`
+          (`previews/PageBlockCanvas.tsx` renders one per block), and
+          `visibleWhen` is enforced once and generically inside it — its
+          `shouldHide` short-circuits on `if (newSchema.visibleWhen !==
+          undefined)` ahead of every other visibility leg. The evaluator that
+          answers it is built in `@object-ui/react`'s `SchemaRenderer.tsx` as
+
+              new ExpressionEvaluator({ ...predicateScope,
+                current_user: …, ...( … ? { record: boundRecord } : null),
+                page: pageVariables })
+
+          ⇒ three roots: `record`, `current_user` AND `page.<var>`. That is
+          also exactly what `@objectstack/spec` promises — `page.zod.ts`
+          describes `visibleWhen` as *"Contract-bound roots: `record`,
+          `current_user` … and page state as `page.<var>`"*, and its own worked
+          example is `page.selectedProjectId != ''`.
+
+          Why neither scope fits, measured on the installed
+          `@objectstack/formula`, both directions:
+
+            scope 'flattened' · "status == 'done'"                 -> clean
+            scope 'flattened' · "page.selectedProjectId != ''"     -> clean
+            scope 'record'    · "status == 'done'"                 -> error (right)
+            scope 'record'    · "page.selectedProjectId != ''"     -> ERROR,
+              "bare reference `page` … Write `record.page`."
+
+          `flattened` accepts the bare-field shorthand this card is about — the
+          row IS bound as `record` here, so `status == 'done'` never matches.
+          But `record` refuses `page.<var>`: at that scope the validator runs
+          its strict environment declaring exactly the engine's `SCOPE_ROOTS`,
+          and `page` is not in that list, so a contract-bound predicate becomes
+          a hard error prescribing the nonsense fix `record.page`. Worse than
+          cosmetic: this inspector reports blocking CEL issues upward, and the
+          host counts them, so that error would disable Save and auto-save
+          while the block is selected.
+
+          ⛔ So this mount deliberately passes nothing, and `flattened` is the
+          less-wrong of two wrong answers here — an editor that over-accepts,
+          rather than one that refuses what the spec documents. This is the
+          objectui#8155 shape (`app` refused although bound), and the fix is
+          not at this mount: `@objectstack/formula` needs either `page` among
+          its scope roots or a per-surface root allowlist on
+          `validateExpression`. Until then, ⛔ do not "settle" this mount by
+          passing `'record'` — `ConditionBuilder.mountScope.test.tsx` holds a
+          case that reddens if you do. */}
       <ConditionBuilder
         label={t('engine.inspector.pageBlock.visibleWhen', locale)}
         value={expressionSource(block.visibleWhen)}

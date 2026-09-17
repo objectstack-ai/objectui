@@ -342,32 +342,69 @@ export interface DetailViewSection {
     | 'primary/10'
     | 'secondary/10'
     | 'destructive/10';
-  /*
-   * RETIRED — `hideEmpty?: boolean` (objectui#7129, maintainer 2026-09-01).
+  /**
+   * Hide this section's empty fields, and — when EVERY field is empty — hide
+   * the whole section: no heading, no skeleton.
    *
-   * ⛔ Do not re-add it. The key was declared here, REFUSED by
-   * `@objectstack/spec` `RecordDetailsProps` (`unrecognized_keys` on the
-   * `sections[]` element, measured on 17.2.0), absent from the
-   * `DetailViewSectionSchema` mirror in `./zod/views.zod.ts`, and honoured by
-   * `RecordDetailsRenderer` — one key, four parties, three different answers,
-   * and the only one that let an author write it was this declaration.
+   * Set `false` to keep an all-empty section's heading and label skeleton, the
+   * spelling a brand-new record needs so its authored sections do not vanish.
    *
-   * The ruling converged the four on the spec's answer: emptiness on a
-   * `record:details` section is decided by `DetailSection`'s auto-hide
-   * heuristic (4 fields / 25% empty; 3 / 20% on mobile) and by the reader's
-   * own "Show N empty fields" toggle. That heuristic is now the WHOLE
-   * contract, which also dissolves the paradox this key carried: an authored
-   * `hideEmpty: false` was tested as `!section.hideEmpty`, so it was
-   * indistinguishable from unauthored and overrode nothing.
+   * ## ⚠️ Omitting it does NOT mean the same thing on both consumers
    *
-   * The retirement is pinned four ways at
-   * `packages/plugin-detail/src/renderers/__tests__/record-details.hideEmptyRetired-7129.test.tsx`.
+   * This type is consumed by two authorable renderers, and only one of them
+   * resolves a default — so this member deliberately carries no default tag:
    *
-   * ⚠️ NOT the same key as `record:reference_rail`'s own `hideEmpty`
-   * (`packages/plugin-detail/src/renderers/record-reference-rail.tsx`), which
-   * is a different surface and is untouched, nor the `detail.hideEmptyFields`
-   * i18n label, which is the toggle's own copy.
+   * - **`record:details`** (`RecordDetailsRenderer`) maps every authored
+   *   section with `hideEmpty ?? true`, so an omitted key behaves as `true`
+   *   and an all-empty section renders nothing. That is the default the spec's
+   *   own `describe()` states, and this renderer is the one the key is
+   *   declared on.
+   * - **`detail-view`** (`DetailViewRenderer`, whose registration takes a
+   *   `sections` input) hands each section to `DetailSection` unchanged. No
+   *   default is applied there, so an omitted key leaves the all-empty section
+   *   rendering its heading and skeleton. Only an explicit `true` hides it.
+   *
+   * Measured at objectui#8603, non-vacuously — a sibling control section that
+   * must render was present in every case, and it rendered in all six:
+   * `detail-view` unauthored keeps heading and rows, `true` hides, `false`
+   * keeps; `record:details` unauthored hides, `true` hides, `false` keeps.
+   * A single default tag on a member two renderers read would be true of one
+   * of them and false of the other, which is the objectui#7361 /
+   * objectui#7735 class (maintainer 2026-09-09: a docs-vs-implementation
+   * mismatch is a docs fix).
+   *
+   * ## What this key decides, and what it does NOT
+   *
+   * It decides the ALL-EMPTY case only. Empty ROWS inside a section that still
+   * has at least one filled row are decided by `DetailSection`'s auto-hide
+   * heuristic and by the reader's own "Show N empty fields" toggle — that
+   * remains the whole contract there (objectui#7129 Q2-C, untouched by the
+   * ruling below), so an authored value of either polarity does not override
+   * it. The two domains are disjoint: the heuristic requires a filled row,
+   * this key applies only where there is none.
+   *
+   * ## Provenance
+   *
+   * Declared by `@objectstack/spec` on the `record:details` section entry
+   * (`RecordDetailsProps.sections[]`, 17.3.0+, upstream #11289, maintainer
+   * ruling 2026-08-23 direction 1). objectui#7129 (maintainer 2026-09-01)
+   * retired this declaration and the renderer read on the premise that the
+   * spec REFUSED the key — true at the 17.2.0 pin, false upstream by the time
+   * the pin moved. objectui#8603 (director seat batch #137 item 3, maintainer
+   * 2026-09-15) ruled the protocol correct and restored the read; that ruling
+   * supersedes #7129's Q1-A for this key only.
+   *
+   * The wording above is the renderer's behaviour, kept in agreement with the
+   * spec's own `describe()` text — which the four-party pin
+   * `packages/plugin-detail/src/renderers/__tests__/record-details.hideEmptyRetired-7129.test.tsx`
+   * reads off the installed schema rather than restating.
+   *
+   * ⚠️ NOT the same key as `record:reference_rail`'s own component-level
+   * `hideEmpty` (`packages/plugin-detail/src/renderers/record-reference-rail.tsx`),
+   * which folds zero-count entry cards, nor the `detail.hideEmptyFields` i18n
+   * label, which is the reader toggle's copy — a prefix match on the name.
    */
+  hideEmpty?: boolean;
 }
 
 /**

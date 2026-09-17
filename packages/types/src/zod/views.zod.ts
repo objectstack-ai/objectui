@@ -102,6 +102,16 @@ export const DetailViewSectionSchema = z.object({
   columns: z.number().optional().describe('Grid columns for field layout'),
   visible: z.union([z.boolean(), z.string()]).optional().describe('Section visibility condition'),
   showBorder: z.boolean().optional().describe('Show border around section'),
+  // Mirrors `DetailViewSection.hideEmpty`, restored under objectui#8603
+  // (director seat batch #137 item 3, maintainer 2026-09-15) after
+  // objectui#7129 retired it on a premise `@objectstack/spec` had already
+  // reversed upstream. The key decides the ALL-EMPTY section only; empty rows
+  // inside a partly-filled section stay `DetailSection`'s heuristic (#7129
+  // Q2-C, untouched). The declaration's own docblock carries the full contract.
+  hideEmpty: z
+    .boolean()
+    .optional()
+    .describe('Hide an all-empty section entirely; `false` keeps its heading and label skeleton'),
   // Closed vocabulary — the six design-system tint tokens
   // `@object-ui/plugin-detail`'s `HEADER_COLOR_CLASSES` resolves, and the six
   // `@objectstack/spec` declares on its strict `record:details` section schema

@@ -2,6 +2,14 @@
 '@object-ui/plugin-detail': minor
 ---
 
+⚠️ **Partly superseded inside this same release — read the `hideEmpty`
+restoration entry for what ships.** What survives below: the direct-`fields`
+fallback body and the `detail-view` node keep an all-empty section's skeleton
+with zero app-side authoring, and the label-graveyard guard is untouched. What
+does not: on an AUTHORED `record:details` section the empty-section default is
+`hideEmpty` again, so an all-empty one hides unless the page writes
+`hideEmpty: false`.
+
 **Behaviour change.** `record:details` no longer forces `hideEmpty` on the
 sections it synthesizes, so a sparse record keeps its section skeleton instead
 of collapsing. Applications relying on the old auto-hide of *unauthored*
@@ -25,7 +33,10 @@ default.
 What changes, precisely:
 
 - an **all-empty** section renders its heading, every field label and one
-  empty-value placeholder per field (it used to render nothing at all);
+  empty-value placeholder per field (it used to render nothing at all)
+  — ⚠️ re-reversed for AUTHORED `record:details` sections later in this same
+  release, where the restored `hideEmpty` owns this case and `false` is the
+  spelling that keeps the skeleton;
 - a **small** partly-empty section — below `DetailSection`'s auto-hide
   threshold of 4 fields / 25% empty (3 / 20% on mobile) — now shows its empty
   rows;

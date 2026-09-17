@@ -7,57 +7,64 @@
  */
 
 /**
- * `DetailViewSection.hideEmpty` is RETIRED — the four parties agree (objectui#7129).
+ * `DetailViewSection.hideEmpty` — the FOUR-PARTY alignment pin (objectui#7129,
+ * objectui#8603).
  *
- * ## What was wrong
+ * ⚠️ The filename says `hideEmptyRetired-7129` and is deliberately kept. This
+ * file is this key's lineage pin, not a pin on one verdict: the ruling that
+ * created it was superseded for this key, and a rename would cost the history
+ * that makes the supersession legible. What the four parties SAY is below and
+ * is the only thing to read for today's contract.
  *
- * One key, four contracts, three different answers (measured on PR #7123 and
- * filed as this card's decision):
+ * | party                                          | says                 |
+ * |------------------------------------------------|----------------------|
+ * | `@objectstack/spec` `RecordDetailsProps`        | ✅ DECLARES it (17.3.0+) |
+ * | `@object-ui/types` `DetailViewSection`          | ✅ declares it        |
+ * | `./zod/views.zod.ts` `DetailViewSectionSchema`  | ✅ mirrors it         |
+ * | `RecordDetailsRenderer` + `DetailSection`       | ✅ READS it           |
  *
- * | party                                     | said                       |
- * |-------------------------------------------|----------------------------|
- * | `@objectstack/spec` `RecordDetailsProps`   | ⛔ REFUSED it (17.2.0; see the 2026-09-05 note below) |
- * | `@object-ui/types` `DetailViewSection`     | ✅ declared it              |
- * | `./zod/views.zod.ts` `DetailViewSectionSchema` | ⛔ absent               |
- * | `RecordDetailsRenderer`                    | ✅ honoured it              |
+ * ## How the four got here
  *
- * The declaration was the only thing that made the key writable, and on any
- * spec-validated page it never reached the renderer at all — so the "author
- * escape hatch" the 2026-08-31 ruling described existed only where nothing
- * validated. The maintainer converged the four on the spec's answer
- * (2026-09-01, 总监批 #28): retire the declaration and the read, keep the spec
- * refusing, keep the mirror absent. `DetailSection`'s auto-hide heuristic
- * (4 fields / 25% empty; 3 / 20% on mobile) is now the WHOLE contract.
+ * They disagreed three ways, measured on PR #7123: the spec REFUSED the key at
+ * 17.2.0, `@object-ui/types` declared it, the mirror omitted it, the renderer
+ * honoured it — and the declaration was the only thing that made the key
+ * writable, so on a spec-validated page the "author escape hatch" the
+ * 2026-08-31 ruling described existed nowhere. The maintainer converged the
+ * four on the spec's answer (2026-09-01, director-seat batch #28): retire the
+ * declaration and the read, keep the spec refusing, keep the mirror absent.
  *
- * ## ⚠️ 2026-09-05 — the spec moved back, and this file now records a DIVERGENCE
+ * `@objectstack/spec` 17.3.0 then RE-DECLARED `hideEmpty` on the
+ * `record:details` section entry (upstream #11289, maintainer ruling
+ * 2026-08-23 direction 1, written from a measured symptom and with "the
+ * renderer is unchanged" written into the declaration). The clause "keep the spec
+ * refusing" thereby described nothing, through no act of this repo — and the
+ * premise it rested on had been false upstream since before the ruling was
+ * written.
  *
- * `@objectstack/spec` 17.3.0 RE-DECLARES `hideEmpty` on the `record:details`
- * section entry (measured: the entry went 4 → 12 member keys, `hideEmpty` among
- * the eight gained, lost set empty). One clause of the ruling — "keep the spec
- * refusing" — therefore describes nothing any more, through no act of this
- * repo.
+ * objectui#8603 (director seat batch #137 item 3, with the maintainer's
+ * assent, 2026-09-15) ruled the protocol correct and RESTORED the read, superseding
+ * #7129's Q1-A for this key. Q2-C — `DetailSection`'s auto-hide heuristic
+ * owning the empty ROWS of a section that still has a filled one — is
+ * untouched, and `record-details.emptySectionDefault.test.tsx` is where that
+ * boundary is pinned on both sides.
  *
- * objectui's own three parties are UNCHANGED and still agree: the type does not
- * declare it, the mirror omits it, the renderer does not read it. 1/4 below is
- * pointed at the measured upstream truth so the divergence is a stated fact
- * rather than a red test; every other assertion is untouched.
- *
- * ⇒ Whether objectui re-adopts the key is a MAINTAINER decision (it reverses
- * the ruling and re-adds a deleted control) and is reported on objectui#7122,
- * NOT taken here. If it is re-adopted, this file is the checklist: three
- * parties to move, not one.
+ * ⇒ The decision this file used to route to objectui#7122 has been taken.
+ * That card closed `completed` on 2026-09-07 on an unrelated subject
+ * (`CalendarConfigSchema.titleField`), so the routing pointed at a closed card
+ * on a different question; the target is now objectui#8603, where the ruling
+ * is.
  *
  * ## Why one file
  *
  * Alignment is a claim about FOUR sources at once, and each of them is green on
  * its own while the set disagrees — which is exactly how the divergence
  * survived. Pinning them separately reproduces that blind spot; pinning them
- * together makes any one party moving back a single red test.
+ * together makes any one party moving a single red test.
  *
  * ⚠️ Two same-named keys are NOT in scope here and must stay untouched:
  *   - `record:reference_rail`'s own `hideEmpty` prop (`../record-reference-rail.tsx`)
- *     — a different surface, a different renderer, still live and still
- *     registered as an input in `../../index.tsx`;
+ *     — a different surface, a different renderer, its own component-level
+ *     semantics, still registered as its own input in `../../index.tsx`;
  *   - the `detail.hideEmptyFields` i18n label (the "Show N empty fields"
  *     toggle's copy, in all ten locale packs) — a PREFIX match on the name,
  *     not this key.
@@ -84,23 +91,34 @@ type Declares<K extends string> = K extends keyof DetailViewSection ? true : fal
 /**
  * Erased at runtime, so `tsc` is the only thing that can see it — this package's
  * `tsconfig.test.json` is what compiles it, reading `@object-ui/types` through
- * the workspace dependency's BUILT `.d.ts` (its `paths` are empty). Re-adding
- * `hideEmpty?: boolean` to `DetailViewSection` turns this red and nothing else
- * in this file moves.
+ * the workspace dependency's BUILT `.d.ts` (its `paths` are empty). Deleting
+ * `hideEmpty?: boolean` from `DetailViewSection` turns this red and nothing
+ * else in this file moves. It asserted `false` while objectui#7129 held.
  */
-export type assertionHideEmptyIsNotDeclared = Assert<Equal<Declares<'hideEmpty'>, false>>;
+export type assertionHideEmptyIsDeclared = Assert<Equal<Declares<'hideEmpty'>, true>>;
 
 /**
- * Non-vacuity for the assertion above: a sibling key the interface DOES declare
- * resolves `true` through the same `Declares<…>`, so `false` above is a
- * measurement and not a broken conditional.
+ * Non-vacuity for the assertion above: a key the interface does NOT declare
+ * resolves `false` through the same `Declares<…>`, so `true` above is a
+ * measurement and not a conditional that answers `true` for everything. The
+ * probe key is minted for this file and verified absent from the interface.
  */
-export type assertionDeclaresProbeWorks = Assert<Equal<Declares<'showBorder'>, true>>;
+export type assertionDeclaresProbeWorks = Assert<Equal<Declares<'os8603AbsentProbeQhx'>, false>>;
 
 /* ── The three runtime parties ────────────────────────────────────────────── */
 
 const objectSchema = {
   fields: {
+    // DECLARED and left UNSET on the record below, so the `record:details`
+    // dedupe ladder resolves its page-H1 candidate to `name`, finds no value
+    // there and hides nothing (objectui#8175). Without it the ladder's ADR-0079
+    // derivation rung ends in "first title-eligible field by declaration
+    // order" — `industry` — and the H1 eats the one filled field, which is the
+    // CONTROL section below. Measured: the control section then renders no
+    // fields, takes `DetailSection`'s all-fields-hidden exit, and the absence
+    // assertions in 4/4 pass against a body that rendered nothing at all —
+    // exactly the vacuous green the control exists to make impossible.
+    name: { type: 'text', label: 'Name' },
     industry: { type: 'text', label: 'Industry' },
     stage: { type: 'text', label: 'Stage' },
     amount: { type: 'text', label: 'Amount' },
@@ -132,33 +150,23 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('DetailViewSection.hideEmpty is retired in objectui — and the spec re-declared it at 17.3.0 (#7129)', () => {
-  it('1/4 — ⚠️ `@objectstack/spec` 17.3.0 DECLARES the key again: the fourth party moved', () => {
+describe('DetailViewSection.hideEmpty — all four parties declare and honour it again (#7129 → #8603)', () => {
+  it('1/4 — `@objectstack/spec` DECLARES the key on the `record:details` section entry', () => {
     // ⭐ READ THIS BEFORE CHANGING ANYTHING ELSE IN THIS FILE.
     //
-    // This assertion is inverted from what it said at 17.2.0, and the inversion
-    // is NOT objectui following the spec back. It records that the ruling's
-    // fourth party changed its answer underneath the ruling.
+    // This is the party objectui does not control, and it is why the other
+    // three below say what they say. The 2026-09-01 ruling (batch #28)
+    // converged four disagreeing contracts on the spec's answer, in these
+    // words: "retire the declaration and the read, keep the spec refusing,
+    // keep the mirror absent". `@objectstack/spec` 17.3.0 then declared
+    // `hideEmpty` on this entry — one of eight keys it gained (4 → 12 members,
+    // lost set empty) — so that clause described nothing, through no act of
+    // this repo, and objectui#8603 realigned the other three onto it.
     //
-    // The 2026-09-01 ruling (总监批 #28) converged four disagreeing contracts on
-    // the spec's answer, in these words: "retire the declaration and the read,
-    // keep the spec refusing, keep the mirror absent". `@objectstack/spec`
-    // 17.3.0 then re-declared `hideEmpty` on the `record:details` section entry
-    // — measured, as one of eight keys the entry gained (4 → 12 members, lost
-    // set empty). So the clause "keep the spec refusing" is no longer a
-    // description of anything, through no act of this repo.
-    //
-    // ⛔ What has NOT changed, and what this file still pins in full: objectui's
-    // three parties still agree the key is retired. 2/4 (the mirror omits it),
-    // 3/4 (the type does not declare it) and 4/4 (nothing reads it, end to end)
-    // are untouched below. Authoring `hideEmpty` on this renderer still does
-    // nothing, which is the behaviour the ruling ordered.
-    //
-    // ⇒ Whether objectui should now re-adopt the key is a MAINTAINER decision —
-    // it would reverse a five-day-old ruling and re-add a control the ruling
-    // deleted — and it is reported on objectui#7122 rather than taken here. The
-    // assertion is pointed at the measured truth so that the divergence is a
-    // stated, pinned fact instead of a red test somebody eventually deletes.
+    // ⛔ The key's `describe()` text is NOT asserted here. It is the promise
+    // this renderer's behaviour must keep — 4/4 below is where that is
+    // measured — but nothing in this repo PARSES that prose, so pinning it
+    // would fail on an upstream rewording that changed no contract.
     const parsed = RecordDetailsProps.safeParse({
       sections: [{ label: 'Contact', fields: ['phone'], hideEmpty: true }],
     });
@@ -194,51 +202,79 @@ describe('DetailViewSection.hideEmpty is retired in objectui — and the spec re
     expect((control.data as { sections?: { columns?: number }[] })?.sections?.[0]?.columns).toBe(2);
   });
 
-  it('2/4 — the `DetailViewSectionSchema` zod mirror OMITS the key', () => {
+  it('2/4 — the `DetailViewSectionSchema` zod mirror CARRIES the key', () => {
     const mirrored = Object.keys(DetailViewSectionSchema.shape);
 
-    expect(mirrored).not.toContain('hideEmpty');
-    // CONTROL: the mirror really was read — `headerColor` is one it does carry.
+    expect(mirrored).toContain('hideEmpty');
+    // CONTROL: the mirror really was read, and reading it can still answer NO —
+    // `headerColor` is a key it carries, and a minted key it does not.
     expect(mirrored).toContain('headerColor');
+    expect(mirrored).not.toContain('os8603AbsentProbeQhx');
   });
 
   // 3/4 is the compile-time pair above; `vitest` proves nothing about it.
 
-  it('4/4 — `record:details` no longer READS the key: an authored one is inert end to end', () => {
-    // An all-empty section is the case `DetailSection`'s heuristic reserves and
-    // the case the old read overrode: authored `hideEmpty: true` used to make
-    // the whole section disappear. It must now render its skeleton.
+  it('4/4 — `record:details` READS the key end to end, in BOTH directions', () => {
+    // An all-empty section is the case this key owns and the case the read
+    // decides: `hideEmpty: true` (and the renderer default) makes the whole
+    // section disappear, `false` keeps its heading and label skeleton.
     //
-    // ⚠️ Deliberately end-to-end rather than "the renderer does not read it".
-    // Measured on this card's ablation: `RecordDetailsRenderer` spreads `...s`,
-    // so deleting its explicit `hideEmpty: s.hideEmpty` slot left the value
-    // still reaching `DetailSection` and this suite GREEN. The read that
-    // decided anything was `DetailSection`'s, and restoring THAT is what turns
-    // this red. A pin written against the renderer's slot alone would have
-    // been a pin that cannot fail.
-    render(
-      <RecordContextProvider
-        objectName="crm_opportunity"
-        recordId="O1"
-        data={{ industry: 'Manufacturing' }}
-        objectSchema={objectSchema}
-      >
-        <RecordDetailsRenderer
-          schema={
-            {
-              sections: [
-                { name: 'deal_terms', label: 'Deal Terms', fields: ['stage', 'amount', 'close_date'], hideEmpty: true },
-              ],
-            } as never
-          }
-        />
-      </RecordContextProvider>,
-    );
+    // ⚠️ Deliberately end-to-end rather than "the renderer passes it on".
+    // Measured on #7129's ablation: `RecordDetailsRenderer` spreads `...s`, so
+    // deleting its explicit `hideEmpty: s.hideEmpty` slot left the value still
+    // reaching `DetailSection` and that suite GREEN. The read that decides
+    // anything is `DetailSection`'s, and this is the assertion that moves when
+    // it moves. A pin written against the renderer's slot alone would be a pin
+    // that cannot fail.
+    //
+    // ⚠️ NON-VACUITY: every render below carries a sibling CONTROL section that
+    // must appear. "Nothing rendered" is the verdict of the first case, and
+    // without a control it is also what a render that never happened looks
+    // like — a crashed or empty tree would satisfy the absence assertions on
+    // its own.
+    const renderWith = (section: Record<string, unknown>) =>
+      render(
+        <RecordContextProvider
+          objectName="crm_opportunity"
+          recordId="O1"
+          data={{ industry: 'Manufacturing' }}
+          objectSchema={objectSchema}
+        >
+          <RecordDetailsRenderer
+            schema={
+              {
+                sections: [
+                  { name: 'deal_terms', label: 'Deal Terms', fields: ['stage', 'amount', 'close_date'], ...section },
+                  // CONTROL: `industry` is the one filled field on the record,
+                  // so this section renders in every case below.
+                  { name: 'firmographics', label: 'Firmographics', fields: ['industry'] },
+                ],
+              } as never
+            }
+          />
+        </RecordContextProvider>,
+      );
 
+    // (a) authored `true` — the section renders nothing at all.
+    const hidden = renderWith({ hideEmpty: true });
+    expect(screen.getByText('Firmographics')).toBeInTheDocument();
+    expect(screen.getByText('Manufacturing')).toBeInTheDocument();
+    expect(screen.queryByText('Deal Terms')).not.toBeInTheDocument();
+    for (const label of ['Stage', 'Amount', 'Close Date']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(screen.queryAllByTitle('No value')).toHaveLength(0);
+    hidden.unmount();
+
+    // (b) authored `false` — heading and skeleton stay. Same fixture, same
+    // control, so the pair isolates the key and nothing else.
+    const kept = renderWith({ hideEmpty: false });
+    expect(screen.getByText('Firmographics')).toBeInTheDocument();
     expect(screen.getByText('Deal Terms')).toBeInTheDocument();
     for (const label of ['Stage', 'Amount', 'Close Date']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(screen.queryAllByTitle('No value')).toHaveLength(3);
+    kept.unmount();
   });
 });

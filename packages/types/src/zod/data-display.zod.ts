@@ -548,6 +548,39 @@ export const TreeViewSchema = BaseSchema.extend({
   selectedIds: z.array(z.string()).optional().describe('Controlled selected node IDs'),
   multiSelect: z.boolean().optional().describe('Allow multiple selection'),
   showLines: z.boolean().optional().describe('Show connecting lines'),
+  // objectui#7804 — RUNTIME SLOT (objectui#6124), the ledger row this slice
+  // drains. `BaseSchema` is `.passthrough()`, so a key no arm declares is not
+  // refused: it stops being judged and the value is KEPT. `onNodeClick` sat in
+  // exactly that state while the registered renderer INVOKED it, so an authored
+  // `{ "type": "tree-view", "onNodeClick": { "action": "toast" } }` parsed GREEN
+  // and that action object was handed to a call site expecting a function.
+  //
+  // MEASURED as `'runtime-slot'` and not `'retired'`, at its own channel rather
+  // than assumed from the two siblings below:
+  //   - READ AND RUN. In `renderers/data-display/tree-view.tsx`, the `tree-view`
+  //     registration's own `handleNodeClick` is the presence gate
+  //     `if (schema.onNodeClick)` around the call `schema.onNodeClick(node)`,
+  //     where `node` is the clicked `TreeNode`. `'retired'` publishes "no
+  //     renderer reads this key, so nothing could ever run it" — flatly false
+  //     here, and it is the sentence the author of a wrong-shaped value would
+  //     be shown.
+  //   - THE TS FACE ALREADY DECLARES THE CALLABLE TWIN
+  //     (`../data-display.ts#TreeViewSchema.onNodeClick`), so a function really
+  //     does reach the renderer through the programmatic channel. This arm says
+  //     on the JSON face what that face never could.
+  //   - ⚠️ NO IN-REPO SUPPLIER builds a `tree-view` node carrying it — the same
+  //     shape as `ObjectFormSchema.onStepChange` in this card's `objectql.ts`
+  //     slice: the channel is wired end to end and only the supplier is absent.
+  //     That is not evidence of a dead read, and it does not make the key
+  //     `'retired'`.
+  //
+  // ⚠️ Unlike thirteen of this card's fifteen remaining ledger rows, the
+  // registration here is NOT an alias: `ComponentRegistry.register('tree-view',
+  // ..., { namespace: 'ui' })` carries no `skipFallback`, so the bare
+  // `tree-view` key is this component's own and this arm is the contract for
+  // what renders under it. The renderer and the arm describe the same
+  // component, which is what makes the declaration safe to publish here.
+  onNodeClick: handlerKeyRefusal('onNodeClick', 'runtime-slot', 'Node click handler'),
   onSelectChange: handlerKeyRefusal('onSelectChange', 'retired', 'Selection change handler'),
   onExpandChange: handlerKeyRefusal('onExpandChange', 'retired', 'Expand change handler'),
   body: retirementTombstone(

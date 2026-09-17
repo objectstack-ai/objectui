@@ -154,7 +154,15 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **45 entries** in `KnownDrift`, **83 keys** across them — 41 / 72 until
+ *   - **46 entries** in `KnownDrift`, **84 keys** across them — 45 / 83 until
+ *     objectui#7804's `TreeViewSchema` slice DECLARED `onNodeClick` on
+ *     `data-display.zod.ts#TreeViewSchema`, a NEW entry here (that pair had no
+ *     `KnownDrift` entry at all), so entry count and key total moved by one
+ *     together. ⚠️ Its sibling move next door is not symmetric with the earlier
+ *     ones: `RuntimeOnlyDeclared` lost a whole ENTRY, and with it the only pair
+ *     that ledger held which `UnmirroredDeclared` did not — see the
+ *     cross-ledger sentence under that bullet, which now states CONTAINMENT
+ *     where it used to state a difference. It was 41 / 72 until
  *     objectui#7804's `objectql.ts` slice DECLARED nine handler keys across FOUR
  *     arms in that one mirror file, three of them NEW entries here
  *     (`ObjectFormSchema`, `ObjectGridSchema`, `ObjectViewSchema`) plus a fourth
@@ -309,7 +317,14 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **4 entries** in `RuntimeOnlyDeclared`, **10 keys** across them — 7 / 17
+ *   - **3 entries** in `RuntimeOnlyDeclared`, **9 keys** across them — 4 / 10
+ *     until objectui#7804's `TreeViewSchema` slice took the whole
+ *     `data-display.zod.ts#TreeViewSchema` entry out (its one key `onNodeClick`
+ *     declared on the mirror as a named refusal, moved to `KnownDrift` above).
+ *     ⭐ The consequence is not the digit: that entry was the ONLY member of
+ *     this ledger absent from `UnmirroredDeclared`, so this ledger is now a
+ *     SUBSET of that one and the union equals it — the sentence below says so,
+ *     and it used to say the opposite. It was 7 / 17
  *     until objectui#7804's `objectql.ts` slice took three WHOLE entries out —
  *     `objectql.zod.ts#ObjectFormSchema` (five keys),
  *     `objectql.zod.ts#ObjectGridSchema` and `objectql.zod.ts#ObjectViewSchema`
@@ -328,14 +343,20 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **3 of the 4** are a subset of the **14** pairs above; `TreeViewSchema` is
- *     NOT — it is the first pair whose ONLY ledger entry is a runtime-only one
- *     (objectui#6150 declared `onNodeClick` on an otherwise clean pair), which is why
- *     the union of the two unmirrored ledgers is **15** pairs and not **14**.
- *     ⚠️ Four live figures sit in those two sentences and all four are pinned: the
- *     `6` (a quantity of its own — how many entries the two unmirrored ledgers
- *     share), and three RESTATEMENTS — the `7` beside it, and the `14` twice — of
- *     counts already stated above. The `6` and the `7` were spelled as English WORDS
+ *     **3 of the 3** are a subset of the **14** pairs above, so
+ *     the union of the two unmirrored ledgers is **14** pairs — `UnmirroredDeclared`
+ *     itself, exactly. ⭐ This sentence read `3 of the 4` / `15 pairs and not 14`
+ *     until objectui#7804's `TreeViewSchema` slice, and the pair it named as the
+ *     exception was the whole content of the difference: objectui#6150 had declared
+ *     `onNodeClick` on an otherwise clean pair, making `TreeViewSchema` the first
+ *     and only pair whose sole ledger entry was a runtime-only one, and #7804
+ *     drained it by MIRRORING the key as a named refusal. ⛔ The difference figure
+ *     is not recoverable by editing this sentence — it is a fact about the ledgers,
+ *     and it returns only when some pair is again runtime-only and nothing else.
+ *     ⚠️ Three live figures sit in these sentences and all three are pinned: the
+ *     `3` (a quantity of its own — how many entries the two unmirrored ledgers
+ *     share), and two RESTATEMENTS — the `3` beside it, and the `14` — of
+ *     counts already stated above. They were spelled as English WORDS
  *     until objectui#8222, which is why no instrument had ever read them: a figure
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
@@ -459,7 +480,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 45 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -1664,6 +1685,27 @@ interface KnownDrift {
     | 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder'
     | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnResize'
     | 'onRowActionDef' | 'onRowClick' | 'onRowSave';
+  /**
+   * RUNTIME SLOT (objectui#6124), arrived with objectui#7804's `TreeViewSchema`
+   * slice — a NEW entry here, not growth on an existing one, because
+   * `TreeViewSchema` had no `KnownDrift` entry at all.
+   *
+   * `renderers/data-display/tree-view.tsx` gates on `if (schema.onNodeClick)`
+   * and CALLS `schema.onNodeClick(node)`, so the TS side keeps it callable and
+   * the mirror refuses it by name. The key came from `RuntimeOnlyDeclared`
+   * below, which LOST ITS ONLY `TreeViewSchema` ENTRY in the same move — ⚠️ one
+   * move seen from both sides, and the move that finally made
+   * `RuntimeOnlyDeclared` a subset of `UnmirroredDeclared`; the cross-ledger
+   * sentence in this file's header records that, and the pin that reads it
+   * changed shape for it.
+   *
+   * ⚠️ Measured `'runtime-slot'` and NOT `'retired'` although NO in-repo host
+   * builds a `tree-view` node carrying it: the read is live and invoked, so
+   * `'retired'` would publish "no renderer reads this key" to the author who
+   * trips it. Same shape as `ObjectFormSchema.onStepChange` in this card's
+   * `objectql.ts` slice — channel wired end to end, supplier absent.
+   */
+  'data-display.zod.ts#TreeViewSchema': 'onNodeClick';
   /** RUNTIME SLOT (objectui#6124): the `accordion` renderer spreads leftover props onto the Radix `Accordion` root, where `onValueChange` is a real prop. */
   'disclosure.zod.ts#AccordionSchema': 'onValueChange';
   /** RUNTIME SLOT (objectui#6124): the `collapsible` renderer spreads leftover props onto the Radix `Collapsible` root. */
@@ -2508,22 +2550,22 @@ interface RuntimeOnlyDeclared {
    * looks like growth from nowhere.
    */
   /**
-   * `TreeViewSchema`'s ONLY entry in either ledger — the pair was clean before
-   * objectui#6150 and this key is the whole of its debt.
+   * ⭐ `data-display.zod.ts#TreeViewSchema` WAS HERE and is GONE — objectui#7804's
+   * `TreeViewSchema` slice. Its one key `onNodeClick` is now DECLARED on the
+   * mirror as a named refusal and sits in `KnownDrift` above; the entry had
+   * nothing else in it, so the entry went with the key.
    *
-   * OVERSIGHT group by mirror shape (`onSelectChange` and `onExpandChange` are
-   * mirrored beside it as `z.function()`), but it arrives here as a DECLARATION,
-   * not a discovery: objectui#6150's census measured `schema.onNodeClick` INVOKED
-   * at `renderers/data-display/tree-view.tsx:98,99` against a type that declared
-   * nothing, and the card declared it. A function cannot appear in an authored
-   * JSON document, so the key is a runtime slot and objectui#6152's ruling routes
-   * it here rather than to a mirror — the step-3 exception in the header above,
-   * used exactly as written.
-   *
-   * ⚠️ This is the first pair to sit in `RuntimeOnlyDeclared` without also sitting
-   * in `UnmirroredDeclared`; the two counts in the file header record that.
+   * ⚠️ THIS REMOVAL CHANGED THE SHAPE OF A CROSS-LEDGER FIGURE, which is why it
+   * is recorded here rather than only as a smaller digit in the header.
+   * `TreeViewSchema` was the ONE pair in this ledger that was not also in
+   * `UnmirroredDeclared` — the whole reason the union of the two unmirrored
+   * ledgers was one pair LARGER than `UnmirroredDeclared` itself. With it gone
+   * this ledger is a SUBSET of that one, the union equals it exactly, and the
+   * header sentence plus the two pin legs that read it were rewritten to state
+   * the containment instead of a difference. ⛔ Do not "restore" a difference
+   * figure here: the pin now reads the containment, and a re-seeded
+   * runtime-only-only pair has to move both together.
    */
-  'data-display.zod.ts#TreeViewSchema': 'onNodeClick';
   /**
    * 3 of `DetailViewSchema`'s former 14 — the exact three the 2026-07 audit named. By
    * mirror SHAPE this is the oversight group (`onBack` is mirrored, as `z.string()`),
@@ -3006,14 +3048,20 @@ export const assertionDriftMatchesLedger: never = 0 as unknown as LedgerMismatch
  * Six of `RuntimeOnlyDeclared`'s seven
  * pairs are a measured subset of `UnmirroredDeclared`'s 14, so objectui#6152's
  * reclassification left the clean population unchanged; objectui#6150 then added
- * `TreeViewSchema`, whose only entry is runtime-only, which is why the union is one
- * pair larger than `UnmirroredDeclared` itself. (objectui#6576 took the union to 18;
+ * `TreeViewSchema`, whose only entry was runtime-only, which is why the union was for
+ * a time one pair larger than `UnmirroredDeclared` itself. (objectui#6576 took the
+ * union to 18;
  * objectui#7129 brought it back to 17 by retiring `DetailViewSectionSchema`'s only
  * ledgered key, objectui#7623 to 16 by retiring `DashboardComponentSchema`'s,
  * objectui#7352 to 14 by MIRRORING both `drillDown` entries — each leaving its
  * pair with no entry in either half — and objectui#7655 to 15 by registering
  * `ChatbotFloatingSchema` born ledgered. ⚠️ Two of those pairs still carry a
  * `KnownDrift` entry: "no entry in either" is about the two UNMIRRORED ledgers.)
+ * ⭐ objectui#7804's `TreeViewSchema` slice closed that gap: the key was MIRRORED as
+ * a named refusal, the pair's runtime-only entry went with it, and the union is
+ * `UnmirroredDeclared` exactly — ⛔ so the present-tense clause this paragraph used
+ * to carry ("which is why the union is one pair larger") is now history, and the
+ * live figure lives in the file header where it is pinned.
  *
  * ⚠️ **The discriminating signal is the PER-PAIR set, not this file's exit code.**
  * The exit code is a whole-file verdict, so it moves only while the rest of the
@@ -3937,8 +3985,17 @@ describe('the header key totals and cross-ledger figures are derived, not prose 
     const [inBoth, ofRuntimeOnly, unmirroredPairs] = headerFigures(
       /\*\*(\d+) of the (\d+)\*\* are a subset of the \*\*(\d+)\*\* pairs above/,
     );
-    const [unionPairs, notUnmirroredPairs] = headerFigures(
-      /the union of the two unmirrored ledgers is \*\*(\d+)\*\* pairs and not \*\*(\d+)\*\*/,
+    // ⭐ RESHAPED by objectui#7804's `TreeViewSchema` slice. This spelling used to
+    // read `is **15** pairs and not **14**` and carried TWO figures — the union and
+    // a fourth restatement of `UnmirroredDeclared`'s entry count. Draining that
+    // pair emptied the difference: the union now EQUALS `UnmirroredDeclared`, and
+    // the old spelling would have had to read `is **14** pairs and not **14**`,
+    // which is a sentence no reader can act on. So the header states the
+    // containment and this reads ONE figure off it. ⛔ The restatement is not
+    // "missing": `unmirroredEntriesRestated` above still reads that count from the
+    // sentence beside it, so the figure is still pinned twice, not once.
+    const [unionPairs] = headerFigures(
+      /the union of the two unmirrored ledgers is \*\*(\d+)\*\* pairs — `UnmirroredDeclared`/,
     );
 
     expect({
@@ -3948,7 +4005,6 @@ describe('the header key totals and cross-ledger figures are derived, not prose 
       runtimeOnlyEntriesRestated: ofRuntimeOnly,
       unmirroredEntriesRestated: unmirroredPairs,
       unionOfUnmirroredLedgers: unionPairs,
-      unmirroredEntriesRestatedAgain: notUnmirroredPairs,
     }, `
 The header's key totals or cross-ledger figures disagree with the ledgers.
 
@@ -4002,7 +4058,6 @@ the two is stated ONCE, in this file's header.`)
         runtimeOnlyEntriesRestated: runtimeOnly.length,
         unmirroredEntriesRestated: unmirrored.size,
         unionOfUnmirroredLedgers: new Set([...unmirrored, ...runtimeOnly]).size,
-        unmirroredEntriesRestatedAgain: unmirrored.size,
       });
   });
 
@@ -4024,17 +4079,29 @@ the two is stated ONCE, in this file's header.`)
         .toBeGreaterThan(members.size);
     }
 
-    // The cross-ledger figures are only meaningful if the two ledgers really do
-    // overlap and really do differ: a union equal to either side, or an empty
-    // intersection, would make `6 of the 7` and `15 pairs` pass while measuring a
-    // degenerate case. `TreeViewSchema` is the single member outside the overlap —
-    // the reason the union is 15 and not 14 in the first place.
+    // The cross-ledger figures are only meaningful if the reader really reads both
+    // ledgers: an EMPTY `RuntimeOnlyDeclared`, or an empty intersection, would make
+    // the subset and union figures pass while measuring a degenerate case.
+    //
+    // ⭐ RESHAPED by objectui#7804's `TreeViewSchema` slice, and this is the one
+    // leg in this file whose DIRECTION the slice inverted. It used to assert that
+    // `RuntimeOnlyDeclared` is NOT a subset of `UnmirroredDeclared`, because a
+    // subset would make the old header figure (`15 pairs and not 14`) vacuous —
+    // `TreeViewSchema` was the single member outside the overlap and the entire
+    // content of that difference. Draining it made the containment TRUE, so the
+    // old leg is not a guard that got weakened: it is a claim about the ledgers
+    // that stopped holding, and keeping it would have forced a real key back onto
+    // a ledger to satisfy a sentence — route 1, the thing this file exists to
+    // refuse. The header now states the containment, and this asserts it, with the
+    // two non-vacuity legs the old shape relied on kept explicit.
     const unmirrored = new Set(ledgerEntryKeys('UnmirroredDeclared'));
     const runtimeOnly = ledgerEntryKeys('RuntimeOnlyDeclared');
+    expect(runtimeOnly.length, 'RuntimeOnlyDeclared read as EMPTY — the subset and union figures are then vacuous')
+      .toBeGreaterThan(0);
     expect(runtimeOnly.filter((pair) => unmirrored.has(pair)).length, 'the two unmirrored ledgers read as DISJOINT')
       .toBeGreaterThan(0);
-    expect(runtimeOnly.filter((pair) => !unmirrored.has(pair)), 'RuntimeOnlyDeclared read as a SUBSET of UnmirroredDeclared — the union figure is then vacuous')
-      .not.toEqual([]);
+    expect(runtimeOnly.filter((pair) => !unmirrored.has(pair)), 'RuntimeOnlyDeclared holds a pair UnmirroredDeclared does not — the header says the union equals UnmirroredDeclared, so that sentence and this ledger disagree')
+      .toEqual([]);
   });
 });
 

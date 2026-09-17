@@ -557,14 +557,39 @@ describe('a bare filename opens the continuation scope, not only a full address'
   });
 
   it('⚠️ leaves the restated address BLIND, and says so rather than implying coverage', () => {
-    // The sixth address is restated in a second paragraph, eight lines below the
-    // only filename and with none of its own. It is NOT read, and that is the
-    // deliberate guard doing its job, ⛔ not an oversight to quietly widen: on
-    // this tree, reaching it costs 14 more rows of which 3 are a port, a cron
-    // minute and a Chinese enumeration. Pinned by name so no reader can cite
-    // this syntax as covering an address that drifted out of its scope.
+    // The sixth address is restated eight lines below the only filename and
+    // carries none of its own. It is NOT read, and that is a deliberate guard
+    // doing its job, ⛔ not an oversight to quietly widen. Pinned by name so no
+    // reader can cite this syntax as covering an address that drifted out of
+    // its scope. ⛔ The PRICE of reaching it is not written down here, per
+    // AGENTS.md #9 -- re-derive it from the census, never from a comment.
     expect(DOCBLOCK).toContain(':613');
     expect(cited(DOCBLOCK)).not.toContain(613);
+  });
+
+  it('⛔ names DISTANCE as the reason for that blindness, ⛔ not a paragraph break', () => {
+    // objectui#9216: two docblocks in the census credited `carryScope`'s
+    // blank-line guard for this sixth address being out of scope. It cannot
+    // have been that guard, and the fixture is the proof -- it is a JSDoc body,
+    // so the separator its author sees as a paragraph break is `   *`, which
+    // ⛔ does not trim to the empty string. The scanner sees ONE prose unit.
+    const lines = DOCBLOCK.split('\n');
+    expect(lines.filter((l) => l.trim() === '')).toEqual([]);
+    // ⭐ The separator LOOKS like a break and is not one. Both halves asserted,
+    // so neither can be read as the other.
+    expect(lines.some((l) => l.trim() === '*')).toBe(true);
+
+    // ⛔ ABLATION, both directions: the separator is not load-bearing. Delete
+    // it, or turn it into a REAL blank line, and the reading does not move --
+    // because distance is the only rule acting here.
+    const namesFileAt = lines.findIndex((l) => l.includes('ObjectKanban.tsx'));
+    const restatedAt = lines.findIndex((l) => l.includes(':613'));
+    expect(restatedAt - namesFileAt).toBeGreaterThan(CONT_WINDOW);
+
+    const withoutSeparator = lines.filter((l) => l.trim() !== '*').join('\n');
+    const withRealBlank = lines.map((l) => (l.trim() === '*' ? '' : l)).join('\n');
+    expect(cited(withoutSeparator)).toEqual(cited(DOCBLOCK));
+    expect(cited(withRealBlank)).toEqual(cited(DOCBLOCK));
   });
 
   it('gives an address to the file named to its LEFT, not to the line’s last match', () => {
@@ -582,14 +607,45 @@ describe('a bare filename opens the continuation scope, not only a full address'
   });
 
   it('does not let a filename in one paragraph capture a number in the next', () => {
-    // A blank line ends the prose unit. Without this, a filename in one
-    // sentence adopts the port number in the next one — measured on this tree
-    // as three readings, two of them a port and one a cron minute.
+    // A line that TRIMS TO EMPTY ends the prose unit. Without it, a filename in
+    // one sentence adopts the port number in the next one. ⚠️ This is the
+    // MARKDOWN case, and it is the only case it covers — see the block-comment
+    // pin below, which is the other half of the same fact.
     const acrossBlank = ['see `apps/console/vite.config.ts`', '', 'the backend runs on :3000'].join('\n');
     expect(shapes(acrossBlank)).toEqual([]);
     // FIRING CONTROL for the same code path: without the blank line it IS read,
     // so the empty result above is the barrier and ⛔ not a scanner that failed.
     const sameParagraph = ['see `apps/console/vite.config.ts`', 'the backend runs on :3000'].join('\n');
     expect(shapes(sameParagraph)).toEqual(['continuation apps/console/vite.config.ts:3000']);
+  });
+
+  it('⛔ that paragraph guard is INERT inside a block comment, and the docblocks may not claim it', () => {
+    // objectui#9216. The guard tests `line.trim() === ''`. A JSDoc separator is
+    // `   *` and a line-comment separator is `//`; NEITHER trims to the empty
+    // string, so the guard cannot fire in either — which is precisely where
+    // syntax 5's population lives. This test exists so the docblocks that
+    // describe the guard cannot drift back into claiming coverage it has never
+    // had, and so that anyone who later DOES extend it sees this pin go red
+    // rather than discovering the change by its effect on the census.
+    expect('   *'.trim()).not.toBe('');
+    expect('//'.trim()).not.toBe('');
+
+    // Same three legs as the Markdown case above, one run, so the empty result
+    // there and the non-empty ones here are the same instrument.
+    const hit = ['continuation apps/console/vite.config.ts:3000'];
+    const jsdocSeparated = ['   * see `apps/console/vite.config.ts`', '   *', '   * the backend runs on :3000'].join('\n');
+    const lineCommentSeparated = ['// see `apps/console/vite.config.ts`', '//', '// the backend runs on :3000'].join('\n');
+    // FIRING CONTROL, same shape with no separator at all: it reads the hit.
+    const noSeparator = ['   * see `apps/console/vite.config.ts`', '   * the backend runs on :3000'].join('\n');
+
+    expect(shapes(noSeparator)).toEqual(hit);
+    // ⭐ The separator changes NOTHING — that identity is the finding.
+    expect(shapes(jsdocSeparated)).toEqual(hit);
+    expect(shapes(lineCommentSeparated)).toEqual(hit);
+
+    // ⛔ And the contrast that makes it a barrier rather than a dead scanner:
+    // the SAME text with a real blank line is refused.
+    const reallyBlank = ['   * see `apps/console/vite.config.ts`', '', '   * the backend runs on :3000'].join('\n');
+    expect(shapes(reallyBlank)).toEqual([]);
   });
 });

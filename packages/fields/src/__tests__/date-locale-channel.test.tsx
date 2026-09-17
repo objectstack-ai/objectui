@@ -50,8 +50,17 @@
  * output too, so those literals were replaced by `defaultDateFace()` below:
  * this file's subject is WHICH TAG reaches `Intl`, and expressing the
  * expectation through the shared bag keeps that subject measurable without
- * re-asserting the face. The `datetime` cases here are untouched — they were
- * NOT part of #8194 and still render two bare `toLocale*` calls.
+ * re-asserting the face. The `datetime` CELL cases here are untouched — they
+ * were never part of #8194 and already went through `formatDateTime`.
+ *
+ * ⚠️ objectui#8209 amendment. The readonly `DateTimeField` WIDGET and the
+ * sub-grid's `datetime` column were the last two sites still composing two
+ * bare `toLocale*` calls; they now go through `formatDateTime`, each on the
+ * face of its register (verbose default for the form / detail widget,
+ * `'compact'` for the grid cell). Same treatment as above: their literals are
+ * expressed through `defaultDateTimeFace()` so this file keeps asking WHICH
+ * TAG reaches `Intl` rather than re-asserting a face that
+ * `datetime-widget-faces-8209.test.tsx` owns.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -106,6 +115,25 @@ function defaultDateFace(value: string | Date, locale: string): string {
     year: sameYear ? undefined : 'numeric',
     month: 'short',
     day: 'numeric',
+  });
+}
+
+/**
+ * `formatDateTime`'s DEFAULT (verbose) face — what the readonly `datetime`
+ * WIDGET renders since objectui#8209. Same idiom as `defaultDateFace` above
+ * and for the same reason, with one difference worth stating: this face keeps
+ * the year in EVERY year (the year-drop is `formatDate`'s date-only cell rule
+ * per objectui#7620, and the #8209 ruling declines to extend it to
+ * `datetime`), so there is no current-year branch here.
+ */
+function defaultDateTimeFace(value: string | Date, locale: string): string {
+  const d = value instanceof Date ? value : new Date(value);
+  return d.toLocaleDateString(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -208,6 +236,11 @@ describe('zh session — every date branch renders Chinese (objectui#4468)', () 
     expect(container.textContent).not.toContain(defaultDateFace(FIXED_INSTANT, 'en'));
     cleanup();
 
+    // Since objectui#8209 this widget renders `formatDateTime`'s default face
+    // (the form / detail register), so the zh form carries the Chinese year /
+    // month / day markers rather than reading `2026/8/11 00:00:00`. The `en`
+    // form is asserted absent so the case still cannot pass on a machine-locale
+    // render — which is this file's whole subject.
     const dt = renderSession(
       'zh',
       <DateTimeField
@@ -217,7 +250,8 @@ describe('zh session — every date branch renders Chinese (objectui#4468)', () 
         readonly
       />,
     );
-    expect(dt.container.textContent).toContain('2026/8/11');
+    expect(dt.container.textContent).toContain(defaultDateTimeFace(FIXED_INSTANT, 'zh'));
+    expect(dt.container.textContent).not.toContain(defaultDateTimeFace(FIXED_INSTANT, 'en'));
   });
 
   /**

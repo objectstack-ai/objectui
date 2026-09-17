@@ -352,14 +352,26 @@ export interface DeleteViewResult {
  *
  * ## One rule for record ids: a record id is a `string`
  *
- * Every id parameter on this interface — `findOne`, `update`, `delete`,
- * `bulkUpdate`, `bulkDelete` — is a `string`, never `string | number`, because
- * `@objectstack/spec` declares every record door as `z.string()`. There is no
- * per-method exception to look up: an adapter for a backend whose primary keys
- * are numeric converts at its OWN boundary, in one typed place, rather than
- * widening this contract for every caller (objectui#9333 narrowed `update`;
- * objectui#9511 extended the same rule to the remaining four doors, so the
- * asymmetry that existed in between is gone and need not be rediscovered).
+ * An id parameter on this interface is a `string`, never `string | number`,
+ * because `@objectstack/spec` declares every record door as `z.string()`. An
+ * adapter for a backend whose primary keys are numeric converts at its OWN
+ * boundary, in one typed place, rather than widening this contract for every
+ * caller. `update` narrowed at objectui#9333; `delete`, `bulkUpdate` and
+ * `bulkDelete` narrowed at objectui#9511 — none of the three had a single
+ * call site in this monorepo that had to change.
+ *
+ * ⚠️ ONE door is still wide, and it is wide for a reason that is written down
+ * rather than left to be rediscovered: `findOne`. Narrowing it is ruled
+ * (director batch #136 item 5, letter B) but not yet landed, because its nine
+ * in-tree call sites resolve to two AUTHORABLE metadata keys —
+ * `ObjectFormSchema.recordId` and `DetailViewSchema.resourceId` — whose zod
+ * mirrors accept a number today (measured: `{type:'object-form', …,
+ * recordId: 42}` validates and keeps `42`). Closing this door therefore means
+ * either narrowing a published authoring face (an accept-set change the ruling
+ * does not name) or converting at each reader (which the ruling's "the
+ * conversion lives in one typed place" rejects), so it is carried to the
+ * decision inbox on objectui#9511 rather than picked here. ⛔ Do not narrow
+ * `findOne` without that decision.
  *
  * ⚠️ Narrowing a parameter here does NOT reach implementors — TypeScript
  * compares method parameters bivariantly, so an adapter that still declares
@@ -404,12 +416,14 @@ export interface DataSource<T = any> {
    * Fetch a single record by ID.
    *
    * @param resource - Resource name
-   * @param id - Record identifier. A `string` — see the record-id rule on
-   *   {@link DataSource} (objectui#9511).
+   * @param id - Record identifier. ⚠️ The one id parameter on this interface
+   *   still declared `string | number` — see the record-id rule on
+   *   {@link DataSource} for why this door is held open and what has to be
+   *   decided before it closes (objectui#9511).
    * @param params - Additional query parameters
    * @returns Promise resolving to the record or null
    */
-  findOne(resource: string, id: string, params?: QueryParams): Promise<T | null>;
+  findOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null>;
 
   /**
    * Create a new record.

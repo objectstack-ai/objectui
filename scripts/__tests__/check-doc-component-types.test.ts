@@ -599,15 +599,39 @@ describe('the registered-key universe is derived from the registration calls', (
     expect([...keys.keys()].sort()).toEqual(['ui:widget', 'widget']);
   });
 
-  it('refuses an imported name, and counts the import when deciding the name is bound twice', () => {
-    // An import binding is a declaration for this purpose even though it is not
-    // spelled `const`. Before it was counted, a file that imported a name AND
-    // declared another locally could be read against the wrong one.
+  it('refuses a plain imported name — the object it names is in another file', () => {
+    // ⚠️ A control, not a mechanism pin: this shape was already refused before
+    // imports were counted, because no `const|let|var` declared the name at
+    // all. It is here so the pin below cannot be read as the whole claim.
     const imported = withTree((write) => {
       write('packages/demo/src/index.tsx', "import { meta } from './shared';\nComponentRegistry.register('widget', C, meta);\n");
     }, (dir) => deriveRegistryKeys(dir, BARE));
     expect((imported.findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
     expect([...imported.keys.keys()].sort()).toEqual(['widget']);
+  });
+
+  it('⭐ counts an IMPORT as a binding, so a function-local declaration cannot answer for it', () => {
+    // The case counting imports actually closes, and it is silent without it.
+    // The call sits at module level and reads the IMPORT; the only
+    // `const|let|var` in the file is function-scoped and invisible to the call.
+    // Counting just the declarations sees exactly one and reads the wrong
+    // object — here it would publish a namespace the imported options may not
+    // carry at all.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "import { meta } from './shared';",
+          'export function unrelated() {',
+          "  const meta = { namespace: 'ui', label: 'Local' };",
+          '  return meta;',
+          '}',
+          "ComponentRegistry.register('widget', C, meta);",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    expect([...keys.keys()].sort()).toEqual(['widget']);
   });
 
   it('⚠️ KNOWN GAP — a function parameter of the same name is not counted, and is read against the module literal', () => {

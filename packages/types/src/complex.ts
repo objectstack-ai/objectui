@@ -156,10 +156,13 @@ export interface KanbanColumn {
    * `KanbanEnhanced`, `ObjectKanban`).
    *
    * A tombstone rather than a plain removal on BOTH prongs of the
-   * discriminator the precedent changesets state (objectui#5941, #7526; the
-   * one-line form is under correction as objectui#7678) — a tombstone exists
-   * (1) to steer authors to a named live replacement KEY, or (2) to keep loud a
-   * key the docs taught as working:
+   * discriminator the precedent changesets state (objectui#5941, #7526), in
+   * the form objectui#7678 amended it to: a `?: never` tombstone is available
+   * only on a SURVIVING CARRIER — `KanbanColumn` survives this retirement,
+   * while a whole exported type name has no carrier and is removed outright —
+   * and on such a carrier it is used when either prong holds: (1) it steers
+   * authors to a named live replacement KEY, or (2) it keeps loud a key the
+   * docs taught as working. Both hold here:
    *
    *   - prong 1: `className` is that live replacement — style a lane through
    *     it;
@@ -1054,9 +1057,12 @@ export interface ChatToolInvocation {
  * UNDECLARED key is not refused, it is KEPT. That is the hazard the two-prong
  * discriminator leaves to the carrier — where there is no mirror there is "no
  * silent-strip hazard for prong 2 to guard" (`mobile.ts`, objectui#5941 /
- * #7526 / #7678: a tombstone exists to steer authors to a named live
- * replacement KEY, or to keep loud a key the docs taught as working). Here
- * there IS a mirror to host the refusal, and prong 1 holds by the letter for
+ * #7526 / #7678: a `?: never` tombstone is available only on a SURVIVING
+ * CARRIER — `ChatbotSchema` survives, while a whole exported type name has no
+ * carrier and is removed outright — and on such a carrier it is used when
+ * either prong holds: it steers authors to a named live replacement KEY, or it
+ * keeps loud a key the docs taught as working). Here there IS a mirror to host
+ * the refusal, and prong 1 holds by the letter for
  * four of the six — `userAvatar` → `userAvatarUrl`, `assistantAvatar` →
  * `assistantAvatarUrl`, `height` → `maxHeight`, `markdown` →
  * `enableMarkdown` on a `chatbot-enhanced` node. Each member's own comment
@@ -1863,6 +1869,22 @@ export interface FloatingChatbotConfig {
    *     a non-fresh type. That is the silent no-op traded for another one.
    *   - TOMBSTONED, both paths are refused: the declared `never` makes the
    *     assignment itself ill-typed, so freshness stops mattering.
+   *
+   * ⚠️ That `tsc` contrast is the MECHANISM, not the discriminator. It applied
+   * equally to objectui#4919 and #5942, which were removed outright, so it
+   * cannot be what separates the routes. What decides the route is this
+   * package's retire-vs-remove discriminator in its amended form
+   * (objectui#7678, the same wording the `chatbot` tombstones above carry): a
+   * `?: never` tombstone is available only on a SURVIVING CARRIER —
+   * `FloatingChatbotConfig` survives this retirement, while a whole exported
+   * type name has no carrier and is removed outright — and on such a carrier
+   * it is used when either prong holds. PRONG 2 is the one that holds here:
+   * the key was advertised in the 3.3.0 release record (2026-04-17, the "New
+   * ChatbotSchema floating fields" entry, which names `triggerIcon` among
+   * `FloatingChatbotConfig`'s options) and its published JSDoc promised
+   * `@default 'MessageCircle'` — the docs taught it as working. Prong 1 does
+   * NOT hold: there is no replacement key, which is why the guidance below
+   * names the trigger's own markup instead.
    *
    * Pinned in `__tests__/floating-chatbot-trigger-icon-retired.test.ts`,
    * including the deletion contrast, so nobody can "simplify" this back into a

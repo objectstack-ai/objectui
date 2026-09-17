@@ -241,6 +241,7 @@ export function InspectorSelectField({
   onCommit,
   placeholder = '—',
   unknownValueLabel = defaultUnknownValueLabel,
+  loading,
   disabled,
 }: {
   label: string;
@@ -254,6 +255,14 @@ export function InspectorSelectField({
    * Override it, never the RULE — the rule is the one this primitive owns.
    */
   unknownValueLabel?: (value: string) => string;
+  /**
+   * The `options` roster has not answered YET — an async picker is still
+   * fetching it. For as long as this is true the "not offered" flag is
+   * withheld: a roster that has not spoken cannot testify that a stored value
+   * is absent from it (objectui#8862). Spelled the way the sibling atom
+   * `InspectorComboField` spells the same signal.
+   */
+  loading?: boolean;
   disabled?: boolean;
 }) {
   // Radix `<Select.Item>` forbids an empty-string value (it reserves ""
@@ -323,15 +332,38 @@ export function InspectorSelectField({
   // the real roster then sits directly under it, which is where a replacement
   // gets picked.
   //
-  // ⚠️ Measured boundary, deliberately not repaired here: this cannot tell "the
-  // roster is empty" from "the roster has not loaded yet", so a valid value
-  // wears the flag for as long as an async picker is still fetching. That blind
-  // spot is inherited, not introduced — `ViewColumnInspector`'s hand-rolled
-  // copy had it too — and closing it needs a loading contract this primitive
-  // does not have. Filed separately.
+  // objectui#8862 — the boundary objectui#8488 measured and left open, closed
+  // here. An `options` array cannot say WHY it is empty: an async picker that
+  // has not answered yet hands over `[]`, indistinguishable from a catalog that
+  // genuinely does not carry the value. So a perfectly valid stored value wore
+  // the flag for the length of a round trip — and on the metadata-AUTHORING
+  // surface that flag is not a cosmetic wobble, it is an assertion to the
+  // author that a key they bound correctly does not exist on the object. The
+  // plausible response is to "fix" a binding that was already right.
+  //
+  // `loading` is the missing term, and it makes the answer a TRI-state:
+  //   • roster answered, value offered     → the option's own label
+  //   • roster answered, value NOT offered → the value under `unknownValueLabel`
+  //   • roster has not answered            → the value, bare
+  //
+  // The row is still SYNTHESISED in the pending arm. Withholding it would put
+  // back the blank trigger objectui#8488 removed, and would blank it exactly
+  // when the author has least other evidence of what is stored; only the CLAIM
+  // is withheld. A value drawn plainly asserts nothing about a roster that has
+  // not spoken, which is the only honest render while it is silent. ⚠️ That is
+  // not the direction objectui#8488 refused: what it refused — "stored" and
+  // "offered" drawn alike — is a claim about a roster that HAS answered and
+  // can tell them apart. This one cannot, yet.
+  //
+  // ⚠️ One arm of the same blindness stays open, deliberately. A roster whose
+  // fetch FAILED also resolves to `[]`, with `loading` back to false, so the
+  // flag still fires on a load error. objectui#5170 ruled that arm for the
+  // SchemaForm widget family and chose a dedicated failure surface over a
+  // silent empty roster; answering it here would be a decision about what a
+  // picker owes its host, not a spelling, so it is filed rather than guessed.
   const isUnknownValue = current !== '' && !options.some((o) => o.value === current);
   const shownOptions = isUnknownValue
-    ? [{ value: current, label: unknownValueLabel(current) }, ...options]
+    ? [{ value: current, label: loading ? current : unknownValueLabel(current) }, ...options]
     : options;
   return (
     <div className="space-y-1">

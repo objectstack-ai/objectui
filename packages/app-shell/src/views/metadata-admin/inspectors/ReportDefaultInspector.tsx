@@ -398,6 +398,10 @@ export function ReportDefaultInspector({
               label={tr('engine.inspector.report.dataset')}
               value={datasetName}
               options={datasetOptions}
+              // objectui#8862 — the gate above keeps the picker mounted while a
+              // dataset is bound, so an in-flight catalog reaches it as `[]` and
+              // a live binding read as "(not found)" until the list landed.
+              loading={catalog.loading}
               onCommit={(v) => onPatch({ dataset: v })}
               disabled={readOnly}
             />
@@ -480,10 +484,16 @@ export function ReportDefaultInspector({
                   }
                   disabled={readOnly}
                 />
+                {/* objectui#8862 — both axis rosters come from the bound
+                    dataset's semantic layer, which is fetched: `semantics.loading`
+                    is the term that keeps a valid axis from being flagged while
+                    that fetch is out. `DatasetNamesEditor` above already consumes
+                    the same signal at this call site. */}
                 <InspectorSelectField
                   label={tr('engine.inspector.report.chartX')}
                   value={chartX}
                   options={chartXOptions}
+                  loading={semantics.loading}
                   onCommit={(v) => commitChart({ xAxis: v })}
                   disabled={readOnly}
                 />
@@ -491,6 +501,7 @@ export function ReportDefaultInspector({
                   label={tr('engine.inspector.report.chartY')}
                   value={chartY}
                   options={chartYOptions}
+                  loading={semantics.loading}
                   onCommit={(v) => commitChart({ yAxis: v })}
                   disabled={readOnly}
                 />

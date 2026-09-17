@@ -456,8 +456,17 @@ describe('objectui#8355 — the `dateField` / `endField` rungs are RETIRED at bo
       expect(branch, `${PRODUCER}'s calendar branch no longer destructures ${key} out of the authored block`)
         .toContain(`${key}:`);
     }
-    expect(branch, `${PRODUCER} spreads the authored calendar block into the node again`)
-      .toContain('...restCalendar');
+    // ⚠️ Both spellings carry a TRAILING COMMA on purpose, and that is what makes
+    // them discriminating. `...restCalendar` without one also matches the
+    // DESTRUCTURING pattern that produces the local, which survives a revert of
+    // the return spread — measured: an ablation that restored the two raw
+    // spreads left this row green until the comma was added. And
+    // `...(schema.calendar || {})` without one also matches the MERGE that feeds
+    // the destructure, which a correct tree still contains.
+    expect(branch, `${PRODUCER} no longer spreads the stripped remainder into the node`)
+      .toContain('...restCalendar,');
+    expect(branch, `${PRODUCER} spreads the authored calendar block RAW into the node again — the retired aliases reach it`)
+      .not.toContain('...(schema.calendar || {}),');
     // The runtime half of this row — the node `ListView` really emits — is in
     // `plugin-list`'s `ListView.calendarAliasRefused-8355.test.tsx`; a text read
     // alone cannot see what a spread produces, which is the blindness that

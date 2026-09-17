@@ -119,6 +119,34 @@
  * refuses it; the numbers above are from the measurement on that card and are a
  * timestamp, not a live reading.
  *
+ * ## Trap 4 — a `-t` name filter read as a REGEX (objectui#9660)
+ *
+ *     pnpm exec vitest run scripts/__tests__/body-dialect-census.test.ts \
+ *       -t 'the population travels with the reading (objectui#9545)'
+ *     => Test Files  1 skipped (1)
+ *        Tests      22 skipped (22)    <- exit 0, and `tests 0ms`
+ *
+ * `-t` / `--testNamePattern` takes a REGEX, and this repo's `describe` titles
+ * routinely end in a literal card reference in parentheses. Copy-pasted, that
+ * pair becomes a capture group, the pattern matches no test at all, and every
+ * test in the file is reported SKIPPED — which Vitest exits 0 for. Measured on
+ * objectui#9660 against the same file and the same flag, with the
+ * metacharacter-free substring of the SAME title as the lit control:
+ * `Tests 7 passed | 15 skipped (22)`.
+ *
+ * `passWithNoTests` has nothing to say here — the FILE filter matched, so the
+ * run is not "no tests found", it is "every test found was filtered out".
+ * Nothing on screen says "0 tests matched" either. A caller checking "did the
+ * named pin pass?" reads exit 0 beside the file's own name and calls it a pass.
+ * `unmatchable-name-pattern` refuses it.
+ *
+ * The trigger is STATIC, for the reason under "Deliberately strict" below: a
+ * pattern is refused when it cannot match the plain text it appears to spell,
+ * not when the run turns out to collect zero tests. The guard runs at config
+ * load, before collection — and "collected zero" would be the weaker trigger
+ * anyway, since a literal name with its metacharacters left live is the wrong
+ * command whether or not some unrelated test happens to match it.
+ *
  * ## The canonical invocation
  *
  *     pnpm exec vitest run packages/<pkg>/src/<file>.test.ts   # from the REPO ROOT
@@ -357,6 +385,56 @@ export function cliHasTestFilters(argv) {
   return positionals.length > 0;
 }
 
+/**
+ * Spell `literal` as a regex matching it and nothing else — the `-t` argument
+ * a caller should have typed for a test name they pasted.
+ *
+ * @param {string} literal
+ * @returns {string}
+ */
+export function escapeNamePattern(literal) {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The plain text a `-t` pattern APPEARS to spell: a leading `^` and a trailing
+ * `$` dropped, every `\x` collapsed to `x`. This reconstructs the `describe` /
+ * `it` title the caller copied out, from what they actually typed — so the
+ * correctly escaped spelling of a name and a raw paste of that same name read
+ * back as the same literal, and only one of the two is refused.
+ *
+ * @param {string} pattern the `-t` / `--testNamePattern` value as given
+ * @returns {string}
+ */
+export function literalReadingOfNamePattern(pattern) {
+  return pattern
+    .replace(/^\^/, '')
+    .replace(/(?<!\\)\$$/, '')
+    .replace(/\\([^])/g, '$1');
+}
+
+/**
+ * Can this `-t` pattern match the text it appears to spell?
+ *
+ * `null` is yes — a plain substring always can, and so does a regex written
+ * deliberately over the name it targets. `'vacuous'` means the pattern's own
+ * metacharacters put its apparent literal out of reach, which is exactly what
+ * a pasted `… (objectui#9545)` does. `'invalid'` means it is not a regex at
+ * all; same root cause, one step further along.
+ *
+ * @param {string} pattern
+ * @returns {'invalid' | 'vacuous' | null}
+ */
+export function judgeNamePattern(pattern) {
+  let re;
+  try {
+    re = new RegExp(pattern);
+  } catch {
+    return 'invalid';
+  }
+  return re.test(literalReadingOfNamePattern(pattern)) ? null : 'vacuous';
+}
+
 /** Resolve symlinks when possible; fall back to a plain resolve (unit tests pass fake paths). */
 function realpath(p) {
   try {
@@ -557,6 +635,71 @@ export function evaluateVitestInvocation({
           '确实要跑整个包,就把追加的路径去掉(`pnpm --filter <pkg> test` 本身就是整包)。',
           '',
           '确需绕过(自担风险): OBJECTUI_VITEST_GUARD=off',
+        ]
+      ),
+    };
+  }
+
+  // ## Trap 4 — a name filter that is a regex, spelled as a literal
+  //
+  // `-t` is documented by Vitest as a pattern; what makes it a false green HERE
+  // is this repo's naming convention. A title ending in `(objectui#NNNN)`
+  // becomes a capture group when pasted, nothing matches, and Vitest reports
+  // every test in the named file as SKIPPED and exits 0.
+  //
+  // Read last-wins per flag, like this function's other flag readers (`--root`,
+  // `--changed`): the value that takes effect is the one that can be vacuous.
+  // Both spellings are read — the caller who typed the long one meets the same
+  // trap as the caller who typed `-t`.
+  const namePatterns = /** @type {Array<[string, string]>} */ (
+    [
+      ['-t', flags['-t']],
+      ['--testNamePattern', flags['--testNamePattern']],
+    ].filter(([, value]) => typeof value === 'string' && value !== '')
+  );
+
+  for (const [flag, pattern] of namePatterns) {
+    const reason = judgeNamePattern(pattern);
+    if (reason === null) continue;
+
+    const literal = literalReadingOfNamePattern(pattern);
+    const lead =
+      reason === 'invalid'
+        ? [
+            '这个模式连合法正则都不是(`new RegExp` 直接抛错)—— 同一个根因的下一步:',
+            '一个字面的测试名被当成了正则。',
+          ]
+        : ['把这个模式按正则跑在【它自己拼出的那段字面文本】上,一个位置都匹配不到。'];
+
+    return {
+      code: 'unmatchable-name-pattern',
+      message: box(
+        'vitest 调用被拒绝:`-t` 是正则,这个模式匹配不到它自己拼出的名字 (objectui#9660)',
+        [
+          `名字过滤: ${flag} ${pattern}`,
+          `它拼出的字面文本: ${literal}`,
+          '',
+          ...lead,
+          '',
+          '`-t` / `--testNamePattern` 收到的是【正则】,不是字面量。本仓的 describe 名普遍以',
+          '`(objectui#NNNN)` 结尾,整段复制粘贴过来,那对括号就成了捕获组,于是一个测试都匹配不到。',
+          '而「名字过滤零匹配」在 vitest 里算 skipped、不算失败:',
+          '',
+          '  Test Files  1 skipped (1)',
+          '  Tests      22 skipped (22)      <- 退出码 0,tests 0ms',
+          '',
+          '文件过滤是匹配上了的,所以 passWithNoTests 在这里什么都管不到;屏幕上也没有任何',
+          '"0 tests matched"。一个跑「那条具名 pin 到底过了没有」的人,看到的是退出码 0 加一次',
+          '提到该文件的运行 —— 读成通过,而实际上一个测试都没执行。这就是假绿。',
+          '',
+          '两种正确写法,任选其一:',
+          '',
+          `  -t '${escapeNamePattern(literal)}'   # 原样匹配那个名字,元字符已转义`,
+          "  -t '<名字里一段不含元字符的子串>'   # 例如把结尾的 (objectui#NNNN) 去掉",
+          '',
+          ...canonicalLines(pkgDir),
+          '',
+          '确实要把这个模式当正则用: OBJECTUI_VITEST_GUARD=off',
         ]
       ),
     };

@@ -186,8 +186,13 @@ export const KNOWN_UNDECLARED_READS = new Map([
   //     ANSWERED, and the alias is the REGISTRATION's, not the spelling's.
   // ⛔ Do NOT drain any of the thirteen by declaring the key on the arm named
   // in its row. `detail::DetailSchema.onTabChange` is the one remaining row
-  // that is neither alias-shape nor drained, and its disposition is
-  // objectui#9344's item ②.
+  // that is neither alias-shape nor drained, and its disposition is still
+  // UNDECIDED and owned by objectui#7804 — the card that row itself carries,
+  // which is the only owner anything in this map routes to. It was
+  // objectui#9344's item ② while that card was open; objectui#9344 closed
+  // `completed` on 2026-09-13 having landed its item ① (the cast receiver this
+  // census now peels) and not its item ②, so prose sending a reader there sends
+  // them to a closed card — the defect objectui#9456 repaired.
   // ⭐ ALL FIVE `object-form::ObjectFormSchema` rows LANDED and are gone —
   // objectui#7804's `objectql.ts` slice, which drained nine rows across four
   // plain `export interface X extends BaseSchema` faces in one file.
@@ -294,8 +299,20 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // be disposed alike without measuring: `TabsSchema` already declares a
   // DIFFERENT spelling, `onValueChange`, for what looks like the same event, so
   // the `'tabs'` row may be an ALIAS question rather than a declaration one,
-  // while `DetailSchema` declares neither spelling. Deciding either is
-  // objectui#9344's item ②, which lands in the zod arms and not in this file.
+  // while `DetailSchema` declares neither spelling. ⭐ That measurement has since
+  // been taken for `'tabs'` and is recorded above: it IS an alias question, and
+  // the alias is the REGISTRATION's (`skipFallback: true` under a namespace),
+  // which is objectui#9573's shape. `'detail'` registers without `skipFallback`
+  // and is not that shape, so its disposition is the one still open.
+  //
+  // ⛔ Neither is objectui#9344's to carry any longer, and this block must not
+  // say it is: that card closed `completed` on 2026-09-13 having landed its item
+  // ① (the cast receiver) and not its item ②, so a reader routed there arrives
+  // at a closed card (objectui#9456). Both rows carry `objectui#7804`, and that
+  // parent is the owner this map routes both to — objectui#9573 names the
+  // `'tabs'` row's SHAPE, not a second owner in this ledger. Deciding either
+  // still lands in the zod arms and not in this file, and ⛔ nothing here says
+  // either is decided.
   ['tabs::TabsSchema.onTabChange', 'objectui#7804'],
   ['detail::DetailSchema.onTabChange', 'objectui#7804'],
 ]);

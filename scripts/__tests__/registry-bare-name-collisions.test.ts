@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +13,7 @@ import {
   KNOWN_BARE_NAME_COLLISIONS,
   checkFloors,
   claimantId,
+  collectClaims,
   evaluate,
   formatFindings,
   groupBareKeys,
@@ -208,6 +210,95 @@ describe('the judgement, on planted populations', () => {
       claim({ namespace: 'b', fullType: 'b:widget', file: 'packages/b/src/index.tsx' }),
     ]);
     expect(groups.get('widget')?.verdict).toBe('contested');
+  });
+});
+
+/**
+ * objectui#9717 made INDIRECT_REGISTRATIONS' coverage COLLECTION-keyed, so one
+ * file legitimately carries several entries. This gate attributes an indirect
+ * key to the entry's FILE — the same file-vs-collection mismatch that card is
+ * about, one gate over — so `at`, `names`, `bare` and the guard are a function
+ * of the file and the namespace and of nothing else in the entry. Iterating
+ * entries therefore pushed the SAME claim once per entry.
+ *
+ * ⛔ The duplicates are not extra claims to deduplicate downstream: they are one
+ * claim counted twice, and this gate's whole verdict is a count of DISTINCT
+ * claimants. Two claims where the tree has one reads as `agreed` — "two
+ * registrations, one owner" — when the truth is `sole`.
+ *
+ * ⭐ Both directions are pinned. A dedupe that also merged two DIFFERENT
+ * namespaces would be a weakening wearing a bug fix's clothes, so the case that
+ * must SURVIVE is asserted beside the case that must collapse.
+ */
+describe('one pass per (site, namespace), not per table entry', () => {
+  const withTree = <T,>(files: Record<string, string>, run: (dir: string) => T): T => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-bare-name-collisions-'));
+    try {
+      for (const [rel, contents] of Object.entries(files)) {
+        const full = path.join(dir, rel);
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, contents);
+      }
+      return run(dir);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  const at = (site: string, collection: string, namespace: string) => ({
+    site,
+    collection,
+    kind: 'array',
+    namespace,
+    reason: 'fixture',
+  });
+
+  const SITE = 'packages/demo/src/index.tsx';
+
+  /** Two collections under ONE namespace, and two under two — in one file. */
+  const source = [
+    "const THINGS = [\n  'alpha',\n];",
+    "const MORE = [\n  'gamma',\n];",
+    "const OTHERS = [\n  'beta',\n];",
+    'function reg(type) {',
+    "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+    '}',
+    'function other(type) {',
+    "  ComponentRegistry.register(type, C, { namespace: 'proto' });",
+    '}',
+    'THINGS.forEach(reg);',
+    'MORE.forEach(reg);',
+    'OTHERS.forEach(other);',
+  ].join('\n');
+
+  it('⛔ counts a claim ONCE when two entries share a site and a namespace', () => {
+    const { claims, counters } = withTree({ [SITE]: source + '\n' }, (dir) =>
+      collectClaims(dir, {
+        indirectRegistrations: [at(SITE, 'THINGS', 'ui'), at(SITE, 'MORE', 'ui'), at(SITE, 'OTHERS', 'proto')],
+        openRegistrationSites: {},
+        guardedIndirectSites: {},
+      }),
+    );
+    const indirect = claims.filter((c: { origin: string }) => c.origin === 'indirect');
+    expect(indirect.map((c: { fullType: string }) => c.fullType).sort()).toEqual(['proto:beta', 'ui:alpha', 'ui:gamma']);
+    expect(new Set(indirect.map(claimantId)).size).toBe(indirect.length);
+    expect((counters as { indirectClaims: number }).indirectClaims).toBe(3);
+  });
+
+  it('⭐ still counts BOTH when two entries share a site under different namespaces', () => {
+    // The case that must survive. Collapsing this one would hide exactly the
+    // second claimant this gate exists to report.
+    const { claims } = withTree({ [SITE]: source + '\n' }, (dir) =>
+      collectClaims(dir, {
+        indirectRegistrations: [at(SITE, 'THINGS', 'ui'), at(SITE, 'OTHERS', 'proto')],
+        openRegistrationSites: {},
+        guardedIndirectSites: {},
+      }),
+    );
+    const namespaces = claims
+      .filter((c: { origin: string }) => c.origin === 'indirect')
+      .map((c: { namespace: string }) => c.namespace);
+    expect([...new Set(namespaces)].sort()).toEqual(['proto', 'ui']);
   });
 });
 

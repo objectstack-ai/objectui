@@ -119,6 +119,21 @@
  *     explicitly in `INDIRECT_REGISTRATIONS` with the collection it reads. Both
  *     entries are re-derived per run; a named collection that disappears or
  *     stops yielding keys fails the gate rather than shrinking the universe.
+ *     ⚠️ The bypass that lets these unresolvable calls through is keyed by
+ *     COLLECTION, which is what the table's coverage is keyed by. It was keyed
+ *     by FILE until objectui#9717, and the two keyings are not the same set:
+ *     ANY unresolvable registration living in a table-named file was skipped
+ *     silently, including one whose collection the table never names.
+ *     `registerAllFields()`'s `RETIRED_FIELD_TYPES` tombstone loop is the
+ *     measured instance — it shares `packages/fields/src/index.tsx` with the
+ *     `fieldWidgetMap` entry, so its key reached neither the universe nor a
+ *     finding, and its namespace was silently folded into the reconciliation of
+ *     a collection it has nothing to do with. The supplying collection is now
+ *     DERIVED at the call by `indirectSupply` and matched against the entries
+ *     declared for that file: `uncovered-indirect-collection` when no entry
+ *     names it, `unresolved-indirect-collection` when the supplier cannot be
+ *     read at all. ⛔ Neither is answered by adding the missing KEY anywhere by
+ *     hand — a hand-kept key is the construction objectui#9703 removed.
  *     ⚠️ The NAMESPACE of those keys is read from the registration call, not
  *     from the entry: the entry's `namespace` is a DECLARATION reconciled
  *     against the call, and a disagreement is reported. It was an input to this
@@ -499,6 +514,16 @@ const REGISTRY_RECEIVERS = ['ComponentRegistry', 'componentRegistry', 'registry'
  * helpers decide `skipFallback` per key at the call, so the set is named here
  * and read from the site file, and a name that stops resolving is reported.
  *
+ * ⚠️ `excluded` is the OTHER disposition, and an entry carrying it contributes
+ * NO keys: it declares that this collection's registrations are known and that
+ * their keys deliberately stay out of the universe, with the reason written
+ * down. It exists because the alternative is the silence objectui#9717 was
+ * filed about — a registration nobody had reasoned about, producing the right
+ * answer by accident. ⛔ It is not a way to quiet a finding: an excluded entry
+ * is still reconciled against the call and still goes stale the moment the
+ * registration it names stops existing, and the run summary prints how many
+ * collections are being withheld, so the decision cannot sink out of view.
+ *
  * EXPORTED because the `protocol-placeholder` entry is also the DECLARATION a
  * sibling gate reads to tell a real renderer from a placeholder panel
  * (`check-prompt-component-keys.mjs`, objectui#8929). That gate must never
@@ -518,6 +543,20 @@ export const INDIRECT_REGISTRATIONS = [
       'The keys are protocol vocabulary the docs legitimately teach.',
   },
   {
+    site: 'packages/components/src/renderers/placeholders.tsx',
+    collection: 'PALETTE_PLACEHOLDER_BLOCKS',
+    kind: 'array',
+    namespace: 'protocol-placeholder',
+    reason:
+      'The same `registerPlaceholder(type)` helper the PROTOCOL_COMPONENTS entry above names is ALSO ' +
+      'handed this collection, eagerly, in every host — palette-offered page blocks must not render a ' +
+      'red unknown-type panel just because a host skipped the opt-in bootstrap. It went undeclared ' +
+      'until objectui#9717 because the bypass was keyed by file, and a sibling entry naming this file ' +
+      'answered for it. ⚠️ Its members are today a subset of PROTOCOL_COMPONENTS, so declaring it adds ' +
+      'no key — but that overlap is a coincidence nothing holds in place, and the next palette block ' +
+      'that is not protocol vocabulary would have gone missing in exactly the same silence.',
+  },
+  {
     site: 'packages/fields/src/index.tsx',
     collection: 'fieldWidgetMap',
     kind: 'object-keys',
@@ -527,6 +566,30 @@ export const INDIRECT_REGISTRATIONS = [
       '`registerField(fieldType)` registers each key of fieldWidgetMap as `field:<type>` (plus the ' +
       'bare key unless FIELD_TYPES_SKIP_FALLBACK holds it), and `registerAllFields()` runs it for ' +
       'every key at module load. Field pages teach these bare keys.',
+  },
+  {
+    site: 'packages/fields/src/index.tsx',
+    collection: 'RETIRED_FIELD_TYPES',
+    kind: 'object-keys',
+    namespace: 'field',
+    excluded:
+      'WITHHELD pending objectui#9717, which is open on exactly this question: does a RETIRED ' +
+      'TOMBSTONE SPELLING belong in a universe whose job is "does this string name a component that ' +
+      'exists"? Deciding it either way flips one switch and nothing else — DROP this `excluded` line ' +
+      'and the collection\'s keys (today `field:owner`) enter the universe, so a document teaching ' +
+      '`field:owner` turns GREEN; keep it and such a document stays RED, which is what happens today.',
+    reason:
+      '`registerAllFields()` registers every key of RETIRED_FIELD_TYPES a second time, last, under the ' +
+      '`field:` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +
+      'naming the migration, which is the whole point of the table. Until objectui#9717 this ' +
+      'registration was invisible here: the bypass was keyed by file, the `fieldWidgetMap` entry above ' +
+      'named the same file, and these keys left no trace in the universe and no finding either. The ' +
+      'keys stay out — but now BY DECLARATION. ⚠️ Two things this entry is deliberately NOT: it does ' +
+      'not name the keys (the collection is read at runtime by the registration, and a hand-kept key ' +
+      'list is the construction objectui#9703 removed), and it does not read the collection literal — ' +
+      'RETIRED_FIELD_TYPES is IMPORTED into this file from `@object-ui/core`, so nothing here could ' +
+      'read it anyway. What re-checks this entry is the registration call itself: delete the tombstone ' +
+      'loop and this entry reports `stale-indirect-registration`.',
   },
 ];
 
@@ -1398,6 +1461,133 @@ function literalSet(source, name) {
 }
 
 /**
+ * The two shapes a collection reaches a registration helper in — a bare array
+ * binding and `Object.keys(<object>)` — which are exactly the two readings
+ * INDIRECT_REGISTRATIONS' `kind` names. Capture groups, in order: the object of
+ * an `Object.keys(…)`, then the bare array.
+ */
+const COLLECTION_EXPRESSION = `(?:Object\\s*\\.\\s*keys\\s*\\(\\s*(${IDENTIFIER})\\s*\\)|(${IDENTIFIER}))`;
+
+/**
+ * The collection a name is bound to by the last binder before `limit`:
+ * `for (const NAME of COLL)`, `for (const NAME of Object.keys(COLL))`,
+ * `COLL.forEach(NAME => …)` and `Object.keys(COLL).forEach(NAME => …)`.
+ *
+ * Returns null when no binder in this file supplies the name that way — which
+ * is reported by the caller rather than read as "no collection", because a
+ * registration whose supplier cannot be named is exactly the one this
+ * derivation must not wave through.
+ */
+function collectionOfBinder(source, name, limit) {
+  const pattern = new RegExp(
+    `for\\s*\\(\\s*(?:const|let|var)\\s+${name}\\s+of\\s+${COLLECTION_EXPRESSION}` +
+      `|${COLLECTION_EXPRESSION}\\s*\\.\\s*forEach\\s*\\(\\s*\\(?\\s*${name}\\b`,
+    'g',
+  );
+  const match = [...source.slice(0, limit).matchAll(pattern)].pop();
+  if (!match) return null;
+  const object = match[1] ?? match[3];
+  const array = match[2] ?? match[4];
+  return object ? { name: object, kind: 'object-keys' } : { name: array, kind: 'array' };
+}
+
+/**
+ * The innermost function declared in this file whose PARAMETER supplies `name`
+ * at `index`. This is the second hop these helpers take: a collection is
+ * iterated at one place and the registration lives one call deeper, inside the
+ * helper the iteration hands each member to.
+ */
+function enclosingParameterFunction(source, name, index) {
+  const declarations = [
+    ...source.matchAll(new RegExp(`function\\s+(${IDENTIFIER})\\s*\\(`, 'g')),
+    ...source.matchAll(new RegExp(`(?:const|let|var)\\s+(${IDENTIFIER})\\s*(?::[^=]*)?=\\s*(?:async\\s+)?\\(`, 'g')),
+  ];
+  let best = null;
+  for (const declaration of declarations) {
+    const open = declaration.index + declaration[0].length - 1;
+    const close = spanEnd(source, open);
+    if (close < 0 || close > index) continue;
+    const params = source.slice(open + 1, close - 1);
+    if (!new RegExp(`(?<![\\w$])${name}(?![\\w$])`).test(params)) continue;
+    const brace = source.indexOf('{', close - 1);
+    if (brace < 0 || brace > index) continue;
+    const bodyEnd = spanEnd(source, brace);
+    if (bodyEnd <= index) continue;
+    if (!best || declaration.index > best.start) {
+      best = { name: declaration[1], start: declaration.index, end: bodyEnd };
+    }
+  }
+  return best;
+}
+
+/**
+ * Which collections supply the keys of ONE collection-keyed registration call.
+ *
+ * ⭐ This is the half objectui#9717 was filed about. The bypass that lets these
+ * calls through used to be keyed by FILE while INDIRECT_REGISTRATIONS' coverage
+ * is keyed by COLLECTION, so ANY unresolvable registration living in a
+ * table-named file was skipped silently — including one whose collection the
+ * table never names. `registerAllFields()`'s `RETIRED_FIELD_TYPES` tombstone
+ * loop is the measured instance: it shares a file with the `fieldWidgetMap`
+ * entry, so its keys left no trace in the universe and no finding either.
+ *
+ * So the supplier is DERIVED here and reconciled against the table, the same
+ * treatment objectui#9703 gave the namespace. Returns every collection reaching
+ * the call, plus an `unresolved` note when some route into it cannot be read —
+ * both are returned, because a call fed by one readable and one unreadable
+ * collection must neither lose the readable half nor go quiet about the other.
+ */
+function indirectSupply(source, callOpen) {
+  const identifier = /^\s*([A-Za-z_$][\w$]*)\s*,/.exec(source.slice(callOpen + 1));
+  if (!identifier) {
+    return { collections: [], unresolved: 'its key argument is not a plain identifier' };
+  }
+  const name = identifier[1];
+  const direct = collectionOfBinder(source, name, callOpen);
+  if (direct) return { collections: [direct], unresolved: null };
+
+  const fn = enclosingParameterFunction(source, name, callOpen);
+  if (!fn) {
+    return {
+      collections: [],
+      unresolved:
+        `\`${name}\` is neither bound by a loop over a collection nor a parameter of a function ` +
+        'declared in this file',
+    };
+  }
+  const collections = [];
+  let unresolved = null;
+  const push = (collection) => {
+    if (!collections.some((c) => c.name === collection.name && c.kind === collection.kind)) {
+      collections.push(collection);
+    }
+  };
+  const passedPattern = new RegExp(`${COLLECTION_EXPRESSION}\\s*\\.\\s*forEach\\s*\\(\\s*${fn.name}\\s*\\)`, 'g');
+  for (const passed of source.matchAll(passedPattern)) {
+    push(passed[1] ? { name: passed[1], kind: 'object-keys' } : { name: passed[2], kind: 'array' });
+  }
+  const appliedPattern = new RegExp(`(?<![\\w$.])${fn.name}\\s*\\(([^)]*)\\)`, 'g');
+  for (const applied of source.matchAll(appliedPattern)) {
+    if (applied.index >= fn.start && applied.index < fn.end) continue;
+    const argument = applied[1].trim();
+    const bound = /^[A-Za-z_$][\w$]*$/.test(argument) ? collectionOfBinder(source, argument, applied.index) : null;
+    if (bound) push(bound);
+    else {
+      unresolved ??=
+        `\`${fn.name}(${argument})\` is called here with an argument this derivation cannot trace ` +
+        'back to a collection';
+    }
+  }
+  if (collections.length === 0 && !unresolved) {
+    unresolved = `nothing in this file hands \`${fn.name}\` the members of a collection`;
+  }
+  return { collections, unresolved };
+}
+
+/** One INDIRECT_REGISTRATIONS entry's coverage, keyed the way the table is. */
+const coverageKey = (site, collection) => `${site} (${collection})`;
+
+/**
  * The tables are injectable for the same reason the sibling gates' are: they are
  * keyed by real repository paths, so a fixture tree can only exercise the
  * MECHANISM if it can supply its own. The defaults are the live tables, which is
@@ -1408,12 +1598,17 @@ export function deriveRegistryKeys(root, options = {}) {
   const openRegistrations = options.openRegistrationSites ?? OPEN_REGISTRATION_SITES;
   const keys = new Map();
   const findings = [];
-  const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0, metaViaReference: 0 };
+  const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0, withheld: 0, metaViaReference: 0 };
   const openSeen = new Set();
   const indirectSeen = new Set();
-  /** `<indirect site>` -> the options read at each of its collection-keyed calls. */
+  /** `coverageKey(site, collection)` -> the options read at each call that collection feeds. */
   const indirectCallMeta = new Map();
-  const indirectSites = new Set(indirect.map((entry) => entry.site));
+  /** `<indirect site>` -> the entries the table declares FOR THAT FILE, in table order. */
+  const indirectEntriesByFile = new Map();
+  for (const entry of indirect) {
+    if (!indirectEntriesByFile.has(entry.site)) indirectEntriesByFile.set(entry.site, []);
+    indirectEntriesByFile.get(entry.site).push(entry);
+  }
 
   const add = (key, site) => {
     if (!key || key.includes('${')) return;
@@ -1448,19 +1643,59 @@ export function deriveRegistryKeys(root, options = {}) {
       const site = `${rel}:${line}`;
       const names = resolveKeyArgument(source, callOpen);
       if (!names) {
-        if (indirectSites.has(rel)) {
+        const entriesHere = indirectEntriesByFile.get(rel);
+        if (entriesHere) {
           // The key comes from a collection this file iterates; the collection
-          // itself is read below by INDIRECT_REGISTRATIONS. The NAMESPACE, on
-          // the other hand, is spelled at this call like any other — so it is
-          // read HERE and carried to the loop below, which reconciles the
-          // entry's declaration against it instead of trusting it (objectui#9703).
-          indirectSeen.add(rel);
-          const indirectEnd = spanEnd(source, callOpen);
-          const indirectSpan =
-            indirectEnd < 0 ? source.slice(callOpen, callOpen + 2000) : source.slice(callOpen, indirectEnd);
-          const options = resolveRegistrationOptions(source, indirectSpan);
-          if (!indirectCallMeta.has(rel)) indirectCallMeta.set(rel, []);
-          indirectCallMeta.get(rel).push({ site, namespace: options.namespace, unresolved: options.unresolved });
+          // itself is read below by INDIRECT_REGISTRATIONS. WHICH collection is
+          // derived here and matched against the entries declared for this file
+          // — the bypass is keyed by COLLECTION, the same thing the table's
+          // coverage is keyed by (objectui#9717). Keyed by FILE, as it was, this
+          // branch swallowed every unresolvable registration the file happened
+          // to hold, whether or not any entry covered it. The NAMESPACE is
+          // spelled at this call like any other, so it is read HERE and carried
+          // to the loop below, which reconciles the entry's declaration against
+          // it instead of trusting it (objectui#9703).
+          const supply = indirectSupply(source, callOpen);
+          if (supply.unresolved) {
+            findings.push({
+              reason: 'unresolved-indirect-collection',
+              site,
+              detail:
+                `INDIRECT_REGISTRATIONS names this file, but which collection feeds this ${match[1]}() ` +
+                `call could not be read: ${supply.unresolved}. A call this derivation cannot pair with a ` +
+                'collection cannot be told apart from one the table does not cover, and reading it as ' +
+                'covered is the objectui#9717 defect. Iterate the collection in a form this reads ' +
+                '(`COLL.forEach(helper)`, `for (const k of Object.keys(COLL))`), or teach ' +
+                '`indirectSupply` the form.',
+            });
+          }
+          const covered = supply.collections.filter((c) => entriesHere.some((e) => e.collection === c.name));
+          for (const collection of supply.collections) {
+            if (covered.includes(collection)) continue;
+            findings.push({
+              reason: 'uncovered-indirect-collection',
+              site,
+              detail:
+                `this ${match[1]}() call registers the members of \`${collection.name}\`, which no ` +
+                `INDIRECT_REGISTRATIONS entry for this file names (declared here: ` +
+                `${entriesHere.map((e) => `\`${e.collection}\``).join(', ')}). Its keys are in the runtime ` +
+                'registry and absent from the derived universe, and until objectui#9717 the bypass was ' +
+                'keyed by file so nothing said so. Declare the collection in INDIRECT_REGISTRATIONS, or ' +
+                'decide deliberately that these keys stay out — but not by silence.',
+            });
+          }
+          if (covered.length > 0) {
+            const indirectEnd = spanEnd(source, callOpen);
+            const indirectSpan =
+              indirectEnd < 0 ? source.slice(callOpen, callOpen + 2000) : source.slice(callOpen, indirectEnd);
+            const options = resolveRegistrationOptions(source, indirectSpan);
+            for (const collection of covered) {
+              const key = coverageKey(rel, collection.name);
+              indirectSeen.add(key);
+              if (!indirectCallMeta.has(key)) indirectCallMeta.set(key, []);
+              indirectCallMeta.get(key).push({ site, namespace: options.namespace, unresolved: options.unresolved });
+            }
+          }
           continue;
         }
         const open = openRegistrations[rel];
@@ -1520,14 +1755,16 @@ export function deriveRegistryKeys(root, options = {}) {
   }
 
   for (const entry of indirect) {
-    if (!indirectSeen.has(entry.site)) {
+    if (!indirectSeen.has(coverageKey(entry.site, entry.collection))) {
       findings.push({
         reason: 'stale-indirect-registration',
-        site: entry.site,
+        site: coverageKey(entry.site, entry.collection),
         detail:
-          'INDIRECT_REGISTRATIONS names this file, but it no longer contains a registration whose key ' +
-          'comes from a collection. The helper was probably rewritten to register literals; drop the ' +
-          'entry so the universe is not padded from a collection nothing reads.',
+          `INDIRECT_REGISTRATIONS names this file, but no registration in it takes its key from ` +
+          `\`${entry.collection}\`. The helper was probably rewritten to register literals, or the ` +
+          'iteration moved to another collection; drop the entry so the universe is not padded from a ' +
+          'collection nothing reads. ⚠️ This is keyed by COLLECTION, not by file (objectui#9717): a ' +
+          'sibling entry still reading the same file no longer answers for this one.',
       });
     }
     const abs = join(root, entry.site);
@@ -1542,9 +1779,21 @@ export function deriveRegistryKeys(root, options = {}) {
       });
       continue;
     }
-    const names =
-      entry.kind === 'array' ? literalArray(source, entry.collection) : literalObjectKeys(source, entry.collection);
-    if (!names || names.length === 0) {
+    // A WITHHELD entry declares the registration and declares that its keys stay
+    // OUT of the universe (objectui#9717). It is the other legitimate answer to
+    // `uncovered-indirect-collection`, and the point of it is that the exclusion
+    // becomes a reviewable line with a reason instead of a silence. Its
+    // collection is deliberately NOT read: nothing is derived from it, so a read
+    // would only invent a way to fail. What keeps it honest is the same
+    // staleness check every other entry gets, and that one is derived from the
+    // CALL — delete the registration and this entry reports, exclusion or not.
+    const withheld = typeof entry.excluded === 'string' && entry.excluded.length > 0;
+    const names = withheld
+      ? []
+      : entry.kind === 'array'
+        ? literalArray(source, entry.collection)
+        : literalObjectKeys(source, entry.collection);
+    if (!withheld && (!names || names.length === 0)) {
       findings.push({
         reason: 'stale-indirect-registration',
         site: `${entry.site} (${entry.collection})`,
@@ -1555,8 +1804,8 @@ export function deriveRegistryKeys(root, options = {}) {
       });
       continue;
     }
-    const skip = entry.skipFallbackSet ? literalSet(source, entry.skipFallbackSet) : new Set();
-    if (entry.skipFallbackSet && skip.size === 0) {
+    const skip = entry.skipFallbackSet && !withheld ? literalSet(source, entry.skipFallbackSet) : new Set();
+    if (entry.skipFallbackSet && !withheld && skip.size === 0) {
       findings.push({
         reason: 'stale-indirect-registration',
         site: `${entry.site} (${entry.skipFallbackSet})`,
@@ -1579,7 +1828,7 @@ export function deriveRegistryKeys(root, options = {}) {
     // declared: these helpers pass it per key (`FIELD_TYPES_SKIP_FALLBACK.has(fieldType)`),
     // so the call carries no answer for any individual key — which is exactly why
     // `skipFallbackSet` names the set instead, and why its emptiness is reported above.
-    const calls = indirectCallMeta.get(entry.site) ?? [];
+    const calls = indirectCallMeta.get(coverageKey(entry.site, entry.collection)) ?? [];
     const declared = entry.namespace ?? null;
     let namespace = declared;
     const unreadable = calls.filter((c) => c.namespace === null && c.unresolved);
@@ -1602,11 +1851,13 @@ export function deriveRegistryKeys(root, options = {}) {
         reason: 'unresolved-indirect-namespace',
         site: entry.site,
         detail:
-          `this file's collection-keyed registrations pass ${observed.length} different namespaces ` +
-          `(${observed.map((n) => (n === null ? '(bare)' : `\`${n}\``)).join(', ')}), so which one covers ` +
-          `\`${entry.collection}\` cannot be told apart here. One INDIRECT_REGISTRATIONS entry per file ` +
-          'is what this reconciliation assumes; teach it to pair a collection with its own call site ' +
-          'before a second namespace lands in this file.',
+          `the registrations fed by \`${entry.collection}\` pass ${observed.length} different ` +
+          `namespaces (${observed.map((n) => (n === null ? '(bare)' : `\`${n}\``)).join(', ')}), so the ` +
+          'namespace of its keys cannot be read from the call. One namespace per collection is what ' +
+          'this reconciliation assumes; split the collection, or give its registrations one namespace. ' +
+          '⚠️ Since objectui#9717 these are the calls THIS collection feeds, not every collection-keyed ' +
+          'call in the file — a sibling collection registering under another namespace no longer reads ' +
+          'as a disagreement here.',
       });
     } else {
       namespace = observed[0];
@@ -1621,6 +1872,14 @@ export function deriveRegistryKeys(root, options = {}) {
             'update the entry so the declaration beside it stops describing a tree that moved.',
         });
       }
+    }
+    if (withheld) {
+      // Counted and PRINTED in the run summary rather than left to the table:
+      // a key deliberately held out of the universe is a decision, and a
+      // decision nobody can see from the gate's own output is back where it
+      // started.
+      counters.withheld++;
+      continue;
     }
     counters.indirect += names.length;
     for (const name of names) {
@@ -1937,6 +2196,18 @@ const HINTS = {
     'universe follows the CALL, so nothing is lost — but the declaration beside it now describes a ' +
     'tree that moved, and it is the thing the next reader will trust. Update the entry. See ' +
     'objectui#9703.',
+  'uncovered-indirect-collection':
+    'A registration in a file INDIRECT_REGISTRATIONS names takes its keys from a collection NO entry ' +
+    'names. Those keys are in the runtime registry and missing from the derived universe, which turns ' +
+    'CORRECT documentation red. The bypass used to be keyed by FILE while the table\'s coverage is ' +
+    'keyed by COLLECTION, so this was skipped in silence — `field:owner`, registered by ' +
+    '`registerAllFields()`\'s RETIRED_FIELD_TYPES tombstone loop, is the measured instance. Declare ' +
+    'the collection, or decide deliberately that its keys stay out. See objectui#9717.',
+  'unresolved-indirect-collection':
+    'A registration in a file INDIRECT_REGISTRATIONS names could not be paired with the collection ' +
+    'that feeds it. Such a call cannot be told apart from one no entry covers, and reading it as ' +
+    'covered restores exactly the file-keyed bypass objectui#9717 removed — so it is reported. Iterate ' +
+    'the collection in a form this derivation reads, or teach `indirectSupply` the form.',
   'unresolved-indirect-namespace':
     'A collection-keyed registration\'s `namespace` could not be read at the call, or one file passes ' +
     'several. The namespace of these keys is DERIVED from the call (objectui#9703) precisely so a ' +
@@ -2015,7 +2286,7 @@ if (invokedDirectly) {
       `${counters.typeSites} \`type\` literal(s) against ${counters.registryKeys} registered key(s) ` +
       `derived from ${counters.sourceFiles} source file(s) (${counters.resolved} resolved call site(s), ` +
       `${counters.metaViaReference} via referenced options, ${counters.indirect} indirect, ` +
-      `${counters.open} open): ` +
+      `${counters.open} open, ${counters.withheld} collection(s) declared and WITHHELD): ` +
       `${counters.registered} registered, ${counters.exempted} exempted; ` +
       `${counters.keyTables} key table(s), ${counters.keyTableRows} row(s), ` +
       `${counters.keyTableKeys} table key(s) judged (namespaced + bare), ` +

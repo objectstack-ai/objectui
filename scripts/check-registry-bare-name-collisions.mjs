@@ -290,7 +290,23 @@ export function collectClaims(root = repoRoot, options = {}) {
   for (const finding of derived.findings) {
     findings.push({ reason: `doc-gate:${finding.reason}`, site: finding.site, detail: finding.detail });
   }
+  // ⚠️ ONE PASS PER (site, namespace), not per entry. `derived.keys` attributes
+  // an indirect key to the entry's FILE, so everything below — `at`, `names`,
+  // `bare`, the guard — is a function of the file and the namespace and of
+  // nothing else in the entry. Since objectui#9717 made INDIRECT_REGISTRATIONS'
+  // coverage collection-keyed, one file legitimately carries several entries,
+  // and iterating entries then pushed the SAME claim once per entry: measured
+  // on this tree, the second placeholder entry alone took the claim count from
+  // 425 to 509, and a second `packages/fields/src/index.tsx` entry moved 29 bare
+  // keys from `sole` to `agreed` — two claimants where the tree has one, which
+  // is a verdict this gate exists to report honestly. ⛔ The duplicates are not
+  // extra claims to be deduplicated downstream; they are one claim counted
+  // twice, so the pass itself is keyed the way the attribution is.
+  const claimedByNamespace = new Set();
   for (const entry of indirect) {
+    const pass = JSON.stringify([entry.site, entry.namespace]);
+    if (claimedByNamespace.has(pass)) continue;
+    claimedByNamespace.add(pass);
     const prefix = `${entry.namespace}:`;
     const at = [...derived.keys.entries()].filter(([, sites]) => sites.includes(entry.site)).map(([key]) => key);
     const names = at.filter((key) => key.startsWith(prefix)).map((key) => key.slice(prefix.length));

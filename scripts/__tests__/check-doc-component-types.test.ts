@@ -1059,10 +1059,16 @@ describe("an indirect registration's namespace is read from the call, never from
     expect(findings.map((f) => (f as Finding).reason)).toEqual(['unresolved-indirect-namespace']);
   });
 
-  it('reports a file whose collection-keyed calls pass two different namespaces', () => {
-    // One entry per file is what the reconciliation assumes. A second namespace
-    // in the same file makes "which call covers this collection" unanswerable,
+  it('reports ONE collection whose registrations pass two different namespaces', () => {
+    // One namespace per collection is what the reconciliation assumes. Two of
+    // them make "which namespace do this collection's keys carry" unanswerable,
     // and guessing is the construction this card removed.
+    //
+    // ⚠️ Both helpers are FED BY `THINGS` here. Before objectui#9717 that was
+    // not the fixture this pin needed — the reconciliation read every
+    // collection-keyed call in the FILE, so an uncalled `reg2` was enough to
+    // trip it. It is a per-COLLECTION reading now, so the second namespace has
+    // to reach the same collection to be a disagreement about it.
     const { findings } = withTree(
       site([
         "const THINGS = [\n  'alpha',\n];",
@@ -1073,6 +1079,7 @@ describe("an indirect registration's namespace is read from the call, never from
         "  ComponentRegistry.register(type, C, { namespace: 'other' });",
         '}',
         'THINGS.forEach(reg);',
+        'THINGS.forEach(reg2);',
       ]),
       (dir) => deriveRegistryKeys(dir, indirect()),
     );
@@ -1113,6 +1120,229 @@ describe("an indirect registration's namespace is read from the call, never from
     );
     expect(findings).toEqual([]);
     expect([...keys.keys()].sort()).toEqual(['ui:alpha']);
+  });
+});
+
+/**
+ * objectui#9717 — the bypass that lets a collection-keyed registration through
+ * without a resolvable key argument used to be keyed by FILE
+ * (`indirectSites.has(rel)`), while INDIRECT_REGISTRATIONS' coverage is keyed by
+ * COLLECTION. The two are not the same set: ANY unresolvable registration living
+ * in a table-named file was waved through, including one whose collection no
+ * entry names. The measured instance is `registerAllFields()`'s
+ * `RETIRED_FIELD_TYPES` tombstone loop, which shares a file with the
+ * `fieldWidgetMap` entry — its key reached neither the universe nor a finding.
+ *
+ * ⭐ The direction of the defect is what makes these pins matter: the universe
+ * did not merely lose a key, it lost one SILENTLY, which is indistinguishable
+ * from a deliberate exclusion. Whether any particular collection's keys BELONG
+ * in the universe is a separate question these pins deliberately do not answer;
+ * what they pin is that the answer is declared rather than produced by which
+ * file a registration happens to live in.
+ *
+ * ⛔ None of these reads the live table. They pin the MECHANISM on fixture
+ * trees, so they keep holding after the live entries change.
+ */
+describe("the indirect bypass is keyed by COLLECTION, the way the table's coverage is", () => {
+  const site = (body: string[]) => (write: (rel: string, contents: string) => void) =>
+    write('packages/demo/src/index.tsx', body.join('\n') + '\n');
+
+  const entry = (over: Record<string, unknown> = {}) => ({
+    site: 'packages/demo/src/index.tsx',
+    collection: 'THINGS',
+    kind: 'array',
+    namespace: 'ui',
+    reason: 'fixture',
+    ...over,
+  });
+
+  const declaring = (...entries: ReturnType<typeof entry>[]) => ({
+    exemptions: {},
+    openRegistrationSites: {},
+    indirectRegistrations: entries,
+  });
+
+  /** One helper, fed by a declared collection AND by an undeclared one. */
+  const twoCollectionsOneHelper = [
+    "const THINGS = [\n  'alpha',\n];",
+    "const OTHERS = [\n  'beta',\n];",
+    'function reg(type) {',
+    "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+    '}',
+    'THINGS.forEach(reg);',
+    'OTHERS.forEach(reg);',
+  ];
+
+  it('⭐ reports a collection no entry names, even though the FILE is named', () => {
+    // The card's shape exactly: one register call, two collections feeding it,
+    // one of them covered. Keyed by file, this branch saw a named file and
+    // stopped asking — `beta` was in the runtime registry, absent from the
+    // universe, and nothing anywhere said so.
+    const { keys, findings } = withTree(site(twoCollectionsOneHelper), (dir) =>
+      deriveRegistryKeys(dir, declaring(entry())),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['uncovered-indirect-collection']);
+    expect((findings[0] as Finding).detail).toContain('`OTHERS`');
+    // The covered half is untouched: a gate that answered this by shrinking the
+    // universe would turn correct documentation red, which is worse than the
+    // silence it replaces.
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'ui:alpha']);
+  });
+
+  it('is SILENT once every collection in the file is declared — two entries, one file', () => {
+    // The control for the pin above, and the pin for the other half of the
+    // change: coverage is per collection, so one file may carry several entries.
+    const { keys, findings } = withTree(site(twoCollectionsOneHelper), (dir) =>
+      deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'OTHERS' }))),
+    );
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'beta', 'ui:alpha', 'ui:beta']);
+  });
+
+  it('⭐ reconciles each collection against ITS OWN calls, not against the file', () => {
+    // Two collections, two helpers, two namespaces, each matching its entry —
+    // a correct tree. Read per FILE, the two namespaces were a disagreement
+    // about both collections and this tree reported `unresolved-indirect-
+    // namespace` twice; the derivation could not have told this apart from a
+    // real drift.
+    const { keys, findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        "const OTHERS = [\n  'beta',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'function other(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'proto' });",
+        '}',
+        'THINGS.forEach(reg);',
+        'OTHERS.forEach(other);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'OTHERS', namespace: 'proto' }))),
+    );
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'beta', 'proto:beta', 'ui:alpha']);
+  });
+
+  it('⭐ reports a call it cannot pair with any collection, instead of skipping it', () => {
+    // `reg2` is declared and never fed. Keyed by file this call was bypassed in
+    // silence; it is now the one case the derivation genuinely cannot answer, so
+    // it says so. ⛔ Reading it as covered is the defect, and reading it as
+    // uncovered would invent a collection name nothing in the file supports.
+    const { keys, findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'function reg2(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'other' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, declaring(entry())),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['unresolved-indirect-collection']);
+    expect((findings[0] as Finding).detail).toContain('reg2');
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'ui:alpha']);
+  });
+
+  it('⭐ reports a stale entry even while a SIBLING entry keeps the file alive', () => {
+    // Staleness is per collection too. Keyed by file, the live `THINGS` call
+    // marked the file seen and `IDLE` — padding the universe from a collection
+    // no registration reads — was invisible.
+    const { findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        "const IDLE = [\n  'beta',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'IDLE' }))),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['stale-indirect-registration']);
+    expect((findings[0] as Finding).site).toContain('IDLE');
+  });
+
+  it('⭐ takes a WITHHELD declaration as coverage — no finding, and no keys either', () => {
+    // The other legitimate answer to `uncovered-indirect-collection`, and the
+    // one the live table gives RETIRED_FIELD_TYPES while objectui#9717 is open:
+    // the registration is declared, its keys deliberately stay OUT, and the
+    // reason is written down. ⛔ The point is not that the finding goes away —
+    // it is that the exclusion becomes a reviewable line instead of a silence.
+    const { keys, findings, counters } = withTree(site(twoCollectionsOneHelper), (dir) =>
+      deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'OTHERS', excluded: 'withheld pending a ruling' }))),
+    );
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'ui:alpha']);
+    expect((counters as { withheld: number }).withheld).toBe(1);
+    // …and it is COUNTED, because the run summary prints that count. An
+    // exclusion nobody can see from the gate's own output is a silence with
+    // extra steps.
+    expect((counters as { indirect: number }).indirect).toBe(1);
+  });
+
+  it('⛔ a WITHHELD entry still goes stale when the registration it names disappears', () => {
+    // What keeps an exclusion honest: it is tied to the CALL, not to the
+    // collection literal (which a withheld entry never reads — RETIRED_FIELD_TYPES
+    // is imported into its site file from another package, so there is nothing
+    // there to read). Delete the registration and the declaration reports.
+    const { findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        "const OTHERS = [\n  'beta',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) =>
+        deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'OTHERS', excluded: 'withheld pending a ruling' }))),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['stale-indirect-registration']);
+    expect((findings[0] as Finding).site).toContain('OTHERS');
+  });
+
+  it('a WITHHELD entry is still reconciled against the call it names', () => {
+    // It contributes no keys, so nothing is LOST when its namespace drifts —
+    // but the declaration says which keys are being held out, and that sentence
+    // stops being true the moment the call registers them somewhere else.
+    const { findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        "const OTHERS = [\n  'beta',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'function other(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'proto' });",
+        '}',
+        'THINGS.forEach(reg);',
+        'OTHERS.forEach(other);',
+      ]),
+      (dir) =>
+        deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'OTHERS', excluded: 'withheld pending a ruling' }))),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['indirect-namespace-drift']);
+  });
+
+  it('reads a collection iterated as `Object.keys(…)` by the loop that holds the call', () => {
+    // The tombstone loop's own shape — the iteration and the registration in one
+    // place, no helper in between — and the `object-keys` half of the two the
+    // table's `kind` names.
+    const { keys, findings } = withTree(
+      site([
+        "const THINGS = {\n  'alpha': 1,\n};",
+        'Object.keys(THINGS).forEach(type => {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '});',
+      ]),
+      (dir) => deriveRegistryKeys(dir, declaring(entry({ kind: 'object-keys' }))),
+    );
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'ui:alpha']);
   });
 });
 

@@ -395,6 +395,69 @@ const X_AXIS_ALL_LABELS_MAX_BUCKETS = 5;
 const ROTATED_X_LABEL_MAX_CHARS = 12;
 
 /**
+ * Symbol AREA envelope the scatter branch declares for its marks, in px².
+ *
+ * Kept as a named number because the padding below is derived from it rather
+ * than guessed: the scatter's `<ZAxis type="number" range={[60, 400]} />`
+ * declares that envelope, recharts paints a scatter mark as a circle of
+ * `sqrt(area / PI)`, so this is the upper bound of the radius it can draw.
+ */
+const SCATTER_SYMBOL_MAX_AREA = 400;
+
+/**
+ * Margin, in px, that each scatter numeric axis reserves at BOTH ends so an
+ * extreme mark is drawn WHOLLY inside the plot area (objectui#7396).
+ *
+ * ## What it fixes
+ *
+ * Both scatter axes are numeric with no explicit domain, so recharts fits the
+ * domain to `[dataMin, dataMax]` and maps it across the WHOLE plot box. A row
+ * at either extreme is therefore CENTRED on the boundary and half its symbol
+ * paints outside the plot area. Measured on the Chart Gallery scatter
+ * ("Estimate vs Progress") in real Chromium — viewport 1440, widget svg
+ * 510x350, plot area x 53..505 / y 5..296 — marks landed at cx 53, 256.4,
+ * 301.6, 414.6, 459.8, 505 and the y-max row at cy 5: the first and last on the
+ * x boundary, the y-max one on the top boundary, each overhanging by its own
+ * radius. It is BOTH axes, not just the x the card measured.
+ *
+ * ## Why `padding` and not `domain`
+ *
+ * Recharts' axis `padding` insets the pixel RANGE the scale maps into — the
+ * axis range becomes `[left + padding.left, right - padding.right]` — and
+ * leaves the domain alone, so every tick VALUE is unchanged and only the
+ * mapping moves. Moving the domain instead would both invent unround tick
+ * endpoints and write the very prop the scatter's missing `yAxisSpecProps`
+ * spread is about (objectui#9675): a spec-derived domain and a
+ * padding domain are one recharts prop, and whichever landed second would
+ * shadow the other. Reserving the margin keeps that prop free.
+ *
+ * ## Why this size
+ *
+ * `sqrt(SCATTER_SYMBOL_MAX_AREA / PI)`, rounded up — the largest radius the
+ * declared envelope admits. It is deliberately the envelope's upper bound and
+ * not the radius observed today: with no `dataKey` on that ZAxis recharts
+ * ignores the declaration entirely and paints every mark at its own implicit
+ * default area (measured: r = 4.514px, i.e. area 64), so sizing this to what is
+ * painted would tie the fix to a third-party default AND reopen the defect the
+ * day a `dataKey` makes the declared envelope live.
+ *
+ * ## Why these are module constants and not inline objects
+ *
+ * Recharts memoises each axis's settings object on its props and dispatches a
+ * `replaceXAxis` / `replaceYAxis` when that object changes; a fresh literal per
+ * render would defeat the memo and re-register the axis on every render.
+ */
+const SCATTER_AXIS_EDGE_PADDING = Math.ceil(Math.sqrt(SCATTER_SYMBOL_MAX_AREA / Math.PI));
+const SCATTER_X_AXIS_PADDING = {
+  left: SCATTER_AXIS_EDGE_PADDING,
+  right: SCATTER_AXIS_EDGE_PADDING,
+} as const;
+const SCATTER_Y_AXIS_PADDING = {
+  top: SCATTER_AXIS_EDGE_PADDING,
+  bottom: SCATTER_AXIS_EDGE_PADDING,
+} as const;
+
+/**
  * Treemap leaf cell — paints each leaf rect with its palette fill + label.
  * Hoisted to module scope so it is a stable component reference rather than one
  * re-created on every AdvancedChartImpl render (react-hooks/static-components).
@@ -1835,6 +1898,7 @@ function AdvancedChartImplInner({
             tickLine={false}
             axisLine={false}
             minTickGap={isMobile ? 32 : 48}
+            padding={SCATTER_X_AXIS_PADDING}
           />
           <YAxis 
             type="number"
@@ -1844,6 +1908,7 @@ function AdvancedChartImplInner({
             axisLine={false}
             tickFormatter={formatYTick}
             width={48}
+            padding={SCATTER_Y_AXIS_PADDING}
           />
           <ZAxis type="number" range={[60, 400]} />
           <ChartTooltip content={<ChartTooltipContent />} />

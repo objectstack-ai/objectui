@@ -154,7 +154,19 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **46 entries** in `KnownDrift`, **83 keys** across them — 46 / 84 until
+ *   - **46 entries** in `KnownDrift`, **85 keys** across them — 46 / 83 until
+ *     objectui#9447 DECLARED `onNavigate` and `onAddComment` on
+ *     `views.zod.ts#DetailViewSchema`, an EXISTING entry (it already held `onBack`),
+ *     so the key total moved by two and the entry count did not. ⭐ A pure TRANSFER,
+ *     the `DataTableSchema` shape at a smaller size: both keys came out of
+ *     `RuntimeOnlyDeclared`'s entry for the SAME pair, so the two ledgers' key totals
+ *     move by the same two in opposite directions — read the two bullets together or
+ *     the arithmetic looks like growth from nowhere. ⚠️ And read it beside the
+ *     objectui#8572 sentence below, which is the OTHER asymmetry: there one key moved
+ *     and no entry did because the entry survived on its remainder; here neither
+ *     ledger's entry count moves because BOTH entries survive — this one already
+ *     existed and that one keeps `onTabChange`, whose disposition is still open on
+ *     objectui#7804. It was 46 / 84 until
  *     objectui#8572 RULED `complex.zod.ts#ChatbotSchema`'s `body`, the naming collision
  *     this ledger carried as "two different meanings of one key": the record arm is
  *     retired on both faces, the key measures clean and LEFT. ⚠️ One key moved and NO
@@ -325,7 +337,16 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **3 entries** in `RuntimeOnlyDeclared`, **9 keys** across them — 4 / 10
+ *   - **3 entries** in `RuntimeOnlyDeclared`, **7 keys** across them — 3 / 9
+ *     until objectui#9447 DECLARED `onNavigate` and `onAddComment` on the mirror for
+ *     `views.zod.ts#DetailViewSchema`, so both left for `KnownDrift` above — the
+ *     drain this ledger is meant to take, never a refiling. ⭐ The entry SHORTENED
+ *     rather than departing, which is the `DataTableSchema` shape and not the
+ *     `TreeViewSchema` one below: `onTabChange` stays because it is read through an
+ *     `(schema as any)` cast and its disposition is still open on objectui#7804, so
+ *     there was something left to shorten. ⚠️ The containment sentence below is
+ *     therefore UNDISTURBED — no entry moved, so this ledger is still a subset of
+ *     `UnmirroredDeclared` and the union still equals it. It was 4 / 10
  *     until objectui#7804's `TreeViewSchema` slice took the whole
  *     `data-display.zod.ts#TreeViewSchema` entry out (its one key `onNodeClick`
  *     declared on the mirror as a named refusal, moved to `KnownDrift` above).

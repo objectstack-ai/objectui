@@ -138,11 +138,17 @@ export function resolveKanbanCardFields(
 
 /**
  * The two spellings of the ONE card-title choice, as this board reads them off
- * a node. Structural on purpose: both declared arms of
- * {@link ObjectKanbanComponentProps.schema} satisfy it and neither declares
- * both keys — `KanbanSchema` declares `cardTitle` and tombstones `titleField`
- * (`titleField?: never`, objectui#7742), `ObjectKanbanSchema` declares
- * `titleField` and reaches `cardTitle` through `BaseSchema`'s index signature.
+ * a node. Structural on purpose: `resolveKanbanTitleField` below is exported
+ * and pure so it can be judged against a bare object, and these two keys are
+ * the whole of what it reads — it needs no node type to do that.
+ *
+ * ⛔ Do NOT restate here which published face declares which of the two keys.
+ * This docblock did (objectui#8308, 2026-09-10), naming TWO declared arms and
+ * an index-signature hop for `cardTitle`, and both halves were false inside
+ * eight days: objectui#8802 left ONE arm nine hours later, and objectui#9606
+ * declared `cardTitle` on that arm on 2026-09-17. The split is declared on
+ * `ObjectKanbanSchema` in `@object-ui/types` and `tsc` already reads it — ask
+ * the instrument, ⛔ never this comment (objectui#9726).
  */
 interface KanbanTitleFieldSource {
   /** Canonical spelling: the record field rendered as the card title. */
@@ -241,14 +247,24 @@ export interface ObjectKanbanComponentProps {
    *
    * ## What that costs, measured rather than waved past
    *
-   * `ObjectKanban` reads thirteen keys off `schema`. `ObjectKanbanSchema`
-   * declares `objectName`, `groupBy`, `limit`, `cardFields`, `titleField`; the
-   * retired arm was the only declaration of `columns`, `cardTitle`,
-   * `swimlaneField` and `grouping`. Those four now resolve through
-   * {@link BaseSchema}'s `[key: string]: any` — as `filter` always has, and as
-   * every one of them ALREADY did on an `object-kanban` document, which was
-   * never judged by the `kanban` arm. ⇒ No `object-kanban` node changes
-   * meaning; what changed is that `kanban` nodes no longer exist.
+   * Nothing, for an `object-kanban` document. Such a node was never judged by
+   * the `kanban` arm, so every key this component reads off `schema` that
+   * `ObjectKanbanSchema` does not declare reached the renderer through
+   * {@link BaseSchema}'s `[key: string]: any` BEFORE the retirement and still
+   * does. ⇒ No `object-kanban` node changes meaning; what changed is that
+   * `kanban` nodes no longer exist.
+   *
+   * ⛔ WHICH keys those are is deliberately not listed here, and neither is
+   * how many there are. This paragraph listed both (objectui#8802,
+   * 2026-09-10) and the list was stale in hours: `filter` had been a declared
+   * member for a day when the list put it on the index signature
+   * (objectui#8174), `columns` joined it six hours after the list was written
+   * (objectui#8913), and `cardTitle` a week after that (objectui#9606) —
+   * leaving `swimlaneField` and `grouping` as the only two it still fits. A
+   * source comment is the surface a changeset sentence gets copied FROM, so an
+   * inventory here is a factory for the same rot one step downstream. Read the
+   * split off `ObjectKanbanSchema`, which `tsc` already judges
+   * (objectui#9726).
    *
    * `__tests__/object-kanban-component-props-7322.test.ts` derives the
    * registered key set from `index.tsx` off disk and goes red if the prop and

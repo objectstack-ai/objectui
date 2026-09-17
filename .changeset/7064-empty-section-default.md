@@ -55,3 +55,17 @@ Reference-app hit inside this repo: the Studio metadata-admin page preview
 (`PagePreview`) binds a real sample record, so a `record:details` block over a
 sparse sample now previews the skeleton rather than a collapsed body. No
 application metadata needs editing — that is the point of the change.
+
+⚠️ **Dated note, 2026-09-16 — the closing sentence above is a reading of
+2026-09-01 and no longer holds for an AUTHORED `record:details` section.**
+⛔ Its text is kept, not rewritten: it was true of the tree this entry
+describes, and overwriting it would erase that. objectui#8603 (director seat
+batch #137 item 3, maintainer 2026-09-15) restored the `record:details` read of
+`hideEmpty`, shipped by PR objectui#9627 later in this same release. As of
+2026-09-16 an all-empty AUTHORED section hides again unless the page writes
+`hideEmpty: false` — so a page that wants the skeleton back does have
+application metadata to edit, and the preview sentence before it holds only for
+a block that authors no section. Where nothing is authored — the
+direct-`fields` fallback body and the `detail-view` node — the closing sentence
+still holds as of the same date. The `hideEmpty` restoration entry is the one
+that states what ships.

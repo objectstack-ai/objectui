@@ -45,9 +45,19 @@
  * ground that its tier was unsettled. It is settled now (ruling of
  * 2026-09-16), so the same mount appears BELOW as a rejecting case instead.
  * That is a re-homing, not a weakened pin: the control asserted "no claim is
- * made here", and a claim is now made. The one mount still passing nothing is
- * the schema-driven `ConditionWidget` in `widgets.tsx`, which has no rendered
- * harness of its own — see that card for why it is still open.
+ * made here", and a claim is now made.
+ *
+ * ## Two mounts still pass nothing, for two DIFFERENT reasons
+ *
+ *  - the schema-driven `ConditionWidget` in `widgets.tsx` — undecided channel,
+ *    no rendered harness of its own, and no JSX mount site to supply a prop;
+ *  - the PAGE BLOCK — decided, and the decision is that neither scope fits.
+ *    Its evaluator binds `record`, `current_user` AND `page.<var>`, and the
+ *    `record` scope REFUSES the third, because `page` is not among the engine's
+ *    scope roots. The case below is the falsifiable half of that: it pins the
+ *    spec's own documented example, so anyone who "settles" that mount with
+ *    `'record'` gets a red test instead of a designer whose Save button is
+ *    disabled by a predicate the spec prescribes.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -91,6 +101,8 @@ const BARE = "status == 'done'";
 const CANONICAL = "record.status == 'done'";
 /** The transition idiom: only expressible where `previous` is bound too. */
 const TRANSITION = "previous.status != 'done' && record.status == 'done'";
+/** `@objectstack/spec`'s OWN worked example for a page block's `visibleWhen`. */
+const PAGE_VAR = "page.selectedProjectId != ''";
 
 /** `CelPredicateField` renders its editor as a combobox TEXTAREA. */
 function rawEditorIn(root: HTMLElement): HTMLTextAreaElement {
@@ -245,24 +257,40 @@ function PageBlockHarness() {
   );
 }
 
-describe('PageBlockInspector — the node tier IS a row surface here (objectui#8167)', () => {
-  // MEASURED, not assumed — this is the mount the ruling refused to settle from
-  // a mount list. A page block is handed to `SchemaRenderer`, whose `shouldHide`
-  // answers `visibleWhen` from an evaluator that binds the row as the `record`
-  // ROOT ONLY ("NOT as bare fields", in the renderer's own words), and
-  // `SchemaRenderer.visibleWhenRecordBinding.test.tsx` pins that a bare
-  // `status == 'in_review'` shows the block on BOTH polarities of the row.
-  it('rejects the bare shorthand in the block visibility gate and names the record.<field> fix', async () => {
+describe('PageBlockInspector — neither lint scope fits this mount (objectui#8167)', () => {
+  /**
+   * The mount passes NO `scope`, and this case is why it may not simply be
+   * "settled" with `'record'`.
+   *
+   * The renderer reading that motivated `'record'` is correct as far as it
+   * goes: `SchemaRenderer` binds the row as the `record` root, so a bare
+   * `status == 'done'` never matches here. But the SAME evaluator construction
+   * also binds `page: pageVariables`, and `@objectstack/spec`'s `page.zod.ts`
+   * documents exactly that — *"Contract-bound roots: `record`, `current_user`
+   * … and page state as `page.<var>`"* — with `page.selectedProjectId != ''`
+   * as its own worked example.
+   *
+   * At `scope: 'record'` the validator runs a strict environment declaring
+   * exactly the engine's `SCOPE_ROOTS`, and `page` is not in it. Measured on
+   * the installed `@objectstack/formula`:
+   *
+   *   scope 'record' · "page.selectedProjectId != ''"
+   *     -> error: "bare reference `page` … Write `record.page`."
+   *
+   * — a hard error prescribing a nonsense fix, on the spelling the spec
+   * prescribes. And this inspector reports blocking issues upward, where the
+   * host turns them into a disabled Save. So the narrowing that fixes the bare
+   * shorthand breaks a contract-bound root: the objectui#8155 shape, and an
+   * engine-vocabulary gap rather than a mount decision.
+   *
+   * ⇒ this case fails the moment someone passes `scope="record"` here. That is
+   * its entire job: it makes the deliberate omission falsifiable rather than
+   * asserted, and it fails in the DESIGNER, where the cost actually lands.
+   */
+  it("accepts the spec's own `page.<var>` example — which the `record` scope would refuse", async () => {
     const { container } = render(<PageBlockHarness />);
     const box = rawEditorIn(container as HTMLElement);
-    fireEvent.change(box, { target: { value: BARE } });
-    await expectRejected(box);
-  });
-
-  it('still accepts the canonical spelling in the block visibility gate', async () => {
-    const { container } = render(<PageBlockHarness />);
-    const box = rawEditorIn(container as HTMLElement);
-    fireEvent.change(box, { target: { value: CANONICAL } });
+    fireEvent.change(box, { target: { value: PAGE_VAR } });
     await expectAccepted(box);
   });
 });

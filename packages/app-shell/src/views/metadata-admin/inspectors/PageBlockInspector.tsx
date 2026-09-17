@@ -705,56 +705,65 @@ export function PageBlockInspector({ selection, draft, onPatch, onClearSelection
           and the spec's parse error already names `visibleWhen` as the fix.
           `visibleWhen` is `ExpressionInputSchema`, so it goes through the same
           envelope read/write pair as the hook / action guards (#3218). */}
-      {/* ── The renderer reading this mount's lint scope follows (objectui#8167)
+      {/* ── This mount passes NO `scope`, and that is a measured verdict
           ────────────────────────────────────────────────────────────────────
-          The 2026-09-16 ruling on objectui#8167 settled the RULE, not this
-          mount: a mount's lint scope is decided by what the evaluator binds at
-          RUNTIME, never by what a neighbouring editor does. It then declined to
-          guess this one — the director did not read the objectui renderer side,
-          and recorded the "node tier, therefore flattened" reading as a default
-          to be measured rather than an assumption to ship on.
+          objectui#8167's ruling settled the RULE — a mount's lint scope is
+          decided by what the evaluator binds at RUNTIME — and left this mount
+          to a reading. The reading was taken, and its answer is that NEITHER
+          lint scope expresses what this surface binds.
 
-          Measured here, on this tree. A page block is a SDUI node: the designer
+          What the renderer binds. A page block is a SDUI node: the designer
           canvas and the page preview both hand each block to `SchemaRenderer`
-          (`previews/PageBlockCanvas.tsx` renders `<SchemaRenderer schema={…} />`
-          per block), and `visibleWhen` is enforced once and generically inside
-          it — `shouldHide` short-circuits on `if (newSchema.visibleWhen !==
-          undefined)`. The evaluator that answers it is built in `@object-ui/
-          react`'s `SchemaRenderer.tsx` as
+          (`previews/PageBlockCanvas.tsx` renders one per block), and
+          `visibleWhen` is enforced once and generically inside it — its
+          `shouldHide` short-circuits on `if (newSchema.visibleWhen !==
+          undefined)` ahead of every other visibility leg. The evaluator that
+          answers it is built in `@object-ui/react`'s `SchemaRenderer.tsx` as
 
               new ExpressionEvaluator({ ...predicateScope,
                 current_user: …, ...( … ? { record: boundRecord } : null),
                 page: pageVariables })
 
-          whose own comment states the shape in as many words: *"Bound as the
-          `record` ROOT ONLY — the exact three roots the describe promises, and
-          nothing else … NOT as bare fields."*
+          ⇒ three roots: `record`, `current_user` AND `page.<var>`. That is
+          also exactly what `@objectstack/spec` promises — `page.zod.ts`
+          describes `visibleWhen` as *"Contract-bound roots: `record`,
+          `current_user` … and page state as `page.<var>`"*, and its own worked
+          example is `page.selectedProjectId != ''`.
 
-          ⇒ the node tier IS a row surface here, and the default reading is
-          FALSIFIED. It is already pinned, so this is a citation and not a new
-          claim: `SchemaRenderer.visibleWhenRecordBinding.test.tsx`, the case
-          named "binds the `record` ROOT only — bare row fields stay unbound, as
-          the spec declares", mounts `visibleWhen: "status == 'in_review'"` over
-          BOTH polarities of the row and asserts the block renders on both. A
-          bare field reference on this key does not resolve; the surface is
-          fail-soft, so it resolves to SHOWN — forever, on every row, with no
-          signal anywhere.
+          Why neither scope fits, measured on the installed
+          `@objectstack/formula`, both directions:
 
-          The mount below follows that reading. */}
+            scope 'flattened' · "status == 'done'"                 -> clean
+            scope 'flattened' · "page.selectedProjectId != ''"     -> clean
+            scope 'record'    · "status == 'done'"                 -> error (right)
+            scope 'record'    · "page.selectedProjectId != ''"     -> ERROR,
+              "bare reference `page` … Write `record.page`."
+
+          `flattened` accepts the bare-field shorthand this card is about — the
+          row IS bound as `record` here, so `status == 'done'` never matches.
+          But `record` refuses `page.<var>`: at that scope the validator runs
+          its strict environment declaring exactly the engine's `SCOPE_ROOTS`,
+          and `page` is not in that list, so a contract-bound predicate becomes
+          a hard error prescribing the nonsense fix `record.page`. Worse than
+          cosmetic: this inspector reports blocking CEL issues upward, and the
+          host counts them, so that error would disable Save and auto-save
+          while the block is selected.
+
+          ⛔ So this mount deliberately passes nothing, and `flattened` is the
+          less-wrong of two wrong answers here — an editor that over-accepts,
+          rather than one that refuses what the spec documents. This is the
+          objectui#8155 shape (`app` refused although bound), and the fix is
+          not at this mount: `@objectstack/formula` needs either `page` among
+          its scope roots or a per-surface root allowlist on
+          `validateExpression`. Until then, ⛔ do not "settle" this mount by
+          passing `'record'` — `ConditionBuilder.mountScope.test.tsx` holds a
+          case that reddens if you do. */}
       <ConditionBuilder
         label={t('engine.inspector.pageBlock.visibleWhen', locale)}
         value={expressionSource(block.visibleWhen)}
         onCommit={(v) => patch({ visibleWhen: writeExpressionSource(block.visibleWhen, v) })}
         objectName={pageObject}
         disabled={readOnly}
-        /* `record`, because that is what the renderer binds — see the reading
-           above. Written EXPLICITLY, which is the half of the ruling that is
-           easy to skip: the value is not the interesting part, the fact that
-           this mount now states one is. Before this, the scope was nobody's
-           decision — every mount fell through `celAuthoring`'s own
-           `hint.scope ?? 'flattened'`, so a bare `status == 'done'` typed here
-           linted CLEAN and then never matched on any row. */
-        scope="record"
         onBlockingIssuesChange={reportCel}
       />
 

@@ -50,13 +50,14 @@ near miss of the same spelling parses GREEN rather than red — this arm is not
 strict, which is precisely why the tombstone rather than a deletion is what does
 the refusing here.
 
-**What replaces it: nothing you author.** Lane collapse is
-`KanbanColumn.collapsed`'s — a per-lane member — not a board-level authored
-toggle. On the board this arm actually renders it is the VIEWER's rather than
-the author's: `KanbanImpl` collapses a swimlane when its header button is
-clicked and persists that set per `swimlaneField`. The implementation that does
-honour a lane's own `collapsed`, `KanbanEnhanced`, is referenced by no
-registration since the `kanban-enhanced` node key retired (objectui#8257).
+**What replaces it: the per-LANE member, not a board-level toggle.** Lane
+collapse is `KanbanColumn.collapsed`'s — written on the lane you want collapsed,
+inside `columns` — and the board this arm renders honours it (objectui#9628, in
+this same release): the lane starts collapsed and the viewer can open it again.
+A board-level "may lanes collapse at all" switch is what has no replacement.
+SWIMLANE collapse remains the viewer's alone: `KanbanImpl` collapses a swimlane
+row when its header button is clicked and persists that set per `swimlaneField`,
+and no authored key reaches it.
 
 **Migration, in this repository: no authored document changed.** Over every
 tracked file, the only occurrences of the name were the two declarations retired

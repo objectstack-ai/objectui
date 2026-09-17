@@ -165,9 +165,9 @@ interface KanbanColumn {
   cards: KanbanCard[];
   limit?: number;                     // WIP limit — the count at which the lane warns
   className?: string;
-  collapsed?: boolean;                // Lane renders collapsed (read by the KanbanEnhanced
-                                      // source module, which objectui#8257 left
-                                      // with no registry key — see CHANGELOG)
+  collapsed?: boolean;                // Lane starts collapsed — narrowed to a title
+                                      // spine, cards withheld, heading a disclosure
+                                      // the viewer can reopen (objectui#9628)
   color?: never;                      // RETIRED — refused by name; style a lane through className
 }
 

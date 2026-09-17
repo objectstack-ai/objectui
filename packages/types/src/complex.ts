@@ -145,8 +145,21 @@ export interface KanbanColumn {
   limit?: number;
   className?: string;
   /**
-   * Whether the lane renders collapsed. Honoured by `KanbanEnhanced` (the
-   * implementation that ships column collapsing); the plain board ignores it.
+   * Whether the lane renders collapsed: narrowed to a title spine, its cards
+   * withheld, and its heading a disclosure the viewer can open again.
+   *
+   * The AUTHORED value is the lane's initial state only — once a viewer toggles
+   * the lane, their decision holds for that session, including across the data
+   * refreshes that rebuild these lane objects. Reading it as a locked state
+   * would make a lane's cards permanently unreachable and its drop target
+   * blind.
+   *
+   * Honoured by the registered board (`@object-ui/plugin-kanban`'s `KanbanImpl`,
+   * on BOTH of its layouts — the flat lane and each row of the swimlane grid)
+   * since objectui#9628, and by `KanbanEnhanced` before it. Until that card the
+   * key was declared on both published faces and read only by `KanbanEnhanced`,
+   * which no production source imports — so an authored value parsed green and
+   * reached nothing.
    */
   collapsed?: boolean;
   /**

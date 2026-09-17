@@ -466,8 +466,17 @@ describe('suite 4 — the ledger drained with the fix (objectui#7804)', () => {
     // `KNOWN_UNDECLARED_READS` rather than dropping the name and leaving the
     // length check alone — the length alone passes on a map holding one stale
     // row, which is the reading this control exists to refuse.
+    //
+    // ⚠️ Re-derived a second time by objectui#9573, and that one did NOT land a
+    // slice: it re-keyed the census on what a registration CLAIMS, so the
+    // thirteen alias-shape rows — `button::ButtonSchema.onSuccess` among them,
+    // which this leg named until then — left the ledger because they were never
+    // those components' rows. `{ namespace: 'action', skipFallback: true }`
+    // means the registration never claims the bare `button` key, so
+    // `ButtonSchema` was another component's arm. ⇒ the witness is now the one
+    // row that is NOT alias-shape.
     const remaining = [...ledger.keys()];
     expect(remaining.length).toBeGreaterThan(0);
-    expect(remaining).toContain('button::ButtonSchema.onSuccess');
+    expect(remaining).toContain('detail::DetailSchema.onTabChange');
   });
 });

@@ -24,6 +24,13 @@ settled, and gains a pointer to the amended rule and to the reason prong 2 has n
 guard there: this module has never had a `zod/` twin, so there is no mirror that could
 accept an undeclared key and strip it silently.
 
+`mobile.ts`'s `GestureConfig` retirement note stated the two prongs in full and without the
+precondition. It now carries the amended form in the same wording as the other sites, and
+records that the precondition settles the route there on its own, a whole exported type name
+having no carrier to host a `?: never` member. Every existing clause is kept, including the
+per-prong measurement and the note that whether a reclaim line counts as "taught as working"
+is recorded on objectui#7519 rather than decided there. The removal is not re-argued.
+
 The `objectui#6152` tripwire comment in `floating-chatbot-trigger-icon-retired.test.ts`
 claimed the parse-green assertion it sits on would go red once a `FloatingChatbotConfigSchema`
 is minted. Measured by injecting the arm on both twins and restoring under a trap: a

@@ -302,10 +302,15 @@ export type GestureType ='tap' | 'double-tap' | 'long-press' | 'swipe-left' | 's
 // A binding written against it could not reach a handler by any path —
 // `action` was a string nothing dispatched.
 //
-// Removed outright rather than tombstoned, measured against the two-prong
-// discriminator the precedent changesets state (objectui#5941, #7526): a
-// tombstone exists (1) to steer authors to a named live replacement KEY, or
-// (2) to keep loud a key the docs taught as working. Prong 1: none — no
+// Removed outright rather than tombstoned, measured against the discriminator
+// the precedent changesets state (objectui#5941, #7526), in the form
+// objectui#7678 amended it to: a `?: never` tombstone is available only on a
+// SURVIVING CARRIER, and on such a carrier it is used when either prong holds
+// — (1) it steers authors to a named live replacement KEY, or (2) it keeps
+// loud a key the docs taught as working. `GestureConfig` is a whole exported
+// type name, so it has no carrier to host a `?: never` member at all and the
+// precondition settles the route on its own; the per-prong measurement that
+// follows was taken anyway and is kept as the record. Prong 1: none — no
 // dispatcher reads a gesture `action` (zero hits), and the only `gestures` key
 // on any type is `TouchInteraction.gestures: SpecGestureConfig[]`, a different
 // contract with no reader of its own. Prong 2: the CHANGELOG lines naming it

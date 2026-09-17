@@ -28,7 +28,10 @@
  *   comment: the rendered TEXT carries neither a deletion word nor a
  *   permissions word, and the DOM carries the record id in neither form (the
  *   truncated one it displayed nor the full one it used to hang in a `title`
- *   attribute on every row).
+ *   attribute on every row). ⚠️ That control is `en`-only, deliberately and
+ *   with the alternative refused — the case itself states exactly what the
+ *   other nine packs are and are not checked for, so this paragraph is not
+ *   the last word a reader gets on the fence's coverage.
  * - The discriminating fixture rows are the two this must NOT touch: a row
  *   whose snapshot kept a business identifier (objectui#5211 keeps showing it
  *   and only withholds the link) and a row the SERVER marked `record_deleted`
@@ -329,8 +332,25 @@ describe('Approvals Inbox — unresolvable record reference (objectui#8631)', ()
     expect(text).toMatch(COPY);
     expect(text).not.toMatch(/delet|removed|gone/i);
     expect(text).not.toMatch(/permission|access|not visible|no longer visible|forbidden/i);
-    // And the copy itself, wherever it is authored, carries neither cause —
-    // a translation that reintroduced one would red here too.
+    // And the `en` value carries neither cause — ⚠️ THE `en` VALUE ONLY.
+    // `COPY` is `en.approvalsInbox.recordUnresolvable`, this file reads no
+    // other pack, and the terms above are English: a cause word reintroduced
+    // in `ru` or `ja` would NOT red here, and nothing else in this repo
+    // re-derives it either. Said rather than left to read as live
+    // (commandment #9).
+    //
+    // Scoping that was weighed and REFUSED, not skipped: a per-language
+    // deletion / permissions word list is a second authored contract that
+    // goes stale in silence and that a synonym or an inflection walks past,
+    // so it would report coverage it does not have — which is the exact
+    // defect this line was repaired for.
+    //
+    // The `en` half is still load-bearing, and it is the half a regression
+    // arrives through: the inline `defaultValue` must match this value byte
+    // for byte (`check:i18n-keys`), and the nine translations are made FROM
+    // it, so a cause reintroduced at the source reds here before anyone can
+    // translate it. What is unguarded is a translation drifting away from a
+    // clean source — a translator's review, not a gate.
     expect(COPY).not.toMatch(/delet|permission|access/i);
   });
 

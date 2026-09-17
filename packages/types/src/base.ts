@@ -93,14 +93,40 @@ export interface BaseSchema {
    * Often used in forms, cards, and other UI elements.
    *
    * Accepts the spec's INLINE LOCALE MAP as well as a plain string
-   * (objectui#4580, revised Q1 ruling — option A), because that is what a spec
-   * producer already writes into this slot: `bridgeListView` assigns
-   * `node.label = spec.label` at
-   * `packages/react/src/spec-bridge/bridges/list-view.ts:180`, and `ListView`'s
-   * own `label` is the spec's `I18nLabel`. Under the old `string` declaration
-   * that assignment was a type error the moment `SchemaNode` stopped being
-   * core's index-signature interface — the defect this widening resolves, not a
+   * (objectui#4580, revised Q1 ruling — option A), because `ListView`'s own
+   * `label` is the spec's `I18nLabel`: under the old `string` declaration that
+   * assignment was a type error the moment `SchemaNode` stopped being core's
+   * index-signature interface — the defect this widening resolves, not a
    * capability being invented here.
+   *
+   * The instrument that re-derives the widening is
+   * `inline-locale-declared-face-9092.test.ts` in this package's `__tests__`:
+   * it assigns the map to this slot and to {@link BaseSchema.description}, each
+   * paired with a `@ts-expect-error` control on a genuinely plain-`string`
+   * sibling, and it runs under both `tsc -p packages/types/tsconfig.test.json`
+   * and vitest. ⛔ Read that file rather than any figure written here.
+   *
+   * ## ⚠️ The producer evidence this slot was widened on is DEAD
+   *
+   * It is quoted and dated rather than deleted, because it is the rationale
+   * objectui#4580 was decided on and overwriting it would erase that the ruling
+   * ever had one. As written on 2026-08-13 (#4580, PR #4608) this paragraph
+   * said, and the tree at that commit bore it out:
+   *
+   * > that is what a spec producer already writes into this slot:
+   * > `bridgeListView` assigns `node.label = spec.label` at
+   * > `packages/react/src/spec-bridge/bridges/list-view.ts:180`
+   *
+   * ⛔ FALSIFIED on 2026-08-29 by objectui#6366 (PR #6632), which removed the
+   * WHOLE spec-bridge — `SpecBridge`, `bridgeListView`, `bridgeFormView` — from
+   * `@object-ui/react` as a declared BREAKING CHANGE. That producer, the module
+   * it lived in and the address it is cited at are all gone, and ⛔ nothing
+   * re-derives the sentence — which is why it is quoted here instead of left
+   * reading as live (AGENTS.md #9). The RULING is not in question: its live
+   * basis is the declared-face pin named above, the spec's own `I18nLabel`
+   * declaration this file imports, and the read-site pins in
+   * `@object-ui/components` and `@object-ui/plugin-dashboard`. Reading the dead
+   * sentence as live already cost objectui#9092 a premise-falsification round.
    *
    * ## Which vocabulary this is, and who resolves it
    *
@@ -152,12 +178,23 @@ export interface BaseSchema {
    *
    * Accepts the spec's INLINE LOCALE MAP as well as a plain string on exactly
    * the {@link BaseSchema.label} evidence one slot over (objectui#4580, revised
-   * Q1 ruling): `bridgeListView` assigns `node.description = spec.description`
-   * at `packages/react/src/spec-bridge/bridges/list-view.ts:224`, where the
-   * spec's `ListView.description` is an `I18nLabel`. Same vocabulary, same
-   * resolver (`resolveI18nLabel` against the display locale), same
-   * confusability warning against {@link BaseSchema.ariaLabel}'s keyed form —
-   * see {@link BaseSchema.label} for the full statement.
+   * Q1 ruling), where the spec's `ListView.description` is an `I18nLabel`. Same
+   * vocabulary, same resolver (`resolveI18nLabel` against the display locale),
+   * same confusability warning against {@link BaseSchema.ariaLabel}'s keyed
+   * form — see {@link BaseSchema.label} for the full statement, and for the
+   * instrument that re-derives this widening.
+   *
+   * ⚠️ The producer half of that evidence is DEAD, quoted and dated. As
+   * written on 2026-08-13 (#4580, PR #4608), and true of the tree at that
+   * commit:
+   *
+   * > `bridgeListView` assigns `node.description = spec.description` at
+   * > `packages/react/src/spec-bridge/bridges/list-view.ts:224`
+   *
+   * ⛔ FALSIFIED on 2026-08-29 by objectui#6366 (PR #6632), which removed
+   * `SpecBridge` / `bridgeListView` / `bridgeFormView` from `@object-ui/react`
+   * as a declared BREAKING CHANGE. Nothing re-derives it; see
+   * {@link BaseSchema.label} for why it is quoted rather than deleted.
    *
    * @example "Shown below the field"
    * @example { en: 'Shown below the field', 'zh-CN': '显示在字段下方' }

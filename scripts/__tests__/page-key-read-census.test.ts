@@ -56,20 +56,23 @@ import {
 } from '../page-key-read-census.mjs';
 
 type Source = { path: string; text: string };
+type Read = { file: string; line: number; key: string; text: string };
+type Row = { key: string; verdict: 'declared' | 'alias' | 'refused'; canonical?: string; sites: Read[] };
+
+/** The census reads its sources; `.mjs` carries no types, so they are named here. */
+const readsOf = (sources: Source[]): Read[] => censusReads(sources).reads as Read[];
 
 const src = (rel: string, text: string): Source => ({ path: join(REPO_ROOT, rel), text });
 
 /** Keys the census reports as NOT accepted by `PageSchema`, with their verdict. */
 function refusedKeys(sources: Source[]): Array<{ key: string; verdict: string; canonical?: string }> {
-  const { reads } = censusReads(sources);
-  return judgeReads(reads, PageSchema)
-    .filter((row: any) => row.verdict !== 'declared')
-    .map((row: any) => ({ key: row.key, verdict: row.verdict, canonical: row.canonical }));
+  return (judgeReads(readsOf(sources), PageSchema) as Row[])
+    .filter((row) => row.verdict !== 'declared')
+    .map((row) => ({ key: row.key, verdict: row.verdict, canonical: row.canonical }));
 }
 
 function keysRead(sources: Source[]): string[] {
-  const { reads } = censusReads(sources);
-  return [...new Set(reads.map((r: any) => r.key))].sort();
+  return [...new Set(readsOf(sources).map((r) => r.key))].sort();
 }
 
 // ---------------------------------------------------------------------------
@@ -162,8 +165,8 @@ describe('page-key read census -- 1. the specimens it was authored against', () 
   });
 
   it('reports the read SITE, not just the key -- a finding nobody can locate is not a finding', () => {
-    const { reads } = censusReads([SPECIMEN_B_HOOK, SPECIMEN_B_VIEW('disableDiscussion')]);
-    const hit = reads.find((r: any) => r.key === 'disableDiscussion');
+    const hit = readsOf([SPECIMEN_B_HOOK, SPECIMEN_B_VIEW('disableDiscussion')])
+      .find((r) => r.key === 'disableDiscussion')!;
     expect(hit.file).toBe('packages/app-shell/src/views/RecordDetailView.tsx');
     expect(hit.line).toBeGreaterThan(0);
     expect(hit.text).toContain('disableDiscussion');
@@ -274,7 +277,7 @@ export function Other({ page }: any) {
   return page.disableDiscussion;
 }
 `);
-    expect(censusReads([unrelated]).reads).toEqual([]);
+    expect(readsOf([unrelated])).toEqual([]);
     // ...and the same read IS found once the value comes from the cache, so the
     // quiet above is about provenance and not about the key.
     expect(keysRead([SPECIMEN_B_HOOK, SPECIMEN_B_VIEW('disableDiscussion')])).toContain('disableDiscussion');

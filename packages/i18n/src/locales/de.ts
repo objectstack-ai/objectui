@@ -3245,6 +3245,7 @@ const de = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: 'Dieser Datensatz kann nicht geöffnet werden',
     loadMore: 'Mehr laden',
     loadingMore: 'Wird geladen…',
     loadedOf: '{{loaded}} von {{total}} geladen',

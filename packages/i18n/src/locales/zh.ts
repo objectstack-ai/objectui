@@ -3386,6 +3386,7 @@ const zh = {
       },
     },
   approvalsInbox: {
+    recordUnresolvable: '无法打开此记录',
     loadMore: '加载更多',
     loadingMore: '加载中…',
     loadedOf: '已加载 {{loaded}} / 共 {{total}} 条',

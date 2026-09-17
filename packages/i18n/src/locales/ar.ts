@@ -3252,6 +3252,7 @@ const ar = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: 'لا يمكن فتح هذا السجل',
     loadMore: 'تحميل المزيد',
     loadingMore: 'جارٍ التحميل…',
     loadedOf: 'تم تحميل {{loaded}} من {{total}}',

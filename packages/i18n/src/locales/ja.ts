@@ -3247,6 +3247,7 @@ const ja = {
     },
   },
   approvalsInbox: {
+    recordUnresolvable: 'このレコードは開けません',
     loadMore: 'さらに読み込む',
     loadingMore: '読み込み中…',
     loadedOf: '{{total}} 件中 {{loaded}} 件を表示',

@@ -3669,6 +3669,7 @@ const en = {
       },
     },
   approvalsInbox: {
+    recordUnresolvable: 'This record cannot be opened',
     loadMore: 'Load more',
     loadingMore: 'Loading…',
     loadedOf: 'Loaded {{loaded}} of {{total}}',

@@ -124,6 +124,18 @@ const diagnose = (node: Node, props: Record<string, unknown>) =>
 const forKey = (node: Node, props: Record<string, unknown>, key: string) =>
   diagnose(node, props).filter((d) => JSON.stringify(d.message).includes(key));
 
+/**
+ * Refuse a vacuous pass. Measured under the objectui#7316 ablation: with the
+ * entry removed the declared list is EMPTY, and an empty list contains no trap,
+ * holds no value the Button refuses, and equals the other empty list — so three
+ * assertions below passed for the wrong reason. Each one calls this first.
+ */
+function assertDeclared(node: Node): unknown[] {
+  const values = declaredEnum(node);
+  expect(values.length, `\`${node}\` declares no \`buttonVariant\` vocabulary at all, so the assertion below would pass vacuously`).toBeGreaterThan(0);
+  return values;
+}
+
 describe('`buttonVariant` is declared on the registry face of both nodes', () => {
   it.each(NODES)('%s declares a `buttonVariant` input at all', (node) => {
     expect(
@@ -143,12 +155,12 @@ describe('`buttonVariant` is declared on the registry face of both nodes', () =>
   });
 
   it('the two registrations agree with each other', () => {
-    expect(declaredEnum('toast')).toEqual(declaredEnum('sonner'));
+    expect(assertDeclared('toast')).toEqual(assertDeclared('sonner'));
     expect(TOAST_VOCABULARY).toEqual(SONNER_VOCABULARY);
   });
 
   it.each(NODES)('every value %s admits is one the Button actually draws', (node) => {
-    const inert = declaredEnum(node).filter(
+    const inert = assertDeclared(node).filter(
       (v) => buttonVariants({ variant: v as never }) === NO_VARIANT_CLASSES,
     );
     expect(inert, `declared on \`${node}\`, but the Button draws nothing for them`).toEqual([]);
@@ -157,8 +169,8 @@ describe('`buttonVariant` is declared on the registry face of both nodes', () =>
 
 describe('NEGATIVE CONTROL — the declared list cannot express either trap', () => {
   it.each(TRAPS)('neither registration admits %j', (trap) => {
-    expect(declaredEnum('toast')).not.toContain(trap);
-    expect(declaredEnum('sonner')).not.toContain(trap);
+    expect(assertDeclared('toast')).not.toContain(trap);
+    expect(assertDeclared('sonner')).not.toContain(trap);
   });
 
   it('and each trap is a trap for a DIFFERENT reason, measured on the Button', () => {

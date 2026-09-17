@@ -171,6 +171,36 @@ export const BOTH_SPELLINGS_BOARD: TsObjectKanbanSchema = {
   titleField: 'subject',
 };
 
+/**
+ * ⭐ The TS twin's OWN failing instrument, and the reason this file needs one.
+ *
+ * The zod declaration is pinned by the runtime rows above. The TypeScript twin is
+ * NOT: measured by ablation on this tree, deleting `cardTitle?: string` from the
+ * `ObjectKanbanSchema` interface leaves `pnpm --filter @object-ui/types type-check`
+ * at EXIT 0, the zod-mirror-parity ratchet included. That is structural, not a
+ * threshold — {@link BaseSchema} carries `[key: string]: any`, so the ratchet's
+ * `DeclaredKeys` sees the twin ACCEPTING every name already, and its three
+ * measures (narrower-than-declared, unmirrored-declared, wider-than-declared) all
+ * read a mirrored-but-undeclared key as agreement. ⛔ So "the ratchet keeps the
+ * twin honest" is not a claim this repository's instruments support in THAT
+ * direction; the twin is declared because it is the PUBLISHED `.d.ts` surface an
+ * author's editor reads, and this directive is what makes that declaration
+ * measurable.
+ *
+ * The directive is REAL enforcement: with the member declared, `42` is not
+ * assignable to `string | undefined` and the error it expects exists. Delete the
+ * member and the index signature admits the `42`, the expected error disappears,
+ * and `tsc` reddens with TS2578 — an unused `@ts-expect-error`. Measured both ways.
+ */
+export const NON_STRING_CARD_TITLE_IS_REFUSED_AT_COMPILE_TIME: TsObjectKanbanSchema = {
+  type: 'object-kanban',
+  objectName: 'tasks',
+  groupBy: 'status',
+  // @ts-expect-error — `cardTitle` names a record FIELD, so a number cannot be one.
+  // This is the compile-time half of the runtime refusal pinned above.
+  cardTitle: 42,
+};
+
 /** Neither — both members are OPTIONAL on both faces, which is what keeps the parity ratchet at zero. */
 export const NEITHER_SPELLING_BOARD: TsObjectKanbanSchema = {
   type: 'object-kanban',

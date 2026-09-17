@@ -514,6 +514,16 @@ const REGISTRY_RECEIVERS = ['ComponentRegistry', 'componentRegistry', 'registry'
  * helpers decide `skipFallback` per key at the call, so the set is named here
  * and read from the site file, and a name that stops resolving is reported.
  *
+ * ⚠️ `excluded` is the OTHER disposition, and an entry carrying it contributes
+ * NO keys: it declares that this collection's registrations are known and that
+ * their keys deliberately stay out of the universe, with the reason written
+ * down. It exists because the alternative is the silence objectui#9717 was
+ * filed about — a registration nobody had reasoned about, producing the right
+ * answer by accident. ⛔ It is not a way to quiet a finding: an excluded entry
+ * is still reconciled against the call and still goes stale the moment the
+ * registration it names stops existing, and the run summary prints how many
+ * collections are being withheld, so the decision cannot sink out of view.
+ *
  * EXPORTED because the `protocol-placeholder` entry is also the DECLARATION a
  * sibling gate reads to tell a real renderer from a placeholder panel
  * (`check-prompt-component-keys.mjs`, objectui#8929). That gate must never
@@ -533,6 +543,20 @@ export const INDIRECT_REGISTRATIONS = [
       'The keys are protocol vocabulary the docs legitimately teach.',
   },
   {
+    site: 'packages/components/src/renderers/placeholders.tsx',
+    collection: 'PALETTE_PLACEHOLDER_BLOCKS',
+    kind: 'array',
+    namespace: 'protocol-placeholder',
+    reason:
+      'The same `registerPlaceholder(type)` helper the PROTOCOL_COMPONENTS entry above names is ALSO ' +
+      'handed this collection, eagerly, in every host — palette-offered page blocks must not render a ' +
+      'red unknown-type panel just because a host skipped the opt-in bootstrap. It went undeclared ' +
+      'until objectui#9717 because the bypass was keyed by file, and a sibling entry naming this file ' +
+      'answered for it. ⚠️ Its members are today a subset of PROTOCOL_COMPONENTS, so declaring it adds ' +
+      'no key — but that overlap is a coincidence nothing holds in place, and the next palette block ' +
+      'that is not protocol vocabulary would have gone missing in exactly the same silence.',
+  },
+  {
     site: 'packages/fields/src/index.tsx',
     collection: 'fieldWidgetMap',
     kind: 'object-keys',
@@ -542,6 +566,30 @@ export const INDIRECT_REGISTRATIONS = [
       '`registerField(fieldType)` registers each key of fieldWidgetMap as `field:<type>` (plus the ' +
       'bare key unless FIELD_TYPES_SKIP_FALLBACK holds it), and `registerAllFields()` runs it for ' +
       'every key at module load. Field pages teach these bare keys.',
+  },
+  {
+    site: 'packages/fields/src/index.tsx',
+    collection: 'RETIRED_FIELD_TYPES',
+    kind: 'object-keys',
+    namespace: 'field',
+    excluded:
+      'WITHHELD pending objectui#9717, which is open on exactly this question: does a RETIRED ' +
+      'TOMBSTONE SPELLING belong in a universe whose job is "does this string name a component that ' +
+      'exists"? Deciding it either way flips one switch and nothing else — DROP this `excluded` line ' +
+      'and the collection\'s keys (today `field:owner`) enter the universe, so a document teaching ' +
+      '`field:owner` turns GREEN; keep it and such a document stays RED, which is what happens today.',
+    reason:
+      '`registerAllFields()` registers every key of RETIRED_FIELD_TYPES a second time, last, under the ' +
+      '`field:` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +
+      'naming the migration, which is the whole point of the table. Until objectui#9717 this ' +
+      'registration was invisible here: the bypass was keyed by file, the `fieldWidgetMap` entry above ' +
+      'named the same file, and these keys left no trace in the universe and no finding either. The ' +
+      'keys stay out — but now BY DECLARATION. ⚠️ Two things this entry is deliberately NOT: it does ' +
+      'not name the keys (the collection is read at runtime by the registration, and a hand-kept key ' +
+      'list is the construction objectui#9703 removed), and it does not read the collection literal — ' +
+      'RETIRED_FIELD_TYPES is IMPORTED into this file from `@object-ui/core`, so nothing here could ' +
+      'read it anyway. What re-checks this entry is the registration call itself: delete the tombstone ' +
+      'loop and this entry reports `stale-indirect-registration`.',
   },
 ];
 
@@ -1550,7 +1598,7 @@ export function deriveRegistryKeys(root, options = {}) {
   const openRegistrations = options.openRegistrationSites ?? OPEN_REGISTRATION_SITES;
   const keys = new Map();
   const findings = [];
-  const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0, metaViaReference: 0 };
+  const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0, withheld: 0, metaViaReference: 0 };
   const openSeen = new Set();
   const indirectSeen = new Set();
   /** `coverageKey(site, collection)` -> the options read at each call that collection feeds. */
@@ -1731,9 +1779,21 @@ export function deriveRegistryKeys(root, options = {}) {
       });
       continue;
     }
-    const names =
-      entry.kind === 'array' ? literalArray(source, entry.collection) : literalObjectKeys(source, entry.collection);
-    if (!names || names.length === 0) {
+    // A WITHHELD entry declares the registration and declares that its keys stay
+    // OUT of the universe (objectui#9717). It is the other legitimate answer to
+    // `uncovered-indirect-collection`, and the point of it is that the exclusion
+    // becomes a reviewable line with a reason instead of a silence. Its
+    // collection is deliberately NOT read: nothing is derived from it, so a read
+    // would only invent a way to fail. What keeps it honest is the same
+    // staleness check every other entry gets, and that one is derived from the
+    // CALL — delete the registration and this entry reports, exclusion or not.
+    const withheld = typeof entry.excluded === 'string' && entry.excluded.length > 0;
+    const names = withheld
+      ? []
+      : entry.kind === 'array'
+        ? literalArray(source, entry.collection)
+        : literalObjectKeys(source, entry.collection);
+    if (!withheld && (!names || names.length === 0)) {
       findings.push({
         reason: 'stale-indirect-registration',
         site: `${entry.site} (${entry.collection})`,
@@ -1744,8 +1804,8 @@ export function deriveRegistryKeys(root, options = {}) {
       });
       continue;
     }
-    const skip = entry.skipFallbackSet ? literalSet(source, entry.skipFallbackSet) : new Set();
-    if (entry.skipFallbackSet && skip.size === 0) {
+    const skip = entry.skipFallbackSet && !withheld ? literalSet(source, entry.skipFallbackSet) : new Set();
+    if (entry.skipFallbackSet && !withheld && skip.size === 0) {
       findings.push({
         reason: 'stale-indirect-registration',
         site: `${entry.site} (${entry.skipFallbackSet})`,
@@ -1812,6 +1872,14 @@ export function deriveRegistryKeys(root, options = {}) {
             'update the entry so the declaration beside it stops describing a tree that moved.',
         });
       }
+    }
+    if (withheld) {
+      // Counted and PRINTED in the run summary rather than left to the table:
+      // a key deliberately held out of the universe is a decision, and a
+      // decision nobody can see from the gate's own output is back where it
+      // started.
+      counters.withheld++;
+      continue;
     }
     counters.indirect += names.length;
     for (const name of names) {
@@ -2218,7 +2286,7 @@ if (invokedDirectly) {
       `${counters.typeSites} \`type\` literal(s) against ${counters.registryKeys} registered key(s) ` +
       `derived from ${counters.sourceFiles} source file(s) (${counters.resolved} resolved call site(s), ` +
       `${counters.metaViaReference} via referenced options, ${counters.indirect} indirect, ` +
-      `${counters.open} open): ` +
+      `${counters.open} open, ${counters.withheld} collection(s) declared and WITHHELD): ` +
       `${counters.registered} registered, ${counters.exempted} exempted; ` +
       `${counters.keyTables} key table(s), ${counters.keyTableRows} row(s), ` +
       `${counters.keyTableKeys} table key(s) judged (namespaced + bare), ` +

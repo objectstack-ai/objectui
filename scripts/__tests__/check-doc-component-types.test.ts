@@ -1266,6 +1266,68 @@ describe("the indirect bypass is keyed by COLLECTION, the way the table's covera
     expect((findings[0] as Finding).site).toContain('IDLE');
   });
 
+  it('⭐ takes a WITHHELD declaration as coverage — no finding, and no keys either', () => {
+    // The other legitimate answer to `uncovered-indirect-collection`, and the
+    // one the live table gives RETIRED_FIELD_TYPES while objectui#9717 is open:
+    // the registration is declared, its keys deliberately stay OUT, and the
+    // reason is written down. ⛔ The point is not that the finding goes away —
+    // it is that the exclusion becomes a reviewable line instead of a silence.
+    const { keys, findings, counters } = withTree(site(twoCollectionsOneHelper), (dir) =>
+      deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'OTHERS', excluded: 'withheld pending a ruling' }))),
+    );
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'ui:alpha']);
+    expect((counters as { withheld: number }).withheld).toBe(1);
+    // …and it is COUNTED, because the run summary prints that count. An
+    // exclusion nobody can see from the gate's own output is a silence with
+    // extra steps.
+    expect((counters as { indirect: number }).indirect).toBe(1);
+  });
+
+  it('⛔ a WITHHELD entry still goes stale when the registration it names disappears', () => {
+    // What keeps an exclusion honest: it is tied to the CALL, not to the
+    // collection literal (which a withheld entry never reads — RETIRED_FIELD_TYPES
+    // is imported into its site file from another package, so there is nothing
+    // there to read). Delete the registration and the declaration reports.
+    const { findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        "const OTHERS = [\n  'beta',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) =>
+        deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'OTHERS', excluded: 'withheld pending a ruling' }))),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['stale-indirect-registration']);
+    expect((findings[0] as Finding).site).toContain('OTHERS');
+  });
+
+  it('a WITHHELD entry is still reconciled against the call it names', () => {
+    // It contributes no keys, so nothing is LOST when its namespace drifts —
+    // but the declaration says which keys are being held out, and that sentence
+    // stops being true the moment the call registers them somewhere else.
+    const { findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        "const OTHERS = [\n  'beta',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'function other(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'proto' });",
+        '}',
+        'THINGS.forEach(reg);',
+        'OTHERS.forEach(other);',
+      ]),
+      (dir) =>
+        deriveRegistryKeys(dir, declaring(entry(), entry({ collection: 'OTHERS', excluded: 'withheld pending a ruling' }))),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['indirect-namespace-drift']);
+  });
+
   it('reads a collection iterated as `Object.keys(…)` by the loop that holds the call', () => {
     // The tombstone loop's own shape — the iteration and the registration in one
     // place, no helper in between — and the `object-keys` half of the two the

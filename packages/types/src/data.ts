@@ -347,6 +347,25 @@ export interface DeleteViewResult {
   published?: ViewHomeDeleteOutcome;
 }
 
+/**
+ * The backend-agnostic data contract every adapter implements.
+ *
+ * ## One rule for record ids: a record id is a `string`
+ *
+ * Every id parameter on this interface — `findOne`, `update`, `delete`,
+ * `bulkUpdate`, `bulkDelete` — is a `string`, never `string | number`, because
+ * `@objectstack/spec` declares every record door as `z.string()`. There is no
+ * per-method exception to look up: an adapter for a backend whose primary keys
+ * are numeric converts at its OWN boundary, in one typed place, rather than
+ * widening this contract for every caller (objectui#9333 narrowed `update`;
+ * objectui#9511 extended the same rule to the remaining four doors, so the
+ * asymmetry that existed in between is gone and need not be rediscovered).
+ *
+ * ⚠️ Narrowing a parameter here does NOT reach implementors — TypeScript
+ * compares method parameters bivariantly, so an adapter that still declares
+ * `string | number` continues to satisfy this interface. The rule binds
+ * CALLERS; adapters are asked to honour it, not forced to by the checker.
+ */
 export interface DataSource<T = any> {
   /**
    * Fetch multiple records.
@@ -383,13 +402,14 @@ export interface DataSource<T = any> {
 
   /**
    * Fetch a single record by ID.
-   * 
+   *
    * @param resource - Resource name
-   * @param id - Record identifier
+   * @param id - Record identifier. A `string` — see the record-id rule on
+   *   {@link DataSource} (objectui#9511).
    * @param params - Additional query parameters
    * @returns Promise resolving to the record or null
    */
-  findOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null>;
+  findOne(resource: string, id: string, params?: QueryParams): Promise<T | null>;
 
   /**
    * Create a new record.
@@ -429,13 +449,14 @@ export interface DataSource<T = any> {
    * Delete a record.
    *
    * @param resource - Resource name
-   * @param id - Record identifier
+   * @param id - Record identifier. A `string` — see the record-id rule on
+   *   {@link DataSource} (objectui#9511).
    * @param opts - Optional write options — see {@link update} for `ifMatch`.
    * @returns Promise resolving to true if successful
    */
   delete(
     resource: string,
-    id: string | number,
+    id: string,
     opts?: { ifMatch?: string },
   ): Promise<boolean>;
 
@@ -463,13 +484,14 @@ export interface DataSource<T = any> {
    * adapter supports it; total errors throw.
    *
    * @param resource - Object/table name
-   * @param ids - Target record ids
+   * @param ids - Target record ids. Each a `string` — see the record-id rule
+   *   on {@link DataSource} (objectui#9511).
    * @param patch - Field updates applied uniformly to every id
    * @returns Number of rows reported as updated by the server
    */
   bulkUpdate?(
     resource: string,
-    ids: ReadonlyArray<string | number>,
+    ids: ReadonlyArray<string>,
     patch: Partial<T>,
   ): Promise<number>;
 
@@ -487,12 +509,13 @@ export interface DataSource<T = any> {
    * adapter supports it; total errors throw.
    *
    * @param resource - Object/table name
-   * @param ids - Target record ids
+   * @param ids - Target record ids. Each a `string` — see the record-id rule
+   *   on {@link DataSource} (objectui#9511).
    * @returns Number of rows reported as deleted by the server
    */
   bulkDelete?(
     resource: string,
-    ids: ReadonlyArray<string | number>,
+    ids: ReadonlyArray<string>,
   ): Promise<number>;
 
   /**

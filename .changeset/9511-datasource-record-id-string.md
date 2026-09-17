@@ -6,8 +6,9 @@
 **BREAKING if your code hands a numeric primary key to one of these four** — a
 record id at the `DataSource` boundary is a `string`, as `@objectstack/spec`
 declares every record door (objectui#9511, director batch #136 item 5 letter B).
-objectui#9333 narrowed `DataSource.update`; this entry closes three more doors
-and the one consumer declaration that fed them.
+objectui#9333 narrowed `DataSource.update`; this entry closes three more doors,
+and narrows one consumer declaration — `UseViewDataResult.fetchOne` — that feeds
+`findOne`, the one door this entry leaves open.
 
 ## What changed
 

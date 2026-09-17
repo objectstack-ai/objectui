@@ -346,7 +346,7 @@ With no host scope mounted, `record` and `page` are all you get. `data` is a roo
 only when **you** publish one under that name, like any other key of `scope`.
 
 **A name nothing published does not fail loudly — and the two layers that read
-`${…}` fail differently.** Measured on the built evaluator (`packages/core/dist`)
+`${…}` fail differently.** Measured on `@object-ui/core`'s built evaluator
 over `hidden: "${!canDeleteContacts}"`:
 
 | what the scope holds | `hidden` verdict | button on screen |

@@ -155,7 +155,39 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // Draining a row is part of the landing, not cleanup after it: a row that
   // outlived its read reddens `staleExemptions()` below — which is exactly the
   // intermediate reading that proved the arm edit had reached these keys.
-  ['tree-view::TreeViewSchema.onNodeClick', 'objectui#7804'],
+  // ⭐ `tree-view::TreeViewSchema.onNodeClick` LANDED and is gone —
+  // objectui#7804's `TreeViewSchema` slice, one row. An objectui#6124 RUNTIME
+  // SLOT on the arm: `renderers/data-display/tree-view.tsx` gates on
+  // `if (schema.onNodeClick)` and CALLS `schema.onNodeClick(node)`, so
+  // `'retired'` ("no renderer reads this key") would have published a false
+  // sentence; the TypeScript face already declared the callable twin, and the
+  // mirror now says on the JSON face what that face could not.
+  //
+  // ⚠️ THE SLICE THAT MADE THE REST OF THIS LEDGER LEGIBLE. Re-derived at this
+  // slice's branch point from the REGISTRATION OPTIONS rather than from the
+  // type string: THIRTEEN of the fifteen rows standing here before it are the
+  // objectui#9573 ALIAS shape — the registration carries `skipFallback: true`,
+  // so it never claims the bare type key, while this census keys a registration
+  // by its RAW TYPE STRING and judges the read against an arm minted for a
+  // different component. `list::` (5), `form::` (4) and `grid::` (1) were
+  // already known to be that shape; `button::`, `icon::` and `tabs::` were NOT,
+  // and are:
+  //   - `register('button', ActionButtonRenderer, { namespace: 'action',
+  //     skipFallback: true })` — the authored type is `action:button`, and
+  //     `form.zod.ts#ButtonSchema` is the Shadcn primitive `button` registered
+  //     by `renderers/form/button.tsx`. Declaring `onSuccess` there would
+  //     publish an action's post-success navigation block on a plain button.
+  //   - `register('icon', ActionIconRenderer, { namespace: 'action',
+  //     skipFallback: true })` — same pair, against `layout.zod.ts#IconSchema`.
+  //   - `register('tabs', PageTabsRenderer, { namespace: 'page',
+  //     skipFallback: true })` — `layout.zod.ts#TabsSchema` is the `ui:tabs`
+  //     arm from `renderers/layout/tabs.tsx`. ⇒ objectui#9344's open question
+  //     about that row ("an ALIAS question rather than a declaration one") is
+  //     ANSWERED, and the alias is the REGISTRATION's, not the spelling's.
+  // ⛔ Do NOT drain any of the thirteen by declaring the key on the arm named
+  // in its row. `detail::DetailSchema.onTabChange` is the one remaining row
+  // that is neither alias-shape nor drained, and its disposition is
+  // objectui#9344's item ②.
   // ⭐ ALL FIVE `object-form::ObjectFormSchema` rows LANDED and are gone —
   // objectui#7804's `objectql.ts` slice, which drained nine rows across four
   // plain `export interface X extends BaseSchema` faces in one file.

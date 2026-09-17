@@ -60,18 +60,33 @@
  *     dropped the bare `object-grid` key — which 13 doc sites teach correctly.
  *     A window bug in a derivation this gate trusts shows up as a false RED on
  *     correct documentation, so the span is matched, not guessed.
- *   - BY REFERENCE: the options may arrive as an identifier or through a
- *     top-level spread — `register('page', R, pageMeta)`,
- *     `register('app', R, { ...pageMeta, label: 'App Page' })`. Reading the
- *     call span alone finds no `namespace:` in either, so both were read as
- *     bare-only and their `namespace:key` halves were lost SILENTLY
- *     (objectui#9641: five real runtime keys absent from the universe, while
- *     the firing control — a namespaced registration whose meta is spelled out
- *     at the call — was present, which is what made it a defect rather than a
- *     choice). `resolveRegistrationOptions` follows a same-file object literal
- *     for both forms and reports a spread it cannot follow, so the universe
- *     can no longer shrink without saying so. The number of sites resolved this
- *     way per run is `counters.metaViaReference`.
+ *   - OPTIONS: `namespace` and `skipFallback` decide which keys a registration
+ *     publishes, so `resolveRegistrationOptions` reads an ALLOWLIST of exactly
+ *     two shapes and REPORTS everything else. Read: an object literal whose
+ *     top-level entries are all key-value pairs or spreads of a plain
+ *     identifier, and a bare identifier that resolves to one such literal
+ *     declared exactly once, with `const`, in the same file —
+ *     `register('page', R, pageMeta)` and
+ *     `register('app', R, { ...pageMeta, label: 'App Page' })` are both read,
+ *     and `counters.metaViaReference` counts the sites reached that way per run
+ *     (the run summary prints it).
+ *
+ *     ⛔ The allowlist is the point, and it is structural rather than a list of
+ *     idioms to keep up with. Reading only the call span found no `namespace:`
+ *     in either line above, so both were read as bare-only and their
+ *     `namespace:key` halves were lost SILENTLY — objectui#9641, five real
+ *     runtime keys absent from the universe while the firing control (the same
+ *     registration shape with its options spelled out at the call) was present,
+ *     which is what made it a defect rather than a choice. A best-effort repair
+ *     reproduces it: a cast, a member expression, a call, a spread of any of
+ *     those, a conditional spread, a computed `namespace` and a computed
+ *     `skipFallback` were each measured falling through to the same silent
+ *     bare-only reading. Anything not on the allowlist is therefore an
+ *     `unresolved-registration-meta` finding, one fixture pin per shape in
+ *     `check-doc-component-types.test.ts`. Whether that refusal costs this tree
+ *     anything is a question for the gate, not for this comment: it reds
+ *     nothing today, and the day a registration reaches for one of these shapes
+ *     it is told so instead of losing half its keys.
  *   - LOOP: `for (const v of ['a','b'])`, `for (const v of ARR)` and
  *     `ARR.forEach(v => …)` where `ARR` is a literal array in the same file.
  *     Five registration sites use this form (`html-elements.tsx`'s `TAGS`,
@@ -982,64 +997,130 @@ function topLevelParts(span) {
   return parts.map((part) => part.trim()).filter((part) => part.length > 0);
 }
 
+const IDENTIFIER = '[A-Za-z_$][\\w$]*';
+const META_SPREAD = new RegExp(`^\\.\\.\\.\\s*(${IDENTIFIER})$`);
+const META_ENTRY = new RegExp(`^(?:(${IDENTIFIER})|'([^']*)'|"([^"]*)")\\s*:\\s*([\\s\\S]+)$`);
+const STRING_LITERAL = /^(['"])([^'"]*)\1$/;
+
+const escapeForRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
- * The `{ … }` body of `const NAME … = { … }` in this file, or null when the
- * name is not declared here as an object literal — imported from another
- * module, built by a call, reassigned.
+ * The `{ … }` body of the object literal `name` is declared with in this file,
+ * or the reason it must not be followed.
+ *
+ * ⚠️ The name is followed only when the file declares it EXACTLY ONCE and with
+ * `const`. Both halves were measured as defects before they were conditions
+ * (objectui#9641 review):
+ *
+ *   more than one declaration  a function-scoped `const` earlier in the file
+ *                              shadows the module-level one this call reads, so
+ *                              the wrong object answers — a silent MISS.
+ *   `let` / `var`              a binding initialised with a namespaced object
+ *                              and reassigned to one without it still derives
+ *                              the namespaced key. That is a PHANTOM: a key the
+ *                              runtime never stores, blessed by the check.
+ *
+ * ⭐ The phantom is the worse direction and the reason this is a refusal rather
+ * than a best effort. A miss refuses a type that renders — expensive, visible,
+ * and it argues for itself. A phantom green-lights a spelling that renders
+ * NOTHING, and the author finds out in the browser.
  */
 function declaredObjectBody(source, name) {
-  const declaration = new RegExp(`(?:const|let|var)\\s+${name}\\s*(?::[^=]*)?=\\s*\\{`, 'm').exec(source);
-  if (!declaration) return null;
-  const open = declaration.index + declaration[0].length - 1;
+  const escaped = escapeForRegExp(name);
+  const declarations = [
+    ...source.matchAll(new RegExp(`(?<![\\w$])(const|let|var)\\s+${escaped}(?![\\w$])`, 'g')),
+  ];
+  if (declarations.length === 0) {
+    return { body: null, reason: `\`${name}\` is not declared in this file` };
+  }
+  if (declarations.length > 1) {
+    return {
+      body: null,
+      reason: `\`${name}\` is declared ${declarations.length} times in this file, so which declaration this call reads depends on scope`,
+    };
+  }
+  const [declaration] = declarations;
+  if (declaration[1] !== 'const') {
+    return {
+      body: null,
+      reason: `\`${name}\` is declared with \`${declaration[1]}\`, so it may hold a different object by the time this call runs`,
+    };
+  }
+  const opener = new RegExp(`^const\\s+${escaped}(?![\\w$])\\s*(?::[^=]*)?=\\s*\\{`).exec(
+    source.slice(declaration.index),
+  );
+  if (!opener) {
+    return { body: null, reason: `\`${name}\` is not initialised with an object literal` };
+  }
+  const open = declaration.index + opener[0].length - 1;
   const end = spanEnd(source, open);
-  return end < 0 ? null : source.slice(open, end);
+  if (end < 0) return { body: null, reason: `the object literal \`${name}\` is initialised with is unbalanced` };
+  return { body: source.slice(open, end), reason: null };
 }
-
-const META_SPREAD = /^\.\.\.\s*([A-Za-z_$][\w$]*)$/;
-const META_NAMESPACE = /^namespace\s*:\s*(['"])([^'"]*)\1$/;
-const META_SKIP_FALLBACK = /^skipFallback\s*:\s*true$/;
 
 /**
  * Read `namespace` / `skipFallback` out of a meta OBJECT BODY, following
  * top-level spreads into the object they spread (objectui#9641).
  *
  * Entries are read in source order and a later one wins, which is what the
- * runtime does: `{ ...base, namespace: 'x' }` is `'x'` and
- * `{ namespace: 'x', ...base }` is whatever `base` carries. `seen` guards a
- * self-referential declaration from recursing forever.
+ * runtime does: an object that spreads a base and then writes `namespace`
+ * carries the written one, and one that writes `namespace` and then spreads
+ * carries whatever the base holds.
  *
- * `unresolved` names the first spread this could not follow. It is reported
- * rather than treated as "no namespace": a spread whose object cannot be read
- * may carry one, and guessing that it does not is precisely the silent
- * universe-shrink objectui#9641 was filed for.
+ * ⚠️ Every entry must be RECOGNISED, not merely searched for a `namespace:`.
+ * An entry this cannot read may be the one carrying the namespace, and the
+ * whole point of objectui#9641 is that assuming otherwise is silent. `seen`
+ * guards a self-referential declaration from recursing forever.
  */
 function readMetaBody(source, body, seen) {
   let namespace = null;
   let skipFallback = false;
   let unresolved = null;
+  const refuse = (reason) => {
+    unresolved ??= reason;
+  };
   for (const entry of topLevelParts(body)) {
-    const spread = META_SPREAD.exec(entry);
-    if (spread) {
+    if (entry.startsWith('...')) {
+      const spread = META_SPREAD.exec(entry);
+      if (!spread) {
+        refuse('it spreads something that is not a plain identifier, so the object it spreads cannot be read here');
+        continue;
+      }
       const name = spread[1];
       if (seen.has(name)) continue;
       seen.add(name);
-      const nested = declaredObjectBody(source, name);
+      const { body: nested, reason } = declaredObjectBody(source, name);
       if (!nested) {
-        unresolved ??= name;
+        refuse(reason);
         continue;
       }
       const inherited = readMetaBody(source, nested, seen);
       if (inherited.namespace) namespace = inherited.namespace;
-      if (inherited.skipFallback) skipFallback = true;
-      unresolved ??= inherited.unresolved;
+      if (inherited.skipFallback) skipFallback = inherited.skipFallback;
+      refuse(inherited.unresolved);
       continue;
     }
-    const ns = META_NAMESPACE.exec(entry);
-    if (ns) {
-      if (!ns[2].includes('${')) namespace = ns[2];
+    const pair = META_ENTRY.exec(entry);
+    if (!pair) {
+      refuse('it holds an entry that is neither a key-value pair nor a spread of a plain identifier');
       continue;
     }
-    if (META_SKIP_FALLBACK.test(entry)) skipFallback = true;
+    const key = pair[1] ?? pair[2] ?? pair[3];
+    const value = pair[4].trim();
+    if (key === 'namespace') {
+      const literal = STRING_LITERAL.exec(value);
+      if (!literal) {
+        refuse('its `namespace` is not a string literal, so the key it publishes cannot be known here');
+        continue;
+      }
+      namespace = literal[2];
+      continue;
+    }
+    if (key === 'skipFallback') {
+      if (value === 'true') skipFallback = true;
+      else if (value === 'false') skipFallback = false;
+      else refuse('its `skipFallback` is neither `true` nor `false`, so whether the bare key exists cannot be known here');
+    }
   }
   return { namespace, skipFallback, unresolved };
 }
@@ -1048,46 +1129,51 @@ function readMetaBody(source, body, seen) {
  * Resolve the registration options (`namespace`, `skipFallback`) of one
  * `register()` / `registerLazy()` call from its argument span.
  *
- * The meta argument is usually an object literal that spells `namespace:` out,
- * and that case is read by the same whole-span regexes this derivation has
- * always used. What objectui#9641 added is the case where the namespace
- * arrives INDIRECTLY — the meta is a bare identifier, or an object literal
- * whose top level spreads one:
+ * Two shapes are READ: an object literal whose top-level entries are all
+ * key-value pairs or spreads of a plain identifier, and a bare identifier that
+ * resolves to such a literal in the same file. `pageMeta.namespace` is `'ui'`,
+ * so both of these store `ui:page` / `ui:app` alongside the bare fallbacks:
  *
  *   ComponentRegistry.register('page', PageRenderer, pageMeta)
  *   ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' })
  *
- * `pageMeta.namespace` is `'ui'`, so the registry stores `ui:page` and `ui:app`
- * alongside the bare fallbacks. Reading only the call span finds no
- * `namespace:` there and produced the bare halves ALONE — five real runtime
- * keys missing from a universe whose whole job is to say which keys are real.
- * The cost is paid by authors: `objectui check` called a document spelling
- * `ui:page` unknown while the renderer painted it perfectly.
+ * ⛔ EVERY OTHER SHAPE IS REPORTED, and that is the whole design. Reading only
+ * the call span found no `namespace:` in either line above and produced the
+ * bare halves ALONE — five real runtime keys missing from a universe whose
+ * whole job is to say which keys are real, with no finding raised, so both
+ * consumers agreed on a universe neither had measured (objectui#9641). The
+ * repair for that cannot itself be a best effort: a cast, a member expression,
+ * a call, a spread of any of those, a conditional spread and a computed
+ * `namespace` were each measured resolving to a silent bare-only reading, which
+ * is the same defect with a different spelling. None of them appears in this
+ * tree today, so refusing them costs nothing here and is what lets the
+ * regeneration script's header say, truthfully, that a form this cannot resolve
+ * fails HERE rather than shrinking the universe there.
  *
- * ⚠️ This is the MISSING direction the regeneration script's header names, and
- * it was invisible precisely because it is silent — the derivation reported no
- * finding, so both consumers agreed on a universe neither had measured. A
- * spread this cannot follow is therefore a FINDING, never a shrug.
+ * `viaReference` marks a site whose options were reached through an identifier
+ * rather than spelled out at the call, and feeds `counters.metaViaReference`.
  */
 function resolveRegistrationOptions(source, span) {
-  const meta = topLevelParts(span)[2] ?? '';
-  const identifier = /^[A-Za-z_$][\w$]*$/.test(meta) ? meta : null;
-  const body = identifier ? declaredObjectBody(source, identifier) : meta.startsWith('{') ? meta : null;
-  const indirect = identifier !== null || (body !== null && topLevelParts(body).some((e) => META_SPREAD.test(e)));
+  const parts = topLevelParts(span);
+  const bare = { namespace: null, skipFallback: false, unresolved: null, viaReference: false };
+  if (parts.length < 3) return bare;
+  const meta = parts[2];
 
-  if (!indirect) {
-    // Unchanged reading for every call that spells its options out: the whole
-    // span, so a form this parser does not model cannot lose one.
-    const nsMatch = /namespace\s*:\s*(['"])([^'"]+)\1/.exec(span);
-    return {
-      namespace: nsMatch && !nsMatch[2].includes('${') ? nsMatch[2] : null,
-      skipFallback: /skipFallback\s*:\s*true/.test(span),
-      unresolved: null,
-    };
+  if (new RegExp(`^${IDENTIFIER}$`).test(meta)) {
+    const { body, reason } = declaredObjectBody(source, meta);
+    if (!body) return { ...bare, unresolved: reason, viaReference: true };
+    return { ...readMetaBody(source, body, new Set([meta])), viaReference: true };
   }
 
-  if (!body) return { namespace: null, skipFallback: false, unresolved: identifier };
-  return readMetaBody(source, body, new Set(identifier ? [identifier] : []));
+  if (meta.startsWith('{') && meta.endsWith('}')) {
+    const viaReference = topLevelParts(meta).some((entry) => META_SPREAD.test(entry));
+    return { ...readMetaBody(source, meta, new Set()), viaReference };
+  }
+
+  return {
+    ...bare,
+    unresolved: 'its options argument is neither an object literal nor a plain identifier',
+  };
 }
 
 function literalArray(source, name) {
@@ -1182,18 +1268,18 @@ export function deriveRegistryKeys(root, options = {}) {
       counters.resolved++;
       const end = spanEnd(source, callOpen);
       const span = end < 0 ? source.slice(callOpen, callOpen + 2000) : source.slice(callOpen, end);
-      const { namespace, skipFallback, unresolved } = resolveRegistrationOptions(source, span);
-      if (namespace && !/namespace\s*:\s*(['"])([^'"]+)\1/.test(span)) counters.metaViaReference++;
+      const { namespace, skipFallback, unresolved, viaReference } = resolveRegistrationOptions(source, span);
+      if (namespace && viaReference) counters.metaViaReference++;
       if (unresolved) {
         findings.push({
           reason: 'unresolved-registration-meta',
           site,
           detail:
-            `this ${match[1]}() call takes its options from \`${unresolved}\`, which is not declared as an ` +
-            'object literal in this file, so the `namespace` it may carry cannot be read. A namespaced ' +
-            'registration read as bare loses its `namespace:key` half from the universe silently — the ' +
-            'objectui#9641 defect. Declare the options in this file, spell `namespace:` out at the call, ' +
-            'or teach `readMetaBody` this form.',
+            `the options of this ${match[1]}() call cannot be read here: ${unresolved}. A namespaced ` +
+            'registration read as bare loses its `namespace:key` half from the universe SILENTLY, which is ' +
+            'the objectui#9641 defect — so an options shape this cannot resolve is reported rather than ' +
+            'assumed namespace-free. Spell the options out at the call as key-value pairs, declare them in ' +
+            'this file as a single `const` object literal, or teach `readMetaBody` this form.',
         });
       }
       for (const name of names) {
@@ -1552,6 +1638,14 @@ const HINTS = {
     'A ComponentRegistry registration takes a key this derivation cannot resolve to literals. Left ' +
     'unhandled it shrinks the universe, which turns CORRECT documentation red. Teach ' +
     '`resolveKeyArgument` the form, or declare the site in OPEN_REGISTRATION_SITES.',
+  'unresolved-registration-meta':
+    'A ComponentRegistry registration takes OPTIONS this derivation cannot read — a shape other than ' +
+    'an object literal of key-value pairs and plain-identifier spreads, or an identifier that is not a ' +
+    'single `const` object literal in the same file. The `namespace` such options may carry decides ' +
+    'whether the `namespace:key` half of the registration exists, so reading them as absent drops a ' +
+    'real key SILENTLY and `objectui check` then calls a document that renders perfectly unknown. ' +
+    'Spell the options out at the call, declare them as one `const` object literal in this file, or ' +
+    'teach `readMetaBody` the form. See objectui#9641.',
   'stale-open-site':
     'OPEN_REGISTRATION_SITES names a file that no longer has an unresolvable registration.',
   'stale-indirect-registration':
@@ -1627,7 +1721,8 @@ if (invokedDirectly) {
       `${counters.codeBlocks} code block(s), ` +
       `${counters.typeSites} \`type\` literal(s) against ${counters.registryKeys} registered key(s) ` +
       `derived from ${counters.sourceFiles} source file(s) (${counters.resolved} resolved call site(s), ` +
-      `${counters.indirect} indirect, ${counters.open} open): ` +
+      `${counters.metaViaReference} via referenced options, ${counters.indirect} indirect, ` +
+      `${counters.open} open): ` +
       `${counters.registered} registered, ${counters.exempted} exempted; ` +
       `${counters.keyTables} key table(s), ${counters.keyTableRows} row(s), ` +
       `${counters.keyTableKeys} table key(s) judged (namespaced + bare), ` +

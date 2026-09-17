@@ -6,7 +6,35 @@
  * `pnpm dedupe` on it may not collapse anything (objectui#8333).
  *
  *   Run:  node scripts/check-lockfile-dedupe.mjs             (`pnpm check:lockfile-dedupe`)
+ *         node scripts/check-lockfile-dedupe.mjs --report-only  (what CI passes)
  *         node scripts/check-lockfile-dedupe.mjs --self-test
+ *
+ * ## `--report-only`: the gate REPORTS on pull requests (objectui#9562)
+ *
+ * objectui#9562 measured this gate returning four green and one red on a
+ * byte-identical `pnpm-lock.yaml` inside ninety minutes, the red printing a
+ * confident `VERDICT not deduped` that no lockfile edit and no registry publish
+ * explained — and then instructing the reader to commit a dedupe the tree did
+ * not need, to a lockfile every open pull request shares. The maintainer ruled
+ * (2026-09-17, letter A) that a gate which is non-deterministic by construction
+ * does not BLOCK:
+ *
+ *   - `--report-only` keeps every reading exactly as it is and changes only what
+ *     the process does with it: annotations become `::warning::`, the same text
+ *     is written to `$GITHUB_STEP_SUMMARY`, and the process exits 0. It is the
+ *     flag `lockfile-dedupe.yml` passes.
+ *   - The BARE script keeps its exit codes — 0 / 1 / 2 — for whoever runs it by
+ *     hand. ⛔ That is deliberate and not an oversight to tidy away: the hard
+ *     verdict is still how a human asks this question.
+ *   - ⛔ Report-only may never flatten the three answers into two. `clean` and
+ *     `cannot-run` both exit 0 under the flag, so the EXIT CODE no longer tells
+ *     them apart — the annotation does, and `cannot-run` carries one precisely
+ *     because of that. A report-only mode that cannot say "I could not look" is
+ *     worse than the blocking gate it replaces.
+ *   - The finding text, in BOTH modes, now says what the instrument is: re-run
+ *     before acting, and dedupe only when the split reproduces. ⛔ The old
+ *     unconditional "fix it HERE by running `pnpm dedupe` and committing the
+ *     lockfile" is gone from both — it is the sentence objectui#9562 reported.
  *
  * ## What this is for, and why it is not objectui#8326's gate
  *
@@ -79,6 +107,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -97,6 +126,31 @@ export const EXIT_CLEAN = 0;
 export const EXIT_FINDINGS = 1;
 /** A reading that could not be taken is NOT a deduped lockfile. */
 export const EXIT_CANNOT_RUN = 2;
+
+/**
+ * The one explicit flag objectui#9562's ruling grants, passed by
+ * `lockfile-dedupe.yml`. ⛔ Not inferred from `process.env.CI` or from
+ * `GITHUB_ACTIONS`: a mode that changes a verdict's consequences is a decision
+ * the caller states, so that running the checker by hand cannot silently get a
+ * different contract than the one being read here.
+ */
+export const REPORT_ONLY_FLAG = '--report-only';
+
+/**
+ * What this gate IS, said wherever it reports a finding — in both modes and on
+ * both surfaces (log and step summary), from ONE copy so the two cannot drift.
+ *
+ * ⛔ This is not decoration. The defect objectui#9562 recorded is not that the
+ * gate reds; it is that a confident red arrives with a remedy attached, and the
+ * remedy writes to a file every open pull request shares.
+ */
+export const INSTRUMENT_CAVEAT = Object.freeze([
+  '⚠️ WHAT THIS GATE IS: a LIVE registry reading, and it can disagree with itself. objectui#9562',
+  'recorded four green and one red on a byte-identical `pnpm-lock.yaml` inside ninety minutes, the',
+  'red naming a split that no lockfile edit and no registry publish explained.',
+  '⇒ RE-RUN this check before acting on it, and run `pnpm dedupe` and commit the lockfile ONLY when',
+  'the split reproduces. ⛔ One red is not by itself evidence that this tree needs a dedupe.',
+]);
 
 /**
  * The verdict, from pnpm's exit status plus the sentinel.
@@ -141,10 +195,24 @@ export function namesFromOutput(output = '') {
 }
 
 /**
- * @param {{ outcome: 'clean'|'findings'|'cannot-run', names?: string[], output?: string }} reading
+ * The line that tells the reader this job will not fail, printed ONLY under the
+ * flag. Without it a `::warning::` on a green check reads as an unexplained
+ * near-miss.
+ *
+ * @param {boolean} reportOnly
+ * @returns {string[]}
+ */
+function modeLine(reportOnly) {
+  return reportOnly
+    ? ['⚠️ REPORT ONLY — this job exits 0 and does not fail your pull request (objectui#9562).']
+    : [];
+}
+
+/**
+ * @param {{ outcome: 'clean'|'findings'|'cannot-run', names?: string[], output?: string, reportOnly?: boolean }} reading
  * @returns {string[]} lines to print
  */
-export function renderVerdict({ outcome, names = [], output = '' }) {
+export function renderVerdict({ outcome, names = [], output = '', reportOnly = false }) {
   if (outcome === 'clean') {
     return ['VERDICT deduped — `pnpm dedupe` would collapse nothing in this lockfile.'];
   }
@@ -153,6 +221,7 @@ export function renderVerdict({ outcome, names = [], output = '' }) {
       'VERDICT could not take a reading — `pnpm dedupe --check` did not report a result.',
       'This is a fact about the run (registry, toolchain, or a changed pnpm report format),',
       'NOT a verdict on this change. Nothing here was judged.',
+      ...modeLine(reportOnly),
       ...(output ? ['', '--- pnpm output ---', output.trimEnd()] : []),
     ];
   }
@@ -161,10 +230,13 @@ export function renderVerdict({ outcome, names = [], output = '' }) {
     output.trimEnd(),
     '',
     `VERDICT not deduped — \`pnpm dedupe\` would still collapse duplicate copies: ${named}.`,
-    'Two physical copies of one package are two real paths in the bundle. Fix it HERE, in this',
-    'pull request, by running `pnpm dedupe` and committing the lockfile — so that a downstream',
-    '`Bundle Analysis` reading measures this change and not resolution collateral left behind by',
-    'an earlier one (objectui#8333).',
+    ...modeLine(reportOnly),
+    'Two physical copies of one package are two real paths in the bundle, and a downstream',
+    '`Bundle Analysis` reading then measures resolution collateral left behind by an earlier',
+    'change rather than measuring this one (objectui#8333).',
+    '',
+    ...INSTRUMENT_CAVEAT,
+    '',
     '⛔ Do NOT satisfy this by pinning a version, adding a `pnpm.overrides` entry or widening a',
     'range: those spend a declaration to fix a resolution artefact, and objectui#8333 rejected',
     'both. `pnpm dedupe` changes no declaration at all.',
@@ -172,10 +244,81 @@ export function renderVerdict({ outcome, names = [], output = '' }) {
 }
 
 /**
+ * The same reading, rendered for `$GITHUB_STEP_SUMMARY` instead of the log.
+ *
+ * Empty for a clean tree: a gate with nothing to report writes nothing, so the
+ * presence of a block is itself the signal on the run summary page.
+ *
+ * @param {{ outcome: 'clean'|'findings'|'cannot-run', names?: string[], output?: string }} reading
+ * @returns {string} markdown, or '' when there is nothing to say
+ */
+export function renderStepSummary({ outcome, names = [], output = '' }) {
+  if (outcome === 'clean') return '';
+  if (outcome === 'cannot-run') {
+    return [
+      '### ⚠️ Lockfile dedupe — could not take a reading',
+      '',
+      '`pnpm dedupe --check` did not report a result, so **nothing here was judged**. That is a fact',
+      'about the run — registry, toolchain, or a changed pnpm report format — and not a verdict on',
+      'this change. ⛔ It is NOT a deduped lockfile either.',
+      '',
+      ...INSTRUMENT_CAVEAT,
+      '',
+    ].join('\n');
+  }
+  const named = names.length
+    ? names.map((name) => `- \`${name}\``)
+    : ['- _(pnpm named no removable identity — see the job log)_'];
+  return [
+    '### ⚠️ Lockfile dedupe — not deduped',
+    '',
+    '`pnpm dedupe` would still collapse duplicate copies of:',
+    '',
+    ...named,
+    '',
+    ...INSTRUMENT_CAVEAT,
+    '',
+    '```text',
+    output.trimEnd(),
+    '```',
+    '',
+  ].join('\n');
+}
+
+/**
+ * Append a step-summary block, when the runner gave us somewhere to put it.
+ *
+ * ⛔ Never throws and never changes a verdict: a summary that could not be
+ * written is a worse report, not a different reading.
+ *
+ * @param {string} text
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {boolean} whether anything was written
+ */
+export function writeStepSummary(text, env = process.env) {
+  const target = env.GITHUB_STEP_SUMMARY;
+  if (!target || !text) return false;
+  try {
+    fs.appendFileSync(target, `${text}\n`);
+    return true;
+  } catch (error) {
+    console.error(
+      `::warning title=Lockfile dedupe::could not write the step summary: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return false;
+  }
+}
+
+/**
  * @param {string[]} argv
  * @returns {number} process exit code
  */
 export function main(argv = process.argv.slice(2)) {
+  const reportOnly = argv.includes(REPORT_ONLY_FLAG);
+  /** The annotation LEVEL is the whole difference: same message, same surface. */
+  const annotate = (message) =>
+    console.error(`::${reportOnly ? 'warning' : 'error'} title=Lockfile dedupe::${message}`);
+
   const run = spawnSync('pnpm', ['dedupe', '--check'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
@@ -183,11 +326,10 @@ export function main(argv = process.argv.slice(2)) {
   });
 
   if (run.error) {
-    console.error(
-      `::error title=Lockfile dedupe::could not run \`pnpm dedupe --check\`: ${run.error.message}`,
-    );
-    for (const line of renderVerdict({ outcome: 'cannot-run' })) console.error(line);
-    return EXIT_CANNOT_RUN;
+    annotate(`could not run \`pnpm dedupe --check\`: ${run.error.message}`);
+    for (const line of renderVerdict({ outcome: 'cannot-run', reportOnly })) console.error(line);
+    writeStepSummary(renderStepSummary({ outcome: 'cannot-run' }));
+    return reportOnly ? EXIT_CLEAN : EXIT_CANNOT_RUN;
   }
 
   // pnpm writes its report across both streams; the verdict reads them together.
@@ -195,18 +337,32 @@ export function main(argv = process.argv.slice(2)) {
   const outcome = classify({ status: run.status, output });
   const names = outcome === 'findings' ? namesFromOutput(output) : [];
 
-  const lines = renderVerdict({ outcome, names, output });
+  const lines = renderVerdict({ outcome, names, output, reportOnly });
   const write = outcome === 'clean' ? console.log : console.error;
   for (const line of lines) write(line);
 
   if (outcome === 'clean') return EXIT_CLEAN;
-  if (outcome === 'cannot-run') return EXIT_CANNOT_RUN;
 
-  console.error(
-    `::error title=Lockfile dedupe::${names.join(', ') || 'duplicate copies'} — run \`pnpm dedupe\` and commit the lockfile. ` +
-      'This is resolution collateral, not a bundle regression (objectui#8333).',
+  writeStepSummary(renderStepSummary({ outcome, names, output }));
+
+  if (outcome === 'cannot-run') {
+    // ⛔ Under the flag the exit code no longer separates "clean" from "could
+    // not look" — both are 0 — so the ANNOTATION has to, and this is the only
+    // place it can come from. Without it, report-only would answer a question
+    // it never asked.
+    if (!reportOnly) return EXIT_CANNOT_RUN;
+    annotate(
+      'could not take a reading — `pnpm dedupe --check` did not report a result, so nothing here ' +
+        'was judged. ⛔ This is NOT a deduped verdict.',
+    );
+    return EXIT_CLEAN;
+  }
+
+  annotate(
+    `${names.join(', ') || 'duplicate copies'} — a live registry reading says \`pnpm dedupe\` would collapse these. ` +
+      'Re-run before acting; dedupe and commit the lockfile only if the split reproduces (objectui#8333, objectui#9562).',
   );
-  return EXIT_FINDINGS;
+  return reportOnly ? EXIT_CLEAN : EXIT_FINDINGS;
 }
 
 /**
@@ -281,6 +437,49 @@ export function selfTest() {
     renderVerdict({ outcome: 'cannot-run' }).join('\n').includes('Nothing here was judged'),
   );
 
+  // ── objectui#9562: the finding text names the INSTRUMENT, in both modes ───
+  for (const reportOnly of [false, true]) {
+    const label = reportOnly ? 'report-only' : 'blocking';
+    const finding = renderVerdict({ outcome: 'findings', names, output: RED, reportOnly }).join('\n');
+    t(`${label} mode: the finding says to re-run before acting`, finding.includes('RE-RUN this check'));
+    t(
+      `${label} mode: ⛔ the unconditional instruction to commit a dedupe is GONE`,
+      !finding.includes('Fix it HERE'),
+    );
+    t(`${label} mode: the finding still names the packages`, finding.includes('zod'));
+  }
+
+  t(
+    'only report-only mode says the job will not fail',
+    renderVerdict({ outcome: 'findings', names, output: RED, reportOnly: true }).join('\n').includes('REPORT ONLY') &&
+      !renderVerdict({ outcome: 'findings', names, output: RED }).join('\n').includes('REPORT ONLY'),
+  );
+  t(
+    'report-only could-not-run says it will not fail, and still says it judged nothing',
+    renderVerdict({ outcome: 'cannot-run', reportOnly: true }).join('\n').includes('REPORT ONLY') &&
+      renderVerdict({ outcome: 'cannot-run', reportOnly: true }).join('\n').includes('Nothing here was judged'),
+  );
+
+  // ── the step summary: same reading, other surface ────────────────────────
+  t('a clean tree writes NO step summary — the block itself is the signal', renderStepSummary({ outcome: 'clean' }) === '');
+  const summary = renderStepSummary({ outcome: 'findings', names, output: RED });
+  t('the step summary names the split', names.every((name) => summary.includes(name)));
+  t('the step summary carries pnpm\'s own output', summary.includes(DEDUPE_SENTINEL));
+  t('the step summary carries the instrument caveat, from the one copy', summary.includes(INSTRUMENT_CAVEAT[0]));
+  const cannotSummary = renderStepSummary({ outcome: 'cannot-run' });
+  t(
+    'the could-not-run summary stays distinguishable from a deduped one',
+    cannotSummary.includes('could not take a reading') && !cannotSummary.includes('not deduped'),
+  );
+  t(
+    'CONTROL — a finding summary still renders when the parse names nothing',
+    renderStepSummary({ outcome: 'findings', names: [], output: RED }).includes('not deduped'),
+  );
+  t(
+    'the step summary is written only where the runner asked for one',
+    writeStepSummary(summary, {}) === false && writeStepSummary('', { GITHUB_STEP_SUMMARY: '/dev/null' }) === false,
+  );
+
   const failed = cases.filter((c) => !c.ok);
   for (const c of failed) console.error(`  ✗ ${c.name}`);
   if (failed.length) {
@@ -289,23 +488,29 @@ export function selfTest() {
   }
   console.log(
     `✓ check-lockfile-dedupe self-test: ${cases.length} cases pass ` +
-      '(the three verdicts, the crash-vs-finding split, and the controls a name-parser-driven gate would fail).',
+      '(the three verdicts, the crash-vs-finding split, the report-only rendering, and the controls ' +
+      'a name-parser-driven gate would fail).',
   );
   return 0;
 }
 
 if (isEntrypoint(import.meta.url)) {
-  if (process.argv.includes('--self-test')) {
+  const argv = process.argv.slice(2);
+  if (argv.includes('--self-test')) {
     process.exitCode = selfTest();
   } else {
     try {
-      process.exitCode = main();
+      process.exitCode = main(argv);
     } catch (error) {
+      // ⛔ The catch-all obeys the flag too. A mode that reports every measured
+      // outcome and then reds on a crash of the reporter is still a gate that
+      // fails a pull request for a reason that is not about it.
+      const reportOnly = argv.includes(REPORT_ONLY_FLAG);
       console.error(
-        `::error::check-lockfile-dedupe could not take a reading: ${error instanceof Error ? error.message : String(error)}`,
+        `::${reportOnly ? 'warning' : 'error'}::check-lockfile-dedupe could not take a reading: ${error instanceof Error ? error.message : String(error)}`,
       );
       console.error('A reading that could not be taken is NOT a deduped lockfile.');
-      process.exitCode = EXIT_CANNOT_RUN;
+      process.exitCode = reportOnly ? EXIT_CLEAN : EXIT_CANNOT_RUN;
     }
   }
 }

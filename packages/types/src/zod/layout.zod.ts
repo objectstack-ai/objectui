@@ -588,6 +588,30 @@ export const PageTypeSchema = stripImportedDefaults(SpecPageTypeSchema);
  *    (`record|app|utility|list|home`), objectui's is the component
  *    discriminator (`'page'`) and the kind lives on `pageType` below.
  *    Reconciling the two is a rename decision tracked separately;
+ *
+ *    ⚠️ **The collision is NOT resolved at runtime, and a reader of this bullet
+ *    alone will get it wrong** (objectui#9642). `PageView` (`@object-ui/app-shell`)
+ *    hands a stored page to `SchemaRenderer` with the KIND written VERBATIM into
+ *    `type` and a copy on `pageType` — so the node that actually reaches
+ *    `ComponentRegistry` carries `type: 'app'` / `'home'` / `'record'` /
+ *    `'utility'`, which `PageNodeSchema`'s `z.literal('page')` below would
+ *    REFUSE. ⇒ `@object-ui/components` registers those kinds as node types on
+ *    `PageRenderer` precisely so the passthrough resolves; that registration set
+ *    is the renderer half of the spec's `PageTypeSchema`, ⛔ not a component
+ *    family and ⛔ not names registered without a schema. Two cards read it the
+ *    second way (objectui#9263, re-ruled letter E "⛔ not a defect", and
+ *    objectui#9576).
+ *
+ *    ⭐ `app` is one token carrying two vocabularies: `AppComponentSchema`'s
+ *    `'app'` is the APP-LEVEL DOCUMENT, read structurally by the runner /
+ *    layout path and never resolved through `ComponentRegistry`; the spec page
+ *    kind `app` is a stored PAGE document served by `PageRenderer` through that
+ *    passthrough. ⛔ Neither is a collision to be resolved by removing the other.
+ *
+ *    The live split — which kind is served by `PageRenderer`, which is
+ *    short-circuited by `PageView`'s `interfaceConfig.source` branch — is
+ *    re-derived by `page-kind-node-type-channel-9642` in `@object-ui/components`,
+ *    ⛔ not by this bullet;
  *  - `regions` — objectui's `PageNodeRegionSchema` adds `type`/`className` and
  *    widens `width`; migration deferred (it is its own ledger entry).
  *

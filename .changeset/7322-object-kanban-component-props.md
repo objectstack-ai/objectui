@@ -2,6 +2,25 @@
 '@object-ui/plugin-kanban': minor
 ---
 
+⏱ **Dated reading — every measurement below was taken on 2026-09-06 (`6ca6e12a7`),
+and five later cards have since falsified parts of it. It is kept as a dated reading
+rather than silently overwritten: it was TRUE when written, and overwriting that is
+a false record of its own (objectui#9713).**
+
+| reading below | falsified by | landed |
+| --- | --- | --- |
+| the component is registered under TWO node type keys, and `KanbanSchema` is one of the two declared node types | objectui#8802 — the bare `kanban` key and its `KanbanSchema` arm retired, and the prop narrowed back to the single `ObjectKanbanSchema` arm, which is exactly the narrowing the note below made conditional on a registration being removed first | 2026-09-10 |
+| `ObjectKanbanSchema` declares `objectName` REQUIRED | objectui#7780 (PR objectui#8412) — a record-source presence rule; `objectName` is optional | 2026-09-07 |
+| `ObjectKanbanSchema` declares `groupBy` REQUIRED | objectui#8990 (PR objectui#9021) — optional, as the protocol declares it | 2026-09-10 |
+| `filter` is declared by NEITHER face | objectui#8174 (PR objectui#8788) — declared on `ObjectKanbanSchema` | 2026-09-09 |
+| `columns` and `cardTitle` are `KanbanSchema`-only | objectui#8913 (PR objectui#8989) and objectui#9606 (PR objectui#9709) — both are now declared on `ObjectKanbanSchema` | 2026-09-10, 2026-09-17 |
+
+⇒ All five **ROTTED**; none was born false. Each was measured true on 2026-09-06 and
+falsified afterwards by a card that had no reason to read this file. ⛔ Every reading
+below therefore carries the date it was taken, and none is restated in the undated
+present tense — that tense is the construction that rotted, and a re-measurement
+written in it would only rot again before this entry publishes.
+
 `ObjectKanbanComponentProps.schema` names both node types the component is registered for
 (objectui#7322 item ②, following the objectui#5903 / #5018 land shape).
 
@@ -11,7 +30,9 @@ and the two keys have different declared node types: `ObjectKanbanSchema` (`type
 'kanban'`, both optional). The prop named `KanbanSchema` alone, so **no `object-kanban`
 node was assignable to the component that renders it**, and the discriminants are disjoint
 string literals, so no cast-free annotation existed for half the boards this component
-serves. It is now the union of the two.
+serves. It is now the union of the two — **as of 2026-09-06**; objectui#8802 then
+retired the second arm and the prop narrowed back to one, which is the dated-reading
+block above.
 
 ## What settled it: the read set
 
@@ -19,13 +40,18 @@ serves. It is now the union of the two.
 TOGETHER cover twelve, and each arm is load-bearing:
 
 - `objectName`, `groupBy`, `limit`, `cardFields` — declared on both;
-- `columns`, `cardTitle`, `swimlaneField`, `grouping` — `KanbanSchema` only;
+- `columns`, `cardTitle`, `swimlaneField`, `grouping` — `KanbanSchema` only **as of
+  2026-09-06**. `columns` (objectui#8913) and `cardTitle` (objectui#9606) have since been
+  declared on `ObjectKanbanSchema`, and `KanbanSchema` itself retired (objectui#8802), so
+  of these four only `swimlaneField` and `grouping` were still declared by no face when
+  that was re-read on 2026-09-17;
 - `titleField` — `ObjectKanbanSchema` only (which is why that read was spelled
   `(schema as any).titleField`);
 - `data`, `bind`, `className` — `BaseSchema`;
-- `filter` — declared by **neither** face, still riding `BaseSchema`'s index signature.
-  Measured and reported, **not** changed here: this card moves the prop, not the two
-  published schema faces.
+- `filter` — declared by **neither** face **as of 2026-09-06**, still riding
+  `BaseSchema`'s index signature then; objectui#8174 (PR objectui#8788) declared it on
+  `ObjectKanbanSchema` on 2026-09-09. Measured and reported, **not** changed here: this
+  card moves the prop, not the two published schema faces.
 
 So naming `ObjectKanbanSchema` alone — the remedy the original card implied — would have
 been wrong in the other direction: it drops four declared reads and the `'kanban'`
@@ -51,5 +77,6 @@ nothing but the spelling of an index-signature read.
 Four of the six in-package fixtures that mount an `object-kanban` board drop their
 `as never` escape for a real `satisfies ObjectKanbanSchema`. The other two are static
 boards (`columns` + inline `data`, no fetch) that author no `objectName`, which
-`ObjectKanbanSchema` declares required — objectui#7780's subject; their casts stay, now
-carrying the reason and the card number.
+`ObjectKanbanSchema` declared required **as of 2026-09-06** — objectui#7780's subject,
+and that card made it a record-source presence rule on 2026-09-07; their casts stay,
+now carrying the reason and the card number.

@@ -60,6 +60,56 @@
  *     dropped the bare `object-grid` key — which 13 doc sites teach correctly.
  *     A window bug in a derivation this gate trusts shows up as a false RED on
  *     correct documentation, so the span is matched, not guessed.
+ *   - OPTIONS: `namespace` and `skipFallback` decide which keys a registration
+ *     publishes, so `resolveRegistrationOptions` reads an ALLOWLIST of exactly
+ *     two ARGUMENT shapes and REPORTS every other argument shape. Read: an
+ *     object literal whose top-level entries are all key-value pairs or spreads
+ *     of a plain identifier, and a bare identifier that resolves to one such
+ *     literal which the same file declares exactly once — counting only names
+ *     immediately after `const` / `let` / `var` or in an import clause — with
+ *     `const`, and whose `namespace` or `skipFallback` this file does not
+ *     assign, `delete` or `Object.assign` onto IN ONE OF THE THREE SPELLINGS
+ *     `optionsMutatedAfterDeclaration` matches. ⚠️ Those two qualifications are
+ *     the whole of it: the allowlist is structural about the ARGUMENT, while
+ *     following a NAME rests on premises this derivation enforces only against
+ *     the spellings it can see. `declaredObjectBody` and
+ *     `optionsMutatedAfterDeclaration` carry the exact conditions and the
+ *     measured list of shapes that slip through them SILENTLY, each pinned as a
+ *     KNOWN GAP reading in `check-doc-component-types.test.ts` —
+ *     `register('page', R, pageMeta)` and
+ *     `register('app', R, { ...pageMeta, label: 'App Page' })` are both read,
+ *     and `counters.metaViaReference` counts every site whose options arrived
+ *     that way and were read — namespaced or not — which the run summary
+ *     prints and a pin in the objectui#5115 suite asserts is non-zero.
+ *
+ *     ⛔ The allowlist is the point, and it is structural rather than a list of
+ *     idioms to keep up with. Reading only the call span found no `namespace:`
+ *     in either line above, so both were read as bare-only and their
+ *     `namespace:key` halves were lost SILENTLY — objectui#9641, five real
+ *     runtime keys absent from the universe while the firing control (the same
+ *     registration shape with its options spelled out at the call) was present,
+ *     which is what made it a defect rather than a choice. A best-effort repair
+ *     reproduces it: a cast, a member expression, a call, a spread of any of
+ *     those, a conditional spread, a computed `namespace` and a computed
+ *     `skipFallback` were each measured falling through to the same silent
+ *     bare-only reading. Any ARGUMENT shape not on the allowlist is therefore an
+ *     `unresolved-registration-meta` finding, one fixture pin per shape in
+ *     `check-doc-component-types.test.ts`. ⛔ That sentence is about the
+ *     argument only: a name the allowlist accepts can still be read against the
+ *     wrong object, and those readings are silent rather than reported. They
+ *     are enumerated where they live, and pinned.
+ *
+ *     ⚠️ The same correction had to be made twice, one layer down: the
+ *     allowlist is structural about the ARGUMENT, and the identifier route
+ *     rests on a premise about the NAME. A `const` cannot be reassigned but its
+ *     contents can be written, and a `namespace` deleted after declaration used
+ *     to mint a phantom through the very binding this derivation treats as
+ *     safe. Those conditions now live in `declaredObjectBody`, which is where
+ *     to read them —
+ *     restating them here would be a second copy to keep honest. Whether that refusal costs this tree
+ *     anything is a question for the gate, not for this comment: it reds
+ *     nothing today, and the day a registration reaches for one of these shapes
+ *     it is told so instead of losing half its keys.
  *   - LOOP: `for (const v of ['a','b'])`, `for (const v of ARR)` and
  *     `ARR.forEach(v => …)` where `ARR` is a literal array in the same file.
  *     Five registration sites use this form (`html-elements.tsx`'s `TAGS`,
@@ -933,6 +983,382 @@ function resolveKeyArgument(source, callOpen) {
   return names.length ? names : null;
 }
 
+/**
+ * Split a balanced `(…)` / `{…}` / `[…]` span into its top-level,
+ * comma-separated parts, with the outer delimiters dropped. Depth and quotes
+ * are tracked, so a comma inside `inputs: [ … ]` or inside a string is not
+ * read as a separator.
+ */
+function topLevelParts(span) {
+  const inner = span.slice(1, -1);
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  let i = 0;
+  const n = inner.length;
+  while (i < n) {
+    const ch = inner[i];
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < n && inner[i] !== quote) {
+        if (inner[i] === '\\') i++;
+        i++;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === ')' || ch === ']' || ch === '}') depth--;
+    else if (ch === ',' && depth === 0) {
+      parts.push(inner.slice(start, i));
+      start = i + 1;
+    }
+    i++;
+  }
+  parts.push(inner.slice(start));
+  return parts.map((part) => part.trim()).filter((part) => part.length > 0);
+}
+
+const IDENTIFIER = '[A-Za-z_$][\\w$]*';
+const META_SPREAD = new RegExp(`^\\.\\.\\.\\s*(${IDENTIFIER})$`);
+const META_ENTRY = new RegExp(`^(?:(${IDENTIFIER})|'([^']*)'|"([^"]*)")\\s*:\\s*([\\s\\S]+)$`);
+const STRING_LITERAL = /^(['"])([^'"]*)\1$/;
+
+const escapeForRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Properties of a registration's options that decide which keys it publishes.
+ * A write to either of these AFTER the declaration changes the answer, so
+ * `declaredObjectBody` refuses a name whose file writes one.
+ */
+const KEY_BEARING_OPTIONS = 'namespace|skipFallback';
+
+/** Assignment operators, including the logical and compound forms. */
+const ASSIGN_OP = '(?:\\?\\?|\\|\\||&&|\\*\\*|<<|>>>|>>|[-+*/%&^|])?=(?!=)';
+
+/**
+ * Does this file contain one of THREE SPELLINGS of a write to `name`'s
+ * key-bearing options? Returns the reason, or null.
+ *
+ * ⚠️ Stated as three spellings rather than as "is it written to", because that
+ * is all this is (objectui#9641 round 3 measured the difference). What is seen:
+ *
+ *   1. an assignment whose target is `name` spelled EXACTLY, followed by a
+ *      LITERAL `namespace` / `skipFallback` — dotted, or bracketed with a
+ *      quoted string. Compound and logical assignment operators included.
+ *   2. a `delete` of that same exact-name-plus-literal-property shape.
+ *   3. an `Object.assign` whose FIRST argument is `name` spelled exactly.
+ *
+ * ⛔ NOTHING ELSE IS SEEN, and the difference is silent — no finding is raised,
+ * the declaration is read as written, and the run looks certain. A write
+ * through an ALIAS of the name, inside a CALLEE the object is passed to, with a
+ * COMPUTED property key, as a DESTRUCTURING-assignment target, through
+ * `Reflect.set` / `Reflect.deleteProperty` / `Object.defineProperty` /
+ * `Object.setPrototypeOf`, or from another module, is invisible here. Each of
+ * those is pinned as a KNOWN GAP reading in `check-doc-component-types.test.ts`
+ * so that closing one later fails a test rather than passing unnoticed; ⛔ this
+ * paragraph is not a to-do list — the ruling on objectui#9641 (batch #150 item
+ * 2, letter B) is that the reachable end state for a regex instrument is an
+ * accurate declaration of what it cannot see, not a closed set of shapes.
+ *
+ * ⛔ READ-ONLY member access is not a write and must keep reading — a file that
+ * logs or compares `name.namespace` still passes the declared object to
+ * `register()`. That is why this looks for an assignment operator, a `delete`
+ * or an `Object.assign` TARGET rather than for the property name.
+ *
+ * ⚠️ It is also POSITION-AGNOSTIC: a write spelled anywhere in the file
+ * refuses the name, including one placed after the `register()` call, which the
+ * runtime never reached before it read the namespace. That direction is LOUD
+ * (a finding on a correct registration), which is why it is left as it is.
+ */
+function optionsMutatedAfterDeclaration(source, name) {
+  const n = escapeForRegExp(name);
+  // Spelled out per quote rather than with a backreference: this fragment is
+  // embedded in regexes with different group numbering, and a backreference
+  // that outruns the group count is read as an OCTAL ESCAPE in JavaScript —
+  // it matches a control character, so the bracket form silently never fired.
+  const quoted = `(?:'(?:${KEY_BEARING_OPTIONS})'|"(?:${KEY_BEARING_OPTIONS})")`;
+  const property = `(?:\\.\\s*(?:${KEY_BEARING_OPTIONS})|\\[\\s*${quoted}\\s*\\])`;
+  if (new RegExp(`(?<![\\w$])${n}\\s*${property}\\s*${ASSIGN_OP}`).test(source)) {
+    return `\`${name}\` has its \`namespace\` or \`skipFallback\` assigned somewhere in this file`;
+  }
+  if (new RegExp(`(?<![\\w$])delete\\s+${n}\\s*${property}`).test(source)) {
+    return `\`${name}\` has its \`namespace\` or \`skipFallback\` deleted somewhere in this file`;
+  }
+  if (new RegExp(`(?<![\\w$])Object\\s*\\.\\s*assign\\s*\\(\\s*${n}(?![\\w$])`).test(source)) {
+    return `\`${name}\` is the target of an \`Object.assign\`, which can write any option onto it`;
+  }
+  return null;
+}
+
+/**
+ * The `{ … }` body of the object literal `name` is declared with in this file,
+ * or the reason it must not be followed.
+ *
+ * ⚠️ Following a name is a PREMISE — that the literal written at the
+ * declaration is the object the call passes — and every condition below is one
+ * way that premise fails. Each was measured as a defect before it was a
+ * condition (objectui#9641 review rounds 1 and 2):
+ *
+ *   more than one COUNTED      a function-scoped `const` earlier in the file
+ *   declaration                shadows the module-level one this call reads, so
+ *                              the wrong object answers — a silent MISS. ⚠️ Two
+ *                              positions are counted and no others; the
+ *                              paragraph below states which.
+ *   `let` / `var`              a binding initialised with a namespaced object
+ *                              and reassigned to one without it still derived
+ *                              the namespaced key. That is a PHANTOM: a key the
+ *                              runtime never stores, blessed by the check.
+ *   options written after      a `const` cannot be reassigned but its CONTENTS
+ *                              can: assigning `meta.namespace`, deleting it, or
+ *                              `Object.assign`-ing onto `meta` all move the keys
+ *                              the registration publishes while the declaration
+ *                              still reads the way it always did. Both
+ *                              directions were measured — an added namespace is
+ *                              a miss, a deleted one and an added
+ *                              `skipFallback` are PHANTOMS.
+ *
+ * ⭐ The phantom is the worse direction and the reason these are refusals
+ * rather than best efforts. A miss refuses a type that renders — expensive,
+ * visible, and it argues for itself. A phantom green-lights a spelling that
+ * renders NOTHING, and the author finds out in the browser.
+ *
+ * ⚠️ WHAT THIS DOES NOT GUARD, stated because nothing here enforces it
+ * (AGENTS #9), and stated as the COUNT'S OWN RULE rather than as a list of
+ * binding kinds, because the list was the over-claim (objectui#9641 round 3).
+ *
+ * The count sees a name in exactly two positions: IMMEDIATELY AFTER the
+ * keyword `const` / `let` / `var`, and inside an import clause. That is all.
+ * A name reached any other way is not a binding as far as this is concerned,
+ * so the module-level literal answers while the call passes a different
+ * object — silently, with no finding. Measured and pinned as KNOWN GAP
+ * readings in `check-doc-component-types.test.ts`: a FUNCTION PARAMETER of the
+ * same name, a DESTRUCTURING pattern (object or array), a LATER DECLARATOR of
+ * the same statement (`const first = 1, name = …`), and a `catch` binding.
+ * All four are phantom-direction.
+ *
+ * Closing any of them needs scope analysis this regex-level derivation does not
+ * do. ⛔ That is not a to-do list: the ruling on objectui#9641 (batch #150 item
+ * 2, letter B) is that the reachable end state here is an accurate declaration
+ * of what the instrument cannot see. The pins exist so that closing one later
+ * fails a test rather than passing unnoticed.
+ *
+ * ⛔ NOTHING re-derives whether a site is shadowed by one of those bindings —
+ * that is the gap itself, and no counter here should be read as covering it.
+ * What IS re-derived every run is how many sites take the by-reference route at
+ * all (`counters.metaViaReference`), which bounds how many sites the gap could
+ * reach without saying that any of them is shadowed.
+ */
+function declaredObjectBody(source, name) {
+  const escaped = escapeForRegExp(name);
+  const declarations = [
+    ...source.matchAll(new RegExp(`(?<![\\w$])(const|let|var)\\s+${escaped}(?![\\w$])`, 'g')),
+  ];
+  const imported = new RegExp(
+    `(?<![\\w$])import\\s[^;]*?(?<![\\w$])${escaped}(?![\\w$])[^;]*?from\\s*['"]`,
+  ).test(source);
+  const bindings = declarations.length + (imported ? 1 : 0);
+  if (bindings === 0) {
+    return { body: null, reason: `\`${name}\` is not declared in this file` };
+  }
+  if (bindings > 1) {
+    return {
+      body: null,
+      reason: `\`${name}\` is bound ${bindings} times in this file, so which binding this call reads depends on scope`,
+    };
+  }
+  if (imported) {
+    return { body: null, reason: `\`${name}\` is imported, so the object it names is not in this file` };
+  }
+  const [declaration] = declarations;
+  if (declaration[1] !== 'const') {
+    return {
+      body: null,
+      reason: `\`${name}\` is declared with \`${declaration[1]}\`, so it may hold a different object by the time this call runs`,
+    };
+  }
+  const mutated = optionsMutatedAfterDeclaration(source, name);
+  if (mutated) return { body: null, reason: mutated };
+  const opener = new RegExp(`^const\\s+${escaped}(?![\\w$])\\s*(?::[^=]*)?=\\s*\\{`).exec(
+    source.slice(declaration.index),
+  );
+  if (!opener) {
+    return { body: null, reason: `\`${name}\` is not initialised with an object literal` };
+  }
+  const open = declaration.index + opener[0].length - 1;
+  const end = spanEnd(source, open);
+  if (end < 0) return { body: null, reason: `the object literal \`${name}\` is initialised with is unbalanced` };
+  return { body: source.slice(open, end), reason: null };
+}
+
+/**
+ * Read `namespace` / `skipFallback` out of a meta OBJECT BODY, following
+ * top-level spreads into the object they spread (objectui#9641).
+ *
+ * Entries are read in source order, and an entry that SETS one of the two
+ * properties replaces whatever an earlier entry set. An entry that does not
+ * mention a property leaves the earlier reading standing, which is what a
+ * spread of an object without that OWN property does at runtime. So an object
+ * that spreads a base and then writes `namespace` carries the written one, and
+ * one that writes `namespace` and then spreads a base that has its own
+ * `namespace` carries the base's.
+ *
+ * ⚠️ "Sets" is tracked rather than inferred from the value: `skipFallback:
+ * false` arriving by spread must override an earlier explicit `true`, and a
+ * truthiness test cannot tell it apart from a spread that never mentions
+ * `skipFallback` at all. That was a real MISS of the bare key (objectui#9641
+ * round 3), and `skipFallbackSet` is what distinguishes the two.
+ *
+ * ⚠️ The order claim is about THESE TWO PROPERTIES only, and only for bodies
+ * where every entry was recognised — an unrecognised entry raises `unresolved`
+ * and the reading it produces is not asserted to be the runtime's.
+ *
+ * ⚠️ Every entry must be RECOGNISED, not merely searched for a `namespace:`.
+ * An entry this cannot read may be the one carrying the namespace, and the
+ * whole point of objectui#9641 is that assuming otherwise is silent.
+ *
+ * `seen` is a RECURSION STACK, not a visited set: a name is released once its
+ * body has been read, so a literal that spreads the same base TWICE re-applies
+ * it the second time as the runtime does, while a spread still on the stack is
+ * a cycle and is skipped. A visited set got that wrong in both directions at
+ * once, and silently (objectui#9641 round 3).
+ */
+function readMetaBody(source, body, seen) {
+  let namespace = null;
+  let skipFallback = false;
+  // Explicit `false` is not the same reading as "never mentioned": a spread
+  // carrying `skipFallback: false` must OVERRIDE an earlier explicit `true`,
+  // and a truthiness test cannot tell those apart. Tracked, not inferred.
+  let skipFallbackSet = false;
+  let unresolved = null;
+  const refuse = (reason) => {
+    unresolved ??= reason;
+  };
+  for (const entry of topLevelParts(body)) {
+    if (entry.startsWith('...')) {
+      const spread = META_SPREAD.exec(entry);
+      if (!spread) {
+        refuse('it spreads something that is not a plain identifier, so the object it spreads cannot be read here');
+        continue;
+      }
+      const name = spread[1];
+      // `seen` is a RECURSION STACK, not a visited set: the name is released
+      // once its body has been read, so the same base spread twice re-applies
+      // the second time, exactly as the runtime re-copies it. Only a spread
+      // that is still on the stack is a cycle, and that is what is skipped.
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const { body: nested, reason } = declaredObjectBody(source, name);
+      if (!nested) {
+        seen.delete(name);
+        refuse(reason);
+        continue;
+      }
+      const inherited = readMetaBody(source, nested, seen);
+      seen.delete(name);
+      if (inherited.namespace) namespace = inherited.namespace;
+      if (inherited.skipFallbackSet) {
+        skipFallback = inherited.skipFallback;
+        skipFallbackSet = true;
+      }
+      refuse(inherited.unresolved);
+      continue;
+    }
+    const pair = META_ENTRY.exec(entry);
+    if (!pair) {
+      refuse('it holds an entry that is neither a key-value pair nor a spread of a plain identifier');
+      continue;
+    }
+    const key = pair[1] ?? pair[2] ?? pair[3];
+    const value = pair[4].trim();
+    if (key === 'namespace') {
+      const literal = STRING_LITERAL.exec(value);
+      if (!literal) {
+        refuse('its `namespace` is not a string literal, so the key it publishes cannot be known here');
+        continue;
+      }
+      namespace = literal[2];
+      continue;
+    }
+    if (key === 'skipFallback') {
+      if (value === 'true') {
+        skipFallback = true;
+        skipFallbackSet = true;
+      } else if (value === 'false') {
+        skipFallback = false;
+        skipFallbackSet = true;
+      } else {
+        refuse('its `skipFallback` is neither `true` nor `false`, so whether the bare key exists cannot be known here');
+      }
+    }
+  }
+  return { namespace, skipFallback, skipFallbackSet, unresolved };
+}
+
+/**
+ * Resolve the registration options (`namespace`, `skipFallback`) of one
+ * `register()` / `registerLazy()` call from its argument span.
+ *
+ * Two shapes are READ: an object literal whose top-level entries are all
+ * key-value pairs or spreads of a plain identifier, and a bare identifier that
+ * resolves to such a literal in the same file. `pageMeta.namespace` is `'ui'`,
+ * so both of these store `ui:page` / `ui:app` alongside the bare fallbacks:
+ *
+ *   ComponentRegistry.register('page', PageRenderer, pageMeta)
+ *   ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' })
+ *
+ * ⛔ EVERY OTHER ARGUMENT SHAPE IS REPORTED, and that is the whole design.
+ * ⚠️ Argument shape, not registration shape: once a name is accepted here,
+ * whether it names the object the call passes is a premise `declaredObjectBody`
+ * enforces only against the spellings it can see, and the readings that slip
+ * through are SILENT, not reported. That half is declared and pinned there.
+ *
+ * Reading only
+ * the call span found no `namespace:` in either line above and produced the
+ * bare halves ALONE — five real runtime keys missing from a universe whose
+ * whole job is to say which keys are real, with no finding raised, so both
+ * consumers agreed on a universe neither had measured (objectui#9641). The
+ * repair for that cannot itself be a best effort: a cast, a member expression,
+ * a call, a spread of any of those, a conditional spread and a computed
+ * `namespace` were each measured resolving to a silent bare-only reading, which
+ * is the same defect with a different spelling. None of them appears in this
+ * tree today, so refusing them costs nothing here and is what lets the
+ * regeneration script's header say, truthfully, that a form this cannot resolve
+ * fails HERE rather than shrinking the universe there.
+ *
+ * `viaReference` marks a site whose options were reached through an identifier
+ * rather than spelled out at the call, and feeds `counters.metaViaReference`.
+ */
+function resolveRegistrationOptions(source, span) {
+  const parts = topLevelParts(span);
+  const bare = { namespace: null, skipFallback: false, unresolved: null, viaReference: false };
+  if (parts.length < 3) return bare;
+  const meta = parts[2];
+
+  // An options argument spelled `undefined`, `null` or `void 0` is the ABSENCE
+  // of options, which `register()` reads exactly as a missing third argument.
+  // They match the identifier pattern, so without this they were refused as
+  // "not declared in this file" — a red on a correct bare-only registration.
+  if (/^(?:undefined|null|void\s+0)$/.test(meta)) return bare;
+
+  if (new RegExp(`^${IDENTIFIER}$`).test(meta)) {
+    const { body, reason } = declaredObjectBody(source, meta);
+    if (!body) return { ...bare, unresolved: reason, viaReference: true };
+    return { ...readMetaBody(source, body, new Set([meta])), viaReference: true };
+  }
+
+  if (meta.startsWith('{') && meta.endsWith('}')) {
+    const viaReference = topLevelParts(meta).some((entry) => META_SPREAD.test(entry));
+    return { ...readMetaBody(source, meta, new Set()), viaReference };
+  }
+
+  return {
+    ...bare,
+    unresolved: 'its options argument is neither an object literal nor a plain identifier',
+  };
+}
+
 function literalArray(source, name) {
   const m = new RegExp(`(?:const|let|var)\\s+${name}\\s*(?::[^=]*)?=\\s*\\[([\\s\\S]*?)\\n\\];`, 'm').exec(source);
   if (!m) return null;
@@ -962,7 +1388,7 @@ export function deriveRegistryKeys(root, options = {}) {
   const openRegistrations = options.openRegistrationSites ?? OPEN_REGISTRATION_SITES;
   const keys = new Map();
   const findings = [];
-  const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0 };
+  const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0, metaViaReference: 0 };
   const openSeen = new Set();
   const indirectSeen = new Set();
   const indirectSites = new Set(indirect.map((entry) => entry.site));
@@ -1025,9 +1451,20 @@ export function deriveRegistryKeys(root, options = {}) {
       counters.resolved++;
       const end = spanEnd(source, callOpen);
       const span = end < 0 ? source.slice(callOpen, callOpen + 2000) : source.slice(callOpen, end);
-      const nsMatch = /namespace\s*:\s*(['"])([^'"]+)\1/.exec(span);
-      const namespace = nsMatch && !nsMatch[2].includes('${') ? nsMatch[2] : null;
-      const skipFallback = /skipFallback\s*:\s*true/.test(span);
+      const { namespace, skipFallback, unresolved, viaReference } = resolveRegistrationOptions(source, span);
+      if (viaReference && !unresolved) counters.metaViaReference++;
+      if (unresolved) {
+        findings.push({
+          reason: 'unresolved-registration-meta',
+          site,
+          detail:
+            `the options of this ${match[1]}() call cannot be read here: ${unresolved}. A namespaced ` +
+            'registration read as bare loses its `namespace:key` half from the universe SILENTLY, which is ' +
+            'the objectui#9641 defect — so an options shape this cannot resolve is reported rather than ' +
+            'assumed namespace-free. Spell the options out at the call as key-value pairs, declare them in ' +
+            'this file as a single `const` object literal, or teach `readMetaBody` this form.',
+        });
+      }
       for (const name of names) {
         if (namespace) {
           add(`${namespace}:${name}`, site);
@@ -1384,6 +1821,14 @@ const HINTS = {
     'A ComponentRegistry registration takes a key this derivation cannot resolve to literals. Left ' +
     'unhandled it shrinks the universe, which turns CORRECT documentation red. Teach ' +
     '`resolveKeyArgument` the form, or declare the site in OPEN_REGISTRATION_SITES.',
+  'unresolved-registration-meta':
+    'A ComponentRegistry registration takes OPTIONS this derivation cannot read — a shape other than ' +
+    'an object literal of key-value pairs and plain-identifier spreads, or an identifier that is not a ' +
+    'single `const` object literal in the same file. The `namespace` such options may carry decides ' +
+    'whether the `namespace:key` half of the registration exists, so reading them as absent drops a ' +
+    'real key SILENTLY and `objectui check` then calls a document that renders perfectly unknown. ' +
+    'Spell the options out at the call, declare them as one `const` object literal in this file, or ' +
+    'teach `readMetaBody` the form. See objectui#9641.',
   'stale-open-site':
     'OPEN_REGISTRATION_SITES names a file that no longer has an unresolvable registration.',
   'stale-indirect-registration':
@@ -1459,7 +1904,8 @@ if (invokedDirectly) {
       `${counters.codeBlocks} code block(s), ` +
       `${counters.typeSites} \`type\` literal(s) against ${counters.registryKeys} registered key(s) ` +
       `derived from ${counters.sourceFiles} source file(s) (${counters.resolved} resolved call site(s), ` +
-      `${counters.indirect} indirect, ${counters.open} open): ` +
+      `${counters.metaViaReference} via referenced options, ${counters.indirect} indirect, ` +
+      `${counters.open} open): ` +
       `${counters.registered} registered, ${counters.exempted} exempted; ` +
       `${counters.keyTables} key table(s), ${counters.keyTableRows} row(s), ` +
       `${counters.keyTableKeys} table key(s) judged (namespaced + bare), ` +

@@ -276,6 +276,692 @@ describe('the registered-key universe is derived from the registration calls', (
     expect(findings.map((f) => f.reason)).toEqual(['unresolved-registration']);
   });
 
+  // ── objectui#9641: options that arrive by REFERENCE ────────────────────────
+  //
+  // A registration may hand `register()` an options object it does not spell
+  // out at the call — a bare identifier, or an object literal that spreads one.
+  // The namespace is then nowhere inside the call's own span, and a derivation
+  // that reads only that span produces the BARE half alone and says nothing.
+  //
+  // These pins are written against the MECHANISM, over a fixture tree, for the
+  // reason objectui#9641 exists at all: a pin that asserted the five key
+  // strings the live tree lost would pass just as happily against a
+  // hand-edited generated file, which is the failure mode to exclude. Each of
+  // the four pins that assert what the derivation READS — this one and the
+  // three titled `carries skipFallback`, `lets a literal namespace` and
+  // `reports options imported from another module` — fails on the derivation as
+  // it stood before objectui#9641 and passes after it. They are no longer
+  // adjacent: the tables of REFUSED shapes sit between them, and citing them by
+  // position rather than by name is what made this sentence wrong once already.
+
+  it('⭐ resolves a namespace passed by SPREAD, not only one spelled out at the call (objectui#9641)', () => {
+    // The live shape this was filed for: one options object, one registration
+    // taking it whole, four more spreading it to vary a label. Every one of
+    // them is a namespaced registration at runtime.
+    const keys = withTree((write) => {
+      write(
+        'packages/demo/src/page.tsx',
+        [
+          'const pageMeta: any = {',
+          "  namespace: 'ui',",
+          "  label: 'Page',",
+          "  inputs: [{ name: 'title', type: 'string' }],",
+          '};',
+          "ComponentRegistry.register('page', PageRenderer, pageMeta);",
+          "ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' });",
+          // The firing control, in the same fixture: a namespaced registration
+          // whose options ARE spelled out at the call. It read correctly before
+          // this repair and must keep reading correctly after it — that
+          // asymmetry is what made the spread case a defect and not a design
+          // choice, so the pin keeps both halves of it in one tree.
+          "ComponentRegistry.register('header', HeaderRenderer, { namespace: 'page', label: 'Page Header' });",
+        ].join('\n'),
+      );
+    }, keysOf);
+    expect(keys).toEqual(['app', 'header', 'page', 'page:header', 'ui:app', 'ui:page']);
+  });
+
+  it('carries `skipFallback` through the reference too, so a bare key is not invented', () => {
+    // The other direction of the same read: options reached by reference decide
+    // whether the BARE key exists at all. Missing the flag here would put a key
+    // into the universe that the registry never stores — a phantom, the
+    // direction objectui#5115 was filed for.
+    const keys = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "const barMeta = { namespace: 'action', skipFallback: true, label: 'Action Bar' };",
+          "ComponentRegistry.register('action-bar', Bar, barMeta);",
+          "ComponentRegistry.register('toolbar', Bar, { ...barMeta, label: 'Toolbar' });",
+        ].join('\n'),
+      );
+    }, keysOf);
+    expect(keys).toEqual(['action:action-bar', 'action:toolbar']);
+  });
+
+  it('lets a literal `namespace:` after the spread win, as the runtime does', () => {
+    // `{ ...base, namespace: 'x' }` is `'x'` and `{ namespace: 'x', ...base }`
+    // is whatever `base` carries. Reading the first `namespace:` in the span
+    // would get the second case backwards, so the entries are read in order.
+    const keys = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "const base = { namespace: 'ui', label: 'Base' };",
+          "ComponentRegistry.register('after', C, { ...base, namespace: 'view' });",
+          "ComponentRegistry.register('before', C, { namespace: 'view', ...base });",
+        ].join('\n'),
+      );
+    }, keysOf);
+    expect(keys).toEqual(['after', 'before', 'ui:before', 'view:after']);
+  });
+
+  /**
+   * ⛔ Every options shape that is not READ is REPORTED — the whole class, not
+   * the two idioms this tree happens to use.
+   *
+   * The first cut of objectui#9641 taught the two shapes `page.tsx` uses and
+   * left the siblings falling through to the whole-span regex, which finds no
+   * `namespace:` and yields a bare-only reading with no finding. That is the
+   * defect the card was filed for, wearing a different spelling — and the
+   * headers were meanwhile re-asserting that a form the derivation cannot
+   * resolve fails here rather than shrinking the universe quietly. Measured at
+   * the time: zero of the resolved call sites in this tree use any of the
+   * shapes below, so refusing them reds nothing and makes that sentence true.
+   *
+   * ⭐ Each row is SILENT-BARE on the derivation before this table existed: the
+   * namespaced key is dropped and no finding is raised. The assertion pairs the
+   * two halves deliberately — a finding AND the absence of the namespaced key —
+   * because a reading that merely lost the key would satisfy half of it.
+   */
+  const UNREADABLE_OPTIONS: [name: string, lines: string[]][] = [
+    [
+      'a cast, which hides an object the derivation would otherwise read',
+      ["const meta = { namespace: 'ui', label: 'W' };", "ComponentRegistry.register('widget', C, meta as any);"],
+    ],
+    [
+      'a member expression, whose object lives in another module',
+      ["import { shared } from './shared';", "ComponentRegistry.register('widget', C, shared.meta);"],
+    ],
+    [
+      'a call expression, whose result nothing static can know',
+      ['const buildMeta = () => ({});', "ComponentRegistry.register('widget', C, buildMeta());"],
+    ],
+    [
+      'a spread of a call expression',
+      ['const buildMeta = () => ({});', "ComponentRegistry.register('widget', C, { ...buildMeta(), label: 'W' });"],
+    ],
+    [
+      'a spread of a member expression',
+      ["import { shared } from './shared';", "ComponentRegistry.register('widget', C, { ...shared.meta, label: 'W' });"],
+    ],
+    [
+      'a conditional spread, where the two arms may not agree',
+      [
+        "const compact = { namespace: 'ui' };",
+        "const roomy = { namespace: 'view' };",
+        'const flag = true;',
+        "ComponentRegistry.register('widget', C, { ...(flag ? compact : roomy), label: 'W' });",
+      ],
+    ],
+    [
+      'a `namespace` that is not a string literal',
+      ["const NS = 'ui';", "ComponentRegistry.register('widget', C, { namespace: NS, label: 'W' });"],
+    ],
+  ];
+
+  for (const [shape, lines] of UNREADABLE_OPTIONS) {
+    it(`⭐ reports options it cannot read — ${shape}`, () => {
+      const { keys, findings } = withTree((write) => {
+        write('packages/demo/src/index.tsx', `${lines.join('\n')}\n`);
+      }, (dir) => deriveRegistryKeys(dir, BARE));
+      expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+      // The KEY is still collected. What could not be read is the namespace, and
+      // dropping the bare half too would shrink the universe further than the
+      // defect being reported.
+      expect([...keys.keys()].sort()).toEqual(['widget']);
+    });
+  }
+
+  it('⭐ reports options imported from another module rather than reading the registration as bare', () => {
+    // The shape that motivated the finding reason: an options object another
+    // module owns may carry a namespace, and assuming it does not is the
+    // objectui#9641 defect with a new address.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "import { sharedMeta } from './shared';",
+          "ComponentRegistry.register('widget', C, { ...sharedMeta, label: 'Widget' });",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    expect([...keys.keys()].sort()).toEqual(['widget']);
+  });
+
+  it('⭐ reports a computed `skipFallback`, which decides whether the bare key exists at all', () => {
+    // The other half of an options object, and the other failure direction. The
+    // namespace here IS readable, so the namespaced key is derived; what cannot
+    // be known is whether the registry also publishes the bare fallback. Both
+    // are still collected — the generous reading — and the finding is what says
+    // one of them is a guess, instead of the run looking certain.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          'const SKIP = new Set([]);',
+          "ComponentRegistry.register('widget', C, { namespace: 'ui', skipFallback: SKIP.has('widget') });",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    expect([...keys.keys()].sort()).toEqual(['ui:widget', 'widget']);
+  });
+
+  it.each(['let', 'var'])('⭐ refuses a reassignable `%s` binding rather than minting a PHANTOM key', (keyword) => {
+    // ⚠️ The worse direction of the two, and the reason the name is followed
+    // only through a single `const`. The runtime stores the BARE key here and
+    // nothing else; deriving `ui:widget` from the initialiser would put a key
+    // into the universe that the registry never has, so `objectui check` would
+    // bless a document that renders an OBJUI-001 panel. A miss refuses
+    // something that renders; a phantom green-lights something that renders
+    // nothing.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          `${keyword} meta = { namespace: 'ui', label: 'W' };`,
+          "meta = { label: 'W' };",
+          "ComponentRegistry.register('widget', C, meta);",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    expect([...keys.keys()].sort()).toEqual(['widget']);
+  });
+
+  it('⭐ refuses a name declared more than once, because scope decides which one the call reads', () => {
+    // A function-scoped declaration earlier in the file is not the binding this
+    // call resolves to, but it is the first one a whole-file search finds. The
+    // derivation cannot do scope analysis, so the honest answer is to say so —
+    // the alternative is a namespace read off the wrong object, silently.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          'function local() {',
+          "  const meta = { namespace: 'view', label: 'Local' };",
+          '  return meta;',
+          '}',
+          "const meta = { namespace: 'ui', label: 'W' };",
+          "ComponentRegistry.register('widget', C, meta);",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    expect([...keys.keys()].sort()).toEqual(['widget']);
+  });
+
+  /**
+   * ⛔ A `const` cannot be REASSIGNED, but its contents can be WRITTEN.
+   *
+   * Following a name is a premise: that the literal at the declaration is the
+   * object the call passes. The refusals above enforce that premise against
+   * rebinding; these enforce it against mutation, which the first two rounds
+   * left unread. Every row below derived with no finding at all before this
+   * block existed — five shapes were measured on the round that added them and
+   * two spellings were added beside those, seven rows in all — and two of them
+   * are in the direction that matters most.
+   *
+   * ⭐ The `namespace` and `skipFallback` properties are the only two that move
+   * which keys a registration publishes, so they are the only two watched. A
+   * write to any other property leaves the derivation's answer correct and is
+   * deliberately still READ — the pin for that is below, because a guard that
+   * refused every mutated object would red correct registrations.
+   */
+  const MUTATED_AFTER_DECLARATION: [name: string, lines: string[]][] = [
+    [
+      'assigning a `namespace` the declaration does not carry (a MISS: the runtime publishes a namespaced key the derivation would not)',
+      ["const meta = { label: 'W' };", "meta.namespace = 'ui';", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    [
+      'the same write through `Object.assign`, which can carry any option',
+      [
+        "const meta = { label: 'W' };",
+        "Object.assign(meta, { namespace: 'ui' });",
+        "ComponentRegistry.register('widget', C, meta);",
+      ],
+    ],
+    [
+      '⭐ DELETING a declared `namespace` (a PHANTOM: the runtime stores the bare key alone)',
+      [
+        "const meta = { namespace: 'ui', label: 'W' };",
+        'delete meta.namespace;',
+        "ComponentRegistry.register('widget', C, meta);",
+      ],
+    ],
+    [
+      '⭐ assigning `skipFallback` after the fact (a PHANTOM in the bare half: the runtime stops publishing it)',
+      [
+        "const meta = { namespace: 'ui', label: 'W' };",
+        'meta.skipFallback = true;',
+        "ComponentRegistry.register('widget', C, meta);",
+      ],
+    ],
+    [
+      'the same write reached through a top-level spread rather than the identifier',
+      [
+        "const meta = { label: 'W' };",
+        "meta.namespace = 'ui';",
+        "ComponentRegistry.register('widget', C, { ...meta, label: 'X' });",
+      ],
+    ],
+    [
+      'the bracket spelling of the same write',
+      ["const meta = { label: 'W' };", "meta['namespace'] = 'ui';", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    [
+      'a logical assignment, which writes only sometimes and is therefore no more knowable',
+      ["const meta = { label: 'W' };", "meta.namespace ??= 'ui';", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+  ];
+
+  for (const [shape, lines] of MUTATED_AFTER_DECLARATION) {
+    it(`⭐ refuses a name whose options are written after it is declared — ${shape}`, () => {
+      const { keys, findings } = withTree((write) => {
+        write('packages/demo/src/index.tsx', `${lines.join('\n')}\n`);
+      }, (dir) => deriveRegistryKeys(dir, BARE));
+      expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+      expect([...keys.keys()].sort()).toEqual(['widget']);
+    });
+  }
+
+  it('⛔ keeps READING a name that is only read — a member access is not a write', () => {
+    // The control for the block above, and the reason the guard looks for an
+    // assignment operator, a `delete` or an `Object.assign` target rather than
+    // for the property name. A file that logs or compares `meta.namespace`
+    // still hands the declared object to `register()`, so refusing it would red
+    // a correct registration. ⚠️ This pin passes both before and after the
+    // mutation guard — it is a control, not a mechanism pin: what it excludes
+    // is a guard written too broadly, which no ablation can show.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "const meta = { namespace: 'ui', label: 'W' };",
+          'console.log(meta.namespace);',
+          "const isUi = meta.namespace === 'ui';",
+          "meta.label = 'X';",
+          "ComponentRegistry.register('widget', C, meta);",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['ui:widget', 'widget']);
+  });
+
+  it('refuses a plain imported name — the object it names is in another file', () => {
+    // ⚠️ A control, not a mechanism pin: this shape was already refused before
+    // imports were counted, because no `const|let|var` declared the name at
+    // all. It is here so the pin below cannot be read as the whole claim.
+    const imported = withTree((write) => {
+      write('packages/demo/src/index.tsx', "import { meta } from './shared';\nComponentRegistry.register('widget', C, meta);\n");
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((imported.findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    expect([...imported.keys.keys()].sort()).toEqual(['widget']);
+  });
+
+  it('⭐ counts an IMPORT as a binding, so a function-local declaration cannot answer for it', () => {
+    // The case counting imports actually closes, and it is silent without it.
+    // The call sits at module level and reads the IMPORT; the only
+    // `const|let|var` in the file is function-scoped and invisible to the call.
+    // Counting just the declarations sees exactly one and reads the wrong
+    // object — here it would publish a namespace the imported options may not
+    // carry at all.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "import { meta } from './shared';",
+          'export function unrelated() {',
+          "  const meta = { namespace: 'ui', label: 'Local' };",
+          '  return meta;',
+          '}',
+          "ComponentRegistry.register('widget', C, meta);",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    expect([...keys.keys()].sort()).toEqual(['widget']);
+  });
+
+  it('⚠️ KNOWN GAP — a function parameter of the same name is not counted, and is read against the module literal', () => {
+    // ⛔ This pin records what the derivation DOES, not what it should do. The
+    // declaration count sees `const`, `let`, `var` and imports; a parameter
+    // binding is invisible to it, so the module-level literal answers while the
+    // object the call passes is the argument. Closing it needs scope analysis
+    // this regex-level derivation does not do.
+    //
+    // It is pinned rather than left in a comment for the reason the whole card
+    // exists: a gap stated only in prose is a claim no instrument re-derives.
+    // ⭐ If someone closes it, THIS TEST FAILS — and that failure is the signal
+    // to delete the pin and the paragraph in `declaredObjectBody`'s header that
+    // declares the gap, not to restore the old reading.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "const meta = { namespace: 'ui', label: 'W' };",
+          'export function reg(meta) {',
+          "  ComponentRegistry.register('widget', C, meta);",
+          '}',
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['ui:widget', 'widget']);
+  });
+
+  /**
+   * ⭐ The two `readMetaBody` bugs this PR's own new code introduced, fixed
+   * here and pinned so the fix cannot silently regress. Both were measured on
+   * the head that carried them (objectui#9641 round 3); neither is reachable
+   * from this tree, and both are asserted as the RUNTIME answer rather than as
+   * the answer the old code gave.
+   */
+  it('⭐ re-applies a base spread the same literal spreads TWICE — the visited set is a recursion stack', () => {
+    // Runtime: `{ ...base, ...mid, ...base }` copies `base` again last, so the
+    // namespace is `ui`. A visited SET marks `base` used up at its first
+    // spread and skips the second, leaving `mid`'s namespace standing — a
+    // PHANTOM `view:widget` and a MISS of `ui:widget` at the same time. A
+    // recursion STACK releases the name once its body has been read, so only a
+    // spread still being read is a cycle.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "const base = { namespace: 'ui' };",
+          "const mid = { namespace: 'view' };",
+          "ComponentRegistry.register('widget', C, { ...base, ...mid, ...base });",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['ui:widget', 'widget']);
+  });
+
+  it('⭐ lets an explicit `skipFallback: false` arriving by spread override an explicit `true`', () => {
+    // Runtime: the later spread wins, so `skipFallback` is `false` and the
+    // registry publishes the bare key too. A truthiness test cannot tell
+    // "spread carries false" from "spread never mentions it", so the earlier
+    // `true` survived and the bare key went MISSING. Set-ness is tracked.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        [
+          "const base = { namespace: 'ui', skipFallback: false };",
+          "ComponentRegistry.register('widget', C, { skipFallback: true, ...base });",
+        ].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['ui:widget', 'widget']);
+  });
+
+  it('⛔ still terminates on a self-referential and on a mutually-spreading declaration', () => {
+    // ⚠️ A control, not a mechanism pin: it passes on both sides of the change
+    // above. It is what says the recursion stack did not trade a wrong reading
+    // for a hang — the reason the set existed in the first place.
+    const selfRef = withTree((write) => {
+      write('packages/demo/src/index.tsx', "const a = { ...a, namespace: 'ui' };\nComponentRegistry.register('w', C, a);\n");
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect([...selfRef.keys.keys()].sort()).toEqual(['ui:w', 'w']);
+    const mutual = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        ['const a = { ...b };', "const b = { ...a, namespace: 'ui' };", "ComponentRegistry.register('w', C, a);"].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect([...mutual.keys.keys()].sort()).toEqual(['ui:w', 'w']);
+  });
+
+  /**
+   * ⚠️ KNOWN GAPS — every silent reading objectui#9641's round-3 review
+   * measured, pinned as the reading the derivation GIVES TODAY.
+   *
+   * ⛔ These are not statements about what the derivation should do. They exist
+   * because the ruling on this card (batch #150 item 2, letter B) is that a
+   * regex approximation of JavaScript scope and mutation semantics has no
+   * finishing line, so the reachable end state is an ACCURATE DECLARATION of
+   * what the instrument cannot see — and a gap stated only in prose is a claim
+   * no instrument re-derives. Each row below is a shape the runtime and the
+   * derivation disagree about, WITHOUT a finding:
+   *
+   *   MISS     the runtime publishes a namespaced key the derivation does not.
+   *            `objectui check` calls a document unknown while it renders.
+   *   PHANTOM  the derivation publishes a key the runtime never stores. The
+   *            check blesses a spelling that paints an OBJUI-001 panel — the
+   *            worse direction, and the one this card was filed about.
+   *
+   * ⭐ If someone closes one of these, ITS ROW FAILS — and that failure is the
+   * signal to delete the row and the paragraph that declares the gap, not to
+   * restore the old reading. That is the same treatment the function-parameter
+   * gap above already gets.
+   *
+   * ⛔ NOTHING here says the live tree is free of these shapes; what is
+   * re-derived every run is that the tree produces zero findings and that
+   * `counters.metaViaReference` is non-zero, which bounds how many sites the
+   * mutation and scope gaps could reach without saying any of them is hit.
+   */
+  const KNOWN_GAPS: [route: string, shape: string, keys: string[], lines: string[]][] = [
+    // ── the mutation route: `optionsMutatedAfterDeclaration` sees a write only
+    //    when it is spelled with this exact name and a literal property.
+    [
+      'mutation',
+      'a write through an ALIAS of the name (MISS)',
+      ['widget'],
+      ["const meta = { label: 'W' };", 'const other = meta;', "other.namespace = 'ui';", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    [
+      'mutation',
+      '⭐ a DELETE through an alias (PHANTOM)',
+      ['ui:widget', 'widget'],
+      [
+        "const meta = { namespace: 'ui', label: 'W' };",
+        'const other = meta;',
+        'delete other.namespace;',
+        "ComponentRegistry.register('widget', C, meta);",
+      ],
+    ],
+    [
+      'mutation',
+      'an alias write reached through a top-level spread (MISS)',
+      ['widget'],
+      [
+        "const meta = { label: 'W' };",
+        'const other = meta;',
+        "other.namespace = 'ui';",
+        "ComponentRegistry.register('widget', C, { ...meta, label: 'X' });",
+      ],
+    ],
+    [
+      'mutation',
+      'a write inside a CALLEE the object is passed to (MISS)',
+      ['widget'],
+      [
+        "const meta = { label: 'W' };",
+        'function tag(o) {',
+        "  o.namespace = 'ui';",
+        '}',
+        'tag(meta);',
+        "ComponentRegistry.register('widget', C, meta);",
+      ],
+    ],
+    [
+      'mutation',
+      '⭐ a `skipFallback` write inside a callee (PHANTOM in the bare half)',
+      ['ui:widget', 'widget'],
+      [
+        "const meta = { namespace: 'ui', label: 'W' };",
+        'function hide(o) {',
+        '  o.skipFallback = true;',
+        '}',
+        'hide(meta);',
+        "ComponentRegistry.register('widget', C, meta);",
+      ],
+    ],
+    [
+      'mutation',
+      'a computed-key write, whose property name is not in the source (MISS)',
+      ['widget'],
+      ["const meta = { label: 'W' };", "const prop = 'namespace';", "meta[prop] = 'ui';", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    [
+      'mutation',
+      'a destructuring ASSIGNMENT whose target is the property (MISS)',
+      ['widget'],
+      ["const meta = { label: 'W' };", "({ namespace: meta.namespace } = { namespace: 'ui' });", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    [
+      'mutation',
+      '`Object.defineProperty` (MISS)',
+      ['widget'],
+      ["const meta = { label: 'W' };", "Object.defineProperty(meta, 'namespace', { value: 'ui' });", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    [
+      'mutation',
+      '`Reflect.set` (MISS)',
+      ['widget'],
+      ["const meta = { label: 'W' };", "Reflect.set(meta, 'namespace', 'ui');", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    [
+      'mutation',
+      '⭐ `Reflect.deleteProperty` (PHANTOM)',
+      ['ui:widget', 'widget'],
+      ["const meta = { namespace: 'ui', label: 'W' };", "Reflect.deleteProperty(meta, 'namespace');", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    [
+      'mutation',
+      '`Object.setPrototypeOf`, whose INHERITED `namespace` the registry still reads through `meta?.namespace` (MISS)',
+      ['widget'],
+      ["const meta = { label: 'W' };", "Object.setPrototypeOf(meta, { namespace: 'ui' });", "ComponentRegistry.register('widget', C, meta);"],
+    ],
+    // ── the name-resolution route: `declaredObjectBody` counts a name only
+    //    where it IMMEDIATELY follows `const` / `let` / `var`, or sits in an
+    //    import clause. Every binding below is invisible to that count, so the
+    //    module-level literal answers for an object the call never passes —
+    //    all four are PHANTOMs, the same family as the parameter gap above.
+    [
+      'scope',
+      '⭐ a DESTRUCTURED `const` shadowing the module-level name (PHANTOM)',
+      ['ui:widget', 'widget'],
+      [
+        "const meta = { namespace: 'ui', label: 'W' };",
+        'export function reg(input) {',
+        '  const { meta } = input;',
+        "  ComponentRegistry.register('widget', C, meta);",
+        '}',
+      ],
+    ],
+    [
+      'scope',
+      '⭐ an ARRAY-destructured binding of the same name (PHANTOM)',
+      ['ui:widget', 'widget'],
+      [
+        "const meta = { namespace: 'ui', label: 'W' };",
+        'export function reg(input) {',
+        '  const [meta] = input;',
+        "  ComponentRegistry.register('widget', C, meta);",
+        '}',
+      ],
+    ],
+    [
+      'scope',
+      '⭐ a LATER DECLARATOR of the same `const` statement (PHANTOM)',
+      ['ui:widget', 'widget'],
+      [
+        "const meta = { namespace: 'ui', label: 'W' };",
+        'export function reg(input) {',
+        '  const first = 1, meta = input.meta;',
+        "  ComponentRegistry.register('widget', C, meta);",
+        '}',
+      ],
+    ],
+    [
+      'scope',
+      '⭐ a `catch` binding of the same name (PHANTOM)',
+      ['ui:widget', 'widget'],
+      [
+        "const meta = { namespace: 'ui', label: 'W' };",
+        'export function reg(run) {',
+        '  try {',
+        '    run();',
+        '  } catch (meta) {',
+        "    ComponentRegistry.register('widget', C, meta);",
+        '  }',
+        '}',
+      ],
+    ],
+  ];
+
+  for (const [route, shape, expected, lines] of KNOWN_GAPS) {
+    it(`⚠️ KNOWN GAP (${route}) — ${shape}`, () => {
+      const { keys, findings } = withTree((write) => {
+        write('packages/demo/src/index.tsx', `${lines.join('\n')}\n`);
+      }, (dir) => deriveRegistryKeys(dir, BARE));
+      // ⛔ The silence is half the reading and the half that matters: the
+      // derivation does not merely get these wrong, it gets them wrong without
+      // raising `unresolved-registration-meta`, so no run reports them.
+      expect(findings).toEqual([]);
+      expect([...keys.keys()].sort()).toEqual(expected);
+    });
+  }
+
+  it('⛔ the spelled forms of those same writes are still REFUSED — the gaps are about spelling, not about the guard', () => {
+    // The firing control for the whole KNOWN GAP block. Without it, a block of
+    // green "the derivation reads this silently" pins is indistinguishable from
+    // a mutation guard that stopped working altogether.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        ["const meta = { label: 'W' };", "meta.namespace = 'ui';", "ComponentRegistry.register('widget', C, meta);"].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((findings as Finding[]).map((f) => f.reason)).toEqual(['unresolved-registration-meta']);
+    expect([...keys.keys()].sort()).toEqual(['widget']);
+  });
+
+  it('reads an options argument spelled `undefined` as ABSENT options, not as an unreadable name', () => {
+    // `register(key, C, undefined)` is what `register(key, C)` means, and the
+    // registry publishes the bare key for both. `undefined` matches the
+    // identifier pattern, so without a keyword check it was refused as "not
+    // declared in this file" — a red on a correct registration.
+    const { keys, findings } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        ["ComponentRegistry.register('widget', C, undefined);", "ComponentRegistry.register('gadget', C, null);"].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['gadget', 'widget']);
+  });
+
+  it('counts EVERY site whose options arrived by reference, not only the namespaced ones', () => {
+    // `counters.metaViaReference` is the live instrument the run summary prints
+    // and the 5115 suite asserts is non-zero, so what it counts has to be what
+    // the header says it counts. It used to increment only when a namespace was
+    // also resolved, which made a referenced options object without one
+    // invisible to the very counter that reports this route is in use.
+    const { counters } = withTree((write) => {
+      write(
+        'packages/demo/src/index.tsx',
+        ["const meta = { label: 'W' };", "ComponentRegistry.register('widget', C, meta);"].join('\n'),
+      );
+    }, (dir) => deriveRegistryKeys(dir, BARE));
+    expect((counters as { metaViaReference: number }).metaViaReference).toBe(1);
+  });
+
   it('ignores registrations that live in test files', () => {
     // `probe`, `crashing-widget`, `test-widget` and friends are registered by
     // suites all over this repo. Letting them into the universe would let a doc

@@ -183,9 +183,41 @@ export interface CollapsibleSchema extends BaseSchema {
    */
   defaultOpen?: boolean;
   /**
-   * Controlled open state
+   * RETIRED (objectui#8236, ADR-0049 enforce-or-remove; maintainer ruling
+   * 2026-09-17 「9593 A,其他同意」, step 2 of two).
+   *
+   * ⚠️ This key was never inert, and the card that filed it as inert was WRONG
+   * in the dangerous direction — read this before "restoring" it.
+   * `SchemaRenderer` spreads every non-metadata node key as a React prop, and
+   * the `collapsible` renderer forwarded that spread onto the Radix root
+   * LAST — after the `defaultOpen` it writes explicitly. So an authored `open`
+   * made the primitive CONTROLLED without any `schema.open` read existing
+   * anywhere: MEASURED through the real renderer and the real registry, in both
+   * polarities, `open: true` froze the trigger open and `open: false` froze it
+   * shut and beat `defaultOpen: true`
+   * (`packages/components/src/__tests__/collapsible-open-intercept-8236.test.tsx`).
+   *
+   * The other half of controlled state cannot be authored: {@link
+   * CollapsibleSchema.onOpenChange} is a RUNTIME SLOT refused by name on the
+   * zod face (objectui#6124), and JSON has no function value — so a document
+   * that wrote `open` could never write the handler that moves it. That is the
+   * whole content of the refusal message, and it is why 「author `defaultOpen`
+   * instead」 is NOT an equivalent: `defaultOpen` seeds the INITIAL state and
+   * then hands control back to the user, which is a different capability.
+   *
+   * ⚠️ Retiring this declaration does NOT by itself stop the takeover — the
+   * render path runs no `safeParse` (objectui#9585 measured NOT GATED), so a
+   * refused key still rides the spread. The renderer-side named exclusion
+   * landed FIRST, in the same change, for exactly that reason; ⛔ do not remove
+   * it on the strength of this tombstone.
+   *
+   * `?: never` is the twin of `zod/disclosure.zod.ts`'s `retirementTombstone`
+   * arm: the pair is what `__tests__/zod-mirror-parity.test.ts` compares, and it
+   * is what makes `tsc` refuse the key at the authoring site before anything
+   * runs.
+   * @deprecated Not authorable in SDUI — use `defaultOpen` for the initial state.
    */
-  open?: boolean;
+  open?: never;
   /**
    * Open state change handler
    *

@@ -151,6 +151,46 @@ export interface SchemaRegistry {
   'tabs': TabsSchema;
   'scroll-area': ScrollAreaSchema;
   'resizable': ResizableSchema;
+  // ⭐ `'page'` is the ONLY page key in this map, and the four page KINDS that
+  // `ComponentRegistry` also answers — `record` / `home` / `app` / `utility` —
+  // are ABSENT from it deliberately. Read that gap here before concluding
+  // anything from it (objectui#9642, and objectui#9263 / objectui#9576, the two
+  // cards that concluded the opposite).
+  //
+  // **The channel.** A STORED page document's `type` field is not a node type at
+  // all: it is the spec's page KIND, enumerated by `PageTypeSchema` in
+  // `@objectstack/spec/ui`. `PageView` (`@object-ui/app-shell`) hands the
+  // document to `SchemaRenderer` with that kind written VERBATIM into `type` —
+  // the discriminator `ComponentRegistry` dispatches on — plus a copy on
+  // `pageType`. ⇒ The `PageRenderer` registrations in
+  // `@object-ui/components`' `renderers/layout/page.tsx` exist BECAUSE of that
+  // line; they are the renderer half of `PageTypeSchema`, which is why one of
+  // them is labelled "App Page". `'page'` itself is the fallback the same
+  // mapping writes for a document carrying no `type`, and it is the key
+  // `PageNodeSchema` pins (`z.literal('page')`).
+  //
+  // ⛔ So a `PageRenderer` key missing from this map is NOT the
+  // "registered but never declared" defect this repository files elsewhere: it
+  // is declared, upstream, in a different vocabulary. Removing such a
+  // registration stops every stored page of that kind rendering — objectui#9263
+  // reached a draft PR doing exactly that and was re-ruled letter E, "⛔ not a
+  // defect".
+  //
+  // ⭐ **`app` is one token carrying two vocabularies.** `AppComponentSchema`
+  // (`./app.ts`) declares the type literal `'app'` for the APP-LEVEL DOCUMENT
+  // (`app.json`: tabs, navigation, areas), which the runner / layout path reads
+  // STRUCTURALLY and never resolves through `ComponentRegistry` — which is why
+  // this map has no `'app'` key for it either. The spec page kind `app` is a
+  // different vocabulary: a stored PAGE document with regions, served by
+  // `PageRenderer` through `PageView`'s passthrough. ⛔ Neither is a collision
+  // to be resolved by removing the other.
+  //
+  // ⚠️ Adding the kinds to this map is ⛔ NOT the remedy — `keyof SchemaRegistry`
+  // IS the published `ComponentType` union, so an entry here is a widening, and
+  // a widening is a ruling (the `'kanban'` note below states the same limit).
+  // The live answer to which kind is served how is re-derived by
+  // `page-kind-node-type-channel-9642` in `@object-ui/components`, ⛔ not by this
+  // paragraph.
   'page': PageNodeSchema;
 
   // Form

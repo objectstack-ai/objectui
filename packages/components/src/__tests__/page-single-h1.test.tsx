@@ -32,7 +32,20 @@ import { SchemaRenderer } from '@object-ui/react';
 // `hookTimeout` and races the assertions (AGENTS.md §测试纪律, objectui#3010).
 import '../renderers';
 
-/** The showcase master-detail page, reduced to the parts that render headings. */
+/**
+ * The showcase master-detail page, reduced to the parts that render headings.
+ *
+ * ⚠️ `type: 'app'` below is EVIDENCE about a real stored document, ⛔ not a
+ * convenience (objectui#9642). It is the spec page KIND, which the app-shell
+ * page view writes verbatim into the SchemaNode discriminator, so this fixture
+ * exercises the page-kind to node-type channel as the shipped page does. On
+ * objectui#9263 it was edited to `'page'` so a change removing the `'app'`
+ * registration would keep passing — that PR was closed without merging and the
+ * card was re-ruled letter E, "⛔ not a defect". ⇒ If a change turns this file
+ * red, read `page-kind-node-type-channel-9642` in this directory before
+ * touching the value: a fixture that mirrors a real document is a reading, and
+ * editing it to agree with a change destroys the signal instead of taking it.
+ */
 function masterDetailPage(headerProps: Record<string, unknown> | null, extra?: Record<string, unknown>) {
   return {
     type: 'app',

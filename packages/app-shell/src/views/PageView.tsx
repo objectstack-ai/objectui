@@ -127,6 +127,18 @@ export function PageView() {
                 // so non-record pages got the record max-width, a wrong
                 // `data-page-type` and a suppressed header (framework#1878 §3
                 // naming-drift recheck).
+                //
+                // ⭐ This is the WRITING end of the page-kind to node-type
+                // channel, and a comment here was not enough: two cards audited
+                // the READING end and concluded the registrations it feeds were
+                // undeclared (objectui#9263, re-ruled letter E "⛔ not a
+                // defect", and objectui#9576). The channel is now declared at
+                // both reading ends — `@object-ui/types`' `SchemaRegistry` map
+                // at its `'page'` entry, and the `PageRenderer` registrations in
+                // `@object-ui/components` — and pinned by
+                // `page-kind-node-type-channel-9642` (objectui#9642). ⛔ Change
+                // this mapping and that pin goes red by design: it is the
+                // declaration, not an incidental assertion.
                 type: (page as any).type || 'page',
                 pageType: (page as any).type,
                 context: { ...(page as any).context, params, refreshKey },

@@ -708,6 +708,46 @@ const pageMeta: any = {
   ],
 };
 
+/**
+ * ⭐ THESE KEYS ARE PAGE KINDS, NOT A COMPONENT FAMILY — read this before
+ * auditing them (objectui#9642).
+ *
+ * A stored page document's `type` field is the spec's page KIND, enumerated by
+ * `PageTypeSchema` in `@objectstack/spec/ui`. `PageView` (`@object-ui/app-shell`)
+ * hands that document to `SchemaRenderer` with the kind written VERBATIM into
+ * `type` — the SchemaNode discriminator `ComponentRegistry` dispatches on —
+ * plus a copy on `pageType`. ⇒ The registrations below exist BECAUSE of that
+ * line. They are the renderer half of `PageTypeSchema`, which is why they carry
+ * "… Page" labels rather than component names, and `'page'` is the fallback the
+ * same mapping writes for a document carrying no `type` at all.
+ *
+ * ⛔ **They are therefore NOT the "registered but never declared" defect** this
+ * repository files elsewhere. They ARE declared — upstream, in a different
+ * vocabulary, by an enum this package cannot edit. `@object-ui/types`'
+ * `SchemaRegistry` map has no key for them on purpose, because `keyof` that map
+ * is the published `ComponentType` union and widening it is a ruling; that map
+ * carries the other half of this note at its `'page'` entry.
+ *
+ * ⚠️ Removing one of these registrations stops every stored page of that kind
+ * rendering — OBJUI-001 in place of the page. objectui#9263 reached a draft PR
+ * doing exactly that and was re-ruled letter E, "⛔ not a defect"; objectui#9576
+ * proposed the same for the remaining kinds.
+ *
+ * ⭐ **`app` is one token carrying two vocabularies.** `AppComponentSchema`
+ * (`@object-ui/types`) declares the type literal `'app'` for the APP-LEVEL
+ * DOCUMENT (`app.json`: tabs, navigation, areas), which the runner / layout path
+ * reads STRUCTURALLY and never resolves through this registry. The key below
+ * answers only for the spec PAGE KIND `app` — a stored page document with
+ * regions, reached through `PageView`'s passthrough. ⛔ Neither is a collision
+ * to be resolved by removing the other.
+ *
+ * ⚠️ Not every page kind appears below, and the absence is not an omission: an
+ * INTERFACE-MODE kind is short-circuited before this registry, because `PageView`
+ * branches on `interfaceConfig?.source` and renders `InterfaceListPage`
+ * directly. The live split — which kind is served here, which is short-circuited
+ * — is re-derived by `page-kind-node-type-channel-9642` in this package's
+ * `__tests__`, ⛔ not by this comment.
+ */
 ComponentRegistry.register('page', PageRenderer, pageMeta);
 ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' });
 ComponentRegistry.register('utility', PageRenderer, { ...pageMeta, label: 'Utility Page' });

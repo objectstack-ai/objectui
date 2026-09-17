@@ -20,7 +20,28 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import type { DataSource, ObjectQLComponentSchema, TreeViewConfig } from '@object-ui/types';
+/**
+ * The `object-tree` NODE this renderer draws, imported BY NAME from the
+ * published barrel (objectui#8655 step ①; objectui#9550 is what put the name
+ * on that barrel, which is what makes a named import possible at all).
+ *
+ * ⛔ Not a second declaration of the node's shape. `ObjectTreeSchema` in
+ * `@object-ui/types` is the one declaration — the interface whose own docblock
+ * calls itself the "Object Tree (tree-grid) Component Schema", and which
+ * `views.ts` names as "the node an author writes". Every key and every key TYPE
+ * arrives from there, so a key added, renamed or retyped on it reaches this
+ * renderer without an edit here: the property a hand-copied interface cannot
+ * have, and the same derivation `ResolvedTreeConfig` below already uses against
+ * `TreeViewConfig`.
+ *
+ * ⛔ Never re-declared LOCALLY under this name, and not aliased on the way in:
+ * a module-local type under a published type's name is the two-layers-one-word
+ * trap objectui#8651 recorded when a local `CalendarSchema` shadowed the
+ * published one. That is what makes the line below a plain named import, and
+ * the warning is MORE load-bearing now that the published name is importable,
+ * not less.
+ */
+import type { DataSource, ObjectTreeSchema, TreeViewConfig } from '@object-ui/types';
 import {
   useNavigationOverlay,
   useSafeFieldLabel,
@@ -78,37 +99,6 @@ const useTreeTranslation = createSafeTranslation(
   'detail.recordDetail',
 );
 
-/**
- * The `object-tree` NODE, taken off the PUBLISHED union rather than written
- * out here (objectui#8655 step ①).
- *
- * ⛔ Not a second declaration of the node's shape. `ObjectTreeSchema` in
- * `@object-ui/types` is the one declaration — the interface whose own docblock
- * calls itself the "Object Tree (tree-grid) Component Schema", and which
- * `views.ts` names as "the node an author writes". Every key and every key TYPE
- * arrives from there, so a key added, renamed or retyped on it reaches this
- * renderer without an edit here: the property a hand-copied interface cannot
- * have, and the same derivation `ResolvedTreeConfig` below already uses against
- * `TreeViewConfig`.
- *
- * ⚠️ `Extract` off `ObjectQLComponentSchema`, and NOT a named import, for a
- * measured reason: `ObjectTreeSchema` is declared in `objectql.ts` and re-exported
- * from the ZOD barrel (objectui#8784 / PR #8777 repaired that half), but the TS
- * barrel's `export type { … } from './objectql.js'` block omits it, while its nine
- * siblings — `ObjectMapSchema`, `ObjectGanttSchema`, `ObjectCalendarSchema`,
- * `ObjectKanbanSchema`, `ObjectChartSchema`, `ObjectGallerySchema`,
- * `ObjectDataTableSchema`, `ObjectGridSchema`, `ObjectFormSchema` — are all on it.
- * So the name cannot be imported today. ⛔ That omission is NOT repaired here: it
- * is a published-surface addition on another package and belongs to whoever files
- * it. `Extract` is the spelling `ObjectQLComponentSchema`'s own docblock teaches,
- * and it needs nothing added to any published face.
- *
- * ⛔ Deliberately NOT spelled `ObjectTreeSchema` locally: a module-local type under
- * a published type's name is the two-layers-one-word trap objectui#8651 recorded
- * when a local `CalendarSchema` shadowed the published one.
- */
-type ObjectTreeNodeSchema = Extract<ObjectQLComponentSchema, { type: 'object-tree' }>;
-
 export interface ObjectTreeProps {
   /**
    * The `object-tree` node this renderer draws.
@@ -136,7 +126,7 @@ export interface ObjectTreeProps {
    * question becomes ANSWERABLE by the checker, ⛔ not that an undeclared read is
    * refused — the same ceiling objectui#5155 / objectui#7927 record for the mirror.
    */
-  schema: ObjectTreeNodeSchema;
+  schema: ObjectTreeSchema;
   dataSource?: DataSource;
   className?: string;
   /**
@@ -242,7 +232,7 @@ function fieldKey(f: any): string | undefined {
  * `parentField` alone) — else delete the read. This is that deletion, executed
  * on objectui#8841.
  */
-function getTreeConfig(schema: ObjectTreeNodeSchema): ResolvedTreeConfig {
+function getTreeConfig(schema: ObjectTreeSchema): ResolvedTreeConfig {
   const nested = (schema.tree || schema.filter?.tree || {}) as TreeViewConfig;
   const rawFields = Array.isArray(schema.fields)
     ? schema.fields

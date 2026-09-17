@@ -442,6 +442,7 @@ export type {
   // Component schemas
   ObjectMapSchema,
   ObjectMapConfig,
+  ObjectTreeSchema,
   ObjectGanttSchema,
   ObjectCalendarSchema,
   ObjectKanbanSchema,

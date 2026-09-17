@@ -5,14 +5,19 @@
 `ObjectTreeProps.schema` is the published `object-tree` node instead of `any`,
 and `getTreeConfig`'s parameter with it (objectui#8655).
 
-The type is DERIVED, not written out: `Extract< ObjectQLComponentSchema, { type:
+The type WAS DERIVED rather than written out: `Extract< ObjectQLComponentSchema, { type:
 'object-tree' } >`, the spelling that union's own docblock teaches. So every key
 name and key type still has exactly one declaration, `ObjectTreeSchema` in
 `@object-ui/types`, and a key added or retyped there arrives here without an
-edit. `Extract` rather than a named import because the TS barrel does not export
-`ObjectTreeSchema` — the zod barrel does, its nine siblings are all on the TS
-one, and repairing that omission is a published-surface addition on another
-package, so it is reported rather than smuggled in here.
+edit. `Extract` rather than a named import because, when this landed, the TS barrel did
+not export `ObjectTreeSchema` — the zod barrel did, and its eleven sibling arms
+were all on the TS one. Repairing that omission was a published-surface addition
+on another package, so it was reported rather than smuggled in here, and
+objectui#9550 took it: the name is on that barrel in THIS SAME RELEASE and this
+package now imports it — see that entry. ⚠️ So the derivation described above is the
+state this card left behind, ⛔ not the state being released; the shipped code reads
+as a named import. The claim that survives both spellings is the one that mattered:
+one declaration, `ObjectTreeSchema`, and no copy of it here.
 
 Accept-set change on the published props type, stated plainly:
 

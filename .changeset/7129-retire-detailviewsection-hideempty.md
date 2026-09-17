@@ -43,11 +43,28 @@ from an unauthored section and overrode nothing. There is no longer a lever to
 misread.
 
 **Supersedes one paragraph of the `record:details` empty-section changeset in
-this same release.** Its closing "What does not change: an authored `hideEmpty`
-keeps its exact former meaning" no longer holds — an authored `hideEmpty` of
-either polarity is now inert, and the release notes should read that way.
-Everything else in it stands: the unauthored default is unchanged, and so is
-the label-graveyard guard.
+this same release.** (⚠️ Written 2026-09-03 — the reason and the scope line in
+this paragraph were overtaken inside this same release. Read the dated note
+directly below before acting on either.) Its closing "What does not change: an
+authored `hideEmpty` keeps its exact former meaning" no longer holds — an
+authored `hideEmpty` of either polarity is now inert, and the release notes
+should read that way. Everything else in it stands: the unauthored default is
+unchanged, and so is the label-graveyard guard.
+
+⚠️ **Dated note, 2026-09-16 — the paragraph above is a reading of 2026-09-03
+and two of its statements have been falsified since.** ⛔ Its text is kept, not
+rewritten: it was true of the tree that retired the key, and overwriting it
+would erase that. objectui#8603 (director seat batch #137 item 3, maintainer
+2026-09-15) restored the `record:details` read of `hideEmpty`, shipped by PR
+objectui#9627 later in this same release. What holds as of 2026-09-16: an
+authored `hideEmpty` is honoured rather than inert, and a `record:details`
+section that authors no `hideEmpty` hides again once all of its fields are
+empty. What still stands from that paragraph: the label-graveyard guard, and
+the skeleton the direct-`fields` fallback body and the `detail-view` node keep
+with zero app-side authoring. The closing sentence it supersedes does not come
+back either, for the opposite reason — as of 2026-09-16 `hideEmpty: false` is
+an override, which its "exact former meaning" never was. The `hideEmpty`
+restoration entry is the one that states what ships.
 
 **⚠️ Migration: none — superseded inside this same release. ⛔ Do NOT delete
 `hideEmpty` from your sections.** This entry originally told you to, because at

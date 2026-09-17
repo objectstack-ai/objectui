@@ -124,7 +124,12 @@ const specSectionKeys = (): string[] =>
  *
  * ⚠️ Which is why both names stay although they answer differently today:
  * `title` is refused by the installed spec, `showBorder` is declared by it.
- * Neither fact is written down as a verdict anywhere in this file.
+ * ⛔ Both of those are PROSE — a reading, hedged to "today" and restated in
+ * the body comment below — and neither is a VERDICT this file takes: nothing
+ * here asserts either status, and every verdict the cases below reach is
+ * derived from the installed schema per run. (The sentence that stood here
+ * claimed neither fact was written down anywhere in this file, in the same
+ * paragraph that writes both down — objectui#9637.)
  *
  * ⚠️ `hideEmpty` was a member and is GONE from the list under objectui#8603
  * (director seat batch #137 item 3, maintainer 2026-09-15), which restored the

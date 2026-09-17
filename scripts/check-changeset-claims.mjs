@@ -30,10 +30,73 @@
  *   WENT FALSE  - true when written, falsified by a LATER merge
  *                 (objectui#7721, objectui#8617).
  *
- * ⛔ This gate covers WENT FALSE ONLY, and says so in its own output. It cannot
- * see a born-false claim: a changeset this change ADDS is excluded by
- * construction, and objectui#8759's defect was a cardinal in prose, which is the
- * kind of reading the next section refuses to attempt.
+ * This gate opened covering WENT FALSE ONLY, and said so in its own output. It
+ * now carries a SECOND reading for BORN FALSE (objectui#9509), over a different
+ * corpus and on a different coordinate — see "The born-false reading" below.
+ * ⛔ The two readings are never merged: the went-false reading still excludes a
+ * changeset this change adds, because a body naming its own pull request's files
+ * is the normal case and reporting it would fire on nearly every change here.
+ *
+ * ## The born-false reading (objectui#9509) — corpus, coordinate, carve-out
+ *
+ * objectui#9509 measured three instances in one day across two pull requests.
+ * ⛔ None of them was in a pending changeset, and that is the whole reason this
+ * reading needed a corpus of its own:
+ *
+ *   1. objectui#9496, in its PULL REQUEST BODY: a test frame cited as `:281:75`
+ *      that the same branch's later edit moved to `:283:75` — and then to
+ *      `:299:75`.
+ *   2. objectui#9496, in its PULL REQUEST BODY: "recurs exactly twice: `:223`
+ *      ... and `:246`", falsified by the 28-line comment block THE SAME DIFF
+ *      inserts at `imported-defaults.ts:221`. At the head `:223` is rewritten and
+ *      `:246` is at `:274` — and both numbers then land inside the block that
+ *      displaced them, so a reader following the citation reaches prose ABOUT
+ *      the claim instead of the code it is about.
+ *   3. objectui#9495, in a SOURCE DOCBLOCK: "a grep for `shortcut` finds that
+ *      member first", falsified by the same diff's own 28-line insertion above
+ *      it. ⛔ Out of reach here and deliberately — see the limits below.
+ *
+ * CORPUS: the prose this change PUBLISHES ABOUT ITSELF. That is the pull request
+ * body (read from `GITHUB_EVENT_PATH`, or `--pr-body <file>` locally) plus the
+ * `.changeset/*.md` bodies this change adds or modifies. ⛔ Not the tree at
+ * large: a citation written into an ordinary source file is the differential
+ * citation gate's population (`check-new-cross-file-line-citations.mjs`), and
+ * this repository treats a second reader over one population as a defect.
+ *
+ * COORDINATE: a backticked LINE ADDRESS — `some-file.ts:246`, or a bare `:246`
+ * continuing a file named earlier in the same paragraph — resolving to exactly
+ * one tracked file THIS CHANGE TOUCHES. Same resolution rule as the went-false
+ * reading, and for the same reason: an ambiguous spelling names nothing.
+ *
+ * The question asked of it is arithmetic, and is still not "is this sentence
+ * true?":
+ *
+ *   MOVED    the file is MODIFIED here, and this change's own hunks map the
+ *            cited base line to a different head line, or delete it outright.
+ *            The number was read from a tree this diff replaced.
+ *   UNANCHORED  the file is ADDED here, so the address can only ever have been
+ *            read from a tree that exists nowhere but inside this pull request,
+ *            and moves again on the next push. Instance 1 is this shape: the
+ *            frame moved twice, between revisions of one branch.
+ *
+ * CARVE-OUT: an address whose own SENTENCE names the tree it was read from is
+ * ⛔ never reported. Both pull requests converged on that form independently and
+ * objectui#9509 carded it as the durable one: `` `:246` at `b8a006883d`, `:274`
+ * at this head ``. A number bound to a sha cannot re-stale, so a gate that
+ * reported it would be teaching authors to unbind. ⚠️ The binding is read per
+ * SENTENCE, not per paragraph: a sha floating three sentences away binds
+ * nothing, and a paragraph-wide window would have exempted instance 2.
+ *
+ * ⛔ What the born-false reading does NOT cover, so nobody reads it as more:
+ *   - A claim with no line address at all. Instance 3 coordinates itself by
+ *     ORDINAL ("finds that member first"), and deciding that requires reading
+ *     what the sentence means — the one question triage fenced off, below.
+ *   - An address into a file this change does not touch. That address may be
+ *     false, but nothing about THIS diff made it so; it is the citation census's
+ *     population and not this one's.
+ *   - A pull request body EDITED without a push. `pull_request` fires on
+ *     `opened`/`synchronize`/`reopened`, so a body rewritten on its own is read
+ *     at the next push and not before.
  *
  * ## What it judges, and the one thing it refuses to judge
  *
@@ -363,9 +426,11 @@ export function readBlobs(root, ref, paths) {
  *
  *  1. Changesets this change ADDS OR MODIFIES. A changeset naming files from its
  *     own pull request is the normal case, not a finding - it would fire on
- *     every change that carries one, which is nearly all of them here. This is
- *     also the exclusion that makes the gate blind to BORN-FALSE claims, and
- *     that limit is reported rather than papered over.
+ *     every change that carries one, which is nearly all of them here. ⛔ This
+ *     exclusion is NOT relaxed by objectui#9509: the born-false reading takes
+ *     those same bodies on a different coordinate (an unbound LINE ADDRESS into
+ *     a file this change moves), which is rare where "names a file from its own
+ *     pull request" is near-universal.
  *  2. Changesets that declare NO bump (empty frontmatter). Their body never
  *     reaches a CHANGELOG, so there is no verbatim publication to protect. 427
  *     of the 1,384 pending here are these.
@@ -479,6 +544,321 @@ export function audit(root, ref = null) {
   return totals;
 }
 
+// -- the BORN-FALSE reading (objectui#9509) -----------------------------------
+
+/**
+ * A backticked span that carries a LINE ADDRESS.
+ *
+ * Two spellings, and the second is why this is not a one-line regex over the
+ * whole body. `imported-defaults.ts:246` names its own file. `:246` does not —
+ * it CONTINUES a file named earlier in the same paragraph, which is how both
+ * measured instances were actually written, and reading it without that binding
+ * would turn every port number and every `key: 246` into a citation.
+ *
+ * A trailing column (`:281:75`) and a range (`:221-:248`, `ts:221-228`) are both
+ * kept: the first number is the one that moves, and the one a reader follows.
+ */
+const LINE_ADDRESS = /^(?<written>[^\s`]*?):(?<line>\d+)(?::\d+)?(?:-:?\d+)?$/;
+
+/**
+ * The sha a sentence binds its numbers to, if any.
+ *
+ * Hex, 7 to 40, with at least one of `a-f` in it — a bare `12345678` is a
+ * number, not a tree. `at this head` / `@head` counts too: it names the tree as
+ * definitely as a sha does, and it is the spelling the landed repairs used for
+ * the half of a pair that was read at the head.
+ */
+const SHA_BINDING = /\b(?=[0-9a-f]{7,40}\b)[0-9a-f]*[a-f][0-9a-f]*\b|@\s*head\b|\bat\s+(?:this\s+)?head\b/i;
+
+/**
+ * The sentence of `paragraph` containing the character at `index`.
+ *
+ * ⚠️ Deliberately NOT the paragraph. The went-false reading quotes a paragraph
+ * because a paragraph is the unit that ROTS (objectui#8617); a BINDING is the
+ * opposite kind of thing — it is an author saying which tree THIS number came
+ * from — and a sha three sentences away binds nothing. Measured against the
+ * carded instance: objectui#9496's §2 paragraph names a sha, and a
+ * paragraph-wide window would have exempted the very claim the card is about.
+ */
+export function sentenceAround(paragraph, index) {
+  const before = paragraph.slice(0, index);
+  const start = Math.max(before.lastIndexOf('. '), before.lastIndexOf('。'), before.lastIndexOf('\n'));
+  const rest = paragraph.slice(index);
+  const endOffset = rest.search(/\.\s|。|\n/);
+  const end = endOffset === -1 ? paragraph.length : index + endOffset + 1;
+  return paragraph.slice(start + 1, end);
+}
+
+/**
+ * Every line address in one body, each already bound to the file it continues.
+ *
+ * Paragraph by paragraph, because the continuation binding is paragraph-scoped:
+ * a bare `:246` reaches back to the last span in ITS paragraph that named a file,
+ * and ⛔ never across a blank line into somebody else's subject.
+ *
+ * @param {string} source
+ * @param {(span: string) => string | null} resolve  a spelling to one tracked file
+ * @returns {{ span: string, written: string, line: number, file: string, bound: boolean,
+ *             paragraph: string, sentence: string }[]}
+ */
+export function lineAddresses(source, resolve) {
+  const out = [];
+  for (const paragraph of source.split(/\r?\n\s*\r?\n/)) {
+    let carried = null;
+    for (const match of paragraph.matchAll(/`([^`\n]{2,200})`/g)) {
+      const span = match[1].trim();
+      // A plain file name with no number still sets the subject for the bare
+      // addresses after it: "`imported-defaults.ts` ... at `:223`".
+      if (NAMED_FILE.test(span) && PATH_SHAPED.test(span) && !span.includes(':')) {
+        const resolved = resolve(span);
+        if (resolved) carried = resolved;
+        continue;
+      }
+      const parsed = LINE_ADDRESS.exec(span);
+      if (!parsed) continue;
+      const written = parsed.groups.written;
+      let file = null;
+      if (written === '') {
+        file = carried;
+      } else if (PATH_SHAPED.test(written) && NAMED_FILE.test(written)) {
+        file = resolve(written);
+        if (file) carried = file;
+      }
+      if (!file) continue;
+      const sentence = sentenceAround(paragraph, match.index);
+      out.push({
+        span,
+        written,
+        line: Number(parsed.groups.line),
+        file,
+        bound: SHA_BINDING.test(sentence),
+        paragraph: paragraph.replace(/\s+/g, ' ').trim(),
+        sentence: sentence.replace(/\s+/g, ' ').trim(),
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * `@@ -a,b +c,d @@` hunk headers for one file, base to head.
+ *
+ * `-U0` deliberately: context lines would merge neighbouring hunks and make the
+ * arithmetic below approximate, and this reading exists precisely to be exact
+ * about which line a number lands on.
+ */
+export function hunksFor(root, { base, head = null }, file) {
+  const args = ['diff', '-U0', '--no-color', base];
+  if (head) args.push(head);
+  args.push('--', file);
+  const out = git(root, args, { allowFailure: true }) ?? '';
+  const hunks = [];
+  for (const match of out.matchAll(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm)) {
+    hunks.push({
+      oldStart: Number(match[1]),
+      oldCount: match[2] === undefined ? 1 : Number(match[2]),
+      newCount: match[4] === undefined ? 1 : Number(match[4]),
+    });
+  }
+  return hunks;
+}
+
+/**
+ * Where a BASE line ends up at the head, given this change's own hunks.
+ *
+ * `null` means the change rewrote or deleted that line outright — the sharpest
+ * shape of the defect, because the number now points at whatever the diff put
+ * there instead.
+ *
+ * A pure insertion (`oldCount === 0`) is spelled by git as "after old line
+ * `oldStart`", so it moves lines STRICTLY BELOW it and leaves `oldStart` itself
+ * alone. Getting that boundary wrong is an off-by-one that would report a
+ * stable citation as moved, which is the false positive this reading can least
+ * afford on a report-only channel.
+ */
+export function mapLine(hunks, line) {
+  let delta = 0;
+  for (const hunk of hunks) {
+    if (hunk.oldCount === 0) {
+      if (line <= hunk.oldStart) break;
+      delta += hunk.newCount;
+      continue;
+    }
+    if (line < hunk.oldStart) break;
+    if (line < hunk.oldStart + hunk.oldCount) return null;
+    delta += hunk.newCount - hunk.oldCount;
+  }
+  return line + delta;
+}
+
+/**
+ * The born-false verdict for one address, given what this change did to its file.
+ *
+ * Pure, and injectable, so the controls below and the real run are judged by one
+ * function rather than by two that can disagree.
+ *
+ * @param {{ file: string, line: number, bound: boolean }} address
+ * @param {(file: string) => 'added' | 'modified' | null} statusOf
+ * @param {(file: string) => {oldStart: number, oldCount: number, newCount: number}[]} hunksOf
+ */
+export function judgeAddress(address, statusOf, hunksOf) {
+  if (address.bound) return { verdict: 'anchored', movedTo: null };
+  const status = statusOf(address.file);
+  if (status === null) return { verdict: 'untouched', movedTo: null };
+  if (status === 'added') return { verdict: 'unanchored', movedTo: null };
+  const movedTo = mapLine(hunksOf(address.file), address.line);
+  if (movedTo === address.line) return { verdict: 'stable', movedTo };
+  return { verdict: 'moved', movedTo };
+}
+
+/** Verdicts that are findings. The other two are the discrimination, not noise. */
+export const BORN_FALSE_VERDICTS = new Set(['moved', 'unanchored']);
+
+/**
+ * The firing controls, taken from the artefact this card was measured on.
+ *
+ * ⚠️ NOT a round number invented here. objectui#9496 inserts 28 lines at
+ * `imported-defaults.ts:221` and rewrites base `:223`; the landed pull request
+ * body and the landed docblock BOTH publish the arithmetic independently —
+ * `:246`@`b8a006883d` = `:274`@head. So 274 is attested outside this file and
+ * ⛔ cannot be moved by an implementation that is wrong: a mapper that drifts by
+ * one fails here rather than reporting a clean branch.
+ *
+ * The first two cases are the PAIR, one step apart: the same sentence, the same
+ * geometry, differing only in whether the number names the tree it was read
+ * from. The bound one must stay silent and the unbound one must fire — a
+ * control that only ever fires proves nothing about discrimination.
+ */
+export const BORN_FALSE_CONTROLS = [
+  {
+    id: 'unbound-address-into-a-line-this-diff-moves',
+    why: "objectui#9496 §2: `:246` at the base is `:274` at the head, moved by the diff's own 28-line insertion",
+    body: 'The shape recurs exactly twice in `imported-defaults.ts`: `:223` and `:246`.',
+    want: (rows) => rows.length === 2 && rows.every((r) => BORN_FALSE_VERDICTS.has(r.verdict))
+      && rows[0].movedTo === null && rows[1].movedTo === 274,
+  },
+  {
+    id: 'the-same-address-bound-to-a-sha-is-silent',
+    why: 'the durable form both pull requests converged on is ⛔ never reported, or the gate teaches authors to unbind',
+    body: 'At `b8a006883d` the shape recurs twice in `imported-defaults.ts`: `:223` and `:246`.',
+    want: (rows) => rows.length === 0,
+  },
+  {
+    id: 'an-address-this-diff-does-not-move-is-silent',
+    why: 'a line above every hunk is untouched — without this the reading is an absolute count of citations, not a differential',
+    body: 'See `imported-defaults.ts:100` for the walker entry point.',
+    want: (rows) => rows.length === 0,
+  },
+  {
+    id: 'an-address-into-a-file-this-change-adds-is-unanchored',
+    why: 'instance 1: a frame in a file the branch itself creates was read from a tree that exists nowhere else, and moved twice',
+    body: 'The deep-clean control is at `imported-defaults-rest-less-tuple-9088.test.ts:281`.',
+    want: (rows) => rows.length === 1 && rows[0].verdict === 'unanchored',
+  },
+];
+
+/**
+ * Runs every control through the real reader, against objectui#9496's geometry.
+ *
+ * HERMETIC — the hunks are the ones that pull request actually produced, written
+ * out here rather than read from the tree. A control that resolved against the
+ * live history would answer a different question after the next squash, and a
+ * gate whose controls rot reports "instrument broken" wherever it is not run
+ * from this checkout.
+ *
+ * `judgeFor` is injectable for one reason: a test has to be able to show that a
+ * judge which LIES fails these controls rather than passing them. A control
+ * suite that cannot be made to fail is decoration.
+ */
+export function evaluateBornFalseControls(judgeFor = judgeAddress) {
+  const MODIFIED = 'packages/types/src/zod/imported-defaults.ts';
+  const ADDED = 'packages/types/src/__tests__/imported-defaults-rest-less-tuple-9088.test.ts';
+  // `@@ -220,0 +221,28 @@` and `@@ -223 +251 @@`, as measured on 8700d6d93.
+  const hunks = [
+    { oldStart: 220, oldCount: 0, newCount: 28 },
+    { oldStart: 223, oldCount: 1, newCount: 1 },
+  ];
+  const resolve = (span) =>
+    MODIFIED.endsWith('/' + span) ? MODIFIED : ADDED.endsWith('/' + span) ? ADDED : null;
+  const statusOf = (file) => (file === MODIFIED ? 'modified' : file === ADDED ? 'added' : null);
+
+  return BORN_FALSE_CONTROLS.map((control) => {
+    let rows = [];
+    let ok = false;
+    let detail = '';
+    try {
+      rows = lineAddresses(control.body, resolve)
+        .map((address) => ({ ...address, ...judgeFor(address, statusOf, () => hunks) }))
+        .filter((row) => BORN_FALSE_VERDICTS.has(row.verdict));
+      ok = control.want(rows) === true;
+      detail = rows.map((r) => `${r.span} -> ${r.verdict}${r.movedTo ? ` (:${r.movedTo})` : ''}`).join(', ') || '(silent)';
+    } catch (error) {
+      detail = `threw: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    return { id: control.id, why: control.why, ok, detail };
+  });
+}
+
+/**
+ * The born-false findings for this change, over the prose it publishes about
+ * itself.
+ *
+ * @param {string} root
+ * @param {{ base: string, head?: string | null, prBody?: string | null }} options
+ * @returns {{ findings: object[], corpus: {origin: string, addresses: number}[], read: number }}
+ */
+export function bornFalse(root, { base, head = null, prBody = null }) {
+  const changed = changedFiles(root, { base, head });
+  const added = new Set(changedFiles(root, { base, head, filter: 'A' }));
+  const subject = changed.filter((file) => !file.startsWith(CHANGESET_DIR));
+  const ownChangesets = changed.filter((file) => file.startsWith(CHANGESET_DIR));
+
+  const baseIndex = treeIndex(root, base);
+  const headIndex = treeIndex(root, head);
+  // Resolved against the HEAD tree as well as the base: a file this change ADDS
+  // is not in the base listing at all, and the unanchored half of this reading
+  // is exactly about those.
+  const resolve = (span) => resolveNamed(headIndex, span) ?? resolveNamed(baseIndex, span);
+  const touched = new Set(subject);
+  const statusOf = (file) => (touched.has(file) ? (added.has(file) ? 'added' : 'modified') : null);
+
+  const hunkCache = new Map();
+  const hunksOf = (file) => {
+    if (!hunkCache.has(file)) hunkCache.set(file, hunksFor(root, { base, head }, file));
+    return hunkCache.get(file);
+  };
+
+  const corpus = [];
+  if (typeof prBody === 'string' && prBody.trim() !== '') {
+    corpus.push({ origin: 'the pull request body', source: prBody });
+  }
+  for (const [path, source] of readBlobs(root, head, ownChangesets)) {
+    corpus.push({ origin: path, source });
+  }
+
+  const findings = [];
+  const read = [];
+  for (const entry of corpus) {
+    const addresses = lineAddresses(entry.source, resolve);
+    read.push({ origin: entry.origin, addresses: addresses.length });
+    for (const address of addresses) {
+      const judged = judgeAddress(address, statusOf, hunksOf);
+      if (!BORN_FALSE_VERDICTS.has(judged.verdict)) continue;
+      findings.push({
+        origin: entry.origin,
+        span: address.span,
+        file: address.file,
+        line: address.line,
+        verdict: judged.verdict,
+        movedTo: judged.movedTo,
+        sentence: address.sentence,
+      });
+    }
+  }
+  findings.sort((a, b) => a.origin.localeCompare(b.origin) || a.line - b.line);
+  return { findings, corpus: read, subject: subject.length };
+}
+
 // -- CLI ----------------------------------------------------------------------
 
 if (isEntrypoint(import.meta.url)) {
@@ -554,6 +934,52 @@ if (isEntrypoint(import.meta.url)) {
     process.exit(1);
   }
 
+  // ── the born-false reading (objectui#9509) ────────────────────────────────
+  //
+  // The corpus is the prose THIS change publishes about itself, and the pull
+  // request body is where two of the three carded instances lived. It is read
+  // from the event payload the job already receives — ⛔ no new workflow, no new
+  // permission and no API call: `GITHUB_EVENT_PATH` is a file on the runner, and
+  // `check-governed-queue-guard.mjs` already reads it the same way.
+  //
+  // ⚠️ A `merge_group` build has no `pull_request` payload. That is an ABSENCE
+  // of corpus, never a clean verdict, and the report below says which.
+  const prBodyFile = argOf('--pr-body');
+  let prBody = null;
+  let prBodyHow = 'not available on this event';
+  if (prBodyFile) {
+    try {
+      prBody = readFileSync(resolve(root, prBodyFile), 'utf8');
+      prBodyHow = `--pr-body ${prBodyFile}`;
+    } catch (error) {
+      console.error(`⚠️  Could not read ${prBodyFile}: ${error.message}`);
+      prBodyHow = `--pr-body ${prBodyFile} (UNREADABLE — this run read no pull request body)`;
+    }
+  } else if (process.env.GITHUB_EVENT_PATH) {
+    try {
+      const payload = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+      if (typeof payload?.pull_request?.body === 'string') {
+        prBody = payload.pull_request.body;
+        prBodyHow = 'GITHUB_EVENT_PATH → pull_request.body';
+      }
+    } catch (error) {
+      prBodyHow = `GITHUB_EVENT_PATH unreadable (${error.message}) — this run read no pull request body`;
+    }
+  }
+
+  const bornControls = evaluateBornFalseControls();
+  let born;
+  try {
+    born = bornFalse(root, { base: base.ref, head, prBody });
+  } catch (error) {
+    console.error(
+      `❌  ${error.message}\n\n` +
+        '    The born-false reading lost an input, so it measured nothing. Reported as a failure\n' +
+        '    rather than as an empty finding set (objectui#4690).',
+    );
+    process.exit(1);
+  }
+
   // The DELIVERY hand-off (objectui#9140). One measurement, two consumers: the
   // log below, which a human reads by opening the job, and this file, which
   // `render-changeset-claims-comment.mjs` turns into the pull request comment.
@@ -581,6 +1007,10 @@ if (isEntrypoint(import.meta.url)) {
             pending: result.pending,
             considered: result.considered,
             findings: result.findings,
+            bornFalse: born.findings,
+            bornFalseCorpus: born.corpus,
+            bornFalseControls: bornControls,
+            prBodyHow,
           },
           null,
           2,
@@ -597,8 +1027,76 @@ if (isEntrypoint(import.meta.url)) {
       `pending declaration(s) that publish a body (${result.pending} pending in total).`,
   );
 
+  // ── the born-false report (objectui#9509) ─────────────────────────────────
+  //
+  // Printed FIRST and unconditionally. It is about the prose this change is
+  // publishing right now, which is the one thing the seat reading this can still
+  // change for free — and unlike the went-false half, nothing later will ever
+  // turn it red.
+  console.log('\n── Born false — claims this change publishes about a tree it replaced ──\n');
+  for (const control of bornControls) {
+    console.log(`    ${control.ok ? 'PASS' : 'FAIL'}  ${control.id}: ${control.detail}`);
+  }
+  const corpusRead = born.corpus.reduce((sum, entry) => sum + entry.addresses, 0);
+  console.log(
+    `\n    Corpus: ${born.corpus.length} body(ies) this change publishes about itself ` +
+      `(${prBodyHow}).\n    Line addresses read in them: ${corpusRead}.`,
+  );
+  if (born.corpus.length === 0) {
+    // ⛔ The FLOOR. An empty corpus is an absence of subject, and printing a tick
+    // for it would report "this change publishes no false claim" on a run that
+    // read no prose at all — the shape objectstack#4928 named.
+    console.log(
+      '\n    ⛔ NOT a clean verdict: this run read NO published prose, so it measured NOTHING\n' +
+        '       of this class. On a pull request the body arrives via GITHUB_EVENT_PATH; on a\n' +
+        '       merge_group build there is no pull request and no body to read.',
+    );
+  } else if (born.findings.length === 0) {
+    console.log(
+      `\n    ✅  Every one of those ${corpusRead} address(es) either names the tree it was read\n` +
+        '        from, or points at a line this change does not move.',
+    );
+  } else {
+    console.log(
+      `\n⚠️  ${born.findings.length} address(es) in the prose this change publishes were read from a\n` +
+        "    tree this change itself replaces:\n",
+    );
+    for (const hit of born.findings) {
+      const where =
+        hit.verdict === 'unanchored'
+          ? `${hit.file} is ADDED by this change — that line exists in no tree outside this pull request`
+          : hit.movedTo === null
+            ? `this change REWRITES ${hit.file}:${hit.line}`
+            : `this change moves ${hit.file}:${hit.line} to :${hit.movedTo}`;
+      console.log(`      ${hit.origin}  says \`${hit.span}\`  ->  ${where}`);
+      console.log(`             sentence: ${hit.sentence}`);
+    }
+    console.log(`
+    ⛔ This is NOT a claim that any of those sentences is false, and ⛔ not an instruction to
+    change the number. Correcting \`:246\` to \`:274\` produces a claim that is true today and
+    born false again on the next insertion — objectui#9509 states that before anything else.
+
+    BIND THE NUMBER TO THE TREE IT WAS READ FROM. \`\`\`:246\` at \`b8a006883d\`, \`:274\` at this
+    head\`\` cannot re-stale, because each number names its own tree. Both pull requests that
+    produced this card converged on that form independently. Or state a RULE instead of a
+    coordinate — "every file in \`git diff --name-only\` against the merge base" — which is
+    what objectui#9495 did with a file count that had already staled once between rounds.
+
+    Report-only, exactly like the half above it: a moved address is usually a moved address
+    and not a lie. The finding is a request to re-read, addressed to the one seat that can
+    answer it without re-deriving anything.`);
+  }
+
   if (result.findings.length === 0) {
-    console.log('✅  No pending changeset names a file this change touches.');
+    console.log('\n✅  No pending changeset names a file this change touches.');
+    if (bornControls.some((control) => !control.ok)) {
+      console.error(
+        `❌  ${bornControls.filter((c) => !c.ok).length} born-false control(s) FAILED — this run is ` +
+          'not a reading. ⛔ Not a finding failure: the instrument failed, and a differential ' +
+          'reader that reports zero because its differ broke is indistinguishable from clean prose.',
+      );
+      process.exit(1);
+    }
     process.exit(0);
   }
 
@@ -644,8 +1142,10 @@ if (isEntrypoint(import.meta.url)) {
     intended shape here: one gate asks for the read, the other records the write.
 
     ⛔ What this gate does NOT cover, stated so nobody reads it as more:
-      - A claim that was BORN false — written against the merge base while describing the
-        head (objectui#8759). A changeset this change adds is excluded by construction.
+      - A born-false claim carrying no LINE ADDRESS. The section above this one now reads
+        that class (objectui#9509) over the prose this change publishes about itself, but
+        only where it spells a coordinate: objectui#9495's "a grep finds that member first"
+        is an ORDINAL claim, and deciding it means reading what the sentence means.
       - A claim about anything it does not spell as a file name in backticks: a symbol, a
         package, an installed dependency's version, a count. Symbol matching was measured
         and dropped — it asked for 191 paragraphs per commit, which is the release-time
@@ -657,5 +1157,13 @@ if (isEntrypoint(import.meta.url)) {
     usually still true. The finding is a request to read, addressed to the one seat that can
     answer it cheaply — the one whose diff might have falsified it.`);
 
+  if (bornControls.some((control) => !control.ok)) {
+    console.error(
+      `❌  ${bornControls.filter((c) => !c.ok).length} born-false control(s) FAILED — this run is ` +
+        'not a reading. ⛔ Not a finding failure: the instrument failed, and a differential ' +
+        'reader that reports zero because its differ broke is indistinguishable from clean prose.',
+    );
+    process.exit(1);
+  }
   process.exit(0);
 }

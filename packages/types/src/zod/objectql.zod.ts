@@ -2101,6 +2101,24 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // ZERO `schema.sort` read sites and the spec's `object-kanban` entry declares
   // no `sort` either. Only `ObjectCalendarSchema` above carries both.
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
+  // objectui#9606 — the CANONICAL card-title spelling, declared beside the
+  // legacy alias below exactly as `@objectstack/spec` declares the pair on
+  // `ObjectKanbanPropsSchema` (`cardTitle` first, `titleField` as its fallback).
+  // Until this card `cardTitle` was the ONLY one of the two this mirror did not
+  // name: it rode `BaseSchema`'s `.passthrough()` unjudged, so
+  // `safeValidateSchema({ type: 'object-kanban', … cardTitle: 42 })` succeeded
+  // AND KEPT the `42`, which `resolveKanbanTitleField` then returned as a record
+  // field name — while the protocol's own `ObjectKanbanPropsSchema` refused the
+  // same document. The key authors are told to prefer was the unjudged one.
+  //
+  // ⛔ `titleField` is NOT retired here (director seat, batch #150 item 3,
+  // letter 1): a mirror may not be narrower than the spec it mirrors, and the
+  // spec still declares the alias. Retiring it starts in `@objectstack/spec`.
+  //
+  // Mirrored at the SAME requiredness as `../objectql.ts` (optional) so the
+  // zod-mirror-parity ratchet stays at zero drift for this pair, and the
+  // describe text is the spec's own, carried over rather than paraphrased.
+  cardTitle: z.string().optional().describe('Field rendered as each card title — the canonical spelling; `titleField` beside it is the legacy fallback, and the board reads `cardTitle || titleField`'),
   titleField: z.string().optional().describe('Title field'),
   cardFields: z.array(z.string()).optional().describe('Card fields'),
   quickAdd: z.boolean().optional().describe('Enable Quick Add button at column bottom'),

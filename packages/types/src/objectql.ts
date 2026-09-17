@@ -3743,6 +3743,30 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * either. Only {@link ObjectCalendarSchema} declares both keys.
    */
   filter?: any[];
+  /**
+   * The record field rendered as each card's title — the CANONICAL spelling of
+   * the one card-title choice this board reads two ways
+   * (`cardTitle || titleField`), and the spelling `@objectstack/spec`,
+   * `plugin-kanban`'s registration `inputs` and this repository's own root
+   * README all tell authors to prefer.
+   *
+   * Undeclared on BOTH published faces of this arm until objectui#9606, while
+   * its legacy alias {@link titleField} beside it was declared — so the key
+   * authors are told to use was the one neither face judged. It reached the
+   * renderer through {@link BaseSchema}'s `[key: string]: any` and the zod
+   * mirror's `.passthrough()`: `cardTitle: 42` validated GREEN and kept the
+   * `42`, which `resolveKanbanTitleField` returns as a record field name, while
+   * the protocol's `ObjectKanbanPropsSchema` refused the same document.
+   *
+   * ⛔ Declaring it does NOT retire {@link titleField} (director seat, batch
+   * #150 item 3, letter 1): a mirror cannot be narrower than the spec it
+   * mirrors, and `@objectstack/spec` still declares the alias. If the alias is
+   * ever retired, that starts in the spec on its own card.
+   *
+   * Optional here and optional in the zod mirror, so the zod-mirror-parity
+   * ratchet stays at zero drift for this pair.
+   */
+  cardTitle?: string;
   /** Field for card title */
   titleField?: string;
   /** Fields to display on card */

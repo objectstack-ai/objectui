@@ -3763,8 +3763,20 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * mirrors, and `@objectstack/spec` still declares the alias. If the alias is
    * ever retired, that starts in the spec on its own card.
    *
-   * Optional here and optional in the zod mirror, so the zod-mirror-parity
-   * ratchet stays at zero drift for this pair.
+   * Optional here and optional in the zod mirror, so the two faces accept and
+   * refuse the same documents. ⚠️ That agreement is NOT held by the
+   * zod-mirror-parity ratchet, and this comment said it was until the claim was
+   * measured: with the key on the mirror and this member deleted, `type-check`
+   * exits 0, including the `tsc -p tsconfig.test.json` leg that judges the
+   * ratchet. The ratchet has `UnmirroredDeclaredKeys` for declared-but-unmirrored
+   * and no counterpart for the reverse — one direction closed by name, its
+   * reverse left open (objectui#9711).
+   *
+   * What this member buys, measured: {@link BaseSchema}'s `[key: string]: any`
+   * would admit `cardTitle: 42` in a typed corpus, and with the member declared
+   * `tsc` refuses it. The `@ts-expect-error` row in
+   * `__tests__/object-kanban-card-title-9606.test.ts` is what turns that into a
+   * guard — delete this member and the directive goes unused, TS2578.
    */
   cardTitle?: string;
   /** Field for card title */

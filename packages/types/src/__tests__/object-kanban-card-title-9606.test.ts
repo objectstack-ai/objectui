@@ -177,11 +177,26 @@ export const BOTH_SPELLINGS_BOARD: TsObjectKanbanSchema = {
  * The zod declaration is pinned by the runtime rows above. The TypeScript twin is
  * NOT: measured by ablation on this tree, deleting `cardTitle?: string` from the
  * `ObjectKanbanSchema` interface leaves `pnpm --filter @object-ui/types type-check`
- * at EXIT 0, the zod-mirror-parity ratchet included. That is structural, not a
- * threshold — {@link BaseSchema} carries `[key: string]: any`, so the ratchet's
- * `DeclaredKeys` sees the twin ACCEPTING every name already, and its three
- * measures (narrower-than-declared, unmirrored-declared, wider-than-declared) all
- * read a mirrored-but-undeclared key as agreement. ⛔ So "the ratchet keeps the
+ * at EXIT 0, the zod-mirror-parity ratchet included — and it is structural, not a
+ * threshold. Filed and re-derived from the ratchet's own source as objectui#9711;
+ * its three operators are blind here for three DIFFERENT reasons, which is worth
+ * stating because the obvious single explanation is wrong:
+ *
+ *   - `WiderThanDeclaredKeys` maps over `MirroredKeys` intersected with
+ *     `DeclaredKeys`, so a key the twin does not declare simply LEAVES the key
+ *     set — blind by omission.
+ *   - `NarrowerThanDeclared` maps over `MirroredKeys` intersected with `keyof D`
+ *     — `keyof D`, not `DeclaredKeys` — and `keyof D` is absorbed by
+ *     {@link BaseSchema}'s `[key: string]: any`, so the compared type is `any`
+ *     and every mirror fits it. This is the ONLY operator the index signature
+ *     explains; ⛔ it does not explain the other two, and `DeclaredKeys` itself
+ *     is index-signature-free by construction (`WithoutIndexSignature`).
+ *   - `UnmirroredDeclaredKeys` measures the OPPOSITE subtraction,
+ *     declared-but-unmirrored.
+ *
+ * ⇒ the file already closed this failure mode by name for one direction — that
+ * is what objectui#6058 measured and what `UnmirroredDeclaredKeys` was added for
+ * — and its reverse has no counterpart operator. ⛔ So "the ratchet keeps the
  * twin honest" is not a claim this repository's instruments support in THAT
  * direction; the twin is declared because it is the PUBLISHED `.d.ts` surface an
  * author's editor reads, and this directive is what makes that declaration
@@ -201,7 +216,7 @@ export const NON_STRING_CARD_TITLE_IS_REFUSED_AT_COMPILE_TIME: TsObjectKanbanSch
   cardTitle: 42,
 };
 
-/** Neither — both members are OPTIONAL on both faces, which is what keeps the parity ratchet at zero. */
+/** Neither — both members are OPTIONAL on both faces, so the two faces agree on this board too. */
 export const NEITHER_SPELLING_BOARD: TsObjectKanbanSchema = {
   type: 'object-kanban',
   objectName: 'tasks',

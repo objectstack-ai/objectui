@@ -9,9 +9,17 @@ Declare `cardTitle` — the canonical card-title spelling — on `ObjectKanbanSc
 Both published faces of the `object-kanban` arm now name the key: the zod mirror
 `ObjectKanbanSchema` in `zod/objectql.zod.ts` and its TypeScript twin, the
 `ObjectKanbanSchema` interface in `objectql.ts`. Both declare it OPTIONAL, at the same
-requiredness the other face uses, so the zod-mirror-parity ratchet stays at zero drift
-for the pair. (Located and cited by SYMBOL: line addresses in `zod/objectql.zod.ts`
+requiredness the other face uses, so the two faces accept and refuse the same
+documents. (Located and cited by SYMBOL: line addresses in `zod/objectql.zod.ts`
 have drifted before, and this change is itself about a drifted mirror.)
+
+⚠️ That agreement is held by a pin in this change, NOT by the `zod-mirror-parity`
+ratchet. Measured while writing this: with `cardTitle` declared on the mirror and
+deleted from the TypeScript twin, `type-check` still exited 0 — the ratchet has an
+operator for declared-but-unmirrored and none for its reverse (objectui#9711). What
+defends the twin's member is a `@ts-expect-error` on `cardTitle: 42` in
+`object-kanban-card-title-9606.test.ts`, which `tsc` reports as an unused directive
+(TS2578) the moment the member is deleted.
 
 **What moves.** `@objectstack/spec` declares both `cardTitle` ("Field rendered as each
 card title") and `titleField` ("Legacy fallback for `cardTitle` (the board reads

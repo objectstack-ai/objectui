@@ -2115,9 +2115,17 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // letter 1): a mirror may not be narrower than the spec it mirrors, and the
   // spec still declares the alias. Retiring it starts in `@objectstack/spec`.
   //
-  // Mirrored at the SAME requiredness as `../objectql.ts` (optional) so the
-  // zod-mirror-parity ratchet stays at zero drift for this pair, and the
-  // describe text is the spec's own, carried over rather than paraphrased.
+  // Mirrored at the SAME requiredness as `../objectql.ts` (optional), so the two
+  // faces accept and refuse the same documents, and the describe text is the
+  // spec's own, carried over rather than paraphrased.
+  //
+  // ⚠️ The zod-mirror-parity ratchet is NOT what holds that pair together, and
+  // this comment claimed it was until the claim was measured: declare the key
+  // here, delete the twin's member, and `type-check` still exits 0. The ratchet
+  // measures declared-but-unmirrored and has no operator for the reverse
+  // (objectui#9711). The twin's member is defended instead by the
+  // `@ts-expect-error` row in
+  // `../__tests__/object-kanban-card-title-9606.test.ts`.
   cardTitle: z.string().optional().describe('Field rendered as each card title — the canonical spelling; `titleField` beside it is the legacy fallback, and the board reads `cardTitle || titleField`'),
   titleField: z.string().optional().describe('Title field'),
   cardFields: z.array(z.string()).optional().describe('Card fields'),

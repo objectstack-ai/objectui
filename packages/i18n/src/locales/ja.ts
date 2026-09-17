@@ -3481,7 +3481,7 @@ const ja = {
       revertLabel: '変更を取り消しました',
       applyLabel: 'ビルドによる変更',
       revert: '取り消し',
-      items: '件',
+      items: '{{count}} 件',
       revertAction: '取り消す',
       reverted: '取り消しました — 変更を元に戻しました。',
       revertFailed: '取り消しに失敗しました',

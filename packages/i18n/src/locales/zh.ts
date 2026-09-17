@@ -2672,7 +2672,7 @@ const zh = {
       revertLabel: '已撤销一处变更',
       applyLabel: '构建变更',
       revert: '撤销',
-      items: '项',
+      items: '{{count}} 项',
       revertAction: '撤销',
       reverted: '已撤销 —— 该变更已还原。',
       revertFailed: '撤销失败',

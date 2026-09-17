@@ -2919,7 +2919,20 @@ const en = {
       revertLabel: 'Reverted a change',
       applyLabel: 'Build change',
       revert: 'revert',
-      items: 'item(s)',
+      // objectui#9266 — the count is INSIDE the value, one interpolated string
+      // per pack. It used to be a bare unit word that `CommitTimeline` glued to
+      // a number it rendered itself, which no pack could make agree: `de` read
+      // `1 Elemente`, `ru` `1 элементов`, `ar` `1 عناصر`. Each pack now states
+      // the count in its own count-INVARIANT idiom — `en` keeps the `(s)` marker
+      // it already dodged with, `zh`/`ja`/`ko` keep the inline counter their
+      // grammar needs no plural for, and `de`/`fr`/`es`/`pt`/`ru`/`ar` use the
+      // label-colon form (`Elemente: 3`, `Элементов: 3`), which is the shape
+      // `fields.textarea.charactersRemaining` already uses for this exact
+      // reason. ⛔ Do not "upgrade" this to a `_one`/`_other` family: identical
+      // key sets across ten packs (all-locales-key-parity) leave `ru` without
+      // `_few` and `ar` without `_two`/`_many`, so those categories land on the
+      // base key and `ru` goes back to reading `2 элементов`.
+      items: '{{count}} item(s)',
       revertAction: 'Revert',
       reverted: 'Reverted — the change has been undone.',
       revertFailed: 'Revert failed',

@@ -3478,7 +3478,7 @@ const pt = {
       revertLabel: 'Uma alteração foi desfeita',
       applyLabel: 'Alteração de compilação',
       revert: 'desfazer',
-      items: 'itens',
+      items: 'Itens: {{count}}',
       revertAction: 'Desfazer',
       reverted: 'Desfeito — a alteração foi revertida.',
       revertFailed: 'Falha ao desfazer',

@@ -167,8 +167,29 @@ export function CommitTimeline({ open, onOpenChange, packageId, onReverted }: Co
                         {t('preview.history.revert', { defaultValue: 'revert' })}
                       </Badge>
                     ) : null}
+                    {/*
+                      objectui#9266 — ONE interpolated key, not a number glued to a
+                      bare unit word. The old spelling composed the phrase here
+                      (`{c.itemCount} {t('preview.history.items')}`), so the packs
+                      could only supply a noun that had to agree with a number they
+                      never saw: six of the ten rendered `1 Elemente` / `1 éléments`
+                      / `1 elementos` / `1 itens` / `1 элементов` / `1 عناصر`.
+                      Passing `count` lets each pack own BOTH the word order and the
+                      agreement — the same repair, and the same reasoning, as
+                      `fields.textarea.charactersRemaining`: a formulation whose
+                      grammar does not bend on the number is correct at every count
+                      without ten plural entries per pack. ⛔ A real `_one`/`_other`
+                      family is NOT the fix here: `all-locales-key-parity.test.ts`
+                      requires identical key sets across the ten packs, so `ru` can
+                      have no `_few` and `ar` no `_two`/`_many`, and those categories
+                      fall through to the base key — measured, `ru` would still read
+                      `2 элементов` at the counts a build history most often shows.
+                    */}
                     <span>
-                      {c.itemCount} {t('preview.history.items', { defaultValue: 'item(s)' })}
+                      {t('preview.history.items', {
+                        count: c.itemCount,
+                        defaultValue: '{{count}} item(s)',
+                      })}
                     </span>
                     {c.actor ? <span>· {c.actor}</span> : null}
                     {c.createdAt ? <span>· {relativeTime(c.createdAt)}</span> : null}

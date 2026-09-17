@@ -268,13 +268,18 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
     }
   });
 
-  it('exactly three keys interpolate, and every pack carries the same holes', () => {
-    // Unlike slice four (where not one of the 46 strings took an option), three
+  it('exactly four keys interpolate, and every pack carries the same holes', () => {
+    // Unlike slice four (where not one of the 46 strings took an option), four
     // of these do, and the rest must NOT: a translator who invents `{{name}}`
     // renders the braces to the user verbatim, and one who drops `{{version}}`
     // from `install.updateTo` leaves the dropdown saying "Update →" with no
     // version. `all-locales-key-parity` compares placeholder shape too — this
     // states the intended shape by name so a wrong one is legible here.
+    //
+    // `preview.history.items` is the fourth, and it was the THIRD until
+    // objectui#9266: it used to be a bare unit word that `CommitTimeline`
+    // preceded with a number of its own, which is why it took no hole. Its
+    // `{{count}}` arriving here is that repair, seen from the placeholder side.
     // Deliberately two regexes: a `/g` one is stateful, and reusing it for
     // `.test()` inside a `filter` silently skips every other match through
     // `lastIndex`. (It did, on the first run of this file.)
@@ -284,6 +289,7 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
       'marketplace.install.updateTo': '{{version}}',
       'marketplace.install.installedVersion': '{{version}}',
       'marketplace.org.installed': '{{name}}',
+      'preview.history.items': '{{count}}',
     };
     expect(KEYS.filter((k) => HAS_HOLE.test(at(builtInLocales.en, k) as string)).sort()).toEqual(
       Object.keys(INTERPOLATED).sort(),
@@ -579,26 +585,53 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
     }
   });
 
-  it('preview.history.items reuses common.itemCount, the same count-plus-unit adjacency', () => {
-    // The call site renders `{c.itemCount} {t('preview.history.items')}` — the
-    // number comes from the component and the pack supplies only the unit. That
-    // is structurally identical to `common.itemCount` (`{{count}} items`), which
-    // this repo already translates in all ten packs, so the unit is taken from
-    // there rather than invented.
+  it('preview.history.items carries its own count, in each pack\'s idiom (objectui#9266)', () => {
+    // ## What this assertion used to pin, and why it could not be carried forward
     //
-    // This one was invented first, and wrongly: `de Element(e)` / `fr élément(s)`
-    // / `es elemento(s)` / `pt item(ns)` / `ru элемент(ов)`, copying the
-    // parenthesised plural marker those packs use elsewhere. Two things were wrong
-    // with it — `ru` uses that marker NOWHERE in 2832 values (it restructures, or
-    // abbreviates as in `fields.relativeDate.overdue`'s `{{count}} дн.`), and
-    // `item(ns)` does not even yield `itens` under pt's own append convention.
-    // The reason the neighbour was missed: the reuse table above matches
-    // BYTE-IDENTICAL `en` strings, and `common.itemCount`'s en is `{{count}} items`,
-    // not `item(s)` — so a neighbour expressing the same concept with different
-    // English is invisible to that search. Hence this assertion, by hand.
-    // Keyed by locale, not by bare `string`: a typo'd pack name is now a
-    // compile error, and the `Object.entries` cast below is the one place
-    // the key type has to be restated — `entries` erases it by design.
+    // It pinned a BARE UNIT WORD per pack — `Elemente`, `элементов`, `عناصر` —
+    // reused from `common.itemCount`, because the call site rendered
+    // `{c.itemCount}` and then `t('preview.history.items')` beside it and the
+    // pack supplied only the noun. That adjacency WAS the defect: the number
+    // lived in the component and the noun in the pack, so no translator could
+    // make the two agree from the leaf they owned. Measured through a real
+    // render — `CommitTimeline.itemCountAgreement-9266` in `app-shell` owns that
+    // measurement — six of the ten packs read `1 Elemente` / `1 éléments` /
+    // `1 elementos` / `1 itens` / `1 элементов` / `1 عناصر` at a single item,
+    // and this pin was green the whole time. ⭐ A pin grown around a defect is
+    // indistinguishable from a healthy one, because it is green.
+    //
+    // ⚠️ It is therefore RE-DERIVED against the new values — not deleted, which
+    // would leave the next regression unwatched, and not copied forward, which
+    // would nail the defect down a second time.
+    //
+    // ## What is pinned now
+    //
+    // Each pack owns the WHOLE phrase, the number's position included. That is
+    // the property the old shape could not have, so it is asserted as a
+    // property and not only as ten strings.
+    const PHRASE: Record<LocaleCode, string> = {
+      en: '{{count}} item(s)',
+      zh: '{{count}} 项',
+      ja: '{{count}} 件',
+      ko: '{{count}} 항목',
+      de: 'Elemente: {{count}}',
+      fr: 'Éléments : {{count}}',
+      es: 'Elementos: {{count}}',
+      pt: 'Itens: {{count}}',
+      ru: 'Элементов: {{count}}',
+      ar: 'العناصر: {{count}}',
+    };
+    for (const lang of LANGS) {
+      const value = at(builtInLocales[lang], 'preview.history.items') as string;
+      expect(value, `${lang} items`).toBe(PHRASE[lang]);
+      expect(value, `${lang} items no longer states its own count`).toContain('{{count}}');
+    }
+
+    // The VOCABULARY did not change hands — only the word order did, which is
+    // what the old assertion was really protecting. Each pack still uses the
+    // noun `common.itemCount` uses; the comparison is case-folded because five
+    // packs now OPEN the phrase with that noun, and `ar` takes the definite
+    // article a label needs, so there the pack's word is a suffix of it.
     const UNIT: Partial<Record<LocaleCode, string>> = {
       zh: '项',
       ja: '件',
@@ -610,19 +643,25 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
       ar: 'عناصر',
     };
     for (const [lang, unit] of Object.entries(UNIT) as [LocaleCode, string][]) {
-      expect(at(builtInLocales[lang], 'preview.history.items'), `${lang} items`).toBe(unit);
-      // the premise: that unit really is what common.itemCount uses
+      // the premise, unchanged: that unit really is what common.itemCount uses
       expect(at(builtInLocales[lang], 'common.itemCount'), `${lang} common.itemCount`).toBe(
         `{{count}} ${unit}`,
       );
+      expect(
+        (at(builtInLocales[lang], 'preview.history.items') as string).toLowerCase(),
+        `${lang} stopped using its own word for an item`,
+      ).toContain(unit.toLowerCase());
     }
-    // `ko` is the one deliberate departure. `common.itemCount` ko is
-    // `{{count}}개 항목` — the counter 개 binds to the numeral with no space — but
-    // this call site emits `{count}` + a space + the unit, so carrying 개 across
-    // would render `3 개 항목` with a space inside the number-counter unit. The
-    // counter is dropped and the bare noun kept, which reads correctly as `3 항목`.
-    expect(at(builtInLocales.ko, 'preview.history.items')).toBe('항목');
+    // `ko` stays the deliberate departure it always was, for a reason that has
+    // now EXPIRED and is kept anyway: `common.itemCount` ko is `{{count}}개 항목`
+    // — the counter 개 binds to the numeral with no space — and the old call site
+    // emitted count + space + unit, so carrying 개 across would have rendered
+    // `3 개 항목`. The pack owns the spacing now, so 개 could be adopted; it is
+    // not, because `ko` was never one of the broken packs and objectui#9266 does
+    // not rewrite copy that reads correctly. A later card may take it.
+    expect(at(builtInLocales.ko, 'preview.history.items')).toBe('{{count}} 항목');
     expect(at(builtInLocales.ko, 'common.itemCount')).toBe('{{count}}개 항목');
+
     // And no pack reintroduced a parenthesised plural marker here. The class is
     // Unicode-aware on purpose (objectui#3866): JS `\w` is [A-Za-z0-9_] with or
     // without `u`, so the ASCII formulation this replaces could not match a
@@ -647,9 +686,32 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
     // is the ASCII paren, so a numeric parenthetical (de's own `(Pos1)` key-name
     // gloss) and a full-width pair (U+FF08/U+FF09, ordinary punctuation in 15 zh
     // and 19 ja values) both sit outside this census. Neither spells a plural
-    // marker, and this key uses neither in any pack.
-    // en keeps the call site's own spelling, per this slice's byte-identity rule.
-    expect(at(builtInLocales.en, 'preview.history.items')).toBe('item(s)');
+    // marker, and this key uses neither in any pack but `en`.
+    // `en` is exempt from that loop and still carries `(s)` on purpose: it was
+    // not one of the six broken packs, and the marker is the count-invariant
+    // device English already had here.
+    expect(at(builtInLocales.en, 'preview.history.items')).toBe('{{count}} item(s)');
+
+    // ⛔ NOT a plural family, and that is a measurement rather than a taste.
+    // `all-locales-key-parity.test.ts` requires identical key sets across the
+    // ten packs, so a family here could only ever be base + `_one` + `_other`:
+    // `ru` could have no `_few` and `ar` no `_two`/`_many`, and every category a
+    // pack does not spell out falls through to the base key. Against a real
+    // i18next instance that shape renders `ru` `2 элементов` and `ar`
+    // `11 عناصر` — wrong at the counts a build history shows most often, which
+    // is why the phrase above is count-INVARIANT instead. These assertions fail
+    // if someone "upgrades" this key and reintroduces that.
+    for (const lang of LANGS) {
+      for (const suffix of ['_zero', '_one', '_two', '_few', '_many', '_other']) {
+        expect(
+          at(builtInLocales[lang], `preview.history.items${suffix}`),
+          `${lang} items${suffix}`,
+        ).toBeUndefined();
+      }
+    }
+    // The categories that make the paragraph above true rather than asserted.
+    expect(new Intl.PluralRules('ru').select(2)).toBe('few');
+    expect(new Intl.PluralRules('ar').select(11)).toBe('many');
   });
 
   it('the ratchet actually shrank — no marketplace/preview key is still baselined', () => {

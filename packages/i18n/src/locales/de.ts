@@ -3479,7 +3479,7 @@ const de = {
       revertLabel: 'Eine Änderung rückgängig gemacht',
       applyLabel: 'Build-Änderung',
       revert: 'rückgängig',
-      items: 'Elemente',
+      items: 'Elemente: {{count}}',
       revertAction: 'Rückgängig',
       reverted: 'Rückgängig gemacht — die Änderung wurde zurückgenommen.',
       revertFailed: 'Rückgängig machen fehlgeschlagen',

@@ -3486,7 +3486,7 @@ const ar = {
       revertLabel: 'تم التراجع عن تغيير',
       applyLabel: 'تغيير من البناء',
       revert: 'تراجع',
-      items: 'عناصر',
+      items: 'العناصر: {{count}}',
       revertAction: 'تراجع',
       reverted: 'تم التراجع — أُلغي التغيير.',
       revertFailed: 'فشل التراجع',

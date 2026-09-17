@@ -3481,7 +3481,7 @@ const fr = {
       revertLabel: 'Modification annulée',
       applyLabel: 'Modification de génération',
       revert: 'annulation',
-      items: 'éléments',
+      items: 'Éléments : {{count}}',
       revertAction: 'Annuler',
       reverted: 'Annulé — la modification a été retirée.',
       revertFailed: 'Échec de l\'annulation',

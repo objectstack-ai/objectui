@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { isValidElement } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { CollapsibleSchema } from '@object-ui/types';
 import { 
@@ -49,16 +50,47 @@ ComponentRegistry.register('collapsible',
   // so, and `zod-mirror-parity.test.ts` ledgers it), so it keeps riding this
   // spread onto the Radix root, where it fires for the UNCONTROLLED toggling
   // this exclusion restores.
-  ({ schema, className, disabled: hostDisabled, open: _open, ...props }: { schema: CollapsibleSchema; className?: string; disabled?: boolean; [key: string]: any }) => (
-    <Collapsible defaultOpen={schema.defaultOpen} disabled={hostDisabled} className={className} {...props}>
-       <CollapsibleTrigger asChild>
-         {renderChildren(schema.trigger)}
-       </CollapsibleTrigger>
-       <CollapsibleContent>
-         {renderChildren(schema.content)}
-       </CollapsibleContent>
-    </Collapsible>
-  ),
+  ({ schema, className, disabled: hostDisabled, open: _open, ...props }: { schema: CollapsibleSchema; className?: string; disabled?: boolean; [key: string]: any }) => {
+    // `asChild` is CONDITIONAL, and the condition is Radix's own structural
+    // precondition, not a preference (objectui#9701).
+    //
+    // `asChild` resolves the primitive to Radix's `Slot`, which merges its
+    // props onto its child by way of `React.Children.only` — it takes a SINGLE
+    // React element and refuses everything else with
+    // 「Primitive.button failed to slot onto its children」. `trigger` is a node
+    // slot, and both published faces admit a bare string on it: the TypeScript
+    // union `SchemaNode` names `string` explicitly, and the zod mirror types
+    // the key against that same union. So `trigger: 'Show more'` — the most
+    // natural thing to write for something called a trigger — validated, then
+    // threw here and landed the whole node in `SchemaRenderer`'s error
+    // boundary, with no diagnostic naming the key.
+    //
+    // Withholding `asChild` exactly where Slot cannot serve lets the Radix
+    // primitive render its OWN `<button>` around whatever came back, so a
+    // string paints as the trigger's text and stays a real trigger — the
+    // implementation catching up to a declaration that already said yes.
+    // ⛔ Neither published face moves: `packages/types` is untouched by this
+    // change, and the accept set is the same set it already shipped.
+    //
+    // ⛔ Not `typeof === 'string'`: the same refusal fires for a multi-node
+    // trigger array and for an empty slot's `null`, which are the same
+    // structural mismatch wearing different values. The predicate asks Radix's
+    // question — "is this one element?" — so every arm that is not one element
+    // takes the primitive's own button, and the element arm keeps the merge
+    // unchanged (pinned by this file's `ASCHILD_STILL_ON` control in
+    // `collapsible-bare-string-trigger-9701.test.tsx`).
+    const trigger = renderChildren(schema.trigger);
+    return (
+      <Collapsible defaultOpen={schema.defaultOpen} disabled={hostDisabled} className={className} {...props}>
+         <CollapsibleTrigger asChild={isValidElement(trigger)}>
+           {trigger}
+         </CollapsibleTrigger>
+         <CollapsibleContent>
+           {renderChildren(schema.content)}
+         </CollapsibleContent>
+      </Collapsible>
+    );
+  },
   {
     namespace: 'ui',
     label: 'Collapsible',

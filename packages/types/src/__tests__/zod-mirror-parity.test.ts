@@ -3649,15 +3649,38 @@ interface MirroredUndeclared {
    * was missing from an earlier TypeScript scan — so the gap was NOTICED at authoring
    * time, written down in a comment, and then measured by nothing for as long as the
    * fourth direction did not exist. That is this card's thesis in one key.
+   *
+   * ⚠️ The twin is NOT silent about the neighbouring name: `ObjectGridSchema`
+   * declares `operations` (the CRUD-affordance toggles the block's authoring
+   * vocabulary and `@objectstack/spec`'s `object-grid` surface both spell that
+   * way), and it is `BaseSchema`'s index signature — not a declaration — that
+   * lets an authored `operators` type-check. Per-key consequences, including
+   * which face judges the key and which merely absorbs it, are measured by
+   * `mirror-only-published-keys-9729.test.ts` for objectui#9729's contract
+   * review. ⛔ Neither remedy is taken there and none is implied here.
    */
   "objectql.zod.ts#ObjectGridSchema":
     | "operators";
 
   /**
-   * LOCAL, one key. `dueLike` exists on the zod face only: `git grep` finds it in the
-   * mirror and nowhere in this package's TypeScript declarations. An author writing
-   * it gets a green `safeParse` from a published validator for a key the published
-   * types never invited.
+   * LOCAL, one key. An author writing `dueLike` on a detail-view field gets a green
+   * `safeParse` from a published validator for a key the published `DetailViewField`
+   * never invited — and, because that twin carries no index signature, the SAME
+   * document is refused by the compiler (`TS2353`). The two published faces
+   * contradict each other rather than one of them being merely quiet.
+   *
+   * ⛔ This entry once justified itself with "a `git grep` finds it in the mirror and
+   * nowhere in this package's TypeScript declarations", which is FALSE as written and
+   * is corrected here rather than repeated: `field-types.ts` declares `dueLike` on
+   * `DateFieldMetadata` and on `DateTimeFieldMetadata`, both in this package. ⭐ A
+   * NAME is not a KEY — a key is (interface, name) — and a package-wide grep for the
+   * name answers a question this ledger is not asking. What the operator measures,
+   * and what stays true, is that the key is absent from THIS PAIR'S twin.
+   *
+   * The per-key consequences — that the mirror judges the key rather than merely
+   * passing it, and that objectui's own detail-view path READS it at runtime — are
+   * measured by `mirror-only-published-keys-9729.test.ts` and by the two probes
+   * objectui#9729 landed beside the renderers that read it. ⛔ No remedy is implied.
    */
   "views.zod.ts#DetailViewFieldSchema":
     | "dueLike";

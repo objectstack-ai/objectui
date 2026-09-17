@@ -362,16 +362,26 @@ export interface DeleteViewResult {
  *
  * ⚠️ ONE door is still wide, and it is wide for a reason that is written down
  * rather than left to be rediscovered: `findOne`. Narrowing it is ruled
- * (director batch #136 item 5, letter B) but not yet landed, because its nine
- * in-tree call sites resolve to two AUTHORABLE metadata keys —
- * `ObjectFormSchema.recordId` and `DetailViewSchema.resourceId` — whose zod
- * mirrors accept a number today (measured: `{type:'object-form', …,
- * recordId: 42}` validates and keeps `42`). Closing this door therefore means
- * either narrowing a published authoring face (an accept-set change the ruling
- * does not name) or converting at each reader (which the ruling's "the
- * conversion lives in one typed place" rejects), so it is carried to the
- * decision inbox on objectui#9511 rather than picked here. ⛔ Do not narrow
- * `findOne` without that decision.
+ * (director batch #136 item 5, letter B) but not yet landed, because of what
+ * its remaining call sites turn out to read:
+ *
+ * - `ObjectForm` reads `ObjectFormSchema.recordId`, and `DetailView` reads
+ *   `DetailViewSchema.resourceId`. Both are AUTHORABLE metadata keys whose zod
+ *   mirrors accept a number today, so narrowing either one refuses author JSON
+ *   that validates now — an accept-set change this ruling does not name.
+ * - `DrawerForm`, `ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm` each
+ *   read their OWN `recordId`, declared on their own exported schema face.
+ *   Those faces carry no zod mirror and no registered node type, so they are
+ *   TypeScript-only — the same class as `UseViewDataResult.fetchOne`, which
+ *   narrowed with this card. ⛔ They still cannot narrow ahead of the decision:
+ *   `ObjectForm` BUILDS all five of those schemas from its own (authorable)
+ *   `ObjectFormSchema`, so narrowing them alone only moves the same refusal
+ *   onto those hand-off sites.
+ *
+ * ⇒ closing this door means either narrowing an authoring face or converting
+ * at a reader, and the choice is carried to the decision inbox on
+ * objectui#9511 rather than picked here. ⛔ Do not narrow `findOne` without
+ * that decision.
  *
  * ⚠️ Narrowing a parameter here does NOT reach implementors — TypeScript
  * compares method parameters bivariantly, so an adapter that still declares

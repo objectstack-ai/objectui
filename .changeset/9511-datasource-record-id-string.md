@@ -63,9 +63,17 @@ own breaking changes ship as `minor` with the break named where it lands.
 ## One door is deliberately still open
 
 `DataSource.findOne` keeps `string | number` in this release. Narrowing it is
-ruled, but its in-tree call sites resolve to two **authorable** metadata keys —
-`ObjectFormSchema.recordId` and `DetailViewSchema.resourceId` — whose zod
-mirrors accept a number today, so closing it means either narrowing a published
-authoring face or converting at each reader. Neither is named by the ruling;
-the choice is carried on objectui#9511 and the reason is recorded in the
-`DataSource` docblock so it is not rediscovered.
+ruled, but its remaining call sites split two ways. `ObjectForm` reads
+`ObjectFormSchema.recordId` and `DetailView` reads `DetailViewSchema.resourceId`
+— **authorable** metadata keys whose zod mirrors accept a number today, so
+narrowing either refuses author JSON that validates now. `DrawerForm`,
+`ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm` read a `recordId`
+declared on their own exported schema face; those faces have no zod mirror and
+no registered node type, so they are TypeScript-only, like
+`UseViewDataResult.fetchOne` above — but they still cannot narrow first,
+because `ObjectForm` builds all five of them from its own authorable
+`ObjectFormSchema` and the refusal simply moves to those hand-off sites.
+
+So the choice is either an authoring-face narrowing or a reader-side
+conversion; neither is named by the ruling, and it is carried on objectui#9511.
+The reason is recorded in the `DataSource` docblock so it is not rediscovered.

@@ -72,31 +72,27 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
+import type { WalkableDef } from '../zod/node-derivation.js';
 
 /* ── the graph reader ─────────────────────────────────────────────────────── */
 
-interface ZodDef {
-  type: string;
-  shape?: Record<string, z.ZodType>;
-  options?: z.ZodType[];
-  items?: z.ZodType[];
-  element?: z.ZodType;
-  // ⚠️ `z.ZodType | null`, and the `| null` is the whole card. `WalkableDef` in
-  // `../zod/node-derivation.ts` declares this member `rest?: z.ZodType`, which
-  // does NOT admit the `null` zod actually mints — and that inaccurate
-  // declaration is what made `: undefined` look like the right spelling to
-  // write. Declared honestly HERE because this file is what measures it; the
-  // shared type lives outside this card's file surface.
-  rest?: z.ZodType | null;
-  valueType?: z.ZodType;
-  left?: z.ZodType;
-  right?: z.ZodType;
-  in?: z.ZodType;
-  out?: z.ZodType | null;
-  innerType?: z.ZodType;
-  getter?: () => z.ZodType;
-}
-const defOf = (node: z.ZodType): ZodDef => (node as unknown as { _zod: { def: ZodDef } })._zod.def;
+// ⭐ `WalkableDef` ITSELF — and the reason this file no longer mirrors it is the
+// same reason it mirrored it before. The copy that stood here declared
+// `rest?: z.ZodType | null` while `../zod/node-derivation.ts` declared
+// `rest?: z.ZodType`: this file measures the `null`, the shared declaration
+// refused it, so the honest spelling had to be local. objectui#9491 moved that
+// spelling into the shared declaration, so a copy can now only DRIFT from it —
+// and it had already drifted in two sibling pin files (objectui#9692).
+//
+// ⚠️ ONE member reads differently, and it is ⛔ NOT this file's measurement being
+// narrowed: the copy also declared `out?: z.ZodType | null`, where the shared
+// declaration says `out?: z.ZodType`. The `out` census below reads through a
+// probe annotated `unknown`, deliberately, so that no declaration — local or
+// shared — decides the answer it asks. The shared `out` is itself re-derived
+// against the installed zod by `walkable-def-null-mint-9491.test.ts`, which
+// fails if zod ever mints a `null` there.
+const defOf = (node: z.ZodType): WalkableDef =>
+  (node as unknown as { _zod: { def: WalkableDef } })._zod.def;
 const isZod = (v: unknown): v is z.ZodType =>
   v !== null && (typeof v === 'object' || typeof v === 'function') && '_zod' in (v as object);
 

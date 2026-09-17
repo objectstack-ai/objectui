@@ -58,6 +58,7 @@ import {
   REFUSED_REGISTRY_META_KEYS,
   carryRegistryMeta,
   cloneWithDef,
+  type WalkableDef,
 } from '../zod/node-derivation.js';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 // ⚠️ THROUGH THE BARREL, deliberately. `../strict-authoring-face.ts` is the deep
@@ -73,22 +74,15 @@ const SRC_DIR = join(HERE, '..');
 
 /* ── the graph reader ─────────────────────────────────────────────────────── */
 
-interface ZodDef {
-  type: string;
-  shape?: Record<string, z.ZodType>;
-  options?: z.ZodType[];
-  items?: z.ZodType[];
-  element?: z.ZodType;
-  rest?: z.ZodType;
-  valueType?: z.ZodType;
-  left?: z.ZodType;
-  right?: z.ZodType;
-  in?: z.ZodType;
-  out?: z.ZodType;
-  innerType?: z.ZodType;
-  getter?: () => z.ZodType;
-}
-const defOf = (node: z.ZodType): ZodDef => (node as unknown as { _zod: { def: ZodDef } })._zod.def;
+// ⭐ `WalkableDef` ITSELF, ⛔ no longer a module-local copy of it. The copy here
+// declared `rest?: z.ZodType` — the spelling objectui#9491 removed from the
+// shared declaration, because zod 4 mints an OWN `rest` key holding `null` —
+// and then cast around its own declaration to read the `null` that declaration
+// refused. Importing the honest one deletes the copy and the cast together, and
+// a future drift in the shared type now reaches this file instead of being
+// mirrored past it (objectui#9692).
+const defOf = (node: z.ZodType): WalkableDef =>
+  (node as unknown as { _zod: { def: WalkableDef } })._zod.def;
 const isZod = (v: unknown): v is z.ZodType =>
   v !== null && (typeof v === 'object' || typeof v === 'function') && '_zod' in (v as object);
 /**
@@ -223,7 +217,7 @@ const hasRestlessTuple = (root: z.ZodType): boolean => {
     if (seen.has(n)) continue;
     seen.add(n);
     const d = defOf(n);
-    if (d.type === 'tuple' && (d as { rest?: unknown }).rest !== undefined && d.rest === null) return true;
+    if (d.type === 'tuple' && d.rest === null) return true;
     if (d.type === 'lazy') continue;
     for (const [, c] of childrenOf(n)) stack.push(c);
   }
@@ -441,7 +435,7 @@ describe('the zod 4 facts the carry rests on (objectui#9102)', () => {
       'zod now keeps registry metadata in `def` — the explicit carry may be redundant. Re-measure before deleting it.',
     ).toBe(false);
 
-    const Ctor = (node as unknown as { constructor: new (d: ZodDef) => z.ZodType }).constructor;
+    const Ctor = (node as unknown as { constructor: new (d: WalkableDef) => z.ZodType }).constructor;
     const raw = new Ctor({ ...defOf(node) });
     expect(
       metaOf(raw),

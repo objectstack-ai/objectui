@@ -81,25 +81,19 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
+import type { WalkableDef } from '../zod/node-derivation.js';
 
 /* ── the graph reader ─────────────────────────────────────────────────────── */
 
-interface ZodDef {
-  type: string;
-  shape?: Record<string, z.ZodType>;
-  options?: z.ZodType[];
-  items?: z.ZodType[];
-  element?: z.ZodType;
-  rest?: z.ZodType;
-  valueType?: z.ZodType;
-  left?: z.ZodType;
-  right?: z.ZodType;
-  in?: z.ZodType;
-  out?: z.ZodType;
-  innerType?: z.ZodType;
-  getter?: () => z.ZodType;
-}
-const defOf = (node: z.ZodType): ZodDef => (node as unknown as { _zod: { def: ZodDef } })._zod.def;
+// ⭐ `WalkableDef` ITSELF, ⛔ no longer a module-local copy of it. The copy here
+// declared `rest?: z.ZodType` — the spelling objectui#9491 removed from the
+// shared declaration, because zod 4 mints an OWN `rest` key holding `null` —
+// and then cast around its own declaration to read the `null` that declaration
+// refused. Importing the honest one deletes the copy and the cast together, and
+// a future drift in the shared type now reaches this file instead of being
+// mirrored past it (objectui#9692).
+const defOf = (node: z.ZodType): WalkableDef =>
+  (node as unknown as { _zod: { def: WalkableDef } })._zod.def;
 const optinOf = (node: z.ZodType): string | undefined =>
   (node as unknown as { _zod: { optin?: string } })._zod.optin;
 const isZod = (v: unknown): v is z.ZodType =>
@@ -186,7 +180,7 @@ const hasRestlessTuple = (root: z.ZodType): boolean => {
     if (seen.has(n)) continue;
     seen.add(n);
     const d = defOf(n);
-    if (d.type === 'tuple' && (d as { rest?: unknown }).rest !== undefined && d.rest === null) return true;
+    if (d.type === 'tuple' && d.rest === null) return true;
     if (d.type === 'lazy') continue;
     for (const [, c] of childrenOf(n)) stack.push(c);
   }
@@ -504,7 +498,7 @@ describe('the zod 4 facts that make the carry necessary (objectui#9034)', () => 
     // preserves `def.checks` and preserved nothing about the description, which
     // is why `cloneWithDef` has to ask for it explicitly.
     const node = z.object({ k: z.string() }).describe('CONTAINER');
-    const Ctor = (node as unknown as { constructor: new (d: ZodDef) => z.ZodType }).constructor;
+    const Ctor = (node as unknown as { constructor: new (d: WalkableDef) => z.ZodType }).constructor;
     const raw = new Ctor({ ...defOf(node) });
     expect(node.description).toBe('CONTAINER');
     expect(

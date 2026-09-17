@@ -50,6 +50,11 @@ import {
  *     against it is addressed to the wrong schema. Both directions are pinned:
  *     rows that could not be drained, and a read that PASSED because the foreign
  *     arm happened to declare the same spelling.
+ *  4c. **A registration WRAPPER hop is taken** (objectui#9700). A type-only cast
+ *     on the expression that hands a child the document erases at runtime, so it
+ *     must not close the hop. ⚠️ A lost HOP is worse than a lost read: the
+ *     component leaves the census entirely, and the green then covers a file the
+ *     gate never opened. That is the state objectui#9447 stood in.
  *  5. **This repository is green**, with the ledger's rows all still live.
  *  6. **The gate is wired** where the sibling parse-based gates run, and the
  *     page that inventories them names it.
@@ -572,6 +577,134 @@ ComponentRegistry.register('tabs', TabsRenderer, { namespace: 'view' });
  * to declare the same spelling), which left no row at all and so could not be
  * seen in the ledger.
  */
+describe('check-handler-key-read-sites — the registration WRAPPER hop, and the cast that hid it (objectui#9700)', () => {
+  /**
+   * objectui#9447's shape, rebuilt hop for hop.
+   *
+   * `register('detail-view', DetailViewRenderer)` hands the registry a WRAPPER:
+   * `elementDataSourceBlock(...)` around a body that renders a data-source gate
+   * and gives the real component the document through the gate's render-prop
+   * parameter — `{(bound) => <DetailView schema={bound as DetailViewSchema} />}`.
+   * The gate is imported from another package, so the walk cannot follow it; the
+   * render-prop hop is the ONLY way to `DetailView`, and the `as` on that
+   * attribute is what closed it.
+   *
+   * ⚠️ objectui#9344 peeled type-only wrappers off a READ receiver. It did not
+   * peel them off a HOP, and the two failures are not symmetric: a hidden read
+   * still leaves the component in the census, while a hidden hop removes the
+   * component entirely — no finding, no ledger row, no census row, and a green
+   * that reads as "no undeclared reads" over a file the gate never opened. That
+   * is the state objectui#9447 stood in: two undeclared keys read on a live
+   * call path, and this gate exited 0 over them.
+   *
+   * ⚠️ The key is spelled `onRecordJump`, never a live one: `KNOWN_UNDECLARED_READS`
+   * is global, so a fixture reusing a real row's `type::Schema.key` is EXEMPTED
+   * and its RED leg goes green for a reason that has nothing to do with the hop.
+   */
+  const wrapped = (members: string[], handed: string) => ({
+    'packages/types/src/zod/base.zod.ts': BASE,
+    'packages/types/src/zod/views.zod.ts': arm('detail-view', 'DetailViewSchema', members),
+    'packages/plugin-detail/src/DetailView.tsx': `
+export const DetailView = ({ schema }: { schema: any }) => (
+  <article onClick={() => schema.onRecordJump?.('/next')} />
+);
+`,
+    'packages/plugin-detail/src/index.tsx': `
+import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
+import { ElementDataSourceGate } from '@object-ui/react';
+import { DetailView } from './DetailView';
+export const DetailViewRenderer = elementDataSourceBlock(({ schema, ...props }: any) => {
+  const fallbackNode = { id: 'placeholder' };
+  return (
+    <ElementDataSourceGate schema={schema} testId="detail-view">
+      {(bound) => <DetailView schema={${handed}} {...props} />}
+    </ElementDataSourceGate>
+  );
+});
+ComponentRegistry.register('detail-view', DetailViewRenderer, { namespace: 'plugin-detail' });
+`,
+  });
+
+  // ⭐ THE FIRING PIN. objectui#9447's own shape, on an arm that declares
+  // nothing: the gate must reach `DetailView` THROUGH the wrapper and report the
+  // key. This leg is GREEN — findings `[]` — on the gate as it stood before
+  // objectui#9700, which is precisely why the card exists: the miss was
+  // demonstrated on the real tree and nothing in this file could have said so.
+  it('goes RED on a read reached only through a registration wrapper handing a CAST document', () => {
+    const result = analyze(tree('wrapper-cast-red', wrapped([], 'bound as DetailViewSchema')));
+    expect(
+      result.findings.map((f) => `${f.kind} ${f.key}`),
+      'the wrapper hop must reach the component behind it — a green here is the objectui#9700 ' +
+        'blind spot, and it certifies the very shape this gate hunts',
+    ).toEqual(['undeclared detail-view::DetailViewSchema.onRecordJump']);
+    expect(result.counters.reads).toBe(1);
+  });
+
+  // The control ON that pin: the same fixture with the key DECLARED. Green has
+  // to be a green about the declaration, so the read and judged counters are
+  // asserted non-zero — a walk that found nothing satisfies `findings: []`
+  // identically.
+  it('stays GREEN through the same wrapper when the arm declares the key', () => {
+    const result = analyze(
+      tree('wrapper-cast-green', wrapped([RUNTIME_SLOT('onRecordJump')], 'bound as DetailViewSchema')),
+    );
+    expect(result.findings).toEqual([]);
+    expect(
+      result.counters.reads,
+      'the green must be a judgement on a read that was FOUND, not a hop that was never taken',
+    ).toBe(1);
+    expect(result.counters.judged).toBe(1);
+  });
+
+  // ⭐ FIRING CONTROL — ONE TOKEN apart. The same wrapper, the same cast, the
+  // same arm; only the operand under the cast changes, from the render-prop
+  // document to an unrelated local declared two lines above it. The hop must NOT
+  // be taken. Without this leg, "peel the cast" could have been spelled "follow
+  // every `schema=` attribute", which reattributes reads to arms that never see
+  // them — the false positives `carriesDocument` exists to remove.
+  it('FIRING CONTROL — a cast over a NON-document operand is still not followed', () => {
+    const control = analyze(tree('wrapper-cast-control', wrapped([], 'fallbackNode as DetailViewSchema')));
+    expect(control.findings).toEqual([]);
+    expect(control.counters.reads).toBe(0);
+    // The lit half of the pair, so the zero above is a reading about the operand
+    // and not a fixture the walk never reached.
+    const lit = analyze(tree('wrapper-cast-control-lit', wrapped([], 'bound as DetailViewSchema')));
+    expect(lit.counters.reads).toBe(1);
+    expect(lit.findings.map((f) => f.key)).toEqual(['detail-view::DetailViewSchema.onRecordJump']);
+  });
+
+  // Every type-only wrapper that erases the same way, on the hop side this time.
+  // `erasedReceiverName` already peels all of them off a READ; a walk that peels
+  // one spelling and not another is describing a type annotation, not a runtime.
+  it.each([
+    ['as-cast', 'bound as DetailViewSchema'],
+    ['double cast', 'bound as unknown as DetailViewSchema'],
+    ['non-null assertion', 'bound!'],
+    ['satisfies expression', 'bound satisfies DetailViewSchema'],
+    ['parenthesised cast', '(bound as DetailViewSchema)'],
+    ['spread of a cast', '{ ...(bound as DetailViewSchema) }'],
+  ])('takes the wrapper hop through a %s', (label, handed) => {
+    const result = analyze(tree(`wrapper-hop-${label.replace(/\W+/g, '-')}`, wrapped([], handed)));
+    expect(result.findings.map((f) => f.key)).toEqual(['detail-view::DetailViewSchema.onRecordJump']);
+  });
+
+  // ⚠️ The peel widens what the walk SEES, never what it FOLLOWS. A child handed
+  // a document the wrapper BUILT is still not followed, cast or no cast — that
+  // narrowing is what keeps `ViewSwitcher`'s `onViewChange` off `ObjectViewSchema`,
+  // and a peel that reached past `declaresOwnType` would put it back.
+  it('still refuses a hop to a child handed a document the wrapper BUILT, cast and all', () => {
+    const result = analyze(
+      tree('wrapper-built-doc', wrapped([], "{ ...bound, type: 'view-switcher' } as DetailViewSchema")),
+    );
+    expect(
+      result.findings,
+      'an object literal writing its own `type` is a NEW node; following it attributes the ' +
+        "child's reads to an arm that never sees them",
+    ).toEqual([]);
+    expect(result.counters.reads).toBe(0);
+  });
+});
+
 describe('check-handler-key-read-sites — a registration is keyed on what it CLAIMS (objectui#9573)', () => {
   /**
    * The tree's own shape: `ListViewRenderer` is registered under `view:list`
@@ -786,6 +919,55 @@ describe('check-handler-key-read-sites — this repository', () => {
     const chatbotSend = result.census.find((c) => c.type === 'chatbot' && c.key === 'onSend');
     expect(chatbotSend?.declared).toBe(true);
     expect(chatbotSend?.disposition).toBe('runtime-slot');
+  });
+
+  /**
+   * objectui#9700 on the real tree — objectui#9447's own instance, now a
+   * READING where it used to be an absence.
+   *
+   * ⚠️ This is the leg the card was filed for. Its state before the repair was
+   * not "declared" or "exempted": there were no `detail-view` rows AT ALL, and
+   * no assertion in this file could tell that apart from a clean arm. The three
+   * rows below are all read from ONE file — `DetailView.tsx` — which TWO
+   * registrations reach, and only the raw one (`detail`) used to arrive.
+   */
+  it('reaches objectui#9447\'s reads through the `detail-view` registration WRAPPER', () => {
+    const at = (type: string, key: string) => result.census.find((c) => c.type === type && c.key === key);
+
+    expect(
+      result.census.filter((c) => c.type === 'detail-view').map((c) => c.key).sort(),
+      'the wrapper hop is the whole of objectui#9700 — an empty `detail-view` census is the blind ' +
+        'spot restored, not a clean arm',
+    ).toEqual(['onAddComment', 'onNavigate', 'onTabChange']);
+    for (const key of ['onAddComment', 'onNavigate', 'onTabChange']) {
+      expect(at('detail-view', key)?.file).toBe('packages/plugin-detail/src/DetailView.tsx');
+    }
+
+    // The two objectui#9447 named. They are DECLARED runtime slots today — that
+    // card was fixed by a different path, ⛔ not by this gate — so what this leg
+    // pins is that the gate can now SEE them. ⚠️ Green on these two says
+    // "declared"; before the repair the same green said nothing at all.
+    expect(at('detail-view', 'onNavigate')?.disposition).toBe('runtime-slot');
+    expect(at('detail-view', 'onAddComment')?.disposition).toBe('runtime-slot');
+
+    // The third is the row the blind spot was hiding: the SAME read site as
+    // `detail::DetailSchema.onTabChange`, scored under the other registration
+    // that reaches it. Both carry objectui#7804, which owns the disposition —
+    // the decision lands in the zod arm, never in the gate.
+    expect(at('detail-view', 'onTabChange')?.declared).toBe(false);
+    expect(KNOWN_UNDECLARED_READS.get('detail-view::DetailViewSchema.onTabChange')).toBe('objectui#7804');
+
+    // ⭐ FIRING CONTROL for all of the above: the RAW twin's rows. The repair
+    // only ever ADDS hops — `register('detail', DetailView)` hands over the
+    // component itself and its walk crosses no cast at all — so these three must
+    // be untouched. If they moved, the reading above is a re-keying that
+    // relocated the reads, not a wrapper hop that found them.
+    expect(
+      result.census.filter((c) => c.type === 'detail').map((c) => c.key).sort(),
+    ).toEqual(['onAddComment', 'onNavigate', 'onTabChange']);
+    expect(at('detail', 'onNavigate')?.disposition).toBe('runtime-slot');
+    expect(at('detail', 'onTabChange')?.declared).toBe(false);
+    expect(KNOWN_UNDECLARED_READS.get('detail::DetailSchema.onTabChange')).toBe('objectui#7804');
   });
 
   /**

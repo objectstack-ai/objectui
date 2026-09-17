@@ -3703,7 +3703,12 @@ export interface ObjectKanbanSchema extends BaseSchema {
         /** WIP limit — the card count at which the lane warns. Never reaches the query. */
         limit?: number;
         className?: string;
-        /** Whether the lane renders collapsed (honoured by the enhanced board). */
+        /**
+         * Whether the lane renders collapsed — narrowed to a title spine with
+         * its cards withheld, and reopenable by the viewer, who then owns the
+         * state for the session. Honoured on both of the registered board's
+         * layouts since objectui#9628; see {@link KanbanColumn.collapsed}.
+         */
         collapsed?: boolean;
       }>;
   /**
@@ -3835,15 +3840,24 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * ## Where collapse actually lives, so the remedy is not a second fiction
    *
    * Lane collapse is {@link KanbanColumn.collapsed}'s — a PER-LANE member, not
-   * a board-level authored toggle. ⚠️ Measured rather than inherited: on the
-   * board THIS arm renders, collapse is the VIEWER's and not the author's at
-   * all. `KanbanImpl` collapses a swimlane when its header button is clicked
+   * a board-level authored toggle: it is written on the lane the author wants
+   * collapsed, inside `columns`, and the board THIS arm renders honours it on
+   * both of its layouts since objectui#9628 — the lane starts collapsed and the
+   * viewer can open it again.
+   *
+   * ⚠️ When this key retired that per-lane member was itself
+   * declared-but-unhonoured on the registered board, read only by
+   * `KanbanEnhanced`, which is referenced by no registration since the
+   * `kanban-enhanced` node key retired (objectui#8257); objectui#9628 repaired
+   * that at the reader rather than by retiring a second key. The distinction
+   * this key's retirement rests on is unchanged either way: per-LANE collapse
+   * is the author's to declare, while SWIMLANE collapse is the VIEWER's alone
+   * — `KanbanImpl` collapses a swimlane row when its header button is clicked
    * and persists that set per `swimlaneField` under the storage key
-   * `objectui:kanban-collapsed:` + that field; it reads no `collapsed` member
-   * on a lane. The implementation that does honour one, `KanbanEnhanced`, is
-   * referenced by no registration since the `kanban-enhanced` node key retired
-   * (objectui#8257). ⇒ delete the key; there is no board-level replacement to
-   * rename it to, and nothing that worked stops working.
+   * `objectui:kanban-collapsed:` + that field, and no authored key reaches it.
+   *
+   * ⇒ delete the key; there is no board-level replacement to rename it to, and
+   * nothing that worked stops working.
    *
    * ## Why a tombstone rather than a plain deletion
    *

@@ -134,7 +134,7 @@ export const KanbanColumnSchema = z.object({
   cards: z.array(KanbanCardSchema).describe('Column cards'),
   limit: z.number().optional().describe('WIP limit — the card count at which the lane warns'),
   className: z.string().optional().describe('Column class name'),
-  collapsed: z.boolean().optional().describe('Whether the lane renders collapsed (honoured by the enhanced board)'),
+  collapsed: z.boolean().optional().describe('Whether the lane renders collapsed — narrowed to a title spine with its cards withheld, and reopenable by the viewer; the authored value is the initial state'),
   color: retiredDeclarativeKanbanKey('color', 'column', 'Style a lane through its `className`.'),
 });
 

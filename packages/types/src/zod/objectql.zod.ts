@@ -2041,7 +2041,7 @@ const ObjectKanbanLaneSchema = z.object({
   cards: z.array(KanbanCardSchema).optional().describe('Cards this lane carries — a STATIC board only; an object-bound board buckets records into the lane by groupBy'),
   limit: z.number().optional().describe('WIP limit — the card count at which the lane warns; never reaches the query'),
   className: z.string().optional().describe('Lane class name'),
-  collapsed: z.boolean().optional().describe('Whether the lane renders collapsed (honoured by the enhanced board)'),
+  collapsed: z.boolean().optional().describe('Whether the lane renders collapsed — narrowed to a title spine with its cards withheld, and reopenable by the viewer; the authored value is the initial state'),
 });
 
 const KANBAN_RECORD_SOURCE_KEYS = ['bind', 'data', 'objectName'] as const;
@@ -2149,9 +2149,10 @@ export const ObjectKanbanSchema = BaseSchema.extend({
       "and collapsed nothing. `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` never " +
       'declared the key and refuses it by name at publish, so a document carrying it was already ' +
       'being rejected whole. Lane collapse is `KanbanColumn.collapsed`’s — a PER-LANE member — not ' +
-      'a board-level authored toggle, and on the board this arm renders it is the VIEWER’s rather ' +
-      'than the author’s: `KanbanImpl` collapses a swimlane when its header is clicked and persists ' +
-      'that per `swimlaneField`. Delete the key; there is no board-level replacement to rename it to.',
+      'a board-level authored toggle: write it on the lane you want collapsed, inside `columns`, and ' +
+      'the board honours it (objectui#9628). SWIMLANE collapse stays the VIEWER’s: `KanbanImpl` ' +
+      'collapses a swimlane row when its header is clicked and persists that per `swimlaneField`. ' +
+      'Delete the key; there is no board-level replacement to rename it to.',
   ),
   conditionalFormatting: z.array(KanbanConditionalFormattingRuleSchema).optional().describe('Card conditional formatting rules'),
   // ── objectui#7804 — the three handler keys `KanbanRenderer` reads off the

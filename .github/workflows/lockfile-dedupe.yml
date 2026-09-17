@@ -31,37 +31,49 @@ name: Lockfile Dedupe
 # ⚠️ The filter is also what makes it UNREQUIRABLE: objectui#3523's rule,
 # enforced by `scripts/__tests__/dependabot-merge-gate.test.ts`, is that a
 # REQUIRED context must come from a workflow whose `pull_request` trigger has no
-# path filter. It is enrolled as an OPTIONAL context instead — blocking when it
-# runs, not waited for when the filter keeps it out. `Bundle Analysis` is
-# enrolled on exactly those terms and its filter also includes `pnpm-lock.yaml`.
+# path filter. It is enrolled as an OPTIONAL context instead — present it must
+# be green, absent it is not waited for. `Bundle Analysis` is enrolled on
+# exactly those terms and its filter also includes `pnpm-lock.yaml`.
 #
-# ── ⚠️ It IS a blocking context, and that is a decision, not a default ────────
+# ── ⚠️ Its VERDICT no longer blocks a pull request — a ruling, not a default ──
 #
-# `scripts/dependabot-merge-gate.mjs` classifies `Lockfile Dedupe Check` in
-# `OPTIONAL_CONTEXTS`, so a red here stops a Dependabot auto-merge. Its
-# neighbour `Lockfile Integrity Check` is deliberately NOT enrolled, and that
-# difference is intentional rather than an inconsistency to tidy away:
+# objectui#9562 measured this gate returning FOUR GREEN AND ONE RED on a
+# byte-identical `pnpm-lock.yaml` inside ninety minutes: same blob at every ref,
+# no lockfile edit anywhere, and no registry publish that day to explain it. The
+# red printed a confident `VERDICT not deduped` naming an `esbuild` peer split —
+# and then told the reader to fix it HERE by committing a dedupe, to a file every
+# open pull request shares. ⛔ The mechanism was never identified, and this file
+# ⛔ does not adopt one.
 #
-#   * #8326's gate reports a duplication and leaves the ANSWER open — re-lock,
-#     pin, or accept the split — so enrolling it would block pull requests on a
-#     judgement call with no mechanical remedy. Its header reserves that for the
-#     maintainer, and ⛔ this file does not touch that reservation.
-#   * This gate has exactly ONE remedy and pnpm prints it: run `pnpm dedupe` and
-#     commit the lockfile. No declaration, range or override changes. There is no
-#     judgement call to reserve.
+# The maintainer ruled letter A on 2026-09-17 (card objectui#9562, ruling comment
+# 5717182406): a gate that is non-deterministic BY CONSTRUCTION does not block.
+# So the job now passes `--report-only` to the checker below. What that changes,
+# and ⛔ what it deliberately does not:
 #
-# The cost of enrolling it was measured before it was taken, and it is near zero
-# TODAY only because objectui#9215 landed first: on `main` after that collapse
-# this gate is green, so nothing currently-mergeable is blocked by it. On `main`
-# BEFORE it, the same command reds. ⇒ what this gate really defends is that
-# objectui#9215's paydown does not silently accrue again — which is the whole
-# reason the bump PR's `pnpm dedupe` is cheap enough to require at all.
+#   * CHANGED — on a pull request a `not deduped` verdict is a `::warning::`
+#     annotation plus a step-summary block naming the split, and the step exits
+#     0. The finding text, in BOTH modes, now says what the instrument is:
+#     re-run before acting, and dedupe only when the split reproduces.
+#   * UNCHANGED — the job keeps its name (`Lockfile Dedupe Check`), its path
+#     filter and its `OPTIONAL_CONTEXTS` classification, so ⛔ nothing in branch
+#     protection or the merge queue moves. The BARE script keeps its 0/1/2 exit
+#     codes for whoever runs it by hand; that is the way to ask for the hard
+#     verdict, and ⛔ it is not an oversight to tidy away.
+#   * ⚠️ STILL HAS TEETH, and this is why the classification stays honest rather
+#     than becoming vestigial: `--report-only` relaxes the VERDICT, not the JOB.
+#     A red checkout, a failed `ci-setup-pnpm.sh`, or a `--self-test` that stops
+#     passing still fails this context and still stops a Dependabot auto-merge.
+#     What no longer reds is a live registry reading disagreeing with itself.
 #
-# ⇒ ⚠️ If this ever needs to stop blocking, the flip is one line: move
-# `Lockfile Dedupe Check` from `OPTIONAL_CONTEXTS` to `NOT_A_GATE` in
-# `scripts/dependabot-merge-gate.mjs`. The partition test keeps either state
-# honest; ⛔ deleting the name from both buckets fails that test rather than
-# quietly shrinking the gate.
+# ⚠️ `scripts/dependabot-merge-gate.mjs`'s entry for this name still reads
+# "Blocking when it runs". After this change that is imprecise for the verdict
+# (true for the job, per the bullet above); the classification itself is correct
+# and ⛔ was deliberately not edited here — that file is held by another open
+# pull request, and prose is not worth the collision.
+#
+# ⇒ what this gate still defends is objectui#9215's paydown: on `main` after that
+# collapse it is green, on `main` before it the same command reds. It now defends
+# it by REPORTING the drift rather than by refusing the pull request.
 #
 # ── No `merge_group` trigger ─────────────────────────────────────────────────
 #
@@ -154,5 +166,11 @@ jobs:
       # No `pnpm install`: `pnpm dedupe --check` resolves and reports without
       # writing a lockfile or a node_modules tree (verified on objectui#8333 —
       # the lockfile's sha256 is unchanged across repeated runs).
+      # `--report-only` (objectui#9562, ruling A): the reading is unchanged, the
+      # consequence is not — `::warning::` + a step summary, exit 0. ⛔ Do not
+      # drop the flag to "make the gate strict again": the gate is a live
+      # registry reading that was measured disagreeing with itself, and a
+      # blocking version of it teaches every seat to re-run on red, which hides
+      # the real failures of this same check.
       - name: Check the committed lockfile is deduped
-        run: node scripts/check-lockfile-dedupe.mjs
+        run: node scripts/check-lockfile-dedupe.mjs --report-only

@@ -36,8 +36,15 @@
  * adopt one here).
  *
  * So the live reading stays where this repository already put it — the
- * path-filtered `Lockfile Dedupe Check` context, still BLOCKING, unchanged —
- * and this file drives the shipped script through a STUBBED `pnpm` instead.
+ * path-filtered `Lockfile Dedupe Check` context — and this file drives the
+ * shipped script through a STUBBED `pnpm` instead.
+ *
+ * ⚠️ That context is no longer BLOCKING on its verdict. objectui#9562's ruling
+ * (letter A, comment 5717182406) made it REPORT on pull requests: the workflow
+ * passes `--report-only`, a `not deduped` verdict becomes a `::warning::` plus a
+ * step summary, and the step exits 0. The bare script keeps its 0/1/2 exit
+ * codes. Both halves are pinned below, and ⛔ the relaxation is scoped to the
+ * VERDICT: a job that fails for any other reason still reds this context.
  * ⛔ Do not reintroduce a bare spawn of the checker here: every run below
  * asserts the stub served it (`pnpmArgv` is written by the stub and by nothing
  * else), so a spawn that reached the real pnpm fails rather than going quiet.
@@ -252,6 +259,14 @@ interface CheckerRun {
   stderr: string;
   /** Written by the stub and by nothing else — absent means the real pnpm ran. */
   pnpmArgv: string | null;
+  /**
+   * What the run appended to `$GITHUB_STEP_SUMMARY`, which is pointed at a file
+   * of this run's own for EVERY leg — including the legs that must write
+   * nothing. ⚠️ Without that, an empty summary would be indistinguishable from
+   * an environment variable that never arrived; the legs that DO write are the
+   * positive control for the legs that must not.
+   */
+  stepSummary: string;
 }
 
 /**
@@ -261,7 +276,7 @@ interface CheckerRun {
  * and every caller asserts that recording exists — that is the control which
  * makes "no live reading" a measurement rather than a promise in a comment.
  */
-function runChecker(stub: { stdout?: string; stderr?: string; exit: number }): CheckerRun {
+function runChecker(stub: { stdout?: string; stderr?: string; exit: number }, args: string[] = []): CheckerRun {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lockfile-dedupe-stub-'));
   try {
     const bin = path.join(dir, 'bin');
@@ -285,12 +300,19 @@ function runChecker(stub: { stdout?: string; stderr?: string; exit: number }): C
     );
     fs.chmodSync(pnpm, 0o755);
 
-    const proc = spawnSync('node', [SCRIPT], {
+    const summaryFile = path.join(dir, 'step-summary.md');
+    fs.writeFileSync(summaryFile, '');
+
+    const proc = spawnSync('node', [SCRIPT, ...args], {
       cwd: repoRoot,
       encoding: 'utf8',
       env: {
         ...process.env,
         PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`,
+        // ⛔ Overridden rather than inherited: under CI this variable is already
+        // set, and a checker that appended there would both pollute the real run
+        // summary and make the assertions below read the wrong file.
+        GITHUB_STEP_SUMMARY: summaryFile,
       },
     });
     return {
@@ -298,6 +320,7 @@ function runChecker(stub: { stdout?: string; stderr?: string; exit: number }): C
       stdout: proc.stdout,
       stderr: proc.stderr,
       pnpmArgv: fs.existsSync(argvFile) ? fs.readFileSync(argvFile, 'utf8') : null,
+      stepSummary: fs.readFileSync(summaryFile, 'utf8'),
     };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -371,6 +394,25 @@ describe('the lockfile-dedupe checker', () => {
     expect(run.stderr).toContain('VERDICT could not take a reading');
   });
 
+  it('⛔ the instruction to commit a dedupe is gone from the finding — in BOTH modes', () => {
+    // The sentence objectui#9562 reported: a confident red that told the reader
+    // to `pnpm dedupe` and commit, to a lockfile every open pull request shares.
+    // The ruling removes it from the blocking mode too, so this leg is measured
+    // WITHOUT the flag as well — a fix that only reached the new mode would let
+    // the bad advice survive wherever the hard verdict is still read.
+    for (const args of [[], ['--report-only']]) {
+      const run = runChecker({ stdout: PNPM_RED, exit: 1 }, args);
+      const report = `${run.stdout}${run.stderr}`;
+      expect(run.pnpmArgv, `the stub did not serve the ${args.join(' ') || 'bare'} run`).toBe('dedupe --check');
+      expect(report, 'the removed instruction is back').not.toContain('Fix it HERE');
+      // …and what replaced it names the instrument rather than a remedy.
+      expect(report).toContain('RE-RUN this check');
+      expect(report).toContain('ONLY when');
+      // Anti-vacuity: the leg really did produce the finding it is reading.
+      expect(report).toContain('VERDICT not deduped');
+    }
+  });
+
   it('returns the same verdict and the same bytes for the same input', () => {
     // The property objectui#9562 is about, asserted over the half of the input
     // this repository controls. ⚠️ It says nothing about the live reading in
@@ -382,6 +424,78 @@ describe('the lockfile-dedupe checker', () => {
     expect(second.status).toBe(first.status);
     expect(second.stdout).toBe(first.stdout);
     expect(second.stderr).toBe(first.stderr);
+  });
+});
+
+describe('--report-only — the mode objectui#9562 ruled (letter A, comment 5717182406)', () => {
+  it('⭐ a not-deduped verdict warns, summarises the split, and exits 0', () => {
+    const run = runChecker({ stdout: PNPM_RED, exit: 1 }, ['--report-only']);
+    expect(run.pnpmArgv, 'the stub did not serve this run — a live pnpm reached the registry').toBe('dedupe --check');
+
+    // The relaxation itself.
+    expect(run.status, 'the ruled mode exits 0 — the verdict reports, it does not fail').toBe(0);
+    expect(run.stderr).toContain('::warning title=Lockfile dedupe::');
+    expect(run.stderr, 'an error annotation still fails the Files tab reading').not.toContain('::error');
+
+    // ⛔ and it is a relaxation of the CONSEQUENCE, not of the reading: the same
+    // verdict, naming the same split, is still printed.
+    expect(run.stderr).toContain('VERDICT not deduped');
+    expect(run.stderr).toContain('zod');
+    expect(run.stderr).toContain('@objectstack/spec');
+    // A green exit with a warning needs to say so, or it reads as a near-miss.
+    expect(run.stderr).toContain('REPORT ONLY');
+
+    // The step-summary block, which is the other half of "reports".
+    expect(run.stepSummary, 'the ruled step summary was not written').toContain('not deduped');
+    expect(run.stepSummary).toContain('zod');
+    expect(run.stepSummary).toContain('@objectstack/spec');
+    // It carries the instrument caveat too, from the checker's single copy.
+    expect(run.stepSummary).toContain('RE-RUN this check');
+  });
+
+  it('⭐ leg E survives the flag: "could not look" stays distinguishable from "clean"', () => {
+    // The thing this change may NOT erase. Under the flag both outcomes exit 0,
+    // so the exit code no longer separates them — something else has to, and
+    // these two runs are read against each other rather than in isolation.
+    const down = runChecker({ stderr: PNPM_REGISTRY_DOWN, exit: 1 }, ['--report-only']);
+    const clean = runChecker({ stdout: PNPM_GREEN, exit: 0 }, ['--report-only']);
+    expect(down.pnpmArgv).toBe('dedupe --check');
+    expect(clean.pnpmArgv).toBe('dedupe --check');
+
+    expect(down.status, 'the registry being down may not fail a pull request').toBe(0);
+    expect(clean.status).toBe(0);
+
+    // ⇒ the discriminators, each asserted in BOTH directions.
+    expect(down.stderr).toContain('VERDICT could not take a reading');
+    expect(down.stderr).toContain('Nothing here was judged');
+    expect(`${down.stdout}${down.stderr}`, 'a failed reading reported as a deduped tree').not.toContain(
+      'VERDICT deduped',
+    );
+    expect(down.stderr, 'nothing was judged, so nothing may be reported as a finding').not.toContain(
+      'VERDICT not deduped',
+    );
+    expect(down.stderr, 'the annotation is the only signal left once the exit code is 0').toContain(
+      '::warning title=Lockfile dedupe::',
+    );
+    expect(down.stepSummary).toContain('could not take a reading');
+
+    expect(clean.stdout).toContain('VERDICT deduped');
+    expect(clean.stderr, 'a clean tree may not raise an annotation of any kind').not.toContain('::warning');
+    expect(clean.stderr).not.toContain('::error');
+    expect(clean.stepSummary, 'a clean tree writes no step summary — the block itself is the signal').toBe('');
+  });
+
+  it('CONTROL — the BARE script keeps its exit codes, which is what the flag is for', () => {
+    // The ruling grants ONE explicit flag and keeps the hand-run contract. This
+    // is also the control for the three legs above: without it, a checker that
+    // had simply stopped failing would pass them all.
+    expect(runChecker({ stdout: PNPM_RED, exit: 1 }).status, 'the bare script stopped reporting findings').toBe(1);
+    expect(runChecker({ stderr: PNPM_REGISTRY_DOWN, exit: 1 }).status, 'the bare script stopped reporting 2').toBe(2);
+    expect(runChecker({ stdout: PNPM_GREEN, exit: 0 }).status).toBe(0);
+    // ⛔ And the mode is never inferred: an unrelated argument must not turn it on.
+    const unrelated = runChecker({ stdout: PNPM_RED, exit: 1 }, ['--verbose']);
+    expect(unrelated.pnpmArgv).toBe('dedupe --check');
+    expect(unrelated.status, 'report-only was entered by something other than its own flag').toBe(1);
   });
 });
 
@@ -454,6 +568,15 @@ describe('the lockfile-dedupe gate is wired the way its header claims', () => {
     expect(takesLiveReading(maskComments('const dedupe = new Set<string>();'))).toBe(false);
   });
 
+  it('passes `--report-only`, which is where objectui#9562’s ruling actually lands', () => {
+    // Comment-stripped: the header explains the mode at length, and prose may
+    // not satisfy wiring. The flag on the step is the entire deliverable — the
+    // script supports both modes, so the workflow is what chooses one.
+    expect(body(), 'the gate is blocking again — objectui#9562, undone').toContain(
+      `node ${SCRIPT} --report-only`,
+    );
+  });
+
   it('is path-filtered, and the filter lists the gate’s own runtime closure', () => {
     const trigger = pullRequestTrigger(workflow!);
     expect(trigger.subscribes, 'the gate must run on pull requests').toBe(true);
@@ -476,10 +599,13 @@ describe('the lockfile-dedupe gate is wired the way its header claims', () => {
     expect(body()).not.toMatch(/^\s*run:.*corepack/m);
   });
 
-  it('is classified as a BLOCKING (optional) context, not an alarm', () => {
-    // ⚠️ The load-bearing assertion. Moving this name to NOT_A_GATE is a real
-    // option — the workflow header documents it as a one-line flip — but it is
-    // a decision about what may auto-merge, so it fails here first.
+  it('stays an OPTIONAL context, because the JOB still gates even though its verdict does not', () => {
+    // ⚠️ The load-bearing assertion, and objectui#9562 did NOT move it: the
+    // ruling relaxed the VERDICT, not the job. A failed checkout, a broken
+    // `ci-setup-pnpm.sh` or a `--self-test` that stops passing still reds this
+    // context and still stops a Dependabot auto-merge — so the classification
+    // is live rather than vestigial, and moving this name to NOT_A_GATE remains
+    // a separate decision about what may auto-merge, which fails here first.
     expect(Object.keys(OPTIONAL_CONTEXTS)).toContain(CONTEXT);
     expect(Object.keys(NOT_A_GATE)).not.toContain(CONTEXT);
     // And it may not be REQUIRED while the path filter stands (objectui#3523).

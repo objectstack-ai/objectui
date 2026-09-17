@@ -16,8 +16,8 @@ barrel was the only route to this type.
 The omission was not inert. The seat that stopped `ObjectTreeProps.schema`
 being `any` in `@object-ui/plugin-tree` (objectui#8655) could not import the
 name, so it had to spell the node as
-`Extract<ObjectQLComponentSchema, { type: 'object-tree' }>` — an idiom that
-works, and that every later reader of that file has to decode. A type nobody
+`Extract< ObjectQLComponentSchema, { type: 'object-tree' } >` — an idiom that
+worked, and that every reader of that file had to decode. A type nobody
 can import mints a fresh hand-written copy of itself for each consumer that
 needs it, which is the second-authority shape objectui#6349 is burning down.
 

@@ -122,7 +122,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..');
 const TREE_READER = 'packages/plugin-tree/src/ObjectTree.tsx';
 
-/** The node the checker now sees at every read, spelled the way the renderer spells it. */
+/**
+ * The node spelled INDEPENDENTLY of the renderer: narrowed off the published
+ * union, here and only here. ⭐ A deliberate SECOND spelling, kept on purpose —
+ * `ObjectTree.tsx` imports `ObjectTreeSchema` by name as of objectui#9550, so the
+ * ① row below is a CONSUMER-SIDE proof that the named import and the union arm
+ * are one declaration. ⛔ Do not "tidy" this into the same import the renderer
+ * uses: two independently written spellings that must agree IS the assertion, and
+ * one spelling agreeing with itself asserts nothing.
+ */
 type ObjectTreeNode = Extract<ObjectQLComponentSchema, { type: 'object-tree' }>;
 
 /** A key nothing reads and nothing declares — the both-ways control. */
@@ -205,7 +213,7 @@ type DeclaredKeys<T> = keyof {
 };
 type Declares<T, K extends PropertyKey> = K extends DeclaredKeys<T> ? true : false;
 
-/** ① — the prop is the published node, derived off the union, and it is not `any`. */
+/** ① — the prop is the published node, equal to the union arm, and it is not `any`. */
 export type _PropIsThePublishedNode = Expect<Equal<ObjectTreeProps['schema'], ObjectTreeNode>>;
 export type _PropIsNotAnyAnyMore = Expect<Equal<IsAny<ObjectTreeProps['schema']>, false>>;
 /** The `Equal` helper can FAIL — synthetic control, so the two rows above count. */

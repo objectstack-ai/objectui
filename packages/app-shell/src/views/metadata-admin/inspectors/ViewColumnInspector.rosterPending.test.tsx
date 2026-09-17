@@ -25,8 +25,10 @@
  *
  * The settled frame was never wrong — it was correct before this change and is
  * correct after it — so a test that lets the roster land before asserting is
- * green on the defect too. Each case here reads the trigger BEFORE resolving
- * the client, and only then resolves it to pin what it settles to.
+ * green on the defect too. The two cases that carry the repair therefore read
+ * the trigger BEFORE resolving the client, and only then resolve it to pin what
+ * it settles to. The third is the true negative and deliberately does the
+ * opposite; the note on it says why.
  *
  * ## ⛔ What the existing pin on this exact string does NOT cover
  *
@@ -39,7 +41,6 @@
  * combobox. It pins the retired-alias read; it says nothing about this window.
  */
 
-import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 
@@ -149,9 +150,16 @@ describe('ViewColumnInspector — the field roster is still loading (objectui#88
     // Without this leg the suite is satisfied by deleting the marker outright.
     // Here the response arrives and genuinely does not offer `amount`, so the
     // claim becomes true and must be made.
+    //
+    // ⚠️ Deliberately does NOT read the in-flight frame first, although the
+    // other two cases do and it would document the transition nicely. Measured:
+    // with that pre-assertion in place, ablating the fix turned this row red for
+    // the PENDING frame's reason and the row stopped being able to testify about
+    // the answered one — both legs failing on one ablation is exactly what a
+    // true negative exists to rule out. The legs are decoupled so this one is
+    // green on the defect and on the fix alike, and red only if the marker is
+    // deleted outright.
     mount();
-    expect(fieldKeyTrigger().textContent).toBe('amount');
-
     state.land({ name: 'invoices', fields: { stage: { type: 'text', label: 'Stage' } } });
 
     return waitFor(() => {

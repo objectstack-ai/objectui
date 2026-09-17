@@ -60,6 +60,13 @@
  *             RENDERS that is declared in the same package (JSX element names,
  *             resolved through same-file declarations and static relative
  *             imports, transitively, with a visited set).
+ *   KEYING    a registration is keyed on the type keys it CLAIMS, which is what
+ *             the third argument decides and ⛔ not what the type string spells
+ *             (objectui#9573): `register()` in `@object-ui/core`'s `Registry`
+ *             sets `ns:type`, and sets the bare `type` key only when a
+ *             namespaced registration omits `skipFallback`. A namespaced-only
+ *             alias is therefore judged against the arm of `ns:type` — never the
+ *             bare arm, which is the key `skipFallback` exists to leave alone.
  *   FINDING   a read key at a type that HAS an arm, where the arm does not
  *             declare that key (`undeclared`), or declares it with the RETIRED
  *             disposition while a renderer still reads it (`retired-but-read`).
@@ -91,7 +98,13 @@
  *      `'notifications'`, `'approvals'` and the rest of the app-shell surface
  *      are registered without a mirror. An arm that does not exist cannot have
  *      lost a member, and inventing an obligation there would be a different
- *      card.
+ *      card. ⚠️ A namespaced-only alias over a type whose BARE key does have an
+ *      arm falls here too — `view:list`, `action:button`, `page:tabs` — and
+ *      because that is the shape objectui#9573 was mis-judging, its reads are
+ *      still REPORTED, as UNMIRRORED-ALIAS census rows carrying the bare arm
+ *      they are not. They are countable and `--list`-able; they are ⛔ not
+ *      findings, and the way to bring them into judgement is to mirror the
+ *      namespaced key, ⛔ never to declare the key on the bare arm.
  *   4. **Whether a declared key's TYPE is right.** That is the #6124 ledger's
  *      `KeepsFunction` / `RetiredIsNever` blocks, and it needs a type checker.
  *   5. **Lazy chunks.** `React.lazy(() => import('./KanbanImpl'))` is a dynamic
@@ -101,7 +114,10 @@
  * ## Rollout
  *
  * `KNOWN_UNDECLARED_READS` below is an EXEMPTION list, never the population, and
- * it only shrinks. Every row is a live defect with a card, not a waiver: a row
+ * it only shrinks. ⚠️ Its size is a LOWER BOUND on the defects this gate can
+ * see, never a measure of them: a read that passes for a coincidental reason
+ * leaves no row at all, which is how `'form' FormSchema.onCancel` passed until
+ * objectui#9573 re-keyed the census. Every row is a live defect with a card, not a waiver: a row
  * naming a read site this gate can no longer find FAILS the gate, the same
  * `KNOWN_HAND_SPELLINGS` rule PR #7789 landed. Its rows are the gate's own first
  * findings — arms whose renderer reads a key the mirror never declared, which is
@@ -135,185 +151,75 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // authored `onX: { action: 'toast' }` parses GREEN today and is then handed to
   // a call site expecting a function. `AlertDialogSchema.onAction` was exactly
   // this shape until objectui#7104 declared it. Each fix is a `packages/PKG/src`
-  // change and each disposition has to be MEASURED per key, so they are ledgered
-  // here rather than guessed at in the change that adds the instrument.
-  ['button::ButtonSchema.onSuccess', 'objectui#7804'],
-  ['icon::IconSchema.onSuccess', 'objectui#7804'],
-  // ⭐ ALL SEVEN `data-table::DataTableSchema` rows LANDED and are gone —
-  // objectui#7804's `DataTableSchema` slice. `onAddRecord`, `onBatchSave`,
-  // `onCellChange`, `onColumnResize`, `onRowActionDef`, `onRowClick` and
-  // `onRowSave` are objectui#6124 RUNTIME SLOTS on the arm, each measured at its
-  // OWN channel rather than assumed from its siblings: five arrive as React
-  // props a host hands `ObjectGrid` or `RelatedList`, which forward them onto
-  // the `data-table` node they build; `onRowClick` has three suppliers at once;
-  // and `onColumnResize` has NO host prop anywhere — `ObjectGrid` supplies its
-  // own closure, folding the resize into the merged column layout it persists.
-  // That last one is why the disposition could not be read off the group: the
-  // key is still READ and still RUN, so `'retired'` ("no renderer reads this
-  // key") would have published a false statement to every author who trips it.
+  // change and each disposition has to be MEASURED per key, so they were
+  // ledgered here rather than guessed at in the change that added the
+  // instrument.
   //
-  // Draining a row is part of the landing, not cleanup after it: a row that
-  // outlived its read reddens `staleExemptions()` below — which is exactly the
-  // intermediate reading that proved the arm edit had reached these keys.
-  // ⭐ `tree-view::TreeViewSchema.onNodeClick` LANDED and is gone —
-  // objectui#7804's `TreeViewSchema` slice, one row. An objectui#6124 RUNTIME
-  // SLOT on the arm: `renderers/data-display/tree-view.tsx` gates on
-  // `if (schema.onNodeClick)` and CALLS `schema.onNodeClick(node)`, so
-  // `'retired'` ("no renderer reads this key") would have published a false
-  // sentence; the TypeScript face already declared the callable twin, and the
-  // mirror now says on the JSON face what that face could not.
+  // ⭐ ALL SEVEN `data-table::DataTableSchema` rows, the one
+  // `tree-view::TreeViewSchema.onNodeClick` row, all five
+  // `object-form::ObjectFormSchema` rows, `object-grid::ObjectGridSchema.onNavigate`,
+  // all three `object-kanban::ObjectKanbanSchema` rows, all five
+  // `list-view::ListViewSchema` rows, both `object-gallery::ObjectGallerySchema`
+  // rows and `object-view::ObjectViewSchema.onNavigate` LANDED and are gone.
+  // They are objectui#6124 RUNTIME SLOTS on their arms, each measured at its OWN
+  // channel rather than assumed from its siblings — which is why the slices
+  // could not be co-disposed: `onColumnResize` has NO host prop anywhere
+  // (`ObjectGrid` supplies its own closure), `onStepChange` has no in-repo
+  // supplier at all while its channel is wired end to end, and `onRowClick` has
+  // three suppliers at once. `object-kanban::ObjectKanbanSchema.onCardMove` went
+  // with objectui#9342 the other way: its disposition IS `'retired'`, and this
+  // gate refused that spelling while `KanbanRenderer` still read the key, so the
+  // read moved to an explicit React prop first and the arm then took the
+  // tombstone. Draining a row is part of the landing, not cleanup after it: a
+  // row that outlived its read reddens `staleExemptions()` below.
   //
-  // ⚠️ THE SLICE THAT MADE THE REST OF THIS LEDGER LEGIBLE. Re-derived at this
-  // slice's branch point from the REGISTRATION OPTIONS rather than from the
-  // type string: THIRTEEN of the fifteen rows standing here before it are the
-  // objectui#9573 ALIAS shape — the registration carries `skipFallback: true`,
-  // so it never claims the bare type key, while this census keys a registration
-  // by its RAW TYPE STRING and judges the read against an arm minted for a
-  // different component. `list::` (5), `form::` (4) and `grid::` (1) were
-  // already known to be that shape; `button::`, `icon::` and `tabs::` were NOT,
-  // and are:
-  //   - `register('button', ActionButtonRenderer, { namespace: 'action',
-  //     skipFallback: true })` — the authored type is `action:button`, and
-  //     `form.zod.ts#ButtonSchema` is the Shadcn primitive `button` registered
-  //     by `renderers/form/button.tsx`. Declaring `onSuccess` there would
-  //     publish an action's post-success navigation block on a plain button.
-  //   - `register('icon', ActionIconRenderer, { namespace: 'action',
-  //     skipFallback: true })` — same pair, against `layout.zod.ts#IconSchema`.
-  //   - `register('tabs', PageTabsRenderer, { namespace: 'page',
-  //     skipFallback: true })` — `layout.zod.ts#TabsSchema` is the `ui:tabs`
-  //     arm from `renderers/layout/tabs.tsx`. ⇒ objectui#9344's open question
-  //     about that row ("an ALIAS question rather than a declaration one") is
-  //     ANSWERED, and the alias is the REGISTRATION's, not the spelling's.
-  // ⛔ Do NOT drain any of the thirteen by declaring the key on the arm named
-  // in its row. `detail::DetailSchema.onTabChange` is the one remaining row
-  // that is neither alias-shape nor drained, and its disposition is still
-  // UNDECIDED and owned by objectui#7804 — the card that row itself carries,
-  // which is the only owner anything in this map routes to. It was
-  // objectui#9344's item ② while that card was open; objectui#9344 closed
-  // `completed` on 2026-09-13 having landed its item ① (the cast receiver this
-  // census now peels) and not its item ②, so prose sending a reader there sends
-  // them to a closed card — the defect objectui#9456 repaired.
-  // ⭐ ALL FIVE `object-form::ObjectFormSchema` rows LANDED and are gone —
-  // objectui#7804's `objectql.ts` slice, which drained nine rows across four
-  // plain `export interface X extends BaseSchema` faces in one file.
-  // `onCancel`, `onError`, `onOpenChange`, `onStepChange` and `onSuccess` are
-  // objectui#6124 RUNTIME SLOTS on the arm, each measured at its OWN channel
-  // rather than assumed from its siblings: four are supplied by hosts that
-  // build the `object-form` NODE in TypeScript (`AppContent`, `RecordFormPage`,
-  // `ScreenView`, `FlowRunner`, `useActionModal`, `ObjectManager`,
-  // `FieldDesigner`, `MasterDetailForm`, `EmbeddableForm`, `plugin-view`'s
-  // `ObjectView`), while `onStepChange` has NO in-repo supplier at all — the
-  // channel is wired end to end (`ObjectForm` forwards it onto the wizard node,
-  // `WizardForm` calls it) and only the supplier is missing.
-  ['form::FormSchema.onError', 'objectui#7804'],
-  ['form::FormSchema.onOpenChange', 'objectui#7804'],
-  ['form::FormSchema.onStepChange', 'objectui#7804'],
-  ['form::FormSchema.onSuccess', 'objectui#7804'],
-  // ⭐ `object-grid::ObjectGridSchema.onNavigate` LANDED and is gone with the
-  // same slice. A RUNTIME SLOT whose channel the maintainer's 2026-08-19 ruling
-  // on objectui#5234 (option C) preserved on purpose — declared on the
-  // TypeScript face for programmatic callers, kept OFF the authoring surface —
-  // so the mirror's named refusal now says on this face what
-  // `@objectstack/spec`'s `strictObject` already said on the other. ⚠️ No
-  // in-repo host builds an `object-grid` node carrying it; the pin
-  // `gridNonAuthorKeys.test.tsx` supplies it and asserts the read still fires.
-  ['grid::GridSchema.onNavigate', 'objectui#7804'],
-  // ⭐ ALL THREE `object-kanban::ObjectKanbanSchema` rows LANDED and are gone.
-  // `onCardClick` and `onQuickAdd` went with objectui#7804's `plugin-kanban`
-  // slice — objectui#6124 RUNTIME SLOTS on the arm, each measured at its own
-  // channel, the first by the React PROP `ObjectKanban` declares and its click
-  // wrapper CALLS, the second by identity through the schema spread.
+  // ⭐⭐ THE THIRTEEN ALIAS-SHAPE ROWS LEFT THIS LEDGER WITH objectui#9573, and
+  // ⛔ none of them left by being declared. They left because they were never
+  // this component's rows: `button::ButtonSchema.onSuccess`,
+  // `icon::IconSchema.onSuccess`, `tabs::TabsSchema.onTabChange`, the four
+  // `form::FormSchema` rows, `grid::GridSchema.onNavigate` and the five
+  // `list::ListSchema` rows were produced by a census that keyed a registration
+  // on its RAW TYPE STRING. Each of the six registrations behind them carries
+  // `skipFallback: true` under a namespace — `action:button`, `action:icon`,
+  // `page:tabs`, `view:form`, `view:grid`, `view:list` — and `skipFallback` is
+  // precisely what stops a namespaced alias claiming the bare key, as
+  // `@object-ui/plugin-list`'s own registration comment says: "the bare `list`
+  // key belongs to the bullet/numbered list DISPLAY primitive (`ui:list` in
+  // `@object-ui/components`)". So the arm each row named — a bullet list, a
+  // Shadcn button, the `ui:tabs` container — belonged to a DIFFERENT component,
+  // and declaring the key there would have published a density handler on a
+  // bullet list and an action's post-success navigation block on a plain button.
+  // The registry's rule is in `register()` in `@object-ui/core`'s `Registry`,
+  // and `registrationsIn` now reads it: the bare key is claimed only when a
+  // namespaced registration omits `skipFallback`.
   //
-  // `onCardMove` went with objectui#9342, and it is the one row this gate
-  // itself blocked. Its disposition was `'retired'` — an authored value reaches
-  // NOTHING, `ObjectKanban` substituting its own mover — but a tombstone "has
-  // no read site BY CONSTRUCTION", so this gate refused the spelling as
-  // `retired-but-read` while `KanbanRenderer` still read `schema.onCardMove`.
-  // That read is now an explicit React prop on `KanbanRendererProps`, the
-  // objectui#7742 remedy `objectFields` took one file over, and the arm carries
-  // the tombstone. Draining a row is part of the landing, not cleanup after it:
-  // a row that outlived its read reddens `staleExemptions()` below.
-  // ⭐ ALL FIVE `list-view::ListViewSchema` rows LANDED and are gone —
-  // objectui#7804's `ListViewSchema` slice. `onAddRecord`, `onBulkAction`,
-  // `onDensityChange`, `onNavigate` and `onPageSizeChange` are objectui#6124
-  // RUNTIME SLOTS on the arm, each measured at its OWN channel rather than
-  // assumed from its siblings — and the channel is not the same face for all
-  // five. `onNavigate` / `onDensityChange` are read off the NODE
-  // (`schema.onX`) and declared on `ListViewRuntimeProps`; the other three are
-  // read off the PROPS bag (`props.onX`) and declared as React props on
-  // `ListViewProps` in `@object-ui/plugin-list`. `'retired'` was refused for
-  // all five: every one is read AND invoked.
+  // ⚠️ The ten `form` / `grid` / `list` reads did NOT leave the census. Those
+  // same read sites are still judged, under the registration that claims a
+  // MIRRORED key — `object-form`, `object-grid`, `list-view` — where they are
+  // declared runtime slots. What left is a SECOND, wrong scoring of them. The
+  // other three (`action:button`, `action:icon`, `page:tabs`) have no second
+  // registration, so their reads are now reported as UNMIRRORED-ALIAS census
+  // rows: real reads under a type key no mirror carries an arm for, which is
+  // boundary 3 above and ⛔ not a finding this gate can make.
   //
-  // ⚠️ This arm is the first one this card drained that FEEDS ITS OWN
-  // TypeScript face — `ListViewSchema` is `z.input` of the mirror intersected
-  // with `ListViewRuntimeProps`, and a refusal arm's `z.input` is
-  // `never | undefined`, which ANDs the runtime declaration down to
-  // `undefined`. The slice added the precedence (`ListViewAuthored`,
-  // `packages/types/src/objectql.ts`) in the same stroke; a later arm added to
-  // a mirror whose `z.input` is someone's declared type needs the same check.
+  // ⚠️ And the same re-keying removed a FALSE GREEN the ledger could never have
+  // shown, because a wrongly-passing read leaves no row: `'form'
+  // FormSchema.onCancel` passed only because `FormSchema` — the `ui:form`
+  // primitive's arm — mints its own `onCancel` for its own destructure, and the
+  // two spellings coincided. It is now scored once, on `object-form`, where the
+  // read actually lives.
   //
-  // ⚠️ THE FIVE `list::ListSchema` ROWS BELOW ARE THE SAME FIVE READS,
-  // scored a second time. `@object-ui/plugin-list` registers `ListViewRenderer`
-  // under `'list'` as well, with `{ namespace: 'view', skipFallback: true }` —
-  // and `skipFallback` is exactly what stops that alias claiming the bare
-  // `list` key, which belongs to the bullet/numbered-list DISPLAY primitive in
-  // `@object-ui/components`. This census keys a registration by its raw type
-  // string, so the alias's reads are judged against `ListSchema` (`items` /
-  // `ordered` / `dividers` / `dense`), an arm that has nothing to do with them.
-  // ⛔ Do NOT drain these by declaring the five on `ListSchema`: that would
-  // publish a density handler on a bullet list. Their disposition is a
-  // different question from this slice's and it is not this slice's to answer.
-  ['list::ListSchema.onAddRecord', 'objectui#7804'],
-  ['list::ListSchema.onBulkAction', 'objectui#7804'],
-  ['list::ListSchema.onDensityChange', 'objectui#7804'],
-  ['list::ListSchema.onNavigate', 'objectui#7804'],
-  ['list::ListSchema.onPageSizeChange', 'objectui#7804'],
-  // ⭐ BOTH `object-gallery::ObjectGallerySchema` rows and
-  // `object-view::ObjectViewSchema.onNavigate` LANDED and are gone with the
-  // same slice. The gallery pair is this ledger's PROPS-half shape: the two
-  // reads sit on one line (`props.onRowClick ?? props.onCardClick`) because
-  // `SchemaRenderer` spreads the authored node's leftover keys into the props
-  // bag — `onRowClick` has two in-repo suppliers (`ListView`'s `baseProps`,
-  // `RelatedList`'s mobile branch), `onCardClick` has none and is the `??`
-  // fallback spelling declared on `ObjectGalleryProps`. `ObjectViewSchema`'s
-  // key is read at four call sites and supplied by `@object-ui/app-shell`'s
-  // `ObjectView`, which builds the node in TypeScript.
-  //
-  // ⚠️ `onNavigate` is filed TWICE in this ledger's history, on two different
-  // faces with two different signatures and two different suppliers. They were
-  // judged separately, not co-disposed.
-  //
-  // Draining a row is part of the landing, not cleanup after it: a row that
-  // outlived its read reddens `staleExemptions()` below — which is exactly the
-  // intermediate reading that proved the arm edit had reached these nine keys
-  // and no others.
-  // ⭐ objectui#9344 — the two rows this ledger could not have held before, and
-  // the reason its population was never a total. Both reads are spelled
-  // `(schema as any).onTabChange`, and a cast receiver was invisible to the
-  // census until objectui#9344 taught `handlerReadsIn` to read through one. They
-  // are the SAME defect as every row above — a registered renderer reading a key
-  // its arm never declared, accepted and KEPT by the passthrough — so they name
-  // the same parent, which owns the per-key disposition.
-  //
-  // ⚠️ The two are NOT co-judgeable, and objectui#9344 ruled that they must not
-  // be disposed alike without measuring: `TabsSchema` already declares a
-  // DIFFERENT spelling, `onValueChange`, for what looks like the same event, so
-  // the `'tabs'` row may be an ALIAS question rather than a declaration one,
-  // while `DetailSchema` declares neither spelling. ⭐ That measurement has since
-  // been taken for `'tabs'` and is recorded above: it IS an alias question, and
-  // the alias is the REGISTRATION's (`skipFallback: true` under a namespace),
-  // which is objectui#9573's shape. `'detail'` registers without `skipFallback`
-  // and is not that shape, so its disposition is the one still open.
-  //
-  // ⛔ Neither is objectui#9344's to carry any longer, and this block must not
-  // say it is: that card closed `completed` on 2026-09-13 having landed its item
-  // ① (the cast receiver) and not its item ②, so a reader routed there arrives
-  // at a closed card (objectui#9456). Both rows carry `objectui#7804`, and that
-  // parent is the owner this map routes both to — objectui#9573 names the
-  // `'tabs'` row's SHAPE, not a second owner in this ledger. Deciding either
-  // still lands in the zod arms and not in this file, and ⛔ nothing here says
-  // either is decided.
-  ['tabs::TabsSchema.onTabChange', 'objectui#7804'],
+  // ⛔ `detail::DetailSchema.onTabChange` is NOT that shape and stays. Its
+  // registration is `register('detail', DetailView, { namespace: 'view',
+  // category: 'view' })` — ⛔ no `skipFallback`, so it DOES claim the bare
+  // `detail` key and `DetailSchema` IS its arm. Its disposition is still
+  // UNDECIDED and owned by objectui#7804, the card the row carries, which is the
+  // only owner anything in this map routes to. It was objectui#9344's item ②
+  // while that card was open; objectui#9344 closed `completed` on 2026-09-13
+  // having landed its item ① (the cast receiver this census now peels) and not
+  // its item ②, so prose sending a reader there sends them to a closed card —
+  // the defect objectui#9456 repaired. ⛔ Nothing here says it is decided, and
+  // deciding it lands in the zod arm, not in this file.
   ['detail::DetailSchema.onTabChange', 'objectui#7804'],
 ]);
 
@@ -647,15 +553,100 @@ export function populationFiles(root) {
 }
 
 /**
- * Every real `ComponentRegistry.register('<type>', C, …)` call in a file.
+ * The registration MECHANICS `ComponentRegistry.register` reads off its third
+ * argument, resolved to literals — `{ namespace, skipFallback, resolved }`.
+ *
+ * A same-file `const` and a spread of one are resolved, because the tree uses
+ * both: the five page registrations hand over a shared `pageMeta` identifier and
+ * four of them spread it (`{ ...pageMeta, label: 'App Page' }`). Anything else —
+ * an imported meta, a call, a computed value — is `resolved: false`, which the
+ * census treats as a registration it cannot key rather than one it may guess at.
+ *
+ * Later properties win, as they do at runtime, so a spread followed by an
+ * explicit `skipFallback` reads the explicit one.
+ */
+function registrationOptions(expression, declarationsOf, seen = new Set()) {
+  const unresolved = { namespace: undefined, skipFallback: false, resolved: false };
+  if (!expression) return { namespace: undefined, skipFallback: false, resolved: true };
+
+  if (ts.isIdentifier(expression)) {
+    if (seen.has(expression.text)) return unresolved;
+    seen.add(expression.text);
+    const declaration = declarationsOf().get(expression.text);
+    if (!declaration) return unresolved;
+    return registrationOptions(declaration, declarationsOf, seen);
+  }
+  if (ts.isAsExpression(expression) || ts.isParenthesizedExpression(expression)) {
+    return registrationOptions(expression.expression, declarationsOf, seen);
+  }
+  if (!ts.isObjectLiteralExpression(expression)) return unresolved;
+
+  const options = { namespace: undefined, skipFallback: false, resolved: true };
+  for (const property of expression.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      const spread = registrationOptions(property.expression, declarationsOf, seen);
+      if (!spread.resolved) return unresolved;
+      options.namespace = spread.namespace;
+      options.skipFallback = spread.skipFallback;
+      continue;
+    }
+    if (!ts.isPropertyAssignment(property)) {
+      // A shorthand or a computed name could carry either key; a census that
+      // ignored it would key the registration on a meta it did not read.
+      const name = ts.isShorthandPropertyAssignment(property) ? property.name.text : null;
+      if (name === 'namespace' || name === 'skipFallback') return unresolved;
+      continue;
+    }
+    const name = ts.isIdentifier(property.name) || ts.isStringLiteral(property.name) ? property.name.text : null;
+    if (name === 'namespace') {
+      if (!ts.isStringLiteral(property.initializer)) return unresolved;
+      options.namespace = property.initializer.text;
+    } else if (name === 'skipFallback') {
+      const kind = property.initializer.kind;
+      if (kind === ts.SyntaxKind.TrueKeyword) options.skipFallback = true;
+      else if (kind === ts.SyntaxKind.FalseKeyword) options.skipFallback = false;
+      else return unresolved;
+    }
+  }
+  return options;
+}
+
+/**
+ * The type keys a registration CLAIMS, in the registry's own order of
+ * specificity — the namespaced key first, then the bare-name fallback when the
+ * registration still claims it.
+ *
+ * This mirrors `register()` in `@object-ui/core`'s `Registry`, which sets
+ * `fullType = namespace ? `${namespace}:${type}` : type` and then sets the bare
+ * `type` key only `if (meta?.namespace && !meta?.skipFallback)`.
+ */
+export function claimedTypeKeys({ type, namespace, skipFallback }) {
+  if (!namespace) return [type];
+  return skipFallback ? [`${namespace}:${type}`] : [`${namespace}:${type}`, type];
+}
+
+/**
+ * Every real `ComponentRegistry.register('<type>', C, …)` call in a file, with
+ * the type keys that call CLAIMS.
  *
  * Read off the AST rather than the text, because `packages/types/src/complex.ts`
  * NAMES that call in prose eleven times and registers nothing — a text scan
  * attributes every `on*` mentioned in that file's interfaces to three chatbot
  * arms, which was 13 of the 36 findings the first, coarser cut produced.
+ *
+ * ⭐ The third argument is part of the KEY, not decoration (objectui#9573). A
+ * census keyed on the raw type string judges
+ * `register('list', ListViewRenderer, { namespace: 'view', skipFallback: true })`
+ * against the arm of the bare `list` key — the key `skipFallback` exists to stop
+ * that alias claiming, as the registration's own comment in `@object-ui/plugin-list`
+ * says ("the bare `list` key belongs to the bullet/numbered list DISPLAY
+ * primitive"). So the census asked its question of a schema minted for a
+ * different component, and every row it produced there was addressed wrongly.
  */
 export function registrationsIn(sourceFile) {
   const found = [];
+  let declarations = null;
+  const declarationsOf = () => (declarations ??= declarationsIn(sourceFile));
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
@@ -665,9 +656,18 @@ export function registrationsIn(sourceFile) {
         ts.isIdentifier(callee.expression) &&
         callee.expression.text === 'ComponentRegistry'
       ) {
-        const [typeArgument, componentArgument] = node.arguments;
+        const [typeArgument, componentArgument, optionsArgument] = node.arguments;
         if (typeArgument && ts.isStringLiteral(typeArgument) && componentArgument) {
-          found.push({ type: typeArgument.text, component: componentArgument });
+          const options = registrationOptions(optionsArgument, declarationsOf);
+          const registration = {
+            type: typeArgument.text,
+            component: componentArgument,
+            namespace: options.namespace,
+            skipFallback: options.skipFallback,
+            keyable: options.resolved,
+          };
+          registration.claims = options.resolved ? claimedTypeKeys(registration) : [];
+          found.push(registration);
         }
       }
     }
@@ -1137,10 +1137,14 @@ export function analyze(root) {
     reads: 0,
     judged: 0,
     unjudgeable: 0,
+    aliasRegistrations: 0,
+    aliasReads: 0,
+    unkeyable: 0,
   };
   const census = [];
   const raw = [];
   const findings = [];
+  const unkeyable = [];
 
   for (const [, files] of packageIndex.byPackage) {
     for (const file of files) {
@@ -1151,8 +1155,55 @@ export function analyze(root) {
       counters.registrations += registrations.length;
 
       for (const registration of registrations) {
-        const arm = arms.get(registration.type);
-        if (!arm) continue;
+        const registeredIn = relative(root, file).split(sep).join('/');
+
+        // A registration whose mechanics this reader could not resolve to
+        // literals cannot be keyed AT ALL: "claims the bare key" and "is a
+        // namespaced-only alias" are different questions of the same document,
+        // and guessing either way is the objectui#9573 defect in a narrower
+        // shape. It is collected and reported rather than assumed.
+        if (!registration.keyable) {
+          if (!arms.get(registration.type)) continue;
+          counters.unkeyable += 1;
+          unkeyable.push({ type: registration.type, registeredIn });
+          continue;
+        }
+
+        // The key the REGISTRY would resolve this registration under, most
+        // specific first. A namespaced-only alias claims `ns:type` and nothing
+        // else, so the bare arm is not its arm.
+        const armKey = registration.claims.find((claim) => arms.has(claim));
+        const arm = armKey ? arms.get(armKey) : undefined;
+
+        if (!arm) {
+          // ⭐ The objectui#9573 population, kept VISIBLE rather than dropped.
+          // A namespaced-only alias over a type whose BARE key does have an arm
+          // is the exact shape this census used to mis-judge: the reads are
+          // real, the arm it was judged against belonged to another component,
+          // and no mirror carries the namespaced key it actually claims. They
+          // are reported as census rows so the surface stays countable, and are
+          // NOT findings — an arm that does not exist cannot have lost a member,
+          // which is boundary 3 above.
+          if (!registration.skipFallback || !registration.namespace) continue;
+          const bare = arms.get(registration.type);
+          if (!bare) continue;
+          const aliasReads = reachableReads(file, registration.component, packageIndex);
+          counters.aliasRegistrations += 1;
+          for (const [key, where] of [...aliasReads].sort((a, b) => a[0].localeCompare(b[0]))) {
+            counters.aliasReads += 1;
+            census.push({
+              type: registration.claims[0],
+              schema: null,
+              key,
+              declared: undefined,
+              disposition: undefined,
+              unmirroredAlias: { bareType: registration.type, bareSchema: bare.schema },
+              file: relative(root, where.file).split(sep).join('/'),
+              line: where.line,
+            });
+          }
+          continue;
+        }
         counters.armed += 1;
 
         const reads = reachableReads(file, registration.component, packageIndex);
@@ -1169,7 +1220,7 @@ export function analyze(root) {
           if (!declared && arm.unresolved.length) {
             counters.unjudgeable += 1;
             census.push({
-              type: registration.type,
+              type: armKey,
               schema: arm.schema,
               key,
               declared: false,
@@ -1182,19 +1233,19 @@ export function analyze(root) {
           }
 
           counters.judged += 1;
-          census.push({ type: registration.type, schema: arm.schema, key, declared, disposition, file: rel, line: where.line });
+          census.push({ type: armKey, schema: arm.schema, key, declared, disposition, file: rel, line: where.line });
           if (declared && disposition !== 'retired') continue;
 
           const finding = {
-            key: `${registration.type}::${arm.schema}.${key}`,
+            key: `${armKey}::${arm.schema}.${key}`,
             kind: declared ? 'retired-but-read' : 'undeclared',
-            type: registration.type,
+            type: armKey,
             schema: arm.schema,
             armFile: arm.file,
             member: key,
             file: rel,
             line: where.line,
-            registeredIn: relative(root, file).split(sep).join('/'),
+            registeredIn,
           };
           raw.push(finding);
           if (!KNOWN_UNDECLARED_READS.has(finding.key)) findings.push(finding);
@@ -1203,7 +1254,7 @@ export function analyze(root) {
     }
   }
 
-  return { findings, raw, stale: staleExemptions(raw), counters, census, arms };
+  return { findings, raw, stale: staleExemptions(raw), counters, census, arms, unkeyable };
 }
 
 const invokedDirectly = isEntrypoint(import.meta.url);
@@ -1214,16 +1265,20 @@ if (invokedDirectly) {
     return index > -1 ? process.argv[index + 1] : null;
   };
   const root = resolve(argOf('--root') ?? resolve(scriptDir, '..'));
-  const { findings, stale, counters, census } = analyze(root);
+  const { findings, stale, counters, census, unkeyable } = analyze(root);
 
   if (process.argv.includes('--list')) {
     for (const entry of census) {
-      const state = entry.unjudgeable
-        ? `UNJUDGEABLE (unresolved spread: ${entry.unjudgeable.join(', ')})`
-        : entry.declared
-          ? (entry.disposition ?? 'declared')
-          : 'UNDECLARED';
-      console.log(`'${entry.type}' ${entry.schema}.${entry.key}  [${state}]  ${entry.file}:${entry.line}`);
+      const state = entry.unmirroredAlias
+        ? `UNMIRRORED-ALIAS (skipFallback, so the bare '${entry.unmirroredAlias.bareType}' arm ` +
+          `${entry.unmirroredAlias.bareSchema} is another component's)`
+        : entry.unjudgeable
+          ? `UNJUDGEABLE (unresolved spread: ${entry.unjudgeable.join(', ')})`
+          : entry.declared
+            ? (entry.disposition ?? 'declared')
+            : 'UNDECLARED';
+      const schema = entry.schema ? `${entry.schema}.${entry.key}` : entry.key;
+      console.log(`'${entry.type}' ${schema}  [${state}]  ${entry.file}:${entry.line}`);
     }
   }
 
@@ -1235,6 +1290,25 @@ if (invokedDirectly) {
       `The census collapsed: ${counters.arms} arm(s), ${counters.files} source file(s), ` +
         `${counters.armed} registration(s) with an arm, ${counters.reads} handler read(s). ` +
         'An empty census would pass while asserting nothing.',
+    );
+    process.exit(1);
+  }
+
+  // A registration whose `namespace` / `skipFallback` this reader cannot resolve
+  // to literals is one the census cannot KEY, and an unkeyed registration is how
+  // objectui#9573 happened: its reads were judged against an arm minted for a
+  // different component. So it is refused rather than guessed at — and because
+  // every registration resolving as unkeyable is what a broken resolver looks
+  // like, this doubles as the floor under the keying itself.
+  if (unkeyable.length) {
+    console.error(
+      `x  ${unkeyable.length} registration(s) whose type has an arm could not be KEYED — this reader ` +
+        'could not resolve their `namespace` / `skipFallback` to literals:\n' +
+        unkeyable.map((entry) => `      '${entry.type}' registered in ${entry.registeredIn}`).join('\n') +
+        '\n\nThe registry claims the bare type key only when a namespaced registration omits ' +
+        '`skipFallback`, so an unresolved meta leaves the census unable to say which arm judges these ' +
+        'reads. Spell `namespace` / `skipFallback` inline, or as a same-file `const` this reader can ' +
+        'follow.',
     );
     process.exit(1);
   }
@@ -1251,9 +1325,11 @@ if (invokedDirectly) {
   if (!findings.length) {
     console.log(
       `OK  ${counters.arms} arm(s), ${counters.registrations} registration(s) ` +
-        `(${counters.armed} with an arm), ${counters.reads} reachable handler read(s), ` +
+        `(${counters.armed} keyed onto an arm), ${counters.reads} reachable handler read(s), ` +
         `${counters.judged} judged, ${counters.unjudgeable} left unjudged on an arm with an ` +
-        `unresolved spread, ${KNOWN_UNDECLARED_READS.size} exempted by ledger — every judged read ` +
+        `unresolved spread, ${counters.aliasReads} read(s) under ${counters.aliasRegistrations} ` +
+        'namespaced-only alias(es) no mirror carries an arm for, ' +
+        `${KNOWN_UNDECLARED_READS.size} exempted by ledger — every judged read ` +
         'is a declared member of its arm.',
     );
     process.exit(0);

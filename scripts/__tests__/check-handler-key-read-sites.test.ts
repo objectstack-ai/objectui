@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   KNOWN_UNDECLARED_READS,
   analyze,
+  claimedTypeKeys,
   collectArms,
   isHandlerKey,
   registrationsIn,
@@ -43,6 +44,12 @@ import {
  *     rules below is why a class of them is gone.
  *  4. **A green is never "the walk found nothing."** Every fixture that passes
  *     asserts its own counters are non-zero, and so does the repository run.
+ *  4b. **A registration is keyed on what it CLAIMS** (objectui#9573).
+ *     `skipFallback` under a namespace means the registration never claims the
+ *     bare type key, so the bare arm is another component's and a finding
+ *     against it is addressed to the wrong schema. Both directions are pinned:
+ *     rows that could not be drained, and a read that PASSED because the foreign
+ *     arm happened to declare the same spelling.
  *  5. **This repository is green**, with the ledger's rows all still live.
  *  6. **The gate is wired** where the sibling parse-based gates run, and the
  *     page that inventories them names it.
@@ -548,6 +555,159 @@ ComponentRegistry.register('tabs', TabsRenderer, { namespace: 'view' });
   });
 });
 
+/**
+ * objectui#9573 — a registration is keyed on what it CLAIMS, not on how its type
+ * string is spelled.
+ *
+ * `register()` in `@object-ui/core`'s `Registry` sets `ns:type`, and sets the
+ * bare `type` key only when a namespaced registration omits `skipFallback`. A
+ * census keyed on the raw string therefore judged
+ * `{ namespace: 'view', skipFallback: true }` against the bare key's arm — the
+ * key `skipFallback` exists to stop that alias claiming — and asked its question
+ * of a schema minted for a DIFFERENT component.
+ *
+ * ⚠️ The defect moved the count in BOTH directions, so both are pinned here:
+ * rows that could never be drained (the alias's reads scored against a foreign
+ * arm) and a read that PASSED for a coincidental reason (the foreign arm happened
+ * to declare the same spelling), which left no row at all and so could not be
+ * seen in the ledger.
+ */
+describe('check-handler-key-read-sites — a registration is keyed on what it CLAIMS (objectui#9573)', () => {
+  /**
+   * The tree's own shape: `ListViewRenderer` is registered under `view:list`
+   * with `skipFallback: true` because the bare `list` key belongs to the
+   * bullet/numbered list DISPLAY primitive, and it reads a density handler no
+   * bullet list has any business declaring.
+   */
+  const alias = (meta: string, bareMembers: string[] = ['items: z.array(z.any()).optional()']) => ({
+    'packages/types/src/zod/base.zod.ts': BASE,
+    'packages/types/src/zod/data-display.zod.ts': arm('list', 'ListSchema', bareMembers),
+    'packages/plugin-list/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+export const ListViewRenderer = ({ schema }: { schema: any }) => (
+  <List onDensityChange={schema.onDensityChange} />
+);
+ComponentRegistry.register('list', ListViewRenderer, ${meta});
+`,
+  });
+
+  it('does NOT judge a namespaced-only alias against the bare key\'s arm', () => {
+    const result = analyze(tree('alias-skipfallback', alias("{ namespace: 'view', skipFallback: true }")));
+    expect(
+      result.findings.map((f) => f.key),
+      'the bare `list` arm belongs to the bullet list primitive — a finding here is addressed to the ' +
+        'wrong schema, and draining it would publish a density handler on a bullet list',
+    ).toEqual([]);
+    // ⚠️ NOT a green that lost the read. The read is still SEEN and still
+    // counted; what changed is which arm it is put to, and no arm mirrors
+    // `view:list`.
+    expect(result.counters.judged).toBe(0);
+    expect(result.counters.aliasRegistrations).toBe(1);
+    expect(result.counters.aliasReads).toBe(1);
+    expect(result.census.map((c) => `${c.type}.${c.key}`)).toEqual(['view:list.onDensityChange']);
+    expect(result.census[0].unmirroredAlias).toEqual({ bareType: 'list', bareSchema: 'ListSchema' });
+  });
+
+  it('FIRING CONTROL — the same registration WITHOUT `skipFallback` claims the bare key and goes RED', () => {
+    // The control on the control: one property removed from the same object
+    // literal in the same file. `skipFallback` is the ONLY difference, so the
+    // green above is a reading about the registration and not about a walk that
+    // stopped finding the read.
+    const result = analyze(tree('alias-fallback', alias("{ namespace: 'view' }")));
+    expect(result.findings.map((f) => f.key)).toEqual(['list::ListSchema.onDensityChange']);
+    expect(result.counters.judged).toBe(1);
+    expect(result.counters.aliasReads).toBe(0);
+  });
+
+  it('judges a namespaced-only alias against the arm for the key it DOES claim, when one exists', () => {
+    // The repair is not "stop judging aliases": it is "judge the key the
+    // registry would resolve". Mirror `view:list` and the same read is judged
+    // again — on the arm that is actually its own.
+    const files = alias("{ namespace: 'view', skipFallback: true }");
+    const result = analyze(
+      tree('alias-mirrored', {
+        ...files,
+        'packages/types/src/zod/objectql.zod.ts': arm('view:list', 'ListViewSchema', [
+          'items: z.array(z.any()).optional()',
+        ]),
+      }),
+    );
+    expect(result.findings.map((f) => f.key)).toEqual(['view:list::ListViewSchema.onDensityChange']);
+    expect(result.counters.aliasReads).toBe(0);
+    expect(result.counters.judged).toBe(1);
+  });
+
+  it('removes a FALSE GREEN: a foreign arm that coincidentally declares the same spelling', () => {
+    // The half the ledger could never show. `'form' FormSchema.onCancel` passed
+    // because `FormSchema` — the `ui:form` primitive's arm — mints its OWN
+    // `onCancel` for its own destructure, and the two spellings coincided. A
+    // passing read leaves no row, so no count of the ledger could see it.
+    const files = alias("{ namespace: 'view', skipFallback: true }", [
+      'items: z.array(z.any()).optional()',
+      RUNTIME_SLOT('onDensityChange'),
+    ]);
+    const result = analyze(tree('alias-false-green', files));
+    expect(result.findings).toEqual([]);
+    // Before the re-key this read was JUDGED and DECLARED against the foreign
+    // arm — green, and green for a reason that had nothing to do with it. Now it
+    // is not judged there at all.
+    expect(result.census.filter((c) => c.declared === true)).toEqual([]);
+    expect(result.counters.judged).toBe(0);
+    expect(result.counters.aliasReads).toBe(1);
+  });
+
+  it('resolves the mechanics through a same-file `const` and a spread of one', () => {
+    // The tree hands five page registrations a shared `pageMeta` identifier and
+    // spreads it in four of them. A reader that only understood inline literals
+    // would mark all five unkeyable and stop judging reads it judges today.
+    const source = parseSource(
+      `const pageMeta: any = { namespace: 'ui', label: 'Page' };\n` +
+        `const aliasMeta = { ...pageMeta, skipFallback: true };\n` +
+        `ComponentRegistry.register('page', P, pageMeta);\n` +
+        `ComponentRegistry.register('app', P, { ...pageMeta, label: 'App Page' });\n` +
+        `ComponentRegistry.register('tabs', T, aliasMeta);\n` +
+        `ComponentRegistry.register('inline', I, { namespace: 'page', skipFallback: true });\n` +
+        `ComponentRegistry.register('bare', B);\n`,
+      'probe.tsx',
+    );
+    expect(registrationsIn(source).map((r) => ({ type: r.type, keyable: r.keyable, claims: r.claims }))).toEqual([
+      { type: 'page', keyable: true, claims: ['ui:page', 'page'] },
+      { type: 'app', keyable: true, claims: ['ui:app', 'app'] },
+      { type: 'tabs', keyable: true, claims: ['ui:tabs'] },
+      { type: 'inline', keyable: true, claims: ['page:inline'] },
+      { type: 'bare', keyable: true, claims: ['bare'] },
+    ]);
+  });
+
+  it('refuses to KEY a registration whose mechanics it cannot resolve, rather than guessing', () => {
+    // "Claims the bare key" and "is a namespaced-only alias" are different
+    // questions about the same document, and guessing either way is this card's
+    // defect in a narrower shape. ⚠️ The refusal is scoped to registrations whose
+    // type HAS an arm — the rest were never judged anyway.
+    const root = tree('unkeyable', {
+      'packages/types/src/zod/base.zod.ts': BASE,
+      'packages/types/src/zod/data-display.zod.ts': arm('list', 'ListSchema', ['items: z.array(z.any()).optional()']),
+      'packages/plugin-list/src/index.tsx': `
+import { ComponentRegistry } from '@object-ui/core';
+import { listMeta } from '@object-ui/core/meta';
+ComponentRegistry.register('list', ({ schema }: any) => <List onDensityChange={schema.onDensityChange} />, listMeta);
+ComponentRegistry.register('unmirrored', ({ schema }: any) => <X onGo={schema.onGo} />, listMeta);
+`,
+    });
+    const result = analyze(root);
+    expect(result.unkeyable.map((u) => u.type)).toEqual(['list']);
+    expect(result.counters.unkeyable).toBe(1);
+    expect(result.counters.judged).toBe(0);
+    expect(result.findings).toEqual([]);
+  });
+
+  it('spells the claim rule the way the registry does', () => {
+    expect(claimedTypeKeys({ type: 'list', namespace: undefined, skipFallback: false })).toEqual(['list']);
+    expect(claimedTypeKeys({ type: 'list', namespace: 'view', skipFallback: false })).toEqual(['view:list', 'list']);
+    expect(claimedTypeKeys({ type: 'list', namespace: 'view', skipFallback: true })).toEqual(['view:list']);
+  });
+});
+
 describe('check-handler-key-read-sites — this repository', () => {
   const result = analyze(repoRoot);
 
@@ -640,31 +800,88 @@ describe('check-handler-key-read-sites — this repository', () => {
   it('counts the two cast-hidden `onTabChange` reads objectui#9344 measured', () => {
     const census = (type: string, key: string) => result.census.find((c) => c.type === type && c.key === key);
 
-    // Both are JUDGED members of the census — the state before objectui#9344 was
-    // absence, which no assertion about declaration could have caught.
-    expect(census('tabs', 'onTabChange')?.file).toBe('packages/components/src/renderers/layout/containers.tsx');
+    // Both are SEEN by the census — the state before objectui#9344 was absence,
+    // which no assertion about declaration could have caught. ⚠️ They are seen in
+    // two DIFFERENT states, and objectui#9573 is why: the `containers` read
+    // belongs to `PageTabsRenderer`, registered `{ namespace: 'page',
+    // skipFallback: true }`, so it claims `page:tabs` and no mirror carries that
+    // arm; the `DetailView` read belongs to a registration that omits
+    // `skipFallback`, so it DOES claim the bare `detail` key and `DetailSchema`
+    // IS its arm. The cast-visibility this leg exists for is unchanged — remove
+    // the receiver peeling and both rows vanish from the census.
+    expect(census('page:tabs', 'onTabChange')?.file).toBe('packages/components/src/renderers/layout/containers.tsx');
     expect(census('detail', 'onTabChange')?.file).toBe('packages/plugin-detail/src/DetailView.tsx');
 
-    // Neither arm declares the key, which is why both carry a ledger row. ⚠️ The
-    // two are NOT co-judgeable and this leg deliberately asserts nothing about
-    // which disposition either should get: `TabsSchema` declares a DIFFERENT
-    // spelling for what looks like the same event, so `'tabs'` may be an ALIAS
-    // question rather than a declaration one. ⛔ That decision is NOT
-    // objectui#9344's — that card closed `completed` on 2026-09-13 with its item
-    // ② undone, and this comment was one of the three places still routing a
-    // reader to it (objectui#9456). The owner is objectui#7804, the card each
-    // ledger row below carries.
-    expect(census('tabs', 'onTabChange')?.declared).toBe(false);
+    // ⛔ The `page:tabs` read is NOT judged against `TabsSchema` any more, and
+    // that is the whole of objectui#9573: `TabsSchema` is the `ui:tabs` arm, a
+    // different component's, and the row it produced could never be drained
+    // without publishing a page-tab handler on it.
+    expect(census('page:tabs', 'onTabChange')?.unmirroredAlias).toEqual({
+      bareType: 'tabs',
+      bareSchema: 'TabsSchema',
+    });
+    expect(census('tabs', 'onTabChange')).toBeUndefined();
+    expect(KNOWN_UNDECLARED_READS.has('tabs::TabsSchema.onTabChange')).toBe(false);
+
+    // `detail` keeps its row. ⚠️ This leg deliberately asserts nothing about
+    // which disposition it should get. ⛔ That decision is NOT objectui#9344's —
+    // that card closed `completed` on 2026-09-13 with its item ② undone, and this
+    // comment was one of the three places still routing a reader to it
+    // (objectui#9456). The owner is objectui#7804, the card the ledger row
+    // carries.
     expect(census('detail', 'onTabChange')?.declared).toBe(false);
-    expect(KNOWN_UNDECLARED_READS.has('tabs::TabsSchema.onTabChange')).toBe(true);
     expect(KNOWN_UNDECLARED_READS.has('detail::DetailSchema.onTabChange')).toBe(true);
 
-    // FIRING CONTROL for the two `false`s: the SAME arm that fails to declare
-    // `onTabChange` does declare `onValueChange`, so `declared: false` above is a
-    // reading about that one key and not an arm the resolver failed to read.
+    // FIRING CONTROL for the `false` above: the `tabs` arm the alias used to be
+    // judged against is still resolvable and still declares a DIFFERENT spelling
+    // for what looks like the same event, so "no longer judged there" is a
+    // reading about the KEYING and not an arm the resolver failed to read.
     const { arms } = collectArms(repoRoot);
     expect(arms.get('tabs')?.members.has('onValueChange')).toBe(true);
     expect(arms.get('tabs')?.members.has('onTabChange')).toBe(false);
+  });
+
+  /**
+   * objectui#9573 on the real tree, in both directions the defect moved the
+   * count.
+   *
+   * ⚠️ The floor matters more here than anywhere else in this file: a census
+   * that collapsed would report an empty alias population and read as a clean
+   * tree. So the six registrations are NAMED, not counted.
+   */
+  it('keys the six namespaced-only aliases on what they claim, and scores their reads once', () => {
+    const aliasRows = result.census.filter((c) => c.unmirroredAlias);
+    expect(
+      [...new Set(aliasRows.map((c) => c.type))].sort(),
+      'the alias census is the objectui#9573 population — an empty one is a collapsed scan, not a clean tree',
+    ).toEqual(['action:button', 'action:icon', 'page:tabs', 'view:form', 'view:grid', 'view:list']);
+    expect(result.counters.aliasReads).toBe(aliasRows.length);
+    expect(aliasRows.length).toBeGreaterThan(10);
+
+    // ⛔ None of the thirteen left by being DECLARED. Ten of them are the SAME
+    // read sites, still judged — under the registration that claims a MIRRORED
+    // key, where they are declared runtime slots. What left is a second, wrongly
+    // addressed scoring of them.
+    for (const row of ['list::ListSchema.onDensityChange', 'form::FormSchema.onSuccess', 'grid::GridSchema.onNavigate']) {
+      expect(KNOWN_UNDECLARED_READS.has(row)).toBe(false);
+    }
+    const judgedAt = (type: string, key: string) => result.census.find((c) => c.type === type && c.key === key);
+    expect(judgedAt('list-view', 'onDensityChange')?.disposition).toBe('runtime-slot');
+    expect(judgedAt('object-form', 'onSuccess')?.disposition).toBe('runtime-slot');
+    expect(judgedAt('object-grid', 'onNavigate')?.disposition).toBe('runtime-slot');
+
+    // ⭐ The other half, which the ledger could never show because a passing read
+    // leaves no row: `'form' FormSchema.onCancel` passed only because
+    // `FormSchema` — the `ui:form` primitive's arm — mints its own `onCancel` for
+    // its own destructure. It is gone from the census, and the SAME read is
+    // still scored, once, where it lives.
+    expect(judgedAt('form', 'onCancel')).toBeUndefined();
+    expect(judgedAt('object-form', 'onCancel')?.disposition).toBe('runtime-slot');
+
+    // Every registration in this repository resolves to literals, so nothing is
+    // left unkeyed — and an unkeyed registration is what a broken resolver looks
+    // like across the board.
+    expect(result.unkeyable).toEqual([]);
   });
 
   /**

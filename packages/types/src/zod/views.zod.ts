@@ -186,11 +186,17 @@ export const DetailViewSchema = BaseSchema.extend({
    * through the real `SchemaRenderer` in
    * `detail-view-handler-slots-9447.test.tsx`.
    *
-   * ⚠️ `check-handler-key-read-sites.mjs` is GREEN on this key and always was.
-   * Its transitive hop stops at the wrapper, so the read site it derives for
-   * the `'detail'` registration has no counterpart here and the key was never
-   * among its findings or its ledger. ⛔ Do not read that green as evidence the
-   * key is unread — the probe above is the instrument, the gate is not.
+   * ⚠️ `check-handler-key-read-sites.mjs` was GREEN on this key for a reason
+   * that said nothing about it, and objectui#9700 ended that. Its walk stopped
+   * at the data-source gate — the render-prop child is handed `bound as
+   * DetailViewSchema`, and a type-only cast on that attribute closed the hop —
+   * so the read site it derives for the `'detail'` registration had no
+   * counterpart here and this key was never among its findings, its census or
+   * its ledger. It is now: the cast is peeled, `DetailView`'s reads are scored
+   * under this arm too, and this declaration is what the gate reads as
+   * satisfying them. ⛔ The history still matters when reading an OLD green:
+   * before objectui#9700 the gate was not an instrument for this arm at all, and
+   * the probe named above is what measured the channel.
    *
    * ⚠️ NOT the nested `recordNavigation.onNavigate`, which is a DIFFERENT key
    * at a different path with a different signature — `(recordId) => void`, the

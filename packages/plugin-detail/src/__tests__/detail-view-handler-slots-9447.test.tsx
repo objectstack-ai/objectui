@@ -31,11 +31,16 @@
  * key ⇒ the authored value arrives at `schema.onNavigate` / `schema.onAddComment`
  * BY IDENTITY, and suite 1 drives both to the call site rather than asserting it.
  *
- * ⚠️ `scripts/check-handler-key-read-sites.mjs` is GREEN on both keys and always
- * was: its transitive hop stops at the wrapper, so the read site it derives
- * under the `'detail'` registration has no counterpart here and neither key was
- * ever among its findings or its ledger. ⛔ That green is not evidence the keys
- * are unread — this file is the instrument for that question, the gate is not.
+ * ⚠️ `scripts/check-handler-key-read-sites.mjs` was GREEN on both keys for a
+ * reason that said nothing about them, until objectui#9700. Its walk stopped at
+ * the data-source gate — the render-prop child is handed `bound as
+ * DetailViewSchema`, and a type-only cast on that attribute closed the hop — so
+ * the read site it derives under the `'detail'` registration had no counterpart
+ * here and neither key was ever among its findings, its census or its ledger.
+ * That gate now takes the hop and scores both keys under `DetailViewSchema`.
+ * ⛔ It still does not replace this file: the gate reads DECLARATION against
+ * READ SITE statically, while suites 1 and 2 below drive the authored value to
+ * the call site through the real `SchemaRenderer`.
  *
  * ## Every control can fire
  *

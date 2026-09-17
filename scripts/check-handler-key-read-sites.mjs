@@ -59,7 +59,10 @@
  *             accesses inside `C`'s body, plus those inside every component `C`
  *             RENDERS that is declared in the same package (JSX element names,
  *             resolved through same-file declarations and static relative
- *             imports, transitively, with a visited set).
+ *             imports, transitively, with a visited set). A TYPE-ONLY wrapper on
+ *             the expression that hands the document over — `schema={bound as
+ *             DetailViewSchema}` — does not close that hop (objectui#9700): it
+ *             erases, so the child is handed the same object either way.
  *   KEYING    a registration is keyed on the type keys it CLAIMS, which is what
  *             the third argument decides and ⛔ not what the type string spells
  *             (objectui#9573): `register()` in `@object-ui/core`'s `Registry`
@@ -77,6 +80,16 @@
  * is where `schema.onCardClick` is read. A gate reading only the registered
  * component's own body is green on objectui#7664's deletion, which is the one
  * reading that would make it worthless.
+ *
+ * ⚠️ And a hop lost is worse than a read lost, which is why objectui#9700 is a
+ * card of its own rather than a second helping of objectui#9344. A read this
+ * gate cannot see still leaves its component in the census; a HOP it cannot take
+ * removes the component entirely — no finding, no census row, no ledger row —
+ * and the green then reads as "no undeclared reads" over a file never opened.
+ * objectui#9447 stood in exactly that state: `register('detail-view',
+ * DetailViewRenderer)` stopped at the data-source gate because the render-prop
+ * child is handed `bound as DetailViewSchema`, and two undeclared keys were read
+ * on a live call path while this gate exited 0 over them.
  *
  * ## What it deliberately does NOT answer
  *
@@ -221,6 +234,34 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // the defect objectui#9456 repaired. ⛔ Nothing here says it is decided, and
   // deciding it lands in the zod arm, not in this file.
   ['detail::DetailSchema.onTabChange', 'objectui#7804'],
+
+  // ⭐ objectui#9700 — THE ROW THE BLIND SPOT WAS HIDING, and ⚠️ the ONE row in
+  // this map that arrived by the gate seeing MORE rather than by a renderer
+  // gaining a read. It is the SAME read site as the row above,
+  // `DetailView.tsx`'s `(schema as any).onTabChange`, scored a second time
+  // — correctly — under the OTHER registration that reaches that component:
+  // `register('detail-view', DetailViewRenderer, { namespace: 'plugin-detail' })`
+  // omits `skipFallback`, so it claims the bare `detail-view` key and
+  // `DetailViewSchema` IS its arm. Until objectui#9700 peeled the cast off the
+  // hop, the walk stopped at `ElementDataSourceGate` and this component was
+  // never opened under that registration at all.
+  //
+  // ⛔ It is NOT a waiver bought to make a widening quiet, and the difference is
+  // checkable rather than asserted: the defect this row names is the authored
+  // `onTabChange` that `BaseSchemaCore`'s `.passthrough()` KEEPS on a
+  // `detail-view` node and hands to a read site typing it
+  // `((value: string) => void) | undefined`. objectui#9447's own measurement is
+  // why the channel is known to survive the wrapper: `useElementDataSourceSchema`
+  // returns the node unchanged when there is no composed binding and otherwise
+  // shallow-spreads it, overwriting only the binding keys — `onTabChange` is not
+  // one of them.
+  //
+  // ⚠️ The number of live undeclared READ SITES did not move: it is one line,
+  // and it was one line before. What moved is how many of the two registrations
+  // that reach it this gate can score — one, now both. The fix is the same fix,
+  // owned by the same card: objectui#7804 decides the disposition, and deciding
+  // it lands in the zod arm, never in this file.
+  ['detail-view::DetailViewSchema.onTabChange', 'objectui#7804'],
 ]);
 
 /**
@@ -723,8 +764,9 @@ export function relativeImportsIn(sourceFile) {
 }
 
 /**
- * The name a receiver expression denotes once every TYPE-ONLY wrapper is peeled
- * off it, or `null` when what is left is not a plain identifier.
+ * Every TYPE-ONLY wrapper peeled off an expression, leaving the node that is
+ * actually there at runtime. `erasedReceiverName` names it when it is an
+ * identifier; `carriesDocument` asks what it is.
  *
  * A cast is erasure: `(schema as any).onTabChange` and `schema.onTabChange` emit
  * the same property access on the same object, so a census that sees one and not
@@ -742,18 +784,17 @@ export function relativeImportsIn(sourceFile) {
  * SEES without widening what it JUDGES: the identifier underneath still has to
  * be `schema` or the component's own props parameter.
  */
-function erasedReceiverName(expression) {
+function peelErasure(expression) {
   let current = expression;
   // Bounded rather than `while (true)`: these nest (`((schema as any)!)`), but a
   // real source never stacks them deeply, and a bound cannot loop on a cycle.
   for (let hop = 0; hop < 8; hop += 1) {
-    if (ts.isIdentifier(current)) return current.text;
-    // ⚠️ The angle-bracket assertion `(<any>schema).onX` is deliberately NOT
+    // ⚠️ The angle-bracket assertion `(<any>schema)` is deliberately NOT
     // here, and its absence is measured rather than assumed: `parseSource`
     // hard-codes `ts.ScriptKind.TSX` for EVERY file, and under TSX `<any>schema`
-    // parses as JSX — the property access does not survive the parse at all, in
-    // a `.ts` source as much as a `.tsx` one. A branch for it would be dead
-    // code, not coverage.
+    // parses as JSX — the expression does not survive the parse at all, in a
+    // `.ts` source as much as a `.tsx` one. A branch for it would be dead code,
+    // not coverage.
     if (
       ts.isParenthesizedExpression(current) ||
       ts.isAsExpression(current) ||
@@ -763,9 +804,14 @@ function erasedReceiverName(expression) {
       current = current.expression;
       continue;
     }
-    return null;
+    return current;
   }
-  return null;
+  return current;
+}
+
+function erasedReceiverName(expression) {
+  const peeled = peelErasure(expression);
+  return ts.isIdentifier(peeled) ? peeled.text : null;
 }
 
 /**
@@ -991,18 +1037,39 @@ function schemaAttributeOf(element) {
   return null;
 }
 
-/** Is this expression the parent's own document, or built out of it? */
+/**
+ * Is this expression the parent's own document, or built out of it?
+ *
+ * Read through TYPE-ONLY wrappers (`peelErasure`), for the same reason the READ
+ * side peels them: `<DetailView schema={bound as DetailViewSchema} />` and
+ * `<DetailView schema={bound} />` hand the child the SAME object at runtime, so
+ * a census that follows one and not the other is not describing the runtime.
+ * That asymmetry is what objectui#9700 measured. The cast peeling objectui#9344
+ * landed reached `erasedReceiverName` only, so a cast could no longer hide a
+ * READ — but it could still hide the HOP that gets the walk to the read at all,
+ * which is strictly worse: a lost read site leaves no row anywhere, and the
+ * gate's green then reads as "no undeclared reads" over a component it never
+ * opened. `plugin-detail`'s `DetailViewRenderer` is the measured instance —
+ * `register('detail-view', DetailViewRenderer)` reached `ElementDataSourceGate`
+ * and stopped, because the render-prop child hands `DetailView` its document
+ * through `bound as DetailViewSchema`. objectui#9447's two keys were read there
+ * and declared by no arm, and this gate exited 0 over them.
+ *
+ * ⚠️ Peeling widens what the walk SEES, never what it FOLLOWS: the node
+ * underneath still has to be a document identifier, a spread of one, or one of
+ * the expression shapes below. A cast over an unrelated value stays unfollowed.
+ */
 function carriesDocument(expression, documents) {
-  if (ts.isIdentifier(expression)) return documents.has(expression.text);
-  if (ts.isParenthesizedExpression(expression)) return carriesDocument(expression.expression, documents);
-  if (ts.isObjectLiteralExpression(expression)) {
-    if (declaresOwnType(expression)) return false;
-    return expression.properties.some(
+  const peeled = peelErasure(expression);
+  if (ts.isIdentifier(peeled)) return documents.has(peeled.text);
+  if (ts.isObjectLiteralExpression(peeled)) {
+    if (declaresOwnType(peeled)) return false;
+    return peeled.properties.some(
       (property) => ts.isSpreadAssignment(property) && carriesDocument(property.expression, documents),
     );
   }
-  if (ts.isBinaryExpression(expression) || ts.isConditionalExpression(expression)) {
-    return mentionsAny(expression, documents);
+  if (ts.isBinaryExpression(peeled) || ts.isConditionalExpression(peeled)) {
+    return mentionsAny(peeled, documents);
   }
   return false;
 }

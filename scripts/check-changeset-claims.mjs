@@ -1051,6 +1051,15 @@ if (isEntrypoint(import.meta.url)) {
         '       of this class. On a pull request the body arrives via GITHUB_EVENT_PATH; on a\n' +
         '       merge_group build there is no pull request and no body to read.',
     );
+  } else if (corpusRead === 0) {
+    // A SECOND floor, one level in. The corpus was read but spells no address at
+    // all, so there was nothing of this class to judge — which is not the same
+    // answer as "every address checked out", and printing the same tick for both
+    // is how a reader learns to read the tick as noise.
+    console.log(
+      '\n    ⚠️  Read, but nothing to judge: that prose spells no line address this gate can\n' +
+        '        resolve to one tracked file. ⛔ Not the same answer as a clean one.',
+    );
   } else if (born.findings.length === 0) {
     console.log(
       `\n    ✅  Every one of those ${corpusRead} address(es) either names the tree it was read\n` +

@@ -4713,11 +4713,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     if (schema.objectName && panelRecordId != null && hasDeclaredFields) {
       return (
         <div className="px-6 pt-6 pb-6" data-testid="record-detail-panel">
+          {/*
+            objectui#9722: `dataSource` is passed straight through — no cast.
+            This hand-off carried an `as any` too; measured on this branch, it
+            was paying for NOTHING (both sides declare `DataSource | undefined`
+            from `@object-ui/types`), so removing it restores a real check at
+            zero cost. The `objectSchema` cast below is a different question
+            and is deliberately left alone.
+          */}
           <RecordDetailPanel
             record={record}
             objectName={schema.objectName}
             recordId={panelRecordId}
-            dataSource={dataSource as any}
+            dataSource={dataSource}
             objectSchema={objectSchema as any}
             onClose={navigation.close}
           />
@@ -5318,6 +5326,22 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   );
 
   // Rendered BulkActionDialog (shared across both render branches).
+  //
+  // ⭐ objectui#9722: `dataSource` reaches this hand-off through a `!`, and
+  // that non-null assertion is ALL that is erased here. It used to be an
+  // `as any`, and measured on this branch that cast was paying for two
+  // separate things at once: the optional-vs-required arm (this grid declares
+  // `dataSource?: DataSource`, the dialog demands one) AND the structural
+  // assignability of the four data-source members — which did not hold,
+  // because the executor's face still spelled the pre-objectui#9511
+  // `ReadonlyArray<string | number>` for the two bulk doors. Deriving those
+  // two doors from `DataSource` (see `BulkExecutorOptions`) makes the second
+  // one hold for real, so only the first still needs erasing, and any future
+  // drift of that face reddens HERE instead of passing silently.
+  //
+  // ⚠️ The `!` is not an idle tidy-up of the same lie: it preserves exactly
+  // today's runtime behaviour (a grid with no `dataSource` still hands the
+  // dialog `undefined`), and it is the one arm a type cannot check for us.
   const bulkDialog = (
     <BulkActionDialog
       def={activeBulkDef}
@@ -5325,7 +5349,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       skippedCount={activeBulkSkipped}
       open={!!activeBulkDef}
       onClose={handleBulkDialogClose}
-      dataSource={dataSource as any}
+      dataSource={dataSource!}
       resource={schema.objectName ?? ''}
       objectFields={objectSchema?.fields}
       runAction={runBulkActionRecord}

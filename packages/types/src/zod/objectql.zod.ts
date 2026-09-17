@@ -815,11 +815,86 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
   groupBy: KanbanStrayGroupByRefusal,
 }).passthrough();
 
+/**
+ * THE TWO PRE-#2231 CALENDAR DATE ALIASES — DECLARED REFUSALS, BOTH FACES
+ * (objectui#8355, director-seat ruling of 2026-09-16, class-1 self-adjudication:
+ * "retire the aliases at both faces, now").
+ *
+ * `dateField` and `endField` are legacy objectui spellings of the calendar date
+ * axis the protocol spells `startDateField` / `endDateField`. Neither was ever a
+ * MEMBER of a calendar shape here: they rode `.passthrough()` on the two blocks
+ * below and `BaseSchema`'s own `.passthrough()` on the node, so an authored
+ * value was KEPT unexamined, flattened onto the generated `object-calendar` node
+ * by `ListView`'s calendar branch, and read by `ObjectCalendar`'s alias ladder.
+ *
+ * THE REFUSAL IS THE HALF THAT MAKES THE LADDER REMOVABLE, and the ruling says
+ * so in as many words. An earlier attempt (recorded on objectui#8651) removed
+ * the ladder while the producer kept spreading the alias, so the same documents
+ * stopped drawing and nothing said why — they fell through to `ObjectCalendar`'s
+ * generic "Calendar configuration required" screen, which names the canonical
+ * keys and says nothing about the key the author actually wrote. The tombstone
+ * is what turns that silence into a by-name refusal at the authoring door.
+ * ⛔ Do not remove one half without the other.
+ *
+ * ⚠️ THE CANONICAL TARGET IS objectui's, AND UPSTREAM DISAGREES — measured on
+ * the installed pin (`@objectstack/spec` 17.4.0) with a control in the same
+ * pass, not inherited. `CalendarConfigSchema` is a `strictObject` of
+ * `startDateField` / `endDateField` / `titleField` / `colorField`. It answers an
+ * authored `dateField` with "Did you mean `dateField` -> `endDateField`?", and
+ * answers `endField` AND a nonsense control key with the same
+ * `unrecognized_keys` diagnostic carrying no alias hint at all. ⇒ upstream's
+ * alias table points this spelling at the END of the event. Every objectui read
+ * site folds it onto the START: the ladder this card retires did,
+ * `normalizeListViewSchema`'s `timeline` fold does, `resolveTimelineDateBinding`
+ * documents it as "the pre-#2231 alias for `startDateField`", and this package
+ * has published "Deprecated alias for startDateField" on `TimelineConfig` for
+ * releases. Answering an author with `endDateField` would silently re-bind their
+ * axis, so these arms name `startDateField` and the divergence is stated here
+ * rather than inherited in silence. ⛔ Not fixed here — it is upstream's table,
+ * and it needs upstream's card.
+ *
+ * ONE detail string, four installed arms, so the sentence an author meets cannot
+ * depend on which surface they wrote it on. The surface noun is quoted verbatim
+ * from the measurement above, which is what makes the two faces answer alike.
+ */
+const CALENDAR_DATE_ALIAS_DETAIL =
+  '`dateField` and `endField` are the pre-#2231 objectui spellings of the calendar date axis, '
+  + 'retired at both faces by objectui#8355. `@objectstack/spec` spells the axis `startDateField` '
+  + 'and `endDateField` only, so a calendar carrying either spelling never came through the '
+  + 'validated path. Write `startDateField` for the event start and `endDateField` for the event '
+  + 'end. Until this refusal both rode a `.passthrough()` into `ListView`\'s calendar branch, which '
+  + 'flattened them onto the generated `object-calendar` node where the renderer\'s alias ladder '
+  + 'read them; that ladder is retired, so an unrefused key would now leave the axis unbound and '
+  + 'the calendar would refuse WITHOUT naming the key you wrote.';
+
+/**
+ * The two arms as a calendar CONFIGURATION BLOCK wears them — the view-level
+ * `calendar:` block below and the `object-calendar` element's own container.
+ */
+const CalendarBlockDateAliasRefusals = {
+  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this calendar configuration', CALENDAR_DATE_ALIAS_DETAIL),
+  endField: aliasKeyRefusal('endField', 'endDateField', 'this calendar configuration', CALENDAR_DATE_ALIAS_DETAIL),
+};
+
+/**
+ * The same two arms as the `object-calendar` NODE wears them. The surface noun
+ * is the only difference: this is the FLAT spelling `ListView` used to flatten
+ * the block into, and it is where the retired ladder actually read.
+ */
+const CalendarNodeDateAliasRefusals = {
+  dateField: aliasKeyRefusal('dateField', 'startDateField', 'this object-calendar node', CALENDAR_DATE_ALIAS_DETAIL),
+  endField: aliasKeyRefusal('endField', 'endDateField', 'this object-calendar node', CALENDAR_DATE_ALIAS_DETAIL),
+};
+
 const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
   // objectui-only: the calendar renderer's initial view mode. No spec counterpart —
   // promote it rather than growing this extension. `'agenda'` was retired
   // (objectui#5784, following #5740): `CalendarView` renders no agenda view.
   defaultView: z.enum(['month', 'week', 'day']).optional().describe("Initial calendar view mode — 'month' | 'week' | 'day' ('agenda' was retired: objectui#5784)"),
+  // ⭐ The two named alias-refusal arms — objectui#8355. Declared above with the
+  // whole reading; ⛔ do not re-spell either message here, each has ONE source.
+  dateField: CalendarBlockDateAliasRefusals.dateField,
+  endField: CalendarBlockDateAliasRefusals.endField,
 }).passthrough();
 
 /**
@@ -882,6 +957,13 @@ const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfig
   // and the lane. The renderer honours it in BOTH positions: this container and
   // the flat member of the node.
   allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
+  // ⭐ objectui#8355 — the SAME two arms the view-level block above takes, and
+  // deliberately the same string: `getCalendarConfig` reads this container FIRST
+  // and returns it whole, so an alias written HERE was never read by the retired
+  // ladder either. Leaving this one nesting silent is the half-measure the
+  // objectui#8365 precedent names and refuses.
+  dateField: CalendarBlockDateAliasRefusals.dateField,
+  endField: CalendarBlockDateAliasRefusals.endField,
 }).passthrough();
 
 /**
@@ -1039,14 +1121,40 @@ export const ListViewSchema = BaseSchema
       .check((ctx) => {
         const bag = ctx.value as Record<string, any> | undefined;
         const kanban = bag?.kanban;
-        if (!kanban || typeof kanban !== 'object' || Array.isArray(kanban)) return;
-        if ((kanban as Record<string, unknown>).groupBy === undefined) return;
-        ctx.issues.push({
-          code: 'custom',
-          message: KanbanStrayGroupByRefusal.description as string,
-          input: (kanban as Record<string, unknown>).groupBy,
-          path: ['kanban', 'groupBy'],
-        });
+        if (kanban && typeof kanban === 'object' && !Array.isArray(kanban)
+            && (kanban as Record<string, unknown>).groupBy !== undefined) {
+          ctx.issues.push({
+            code: 'custom',
+            message: KanbanStrayGroupByRefusal.description as string,
+            input: (kanban as Record<string, unknown>).groupBy,
+            path: ['kanban', 'groupBy'],
+          });
+        }
+        // ⭐ objectui#8355 — the SECOND key family that reaches into this bag,
+        // for the same reason and through the same door. `ListView` merges
+        // `{ ...options.calendar, ...calendar }` before it reads anything, and
+        // app-shell's `calendarViewOptions` forwards a view's declared block
+        // into THIS nesting — so a stored view carries the retired aliases here
+        // as readily as under the declared `calendar` slot. Same guidance
+        // strings, read off the arms' own `.description` so the two channels
+        // cannot drift, reported as `custom` at `options.calendar.<alias>` (the
+        // declared slot reports `invalid_type` at `calendar.<alias>` — two
+        // codes, one message, and the pin asserts both).
+        // ⛔ Scoped to the TWO keys: no other member of `options.calendar`, and
+        // nothing else under `options`, is judged here.
+        const calendar = bag?.calendar;
+        if (calendar && typeof calendar === 'object' && !Array.isArray(calendar)) {
+          for (const alias of ['dateField', 'endField'] as const) {
+            const written = (calendar as Record<string, unknown>)[alias];
+            if (written === undefined) continue;
+            ctx.issues.push({
+              code: 'custom',
+              message: CalendarBlockDateAliasRefusals[alias].description as string,
+              input: written,
+              path: ['calendar', alias],
+            });
+          }
+        }
       })
       .optional().describe('Component overrides (legacy)'),
     operations: z.object({
@@ -1525,6 +1633,14 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container — startDateField, endDateField, titleField, colorField (plus objectui\'s allDayField); read FIRST by getCalendarConfig, ahead of the flat spelling'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),
+  // ⭐ objectui#8355 — the FLAT spelling the retired ladder actually read, and
+  // the one position where an unrefused alias is worst: `BaseSchema` ends
+  // `.passthrough()`, so the key was KEPT, carried into the renderer, and — with
+  // the ladder gone — ignored. Declared and unwritable, it is refused BY NAME
+  // instead. `z.input` is `undefined`, so `../objectql.ts` carries the matching
+  // `?: never` twin and `tsc` refuses the key at the authoring site too.
+  dateField: CalendarNodeDateAliasRefusals.dateField,
+  endField: CalendarNodeDateAliasRefusals.endField,
   titleField: z.string().optional().describe('Title field'),
   // objectui#8466 — the last two members of the FLAT field-name face, which
   // `ObjectCalendar.tsx`'s `getCalendarConfig` reads bare off the node and

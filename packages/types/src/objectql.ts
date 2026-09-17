@@ -3248,6 +3248,33 @@ export interface ObjectCalendarSchema extends BaseSchema {
   startDateField?: string;
   /** Field for event end */
   endDateField?: string;
+  /**
+   * ⛔ RETIRED (objectui#8355, director ruling of 2026-09-16) — `dateField` was
+   * the pre-#2231 objectui spelling of {@link ObjectCalendarSchema.startDateField}
+   * and is refused BY NAME on both faces: `?: never` here, an
+   * `aliasKeyRefusal()` arm on the zod mirror (`zod/objectql.zod.ts`). Write
+   * `startDateField`.
+   *
+   * ⚠️ It is a TOMBSTONE, not a deletion, and the difference is the whole
+   * ruling. `BaseSchema` carries `[key: string]: any` on this face and
+   * `.passthrough()` on the mirror, so a DELETED key is not refused — it is
+   * KEPT, unexamined, and then ignored now that `ObjectCalendar`'s alias ladder
+   * is gone. Silent is the failure mode an earlier attempt shipped
+   * (objectui#8651 records it); declared-and-unwritable is what makes the same
+   * document fail loudly instead.
+   */
+  dateField?: never;
+  /**
+   * ⛔ RETIRED (objectui#8355) — the pre-#2231 spelling of
+   * {@link ObjectCalendarSchema.endDateField}, refused by name for the reason
+   * spelled out on {@link ObjectCalendarSchema.dateField} above. Write
+   * `endDateField`.
+   *
+   * ⚠️ This one degraded even more quietly than its sibling before the
+   * retirement: the node still resolved through `startDateField`, so the
+   * calendar drew, and only the end binding went missing.
+   */
+  endField?: never;
   /** Field for event title */
   titleField?: string;
   /**

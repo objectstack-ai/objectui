@@ -42,6 +42,43 @@
  * asserts the stub served it (`pnpmArgv` is written by the stub and by nothing
  * else), so a spawn that reached the real pnpm fails rather than going quiet.
  *
+ * ## ⛔ And neither may anything ELSE that a required job runs (objectui#9693)
+ *
+ * The assertion below that pins the live reading to ONE place used to be
+ * measured over the workflow files and nothing else. Its own comment stated the
+ * intent as "if a required job ever grows a `pnpm dedupe` of its own" — but the
+ * way a required job actually grew one, the time it happened, was through THIS
+ * FILE, and a test file is not a workflow. ⇒ the lock named after objectui#9562
+ * could not have seen objectui#9562 arrive: another test file spawning the
+ * checker, or running `pnpm dedupe` itself, was green.
+ *
+ * So the population is now every place in what CI runs that this repository can
+ * enumerate, in ONE assertion — ⛔ never a second lock per class of file, which
+ * would only move the blind spot to the next class:
+ *
+ *   - every workflow, comment LINES stripped (prose may not satisfy wiring);
+ *   - every tracked test file, plus the `vitest.config` / `vitest.setup`
+ *     modules loaded around them, with COMMENTS BLANKED through
+ *     `scripts/js-comment-mask.mjs` — the tree's one answer to "comment, or
+ *     code?". The paragraph you are reading names both hazardous spellings, so
+ *     without the mask this assertion could never be green.
+ *
+ * The exemption list is two entries and each is checkable: the path-filtered
+ * workflow, and this file, whose every run asserts the stub served it.
+ *
+ * ⚠️ What the scan still does NOT see — said here because nothing re-derives it:
+ *
+ *   - a non-test SCRIPT that a required job runs, which shells out to `pnpm
+ *     dedupe` itself. Its callers carry no marker, and the tree's own
+ *     classification strings quote the command in prose that no mask blanks, so
+ *     that population needs a way to tell a command from a citation before it
+ *     can be added;
+ *   - an invocation assembled at runtime (`path.join(root, 'scripts', …)`)
+ *     rather than written as the path;
+ *   - a file that is not tracked, since the walk is `git ls-files`. CI only
+ *     ever runs tracked bytes, so this bites locally — before `git add` — and
+ *     not in the context the lock protects.
+ *
  * ## What this file covers that the checker's `--self-test` cannot
  *
  *   1. the self-test really passes, run as shipped rather than re-implemented;
@@ -62,20 +99,118 @@
  * take it deliberately; this file is what makes it deliberate rather than
  * incidental.
  */
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
 import { DEDUPE_SENTINEL } from '../check-lockfile-dedupe.mjs';
+import { FLOORS, TEST_FILE } from '../check-test-path-roots.mjs';
 import { NOT_A_GATE, OPTIONAL_CONTEXTS, REQUIRED_CONTEXTS } from '../dependabot-merge-gate.mjs';
+import { maskComments } from '../js-comment-mask.mjs';
 import { pullRequestTrigger, readWorkflows, repoRoot, subscribesMergeGroup } from './workflow-checks.js';
 
 const SCRIPT = 'scripts/check-lockfile-dedupe.mjs';
 const WORKFLOW = 'lockfile-dedupe.yml';
 const CONTEXT = 'Lockfile Dedupe Check';
+
+/** This file, by its own path — a rename may not silently drop what it pins. */
+const THIS_FILE = path.relative(repoRoot, fileURLToPath(import.meta.url));
+
+/**
+ * The spellings that TAKE the live reading, as opposed to naming it.
+ *
+ * ⛔ Not the word `dedupe` on its own: this repository spends that word on UI
+ * dedupe keys in hundreds of files, and a marker that fires on those is one
+ * nobody can keep green.
+ */
+const LIVE_READING = [
+  /** The shipped checker, run by any means: a `run:` step, a spawn argument, a package script body. */
+  new RegExp(SCRIPT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+  /** pnpm's own dedupe — shell form (`pnpm dedupe --check`) and argv form (`'pnpm', ['dedupe'`) together. */
+  /\bpnpm\b[\s'",[\]()]{1,12}\bdedupe\b/,
+  /** The package script that is a second name for the first marker. */
+  /\bcheck:lockfile-dedupe\b/,
+];
+
+/** Does this CODE take the live reading? Blanking the comments is the caller's job. */
+function takesLiveReading(code: string): boolean {
+  return LIVE_READING.some((marker) => marker.test(code));
+}
+
+/**
+ * The modules vitest loads AROUND every test file. A live reading here would
+ * run in every file of the project rather than in one, so they are scanned on
+ * the same terms as the tests themselves.
+ */
+const VITEST_RUNTIME = /^vitest\.(config|setup)[.\w-]*\.(ts|tsx|mts|js|mjs)$/;
+
+/** The same `git ls-files -z` walk `check-test-path-roots.mjs` takes over this same population. */
+function trackedFiles(): string[] {
+  return execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 })
+    .toString('utf8')
+    .split('\0')
+    .filter(Boolean);
+}
+
+interface LiveScan {
+  /** Repo-relative paths that take the live reading, sorted. */
+  sites: string[];
+  /** How many workflows were read — a floor under the equality, so a collapsed read cannot pass. */
+  workflows: number;
+  /** The source files that were read, so the same floor covers the other half. */
+  population: string[];
+}
+
+/**
+ * Every place in what CI RUNS that takes the live reading.
+ *
+ * Two carriers, one population (objectui#9693): the workflows, which say what a
+ * job runs, and the files those jobs execute — every tracked test file plus the
+ * vitest runtime modules. Workflow comment LINES are stripped by `readWorkflows`;
+ * source comments are blanked by `scripts/js-comment-mask.mjs`, the tree's one
+ * answer to "comment, or code?", so the paragraphs in this very file explaining
+ * the hazard cannot count as the hazard.
+ */
+function scanForLiveReading(): LiveScan {
+  const workflows = readWorkflows();
+  const sites = workflows
+    .filter((workflow) => takesLiveReading(workflow.lines.join('\n')))
+    .map((workflow) => `.github/workflows/${workflow.file}`);
+
+  const population = trackedFiles().filter((file) => TEST_FILE.test(file) || VITEST_RUNTIME.test(file));
+  for (const file of population) {
+    let text: string;
+    try {
+      text = fs.readFileSync(path.join(repoRoot, file), 'utf8');
+    } catch {
+      continue; // a tracked-but-absent path (a stale index) is not this assertion's business
+    }
+    // A pre-filter and ONLY a pre-filter: masking blanks spans, so it can remove
+    // a hit and never add one — a file with no raw hit cannot have a masked one.
+    if (!takesLiveReading(text)) continue;
+    if (takesLiveReading(maskComments(text))) sites.push(file);
+  }
+
+  return { sites: sites.sort(), workflows: workflows.length, population };
+}
+
+/**
+ * The only places a live reading may be taken, and why each may:
+ *
+ *   - the path-filtered, non-required workflow this gate was built around;
+ *   - this file, which drives the checker ONLY through the `PATH` stub above —
+ *     every run asserts `pnpmArgv`, so a leg that reached the real pnpm reds
+ *     rather than going quiet, which is what makes this exemption checkable
+ *     instead of trusted.
+ *
+ * ⛔ Nothing else belongs here. An addition is a live, registry-dependent
+ * reading inside a REQUIRED context — objectui#9562, again.
+ */
+const LIVE_READING_SITES = [`.github/workflows/${WORKFLOW}`, THIS_FILE].sort();
 
 /**
  * Real `pnpm@10.31.0` output, same capture objectui#8333 took and the checker's
@@ -264,12 +399,59 @@ describe('the lockfile-dedupe gate is wired the way its header claims', () => {
     expect(body()).toContain(`name: ${CONTEXT}`);
   });
 
-  it('is the only place the LIVE reading runs (objectui#9562)', () => {
-    // The live, registry-dependent execution belongs to this path-filtered
-    // workflow and nowhere else. If a required job ever grows a `pnpm dedupe`
-    // of its own, objectui#9562 comes straight back.
-    const live = workflows.filter((w) => w.lines.join('\n').includes(`node ${SCRIPT}`)).map((w) => w.file);
-    expect(live).toEqual([WORKFLOW]);
+  it('is the only place the LIVE reading runs, in workflows AND in what they run (objectui#9562, objectui#9693)', () => {
+    // The live, registry-dependent execution belongs to one path-filtered
+    // workflow and nowhere else. ⭐ "Nowhere else" is the whole assertion, and
+    // it used to be measured over the workflows alone — while the way a
+    // required job actually grew a `pnpm dedupe`, the time it happened, was
+    // through a TEST FILE, which is not a workflow. So the population is both
+    // carriers at once: one assertion over every place a live reading could
+    // run, ⛔ never a second lock per class of file.
+    const scan = scanForLiveReading();
+
+    // Floors first. An equality over a population that collapsed to nothing
+    // passes for the wrong reason, and this one spans two independent reads —
+    // so each read carries its own floor. `check-test-path-roots.mjs` already
+    // publishes the floor for the test-file half; this reuses it rather than
+    // writing a second number that would drift from it.
+    expect(scan.workflows, 'the workflow read collapsed').toBeGreaterThan(20);
+    expect(scan.population.length, 'the source read collapsed').toBeGreaterThan(FLOORS.testFiles);
+    // …and it reached this file's PEERS and the runtime modules, not just the
+    // two files the expectation names — a scan that only ever looked at itself
+    // would satisfy the equality below exactly as well.
+    expect(scan.population.filter((f) => f.startsWith('scripts/__tests__/') && f !== THIS_FILE).length).toBeGreaterThan(50);
+    expect(scan.population).toContain('vitest.setup.base.ts');
+
+    // The equality is also the positive control for both halves: one member is
+    // a workflow and the other a test file, so a carrier that stopped being
+    // read goes red here rather than going quiet.
+    expect(scan.sites, 'a live, registry-dependent reading inside a REQUIRED context — objectui#9562, again').toEqual(
+      LIVE_READING_SITES,
+    );
+  });
+
+  it('the population test fires on every route objectui#9693 enumerates, and not on prose', () => {
+    // The control for the detector the assertion above is built on. Each case
+    // is the spelling ITSELF rather than a description of one, so a marker that
+    // stopped matching fails here instead of reporting an empty tree as clean.
+
+    // Row 3 of objectui#9693: another test file spawns the shipped checker.
+    expect(takesLiveReading(maskComments(`spawnSync('node', ['${SCRIPT}'], { cwd: repoRoot });`))).toBe(true);
+    // Row 4: another file runs pnpm's dedupe itself, in either spelling.
+    expect(takesLiveReading(maskComments(`spawnSync('pnpm', ['dedupe', '--check'], { cwd: repoRoot });`))).toBe(true);
+    // Row 1, and the indirection through this repository's own script name —
+    // a `run:` step reaches the same live reading by either spelling.
+    expect(takesLiveReading(`      run: node ${SCRIPT}`)).toBe(true);
+    expect(takesLiveReading('      run: pnpm dedupe --check')).toBe(true);
+    expect(takesLiveReading('      run: pnpm check:lockfile-dedupe')).toBe(true);
+
+    // ⛔ And prose about the hazard is not the hazard: this file's own header
+    // discusses both spellings at length, so without the mask the assertion
+    // above could never be green and the next author would loosen it.
+    expect(takesLiveReading(maskComments(`// never spawn ${SCRIPT} from here; run \`pnpm dedupe\` by hand`))).toBe(false);
+    expect(takesLiveReading(maskComments(`/* ${SCRIPT} is the checker */`))).toBe(false);
+    // Nor is the word this repository spends on UI dedupe keys everywhere.
+    expect(takesLiveReading(maskComments('const dedupe = new Set<string>();'))).toBe(false);
   });
 
   it('is path-filtered, and the filter lists the gate’s own runtime closure', () => {

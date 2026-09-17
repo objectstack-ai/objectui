@@ -26,6 +26,6 @@ comparison itself is still `===`: `null` matches only `null`, `undefined` only `
 
 `WalkableDef` is emitted into the published `dist/` but is reachable through no entry in the
 package `exports` map, so no consumer outside this package can name the widened member; the
-new pin `types/src/__tests__/walkable-def-null-mint-9491.test.ts` re-derives against the
-INSTALLED zod that `rest` is minted `null` and that no other member the walkers read ever is,
-so a zod bump that moves either half goes red here.
+new pin `packages/types/src/__tests__/walkable-def-null-mint-9491.test.ts` re-derives against
+the INSTALLED zod that `rest` is minted `null`, and that no other member is minted `null`
+across the node kinds the pin builds, so a zod bump that moves either half goes red here.

@@ -72,6 +72,19 @@ and the deferral itself is the part that stayed true. ⛔ Nothing else in the pa
 the nested verdict, the installed arm's check and the "narrows at all 109, widens at none"
 reading are all readings of THIS card's head and cannot rot.
 
+⚠️ **AMENDED AGAIN (objectui#9659 — also landing in THIS release).** One clause of the note
+above has since moved: "the installed arm's check" is GONE. The check it names was the
+`superRefine` clause on `defineNodeComponentUnion`, and once ruling A retired the key it
+narrowed, it could no longer fire for any input — measured on the issue tree of a nested
+refusal, which carries the arm's own tombstone and no clause-shaped issue, against a lit
+control built from the pre-retirement record arm. objectui#9659 retires the clause and
+re-points the pin that read its shape. ⛔ The READING is unaffected and still cannot rot: the
+nested verdict is the same (refused before, refused now, by the arm instead of by the
+clause), the accept set is byte-identical over 432 corpus documents plus a 60-case chatbot
+sweep, and "narrows at all 109, widens at none" is still what this card's redirect does. What
+changed is WHICH mechanism delivers the nested refusal, and the sentence above names the
+retired one.
+
 **3. ⚠️ KNOWN GAP, declared rather than papered over: a bundled consumer that never reads
 `AnyComponentSchema` can tree-shake the redirect away.** This package declares
 `"sideEffects": false` and the arm is filled by a statement in the `./zod` barrel's body, so a

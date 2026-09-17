@@ -127,51 +127,61 @@ export const KeyedI18nLabelSchema = z.object({
  * naming that single arm in `__tests__/node-recursion-point-8344.test.ts`. ⇒ a SECOND
  * arm drifting the same way turns that pin red instead of passing unnoticed.
  *
+ * ⚠️ AMENDED (objectui#8572 ruling A, recorded here by objectui#9659). The paragraph
+ * above is kept in the tense it was written in, because what it records is WHY the bound is
+ * loose — but the arm it names has since moved: `ChatbotSchema.body` is an ADR-0049
+ * retirement tombstone on both published faces, so the exclusion set that pin reads is now
+ * EMPTY and the pin asserts `never`. ⛔ Do not read the paragraph as a live census of what
+ * `tsc` refuses today; the pin is the instrument, and it is the one that answers.
+ *
  * @internal — the package's only zod entry point is the `./zod` barrel, which is
  * `index.zod.ts`; this exists for that one call site and is not re-exported.
  */
 export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
-  // ⭐ objectui#8344 F2 — what goes into the slot is the union WRAPPED, never the bare union.
+  // ⭐ objectui#8344 F2 — what goes into the slot is the component union itself.
   //
-  // WHY THE CLAUSE WAS WRITTEN. `ChatbotSchema.body` mirrored the chat API's body params as a
-  // record, which was WIDER than `BaseSchemaCore.body` — the only wider redeclaration among the
-  // 109 base-key redeclarations across the arms — so installing the bare union would have
-  // narrowed at 108 child slots and WIDENED at one. #8344's appetite forbade widening in
-  // flight, so the arm took the check and the published mirror was left alone, which is why a
-  // root `chatbot` with a record `body` parsed while the same node one slot down did not.
+  // WHY A `superRefine` WRAPPER USED TO SIT HERE. `ChatbotSchema.body` mirrored the chat API's
+  // body params as a record, which was WIDER than `BaseSchemaCore.body` — the only wider
+  // redeclaration among the 109 base-key redeclarations across the arms — so installing the
+  // union bare would have narrowed at 108 child slots and WIDENED at one. #8344's appetite
+  // forbade widening in flight, so the INSTALLED arm carried a clause that re-issued the
+  // node-slot's own refusal under `body` for a `chatbot` node, and the published mirror was
+  // left alone.
   //
-  // ⚠️ AMENDED (objectui#8572, ruling A). That ruling was made: `ChatbotSchema.body` is an
-  // ADR-0049 retirement tombstone on both published faces now, pointing the author at
-  // `requestBody`. Three consequences, stated because the sentences above would otherwise read
-  // as live:
-  //   1. the arm refuses the key BY ITSELF, at every depth, so the asymmetry this clause
-  //      existed to prevent no longer exists and the clause is REDUNDANT;
-  //   2. ⛔ redundant is not removable. The WRAPPER is load-bearing independently of what it
-  //      checks: `__tests__/node-recursion-point-8344.test.ts`'s `the fill is LIVE` leg reads
-  //      that slot 0 holds the WRAPPED union and not the bare one, and the read-back assertion
-  //      below throws when the recursion point did not take. Dropping the clause means
-  //      rebuilding what gets installed — surgery on #8344's recursion point, not a deletion —
-  //      so it stays exactly as it is until a card decides otherwise;
-  //   3. the old instruction here said ⛔ not to narrow `ChatbotSchema` because that face was
-  //      not #8344's to move and the question was recorded on objectui#8572. That question has
-  //      been answered, so the instruction is retired with it: what ⛔ must not happen now is
-  //      the opposite — do not restore a record `body` arm on that mirror to make this clause
-  //      meaningful again.
-  const installed = union.superRefine((value, ctx) => {
-    const node = value as { type?: unknown; body?: unknown } | null | undefined;
-    if (!node || node.type !== 'chatbot' || node.body === undefined) return;
-    const asNodeSlot = BaseSchemaCore.shape.body.safeParse(node.body);
-    if (asNodeSlot.success) return;
-    for (const issue of asNodeSlot.error.issues) {
-      ctx.addIssue({ ...issue, path: ['body', ...issue.path] });
-    }
-  }) as unknown as T;
-  nodeUnionOptions[0] = installed;
+  // WHY IT IS GONE (objectui#9659, carrying a contract-review residual on objectui#9639).
+  // Ruling A on objectui#8572 made `ChatbotSchema.body` an ADR-0049 retirement tombstone on
+  // both published faces, so the arm refuses the key BY ITSELF, at every depth. The note that
+  // stood here said the clause was REDUNDANT but ⛔ not removable "until a card decides
+  // otherwise". This is that card, and the disposition rests on a MEASUREMENT rather than on
+  // the redundancy argument:
+  //
+  //   1. the clause could no longer FIRE, not merely no longer matter. zod skips a check once
+  //      the schema it wraps has refused, and the arm refuses every DEFINED `body` — measured
+  //      key by key over record / node / node[] / string / number / boolean / null / [] / {},
+  //      all REFUSED — while the clause's own first line returns early on `undefined`. ⇒ the
+  //      two conditions "reaches the clause" and "has a `body` to check" had become disjoint;
+  //   2. read on the issue tree of a nested refusal: the arm's tombstone at `body.0.body` and
+  //      NO clause-shaped issue. The same probe against the pre-#9639 record arm produces the
+  //      clause's `body.0.body` issue and no tombstone — the lit control that makes the zero
+  //      above a reading rather than a broken instrument;
+  //   3. ⇒ the accept set does not move: a clause that cannot fire cannot be narrowing
+  //      anything. Pinned over the 432-document schema catalog plus a 60-case sweep of the
+  //      three chatbot faces x ten `body` shapes x both depths, byte-identical either way.
+  //
+  // ⛔ What must NOT happen now is the opposite of #8344's old instruction: do not restore a
+  // record `body` arm on that mirror to make a narrowing clause meaningful again.
+  //
+  // ⚠️ The WRAPPER was load-bearing independently of what it checked, and that role is kept,
+  // not dropped: `__tests__/node-recursion-point-8344.test.ts` reads that slot 0 holds the
+  // component union and not the pre-#8344 `BaseSchemaCore`, and the read-back assertion below
+  // throws when the recursion point did not take. Retiring the clause re-points both at the
+  // INSTALLATION, which is what they were really for.
+  nodeUnionOptions[0] = union;
   // The assertion the paragraph above exists for. ⛔ Do not delete it as noise: it is
   // the only thing standing between a zod that copies its option array and a
   // recursion point that silently reverts to the pre-#8344 base shape.
   const readBack = (nodeUnion as unknown as { _zod: { def: { options: readonly unknown[] } } })._zod.def.options[0];
-  if (readBack !== installed) {
+  if (readBack !== union) {
     throw new Error(
       'objectui#8344: `z.union` no longer keeps its option array by reference, so the node '
       + 'recursion point did not take. The redirect is INERT and every nested node is being '

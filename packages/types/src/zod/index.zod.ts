@@ -453,7 +453,12 @@ import { ViewComponentSchema } from './views.zod.js';
  * ⚠️ BOTH of the above are live here, and the composition is the whole resolution:
  * objectui#8498 changed WHICH arm reports, objectui#8344 changed WHERE this union is
  * consulted. The discriminated union is what gets written into the node option slot,
- * so `defineNodeComponentUnion` wraps it rather than replacing it. The slot itself is
+ * unchanged: `defineNodeComponentUnion` installs it as it stands. ⚠️ AMENDED
+ * (objectui#9659) — this used to read "so `defineNodeComponentUnion` wraps it rather
+ * than replacing it", which named the `superRefine` clause objectui#8344 carried on the
+ * installed arm. Ruling A on objectui#8572 retired the key that clause narrowed,
+ * objectui#9659 measured that it could no longer fire for any input, and it is gone; the
+ * fill is an installation and nothing more. The slot itself is
  * still a plain `z.union` in `base.zod.ts` — that is what keeps its option array by
  * reference, and it is untouched by the discrimination.
  */

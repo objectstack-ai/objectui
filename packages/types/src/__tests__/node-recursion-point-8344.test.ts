@@ -156,26 +156,33 @@ describe('the late-binding wiring, read by IDENTITY on the exported wrapper', ()
     expect(AnyComponentSchema.safeParse(nested(LEGAL_ICON)).success).toBe(true);
   });
 
-  it('the fill is LIVE, and slot 0 holds the WRAPPED union, not the bare one', () => {
+  it('the fill is LIVE, and slot 0 holds the COMPONENT UNION, not the pre-objectui#8344 base shape', () => {
     // `z.union` re-reads its option array on every parse, so the recursion point is whatever
     // slot 0 holds NOW — not whatever it held when some other file in this worker first
     // parsed something (the unit project runs `isolate: false`, one module graph per worker).
-    // ⛔ Do not assert `toBe(AnyComponentSchema)` here: what is installed is deliberately a
-    // `superRefine` WRAPPER rather than the bare union, and a pin on the bare union would go
-    // green the moment the wrapper stopped being installed. ⚠️ The clause that wrapper carries
-    // is objectui#8344's `chatbot` body narrowing, and objectui#8572 retired the arm it
-    // narrowed — so what this leg reads is the wrapper's INSTALLATION, not the clause's
-    // usefulness; the clause's disposition belongs to `../zod/base.zod.ts` and is not made
-    // here.
+    //
+    // ⭐ RE-POINTED at the INSTALLATION by objectui#9659, carrying a contract-review residual
+    // on objectui#9639. This leg used to read the wrapper's SHAPE — `not.toBe` the bare union,
+    // plus `checks` of length exactly 1 — because `defineNodeComponentUnion` installed a
+    // `superRefine` clause narrowing objectui#8344's `chatbot` `body`. Ruling A on
+    // objectui#8572 retired the arm that clause narrowed, and objectui#9659 measured the
+    // consequence: the clause could no longer FIRE for any input, so those two assertions had
+    // become a pin on the shape of an inert clause. The clause is retired at its source and
+    // this leg now reads what it was always really for — that the fill TOOK.
+    //
+    // ⚠️ The old warning here — "⛔ do not assert `toBe(AnyComponentSchema)`, it would go green
+    // the moment the wrapper stopped being installed" — was correct WHILE a wrapper existed,
+    // and it retires with the wrapper. It is not a licence to reintroduce one: with nothing
+    // wrapped, identity with the component union is the strongest reading available, and it
+    // FAILS on the failure this leg exists for — an unfilled holder still answers
+    // `BaseSchemaCore`, which is a different object.
     const arm = (SchemaNodeSchema as unknown as {
       _zod: { def: { getter: () => { _zod: { def: { options: readonly { _zod: { propValues?: Record< string, unknown >; def: { checks?: unknown[] } } }[] } } } } };
     })._zod.def.getter()._zod.def.options[0];
-    expect(arm).not.toBe(AnyComponentSchema);
-    // it is still the discriminated union objectui#8498 built — the discrimination survives
-    // the wrapper, which is what keeps a nested refusal costing one arm instead of 106 —
+    expect(arm).toBe(AnyComponentSchema as unknown as typeof arm);
+    // and it is still the discriminated union objectui#8498 built, which is what keeps a
+    // nested refusal costing one arm instead of 106.
     expect(Object.keys(arm._zod.propValues ?? {})).toContain('type');
-    // and it carries exactly the one check that narrowing adds.
-    expect(arm._zod.def.checks).toHaveLength(1);
   });
 
 });
@@ -273,10 +280,69 @@ describe('objectui#8572 — the `chatbot` record `body` is refused at the ROOT a
     expect(AnyComponentSchema.safeParse(nested(CHATBOT)).success).toBe(true);
   });
 
-  it('names `body` in the refusal, so the author is told which key is wrong', () => {
+  it('names `body` AT ITS OWN PATH one slot down, and carries the remedy there too', () => {
+    // ⭐ RE-POINTED by objectui#9659, carrying a contract-review residual on objectui#9639.
+    // This leg used to read `JSON.stringify(issues)` for the substring `"body"` and was
+    // VACUOUS: the parent card slot puts `"body"` in the issue path for ANY refused child, so
+    // the old assertion held whether or not the `chatbot` arm named anything. Measured on this
+    // head — three documents with nothing wrong at `body`, all three satisfying the old
+    // assertion, none of them carrying an issue at the child's own `body` path:
+    //
+    //   nested off-spec `icon` (size: 'huge')  → blob contains `"body"`: true, issues at
+    //                                            `body.0.body`: 0
+    //   nested unmirrored `metric-card`        → true / 0
+    //   nested `chatbot` missing `messages`    → true / 0
+    //   nested `chatbot` with a record `body`  → true / 1   ← the only one that is about `body`
+    //
+    // ⇒ the reading that discriminates is the child's OWN path, not the serialized blob. The
+    // controls above are kept as assertions below so the discrimination is pinned rather than
+    // recorded in prose.
     const result = AnyComponentSchema.safeParse(nested(withRecordBody));
     expect(result.success).toBe(false);
     if (result.success) return;
+    const at = (issues: readonly unknown[], path: string): { code?: string; message?: string }[] => {
+      const out: { code?: string; message?: string }[] = [];
+      const walk = (node: unknown, prefix: readonly (string | number)[]): void => {
+        if (Array.isArray(node)) { for (const child of node) walk(child, prefix); return; }
+        const issue = node as { path?: readonly (string | number)[]; errors?: readonly unknown[]; code?: string; message?: string };
+        const here = [...prefix, ...(issue.path ?? [])];
+        if (here.join('.') === path) out.push({ code: issue.code, message: issue.message });
+        for (const bucket of issue.errors ?? []) walk(bucket, here);
+      };
+      walk(issues, []);
+      return out;
+    };
+    const named = at(result.error.issues, 'body.0.body');
+    expect(named.length).toBeGreaterThan(0);
+    // the refusal one slot down is the ARM's tombstone, and the REMEDY reaches the author at
+    // depth and not only at the root — the root leg above reads the same string at depth 0.
+    expect(named.some((i) => i.code === 'invalid_type')).toBe(true);
+    expect(named.some((i) => (i.message ?? '').includes('requestBody'))).toBe(true);
+  });
+
+  it.each([
+    ['off-spec `icon`', { type: 'icon', icon: 'check', size: 'huge' }],
+    ['unmirrored `metric-card`', { type: 'metric-card', title: 'x' }],
+    ['`chatbot` missing `messages`', { type: 'chatbot' }],
+  ])('CONTROL — a nested %s is refused with NOTHING at the child\'s `body` path', (_label, child) => {
+    // These are the documents that made the old leg vacuous. Each is refused for a reason that
+    // has nothing to do with `body`, so the leg above must find nothing at `body.0.body` here.
+    // ⛔ Do not "repair" a future failure by widening the path: a refusal that starts naming
+    // `body` for an off-spec `icon` is a defect in the recursion point, not in this control.
+    const result = AnyComponentSchema.safeParse(nested(child));
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const paths: string[] = [];
+    const walk = (node: unknown, prefix: readonly (string | number)[]): void => {
+      if (Array.isArray(node)) { for (const c of node) walk(c, prefix); return; }
+      const issue = node as { path?: readonly (string | number)[]; errors?: readonly unknown[] };
+      const here = [...prefix, ...(issue.path ?? [])];
+      paths.push(here.join('.'));
+      for (const bucket of issue.errors ?? []) walk(bucket, here);
+    };
+    walk(result.error.issues, []);
+    expect(paths).not.toContain('body.0.body');
+    // and the old assertion holds anyway — which is the whole reason it was replaced.
     expect(JSON.stringify(result.error.issues)).toContain('"body"');
   });
 });

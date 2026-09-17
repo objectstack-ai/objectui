@@ -12,6 +12,13 @@ outright — so a reader landing on any of the three gets the same rule. The
 `KanbanColumn.color` site's own parenthetical had named this card as its open correction;
 that parenthetical is now discharged rather than repeated.
 
+The `triggerIcon` tombstone's own rationale was the site objectui#7678 was filed about, and
+it still argued from `tsc` behaviour alone — a contrast that applied equally to the two
+precedent retirements that were removed outright, so it cannot be what separates the routes.
+It now carries the amended discriminator and names prong 2 (the 3.3.0 release record
+advertised the key, and its published JSDoc promised a default) as the reason this key earns
+a tombstone, with prong 1 recorded as not holding. The route itself is unchanged.
+
 `mobile.ts`'s `MobileOverrides` retirement note keeps its prong-1 argument, which is
 settled, and gains a pointer to the amended rule and to the reason prong 2 has nothing to
 guard there: this module has never had a `zod/` twin, so there is no mirror that could

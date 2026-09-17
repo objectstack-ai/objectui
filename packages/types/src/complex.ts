@@ -1870,6 +1870,22 @@ export interface FloatingChatbotConfig {
    *   - TOMBSTONED, both paths are refused: the declared `never` makes the
    *     assignment itself ill-typed, so freshness stops mattering.
    *
+   * ⚠️ That `tsc` contrast is the MECHANISM, not the discriminator. It applied
+   * equally to objectui#4919 and #5942, which were removed outright, so it
+   * cannot be what separates the routes. What decides the route is this
+   * package's retire-vs-remove discriminator in its amended form
+   * (objectui#7678, the same wording the `chatbot` tombstones above carry): a
+   * `?: never` tombstone is available only on a SURVIVING CARRIER —
+   * `FloatingChatbotConfig` survives this retirement, while a whole exported
+   * type name has no carrier and is removed outright — and on such a carrier
+   * it is used when either prong holds. PRONG 2 is the one that holds here:
+   * the key was advertised in the 3.3.0 release record (2026-04-17, the "New
+   * ChatbotSchema floating fields" entry, which names `triggerIcon` among
+   * `FloatingChatbotConfig`'s options) and its published JSDoc promised
+   * `@default 'MessageCircle'` — the docs taught it as working. Prong 1 does
+   * NOT hold: there is no replacement key, which is why the guidance below
+   * names the trigger's own markup instead.
+   *
    * Pinned in `__tests__/floating-chatbot-trigger-icon-retired.test.ts`,
    * including the deletion contrast, so nobody can "simplify" this back into a
    * deletion without that file going red.

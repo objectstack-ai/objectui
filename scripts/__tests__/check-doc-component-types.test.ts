@@ -975,6 +975,147 @@ describe('the registered-key universe is derived from the registration calls', (
   });
 });
 
+/**
+ * objectui#9703 — an INDIRECT_REGISTRATIONS entry's `namespace` used to BE the
+ * namespace of every key derived through it: a hand-kept value that was an
+ * INPUT to this derivation, with nothing comparing it against the call it
+ * claimed to describe. A namespace edit at one of those calls therefore could
+ * not reach the generated universe, and this derivation stayed GREEN while
+ * disagreeing with the runtime — the failure the card names, and the reason the
+ * fix is to stop reading the table rather than to add a test that pins today's
+ * value of it.
+ *
+ * ⛔ None of these pins the live table's contents. They pin the MECHANISM on a
+ * fixture tree, so they keep holding after the live entries change.
+ */
+describe("an indirect registration's namespace is read from the call, never from the table", () => {
+  const indirect = (over: Record<string, unknown> = {}) => ({
+    exemptions: {},
+    openRegistrationSites: {},
+    indirectRegistrations: [
+      {
+        site: 'packages/demo/src/index.tsx',
+        collection: 'THINGS',
+        kind: 'array',
+        namespace: 'ui',
+        reason: 'fixture',
+        ...over,
+      },
+    ],
+  });
+
+  const site = (body: string[]) => (write: (rel: string, contents: string) => void) =>
+    write('packages/demo/src/index.tsx', body.join('\n') + '\n');
+
+  it('⭐ follows the CALL when the table disagrees, and reports the drift', () => {
+    // The table says `ui`; the call says `proto`. Before this, the universe read
+    // `ui:alpha` — a key the runtime never stores — with no finding at all.
+    const { keys, findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'proto' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, indirect()),
+    );
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'proto:alpha']);
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['indirect-namespace-drift']);
+    expect((findings[0] as Finding).detail).toContain('`proto`');
+  });
+
+  it('is SILENT when the table agrees with the call — the live tree\'s reading', () => {
+    // The control for the pin above: same fixture, same instrument, declaration
+    // matching the call. A finding here would mean the reconciliation reds on a
+    // correct tree, which is how a good gate gets deleted.
+    const { keys, findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, indirect()),
+    );
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'ui:alpha']);
+  });
+
+  it('⛔ refuses to fall back to the table when the call\'s namespace cannot be read', () => {
+    // Falling back would restore the unreconciled reading exactly. A computed
+    // namespace is one of the shapes objectui#9641 measured resolving silently.
+    const { findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        'function reg(type) {',
+        '  ComponentRegistry.register(type, C, { namespace: NS });',
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, indirect()),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['unresolved-indirect-namespace']);
+  });
+
+  it('reports a file whose collection-keyed calls pass two different namespaces', () => {
+    // One entry per file is what the reconciliation assumes. A second namespace
+    // in the same file makes "which call covers this collection" unanswerable,
+    // and guessing is the construction this card removed.
+    const { findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'function reg2(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'other' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, indirect()),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['unresolved-indirect-namespace']);
+  });
+
+  it('⭐ reports a declared skip set that no longer resolves, instead of reading it as empty', () => {
+    // The other half of the same table, and the other DIRECTION of the same
+    // defect: read as empty, every key of the collection gains a bare fallback
+    // the runtime does not publish — the universe grows silently.
+    const { keys, findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, indirect({ skipFallbackSet: 'GONE' })),
+    );
+    expect(findings.map((f) => (f as Finding).reason)).toEqual(['stale-indirect-registration']);
+    expect((findings[0] as Finding).site).toContain('GONE');
+    // Read as empty, the bare key is published — which is what the finding is for.
+    expect([...keys.keys()].sort()).toEqual(['alpha', 'ui:alpha']);
+  });
+
+  it('is silent when the declared skip set does resolve, and honours it', () => {
+    const { keys, findings } = withTree(
+      site([
+        "const THINGS = [\n  'alpha',\n];",
+        "const SKIP = new Set(['alpha']);",
+        'function reg(type) {',
+        "  ComponentRegistry.register(type, C, { namespace: 'ui' });",
+        '}',
+        'THINGS.forEach(reg);',
+      ]),
+      (dir) => deriveRegistryKeys(dir, indirect({ skipFallbackSet: 'SKIP' })),
+    );
+    expect(findings).toEqual([]);
+    expect([...keys.keys()].sort()).toEqual(['ui:alpha']);
+  });
+});
+
 // ── 2. the docs scan ─────────────────────────────────────────────────────────
 
 describe('the docs scan reads code blocks, in both spellings, and only code blocks', () => {

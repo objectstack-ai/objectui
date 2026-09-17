@@ -119,6 +119,17 @@
  *     explicitly in `INDIRECT_REGISTRATIONS` with the collection it reads. Both
  *     entries are re-derived per run; a named collection that disappears or
  *     stops yielding keys fails the gate rather than shrinking the universe.
+ *     ⚠️ The NAMESPACE of those keys is read from the registration call, not
+ *     from the entry: the entry's `namespace` is a DECLARATION reconciled
+ *     against the call, and a disagreement is reported. It was an input to this
+ *     derivation until objectui#9703, with nothing checking it — a namespace
+ *     edit at one of these calls could not reach the generated universe, and
+ *     this derivation stayed green while disagreeing with the runtime. Read the
+ *     `indirect-namespace-drift` / `unresolved-indirect-namespace` reasons
+ *     below for what is reported and why the table is not consulted on a fall
+ *     back. `skipFallback` is the half that genuinely cannot be derived — these
+ *     helpers decide it per key — so `skipFallbackSet` stays declared, and a
+ *     set name that stops resolving is reported rather than read as empty.
  *   - OPEN: a handful of call sites take a key that is not knowable statically
  *     (a third-party plugin's own type, a widget manifest's `type`). Those are
  *     listed in `OPEN_REGISTRATION_SITES` with the reason. Every OTHER
@@ -478,6 +489,15 @@ const REGISTRY_RECEIVERS = ['ComponentRegistry', 'componentRegistry', 'registry'
  * Helpers that register from a collection instead of from a literal argument.
  * Each entry names the collection it reads; the derivation re-reads that
  * collection every run and fails if it is gone.
+ *
+ * ⚠️ `namespace` here is a DECLARATION, ⛔ not the value the derivation uses.
+ * The derivation reads the namespace out of the registration call and reports
+ * `indirect-namespace-drift` when this value disagrees with it (objectui#9703).
+ * Until then this field WAS the value — a hand-kept input to a derivation with
+ * nothing reconciling it, so the derivation could be green and wrong at once.
+ * `skipFallbackSet` is the other half and is genuinely not derivable: these
+ * helpers decide `skipFallback` per key at the call, so the set is named here
+ * and read from the site file, and a name that stops resolving is reported.
  *
  * EXPORTED because the `protocol-placeholder` entry is also the DECLARATION a
  * sibling gate reads to tell a real renderer from a placeholder panel
@@ -1391,6 +1411,8 @@ export function deriveRegistryKeys(root, options = {}) {
   const counters = { sourceFiles: 0, callSites: 0, resolved: 0, open: 0, indirect: 0, metaViaReference: 0 };
   const openSeen = new Set();
   const indirectSeen = new Set();
+  /** `<indirect site>` -> the options read at each of its collection-keyed calls. */
+  const indirectCallMeta = new Map();
   const indirectSites = new Set(indirect.map((entry) => entry.site));
 
   const add = (key, site) => {
@@ -1428,8 +1450,17 @@ export function deriveRegistryKeys(root, options = {}) {
       if (!names) {
         if (indirectSites.has(rel)) {
           // The key comes from a collection this file iterates; the collection
-          // itself is read below by INDIRECT_REGISTRATIONS.
+          // itself is read below by INDIRECT_REGISTRATIONS. The NAMESPACE, on
+          // the other hand, is spelled at this call like any other — so it is
+          // read HERE and carried to the loop below, which reconciles the
+          // entry's declaration against it instead of trusting it (objectui#9703).
           indirectSeen.add(rel);
+          const indirectEnd = spanEnd(source, callOpen);
+          const indirectSpan =
+            indirectEnd < 0 ? source.slice(callOpen, callOpen + 2000) : source.slice(callOpen, indirectEnd);
+          const options = resolveRegistrationOptions(source, indirectSpan);
+          if (!indirectCallMeta.has(rel)) indirectCallMeta.set(rel, []);
+          indirectCallMeta.get(rel).push({ site, namespace: options.namespace, unresolved: options.unresolved });
           continue;
         }
         const open = openRegistrations[rel];
@@ -1525,6 +1556,72 @@ export function deriveRegistryKeys(root, options = {}) {
       continue;
     }
     const skip = entry.skipFallbackSet ? literalSet(source, entry.skipFallbackSet) : new Set();
+    if (entry.skipFallbackSet && skip.size === 0) {
+      findings.push({
+        reason: 'stale-indirect-registration',
+        site: `${entry.site} (${entry.skipFallbackSet})`,
+        detail:
+          `the skip set \`${entry.skipFallbackSet}\` no longer resolves to a non-empty literal Set. ` +
+          'Read as empty, every key of this collection gains a bare fallback it does not really ' +
+          'publish — the universe grows SILENTLY, which is the same class as losing one. Re-point ' +
+          'the entry at the set the helper reads, or drop `skipFallbackSet` deliberately.',
+      });
+    }
+    // THE NAMESPACE IS DERIVED, NOT DECLARED (objectui#9703). It used to be read
+    // out of `entry.namespace` — a hand-kept value that was an INPUT to this
+    // derivation with nothing reconciling it against the call it described, so a
+    // namespace edit at the call could not reach the universe and the derivation
+    // stayed green while disagreeing with the runtime. The call's `namespace:` is
+    // a plain string literal at every site this covers, so it is read there and
+    // the table's value is demoted to a DECLARATION that must match.
+    //
+    // ⚠️ `skipFallback` is NOT derivable the same way and deliberately stays
+    // declared: these helpers pass it per key (`FIELD_TYPES_SKIP_FALLBACK.has(fieldType)`),
+    // so the call carries no answer for any individual key — which is exactly why
+    // `skipFallbackSet` names the set instead, and why its emptiness is reported above.
+    const calls = indirectCallMeta.get(entry.site) ?? [];
+    const declared = entry.namespace ?? null;
+    let namespace = declared;
+    const unreadable = calls.filter((c) => c.namespace === null && c.unresolved);
+    const observed = [...new Set(calls.filter((c) => !(c.namespace === null && c.unresolved)).map((c) => c.namespace))];
+    if (calls.length === 0) {
+      // Already reported as `stale-indirect-registration` above — no call of this
+      // shape was found in the file at all, so there is nothing to reconcile.
+    } else if (unreadable.length > 0) {
+      findings.push({
+        reason: 'unresolved-indirect-namespace',
+        site: unreadable[0].site,
+        detail:
+          `this call registers the \`${entry.collection}\` collection, and its \`namespace\` could not be ` +
+          `read here: ${unreadable[0].unresolved}. Falling back to the value INDIRECT_REGISTRATIONS ` +
+          'declares would restore exactly the unreconciled reading objectui#9703 removed, so it is ' +
+          'reported instead. Spell `namespace` out as a string literal at the call.',
+      });
+    } else if (observed.length !== 1) {
+      findings.push({
+        reason: 'unresolved-indirect-namespace',
+        site: entry.site,
+        detail:
+          `this file's collection-keyed registrations pass ${observed.length} different namespaces ` +
+          `(${observed.map((n) => (n === null ? '(bare)' : `\`${n}\``)).join(', ')}), so which one covers ` +
+          `\`${entry.collection}\` cannot be told apart here. One INDIRECT_REGISTRATIONS entry per file ` +
+          'is what this reconciliation assumes; teach it to pair a collection with its own call site ' +
+          'before a second namespace lands in this file.',
+      });
+    } else {
+      namespace = observed[0];
+      if (namespace !== declared) {
+        findings.push({
+          reason: 'indirect-namespace-drift',
+          site: entry.site,
+          detail:
+            `INDIRECT_REGISTRATIONS declares namespace ${declared === null ? '(bare)' : `\`${declared}\``} for ` +
+            `\`${entry.collection}\`, but the registration really passes ` +
+            `${namespace === null ? '(bare)' : `\`${namespace}\``}. The derived universe follows the CALL; ` +
+            'update the entry so the declaration beside it stops describing a tree that moved.',
+        });
+      }
+    }
     counters.indirect += names.length;
     for (const name of names) {
       // Same shape as a direct call: the namespaced key always, plus the bare
@@ -1533,8 +1630,8 @@ export function deriveRegistryKeys(root, options = {}) {
       // the bare form there is the spelling the docs actually teach and the
       // `protocol-placeholder:` prefix is the derived one — the reverse of the
       // usual reading, but the same two keys either way.
-      if (entry.namespace) {
-        add(`${entry.namespace}:${name}`, entry.site);
+      if (namespace) {
+        add(`${namespace}:${name}`, entry.site);
         if (!skip.has(name)) add(name, entry.site);
       } else {
         add(name, entry.site);
@@ -1832,7 +1929,20 @@ const HINTS = {
   'stale-open-site':
     'OPEN_REGISTRATION_SITES names a file that no longer has an unresolvable registration.',
   'stale-indirect-registration':
-    'An INDIRECT_REGISTRATIONS entry no longer resolves to keys, so the universe lost them silently.',
+    'An INDIRECT_REGISTRATIONS entry no longer resolves to keys, so the universe lost them silently — ' +
+    'or its declared skip set no longer resolves, which pads the universe with bare fallbacks that are ' +
+    'not published. Both directions are silent, so both are reported.',
+  'indirect-namespace-drift':
+    'An INDIRECT_REGISTRATIONS entry declares a namespace its registration call does not pass. The ' +
+    'universe follows the CALL, so nothing is lost — but the declaration beside it now describes a ' +
+    'tree that moved, and it is the thing the next reader will trust. Update the entry. See ' +
+    'objectui#9703.',
+  'unresolved-indirect-namespace':
+    'A collection-keyed registration\'s `namespace` could not be read at the call, or one file passes ' +
+    'several. The namespace of these keys is DERIVED from the call (objectui#9703) precisely so a ' +
+    'hand-kept value cannot drift away from it, so an unreadable one is reported rather than taken ' +
+    'from the table — taking it from the table is the defect. Spell `namespace` out as a string ' +
+    'literal at the call.',
   'unterminated-code-fence':
     'A doc file has an unclosed ``` fence. The scan cannot separate code from prose past that point.',
 };

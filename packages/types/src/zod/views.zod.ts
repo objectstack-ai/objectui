@@ -163,6 +163,57 @@ export const DetailViewSchema = BaseSchema.extend({
   // `handleBack` CALLS `onBack()` — a host-supplied function, never the string
   // this mirror used to accept (which threw `onBack is not a function` at click).
   onBack: handlerKeyRefusal('onBack', 'runtime-slot', 'Custom back action'),
+  /**
+   * RUNTIME SLOT (objectui#9447, the objectui#6124 shape) — DECLARED on this
+   * arm for the first time. The `detail` twin refused this key by name with
+   * objectui#7804; this arm did not, so `BaseSchemaCore`'s `.passthrough()`
+   * KEPT an authored value instead of refusing it and handed it to a call site
+   * expecting a function — the same two keys with two different fates decided
+   * only by which `type` literal an author wrote.
+   *
+   * ## The read path, re-derived — there IS a wrapper, and it changes nothing
+   *
+   * Unlike `'detail'`, which registers `DetailView` RAW, the registration here
+   * is `ComponentRegistry.register('detail-view', DetailViewRenderer)`, which
+   * interposes a data-source gate. That gate does NOT strip the key:
+   * `useElementDataSourceSchema` returns the node UNCHANGED when there is no
+   * composed binding, and otherwise returns `{ ...base }` — a shallow spread
+   * whose only overwrites are the binding keys (`objectName`, `columns`,
+   * `filter`, `sort`, `limit`, `viewType`). `onNavigate` survives BOTH
+   * branches, so the authored value reaches `DetailView`'s `schema.onNavigate`
+   * BY IDENTITY exactly as under the raw registration, and `handleBack`,
+   * `handleEdit` and the post-delete redirect CALL it. Driven end to end
+   * through the real `SchemaRenderer` in
+   * `detail-view-handler-slots-9447.test.tsx`.
+   *
+   * ⚠️ `check-handler-key-read-sites.mjs` is GREEN on this key and always was.
+   * Its transitive hop stops at the wrapper, so the read site it derives for
+   * the `'detail'` registration has no counterpart here and the key was never
+   * among its findings or its ledger. ⛔ Do not read that green as evidence the
+   * key is unread — the probe above is the instrument, the gate is not.
+   *
+   * ⚠️ NOT the nested `recordNavigation.onNavigate`, which is a DIFFERENT key
+   * at a different path with a different signature — `(recordId) => void`, the
+   * prev/next result-set walker. This refusal is about the MEMBER; the nested
+   * one is untouched on both faces and stays authorable where it lives.
+   */
+  onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'SPA navigation callback'),
+  /**
+   * RUNTIME SLOT (objectui#9447), and a DIFFERENT channel from `onNavigate`
+   * above — which is why the disposition is read per key rather than per
+   * prefix, the same reading objectui#7804 demanded on the twin.
+   *
+   * `DetailView` never calls this one. It FORWARDS it as a React prop into the
+   * `<RecordComments>` it renders, whose submit handler awaits it; the forward
+   * is itself gated by `schema.comments`, an undeclared key the same
+   * passthrough keeps alive. Both legs — the forward and the call at the far
+   * end — are driven in the probe named above.
+   *
+   * ⚠️ `comments` is deliberately NOT declared here, for the reason its twin
+   * records: it is not a handler key, declaring it is an accept-set decision of
+   * its own, and this card's rows are the handler keys.
+   */
+  onAddComment: handlerKeyRefusal('onAddComment', 'runtime-slot', 'New comment callback'),
   showEdit: z.boolean().optional().describe('Show edit button'),
   editUrl: z.string().optional().describe('Edit button URL'),
   showDelete: z.boolean().optional().describe('Show delete button'),

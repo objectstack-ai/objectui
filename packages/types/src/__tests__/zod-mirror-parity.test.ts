@@ -1960,8 +1960,18 @@ interface KnownDrift {
    * `DetailView`, whose `handleBack` calls `onBack()`. The TS twin declared the
    * handler-expression STRING (objectui#6182: not an authoring form) and now
    * declares the callable the renderer invokes; the mirror refuses by name.
+   *
+   * ⭐ `onNavigate` and `onAddComment` JOINED with objectui#9447, arriving from
+   * `RuntimeOnlyDeclared` below — ONE move seen from both sides, not a refiling,
+   * the same drain the `objectql.zod.ts` departures took. Both are objectui#6124
+   * runtime slots on the SAME component this entry already names: `detail-view`
+   * registers `DetailViewRenderer`, whose data-source gate returns the node
+   * unchanged or a shallow `{ ...base }` spread, so an authored value reaches
+   * `DetailView`'s `schema.onNavigate` / `schema.onAddComment` by identity —
+   * exactly as it does under `'detail'`, whose twin arm refused both by name
+   * with objectui#7804. The TS face keeps the callable on all three.
    */
-  'views.zod.ts#DetailViewSchema': 'onBack';
+  'views.zod.ts#DetailViewSchema': 'onBack' | 'onNavigate' | 'onAddComment';
 }
 
 /* ── The measured unmirrored-declared ledger (objectui#6058) ────────────────── */
@@ -2593,12 +2603,22 @@ interface RuntimeOnlyDeclared {
    * runtime-only-only pair has to move both together.
    */
   /**
-   * 3 of `DetailViewSchema`'s former 14 — the exact three the 2026-07 audit named. By
-   * mirror SHAPE this is the oversight group (`onBack` is mirrored, as `z.string()`),
-   * but this is also the pair where "a props bag wearing a schema's clothes" was
-   * written, and `onTabChange` is the key read through an `(schema as any)` cast.
+   * What is LEFT of the three `DetailViewSchema` keys the 2026-07 audit named.
+   *
+   * ⭐ `onNavigate` and `onAddComment` LEFT this ledger with objectui#9447, and
+   * they left the way this ledger is meant to drain — by the mirror DECLARING
+   * each key as a named refusal, never by refiling. Both are in `KnownDrift`
+   * above, which is ONE move seen from both sides; read the two entries together
+   * or this one looks like it simply shrank.
+   *
+   * `onTabChange` is the one of the three that could NOT go with them: it is
+   * read through an `(schema as any)` cast rather than a plain member access,
+   * its disposition is still open on objectui#7804, and objectui#9447's rows
+   * were the two keys whose twin on `crud.zod.ts#DetailSchema` already refused
+   * them. This is also the pair where the audit wrote "a props bag wearing a
+   * schema's clothes".
    */
-  'views.zod.ts#DetailViewSchema': 'onAddComment' | 'onNavigate' | 'onTabChange';
+  'views.zod.ts#DetailViewSchema': 'onTabChange';
 }
 
 /**

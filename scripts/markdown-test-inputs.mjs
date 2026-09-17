@@ -497,6 +497,15 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/schema-reference-named-list-view-keys-7923.test.ts',
     { reads: ['content/docs/api/schema-reference.md'] },
   ],
+  // objectui#9522. Reads the zod README's own `typescript` fences and runs each
+  // worked example through the schema that fence names -- so an edit to that page
+  // IS an edit to this test's input, and a README-only pull request has to run
+  // the shard. Same relationship `readme-kanban-example-8256.test.ts` has to the
+  // root README, one page down.
+  [
+    'packages/types/src/__tests__/zod-readme-examples-9522.test.ts',
+    { reads: ['packages/types/src/zod/README.md'] },
+  ],
   [
     'packages/vscode-extension/src/__tests__/export-to-react-compiles.test.ts',
     {

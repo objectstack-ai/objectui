@@ -3820,12 +3820,26 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * ## Zero read sites, and both unnamed channels terminate
    *
-   * `@object-ui/plugin-kanban` names the token in ZERO files — the firing
-   * controls on the same instrument and the same run are `groupBy` (45 files),
-   * `conditionalFormatting` (8), `quickAdd` (6) and `coverImageField` (3), so
-   * the zero is a reading and not a dead grep. A source grep alone cannot
-   * answer the inertness question, because a renderer may consume a key it
-   * never names; both such channels were traced to their ends:
+   * `@object-ui/plugin-kanban` names the token in ZERO files, and that zero is
+   * a reading rather than a dead grep because live sibling keys fire as
+   * controls on the same instrument and the same run — `groupBy`,
+   * `conditionalFormatting`, `quickAdd` and `coverImageField`.
+   *
+   * ⛔ Their per-key counts are deliberately NOT written here (AGENTS.md #9).
+   * A figure in prose is derived once and re-derived never: the four that used
+   * to stand in this paragraph had already drifted by the time they landed, and
+   * a reader who spot-checked them would have confirmed a number the population
+   * underneath had already moved out from under. Point at the instrument
+   * instead — the walk re-runs on every test run, as the `it` named
+   * "`@object-ui/plugin-kanban` names it in ZERO files, with controls firing in
+   * the same pass" in
+   * `packages/types/src/__tests__/object-kanban-allow-collapse-retired-8801.test.ts`.
+   * The ZERO above is that test's own assertion rather than a remembered
+   * reading, which is why it stays here while the control counts do not.
+   *
+   * A source grep alone cannot answer the inertness question, because a
+   * renderer may consume a key it never names; both such channels were traced
+   * to their ends:
    *
    *   - the PROP channel — `SchemaRenderer` spreads every non-metadata key as a
    *     React prop, `ObjectKanbanRenderer` destructures `schema` and forwards

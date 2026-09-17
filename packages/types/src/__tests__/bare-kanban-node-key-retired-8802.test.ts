@@ -27,8 +27,11 @@
  *     it, and a 20-member census of it.
  *
  * ⭐ The one claim inside them that was NOT about the retired arm is carried
- * forward here as suite 3: the SIBLING `object-kanban` arm's verdicts must not
- * move. That is what turns this from a deletion into a retirement.
+ * forward here as suite 3: retiring this arm must not move the SIBLING
+ * `object-kanban` arm's verdicts. That is what turns this from a deletion into
+ * a retirement. ⛔ It is not the wider claim that those verdicts never move at
+ * all — `allowCollapse` later moved on that arm's own ruling (objectui#8801),
+ * which suite 3's comments cover.
  *
  * ## ⚠️ The mechanism, which is NOT the passthrough rule
  *
@@ -153,7 +156,7 @@ describe('suite 2 — the refusal is not a validator that turned strict', () => 
   });
 });
 
-describe('suite 3 — the SIBLING `object-kanban` arm keeps every verdict it had', () => {
+describe('suite 3 — retiring the bare `kanban` arm moved NO verdict on the SIBLING `object-kanban` arm', () => {
   // Carried forward from `kanban-arm-batch70-7742.test.ts`, whose `titleField`
   // pair is the reason this suite exists: the batch #70 refusals were
   // ARM-SCOPED, so retiring the arm must not move the sibling's answers.
@@ -165,24 +168,22 @@ describe('suite 3 — the SIBLING `object-kanban` arm keeps every verdict it had
     expect(refusals({ type: 'object-kanban', objectName: 'tasks', groupBy: 'status', [key]: value })).toEqual([]);
   });
 
-  // ⭐ `allowCollapse` LEFT this row, and the distinction is the whole point of
-  // the suite rather than an exception to it. Its verdict did not move because
-  // the `kanban` arm retired — that is precisely what this suite denies, and it
-  // went on being accepted here for a week after objectui#8802 landed. It moved
-  // because objectui#8801 ruled on THIS arm on its own protocol reading
+  // ⭐ `allowCollapse` is NOT a row in this suite, and its absence is the point
+  // rather than an omission. It sat among the accepting rows above until
+  // objectui#8801 ruled on THIS arm's own protocol reading
   // (`ComponentPropsMap['object-kanban']` never declared the key; no registered
-  // board reads it). ⛔ Do not read this line as batch #70 finally reaching the
-  // sibling: an arm-scoped refusal still cannot cross an arm, and the three rows
-  // above are still the measurement that says so.
-  it('REFUSES `allowCollapse` — not inherited from the retired arm, ruled for this one (objectui#8801)', () => {
-    const found = refusals({
-      type: 'object-kanban',
-      objectName: 'tasks',
-      groupBy: 'status',
-      allowCollapse: true,
-    });
-    expect(found.filter((f) => f.path === 'allowCollapse')).not.toEqual([]);
-  });
+  // board reads it) and the key became a refusal. ⛔ Do not read that as batch
+  // #70 finally reaching the sibling: its verdict did NOT move because the bare
+  // `kanban` arm retired — an arm-scoped refusal still cannot cross an arm, and
+  // the three rows above are the measurement that says so.
+  //
+  // ⛔ Do not restore it here in either direction. The refusal — with its
+  // message, its `invalid_type` code, its `.describe()` channel and its own
+  // firing controls — is asserted by
+  // `object-kanban-allow-collapse-retired-8801.test.ts`, in the `it` named
+  // "refuses the value %p at the key's OWN path, with the prescription".
+  // Restating it here would put one pin in two files, which is the shape that
+  // let the stale ACCEPTING row survive here for a week after objectui#8802.
 
   it('and still REFUSES what it always refused — `groupField`, its own tombstone', () => {
     // The other half: suite 3 would be vacuous if the sibling arm accepted

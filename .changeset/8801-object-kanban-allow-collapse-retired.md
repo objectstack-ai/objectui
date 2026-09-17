@@ -59,17 +59,42 @@ SWIMLANE collapse remains the viewer's alone: `KanbanImpl` collapses a swimlane
 row when its header button is clicked and persists that set per `swimlaneField`,
 and no authored key reaches it.
 
-**Migration, in this repository: no authored document changed.** Over every
-tracked file, the only occurrences of the name were the two declarations retired
-here, one pin, one docs row and two historical changesets — no board, no
-example, no fixture authors it, and `@object-ui/plugin-kanban` names it in ZERO
-files against firing controls in the same pass (`groupBy` 45 files,
-`conditionalFormatting` 8, `quickAdd` 6, `coverImageField` 3). The pin that
-moved is `bare-kanban-node-key-retired-8802.test.ts`, whose suite 3 asserted
-this arm still ACCEPTED the key; that row is now a refusal assertion, at its
-site, with the reason stated — its three sibling rows stay accepting, because
-the claim that suite makes (batch #70's refusals were arm-scoped and cannot
-cross an arm) is still true and this retirement is not that claim.
+**Migration, in this repository: no authored document changed.** No board, no
+example and no fixture authors the key. Scanned 2026-09-17 over every tracked
+file — with a whitespace-tolerant probe rather than a line-anchored grep, since
+the name wraps across lines in prose — every occurrence is the retirement
+talking about itself, and they are these:
+
+- the declarations retired here — `packages/types/src/objectql.ts` and its
+  mirror `packages/types/src/zod/objectql.zod.ts`;
+- the pins that assert the retirement —
+  `object-kanban-allow-collapse-retired-8801.test.ts` and
+  `bare-kanban-node-key-retired-8802.test.ts`;
+- a comment in `packages/types/src/zod/complex.zod.ts`, recording that the
+  deleted `retiredZeroReadKanbanKey` helper once carried this spelling on the
+  SIBLING arm;
+- one row of `content/docs/api/schema-reference.md`;
+- the `.changeset/` release notes that discuss it — this one, the two
+  historical entries covering the sibling arm's own spelling, and objectui#9629's
+  note recording the correction to this paragraph.
+
+`@object-ui/plugin-kanban` names the key in ZERO files, against live sibling
+keys (`groupBy`, `conditionalFormatting`, `quickAdd`, `coverImageField`) firing
+as controls on the same walk. ⛔ Their counts are deliberately not written here:
+this file publishes VERBATIM into the CHANGELOG at an unknown future date, and a
+figure frozen there is derived once and re-derived never. The walk is the
+instrument and it re-runs on every test run — the `it` named
+"`@object-ui/plugin-kanban` names it in ZERO files, with controls firing in the
+same pass", in `object-kanban-allow-collapse-retired-8801.test.ts`.
+
+The pin that moved is `bare-kanban-node-key-retired-8802.test.ts`, whose suite 3
+asserted this arm still ACCEPTED the key. That stale row is gone, and it was not
+replaced by a refusal row in the same place: the refusal belongs to this key's
+own pin, which asserts it with the message, the `invalid_type` code and its own
+firing controls, so the claim is pinned once rather than in two files. That
+suite's accepting rows stay, because the claim it makes (batch #70's refusals
+were arm-scoped and cannot cross an arm) is still true and this retirement is
+not that claim.
 
 ⚠️ This repository's census cannot see a TypeScript consumer outside it that
 wrote the key. Such a consumer gets a compile error naming the member, which is

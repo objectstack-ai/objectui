@@ -33,9 +33,11 @@ import type { ExpressionWire } from './expression.js';
  *   (`packages/react/src/utils/i18n.ts`, and the `t`-taking twin in
  *   `packages/app-shell/src/utils/index.ts`).
  * - INLINE (`I18nLabel`, re-exported from `@objectstack/spec/ui`):
- *   `string | Record<string, string>` — a locale MAP like
- *   `{ en: 'Owner' }` — resolved against a BCP-47 locale by the spec's own
- *   `resolveI18nLabel(label, locale)`.
+ *   `string | Record<string, string>`, with `key?: never; defaultValue?:
+ *   never` on the map arm — a locale MAP like `{ en: 'Owner' }`, resolved
+ *   against a BCP-47 locale by the spec's own `resolveI18nLabel(label,
+ *   locale)`. Those two exclusions are what keep the KEYED shape out of an
+ *   inline slot; {@link BaseSchema.ariaLabel} states both crossings.
  *
  * The shape below is the census of the three inline copies that existed before
  * this type was minted — `packages/react/src/utils/i18n.ts`,
@@ -103,8 +105,9 @@ export interface BaseSchema {
    * ## Which vocabulary this is, and who resolves it
    *
    * This slot — and {@link BaseSchema.description} two lines down — carries the
-   * spec's INLINE form: `I18nLabel` = `string | Record<string, string>`, a
-   * locale MAP like `{ en: 'Owner', 'zh-CN': '负责人' }`, resolved against a
+   * spec's INLINE form: `I18nLabel` = `string | Record<string, string>` with
+   * `key` and `defaultValue` excluded from the map arm, a locale MAP like
+   * `{ en: 'Owner', 'zh-CN': '负责人' }`, resolved against a
    * BCP-47 locale by the spec's own `resolveI18nLabel(label, locale)` from
    * `@objectstack/spec/ui`. Its documented fallback order is exact match →
    * base/region (`zh-CN` ↔ `zh`) → last resort (any remaining entry), and it
@@ -115,12 +118,16 @@ export interface BaseSchema {
    * vocabulary — the KEYED form {@link KeyedI18nLabel} (`{ key, defaultValue?,
    * params? }`), a reference INTO a translation bundle, resolved by
    * `resolveKeyedI18nLabel`. One interface now carries both, two properties
-   * apart, and they are structurally confusable: a keyed ref typed into this
-   * slot is accepted only *vacuously*, as a locale map whose "locales" are
-   * named `key` and `defaultValue`. That is objectui#4167's hazard, inherent to
-   * the spec's `I18nLabel` design and present on every spec surface using it;
-   * naming both shapes with cross-referenced docs is the accepted mitigation
-   * (#4580's revised Q1 ruling states this cost and accepts it).
+   * apart, and they stay confusable to a READER — but NOT to the compiler or
+   * the parser: a keyed ref written into this slot is REFUSED, because the
+   * installed pin types the inline arm with `key?: never; defaultValue?:
+   * never` and its `INLINE_LOCALE_KEY` pattern excludes both names.
+   * {@link BaseSchema.ariaLabel} carries the full statement — both crossings,
+   * both faces, and what a wrong slot actually costs. That confusability is
+   * objectui#4167's hazard, inherent to the spec's `I18nLabel` design and
+   * present on every spec surface using it; naming both shapes with
+   * cross-referenced docs is the accepted mitigation (#4580's revised Q1
+   * ruling states this cost and accepts it).
    *
    * ## Resolution happens at READ time, not at the bridge
    *
@@ -461,31 +468,48 @@ export interface BaseSchema {
    *
    * Accepts the KEYED i18n form as well as a plain string (objectui#4581),
    * because that is what the renderer resolves:
-   * `packages/react/src/SchemaRenderer.tsx:111` reads
+   * `packages/react/src/SchemaRenderer.tsx` reads
    * `aria['aria-label'] = resolveKeyedI18nLabel(schema.ariaLabel)`, and
    * `resolveKeyedI18nLabel` accepts `{ key, defaultValue?, params? }` — the
    * shape now named {@link KeyedI18nLabel}.
    *
    * NOT `I18nLabel`. The original #4581 text asked for `string | I18nLabel`,
    * and PR #4593 measured that spelling wrong in three ways before the ruling
-   * withdrew it (#4580 Q2-B): `I18nLabel` is the spec's INLINE LOCALE MAP
-   * (`string | Record<string, string>`), so the shipped keyed fixture was
-   * accepted only *vacuously* — as a locale map whose "locales" are named `key`
-   * and `defaultValue`; the same label carrying `params` was REJECTED
+   * withdrew it (#4580 Q2-B). ⚠️ Read those three as HISTORY, against the
+   * `I18nLabel` of that release — `string | Record<string, string>`, a map
+   * with no name excluded from it: the shipped keyed fixture was accepted
+   * *vacuously*, as a locale map whose "locales" are named `key` and
+   * `defaultValue`; the same label carrying `params` was REJECTED
    * (`Type '{ name: string; }' is not assignable to type 'string'`); and a
    * genuine `{ en: 'Owner' }` type-checked while `resolveKeyedI18nLabel`
-   * returns `undefined` for it, rendering an EMPTY aria-label. The two
-   * vocabularies are structurally confusable — objectui#4167's exact hazard.
+   * returns `undefined` for it, rendering an EMPTY aria-label. The pin has
+   * since closed the vacuous half — see below. What survives is that the two
+   * vocabularies are structurally confusable to a READER — objectui#4167's
+   * exact hazard.
    *
-   * ⚠️ That hazard is now LIVE ON THIS INTERFACE, not just adjacent to it:
-   * since #4580's revised Q1 ruling, {@link BaseSchema.label} and
+   * ⚠️ That hazard is LIVE ON THIS INTERFACE, not just adjacent to it: since
+   * #4580's revised Q1 ruling, {@link BaseSchema.label} and
    * {@link BaseSchema.description} declare the spec's INLINE map (`I18nLabel`,
    * resolved by `resolveI18nLabel(label, locale)`), while this slot declares
    * the KEYED ref (resolved by `resolveKeyedI18nLabel`). Two properties apart,
-   * both spelled `string | {object}`, and each accepts the other's shape
-   * vacuously. Check which resolver owns a slot before writing an object into
-   * it; the ruling accepted this cost with exactly this naming + cross-
-   * referencing as the mitigation.
+   * both spelled `string | {object}` — but NEITHER SLOT ADMITS THE OTHER'S
+   * SHAPE. The installed pin types the inline arm with `key?: never;
+   * defaultValue?: never` and its `INLINE_LOCALE_KEY` pattern excludes both
+   * names, so a keyed ref written into `label` / `description`, and an inline
+   * map written into this slot, are each REFUSED — at `tsc` on the declaration
+   * and at `safeParse` on the zod mirror. The cross-vocabulary block of
+   * `__tests__/inline-locale-declared-face-9092.test.ts` re-derives that on
+   * every run, in both directions and with the accepting control beside each
+   * refusal; read it rather than this sentence.
+   *
+   * ⚠️ So what a wrong slot costs is a WRONG ANSWER rather than a silent
+   * acceptance, and it is paid by metadata that reaches a resolver without
+   * having passed either face — the normal case for server-driven JSON. A
+   * keyed ref handed to `resolveI18nLabel` comes back as its own `key` string,
+   * so the KEY is what renders; an inline map handed to `resolveKeyedI18nLabel`
+   * comes back `undefined`, so the aria-label renders EMPTY. Check which
+   * resolver owns a slot before writing an object into it; the ruling accepted
+   * this cost with exactly this naming + cross-referencing as the mitigation.
    *
    * @example "Close dialog"
    * @example { key: 'dialog.close', defaultValue: 'Close dialog' }

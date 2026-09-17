@@ -25,7 +25,7 @@ and leaves that parse-green line green, while a `z.strictObject` mirror reds bot
 failures). The comment now names the shape pin as the assertion that fires and records both
 readings; the shape pin gained a back-pointer.
 
-`Clause-②: no` — no member added, removed, renamed or retyped, no accept set moved, no
-export added. The prose does reach the emitted `.d.ts` (this repo builds with
+`Clause-②: no` — no member added, removed, renamed or retyped, no accept set moved, and
+nothing newly exported. The prose does reach the emitted `.d.ts` (this repo builds with
 `removeComments: false`), but nothing a consumer can execute or type-check against changes,
 so this releases nothing.

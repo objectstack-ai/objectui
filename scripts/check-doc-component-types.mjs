@@ -1081,10 +1081,10 @@ function optionsMutatedAfterDeclaration(source, name) {
   const quoted = `(?:'(?:${KEY_BEARING_OPTIONS})'|"(?:${KEY_BEARING_OPTIONS})")`;
   const property = `(?:\\.\\s*(?:${KEY_BEARING_OPTIONS})|\\[\\s*${quoted}\\s*\\])`;
   if (new RegExp(`(?<![\\w$])${n}\\s*${property}\\s*${ASSIGN_OP}`).test(source)) {
-    return `\`${name}\` has its \`namespace\` or \`skipFallback\` assigned after it is declared`;
+    return `\`${name}\` has its \`namespace\` or \`skipFallback\` assigned somewhere in this file`;
   }
   if (new RegExp(`(?<![\\w$])delete\\s+${n}\\s*${property}`).test(source)) {
-    return `\`${name}\` has its \`namespace\` or \`skipFallback\` deleted after it is declared`;
+    return `\`${name}\` has its \`namespace\` or \`skipFallback\` deleted somewhere in this file`;
   }
   if (new RegExp(`(?<![\\w$])Object\\s*\\.\\s*assign\\s*\\(\\s*${n}(?![\\w$])`).test(source)) {
     return `\`${name}\` is the target of an \`Object.assign\`, which can write any option onto it`;

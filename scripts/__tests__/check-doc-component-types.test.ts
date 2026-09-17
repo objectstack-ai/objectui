@@ -509,8 +509,10 @@ describe('the registered-key universe is derived from the registration calls', (
    * Following a name is a premise: that the literal at the declaration is the
    * object the call passes. The refusals above enforce that premise against
    * rebinding; these enforce it against mutation, which the first two rounds
-   * left unread. All five rows below derived with no finding at all before this
-   * block existed, and two of them in the direction that matters most.
+   * left unread. Every row below derived with no finding at all before this
+   * block existed — five shapes were measured on the round that added them and
+   * two spellings were added beside those, seven rows in all — and two of them
+   * are in the direction that matters most.
    *
    * ⭐ The `namespace` and `skipFallback` properties are the only two that move
    * which keys a registration publishes, so they are the only two watched. A

@@ -140,6 +140,10 @@ describe('registrations whose options arrive by reference (objectui#9641)', () =
   });
 
   it('keeps the bare fallbacks it always had — this repair adds a half, it does not move one', () => {
+    // ⚠️ A REGRESSION GUARD, not a mechanism pin: it passes on both sides of
+    // the objectui#9641 change, because these five bare keys were derived
+    // before it too. What it excludes is a repair that traded the bare half for
+    // the namespaced one, which no ablation of the repair can show.
     for (const type of ['page', 'app', 'utility', 'home', 'record']) {
       expect(isKnownSchemaType(type)).toBe(true);
     }

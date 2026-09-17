@@ -515,6 +515,52 @@
  * runtime leg at the bottom of this file bounds the excluded region by pinning that
  * every lazy node under the registry is that one const.
  *
+ * ## And a FOURTH direction: MIRRORED but UNDECLARED (objectui#9711)
+ *
+ * ⚠️ **This heading exists because the three above were once cited for a guarantee
+ * they do not give.** A maintainer ruling justified mirroring a twin "so the
+ * `zod-mirror-parity` ratchet stays at zero drift" — and for a key the MIRROR
+ * declares and the TypeScript twin does NOT, none of the three operators above could
+ * see it. The ruling's INSTRUCTION was unaffected; only its stated reason was. That
+ * asymmetry is the whole of objectui#9711, and the repair is an operator, not a
+ * reworded sentence.
+ *
+ * Each of the three was blind for a DIFFERENT structural reason, which is why the
+ * gap survived the card that closed its mirror image:
+ *
+ *   - `WithoutIndexSignature` strips `BaseSchema`'s `[key: string]: any`, so a key
+ *     the declaration never states has nothing to be stripped FROM and
+ *     `DeclaredKeys< D >` cannot enumerate it;
+ *   - `UnmirroredDeclaredKeys` is declared-minus-mirrored — the other subtraction;
+ *   - `WiderThanDeclaredKeys` maps over the INTERSECTION, so the key is outside its
+ *     domain and LEAVES THE COMPARISON — the same shape objectui#6058 measured in
+ *     the opposite direction, unfixed in this one.
+ *
+ * ⭐ This is the mirror image of a hole this file already closed BY NAME. objectui#6058
+ * added `UnmirroredDeclaredKeys` for declared-but-unmirrored; its reverse stood open,
+ * and nothing in this file said so. `MirroredUndeclaredKeys` → `MirroredUndeclared`
+ * is the fourth ledger, reconciled by `assertionMirroredUndeclaredMatchesLedger` and
+ * seeded at its own measured debt.
+ *
+ * All four operators are pinned on ONE synthetic pair at
+ * `assertionMirroredUndeclaredOperatorReportsAMirroredOnlyKey` and the three
+ * `…IsBlindToAMirroredOnlyKey` assertions beside it, each firing on a DIFFERENT key of
+ * that pair — so every blindness claim is a zero read beside a LIT CONTROL on the same
+ * instrument and the same corpus, rather than a zero read alone.
+ *
+ * ⛔ **The seed is a MEASUREMENT, not a worklist.** Declaring a key this direction
+ * reports, on a published TypeScript face, ENLARGES AN ACCEPT SET — an at-tier
+ * contract decision, per key, and deliberately outside the card that built the
+ * instrument. Narrowing a mirror to make the direction read zero is the same decision
+ * pointing the other way, and is also how a tool's output gets grepped away. ⛔ Neither
+ * is the local fix for a red reconciliation.
+ *
+ * ⛔ No figure for this direction is written in this header. Its entry count and key
+ * total live in exactly one place — the `MirroredUndeclared` docstring — and are
+ * derived from that ledger's own AST by 'the fourth direction is enumerated and sized
+ * at test time' at the bottom of this file. ⛔ Do not add a second copy here; that is
+ * the defect objectui#7433, #7733, #8222 and #8243 each repaired one level up.
+ *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
  * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
@@ -663,6 +709,40 @@ export type DeclaredKeys< D > = Extract< keyof WithoutIndexSignature< D >, strin
  * refused outright. Either way `declared !== enforced`.
  */
 export type UnmirroredDeclaredKeys< M, D > = Exclude< DeclaredKeys< D >, MirroredKeys< M > >;
+
+/**
+ * Mirrored on the zod side and ABSENT from the declaration's own members entirely.
+ *
+ * The REVERSE of `UnmirroredDeclaredKeys` directly above, and the direction this
+ * file measured in no operator until objectui#9711 added this one. The three that
+ * stood before it are each blind to it, for three DIFFERENT structural reasons —
+ * which is why the gap survived the card that closed its mirror image:
+ *
+ *   - `WithoutIndexSignature` strips `BaseSchema`'s `[key: string]: any`, so a key
+ *     the declaration never states has nothing to be stripped FROM — it is simply
+ *     not a member, and `DeclaredKeys< D >` cannot enumerate it;
+ *   - `UnmirroredDeclaredKeys` is `Exclude< DeclaredKeys< D >, MirroredKeys< M > >`,
+ *     declared-minus-mirrored — the other subtraction by construction;
+ *   - `WiderThanDeclaredKeys` maps over `MirroredKeys< M > & DeclaredKeys< D >`, the
+ *     INTERSECTION, so a mirrored-but-undeclared key is outside its domain and
+ *     LEAVES THE COMPARISON exactly as objectui#6058's declared-but-unmirrored keys
+ *     left `NarrowerThanDeclared`'s.
+ *
+ * `assertionMirroredUndeclaredOperatorReports…` and the three blindness pins beside
+ * it are the recognition cases; they are what distinguishes this operator from one
+ * that reports nothing because it can report nothing.
+ *
+ * Why it is a defect and not bookkeeping: the two faces are published together, and
+ * this direction is the one an AUTHOR meets first. The mirror hands a green
+ * `safeParse` to a key the published TypeScript does not declare, so a metadata
+ * author writing it gets a validator's blessing for a spelling the declared surface
+ * never invited — and under `BaseSchema`'s `.passthrough()` index signature `tsc`
+ * does not object either, so nothing at all tells them the key is outside the
+ * contract. ⛔ The remedy is NOT automatic: DECLARING such a key on a published
+ * TypeScript face ENLARGES AN ACCEPT SET and is a contract decision, so this
+ * operator's output is a ledgered measurement and each key is a separate question.
+ */
+export type MirroredUndeclaredKeys< M, D > = Exclude< MirroredKeys< M >, DeclaredKeys< D > >;
 
 /** `any`, told apart from `unknown` — `[unknown] extends [T]` accepts both. */
 export type IsAny< T > = 0 extends 1 & T ? true : false;
@@ -1214,6 +1294,132 @@ export type assertionNarrowerOperatorIsBlindToAnOpenRecord =
 export type assertionUnmirroredOperatorIsBlindToAnOpenRecord =
   Expect< Equal< UnmirroredDeclaredKeys< SyntheticOpenRecordMirror, SyntheticFiniteKeyedDeclaration >, never > >;
 
+/* ── Recognition: the FOURTH direction fires, and the three before it stay blind ─ */
+
+/**
+ * ONE synthetic pair on which ALL FOUR operators fire, each on a DIFFERENT key.
+ *
+ * Built this way deliberately, and it is the board's control discipline rather than
+ * a flourish: every claim below that an operator is SILENT about a key is a zero, and
+ * a zero is only worth reading beside a LIT CONTROL on the SAME instrument and the
+ * SAME corpus. Four separate synthetic pairs would give each operator its own corpus
+ * and prove nothing about the others; here each operator is shown FIRING on this pair
+ * and SILENT on this pair, so its silence is a measurement and not a broken instrument.
+ *
+ * The declaration carries `[key: string]: any`, which is what `BaseSchema` really
+ * carries and what makes the fourth direction hard to measure at all: `keyof D`
+ * resolves to bare `string`, so the obvious spelling of "mirrored but undeclared"
+ * subtracts every key and reads `never` for every pair forever.
+ * `assertionNaiveMirroredUndeclaredIsAbsorbedByTheIndexSignature` below pins that
+ * failing spelling beside the working one, so the reason `DeclaredKeys` is used here
+ * is a measurement in this file and not a remembered fact.
+ *
+ *   `size`   — on both faces, and the mirror accepts exactly what the declaration
+ *              states. It is the key NO operator may report, which is what makes
+ *              this pair a control against a matcher that catches everything.
+ *   `stray`  — mirrored only            -> the FOURTH direction, and only it.
+ *   `missing`— declared only            -> `UnmirroredDeclaredKeys`, and only it.
+ *   `wide`   — mirror accepts `string`, declaration states two literals
+ *                                       -> `WiderThanDeclaredKeys`, and only it.
+ *   `narrow` — mirror accepts `number`, declaration states `number | string`
+ *                                       -> `NarrowerThanDeclared`, and only it.
+ */
+type SyntheticFourWayMirror = {
+  shape: { size: z.ZodString; stray: z.ZodBoolean; wide: z.ZodString; narrow: z.ZodNumber };
+};
+interface SyntheticFourWayDeclaration {
+  size: string;
+  wide: 'a' | 'b';
+  narrow: number | string;
+  missing: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the shape `BaseSchema` really has; the whole point of this pair
+  [key: string]: any;
+}
+
+/**
+ * The fourth direction FIRES, and reports EXACTLY the mirrored-only key.
+ *
+ * `Equal` is invariant, so this is two facts in one line: `stray` IS reported, and
+ * `size` — a key that is BOTH mirrored and declared — is NOT. A matcher that
+ * returned every mirrored key would fail here, which is the control the zeros below
+ * are read against.
+ */
+export type assertionMirroredUndeclaredOperatorReportsAMirroredOnlyKey =
+  Expect< Equal< MirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'stray' > >;
+
+/**
+ * The lit control stated on its own, because it is the claim a reader will doubt:
+ * the key that is on BOTH faces is not in the output.
+ */
+export type assertionMirroredUndeclaredDoesNotReportAnAgreedKey =
+  Expect< Equal<
+    Extract< MirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'size' >,
+    never
+  > >;
+
+/**
+ * The obvious spelling — `keyof D` instead of `DeclaredKeys< D >` — reads `never` on
+ * this pair. This is the defect, reproduced: the declaration's index signature
+ * absorbs every literal name, so the subtraction has nothing left to report.
+ */
+type NaiveMirroredUndeclaredKeys< M, D > = Exclude< MirroredKeys< M >, Extract< keyof D, string > >;
+
+export type assertionNaiveMirroredUndeclaredIsAbsorbedByTheIndexSignature =
+  Expect< Equal< NaiveMirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, never > >;
+
+/**
+ * …and the lit control for THAT zero, on the same naive instrument: strip the index
+ * signature off the declaration and the naive spelling finds `stray` after all. So
+ * the `never` above is the index signature absorbing the comparison, ⛔ not a naive
+ * operator that cannot report anything.
+ */
+interface SyntheticFourWayDeclarationWithoutIndexSignature {
+  size: string;
+  wide: 'a' | 'b';
+  narrow: number | string;
+  missing: number;
+}
+
+export type assertionNaiveMirroredUndeclaredFiresWithoutAnIndexSignature =
+  Expect< Equal<
+    NaiveMirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclarationWithoutIndexSignature >,
+    'stray'
+  > >;
+
+/** And the real operator reads the same key on that declaration — the index signature is all that differed. */
+export type assertionMirroredUndeclaredIsIndifferentToTheIndexSignature =
+  Expect< Equal<
+    MirroredUndeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclarationWithoutIndexSignature >,
+    'stray'
+  > >;
+
+/**
+ * `UnmirroredDeclaredKeys` is blind to `stray` — it reports `missing` on this very
+ * pair, so the instrument is LIT and the omission is a measurement. It subtracts in
+ * the other direction by construction: declared minus mirrored.
+ */
+export type assertionUnmirroredOperatorIsBlindToAMirroredOnlyKey =
+  Expect< Equal< UnmirroredDeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'missing' > >;
+
+/**
+ * `WiderThanDeclaredKeys` is blind to `stray` — it reports `wide` on this very pair,
+ * so it is LIT here too. It maps over `MirroredKeys< M > & DeclaredKeys< D >`, the
+ * INTERSECTION, and a mirrored-but-undeclared key is outside that domain: it LEAVES
+ * THE COMPARISON, exactly as objectui#6058's declared-but-unmirrored keys left
+ * `NarrowerThanDeclared`'s.
+ */
+export type assertionWiderOperatorIsBlindToAMirroredOnlyKey =
+  Expect< Equal< WiderThanDeclaredKeys< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'wide' > >;
+
+/**
+ * `NarrowerThanDeclared` is blind to `stray` — it reports `narrow` on this very pair.
+ * It maps over `MirroredKeys< M > & keyof D`, and with the index signature present
+ * `D['stray']` resolves to `any`, which absorbs the comparison and is found equal.
+ */
+export type assertionNarrowerOperatorIsBlindToAMirroredOnlyKey =
+  Expect< Equal< NarrowerThanDeclared< SyntheticFourWayMirror, SyntheticFourWayDeclaration >, 'narrow' > >;
+
+
 /* ── The registry ───────────────────────────────────────────────────────────── */
 
 /** Mirror VALUES, keyed `<file>#<export>`. Runtime, so the census below can read the keys. */
@@ -1559,6 +1765,10 @@ export type UnmirroredOf< K extends MirrorKey > = UnmirroredDeclaredKeys< (typeo
 
 /** The third direction: mirrored, and the mirror ACCEPTS more than the declaration admits. */
 export type WiderOf< K extends MirrorKey > = WiderThanDeclaredKeys< (typeof MIRRORS)[K], Declared[K] >;
+
+/** The fourth direction (objectui#9711): mirrored on the zod side, undeclared on the TS side. */
+export type MirroredUndeclaredOf< K extends MirrorKey > =
+  MirroredUndeclaredKeys< (typeof MIRRORS)[K], Declared[K] >;
 
 /** What one registered pair's mirror ACCEPTS for one key — the static INPUT face. */
 export type MirrorInputOf< K extends MirrorKey, P extends MirroredKeys< (typeof MIRRORS)[K] > > =
@@ -3222,6 +3432,306 @@ export type WiderLedgerKeyDrift = {
 
 export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderLedgerKeyDrift;
 
+/* ── The FOURTH direction's ledger (objectui#9711) ──────────────────────────── */
+
+/**
+ * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
+ * objectui#9711 opened, measured on the tree this ledger landed on.
+ *
+ * `this ledger seeds **8 entries** carrying **102 keys**` — and ⛔ read that off the
+ * census at the bottom of this file, not off this sentence: both figures are pinned
+ * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
+ * time', so an entry or an arm added here moves them or the file reddens.
+ *
+ * ## ⛔ What this ledger is NOT
+ *
+ * ⛔ It is NOT a worklist to be drained by DECLARING the keys it names. Declaring a
+ * key on a published TypeScript face ENLARGES AN ACCEPT SET — a contract decision,
+ * at-tier, per key, and deliberately outside the card that built this instrument.
+ * ⛔ It is NOT drained by narrowing a mirror either: that removes a key an author can
+ * write today and is the same decision pointing the other way. Either remedy is a
+ * separate card with a separate review; this ledger is the MEASUREMENT that makes
+ * either one arguable.
+ *
+ * ## It is a FLOOR, not a waiver — the same ratchet the other three carry
+ *
+ * A NEW mirrored-but-undeclared key on any pair reddens the reconciliation
+ * immediately, seeded pair or not (`assertionRatchetRejectsFreshDrift` and
+ * `assertionRatchetRejectsGrowth` pin both shapes). A key that LEAVES the
+ * measurement — mirrored key removed, or the declaration widened to state it —
+ * reddens it as STALE until the entry is corrected (`assertionRatchetRejectsStaleKey`,
+ * `assertionRatchetRejectsStaleEntry`). So the seed can only shrink.
+ *
+ * ## The two CLASSES this seed holds, because they call for different remedies
+ *
+ * ⚠️ Stated as a reading of the entries below, ⛔ not as a rule the instrument
+ * applies: nothing here classifies, and the split is re-derivable from
+ * `SPEC_DERIVED_PAIRS` plus each declaration's own shape.
+ *
+ *   - **SPEC-OWNED INFLOW.** The mirror is built `.extend(SpecXFields.shape)`, so
+ *     every spec-owned key flows in BY REFERENCE while the hand-written TypeScript
+ *     interface restates only the subset objectui's renderers read. The remedy axis
+ *     is the same one objectstack#4115 opened when it made the keys flow in at all,
+ *     and it is a spec-alignment decision, not a typo.
+ *   - **`Omit` COLLAPSE.** The declaration is `Omit< Base, K >` over an interface
+ *     that carries `BaseSchema`'s index signature, so `Exclude< keyof Base, K >`
+ *     resolves through `string` and the `Pick` collapses EVERY member into the index
+ *     signature. That face has never declared the keys its docblock describes —
+ *     measured, not assumed, and pinned independently of this file for the calendar
+ *     twin. The mirror propagates because zod `.extend()` carries the shape. ⭐ This
+ *     class is why the operator must not be "fixed" to read fewer keys: it is
+ *     reporting a real property of the published declaration, loudly, which is
+ *     precisely what a degenerate `DeclaredKeys< D >` should do. A vacuous reading
+ *     here over-reports and is caught; the naive `keyof D` spelling under-reports to
+ *     `never` and would never be caught at all.
+ */
+interface MirroredUndeclared {
+  /**
+   * SPEC-OWNED INFLOW. The mirror is `BaseSchema.extend(SpecAppFields.shape).extend({…})`,
+   * so the spec's App surface — the `_lock*` / `_package*` / `_provenance` package-lock
+   * envelope, `protection`, `sharing`, `embed`, `objects`, `apis`, `homePageId`,
+   * `version`, `isDefault`, `_unpublished`, `aria`, `mobileNavigation`, `defaultAgent` —
+   * is validated here while the TypeScript interface restates only the component
+   * envelope its renderers read. `contextSelectors` is the one LOCAL arm: the spec
+   * fields deliberately omit it and the mirror's own `.extend({…})` adds it back, so
+   * it is mirrored by this file's own hand and still undeclared.
+   */
+  "app.zod.ts#AppComponentSchema":
+    | "contextSelectors"
+    | "_lock"
+    | "_lockReason"
+    | "_lockSource"
+    | "_provenance"
+    | "_packageId"
+    | "_packageVersion"
+    | "_lockDocsUrl"
+    | "version"
+    | "isDefault"
+    | "_unpublished"
+    | "homePageId"
+    | "objects"
+    | "apis"
+    | "sharing"
+    | "embed"
+    | "mobileNavigation"
+    | "defaultAgent"
+    | "aria"
+    | "protection";
+
+  /**
+   * SPEC-OWNED INFLOW, same envelope as the App pair above plus this surface's own
+   * `refreshInterval` and `performance`. ⚠️ This pair already carries entries in
+   * `KnownDrift` and has carried them in `UnmirroredDeclared`; the three directions
+   * are independent measurements of one pair and an entry in one says nothing about
+   * the others.
+   */
+  "complex.zod.ts#DashboardComponentSchema":
+    | "_lock"
+    | "_lockReason"
+    | "_lockSource"
+    | "_provenance"
+    | "_packageId"
+    | "_packageVersion"
+    | "_lockDocsUrl"
+    | "aria"
+    | "protection"
+    | "refreshInterval"
+    | "performance";
+
+  /**
+   * LOCAL, and a single key: the mirror states `aria` and the declaration does not.
+   * The smallest entry in this ledger, and the shape the direction was filed to make
+   * visible — one key, on one pair, invisible to all three operators that stood
+   * before the fourth.
+   */
+  "complex.zod.ts#DashboardConfigSchema":
+    | "aria";
+
+  /**
+   * `Omit` COLLAPSE. The declaration is `Omit< InputSchema, 'type' | 'inputType' >`
+   * and `InputSchema` reaches `BaseSchema`'s index signature, so the `Omit` resolves
+   * through `Exclude< string, … >` = `string` and every member collapses into that
+   * signature. What survives as a DECLARED member is what this interface writes
+   * itself. Every other key the mirror states therefore reads as undeclared — which
+   * is a true statement about the published face, not an artefact: the checker
+   * answers `any` for each of them. ⛔ Do not "repair" this entry by editing the
+   * measurement; repairing the FACE is a declaration-side decision and a different
+   * card.
+   */
+  "form.zod.ts#InputShorthandSchema":
+    | "label"
+    | "error"
+    | "description"
+    | "id"
+    | "name"
+    | "pattern"
+    | "placeholder"
+    | "className"
+    | "style"
+    | "data"
+    | "bind"
+    | "body"
+    | "children"
+    | "visible"
+    | "visibleWhen"
+    | "visibleOn"
+    | "hidden"
+    | "hiddenOn"
+    | "disabled"
+    | "disabledOn"
+    | "testId"
+    | "defaultValue"
+    | "ariaLabel"
+    | "required"
+    | "value"
+    | "min"
+    | "max"
+    | "step"
+    | "onChange"
+    | "wrapperClass"
+    | "readOnly"
+    | "maxLength";
+
+  /**
+   * `Omit` COLLAPSE, the second instance and the one measured independently of this
+   * file: the declaration is `Omit< CalendarSchema, 'type' >`, the collapse is
+   * described in that declaration's own docblock, and both halves are pinned by the
+   * content-channel family-D twin test. This entry is what that reading looks like
+   * when a general operator meets it instead of a per-key tripwire.
+   */
+  "form.zod.ts#UiCalendarSchema":
+    | "label"
+    | "description"
+    | "id"
+    | "name"
+    | "placeholder"
+    | "className"
+    | "style"
+    | "data"
+    | "bind"
+    | "body"
+    | "children"
+    | "visible"
+    | "visibleWhen"
+    | "visibleOn"
+    | "hidden"
+    | "hiddenOn"
+    | "disabled"
+    | "disabledOn"
+    | "testId"
+    | "defaultValue"
+    | "ariaLabel"
+    | "value"
+    | "onChange"
+    | "mode"
+    | "minDate"
+    | "maxDate";
+
+  /**
+   * SPEC-OWNED INFLOW. The package-lock envelope again, plus `source`,
+   * `interfaceConfig` and `requires` — page-level spec keys the mirror validates and
+   * the TypeScript node does not state.
+   */
+  "layout.zod.ts#PageNodeSchema":
+    | "source"
+    | "_lock"
+    | "_lockReason"
+    | "_lockSource"
+    | "_provenance"
+    | "_packageId"
+    | "_packageVersion"
+    | "_lockDocsUrl"
+    | "interfaceConfig"
+    | "requires";
+
+  /**
+   * LOCAL, one key. `operators` is mirrored with a comment on its own line saying it
+   * was missing from an earlier TypeScript scan — so the gap was NOTICED at authoring
+   * time, written down in a comment, and then measured by nothing for as long as the
+   * fourth direction did not exist. That is this card's thesis in one key.
+   */
+  "objectql.zod.ts#ObjectGridSchema":
+    | "operators";
+
+  /**
+   * LOCAL, one key. `dueLike` exists on the zod face only: `git grep` finds it in the
+   * mirror and nowhere in this package's TypeScript declarations. An author writing
+   * it gets a green `safeParse` from a published validator for a key the published
+   * types never invited.
+   */
+  "views.zod.ts#DetailViewFieldSchema":
+    | "dueLike";
+}
+
+/**
+ * Every ledgered pair names a REGISTERED pair — the same guard the other three
+ * ledgers carry, for the same reason: a misspelled pair key is ignored by the map
+ * below while the real pair reads as having no entry, so the failure points at the
+ * wrong thing.
+ */
+export type assertionMirroredUndeclaredLedgerKeysAreRegistered =
+  Expect< Equal< Exclude< keyof MirroredUndeclared, MirrorKey >, never > >;
+
+/**
+ * The FOURTH direction reconciled: every pair's mirrored-but-undeclared key set
+ * equals what `MirroredUndeclared` records for it — `never` for every pair with no
+ * entry, which is the population minus that ledger's size. ⛔ That difference is
+ * derived by the census at the bottom of this file, never written down here.
+ *
+ * Spelled INLINE rather than through a named alias, for the reason the header's
+ * measurement section gives: through a named alias TypeScript prints the ALIAS NAME
+ * and elaborates exactly ONE member with no ellipsis, so a failure on many pairs
+ * reads as a failure on one.
+ *
+ * When it fires, fix it by MEASURING, never by editing the assertion:
+ *   1. the message names a pair, possibly with `... N more ...` after it;
+ *   2. resolve `MirroredUndeclaredOf< '<pair>' >`;
+ *   3. a key APPEARED — a mirror now accepts a spelling the published TypeScript does
+ *      not declare. ⛔ Declaring it is NOT the local fix: that enlarges an accept set
+ *      and is an at-tier contract decision. File it, and record it here only with that
+ *      decision's card named in its docblock;
+ *   4. a key DISAPPEARED — the entry must be corrected or deleted. That is the
+ *      ratchet doing its job, and it is the only direction this seed may move in.
+ */
+export const assertionMirroredUndeclaredMatchesLedger: never = 0 as unknown as {
+  [K in MirrorKey]: ReconcileAgainstLedger<
+    K,
+    MirroredUndeclaredOf< K >,
+    K extends keyof MirroredUndeclared ? MirroredUndeclared[K] : never
+  >;
+}[MirrorKey];
+
+/**
+ * The same reconciliation, reported by KEY instead of by pair — the pairing
+ * `assertionWiderLedgerRecordsEveryKey` established, and not a duplicate: the
+ * assignment above resolves to the PAIR, which is what makes a failure locatable,
+ * and says nothing about which key moved. This resolves to the symmetric difference,
+ * so the compiler prints the key names. Both are needed and neither is sufficient.
+ */
+export type MirroredUndeclaredLedgerKeyDrift = {
+  [K in MirrorKey]:
+    | Exclude< MirroredUndeclaredOf< K >, K extends keyof MirroredUndeclared ? MirroredUndeclared[K] : never >
+    | Exclude< K extends keyof MirroredUndeclared ? MirroredUndeclared[K] : never, MirroredUndeclaredOf< K > >;
+}[MirrorKey];
+
+export const assertionMirroredUndeclaredRecordsEveryKey: never =
+  0 as unknown as MirroredUndeclaredLedgerKeyDrift;
+
+/**
+ * No pair's FOURTH-direction measurement has degenerated to `any`.
+ *
+ * `any` is assignable to `never`, so a measurement that collapsed to `any` would
+ * reconcile SILENTLY GREEN against any entry at all — the sibling
+ * `assertionNoVacuousWiderMeasurement` exists because that was observed once on the
+ * third direction, and this half of the file does not get to assume it cannot happen.
+ */
+export type VacuousMirroredUndeclaredMeasurement = {
+  [K in MirrorKey]: IsAny< MirroredUndeclaredOf< K > > extends true ? K : never;
+}[MirrorKey];
+
+export type assertionNoVacuousMirroredUndeclaredMeasurement =
+  Expect< Equal< VacuousMirroredUndeclaredMeasurement, never > >;
+
 /**
  * No pair's WIDER measurement has degenerated to `any`.
  *
@@ -3528,8 +4038,13 @@ const EXPECTED_MIRROR_PAIRS = 161;
  * objectui#8252 — one union arm, no new code, the way `KnownDrift` joined at
  * objectui#8222 — so the fifth ledger is sized by the SAME instrument as the other
  * four rather than by a second definition of the word "key".
+ *
+ * ⭐ `MirroredUndeclared` joined the same way at objectui#9711 — one union arm again,
+ * no new code again. That sentence above RECORDS objectui#8252's move and is left
+ * byte-identical; this one records the next move, which is how this list grows.
  */
-type LedgerName = 'KnownDrift' | 'RuntimeOnlyDeclared' | 'UnmirroredDeclared' | 'WiderThanDeclared';
+type LedgerName =
+  | 'KnownDrift' | 'RuntimeOnlyDeclared' | 'UnmirroredDeclared' | 'WiderThanDeclared' | 'MirroredUndeclared';
 
 /** This file, so the census can read its own type-level ledgers. */
 const SELF = fileURLToPath(import.meta.url);
@@ -4784,6 +5299,126 @@ that way anyway: no ledger in this file records what it held at a past revision.
     // would make "pairs" and "emptied" the same quantity, and the ambiguity that
     // produced objectui#8458 could not be seen from the sentence.
     expect(reduced, 'the reduced half read as 0 — then "pairs" and "emptied" state one quantity twice')
+      .toBeGreaterThan(0);
+  });
+});
+
+
+/* ── The FOURTH direction is enumerated and sized at test time (objectui#9711) ── */
+
+describe('the fourth direction is enumerated and sized at test time (objectui#9711)', () => {
+  const members = (): Map< string, string[] > => ledgerEntryMembers('MirroredUndeclared');
+  const keyTotal = (): number =>
+    Array.from(members().values()).reduce((n, keys) => n + keys.length, 0);
+
+  it('the ledger docstring states the entry count and key total the ledger actually holds', () => {
+    // The card that opened this direction asked for what it catches ON TODAY'S TREE,
+    // BY NAME, with the count DERIVED AT TEST TIME. The names are the ledger's own
+    // union arms — `assertionMirroredUndeclaredMatchesLedger` is what makes them the
+    // measurement rather than a list — and this is the derivation: both figures are
+    // read off the ledger's AST here and compared to the ONE place a human writes
+    // them down. A `const EXPECTED_MIRRORED_UNDECLARED_KEYS` would be a second place
+    // the number lives and would reproduce the defect objectui#7433, #7733, #8222 and
+    // #8243 each repaired one level up.
+    //
+    // ⛔ The spelling is read off the docstring's OWN words, so a reword that drops a
+    // digit is red rather than quietly unpinned.
+    const [entries, keys] = headerFigures(/this ledger seeds \*\*(\d+) entries\*\* carrying \*\*(\d+) keys\*\*/);
+
+    expect({ entries, keys }, `
+The MirroredUndeclared docstring's figures disagree with the ledger it describes.
+
+WHICH SIDE TO CHANGE — decide by what your diff touched, not by which number looks
+right (git diff -- packages/types/src/__tests__/zod-mirror-parity.test.ts):
+
+  * you added or removed a ledger KEY (an arm of an entry's union), or an ENTRY
+    => correct the docstring figures to the derived ones below. An arm added is a NEW
+       mirrored-but-undeclared key on a published pair, and
+       \`assertionMirroredUndeclaredMatchesLedger\` will have named the pair first;
+       read that message before this one.
+
+  * you edited a figure by hand, or carried one in from a card or a review comment
+    => put it back to the derived value. The ledger is the measurement; the docstring
+       only records it.
+
+⛔ Never reconcile the two by editing a ledger KEY SET: the key sets are reconciled
+against the mirrors themselves by the compile-time assignment above, so a key edited
+to satisfy a sentence fails there instead — route 1, which objectui#6141 predicted and
+this file has watched recur ever since.
+
+⛔ And never reconcile a GROWTH by DECLARING the new key on the TypeScript face. That
+enlarges a published accept set and is an at-tier contract decision, deliberately
+outside the card that built this instrument.`)
+      .toEqual({ entries: members().size, keys: keyTotal() });
+  });
+
+  it('every ledgered pair is a REGISTERED pair, and the ledger is not empty', () => {
+    const registered = new Set(Object.keys(MIRRORS));
+    const unregistered = Array.from(members().keys()).filter((pair) => !registered.has(pair));
+    expect(unregistered, 'a MirroredUndeclared entry names a pair MIRRORS does not register — the compile-time half ignores it while the real pair reads as clean')
+      .toEqual([]);
+    // Non-vacuity for the line above: an EMPTY ledger has no unregistered entry
+    // either, and would pass it while checking nothing.
+    expect(members().size, 'MirroredUndeclared read as EMPTY — then the registration check above is vacuous')
+      .toBeGreaterThan(0);
+  });
+
+  it('the member reader can see MirroredUndeclared (non-vacuity)', () => {
+    // The same control the other ledgers carry: a reader that returned no members
+    // would derive 0 for both figures above, red today but green the moment someone
+    // "fixed" it by writing 0 down. Each leg is a fact about the ledger, not about
+    // the reader.
+    const read = members();
+    expect(Array.from(read.keys()), 'MirroredUndeclared: the member reader and the entry reader disagree on the entry list')
+      .toEqual(ledgerEntryKeys('MirroredUndeclared'));
+    for (const [entry, keys] of read) {
+      expect(keys.length, `MirroredUndeclared['${entry}'] read as having no keys`).toBeGreaterThan(0);
+    }
+    expect(keyTotal(), 'MirroredUndeclared: no entry read as a union of more than one literal — the reader is not walking union arms')
+      .toBeGreaterThan(read.size);
+  });
+
+  it('the seed spans BOTH mirror-construction styles — it is not an artefact of one', () => {
+    // A seed drawn entirely from spec-derived mirrors would be evidence about
+    // `.extend(SpecXFields.shape)` and nothing else; one drawn entirely from LOCAL
+    // mirrors would be evidence about hand-written shapes and nothing else. Both
+    // halves non-empty is what makes the direction a property of the FILE PAIRING
+    // rather than of one authoring habit. Derived from `SPEC_DERIVED_PAIRS`, which
+    // is itself re-derived from the mirror sources by the census above — ⛔ so this
+    // is not a second hand-kept classification.
+    const entries = Array.from(members().keys());
+    const specDerived = entries.filter((pair) => SPEC_DERIVED_PAIRS.includes(pair));
+    const local = entries.filter((pair) => !SPEC_DERIVED_PAIRS.includes(pair));
+    expect(specDerived.length, 'no SPEC-DERIVED pair in the seed — then the ledger says nothing about spec inflow')
+      .toBeGreaterThan(0);
+    expect(local.length, 'no LOCAL pair in the seed — then the ledger says nothing about hand-written mirrors')
+      .toBeGreaterThan(0);
+    expect(specDerived.length + local.length, 'the two halves do not account for every entry')
+      .toBe(entries.length);
+  });
+
+  it('the fourth direction is a DIFFERENT measurement from the three before it', () => {
+    // ⭐ The lit control for the whole card, at ledger granularity. If this ledger's
+    // pair set were a subset of an existing one, the new operator could be reporting
+    // the same facts under a new name. It is not: at least one pair is in this
+    // ledger and in NONE of the other three, so the fourth direction sees something
+    // no prior direction records.
+    //
+    // ⚠️ Overlap is EXPECTED and is not a finding — the four directions are
+    // independent measurements of one pair, and a pair can owe on several at once.
+    // The claim under test is only that the new set is not CONTAINED in the old ones.
+    const others = new Set([
+      ...ledgerEntryKeys('KnownDrift'),
+      ...ledgerEntryKeys('UnmirroredDeclared'),
+      ...ledgerEntryKeys('RuntimeOnlyDeclared'),
+      ...ledgerEntryKeys('WiderThanDeclared'),
+    ]);
+    const onlyHere = Array.from(members().keys()).filter((pair) => !others.has(pair));
+    expect(onlyHere.length, 'every pair this direction reports is already reported by another ledger — then it may be measuring nothing new')
+      .toBeGreaterThan(0);
+    // Non-vacuity: the union of the other three ledgers must be non-empty, or
+    // `onlyHere` is just the whole ledger and the comparison is trivially satisfied.
+    expect(others.size, 'the other ledgers read as EMPTY — the comparison above is then vacuous')
       .toBeGreaterThan(0);
   });
 });

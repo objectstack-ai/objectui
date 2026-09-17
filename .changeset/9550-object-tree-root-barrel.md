@@ -2,7 +2,7 @@
 '@object-ui/types': minor
 ---
 
-Export `ObjectTreeSchema` from the `@object-ui/types` root barrel
+Export `ObjectTreeSchema` from the `@object-ui/types` root barrel (objectui#9550)
 
 `ObjectQLComponentSchema` declares the node types an ObjectQL block may be.
 Every one of its arms was a named export of this package's root barrel except
@@ -27,6 +27,8 @@ resolves, and `packages/types/src/__tests__/object-tree-root-barrel-9550.test.ts
 pins that the imported name and that `Extract` are the same declaration, that
 the list stays explicit rather than becoming a wildcard, and that the
 declaration itself stays in `objectql.ts`.
+
+The one hand-written copy this gap had already minted is retired in the same change: `@object-ui/plugin-tree` now imports the name instead of re-deriving it. See that package's own entry.
 
 ⛔ Not done here: a gate over barrel completeness for every declared node
 schema. That was the card's own third option and it is a wider design with its

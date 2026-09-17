@@ -54,11 +54,26 @@ on its own, and each says so in its own doc comment:
 - `ContextMenuSchema.trigger` is OPTIONAL although the docs page shows it
   required; the renderer substitutes a placeholder, so trigger-less documents are
   legal today.
-- `TreeViewSchema.onNodeClick` gets NO zod mirror. It is invoked, not read as a
-  value, so it cannot appear in an authored JSON document; objectui#6152 ruled
-  that class is recorded in `zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared`
-  instead, and it is (the first pair to sit there without also sitting in
-  `UnmirroredDeclared`, so that file's two counts move with it).
+- `TreeViewSchema.onNodeClick` gets no zod VALUE SHAPE. It is invoked, not read as
+  a value, so it cannot appear in an authored JSON document, and objectui#6152
+  ruled that the class never gets one.
+
+  ⭐ **AMENDED, and the amendment ships in this same release.** objectui#7804's
+  `TreeViewSchema` slice gave the key a zod arm after all — a NAMED REFUSAL
+  (`handlerKeyRefusal(key, 'runtime-slot', label)`), never a shape — because "no
+  mirror entry" is not neutral under `BaseSchema.passthrough()`: it meant an
+  authored `{ "type": "tree-view", "onNodeClick": { "action": "toast" } }` parsed
+  GREEN, survived the parse, and reached a call site that expects a function.
+  ⇒ the three clauses this bullet used to carry are no longer true of the code
+  shipping beside it. The key is now a MEMBER of `TreeViewSchema.shape` and an
+  authored value is refused BY NAME at path `onNodeClick`; it has LEFT
+  `zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared` for that file's
+  `KnownDrift`; and it is no longer "the first pair to sit there without also
+  sitting in `UnmirroredDeclared`" — draining it emptied that difference, so
+  `RuntimeOnlyDeclared` is now a SUBSET of `UnmirroredDeclared` and the union of
+  the two equals `UnmirroredDeclared` itself. ⛔ objectui#6152's ruling is
+  untouched by any of this: what the key still does not have, and never will, is a
+  `z.function()` shape — no serialized document could satisfy one.
 
 Two of the 13 declare a SECOND spelling for a slot that already had one —
 `TextSchema.content` beside `value`, `TreeViewSchema.nodes` beside `data` — because

@@ -285,6 +285,22 @@ const ROWS: ReadonlyArray<readonly [
   ['table', TableMirror as unknown as Mirror, ['body', 'children'], {"data":[],"columns":[]}],
   ['data-table', DataTableMirror as unknown as Mirror, ['body', 'children'], {"data":[],"columns":[]}],
   ['calendar-view', CalendarViewMirror as unknown as Mirror, ['body', 'children'], {}],
+  // ⚠️ ONE-SIDED ROW, and ⛔ not a two-sided reading (objectui#9659, carrying a
+  // contract-review residual on objectui#9639). The three rows below list `children`
+  // only, and on the two TWIN faces that still means what it always meant: `children`
+  // dead, `body` held out and LIVE, with the same-face LIVE CONTROL below proving it.
+  // On the PLAIN `chatbot` face it no longer does. Ruling A on objectui#8572 retired
+  // `ChatbotSchema.body` as an ADR-0049 tombstone for a DIFFERENT reason than this card's
+  // — a naming collision, not a dead content channel — and objectui#9639 landed it, so
+  // the plain face refuses BOTH channels today. Measured: `body` is ACCEPTED on
+  // `chatbot-enhanced` and `chatbot-floating`, REFUSED on `chatbot`.
+  // ⇒ the absence of `body` from the plain row means "not this card's to assert", ⛔ not
+  // "still live here", and objectui#9639 had to re-point both controls below at a twin
+  // precisely because no same-face control is available any more. The `body` half of the
+  // plain face is pinned by `node-recursion-point-8344.test.ts`, which owns objectui#8572.
+  // ⛔ Do not add `'body'` to the plain row to "fix" this: the message that row's
+  // assertions read is objectui#9256's, and the plain face's tombstone carries
+  // objectui#8572's instead — the row would go red on a true statement.
   ['chatbot', ChatbotMirror as unknown as Mirror, ['children'], {"messages":[]}],
   ['chatbot-enhanced', ChatbotEnhancedMirror as unknown as Mirror, ['children'], {"messages":[]}],
   ['chatbot-floating', ChatbotFloatingMirror as unknown as Mirror, ['children'], {"messages":[]}],

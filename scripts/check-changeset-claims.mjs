@@ -750,6 +750,18 @@ export const BORN_FALSE_CONTROLS = [
     want: (rows) => rows.length === 0,
   },
   {
+    // ⭐ THE BOUNDARY. git spells a pure insertion as "after old line 220", so
+    // 220 is the last line the insertion does not move and 221 is the first it
+    // does. Measured: mutating `line <= hunk.oldStart` to `line <` leaves the
+    // three controls above it all PASSING while every stable citation at an
+    // insertion point is silently reported as moved — a gate that manufactures
+    // findings, which on a report-only channel is how a channel gets muted.
+    id: 'the-insertion-point-itself-does-not-move',
+    why: 'a pure insertion moves the lines BELOW it; reporting its own anchor line would fake a finding on every stable citation',
+    body: 'The walker entry is at `imported-defaults.ts:220`, just above the block.',
+    want: (rows) => rows.length === 0,
+  },
+  {
     id: 'an-address-into-a-file-this-change-adds-is-unanchored',
     why: 'instance 1: a frame in a file the branch itself creates was read from a tree that exists nowhere else, and moved twice',
     body: 'The deep-clean control is at `imported-defaults-rest-less-tuple-9088.test.ts:281`.',

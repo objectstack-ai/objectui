@@ -940,3 +940,17 @@ describe('the corpus is the prose this change publishes about itself', () => {
     expect(workflowYaml).toContain('measured.findings.length + (measured.bornFalse ?? []).length');
   });
 });
+
+describe('the boundary control the first ablation of this change exposed', () => {
+  it('catches the off-by-one that the other four controls all pass', () => {
+    // ⚠️ MEASURED, not anticipated. The first ablation of this change mutated
+    // `line <= hunk.oldStart` to `line <`, and the pin in section 6 went red
+    // while ALL FOUR of the gate's own controls stayed green — so the gate
+    // would have reported "instrument fine" while silently marking every stable
+    // citation at an insertion point as moved. A control suite that cannot see
+    // the mutation its own unit tests can see is not a self-check.
+    const ids = evaluateBornFalseControls().map((control) => control.id);
+    expect(ids).toContain('the-insertion-point-itself-does-not-move');
+    expect(evaluateBornFalseControls().every((control) => control.ok)).toBe(true);
+  });
+});

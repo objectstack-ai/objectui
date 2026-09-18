@@ -13,12 +13,12 @@ import {
   HoverCardTrigger, 
   HoverCardContent 
 } from '../../ui';
-import { asChildSlotProps, renderChildren } from '../../lib/utils';
+import { renderChildren, renderTriggerSlot } from '../../lib/utils';
 
 ComponentRegistry.register('hover-card', 
   ({ schema, className, ...props }: { schema: HoverCardSchema; className?: string; [key: string]: any }) => (
     <HoverCard openDelay={schema.openDelay} closeDelay={schema.closeDelay} {...props}>
-      <HoverCardTrigger {...asChildSlotProps(schema.trigger)} />
+      {renderTriggerSlot(HoverCardTrigger, schema.trigger)}
       <HoverCardContent align={schema.align} side={schema.side} className={className}>
          {renderChildren(schema.content)}
       </HoverCardContent>

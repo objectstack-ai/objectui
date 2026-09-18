@@ -17,12 +17,12 @@ import {
   SheetTitle, 
   SheetDescription
 } from '../../ui';
-import { asChildSlotProps, renderChildren, renderNodeSlot } from '../../lib/utils';
+import { renderChildren, renderNodeSlot, renderTriggerSlot } from '../../lib/utils';
 
 ComponentRegistry.register('sheet', 
   ({ schema, className, ...props }: { schema: SheetSchema; className?: string; [key: string]: any }) => (
     <Sheet modal={schema.modal} defaultOpen={schema.defaultOpen} {...props}>
-      <SheetTrigger {...asChildSlotProps(schema.trigger)} />
+      {renderTriggerSlot(SheetTrigger, schema.trigger)}
       <SheetContent side={schema.side || 'right'} className={className}>
         <SheetHeader>
           {schema.title && <SheetTitle>{schema.title}</SheetTitle>}

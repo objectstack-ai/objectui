@@ -17,12 +17,12 @@ import {
   DialogTitle, 
   DialogDescription
 } from '../../ui';
-import { asChildSlotProps, renderChildren, renderNodeSlot } from '../../lib/utils';
+import { renderChildren, renderNodeSlot, renderTriggerSlot } from '../../lib/utils';
 
 ComponentRegistry.register('dialog', 
   ({ schema, className, ...props }: { schema: DialogSchema; className?: string; [key: string]: any }) => (
     <Dialog modal={schema.modal} defaultOpen={schema.defaultOpen} {...props}>
-      <DialogTrigger {...asChildSlotProps(schema.trigger)} />
+      {renderTriggerSlot(DialogTrigger, schema.trigger)}
       <DialogContent className={className}>
         <DialogHeader>
           {schema.title && <DialogTitle>{schema.title}</DialogTitle>}

@@ -462,4 +462,132 @@ describe('Registry', () => {
       expect(registry.get('textarea')).toBe(field); // bare clobbered (the regression)
     });
   });
+
+  /**
+   * CROSS-TABLE bare-name collisions (objectui#9821).
+   *
+   * The registry has two doors onto one bare key: `register` writes
+   * `components`, `registerLazy` writes `lazyEntries`. Before this card only
+   * `register` checked for a collision, and it read only its own table — so
+   * the contest objectui#9533 filed, where a console stub claims bare
+   * `dashboard` for `plugin-dashboard:dashboard` and the package then claims
+   * the same bare key for `view:dashboard`, produced ZERO warnings. That zero
+   * was measured against a real registry, in BOTH orders, before this fix.
+   *
+   * ⭐ Both orders are asserted deliberately, the discipline
+   * `report-bare-key-ownership` / `timeline-bare-key-ownership` established: a
+   * contest reported in only one registration order is a detector whose answer
+   * depends on when it was asked, which is the defect, not the fix.
+   */
+  describe('cross-table bare-name collisions (objectui#9821)', () => {
+    const loader = () => Promise.resolve();
+    const collisionWarnings = () =>
+      consoleWarnSpy.mock.calls
+        .map((args: unknown[]) => (typeof args[0] === 'string' ? args[0] : ''))
+        .filter((text: string) => text.includes('bare-name fallback is being overwritten'));
+
+    it('warns when a LOADED registration takes a bare key a pending stub claims (the objectui#9533 order)', () => {
+      // What the console actually does: stubs at boot, chunk later.
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      consoleWarnSpy.mockClear();
+      registry.register('dashboard', () => 'view', { namespace: 'view' });
+
+      const warned = collisionWarnings();
+      expect(warned).toHaveLength(1);
+      expect(warned[0]).toContain('view:dashboard');
+      expect(warned[0]).toContain('plugin-dashboard:dashboard');
+      expect(warned[0]).toContain('pending lazy stub');
+    });
+
+    it('warns when a stub takes a bare key a LOADED registration claims (the reverse order)', () => {
+      registry.register('dashboard', () => 'view', { namespace: 'view' });
+      consoleWarnSpy.mockClear();
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+
+      const warned = collisionWarnings();
+      expect(warned).toHaveLength(1);
+      expect(warned[0]).toContain('Lazy component "dashboard"');
+      expect(warned[0]).toContain('plugin-dashboard:dashboard');
+      expect(warned[0]).toContain('view:dashboard');
+    });
+
+    it('warns when one stub takes a bare key another stub claims for a different full type', () => {
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      consoleWarnSpy.mockClear();
+      registry.registerLazy('dashboard', () => Promise.resolve(), { namespace: 'view' });
+
+      const warned = collisionWarnings();
+      expect(warned).toHaveLength(1);
+      expect(warned[0]).toContain('another pending stub');
+    });
+
+    it('stays SILENT on the ordinary stub-then-real lifecycle, in both orders', () => {
+      // 30 of this tree's 31 stub-claimed bare keys are exactly this shape: the
+      // console declares `plugin-charts:chart` and the package registers the
+      // same full type. A guard that fired here would fire at every boot.
+      registry.registerLazy('chart', loader, { namespace: 'plugin-charts' });
+      registry.register('chart', () => 'chart', { namespace: 'plugin-charts' });
+      expect(collisionWarnings()).toHaveLength(0);
+
+      const reverse = new Registry();
+      reverse.register('chart', () => 'chart', { namespace: 'plugin-charts' });
+      reverse.registerLazy('chart', loader, { namespace: 'plugin-charts' });
+      expect(collisionWarnings()).toHaveLength(0);
+    });
+
+    it('stays SILENT when two files stub one full type with DIFFERENT loader closures', () => {
+      // `preview-gallery.tsx` and `register-plugins.ts` drive the same plugin
+      // set, so nine bare keys on this tree are stubbed twice with two distinct
+      // arrow functions. This is why the predicate keys on the full type and
+      // NOT on loader identity — the latter would warn on all nine, every boot.
+      registry.registerLazy('metric', () => Promise.resolve(), { namespace: 'plugin-dashboard' });
+      registry.registerLazy('metric', () => Promise.resolve(), { namespace: 'plugin-dashboard' });
+
+      expect(collisionWarnings()).toHaveLength(0);
+    });
+
+    it('stays SILENT when the stub declines the bare key with skipFallback', () => {
+      registry.register('dashboard', () => 'view', { namespace: 'view' });
+      consoleWarnSpy.mockClear();
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard', skipFallback: true });
+
+      expect(collisionWarnings()).toHaveLength(0);
+      expect(registry.hasLazy('dashboard', 'plugin-dashboard')).toBe(true);
+      expect(registry.hasLazy('dashboard')).toBe(false); // bare key left alone
+    });
+
+    /**
+     * ⭐ Why the two doors give DIFFERENT advice, pinned as behaviour and not
+     * only as prose. `register` clears the bare stub unconditionally — outside
+     * the fallback branch — so telling that door's author to pass
+     * `skipFallback: true` would leave the bare key resolving to nothing at
+     * all. On the lazy door the same opt-out really does settle it.
+     */
+    it('skipFallback on the EAGER door does not preserve the stub\'s bare claim', () => {
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      expect(registry.hasLazy('dashboard')).toBe(true);
+
+      registry.register('dashboard', () => 'view', { namespace: 'view', skipFallback: true });
+
+      // The bare key is now claimed by nobody: the stub was deleted anyway and
+      // the registration declined to take it.
+      expect(registry.hasLazy('dashboard')).toBe(false);
+      expect(registry.get('dashboard')).toBeUndefined();
+    });
+
+    it('each door prescribes the remedy that is true for it', () => {
+      registry.register('dashboard', () => 'view', { namespace: 'view' });
+      consoleWarnSpy.mockClear();
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      expect(collisionWarnings()[0]).toMatch(/skipFallback: true/);
+
+      const other = new Registry();
+      consoleWarnSpy.mockClear();
+      other.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      other.register('dashboard', () => 'view', { namespace: 'view' });
+      // ⛔ Not a wording preference: the eager door must not prescribe an
+      // opt-out that the test above shows does not settle the contest.
+      expect(collisionWarnings()[0]).toMatch(/does not\s+settle this one/);
+    });
+  });
 });

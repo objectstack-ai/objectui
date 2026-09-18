@@ -54,16 +54,25 @@
  * props, same spy, one prop added — and it is what attributes the subject's
  * equivalence to the early return rather than to the composition.
  *
- * ## ⚠️ The source-text case, and the hazard it is built against
+ * ## ⚠️ The source-text cases, and the hazard they are built against
  *
- * The third case asserts that `handleRowClick`'s branches do not READ the
- * modifier payload. Its subject is a file that DOCUMENTS the construct it
- * asserts on: `ObjectView.tsx` spells `event.metaKey` in the very comment this
- * card rewrote, so a naive absence check over the raw bytes would be red for a
- * prose reason, and a naive presence check would be green for one. Comments are
- * stripped, and the strip itself is controlled BOTH ways in the same run:
- * `event.metaKey` must be absent from the stripped file and present in the raw
- * one, so the absence is demonstrably the stripper's doing and not the token's.
+ * The subject here is a file that DOCUMENTS the construct being asserted on:
+ * `ObjectView.tsx` spells `event.metaKey` inside the very comment this card
+ * rewrote. A whole-file absence check over the raw bytes is therefore red for a
+ * PROSE reason and says nothing at all about the code, so comments are
+ * stripped — and the strip is controlled in BOTH directions in the same run:
+ * `event.metaKey` must be present in the raw file and absent from the stripped
+ * one, which is what makes the absence the stripper's doing and not the token's.
+ *
+ * ⚠️ MEASURED rather than assumed, and recorded because the pleasant version
+ * would be false: the `handleRowClick` BODY case does NOT currently depend on
+ * that strip. Its slice begins at the callback, so the amended comment — which
+ * sits above it — is already outside the text being read, and disabling the
+ * stripper leaves that case green. The strip stays there because the slice's
+ * contents are not fixed: a `//` line moved or added INSIDE the callback would
+ * be read as code by an unstripped reader, which is exactly how this class
+ * fails. What re-derives the strip's own liveness is the case above it, not
+ * this one.
  *
  * ⚠️ Stripping is necessary and NOT sufficient — a member DECLARATION survives
  * it. `useNavigationOverlay.ts` declares `metaKey?: boolean` on its payload

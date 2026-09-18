@@ -2406,6 +2406,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
   },
+  'object-kanban.columns': {
+    file: 'packages/plugin-kanban/src/__tests__/objectKanbanColumnMembers-8071.test.tsx',
+    pins: 'The SWIMLANE element\'s six members, each at its OWN sink and none assumed to behave like its neighbour, driven through the real renderer on a real adapter. `id` decides which records land in the lane (`groups[col.id]`) and names the heading, with an unmatched record swept into the trailing lane rather than dropped (objectui#2792) as the control. ⭐ `title` is read TWICE with two unrelated meanings — as the lane\'s accessible name, and as a BUCKETING ALIAS (`labelToColumnId[String(col.title).toLowerCase()] = col.id`), so a record whose stored group value is the lane\'s TITLE lands in that lane as surely as one carrying its id: nothing on the authoring surface says so, and renaming a lane therefore MOVES RECORDS. `cards` is a UNION and not a replacement — static lane cards survive the fetch, come first, and are not de-duplicated against it. `limit` is displayed beside the count and flags the lane, and ⛔ never truncates: the over-limit row asserts every card still renders, so a pin watching only the badge could not stay green under a renderer that dropped the overflow. `className` reaches that lane\'s container and no other. `collapsed` withholds that lane\'s cards while its neighbour keeps them — the member-set row only, because `columnCollapsedHonoured-9628.test.tsx` owns that member whole. The set itself is asserted as a WHITELIST: an undeclared lane member reaches no sink, with a `className` marker on the same lane in the same render as the lit control. ⚠️ The DECLARATION half is a different file and deliberately not duplicated here: `packages/types/src/__tests__/object-kanban-columns-declared-8913.test.ts` (objectui#8913/#8989) parses lane bags against both published faces, and every assertion in it is a `safeParse` — it cannot say what the board DOES with a member it admitted, which is objectui#8068\'s criterion. Read end to end before being cited. New file (objectui#8071 slice 16).',
+  },
   'object-kanban.conditionalFormatting': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are card STYLE RULES in two accepted dialects, and BOTH reach the sink: the native `{ field, operator, value, backgroundColor }` and the spec CEL `{ condition, backgroundColor }` each colour the matching card and only it, with the sibling card in the same render as the live non-matching control so a green cannot come from two unstyled cards agreeing. ⛔ NOT an identity pin and not a wire pin: `ObjectKanban.tsx` never names this key at all (measured zero, against nine for `cardFields` in the same file) — it rides the `{ ...schema }` spread into `KanbanRenderer`, which forwards it to `KanbanImpl`\'s `getCardStyles`. That makes the pin load-bearing in a way the others are not: an edit replacing that spread with an explicit key list drops the key silently and nothing else in the repo would notice. The spec row is `z.unknown()`, so the read site is the whole member contract (objectui#8313).',
@@ -2413,6 +2417,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-kanban.data': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are RECORDS, and the key is read TWICE with two different meanings — both pinned, because either read alone would misdescribe it. As a GATE it suppresses the board\'s own query entirely — asserted as zero `find` calls through a window a CONTROL row proves is long enough for a real query to land. That gate is DOUBLY guarded on the authored-node path and the pin says so, because naming one guard would be wrong: `SchemaRenderer` spreads non-metadata schema properties as props, so an authored `data` is also this component\'s `data` prop, `hasExternalData` is true, and the effect returns before `!schema.data` is reached. Removing either guard alone leaves the rows green; removing both reddens them. As a VALUE it is selected by `rawData = external || boundData || schema.data || fetchedData` and then REBUILT by `effectiveData` into cards — so ⛔ no identity claim is true of this key, unlike the two `filter` pins. What is read INSIDE a member is what the pin asserts instead: `id` (or `_id`) as the card identity, the `groupBy` field\'s value as the lane it lands in, the card-title field, and the `cardFields` cells. The spec row is `z.array(z.unknown())` — it fixes the container kind and nothing about a member (objectui#8313).',
+  },
+  'object-kanban.dataSource': {
+    file: 'packages/plugin-kanban/src/ObjectKanban.elementDataSource.test.tsx',
+    pins: 'The five members of the spec\'s `ElementDataSourceSchema` binding (`{ object, view, filter, sort, limit }`) as THIS block reads them, which is one line of this package — `OBJECT_KANBAN_DATA_SOURCE = { filter: true, limit: \'limit\' }`, consumed by `ElementDataSourceGate`. Each member is stated with its disposition, and the five are not alike: `object` is mapped and OUTRANKS an `objectName` the board authored itself (`next[objectKey] = composed.object`, unconditional — the `??=` spelling would leave a rebound board querying the old object with the same lanes and no diagnostic); `view` supplies the baseline the others are contested against, and an unresolvable one REPORTS instead of widening the query to every record; `filter` is ADDITIONAL and AND-combines with the board\'s OWN `filter` as well as the view\'s, with the measured nesting pinned (`[\'and\', <rule list>, <rule list>]`, each source keeping its own list) and a lone source passing through verbatim; `limit` is mapped onto the block\'s `limit` with binding > block > view, asserted as a PAIR so neither branch reads as a renderer that simply takes the last writer. ⭐ `sort` is the loud one: the spec declares it, this block IGNORES it, and the row asserts no `$orderby` and no `sort` reaches the query with a mapped `limit` moving in the SAME binding as the lit control — without it a later contributor "completing the mapping" would wire it onto a key nothing reads. `columns` is deliberately NOT mapped and the pre-existing rows say why: a board\'s `columns` are its SWIMLANES, so a view\'s field list written there would render one empty lane per field name. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration says `type: \'object\'` and nothing about members at all — the read site is the whole member contract. Pre-existing file (objectstack#6953 + objectui#4025), promoted after being read end to end and GROWN by the five disposition rows (objectui#8071 slice 16).',
   },
   'object-kanban.filter': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.filterMembersReachTheWire-8176.test.tsx',
@@ -2740,11 +2748,11 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // objectui#8071 slice 5 pinned both, so the block is now fully pinned and
   // this header stays only as a note for the next reader who greps for it.
 
-  // objectui#8176 — the other two this direction could not see. See
-  // `NEWLY_JUDGED_UNPINNED_MEMBERS` below, which pins them BY NAME so the
-  // ceiling correction cannot absorb anything else.
-  'object-kanban.columns': AWAITING_A_PIN_NEWLY_JUDGED,
-  'object-kanban.dataSource': AWAITING_A_PIN_NEWLY_JUDGED,
+  // object-kanban — objectui#8176 brought both `columns` and `dataSource` into
+  // this population (see `NEWLY_JUDGED_UNPINNED_MEMBERS`'s docblock);
+  // objectui#8071 slice 16 pinned both, so the block is now fully pinned, the
+  // objectui#8176 correction is spent to the last key, and this header stays
+  // only as a note for the next reader who greps for it.
 };
 
 /**
@@ -2763,12 +2771,19 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
  * frozen record of four forever — the frozen record of WHY the ceiling went
  * up is `MEMBER_PIN_EXEMPTION_CEILING`'s own docblock below, not this array.
  * objectui#8071 slice 5 pinned `object-calendar.calendar` and
- * `object-calendar.dataSource`, so two of the original four remain here.
+ * `object-calendar.dataSource`, and slice 16 pinned `object-kanban.columns` and
+ * `object-kanban.dataSource` — so the correction is now SPENT and this array is
+ * empty.
+ *
+ * ⛔ An empty array is not a dead assertion, and deleting it would be the wrong
+ * reading of the emptiness. The check below has two directions and only the
+ * first one empties out: the second — every exemption on a block objectui#8176
+ * newly judged must be one of the named four — now reads "no lazily registered
+ * block may carry a member-pin exemption AT ALL". That is the strongest state
+ * this list has ever asserted, and it is the state that refuses a future
+ * exemption from sliding in under the same correction.
  */
-const NEWLY_JUDGED_UNPINNED_MEMBERS = [
-  'object-kanban.columns',
-  'object-kanban.dataSource',
-];
+const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
 
 /**
  * How many keys may be exempt. Ratchet: this number may only ever go DOWN.
@@ -3398,11 +3413,38 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
  * reading was not re-measured here either — slice 7's measurement still stands.
  *
+ * ## 10 -> 8 (objectui#8071 slice 16) — and the objectui#8176 correction is SPENT
+ *
+ * `object-kanban.columns` and `object-kanban.dataSource` are pinned, which
+ * CLOSES the block and empties `NEWLY_JUDGED_UNPINNED_MEMBERS`: all four
+ * pre-existing declarations the raise above admitted are now judged by a pin
+ * rather than by room. ⇒ the headroom that raise created no longer holds
+ * anything, and the audit's second direction hardens from "only these four" to
+ * "no lazily registered block may carry an exemption at all".
+ *
+ * ⚠️ Two of this block's grounds for being held back were STALE readings rather
+ * than facts, and they were re-derived here rather than inherited. The contract
+ * question objectui#8913 is RULED and LANDED (PR objectui#8989): `columns` is
+ * declared on both faces as the protocol's union, so there is no pending ruling
+ * a pin could be deleted by. The file-surface collision that held it at slice 6
+ * was with a pull request that is long gone.
+ *
+ * ⚠️ `columns`' pin is the RENDERER half and is deliberately a second file, not
+ * a promotion of objectui#8989's declaration pin: every assertion there is a
+ * `safeParse`, and objectui#8068's criterion is the shape the renderer READS.
+ * `dataSource`'s is a pre-existing file promoted after being read end to end
+ * and grown by the five member dispositions it never stated — the `object`,
+ * `filter`, `limit` and (loudest) the INERT `sort`.
+ *
+ * ⚠️ Unchanged by this slice: `record:related_list.actions`, whose
+ * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
+ * measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 10;
+const MEMBER_PIN_EXEMPTION_CEILING = 8;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

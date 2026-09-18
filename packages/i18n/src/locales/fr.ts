@@ -284,6 +284,10 @@ const fr = {
       refusedResidue:
         "Non enregistré : {{name}} « {{text}} » et {{otherName}} « {{otherText}} » ne sont pas des nombres. Saisissez des décimales simples (exemple : 30.2741, 120.1551).",
     },
+    number: {
+      badInput:
+        "Non enregistré : le texte de ce champ n'est pas un nombre. Saisissez une décimale simple (exemple : {{example}}).",
+    },
     tags: {
       placeholder: "Saisissez puis appuyez sur Entrée pour ajouter…",
     },

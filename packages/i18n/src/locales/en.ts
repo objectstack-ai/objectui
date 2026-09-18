@@ -345,6 +345,30 @@ const en = {
       refusedResidue:
         'Not saved: {{name}} "{{text}}" and {{otherName}} "{{otherText}}" are not numbers. Enter plain decimals (example: 30.2741, 120.1551).',
     },
+    // objectui#8148 — the FIFTH refusal sentence of objectui#6755's class, and
+    // the only SHARED one. The four above are each ONE widget's; this one is
+    // produced by `numberBadInput.tsx` for `NumberField`, `CurrencyField`,
+    // `PercentField` and both of `GeolocationField`'s boxes. That last is the
+    // sharpest case: it sits beside `LocationField`, whose refusals are keyed
+    // right above, so two adjacent coordinate widgets refused bad input in two
+    // different languages on the same form.
+    //
+    // ⭐ `{{example}}` is a HOLE, and that is what keeps decimal numerals out
+    // of every pack. Five different values reach this one sentence (`1234`,
+    // `1234.56`, `12.5`, `30.2741`, `120.1551`), so keying the example per
+    // widget would be five keys times ten packs — and each pack would then
+    // hold a decimal it could legitimately re-punctuate, where `1234,56` reads
+    // as the `latitude, longitude` PAIR `refusedFormat` above asks for. The
+    // widget fills the hole in ASCII; no pack spells a digit.
+    //
+    // The English value is byte-identical to the literal it replaces
+    // (`FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same one), so English and provider-less rendering are
+    // unchanged.
+    number: {
+      badInput:
+        'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
+    },
     // objectui#3342 — the tags widget's input hint, shown while the tag list
     // is empty. The author-declared `field.placeholder` always wins over this.
     tags: {

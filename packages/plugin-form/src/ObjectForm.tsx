@@ -1413,6 +1413,28 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           name: `__section_${sectionKey}`,
           label,
           type: 'section-divider',
+          // The section's authored blurb (spec `FormSection.description`,
+          // objectui#9779). This map is a key-by-key rebuild, so a key it does
+          // not copy is dropped before any renderer can see it — and this key
+          // was dropped HERE, on the layout a section-carrying form gets when
+          // it declares no `formType`, while the `tabbed` / `wizard` / `split`
+          // / `modal` maps above copied it and `SectionDivider` (the very
+          // component this row renders as) has always drawn one. Its sibling
+          // `label` on the same member arrived, so the miss was invisible to
+          // the author: a titled section with a blurb rendered the title and
+          // silently ate the blurb.
+          //
+          // ⚠️ The `if (label)` gate above is NOT widened with it, deliberately.
+          // That gate decides whether this member gets a divider row at all,
+          // and the row carries two other contracts — the ADR-0089 predicate
+          // and the #6236 membership claim that gates the group — plus the
+          // collapse pair below, whose "an untitled bucket is never
+          // collapsible" rule the gate is what implements. So a member
+          // carrying a `description` and NEITHER `name` nor `label` still
+          // draws no divider and still drops its blurb; that shape is pinned
+          // as behaviour beside the row below it and handed back as a finding,
+          // ⛔ not decided here.
+          description: section.description,
           // ADR-0089 `FormSection.visibleWhen` (#6111). The renderer evaluates
           // a `visibleWhen` on this pseudo-field with the host predicate scope
           // bound (#6010), so copying it here is what makes the authored

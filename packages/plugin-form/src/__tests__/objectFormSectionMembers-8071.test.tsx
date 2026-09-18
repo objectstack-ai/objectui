@@ -67,12 +67,23 @@
  * fields render, with no divider anywhere — so rows 1-4 cannot be passing on a
  * form that draws nothing.
  *
- * ⚠️ LIMIT, recorded rather than asserted as a second layout: a section's
- * `description` IS a member the five rebuild arms copy and `SectionDivider`
- * renders, and the default layout above does NOT copy it. Row 6 pins that as
- * behaviour, with the section's own `label` in the same call as the live
- * control; it is handed back as a finding on objectui#8071 rather than fixed,
- * because fixing it is a renderer change and this card writes pins only.
+ * Row 6 is the SEVENTH key, and it changed hands. It was written here as a
+ * LIMIT — `description` is a member `SectionDivider` renders and the rebuild
+ * arms copy, and this layout did NOT copy it, so the row pinned the DROP as
+ * behaviour and handed it back as a finding, because objectui#8071 wrote pins
+ * only. objectui#9779 took that finding and made the default layout copy the
+ * key, so the row now pins the ARRIVAL: same fixture, same live control
+ * (`label` on the same member, in the same call), opposite verdict. ⛔ The
+ * row's job is unchanged and it is still the only thing watching this key —
+ * it must go red if the blurb stops reaching the divider.
+ *
+ * ⚠️ The BOUNDARY objectui#9779 did not move, pinned in the same row rather
+ * than left to be rediscovered: the divider row exists only for a member that
+ * yields a heading (row 3's `name`-or-`label` gate), so a member carrying a
+ * `description` and NEITHER of those still draws no divider and still drops
+ * its blurb. That gate also decides the ADR-0089 predicate row and the #6236
+ * membership claim, so widening it is a ruling about other keys — handed back
+ * as a finding, ⛔ not taken by that card.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -121,6 +132,17 @@ const drawnFields = (c: HTMLElement): string[] =>
 /** The section headings actually drawn, in DOM order. */
 const headings = (c: HTMLElement): string[] =>
   [...c.querySelectorAll('.border-b span')].map((el) => el.textContent ?? '');
+
+/**
+ * The section BLURBS actually drawn, in DOM order — read off the divider row
+ * itself (`SectionDivider` renders the description as the `<p>` inside the same
+ * `.border-b` block that carries the heading), not off the form's whole
+ * `textContent`. A `textContent` read would be satisfied by the string
+ * appearing anywhere at all — a field's own help text, a toast, a label — which
+ * is fine for asserting ABSENCE and useless for asserting ARRIVAL.
+ */
+const blurbs = (c: HTMLElement): string[] =>
+  [...c.querySelectorAll('.border-b p')].map((el) => el.textContent ?? '');
 
 describe('`object-form` — the member shape of `sections`', () => {
   it('1. a member’s `fields` are field NAMES read as a SET — the OBJECT’s order wins, ⛔ not the authored one', async () => {
@@ -187,17 +209,46 @@ describe('`object-form` — the member shape of `sections`', () => {
     expect(drawnFields(c)).toEqual(['customer', 'note', 'amount']);
   });
 
-  it('6. a member’s `description` is DROPPED by the default layout, while its `label` is not', async () => {
+  it('6. a member’s `description` REACHES the divider, alongside its `label` (objectui#9779)', async () => {
+    // ⚠️ This row previously pinned the OPPOSITE — `.not.toContain(...)`, the
+    // drop recorded as behaviour by objectui#8071 slice 11 and handed back as a
+    // finding. objectui#9779 fixed the default layout, so the row was rewritten
+    // onto the new behaviour in the SAME change. Its job did not change: this
+    // is still the only assertion watching whether the blurb reaches the
+    // divider, and it must fail if it stops.
     const c = await mount({
       sections: [{ label: 'Money', description: 'Totals as invoiced', fields: ['amount'] }],
     });
-    expect(headings(c), 'the live control: the sibling member on the SAME section does reach the divider').toEqual([
+    expect(headings(c), 'the live control: the sibling member on the SAME section reaches the divider').toEqual([
       'Money',
     ]);
     expect(
-      c.textContent,
-      '`SectionDivider` renders a `description` and the five rebuild arms copy one; this ' +
-        'layout does not — recorded as behaviour, handed back as a finding',
-    ).not.toContain('Totals as invoiced');
+      blurbs(c),
+      '`SectionDivider` renders a `description`; the default layout now hands it one, so the ' +
+        'blurb is read off the divider itself — not off `textContent`, which a stray render ' +
+        'of the same string anywhere in the form would satisfy',
+    ).toEqual(['Totals as invoiced']);
+    expect(drawnFields(c), 'and the section still draws its member').toEqual(['amount']);
+  });
+
+  it('7. the boundary: a member with a `description` but NEITHER `name` nor `label` still draws no divider', async () => {
+    // The gate row 3 pins decides whether a member gets a divider ROW at all,
+    // and that row carries two further contracts (the ADR-0089 predicate and
+    // the #6236 membership claim) plus the collapse pair — so objectui#9779
+    // copied the key onto the row and deliberately did NOT widen the gate.
+    // Recorded here as behaviour, exactly as row 6 recorded the drop, and
+    // handed back as a finding: a member CAN author a blurb with no heading,
+    // and four of the other arms (`split` / `modal` / `wizard` / `tabbed`)
+    // render one for it.
+    const c = await mount({
+      sections: [{ description: 'Totals as invoiced', fields: ['amount'] }],
+    });
+    expect(headings(c), 'no heading is authored, so no divider is drawn').toEqual([]);
+    expect(blurbs(c), '…and with no divider there is nothing to carry the blurb').toEqual([]);
+    expect(
+      drawnFields(c),
+      'the liveness control: the member itself still renders, so the two negatives above are ' +
+        'about a form that drew something',
+    ).toEqual(['amount']);
   });
 });

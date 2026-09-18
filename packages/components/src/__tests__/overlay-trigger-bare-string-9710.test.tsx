@@ -52,9 +52,10 @@
  *    repair targeted rather than a blanket `asChild` removal: withheld only
  *    where Radix structurally cannot serve.
  *  - `REDDENS_FOR_A_NINTH` — a deliberately defective block is registered
- *    inside the test, and the pin's own per-block assertion is shown to FAIL on
- *    it. Without this, "the pin covers a ninth renderer" is a claim about a
- *    test that has never once been observed failing.
+ *    inside the test, and THE assertion above (the errored-out list is empty)
+ *    is observed holding exactly that block's name. Without this, "the pin
+ *    covers a ninth renderer" would be a claim about an assertion that has
+ *    never once been observed failing.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -129,20 +130,23 @@ function read(type: string, trigger: unknown): Reading {
 }
 
 /**
- * The pin's per-block assertion, as ONE function, so `REDDENS_FOR_A_NINTH` can
- * demonstrate the very assertion the suite runs rather than a paraphrase of it.
+ * Read EVERY block in the population against one trigger value.
+ *
+ * The survey runs the whole population before anything is asserted, so a red
+ * run names every defective block at once. A per-block `expect` inside the loop
+ * would stop at the first one and report a single file — which, for a card
+ * whose entire subject is a CLASS of eight, is the wrong diagnostic.
  */
-function assertBareStringTriggerRenders(block: TriggerBlock): void {
-  const reading = read(block.type, BARE_STRING);
-  expect(
-    reading.erroredOut,
-    `${block.type}: a bare-string trigger reached SchemaRenderer's error boundary`,
-  ).toBe(false);
-  expect(
-    reading.text,
-    `${block.type}: the bare-string trigger did not paint`,
-  ).toContain(BARE_STRING);
+function survey(trigger: unknown): Array<Reading & { type: string }> {
+  return triggerBlocks().map((block) => ({
+    type: block.type,
+    ...read(block.type, trigger),
+  }));
 }
+
+/** The blocks that painted the error boundary instead of the trigger. */
+const erroredOut = (rows: Array<Reading & { type: string }>): string[] =>
+  rows.filter((row) => row.erroredOut).map((row) => row.type);
 
 /* ────────────────────────────────────────────────────────────────────────────
  * The defective ninth, used only by `REDDENS_FOR_A_NINTH`
@@ -200,9 +204,15 @@ describe('overlay triggers: a bare-string `trigger` renders on every block that 
   });
 
   it('paints the string instead of reaching the error boundary, on every block in the population', () => {
-    for (const block of triggerBlocks()) {
-      assertBareStringTriggerRenders(block);
-    }
+    const rows = survey(BARE_STRING);
+
+    // THE assertion. Its expected value is the empty list, ⛔ not a count — the
+    // population is whatever the registry holds, and a red run prints the names
+    // of every block that still has the defect.
+    expect(erroredOut(rows)).toEqual([]);
+    expect(
+      rows.filter((row) => !row.text.includes(BARE_STRING)).map((row) => row.type),
+    ).toEqual([]);
   });
 
   it('ASCHILD_STILL_ON control: an element trigger is merged, not nested inside a second button', () => {
@@ -226,15 +236,17 @@ describe('overlay triggers: a bare-string `trigger` renders on every block that 
     }
   });
 
-  it('REDDENS_FOR_A_NINTH control: the pin fails on a newly registered defective block', () => {
+  it('REDDENS_FOR_A_NINTH control: a newly registered defective block enters the population and breaks THE assertion', () => {
     registerDefectiveNinth();
 
-    // The enumeration is live: a block registered a moment ago is in it.
-    const ninth = triggerBlocks().find((block) => block.type === NINTH_CANONICAL);
-    expect(ninth).toBeDefined();
+    const rows = survey(BARE_STRING);
 
-    // And the suite's own per-block assertion FAILS on it. This is the property
-    // triage asked for, observed rather than asserted about.
-    expect(() => assertBareStringTriggerRenders(ninth as TriggerBlock)).toThrow();
+    // The enumeration is live: a block registered a moment ago is in it, with
+    // no edit to this file. That is what covers the ninth overlay key.
+    expect(rows.map((row) => row.type)).toContain(NINTH_CANONICAL);
+    // And the assertion the test above makes — `erroredOut(rows)` is empty —
+    // now holds exactly one name: the defective block, and nothing else. This
+    // is the property triage asked for, OBSERVED rather than asserted about.
+    expect(erroredOut(rows)).toEqual([NINTH_CANONICAL]);
   });
 });

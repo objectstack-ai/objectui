@@ -106,7 +106,8 @@ const plotAreaOf = (c: HTMLElement) => {
 
 /** Each mark's painted centre and radius, straight off the symbol path: recharts
  *  writes the symbol's bounding box onto it, so `width / 2` IS the drawn radius
- *  rather than a value assumed from the ZAxis range. */
+ *  rather than a value assumed from a declaration (objectui#9681 — the scatter
+ *  branch's `ZAxis range` was such a declaration, and it was inert). */
 const marksOf = (c: HTMLElement) =>
   [...c.querySelectorAll('path.recharts-symbols')].map((p) => {
     const cx = Number(p.getAttribute('cx'));
@@ -166,7 +167,8 @@ describe('objectui#7396 — every scatter mark is drawn wholly inside the plot a
   it('reserves at least a full mark radius, so the WHOLE symbol clears the edge', () => {
     // Stated as the reader sees it — "half a dot is showing" is the complaint,
     // and clearing the edge by a hair would still leave it half-clipped once a
-    // symbol grows. The margin is sized to the declared symbol envelope, so
+    // symbol grows. The margin is sized to `SCATTER_SYMBOL_MAX_AREA`, the
+    // headroom budget rather than the size painted today (objectui#9681), so
     // every clearance is a full radius or better.
     const { container } = renderScatter(FOUR_EDGES);
     for (const o of overhangs(container)) {

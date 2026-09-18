@@ -24,7 +24,6 @@ import {
   PolarRadiusAxis,
   Scatter,
   ScatterChart,
-  ZAxis,
   Cell,
   XAxis,
   YAxis,
@@ -395,12 +394,20 @@ const X_AXIS_ALL_LABELS_MAX_BUCKETS = 5;
 const ROTATED_X_LABEL_MAX_CHARS = 12;
 
 /**
- * Symbol AREA envelope the scatter branch declares for its marks, in px².
+ * Symbol AREA budget the scatter's edge margin below is sized against, in px².
+ *
+ * ⚠️ A HEADROOM figure, ⛔ NOT a reading of what the chart paints. Recharts
+ * paints a scatter mark as a circle of `sqrt(area / PI)` and chooses that area
+ * itself: nothing in this file and no authored metadata sets it, so every mark
+ * is drawn at recharts' own implicit default and the budget here is
+ * deliberately well above it. The size actually painted is measured off the
+ * rendered symbol by `AdvancedChartImpl.scatterSymbolSize-9681.test.tsx` —
+ * read that, never this number, for what the marks are.
  *
  * Kept as a named number because the padding below is derived from it rather
- * than guessed: the scatter's `<ZAxis type="number" range={[60, 400]} />`
- * declares that envelope, recharts paints a scatter mark as a circle of
- * `sqrt(area / PI)`, so this is the upper bound of the radius it can draw.
+ * than guessed, and kept at THIS value rather than lowered to what is painted:
+ * it is the envelope a variable-area scatter would have to stay inside, so the
+ * margin already survives the day mark area becomes variable (objectui#9681).
  */
 const SCATTER_SYMBOL_MAX_AREA = 400;
 
@@ -434,13 +441,14 @@ const SCATTER_SYMBOL_MAX_AREA = 400;
  *
  * ## Why this size
  *
- * `sqrt(SCATTER_SYMBOL_MAX_AREA / PI)`, rounded up — the largest radius the
- * declared envelope admits. It is deliberately the envelope's upper bound and
- * not the radius observed today: with no `dataKey` on that ZAxis recharts
- * ignores the declaration entirely and paints every mark at its own implicit
- * default area (measured: r = 4.514px, i.e. area 64), so sizing this to what is
- * painted would tie the fix to a third-party default AND reopen the defect the
- * day a `dataKey` makes the declared envelope live.
+ * `sqrt(SCATTER_SYMBOL_MAX_AREA / PI)`, rounded up — the largest radius that
+ * budget admits. It is deliberately the budget and ⛔ not the radius observed
+ * today: recharts chooses the symbol area itself and nothing here or in
+ * authored metadata moves it, so sizing this margin to what is painted would
+ * tie the fix to a third-party default AND reopen the defect the day mark area
+ * becomes variable. That the painted radius still fits inside this margin is
+ * asserted, not assumed — `AdvancedChartImpl.scatterSymbolSize-9681.test.tsx`
+ * reads both off the same render, so the two cannot drift apart in silence.
  *
  * ## Why these are module constants and not inline objects
  *
@@ -1973,7 +1981,23 @@ function AdvancedChartImplInner({
             padding={SCATTER_Y_AXIS_PADDING}
             {...yAxisSpecProps(primaryY)}
           />
-          <ZAxis type="number" range={[60, 400]} />
+          {/* ⛔ No `<ZAxis>` here, deliberately — scatter mark AREA is recharts'
+              own implicit default and is not configurable in this product
+              today. This branch used to declare `<ZAxis type="number"
+              range={[60, 400]} />`, which painted NOTHING: recharts'
+              `selectZAxisWithScale` drops a z axis that carries no `dataKey`
+              before it reaches a mark, so the declared envelope never applied
+              and every mark came out at the implicit default size. Its only
+              effect was on readers — and it did mislead one, in writing, on
+              this repository: the triage comment on objectui#7396 derived a
+              variable-bubble-size prediction from it whose every clause was
+              false. ⭐ A DECLARATION IS NOT A READING: an inert declaration and
+              a live one look identical in the source, so what this branch
+              paints is stated by a test that reads the rendered symbol
+              (`AdvancedChartImpl.scatterSymbolSize-9681.test.tsx`), never by a
+              prop sitting here. Variable-area marks remain possible — they need
+              a `dataKey` and a schema key to feed it, which is a new capability
+              and its own card, not a prop restored here (objectui#9681). */}
           <ChartTooltip content={<ChartTooltipContent />} />
           {/* `nameKey` is REQUIRED here, for a reason unique to scatter
               (objectui#7248). `ChartLegendContent` resolves a label as

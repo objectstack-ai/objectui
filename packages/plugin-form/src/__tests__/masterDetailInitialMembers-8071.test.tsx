@@ -32,7 +32,7 @@
  * `<ObjectForm>` — not through `SchemaRenderer`, so no registry entry and no
  * `object-form` declaration is consulted on the way. The precedence is
  * therefore inherited from `ObjectForm`'s two seeding sites, both spelled
- * `setInitialData(schema.initialData || schema.initialValues || {})`, and the
+ * `setInitialData(resolveInitialRecord(schema))` since objectui#9760, and the
  * member vocabulary is parent FIELD NAMES.
  *
  * Inheriting it is exactly why it is pinned HERE as well as on `object-form`:
@@ -46,18 +46,24 @@
  *
  *   1-2. a MEMBER is a parent FIELD NAME and its value is that control's
  *        opening value, on each spelling.
- *   3.   with BOTH authored the choice is between WHOLE OBJECTS — `||`, never a
- *        per-member merge. Nothing declared distinguishes that from
- *        `{ ...initialValues, ...initialData }`, which is what the registry's
- *        "alternate spelling the renderer also reads" reads like; it is NOT
- *        what happens. Every `initialValues` member is dropped, including the
- *        ones `initialData` says nothing about.
- *   4.   the same read at its sharp edge: `||` tests the OBJECT's truthiness
- *        and `{}` is truthy, so an EMPTY `initialData` shadows a populated
- *        `initialValues` completely. Pinned as this renderer's behaviour, ⛔ not
- *        endorsed — the finding is handed back on objectui#8071 rather than
- *        fixed here, because fixing it is a renderer change and this card
- *        writes pins only.
+ *   3.   ⭐ FLIPPED by objectui#9760, ⛔ not deleted. With BOTH authored the two
+ *        keys are MERGED PER MEMBER — `initialData` wins where it speaks and
+ *        `initialValues` supplies every member it says nothing about, which is
+ *        what the registry's "alternate spelling the renderer also reads"
+ *        states once read as a precedence claim. It used to be a whole-object
+ *        `||`: every `initialValues` member was dropped, including the ones
+ *        `initialData` said nothing about. objectui#8071 wrote pins only, so it
+ *        recorded that and handed the defect back; the maintainer ruling on
+ *        objectui#9760 (batch #166 item 3, letter 甲) repaired it. This block
+ *        inherits the repair through the same `parentSchema` memo, which is why
+ *        the row is kept HERE rather than left to the sibling pin.
+ *   4.   ⭐ FLIPPED with it, the same read at its sharp edge: an EMPTY
+ *        `initialData` now contributes NOTHING. `||` tested the OBJECT's
+ *        truthiness and `{}` is truthy, so the empty object a `?? {}` producer
+ *        hands over used to blank a populated `initialValues` completely. This
+ *        block is one such producer one layer down (its expanded-row form
+ *        authors `initialData: expandedRow ?? {}`), which is the case that made
+ *        the defect reachable without anybody authoring an empty object.
  *   5.   ⭐ the row only this block can make: the seed reaches the PARENT LEG of
  *        the atomic batch and NOTHING else. A member naming a detail column
  *        seeds no child row, and the batch this form posts still carries
@@ -147,20 +153,21 @@ describe('`object-master-detail-form` — the member shape of `initialValues` / 
     expect(await openingValues({ initialData: { ref: 'PO-8' } })).toEqual({ ref: 'PO-8', memo: '' });
   });
 
-  it('3. with BOTH authored the choice is whole-object — every `initialValues` member is dropped, ⛔ not merged', async () => {
+  it('3. with BOTH authored the merge is PER MEMBER — `initialData` wins where it speaks, `initialValues` supplies the rest', async () => {
     expect(
       await openingValues({
         initialData: { ref: 'PO-8' },
         initialValues: { ref: 'PO-9', memo: 'from initialValues' },
       }),
-      'a per-member merge would leave `memo` seeded; this renderer picks ONE object and discards the other',
-    ).toEqual({ ref: 'PO-8', memo: '' });
+      'a whole-object choice would blank `memo`; the merge carries it through the `parentSchema` memo intact',
+    ).toEqual({ ref: 'PO-8', memo: 'from initialValues' });
   });
 
-  it('4. an EMPTY `initialData` still shadows a populated `initialValues` — `||` tests the object, not its size', async () => {
+  it('4. an EMPTY `initialData` contributes NOTHING — it no longer shadows a populated `initialValues`', async () => {
     expect(
       await openingValues({ initialData: {}, initialValues: { ref: 'PO-9', memo: 'from initialValues' } }),
-    ).toEqual({ ref: '', memo: '' });
+      'the empty object a `?? {}` producer hands over must not blank the parent form beside it',
+    ).toEqual({ ref: 'PO-9', memo: 'from initialValues' });
   });
 
   it('5. the seed lands on the PARENT LEG of the atomic batch, and a member naming a detail column seeds NO child row', async () => {

@@ -112,10 +112,19 @@
  * repairs, and BORN FALSE can only be established at the ref where the sentence
  * was written. So nothing here licenses touching a changeset body.
  *
- * ## The three limits that produce this instrument's false positives
+ * ## The limits that produce this instrument's false positives
  *
- * Measured by adjudicating a sample of ten flagged entries fully (objectui#9727,
- * the readings are on that card's pull request, not copied here per #9):
+ * ⛔ This heading used to say THREE, and the count was wrong in the direction a
+ * written-down cardinal always fails (#9): it was read once, against the three
+ * sources known that day, and nothing re-derived it. objectui#9766's triage,
+ * holding two cards at once, measured that at least two more sources sat outside
+ * it -- key extraction (repaired by that card, stated below) and the corpus
+ * boundary (objectui#9767). So the list is THE LIST, and is not a closed count:
+ * ⛔ read nothing into its length, and add to it here when you find another.
+ *
+ * The first three were measured by adjudicating a sample of ten flagged entries
+ * fully (objectui#9727, the readings are on that card's pull request, not copied
+ * here per #9):
  *
  *   WINDOW PAIRING. A sentence may name schema S and key K and predicate K of
  *   something else entirely -- a registry-local type, another node, a spec
@@ -150,7 +159,23 @@
  *   re-create the "a name is not a key" failure at one more level, so the
  *   narrow reading is deliberate and the cost is named here instead.
  *
- * ⛔ None of the three is a reason to stop reporting a flag. They are the reason
+ *   KEY EXTRACTION, REPAIRED AND ITS RESIDUE NAMED (objectui#9766). The reader
+ *   used to admit backticked tokens that cannot be member keys at all -- the
+ *   language's own primitives and keywords, and call expressions -- because the
+ *   exclusion rule was written on only one side: a PascalCase token was named a
+ *   TYPE and refused, while every lowercase token was waved through. The rule is
+ *   now written on both sides, on `keyHead`, where the PascalCase half already
+ *   lived. ⚠️ What it CANNOT fix is the residue, and it is lexical: a bare
+ *   lowerCamelCase word naming a function, a CLI subcommand, a zod method or an
+ *   error code is spelled EXACTLY like a member key, and only the position it
+ *   sits in tells them apart -- which is the WINDOW PAIRING question above, not a
+ *   key-extraction one. ⛔ The narrowing deliberately stops at what the tree can
+ *   answer: a language word is refused only where no face declares a member by
+ *   that name, so a present-tense claim about an ordinary key this tree no longer
+ *   declares -- objectui#9713's `allowCollapse`, the whole point of the
+ *   instrument -- is still read and still flagged.
+ *
+ * ⛔ None of them is a reason to stop reporting a flag. They are the reason
  * a flag is a CANDIDATE: every one of them is resolved by a human reading the
  * sentence, and none is resolvable by reading the count.
  *
@@ -204,7 +229,43 @@ export const MEMBER_CONTROL_KEY = 'type';
  * Member sets -- the (interface, name) half
  * ------------------------------------------------------------------ */
 
-const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+/**
+ * The ONE spelling of a member key of this protocol: an identifier that does not
+ * start with a capital. Fused from the two tests `keyHead` used to run in
+ * sequence, so the correct shape is written once and is the only thing that gets
+ * through. The full rule, both halves, is on `keyHead`.
+ */
+export const MEMBER_KEY_SPELLING = /^[a-z_$][A-Za-z0-9_$]*$/;
+
+/**
+ * Every word the TypeScript compiler defines as a keyword, read from the same
+ * `ts` this instrument parses the faces with. DERIVED, never hand-listed: a
+ * blacklist is a written-down population that stops being re-derived the moment
+ * it is written (commandment #9), and a language that gains a word would leave
+ * it stale and silent. `keyHead` reads this set, and only in company with the
+ * names the tree actually declares.
+ */
+export const LANGUAGE_WORDS = (() => {
+  const words = new Set();
+  for (let kind = ts.SyntaxKind.FirstKeyword; kind <= ts.SyntaxKind.LastKeyword; kind += 1) {
+    const text = ts.tokenToString(kind);
+    if (text) words.add(text);
+  }
+  return words;
+})();
+
+/**
+ * The names this tree declares on ANY face -- the only thing that can rescue a
+ * language word. It is deliberately NOT membership: `(interface, name)` is the
+ * verdict's question, and this one is only "is this word ever a key here at all".
+ */
+export function declaredNames(memberIndex) {
+  const names = new Set();
+  for (const face of memberIndex.values()) {
+    for (const member of face.members) names.add(member);
+  }
+  return names;
+}
 
 function propertyName(node) {
   const name = node.name;
@@ -633,9 +694,10 @@ export function clauseTexts(text) {
  * `byKey` is the per-key reading, and it is the one the verdict uses.
  *
  * @param {string} text
+ * @param {Set<string> | null} [declared] the set `keyHead` reads; see its docblock
  * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative"> }}
  */
-export function readPolarity(text) {
+export function readPolarity(text, declared = null) {
   const { clauses, masked, spans } = segmentClauses(text);
   const isDeclaration = (c) => PRESENT_DECLARATION.test(c.text);
   const polarityOf = (c) => (NEGATIVE.test(c.text) ? 'negative' : 'positive');
@@ -650,7 +712,7 @@ export function readPolarity(text) {
   const occurrences = new Map();
   MASK_TOKEN.lastIndex = 0;
   for (const m of masked.matchAll(MASK_TOKEN)) {
-    const head = keyHead(spans[Number(m[1])]);
+    const head = keyHead(spans[Number(m[1])], declared);
     if (!head) continue;
     if (!occurrences.has(head)) occurrences.set(head, []);
     occurrences.get(head).push(m.index);
@@ -691,27 +753,70 @@ export function namesSchema(text) {
 }
 
 /**
- * The key a backticked span names, or null. ONE spelling, because polarity now
- * has to locate the same heads `backtickedKeys` returns: two readings of what
- * counts as a key would silently disagree and the per-key polarity would land
- * on a key the verdict never asks about.
+ * WHAT A MEMBER KEY LOOKS LIKE IN THIS PROTOCOL -- both halves, in one place
+ * (objectui#9766). The PascalCase half used to live here alone, and stopping
+ * there is what let `string`, `extends` and `retirementTombstone()` through.
+ *
+ * A member key is a NAME, and the backticked span has to BE that name:
+ *
+ *   1. THE SPAN IS THE NAME. A key is written bare (`columns`) or carrying its
+ *      type annotation (`columns: KanbanColumn[]`, which names `columns`).
+ *      Everything else in a backticked span is a fragment of CODE, not a name:
+ *      a call (`retirementTombstone()`, `handlerKeyRefusal(..., 'runtime-slot')`),
+ *      a heritage clause (`extends Omit<Partial<X>, ...>`), a statement
+ *      (`export { A as B }`), an operator use (`as any`), a switch label
+ *      (`case 'map'`). The reader used to CUT the span at its first separator,
+ *      which manufactured a name out of any of those -- that construction is
+ *      gone, and only the annotation form is still cut.
+ *
+ *   2. THE NAME IS SPELLED LIKE A KEY. One regex, `MEMBER_KEY_SPELLING`, so the
+ *      correct shape is the only spelling that gets through. A backticked
+ *      PascalCase token is a TYPE name (`ObjectGridComponentProps`,
+ *      `GanttConfig`), and reading one as a key is the shape that inflated the
+ *      transcribed count.
+ *
+ *   3. THE NAME IS THIS PROTOCOL'S, NOT THE LANGUAGE'S. `string` and `size` are
+ *      lexically identical, so no character-class rule can separate them and
+ *      this half is deliberately NOT lexical. A word the TypeScript compiler
+ *      defines as a keyword is the language the faces are written in, not a key
+ *      of the protocol they describe -- so it is admitted only where the tree
+ *      being read declares a member by that name. `type` is a key (the protocol's
+ *      own recursion point, and this instrument's member control); `string`,
+ *      `number`, `boolean`, `any` are keys of nothing and stop being read as keys.
+ *      ⛔ The gate applies to LANGUAGE WORDS ONLY, and that limit is load bearing:
+ *      applied to every name it would suppress exactly the claim this instrument
+ *      exists to catch -- a present-tense claim about a key the tree no longer
+ *      declares anywhere, which is objectui#9713's `allowCollapse`.
+ *
+ * ONE spelling, because polarity has to locate the same heads `backtickedKeys`
+ * returns: two readings of what counts as a key would silently disagree and the
+ * per-key polarity would land on a key the verdict never asks about. `declared`
+ * therefore travels with the text through `readClaim` -> `backtickedKeys` /
+ * `readPolarity`; OMITTING it is the strict reading (no language word is a key),
+ * never a wider one, so a caller that forgets it loses keys rather than inventing
+ * them. `census` always passes the set built from the member index it was handed.
+ *
+ * @param {string} backticked
+ * @param {Set<string> | null} [declared] names this tree declares on ANY face
  */
-export function keyHead(backticked) {
+export function keyHead(backticked, declared = null) {
   const inner = backticked.replace(/^`/, '').replace(/`$/, '').trim();
-  // `columns: KanbanColumn[]` names the key `columns`.
-  const head = inner.split(/[:\s(<[]/)[0];
-  if (!IDENTIFIER.test(head)) return null;
-  // A member key in this protocol is lowerCamelCase. A backticked PascalCase
-  // token is a TYPE name (`ObjectGridComponentProps`, `GanttConfig`), and
-  // reading one as a key is the shape that inflated the transcribed count.
-  if (!/^[a-z_$]/.test(head)) return null;
+  // The annotation is the ONLY decoration a key mention may carry.
+  const head = inner.split(':')[0].trim();
+  if (!MEMBER_KEY_SPELLING.test(head)) return null;
+  if (LANGUAGE_WORDS.has(head) && !declared?.has(head)) return null;
   return head;
 }
 
-export function backtickedKeys(text) {
+/**
+ * @param {string} text
+ * @param {Set<string> | null} [declared] the set `keyHead` reads; see its docblock
+ * @returns {string[]}
+ */
+export function backtickedKeys(text, declared = null) {
   const keys = [];
   for (const m of text.matchAll(/`[^`]+`/g)) {
-    const head = keyHead(m[0]);
+    const head = keyHead(m[0], declared);
     if (head && !keys.includes(head)) keys.push(head);
   }
   return keys;
@@ -722,15 +827,19 @@ export function backtickedKeys(text) {
  * the blindness objectui#9727 names -- is resolved here and nowhere else: when
  * the object is a pronoun and the sentence carries no key of its own, the keys
  * come from the nearest preceding sentence in the same paragraph that names any.
+ *
+ * @param {{ text: string }} sentence
+ * @param {{ text: string }[]} precedingInParagraph
+ * @param {Set<string> | null} [declared] the set `keyHead` reads; see its docblock
  */
-export function readClaim(sentence, precedingInParagraph) {
+export function readClaim(sentence, precedingInParagraph, declared = null) {
   const schemas = namesSchema(sentence.text);
-  let keys = backtickedKeys(sentence.text);
+  let keys = backtickedKeys(sentence.text, declared);
   let viaPronoun = false;
   let antecedent = null;
   if (keys.length === 0 && PRONOUN_OBJECT.test(sentence.text)) {
     for (let i = precedingInParagraph.length - 1; i >= 0; i -= 1) {
-      const candidate = backtickedKeys(precedingInParagraph[i].text);
+      const candidate = backtickedKeys(precedingInParagraph[i].text, declared);
       if (candidate.length > 0) {
         keys = candidate;
         viaPronoun = true;
@@ -739,7 +848,7 @@ export function readClaim(sentence, precedingInParagraph) {
       }
     }
   }
-  const { polarity, byKey } = readPolarity(sentence.text);
+  const { polarity, byKey } = readPolarity(sentence.text, declared);
   return {
     schemas,
     keys,
@@ -769,6 +878,9 @@ export function readCorpus(corpusDir) {
 
 export function census({ corpusDir, memberIndex }) {
   const entries = readCorpus(corpusDir);
+  // Built once, from the SAME index the verdict resolves against, so the key
+  // reader and the verdict never disagree about which tree is being read.
+  const declared = declaredNames(memberIndex);
   const matched = [];
   const quoted = [];
   let sentencesScanned = 0;
@@ -788,7 +900,7 @@ export function census({ corpusDir, memberIndex }) {
       const preceding = byParagraph.get(s.paragraphIndex).slice();
       byParagraph.get(s.paragraphIndex).push(s);
       if (!matchesPopulation(s.text)) continue;
-      const record = { entry: entry.name, ...s, claim: readClaim(s, preceding) };
+      const record = { entry: entry.name, ...s, claim: readClaim(s, preceding, declared) };
       if (s.position === 'quoted') quoted.push(record);
       else matched.push(record);
     }

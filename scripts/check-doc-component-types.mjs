@@ -253,12 +253,21 @@
  * Both halves of the row are judged, and judging the namespaced half is the point
  * objectui#5106 was filed for: this gate never judged a namespace at all. It
  * compared bare keys against a universe that happens to contain namespaced keys
- * too, so `view:dashboard` documented as `plugin-dashboard:dashboard` produced no
- * signal from any static check — the bare `dashboard` matched and the row passed.
- * Flip `namespace: 'view'` to `'dash'` in `plugin-dashboard/src/index.tsx` and
- * `deriveRegistryKeys` follows it live to `dash:dashboard`, while every doc that
- * teaches `view:dashboard` stays green. That is the hole; the namespaced cell
- * closes it.
+ * too, so the dashboard's namespaced spelling documented as any OTHER namespace
+ * over the same bare name produced no signal from any static check — the bare
+ * `dashboard` matched and the row passed. Flip `namespace: 'plugin-dashboard'`
+ * to `'dash'` on the dashboard registration in `plugin-dashboard/src/index.tsx`
+ * and `deriveRegistryKeys` follows it live to `dash:dashboard`, while every doc
+ * that teaches the old spelling stays green. That is the hole; the namespaced
+ * cell closes it.
+ *
+ * ⚠️ This paragraph used to run the same example over the literal pair
+ * `view:dashboard` / `plugin-dashboard:dashboard`, which was a live reading when
+ * it was written and is not one now: objectui#9533 converged that bare key onto
+ * `plugin-dashboard` and retired `view:dashboard`, so a reader following the old
+ * wording would look for a `namespace: 'view'` on that registration and not find
+ * it. Re-pointed with the example kept, because the example is the mechanism and
+ * the spelling was only ever an illustration of it.
  *
  * What is deliberately NOT checked, and why: when the fallback cell reads
  * "none — `skipFallback: true`", this gate does not assert that the bare name is

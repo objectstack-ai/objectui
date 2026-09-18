@@ -48,6 +48,29 @@ import {
 const REPO_ROOT = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(REPO_ROOT, p), 'utf8');
 
+/**
+ * `read`, with whole-line comments removed.
+ *
+ * ⚠️ Measured, not hypothetical. `providers/SchemaValidator.ts` documents its
+ * child-list arm by QUOTING `schema.children || schema.body` in a comment
+ * directly above the line that implements it. A plain `toContain` over the raw
+ * file therefore stayed green with that implementation ablated away — the
+ * assertion was passing off the prose, which is the phantom-check shape this
+ * file's own neighbours warn about: an assertion that cannot fail is not a pin.
+ *
+ * Only WHOLE-LINE comments are stripped, so a `//` inside a string survives —
+ * a URL, or the preview provider's inlined webview script, both of which appear
+ * in the files these blocks read.
+ */
+const readCode = (p: string) =>
+  read(p)
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trimStart();
+      return !trimmed.startsWith('//') && !trimmed.startsWith('*') && !trimmed.startsWith('/*');
+    })
+    .join('\n');
+
 const keysOf = (text: string, type: string) => {
   const node = scanNodes(text).find((n: { type: string }) => n.type === type);
   return node ? [...(node.keys as Set<string>)] : null;
@@ -222,7 +245,7 @@ describe('the `body` consumers the ruling does not enumerate', () => {
       'packages/vscode-extension/src/providers/SchemaValidator.ts',
       'packages/vscode-extension/src/providers/PreviewProvider.ts',
     ]) {
-      expect(read(reader), reader).toContain('schema.children || schema.body');
+      expect(readCode(reader), reader).toContain('schema.children || schema.body');
     }
   });
 
@@ -259,7 +282,7 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     ];
 
     for (const producer of migrated) {
-      const text = read(producer);
+      const text = readCode(producer);
       // Lit control first: without a child list present at all, the absence
       // assertion beside it would hold over an empty or unreadable file.
       expect(text, producer).toContain('children:');
@@ -267,7 +290,7 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     }
 
     // The half that keeps the claim true — and keeps step 4 blocked.
-    expect(read('packages/cli/src/commands/generate.ts')).toMatch(/^\s*body:/m);
+    expect(readCode('packages/cli/src/commands/generate.ts')).toMatch(/^\s*body:/m);
   });
 });
 

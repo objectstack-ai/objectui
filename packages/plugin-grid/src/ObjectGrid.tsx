@@ -1140,6 +1140,108 @@ function resolveRowHeightMode(rowHeight: unknown): RowHeightMode {
   return rowHeight as RowHeightMode;
 }
 
+/**
+ * The three page-size defaults this component falls back to, named so the
+ * divergence between them is DECLARED rather than a by-product of three
+ * hand-spelled fallback chains that happened to end in different literals.
+ *
+ * They are three different quantities and that is why they are three
+ * constants: one sizes a page of ROWS in the client-paged table, one sizes a
+ * page of GROUPS in the grouped view, and one sizes the `$top` WINDOW the
+ * server-paged fetch asks for. ⚠️ What is NOT settled here is whether the
+ * first and the third should be the same number — the same grid with no
+ * authored `pagination` shows the server-window default per page while it
+ * fetches its own rows and the flat default when it does not, which is a
+ * visible inconsistency an author never declared. Changing either literal
+ * changes what every undeclared grid renders, so it is handed back as a
+ * question (objectui#9853) rather than decided here.
+ */
+const DEFAULT_FLAT_PAGE_SIZE = 10;
+const DEFAULT_GROUPS_PER_PAGE = 10;
+const DEFAULT_SERVER_WINDOW_SIZE = 50;
+
+/**
+ * The ONE resolver for an authored page size, for the reason the `rowHeight`
+ * resolver just above exists: one resolver at every entry is what keeps the
+ * answer single (objectui#4443).
+ *
+ * Before objectui#9853 this value was spelled out separately at each of its
+ * three read points, and the spellings disagreed about a non-positive number:
+ * the flat site used `||`, so `0` was falsy and fell through to a default,
+ * while both seeds used `??`, so `0` was not nullish and survived as a real
+ * page size. It then divided the grouped pager and reached the wire as
+ * `$top: 0`, so the grid asked the server for nothing and drew an empty table
+ * — with no error, no warning and no empty state naming the cause.
+ *
+ * ## Why refusing `0` is not this renderer inventing a meaning
+ *
+ * `@objectstack/spec` has already answered what a `pageSize` of `0` means.
+ * Its pagination config declares the member as a POSITIVE integer with a
+ * default, and the spec's own suite pins that refusal under the names
+ * `should reject zero pageSize` and `should reject negative pageSize`. The
+ * `limit` that this block's `ElementDataSourceMapping` lowers
+ * `pagination.pageSize` into is declared positive as well. So `0` is not a
+ * spelling whose meaning a consumer may choose; it is a value the contract
+ * refuses, and a renderer that quietly divides by it is the only party not
+ * saying so.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * subtree for a declaration the flat path already tolerated, which is a worse
+ * outcome than the defect. The value is dropped, the site's own default is
+ * used, and `describeNonPositivePageSize` states it once through the channel
+ * this component already uses for "you declared it, the renderer dropped it".
+ *
+ * Reads the canonical key first and the deprecated flat shorthand second, in
+ * that precedence, with `??` so an explicit `0` is SEEN by the guard instead
+ * of skipped by falsiness — that skipping is the defect, not the fix.
+ */
+function readAuthoredPageSize(schema: {
+  pagination?: unknown;
+  pageSize?: unknown;
+}): unknown {
+  const fromObject = (schema.pagination as { pageSize?: unknown } | undefined)?.pageSize;
+  return fromObject ?? schema.pageSize;
+}
+
+function isUsablePageSize(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function resolvePageSize(
+  schema: { pagination?: unknown; pageSize?: unknown },
+  fallback: number,
+): number {
+  const authored = readAuthoredPageSize(schema);
+  return isUsablePageSize(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent key is not a
+ * mistake, and a usable page size is not either, so the message is CONDITIONAL
+ * and a control asserting its silence is what keeps it from being an
+ * always-on marker that states nothing.
+ */
+function describeNonPositivePageSize(
+  schema: { pagination?: unknown; pageSize?: unknown },
+  context: { blockType?: unknown; objectName?: unknown },
+): string | null {
+  const authored = readAuthoredPageSize(schema);
+  if (authored === undefined || authored === null) return null;
+  if (isUsablePageSize(authored)) return null;
+  const where = [
+    typeof context.blockType === 'string' ? context.blockType : 'object-grid',
+    typeof context.objectName === 'string' ? context.objectName : undefined,
+  ]
+    .filter(Boolean)
+    .join(' on ');
+  return (
+    `[ObjectUI] ObjectGrid pagination: ${where} declared pageSize: ${String(authored)}, `
+    + 'which is not a positive integer. A page size must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + 'grid fell back to its default page size.'
+  );
+}
+
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
@@ -1206,7 +1308,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // pages). Defaults to the schema page size, falling back to 10 groups/page.
   const [groupedPage, setGroupedPage] = useState(1);
   const [groupedPageSize, setGroupedPageSize] = useState<number>(
-    (schema.pagination as any)?.pageSize ?? schema.pageSize ?? 10,
+    resolvePageSize(schema, DEFAULT_GROUPS_PER_PAGE),
   );
 
   // Sync internal rowHeightMode when schema.rowHeight prop changes (e.g., parent ListView density toggle).
@@ -1625,7 +1727,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // makes records beyond the first batch reachable at all (framework #2212).
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState<number>(
-    (schema.pagination as any)?.pageSize ?? schema.pageSize ?? 50,
+    resolvePageSize(schema, DEFAULT_SERVER_WINDOW_SIZE),
   );
 
   // Column-header sort, when this grid fetches its own rows (objectui#3106).
@@ -2446,6 +2548,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     });
     if (message) console.warn(message);
   }, [bulkDefsDiagnosticSlice, columnDiagnosticBlockType, schema.objectName, columnDiagnosticLabel]);
+
+  // [objectui#9853] The same channel again, for a `pagination.pageSize` (or the
+  // deprecated flat shorthand) that is not a positive integer. `resolvePageSize`
+  // drops such a value at all three read points and uses the site's default; on
+  // its own that is a quieter version of the defect, because substituting a
+  // number the author never wrote is exactly what the flat site already did in
+  // silence. This is the half that makes it a diagnosis.
+  //
+  // Keyed on the authored slice, so it is one warning per declaration and not
+  // one per render. NOT a second guard — the predicate lives once, in
+  // `isUsablePageSize`, and this reads it.
+  const pageSizeDiagnosticObject = schema.pagination;
+  const pageSizeDiagnosticFlat = schema.pageSize;
+  useEffect(() => {
+    const message = describeNonPositivePageSize(
+      { pagination: pageSizeDiagnosticObject, pageSize: pageSizeDiagnosticFlat },
+      { blockType: columnDiagnosticBlockType, objectName: schema.objectName },
+    );
+    if (message) console.warn(message);
+  }, [pageSizeDiagnosticObject, pageSizeDiagnosticFlat, columnDiagnosticBlockType, schema.objectName]);
 
   const generateColumns = useCallback((): ObjectGridColumnDraft[] => {
     // Map field type to column header icon (Airtable-style)
@@ -4176,9 +4298,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     ? true 
     : (schema.showPagination !== undefined ? schema.showPagination : true);
   
-  const pageSize = schema.pagination?.pageSize 
-    || schema.pageSize 
-    || 10;
+  // Through the same resolver as the two seeds above (objectui#9853). This
+  // site used `||` and the seeds used `??`, so one authored `pageSize: 0`
+  // reached three read points and got two different answers.
+  const pageSize = resolvePageSize(schema, DEFAULT_FLAT_PAGE_SIZE);
 
   // Determine search settings
   const searchEnabled = schema.searchableFields !== undefined

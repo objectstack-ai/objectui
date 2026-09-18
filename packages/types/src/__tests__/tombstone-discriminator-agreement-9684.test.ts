@@ -13,18 +13,20 @@
  * (objectui#5941, #7526) in the form objectui#7678 amended it to: a `?: never`
  * tombstone is available only on a SURVIVING CARRIER, and on such a carrier it
  * is used when either prong holds. ⛔ This file does not restate the rule
- * either — it is stated on `ChatbotSchema` in `../complex.ts`, and the last
- * `describe` below fails if it stops being there.
+ * either — `../complex.ts` states it, at FOUR sites, and the statement
+ * `../mobile.ts` cites is the one on `ChatbotSchema`; the `describe` blocks
+ * below fail if that one moves, and if the four stop agreeing.
  *
  * ## Why a pin and not a comment
  *
  * The rule was written out in full at eight sites across `../complex.ts` and
  * `../mobile.ts`. objectui#7678's amendment then had to be applied by hand at
  * every one of them, and the sites do not reference each other — so a missed
- * site went RED nowhere. The amendment reached five; the review that found the
- * sixth (objectui#9684) enumerated the population with a literal-phrase grep
- * over two hand-picked files and missed two more, one of them a paraphrase the
- * grep could not see. ⇒ the failure mode is silence, and silence is what this
+ * site went RED nowhere. Measured on objectui#9684's base: two of the eight
+ * still lacked the precondition, both in `../mobile.ts`, and the finding that
+ * measured the drift enumerated the population with a literal-phrase grep over
+ * two hand-picked files and named neither of them — one is a paraphrase the
+ * grep cannot see. ⇒ the failure mode is silence, and silence is what this
  * file removes.
  *
  * ## What it enforces, and what it cannot
@@ -35,6 +37,13 @@
  * 2. `../mobile.ts` cites the rule and never restates it, so its four
  *    retirement notes are outside the amendment surface entirely.
  * 3. The citation target still exists and still states the rule.
+ * 4. The four surviving statements carry exactly the clauses `CLAUSES` names,
+ *    per the roster in `SURVIVING_STATEMENTS`. ⭐ 1 alone does NOT give this:
+ *    measured at the in-seat review of objectui#9684, a third prong added to
+ *    the `ChatbotSchema` statement and nowhere else passed this file 12/12,
+ *    because 1 guards ONE clause. 4 is what makes an amendment that lands at
+ *    one of the four go red at the other three — for a clause `CLAUSES` can
+ *    name, and ⛔ for no other.
  *
  * ⚠️ What re-derives what: the population below is derived at run time from
  * the source, so a site added later is covered without anyone remembering this
@@ -77,10 +86,12 @@ import { scanSource } from '../../../../scripts/js-comment-mask.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(here, '..');
 
-/** A comment block, with the file it came from and its 1-based start line. */
+/** A comment block, with the file it came from and its 1-based line span. */
 interface Block {
   file: string;
   line: number;
+  /** 1-based line the block's last line sits on. */
+  endLine: number;
   kind: 'jsdoc' | 'line';
   /** Comment punctuation and line wrapping flattened to single spaces. */
   flat: string;
@@ -153,15 +164,23 @@ const blocksOf = (file: string, text: string): Block[] => {
       if (!run) run = { line: lineNumber, text: '' };
       run.text += `${line}\n`;
     } else if (run) {
-      out.push({ file, line: run.line, kind: kindOf(run.text), flat: flatten(run.text) });
+      out.push(close(file, run, lineNumber - 1));
       run = null;
     }
     offset += line.length + 1;
   }
-  if (run) out.push({ file, line: run.line, kind: kindOf(run.text), flat: flatten(run.text) });
+  if (run) out.push(close(file, run, lineNumber));
 
   return out;
 };
+
+const close = (file: string, run: { line: number; text: string }, endLine: number): Block => ({
+  file,
+  line: run.line,
+  endLine,
+  kind: kindOf(run.text),
+  flat: flatten(run.text),
+});
 
 const kindOf = (blockText: string): Block['kind'] => (blockText.trimStart().startsWith('//') ? 'line' : 'jsdoc');
 
@@ -170,6 +189,97 @@ const allBlocks: Block[] = sourceFiles(SRC).flatMap((file) =>
 );
 const statements = allBlocks.filter((block) => STATES_THE_RULE.test(block.flat));
 const label = (block: Block): string => `${block.file} (block opening on line ${block.line})`;
+
+/**
+ * The clauses of the rule this pin can name, one regex each.
+ *
+ * ⚠️ This list is what "the four agree" means here, and it is ⛔ not "every
+ * clause a future amendment could add": a clause worded past all six is
+ * invisible, exactly as `MobileComponentConfig`'s paraphrase was to the probe
+ * on objectui#9684. `a-prong-beyond-the-two` exists because the measured
+ * escape was a THIRD prong added at one site and nowhere else — it catches
+ * that in this file's own numbering, and nothing catches it in prose that
+ * numbers nothing. Add a clause here when you add one to the rule.
+ */
+const CLAUSES: Readonly<Record<string, RegExp>> = {
+  'available-only-on-a-surviving-carrier': /tombstone is available only on a surviving[- ]carrier/i,
+  'a-whole-type-name-has-no-carrier': /whole exported type name has no carrier/i,
+  'used-when-either-prong-holds': /when either prong/i,
+  'prong-1-a-named-live-replacement': /authors to a named live replacement/i,
+  'prong-2-keeps-loud-a-taught-key': /keeps? loud a key the docs taught as working/i,
+  'a-prong-beyond-the-two': /\bprong 3\b|\bthird prong\b|\(3\) it\b/i,
+};
+
+const clausesOf = (block: Block): string[] =>
+  Object.entries(CLAUSES)
+    .filter(([, pattern]) => pattern.test(block.flat))
+    .map(([name]) => name)
+    .sort();
+
+/**
+ * The statements that SURVIVE in `complex.ts`, and the clause set each carries.
+ *
+ * Derived from the tree, not guessed, and recorded here on purpose: this is the
+ * roster the next amendment has to move through. Amend one statement and its
+ * set stops matching, so the edit cannot land at one site while its three peers
+ * go quiet — which is the failure this whole card is about, and which the
+ * precondition assertion alone does NOT catch (a clause added at one site and
+ * nowhere else passes it).
+ *
+ * ⇒ when the rule is genuinely amended, this roster is the ONE place that has
+ * to change, and changing it means looking at all four.
+ */
+const SURVIVING_STATEMENTS: ReadonlyArray<{ name: string; anchor: string; carries: string[] }> = [
+  {
+    name: 'KanbanColumn.color',
+    anchor: 'RETIRED with the declarative face (objectui#7664',
+    carries: [
+      'a-whole-type-name-has-no-carrier',
+      'available-only-on-a-surviving-carrier',
+      'prong-1-a-named-live-replacement',
+      'prong-2-keeps-loud-a-taught-key',
+      'used-when-either-prong-holds',
+    ],
+  },
+  {
+    name: 'ChatbotSchema (the statement this package cites)',
+    anchor: 'Chatbot component — the authoring face',
+    carries: [
+      'a-whole-type-name-has-no-carrier',
+      'available-only-on-a-surviving-carrier',
+      'prong-1-a-named-live-replacement',
+      'prong-2-keeps-loud-a-taught-key',
+      'used-when-either-prong-holds',
+    ],
+  },
+  {
+    name: 'displayMode',
+    anchor: 'ADR-0049 RETIREMENT TOMBSTONE — `displayMode`',
+    // ⚠️ Records a real asymmetry rather than hiding it: this statement does not
+    // carry the whole-type-name half. Bringing it into line edits published
+    // JSDoc, which is the open decision on objectui#9684.
+    carries: [
+      'available-only-on-a-surviving-carrier',
+      'prong-1-a-named-live-replacement',
+      'prong-2-keeps-loud-a-taught-key',
+      'used-when-either-prong-holds',
+    ],
+  },
+  {
+    name: 'triggerIcon',
+    anchor: 'ADR-0049 RETIREMENT TOMBSTONE — `triggerIcon`',
+    // ⚠️ Same: this one abbreviates the prongs to "either prong holds" and names
+    // only the one that applies, so it carries neither prong clause.
+    carries: [
+      'a-whole-type-name-has-no-carrier',
+      'available-only-on-a-surviving-carrier',
+      'used-when-either-prong-holds',
+    ],
+  },
+];
+
+/** The clauses every surviving statement carries — the agreement floor. */
+const SHARED_BY_ALL = ['available-only-on-a-surviving-carrier', 'used-when-either-prong-holds'];
 
 describe('objectui#9684 — the detector can fail, and does not fire on everything', () => {
   // A control that cannot fail is the instrument this card was filed about.
@@ -242,7 +352,7 @@ describe('objectui#9684 — `mobile.ts` cites the rule instead of restating it',
       (block) => block.kind === 'line' && /RETIRED \(objectui#/.test(block.flat) && block.flat.includes(name),
     );
 
-  it.each(retirements)('the `%s` note cites the one statement of the rule', (name) => {
+  it.each(retirements)('the `%s` note cites the statement on `ChatbotSchema`', (name) => {
     const note = noteFor(name);
     expect(note, `no retirement note naming ${name} found in mobile.ts`).toBeDefined();
     expect(note!.flat).toMatch(/`ChatbotSchema` in `complex\.ts`/);
@@ -267,16 +377,51 @@ describe('objectui#9684 — `mobile.ts` cites the rule instead of restating it',
 
 describe('objectui#9684 — the citation target is where the citations say it is', () => {
   const complex = readFileSync(resolve(SRC, 'complex.ts'), 'utf8');
+  const complexBlocks = blocksOf('complex.ts', complex);
 
   it('`ChatbotSchema`’s own JSDoc states the rule, precondition included', () => {
-    const declaration = complex.indexOf('export interface ChatbotSchema');
-    expect(declaration, '`ChatbotSchema` is no longer declared in complex.ts').toBeGreaterThan(-1);
+    const declarationLine = complex.slice(0, complex.indexOf('export interface ChatbotSchema')).split('\n').length;
+    expect(complex).toContain('export interface ChatbotSchema');
 
-    const doc = [...complex.slice(0, declaration).matchAll(/\/\*\*[\s\S]*?\*\//g)].at(-1);
-    expect(doc, '`ChatbotSchema` has no JSDoc block to carry the rule').toBeDefined();
+    // The block that ENDS on the line above the declaration is its JSDoc. Found
+    // through the shared scanner like every other block here, never by a
+    // private docblock regex over raw source — this file forbids that answer to
+    // "is this span a comment" in its own header, and a lookup is no exception.
+    const doc = complexBlocks.find((block) => block.endLine === declarationLine - 1);
+    expect(doc, '`ChatbotSchema` has no JSDoc block directly above it to carry the rule').toBeDefined();
+    expect(doc!.kind).toBe('jsdoc');
+    expect(STATES_THE_RULE.test(doc!.flat)).toBe(true);
+    expect(CARRIES_PRECONDITION.test(doc!.flat)).toBe(true);
+  });
+});
 
-    const flat = flatten(doc![0]);
-    expect(STATES_THE_RULE.test(flat)).toBe(true);
-    expect(CARRIES_PRECONDITION.test(flat)).toBe(true);
+describe('objectui#9684 — the four surviving statements move together, or go red', () => {
+  const survivors = statements.filter((block) => block.file === 'complex.ts');
+
+  it.each(SURVIVING_STATEMENTS)('the $name statement carries exactly its recorded clauses', ({ anchor, carries }) => {
+    const block = survivors.find((candidate) => candidate.flat.includes(anchor));
+    expect(block, `no statement in complex.ts opens with ${anchor}`).toBeDefined();
+    expect(
+      clausesOf(block!),
+      'this statement of the rule no longer carries the clauses the roster records. If the ' +
+        'rule was amended, amend all four and move the roster once — an amendment that lands ' +
+        'at one site and leaves its peers alone is the exact failure objectui#9684 was filed ' +
+        'for, and it is silent everywhere else.',
+    ).toEqual([...carries].sort());
+  });
+
+  it('every surviving statement carries the clauses they all share', () => {
+    const missing = survivors
+      .filter((block) => !SHARED_BY_ALL.every((clause) => CLAUSES[clause].test(block.flat)))
+      .map(label);
+    expect(missing, 'these statements no longer agree with their peers on the shared clauses').toEqual([]);
+  });
+
+  it('VACUITY CONTROL: the roster still resolves to four distinct blocks', () => {
+    // Without this, an anchor that stops matching would take its assertion out
+    // of the run rather than fail it.
+    const resolved = SURVIVING_STATEMENTS.map(({ anchor }) => survivors.find((b) => b.flat.includes(anchor))?.line);
+    expect(resolved.filter((line) => line !== undefined)).toHaveLength(SURVIVING_STATEMENTS.length);
+    expect(new Set(resolved).size).toBe(SURVIVING_STATEMENTS.length);
   });
 });

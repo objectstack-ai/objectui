@@ -15,12 +15,16 @@ asked for this change — its probe was a literal-phrase grep over two files, an
 one of the two paraphrases the rule past every phrase it searched for. Both now
 agree with the other six.
 
-`mobile.ts` now **cites** the rule instead of restating it: the one statement
-lives on `ChatbotSchema` in `complex.ts`, and each of the four retirement notes
-in `mobile.ts` points at it while keeping its own per-retirement argument —
-which prong holds here and why — unchanged. Nothing is deleted into a vacuum:
-every prong measurement, every reopen condition and every `@objectstack/spec`
-history note is kept verbatim.
+`mobile.ts` now **cites** the rule instead of restating it: each of its four
+retirement notes points at the statement on `ChatbotSchema` in `complex.ts`
+while keeping its own per-retirement argument — which prong holds here and why.
+⚠️ That is the statement they cite, not the only one in the package: `complex.ts`
+states the rule at four sites, `ChatbotSchema` among three peers, and whether
+those four become citations too is an open decision on objectui#9684. Nothing is
+deleted into a vacuum: every prong measurement, reopen condition and
+`@objectstack/spec` history note survives, the `Prong 1:` / `Prong 2:`
+measurement lines verbatim; the `MobileOverrides` and `MobileComponentConfig`
+arguments are reworded around the citation, with their substance preserved.
 
 **What a `.d.ts` consumer's reading changes to: nothing.** All 65 emitted
 declaration files are byte-for-byte identical to the ones this branch's base
@@ -40,7 +44,13 @@ The agreement is now pinned rather than remembered:
 `packages/types/src/__tests__/tombstone-discriminator-agreement-9684.test.ts`
 derives the population of rule statements from the source at run time and fails
 when one of them omits the surviving-carrier precondition, when `mobile.ts`
-restates the prongs again, or when the cited statement stops being where the
-citations say it is. Its detector carries its own controls, including a vacuity
-control that reds if the markers stop matching instead of passing on an empty
-set.
+restates the prongs again, when the cited statement stops being where the
+citations say it is, or when one of the four surviving statements carries a
+clause its three peers do not. ⭐ That last one is not decoration: measured at
+the in-seat review, a third prong added to the `ChatbotSchema` statement alone
+passed the precondition assertion untouched, because that assertion guards one
+clause. ⚠️ Its reach is the clause list the test names, and ⛔ not every clause a
+future amendment could add — a clause worded past all of them is invisible,
+which the test header says in as many words. Its detector carries its own
+controls, including vacuity controls that red if the markers or the roster
+anchors stop matching instead of passing on an empty set.

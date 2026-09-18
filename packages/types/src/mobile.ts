@@ -25,31 +25,45 @@
 // `MobileOverrides`, `GestureConfig` and `MobileComponentConfig`. Each keeps
 // its own per-retirement argument — WHICH prong holds here and why, which no
 // shared statement can carry — and CITES the rule itself instead of writing
-// it out. The rule is stated once, on `ChatbotSchema` in `complex.ts`, in the
-// form objectui#7678 amended it to (objectui#5941 / #7526 are the precedent
-// changesets it is quoted from).
+// it out. The statement they cite is the `ChatbotSchema` JSDoc in
+// `complex.ts`, in the form objectui#7678 amended it to (objectui#5941 /
+// #7526 are the precedent changesets it is quoted from).
 //
-// ⭐ Why: a rule written out in full at N sites is amended at N sites by hand,
-// and the drift is SILENT — the sites do not reference each other, so nothing
-// goes red when one is missed. objectui#7678's amendment was applied at five
-// sites and missed three; two of the three were in this file, and neither was
-// enumerated by the probe that found the first one (objectui#9684).
+// ⛔ That is the statement this file cites; it is NOT the only one in the
+// package. `complex.ts` states the rule at four sites — `ChatbotSchema` among
+// three peers (`KanbanColumn.color`, `displayMode`, `triggerIcon`) — and
+// whether those four become citations too is the open decision on
+// objectui#9684. ⇒ ⛔ do not read this block as saying the rule is stated once
+// here, and ⛔ do not amend `ChatbotSchema` alone: the pin named below fails
+// when the four stop agreeing, but only for the clauses it can name.
+//
+// ⭐ Why cite at all: a rule written out in full at N sites is amended at N
+// sites by hand, and the drift is SILENT — the sites do not reference each
+// other, so nothing goes red when one is missed. Measured on this branch's
+// base: eight statements of the rule across the two files, two of them still
+// without the precondition objectui#7678 added, and both of those two in this
+// file. Neither was named by the finding that measured the drift
+// (objectui#9684), whose probe enumerated the population by literal phrase.
 //
 // ⚠️ The trade a citation costs a reader is not the same on both faces, which
 // is why `complex.ts` still states the rule and this file no longer does:
-// these notes are `//` comments at module scope, which TypeScript's
-// declaration emit does not attach to any declaration, while `complex.ts`
-// states the rule in JSDoc on exported members, which the emit carries into
-// the published `.d.ts`. So a citation is free for a consumer reading the
-// published declarations here and would cost one a jump there. That structural
-// contrast is re-derived by
-// `__tests__/tombstone-discriminator-agreement-9684.test.ts`; the one-off
-// reading of the emitted `.d.ts` behind it is recorded on objectui#9684 and is
-// ⛔ NOT re-derived by anything, so re-run it rather than trusting it.
+// these notes are `//` comments and `complex.ts` states the rule in JSDoc on
+// exported members, and declaration emit carries JSDoc into the published
+// `.d.ts` while it drops a `//` comment — measured on objectui#9684, including
+// a `//` comment placed directly above an exported declaration, so the
+// dividing line is JSDoc-vs-line-comment and ⛔ not module-scope-vs-attached.
+// So a citation is free for a consumer reading the published declarations here
+// and would cost one a jump there. The structural half of that contrast is
+// re-derived by `__tests__/tombstone-discriminator-agreement-9684.test.ts`;
+// the reading of the emitted `.d.ts` behind it is recorded on objectui#9684
+// and is ⛔ NOT re-derived by anything, so re-run it rather than trusting it.
 //
-// The agreement itself is pinned by that same test: any note in this package
+// The agreement itself is pinned by that same test: a note in this package
 // that writes the rule out without its surviving-carrier precondition fails
-// it, and so does a citation whose target has moved.
+// it, so does a citation whose target has moved, and so does a clause that
+// appears at one of the four surviving statements and not at its peers — for
+// the clauses that test names, which is ⛔ not every clause a future amendment
+// could add.
 
 // ============================================================================
 // Responsive Configuration

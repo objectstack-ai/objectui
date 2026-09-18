@@ -151,8 +151,8 @@ function childGroups(block: Block): Array<{ label: string; pathSuffix: string; c
       // renderer-side read exists to prevent.
       //
       // ⛔ NOT "until the conversion lands": that precondition is stale.
-      // `pageCardBodyToChildren` shipped in `@objectstack/spec` 17.0.0 with
-      // `retiredFromLoadPath: true` and this repo installs 17.4.0, so what
+      // `pageCardBodyToChildren` carries `toMajor: 17` and
+      // `retiredFromLoadPath: true`, and this repo installs spec 17.4.0, so what
       // holds the read is stored rows that have not been replayed through it —
       // a database question, not a release one.
       //
@@ -162,8 +162,8 @@ function childGroups(block: Block): Array<{ label: string; pathSuffix: string; c
       // `page:card` and none for them. ⭐ This file does NOT extend the same
       // courtesy to `page:section` below, which returns `properties.children`
       // alone: runtime and canvas therefore disagree about a stored `body`
-      // under that block. Recorded on objectui#9916, ⛔ not repaired here —
-      // widening the canvas is that card's call, not this one's.
+      // under that block. Recorded on objectui#9916 (comment 5733844778), ⛔ not
+      // repaired here — widening the canvas is that card's call, not this one's.
       if (Array.isArray(props.body) && !Array.isArray(props.children)) {
         return [{ label: 'Body', pathSuffix: 'properties.body', children: props.body }];
       }

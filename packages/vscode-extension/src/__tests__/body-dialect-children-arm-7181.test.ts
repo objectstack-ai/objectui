@@ -375,3 +375,48 @@ describe('the VS Code validator recurses into `children` — and, since objectui
     ).toHaveLength(0);
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * The two spellings of one constant                                    *
+ * ------------------------------------------------------------------ */
+
+/**
+ * `SchemaValidator.ts` says of its local `RETIRED_CHILD_LIST_KEY` that this file
+ * "pins the two together" with `sdui-parser`'s export. That sentence was written
+ * before the pin existed — a claim about a check that was not there, which is the
+ * class this card keeps meeting. This block is the check.
+ *
+ * ⛔ Read off SOURCE TEXT, not by importing: this package ships to the extension
+ * host with no `@object-ui/*` runtime dependency, and importing `sdui-parser`
+ * here to satisfy a pin would put a dependency in the tree that the product does
+ * not have. Both literals are read from disk instead, rooted at THIS FILE the way
+ * `check-test-path-roots.mjs` requires.
+ */
+describe('the two spellings of the retired key cannot drift (objectui#6771)', () => {
+  const literalOf = (source: string, constName: string): string => {
+    const m = new RegExp(`${constName}\\s*(?::[^=]*)?=\\s*'([^']+)'`).exec(source);
+    expect(m, `\`${constName}\` is not declared as a single-quoted literal any more`).toBeTruthy();
+    return m![1];
+  };
+
+  it('the extension and `sdui-parser` name the same key', () => {
+    const parserSource = readFileSync(
+      resolve(HERE, '../../../sdui-parser/src/body-dialect.ts'),
+      'utf8'
+    );
+
+    const extension = literalOf(VALIDATOR_SOURCE, 'const RETIRED_CHILD_LIST_KEY');
+    const parser = literalOf(parserSource, 'export const RETIRED_CHILD_LIST_KEY');
+
+    // Asserted ABSOLUTELY on both sides, not just as equal to each other: two
+    // constants that drifted to the same WRONG value would satisfy equality.
+    expect(extension).toBe('body');
+    expect(parser).toBe('body');
+    expect(extension).toBe(parser);
+  });
+
+  it('the diagnostic the extension pushes names the replacement', () => {
+    // The constant is only half of it — the message is what an author reads.
+    expect(VALIDATOR_SOURCE).toContain('"children"');
+  });
+});

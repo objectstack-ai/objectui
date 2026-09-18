@@ -378,7 +378,10 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // is a member of a declared `items` input rather than a node in that walk.
     // ⇒ step 4 refuses nothing the platform still ships, which is exactly what
     // step 5's ordering rule asks — and the item-level dialect is objectui#9590's
-    // card, ⛔ neither refused nor migrated here.
+    // card, ⛔ neither refused nor migrated here. ⚠️ That card's BODY names only
+    // `list`'s `items[].body`; `tabs` items and the `dashboard` widget key are
+    // recorded on it by comment 5733850974, so this pointer resolves to a record
+    // that actually carries the two shapes named here.
 
     // A shipped `defaultProps` child list, the same construct as the three
     // registrations objectui#7181 moved — spelled on a tab ITEM, where the

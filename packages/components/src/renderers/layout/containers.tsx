@@ -1155,13 +1155,14 @@ const PageSectionRenderer: React.FC<any> = ({ schema, className, ...props }) => 
         zero and says nothing.
 
         ⇒ nothing in this repository authors it; whether a stored ROW does is a
-        database question this tree cannot ask. Escalated as objectui#9916 with
-        two facts that belong to it: the designer canvas already honours
-        `children` ONLY for `page:section` (`PageBlockCanvas.tsx`), so runtime
-        and canvas already disagree about a stored `body` here; and `page:card`'s
-        "until the conversion lands" precondition is STALE — `pageCardBodyToChildren`
-        shipped with `retiredFromLoadPath: true` in spec 17.0.0 and this repo
-        installs 17.4.0, so the live ground there is unreplayed stored rows.
+        database question this tree cannot ask. Escalated as objectui#9916, and
+        the two facts that belong to it are POSTED there (comment 5733844778),
+        not merely asserted to be: the designer canvas already honours `children`
+        ONLY for `page:section` (`PageBlockCanvas.tsx`), so runtime and canvas
+        already disagree about a stored `body` here; and `page:card`'s "until the
+        conversion lands" precondition is STALE — `pageCardBodyToChildren` carries
+        `toMajor: 17` and `retiredFromLoadPath: true` and this repo installs spec
+        17.4.0, so the live ground there is unreplayed stored rows.
       */}
       {renderChildren(schema?.children || schema?.body)}
     </section>

@@ -30,7 +30,14 @@ Ruled 2026-09-01: one concept, one spelling, and the spelling is `children`.
   reads named below** — `div`, `card`, `button`, `aspect-ratio`, the sectioning tags,
   the safe-HTML tag factory behind ~36 tags, `page`'s flat content list, and
   `@object-ui/core`'s recursive `validateSchema`.
-- **What still reads `body`, and why.** Four renderer reads, all `page:*`: `page:card`
+- **Item-level `body` is a DIFFERENT key and is untouched.** `list` draws each entry
+  as `item.content || renderChildren(item.body)` and `tabs` as
+  `item.content || item.body`, both filed under the ITEM type rather than the node,
+  and `tabs` still ships `body` inside its own `defaultProps`. ⛔ Neither is this
+  spelling and neither is refused here: the node-level retirement does not reach a
+  member of a declared `items` array. Retiring the item-level dialect is
+  objectui#9590's card, and the two named above are recorded on it.
+- **What still reads `body` at NODE level, and why.** Four renderer reads, all `page:*`: `page:card`
   (renderer and Studio canvas) and the three thin `page:section` / `page:footer` /
   `page:sidebar` containers. ⛔ Authoring the key is refused on them as it is
   everywhere else; only the READ survives, for documents already STORED under it.
@@ -51,6 +58,15 @@ Ruled 2026-09-01: one concept, one spelling, and the spelling is `children`.
   ⚠️ Refused **by name**, not deleted: `BaseSchema` carries an index signature and the
   mirror ends `.passthrough()`, so a deleted member would be accepted silently and
   rendered by nothing — the exact silence this retirement ends.
+- **The VS Code extension (`object-ui`) changes behaviour, not just teaching.** Its
+  preview no longer draws a `body`-spelled document — the node renders empty, the way
+  the runtime renders it — and its validator now emits a warning naming `children` at
+  the key's own position. That warning is skipped for node types that declare their
+  own `body` input (`record:alert`), so a declared translation-map `body` is not
+  reported as the retired spelling.
+- **Two new `@object-ui/sdui-parser` exports.** `RETIRED_CHILD_LIST_KEY` (the retired
+  spelling, so a consumer names it once) and `checkRetiredBodyDialect` (the diagnostic
+  the tier substitutes for `unknown-prop` on that key).
 - **The authoring tier.** `sdui-parser` answers an authored `body` with the replacement
   named, instead of the bare "has no prop" every typo gets — and a `body` child list
   under a non-container draws the same containment code the `children` spelling draws.

@@ -13,8 +13,9 @@
  * The same gap objectui#3765 closed for the single-record action dialog, at its
  * second landing site. objectui#3559 delivered the keys (a per-option
  * `visibleWhen` survives inheritance and reaches the control) and the shared
- * evaluator has always read `dependentValues ?? ctx.formValues ?? ctx.data ??
- * {}`. What was missing here was the SUPPLY: `BulkActionDialog`'s `ParamField`
+ * evaluator has always taken its record from `dependentValues` (it also spelled
+ * a `?? ctx.formValues ?? ctx.data` tail, which no host could ever set and
+ * objectui#7206 retired). What was missing here was the SUPPLY: `BulkActionDialog`'s `ParamField`
  * passed only `dataSource`, never `dependentValues`, so the values the user was
  * typing INTO THIS DIALOG could not narrow a sibling param's list however the
  * author wrote the predicate.

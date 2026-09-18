@@ -103,7 +103,9 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
  *
  * The builder used to hardcode one: `record.` + field name, plus `record.id` /
  * `user.*` / `org.*`. That is right for every RECORD-scoped site — which is
- * all five that mount it today — and wrong for a FLATTENED-scoped one such as
+ * most of the sites that mount it; grep the JSX tag to enumerate them, rather
+ * than trusting a figure here, which the census this paragraph used to give
+ * had already outlived (AGENTS.md #9) — and wrong for a FLATTENED-scoped one such as
  * the flow designer's entry condition, where the trigger record's fields ARE
  * the top-level evaluation context (bare `status`) and the prior values arrive
  * as `previous.FIELD`. See `flow-scope.ts`, which already computes exactly

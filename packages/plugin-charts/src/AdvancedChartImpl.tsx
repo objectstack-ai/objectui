@@ -426,10 +426,11 @@ const SCATTER_SYMBOL_MAX_AREA = 400;
  * axis range becomes `[left + padding.left, right - padding.right]` — and
  * leaves the domain alone, so every tick VALUE is unchanged and only the
  * mapping moves. Moving the domain instead would both invent unround tick
- * endpoints and write the very prop the scatter's missing `yAxisSpecProps`
- * spread is about (objectui#9675): a spec-derived domain and a
- * padding domain are one recharts prop, and whichever landed second would
- * shadow the other. Reserving the margin keeps that prop free.
+ * endpoints and spend the very prop the scatter's spec-axis derivation needs
+ * (objectui#9675): a spec-derived domain and a padding domain would be one
+ * recharts prop, and whichever landed second would shadow the other. Reserving
+ * the margin kept that prop free — objectui#9675 has since landed and spends
+ * `domain` on both scatter axes, so the two are live at once and compose.
  *
  * ## Why this size
  *
@@ -456,6 +457,17 @@ const SCATTER_Y_AXIS_PADDING = {
   top: SCATTER_AXIS_EDGE_PADDING,
   bottom: SCATTER_AXIS_EDGE_PADDING,
 } as const;
+
+/**
+ * How a spec `ChartAxis.title` is laid out, per axis orientation.
+ *
+ * Both are a recharts `label` object minus its `value`. A y-axis title reads up
+ * the left edge, an x-axis title along the bottom — the same two layouts this
+ * file already used, named here because one derivation now serves both
+ * orientations (objectui#9675).
+ */
+const Y_AXIS_TITLE_LAYOUT = { angle: -90, position: 'insideLeft' } as const;
+const X_AXIS_TITLE_LAYOUT = { position: 'insideBottom', offset: -4 } as const;
 
 /**
  * Treemap leaf cell — paints each leaf rect with its palette fill + label.
@@ -1324,11 +1336,24 @@ function AdvancedChartImplInner({
     return out;
   }, [data, series, hasDualAxis]);
 
-  /** Recharts props derived from one spec y-axis (domain / scale / ticks / label). */
-  const yAxisSpecProps = React.useCallback((axis: NormalizedAxis | undefined, side: 'left' | 'right' = 'left') => {
+  /**
+   * Recharts props derived from one spec axis that plots NUMBERS
+   * (domain / scale / ticks / label).
+   *
+   * `values` is every number plotted on that axis — the population `stepSize`
+   * lays its ticks over. It is a parameter rather than derived here because the
+   * two callers read different columns: a y-axis's numbers come from the series
+   * bound to its side, and the scatter x-axis's come from `xAxisKey`, which is
+   * a measure on that one family (objectui#9675).
+   */
+  const numericAxisSpecProps = React.useCallback((
+    axis: NormalizedAxis | undefined,
+    values: number[],
+    labelLayout: typeof Y_AXIS_TITLE_LAYOUT | typeof X_AXIS_TITLE_LAYOUT,
+  ) => {
     if (!axis) return {};
     const domain = domainFor(axis);
-    const ticks = ticksFor(axis, axisValues(side));
+    const ticks = ticksFor(axis, values);
     return {
       ...(ticks ? { ticks } : {}),
       ...(domain ? { domain } : {}),
@@ -1336,9 +1361,16 @@ function AdvancedChartImplInner({
       // rather than being silently widened to fit the data.
       ...(domain ? { allowDataOverflow: true } : {}),
       ...(axis.logarithmic ? { scale: 'log' as const, domain: domain ?? ([1, 'auto'] as any) } : {}),
-      ...(axis.title ? { label: { value: axis.title, angle: -90, position: 'insideLeft' as const } } : {}),
+      ...(axis.title ? { label: { value: axis.title, ...labelLayout } } : {}),
     };
-  }, [axisValues]);
+  }, []);
+
+  /** Recharts props derived from one spec y-axis (domain / scale / ticks / label). */
+  const yAxisSpecProps = React.useCallback(
+    (axis: NormalizedAxis | undefined, side: 'left' | 'right' = 'left') =>
+      numericAxisSpecProps(axis, axisValues(side), Y_AXIS_TITLE_LAYOUT),
+    [numericAxisSpecProps, axisValues],
+  );
 
   // `showGridLines` is per-axis in the spec; the renderer draws one grid, so
   // an explicit `false` on EITHER axis turns off that axis's lines.
@@ -1459,7 +1491,7 @@ function AdvancedChartImplInner({
       ? { interval: 0 as const }
       : { interval: 'preserveStartEnd' as const, minTickGap: 0 }),
     tickFormatter: xAxisTickFormatter,
-    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, position: 'insideBottom' as const, offset: -4 } } : {}),
+    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...X_AXIS_TITLE_LAYOUT } } : {}),
     ...(rotateXLabels && { angle: -35, textAnchor: 'end' as const, height: 60 }),
   }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title]);
 
@@ -1881,6 +1913,17 @@ function AdvancedChartImplInner({
     // predicate and the axis below, so the two cannot drift apart.
     const scatterYKey = series[0]?.dataKey || 'value';
     const points = countPlottablePoints(data, xAxisKey, scatterYKey);
+    // Every number plotted on the x axis — the population a spec `stepSize`
+    // lays its x ticks over, and scatter's alone to compute: on every other
+    // family x is a category band, so `axisValues` reads the SERIES columns.
+    const scatterXValues = data
+      .map((row: any) => Number(row?.[xAxisKey]))
+      .filter((n: number) => Number.isFinite(n));
+    // The spec `format` for that same axis. Not `xAxisTickFormatter`, which is
+    // the CATEGORY formatter (it resolves `config[value].label` and ISO dates)
+    // and would be wrong on a measure; and omitted entirely when the author
+    // declared no recognisable format, so the default render is untouched.
+    const scatterXTickFormatter = formatterFor(xAxisSpec?.format);
     if (points.total > 0 && points.plottable === 0) {
       return <PositionRefusal xKey={xAxisKey} yKey={scatterYKey} className={className} />;
     }
@@ -1891,24 +1934,41 @@ function AdvancedChartImplInner({
       <ChartContainer config={config} className={className} {...containerProps}>
         <ScatterChart>
           <CartesianGrid vertical={false} />
-          <XAxis 
-            type="number" 
+          {/* Both axes carry the spec `ChartAxis` derivation every other
+              family's numeric axis gets — `min`/`max` as the domain,
+              `stepSize` as the ticks, `logarithmic` as the scale, `title` as
+              the label and `format` as the tick text (objectui#9675). Scatter
+              is this file's only family
+              whose X is a MEASURE rather than a category band, which is why
+              the x axis takes the same derivation here and the categorical
+              `xAxisCommonProps` everywhere else.
+
+              This composes with the edge margin objectui#7396 reserved rather
+              than shadowing it: that card deliberately spent `padding`, which
+              insets the pixel RANGE and leaves the domain alone, so both props
+              are live at once — the domain is the author's, and no extreme
+              mark is half-painted outside the plot box. */}
+          <XAxis
+            type="number"
             dataKey={xAxisKey}
             name={String(config[xAxisKey]?.label || xAxisKey)}
             tickLine={false}
             axisLine={false}
             minTickGap={isMobile ? 32 : 48}
             padding={SCATTER_X_AXIS_PADDING}
+            {...(scatterXTickFormatter ? { tickFormatter: scatterXTickFormatter } : {})}
+            {...numericAxisSpecProps(xAxisSpec, scatterXValues, X_AXIS_TITLE_LAYOUT)}
           />
-          <YAxis 
+          <YAxis
             type="number"
             dataKey={scatterYKey}
             name={String(config[series[0]?.dataKey]?.label || series[0]?.dataKey)}
             tickLine={false}
             axisLine={false}
-            tickFormatter={formatYTick}
+            tickFormatter={yTickFormatter}
             width={48}
             padding={SCATTER_Y_AXIS_PADDING}
+            {...yAxisSpecProps(primaryY)}
           />
           <ZAxis type="number" range={[60, 400]} />
           <ChartTooltip content={<ChartTooltipContent />} />

@@ -37,13 +37,21 @@
  *
  * ── Why CLAMP and not REFUSE ────────────────────────────────────────────
  * AGENTS.md #0.1 bans a renderer-side fallback that makes NON-COMPLIANT
- * metadata work. This declaration is compliant — measured at source on
- * `objectstack-ai/objectstack`, `packages/spec/src/data/field.zod.ts` declares
- * `scale` as `z.number().int().min(0).optional()` with no `.max(`. So a
- * refusal here would be this renderer inventing a contract STRICTER than the
- * spec, which is #0.1 in mirror image. The declaration-side upper bound is
- * owed, and it is filed where it lives — objectstack#18972 — ⛔ not reached
- * into from here.
+ * metadata work. This declaration is compliant — and the premise is stated as
+ * what THIS REPOSITORY INSTALLS, ⛔ never as what some other repository's
+ * `main` says today. The lockfile resolves `@objectstack/spec` 17.4.0, and
+ * that door ACCEPTS a percent field declaring a `scale` above the ceiling; a
+ * refusal here would therefore be this renderer inventing a contract STRICTER
+ * than the contract it is built against, which is #0.1 in mirror image.
+ *
+ * ⚠️ The distinction is not pedantry — it is the whole reason the SUNSET below
+ * has an instrument. The upstream bound (objectstack#18972, landed as
+ * objectstack#19083) is MERGED and UNRELEASED: it is on that repository's
+ * `main` and it is not in 17.4.0, so the premise held here and had already
+ * stopped holding at source while this very change was open. ⇒ ⛔ never
+ * re-derive this premise by reading the other repository; the only reading
+ * that governs this module is what the installed spec's door answers, and
+ * `PercentScaleOutOfRange-9808.test.tsx` asks it on every run.
  *
  * What is left for a renderer is the medium's own limit: the value is not in
  * doubt, only the width. Refusing to draw the number would blank a grid column
@@ -51,17 +59,28 @@
  * that they did.
  *
  * ── ⚠️ SUNSET — this ruling is CONDITIONAL, and the condition is upstream ──
- * The whole #0.1 argument above rests on one fact: `@objectstack/spec` does
- * not bound `scale`. objectstack#18972 is the card that bounds it. On the day
- * this repository takes a spec whose `scale` refuses a width above the
- * ceiling, `scale: 101` stops being a compliant declaration — and from that
- * moment this clamp IS the lenient renderer-side fallback #0.1 bans, kept
- * alive by nothing but its own inertia. ⇒ whoever bumps `@objectstack/spec`
- * past that bound owns this module: the clamp becomes redundant (the
- * declaration cannot arrive), and the correct move is to DELETE it, ⛔ not to
- * keep a second de-facto contract next to the enforced one. Stated here and in
- * this change's changeset rather than left to be rediscovered, because an
- * argument whose premise has quietly expired reads exactly like a live one.
+ * The whole #0.1 argument above rests on one fact: the `@objectstack/spec`
+ * THIS REPOSITORY INSTALLS does not bound `scale`. The trigger is therefore a
+ * SPEC RELEASE this repository takes, ⛔ not the upstream card landing — that
+ * already happened (objectstack#18972, landed as objectstack#19083) and
+ * changed nothing here, because the bound is unreleased at 17.4.0.
+ *
+ * On the day this repository installs a spec whose `scale` refuses a width
+ * above the ceiling, `scale: 101` stops being a compliant declaration — and
+ * from that moment this clamp IS the lenient renderer-side fallback #0.1
+ * bans, kept alive by nothing but its own inertia. ⇒ whoever bumps
+ * `@objectstack/spec` past that bound owns this module: the clamp becomes
+ * redundant (the declaration cannot arrive), and the correct move is to DELETE
+ * this file, ⛔ not to keep a second de-facto contract next to the enforced
+ * one.
+ *
+ * ⭐ And that is a TEST, ⛔ not a sentence. `PercentScaleOutOfRange-9808.test.
+ * tsx` parses a percent field declaring `PERCENT_SCALE_CEILING + 1` through
+ * the installed `FieldSchema` and requires it to be ACCEPTED; the bump turns
+ * that row red and its failure message says this file is to be deleted. An
+ * argument whose premise has quietly expired reads exactly like a live one —
+ * which is not a hypothetical here: this module's premise expired at source
+ * ten minutes after it was written, and nothing in the tree noticed.
  *
  * ── The reporting half ──────────────────────────────────────────────────
  * The clamp alone would be the silent guess objectui#9808 refuses, so a moved
@@ -74,16 +93,16 @@
  * first face to render this width says so", ⛔ not "both faces say so".
  *
  * ── What reaches this function ──────────────────────────────────────────
- * ⚠️ ⛔ NOT only the two percent faces. It sits behind `formatPercent`, which
- * at the time of writing has seven non-test call sites — the percent cell,
- * `MetricWidget`, `recordFields`, the `DetailView` chip, `ObjectGantt`, the
- * `ObjectGrid` footer and `useColumnSummary` — and a dashboard metric's width
- * comes from a numeral-format PATTERN, ⛔ not from a field face. Every one of
- * them moves from crash to clamp-and-report for an out-of-range width, which
- * is the same ruling and a wider blast radius than "both percent faces".
- * ⚠️ ⛔ Do not restate that count in prose that nothing re-derives (AGENTS.md
- * #9): the live answer is whatever a search for `formatPercent` outside tests
- * returns today.
+ * ⚠️ ⛔ NOT only the two percent faces. It sits behind `formatPercent`, whose
+ * non-test callers reach well past them — a dashboard metric among them, whose
+ * width comes from a numeral-format PATTERN and ⛔ not from a field face. Every
+ * one of them takes this ruling for a width above the ceiling, which is a wider
+ * blast radius than "both percent faces".
+ * ⚠️ ⛔ How many, and which, is deliberately NOT written here (AGENTS.md #9):
+ * the live answer is whatever a search for `formatPercent` outside tests
+ * returns today, and a figure that is still correct is the dangerous case, not
+ * the safe one — a reader who spot-checks it confirms it and is wrong the
+ * moment a caller is added.
  *
  * ⛔ This says nothing about which MEMBER a face reads, nor about what an
  * ABSENT `scale` means — the two faces still spell that absence differently
@@ -135,27 +154,39 @@ const warnedPercentScales = new Set<number>();
  * ruling, the sunset condition and what actually reaches here.
  */
 export function renderablePercentScale(declared: number): number {
-  // `Number(...)` rather than a `typeof` test, because the ENGINES coerce:
-  // `(25).toFixed('2')` and `maximumFractionDigits: '2'` both render two
-  // decimals today, and `2.9` renders two on both. This function moves only
-  // widths the engines would have REFUSED, so a declaration that already
-  // rendered keeps rendering identically — the parameter is typed `number`,
-  // but the value reaching it comes from untyped JSON metadata.
-  const asNumber = Number(declared);
-  const renderable = Number.isFinite(asNumber)
-    ? Math.min(PERCENT_SCALE_CEILING, Math.max(0, asNumber))
-    : 0;
-  // The predicate is "the engine could not have rendered this", ⛔ not
-  // "the value changed spelling": `renderable !== declared` would report the
-  // string `'2'` becoming the number `2`, which is a width nothing moved.
-  const refused = !Number.isFinite(asNumber) || asNumber < 0 || asNumber > PERCENT_SCALE_CEILING;
-  if (refused && !warnedPercentScales.has(declared)) {
+  // ⭐ The predicate is the WHOLE ruling, so read it as one sentence: fire on a
+  // width the installed spec ACCEPTS and the engine REFUSES, and on nothing
+  // else. `Number.isInteger` is the spec's own `int()` shape and `> ceiling`
+  // is the engine's own bound, so the set this function acts on is exactly the
+  // gap between the two — which is the defect objectui#9808 reports and, when
+  // the SUNSET above closes the gap upstream, the empty set.
+  //
+  // ⛔ Deliberately NOT a clamp over the whole domain. `-1`, `Infinity`, `NaN`,
+  // `2.5` and a string `'101'` are widths the installed `FieldSchema` already
+  // REFUSES (measured: `int()` rejects the non-integers and the non-finite,
+  // `min(0)` rejects the negative), so rescuing them here would be a
+  // renderer-side default around bad input — AGENTS.md #0.1's own listed
+  // example, and it would be doing it inside the module that cites #0.1 as its
+  // reason for existing. They keep their pre-existing path untouched: `-1` and
+  // `Infinity` still reach `toFixed` and still throw, exactly as before this
+  // module existed, and the producer is where that is fixed.
+  //
+  // ⚠️ `declared` is returned UNCOERCED on that path, on purpose. The engines
+  // coerce for themselves — measured, `(25).toFixed('2')` and
+  // `maximumFractionDigits: '2'` render two decimals and so does `2.9` — so
+  // handing the value straight back is what makes "everything else is
+  // byte-identical" a fact rather than a hope. The parameter is typed `number`
+  // because callers declare it so; the value arrives from untyped JSON
+  // metadata.
+  const refused = Number.isInteger(declared) && declared > PERCENT_SCALE_CEILING;
+  if (!refused) return declared;
+  if (!warnedPercentScales.has(declared)) {
     warnedPercentScales.add(declared);
     console.warn(
-      `[ObjectUI] percent field: a declared \`scale\` of ${declared} is outside the ` +
-        `0-${PERCENT_SCALE_CEILING} fraction width this platform can render; ` +
-        `rendering at ${renderable} instead (objectui#9808).`,
+      `[ObjectUI] percent field: a declared \`scale\` of ${declared} is above the ` +
+        `${PERCENT_SCALE_CEILING}-digit fraction width this platform can render; ` +
+        `rendering at ${PERCENT_SCALE_CEILING} instead (objectui#9808).`,
     );
   }
-  return renderable;
+  return PERCENT_SCALE_CEILING;
 }

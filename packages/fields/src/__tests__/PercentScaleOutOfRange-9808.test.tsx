@@ -11,7 +11,8 @@
  * BOTH percent faces, and `@objectstack/spec` accepts the declaration.
  *
  * ── What fails before the repair ────────────────────────────────────────
- * Every out-of-range row below, with an UNCAUGHT `RangeError` — measured on
+ * Every row below for a width the spec accepts and the engine refuses, with an
+ * UNCAUGHT `RangeError` — measured on
  * this container's node (v22.22.2), all three sites report the same message:
  *
  * ```
@@ -29,19 +30,27 @@
  * that matters is that the component RENDERS — every row here drives the
  * component and reads the DOM it produced.
  *
- * ── The ruling these rows pin ───────────────────────────────────────────
- * ONE ruling, both faces: a width outside the renderable domain is CLAMPED
- * into it and REPORTED on the console. The reasoning — why a clamp and not a
- * refusal, and why the bounds are the formatters' own rather than this
- * package's — is on `../widgets/percent-scale`, which is also where the
- * ruling's SUNSET condition is written down: the clamp rests on the spec's
- * `scale` being unbounded, and is to be DELETED once the upstream bound lands.
+ * ── The ruling these rows pin, and its EXACT reach ──────────────────────
+ * ONE ruling, both faces: a width the installed spec ACCEPTS and the engine
+ * REFUSES — a non-negative integer above the ceiling — is CLAMPED to the
+ * ceiling and REPORTED on the console. ⛔ And nothing else is touched. A
+ * negative, non-finite or non-integer `scale` is a declaration the installed
+ * spec already REFUSES, so rescuing it in a renderer would be the
+ * lenient-fallback-around-bad-input AGENTS.md #0.1 lists by name; those widths
+ * keep the behaviour they had before this ruling existed, which the two
+ * `pre-existing path` rows below pin by asserting that they still THROW.
+ *
+ * The reasoning — why a clamp and not a refusal, and why the bounds are the
+ * formatters' own rather than this package's — is on
+ * `../widgets/percent-scale`. Its SUNSET condition is not prose here: the last
+ * block asks the installed `FieldSchema` whether the premise still holds, on
+ * every run.
  * ⛔ The declaration-side upper bound is NOT this card's: it lives in
- * `@objectstack/spec` and is filed as objectstack#18972.
+ * `@objectstack/spec` and was filed as objectstack#18972.
  *
  * ── The in-range control is the point, not decoration ───────────────────
  * A change that moved ordinary percent fields would be a different card, so
- * the last block pins that an in-range declaration renders exactly as it did
+ * the second block pins that an in-range declaration renders exactly as it did
  * and draws NO diagnostic of this ruling's. `scale: 100` is in that block on
  * purpose: the ceiling is INCLUSIVE, and a clamp that fired there would be a
  * silent off-by-one nobody would see.
@@ -65,6 +74,9 @@ import { PercentField } from '../widgets/PercentField';
 // The ruling's own module — module-private by design, so the pin imports that
 // module path exactly as it imports the widget, and NOT the package barrel.
 import { PERCENT_SCALE_CEILING } from '../widgets/percent-scale';
+// The installed spec's own door — the instrument the SUNSET block below asks
+// on every run, so the ruling's premise is re-derived rather than remembered.
+import { FieldSchema } from '@objectstack/spec/data';
 import { PercentCellRenderer } from '../index';
 
 let warn: ReturnType<typeof vi.spyOn>;
@@ -175,21 +187,33 @@ describe('an out-of-range percent `scale` is clamped and reported, not thrown (o
     expect(fromWidget).toBe(PERCENT_SCALE_CEILING);
   });
 
-  it('clamps a NEGATIVE declared width at the other end of the same domain', () => {
-    // `(25).toFixed(-1)` refuses for the same reason `(25).toFixed(101)` does,
-    // so one clamp closes both ends. ⚠️ A negative `scale` is NOT spec-valid
-    // (the spec's `scale` is `.int().min(0)`), which is why it is pinned here
-    // as the domain's lower end rather than as a second defect.
-    expect(() => renderReadonly(0.25, { scale: -1 })).not.toThrow();
-
-    expect(fractionDigits(readonlyText())).toBe(0);
-    expect(warnings()).toContain('-1');
+  it('leaves a NEGATIVE declared width on its pre-existing path, deliberately', () => {
+    // ⛔ This row is INVERTED on purpose, and the inversion is the ruling.
+    //
+    // `(25).toFixed(-1)` refuses exactly as `(25).toFixed(101)` does, so a
+    // clamp over the whole domain would have rescued this too — and that is
+    // precisely what it must NOT do. A negative `scale` is a declaration the
+    // INSTALLED spec already REFUSES (`z.number().int().min(0)`, measured
+    // below in the sunset probe's own instrument), so making it render would
+    // be a renderer-side default around bad input: AGENTS.md #0.1's own listed
+    // example, inside the module that cites #0.1 as its reason for existing.
+    //
+    // ⇒ it keeps the behaviour it had before this ruling existed. The place to
+    // repair a negative `scale` is the producer that wrote it.
+    expect(() => renderReadonly(0.25, { scale: -1 })).toThrow(RangeError);
+    expect(warnings()).not.toContain(MARKER);
   });
 
-  it('clamps a non-finite declared width', () => {
-    expect(() => renderReadonly(0.25, { scale: Number.POSITIVE_INFINITY })).not.toThrow();
+  it('leaves a NON-FINITE declared width on its pre-existing path, for the same reason', () => {
+    // Same inversion, same ground: `Infinity` is refused by the installed
+    // spec's `int()` and is not this renderer's to reinterpret.
+    expect(() => renderReadonly(0.25, { scale: Number.POSITIVE_INFINITY })).toThrow(RangeError);
+    expect(warnings()).not.toContain(MARKER);
 
-    expect(fractionDigits(readonlyText())).toBe(0);
+    cleanup();
+    // And the cell face agrees — one ruling means one answer on both faces for
+    // what the ruling does NOT cover, too.
+    expect(() => renderCell(0.25, { scale: Number.POSITIVE_INFINITY })).toThrow(RangeError);
   });
 });
 
@@ -256,5 +280,82 @@ describe('an IN-RANGE percent `scale` is untouched by the ruling (objectui#9808 
     expect(screen.getByRole('progressbar').parentElement!.textContent).toContain('25%');
 
     expect(warnings()).not.toContain(MARKER);
+  });
+});
+
+describe('SUNSET — the premise this ruling rests on, re-derived every run (objectui#9808)', () => {
+  /**
+   * ⭐ This block exists because a sentence is not an instrument.
+   *
+   * `percent-scale.ts` clamps rather than refuses for ONE reason: the
+   * `@objectstack/spec` this repository INSTALLS accepts a percent field
+   * declaring a `scale` above the ceiling, so refusing it in a renderer would
+   * invent a contract stricter than the one the renderer is built against
+   * (AGENTS.md #0.1 in mirror image).
+   *
+   * ⚠️ That premise is perishable, and it has already been observed to perish:
+   * the upstream bound (objectstack#18972, landed as objectstack#19083) is on
+   * the spec repository's `main` and is NOT in the version resolved here, and
+   * it landed minutes after the ruling's docblock was written. Nothing in a
+   * tree notices prose going stale — so the premise is asked of the installed
+   * door here instead, and the day a spec bump answers differently this row
+   * goes red and says what to do about it.
+   */
+  const percentDocument = {
+    name: 'discount_rate',
+    type: 'percent',
+    label: 'Discount Rate',
+  };
+
+  it('CONTROL: the installed spec door is live and strict', () => {
+    // Without this, an "accepted" verdict below could mean the door admits
+    // everything — or that the import resolved to something that parses
+    // nothing. A refusal BY NAME proves the instrument is reading the document.
+    const res = FieldSchema.safeParse({ ...percentDocument, scale: 2, bogusKey9808: true });
+    expect(res.success).toBe(false);
+    if (res.success) return;
+    expect(
+      res.error.issues.find(
+        (i) => i.code === 'unrecognized_keys' &&
+          ((i as { keys?: string[] }).keys ?? []).includes('bogusKey9808'),
+      ),
+      'the spec door admitted an unknown key — every verdict in this block proves nothing',
+    ).toBeDefined();
+  });
+
+  it('CONTROL: an ordinary `scale` is accepted, so acceptance is a reading', () => {
+    expect(FieldSchema.safeParse({ ...percentDocument, scale: 2 }).success).toBe(true);
+  });
+
+  it('the installed spec still ACCEPTS a `scale` above the renderable ceiling', () => {
+    const verdict = FieldSchema.safeParse({
+      ...percentDocument,
+      scale: PERCENT_SCALE_CEILING + 1,
+    });
+
+    expect(
+      verdict.success,
+      'SUNSET REACHED — the installed `@objectstack/spec` now REFUSES a percent `scale` above ' +
+        `${PERCENT_SCALE_CEILING}, so the premise objectui#9808 rested on has expired. ` +
+        'The clamp in `packages/fields/src/widgets/percent-scale.ts` is from this moment the ' +
+        'lenient renderer-side fallback AGENTS.md #0.1 bans, because the declaration it rescues ' +
+        'can no longer be authored. ⇒ DELETE that module, its two call sites in `PercentField` ' +
+        'and `formatPercent`, this whole test file and the changeset note — do NOT relax this ' +
+        'assertion to make the suite green.',
+    ).toBe(true);
+  });
+
+  it('and it REFUSES the widths this ruling deliberately does not rescue', () => {
+    // The other half of the #0.1 reading, asked of the same door: these are
+    // declarations the contract already rejects, which is exactly why
+    // `renderablePercentScale` leaves them on their pre-existing path instead
+    // of inventing a width for them.
+    for (const scale of [-1, 2.5, Number.POSITIVE_INFINITY, Number.NaN]) {
+      expect(
+        FieldSchema.safeParse({ ...percentDocument, scale }).success,
+        `the installed spec ACCEPTED scale ${String(scale)} — if it is now a legal declaration, ` +
+          'the renderer owes it a rendering and this ruling needs re-deciding, not patching',
+      ).toBe(false);
+    }
   });
 });

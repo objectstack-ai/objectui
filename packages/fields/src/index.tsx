@@ -563,11 +563,19 @@ export function formatNumber(value: number, decimals: number = 2, locale?: strin
  * The percent rendering itself, on a value ALREADY in display magnitude (`80`
  * means 80%).
  *
- * Split out from {@link formatPercent} because `PercentCellRenderer`'s
- * whole-percent branch needs this exact rendering under a DIFFERENT scaling
- * policy (see there). Two copies of the expression is precisely the drift
- * `percentDisplayValue`'s doc comment exists to prevent, so there is one copy
- * and the scaling decision is made by the caller.
+ * Split out from {@link formatPercent} so that the SCALING and the RENDERING
+ * are separable statements: this half renders, `formatPercent` decides the
+ * magnitude by calling `percentDisplayValue` and then calls this. Two copies
+ * of the rendering expression is precisely the drift `percentDisplayValue`'s
+ * doc comment exists to prevent, so there is one copy.
+ *
+ * ⚠️ It once had a second caller: `PercentCellRenderer` reached it directly to
+ * skip the scaling for a column whose NAME matched `/progress|completion/`.
+ * objectui#9452 removed that name test — the magnitude is the value's business
+ * and never the column name's — so the scaling decision is no longer made per
+ * caller. ⛔ Do not reintroduce a caller that formats a percent while stepping
+ * around `percentDisplayValue`; that is the drift, in the one shape that has
+ * already happened here.
  */
 function formatPercentBody(displayValue: number, precision: number, locale?: string): string {
   try {
@@ -777,9 +785,6 @@ export function CurrencyCellRenderer({ value, field }: CellRendererProps): React
   return <span className="tabular-nums font-medium whitespace-nowrap">{formatted}</span>;
 }
 
-// Fields that store percentage values as whole numbers (0-100) rather than fractions (0-1)
-const WHOLE_PERCENT_FIELD_PATTERN = /progress|completion/;
-
 /**
  * Percent field cell renderer with mini progress bar
  */
@@ -823,22 +828,41 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   if (isNaN(numValue)) {
     return <span className="tabular-nums whitespace-nowrap">{String(safe)}</span>;
   }
-  // Use field name to disambiguate 0-1 fraction vs 0-100 whole number:
-  // Fields like "progress" or "completion" store values as 0-100, not 0-1
-  const isWholePercentField = WHOLE_PERCENT_FIELD_PATTERN.test(field?.name?.toLowerCase() || '');
-  const barValue = isWholePercentField
-    ? numValue
-    : (numValue > -1 && numValue < 1) ? numValue * 100 : numValue;
-  // Both branches render through the same locale-aware body (objectui#4553);
-  // they differ ONLY in the scaling policy, which is the whole point of the
-  // branch. The whole-percent branch used to be a second bare `toFixed` path,
-  // so before this card a `progress` field was ungrouped and unlocalized even
-  // where an ordinary percent column would not have been — leaving it behind
-  // would have made ONE grid internally inconsistent, which is worse than the
-  // uniform defect it had.
-  const formatted = isWholePercentField
-    ? formatPercentBody(numValue, scale, locale)
-    : formatPercent(numValue, scale, locale);
+  // ONE scaling rule, and it is the declared one (objectui#9452). Both halves
+  // of this cell — the number and the bar's fill — take their display
+  // magnitude from `percentDisplayValue` in `@object-ui/core`, which its own
+  // doc comment names as the single source of truth for percent display and
+  // which `formatPercent` just below applies for the number.
+  //
+  // ⛔ NOT from the column's NAME, which is what stood here. A
+  // `/progress|completion/` test against `field.name` decided the magnitude
+  // BEFORE anything looked at the value, so a percent column whose name
+  // happened to contain one of those words read its stored FRACTION as
+  // percentage POINTS: one stored `0.5` rendered `50%` in the record-header
+  // chip and `1%` in the list cell — the same record showing two magnitudes in
+  // two places, which users report as a data bug rather than a formatting one.
+  // The pattern was also UNANCHORED, so it matched on substring: a column
+  // merely mentioning progress took the whole-percent path on the strength of
+  // a word inside its name.
+  //
+  // What collapsed the question — measured across both first-party trees, and
+  // reproducible from `PercentCellRenderer.nameKeyedScaling-9452.test.tsx`'s
+  // header: the repo's own percent samples store FRACTIONS in exactly these
+  // columns (the schema catalog's `progress` sample stores `0.753`, and the
+  // inline editor is pinned on a `completion` field storing `0.5` meaning
+  // 50%), the percent edit widget reads the same fields as fractions because
+  // it detects the whole-percent convention from a declared `max > 1` and
+  // never from the name, and the genuinely whole-percent producers are
+  // declared by TYPE (`type: 'progress'`, `min: 0`, `max: 100`) and store only
+  // `0` or integers at or above 1 — values on which the two rules agree by
+  // construction. So the name test had no producer that needed it and two that
+  // it misread.
+  //
+  // ⚠️ The price, stated rather than papered over: a value strictly between 0
+  // and 1 stored on a `type: 'progress'` column now reads as a fraction, as it
+  // does everywhere else. Nothing first-party stores one.
+  const barValue = percentDisplayValue(numValue);
+  const formatted = formatPercent(numValue, scale, locale);
   const clampedBar = Math.max(0, Math.min(100, barValue));
   
   // Layout contract (objectstack#5066): THE NUMBER IS THE CONTENT, THE BAR IS

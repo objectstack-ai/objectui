@@ -24,7 +24,10 @@ export interface UseSpecGestureOptions {
   onPan?: (direction: string) => void;
   /** Callback when a rotate gesture is detected (degrees, CW positive) */
   onRotate?: (rotation: number) => void;
-  /** Fallback for gestures without a dedicated callback */
+  /**
+   * Fallback for gestures without a dedicated callback. Its `type` is the
+   * DECLARED spec gesture, never the recognizer's own name for the same move.
+   */
   onGesture?: (context: { type: string; direction?: string; scale?: number; rotation?: number }) => void;
 }
 
@@ -94,6 +97,12 @@ export function useSpecGesture<T extends HTMLElement = HTMLElement>(
   let threshold: number | undefined;
   let longPressDuration: number | undefined;
   let onGesture: (ctx: { direction?: string; scale?: number; rotation?: number }) => void = () => {};
+  // `type` goes LAST in every payload below. The recognizer's own `type`
+  // travels inside `ctx` at runtime (`GestureContext.type`), so a `type`
+  // written BEFORE the spread is overwritten by it and the callback reports the
+  // recognizer instead of the declared spec gesture (objectui#9691). The two
+  // are different vocabularies — see `SPEC_GESTURE_TYPE_MAP` — so they agree
+  // only by coincidence, arm by arm.
   const fallback = (ctx: { type: string; direction?: string; scale?: number; rotation?: number }) => onAny?.(ctx);
 
   switch (declared) {
@@ -111,8 +120,6 @@ export function useSpecGesture<T extends HTMLElement = HTMLElement>(
       onGesture = (ctx) => {
         const detected = ctx.direction;
         if (detected === undefined || !declaredDirections.includes(detected)) return;
-        // `type` goes LAST: the recognizer's own type travels inside `ctx` at
-        // runtime, and this callback reports the spec gesture, not the recognizer.
         if (onSwipe) onSwipe(detected);
         else fallback({ ...ctx, type: 'swipe' });
       };
@@ -125,7 +132,7 @@ export function useSpecGesture<T extends HTMLElement = HTMLElement>(
       break;
     case 'pinch':
       gestureType = 'pinch';
-      onGesture = (ctx) => (onPinch ? onPinch(ctx.scale ?? 1) : fallback({ type: 'pinch', ...ctx }));
+      onGesture = (ctx) => (onPinch ? onPinch(ctx.scale ?? 1) : fallback({ ...ctx, type: 'pinch' }));
       break;
     case 'double_tap':
       gestureType = 'double-tap';
@@ -134,11 +141,11 @@ export function useSpecGesture<T extends HTMLElement = HTMLElement>(
     case 'pan':
     case 'drag':
       gestureType = 'pan';
-      onGesture = (ctx) => (onPan ? onPan(ctx.direction ?? 'left') : fallback({ type: declared, ...ctx }));
+      onGesture = (ctx) => (onPan ? onPan(ctx.direction ?? 'left') : fallback({ ...ctx, type: declared }));
       break;
     case 'rotate':
       gestureType = 'rotate';
-      onGesture = (ctx) => (onRotate ? onRotate(ctx.rotation ?? 0) : fallback({ type: 'rotate', ...ctx }));
+      onGesture = (ctx) => (onRotate ? onRotate(ctx.rotation ?? 0) : fallback({ ...ctx, type: 'rotate' }));
       break;
     default:
       break;

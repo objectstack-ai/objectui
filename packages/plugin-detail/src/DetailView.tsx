@@ -1136,17 +1136,35 @@ export const DetailView: React.FC<DetailViewProps> = ({
                   let display: string = String(val);
                   let percentValue: number | null = null;
                   try {
+                    // -- The locale these four option bags format in ---------------
+                    //
+                    // `displayLocale`, never the literal `undefined` (objectui#9453).
+                    // `useDisplayLocale`'s own doc comment names that literal as "the
+                    // one thing a caller must not do": `undefined` means the MACHINE's
+                    // locale, which is neither the tenant channel nor the UI-language
+                    // one. A German tenant read a German date in the list and an en-US
+                    // one beside the H1 of the record it opened, for one stored value.
+                    // The percent branch below already reads this same binding.
+                    //
+                    // The number of fraction digits, the date style and the time style
+                    // are NOT part of that repair. They are this chip's own
+                    // deliberately compact face, and whether a KPI chip beside a title
+                    // should instead read exactly like its list cell is an OPEN
+                    // question objectui#9453 recorded and did not answer.
+                    // `EN_CONTROL_ROWS` in `summaryChip.displayLocale-9453.test.tsx`
+                    // is what holds that line: those rows are green before this change
+                    // and after it, and go red the moment one of those options moves.
                     if (ftype === 'currency') {
                       const num = Number(val);
                       if (!Number.isNaN(num)) {
                         const cur = resolveFieldCurrency({ ...(objField as any), ...(sectionField as any) }, tenantCurrency);
                         display = cur
-                          ? new Intl.NumberFormat(undefined, {
+                          ? new Intl.NumberFormat(displayLocale, {
                               style: 'currency',
                               currency: cur,
                               maximumFractionDigits: 0,
                             }).format(num)
-                          : new Intl.NumberFormat(undefined, {
+                          : new Intl.NumberFormat(displayLocale, {
                               maximumFractionDigits: 0,
                             }).format(num);
                       }
@@ -1154,8 +1172,8 @@ export const DetailView: React.FC<DetailViewProps> = ({
                       const d = new Date(val);
                       if (!Number.isNaN(d.getTime())) {
                         display = ftype === 'datetime'
-                          ? d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-                          : d.toLocaleDateString(undefined, { dateStyle: 'medium' } as any);
+                          ? d.toLocaleString(displayLocale, { dateStyle: 'medium', timeStyle: 'short' })
+                          : d.toLocaleDateString(displayLocale, { dateStyle: 'medium' } as any);
                       }
                     } else if (ftype === 'percent') {
                       const num = Number(val);

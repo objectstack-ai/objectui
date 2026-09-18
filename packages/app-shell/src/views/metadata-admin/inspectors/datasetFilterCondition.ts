@@ -20,7 +20,14 @@
  * An operator that is NOT bridged is dropped, and dropping is where the danger
  * used to be: see {@link isClearedGroup} for why an unmapped operator is now
  * inert rather than destructive (objectui#9372).
+ *
+ * The write half is deliberately NOT injective — the spec carries one token for
+ * "strictly greater", which both `greaterThan` and `after` have to use — so the
+ * read half cannot be a plain inverse table. {@link readBackOperator} settles
+ * the ambiguous tokens against the field's own operator bucket (objectui#9382).
  */
+
+import { operatorsForFieldType } from '@object-ui/components';
 
 /** FilterBuilder camelCase operator → FilterCondition Mongo operator. */
 const OP_TO_MONGO: Record<string, string> = {
@@ -36,12 +43,88 @@ const OP_TO_MONGO: Record<string, string> = {
   // a bridge to a predicate the platform already agrees on, not a new claim.
   notContains: '$notContains', startsWith: '$startsWith', endsWith: '$endsWith',
 };
+/**
+ * The DEFAULT read-back for each token — the answer when the field's declared
+ * type is unknown, and the answer for every token only one operator writes.
+ *
+ * ⚠️ It cannot be the whole read half, because the write half is not injective:
+ * see {@link MONGO_PREIMAGE} and {@link readBackOperator}.
+ */
 const MONGO_TO_OP: Record<string, string> = {
   $eq: 'equals', $ne: 'notEquals',
   $gt: 'greaterThan', $gte: 'greaterOrEqual', $lt: 'lessThan', $lte: 'lessOrEqual',
   $contains: 'contains', $in: 'in', $nin: 'notIn',
   $notContains: 'notContains', $startsWith: 'startsWith', $endsWith: 'endsWith',
 };
+
+/**
+ * Stored token → EVERY builder operator that writes it.
+ *
+ * Derived from {@link OP_TO_MONGO} rather than hand-listed, for the reason
+ * `liveRows` states about its own two readers: a second copy of this relation
+ * is exactly how the two halves drift apart.
+ *
+ * Measured over the whole domain the dropdown can build (objectui#9382): four
+ * tokens have two operators writing them — `$exists`, `$null`, `$gt`, `$lt`.
+ * The first two are disambiguated by their PAYLOAD, in the `$exists` / `$null`
+ * arms of {@link conditionToGroup}, because the stored value is the boolean
+ * that picks the operator. `$gt` / `$lt` carry the author's comparand instead,
+ * so no bit of the stored condition tells `after` from `greaterThan` — which
+ * is why the field's declared type has to.
+ */
+const MONGO_PREIMAGE: Record<string, readonly string[]> = (() => {
+  const out: Record<string, string[]> = {};
+  for (const [op, token] of Object.entries(OP_TO_MONGO)) (out[token] ||= []).push(op);
+  return out;
+})();
+
+/** A field as the inspector already describes it to the builder. */
+export interface BuilderFieldDef { value: string; label?: string; type?: string }
+
+/**
+ * Which builder operator a stored token reads back as, on a field of this type.
+ *
+ * ## Why the type has to be consulted (objectui#9382)
+ *
+ * `after` and `greaterThan` both write `$gt`, and the spec's filter vocabulary
+ * has exactly one token for "strictly greater" — there is no `$after` for the
+ * write half to have used. So the collapse is not a defect in what gets stored:
+ * the stored filter is correct and filters correctly. What was lost is only the
+ * LABEL, and the label is a function of the field's type, because that is what
+ * decides which bucket the dropdown draws.
+ *
+ * Reading it back with a fixed table therefore handed the date buckets an
+ * operator they do not offer. Measured on the pre-fix tree, over every
+ * (field type, operator) pair the dropdown can build: 6 pairs broke — `before`
+ * and `after` on each of `date`, `datetime` and `time` — and every other pair
+ * round-tripped exactly. Driven in the real component, the consequence was a
+ * BLANK operator trigger, and `reconcileOperatorForField` then settled that row
+ * on `equals` as soon as the author touched its field picker, committing a
+ * different filter than the one they had stored.
+ *
+ * ## The rule
+ *
+ * Among the operators that write this token, pick the one THIS field's bucket
+ * offers. The bucket table is asked rather than copied, so the answer cannot
+ * disagree with what the dropdown actually lists; `operatorsForFieldType` is
+ * called with no opt-in extras because that is how the inspector mounts the
+ * builder.
+ *
+ * ⛔ Deliberately not a widening. When the type is unknown, or when the bucket
+ * offers neither candidate or both, this falls back to {@link MONGO_TO_OP} —
+ * the unchanged default — rather than inventing an answer. Nothing new is
+ * ACCEPTED here and no stored filter is rewritten; only the operator id the
+ * panel is seeded with changes, and it changes to one the panel can draw.
+ */
+function readBackOperator(mop: string, fieldType: string | undefined): string | undefined {
+  const candidates = MONGO_PREIMAGE[mop];
+  if (fieldType && candidates && candidates.length > 1) {
+    const offered = new Set(operatorsForFieldType(fieldType).map((o) => o.value));
+    const settled = candidates.filter((c) => offered.has(c));
+    if (settled.length === 1) return settled[0];
+  }
+  return MONGO_TO_OP[mop];
+}
 
 /**
  * Value-less builder operators, and the predicate each one lowers to.
@@ -183,8 +266,18 @@ export function groupToCondition(group: BuilderGroup | undefined): FilterConditi
  * the condition uses shapes the flat builder can't faithfully edit (nested
  * `$and`/`$or`, multi-op objects, unmapped operators) — callers should then show
  * the source editor instead.
+ *
+ * `fields` is the same list the caller hands the builder, and it is what lets
+ * an ambiguous token read back as the operator that field's dropdown actually
+ * offers — see {@link readBackOperator}. It is optional so the pure
+ * spec-shape assertions keep working without one; omitting it restores the
+ * fixed-table read, which is right for every token only one operator writes
+ * and wrong only for the pairs {@link MONGO_PREIMAGE} names.
  */
-export function conditionToGroup(cond: FilterCondition | undefined | null): { group: BuilderGroup; representable: boolean } {
+export function conditionToGroup(
+  cond: FilterCondition | undefined | null,
+  fields?: ReadonlyArray<BuilderFieldDef>,
+): { group: BuilderGroup; representable: boolean } {
   const empty: BuilderGroup = { id: 'g', logic: 'and', conditions: [] };
   if (cond == null) return { group: empty, representable: true };
   if (typeof cond !== 'object' || Array.isArray(cond)) return { group: empty, representable: false };
@@ -214,7 +307,7 @@ export function conditionToGroup(cond: FilterCondition | undefined | null): { gr
         // builder can draw.
         conditions.push({ id: `c${i}`, field, operator: v.$null ? 'isNull' : 'isNotNull', value: '' });
       } else {
-        const op = MONGO_TO_OP[mop];
+        const op = readBackOperator(mop, fields?.find((f) => f.value === field)?.type);
         if (!op) return { group: empty, representable: false };
         conditions.push({ id: `c${i}`, field, operator: op, value: v[mop] });
       }

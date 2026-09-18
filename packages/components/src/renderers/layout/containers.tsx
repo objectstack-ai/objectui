@@ -1112,16 +1112,32 @@ const PageSectionRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       {...designer}
     >
       {/*
-        `children` only. ⛔ This arm is NOT `page:card`'s: that registration
-        PUBLISHED `{ name: 'body', type: 'slot' }` until objectstack#5775 (PR
-        objectstack#6281) retired it, so stored documents carry the old spelling
-        and its read stays until the ADR-0087 D2 load-time conversion lands.
-        These three never published it: `@objectstack/spec` declares all three
-        through one `PageContainerProps` whose single key is `children`, and
-        before that they were `EmptyProps` — so there is no stored population
-        behind the fallback and nothing for it to rescue (objectui#6771).
+        ⚠️ `body` KEPT here, and this is an ESCALATION rather than a settled
+        ground — read it before deleting the arm on the obvious argument.
+
+        The argument for deleting: unlike `page:card`, these three never
+        PUBLISHED `body`. `@objectstack/spec` declares all three through one
+        `PageContainerProps` whose single key is `children`, they were
+        `EmptyProps` before that, and this side registered them with no
+        `inputs` at all — so on neither face was `body` ever an authorable key,
+        and objectui#6771 retired it everywhere it was.
+
+        Why the arm stays anyway: `__tests__/page-container-authorable-keys.test.tsx`
+        pins these three as reading BOTH spellings, and the question its ground
+        answers — do stored documents carry `body` here? — cannot be answered
+        from this repository. Stored pages live in a database, which is the
+        whole reason `page:card`'s sibling read waits on an ADR-0087 D2
+        LOAD-TIME conversion. ⛔ An in-repo corpus scan does not settle it: the
+        one run against the pre-retirement tree returned zero for these three
+        with a CONTROL THAT DID NOT FIRE, so its zero is not a reading.
+
+        ⇒ the costs are asymmetric and that decides it: deleting an arm that
+        does have a stored population blanks content silently, the least
+        reportable failure there is; keeping one that does not leaves a dialect
+        visible in three thin containers, removable later at no risk. Recorded
+        on objectui#6771 for a seat that can read the stored corpus.
       */}
-      {renderChildren(schema?.children)}
+      {renderChildren(schema?.children || schema?.body)}
     </section>
   );
 };
@@ -2227,8 +2243,8 @@ const PageFooterRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         className={cn('flex items-center justify-between text-sm text-muted-foreground', className)}
         {...designer}
       >
-        {/* `children` only — ground at `page:section` above (objectui#6771). */}
-        {renderChildren(schema?.children)}
+        {/* `body` kept — escalation recorded at `page:section` above (objectui#6771). */}
+        {renderChildren(schema?.children || schema?.body)}
       </footer>
     </>
   );
@@ -2254,8 +2270,8 @@ const PageSidebarRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       className={cn('flex flex-col gap-4 w-full md:w-80 shrink-0', className)}
       {...designer}
     >
-      {/* `children` only — ground at `page:section` above (objectui#6771). */}
-      {renderChildren(schema?.children)}
+      {/* `body` kept — escalation recorded at `page:section` above (objectui#6771). */}
+      {renderChildren(schema?.children || schema?.body)}
     </aside>
   );
 };

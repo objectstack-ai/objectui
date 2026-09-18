@@ -26,6 +26,7 @@ import {
   matchesPopulation,
   readClaim,
   readPolarity,
+  readWindow,
   resolutionRootsFor,
   runControls,
   segmentClauses,
@@ -69,7 +70,13 @@ import {
  *     verb still does. Without the second leg the repair would have traded
  *     false positives for false negatives, which is the failure this whole
  *     family of cards is about.
- *  9. A KEY IS A NAME, AND THE SPAN IS THAT NAME (objectui#9766). A call, a
+ *  9. THE WINDOW IS THE DECLARATION CLAUSE (objectui#9754). A key predicated
+ *     of something OTHER than the schema the sentence names is no longer paired
+ *     with it -- and the two legs that keep that from being blindness: a key the
+ *     clause really does predicate of the named schema is still flagged, and the
+ *     relative clause, which has no subject of its own, still reaches its
+ *     antecedent.
+ * 10. A KEY IS A NAME, AND THE SPAN IS THAT NAME (objectui#9766). A call, a
  *     heritage clause, a statement and an operator use are code, not names; and
  *     a word of the language the faces are written in is a key only where the
  *     tree declares a member by that name. Both of that rule's escape legs are
@@ -989,3 +996,129 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
     expect(outcome.stdout).not.toContain('claims naming a schema this tree does not declare');
   });
 });
+
+describe('objectui#9754 pin 12 -- the window is the declaration clause, not the sentence', () => {
+  /**
+   * The largest false-positive source the instrument names on itself, in its own
+   * words: "A sentence may name schema S and key K and predicate K of something
+   * else entirely -- a registry-local type, another node, a spec schema. V pairs
+   * them because they share a sentence."
+   *
+   * ⭐ The SUBSTANCE this pin is here for is the pairing, not the existence of a
+   * reader: a key predicated of something else must stop being paired with the
+   * schema the sentence happens to also name. `11-window-pairing.md` carries the
+   * shape and its three counter-shapes in one entry, so the repair and the three
+   * ways it could have been bought with blindness are read off ONE run.
+   *
+   * ⭐ Which leg each row actually holds, MEASURED by ablating the three parts of
+   * the rule separately rather than assumed from the row's name -- one of these
+   * was predicted wrong before it was run:
+   *   the clause window   -> "stops pairing", "did NOT buy it", "two clauses"
+   *   the coordinated list -> "coordinated object list", "relative clause"
+   *   the relative opener  -> "relative clause"
+   * The last two rows are acceptance conditions and are GREEN under all three by
+   * design: they say what must NOT move, so an ablation of the repair leaves
+   * them alone and only a regression elsewhere reaches them.
+   */
+  const flags = flagsFor('11-window-pairing');
+
+  it('stops pairing a key with a schema the key is NOT predicated of', () => {
+    // "`LaneSchema` declares `cards`, and `ObjectKanbanSchema` is the node that
+    // references it." `cards` is LANE's. `ObjectKanbanSchema` does not declare
+    // it and the sentence never said it did -- read sentence-wide, that absence
+    // was a flag.
+    expect(flags.map((f) => f.key)).not.toContain('cards');
+    // DARK LEG: the sentence really does name both symbols and really does
+    // carry the key, or this pin is vacuous and passes against the instrument
+    // it exists to distinguish.
+    const sentence = fixtureSentence('11-window-pairing.md', /references it/);
+    expect(namesSchemaIn(sentence.text).sort()).toEqual(['LaneSchema', 'ObjectKanbanSchema']);
+    expect(backtickedKeys(sentence.text)).toContain('cards');
+    // And the mechanism, named rather than inferred from the verdict: the key
+    // is paired with the schema of the clause it is DECLARED in, and with no
+    // other schema the sentence mentions.
+    expect(readWindow(sentence.text).schemasByKey.cards).toEqual(['LaneSchema']);
+  });
+
+  it('⛔ did NOT buy it with blindness -- a key the clause DOES predicate still flags', () => {
+    // Without this leg the repair would trade false positives for false
+    // negatives, which is the failure this whole family of cards is about.
+    // "`ObjectKanbanSchema` declares `swimlaneWidth`" is an assertion about the
+    // named schema, and the fixture face does not declare that key.
+    const flagged = flags.filter((f) => f.key === 'swimlaneWidth');
+    expect(flagged.map((f) => f.schema)).toEqual(['ObjectKanbanSchema']);
+    expect(flagged[0].polarity).toBe('positive');
+  });
+
+  it('the coordinated object list survives the cut', () => {
+    // "`ObjectKanbanSchema` declares `cardTitle` and `cardSubtitle`" puts the
+    // second key past a clause boundary with no verb of its own. Narrowing the
+    // window to the clause the key SITS in would have dropped it; the window is
+    // the clause it is DECLARED by. ⚠️ This row is green under the sentence-window
+    // ablation and that is correct, not weak: its sentence names ONE schema, so
+    // the two windows coincide there and only the coordination leg moves it.
+    const flagged = flags.filter((f) => f.key === 'cardSubtitle');
+    expect(flagged.map((f) => f.schema)).toEqual(['ObjectKanbanSchema']);
+  });
+
+  it('a relative clause reaches its antecedent, and reaches nothing further', () => {
+    // "`SpinnerSchema` (which declares `type` and no `size`)" -- the declaring
+    // clause names no schema at all, because the subject was cut off with the
+    // parenthesis. A relative or parenthetical clause predicates of what it is
+    // attached to, so the window reaches back ONE clause for the subject.
+    const flagged = flags.filter((f) => f.key === 'size');
+    expect(flagged.map((f) => f.schema)).toEqual(['SpinnerSchema']);
+    expect(flagged[0].polarity).toBe('negative');
+    expect(flagged[0].memberPresent).toBe(true);
+    // The reach is the antecedent and NOT the sentence: the other schema this
+    // entry names is never pulled in.
+    expect(
+      readWindow('`SpinnerSchema` (which declares `type` and no `size`) is the other node.')
+        .schemasByKey.size,
+    ).toEqual(['SpinnerSchema']);
+  });
+
+  it('one key in two declaration clauses of OPPOSITE polarity reads as two claims', () => {
+    // The residue objectui#9754 slice 1 named and handed here, verbatim: "a
+    // sentence whose SAME key sits in two declaration clauses of opposite
+    // polarity resolves to the first one, because choosing between them is the
+    // WINDOW PAIRING question below". It is not resolved by choosing -- each
+    // occurrence carries its own clause's schema AND its own clause's polarity.
+    const sentence = fixtureSentence('11-window-pairing.md', /while /);
+    const pairs = readWindow(sentence.text).pairsByKey.cardTitle;
+    expect(pairs).toEqual([
+      { schema: 'SpinnerSchema', polarity: 'negative' },
+      { schema: 'ObjectKanbanSchema', polarity: 'positive' },
+    ]);
+    // Both claims are TRUE of the fixture faces, so a correct reading flags
+    // neither. Resolving to the first one read the second claim as negative and
+    // flagged the schema that HAS the member -- exactly backwards.
+    expect(flags.map((f) => f.key)).not.toContain('cardTitle');
+  });
+
+  it('⛔ the pinned blind spot still reads -- the acceptance condition every repair here meets', () => {
+    const pinned = flagsFor('01-pronoun-pre-repair');
+    expect(pinned.map((f) => f.key).sort()).toEqual([
+      'allowCollapse',
+      'cardTitle',
+      'columns',
+      'titleField',
+    ]);
+    expect(pinned.every((f) => f.schema === 'ObjectKanbanSchema')).toBe(true);
+    expect(pinned.every((f) => f.viaPronoun)).toBe(true);
+  });
+
+  it('the population is untouched -- this repair narrows the VERDICT, not what is read', () => {
+    // A narrowing that reached the population would hide sentences instead of
+    // pairing them correctly, and the report would stop being able to say how
+    // many assertions it examined.
+    const matched = fixtureRun.matched.filter((m) => m.entry.startsWith('11-window-pairing'));
+    expect(matched.length).toBeGreaterThanOrEqual(5);
+    expect(matched.every((m) => m.claim.schemas.length > 0)).toBe(true);
+  });
+});
+
+/** The schema symbols a sentence names, for a pin that asserts the dark leg. */
+function namesSchemaIn(text: string) {
+  return [...new Set([...text.matchAll(/\b([A-Z][A-Za-z0-9_]*Schema)\b/g)].map((m) => m[1]))];
+}

@@ -45,6 +45,7 @@ import {
 import { deriveFieldGroupSections } from './fieldGroups';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
 import { sanitizeFormData } from './sanitize';
+import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
 import {
   schemaDefaultValues,
@@ -635,7 +636,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // Initialize with inline data if provided
   useEffect(() => {
     if (hasInlineFields) {
-      setInitialData(schema.initialData || schema.initialValues || {});
+      setInitialData(resolveInitialRecord(schema));
       setLoading(false);
     }
   }, [hasInlineFields, schema.initialData, schema.initialValues]);
@@ -677,7 +678,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
-        setInitialData(schema.initialData || schema.initialValues || {});
+        setInitialData(resolveInitialRecord(schema));
         setLoading(false);
         return;
       }

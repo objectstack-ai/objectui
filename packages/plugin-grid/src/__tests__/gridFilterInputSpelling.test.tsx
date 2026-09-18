@@ -47,10 +47,20 @@
  * gone from the declaration, and — asserted behaviourally, not just by absence
  * — a schema written the way the old declaration invited never filtered
  * anything.
+ *
+ * ## objectui#8071 slice 17 — this file is now `object-grid.filter`'s MEMBER PIN
+ *
+ * The sections above were read end to end and promoted: they already constrain
+ * the shape the renderer READS for this key, which is objectui#8068's
+ * criterion. What they did NOT state is the disposition of each member of one
+ * rule, so a fourth section below adds it — the operator fold and its verbatim
+ * escape hatch, the shape change an omitted `value` makes, and the render-time
+ * refusal a mis-typed `value` produces. The registry entry for this key lives
+ * in `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`.
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
@@ -207,5 +217,99 @@ describe('object-grid — the retired plural spelling (historical record, object
       filters: [['stage', '=', 'won']],
     });
     expect(params.$filter).toBeUndefined();
+  });
+});
+
+/**
+ * The MEMBERS of one `filter` rule, pinned at what the RENDERER reads
+ * (objectui#8071 slice 17).
+ *
+ * The sections above pin the KEY — its declared name, and that what reaches
+ * `$filter` is lowered AST rather than rule objects. What they never state is
+ * what each of the rule's three members (`field`, `operator`, `value`) does on
+ * the way there, and the dispositions are not guessable from the declaration:
+ *
+ *   - **`operator` is FOLDED to its canonical spelling**, through the spec's
+ *     own alias map, so `eq` and `equals` are one operator and not two
+ *     dialects — but an operator the spec does not know is passed through
+ *     VERBATIM, on purpose, so the wire names the author's typo instead of this
+ *     hop guessing at a repair.
+ *   - **An omitted `value` is a SHAPE CHANGE, not a default.** The rule lowers
+ *     to a 2-tuple, because the valueless operators take their direction from
+ *     the operator name.
+ *   - **`value` decides whether the view RENDERS AT ALL.** An array comparand
+ *     on a single-valued operator is refused with a throw (objectui#8557), and
+ *     in this block that lowering runs inside a render-time `useMemo` — the
+ *     delivery question objectui#9050 owns for all thirteen such sites. Pinned
+ *     here as the behaviour that ships, ⛔ not as an endorsement of where it
+ *     lands.
+ */
+describe('object-grid `filter` rule MEMBERS (objectui#8071 slice 17)', () => {
+  const BASE = { type: 'object-grid', objectName: 'account', columns: [{ field: 'name' }] };
+
+  it('folds an `operator` ALIAS to the canonical spelling the spec declares', async () => {
+    const params = await findParamsFor({
+      ...BASE,
+      filter: [{ field: 'stage', operator: 'eq', value: 'won' }],
+    });
+    // `eq` is the alias, `equals` the canonical form — one operator, not two.
+    expect(params.$filter).toEqual([['stage', 'equals', 'won']]);
+  });
+
+  it('passes an operator the spec does NOT know through verbatim', async () => {
+    // Deliberate: the fold is not a repair shop. A misspelling reaches the wire
+    // as written so the server names it, rather than this hop substituting an
+    // operator the author never asked for.
+    const params = await findParamsFor({
+      ...BASE,
+      filter: [{ field: 'stage', operator: 'sortof', value: 'won' }],
+    });
+    expect(params.$filter).toEqual([['stage', 'sortof', 'won']]);
+  });
+
+  it('lowers a rule with NO `value` to a 2-tuple, not to a 3-tuple with a hole', async () => {
+    const params = await findParamsFor({
+      ...BASE,
+      filter: [{ field: 'closed_at', operator: 'is_null' }],
+    });
+    expect(params.$filter).toEqual([['closed_at', 'is_null']]);
+  });
+
+  it('carries an ARRAY `value` for the operators the spec declares array-valued', async () => {
+    // The control for the refusal below: arrays are not the problem, arrays on
+    // a SINGLE-valued operator are.
+    const params = await findParamsFor({
+      ...BASE,
+      filter: [{ field: 'stage', operator: 'in', value: ['won', 'lost'] }],
+    });
+    expect(params.$filter).toEqual([['stage', 'in', ['won', 'lost']]]);
+  });
+
+  it('REFUSES an array `value` on a single-valued operator, and the grid is GONE', async () => {
+    // Where that refusal LANDS is objectui#9050's open question for all
+    // thirteen such sites; what it does TODAY is this, and it is the member
+    // disposition an author meets: the lowering throws inside a render-time
+    // `useMemo`, `SchemaErrorBoundary` catches it, and the block is replaced by
+    // an alert naming the field and the operator. No table, no rows, no
+    // narrower answer.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { container } = render(
+        <SchemaRendererProvider dataSource={makeAdapter() as any}>
+          <SchemaRenderer
+            schema={{
+              ...BASE,
+              filter: [{ field: 'stage', operator: 'equals', value: ['won'] }],
+            } as any}
+          />
+        </SchemaRendererProvider>,
+      );
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain("field 'stage'");
+      expect(alert.textContent).toContain('ARRAY');
+      expect(container.querySelector('table')).toBeNull();
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

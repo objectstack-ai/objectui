@@ -1,0 +1,846 @@
+#!/usr/bin/env node
+/**
+ * ObjectUI
+ * Copyright (c) 2024-present ObjectStack Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * Changeset polarity census (objectui#9727) -- the REBUILT instrument.
+ *
+ * Run:  pnpm census:changeset-polarity            (markdown report)
+ *       pnpm census:changeset-polarity --json     (machine readable)
+ *       node scripts/changeset-polarity-census.mjs --corpus <dir> --types <dir>
+ * Exit: 0 = the census ran (findings do NOT fail it -- report-only by design)
+ *       1 = an input could not be read, so this run MEASURED NOTHING
+ *       2 = a control failed, so this run's zeros are not evidence of absence
+ *
+ * ## Why this script exists at all, and what it replaces
+ *
+ * objectui#9713 repaired two pending changeset entries whose PRESENT-TENSE
+ * claims about what a schema declares had gone false. objectui#9727 carries the
+ * derived question -- how many more are there -- as a CANDIDATE SET rather than
+ * a defect list, and it carries it with two admissions from the instrument's
+ * own author:
+ *
+ *   1. the numbers on that card are TRANSCRIBED. The producing script lived in
+ *      a worktree that was cleaned up, so nothing on the card is re-derivable.
+ *   2. the instrument had a PROVEN FALSE NEGATIVE on the site that motivated
+ *      the card.
+ *
+ * Neither of those is repairable by reading the card harder. This file is the
+ * instrument rebuilt so it runs from a clean checkout, so its answer is
+ * re-derivable by anyone, and so the known blindness is closed and PINNED.
+ * It repairs no changeset body and is wired into no workflow: `census:*` is
+ * this tree's spelling for "runnable, reported, not blocking" (the reasoning is
+ * `scripts/cross-file-line-citation-census.mjs`'s, and is not restated here).
+ *
+ * Per commandment #9 this header states NO count. The number is whatever the
+ * script prints on the tree you run it against; objectui#9727's transcribed 154
+ * is a reading of a tree and an instrument that no longer exist.
+ *
+ * ## The population (P)
+ *
+ * DOMAIN: every sentence of every pending `.changeset/*.md` except `README.md`.
+ * PREDICATE: the sentence names a schema symbol AND carries a PRESENT-TENSE
+ * declaration verb. Bare past `declared` is excluded on purpose -- a past-tense
+ * sentence is historical and cannot rot, which is the distinction objectui#9713
+ * turns on. Present-tense PASSIVE (`is declared`, `are not declared`) is
+ * INCLUDED: it is a live claim about today's tree and rots exactly like the
+ * active voice.
+ *
+ * ## Four properties this rebuild has that the transcribed instrument did not
+ *
+ * 1. WHOLE-FILE READ, whitespace-tolerant. Changeset prose wraps near eighty
+ *    columns, so a line-anchored probe is structurally blind to any claim that
+ *    wraps -- and a claim naming a schema and a key is long enough that most of
+ *    them do. Lines are joined per paragraph, continuation prefixes (blockquote
+ *    markers, list bullets, table pipes) are stripped first, and all runs of
+ *    whitespace collapse before a sentence is cut.
+ *
+ * 2. ASSERTION POSITION vs QUOTED POSITION. A count over prose is NOT
+ *    invariant under quotation, and treating it as invariant is how a repaired
+ *    site gets re-flagged forever: objectui#9713's repair QUOTES the sentence it
+ *    retires, inside the note that retires it. A sentence reached through a
+ *    fence, a blockquote, guillemets or quotation marks is in QUOTED position --
+ *    it is counted, reported, and never flagged. Only an ASSERTION is a
+ *    candidate.
+ *
+ * 3. A NAME IS NOT A KEY -- A KEY IS (interface, name). Membership is resolved
+ *    against the member set of the SCHEMA THE SENTENCE NAMES, built with the
+ *    TypeScript parser over `packages/types/src` (both faces: the `interface`
+ *    and its zod mirror), with `extends` resolved transitively. A key that is
+ *    merely declared SOMEWHERE is not a member here.
+ *    An inherited INDEX SIGNATURE (`[key: string]: any` on `BaseSchema`) is
+ *    deliberately NOT membership. A key riding the index signature is admitted
+ *    and never examined, which is the condition the whole family of cards is
+ *    about; counting it as declared would erase the finding.
+ *
+ * 4. THE CROSS-SENTENCE PRONOUN, which is the blindness this card names. The
+ *    site that motivated objectui#9727 reads, across a sentence boundary:
+ *
+ *        "... the only one that refused `allowCollapse` / ... / `onCardAdd` by
+ *        name ... The surviving `ObjectKanbanSchema` face declares none of
+ *        them."
+ *
+ *    The claim's object is `them`. A matcher that reads only the sentence
+ *    carrying the verb finds a schema, finds no key, and reports nothing -- so
+ *    the instrument missed THE SITE IT WAS BUILT FROM. Its output was a FLOOR
+ *    and was never a census. Here, a matched sentence whose object is a pronoun
+ *    (`them`, `these`, `those`, `none of them`, `either`, `both`) and which
+ *    carries no backticked key of its own resolves its keys from the nearest
+ *    preceding sentence in the same paragraph that names any.
+ *    `scripts/__tests__/changeset-polarity-census.test.ts` pins that site by its
+ *    PRE-REPAIR text: the pin goes red if the blindness returns.
+ *
+ * ## The verdict (V), and what it is NOT
+ *
+ * For each (schema, key) pair a matched ASSERTION predicates, V asks one
+ * mechanical question -- is `key` a member of `schema`'s member set? -- and
+ * compares it with the sentence's POLARITY:
+ *
+ *   POSITIVE claim (`S declares K`)             contradicted when K is absent
+ *   NEGATIVE claim (`S declares none of them`)  contradicted when K is present
+ *
+ * A contradiction is a CANDIDATE and nothing more. V does not establish that
+ * the sentence predicates that key of that schema, and it cannot: English is
+ * not parsed here. Above all it does NOT decide the only question that matters
+ * for a repair -- whether the claim ROTTED (true when written, falsified later)
+ * or was BORN FALSE (false at its own write-time ref). Those take OPPOSITE
+ * repairs, and BORN FALSE can only be established at the ref where the sentence
+ * was written. So nothing here licenses touching a changeset body.
+ *
+ * ## The three limits that produce this instrument's false positives
+ *
+ * Measured by adjudicating a sample of ten flagged entries fully (objectui#9727,
+ * the readings are on that card's pull request, not copied here per #9):
+ *
+ *   WINDOW PAIRING. A sentence may name schema S and key K and predicate K of
+ *   something else entirely -- a registry-local type, another node, a spec
+ *   schema. V pairs them because they share a sentence. This is the limit the
+ *   card's own author stated first, and it is still the largest source.
+ *
+ *   POLARITY BY KEYWORD. The claim's polarity is read from negation words in
+ *   the sentence. A sentence that carries `no`, `not` or `none` for an
+ *   unrelated clause -- "It has no mirror entry today, so ... `S` declares K" --
+ *   is read as a negative claim and inverts the verdict.
+ *
+ *   TOP-LEVEL MEMBERSHIP ONLY. A key declared on an INLINE nested object
+ *   (`sort?: Array<{ field; direction }>`) is a member of that object, not of
+ *   the schema, and a sentence naming it reads as absent. Descending would
+ *   re-create the "a name is not a key" failure at one more level, so the
+ *   narrow reading is deliberate and the cost is named here instead.
+ *
+ * ⛔ None of the three is a reason to stop reporting a flag. They are the reason
+ * a flag is a CANDIDATE: every one of them is resolved by a human reading the
+ * sentence, and none is resolvable by reading the count.
+ *
+ * ## Controls -- run on the SAME corpus as the census, on every run
+ *
+ * A zero counts only against a LIT control on the same instrument. Two zeros on
+ * one instrument means the instrument is broken, not that the tree is clean.
+ * The lit and absent controls are asserted on every run and reported with the
+ * count; if either fails the run exits 2 and its numbers are void.
+ *
+ * ## It does not answer about itself
+ *
+ * The corpus is `.changeset/` and nothing else. This file's own prose names
+ * schemas and declaration verbs in every paragraph above, and the test fixtures
+ * carry the very sentences the pins are about -- a probe that scanned the tree
+ * at large would match its own docstring and its own fixtures and report itself.
+ * The corpus boundary is pinned by the test.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import ts from 'typescript';
+
+import { isEntrypoint } from './invoked-as.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+export const REPO_ROOT = path.resolve(HERE, '..');
+
+/** A token that cannot occur in this corpus; the absent control's probe. */
+export const ABSENT_CONTROL_KEY = 'zzqqNoSuchMemberZZ';
+
+/**
+ * The lit control for the member half, and the choice is load bearing.
+ *
+ * It must be a fact that is TRUE AT EVERY REF THIS INSTRUMENT IS RUN AT, because
+ * establishing BORN FALSE means running it at a sentence's write-time ref. The
+ * first spelling of this control was `ObjectKanbanSchema.groupBy` -- a member
+ * objectui#7322 added and objectui#8990 made optional, so on any tree older than
+ * those cards the control read 0 and every historical run voided itself.
+ * A control pinned to a fact a later card moves is THIS CARD'S OWN DEFECT
+ * CLASS wearing the instrument's clothes. `type` on `BaseSchema` is the
+ * protocol's own recursion point and has been declared for as long as the
+ * face has existed.
+ */
+export const MEMBER_CONTROL_SCHEMA = 'BaseSchema';
+export const MEMBER_CONTROL_KEY = 'type';
+
+/* ------------------------------------------------------------------ *
+ * Member sets -- the (interface, name) half
+ * ------------------------------------------------------------------ */
+
+const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+function propertyName(node) {
+  const name = node.name;
+  if (!name) return null;
+  if (ts.isIdentifier(name) || ts.isPrivateIdentifier(name)) return name.text;
+  if (ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return name.text;
+  return null;
+}
+
+function collectTypeMembers(typeNode, into, refs) {
+  if (!typeNode) return;
+  if (ts.isTypeLiteralNode(typeNode)) {
+    for (const member of typeNode.members) {
+      if (ts.isIndexSignatureDeclaration(member)) {
+        into.indexSignature = true;
+        continue;
+      }
+      const name = propertyName(member);
+      if (name) into.members.add(name);
+    }
+    return;
+  }
+  if (ts.isIntersectionTypeNode(typeNode) || ts.isUnionTypeNode(typeNode)) {
+    if (ts.isUnionTypeNode(typeNode)) into.union = true;
+    for (const t of typeNode.types) collectTypeMembers(t, into, refs);
+    return;
+  }
+  if (ts.isParenthesizedTypeNode(typeNode)) {
+    collectTypeMembers(typeNode.type, into, refs);
+    return;
+  }
+  if (ts.isTypeReferenceNode(typeNode)) {
+    const name = typeNode.typeName;
+    if (!ts.isIdentifier(name)) return;
+    // `Omit<X, 'k'>` / `Pick<X, 'k'>` are about X's members; `Array<X>` is NOT.
+    // Only the mapped helpers descend -- reading a referenced element type as
+    // membership is the over-approximation that made a lane's key read as the
+    // BOARD's key, which is exactly the "a name is not a key" failure.
+    if (MAPPED_HELPERS.has(name.text)) {
+      const first = typeNode.typeArguments?.[0];
+      if (first) collectTypeMembers(first, into, refs);
+      return;
+    }
+    refs.add(name.text);
+  }
+}
+
+const MAPPED_HELPERS = new Set(['Omit', 'Pick', 'Partial', 'Required', 'Readonly', 'NonNullable']);
+
+/**
+ * Zod object keys, read STRUCTURALLY.
+ *
+ * Only the shape a schema declares for ITSELF counts: the literal passed to
+ * `z.object()` / `.extend()`, the arms of a union, and the base of a `.merge()`
+ * or `.and()`. A schema named in a MEMBER'S VALUE (`columns:
+ * z.array(ObjectKanbanLaneSchema)`) is a different object, and its keys are
+ * that object's, never this one's. Walking every nested object literal instead
+ * reads a lane's `cards` as a member of the board -- a name found somewhere
+ * under the symbol, which is precisely what "a key is (interface, name)"
+ * forbids.
+ */
+function collectZodKeys(expr, into, refs, depth = 0) {
+  if (!expr || depth > 24) return;
+  const recur = (node) => collectZodKeys(node, into, refs, depth + 1);
+
+  if (ts.isParenthesizedExpression(expr) || ts.isAsExpression(expr) || ts.isTypeAssertionExpression(expr)) {
+    recur(expr.expression);
+    return;
+  }
+  if (ts.isIdentifier(expr)) {
+    if (/Schema$/.test(expr.text)) refs.add(expr.text);
+    return;
+  }
+  if (!ts.isCallExpression(expr)) return;
+
+  const callee = expr.expression;
+  if (!ts.isPropertyAccessExpression(callee)) return;
+  const method = callee.name.text;
+  const args = expr.arguments;
+
+  const takeLiteral = (node) => {
+    if (!node || !ts.isObjectLiteralExpression(node)) return;
+    for (const prop of node.properties) {
+      if (ts.isSpreadAssignment(prop)) {
+        // `...SomeSchema.shape` spreads another schema's own shape.
+        let target = prop.expression;
+        if (ts.isPropertyAccessExpression(target)) target = target.expression;
+        if (ts.isIdentifier(target) && /Schema$/.test(target.text)) refs.add(target.text);
+        continue;
+      }
+      const name = propertyName(prop);
+      if (name) into.members.add(name);
+    }
+  };
+
+  if (method === 'object' || method === 'strictObject' || method === 'looseObject') {
+    takeLiteral(args[0]);
+    return;
+  }
+  if (method === 'extend') {
+    recur(callee.expression);
+    takeLiteral(args[0]);
+    return;
+  }
+  if (method === 'merge' || method === 'and' || method === 'intersection') {
+    recur(callee.expression);
+    for (const a of args) recur(a);
+    return;
+  }
+  if (method === 'union' || method === 'discriminatedUnion') {
+    into.union = true;
+    for (const a of args) {
+      if (ts.isArrayLiteralExpression(a)) for (const el of a.elements) recur(el);
+    }
+    return;
+  }
+  if (method === 'lazy') {
+    const fn = args[0];
+    if (fn && (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) {
+      recur(ts.isBlock(fn.body) ? null : fn.body);
+    }
+    return;
+  }
+  // Wrappers that preserve the shape of their receiver.
+  if (SHAPE_PRESERVING.has(method)) {
+    recur(callee.expression);
+  }
+}
+
+const SHAPE_PRESERVING = new Set([
+  'optional', 'nullable', 'nullish', 'default', 'catch', 'describe', 'brand',
+  'readonly', 'refine', 'superRefine', 'check', 'strict', 'passthrough', 'strip',
+  'catchall', 'partial', 'required', 'deepPartial',
+]);
+
+/**
+ * Build `symbol -> { members, indexSignature, faces }` over a TypeScript source
+ * tree, reading BOTH faces: `interface X` / `type X`, and the zod mirror
+ * `export const X = z.object({...})`.
+ */
+export function buildMemberIndex(typesSrcDir) {
+  const files = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+        walk(full);
+      } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+        files.push(full);
+      }
+    }
+  };
+  walk(typesSrcDir);
+
+  const raw = new Map();
+  const take = (name, face) => {
+    if (!raw.has(name)) {
+      raw.set(name, {
+        members: new Set(),
+        indexSignature: false,
+        union: false,
+        refs: new Set(),
+        faces: new Set(),
+      });
+    }
+    const entry = raw.get(name);
+    entry.faces.add(face);
+    return entry;
+  };
+
+  for (const file of files) {
+    const text = fs.readFileSync(file, 'utf8');
+    const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    for (const stmt of sf.statements) {
+      if (ts.isInterfaceDeclaration(stmt)) {
+        const entry = take(stmt.name.text, 'ts');
+        for (const member of stmt.members) {
+          if (ts.isIndexSignatureDeclaration(member)) {
+            entry.indexSignature = true;
+            continue;
+          }
+          const name = propertyName(member);
+          if (name) entry.members.add(name);
+        }
+        for (const clause of stmt.heritageClauses ?? []) {
+          for (const t of clause.types) {
+            if (ts.isIdentifier(t.expression)) entry.refs.add(t.expression.text);
+          }
+        }
+      } else if (ts.isTypeAliasDeclaration(stmt)) {
+        const entry = take(stmt.name.text, 'ts');
+        collectTypeMembers(stmt.type, entry, entry.refs);
+      } else if (ts.isVariableStatement(stmt)) {
+        for (const decl of stmt.declarationList.declarations) {
+          if (!ts.isIdentifier(decl.name) || !decl.initializer) continue;
+          if (!/Schema$/.test(decl.name.text)) continue;
+          const entry = take(decl.name.text, 'zod');
+          collectZodKeys(decl.initializer, entry, entry.refs);
+          entry.refs.delete(decl.name.text);
+        }
+      }
+    }
+  }
+
+  // Resolve `extends` / referenced mirrors transitively.
+  const resolved = new Map();
+  const resolve = (name, seen) => {
+    if (resolved.has(name)) return resolved.get(name);
+    const entry = raw.get(name);
+    if (!entry) return null;
+    if (seen.has(name)) {
+      return {
+        members: new Set(entry.members),
+        indexSignature: entry.indexSignature,
+        union: entry.union,
+      };
+    }
+    seen.add(name);
+    const members = new Set(entry.members);
+    let indexSignature = entry.indexSignature;
+    let union = entry.union;
+    for (const ref of entry.refs) {
+      const parent = resolve(ref, seen);
+      if (!parent) continue;
+      for (const m of parent.members) members.add(m);
+      indexSignature = indexSignature || parent.indexSignature;
+      union = union || Boolean(parent.union);
+    }
+    const out = {
+      members,
+      indexSignature,
+      union,
+      faces: [...entry.faces].sort(),
+      own: new Set(entry.members),
+    };
+    resolved.set(name, out);
+    return out;
+  };
+  for (const name of raw.keys()) resolve(name, new Set());
+  return resolved;
+}
+
+/* ------------------------------------------------------------------ *
+ * Corpus -- whole-file, whitespace-tolerant, position-aware
+ * ------------------------------------------------------------------ */
+
+const FENCE = /^\s*(```|~~~)/;
+const MASK_OPEN = '@@CS';
+const MASK_CLOSE = '@@';
+
+/**
+ * Cut a changeset body into paragraphs, then into sentences, recording the
+ * POSITION each sentence was reached through. Frontmatter and fenced code are
+ * dropped; blockquote prefixes, list bullets and table pipes are stripped as
+ * CONTINUATION PREFIXES before the lines of a paragraph are joined, so a claim
+ * that wraps at eighty columns reads as ONE sentence.
+ */
+export function segmentSentences(markdown) {
+  const lines = markdown.split(/\r?\n/);
+  let i = 0;
+  // Drop YAML frontmatter -- package bumps, not prose.
+  if (lines[0] !== undefined && lines[0].trim() === '---') {
+    let end = -1;
+    for (let j = 1; j < lines.length; j += 1) {
+      if (lines[j].trim() === '---') {
+        end = j;
+        break;
+      }
+    }
+    if (end >= 0) i = end + 1;
+  }
+
+  const paragraphs = [];
+  let current = null;
+  let inFence = false;
+  for (; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (FENCE.test(line)) {
+      inFence = !inFence;
+      current = null;
+      continue;
+    }
+    if (inFence) continue;
+    if (line.trim() === '') {
+      current = null;
+      continue;
+    }
+    const quoted = /^\s*>/.test(line);
+    let stripped = line.replace(/^\s*>+\s?/, '');
+    stripped = stripped.replace(/^\s*([-*+]|\d+[.)])\s+/, '');
+    if (/^\s*\|/.test(stripped)) {
+      // A table row: the cells are independent fragments, never one sentence.
+      stripped = stripped
+        .replace(/^\s*\|/, '')
+        .replace(/\|\s*$/, '')
+        .split('|')
+        .join('. ');
+    }
+    stripped = stripped.replace(/^\s*#+\s+/, '');
+    if (!current) {
+      current = { lines: [], quoted: false };
+      paragraphs.push(current);
+    }
+    current.lines.push(stripped);
+    current.quoted = current.quoted || quoted;
+  }
+
+  const out = [];
+  paragraphs.forEach((para, paragraphIndex) => {
+    const joined = para.lines.join(' ').replace(/\s+/g, ' ').trim();
+    if (!joined) return;
+    cutSentences(joined).forEach((text, sentenceIndex) => {
+      out.push({
+        text,
+        paragraphIndex,
+        sentenceIndex,
+        position: para.quoted || isQuotedInline(text) ? 'quoted' : 'assertion',
+      });
+    });
+  });
+  return out;
+}
+
+/** Sentence cut with backticked spans masked, so `foo.md` never splits. */
+export function cutSentences(paragraph) {
+  const spans = [];
+  const masked = paragraph.replace(/`[^`]*`/g, (m) => {
+    spans.push(m);
+    return `${MASK_OPEN}${spans.length - 1}${MASK_CLOSE}`;
+  });
+  const pieces = masked.split(/(?<=[.!?])\s+(?=[^a-z0-9])/u);
+  const restore = (s) =>
+    s.replace(new RegExp(`${MASK_OPEN}(\\d+)${MASK_CLOSE}`, 'g'), (_, n) => spans[Number(n)]);
+  return pieces.map((p) => restore(p).trim()).filter(Boolean);
+}
+
+/**
+ * A sentence reached through quotation marks is a QUOTED sentence even when its
+ * paragraph is not a blockquote -- objectui#9713's repair quotes the sentence it
+ * retires, in guillemets, inside the note that retires it.
+ */
+export function isQuotedInline(text) {
+  const trimmed = text.trim();
+  return (
+    /[«»]/.test(trimmed) ||
+    /^[*_\s]*["“”]/.test(trimmed) ||
+    /^[*_\s]*'[^']/.test(trimmed)
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * The predicate (P) and the claim reading
+ * ------------------------------------------------------------------ */
+
+export const SCHEMA_TOKEN = /\b([A-Z][A-Za-z0-9_]*Schema)\b/g;
+/** Present tense only. Bare past `declared` is excluded on purpose. */
+export const PRESENT_DECLARATION =
+  /\b(?:declares|declare|declaring|redeclares)\b|\b(?:is|are|isn't|aren't)\s+(?:not\s+|still\s+|already\s+)*declared\b/i;
+const PAST_ONLY = /\bdeclared\b/i;
+const PRONOUN_OBJECT =
+  /\b(?:none|any|all|either|neither|each|one)\s+of\s+(?:them|these|those)\b|\b(?:them|these|those|both)\b/i;
+const NEGATIVE =
+  /\b(?:none|neither|no)\b|\bnot\b|n't\b|\bnever\b|\bwithout\b|\bfails? to\b|\bstops? declaring\b/i;
+
+export function namesSchema(text) {
+  const found = [];
+  for (const m of text.matchAll(SCHEMA_TOKEN)) {
+    if (!found.includes(m[1])) found.push(m[1]);
+  }
+  return found;
+}
+
+export function backtickedKeys(text) {
+  const keys = [];
+  for (const m of text.matchAll(/`([^`]+)`/g)) {
+    const inner = m[1].trim();
+    // `columns: KanbanColumn[]` names the key `columns`.
+    const head = inner.split(/[:\s(<[]/)[0];
+    if (!IDENTIFIER.test(head)) continue;
+    // A member key in this protocol is lowerCamelCase. A backticked PascalCase
+    // token is a TYPE name (`ObjectGridComponentProps`, `GanttConfig`), and
+    // reading one as a key is the shape that inflated the transcribed count.
+    if (!/^[a-z_$]/.test(head)) continue;
+    if (!keys.includes(head)) keys.push(head);
+  }
+  return keys;
+}
+
+/**
+ * Read one matched sentence into a claim. The cross-sentence pronoun shape --
+ * the blindness objectui#9727 names -- is resolved here and nowhere else: when
+ * the object is a pronoun and the sentence carries no key of its own, the keys
+ * come from the nearest preceding sentence in the same paragraph that names any.
+ */
+export function readClaim(sentence, precedingInParagraph) {
+  const schemas = namesSchema(sentence.text);
+  let keys = backtickedKeys(sentence.text);
+  let viaPronoun = false;
+  let antecedent = null;
+  if (keys.length === 0 && PRONOUN_OBJECT.test(sentence.text)) {
+    for (let i = precedingInParagraph.length - 1; i >= 0; i -= 1) {
+      const candidate = backtickedKeys(precedingInParagraph[i].text);
+      if (candidate.length > 0) {
+        keys = candidate;
+        viaPronoun = true;
+        antecedent = precedingInParagraph[i].text;
+        break;
+      }
+    }
+  }
+  return {
+    schemas,
+    keys,
+    viaPronoun,
+    antecedent,
+    polarity: NEGATIVE.test(sentence.text) ? 'negative' : 'positive',
+  };
+}
+
+export function matchesPopulation(text) {
+  if (!PRESENT_DECLARATION.test(text)) return false;
+  return namesSchema(text).length > 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * The census
+ * ------------------------------------------------------------------ */
+
+export function readCorpus(corpusDir) {
+  return fs
+    .readdirSync(corpusDir)
+    .filter((n) => n.endsWith('.md') && n !== 'README.md')
+    .sort()
+    .map((name) => ({ name, body: fs.readFileSync(path.join(corpusDir, name), 'utf8') }));
+}
+
+export function census({ corpusDir, memberIndex }) {
+  const entries = readCorpus(corpusDir);
+  const matched = [];
+  const quoted = [];
+  let sentencesScanned = 0;
+  let verbSeenEntries = 0;
+  let pastOnlySentences = 0;
+
+  for (const entry of entries) {
+    const sentences = segmentSentences(entry.body);
+    sentencesScanned += sentences.length;
+    let verbSeen = false;
+    const byParagraph = new Map();
+    for (const s of sentences) {
+      if (!byParagraph.has(s.paragraphIndex)) byParagraph.set(s.paragraphIndex, []);
+      const present = PRESENT_DECLARATION.test(s.text);
+      if (present) verbSeen = true;
+      else if (PAST_ONLY.test(s.text)) pastOnlySentences += 1;
+      const preceding = byParagraph.get(s.paragraphIndex).slice();
+      byParagraph.get(s.paragraphIndex).push(s);
+      if (!matchesPopulation(s.text)) continue;
+      const record = { entry: entry.name, ...s, claim: readClaim(s, preceding) };
+      if (s.position === 'quoted') quoted.push(record);
+      else matched.push(record);
+    }
+    if (verbSeen) verbSeenEntries += 1;
+  }
+
+  const contradictions = [];
+  const unresolvedSchemas = [];
+  for (const record of matched) {
+    const { schemas, keys, polarity, viaPronoun } = record.claim;
+    for (const schema of schemas) {
+      const face = memberIndex.get(schema);
+      if (!face) {
+        unresolvedSchemas.push({ entry: record.entry, schema, sentence: record.text });
+        continue;
+      }
+      for (const key of keys) {
+        const present = face.members.has(key);
+        const contradicted = polarity === 'positive' ? !present : present;
+        if (!contradicted) continue;
+        contradictions.push({
+          entry: record.entry,
+          schema,
+          key,
+          polarity,
+          viaPronoun,
+          memberPresent: present,
+          inheritsIndexSignature: face.indexSignature,
+          unionFace: Boolean(face.union),
+          faces: face.faces,
+          sentence: record.text,
+        });
+      }
+    }
+  }
+
+  return {
+    corpusDir,
+    entriesScanned: entries.length,
+    sentencesScanned,
+    pastOnlySentences,
+    matchedAssertions: matched.length,
+    matchedQuoted: quoted.length,
+    matchedEntries: new Set(matched.map((m) => m.entry)).size,
+    pronounResolved: matched.filter((m) => m.claim.viaPronoun).length,
+    litControlEntries: verbSeenEntries,
+    contradictions,
+    contradictionEntries: new Set(contradictions.map((c) => c.entry)).size,
+    unresolvedSchemas,
+    quoted,
+    matched,
+  };
+}
+
+/**
+ * Controls, on the SAME corpus and the SAME instrument as the census. A zero
+ * without these is a dead-instrument zero and is not evidence of absence.
+ */
+export function runControls({ corpusDir, memberIndex }) {
+  const entries = readCorpus(corpusDir);
+  let litSentences = 0;
+  let absentSentences = 0;
+  for (const entry of entries) {
+    for (const s of segmentSentences(entry.body)) {
+      if (PRESENT_DECLARATION.test(s.text)) litSentences += 1;
+      if (s.text.includes(ABSENT_CONTROL_KEY)) absentSentences += 1;
+    }
+  }
+  const base = memberIndex.get(MEMBER_CONTROL_SCHEMA);
+  return {
+    corpusLit: { probe: 'present-tense declaration verb', reading: litSentences, expect: '> 0' },
+    corpusAbsent: { probe: ABSENT_CONTROL_KEY, reading: absentSentences, expect: '0' },
+    memberLit: {
+      probe: `${MEMBER_CONTROL_SCHEMA}.${MEMBER_CONTROL_KEY}`,
+      reading: base ? Number(base.members.has(MEMBER_CONTROL_KEY)) : 0,
+      expect: '1',
+    },
+    memberAbsent: {
+      probe: `${MEMBER_CONTROL_SCHEMA}.${ABSENT_CONTROL_KEY}`,
+      reading: base ? Number(base.members.has(ABSENT_CONTROL_KEY)) : 0,
+      expect: '0',
+    },
+    ok:
+      litSentences > 0 &&
+      absentSentences === 0 &&
+      Boolean(base) &&
+      base.members.has(MEMBER_CONTROL_KEY) &&
+      !base.members.has(ABSENT_CONTROL_KEY),
+  };
+}
+
+function report(result, controls) {
+  const L = [];
+  L.push('# Changeset polarity census (objectui#9727)');
+  L.push('');
+  L.push(`Corpus: ${path.relative(REPO_ROOT, result.corpusDir) || result.corpusDir}`);
+  L.push('');
+  L.push('## Controls -- same corpus, same instrument');
+  L.push('');
+  L.push('| control | probe | reading | expected |');
+  L.push('| --- | --- | --- | --- |');
+  for (const [name, c] of Object.entries(controls)) {
+    if (name === 'ok') continue;
+    L.push(`| ${name} | \`${c.probe}\` | ${c.reading} | ${c.expect} |`);
+  }
+  L.push('');
+  L.push(
+    controls.ok
+      ? 'Controls PASS -- the readings below are measurements.'
+      : 'CONTROLS FAILED -- the readings below measured nothing.',
+  );
+  L.push('');
+  L.push('## Population (P)');
+  L.push('');
+  L.push('| reading | value |');
+  L.push('| --- | --- |');
+  L.push(`| entries scanned | ${result.entriesScanned} |`);
+  L.push(`| sentences scanned | ${result.sentencesScanned} |`);
+  L.push(
+    `| matched, ASSERTION position | ${result.matchedAssertions} across ${result.matchedEntries} entries |`,
+  );
+  L.push(`| matched, QUOTED position (reported, never flagged) | ${result.matchedQuoted} |`);
+  L.push(
+    `| of those assertions, object resolved across a sentence boundary | ${result.pronounResolved} |`,
+  );
+  L.push(`| entries carrying the verb at all (lit control) | ${result.litControlEntries} |`);
+  L.push('');
+  L.push('## Verdict (V) -- CANDIDATES, not defects');
+  L.push('');
+  L.push('| reading | value |');
+  L.push('| --- | --- |');
+  L.push(
+    `| candidate contradictions | ${result.contradictions.length} across ${result.contradictionEntries} entries |`,
+  );
+  L.push(
+    `| claims naming a schema this tree does not declare | ${result.unresolvedSchemas.length} |`,
+  );
+  L.push('');
+  for (const c of result.contradictions) {
+    L.push(
+      `- ${c.entry} -- ${c.polarity} claim: ${c.schema}.${c.key} member=${c.memberPresent}` +
+        `${c.viaPronoun ? ' [object resolved across a sentence boundary]' : ''}` +
+        `${c.unionFace ? ' [union face: membership is a union of arms, an over-approximation]' : ''}`,
+    );
+  }
+  L.push('');
+  L.push('A candidate is not a defect, and nothing here licenses editing a changeset body:');
+  L.push('ROTTED and BORN FALSE take opposite repairs, and BORN FALSE is only decidable at');
+  L.push("the sentence's own write-time ref.");
+  return L.join('\n');
+}
+
+export function main(argv) {
+  const args = argv.slice(2);
+  const flag = (name, fallback) => {
+    const at = args.indexOf(name);
+    return at >= 0 && args[at + 1] ? args[at + 1] : fallback;
+  };
+  const corpusDir = path.resolve(flag('--corpus', path.join(REPO_ROOT, '.changeset')));
+  const typesDir = path.resolve(flag('--types', path.join(REPO_ROOT, 'packages/types/src')));
+
+  for (const dir of [corpusDir, typesDir]) {
+    if (!fs.existsSync(dir)) {
+      process.stderr.write(
+        `changeset-polarity-census: cannot read ${dir} -- this run measured nothing\n`,
+      );
+      return 1;
+    }
+  }
+
+  const memberIndex = buildMemberIndex(typesDir);
+  const controls = runControls({ corpusDir, memberIndex });
+  const result = census({ corpusDir, memberIndex });
+
+  if (args.includes('--json')) {
+    const payload = { controls, result: { ...result, matched: undefined, quoted: undefined } };
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+  } else {
+    process.stdout.write(`${report(result, controls)}\n`);
+  }
+  return controls.ok ? 0 : 2;
+}
+
+/**
+ * The entry guard goes through the ONE predicate (`scripts/invoked-as.mjs`).
+ *
+ * ⭐ Recorded because the first draft of this file hand-typed it, and a
+ * hand-typed guard is THIS SCRIPT'S OWN DEFECT CLASS. Node resolves symlinks
+ * for the module graph but leaves `process.argv[1]` as the caller typed it, so
+ * a census reached through a symlink compares two different paths, answers
+ * false, does nothing, and exits 0 with no output -- a clean-looking zero from
+ * an instrument that never ran, inside an instrument whose entire purpose is to
+ * stop false zeros from being reported as measurements.
+ */
+if (isEntrypoint(import.meta.url)) {
+  process.exitCode = main(process.argv);
+}

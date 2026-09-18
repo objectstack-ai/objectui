@@ -72,12 +72,16 @@ const warnedPercentScales = new Set<number>();
  * line that matters.
  *
  * ── In-range declarations are untouched, and that is load-bearing ───────
- * For a finite `scale` inside the domain, `Math.min`/`Math.max` return the
- * argument itself, so the returned width is `===` the declared one, no
- * warning is emitted and every ordinary percent field renders exactly as
- * before — a change that moved ordinary percent fields would be a different
- * card. A non-finite width (`Infinity` throws today, `NaN` already renders as
- * zero digits) resolves to `0`.
+ * The test is whether the ENGINE could have rendered the width, ⛔ not whether
+ * this function changed its spelling. Every width both formatters already
+ * accept comes back with the same rendered result and emits nothing — inside
+ * the domain `Math.min`/`Math.max` return the argument itself, and the two
+ * coercions the engines perform for themselves are preserved rather than
+ * second-guessed (measured: `(25).toFixed('2')` and
+ * `maximumFractionDigits: '2'` render two decimals, and so does `2.9`). A
+ * change that moved ordinary percent fields would be a different card. A width
+ * no engine can use — non-finite, or outside the domain — resolves into the
+ * domain and is reported.
  *
  * ⛔ This says nothing about which MEMBER a face reads, nor about what an
  * ABSENT `scale` means — the two faces still spell that absence differently
@@ -87,10 +91,21 @@ const warnedPercentScales = new Set<number>();
  * resolved.
  */
 export function renderablePercentScale(declared: number): number {
-  const renderable = Number.isFinite(declared)
-    ? Math.min(PERCENT_SCALE_CEILING, Math.max(0, declared))
+  // `Number(...)` rather than a `typeof` test, because the ENGINES coerce:
+  // `(25).toFixed('2')` and `maximumFractionDigits: '2'` both render two
+  // decimals today, and `2.9` renders two on both. This function moves only
+  // widths the engines would have REFUSED, so a declaration that already
+  // rendered keeps rendering identically — the parameter is typed `number`,
+  // but the value reaching it comes from untyped JSON metadata.
+  const asNumber = Number(declared);
+  const renderable = Number.isFinite(asNumber)
+    ? Math.min(PERCENT_SCALE_CEILING, Math.max(0, asNumber))
     : 0;
-  if (renderable !== declared && !warnedPercentScales.has(declared)) {
+  // The predicate is "the engine could not have rendered this", ⛔ not
+  // "the value changed spelling": `renderable !== declared` would report the
+  // string `'2'` becoming the number `2`, which is a width nothing moved.
+  const refused = !Number.isFinite(asNumber) || asNumber < 0 || asNumber > PERCENT_SCALE_CEILING;
+  if (refused && !warnedPercentScales.has(declared)) {
     warnedPercentScales.add(declared);
     console.warn(
       `[ObjectUI] percent field: a declared \`scale\` of ${declared} is outside the ` +

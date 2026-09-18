@@ -202,6 +202,24 @@ describe('an IN-RANGE percent `scale` is untouched by the ruling (objectui#9808 
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it('leaves a width the ENGINE already coerces exactly where it was', () => {
+    // ⚠️ MEASURED, and the reason the ruling tests "could the engine render
+    // this" rather than "did the value change spelling": both formatters
+    // coerce for themselves — `(25).toFixed('2')` and
+    // `maximumFractionDigits: '2'` render two decimals, and so does `2.9`. A
+    // guard that refused a non-number would MOVE a cell that renders today,
+    // which is a silent regression on off-spec-but-working metadata and not
+    // this card's business.
+    renderCell(0.25, { scale: '2' });
+    expect(screen.getByRole('progressbar').parentElement!.textContent).toContain('25.00');
+    cleanup();
+
+    renderCell(0.25, { scale: 2.9 });
+    expect(screen.getByRole('progressbar').parentElement!.textContent).toContain('25.00');
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('leaves a percent field declaring NO `scale` on its own face default', () => {
     // ⛔ This card does not touch what an absent `scale` means, and the two
     // faces still spell it differently (widget 2, cell 0) — the disagreement

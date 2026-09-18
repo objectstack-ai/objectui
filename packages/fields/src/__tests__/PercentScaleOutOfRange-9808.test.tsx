@@ -93,7 +93,7 @@ const fractionDigits = (text: string): number => {
 };
 
 /** Every console line this render produced, joined. */
-const warnings = () => warn.mock.calls.map((c) => String(c[0])).join('\n');
+const warnings = () => warn.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
 
 describe('an out-of-range percent `scale` is clamped and reported, not thrown (objectui#9808)', () => {
   it('renders the readonly edit face instead of taking out the subtree', () => {

@@ -28,7 +28,7 @@ import {
   resolveIcon,
   useIsMobile,
 } from '@object-ui/components';
-import { SchemaRenderer, useCondition, toPredicateInput, type RelatedRowActionDef } from '@object-ui/react';
+import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, type RelatedRowActionDef } from '@object-ui/react';
 import {
   Plus,
   ExternalLink,
@@ -461,6 +461,58 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   const [lookupLabels, setLookupLabels] = React.useState<Record<string, Record<string, string>>>({});
   const { t } = useDetailTranslation();
   const { fieldLabel: resolveFieldLabel } = useSafeFieldLabel();
+
+  /**
+   * [ADR-0066 D4 / objectui#9782] The `list_toolbar` set this header may draw,
+   * with `requiredPermissions` mirrored as a UI hide.
+   *
+   * `@objectstack/spec` declares the key as "enforced with 403 on the platform
+   * action route (script/flow/modal + MCP) and **mirrored as a UI hide**". The
+   * same bridge (`RelatedRecordActionsBridge.deriveActions`) feeds the child
+   * object's `list_item` actions and these header buttons, and it filters on
+   * `locations` alone — so before this the toolbar honoured `visible` and
+   * nothing else, and an action declaring a capability the caller lacks
+   * rendered one surface over from `EnvironmentListToolbar`, which hides it.
+   * Third and last carrier of one declaration, after the data-table row menu
+   * (objectui#9623) and `DeclaredActionsBar` (objectui#9572).
+   *
+   * ⛔ A UI MIRROR of a decision the SERVER still enforces, and nothing more:
+   * the route still answers 403, the dispatch below is byte-identical either
+   * way, and ⛔ no enforcement moves into the renderer. Unknown capabilities
+   * fail OPEN (see `useCapabilityGate`) — an absent `systemPermissions` is not
+   * a denial — while an EMPTY held set means "holds nothing" and gates
+   * normally.
+   *
+   * ⭐ PLACEMENT is load-bearing, and it is why the filter sits in this body.
+   * `useCapabilityGate` resolves the held set from the nearest
+   * `ActionProvider` ABOVE its caller, and objectui#9572 measured what a gate
+   * on the wrong side of that provider does: it reads a different provider, or
+   * none, and fails open on every action forever with a green suite. Unlike
+   * `DeclaredActionsBar`, this component mounts NO provider of its own — its
+   * host chain is `RecordDetailView`'s `ActionProvider` →
+   * `RelatedRecordActionsBridge` → `SchemaRenderer` → here — so this body and
+   * the buttons it draws read one and the same provider, the one seeded with
+   * the `user.systemPermissions` the engine reads.
+   * `RelatedList.toolbarCapabilityGate-9782.test.tsx` supplies the held set
+   * through that provider ALONE, so moving this filter out of the component
+   * fails it.
+   *
+   * Applied ONCE over the set rather than inside `RelatedToolbarButton`, so
+   * whatever the header derives from these actions and the buttons themselves
+   * read one filtered source (the objectui#3562 invariant). ⚠️ Nothing in this
+   * header currently counts them — the action row draws Add/New too, so a
+   * wholly denied set leaves no orphan chrome today — and gating once is what
+   * keeps that true if something starts counting.
+   *
+   * Composes with, and never replaces, the fail-CLOSED `visible` CEL each
+   * button still evaluates: the two are ANDed, so the composition is MONOTONE
+   * and can only ever hide more than before.
+   */
+  const mayInvoke = useCapabilityGate();
+  const permittedToolbarActions = React.useMemo(
+    () => (toolbarActions ?? []).filter((a) => mayInvoke((a as any)?.requiredPermissions)),
+    [toolbarActions, mayInvoke],
+  );
 
   const effectivePageSize = pageSize && pageSize > 0 ? pageSize : 0;
   // The built-in contains-filter is a CLIENT-side sweep over every field —
@@ -1702,7 +1754,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
             {/* Child-object list_toolbar actions (e.g. Invite User) — the
                 related-list equivalent of the object list's toolbar buttons.
                 Rendered before Add/New so the domain action leads. */}
-            {onToolbarAction && (toolbarActions ?? []).map((a) => (
+            {onToolbarAction && permittedToolbarActions.map((a) => (
               <RelatedToolbarButton
                 key={a.name}
                 action={a}

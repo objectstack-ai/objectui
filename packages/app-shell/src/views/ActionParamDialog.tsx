@@ -377,17 +377,19 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
             // prop existed the dialog passed nothing, so `useCascadingOptions`
             // resolved the EMPTY record — and a `visibleWhen` written against a
             // sibling PARAM could never see the value the user had just picked
-            // in this same dialog. The evaluator is untouched: it already reads
-            // `dependentValues ?? formValues ?? data`; this is the supply half
-            // that was missing.
+            // in this same dialog. The evaluator is untouched: this is the
+            // supply half that was missing.
             //
             // ⚠️ This used to say the fall-through reached "`SchemaRendererContext`'s
             // `formValues` / `data` — the OUTER page's record". It did not, and
             // no host could have made it: `SchemaRendererContextType` declares
             // exactly `dataSource` / `debug` / `debugFlags` / `apiFetch`, so
-            // that tail is unconditionally `{}` — unsettable, not merely unset
-            // (objectui#7206). The fall-through reached `{}`, which is why the
-            // predicate came back UNRESOLVABLE rather than resolved against
+            // that tail was unconditionally `{}` — unsettable, not merely
+            // unset. It has since been retired under ADR-0049 enforce-or-remove
+            // (objectui#7206), and `useCascadingOptions` now reads
+            // `dependentValues ?? {}`. The fall-through reached `{}` then and
+            // resolves `{}` now, which is why a predicate the dialog has no
+            // param for comes back UNRESOLVABLE rather than resolved against
             // some outer record.
             //
             // Ruled cost, recorded rather than worked around: because a

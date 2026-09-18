@@ -433,11 +433,12 @@ const DATA_SOURCE_ONLY_WIDGET_TYPES = new Set([
  * its "select … first" hint — the very leak objectstack#5407 fixed for lookups.
  *
  * ⚠️ This used to credit `dependentValues` with a context fallback too. The
- * widgets spell one (`?? ctx.formValues ?? ctx.data`), but
+ * widgets spelled one (`?? ctx.formValues ?? ctx.data`) while
  * `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
- * `debugFlags` / `apiFetch`, so it is unconditionally empty — unsettable, not
- * merely unset (objectui#7206). Of the three props above, only `dataSource` is
- * really served by the context.
+ * `debugFlags` / `apiFetch`, so it was unconditionally empty — unsettable, not
+ * merely unset — and it has since been retired (objectui#7206). Of the three
+ * props above, only `dataSource` is served by the context at all; the other two
+ * reach a widget only because this renderer passes them.
  * The widget contract has always named `user` among the types this renderer
  * injects `dataSource` for (`fields/src/widgets/types.ts`).
  *

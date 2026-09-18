@@ -69,7 +69,6 @@ const reported = new Set<string>();
 export function reportRetiredDashboardNodeType(spelling: string): void {
   if (reported.has(spelling)) return;
   reported.add(spelling);
-  // eslint-disable-next-line no-console
   console.error(
     RETIRED_DASHBOARD_NODE_TYPES[spelling] ??
       `[object-ui] Node type \`${spelling}\` was retired by @object-ui/plugin-dashboard.`,

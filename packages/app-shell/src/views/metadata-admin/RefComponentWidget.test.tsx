@@ -29,7 +29,7 @@ describe('ref:component widget', () => {
         value="project_picker"
         onChange={() => {}}
         schema={{ type: 'string' }}
-        context={{ componentIds: [
+        context={{ conditionScope: 'flattened', componentIds: [
           { id: 'project_picker', type: 'element:record_picker' },
           { id: 'task_list', type: 'record:related_list' },
         ] }}
@@ -44,7 +44,7 @@ describe('ref:component widget', () => {
         value="typed_id"
         onChange={() => {}}
         schema={{ type: 'string' }}
-        context={{ componentIds: [] }}
+        context={{ conditionScope: 'flattened', componentIds: [] }}
       />,
     );
     // No combobox — a plain input carrying the stored value so it stays editable.
@@ -58,7 +58,7 @@ describe('ref:component widget', () => {
         value="renamed_picker"
         onChange={() => {}}
         schema={{ type: 'string' }}
-        context={{ componentIds: [{ id: 'project_picker', type: 'element:record_picker' }] }}
+        context={{ conditionScope: 'flattened', componentIds: [{ id: 'project_picker', type: 'element:record_picker' }] }}
       />,
     );
     expect(screen.getByRole('combobox')).toBeInTheDocument();
@@ -186,7 +186,7 @@ describe('SchemaForm → variables.source integration', () => {
         form={form}
         value={{ variables: [{ name: 'selectedProjectId', source: 'project_picker' }] }}
         onChange={() => {}}
-        widgetContext={{ componentIds: [
+        widgetContext={{ conditionScope: 'flattened', componentIds: [
           { id: 'project_picker', type: 'element:record_picker' },
           { id: 'task_list', type: 'record:related_list' },
         ] }}

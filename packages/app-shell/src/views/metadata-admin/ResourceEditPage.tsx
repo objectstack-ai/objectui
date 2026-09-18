@@ -104,6 +104,7 @@ import {
   type ObjectFieldOption,
   type WidgetContext,
 } from './widgets.js';
+import { conditionScopeForMetadataType } from './conditionScope.js';
 import { mapLoaded, usePickerLoad } from './loadState.js';
 import {
   useMetadataClient,
@@ -966,13 +967,19 @@ function MetadataResourceEditPageImpl({
   // agree.
   const widgetContext = React.useMemo<WidgetContext>(
     () => ({
+      // objectui#8167 — this page is the generic editor for EVERY metadata
+      // type, so it is the one host that cannot state a single verdict: it
+      // derives one per type from the ruled table. Hard-coding a value here
+      // would put one tier's scope in front of every other tier's authors,
+      // which is the shape the ruling refused by name.
+      conditionScope: conditionScopeForMetadataType(type),
       objectNames: objectsState,
       objectFields: mapLoaded(objectCatalogState, (catalog) => catalog.fields),
       objectActions: mapLoaded(objectCatalogState, (catalog) => catalog.actions),
       objectViews: objectViewsState,
       componentIds,
     }),
-    [objectsState, objectCatalogState, objectViewsState, componentIds],
+    [type, objectsState, objectCatalogState, objectViewsState, componentIds],
   );
 
   // Load layered view + initial draft.

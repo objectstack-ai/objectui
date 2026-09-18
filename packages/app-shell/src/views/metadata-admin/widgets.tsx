@@ -52,6 +52,7 @@ import { usePredicateScope } from '@object-ui/react';
 import { buildPredicateCtx, visibleOptions, type PredicateCtx } from './predicate.js';
 import { foldFilterGroupToSpecRules, FILTER_FOLD_REFUSAL_KEYS } from '../viewFilterFold.js';
 import { ColorVariantPicker } from './color-variant-field.js';
+import type { ConditionScope } from './conditionScope.js';
 import { ConditionBuilder } from './inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from './inspectors/expression-envelope.js';
 import { humanizeKey } from './inspectors/json-schema-to-fields.js';
@@ -126,6 +127,33 @@ export interface ObjectActionOption {
  * D3).
  */
 export interface WidgetContext {
+  /**
+   * Which lint scope the schema-driven condition editor may claim on THIS
+   * host's surface — `record`, `flattened`, or `none` for no claim at all
+   * (objectui#8167).
+   *
+   * ## Required, and that is the whole point
+   *
+   * Every other member here is a catalog a host may or may not have fetched, so
+   * absence is a legitimate answer. This one is a VERDICT about the surface the
+   * host is editing, and there is no neutral value: the widget serves every
+   * metadata type by name convention, so before this member existed every
+   * condition field in every generic form fell through to `celAuthoring`'s
+   * `hint.scope ?? 'flattened'` default and linted the retired bare shorthand
+   * CLEAN — on the action and hook tiers, where the runtime binds the row as
+   * the `record` ROOT and the predicate therefore never matches.
+   *
+   * Making it required puts the answer where the question can be answered: the
+   * host knows which metadata type is on screen, the widget never can. A
+   * missing verdict is a compile error at the construction site rather than a
+   * silent `flattened` in front of an author.
+   *
+   * ⛔ This is NOT the widget's own knob and ⛔ not a hard-coded value. A host
+   * editing one fixed surface states its verdict; a host editing many derives
+   * it from the metadata type with `conditionScopeForMetadataType`, whose table
+   * carries the per-tier rulings and the reading behind each one.
+   */
+  conditionScope: ConditionScope;
   /** Names of all object metadata records (for `ref:object`, `object-selector`). */
   objectNames?: LoadState<string[]>;
   /**
@@ -2398,18 +2426,44 @@ function ConditionWidget({ value, onChange, readOnly, context, ariaLabelledBy }:
   const fieldsState = context?.objectFields ?? NOT_ASKED;
   const conditionFields =
     fieldsState.status === 'loaded' ? fieldsState.data : undefined;
+  // objectui#8167 — the host's verdict about its own surface, never this
+  // widget's guess. `undefined` is the one case this widget decides, and it
+  // decides it by changing NOTHING: a host that hands down no `WidgetContext`
+  // at all has made no claim, so the builder keeps forwarding no scope and
+  // `celAuthoring`'s `hint.scope ?? 'flattened'` answers exactly what it
+  // answered before this member existed. ⛔ Not `'none'`: that is a decision,
+  // and swapping the editor under a host that never asked for it would be this
+  // change reaching mounts nobody ruled on.
+  const conditionScope = context?.conditionScope;
   return (
     // `ConditionBuilder` is a multi-control composite (field / operator / value
     // rows plus add-condition buttons) shared with the curated inspectors, so
     // the naming wrapper lives HERE — the widget owns the host contract, the
-    // shared builder stays host-agnostic (objectui#4871).
+    // shared builder stays host-agnostic (objectui#4871). The wrapper stays put
+    // on both arms: `WIDGET_LABELLING` declares this key `'group'`, so the host
+    // sends a label id and no control id, and that contract cannot vary with
+    // the scope.
     <div role="group" aria-labelledby={ariaLabelledBy}>
-      <ConditionBuilder
-        value={expressionSource(value)}
-        onCommit={(cel) => onChange(writeExpressionSource(value, cel))}
-        fields={conditionFields}
-        disabled={readOnly}
-      />
+      {conditionScope === 'none' ? (
+        // No lint claim is honest on this surface, so the field gets the plain
+        // string editor every non-predicate field gets — no builder, no scope,
+        // no verdict. The read/write pair still runs, so an ADR-0089 envelope
+        // round-trips here exactly as it does through the builder.
+        <Input
+          aria-labelledby={ariaLabelledBy}
+          value={expressionSource(value)}
+          onChange={(e) => onChange(writeExpressionSource(value, e.target.value))}
+          disabled={readOnly}
+        />
+      ) : (
+        <ConditionBuilder
+          value={expressionSource(value)}
+          onCommit={(cel) => onChange(writeExpressionSource(value, cel))}
+          fields={conditionFields}
+          disabled={readOnly}
+          scope={conditionScope}
+        />
+      )}
     </div>
   );
 }

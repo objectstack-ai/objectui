@@ -55,7 +55,10 @@ import '@testing-library/jest-dom';
 import React from 'react';
 
 import { ObjectGrid } from '../ObjectGrid';
+import { registerAllFields } from '@object-ui/fields';
 import { ActionProvider } from '@object-ui/react';
+
+registerAllFields();
 
 const OBJECT = 'duly_task';
 
@@ -239,6 +242,71 @@ describe('ObjectGrid — a non-positive authored page size is refused at every r
     await renderGrid({ schema: gridSchema(), dataSource: ds });
 
     await vi.waitFor(() => expect(ds.find).toHaveBeenCalled());
+    expect(paginationWarnings()).toHaveLength(0);
+  });
+
+  // ── SITE 3b: THE FLAT SIZE ITSELF, ON THE CHANNEL WHERE IT IS LIVE ──────
+  //
+  // ⚠️ The rows above cannot redden this site. For `0` the discarded `||`
+  // spelling already produced the same 10 the resolver produces, so an
+  // ablation of the flat read point passes every assertion written for `0` —
+  // measured, and recorded in the PR body. What the two spellings actually
+  // disagree about at this site is a TRUTHY invalid value: `-10 || 10` is
+  // `-10` and `25.5 || 10` is `25.5`, both of which the old spelling passed
+  // straight through to the table. These rows are that disagreement, read off
+  // the rendered rows.
+  //
+  // The channel matters: the flat size is the table's live page size only when
+  // `manualPaginationOn` is false, which is what inline `data` gives.
+  const INLINE_ROWS = Array.from({ length: 12 }, (_, i) => ({
+    id: String(i + 1),
+    name: `Row ${String(i + 1).padStart(2, '0')}`,
+    status: 'open',
+  }));
+
+  const renderInline = (opts: Record<string, unknown>) =>
+    render(
+      <ActionProvider>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <ObjectGrid
+          schema={{
+            type: 'object-grid',
+            objectName: 'task',
+            columns: [
+              { field: 'name', label: 'Name' },
+              { field: 'status', label: 'Status' },
+            ],
+            data: { provider: 'value', items: INLINE_ROWS },
+            ...opts,
+          } as any}
+        />
+      </ActionProvider>,
+    );
+
+  const bodyRows = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('tbody tr'));
+
+  it('a negative page size does not reach the flat table', async () => {
+    const { container } = renderInline({ pagination: { pageSize: -10 } });
+    await vi.waitFor(() => expect(bodyRows(container).length).toBeGreaterThan(0));
+    // Twelve rows at the default ten: a full first page and a second one.
+    expect(bodyRows(container)).toHaveLength(10);
+    expect(paginationWarnings().length).toBeGreaterThan(0);
+  });
+
+  it('a non-integer page size does not reach the flat table', async () => {
+    const { container } = renderInline({ pagination: { pageSize: 25.5 } });
+    await vi.waitFor(() => expect(bodyRows(container).length).toBeGreaterThan(0));
+    // `25.5` is truthy, so the old spelling handed it to the table and every
+    // one of the twelve rows landed on a single page.
+    expect(bodyRows(container)).toHaveLength(10);
+    expect(paginationWarnings().length).toBeGreaterThan(0);
+  });
+
+  it('CONTROL — a valid flat page size still sizes the table', async () => {
+    const { container } = renderInline({ pagination: { pageSize: 5 } });
+    await vi.waitFor(() => expect(bodyRows(container).length).toBeGreaterThan(0));
+    expect(bodyRows(container)).toHaveLength(5);
     expect(paginationWarnings()).toHaveLength(0);
   });
 

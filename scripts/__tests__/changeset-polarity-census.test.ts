@@ -14,10 +14,12 @@ import {
   backtickedKeys,
   buildMemberIndex,
   census,
+  clauseTexts,
   cutSentences,
   isQuotedInline,
   matchesPopulation,
   readClaim,
+  readPolarity,
   runControls,
   segmentSentences,
 } from '../changeset-polarity-census.mjs';
@@ -53,6 +55,12 @@ import {
  *     the zeros mean anything -- a FAILED control voids the run.
  *  7. IT DOES NOT ANSWER ABOUT ITSELF. The corpus is `.changeset/` and nothing
  *     else, so the script cannot match its own docstring or these fixtures.
+ *  8. POLARITY IS A CLAUSE PROPERTY (objectui#9754). A negator that belongs to
+ *     another clause does not invert the verdict on a key this sentence
+ *     asserts -- and, the other leg, a negator that DOES scope the declaration
+ *     verb still does. Without the second leg the repair would have traded
+ *     false positives for false negatives, which is the failure this whole
+ *     family of cards is about.
  *
  * Every pin except 6 and 7 runs against FIXTURES, deliberately. The live
  * `packages/types/src` moves whenever a card declares a member -- which is the
@@ -342,4 +350,88 @@ function run(args: string[]) {
     const e = error as { status?: number; stdout?: string; stderr?: string };
     return { status: e.status ?? -1, stdout: e.stdout ?? '', stderr: e.stderr ?? '' };
   }
+}
+
+describe('objectui#9754 pin 8 -- polarity belongs to the clause that carries the verb', () => {
+  /**
+   * The instrument names this false-positive source on itself, under
+   * "The three limits that produce this instrument's false positives": a
+   * sentence carrying `no` / `not` / `none` for an UNRELATED clause was read
+   * as a negative claim and the verdict inverted on a key the sentence asserts.
+   *
+   * `07-polarity-clause-scope.md` carries all three shapes in one entry, so the
+   * two legs of the repair are pinned against ONE reading of ONE fixture:
+   * the false positive must go, and the true negative claim must stay.
+   */
+  const flags = flagsFor('07-polarity-clause-scope');
+
+  it('does NOT invert on a negator that belongs to another clause', () => {
+    // "There is no mirror entry ..., so `ObjectKanbanSchema` declares
+    // `cardTitle`" asserts `cardTitle`, which the face declares. Read
+    // sentence-wide it was a NEGATIVE claim about a present member -- a flag.
+    expect(flags.map((f) => f.key)).not.toContain('cardTitle');
+    // DARK LEG: the sentence really does carry a negator, or this pin is
+    // vacuous and would pass against the instrument it is here to distinguish.
+    const sentence = fixtureSentence('07-polarity-clause-scope.md', /mirror entry/);
+    expect(/\bno\b/i.test(sentence.text)).toBe(true);
+    expect(readPolarity(sentence.text).byKey.cardTitle).toBe('positive');
+  });
+
+  it('keeps each half of a coordinated claim on its own polarity', () => {
+    // "`ObjectKanbanSchema` declares `columns` and no `titleField`" asserts
+    // one key and denies the other. `columns` is declared, so the assertion is
+    // true; `titleField` is declared, so the DENIAL is false and is the flag.
+    const sentence = fixtureSentence('07-polarity-clause-scope.md', /and no /);
+    const reading = readPolarity(sentence.text);
+    expect(reading.byKey.columns).toBe('positive');
+    expect(reading.byKey.titleField).toBe('negative');
+    expect(flags.map((f) => f.key)).not.toContain('columns');
+    expect(flags.map((f) => f.key)).toContain('titleField');
+  });
+
+  it('a negator that DOES scope the verb still reads negative -- the no-trade leg', () => {
+    // Without this the repair would buy its precision with false negatives.
+    const sentence = fixtureSentence('07-polarity-clause-scope.md', /surviving face/);
+    expect(readPolarity(sentence.text).byKey.allowCollapse).toBe('negative');
+    expect(flags.map((f) => f.key)).toContain('allowCollapse');
+  });
+
+  it('the whole entry reads exactly the two denials and neither assertion', () => {
+    expect(flags.map((f) => f.key).sort()).toEqual(['allowCollapse', 'titleField']);
+    expect(flags.every((f) => f.polarity === 'negative')).toBe(true);
+    expect(flags.every((f) => f.memberPresent)).toBe(true);
+  });
+
+  it('names the cut, not just the outcome', () => {
+    // A pin that only checked the verdict could be satisfied by any mechanism,
+    // including one that stopped reading polarity at all. This names the clause
+    // boundary the reading is built on.
+    expect(clauseTexts('It has no mirror entry today, so `S` declares `k`.')).toEqual([
+      'It has no mirror entry today,',
+      '`S` declares `k`.',
+    ]);
+    expect(clauseTexts('`S` declares `a` and no `b`.')).toEqual([
+      '`S` declares `a`',
+      'no `b`.',
+    ]);
+  });
+
+  it('a key resolved ACROSS a sentence boundary takes the verb\'s own clause', () => {
+    // The pronoun case has no clause in this sentence to sit in, so it falls
+    // back to the sentence's first declaration clause -- which is the clause
+    // its verb is in. Pin 1 depends on this staying negative.
+    const reading = readPolarity('The surviving `ObjectKanbanSchema` face declares none of them.');
+    expect(reading.polarity).toBe('negative');
+    expect(Object.keys(reading.byKey)).toEqual([]);
+  });
+});
+
+/** One sentence of one fixture, by the text that identifies it. */
+function fixtureSentence(file: string, match: RegExp) {
+  const sentences = segmentSentences(
+    fs.readFileSync(path.join(FIXTURE_CORPUS, file), 'utf8'),
+  );
+  const found = sentences.find((s) => match.test(s.text));
+  expect(found, `no sentence of ${file} matches ${match} -- the fixture moved`).toBeTruthy();
+  return found!;
 }

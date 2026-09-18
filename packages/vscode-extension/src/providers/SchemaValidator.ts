@@ -118,15 +118,30 @@ export class SchemaValidator {
     // would take a document that USED to draw a diagnostic here down to ZERO,
     // which is a refusal going quiet in the one tool whose job is teaching the
     // format. ⛔ That is the opposite of what objectui#6771 is for.
-    if (schema[RETIRED_CHILD_LIST_KEY] !== undefined) {
+    const retired = schema[RETIRED_CHILD_LIST_KEY];
+    if (retired !== undefined) {
+      // The message does not over-describe the value, the same discipline
+      // `sdui-parser/src/body-dialect.ts` keeps: calling a scalar `body` a
+      // "child-list spelling" names a shape the author did not write.
+      const isChildList = typeof retired === 'object' && retired !== null;
       diagnostics.push(
         new vscode.Diagnostic(
           this.findPropertyRange(document, path, RETIRED_CHILD_LIST_KEY),
-          `"${RETIRED_CHILD_LIST_KEY}" is a retired child-list spelling — author "children" instead (objectui#6771)`,
+          isChildList
+            ? `"${RETIRED_CHILD_LIST_KEY}" is a retired child-list spelling — author "children" instead (objectui#6771)`
+            : `"${RETIRED_CHILD_LIST_KEY}" is a retired key — the child-list key is "children" (objectui#6771)`,
           vscode.DiagnosticSeverity.Warning
         )
       );
     }
+
+    // ⚠️ DECLARED FLAG, not a defect: this fires on ANY node carrying `body`,
+    // unscoped to per-type declared inputs, because this host has no manifest
+    // to read them from — the same absence that makes the push above necessary
+    // at all. Measured harmless inside the 15-type vocabulary this extension
+    // knows: none of them declares a `body` input. A component that did — the
+    // parser tier's `detail` carve-out — would draw a false positive here, and
+    // closing that needs an input table this package does not ship.
 
     // Recursively validate children.
     //

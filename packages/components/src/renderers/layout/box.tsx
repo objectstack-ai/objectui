@@ -31,10 +31,13 @@ import { forwardRef } from 'react';
  *   3. zero injected classes — no `cn()` merge, no default class, nothing.
  *
  * This renderer reads `children` ONLY, and since objectui#6771 retired the
- * `body` dialect every other renderer does too — with ONE declared exception,
- * `page:card`, whose read is back-compat for documents stored under a spelling
- * IT published (objectstack#5775, ADR-0087 D2). So `box` is no longer the
- * exception it was written as. The hazard it was minted against was `div`'s
+ * `body` dialect every renderer outside the `page:*` namespace does too. The
+ * exceptions are FOUR, all in `layout/containers.tsx` — `page:card` and the
+ * three thin `page:section` / `page:footer` / `page:sidebar` containers — and
+ * all four are back-compat reads for STORED documents, which `@objectstack/spec`
+ * says in as many words on `PageContainerProps`. So `box` is no longer the
+ * exception it was written as, and the surviving reads are not an authoring
+ * face at all (escalation: objectui#9916). The hazard it was minted against was `div`'s
  * `children || body` fallback, which made a mechanical `div`→X swap unsafe
  * (four catalog fixtures authored `body` and would have lost their content
  * silently, with an unchanged element count). That fallback is retired; the

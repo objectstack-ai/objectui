@@ -144,14 +144,26 @@ function childGroups(block: Block): Array<{ label: string; pathSuffix: string; c
       // `properties.body`. Prefer children, fall back to body so neither
       // shape leaves the card's content unreachable on the canvas.
       //
-      // ⚠️ KEPT through objectui#6771's retirement of the `body` dialect, on
-      // that card's ONE declared exception: this is the designer half of
-      // `page:card`'s stored-document read (`renderers/layout/containers.tsx`),
-      // which survives until the ADR-0087 D2 load-time conversion rewrites
-      // `body` to `children` (objectstack#5775). ⛔ Removing it before that
-      // makes a stored card's content unreachable on the canvas — the same
-      // silent loss the renderer-side read exists to prevent. The three thin
-      // `page:*` containers do NOT share this ground and dropped their arms.
+      // ⚠️ KEPT through objectui#6771's retirement of the `body` dialect: this
+      // is the designer half of `page:card`'s stored-document read
+      // (`renderers/layout/containers.tsx`). ⛔ Removing it makes a stored
+      // card's content unreachable on the canvas — the same silent loss the
+      // renderer-side read exists to prevent.
+      //
+      // ⛔ NOT "until the conversion lands": that precondition is stale.
+      // `pageCardBodyToChildren` shipped in `@objectstack/spec` 17.0.0 with
+      // `retiredFromLoadPath: true` and this repo installs 17.4.0, so what
+      // holds the read is stored rows that have not been replayed through it —
+      // a database question, not a release one.
+      //
+      // ⚠️ And the three thin `page:*` containers DO share this ground (the
+      // spec says so on `PageContainerProps`); they kept their renderer arms
+      // too. What they lack is a CONVERSION — the registry has one for
+      // `page:card` and none for them. ⭐ This file does NOT extend the same
+      // courtesy to `page:section` below, which returns `properties.children`
+      // alone: runtime and canvas therefore disagree about a stored `body`
+      // under that block. Recorded on objectui#9916, ⛔ not repaired here —
+      // widening the canvas is that card's call, not this one's.
       if (Array.isArray(props.body) && !Array.isArray(props.children)) {
         return [{ label: 'Body', pathSuffix: 'properties.body', children: props.body }];
       }

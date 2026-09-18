@@ -64,12 +64,26 @@
  * carrying NEITHER key renders its fields with no divider at all — the
  * "untitled trailing bucket" the ungrouped fields land in.
  *
- * Row 4 is the disclosure pair, and its sharp edge. `collapsed: true` takes the
- * section's fields out of the DOM while its heading stays; `collapsible` is a
- * SEPARATE member and is the only thing that makes that heading a control
- * (`role="button"` / `aria-expanded`). ⇒ a section declared `collapsed` and not
- * `collapsible` renders permanently closed with no affordance to open it, and
- * nothing declared distinguishes the two members.
+ * Row 4 is the disclosure pair. `collapsed: true` takes the section's fields
+ * out of the DOM while its heading stays, and the heading is a control
+ * (`role="button"` / `aria-expanded`) whenever either member says so.
+ *
+ * ⚠️ FLIPPED, the way rows 6 and 7 below flipped before it, and for the same
+ * reason: it pinned a DEFECT as behaviour. It used to require that a section
+ * declaring `collapsed` and NOT `collapsible` carry no affordance at all —
+ * i.e. that it render permanently closed, its fields out of the DOM and
+ * nothing on the page able to bring them back. objectui#8071 slice 11 handed
+ * that reading back as a finding (objectui#9780), and the maintainer ruled it
+ * on 2026-09-18, letter A: `collapsed` IMPLIES `collapsible`. The row now
+ * pins the implication, in the same change that made it true. Its job did not
+ * change — it is still the only row here watching the disclosure pair, and it
+ * must fail if either half stops.
+ *
+ * The two members remain SEPARATE and the implication runs one way only:
+ * `collapsible: true` alone still means "open, with a control", which is why
+ * this row keeps reading that spelling too. The deeper reading of the ruling —
+ * including `collapsible: false` with `collapsed: true`, which resolves in
+ * favour of `collapsed` — lives in `collapsedImpliesCollapsible-9780`.
  *
  * Row 5 is the non-vacuity control: with no `sections` at all the same three
  * fields render, with no divider anywhere — so rows 1-4 cannot be passing on a
@@ -294,28 +308,38 @@ describe('`object-form` — the member shape of `sections`', () => {
     expect(drawnFields(untitled), '…and it still renders them').toEqual(['amount']);
   });
 
-  it('4. `collapsed` removes the members from the DOM; `collapsible` is the SEPARATE member that makes the heading a control', async () => {
+  it('4. `collapsed` removes the members from the DOM, and it IMPLIES `collapsible` — the heading is a control either way (objectui#9780)', async () => {
+    // ⚠️ FLIPPED by objectui#9780 (maintainer ruling 2026-09-18, letter A), in
+    // the same change that made the implication true — see this file's header.
+    // The first block used to assert `.toBeNull()` here, pinning the trap as
+    // behaviour: `collapsed` alone rendered a section nothing could reopen.
     const closed = await mount({
       sections: [{ label: 'Money', fields: ['amount'], collapsed: true }],
     });
     expect(headings(closed)).toEqual(['Money']);
     expect(drawnFields(closed), '`collapsed` takes the section’s fields out of the DOM').toEqual([]);
+    const implied = closed.querySelector('[role="button"]');
     expect(
-      closed.querySelector('[role="button"]'),
-      '⛔ …and with no `collapsible` member there is NO affordance to open it again',
-    ).toBeNull();
+      implied,
+      '⭐ …and the affordance to open it again is installed on the strength of `collapsed` ALONE',
+    ).not.toBeNull();
+    expect(implied?.getAttribute('aria-expanded')).toBe('false');
 
     const disclosable = await mount({
       sections: [{ label: 'Money', fields: ['amount'], collapsed: true, collapsible: true }],
     });
     const control = disclosable.querySelector('[role="button"]');
-    expect(control, '`collapsible` is what makes the divider a control').not.toBeNull();
+    expect(control, 'declaring `collapsible` as well changes nothing — same closed control').not.toBeNull();
     expect(control?.getAttribute('aria-expanded')).toBe('false');
 
     const open = await mount({
       sections: [{ label: 'Money', fields: ['amount'], collapsible: true }],
     });
-    expect(drawnFields(open), 'control: the same section uncollapsed draws its member').toEqual(['amount']);
+    expect(
+      drawnFields(open),
+      'control: the members stay SEPARATE and the implication runs one way — `collapsible` alone ' +
+        'is still an OPEN section that draws its member',
+    ).toEqual(['amount']);
     expect(open.querySelector('[role="button"]')?.getAttribute('aria-expanded')).toBe('true');
   });
 

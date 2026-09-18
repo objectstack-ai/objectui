@@ -1493,6 +1493,27 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         ? sectionLabel(schema.objectName, section.name, section.label || section.name)
         : section.label;
       const isCollapsed = collapsedSections[sectionKey] ?? (section.collapsed ?? false);
+      // `collapsed` IMPLIES `collapsible` (objectui#9780, maintainer ruling
+      // 2026-09-18, letter A). The state read above is unconditional, while
+      // the disclosure control below used to be installed only for
+      // `collapsible` — so `collapsed: true` written ALONE (two independent
+      // members, both accepted by every declaration face) produced a section
+      // that starts closed, keeps its fields out of the DOM, and offers
+      // nothing on the page that can bring them back, with no error, warning
+      // or degradation. "Collapsed by default" is an everyday intent and
+      // `collapsed: true` is its most natural spelling, which is why the
+      // ruling made that spelling correct: refusing the combination at the
+      // declaration (letter B) and a dev-only warning (letter C) were both
+      // REFUSED — nobody can depend on a section that cannot be opened, so
+      // widening the behaviour has no loser.
+      //
+      // Read from the DECLARATION, never from `isCollapsed`: the latter is
+      // the live state, so deriving the control from it would delete the
+      // control the moment the user opened the section. `collapsible: false`
+      // together with `collapsed: true` is the same contradiction and the
+      // ruling resolves it the same way — collapsed wins, the toggle is
+      // present. A section that declares neither member is untouched.
+      const isCollapsible = Boolean(section.collapsible) || Boolean(section.collapsed);
 
       if (label) {
         groupedFields.push({
@@ -1534,9 +1555,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           // in the form at all.
           fields: sectionFields.map(f => f.name),
           colSpan: 4,
-          collapsible: section.collapsible,
+          collapsible: isCollapsible,
           collapsed: isCollapsed,
-          onToggle: section.collapsible
+          onToggle: isCollapsible
             ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
             : undefined,
           // `className`: deliberately not read — see the tabbed arm above

@@ -510,7 +510,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
    */
   const mayInvoke = useCapabilityGate();
   const permittedToolbarActions = React.useMemo(
-    () => (toolbarActions ?? []).filter((a) => mayInvoke((a as any)?.requiredPermissions)),
+    () => (toolbarActions ?? []).filter((a) => mayInvoke(a?.requiredPermissions)),
     [toolbarActions, mayInvoke],
   );
 

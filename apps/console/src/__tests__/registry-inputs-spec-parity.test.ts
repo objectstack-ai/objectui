@@ -2348,6 +2348,22 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-grid/src/__tests__/gridDataInputContract.test.ts',
     pins: 'The `object` arm is `ViewDataSchema` discriminated on `provider`: each of the four providers parses, none of them is an array, the declaration is one shape across both registered tags so the alias cannot drift, and it is pinned at compile time too (objectui#5090).',
   },
+  'object-grid.conditionalFormatting': {
+    file: 'packages/plugin-grid/src/__tests__/gridRowDecorationMembers-8071.test.tsx',
+    pins: 'The members read inside ONE formatting rule, asserted on the `style` attribute of the `<tr>` the grid paints. THREE alternative predicate members with a PRECEDENCE between them — one rule carrying `condition`, `expression` and the native `field`/`operator`/`value` triple, each naming a DIFFERENT row, is decided by `condition`; drop it and `expression` decides; drop that and the triple does — so a renderer reading any two of them as equivalent is red in a specific direction rather than merely unpinned. FOUR style members, and the sharp one is a RENAME: `backgroundColor` and `borderColor` keep their authored names on the way to the DOM while `textColor` is read as the CSS `color`, so keeping the authored spelling hands React a key it silently drops — same rules, same background, the text colour gone with nothing thrown. `style` is pinned as the BASE the three colour members override rather than replace (a non-colour member of it survives alongside the override). Two rule-list facts complete it: FIRST-MATCH-WINS with no merge (the second matching rule\'s own `textColor` never lands) and a rule carrying NO predicate member is SKIPPED rather than read as always-true, with the rule after it still deciding. The registration is an `array` arm and the spec row constrains nothing inside a member, so the read site is the whole member contract (objectui#8071 slice 12).',
+  },
+  'object-grid.operations': {
+    file: 'packages/plugin-grid/src/__tests__/gridOperationsMembers-8071.test.tsx',
+    pins: 'The THREE members read off this block, and the fact that they do not behave alike. `update` and `delete` gate the row kebab\'s generic entries and are read INDEPENDENTLY; an authored block REPLACES the wired-callback default rather than merging under it, so `operations: {}` — and, the shape an author actually writes, `operations: { export: false }` — CLOSES both even with `onEdit`/`onDelete` wired, while omitting the key entirely opens them. Neither member is a grant: both are ANDed with the consumer\'s callback, and both are a UNION with `rowActions`\' canonical names, so `update: false` cannot close what `rowActions: [\'edit\']` opened — the reading opposite to the natural one for a key spelled like a permission block. `export` is read at a different site with the OPPOSITE default, pinned as one statement: inside a single present block, the same omission closes `update` and leaves `export` allowed. Every kebab claim is read out of an opened menu on a rendered row, because a computed prop is green against a grid that draws the entry anyway. Prior art stated rather than credited: `exportGate.test.tsx` covers the `export` member alone and the two row-CRUD suites cover the layers ANDed on top, none of them the key\'s own members (objectui#8071 slice 12).',
+  },
+  'object-grid.rowActions': {
+    file: 'packages/plugin-grid/src/__tests__/legacyRowActionDispatch.test.tsx',
+    pins: 'Members are BARE ACTION NAMES resolved against `objectDef.actions` and dispatched as real defs — read off an entry carrying the object action\'s own label, which is deliberately not the humanization of the name, plus the unresolvable name that still renders for the `registerHandler` path and the no-dead-twin row (objectui#2960). The member fact objectui#8071 slice 12 GREW this file by: TWO spellings are CANONICAL. `edit` and `delete` are tested for, fed to the same gate `operations.update`/`delete` feed, and then REMOVED from the list handed to `resolveLegacyRowActions`, so they render as the BUILT-IN entries wired to `onEdit`/`onDelete` and NOT also as generic name-dispatched ones — passing the list on unfiltered is silent and shows up only as a second Edit beside the first, dispatching a type the runner has no handler for. Asserted with a canonical and an ordinary member in the same array, each absence paired with a presence in the same opened menu, and with a NON-ARRAY value read as no members at all. Pre-existing file, GROWN by the canonical-member rows before being registered rather than credited on its strings (objectui#2960, objectui#8071 slice 12).',
+  },
+  'object-grid.rowColor': {
+    file: 'packages/plugin-grid/src/__tests__/gridRowDecorationMembers-8071.test.tsx',
+    pins: 'The two CO-REQUIRED members, asserted on the class the grid paints onto the `<tr>`: `field` names a RECORD field and `colors` is the map keyed by ITS value, so two rows of one grid take two different classes and a value the author did not declare takes none. Either member alone colours NOTHING, with the complete pair over the same data as the control that keeps both absences from reading as a dead resolver. The map is keyed by the STRINGIFIED value — a number matches the string key, and an absent field and an explicit `null` collapse onto the SAME empty-string entry, which is the only way an author can colour "not set yet"; dropping the `?? \'\'` sends `null` to the key `"null"`, which no author writes. A map VALUE is read as a colour NAME or as an already-built `bg-*` class, and anything else (a hex, a CSS colour keyword) yields no class rather than reaching the DOM as a class attribute of its own. Absence is measured as the set of emitted `bg-<hue>-<step>` tokens, not as "contains bg-", because every row carries `bg-background` unconditionally and the weaker form would be vacuous. `useRowColor.prototypeGuard.test.tsx` is NOT this pin: it calls the hook directly and never names the block, so the repo\'s own locator would refuse it and it is green against a grid that never passes the resolver to the table (objectui#8071 slice 12).',
+  },
   'object-kanban.cardFields': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
@@ -2610,19 +2626,17 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // block this card closes, and this header stays only as a landmark for the
   // next reader who greps for it.
 
-  // object-grid
+  // object-grid — objectui#8071 slice 12 pinned the four per-ROW keys
+  // (`conditionalFormatting`, `operations`, `rowActions`, `rowColor`); the
+  // eleven below are what the block's first bite left.
   'object-grid.aggregations': AWAITING_A_PIN,
   'object-grid.batchActions': AWAITING_A_PIN,
   'object-grid.columns': AWAITING_A_PIN,
-  'object-grid.conditionalFormatting': AWAITING_A_PIN,
   'object-grid.dataSource': AWAITING_A_PIN,
   'object-grid.filter': AWAITING_A_PIN,
   'object-grid.grouping': AWAITING_A_PIN,
   'object-grid.navigation': AWAITING_A_PIN,
-  'object-grid.operations': AWAITING_A_PIN,
   'object-grid.pagination': AWAITING_A_PIN,
-  'object-grid.rowActions': AWAITING_A_PIN,
-  'object-grid.rowColor': AWAITING_A_PIN,
   'object-grid.searchableFields': AWAITING_A_PIN,
   'object-grid.selection': AWAITING_A_PIN,
   'object-grid.sort': AWAITING_A_PIN,
@@ -3137,11 +3151,56 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
  * reading was not re-measured here either — slice 7's measurement still stands.
  *
+ * ## 24 -> 20, and the first bite out of `object-grid`
+ *
+ * The twelfth slice takes four `object-grid` keys — `conditionalFormatting`,
+ * `operations`, `rowActions` and `rowColor` — so the ceiling follows to 20 in
+ * the same commit. The block is NOT closed: it held 15, the largest remaining,
+ * and is the first that cannot fit one slice at all.
+ *
+ * ⚠️ The batch was re-taken from THIS CONSTANT by the implementing seat before
+ * its first edit, on `origin/main` `0ee6e316e`, and it is NOT the batch the
+ * dispatch suggested. The dispatch guessed at the grid's query-and-display core
+ * (`columns`, `sort`, `filter`, `grouping`) and said in as many words that it
+ * had not read the sites. Read, they are four separate slices: `columns` pulls
+ * in the whole column fold and the `$select` projection, `grouping` pulls in
+ * `useGroupedData`, and `filter`/`sort` already carry dedicated files
+ * (`gridFilterInputSpelling`, `gridArrayArmOrderby-8973`,
+ * `gridRetiredStringSort-8767`, `serverSorting`) each of which needs reading end
+ * to end before it can be promoted or grown. What IS one read is the per-ROW
+ * layer: `rowColor` and `conditionalFormatting` are consumed on ADJACENT lines
+ * of the `DataTable` props (`rowClassName` / `rowStyle`) and land on the same
+ * `<tr>`; `operations` and `rowActions` are read inside the same fifteen-line
+ * row-affordance fold and meet at the same gate in `resolveRowCrudAffordances`,
+ * where — the finding this slice pins — they are a UNION rather than an
+ * intersection. Two files, four keys, two reads.
+ *
+ * Two of the four are a NEW FILE covering a PAIR, one is a new file of its own,
+ * and one is a promotion after growth — the distinction slices 1, 10 and 11
+ * turned on. `rowColor` and `conditionalFormatting` had no file constraining
+ * their members AT the grid: `useRowColor.prototypeGuard.test.tsx` calls the
+ * hook directly and never names the block (measured: ZERO occurrences of
+ * `object-grid` AND zero of the word `rowColor`, control `useRowColor` reads 7
+ * in the same file), so this repo's
+ * own locator would have refused it, and it is green against a grid that never
+ * hands the resolver to the table. `operations` had `exportGate.test.tsx` for
+ * the `export` member alone, and two suites for the layers ANDed on top of the
+ * key rather than for the key; the three members' own contract was unstated.
+ * `rowActions` had `legacyRowActionDispatch.test.tsx`, whose whole subject IS
+ * the key and which drives the real renderer — a genuine near miss — but it
+ * never authored the two CANONICAL members (`edit`, `delete`), which is the
+ * half the read site actually branches on, so it was GROWN by those rows before
+ * being registered rather than credited as found.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here either — slice 7's measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 24;
+const MEMBER_PIN_EXEMPTION_CEILING = 20;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

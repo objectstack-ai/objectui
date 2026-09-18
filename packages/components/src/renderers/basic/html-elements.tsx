@@ -172,7 +172,11 @@ for (const tag of TAGS) {
         'data-obj-type': dataObjType,
         style,
       },
-      isVoid ? undefined : renderChildren(schema?.children ?? schema?.body),
+      // `children` only (objectui#6771). This factory backs every safe HTML
+      // tag, so a surviving `??` arm would have kept the retired spelling
+      // alive across the widest surface in the tree while both published
+      // faces refuse it — the runtime honouring what the contract rejects.
+      isVoid ? undefined : renderChildren(schema?.children),
     );
   });
   Component.displayName = `Html${tag.charAt(0).toUpperCase()}${tag.slice(1)}`;

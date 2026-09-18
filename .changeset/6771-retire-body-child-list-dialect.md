@@ -4,6 +4,7 @@
 '@object-ui/core': minor
 '@object-ui/sdui-parser': minor
 '@object-ui/cli': minor
+'@object-ui/app-shell': minor
 'object-ui': minor
 ---
 
@@ -22,10 +23,20 @@ Ruled 2026-09-01: one concept, one spelling, and the spelling is `children`.
 ## What changed
 
 - **Renderers.** `alert`, `badge`, `tooltip` and the `sidebar-*` family read `children`.
-  Every `children || body` fallback drops its `body` arm — `div`, `card`, `button`,
-  `aspect-ratio`, the sectioning tags, `page`'s flat content list, `@object-ui/core`'s
-  recursive `validateSchema`, and the two container walkers that enumerated child
-  channels.
+  Every `children || body` fallback drops its `body` arm **except one, named below** —
+  `div`, `card`, `button`, `aspect-ratio`, the sectioning tags, the safe-HTML tag
+  factory behind ~36 tags, the three thin `page:section` / `page:footer` /
+  `page:sidebar` containers, `page`'s flat content list, `@object-ui/core`'s recursive
+  `validateSchema`, and the two container walkers that enumerated child channels.
+- **The one fallback that stays, and why.** `page:card` still reads `body` first, in
+  the renderer and on the Studio canvas. That key is `PageCardProps.body`, which this
+  registration **published** until objectstack#5775 (PR objectstack#6281) retired it,
+  so documents are stored in that spelling and the read is back-compat until the
+  ADR-0087 D2 load-time conversion rewrites them. ⛔ The three thin `page:*`
+  containers do **not** share that ground — `@objectstack/spec` declares all three
+  through one `PageContainerProps` whose single key is `children`, and before that
+  they were `EmptyProps`, so they never published `body` and nothing is stored under
+  it for their arm to rescue.
 - **The published type.** `BaseSchema.body` is `never` on the TypeScript face and an
   alias refusal naming `children` on the Zod mirror, as are the four per-component
   redeclarations (`CardSchema`, `AspectRatioSchema`, `PageNodeSchema`, `TooltipSchema`).

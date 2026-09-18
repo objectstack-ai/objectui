@@ -24,15 +24,25 @@
  * ⇒ the `body` legs were recording a PRE-RETIREMENT state, not guarding a live
  * contract, so they are inverted rather than deleted.
  *
- * ⭐ AND THE REFUSAL DOES NOT GO QUIET — the objection this inversion has to
- * answer, answered by measurement rather than by assertion. The validator leg
- * below used to say a child under `body` gets its missing `type` reported; it now
- * says that recursion does not run. That is not a check failing open: the key
- * itself is refused ONE LEVEL UP and louder than before. Measured on the BUILT
- * CLI, same document both spellings — `body` exits 1 with `Unrecognized key(s) on
- * this node: body. Did you mean body → children?` at `Path: body`, while
- * `children` exits 0 with `Schema is valid!`. Before the retirement that document
- * parsed GREEN and the validator merely walked into it.
+ * ⭐ AND THE REFUSAL MUST NOT GO QUIET — which took two goes to get right, so the
+ * correction is recorded rather than smoothed over.
+ *
+ * The first answer to that objection cited the BUILT CLI: same document both
+ * spellings, `body` exits 1 with `Unrecognized key(s) on this node: body. Did you
+ * mean body → children?` at `Path: body`, `children` exits 0. That reading is
+ * TRUE and it is about the WRONG TIER. It measures `@object-ui/types`' zod mirror
+ * through `@object-ui/cli`. ⛔ This file pins neither: the extension host imports
+ * no zod, builds no manifest, and its own JSON schema sets
+ * `additionalProperties: true` (`schemas/objectui-schema.json`). ⇒ dropping the
+ * `body` arm here, on its own, took a document that drew one diagnostic down to
+ * ZERO — a refusal genuinely going quiet, in the one tool whose job is teaching
+ * the format.
+ *
+ * So the arm did not just drop. `SchemaValidator` answers the retired key BY
+ * NAME, and the leg below is a POSITIVE assertion about that answer rather than
+ * an assertion that nothing happens. ⚠️ A measurement taken on one tier is not
+ * evidence about another, however true it is — that is the whole of the lesson
+ * here, and it is why the leg names the message it expects.
  *
  * ⛔ Every inverted leg keeps its ABSOLUTE numbers and sits beside its live twin,
  * so a reader that broke ENTIRELY satisfies neither half. That symmetry is what
@@ -328,18 +338,27 @@ describe('the VS Code validator recurses into `children` — and, since objectui
     );
   });
 
-  it('no longer descends a child spelled `body` — the retired key is not a child list', () => {
-    // ⛔ INVERTED, NOT DELETED, and ⛔ not weakened into a non-assertion: this leg
-    // states positively that the recursion does not run on the retired spelling.
-    // Read it with its `children` twin directly above — that one says the
-    // recursion DOES run and DOES report — so a validator that simply stopped
-    // working fails the pair. And see the header: the key is refused by name at
-    // parse now, so this is the check moving up a level, not failing open.
+  it('ANSWERS a child list spelled `body` by name, and does not descend it', () => {
+    // ⛔ INVERTED, NOT DELETED, and ⛔ not weakened into a non-assertion. Both
+    // halves are positive: the retired key draws a diagnostic that NAMES the
+    // replacement, and the recursion does not walk into it (so the child's own
+    // problem is not reported at an address the document does not contain).
+    //
+    // ⚠️ The first half is the one that matters, and it is here because dropping
+    // the arm WITHOUT it took this host from one diagnostic to zero — see the
+    // header. A `not.toContain` alone would have been satisfied by exactly that
+    // silence.
     const diagnostics = validateWithShippedValidator({
       type: 'card',
       body: [untypedChild],
     });
 
+    expect(
+      diagnostics.some(
+        (d) => d.message.includes('"body"') && d.message.includes('"children"')
+      ),
+      'the retired spelling drew no diagnostic naming its replacement'
+    ).toBe(true);
     expect(diagnostics.map((d) => d.message)).not.toContain(
       'Missing required property "type"'
     );

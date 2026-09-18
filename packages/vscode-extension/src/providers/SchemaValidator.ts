@@ -9,6 +9,15 @@
 import * as vscode from 'vscode';
 
 /**
+ * The child-list spelling objectui#6771 retired. Spelled here rather than
+ * imported: this package ships to the extension host with no `@object-ui/*`
+ * runtime dependency, which is the same reason it has no zod tier to lean on.
+ * `sdui-parser` exports the same constant as `RETIRED_CHILD_LIST_KEY`, and
+ * `__tests__/body-dialect-children-arm-7181.test.ts` pins the two together.
+ */
+const RETIRED_CHILD_LIST_KEY = 'body';
+
+/**
  * Validates Object UI schemas
  */
 export class SchemaValidator {
@@ -98,6 +107,27 @@ export class SchemaValidator {
       this.validateTypeSpecificProps(schema, diagnostics, document, path);
     }
 
+    // The retired `body` child-list spelling, answered BY NAME.
+    //
+    // ⚠️ THIS DIAGNOSTIC EXISTS BECAUSE THIS HOST HAS NO OTHER TIER. Everywhere
+    // else, dropping the `body` arm moves the answer UP a level and makes it
+    // louder: `@object-ui/types`' zod mirror refuses the key by name, so
+    // `objectui validate` exits 1 naming `children`. The extension host imports
+    // no zod, builds no manifest, and its JSON schema sets
+    // `additionalProperties: true` — so without the push below, retiring the arm
+    // would take a document that USED to draw a diagnostic here down to ZERO,
+    // which is a refusal going quiet in the one tool whose job is teaching the
+    // format. ⛔ That is the opposite of what objectui#6771 is for.
+    if (schema[RETIRED_CHILD_LIST_KEY] !== undefined) {
+      diagnostics.push(
+        new vscode.Diagnostic(
+          this.findPropertyRange(document, path, RETIRED_CHILD_LIST_KEY),
+          `"${RETIRED_CHILD_LIST_KEY}" is a retired child-list spelling — author "children" instead (objectui#6771)`,
+          vscode.DiagnosticSeverity.Warning
+        )
+      );
+    }
+
     // Recursively validate children.
     //
     // `children` is the one child-list spelling. This guard once named
@@ -105,8 +135,8 @@ export class SchemaValidator {
     // every child silently skipped by this recursion — no diagnostic, no
     // refusal, just an unvisited subtree (objectui#7181 added the `children`
     // arm). objectui#6771 then retired `body` itself, so the second arm went
-    // with it: a `body`-spelled document no longer has a child list for this
-    // recursion to walk, and the manifest tier answers the key by name.
+    // with it: a `body`-spelled document has no child list for this recursion
+    // to walk, and the push above is what keeps that from being silent.
     const childList = schema.children;
     if (childList) {
       const children = Array.isArray(childList) ? childList : [childList];

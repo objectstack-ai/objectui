@@ -143,6 +143,15 @@ function childGroups(block: Block): Array<{ label: string; pathSuffix: string; c
       // Seeded cards nest under `properties.children`; older specs used
       // `properties.body`. Prefer children, fall back to body so neither
       // shape leaves the card's content unreachable on the canvas.
+      //
+      // ⚠️ KEPT through objectui#6771's retirement of the `body` dialect, on
+      // that card's ONE declared exception: this is the designer half of
+      // `page:card`'s stored-document read (`renderers/layout/containers.tsx`),
+      // which survives until the ADR-0087 D2 load-time conversion rewrites
+      // `body` to `children` (objectstack#5775). ⛔ Removing it before that
+      // makes a stored card's content unreachable on the canvas — the same
+      // silent loss the renderer-side read exists to prevent. The three thin
+      // `page:*` containers do NOT share this ground and dropped their arms.
       if (Array.isArray(props.body) && !Array.isArray(props.children)) {
         return [{ label: 'Body', pathSuffix: 'properties.body', children: props.body }];
       }

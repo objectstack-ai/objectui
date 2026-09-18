@@ -873,7 +873,7 @@ export const SemanticElementSchema = BaseSchema.extend({
   type: z.enum(['aside', 'main', 'header', 'nav', 'footer', 'section', 'article'])
     .describe('HTML sectioning tag — the seven `renderers/layout/semantic.tsx` registers'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Child components — read as `schema.children || schema.body` by the factory'),
+    .describe('Child components — read by the factory as `schema.children`; the `body` arm was retired by objectui#6771'),
 });
 
 /**
@@ -923,7 +923,7 @@ export const HtmlElementSchema = BaseSchema.extend({
     'figure', 'figcaption', 'img', 'hr', 'br', 'time', 'address', 'cite', 'q',
   ]).describe('Safe HTML tag — the set `renderers/basic/html-elements.tsx` registers'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Child components — read as `schema.children ?? schema.body`; ignored for the void tags `img` / `hr` / `br`'),
+    .describe('Child components — read as `schema.children`, ignored for the void tags `img` / `hr` / `br`; the `body` arm was retired by objectui#6771'),
   href: z.string().optional()
     .describe('`a` link target; scheme-sanitised (`javascript:` / `data:` / `vbscript:` are dropped)'),
   target: z.string().optional().describe('`a` browsing context — an internal link navigates through the SPA router unless this names another target'),

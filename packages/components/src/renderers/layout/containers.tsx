@@ -934,6 +934,10 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // carrying both, which the conversion is what resolves; deleting the read
   // before the conversion is live would blank an existing card's content
   // silently — the `page-header-subtitle-alias` sequencing precedent, verbatim.
+  // ⚠️ THE ONE SURVIVING FALLBACK IN THIS TREE, and it survives on a ground
+  // the three thin `page:*` containers below do NOT share: they never
+  // published `body`, this registration did. objectui#6771 retired the
+  // spelling everywhere else and left this read alone for the reason above.
   const body = schema?.body ?? schema?.children;
   const footer = schema?.footer;
 
@@ -1107,7 +1111,17 @@ const PageSectionRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       className={cn('space-y-4', className)}
       {...designer}
     >
-      {renderChildren(schema?.children || schema?.body)}
+      {/*
+        `children` only. ⛔ This arm is NOT `page:card`'s: that registration
+        PUBLISHED `{ name: 'body', type: 'slot' }` until objectstack#5775 (PR
+        objectstack#6281) retired it, so stored documents carry the old spelling
+        and its read stays until the ADR-0087 D2 load-time conversion lands.
+        These three never published it: `@objectstack/spec` declares all three
+        through one `PageContainerProps` whose single key is `children`, and
+        before that they were `EmptyProps` — so there is no stored population
+        behind the fallback and nothing for it to rescue (objectui#6771).
+      */}
+      {renderChildren(schema?.children)}
     </section>
   );
 };
@@ -2213,7 +2227,8 @@ const PageFooterRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         className={cn('flex items-center justify-between text-sm text-muted-foreground', className)}
         {...designer}
       >
-        {renderChildren(schema?.children || schema?.body)}
+        {/* `children` only — ground at `page:section` above (objectui#6771). */}
+        {renderChildren(schema?.children)}
       </footer>
     </>
   );
@@ -2239,7 +2254,8 @@ const PageSidebarRenderer: React.FC<any> = ({ schema, className, ...props }) => 
       className={cn('flex flex-col gap-4 w-full md:w-80 shrink-0', className)}
       {...designer}
     >
-      {renderChildren(schema?.children || schema?.body)}
+      {/* `children` only — ground at `page:section` above (objectui#6771). */}
+      {renderChildren(schema?.children)}
     </aside>
   );
 };

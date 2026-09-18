@@ -1592,7 +1592,8 @@ export interface PageSlotMap {
 export interface SemanticElementSchema extends BaseSchema {
   type: 'aside' | 'main' | 'header' | 'nav' | 'footer' | 'section' | 'article';
   /**
-   * Child components — read as `schema.children || schema.body`.
+   * Child components. The factory read `schema.children || schema.body` until
+   * objectui#6771 retired the second spelling; it reads `schema.children`.
    */
   children?: SchemaNode | SchemaNode[];
 }
@@ -1623,8 +1624,9 @@ export interface HtmlElementSchema extends BaseSchema {
     | 'ul' | 'ol' | 'li' | 'dl' | 'dt' | 'dd'
     | 'figure' | 'figcaption' | 'img' | 'hr' | 'br' | 'time' | 'address' | 'cite' | 'q';
   /**
-   * Child components — read as `schema.children ?? schema.body`; ignored for the
-   * void tags `img` / `hr` / `br`.
+   * Child components; ignored for the void tags `img` / `hr` / `br`. The factory
+   * read `schema.children ?? schema.body` until objectui#6771 retired the second
+   * spelling.
    */
   children?: SchemaNode | SchemaNode[];
   /** `a` link target; scheme-sanitised (`javascript:` / `data:` / `vbscript:` are dropped). */

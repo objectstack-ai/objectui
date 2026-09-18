@@ -31,7 +31,9 @@ import { forwardRef } from 'react';
  *   3. zero injected classes — no `cn()` merge, no default class, nothing.
  *
  * This renderer reads `children` ONLY, and since objectui#6771 retired the
- * `body` dialect every other renderer does too — `box` is no longer the
+ * `body` dialect every other renderer does too — with ONE declared exception,
+ * `page:card`, whose read is back-compat for documents stored under a spelling
+ * IT published (objectstack#5775, ADR-0087 D2). So `box` is no longer the
  * exception it was written as. The hazard it was minted against was `div`'s
  * `children || body` fallback, which made a mechanical `div`→X swap unsafe
  * (four catalog fixtures authored `body` and would have lost their content

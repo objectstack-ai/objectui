@@ -99,6 +99,13 @@ reports `validity.badInput` and these widgets now say so: the control is marked
 
 > Not saved: the text in this box is not a number. Enter a plain decimal (example: 1234.56).
 
+The sentence follows the reader's language (objectui#8148) — it resolves through
+the `fields.number.badInput` locale key, so a console running in Chinese,
+Japanese or Arabic refuses in that language. The example numeral is the
+widget's own (`1234` for `number`, `1234.56` for `currency`, `12.5` for
+`percent`, `30.2741` / `120.1551` for the two `geolocation` boxes) and stays
+verbatim in every language.
+
 Measured in Chromium 141, typing any of `1e`, `1e-`, `1e+`, `5e`, `-`, `.`,
 `+`, `-.` or `e` leaves the box **visibly displaying** what was typed while its
 value reads empty. Before this was announced, the field simply stored nothing

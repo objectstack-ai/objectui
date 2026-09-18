@@ -288,6 +288,10 @@ const es = {
       refusedResidue:
         "No guardado: {{name}} «{{text}}» y {{otherName}} «{{otherText}}» no son números. Introduce decimales simples (ejemplo: 30.2741, 120.1551).",
     },
+    number: {
+      badInput:
+        "No guardado: el texto de este campo no es un número. Introduce un decimal simple (ejemplo: {{example}}).",
+    },
     tags: {
       placeholder: "Escriba y pulse Intro para añadir…",
     },

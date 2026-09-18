@@ -284,6 +284,10 @@ const de = {
       refusedResidue:
         "Nicht gespeichert: {{name}} „{{text}}“ und {{otherName}} „{{otherText}}“ sind keine Zahlen. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
     },
+    number: {
+      badInput:
+        "Nicht gespeichert: Der Text in diesem Feld ist keine Zahl. Geben Sie eine einfache Dezimalzahl ein (Beispiel: {{example}}).",
+    },
     tags: {
       placeholder: "Tippen und mit der Eingabetaste hinzufügen…",
     },

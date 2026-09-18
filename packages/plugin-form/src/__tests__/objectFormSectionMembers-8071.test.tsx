@@ -26,13 +26,15 @@
  *
  * ⛔ SCOPE, stated so this pin is not over-read. Five other layouts rebuild a
  * section key by key (`tabbed` / `wizard` / `split` / `drawer` / `modal`), and
- * two neighbouring files already own the member facts that are ABOUT those
+ * neighbouring files already own the member facts that are ABOUT those
  * rebuilds rather than about the member shape: `sectionVisibleWhen-6111` and
  * `sectionPredicateLayoutDiagnostic-6237` own `visibleWhen`,
- * `formSectionGroupReference-7051` owns the `{ group }` reference form, and
- * `groupsAlias` owns the legacy `groups` spelling folding onto this key. This
- * file is the default layout only, and it is the only one registered as the
- * member pin for the key.
+ * `formSectionGroupReference-7051` owns the `{ group }` reference form,
+ * `groupsAlias` owns the legacy `groups` spelling folding onto this key, and
+ * `drawerFormSectionDescription-9834` owns `description` on the DRAWER arm —
+ * a separate site that lost the same key one layer later and was repaired
+ * separately. This file is the default layout only, and it is the only one
+ * registered as the member pin for the key.
  *
  * ⭐ Row 1 is the one a plausible "improvement" breaks, and it is why this is a
  * pin rather than a restatement of "array". A section's `fields` members read
@@ -238,8 +240,13 @@ describe('`object-form` — the member shape of `sections`', () => {
     // copied the key onto the row and deliberately did NOT widen the gate.
     // Recorded here as behaviour, exactly as row 6 recorded the drop, and
     // handed back as a finding: a member CAN author a blurb with no heading,
-    // and four of the other arms (`split` / `modal` / `wizard` / `tabbed`)
-    // render one for it.
+    // and THIS layout is the one that draws nothing for it — the sibling arms
+    // reach the blurb by a route that does not hang on a heading, the drawer
+    // among them since objectui#9834, which copied the key onto a push that
+    // was already unconditional there (⛔ widening no gate) and pins that
+    // reading in `drawerFormSectionDescription-9834`. ⛔ Not a count: what each
+    // arm does is stated at that arm's own site and watched by that arm's own
+    // pin, ⛔ never re-derived here.
     const c = await mount({
       sections: [{ description: 'Totals as invoiced', fields: ['amount'] }],
     });

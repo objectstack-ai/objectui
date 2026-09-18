@@ -569,3 +569,85 @@ describe('objectui#9766 pin 9 -- a key is a NAME, and the backticked span is tha
     expect(flags.every((f) => f.viaPronoun)).toBe(true);
   });
 });
+
+describe('objectui#9794 pin 10 -- the optional marker is a decoration, not part of the name', () => {
+  /**
+   * The mirror image of pin 9, on the same reader. objectui#9766 wrote the
+   * exclusion rule on both sides and stopped there: the annotation was the only
+   * decoration cut, so a mention spelled the way a face DECLARES the key --
+   * `allowCollapse?: boolean` -- had head `allowCollapse?`, which is not an
+   * identifier, and the whole mention was dropped.
+   *
+   * ⭐ A dropped mention is the harder failure to see, and that is why these pins
+   * exist rather than the repair being left to read correctly: a false positive
+   * is seen and complained about, while a claim that was never judged reports a
+   * zero that never rings. Whether this spelling is legitimate in this corpus is
+   * a question about the CORPUS; it was decided by measuring `.changeset/` at a
+   * stated ref, and the reading lives on objectui#9794's pull request rather
+   * than here (commandment #9).
+   */
+  const universe = declaredNames(fixtureIndex);
+
+  it('reads the key out of a declaration spelling -- marker, annotation, or both', () => {
+    expect(keyHead('`allowCollapse?: boolean`')).toBe('allowCollapse');
+    expect(keyHead('`view?`')).toBe('view');
+    // The marker with an empty annotation after it: this corpus writes that too.
+    expect(keyHead('`disabled?:`')).toBe('disabled');
+    // And the undecorated spellings pin 9 pins are untouched by the new cut.
+    expect(keyHead('`columns`')).toBe('columns');
+    expect(keyHead('`columns: KanbanColumn[]`')).toBe('columns');
+  });
+
+  it('DARK LEG -- only a TRAILING marker is a decoration, so code is still code', () => {
+    // ⛔ The cut is not "delete every question mark": that would manufacture a
+    // name out of optional chaining, which is the construction objectui#9766
+    // removed. `props?.foo` keeps its `?` in the middle and stays refused.
+    expect(keyHead('`props?.foo`')).toBeNull();
+    expect(keyHead('`schema.hidden ?? false`')).toBeNull();
+    expect(keyHead('`?`')).toBeNull();
+    expect(keyHead('`is this a key?`')).toBeNull();
+    // ⭐ The leg that DISCRIMINATES, and it is corpus text rather than an
+    // invented shape: this corpus writes Vite resource specifiers as backticked
+    // spans, and an unanchored strip turns each of them into a key nobody wrote.
+    // Search the corpus for the sentence naming `?raw`, `?url` and `?inline`.
+    expect(keyHead('`?raw`')).toBeNull();
+    expect(keyHead('`?url`')).toBeNull();
+    expect(keyHead('`?inline`')).toBeNull();
+  });
+
+  it('the marker does not smuggle a language word past the tree gate', () => {
+    // Both legs of pin 9's rule survive the decoration: a language word the tree
+    // does not declare is still refused when it arrives wearing a marker, and
+    // the one it does declare still comes through.
+    expect(keyHead('`string?`', universe)).toBeNull();
+    expect(keyHead('`boolean?: never`', universe)).toBeNull();
+    expect(keyHead('`type?: never`', universe)).toBe(MEMBER_CONTROL_KEY);
+  });
+
+  it('ONE reading, so keys and their polarity land on the same head', () => {
+    // The reason the marker is cut in `keyHead` and nowhere else: two readings of
+    // what a key is would disagree, and the per-key polarity would land on a key
+    // the verdict never asks about.
+    const sentence = '`ObjectKanbanSchema` declares `allowCollapse?: boolean` and no `onCardAdd`.';
+    expect(backtickedKeys(sentence, universe)).toEqual(['allowCollapse', 'onCardAdd']);
+    expect(readPolarity(sentence, universe).byKey).toEqual({
+      allowCollapse: 'positive',
+      onCardAdd: 'negative',
+    });
+  });
+
+  it('⛔ did NOT buy the recovered mentions with blindness: the pinned blind spot still reads', () => {
+    // The same acceptance condition pin 9 is judged against. A repair that moves
+    // the reader may not cost the site the instrument was built from: the four
+    // keys objectui#9713 adjudicated, every one reached across a sentence
+    // boundary.
+    const flags = flagsFor('01-pronoun-pre-repair');
+    expect(flags.map((f) => f.key).sort()).toEqual([
+      'allowCollapse',
+      'cardTitle',
+      'columns',
+      'titleField',
+    ]);
+    expect(flags.every((f) => f.viaPronoun)).toBe(true);
+  });
+});

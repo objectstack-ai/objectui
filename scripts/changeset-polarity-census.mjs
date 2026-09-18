@@ -175,6 +175,22 @@
  *   declares -- objectui#9713's `allowCollapse`, the whole point of the
  *   instrument -- is still read and still flagged.
  *
+ *   THE OPTIONAL MARKER -- A FALSE NEGATIVE, REPAIRED (objectui#9794). ⭐ It sits
+ *   under a heading about false POSITIVES because it sat on the same reader and
+ *   pointed the other way, and because the dropped shape is the harder one to
+ *   notice: a false positive gets seen and complained about, while a key mention
+ *   dropped whole means that claim was never judged at all -- a zero that never
+ *   rings. The annotation used to be the only decoration cut, so a mention
+ *   written the way a face declares it (`allowCollapse?: boolean`) had head
+ *   `allowCollapse?`, which is not an identifier, and went out entire.
+ *   ⚠️ Whether that is a legitimate spelling HERE is a question about this
+ *   corpus, and it was decided by measuring the corpus rather than by taste: the
+ *   reading and the ref it was taken at are on objectui#9794's pull request,
+ *   ⛔ not copied here (#9), and re-derivable with the probe that card names --
+ *   a backticked span whose head, cut at `:`, ends in `?`. ⚠️ RESIDUE: a mention
+ *   carrying any OTHER syntax is still dropped, by rule 1 and on purpose, and
+ *   that is a false negative this instrument keeps.
+ *
  * ⛔ None of them is a reason to stop reporting a flag. They are the reason
  * a flag is a CANDIDATE: every one of them is resolved by a human reading the
  * sentence, and none is resolvable by reading the count.
@@ -759,15 +775,22 @@ export function namesSchema(text) {
  *
  * A member key is a NAME, and the backticked span has to BE that name:
  *
- *   1. THE SPAN IS THE NAME. A key is written bare (`columns`) or carrying its
- *      type annotation (`columns: KanbanColumn[]`, which names `columns`).
+ *   1. THE SPAN IS THE NAME, SPELLED THE WAY A DECLARATION SPELLS IT. A key is
+ *      written bare (`columns`), carrying its type annotation
+ *      (`columns: KanbanColumn[]`), carrying the optional marker a declaration
+ *      puts on it (`view?`), or carrying both (`allowCollapse?: boolean`) --
+ *      all four NAME the key, and the annotation and the marker are the two
+ *      decorations, which is the whole of that list (objectui#9794).
  *      Everything else in a backticked span is a fragment of CODE, not a name:
  *      a call (`retirementTombstone()`, `handlerKeyRefusal(..., 'runtime-slot')`),
  *      a heritage clause (`extends Omit<Partial<X>, ...>`), a statement
  *      (`export { A as B }`), an operator use (`as any`), a switch label
  *      (`case 'map'`). The reader used to CUT the span at its first separator,
  *      which manufactured a name out of any of those -- that construction is
- *      gone, and only the annotation form is still cut.
+ *      gone, and only those two decorations are still cut.
+ *      ⚠️ The marker is cut only where it TRAILS the head, the one position a
+ *      declaration writes it in: in `props?.foo` the `?` is optional chaining
+ *      and the span stays refused as the code fragment it is.
  *
  *   2. THE NAME IS SPELLED LIKE A KEY. One regex, `MEMBER_KEY_SPELLING`, so the
  *      correct shape is the only spelling that gets through. A backticked
@@ -801,8 +824,10 @@ export function namesSchema(text) {
  */
 export function keyHead(backticked, declared = null) {
   const inner = backticked.replace(/^`/, '').replace(/`$/, '').trim();
-  // The annotation is the ONLY decoration a key mention may carry.
-  const head = inner.split(':')[0].trim();
+  // The annotation and the optional marker -- the decorations a DECLARATION
+  // writes on a key, and the only ones a key mention may carry. The marker sits
+  // before the annotation, so it is cut after it, and only where it TRAILS.
+  const head = inner.split(':')[0].trim().replace(/\?$/, '');
   if (!MEMBER_KEY_SPELLING.test(head)) return null;
   if (LANGUAGE_WORDS.has(head) && !declared?.has(head)) return null;
   return head;

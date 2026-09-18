@@ -1514,11 +1514,11 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           // and the row carries two other contracts — the ADR-0089 predicate
           // and the #6236 membership claim that gates the group — plus the
           // collapse pair below, whose "an untitled bucket is never
-          // collapsible" rule the gate is what implements. So a member
-          // carrying a `description` and NEITHER `name` nor `label` still
-          // draws no divider and still drops its blurb; that shape is pinned
-          // as behaviour beside the row below it and handed back as a finding,
-          // ⛔ not decided here.
+          // collapsible" rule the gate is what implements. A member carrying a
+          // `description` and NEITHER `name` nor `label` therefore never
+          // reaches THIS row; it takes the blurb-only branch below instead
+          // (objectui#9835, maintainer ruling 2026-09-18 letter B), which is
+          // why widening the gate was refused rather than adopted.
           description: section.description,
           // ADR-0089 `FormSection.visibleWhen` (#6111). The renderer evaluates
           // a `visibleWhen` on this pseudo-field with the host predicate scope
@@ -1540,6 +1540,44 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
             : undefined,
           // `className`: deliberately not read — see the tabbed arm above
           // (objectstack#13626, ruled 2026-09-01 "retire the reads").
+        } as FormField);
+      } else if (section.description) {
+        // The BLURB-ONLY path (objectui#9835, maintainer ruling 2026-09-18,
+        // letter B — 「同意」). A member that authors a `description` and
+        // NEITHER `name` nor `label` had nothing to carry its blurb on this
+        // layout, because the row above exists only for a member that yields a
+        // heading — while `split` / `modal` / `wizard` / `tabbed` all render
+        // that member's blurb. One arm disagreeing with four is what this
+        // branch closes.
+        //
+        // ⛔ It is NOT the gate above widened. Letter A (spelling that gate
+        // `label || section.description`, which is what the split and modal
+        // arms do) was REFUSED: the same condition also decides the ADR-0089
+        // `visibleWhen` predicate row and the objectui#6236 membership claim
+        // that gates the WHOLE group, plus the `collapsed` / `collapsible`
+        // pair whose "an untitled bucket is never collapsible" rule it
+        // implements. Widening it would have let an untitled section's
+        // predicate hide its group and let an untitled `collapsed: true` take
+        // the fields out of the DOM with no control to bring them back — a
+        // ruling about two other keys, made while fixing a blurb.
+        //
+        // ⇒ this row carries the blurb and NOTHING else: no `label` (so
+        // `SectionDivider` draws no heading), no `visibleWhen` (so the group
+        // is ungated, exactly as before this card), no `fields` membership
+        // claim (a divider without one keeps the pre-objectui#6236 contract),
+        // and no `collapsible` / `collapsed` / `onToggle` (so there is no
+        // disclosure control and the collapse branch below, still keyed on
+        // `label`, leaves this member's fields in the DOM). `colSpan` is
+        // omitted too: `renderFormField` returns the divider BEFORE it reaches
+        // the grid-span wrapper, and `SectionDivider` spans the row itself.
+        //
+        // The name is deliberately NOT the `__section_` spelling the heading
+        // row uses — these two rows are different things, and nothing should
+        // be able to mistake one for the other by name.
+        groupedFields.push({
+          name: `__section_blurb_${sectionKey}`,
+          type: 'section-divider',
+          description: section.description,
         } as FormField);
       }
 

@@ -47,10 +47,29 @@ a type private to the plugin could be referenced by neither authoring face.
 
 Both halves move together, as in objectui#5903: the TS declaration and its zod
 mirror gain the same 27 keys at the same requiredness (all optional), the
-spec-modelled ones taken from `GanttConfigSchema.shape` by reference, so the
-`zod-mirror-parity` ratchet stays at zero drift for this pair and no `KnownDrift`
-or `UnmirroredDeclared` entry is added. The mirror builds the flat face and the
-`gantt` block from one field map, so they are one schema expressed twice.
+spec-modelled ones taken from `GanttConfigSchema.shape` by reference, and no
+`KnownDrift` or `UnmirroredDeclared` entry is added. The mirror builds the flat
+face and the `gantt` block from one field map, so they are one schema expressed
+twice.
+
+⚠️ **The JUSTIFICATION for that parity clause was retired (objectui#9743) — the
+same retirement objectui#5903's entry carries, for the same clause and the same
+reason; the clause itself stands and did not move.** As first written it credited
+the `zod-mirror-parity` ratchet with a zero-drift reading for this pair, at a time
+when that ratchet measured three directions and was structurally blind to the
+MIRRORED-but-undeclared one (objectui#9711), so a zero from it recorded that it
+had not looked in that direction. objectui#9725 landed the fourth direction, and
+it covers this pair BY NAME:
+`packages/types/src/__tests__/zod-mirror-parity.test.ts` registers
+`objectql.zod.ts#ObjectGanttSchema` in both its mirror map and its declaration
+map; `assertionMirroredUndeclaredMatchesLedger` reconciles every registered pair's
+mirrored-but-undeclared key set against that pair's `MirroredUndeclared` ledger
+entry — `never` for a pair the ledger does not name — and
+`assertionNoVacuousMirroredUndeclaredMeasurement` refuses a measurement that has
+degenerated to `any`. ⛔ Read this pair's verdict off that reconciliation, which
+re-derives it on every run, rather than off any figure written here; when this
+paragraph was authored, on 2026-09-18, it required no `MirroredUndeclared` entry
+for the pair.
 
 Accept-set change, stated plainly. All 27 keys are additive — every one is
 optional, and nothing previously legal loses its slot. What changes is that a

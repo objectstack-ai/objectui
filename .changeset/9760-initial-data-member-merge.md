@@ -25,10 +25,11 @@ explicitly (an explicit `null` member is still a value, not an absence).
 One shared `resolveInitialRecord(schema)` replaces the expression at every read
 site across every presentation arm — the flat form, Modal, Drawer, Tabbed, Split,
 Wizard and the master-detail parent form, which inherits it. Both read shapes go
-through it: the create branch's `seedCreateValues(objectSchema, …, ctx)`, which
-keeps the object schema's declared `defaultValue`s underneath the merge, and the
-direct installs, which have no defaults layer. The two are NOT identical and that
-difference is pinned rather than assumed.
+through it, and both keep the object schema's declared `defaultValue`s under the
+authored record — the sectioned arms at seed time through
+`seedCreateValues(objectSchema, …, ctx)`, the flat form one composition later at
+render. Neither layers an inline `customFields` member's own `defaultValue`, which
+is read from object metadata only. Each site is pinned rather than assumed.
 
 Registration descriptions are unchanged in substance; the two that quoted the
 deleted `||` expression now state the per-member precedence instead.

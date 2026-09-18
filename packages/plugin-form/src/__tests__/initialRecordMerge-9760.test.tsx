@@ -26,25 +26,39 @@
  * two are to be measured and pinned separately, so this file owns the other
  * one and the difference between them.
  *
- * ## The two shapes, and the measured difference between them
+ * ## The two shapes, and where each one layers the declared defaults
  *
  *   A. **The create branch of the sectioned/overlay arms** — Modal, Drawer,
  *      Tabbed, Split and the wizard — spells
  *      `seedCreateValues(objectSchema, resolveInitialRecord(schema), ctx)`.
  *      `seedCreateValues` puts the object schema's declared static
- *      `defaultValue`s UNDERNEATH the authored record (#4047), so a field
- *      neither key names still opens on its declared default.
+ *      `defaultValue`s UNDERNEATH the authored record AT SEED TIME (#4047), so
+ *      the defaults are part of the form DATA this arm holds.
  *
- *   B. **The direct-install sites** — `ObjectForm`'s two, and the no-adapter
- *      branch of the sectioned arms — spell `setFormData(resolveInitialRecord(
- *      schema))` with nothing underneath.
+ *   B. **The direct-install sites** — `ObjectForm`'s two — spell
+ *      `setInitialData(resolveInitialRecord(schema))` with nothing underneath
+ *      AT THAT SITE. `ObjectForm` layers the same defaults one composition
+ *      later, at render, as `{ ...schemaDefaults, ...initialData }`, where
+ *      `schemaDefaults` is `schemaDefaultValues(objectSchema, …)` in create mode.
  *
- * ⇒ They are ⛔ NOT semantically identical, and the difference is not the
- * merge: it is the DEFAULTS LAYER, which exists on A and does not exist on B.
- * Rows 3 and 6 are that difference, measured on the same object schema and the
- * same authored keys, so a future edit that "unifies" the two arms by dropping
- * `seedCreateValues` — the tidy-looking move now that both sides call one
- * helper — turns row 3 red instead of silently un-fixing objectui#4047.
+ * ⚠️ ⛔ It is therefore NOT true that "A layers the object's defaults and B does
+ * not", and this file said so before objectui#9778 landed. It read that way only
+ * because the inline-`customFields` path used to install a members-only
+ * `{ name, fields: {} }` schema and never fetch the object's, so `schemaDefaults`
+ * was empty by construction — an artefact of the probe, not a property of the
+ * shape. objectui#9778 made that path MERGE over the generated set instead of
+ * replacing it, the real metadata is fetched, and the defaults duly appear.
+ * Recorded here rather than quietly corrected, because the mistaken reading is
+ * the one a reader would re-derive from the two call sites alone.
+ *
+ * ⇒ What IS measured: both shapes layer the OBJECT's declared defaults under the
+ * authored record, at different sites; NEITHER layers an inline member's own
+ * `defaultValue`, because `schemaDefaultValues` reads `objectSchema.fields` and
+ * nothing else. Row 3 pins the seed-time layer, row 7 pins the render-time one
+ * AND the inline member's default going nowhere, in the same call. A future edit
+ * that "unifies" the arms by dropping `seedCreateValues` — the tidy-looking move
+ * now that both sides call one helper — turns row 3 red instead of silently
+ * un-fixing objectui#4047.
  *
  * ## The inputs the two implementations disagree about
  *
@@ -190,16 +204,25 @@ describe.each(SEEDING_ARMS)(
 
 // ── shape B: the direct install, `setInitialData(resolveInitialRecord(schema))`
 //
-// Reached through `ObjectForm`'s inline-`customFields` effect, which returns
-// above the metadata branch entirely — so there is no object schema behind it
-// and no defaults layer, which is the point of rows 5-7.
+// Reached through `ObjectForm`'s inline-`customFields` effect. Since
+// objectui#9778 that path MERGES the authored members over the set generated
+// from object metadata rather than replacing it, so the object schema IS
+// fetched and its declared defaults DO reach the form — through `ObjectForm`'s
+// own render-time compose, not through `seedCreateValues`.
 
-describe('`ObjectForm` inline `customFields` — the direct-install shape has NO defaults layer', () => {
+describe('`ObjectForm` inline `customFields` — the direct-install shape', () => {
+  // `code` is declared by the OBJECT with a default and restated inline without
+  // one; `memo` is the mirror — an APPENDED member (metadata never declares it)
+  // carrying a `defaultValue` of its own. The pair is what makes row 7 a
+  // two-sided reading rather than a single cell.
   const CUSTOM_FIELDS = [
     { name: 'customer', label: 'Customer', type: 'text' },
     { name: 'note', label: 'Note', type: 'text' },
-    { name: 'code', label: 'Code', type: 'text', defaultValue: 'INV-DEFAULT' },
+    { name: 'code', label: 'Code', type: 'text' },
+    { name: 'memo', label: 'Memo', type: 'text', defaultValue: 'INLINE-DEFAULT' },
   ];
+
+  const INLINE_NAMES = ['customer', 'note', 'code', 'memo'] as const;
 
   const openInline = async (extra: Record<string, unknown>) => {
     const dataSource = makeDataSource();
@@ -218,9 +241,12 @@ describe('`ObjectForm` inline `customFields` — the direct-install shape has NO
       />,
     );
     await waitFor(() => {
-      if (!container.querySelector('input[name="customer"]')) throw new Error('form not ready');
+      if (!container.querySelector('input[name="memo"]')) throw new Error('form not ready');
     });
-    return { values: openingValuesIn(container), dataSource };
+    const values = Object.fromEntries(
+      INLINE_NAMES.map((name) => [name, readControl(container, name)]),
+    );
+    return { values, dataSource };
   };
 
   it('5. an EMPTY `initialData` contributes NOTHING here either', async () => {
@@ -228,41 +254,68 @@ describe('`ObjectForm` inline `customFields` — the direct-install shape has NO
       initialData: {},
       initialValues: { customer: 'Alpha', note: 'from initialValues' },
     });
-    expect(values).toEqual({ customer: 'Alpha', note: 'from initialValues', code: '' });
+    expect(values).toEqual({
+      customer: 'Alpha',
+      note: 'from initialValues',
+      code: 'INV-DEFAULT',
+      memo: '',
+    });
   });
 
-  it('6. ⭐ a PARTIAL `initialData` merges, and NOTHING is layered underneath', async () => {
-    const { values, dataSource } = await openInline({
+  it('6. a PARTIAL `initialData` overrides only the members it names', async () => {
+    const { values } = await openInline({
       initialData: { customer: 'Beta' },
       initialValues: { customer: 'Alpha', note: 'from initialValues' },
     });
-    // `code` declares a `defaultValue` on its inline definition and opens EMPTY:
-    // this branch never calls `seedCreateValues`, and it never fetches the
-    // object schema either — asserted so "no default" cannot be read as "the
-    // schema simply had not arrived yet".
-    expect(values).toEqual({ customer: 'Beta', note: 'from initialValues', code: '' });
-    expect(
-      dataSource.getObjectSchema.mock.calls.length,
-      'the inline branch returns above the metadata path, so there is no schema to seed from',
-    ).toBe(0);
+    expect(values).toEqual({
+      customer: 'Beta',
+      note: 'from initialValues',
+      code: 'INV-DEFAULT',
+      memo: '',
+    });
   });
 
-  it('7. control: with neither key authored the same controls open EMPTY', async () => {
+  it('7. ⭐ the defaults layer on THIS shape is the render-time compose, and it reads the OBJECT only', async () => {
+    const { values, dataSource } = await openInline({
+      initialValues: { code: 'FROM-AUTHOR' },
+      initialData: { customer: 'Beta' },
+    });
+    // Two cells that only make sense together:
+    //   `code`  — declared by the OBJECT with a default, and an authored member
+    //             outranks it, exactly as it does on the seeding arms;
+    //   `memo`  — an APPENDED member carrying a `defaultValue` of its OWN, which
+    //             seeds NOTHING: `schemaDefaultValues` reads `objectSchema.fields`
+    //             and an appended member is not in it.
+    expect(values).toEqual({
+      customer: 'Beta',
+      note: '',
+      code: 'FROM-AUTHOR',
+      memo: '',
+    });
+    // …and the metadata really was read, so `memo` opening empty cannot be
+    // "the schema had not arrived yet" (objectui#9778 made this path fetch).
+    expect(
+      dataSource.getObjectSchema.mock.calls.length,
+      'the members MERGE over the generated set, so the set has to be generated',
+    ).toBe(1);
+  });
+
+  it('8. control: with neither key authored the same controls open on the OBJECT default alone', async () => {
     const { values } = await openInline({});
-    expect(values).toEqual({ customer: '', note: '', code: '' });
+    expect(values).toEqual({ customer: '', note: '', code: 'INV-DEFAULT', memo: '' });
   });
 });
 
 // ── the helper itself, at the boundaries no rendered form can show
 
 describe('`resolveInitialRecord` — the chokepoint contract', () => {
-  it('8. merges per member, `initialData` on top', () => {
+  it('9. merges per member, `initialData` on top', () => {
     expect(
       resolveInitialRecord({ initialValues: { a: 1, b: 2 }, initialData: { b: 3 } }),
     ).toEqual({ a: 1, b: 3 });
   });
 
-  it('9. a nullish KEY contributes nothing, but a null MEMBER is a value', () => {
+  it('10. a nullish KEY contributes nothing, but a null MEMBER is a value', () => {
     // The distinction `seedCreateValues`' docblock draws: an explicit `null`
     // from a caller is a real "leave this blank", not an absence.
     expect(resolveInitialRecord({ initialValues: { a: 1 }, initialData: null })).toEqual({ a: 1 });
@@ -272,7 +325,7 @@ describe('`resolveInitialRecord` — the chokepoint contract', () => {
     expect(resolveInitialRecord(undefined)).toEqual({});
   });
 
-  it('10. returns a FRESH object every time, never either authored one', () => {
+  it('11. returns a FRESH object every time, never either authored one', () => {
     // Callers install the result as form state and then mutate that state. A
     // returned reference would let a form edit the author's schema object,
     // which the whole-object `||` did whenever exactly one key was authored.

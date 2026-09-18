@@ -84,8 +84,30 @@ export const CONDITION_SCOPE_BY_METADATA_TYPE = {
   /* ── `record` — the evaluator binds the row as the `record` root ─────── */
   action: 'record',
   hook: 'record',
-  /** The standalone edit route an object's embedded validations open under
-   *  (`editAs: 'validation'` on the object anchor). */
+  /**
+   * ⚠️ RULED and correct, and today it has no live host through this table —
+   * both halves matter, so both are written down.
+   *
+   * The verdict is the ruling's: a validation rule's `condition` is evaluated
+   * by objectql's rule validator with `{ record, previous }` and nothing else,
+   * and an unevaluable predicate there is fail-CLOSED, so a bare reference
+   * rejects every write to the object. ⛔ Not re-openable here.
+   *
+   * What does NOT follow is that this row is what delivers it. The standalone
+   * `validation` KIND is retired (ADR-0088; `anchors.validation-retired.test.ts`
+   * pins it, and records that the kind is absent from the spec's registry), so
+   * `ResourceEditPage` never legitimately receives this type. An object's
+   * embedded rules are reached through the `__object_validation` anchor, whose
+   * `editAs: 'validation'` opens `EmbeddedItemEditor` — and that editor builds
+   * NO `WidgetContext` at all, so its form never consults this table. The
+   * `record` verdict those conditions actually get today comes from the curated
+   * `ObjectValidationsPanel`, which declares `scope="record"` at its own mount.
+   *
+   * ⇒ the row is the ruling written down and the answer waiting for a host, ⛔
+   * not a claim that a host reads it. Successor: `EmbeddedItemEditor` deriving a
+   * `WidgetContext` from its `editAs`, which is the one change that would put
+   * every embedded child on this table.
+   */
   validation: 'record',
 
   /* ── `flattened` — a real tier, and not a row surface ────────────────── */

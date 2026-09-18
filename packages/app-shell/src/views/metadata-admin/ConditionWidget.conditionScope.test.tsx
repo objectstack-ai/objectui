@@ -230,8 +230,16 @@ describe('ConditionWidget — no `WidgetContext` at all is byte-for-byte unchang
  * needs a reason, because an unexplained row is how a table rots:
  *
  *  - `field` / `index` / `validation` — the `editAs` targets an object's
- *    embedded children open under. The registry rows for them are the `__object_*`
- *    anchors; these are the type names the editor actually edits them as.
+ *    embedded children are edited AS. The registry rows for them are the
+ *    `__object_*` anchors, which are anchors and never edit routes.
+ *    ⚠️ Naming them here is the table being exhaustive, ⛔ NOT a claim that any
+ *    of them reaches the table through a host: `EmbeddedItemEditor`, which is
+ *    what an `editAs` opens, builds no `WidgetContext` at all. For `validation`
+ *    that matters most, because its row is `record` and something else delivers
+ *    it — the curated `ObjectValidationsPanel`, which declares its own scope at
+ *    its own mount. The standalone `validation` kind is retired (ADR-0088), so
+ *    the generic editor never receives it either. See `conditionScope.ts`'s note
+ *    on that row.
  *  - `sharing_rule` and the other spec-schema types — served by the generic
  *    editor through `clientValidation`'s loader table rather than by a
  *    registered resource row, so they reach `conditionScopeForMetadataType`

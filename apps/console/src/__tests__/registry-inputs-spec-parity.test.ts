@@ -2406,6 +2406,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
   },
+  'object-kanban.columns': {
+    file: 'packages/plugin-kanban/src/__tests__/objectKanbanColumnMembers-8071.test.tsx',
+    pins: 'The SWIMLANE element\'s six members, each at its OWN sink and none assumed to behave like its neighbour, driven through the real renderer on a real adapter. `id` decides which records land in the lane (`groups[col.id]`) and names the heading, with an unmatched record swept into the trailing lane rather than dropped (objectui#2792) as the control. ⭐ `title` is read TWICE with two unrelated meanings — as the lane\'s accessible name, and as a BUCKETING ALIAS (`labelToColumnId[String(col.title).toLowerCase()] = col.id`), so a record whose stored group value is the lane\'s TITLE lands in that lane as surely as one carrying its id: nothing on the authoring surface says so, and renaming a lane therefore MOVES RECORDS. `cards` is a UNION and not a replacement — static lane cards survive the fetch, come first, and are not de-duplicated against it. `limit` is displayed beside the count and flags the lane, and ⛔ never truncates: the over-limit row asserts every card still renders, so a pin watching only the badge could not stay green under a renderer that dropped the overflow. `className` reaches that lane\'s container and no other. `collapsed` withholds that lane\'s cards while its neighbour keeps them — the member-set row only, because `columnCollapsedHonoured-9628.test.tsx` owns that member whole. The set itself is asserted as a WHITELIST: an undeclared lane member reaches no sink, with a `className` marker on the same lane in the same render as the lit control. ⚠️ The DECLARATION half is a different file and deliberately not duplicated here: `packages/types/src/__tests__/object-kanban-columns-declared-8913.test.ts` (objectui#8913/#8989) parses lane bags against both published faces, and every assertion in it is a `safeParse` — it cannot say what the board DOES with a member it admitted, which is objectui#8068\'s criterion. Read end to end before being cited. New file (objectui#8071 slice 16).',
+  },
   'object-kanban.conditionalFormatting': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are card STYLE RULES in two accepted dialects, and BOTH reach the sink: the native `{ field, operator, value, backgroundColor }` and the spec CEL `{ condition, backgroundColor }` each colour the matching card and only it, with the sibling card in the same render as the live non-matching control so a green cannot come from two unstyled cards agreeing. ⛔ NOT an identity pin and not a wire pin: `ObjectKanban.tsx` never names this key at all (measured zero, against nine for `cardFields` in the same file) — it rides the `{ ...schema }` spread into `KanbanRenderer`, which forwards it to `KanbanImpl`\'s `getCardStyles`. That makes the pin load-bearing in a way the others are not: an edit replacing that spread with an explicit key list drops the key silently and nothing else in the repo would notice. The spec row is `z.unknown()`, so the read site is the whole member contract (objectui#8313).',
@@ -2414,6 +2418,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are RECORDS, and the key is read TWICE with two different meanings — both pinned, because either read alone would misdescribe it. As a GATE it suppresses the board\'s own query entirely — asserted as zero `find` calls through a window a CONTROL row proves is long enough for a real query to land. That gate is DOUBLY guarded on the authored-node path and the pin says so, because naming one guard would be wrong: `SchemaRenderer` spreads non-metadata schema properties as props, so an authored `data` is also this component\'s `data` prop, `hasExternalData` is true, and the effect returns before `!schema.data` is reached. Removing either guard alone leaves the rows green; removing both reddens them. As a VALUE it is selected by `rawData = external || boundData || schema.data || fetchedData` and then REBUILT by `effectiveData` into cards — so ⛔ no identity claim is true of this key, unlike the two `filter` pins. What is read INSIDE a member is what the pin asserts instead: `id` (or `_id`) as the card identity, the `groupBy` field\'s value as the lane it lands in, the card-title field, and the `cardFields` cells. The spec row is `z.array(z.unknown())` — it fixes the container kind and nothing about a member (objectui#8313).',
   },
+  'object-kanban.dataSource': {
+    file: 'packages/plugin-kanban/src/ObjectKanban.elementDataSource.test.tsx',
+    pins: 'The five members of the spec\'s `ElementDataSourceSchema` binding (`{ object, view, filter, sort, limit }`) as THIS block reads them, which is one line of this package — `OBJECT_KANBAN_DATA_SOURCE = { filter: true, limit: \'limit\' }`, consumed by `ElementDataSourceGate`. Each member is stated with its disposition, and the five are not alike: `object` is mapped and OUTRANKS an `objectName` the board authored itself (`next[objectKey] = composed.object`, unconditional — the `??=` spelling would leave a rebound board querying the old object with the same lanes and no diagnostic); `view` supplies the baseline the others are contested against, and an unresolvable one REPORTS instead of widening the query to every record; `filter` is ADDITIONAL and AND-combines with the board\'s OWN `filter` as well as the view\'s, with the measured nesting pinned (`[\'and\', <rule list>, <rule list>]`, each source keeping its own list) and a lone source passing through verbatim; `limit` is mapped onto the block\'s `limit` with binding > block > view, asserted as a PAIR so neither branch reads as a renderer that simply takes the last writer. ⭐ `sort` is the loud one: the spec declares it, this block IGNORES it, and the row asserts no `$orderby` and no `sort` reaches the query with a mapped `limit` moving in the SAME binding as the lit control — without it a later contributor "completing the mapping" would wire it onto a key nothing reads. `columns` is deliberately NOT mapped and the pre-existing rows say why: a board\'s `columns` are its SWIMLANES, so a view\'s field list written there would render one empty lane per field name. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration says `type: \'object\'` and nothing about members at all — the read site is the whole member contract. Pre-existing file (objectstack#6953 + objectui#4025), promoted after being read end to end and GROWN by the five disposition rows (objectui#8071 slice 16).',
+  },
   'object-kanban.filter': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.filterMembersReachTheWire-8176.test.tsx',
     pins: 'The `object-kanban` twin of `object-calendar.filter` above, written for this change because the board had no equivalent: the authored array reaches `$filter` BY IDENTITY, a condition on a field named `columns` (this block\'s own configuration key) stays a filter and never reaches a configuration read, both member forms pass through identically, and an unauthored `filter` arrives as `undefined` rather than as a fabricated default — the control that keeps the other three from reading as a coincidence. Same reasoning as the calendar entry: the spec row is `z.unknown()`, so the wire is the whole member contract (objectui#8176).',
@@ -2421,6 +2429,18 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-kanban.grouping': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'ONE nested position and no more: `schema.grouping?.fields?.[0]?.field` is the FALLBACK source of `swimlaneField`, and that is the entire member contract this board carries for the key. Three rows make it a reading rather than a claim — the swimlane layout appears keyed by `fields[0].field` where without the key there is none; an explicit `swimlaneField` WINS over it; and a second `fields` entry changes nothing, which is what pins the read at `[0]` rather than at "the fields list". The declared description says the rest is inert precisely so the declaration does not recommend a write the renderer cannot honour — this file is what keeps that sentence true. The spec row is `z.unknown()`, so the read site is the whole member contract (objectui#8313).',
+  },
+  'object-master-detail-form.initialData': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailInitialMembers-8071.test.tsx',
+    pins: 'Members are PARENT FIELD NAMES and each member value is that control\'s opening value \u2014 pinned in ONE file with `initialValues`, because this block\'s own registration declares them a pair ("Alternate spelling of `initialValues` the renderer also reads", with new schemas told to prefer `initialValues`) and a pair pinned apart leaves the PRECEDENCE stated nowhere. The precedence is whole-object: `schema.initialData || schema.initialValues`, so with both authored every `initialValues` member is DROPPED including the ones `initialData` says nothing about, and an EMPTY `initialData` shadows a populated `initialValues` completely because `||` tests the object and `{}` is truthy \u2014 recorded as behaviour and handed back as a finding, since changing it is a renderer change and this card writes pins only. \u2b50 The two rows no sibling pin can make are the block\'s own: the seed reaches the PARENT LEG of the atomic batch and nothing else (a member naming a detail column seeds no child row and the posted batch still carries exactly one operation), and in `edit` mode with a `recordId` the fetched record REPLACES both keys wholesale, so a member the record omits opens empty rather than falling back to the seed. Neither key has a read site in this block at all: `MasterDetailForm`\'s `parentSchema` memo copies them key by key onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>` \u2014 no `SchemaRenderer`, no registry lookup \u2014 which is exactly why the pin is taken here, since that hand-written map can drop a key while every declaration still reads correct (the failure `object-form.sections` records twice, objectui#9779 / objectui#9834). A no-keys row renders the same controls empty as the non-vacuity control. Both keys are registered `type: \'object\'` and typed `Record<string, any>`, so every object parses on both declared sides and the read site is the whole member contract. New file (objectui#8071 slice 15).',
+  },
+  'object-master-detail-form.initialValues': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailInitialMembers-8071.test.tsx',
+    pins: 'The other half of this block\'s declared alternate-spelling pair, pinned in the same file and the same rows \u2014 see `object-master-detail-form.initialData` above. This is the spelling the registration tells authors to PREFER and the one that loses outright whenever the other is authored, which is the reason the pair is pinned together (objectui#8071 slice 15).',
+  },
+  'object-master-detail-form.sections': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailSectionMembers-8071.test.tsx',
+    pins: 'Members are section OBJECTS shaping the PARENT half only \u2014 a member\'s `fields` are parent field names read as a SET, so the OBJECT\'s field order wins over the authored member order, and the block\'s `details` collections keep their own columns through every row. A member that resolves to NO parent field is dropped WHOLE, heading included, measured with a DETAIL column name as the member because that is the mistake this composition invites: one node declares two field vocabularies and only one of them is this key\'s. \u2b50 The sharp row is a DIVERGENCE from the block\'s own registration: `fields` is declared "Ignored when `sections` is given \u2014 sections carry their own field lists", and it is not ignored. `ObjectForm` builds the parent pool from `schema.fields` FIRST and a section filters against that pool, so authoring both INTERSECTS them \u2014 a section member outside `fields` is dropped with no diagnostic and a section whose every member is outside it disappears heading and all. Pinned as behaviour and handed back as a finding, not fixed, because fixing it changes either the renderer or the declaration. The key has no read site in this block: `MasterDetailForm`\'s `parentSchema` memo copies it onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>`, the same hand-written carrier whose dropped keys `object-form.sections` records twice (objectui#9779 / objectui#9834) \u2014 which is why the pin is taken here rather than delegated. \u26d4 Deliberately NOT re-asserted, because they are owned next door by `objectFormSectionMembers-8071.test.tsx` and duplicating them buys nothing: `collapsed` vs `collapsible`, the `name`-alone heading, the untitled trailing bucket and the `description` blurb; the `simple` / `tabbed` presentation routing is owned by `masterDetailFormTypeVocabulary.test.tsx`. A no-sections row is the non-vacuity control. Both declared sides are unconstrained (bare `type: \'array\'` with no `of`; `sections?: any[]`), so the read site is the whole member contract. New file (objectui#8071 slice 15).',
   },
   'object-metric.aggregate': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
@@ -2681,13 +2701,14 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   'object-grid.grouping': AWAITING_A_PIN,
   'object-grid.sort': AWAITING_A_PIN,
 
-  // object-master-detail-form
+  // object-master-detail-form — objectui#8071 slice 15 pinned the two PARENT
+  // SEED keys (`initialData`, `initialValues`, an alternate-spelling pair the
+  // registration declares as one) and `sections`; the three below are what that
+  // first bite left, and they are the block's other half — where the parent
+  // record comes from and what the child collections are.
   'object-master-detail-form.dataSource': AWAITING_A_PIN,
   'object-master-detail-form.details': AWAITING_A_PIN,
   'object-master-detail-form.fields': AWAITING_A_PIN,
-  'object-master-detail-form.initialData': AWAITING_A_PIN,
-  'object-master-detail-form.initialValues': AWAITING_A_PIN,
-  'object-master-detail-form.sections': AWAITING_A_PIN,
 
   // object-metric — objectui#8071 slice 8 pinned the four QUERY members
   // (`dataSource`, `aggregate`, `filter`, `compareTo`) and slice 9 the two
@@ -2727,11 +2748,11 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // objectui#8071 slice 5 pinned both, so the block is now fully pinned and
   // this header stays only as a note for the next reader who greps for it.
 
-  // objectui#8176 — the other two this direction could not see. See
-  // `NEWLY_JUDGED_UNPINNED_MEMBERS` below, which pins them BY NAME so the
-  // ceiling correction cannot absorb anything else.
-  'object-kanban.columns': AWAITING_A_PIN_NEWLY_JUDGED,
-  'object-kanban.dataSource': AWAITING_A_PIN_NEWLY_JUDGED,
+  // object-kanban — objectui#8176 brought both `columns` and `dataSource` into
+  // this population (see `NEWLY_JUDGED_UNPINNED_MEMBERS`'s docblock);
+  // objectui#8071 slice 16 pinned both, so the block is now fully pinned, the
+  // objectui#8176 correction is spent to the last key, and this header stays
+  // only as a note for the next reader who greps for it.
 };
 
 /**
@@ -2750,12 +2771,19 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
  * frozen record of four forever — the frozen record of WHY the ceiling went
  * up is `MEMBER_PIN_EXEMPTION_CEILING`'s own docblock below, not this array.
  * objectui#8071 slice 5 pinned `object-calendar.calendar` and
- * `object-calendar.dataSource`, so two of the original four remain here.
+ * `object-calendar.dataSource`, and slice 16 pinned `object-kanban.columns` and
+ * `object-kanban.dataSource` — so the correction is now SPENT and this array is
+ * empty.
+ *
+ * ⛔ An empty array is not a dead assertion, and deleting it would be the wrong
+ * reading of the emptiness. The check below has two directions and only the
+ * first one empties out: the second — every exemption on a block objectui#8176
+ * newly judged must be one of the named four — now reads "no lazily registered
+ * block may carry a member-pin exemption AT ALL". That is the strongest state
+ * this list has ever asserted, and it is the state that refuses a future
+ * exemption from sliding in under the same correction.
  */
-const NEWLY_JUDGED_UNPINNED_MEMBERS = [
-  'object-kanban.columns',
-  'object-kanban.dataSource',
-];
+const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
 
 /**
  * How many keys may be exempt. Ratchet: this number may only ever go DOWN.
@@ -3337,11 +3365,86 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
  * reading was not re-measured here either — slice 7's measurement still stands.
  *
+ * ## 13 -> 10, the first bite out of `object-master-detail-form`, and why the
+ * seed pair could not be split
+ *
+ * The fifteenth slice takes three `object-master-detail-form` keys —
+ * `initialData`, `initialValues` and `sections` — so the ceiling follows in the
+ * same commit. The block is not closed: `dataSource`, `details` and `fields`
+ * are left.
+ *
+ * ⭐ TWO of the three are one unit, and that is a reading rather than a
+ * preference. This block's own registration calls `initialData` the "Alternate
+ * spelling of `initialValues` the renderer also reads" and tells authors to
+ * prefer `initialValues`; both are declared, both are forwarded, and neither
+ * declaration says which one wins when both are authored. Pinning one without
+ * the other would leave the PRECEDENCE — the cell an author actually trips on —
+ * stated nowhere, so they share one file.
+ *
+ * ⭐ The finding this slice's shape surfaced is that none of the three keys has
+ * a read site in this block at all. `MasterDetailForm`'s `parentSchema` memo
+ * copies them KEY BY KEY onto an `object-form`-shaped object and renders it
+ * through a DIRECTLY imported `<ObjectForm>` — no `SchemaRenderer`, no registry
+ * lookup — so the member contract is the sibling block's, reached through a
+ * hand-written map that can drop a key while every declaration still reads
+ * correct. That is the same carrier whose omissions `object-form.sections`
+ * records twice (objectui#9779, objectui#9834), which is why these pins are
+ * taken at THIS block rather than delegated to the sibling's.
+ *
+ * Both files are NEW — the distinction slices 1, 10, 11, 12, 13 and 14 turned
+ * on. Nothing constrained these keys' members at this block:
+ * `MasterDetailForm.test.tsx` never authors either seed key,
+ * `masterDetailFormTypeVocabulary.test.tsx` names the block and authors
+ * `sections` — it would satisfy a string locator — but its subject is the
+ * `formType` vocabulary and its sections fixture is a constant, so it states
+ * nothing about what a member is.
+ *
+ * ⚠️ Two member facts handed back as findings rather than frozen into a pin,
+ * slice 9's choice for slice 9's reason. (a) An EMPTY `initialData` shadows a
+ * populated `initialValues` completely, because the resolution is `||` on the
+ * OBJECT. (b) `fields` is declared "Ignored when `sections` is given" and is
+ * not ignored: the parent field pool is built from `fields` first and a section
+ * resolves against that pool, so the two INTERSECT and a section member outside
+ * `fields` is dropped silently. Both are pinned as behaviour and stated as
+ * limits; an assertion that either can never change would have to be deleted
+ * before anyone could change it.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here either — slice 7's measurement still stands.
+ *
+ * ## 10 -> 8 (objectui#8071 slice 16) — and the objectui#8176 correction is SPENT
+ *
+ * `object-kanban.columns` and `object-kanban.dataSource` are pinned, which
+ * CLOSES the block and empties `NEWLY_JUDGED_UNPINNED_MEMBERS`: all four
+ * pre-existing declarations the raise above admitted are now judged by a pin
+ * rather than by room. ⇒ the headroom that raise created no longer holds
+ * anything, and the audit's second direction hardens from "only these four" to
+ * "no lazily registered block may carry an exemption at all".
+ *
+ * ⚠️ Two of this block's grounds for being held back were STALE readings rather
+ * than facts, and they were re-derived here rather than inherited. The contract
+ * question objectui#8913 is RULED and LANDED (PR objectui#8989): `columns` is
+ * declared on both faces as the protocol's union, so there is no pending ruling
+ * a pin could be deleted by. The file-surface collision that held it at slice 6
+ * was with a pull request that is long gone.
+ *
+ * ⚠️ `columns`' pin is the RENDERER half and is deliberately a second file, not
+ * a promotion of objectui#8989's declaration pin: every assertion there is a
+ * `safeParse`, and objectui#8068's criterion is the shape the renderer READS.
+ * `dataSource`'s is a pre-existing file promoted after being read end to end
+ * and grown by the five member dispositions it never stated — the `object`,
+ * `filter`, `limit` and (loudest) the INERT `sort`.
+ *
+ * ⚠️ Unchanged by this slice: `record:related_list.actions`, whose
+ * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
+ * measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 13;
+const MEMBER_PIN_EXEMPTION_CEILING = 8;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

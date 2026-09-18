@@ -131,7 +131,7 @@ export interface ConditionSubjectVocabulary {
  * a mounting surface actually binds is caller-supplied vocabulary
  * (objectui#6296) and is that card's to declare, not this one's to guess.
  */
-const REFERENCE_ROOTS = ['record', 'previous', 'parent', 'user', 'current_user', 'org'] as const;
+export const REFERENCE_ROOTS = ['record', 'previous', 'parent', 'user', 'current_user', 'org'] as const;
 
 /**
  * A dotted path under a declared root — i.e. plainly a reference.
@@ -143,6 +143,56 @@ const REFERENCE_ROOTS = ['record', 'previous', 'parent', 'user', 'current_user',
 const REFERENCE_RE = new RegExp(
   `^(?:${REFERENCE_ROOTS.join('|')})(?:\\.[A-Za-z_][A-Za-z0-9_]*)+$`,
 );
+
+/**
+ * Scope roots the RAW CEL editor ADVERTISES at a mount that declares
+ * `scope="record"` (objectui#9645).
+ *
+ * ## Not the same population as {@link REFERENCE_ROOTS}, and not mergeable
+ *
+ * `REFERENCE_ROOTS` answers a question about the VALUE BOX — is the text an
+ * author typed to the right of an operator a reference or literal text — and
+ * is deliberately wider than any one mount's binding: it carries `org` and
+ * `parent`, which the engine's record scope does not advertise at all. This
+ * list answers what the AUTOCOMPLETE offers. A root belongs here only if the
+ * host that evaluates the authored predicate binds it. The two lists overlap
+ * without coinciding in either direction, so folding them into one would
+ * either advertise roots no host binds or stop quoting values the builder
+ * already treats as references.
+ *
+ * ## Why the engine's own advertisement is the wrong answer here
+ *
+ * `introspectScope` offers every root ANY predicate site may see, so a mount
+ * that forwards no override inherits all of them. That is how a hook
+ * `condition` came to suggest `os.user.id`: the suggestion linted CLEAN — the
+ * accept set is the engine's `SCOPE_ROOTS`, which carries `os` / `current_user`
+ * / `vars` — and objectstack's hook wrapper then evaluated the stored
+ * condition against `{ record: record ?? {}, previous }` and threw
+ * `HookConditionError`, deliberately fail-LOUD. The editor proposed the root,
+ * the linter endorsed it, and the author's write paid for it. The sibling
+ * treatment is `ROW_PREDICATE_ROOTS` in `ConditionalFormattingEditor` and
+ * `FIELD_RULE_ROOTS` / `FORMULA_ROOTS` in `ObjectFieldInspector`; this is the
+ * same treatment at this component's own forwarding site.
+ *
+ * ## Why one declared list, rather than one derived per mount
+ *
+ * This component cannot derive it. Nothing a mount passes distinguishes a
+ * SERVER-evaluated `condition` from a CLIENT-evaluated `visible`, and their
+ * hosts bind different sets: app-shell's `buildExpressionScope` publishes
+ * `current_user` / `user` / `ctx` / `os` / `features` to the client evaluator,
+ * while the hook wrapper quoted above binds `record` and `previous`. So the
+ * default is the set EVERY host of a record-scoped condition binds, and a
+ * mount that binds more declares it through the `roots` prop.
+ *
+ * Narrowing is the safe direction, and the asymmetry is the whole argument:
+ * `roots` feeds autocomplete only — the accept set is untouched — so a client
+ * mount that wants `os` offered again loses a suggestion until it declares
+ * one, never a spelling, while an over-advertised root on a server-evaluated
+ * mount costs the author the write. The numbers behind this paragraph are
+ * re-derived from the engine by `ConditionBuilder.mountRoots.test.tsx`, which
+ * reads `introspectScope` rather than restating its answer.
+ */
+export const RECORD_CONDITION_ROOTS = ['record', 'previous'];
 
 /**
  * Quote a raw value for CEL unless it is a number / boolean / null — or a
@@ -234,7 +284,7 @@ function initFrom(value: string): { rows: Row[]; join: '&&' | '||'; raw: boolean
   return { rows: [], join: '&&', raw: !!value };
 }
 
-export function ConditionBuilder({ label, value, onCommit, objectName, fields: fieldsProp, disabled, onBlockingIssuesChange, subjects, scope }: {
+export function ConditionBuilder({ label, value, onCommit, objectName, fields: fieldsProp, disabled, onBlockingIssuesChange, subjects, scope, roots }: {
   label?: string;
   value: string;
   onCommit: (cel: string) => void;
@@ -295,6 +345,22 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
    * before this prop existed it did not.
    */
   scope?: 'record' | 'flattened';
+  /**
+   * Scope roots the raw editor's autocomplete OFFERS (objectui#9645) —
+   * forwarded to `CelPredicateField`, which mirrors `CelSchemaHint.roots`.
+   *
+   * Declared, not inferred, for the reason {@link RECORD_CONDITION_ROOTS}
+   * states: only the mount knows what its own host binds. Omitting it leaves a
+   * `scope="record"` mount with that list — the roots every host of a
+   * record-scoped condition binds — and leaves a mount that declares no
+   * `scope` with the engine's own advertisement, unchanged.
+   *
+   * It governs SUGGESTIONS only. The accept set is the engine's `SCOPE_ROOTS`,
+   * so a root left off this list still lints clean when an author types it,
+   * and a mount whose host binds more than the default loses an offer rather
+   * than a spelling.
+   */
+  roots?: string[];
 }) {
   const { fields: hookFields } = useObjectFields(objectName);
   const fields = fieldsProp ?? hookFields;
@@ -417,6 +483,12 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
              own note. An omitted scope must reach `celAuthoring` as absent so
              its `hint.scope ?? 'flattened'` default answers unchanged. */
           scope={scope}
+          /* objectui#9645 — a record-scoped mount advertises the roots its
+             host actually binds, not the engine's whole default list. A mount
+             that binds more declares it; see `RECORD_CONDITION_ROOTS`. A mount
+             with no `scope` still forwards `undefined` here, so its offered
+             roots are the engine's own, unchanged. */
+          roots={roots ?? (scope === 'record' ? RECORD_CONDITION_ROOTS : undefined)}
           t={tLocal}
         />
         {value && !parse(value) && (

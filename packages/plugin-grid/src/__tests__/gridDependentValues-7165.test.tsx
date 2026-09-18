@@ -12,10 +12,12 @@
  *
  * ## The defect this closes
  *
- * `LookupField` resolves `dependentValues ?? ctx.formValues ?? ctx.data ?? {}`
- * and `ObjectGrid`'s `renderCellEditor` supplied NONE of the three: it rendered
- * `FieldEditWidget` with `field` / `value` / `onChange` only, `SchemaRendererContext`
- * has no `formValues`, and the grid sets no `ctx.data` for a row. The resolved
+ * `LookupField` resolves `dependentValues ?? {}` and `ObjectGrid`'s
+ * `renderCellEditor` did not supply that prop: it rendered `FieldEditWidget`
+ * with `field` / `value` / `onChange` only. The resolution then also spelled a
+ * `?? ctx.formValues ?? ctx.data` tail, but `SchemaRendererContext` has neither
+ * member and the grid set no `ctx.data` for a row — that tail could not be
+ * supplied by any host and objectui#7206 has since retired it. The resolved
  * record was therefore `{}` for EVERY row, `dependenciesMissing` was permanently
  * `true`, and a column declaring `dependsOn` rendered a disabled trigger reading
  * "Select region first" — even when the row carried the parent value. The field

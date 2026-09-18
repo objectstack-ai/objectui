@@ -55,3 +55,12 @@ narrowing assertion to `ActionDef['resultDialog']` at both forward sites —
 strictly narrower than the `as any` it replaces, since every other member of the
 forward literal is compiler-checked again — documented as a ledger entry and
 pinned so it cannot regress to `as any` and cannot outlive its cause in silence.
+
+⇒ **It did not outlive it, and the paragraph above is superseded in this same
+release.** objectui#9542 landed the derivation: `ResultDialogSpec` derives its
+label members from the contract, so BOTH narrowing assertions and the ledger
+entry that pinned them are gone and the write is compiler-checked with nothing
+between it and `ActionDef`. What the pin still refuses is the `as any`. (Noted
+here by the objectui#9542 seat, because this body publishes verbatim into the
+CHANGELOG and its present tense would otherwise describe a workaround that the
+same release removes.)

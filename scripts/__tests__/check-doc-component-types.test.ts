@@ -1736,7 +1736,7 @@ describe('objectui#5106 — plugin key tables are judged, on both halves', () =>
       'content/docs/plugins/plugin-grid.mdx',
       'content/docs/plugins/plugin-view.mdx',
     ]);
-    expect(tableRows.map((r) => r.namespaced)).toContain('`view:dashboard`');
+    expect(tableRows.map((r) => r.namespaced)).toContain('`plugin-dashboard:dashboard`');
   });
 });
 

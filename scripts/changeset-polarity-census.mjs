@@ -57,8 +57,10 @@
  *    columns, so a line-anchored probe is structurally blind to any claim that
  *    wraps -- and a claim naming a schema and a key is long enough that most of
  *    them do. Lines are joined per paragraph, continuation prefixes (blockquote
- *    markers, list bullets, table pipes) are stripped first, and all runs of
- *    whitespace collapse before a sentence is cut.
+ *    markers, list bullets) are stripped first, and all runs of whitespace
+ *    collapse before a sentence is cut. A TABLE is the exception and is read as
+ *    structure, not as wrapped prose (objectui#9870): its cells are separate
+ *    units of text and its header is what tells a column apart from a sentence.
  *
  * 2. ASSERTION POSITION vs QUOTED POSITION. A count over prose is NOT
  *    invariant under quotation, and treating it as invariant is how a repaired
@@ -66,7 +68,10 @@
  *    retires, inside the note that retires it. A sentence reached through a
  *    fence, a blockquote, guillemets or quotation marks is in QUOTED position --
  *    it is counted, reported, and never flagged. Only an ASSERTION is a
- *    candidate.
+ *    candidate. A third position joins them (objectui#9870): a cell in a column
+ *    the table's own header declares SUPERSEDED stands where a quotation
+ *    stands, and for a reason quotation cannot express -- the retired reading is
+ *    not quoted, it is tabulated.
  *
  * 3. A NAME IS NOT A KEY -- A KEY IS (interface, name). Membership is resolved
  *    against the member set of the SCHEMA THE SENTENCE NAMES, built with the
@@ -154,15 +159,37 @@
  *   ⛔ That last one is a false negative this repair introduces, and it is
  *   written here rather than discovered later.
  *
- *   A TABLE OF SUPERSEDED READINGS (objectui#9754, ⛔ unrepaired). An entry may
- *   carry a table whose first column is a reading it is RETIRING and whose
- *   later columns are what falsified it and when. Every cell of one row is
- *   joined into one sentence here (that join is deliberate -- a table row is not
- *   a paragraph), so the retired claim reads as a present-tense assertion in
- *   ASSERTION position and its correction sits beside it, unread. Quotation
- *   position does not reach this: the retired reading is not quoted, it is
- *   tabulated. ⇒ Such a row is a candidate whose adjudication is already written
- *   next to it, which is cheap for a human and invisible to V.
+ *   A TABLE OF SUPERSEDED READINGS, REPAIRED AND ITS RESIDUE NAMED
+ *   (objectui#9754, repaired by objectui#9870). An entry may carry a table whose
+ *   first column is a reading it is RETIRING and whose later columns are what
+ *   falsified it and when. The retired claim read as a present-tense assertion
+ *   in ASSERTION position with its correction beside it, unread -- and
+ *   quotation position does not reach it, because the retired reading is not
+ *   quoted, it is TABULATED.
+ *   ⛔ The entry this replaces also MISDESCRIBED the mechanism, in the direction
+ *   that makes a defect look smaller than it is, and the correction is the
+ *   reason the repair is where it is: it said every cell of one ROW was joined
+ *   into one sentence and called that join deliberate. The join was neither
+ *   bounded by a row nor deliberate -- the code doing it carried the opposite
+ *   intent in its own comment (`the cells are independent fragments`). `. ` cuts
+ *   a sentence only before a character that is not lower-case, and a row's last
+ *   cell got no terminator at all, so an ENTIRE table collapsed into ONE
+ *   sentence: header, delimiter row and every data row, with every key in it
+ *   offered to every schema named anywhere in it.
+ *   ⇒ The repair reads the table instead of flattening it (`segmentSentences`):
+ *   a cell is its own unit of text, and a cell in a column the table's OWN
+ *   HEADER retires -- the column a later one declares it was `falsified by` --
+ *   takes the third POSITION, `superseded`. Counted, reported, never flagged.
+ *   ⛔ Deliberately NOT done: excluding table rows from assertion position as a
+ *   class, or widening quotation to cover every tabulated reading. Both are
+ *   cheap against this corpus and both buy a false negative in the shape this
+ *   family has already paid for once -- a table that ASSERTS is the ordinary
+ *   case here, and a claim silently never judged is the failure that does not
+ *   ring. ⚠️ RESIDUE: a `before | after` table retires its first column by
+ *   MEANING and not by a word in its header, and is not read here; and a claim
+ *   split across two columns is now two sentences and pairs with nothing --
+ *   it was only ever reachable through the cross-row collapse that also paired
+ *   it with every other row.
  *
  *   POLARITY BY CLAUSE (was: POLARITY BY KEYWORD -- objectui#9754 narrowed it).
  *   Polarity is a property of the clause that carries the declaration verb, not
@@ -620,12 +647,94 @@ const FENCE = /^\s*(```|~~~)/;
 const MASK_OPEN = '@@CS';
 const MASK_CLOSE = '@@';
 
+/** A table's delimiter row -- `| --- | :--: |` -- is syntax, and is not text. */
+const TABLE_DELIMITER_CELL = /^:?-{3,}:?$/;
+
+/**
+ * The header cell by which a table DECLARES that an earlier column holds a
+ * reading it has retired (objectui#9870).
+ *
+ * The declaration is the AUTHOR'S, not this reader's guess: a column headed
+ * `falsified by` says in so many words that the column it points back at is no
+ * longer a claim about today's tree. That is why the rule is written on the
+ * HEADER and not on the shape of a row -- a row cannot say what it is, and
+ * every heuristic that tried to read it from the row's own words would be
+ * guessing at English again.
+ *
+ * ⚠️ It is a WORD LIST, with this file's usual cost: it is the idiom `NEGATIVE`
+ * and `CLAUSE_BREAK` already use, because English has no derivable source to
+ * read the way `LANGUAGE_WORDS` reads the compiler. A table that declares the
+ * same thing in words not listed here keeps the defect. ⛔ Add a spelling when
+ * the corpus shows one; do not read length as coverage (#9).
+ */
+export const SUPERSEDING_HEADER =
+  /\b(?:falsifie[sd]|supersede[sd]?|refute[sd]?|overturn(?:s|ed)?|retract(?:s|ed)?)\b/i;
+
+/**
+ * The columns a table's own header declares RETIRED: every column before the
+ * first one that declares itself the falsifier.
+ *
+ * Column 0 alone would be the narrow reading of the one table that motivated
+ * objectui#9870; `< falsifier` is the same answer there and stays right for a
+ * table that carries an id or a date column ahead of the reading. A header that
+ * declares NOTHING retires nothing -- the empty set is the default, so an
+ * ordinary table keeps every column in ASSERTION position.
+ */
+export function supersededColumns(headerCells) {
+  const retired = new Set();
+  if (!headerCells) return retired;
+  const falsifier = headerCells.findIndex((cell) => SUPERSEDING_HEADER.test(cell));
+  if (falsifier <= 0) return retired;
+  for (let column = 0; column < falsifier; column += 1) retired.add(column);
+  return retired;
+}
+
 /**
  * Cut a changeset body into paragraphs, then into sentences, recording the
  * POSITION each sentence was reached through. Frontmatter and fenced code are
- * dropped; blockquote prefixes, list bullets and table pipes are stripped as
- * CONTINUATION PREFIXES before the lines of a paragraph are joined, so a claim
- * that wraps at eighty columns reads as ONE sentence.
+ * dropped; blockquote prefixes and list bullets are stripped as CONTINUATION
+ * PREFIXES before the lines of a paragraph are joined, so a claim that wraps at
+ * eighty columns reads as ONE sentence.
+ *
+ * ## A TABLE IS NOT WRAPPED PROSE (objectui#9870)
+ *
+ * A table row used to be stripped of its pipes and then joined into the
+ * paragraph like any other continuation line, with `. ` standing in for the
+ * cell boundary. That spelling MEANT what the rule above still means -- the
+ * cells are independent fragments -- and it did not achieve it in either
+ * direction, which is why it is gone:
+ *
+ *   - `. ` only cuts a sentence where the next cell opens with a character that
+ *     is not lower-case (`cutSentences`), and this corpus's later columns open
+ *     with `objectui#...` more often than not. So the cells of one row stayed
+ *     ONE sentence.
+ *   - a row's LAST cell got no terminator at all, so nothing separated one row
+ *     from the next. An entire table -- header, delimiter row and every row --
+ *     collapsed into a single sentence, and every key in it was offered to every
+ *     schema named anywhere in the table. That is the cartesian window
+ *     objectui#9754 closed at the sentence level, rebuilt one level up.
+ *
+ * Table structure is therefore READ rather than flattened: a cell is a unit of
+ * text and is cut into sentences on its own, the delimiter row is dropped as
+ * syntax, and the header row is kept -- it is what lets a column be read as a
+ * position rather than as prose.
+ *
+ * ⇒ POSITION gains its third value, `superseded`: a cell in a column the
+ * table's own header retires (`supersededColumns`) is a reading this entry is
+ * RETIRING, not a claim about today's tree. It is counted, reported, and never
+ * flagged -- the same standing `quoted` has, under its own name because the
+ * reason is different. Quotation does not reach these: the retired reading is
+ * not quoted, it is tabulated.
+ *
+ * ⛔ What this does NOT do: judge a table by its shape. A table that asserts is
+ * still read and still flagged, which is the false negative directions that
+ * excluded table rows wholesale would have bought. ⚠️ RESIDUE, named rather
+ * than discovered later: a `before | after` table is the same defect wearing a
+ * different header and is NOT read here -- its first column is retired by the
+ * table's meaning and not by its header's words. And a claim whose subject sits
+ * in one column and whose verb sits in another is now two sentences and pairs
+ * with nothing; it was reachable only by the cross-row collapse above, which
+ * paired it with every other row as well.
  */
 export function segmentSentences(markdown) {
   const lines = markdown.split(/\r?\n/);
@@ -642,9 +751,19 @@ export function segmentSentences(markdown) {
     if (end >= 0) i = end + 1;
   }
 
+  // A paragraph is a list of PARTS in the order they were written: prose lines,
+  // which join and wrap, and tables, which do neither. One paragraph still, so
+  // the cross-sentence pronoun keeps reaching back across the whole of it.
   const paragraphs = [];
   let current = null;
   let inFence = false;
+  const partOfKind = (kind) => {
+    const last = current.parts[current.parts.length - 1];
+    if (last && last.kind === kind) return last;
+    const part = kind === 'prose' ? { kind, lines: [] } : { kind, rows: [], header: null };
+    current.parts.push(part);
+    return part;
+  };
   for (; i < lines.length; i += 1) {
     const line = lines[i];
     if (FENCE.test(line)) {
@@ -660,35 +779,60 @@ export function segmentSentences(markdown) {
     const quoted = /^\s*>/.test(line);
     let stripped = line.replace(/^\s*>+\s?/, '');
     stripped = stripped.replace(/^\s*([-*+]|\d+[.)])\s+/, '');
+    if (!current) {
+      current = { parts: [], quoted: false };
+      paragraphs.push(current);
+    }
+    current.quoted = current.quoted || quoted;
     if (/^\s*\|/.test(stripped)) {
-      // A table row: the cells are independent fragments, never one sentence.
-      stripped = stripped
+      // A table row: its cells are independent units of text, and this reads
+      // them as such (objectui#9870).
+      const cells = stripped
         .replace(/^\s*\|/, '')
         .replace(/\|\s*$/, '')
         .split('|')
-        .join('. ');
+        .map((cell) => cell.replace(/\s+/g, ' ').trim());
+      const table = partOfKind('table');
+      if (cells.length > 0 && cells.every((cell) => TABLE_DELIMITER_CELL.test(cell))) {
+        // The delimiter row is syntax. What it carries is WHICH row was the
+        // header, and that is the only thing kept from it.
+        table.header = table.rows.length > 0 ? table.rows[table.rows.length - 1] : null;
+        continue;
+      }
+      table.rows.push(cells);
+      continue;
     }
     stripped = stripped.replace(/^\s*#+\s+/, '');
-    if (!current) {
-      current = { lines: [], quoted: false };
-      paragraphs.push(current);
-    }
-    current.lines.push(stripped);
-    current.quoted = current.quoted || quoted;
+    partOfKind('prose').lines.push(stripped);
   }
 
   const out = [];
   paragraphs.forEach((para, paragraphIndex) => {
-    const joined = para.lines.join(' ').replace(/\s+/g, ' ').trim();
-    if (!joined) return;
-    cutSentences(joined).forEach((text, sentenceIndex) => {
-      out.push({
-        text,
-        paragraphIndex,
-        sentenceIndex,
-        position: para.quoted || isQuotedInline(text) ? 'quoted' : 'assertion',
-      });
-    });
+    let sentenceIndex = 0;
+    const emit = (text, position) => {
+      out.push({ text, paragraphIndex, sentenceIndex, position });
+      sentenceIndex += 1;
+    };
+    const positionOf = (text, retired) => {
+      if (para.quoted) return 'quoted';
+      if (retired) return 'superseded';
+      return isQuotedInline(text) ? 'quoted' : 'assertion';
+    };
+    for (const part of para.parts) {
+      if (part.kind === 'prose') {
+        const joined = part.lines.join(' ').replace(/\s+/g, ' ').trim();
+        if (!joined) continue;
+        for (const text of cutSentences(joined)) emit(text, positionOf(text, false));
+        continue;
+      }
+      const retired = supersededColumns(part.header);
+      for (const row of part.rows) {
+        row.forEach((cell, column) => {
+          if (!cell) return;
+          for (const text of cutSentences(cell)) emit(text, positionOf(text, retired.has(column)));
+        });
+      }
+    }
   });
   return out;
 }
@@ -1325,6 +1469,11 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
   const declared = declaredNames(memberIndex);
   const matched = [];
   const quoted = [];
+  // objectui#9870: a reading its own table declares RETIRED. It is neither an
+  // assertion nor a quotation, so it is counted under its own name -- a bucket
+  // that disappeared into either of the other two would be a rule nobody can
+  // read the cost of.
+  const superseded = [];
   let sentencesScanned = 0;
   let verbSeenEntries = 0;
   let pastOnlySentences = 0;
@@ -1344,6 +1493,7 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
       if (!matchesPopulation(s.text)) continue;
       const record = { entry: entry.name, ...s, claim: readClaim(s, preceding, declared) };
       if (s.position === 'quoted') quoted.push(record);
+      else if (s.position === 'superseded') superseded.push(record);
       else matched.push(record);
     }
     if (verbSeen) verbSeenEntries += 1;
@@ -1418,6 +1568,7 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
     pastOnlySentences,
     matchedAssertions: matched.length,
     matchedQuoted: quoted.length,
+    matchedSuperseded: superseded.length,
     matchedEntries: new Set(matched.map((m) => m.entry)).size,
     pronounResolved: matched.filter((m) => m.claim.viaPronoun).length,
     litControlEntries: verbSeenEntries,
@@ -1435,6 +1586,7 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
       : null,
     resolutionRoots: resolutionIndex ? resolutionIndex.roots : null,
     quoted,
+    superseded,
     matched,
   };
 }
@@ -1546,6 +1698,10 @@ function report(result, controls) {
   );
   L.push(`| matched, QUOTED position (reported, never flagged) | ${result.matchedQuoted} |`);
   L.push(
+    `| matched, SUPERSEDED position -- a reading the table's own header retires` +
+      ` (reported, never flagged) | ${result.matchedSuperseded} |`,
+  );
+  L.push(
     `| of those assertions, object resolved across a sentence boundary | ${result.pronounResolved} |`,
   );
   L.push(`| entries carrying the verb at all (lit control) | ${result.litControlEntries} |`);
@@ -1647,7 +1803,10 @@ export function main(argv) {
   const result = census({ corpusDir, memberIndex, resolutionIndex });
 
   if (args.includes('--json')) {
-    const payload = { controls, result: { ...result, matched: undefined, quoted: undefined } };
+    const payload = {
+      controls,
+      result: { ...result, matched: undefined, quoted: undefined, superseded: undefined },
+    };
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   } else {
     process.stdout.write(`${report(result, controls)}\n`);

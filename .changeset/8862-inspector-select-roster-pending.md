@@ -39,9 +39,15 @@ empty, so the select never mounts during the round trip. Every other
 the same kind of length gate; the async rosters that are not go to
 `InspectorComboField`, which has no absence marker to withhold.
 
-Still open and deliberately not guessed here: a roster whose fetch FAILED also
-resolves to an empty array with `loading` back to false, so the marker still
-fires on a load error. objectui#5170 ruled that arm for the SchemaForm widget
-family and chose a dedicated failure surface over a silent empty roster; the
-same question on this primitive is a decision about what a picker owes its host,
-not a spelling.
+One arm of the same blindness was left open here and has since been closed, by
+objectui#9651 in this same release: a roster whose fetch FAILED also resolves to
+an empty array with `loading` back to false, so the tri-state above still read a
+load error as "the roster answered and your value is not in it" — and unlike the
+pending window, that reading never cleared. The question this card declined to
+guess at — what a picker owes its host on a failed fetch — was answered there by
+following the precedent named above rather than inventing one: objectui#5170 had
+already ruled that arm for the SchemaForm widget family and chosen a dedicated
+failure surface over a silent empty roster. The primitive now reads one
+`LoadState` exhaustively instead of a list plus flags, so the fault is its own
+arm rather than a combination; on that arm it withholds the marker and renders
+the cause.

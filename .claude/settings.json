@@ -10,7 +10,9 @@
       "mcp__Claude_Preview__preview_screenshot",
       "mcp__Claude_Preview__preview_snapshot",
       "mcp__Claude_Preview__preview_console_logs",
-      "mcp__Claude_Preview__preview_network"
+      "mcp__Claude_Preview__preview_network",
+      "Bash(curl -sS -X POST https://api.github.com/repos/objectstack-ai/objectui/pulls/*/ccr/ready_for_review *)",
+      "Bash(curl -sS -X PUT https://api.github.com/repos/objectstack-ai/objectui/pulls/*/ccr/auto_merge *)"
     ],
     "deny": [
       "mcp__github__issue_write",

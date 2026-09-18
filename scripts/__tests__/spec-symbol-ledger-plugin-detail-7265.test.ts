@@ -276,11 +276,33 @@ describe('the empty-ledger path — the end state, not the cue to delete the mac
     expect(ledgerNames(block)).toEqual([]);
   });
 
-  it('`DEBT_ISSUE` is still declared — an empty ledger keeps its anchor', () => {
-    // Deleting it would silently turn the stale-entry message's tail off (it is
-    // written behind a `DEBT_ISSUE ?` guard), which is the instruction a
-    // re-seeded ledger would need most.
-    expect(gateText()).toMatch(/^const DEBT_ISSUE = \d+;$/m);
+  it('`DEBT_ISSUE` is declared as a NON-ZERO literal — the stale-entry tail stays switched on', () => {
+    // The tail is written behind a `DEBT_ISSUE ?` guard, so the invariant this
+    // pin holds is not "declared" — it is "declared AND truthy". objectui#9596
+    // measured the difference: a bare digit class admits `= 0`, which matches it
+    // (a zero is a decimal digit) and is falsy (so the guard takes its empty
+    // branch), switching the tail off silently with this pin green — the exact
+    // outcome the pin exists to prevent. Requiring a leading non-zero digit is
+    // what closes that, and the implication is exact rather than lucky: the
+    // anchor is declared as a literal, so a decimal literal whose first digit is
+    // not `0` IS truthy when the gate evaluates it.
+    //
+    // It fails CLOSED on everything else: `0`, `null` and an expression this pin
+    // cannot evaluate all fail to MATCH rather than passing unread. Deleting the
+    // declaration outright reds earlier and harder than that, and ⚠ not because
+    // of this line — `LEDGER_ANCHORS` reads the const at module scope, so the gate
+    // stops importing and this whole file reports no tests at all. Credit that
+    // leg to the table, not to this assertion.
+    //
+    // ⛔ Deliberately NOT asserted through `LEDGER_ANCHORS.issue`, even though
+    // that table carries a copy of this value and would state truthiness
+    // directly. The guard's operand is THIS module-local const; the table is a
+    // second binding, and reading the copy goes green when the two disagree
+    // (measured on objectui#9596: the const at `0` with a truthy literal in the
+    // table renders no tail, and a truthiness assertion over the table passes).
+    // Whether the table stays faithful to the const is a different invariant,
+    // pinned in `spec-symbol-ledger-anchor-liveness-9537.test.ts`.
+    expect(gateText()).toMatch(/^const DEBT_ISSUE = [1-9]\d*;$/m);
   });
 
   it('the ratchet that reads `DEBT` is still wired — it is the re-seeding guard', () => {

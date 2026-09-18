@@ -49,7 +49,8 @@
  *   - `plugin-chatbot:chatbot` / `chatbot-enhanced` — 14 attributes each,
  *     objectui#4431 / PR #4485, which also lifted `toDomProps` to
  *     `@object-ui/core` so later cards consume one executor.
- *   - `view:dashboard` — `DashboardRenderer`'s widget-grid container, 13
+ *   - `plugin-dashboard:dashboard` (spelled `view:dashboard` until
+ *     objectui#9533) — `DashboardRenderer`'s widget-grid container, 13
  *     attributes, objectui#4432 / this file's most recent edit.
  *
  * The three packages now reading 0 are NOT clean for the same reason, and the
@@ -875,7 +876,9 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
     { type: 'plugin-dashboard:object-pivot', schemaExtras: { objectName: 'accounts' }, ready: '[data-testid="pivot-empty-state"]' },
     { type: 'plugin-dashboard:object-data-table', schemaExtras: { objectName: 'accounts' }, ready: '[data-testid="table-empty-state"]' },
     // `DashboardRenderer`'s widget grid — the element its `{...props}` lands on.
-    { type: 'view:dashboard', ready: '.grid.auto-rows-min' },
+    // Spelled `view:dashboard` until objectui#9533 converged the bare `dashboard`
+    // key onto this package's own namespace; the renderer is the same one.
+    { type: 'plugin-dashboard:dashboard', ready: '.grid.auto-rows-min' },
   ],
   // objectui#5574 — 159 targets, built above rather than spelled here because
   // 140 of them need nothing but the shared readiness class.
@@ -916,7 +919,16 @@ const OWNED_VIEW_ALIASES: Readonly<Record<string, readonly string[]>> = {
   'plugin-charts': ['view:chart'],
   'plugin-calendar': ['view:calendar'],
   'plugin-chatbot': [],
-  'plugin-dashboard': ['view:dashboard'],
+  // objectui#9533 — EMPTY, and measured rather than defaulted. This package's
+  // dashboard renderer moved out of the shared `view:` namespace onto
+  // `plugin-dashboard:dashboard`, so it is covered by the prefix case above.
+  // `view:dashboard` is still a registered key, but what answers it is a
+  // retirement TOMBSTONE (a refusal alert naming the migration), not a widget:
+  // it destructures nothing and spreads nothing onto its element, so there is no
+  // pass-through surface for this sweep to measure. Its contract — the refusal
+  // and the text of it — is pinned in
+  // `packages/plugin-dashboard/src/__tests__/dashboardBareKeyOwnership.test.tsx`.
+  'plugin-dashboard': [],
 };
 
 /* ════════════════════════════════════════════════════════════════════════════

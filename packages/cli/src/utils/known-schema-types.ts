@@ -646,7 +646,6 @@ export const KNOWN_SCHEMA_TYPES: readonly string[] = [
   'view-switcher',
   'view:calendar',
   'view:chart',
-  'view:dashboard',
   'view:detail',
   'view:drawer',
   'view:filter-ui',

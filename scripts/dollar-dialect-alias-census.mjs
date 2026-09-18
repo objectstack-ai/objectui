@@ -143,15 +143,57 @@ export const SCANNED_EXT = new Set([
 ]);
 
 /**
- * This census and its own suite, which carry every alias spelling as FIXTURE
- * TEXT -- including the impossible spelling the negative control is built on.
- * Scanning them makes the instrument measure itself: the `impossible` control
- * fires on its own declaration and the run stops being a reading. Caught by the
- * suite the first time these two files became tracked, which is the only moment
- * the defect is visible.
+ * The instrument itself, carved out by name -- and the two entries are NOT the
+ * same carve-out, which is what this comment used to average away.
+ *
+ *   THIS FILE carries the BAIT the `impossible` negative control is aimed at:
+ *   `IMPOSSIBLE_SPELLING` is a string LITERAL here and, measured, nowhere else
+ *   in the tree. Scanning it makes that control fire on its own declaration and
+ *   `main` exits non-zero saying the run is NOT a reading. So this entry is
+ *   CONTROL-BACKED: if it ever stops matching -- a rename, a move -- the census
+ *   does not print a quietly wrong number, it refuses to print one at all. The
+ *   suite pins that by ABLATION rather than by assertion.
+ *
+ *   THE SUITE carries the alias and canonical spellings as fixture text, and it
+ *   deliberately does NOT carry the impossible spelling: it hands the imported
+ *   `IMPOSSIBLE_SPELLING` binding to `scanText` instead. ⚠️ So no control fires
+ *   if THIS entry drifts -- dropping it changes only which canonical rows
+ *   `canonicalTotals` counts. Its reason is the plain one: a suite rehearsing
+ *   the dialect is not an author using it. Stated separately because the two
+ *   entries are justified by two different things, and only one of them has a
+ *   control underneath it.
  *
  * The number of occurrences skipped is printed rather than hidden, so a reader
  * can see the carve-out is these two files and not a silent filter.
+ *
+ * ## ⛔ Why this list is NOT the by-name drift objectui#9865 ruled against
+ *
+ * objectui#9891 asked whether `cross-file-line-citation-census.mjs`'s
+ * `fixture-address: <reason>` class -- a class DECLARED per address by the
+ * citing file, reason required, every declared row printed -- should replace
+ * this list. Measured, it should not, and the reasons are about THIS population
+ * rather than about the class:
+ *
+ *   - THE CLASS DID NOT REPLACE THE SELF-LIST WHERE IT LANDED. The citation
+ *     census still declares its own `SELF_FILES` and still carves those whole
+ *     files out by name. The class exists for addresses sitting in OTHER files
+ *     among genuine pointers, where a whole-file carve-out would hide real rot.
+ *     objectui#9865's ⛔ is against NAMING MORE FILES in such a list, ⛔ not
+ *     against a self-list existing.
+ *   - THERE IS NOTHING HERE FOR A PER-ROW DECLARATION TO PRESERVE. Both files
+ *     are role `other`, and `other` is never the number objectui#8568 asked for
+ *     -- `authored-corpus` is. A spelling written inside this instrument cannot
+ *     be an author relying on the tolerance, so a whole-file carve-out hides no
+ *     row anybody wants back. That is the exact property the declared class was
+ *     invented because the citation population does NOT have.
+ *   - THE DRIFT DIRECTION IS INVERTED for the first entry. A declaration buys
+ *     travel-with-the-file; the `impossible` control already buys
+ *     announce-on-drift, which is the property a report-only instrument needs,
+ *     because its failure mode is a confident wrong number rather than a missed
+ *     repair.
+ *
+ * ⚠️ That third argument does ⛔ NOT cover the second entry, and this comment
+ * says so above rather than letting one entry's control vouch for both.
  */
 export const SELF_FILES = new Set([
   'scripts/dollar-dialect-alias-census.mjs',
@@ -315,6 +357,11 @@ export function trackedFiles(root) {
 }
 
 function scannable(rel) {
+  // ⚠️ Belt and braces, ⛔ not a second judgement site: `runCensus` diverts the
+  // SELF_FILES rows above the only call to this function, so this arm is
+  // unreachable from there today. It stays so that a future caller inherits the
+  // carve-out instead of having to remember it -- read as a live duplicate of
+  // the predicate, it is the thing objectui#9891 was filed about.
   if (SELF_FILES.has(rel)) return false;
   if (SKIP_PATHS.some((p) => rel === p || rel.includes(p))) return false;
   const ext = rel.includes('.') ? rel.slice(rel.lastIndexOf('.') + 1).toLowerCase() : '';

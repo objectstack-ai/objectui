@@ -788,8 +788,10 @@ export interface ToggleSchema extends BaseSchema {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/form/toggle.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *
@@ -1945,8 +1947,10 @@ export interface FormSchema extends BaseSchema {
    *
    * READ SITE, measured with the TypeScript TYPE CHECKER and not with grep (a
    * docblock mention is not a read; the `BoxSchema` docblock in
-   * `renderers/layout/box.tsx` says `schema.body` in prose and grep counts
-   * it): the `schema.children` read in
+   * `renderers/layout/box.tsx` SAID `schema.body` in prose and grep counted it,
+   * until objectui#6771 rewrote that docblock — the example is spent, the
+   * hazard is not, which is why the measurement is a type-checker sweep and
+   * never a grep): the `schema.children` read in
    * `packages/components/src/renderers/form/form.tsx`. The same sweep finds zero `body` reads
    * for this node type.
    *

@@ -52,7 +52,10 @@
  *
  * `children` is declared on four faces: the TypeScript declaration and the zod
  * mirror in `@object-ui/types`, `validateSchema` in `@object-ui/core` (which
- * reads `schema.children || schema.body`, children FIRST), and the manifest
+ * READ `schema.children || schema.body`, children FIRST, until objectui#6771
+ * dropped that second arm — the past tense is load-bearing, because a reader
+ * replaying this sentence against `@object-ui/core` today finds one spelling),
+ * and the manifest
  * tier's `BASE_PROPS` in `@object-ui/sdui-parser` (which carries `children` and
  * does NOT carry `body`). Both readers in this package guarded their child-list
  * recursion on `schema.body` ALONE.
@@ -90,11 +93,28 @@
  * that the string `schema.children` appears would pass against a `children` arm
  * that is present but unreachable, which is precisely the failure being pinned.
  *
- * ## The `body` arm is expected to keep working
+ * ## The `body` arm is GONE — and each pin's second half now says so
  *
- * Each pin asserts BOTH spellings. Removing the `body` arm is objectui#6771
- * step 2, not this change, so a `body`-spelled document rendering or validating
- * differently than before is a regression these pins must also catch.
+ * ⚠️ INVERTED, and the old text is quoted rather than dropped so the reversal is
+ * legible: this section read "the `body` arm is expected to keep working …
+ * Removing the `body` arm is objectui#6771 step 2, not this change". This IS
+ * that change. The sentence is therefore reversed, not deleted — a
+ * `body`-spelled document that renders or validates as it did before is now the
+ * regression, and these pins are what catch it.
+ *
+ * Each pin still asserts BOTH spellings, which is what makes the second half a
+ * reading: the `children` leg carries the ABSOLUTE count the reader produces and
+ * the `body` leg carries zero beside it, so a reader that broke entirely
+ * satisfies neither half. ⭐ For the validator the `body` leg is POSITIVE rather
+ * than silent — it asserts the diagnostic that NAMES `children` — because
+ * dropping the arm without that assertion took this host from one diagnostic to
+ * zero, which is the correction recorded at the top of this header.
+ *
+ * ⛔ One exception, and it has its own leg: a node type that declares its own
+ * `body` input is not writing the retired spelling. `record:alert` is the single
+ * such registration in the tree, it is carved out of the diagnostic, and the leg
+ * that pins the carve-out asserts both points — `record:alert` silent, `card`
+ * still warned.
  */
 
 import { readFileSync } from 'node:fs';

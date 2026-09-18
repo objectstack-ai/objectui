@@ -82,26 +82,45 @@ import { isEntrypoint } from './invoked-as.mjs';
 
 // ── The measured population ────────────────────────────────────────────────
 //
-// BODY_ONLY: registrations whose renderer reads `renderChildren(schema.body)`
-// and never `schema.children`. For these, `body` is the ONLY door — retiring it
-// removes the sole child-list key.
+// ⚠️ THIS BLOCK IS IN THE PAST TENSE ON PURPOSE. It records the population as
+// it was when step 1 of objectui#6771 built this instrument; step 2 then
+// converged every registration below onto `children`. The keys are what the
+// census LOOKS AT, not what it expects to find — its job now is to report that
+// the reading has gone to zero, so a present-tense sentence here would be a
+// claim the instrument's own output contradicts. For what is true TODAY read
+// `__tests__/body-dialect-census.test.ts`, which pins the converged state.
+//
+// BODY_ONLY: registrations whose renderer read `renderChildren(schema.body)`
+// and never `schema.children`. For those, `body` was the ONLY door — retiring
+// it removed the sole child-list key, which is why they are the population.
 //
 // ⚠️ Derived from the renderer sources, NOT from objectui#6771's card body
-// (which lists 10) and NOT verbatim from the ratchet pin's `bodyReaders` array
-// (which is `['badge','alert',...sidebar*]` = 13). The pin's array is a
-// convenience construction for a containment assertion — it is correct that all
-// 13 are non-containers, but two of its members are not `body` readers at all:
+// (which lists 10) and NOT verbatim from the ratchet pin's `bodyReaders` array.
+// That array — `['badge','alert',...sidebar*]` = 13 — lived in
+// `container-declaration-ratchet.test.tsx` until objectui#6771 removed it along
+// with the reads it named, so do not go looking for it. It was a convenience
+// construction for a containment assertion: correct that all 13 were
+// non-containers, but two of its members were not `body` readers at all:
 //
-//   - `sidebar-trigger` (navigation/sidebar.tsx:202) renders `<SidebarTrigger>`
-//     and takes no `schema` at all — it reads NEITHER `body` NOR `children`.
-//   - `tooltip` (overlay/tooltip.tsx:31) DOES read `schema.body` and never
-//     `schema.children`, and is the one registration in the tree that DECLARES
-//     `body` as an input (`type: 'slot'`, label "Rich Content") — yet it is
-//     absent from the ruled 13.
+//   - `sidebar-trigger` (navigation/sidebar.tsx) renders a `SidebarTrigger` and
+//     takes no `schema` at all — it read NEITHER `body` NOR `children`.
+//   - `tooltip` (overlay/tooltip.tsx) DID read `schema.body` and never
+//     `schema.children`, and was the one registration in the tree that DECLARED
+//     `body` as an input (`type: 'slot'`, label "Rich Content") — yet it was
+//     absent from the ruled 13. objectui#6771 moved both halves: it renders
+//     `renderChildren(schema.children)` and declares `{ name: 'children' }`.
 //
-// So the body-reading population is 12 of the ruled 13, plus `tooltip` = 13
-// readers, which is the same NUMBER by coincidence and a different SET.
-// Both facts are pinned in `__tests__/body-dialect-census.test.mjs`.
+// ⚠️ That last title is NOT vacant, and leaving this note in the present tense
+// is what let two files in one tree answer the same question differently. The
+// one registration declaring an input named `body` is now `record:alert`
+// (`plugin-detail/src/index.tsx`), whose `body` is a declared translation map
+// and never a child list. `packages/sdui-parser/src/body-dialect.ts` carries
+// that reading and the carve-outs that depend on it; it is the file to keep in
+// step, not this one.
+//
+// So the body-reading population WAS 12 of the ruled 13, plus `tooltip` = 13
+// readers, the same NUMBER by coincidence and a different SET.
+// Both facts are pinned in `__tests__/body-dialect-census.test.ts`.
 export const BODY_ONLY = [
   'alert',
   'badge',
@@ -117,10 +136,14 @@ export const BODY_ONLY = [
   'sidebar-provider',
 ];
 
-/** Ruled by objectui#6771 but reads no child list at all — retiring `body` costs it nothing. */
+/** Ruled by objectui#6771 but read no child list at all — retiring `body` cost it nothing. */
 export const RULED_BUT_NOT_A_READER = ['sidebar-trigger'];
 
-/** Reads `schema.body` only, and is NOT in the ruled 13. See the note above. */
+/**
+ * Read `schema.body` only, and was NOT in the ruled 13. Past tense: objectui#6771
+ * converged it, and `__tests__/body-dialect-census.test.ts` pins that. See the
+ * note above for why the name stays in the population regardless.
+ */
 export const BODY_ONLY_UNRULED = ['tooltip'];
 
 // FALLBACK_READERS: `schema.children || schema.body` (or `body || children`).
@@ -695,9 +718,9 @@ function main(argv = process.argv.slice(2)) {
 
   const inPopulation = (list) => list.filter((key) => population.keys.includes(key));
   const tables = [
-    ['Group 1 — `body`-only registrations (retiring `body` removes their ONLY child-list key)', inPopulation(BODY_ONLY)],
-    ['Group 1b — ruled by #6771 but reads NO child list (retirement costs it nothing)', inPopulation(RULED_BUT_NOT_A_READER)],
-    ['Group 1c — `body`-only reader NOT in the ruled 13 (⚠️ declares `body` as an input)', inPopulation(BODY_ONLY_UNRULED)],
+    ['Group 1 — former `body`-only registrations (`body` was their ONLY child-list key)', inPopulation(BODY_ONLY)],
+    ['Group 1b — ruled by #6771 but read NO child list (retirement cost it nothing)', inPopulation(RULED_BUT_NOT_A_READER)],
+    ['Group 1c — former `body`-only reader outside the ruled 13 (it also DECLARED `body`; that title now belongs to `record:alert`)', inPopulation(BODY_ONLY_UNRULED)],
   ];
   for (const [title, keys] of tables) {
     if (keys.length > 0) printTable(title, group(keys, hits));

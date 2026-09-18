@@ -48,13 +48,21 @@ Ruled 2026-09-01: one concept, one spelling, and the spelling is `children`.
   registry carries `page-card-body-to-children` (`toMajor: 17`, surface
   `page.component.page:card.body`, shipped `retiredFromLoadPath: true` in spec 17.0.0)
   and carries none for the other three — so a stored row under their key has no
-  migration path at all. Nothing in this repository authors any of them: the committed
-  census over those keys reads a firing control (`card` + `body`, 40 before this change
-  and 2 after, both test fixtures) beside a lit zero for `page:section` (6 nodes
-  resolved, 0 `body`, 4 `children`). Retiring the THREE THIN reads is objectui#9916,
+  migration path at all. Nothing in this repository authors any of them, and the
+  committed census over those keys is how to see that rather than take it on trust:
+  `node scripts/body-dialect-census.mjs --keys page:section,page:footer,page:sidebar,page:card,card`.
+  ⚠️ This sentence used to restate that table's answer instead of pointing at it, and
+  the very commit that edited the sentence moved the figure — a count copied into prose
+  is what AGENTS.md #9 forbids, so the instrument replaces the number. Read the table
+  for three things: `card` + `body` is a control that FIRES on the head that ships (so
+  a zero elsewhere is a reading, not a blind spot), every node still carrying `body`
+  under these keys falls in the `test` bucket, and `page:section` is a LIT zero — 6
+  nodes resolved, 0 `body`, 4 `children` — rather than a key nobody asked about.
+  Retiring the THREE THIN reads is objectui#9916,
   which asks for the stored-corpus reading they turn on; `page:card`'s read is not
-  that card's — it rides objectstack#5775 / ADR-0087 D2 and ends when the stored rows
-  have been replayed through the conversion that already shipped for it.
+  that card's either — it is objectui's own, grounded by objectstack#5775 /
+  ADR-0087 D2 rather than owned by it, and it ends when the stored rows have been
+  replayed through the conversion that already shipped for it.
 - **The published type.** `BaseSchema.body` is `never` on the TypeScript face and an
   alias refusal naming `children` on the Zod mirror, as are the four per-component
   redeclarations (`CardSchema`, `AspectRatioSchema`, `PageNodeSchema`, `TooltipSchema`).
@@ -101,9 +109,13 @@ surface `page.component.page:card.body`), which shipped with `retiredFromLoadPat
 in spec 17.0.0. The other three have **no conversion at all**, so a stored row under
 their key has nowhere to be migrated to. ⇒ the two halves are tracked separately, and
 the pointer is not one card: retiring the three thin reads is objectui#9916, whose
-question is the stored corpus; retiring `page:card`'s read belongs to
+question is the stored corpus; retiring `page:card`'s read was **grounded by**
 objectstack#5775 / ADR-0087 D2, whose conversion has already shipped and whose
-remaining condition is replayed rows.
+remaining condition is replayed rows. ⚠️ Grounded by, not owned by — the distinction
+is the point. objectstack#5775 is CLOSED and its body is a props-declaration audit
+that carries no such step, so a reader sent there for the action finds none. The
+action is objectui's, on the spec's own terms quoted above: «that fallback is
+objectui's to retire on its own schedule.»
 
 **Non-rendering readers keep their arm on the same rule**, and none of them renders
 anything: while a renderer still reaches stored `body` content, a reader that must see

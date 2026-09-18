@@ -688,12 +688,16 @@ export interface PopoverSchema extends BaseSchema {
  * Tooltip component
  *
  * ⚠️ This declaration used to REQUIRE `children` and declare neither `trigger`
- * nor `body` (objectui#6939). Nothing reads `children` here — the renderer
- * reads `schema.trigger` and `schema.content || renderChildren(schema.body)`
+ * nor a rich-content slot (objectui#6939). The renderer reads `schema.trigger`
+ * and `schema.content || renderChildren(…)`
  * (`packages/components/src/renderers/overlay/tooltip.tsx`), and the
- * registration's own `inputs` list `trigger` / `content` / `body` and never
- * `children`. `children` stays legal through {@link BaseSchema}, where it is
- * optional; it is no longer demanded, so nothing that type-checked before
+ * registration's own `inputs` list `trigger` / `content` / that slot. ⚠️ The
+ * slot was spelled `body` from objectui#6939 until objectui#6771 retired the
+ * spelling; it is `children` on both the read and the published `inputs` now,
+ * which is why the tombstones below face the other way round from the ones
+ * objectui#8284 first wrote. `children` was legal through {@link BaseSchema}
+ * throughout, where it is optional; it is no longer demanded, so nothing that
+ * type-checked before
  * stops type-checking.
  *
  * ⛔ Do not move a tooltip's trigger back under `children`: `basic-tooltip`

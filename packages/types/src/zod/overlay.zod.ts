@@ -307,14 +307,18 @@ export const PopoverSchema = BaseSchema.extend({
 /**
  * Tooltip Schema - Tooltip component
  *
- * ⚠️ This member used to REQUIRE `children` and declare neither `trigger` nor
- * `body` (objectui#6939). No read site has ever consumed `children` here: the
- * renderer reads `schema.trigger` (`renderers/overlay/tooltip.tsx:28`) and
- * `schema.content || renderChildren(schema.body)` (:31), and the registration's
- * own `inputs` list `trigger` / `content` / `body` and never `children`. So the
+ * ⚠️ This member used to REQUIRE `children` and declare neither `trigger` nor a
+ * rich-content slot (objectui#6939). The renderer reads `schema.trigger` and
+ * `schema.content || renderChildren(…)` (`renderers/overlay/tooltip.tsx`), and
+ * the registration's own `inputs` list `trigger` / `content` / that slot. So the
  * validator refused documents the renderer draws and blessed a spelling that
  * paints an empty trigger — `declared !== enforced`, with the corpus on the
  * right side of it.
+ *
+ * ⚠️ The slot was spelled `body` from objectui#6939 until objectui#6771 retired
+ * the spelling. It is `children` now, so the refusal below faces the other way
+ * round from the one objectui#8284 first wrote — the RULE (tombstone the channel
+ * this renderer does not read) is what is preserved, not the key it named.
  *
  * `HoverCardSchema` two entries below is the settled in-repo shape for this
  * pair of slots and is what `trigger` follows here.

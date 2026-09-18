@@ -45,9 +45,15 @@ import {
   evaluateControls,
   finalVerdict,
   bucketOf,
+  declarationNear,
+  evaluateDeclaration,
   CONTROLS,
+  DECLARATION_CASES,
+  DECLARATION_WINDOW,
   FALSE_VERDICTS,
   MAX_ANCHOR_LINES,
+  REASON_MAX,
+  SELF_FILES,
   CONT_WINDOW,
 } from '../cross-file-line-citation-census.mjs';
 
@@ -61,8 +67,15 @@ type Hit = {
   inTestName: boolean;
 };
 
+type Declared = Hit & { declaredReason: string; declaredOnLine: number };
+
 const scan = (text: string, path = 'packages/demo/src/demo.ts') =>
-  scanFile(path, text) as { hits: Hit[]; carvedOut: Hit[]; lines: string[] };
+  scanFile(path, text) as {
+    hits: Hit[];
+    carvedOut: Hit[];
+    declared: Declared[];
+    lines: string[];
+  };
 
 const shapes = (text: string, path?: string) =>
   scan(text, path).hits.map((h) => `${h.syntax} ${h.citedWritten}:${h.citedLine}`);
@@ -647,5 +660,166 @@ describe('a bare filename opens the continuation scope, not only a full address'
     // the SAME text with a real blank line is refused.
     const reallyBlank = ['   * see `apps/console/vite.config.ts`', '', '   * the backend runs on :3000'].join('\n');
     expect(shapes(reallyBlank)).toEqual([]);
+  });
+});
+
+/**
+ * objectui#9865 — an address the citing file DECLARES as fixture data.
+ *
+ * ⭐ WHAT MAKES THIS NOT `SELF_FILES` WITH MORE NAMES. The carve-out this joins
+ * is right about WHY and wrong about HOW FAR: "carries addresses as fixture
+ * data" holds of many instruments here, and a by-name list carves out WHOLE
+ * FILES when what is fixture data is ONE ADDRESS inside them. So the assertions
+ * below are written to fail if the class ever becomes a second list — the
+ * carve-out has to be reachable from a file nobody named, and unreachable from
+ * a file that names nothing.
+ *
+ * ⚠️ A passing run proves nothing on its own: the reader could be carving out
+ * everything, or nothing. Each firing leg is written beside the ⛔ leg that
+ * would still pass if the reader had stopped reading, which is the discipline
+ * the classifier controls in this file already follow.
+ */
+describe('an address the citing file DECLARES as fixture data (objectui#9865)', () => {
+  const ADDRESS = '// the vocabulary is declared at packages/core/src/actions/ActionRunner.ts:112';
+  const REASON = 'RuleTester input, the rule under test is what reads it';
+
+  it('passes its own control set on every census run', () => {
+    for (const c of evaluateDeclaration() as { ok: boolean; name: string; detail: string }[]) {
+      expect(c.ok, `${c.name} -- ${c.detail}`).toBe(true);
+    }
+  });
+
+  it('takes the address out of the population and into `declared`, with its reason', () => {
+    const r = scan([`// fixture-address: ${REASON}`, ADDRESS].join('\n'));
+    expect(r.hits).toEqual([]);
+    expect(r.declared).toHaveLength(1);
+    expect(r.declared[0].citedLine).toBe(112);
+    expect(r.declared[0].declaredReason).toBe(REASON);
+    // The DECLARING line, not the cited one: an auditor needs the sentence that
+    // made the claim, and it is usually not the line carrying the address.
+    expect(r.declared[0].declaredOnLine).toBe(1);
+    expect(r.declared[0].line).toBe(2);
+  });
+
+  it('⛔ FIRING CONTROL — the same address with no declaration is still counted', () => {
+    // Without this leg the assertion above is satisfied by a reader that carves
+    // out every address it sees.
+    const r = scan(ADDRESS);
+    expect(r.declared).toEqual([]);
+    expect(r.hits).toHaveLength(1);
+  });
+
+  it('reaches exactly as far as the window, and the far side is a real barrier', () => {
+    const at = (gap: number) =>
+      scan([`// fixture-address: ${REASON}`, ...Array(gap - 1).fill('//'), ADDRESS].join('\n'));
+    expect(DECLARATION_WINDOW).toBe(2);
+    expect(at(DECLARATION_WINDOW).declared).toHaveLength(1);
+    expect(at(DECLARATION_WINDOW + 1).declared).toEqual([]);
+    expect(at(DECLARATION_WINDOW + 1).hits).toHaveLength(1);
+  });
+
+  it('reads a declaration written BELOW the address too — prose puts it on either side', () => {
+    const r = scan([ADDRESS, `// fixture-address: ${REASON}`].join('\n'));
+    expect(r.declared).toHaveLength(1);
+    expect(r.declared[0].declaredOnLine).toBe(2);
+  });
+
+  it('⛔ a marker with NO reason declares nothing — a mute button is not a declaration', () => {
+    // THE load-bearing requirement. The reason is the only thing an auditor of
+    // this carve-out has; without it this mechanism is a by-name list spelled
+    // one address at a time, which is the shape objectui#9865 ⛔ ruled out.
+    expect(scan(['// fixture-address:', ADDRESS].join('\n')).hits).toHaveLength(1);
+    expect(scan(['// fixture-address: ab', ADDRESS].join('\n')).hits).toHaveLength(1);
+    expect(scan(['// fixture-address: abc', ADDRESS].join('\n')).declared).toHaveLength(1);
+  });
+
+  it('⛔ does not let a LONGER token declare anything', () => {
+    expect(scan([`// not-a-fixture-address: ${REASON}`, ADDRESS].join('\n')).hits).toHaveLength(1);
+  });
+
+  it('is keyed on the DECLARATION and ⛔ never on the citing path', () => {
+    // The same two lines under four unrelated paths, one of them a path the
+    // by-name carve-out has never heard of. If this class were a list, at least
+    // one of these would answer differently.
+    const text = [`// fixture-address: ${REASON}`, ADDRESS].join('\n');
+    for (const path of [
+      'packages/demo/src/demo.ts',
+      'eslint-rules/no-line-address-in-test-name.test.js',
+      'scripts/pm/check-half-states.mjs',
+      'content/docs/guide/anything.md',
+    ]) {
+      expect(SELF_FILES.has(path), path).toBe(false);
+      expect(scan(text, path).declared, path).toHaveLength(1);
+    }
+  });
+
+  it('shows a truncated reason rather than cutting it in silence', () => {
+    const long = `${'w'.repeat(REASON_MAX + 40)}`;
+    const found = declarationNear([`// fixture-address: ${long}`], 0) as { reason: string };
+    expect(found.reason).toHaveLength(REASON_MAX);
+    expect(found.reason.endsWith('…')).toBe(true);
+    // …and a reason that fits is handed back whole, so the ellipsis means
+    // something rather than always being there.
+    const short = declarationNear([`// fixture-address: ${REASON}`], 0) as { reason: string };
+    expect(short.reason).toBe(REASON);
+  });
+
+  it('strips a JSDoc terminator so a one-line declaration in a docblock still reads', () => {
+    const r = declarationNear([` * fixture-address: ${REASON} */`], 0) as { reason: string };
+    expect(r.reason).toBe(REASON);
+  });
+
+  it('leaves the released-changelog carve-out first, so a row lands in ONE bucket', () => {
+    const changelog = [
+      '# @object-ui/plugin-form',
+      '',
+      '## 17.6.0',
+      '',
+      `<!-- fixture-address: ${REASON} -->`,
+      '- released note citing `form.tsx:1428`',
+    ].join('\n');
+    const r = scan(changelog, 'packages/plugin-form/CHANGELOG.md');
+    expect(r.carvedOut).toHaveLength(1);
+    expect(r.declared).toEqual([]);
+  });
+
+  it('every control case states what it wants in its own name', () => {
+    expect(DECLARATION_CASES.length).toBeGreaterThanOrEqual(5);
+    for (const c of DECLARATION_CASES as { name: string; text: string }[]) {
+      expect(c.name.length).toBeGreaterThan(10);
+    }
+  });
+});
+
+/**
+ * ⭐ THE PIN THAT MAKES THE CLASS LIVE, and the one an ablation reddens.
+ *
+ * A mechanism whose live reading is a permanent zero is indistinguishable from
+ * one that never fires, which is the exact failure this census exists to make
+ * impossible. So the tree really does carry declarations, on files that are ⛔
+ * NOT in `SELF_FILES` — remove the reading branch, or remove a marker, and this
+ * goes back to zero and reds.
+ *
+ * ⚠️ The roster is a floor, ⛔ not a ceiling: more files may declare, and that
+ * is not a failure. What fails is any of these going silent.
+ */
+describe('the declaration is carried by the live tree, on files no list names', () => {
+  const DECLARING = [
+    'scripts/check-changeset-claims.mjs',
+    'scripts/__tests__/check-changeset-claims.test.ts',
+    'scripts/__tests__/check-i18n-call-site-keys.test.ts',
+    'scripts/__tests__/check-doc-links.test.ts',
+    'scripts/vite-dts-fail-on-type-errors.ts',
+  ];
+
+  it('declares at least one address per file, each with a reason a reader can weigh', () => {
+    for (const rel of DECLARING) {
+      expect(SELF_FILES.has(rel), `${rel} must NOT be carved out by name`).toBe(false);
+      const r = scan(readFileSync(join(REPO_ROOT, rel), 'utf8'), rel);
+      expect(r.declared.length, `${rel} declares nothing`).toBeGreaterThan(0);
+      for (const row of r.declared) {
+        expect(row.declaredReason.trim().length, `${rel}:${row.line}`).toBeGreaterThanOrEqual(3);
+      }
+    }
   });
 });

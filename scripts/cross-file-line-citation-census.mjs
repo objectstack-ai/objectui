@@ -118,9 +118,49 @@
  * the two controls below -- so counting them would be the instrument reading
  * itself.
  *
- * Both carve-outs are COUNTED AND PRINTED, never silently dropped. A carve-out
- * whose size is not reported is indistinguishable from a scanner that cannot
- * see the file at all, and this card's whole subject is a zero nobody audited.
+ * AN ADDRESS THE CITING FILE DECLARES AS FIXTURE DATA (objectui#9865). The
+ * carve-out above is right about WHY and wrong about HOW FAR: "carries
+ * addresses as fixture data" is a property of many instruments in this tree,
+ * and `SELF_FILES` names four files. objectui#9865 read every false citation
+ * under `scripts/`, `scripts/__tests__/`, `scripts/pm/` and `eslint-rules/` and
+ * found that a substantial minority are not pointers at all -- they are
+ * addresses standing in as DATA: a RuleTester `code:` string, a self-test
+ * fixture, a control body a differ must judge, a path in a synthetic fixture
+ * tree, a quoted build-log transcript. Repairing them is at best churn and at
+ * worst breaks the assertion that reads them.
+ *
+ * ⛔ THE SHARE IS NOT WRITTEN DOWN HERE, per AGENTS.md #9 and for the reason
+ * `CONT_WINDOW` gives below: a figure in a comment is derived once and never
+ * re-checked. Re-derive it -- `--json --list-false`, group `rows` by `bucket`,
+ * and read each citing site -- and ⛔ do not reason from any number this
+ * docblock hands you.
+ *
+ * ⛔ The answer is ⛔ NOT more names in `SELF_FILES`: a by-name list over a
+ * property that holds of many files is the same drift one level up, and it
+ * carves out WHOLE FILES when what is fixture data is ONE ADDRESS inside them.
+ * So the class is DECLARED, per address, by the citing file itself, in the
+ * window around the address -- `fixture-address: <reason>`. The declaration
+ * travels with the fixture, a reader meets it beside the thing it describes,
+ * and nothing has to remember to extend a list.
+ *
+ * ⚠️ ITS DIRECTION OF ERROR, stated rather than hidden. A declaration can
+ * silence a genuinely rotted pointer, and this census cannot tell that from the
+ * outside -- which is exactly why every declared address is PRINTED with the
+ * reason it gives and the line that gives it. An unaudited mute button and an
+ * audited one differ only in whether the output names what it dropped. And a
+ * declaration with no reason is a mute button, so a bare marker does ⛔ not fire.
+ *
+ * ⛔ The reach is TEXT, ⛔ not syntax: this file reads no AST anywhere, so a
+ * marker inside a string literal declares just as one inside a comment does.
+ * ⚠️ And the window covers a NEIGHBOURING address within `DECLARATION_WINDOW`
+ * lines, which is what a block of fixture rows needs and is also how one
+ * declaration can reach an address its author did not mean. Both are visible
+ * in the printed list; neither is inferred.
+ *
+ * Every carve-out here is COUNTED AND PRINTED, never silently dropped. A
+ * carve-out whose size is not reported is indistinguishable from a scanner that
+ * cannot see the file at all, and this card's whole subject is a zero nobody
+ * audited.
  *
  * ⚠️ PENDING CHANGESETS ARE NOT CARVED OUT, and that is a judgement this census
  * declines to make FOR the reader rather than one it has taken. `.changeset/*.md`
@@ -359,6 +399,134 @@ const RE_NAME_ONLY = new RegExp(String.raw`(${NAME})`, 'g');
  */
 export const CONT_WINDOW = 2;
 
+/**
+ * The DECLARATION that an address is fixture data, and the reason it must carry
+ * (objectui#9865). Spelled `fixture-address: <reason>` -- the marker names what
+ * the thing IS, the reason says why, and the census prints both.
+ *
+ * ⛔ THE REASON IS NOT DECORATION. A bare marker is a mute button: it removes a
+ * row from the count and tells a reader nothing about whether the removal was
+ * right. Requiring a reason is the only thing separating this from the by-name
+ * carve-out the card ⛔ ruled out, because the reason is what an auditor reads.
+ * Hence the capture is REQUIRED and a marker without one does not fire -- a
+ * case pinned in `DECLARATION_CASES` below and in this file's test.
+ *
+ * The leading boundary keeps a longer token (`not-a-fixture-address:`) from
+ * declaring anything, and the reason stops at the end of the line: a JSDoc or a
+ * trailing STAR-SLASH is stripped (spelled in words here: writing that pair
+ * literally inside this block comment would end it), and a reason that wraps
+ * is read only as far as the marker's own line, which is the half a reader's
+ * eye lands on anyway. A reason longer than `REASON_MAX` is cut, and the cut is
+ * SHOWN -- a silent truncation reads as an author who stopped mid-sentence.
+ */
+const DECLARATION = /(?:^|[^A-Za-z0-9_-])fixture-address:[ \t]*(\S[^\n]{2,})/;
+
+/** How much of a reason is printed before it is cut, and the cut is SHOWN. */
+export const REASON_MAX = 120;
+
+/**
+ * How far from the address a declaration may sit.
+ *
+ * DELIBERATELY the same geometry as the anchor window in `anchorsFor`: one
+ * notion of "near this citation" in this file, so a reader who has understood
+ * one has understood the other. It is 2 for the same reason `CONT_WINDOW` is --
+ * a block of fixture rows wants one declaration above it, and anything wider
+ * starts reaching sentences the author was not talking about.
+ *
+ * ⚠️ Its consequence is the over-reach direction named in the header: a
+ * declaration DOES cover a neighbouring address within this many lines. That is
+ * required for a fixture TABLE and is visible in the printed list, ⛔ never
+ * inferred.
+ */
+export const DECLARATION_WINDOW = 2;
+
+/**
+ * The declaration covering the address on `lines[lineIndex]`, or `null`.
+ *
+ * ⛔ Text, not syntax. Nothing in this file reads an AST, so a marker inside a
+ * string literal declares exactly as one inside a comment does -- stated so it
+ * cannot be read as a comment-only mechanism it never was.
+ */
+export function declarationNear(lines, lineIndex, window = DECLARATION_WINDOW) {
+  const from = Math.max(0, lineIndex - window);
+  const to = Math.min(lines.length - 1, lineIndex + window);
+  for (let i = from; i <= to; i += 1) {
+    const m = DECLARATION.exec(lines[i]);
+    if (!m) continue;
+    const full = m[1].replace(/\*\/\s*$/, '').trim();
+    if (full.length < 3) continue;
+    // Truncation is SHOWN, ⛔ never silent: a reason cut mid-word with nothing
+    // saying so reads as an author who stopped mid-sentence, and the reason is
+    // the only thing an auditor of this carve-out has to go on.
+    const reason = full.length > REASON_MAX ? `${full.slice(0, REASON_MAX - 1)}…` : full;
+    return { reason, line: i + 1 };
+  }
+  return null;
+}
+
+/**
+ * The declaration reader's own control set, run on EVERY census, in the shape
+ * `CLASSIFIER_CASES` already established here: a zero in the declared column is
+ * a reading only if the reader is shown firing in the same run. Each case goes
+ * through the real `scanFile`, ⛔ never through a second copy of the predicate.
+ */
+export const DECLARATION_CASES = [
+  {
+    name: 'a marker WITH a reason, on the address\'s own line, declares it',
+    path: 'packages/example/src/notes.ts',
+    text: '// fixture-address: RuleTester input, the rule under test reads it\n'
+      + '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 0 && r.declared.length === 1
+      && r.declared[0].declaredReason === 'RuleTester input, the rule under test reads it',
+  },
+  {
+    name: 'a marker a full window away still reaches the address',
+    path: 'packages/example/src/notes.ts',
+    text: '// fixture-address: the self-test feeds this string to the extractor\n'
+      + '//\n'
+      + '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 0 && r.declared.length === 1,
+  },
+  {
+    name: '⛔ a marker BEYOND the window declares nothing -- the address is counted',
+    path: 'packages/example/src/notes.ts',
+    text: '// fixture-address: the self-test feeds this string to the extractor\n'
+      + '//\n//\n//\n'
+      + '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 1 && r.declared.length === 0,
+  },
+  {
+    name: '⛔ a marker with NO reason is a mute button, not a declaration',
+    path: 'packages/example/src/notes.ts',
+    text: '// fixture-address:\n'
+      + '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 1 && r.declared.length === 0,
+  },
+  {
+    name: '⛔ an undeclared address in the same shape is still counted',
+    path: 'packages/example/src/notes.ts',
+    text: '// see packages/core/src/actions/ActionRunner.ts:112 for the vocabulary\n',
+    want: (r) => r.hits.length === 1 && r.declared.length === 0,
+  },
+];
+
+export function evaluateDeclaration() {
+  return DECLARATION_CASES.map((c) => {
+    let ok = false;
+    let detail = '';
+    try {
+      const r = scanFile(c.path, c.text);
+      ok = c.want(r) === true;
+      detail = `${r.hits.length} counted, ${r.declared.length} declared`
+        + (r.declared.length > 0 ? ` (\`${r.declared[0].declaredReason}\`)` : '');
+    } catch (error) {
+      ok = false;
+      detail = `threw: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    return { ...c, ok, detail };
+  });
+}
+
 /** A released changelog heading -- `## 1.2.3`, with or without a link wrapper. */
 const RELEASED_HEADING = /^##\s+\[?v?\d+\.\d+\.\d+/;
 
@@ -594,6 +762,7 @@ export function scanFile(relPath, text) {
 
   const hits = [];
   const carvedOut = [];
+  const declared = [];
   /** The most recent full address, so a bare `:NNN` can inherit its file. */
   let lastAddress = null;
 
@@ -688,8 +857,14 @@ export function scanFile(relPath, text) {
         text: line.trim().slice(0, 200),
         inTestName: inTestTitle(line, start, end),
       };
+      // Order matters and is stated: the released-changelog carve-out is
+      // decided first, so a declaration inside dated history cannot move a row
+      // from one carve-out to the other and change two printed numbers at once.
+      const declaration = i >= releasedFrom ? null : declarationNear(lines, i);
       if (i >= releasedFrom) carvedOut.push({ ...entry, carveOut: 'released-changelog-section' });
-      else hits.push(entry);
+      else if (declaration) {
+        declared.push({ ...entry, declaredReason: declaration.reason, declaredOnLine: declaration.line });
+      } else hits.push(entry);
       lastAddress = { written, line: i };
     };
 
@@ -720,7 +895,7 @@ export function scanFile(relPath, text) {
     }
     carryScope();
   }
-  return { hits, carvedOut, lines };
+  return { hits, carvedOut, declared, lines };
 }
 
 /** Verdicts that mean "this citation does not describe the tree as it is now". */
@@ -865,8 +1040,8 @@ function tally(rows, key) {
  * certification string at all rather than a suppressed one: there is nothing
  * for a later edit to print by accident.
  */
-export function finalVerdict({ controls, classifier, populationSize }) {
-  const all = [...controls, ...classifier];
+export function finalVerdict({ controls, classifier, declaration = [], populationSize }) {
+  const all = [...controls, ...classifier, ...declaration];
   const failed = all.filter((c) => !c.ok);
   if (failed.length > 0) {
     return {
@@ -909,6 +1084,7 @@ function main(argv) {
 
   const hits = [];
   const carvedOut = [];
+  const declaredRows = [];
   let scanned = 0;
   let selfCarved = 0;
 
@@ -926,12 +1102,13 @@ function main(argv) {
     scanned += 1;
     const r = scanFile(rel, text);
     if (SELF_FILES.has(rel)) {
-      selfCarved += r.hits.length + r.carvedOut.length;
+      selfCarved += r.hits.length + r.carvedOut.length + r.declared.length;
       continue;
     }
     for (const h of r.hits) h.anchors = anchorsFor(r.lines, h.line - 1, h.citedWritten);
     hits.push(...r.hits);
     carvedOut.push(...r.carvedOut);
+    declaredRows.push(...r.declared);
   }
 
   const fileCache = new Map();
@@ -951,6 +1128,7 @@ function main(argv) {
   const resolving = population.filter((r) => r.verdict === 'resolves');
   const controls = evaluateControls(population);
   const classifier = evaluateClassifier();
+  const declaration = evaluateDeclaration();
   const inTestName = population.filter((r) => r.inTestName);
 
   if (asJson) {
@@ -965,12 +1143,26 @@ function main(argv) {
       sameFileExcluded: sameFile.length,
       carvedOutReleasedChangelog: carvedOut.length,
       carvedOutSelf: selfCarved,
+      carvedOutDeclaredFixture: declaredRows.length,
       inTestName: inTestName.length,
       bySyntax: Object.fromEntries(tally(population, 'syntax')),
       byDirectory: Object.fromEntries(tally(population, 'bucket')),
       byVerdict: Object.fromEntries(tally(population, 'verdict')),
       controls,
       classifierControls: classifier,
+      declarationControls: declaration,
+      // Always emitted in full, whatever `--list-all` says: an instrument that
+      // reports how many rows it dropped without reporting WHICH has published
+      // an unauditable number, and this class is a declaration a reader has to
+      // be able to disagree with.
+      declaredRows: declaredRows.map((r) => ({
+        file: r.file,
+        line: r.line,
+        cited: `${r.citedWritten}:${r.citedLine}`,
+        syntax: r.syntax,
+        declaredReason: r.declaredReason,
+        declaredOnLine: r.declaredOnLine,
+      })),
       rows: listAll ? population : falseRows,
     }, null, 2));
   } else {
@@ -986,6 +1178,10 @@ function main(argv) {
     for (const c of classifier) {
       console.log(`${c.ok ? 'PASS' : 'FAIL'}  test-name classifier (want ${c.want}): ${c.name}`);
     }
+    for (const c of declaration) {
+      console.log(`${c.ok ? 'PASS' : 'FAIL'}  declaration reader: ${c.name}`);
+      console.log(`      ${c.detail}`);
+    }
     console.log('');
 
     console.log('## The number\n');
@@ -997,6 +1193,9 @@ function main(argv) {
     console.log(`Excluded, same-file citations (#8047's carve-out still holds) : ${sameFile.length}`);
     console.log(`Excluded, released CHANGELOG sections (dated records)         : ${carvedOut.length}`);
     console.log(`Excluded, the two citation readers and their tests (fixtures): ${selfCarved}`);
+    console.log(`Excluded, addresses the citing file DECLARES as fixture data : ${declaredRows.length}`);
+    console.log('  ^ per address, ⛔ never per file, and a reading only because the declaration');
+    console.log('    controls above fired. Every one is listed below with the reason it gives.');
     console.log(`Reaching a test name (objectui#8047's rule owns these)        : ${inTestName.length}`);
     console.log("  ^ this zero is a reading only because the classifier controls above fired.");
     console.log('');
@@ -1033,6 +1232,17 @@ function main(argv) {
     }
     console.log('');
 
+    console.log(`## The ${declaredRows.length} address(es) DECLARED as fixture data, and the reason each gives\n`);
+    console.log('⛔ A declaration can silence a genuinely rotted pointer, and this census cannot');
+    console.log('   tell that from the outside. That is why the reason and the declaring line are');
+    console.log('   printed: an audited mute button and an unaudited one differ only in whether');
+    console.log('   the output names what it dropped.\n');
+    for (const r of declaredRows.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
+      console.log(`  ${r.file}:${r.line}  declares  ${r.citedWritten}:${r.citedLine}  [${r.syntax}]`);
+      console.log(`      declared at :${r.declaredOnLine} -- ${r.declaredReason}`);
+    }
+    console.log('');
+
     if (listAll) {
       console.log('## Every citation in the population\n');
       for (const r of population.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
@@ -1042,7 +1252,7 @@ function main(argv) {
     }
   }
 
-  const verdict = finalVerdict({ controls, classifier, populationSize: population.length });
+  const verdict = finalVerdict({ controls, classifier, declaration, populationSize: population.length });
   if (verdict.refusal) {
     for (const line of verdict.refusal) console.error(line);
     return verdict.exit;

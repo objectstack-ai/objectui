@@ -726,12 +726,14 @@ describe('lineAddresses — what counts as an address, and what binds it', () =>
   it('binds a bare `:246` to the file named earlier in ITS paragraph', () => {
     // Both carded instances were written this way. Reading `:246` without that
     // binding would turn every port number and every `key: 246` into a citation.
+    // fixture-address: fixture prose handed to the reader under test, ⛔ not a pointer into this tree
     const rows = lineAddresses('The shape recurs in `imported-defaults.ts`: `:223` and `:246`.', resolve);
     expect(rows.map((r) => r.line)).toEqual([223, 246]);
     expect(rows.every((r) => r.file.endsWith('imported-defaults.ts'))).toBe(true);
   });
 
   it('⛔ never carries that binding across a blank line into somebody else\'s subject', () => {
+    // fixture-address: fixture prose handed to the reader under test, ⛔ not a pointer into this tree
     const rows = lineAddresses('See `imported-defaults.ts` for the walker.\n\nThe frame is at `:246`.', resolve);
     expect(rows).toEqual([]);
   });
@@ -740,10 +742,12 @@ describe('lineAddresses — what counts as an address, and what binds it', () =>
     // THE load-bearing choice. objectui#9496's §2 paragraph names a sha, and a
     // paragraph-wide window would have exempted the very claim the card is
     // about. A sha three sentences away binds nothing.
+    // fixture-address: fixture prose handed to the reader under test, ⛔ not a pointer into this tree
     const bound = lineAddresses('At `b8a006883d` the shape recurs in `imported-defaults.ts`: `:246`.', resolve);
     expect(bound[0].bound).toBe(true);
 
     const adrift = lineAddresses(
+      // fixture-address: fixture prose handed to the reader under test, ⛔ not a pointer into this tree
       'The repair landed at `b8a006883d`. The shape recurs in `imported-defaults.ts`: `:246`.',
       resolve,
     );
@@ -751,6 +755,7 @@ describe('lineAddresses — what counts as an address, and what binds it', () =>
   });
 
   it('accepts `at this head` as a binding — it names a tree as definitely as a sha', () => {
+    // fixture-address: fixture prose handed to the reader under test, ⛔ not a pointer into this tree
     const rows = lineAddresses('At this head `imported-defaults.ts:274` is the tuple arm.', resolve);
     expect(rows[0].bound).toBe(true);
   });
@@ -758,12 +763,14 @@ describe('lineAddresses — what counts as an address, and what binds it', () =>
   it('⛔ does not read a bare decimal as a sha', () => {
     // `12345678` is a number. Accepting it would let any figure in a sentence
     // silence every address beside it.
+    // fixture-address: fixture prose handed to the reader under test, ⛔ not a pointer into this tree
     const rows = lineAddresses('Run 12345678 read `imported-defaults.ts:246` as the tuple arm.', resolve);
     expect(rows[0].bound).toBe(false);
   });
 
   it('keeps a column and a range, because the FIRST number is the one that moves', () => {
     const rows = lineAddresses(
+      // fixture-address: fixture prose handed to the reader under test, ⛔ not a pointer into this tree
       'The frame is `imported-defaults.ts:281:75` and the arm is `imported-defaults.ts:221-228`.',
       resolve,
     );

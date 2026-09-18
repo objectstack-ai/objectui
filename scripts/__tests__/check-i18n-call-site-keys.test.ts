@@ -528,6 +528,7 @@ export const A = () => {
 export function describe(t: TranslateFn): string { return t('legacy.helper'); }
 `,
     });
+    // fixture-address: an expected finding over the SYNTHETIC tree built above; `packages/x/…` exists nowhere
     expect(findingsOf(root, 'missing-key')).toEqual(['legacy.helper@packages/x/src/helpers.ts:2']);
   });
 });
@@ -1899,6 +1900,7 @@ export function humanize(name: string, translate?: (k: string, f: string) => str
 
   it('a builder family is subject to the SAME ratchet: undeclared is a red', () => {
     expect(findingsOf(builderRoot(), 'undeclared-dynamic-family')).toEqual([
+      // fixture-address: an expected finding over the SYNTHETIC tree built above; `packages/x/…` exists nowhere
       'chatbot.tool.@packages/x/src/tool-display.ts:1',
     ]);
   });

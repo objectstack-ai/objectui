@@ -201,19 +201,26 @@ export function citationKey(hit) {
  * Pure, so the synthetic controls and the real run go through the same code.
  * A file absent from the base (added, untracked, renamed from nothing) is
  * handed `''` and every hit in it is new.
+ *
+ * `of` picks WHICH of `scanFile`'s two populations is differenced -- the
+ * citations (`hits`, the default) or the addresses the citing file DECLARES as
+ * fixture data (`declared`, objectui#9865). ⛔ One differ for both, ⛔ never a
+ * second copy: the census's carve-out list is shared with this gate for exactly
+ * that reason, and a declaration read by one reader and not the other would
+ * make the two answers disagree with nothing anywhere reporting it.
  */
-export function newCitationsIn({ relPath, baseText, headText }) {
+export function newCitationsIn({ relPath, baseText, headText, of = 'hits' }) {
   const head = scanFile(relPath, headText);
   const base = scanFile(relPath, baseText ?? '');
 
   const budget = new Map();
-  for (const hit of base.hits) {
+  for (const hit of base[of]) {
     const key = citationKey(hit);
     budget.set(key, (budget.get(key) ?? 0) + 1);
   }
 
   const added = [];
-  for (const hit of head.hits) {
+  for (const hit of head[of]) {
     const key = citationKey(hit);
     const left = budget.get(key) ?? 0;
     if (left > 0) {
@@ -275,6 +282,32 @@ export const SYNTHETIC_CASES = [
     baseText: '',
     headText: '// the emitted shape is at packages/types/dist/overlay.d.ts:334\n',
     want: (added) => added.length === 1 && added[0].citedWritten.includes('dist/'),
+    describe: (added) => added.map((a) => `${a.citedWritten}:${a.citedLine}`).join(', ') || '(none)',
+  },
+  {
+    id: 'a-declared-fixture-address-is-not-a-finding',
+    why:
+      'objectui#9865: an address the citing file DECLARES as fixture data is carved out per ADDRESS '
+      + 'by the shared scanner, so this gate ⛔ cannot report it while the census excludes it',
+    relPath: 'packages/example/src/notes.ts',
+    baseText: '',
+    headText:
+      '// fixture-address: control input, the reader under test is what reads this address\n'
+      + '// the action vocabulary is declared at packages/core/src/actions/ActionRunner.ts:112\n',
+    want: (added) => added.length === 0,
+    describe: (added) => added.map((a) => `${a.citedWritten}:${a.citedLine}`).join(', ') || '(none)',
+  },
+  {
+    id: 'a-declaration-without-a-reason-still-reports',
+    why:
+      'a bare marker is a mute button, ⛔ not a declaration -- without this leg the case above '
+      + 'would pass on a gate that had stopped reading the reason at all',
+    relPath: 'packages/example/src/notes.ts',
+    baseText: '',
+    headText:
+      '// fixture-address:\n'
+      + '// the action vocabulary is declared at packages/core/src/actions/ActionRunner.ts:112\n',
+    want: (added) => added.length === 1 && added[0].citedLine === 112,
     describe: (added) => added.map((a) => `${a.citedWritten}:${a.citedLine}`).join(', ') || '(none)',
   },
   {
@@ -465,6 +498,7 @@ function main(argv, env = process.env) {
   const touched = changedPaths(root, base.mergeBase);
   const scanned = [];
   const added = [];
+  const declared = [];
   for (const [headPath, basePath] of touched) {
     if (!scannable(headPath)) continue;
     if (!existsSync(join(root, headPath))) continue;
@@ -478,6 +512,13 @@ function main(argv, env = process.env) {
     const baseText = blobAt(root, base.mergeBase, basePath);
     for (const hit of newCitationsIn({ relPath: headPath, baseText, headText })) {
       added.push({ ...hit, ...judgeFor(hit) });
+    }
+    // ⛔ Counted and printed, never silently dropped: a branch that ADDS a
+    // declaration is the one moment a reader can still object to it, and a
+    // carve-out whose size this gate does not report is indistinguishable from
+    // a scanner that cannot see the file.
+    for (const hit of newCitationsIn({ relPath: headPath, baseText, headText, of: 'declared' })) {
+      declared.push(hit);
     }
   }
 
@@ -503,6 +544,14 @@ function main(argv, env = process.env) {
           byClass,
           excludedSameFile: sameFile.length,
           excludedTestName: inTestName.length,
+          excludedDeclaredFixture: declared.length,
+          declaredRows: declared.map((row) => ({
+            file: row.file,
+            line: row.line,
+            cited: `${row.citedWritten}:${row.citedLine}`,
+            declaredReason: row.declaredReason,
+            declaredOnLine: row.declaredOnLine,
+          })),
           controls,
           rows: findings.map((row) => ({
             file: row.file,
@@ -541,6 +590,11 @@ function main(argv, env = process.env) {
     console.log(`  of which are UNRESOLVABLE (regenerated / ambiguous)   : ${byClass.unresolvable}`);
     console.log(`Excluded, added same-file citations (objectui#8047)     : ${sameFile.length}`);
     console.log(`Excluded, added citations reaching a test name          : ${inTestName.length}`);
+    console.log(`Excluded, added addresses DECLARED as fixture data      : ${declared.length}`);
+    for (const row of declared) {
+      console.log(`  ${row.file}:${row.line}  ${row.citedWritten}:${row.citedLine}`);
+      console.log(`      declared at :${row.declaredOnLine} -- ${row.declaredReason}`);
+    }
     console.log(
       '\n⛔ The existing citations in this tree are NOT this gate\'s denominator and are ⛔ not',
     );

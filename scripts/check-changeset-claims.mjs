@@ -7,6 +7,7 @@
  *       node scripts/check-changeset-claims.mjs --base <ref> --head <ref>
  *       node scripts/check-changeset-claims.mjs --json <file>
  *       node scripts/check-changeset-claims.mjs --audit
+ *       node scripts/check-changeset-claims.mjs --census
  * Exit: 0 = nothing to re-read, or findings (this gate is REPORT-ONLY and has
  *           no enforcing mode — see "Why it can never block" below)
  *       1 = the inputs could not be read, so this run measured nothing
@@ -20,6 +21,11 @@
  * declaration exists, what level it declares, how the workspace classifies it,
  * whether a change touched one it does not own. None of them reads a claim in a
  * body.
+ *
+ * ⚠️ That paragraph is quoted on objectui#9841 and stays true of those four gates.
+ * What it does NOT say, and what objectui#9841 carded, is that nobody read one
+ * changeset against ITSELF — its front matter against its own body. The
+ * self-contradiction reading below is that third coordinate.
  *
  * Three instances were filed and worked one at a time before the mechanism was
  * carded. They split into two sub-shapes that end the same way:
@@ -36,6 +42,42 @@
  * ⛔ The two readings are never merged: the went-false reading still excludes a
  * changeset this change adds, because a body naming its own pull request's files
  * is the normal case and reporting it would fire on nearly every change here.
+ *
+ * A THIRD reading (objectui#9841) reads one changeset against itself, and splits
+ * BORN FALSE from WENT FALSE on its own axis — see "The self-contradiction
+ * reading" below. Three readings, three corpora, three coordinates; ⛔ none of
+ * them is merged into another, and each one's floors are its own.
+ *
+ * ## The self-contradiction reading (objectui#9841) — corpus, coordinate, split
+ *
+ * CORPUS: the `.changeset/*.md` files THIS CHANGE adds or modifies, read out of
+ * this tree. ⛔ No ambient input at all — no `GITHUB_EVENT_PATH`, no pull
+ * request body, no environment. The hermeticity is structural rather than
+ * conventional, for the reason objectui#9744 measured on the reading above it.
+ *
+ * COORDINATE: a package the file's OWN front matter declares, negated in the
+ * file's own body with nothing between the package spelling and the negation but
+ * a copula — «`packages/types` is untouched». Either spelling counts, the npm
+ * name or the workspace directory; the carded instance used the directory.
+ *
+ * ⛔ The card's own proposed coordinate — "a sentence that names a declared
+ * package adjacent to a negation of change" — was MEASURED and rejected, which
+ * is the falsification pass that card asked for before anything was built. Over
+ * every pending changeset in this tree plus every released CHANGELOG entry, that
+ * wider coordinate pairs repeatedly and every single pairing is legitimate: it
+ * negates an ASPECT of the package (a face, a surface, an export, one symbol,
+ * one file), never the package. `--census` re-derives both numbers; ⛔ they are
+ * not copied here (AGENTS.md #9).
+ *
+ * THE SPLIT, and ⛔ it cannot be read off the head. At `2bc8fd12e2` — the commit
+ * that ADDED the carded changeset — the body already said «`packages/types` is
+ * untouched» and the front matter declared `@object-ui/components` and nothing
+ * else: the sentence was TRUE. At `21896172a9` the same commit that moved 62
+ * lines in `packages/types/src/overlay.ts` added `'@object-ui/types': patch`
+ * to that front matter. Against the merge base the net diff shows the file
+ * simply ADDED with both halves present, which reads as born false. It was not.
+ * So the verdict is dated from the BRANCH'S OWN revisions of that file, and a
+ * range that carries none of them is reported UNDATED rather than guessed at.
  *
  * ## The born-false reading (objectui#9509) — corpus, coordinate, carve-out
  *
@@ -871,6 +913,394 @@ export function bornFalse(root, { base, head = null, prBody = null }) {
   return { findings, corpus: read, subject: subject.length };
 }
 
+// -- the SELF-CONTRADICTION reading (objectui#9841) ---------------------------
+
+/**
+ * The package names one changeset's own front matter declares.
+ *
+ * The three structural gates already parse this block; none of them keeps the
+ * NAMES, because none of them has a second half to read them against. This one
+ * does: the body of the same file.
+ *
+ * Same line grammar as `describeDeclaration`, which counts these entries — kept
+ * next to it rather than exported from it so that gate's return shape, which
+ * four call sites read, does not move for this one.
+ *
+ * @returns {string[]} declared package names, in file order
+ */
+export function declaredPackages(source) {
+  const lines = source.split(/\r?\n/);
+  const open = lines.findIndex((line) => line.trim() === '---');
+  if (open === -1) return [];
+  const names = [];
+  for (let i = open + 1; i < lines.length; i++) {
+    const text = lines[i].trim();
+    if (text === '---') return names;
+    if (text === '' || text.startsWith('#')) continue;
+    const entry = /^(?:"([^"]+)"|'([^']+)'|([^:]+?))\s*:\s*(?:major|minor|patch)\s*$/.exec(text);
+    if (entry) names.push((entry[1] ?? entry[2] ?? entry[3]).trim());
+  }
+  return [];
+}
+
+/**
+ * Every workspace package's name, mapped to the directory that carries it.
+ *
+ * Read from the tree, never from a hard-coded `@object-ui/*` list: the DIRECTORY
+ * is the second spelling a body uses for a package, and the carded instance used
+ * exactly that one — it wrote `packages/types`, not `@object-ui/types`. A gate
+ * that only knew npm names would have been silent on the one artefact it exists
+ * for.
+ *
+ * Depth-1 `package.json` (the workspace root) is excluded: its directory is the
+ * whole repository, and every path in every body is inside it.
+ *
+ * @returns {Map<string, string>} package name -> repo-relative directory
+ */
+export function packageDirectories(root, ref = null) {
+  const index = treeIndex(root, ref);
+  const manifests = [...index.paths].filter(
+    (path) => path.endsWith('/package.json') && !path.includes('node_modules/') && path.split('/').length > 2,
+  );
+  const map = new Map();
+  for (const [path, source] of readBlobs(root, ref, manifests)) {
+    try {
+      const name = JSON.parse(source)?.name;
+      if (typeof name === 'string' && name !== '') map.set(name, path.slice(0, path.lastIndexOf('/')));
+    } catch {
+      /* an unparseable manifest names no package; absent is the answer */
+    }
+  }
+  return map;
+}
+
+/** A negation of change, as an adjective. The spellings a body actually uses. */
+const NO_CHANGE_ADJECTIVE = String.raw`(?:untouched|unchanged|unmodified|not\s+touched|not\s+modified|not\s+changed)`;
+
+/** A verb of change, for the "does not move" and "nothing in X moves" shapes. */
+const CHANGE_VERB = String.raw`(?:moves?|moved|changes?|changed|shifts?|shifted)`;
+
+/**
+ * Subject and negation with NOTHING BETWEEN THEM but a copula.
+ *
+ * ⭐ This is the whole discrimination, and it is a measurement rather than a
+ * taste call. Over the corpus objectui#9841's falsification pass read — every
+ * pending `.changeset/*.md` in this tree, plus every released CHANGELOG entry
+ * beside a `package.json` — the card's own proposed coordinate ("a sentence that
+ * names a declared package adjacent to a negation of change") pairs many times,
+ * and every one of those pairings is LEGITIMATE: they negate an ASPECT of the
+ * package, never the package. «`@object-ui/fields` re-exports all four names
+ * unchanged», «Both are internal to `@object-ui/app-shell`; no package export
+ * moves», «`packages/app-shell` type-checks unchanged». Requiring the negation to
+ * attach DIRECTLY to a bare package spelling drops every one of them and keeps
+ * the attested instance. The numbers are not copied here (AGENTS.md #9) —
+ * `--census` re-derives both coordinates over whatever corpus the tree carries.
+ *
+ * ⚠️ The known false positive this shape can still produce, named rather than
+ * hidden: a body that declares a package to carry a DEPENDENT bump and says so —
+ * «`@object-ui/react` is unchanged; it bumps because core's types moved». That
+ * sentence pairs, and it is honest. It occurs zero times in the corpus `--census`
+ * reads, which is why it is documented instead of carved out: a carve-out for a
+ * shape nobody writes is a hole nobody is watching.
+ */
+const COPULA = String.raw`(?:\s*\*{0,2}\s*(?:itself\s+)?(?:is|are|was|were|remains?|stays?)\s+(?:\w+ly\s+)?\*{0,2}\s*)`;
+
+/**
+ * Where a package spelling may end: never mid-path and never mid-word.
+ *
+ * `packages/types` must not match inside
+ * `packages/types/examples/data-display-examples.json`, which a pending body says
+ * is untouched and legitimately so — the subject there is one example file, not
+ * the package.
+ */
+const SPELLING_END = String.raw`(?![\w/@.-])`;
+
+/**
+ * The self-contradictions in ONE changeset: a package its own front matter
+ * declares, negated in its own body.
+ *
+ * ⛔ Not prose understanding, and ⛔ not a diff: name resolution between two parts
+ * of the same file. A declaration says this package is being released; a sentence
+ * attached to that package's own name says it did not change. The two halves
+ * publish together, verbatim, into that package's CHANGELOG.
+ *
+ * @param {string} source  the whole `.changeset/*.md`, front matter included
+ * @param {(name: string) => string | null} dirOf  package name -> its directory
+ * @returns {{ package: string, spelling: string, claim: string, sentence: string }[]}
+ */
+export function selfContradictions(source, dirOf) {
+  const declared = declaredPackages(source);
+  if (declared.length === 0) return [];
+  const body = source.replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
+  const flat = body.replace(/\s+/g, ' ');
+  const found = [];
+  for (const name of declared) {
+    const spellings = [name];
+    const dir = dirOf(name);
+    if (dir) spellings.push(dir);
+    for (const spelling of spellings) {
+      const quoted = spelling.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const subject = '`?\\*{0,2}' + quoted + '\\*{0,2}`?' + SPELLING_END;
+      const shapes = [
+        new RegExp(subject + COPULA + String.raw`\*{0,2}` + NO_CHANGE_ADJECTIVE, 'gi'),
+        new RegExp(subject + String.raw`\s*(?:does\s+not|is\s+not|are\s+not)\s+\*{0,2}` + CHANGE_VERB, 'gi'),
+        new RegExp(String.raw`nothing\s+(?:at\s+all\s+)?in\s+` + subject + String.raw`\s+\*{0,2}` + CHANGE_VERB, 'gi'),
+      ];
+      for (const shape of shapes) {
+        for (const hit of body.matchAll(shape)) {
+          const at = body.slice(0, hit.index).replace(/\s+/g, ' ').length;
+          found.push({
+            package: name,
+            spelling,
+            claim: hit[0].replace(/\s+/g, ' ').trim(),
+            sentence: sentenceAround(flat, at).replace(/\s+/g, ' ').trim(),
+          });
+        }
+      }
+    }
+  }
+  // One row per (package, claim): the same sentence reached through both
+  // spellings is one contradiction, not two.
+  const seen = new Set();
+  return found.filter((row) => {
+    const key = `${row.package}|${row.claim.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * BORN FALSE or WENT FALSE, decided from this change's OWN commit history.
+ *
+ * ⭐ The split objectui#9841 required, and the reason it cannot be read off the
+ * head alone. The carded instance is measured: at `2bc8fd12e2`, the commit that
+ * ADDED that changeset, the body already said «`packages/types` is untouched» and
+ * the front matter declared `@object-ui/components` and nothing else — the
+ * sentence was TRUE. At `21896172a9` the same commit that moved 62 lines in
+ * `packages/types/src/overlay.ts` added `'@object-ui/types': patch` to that same
+ * front matter. Against the merge base the net diff shows the file simply ADDED,
+ * with both halves present, and reads as born false. It was not. Only the
+ * branch's own revisions of the file separate the two.
+ *
+ *   BORN FALSE  the earliest revision on this branch that carries the claim
+ *               ALREADY declared the package. False the moment it was written.
+ *   WENT FALSE  that revision did not declare it. The claim stood, and a later
+ *               commit on this same branch — usually the one that did the work —
+ *               falsified it by declaring the package.
+ *   UNDATED     no revision in `base..head` carries the claim (a shallow clone,
+ *               or a working-tree run whose text is in no commit). Reported as
+ *               undated, never defaulted to either verdict: "was false when
+ *               written" is an accusation this reading declines to guess at.
+ *
+ * @returns {'born' | 'went' | 'undated'}
+ */
+export function dateClaim(root, { base, head = null }, file, claim, pkg) {
+  const range = head ? `${base}..${head}` : base;
+  const log = git(root, ['log', '--reverse', '--format=%H', range, '--', file], { allowFailure: true });
+  const commits = (log ?? '').split('\n').filter((line) => line !== '');
+  const needle = claim.replace(/\s+/g, ' ').toLowerCase();
+  for (const commit of commits) {
+    const source = git(root, ['show', `${commit}:${file}`], { allowFailure: true });
+    if (source === null) continue;
+    const body = source
+      .replace(/^---\r?\n[\s\S]*?\r?\n---/, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+    if (!body.includes(needle)) continue;
+    return declaredPackages(source).includes(pkg) ? 'born' : 'went';
+  }
+  return 'undated';
+}
+
+/**
+ * Every changeset THIS change adds or modifies, read against its own front
+ * matter.
+ *
+ * ⛔ HERMETIC BY CONSTRUCTION, and that is a structural property rather than a
+ * convention (objectui#9744). This reading takes NO ambient input at all: no
+ * `GITHUB_EVENT_PATH`, no pull request body, no environment variable, no network.
+ * Its corpus is `git diff --name-only` under `root`, restricted to
+ * `.changeset/*.md`, read out of that same tree. On PR objectui#9744 the
+ * born-false reading's corpus went AMBIENT — `GITHUB_EVENT_PATH` is exported to
+ * every process on a runner, so a run against a throwaway fixture picked up the
+ * real pull request body of whatever build happened to be running, and the
+ * empty-corpus floor slid a level in CI while passing locally. A reading with no
+ * env-shaped input cannot fail that way, and the pin for it asserts the output is
+ * identical with the variable poisoned.
+ *
+ * @returns {{ findings: object[], corpus: string[], declaring: number }}
+ */
+export function selfContradiction(root, { base, head = null }) {
+  const own = changedFiles(root, { base, head, pathspecs: [':(glob).changeset/*.md'] }).filter(
+    (path) => !NOT_A_CHANGESET.has(path.slice(path.lastIndexOf('/') + 1)),
+  );
+  const directories = packageDirectories(root, head);
+  const dirOf = (name) => directories.get(name) ?? null;
+
+  const findings = [];
+  const corpus = [];
+  let declaring = 0;
+  for (const [path, source] of readBlobs(root, head, own)) {
+    corpus.push(path);
+    if (declaredPackages(source).length === 0) continue;
+    declaring += 1;
+    for (const row of selfContradictions(source, dirOf)) {
+      findings.push({
+        changeset: path,
+        ...row,
+        when: dateClaim(root, { base, head }, path, row.claim, row.package),
+      });
+    }
+  }
+  findings.sort((a, b) => a.changeset.localeCompare(b.changeset) || a.claim.localeCompare(b.claim));
+  return { findings, corpus, declaring };
+}
+
+/**
+ * The firing controls for this reading, taken from the attested artefact.
+ *
+ * HERMETIC — the bodies are the ones PR objectui#9796 actually carried, written
+ * out here rather than read from the live history, for the reason
+ * `evaluateBornFalseControls` states: a control that resolves against the tree
+ * answers a different question after the next squash.
+ *
+ * ⭐ Cases 1 and 2 are the PAIR, and they are the discrimination this whole
+ * reading rests on: the SAME package, the SAME file, one clause apart. The
+ * contradiction fires; the REPAIR that landed on that pull request — which names
+ * the aspect that does not move and the file that does — must stay silent, or
+ * this reading is teaching authors to delete a correct sentence.
+ */
+export const SELF_CONTRADICTION_CONTROLS = [
+  {
+    id: 'a-bare-package-spelling-negated-in-its-own-declaring-body',
+    why: 'objectui#9796 at 21896172a9: the front matter declared `@object-ui/types` while the body said `packages/types` is untouched',
+    declared: ['@object-ui/types'],
+    body: '⛔ **No published face moves.** `packages/types` is untouched: the accept set is the one both faces already shipped.',
+    want: (rows) => rows.length === 1 && rows[0].package === '@object-ui/types' && rows[0].spelling === 'packages/types',
+  },
+  {
+    id: 'the-repair-that-landed-on-that-pull-request-is-silent',
+    why: 'the legitimate form names the ASPECT that does not move and the FILE that does — reporting it would teach authors to delete a correct sentence',
+    declared: ['@object-ui/types'],
+    body:
+      '⛔ No type, no accept set, no export and no runtime behaviour moves in `@object-ui/types`: ' +
+      'every changed line in `packages/types/src/overlay.ts` is a docblock line.',
+    want: (rows) => rows.length === 0,
+  },
+  {
+    id: 'an-aspect-scoped-negation-is-silent',
+    why: 'the whole measured corpus is this shape — a face, a surface, an export, a symbol, a behaviour — and every instance of it is legitimate',
+    declared: ['@object-ui/fields'],
+    body: '`@object-ui/fields` re-exports all four names unchanged, so no import path or behaviour changes.',
+    want: (rows) => rows.length === 0,
+  },
+  {
+    // ⭐ THE OTHER HALF. Without a declaration there is no contradiction: a body
+    // may say any number of packages are untouched, and saying so is how a
+    // changeset explains its blast radius. Mutating this reading to report every
+    // negated package leaves the three controls above it all PASSING.
+    id: 'a-package-the-front-matter-does-not-declare-is-silent',
+    why: 'the finding is a contradiction WITH A DECLARATION, never a negation on its own — a body naming what it did not touch is normal and useful',
+    declared: ['@object-ui/types'],
+    body: '`packages/core` is untouched, and `@object-ui/react` does not move either.',
+    want: (rows) => rows.length === 0,
+  },
+  {
+    id: 'a-longer-path-inside-the-package-is-silent',
+    why: 'a pending body says `packages/types/examples/data-display-examples.json` is untouched — the subject there is one example file, not the package',
+    declared: ['@object-ui/types'],
+    body: 'The example corpus — `packages/types/examples/data-display-examples.json` — is untouched, and both mirrors still parse.',
+    want: (rows) => rows.length === 0,
+  },
+  {
+    id: 'the-npm-name-spelling-fires-as-well-as-the-directory',
+    why: 'a body may negate either spelling; the carded instance used the directory, so the name half would otherwise never be exercised',
+    declared: ['@object-ui/types'],
+    body: '`@object-ui/types` is unchanged in this release.',
+    want: (rows) => rows.length === 1 && rows[0].spelling === '@object-ui/types',
+  },
+];
+
+/**
+ * Runs every control through the real reader.
+ *
+ * `read` is injectable for the reason `evaluateBornFalseControls`'s judge is: a
+ * test has to be able to show that a reader which LIES fails these controls
+ * rather than passing them. A control suite that cannot be made to fail is
+ * decoration.
+ */
+export function evaluateSelfContradictionControls(read = selfContradictions) {
+  const DIRECTORIES = new Map([
+    ['@object-ui/types', 'packages/types'],
+    ['@object-ui/fields', 'packages/fields'],
+    ['@object-ui/core', 'packages/core'],
+    ['@object-ui/react', 'packages/react'],
+  ]);
+  return SELF_CONTRADICTION_CONTROLS.map((control) => {
+    const source = `---\n${control.declared.map((name) => `'${name}': patch`).join('\n')}\n---\n\n${control.body}\n`;
+    let ok = false;
+    let detail = '';
+    try {
+      const rows = read(source, (name) => DIRECTORIES.get(name) ?? null);
+      ok = control.want(rows) === true;
+      detail = rows.map((row) => `${row.spelling} -> ${JSON.stringify(row.claim)}`).join(', ') || '(silent)';
+    } catch (error) {
+      detail = `threw: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    return { id: control.id, why: control.why, ok, detail };
+  });
+}
+
+/**
+ * The population reading for this coordinate, over one tree rather than a diff.
+ *
+ * Answers the question objectui#9841 was filed to have answered before anything
+ * was built: is «front matter declares P, body negates P» ever a live
+ * contradiction, or is it always legitimate phrasing? It prints BOTH coordinates
+ * — the card's proposed one (the package named anywhere in a sentence carrying a
+ * negation) and the one this reading uses (the negation attached to the package)
+ * — so the gap between them is re-derived rather than remembered.
+ *
+ * ⛔ Report-only, and never a verdict on anybody's prose: an aspect-scoped
+ * negation is correct English and correct practice.
+ */
+export function census(root, ref = null) {
+  const index = treeIndex(root, ref);
+  const directories = packageDirectories(root, ref);
+  const dirOf = (name) => directories.get(name) ?? null;
+  const pending = [...index.paths].filter(
+    (path) =>
+      path.startsWith(CHANGESET_DIR) &&
+      path.endsWith('.md') &&
+      !NOT_A_CHANGESET.has(path.slice(path.lastIndexOf('/') + 1)),
+  );
+  const totals = { pending: pending.length, publishing: 0, loose: 0, looseFiles: 0, attached: 0, hits: [] };
+  const NEGATION = new RegExp(`(?:${NO_CHANGE_ADJECTIVE}|no\\s+change[sd]?|nothing\\s+${CHANGE_VERB})`, 'i');
+  for (const [path, source] of readBlobs(root, ref, pending)) {
+    const declared = declaredPackages(source);
+    if (declared.length === 0) continue;
+    totals.publishing += 1;
+    const body = source.replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
+    let looseHere = 0;
+    for (const sentence of body.split(/(?<=[.!?])\s+|\n/)) {
+      if (!NEGATION.test(sentence)) continue;
+      for (const name of declared) {
+        const dir = dirOf(name);
+        const quoted = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (new RegExp(`(?:${quoted(name)}${dir ? `|${quoted(dir)}` : ''})`, 'i').test(sentence)) looseHere += 1;
+      }
+    }
+    totals.loose += looseHere;
+    if (looseHere > 0) totals.looseFiles += 1;
+    for (const row of selfContradictions(source, dirOf)) {
+      totals.attached += 1;
+      totals.hits.push(`${path}  ~  [${row.package}]  ${row.claim}`);
+    }
+  }
+  return totals;
+}
+
 // -- CLI ----------------------------------------------------------------------
 
 if (isEntrypoint(import.meta.url)) {
@@ -880,6 +1310,40 @@ if (isEntrypoint(import.meta.url)) {
   };
 
   const root = resolve(argOf('--root') ?? resolve(scriptDir, '..'));
+
+  // ── the self-contradiction population reading (objectui#9841) ─────────────
+  //
+  // The falsification pass the card demanded before anything was built, kept as
+  // a mode rather than written down as a number: both coordinates, re-derived
+  // over whatever corpus the tree carries today (AGENTS.md #9).
+  if (process.argv.includes('--census')) {
+    let totals;
+    try {
+      totals = census(root, argOf('--ref'));
+    } catch (error) {
+      console.error(`❌  ${error.message}`);
+      process.exit(1);
+    }
+    console.log(
+      `Pending declarations: ${totals.pending}. Publishing a body verbatim at the next release: ${totals.publishing}.`,
+    );
+    console.log(
+      `\nThe CARD'S proposed coordinate — a sentence that names a declared package anywhere in it ` +
+        `and\ncarries a negation of change: ${totals.loose} pairing(s) across ${totals.looseFiles} body(ies).`,
+    );
+    console.log(
+      `\nTHIS reading's coordinate — the negation attached DIRECTLY to a bare package spelling, ` +
+        `with\nnothing between them but a copula: ${totals.attached} finding(s).`,
+    );
+    for (const hit of totals.hits) console.log(`      ${hit}`);
+    console.log(
+      '\n    The gap between those two numbers is the false-positive budget this coordinate buys.\n' +
+        '    ⛔ Neither number is a verdict on anybody’s prose: a body that negates an ASPECT of a\n' +
+        '    package it patches — a face, a surface, an export, a named symbol, one file — is\n' +
+        '    correct English and correct practice, and is the entire content of the first number.',
+    );
+    process.exit(0);
+  }
 
   if (process.argv.includes('--audit')) {
     let totals;
@@ -1002,6 +1466,28 @@ if (isEntrypoint(import.meta.url)) {
   }
 
   const bornControls = evaluateBornFalseControls();
+  const selfControls = evaluateSelfContradictionControls();
+  // Both control suites, in one list. An instrument that cannot fire is not a
+  // reading, and which of the three readings broke does not change that verdict.
+  const brokenControls = [...bornControls, ...selfControls].filter((control) => !control.ok);
+
+  // ── the self-contradiction reading (objectui#9841) ────────────────────────
+  //
+  // ⛔ `prBody` is deliberately NOT passed, and no environment is read here. Its
+  // corpus is this change's own `.changeset/*.md`, out of this tree — see the
+  // hermeticity note on `selfContradiction`.
+  let self;
+  try {
+    self = selfContradiction(root, { base: base.ref, head });
+  } catch (error) {
+    console.error(
+      `❌  ${error.message}\n\n` +
+        '    The self-contradiction reading lost an input, so it measured nothing. Reported as a\n' +
+        '    failure rather than as an empty finding set (objectui#4690).',
+    );
+    process.exit(1);
+  }
+
   let born;
   try {
     born = bornFalse(root, { base: base.ref, head, prBody });
@@ -1044,6 +1530,10 @@ if (isEntrypoint(import.meta.url)) {
             bornFalse: born.findings,
             bornFalseCorpus: born.corpus,
             bornFalseControls: bornControls,
+            selfContradiction: self.findings,
+            selfContradictionCorpus: self.corpus,
+            selfContradictionDeclaring: self.declaring,
+            selfContradictionControls: selfControls,
             prBodyHow,
           },
           null,
@@ -1130,13 +1620,84 @@ if (isEntrypoint(import.meta.url)) {
     answer it without re-deriving anything.`);
   }
 
+  // ── the self-contradiction report (objectui#9841) ──────────────────────────
+  //
+  // One file read against itself: a package the front matter declares, negated
+  // in the body that publishes into that package's own CHANGELOG. ⛔ No ambient
+  // input reaches this section — no pull request body, no `GITHUB_EVENT_PATH`.
+  console.log('\n── Self-contradiction — a declared package this changeset says it did not touch ──\n');
+  for (const control of selfControls) {
+    console.log(`    ${control.ok ? 'PASS' : 'FAIL'}  ${control.id}: ${control.detail}`);
+  }
+  console.log(
+    `\n    Corpus: ${self.corpus.length} changeset(s) this change adds or modifies, ` +
+      `${self.declaring} of them declaring a package.`,
+  );
+  if (self.corpus.length === 0) {
+    // ⛔ FLOOR ONE. No corpus at all. Printing a tick here would report "this
+    // change publishes no self-contradicting declaration" on a run that read no
+    // changeset whatsoever — the shape objectstack#4928 named, and the one
+    // objectui#9744 measured sliding a level in CI.
+    console.log(
+      '\n    ⛔ NOT a clean verdict: this change adds and modifies NO changeset, so this run read\n' +
+        '       nothing of this class and measured nothing.',
+    );
+  } else if (self.declaring === 0) {
+    // ⛔ FLOOR TWO, one level in, and DISTINCT on purpose (objectui#9744). The
+    // corpus was read but every body declares nothing, so there is no front
+    // matter to read a body against. A `0` from a reader with no declarations to
+    // resolve and a `0` from a clean declaration are the same character, and
+    // printing one tick for both is how a reader learns to read the tick as
+    // noise. Pinned by `not.toContain` on the clean sentence.
+    console.log(
+      '\n    ⚠️  Read, but nothing to judge: every one of those bodies declares no bump, so there\n' +
+        '        is no front matter for a body to contradict. ⛔ Not the same answer as a clean one.',
+    );
+  } else if (self.findings.length === 0) {
+    console.log(
+      `\n    ✅  Every package declared across those ${self.declaring} body(ies) is either not negated\n` +
+        '        in its own prose, or negated only in an ASPECT of it that may legitimately hold still.',
+    );
+  } else {
+    console.log(
+      `\n⚠️  ${self.findings.length} declaration(s) are negated by the body that publishes with them:\n`,
+    );
+    for (const hit of self.findings) {
+      const when =
+        hit.when === 'went'
+          ? 'WENT FALSE — it stood when written; a later commit on this branch added the declaration'
+          : hit.when === 'born'
+            ? 'BORN FALSE — the revision that wrote this sentence already declared that package'
+            : 'UNDATED — no revision in this range carries the sentence, so ⛔ neither verdict is claimed';
+      console.log(`      ${hit.changeset}  declares \`${hit.package}\`  and says \`${hit.claim}\``);
+      console.log(`             ${when}`);
+      console.log(`             sentence: ${hit.sentence}`);
+    }
+    console.log(`
+    ⛔ This is NOT a prose judgement, and ⛔ not an instruction to drop the declaration. It is
+    name resolution between two halves of ONE file: the front matter says this package is
+    being released, and a sentence attached to that package's own name says it did not move.
+    Both halves publish, verbatim, into that package's CHANGELOG at the next release.
+
+    NAME THE ASPECT, AND NAME WHAT DOES MOVE. That is how PR objectui#9796 repaired the
+    carded instance: «No published FACE moves — and one published FILE does». An
+    aspect-scoped negation about a package you do patch is correct English, it is the entire
+    content of this coordinate's rejected wider reading, and this gate is silent on it.
+
+    ⛔ A WENT FALSE verdict is ⛔ not "you wrote something untrue": the sentence was true at
+    the revision that wrote it, and this branch's own later commit is what falsified it. The
+    reader it misleads is the one diffing their own \`.d.ts\` after the bump.
+
+    Report-only, exactly like the two halves above it, and for the same measured reason.`);
+  }
+
   if (result.findings.length === 0) {
     console.log('\n✅  No pending changeset names a file this change touches.');
-    if (bornControls.some((control) => !control.ok)) {
+    if (brokenControls.length > 0) {
       console.error(
-        `❌  ${bornControls.filter((c) => !c.ok).length} born-false control(s) FAILED — this run is ` +
-          'not a reading. ⛔ Not a finding failure: the instrument failed, and a differential ' +
-          'reader that reports zero because its differ broke is indistinguishable from clean prose.',
+        `❌  ${brokenControls.length} control(s) FAILED — this run is ` +
+          'not a reading. ⛔ Not a finding failure: the instrument failed, and a reader that ' +
+          'reports zero because it broke is indistinguishable from clean prose.',
       );
       process.exit(1);
     }
@@ -1200,11 +1761,11 @@ if (isEntrypoint(import.meta.url)) {
     usually still true. The finding is a request to read, addressed to the one seat that can
     answer it cheaply — the one whose diff might have falsified it.`);
 
-  if (bornControls.some((control) => !control.ok)) {
+  if (brokenControls.length > 0) {
     console.error(
-      `❌  ${bornControls.filter((c) => !c.ok).length} born-false control(s) FAILED — this run is ` +
-        'not a reading. ⛔ Not a finding failure: the instrument failed, and a differential ' +
-        'reader that reports zero because its differ broke is indistinguishable from clean prose.',
+      `❌  ${brokenControls.length} control(s) FAILED — this run is ` +
+        'not a reading. ⛔ Not a finding failure: the instrument failed, and a reader that ' +
+        'reports zero because it broke is indistinguishable from clean prose.',
     );
     process.exit(1);
   }

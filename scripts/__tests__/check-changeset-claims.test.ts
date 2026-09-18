@@ -8,13 +8,17 @@ import { fileURLToPath } from 'node:url';
 import {
   BORN_FALSE_VERDICTS,
   audit,
+  declaredPackages,
   evaluateBornFalseControls,
+  evaluateSelfContradictionControls,
   judgeAddress,
   lineAddresses,
   mapLine,
   namedFiles,
+  packageDirectories,
   paragraphNaming,
   resolveNamed,
+  selfContradictions,
   sentenceAround,
   treeIndex,
 } from '../check-changeset-claims.mjs';
@@ -1016,7 +1020,11 @@ describe('an event payload from another tree', () => {
     // If ANY of them moved when the environment changed, the hermeticity claim in
     // the gate's own docblock would be false — and that, not the test, would be
     // the finding.
-    expect(run.output.match(/^\s+PASS\s/gm)?.length).toBe(5);
+    const bornSection = run.output.slice(
+      run.output.indexOf('\u2500\u2500 Born false'),
+      run.output.indexOf('\u2500\u2500 Self-contradiction'),
+    );
+    expect(bornSection.match(/^\s+PASS\s/gm)?.length).toBe(5);
     expect(run.output).not.toMatch(/^\s+FAIL\s/m);
   });
 });
@@ -1046,5 +1054,343 @@ describe('an event payload for THIS tree', () => {
     expect(run.output).toContain('carried by this tree');
     expect(run.output).toContain('Corpus: 1 body(ies)');
     expect(run.output).toContain('this change moves packages/alpha/src/walker.ts:6 to :8');
+  });
+});
+
+// ── 7. the SELF-CONTRADICTION reading (objectui#9841) ────────────────────────
+//
+// One changeset read against ITSELF: a package its own front matter declares,
+// negated in its own body. The four structural changeset gates judge the front
+// matter; the two readings above judge a body against a diff; nothing read the
+// two halves of one file against each other.
+//
+// What these cases pin, in the order this reading can fail:
+//
+//  1. It FIRES on the carded shape, and stays SILENT on the repair that landed
+//     on the same pull request — the discrimination the whole coordinate rests
+//     on.
+//  2. BORN FALSE and WENT FALSE are DIFFERENT ANSWERS, decided from the branch's
+//     own revisions. The carded sentence was TRUE when written, and a gate that
+//     reported it as false-when-written would be making an accusation the
+//     history refutes.
+//  3. TWO DISTINCT FLOORS (objectui#9744). A `0` from a reader that read nothing
+//     and a `0` from a clean corpus are the same character, so neither may print
+//     what the other prints, and neither may print the clean tick.
+//  4. HERMETICITY IS STRUCTURAL. This reading takes no ambient input, and a
+//     poisoned `GITHUB_EVENT_PATH` cannot move a byte of its section.
+
+/**
+ * The VERDICT words this reading printed, one per finding.
+ *
+ * Read off the finding lines rather than searched for in the section: the
+ * section's closing prose explains what a WENT FALSE verdict is and is not, so a
+ * substring search over the whole section reports a verdict that was never
+ * reached. The distinction this pins is the one objectui#9841 required, and a
+ * pin that matches explanatory prose pins nothing.
+ */
+function verdicts(output: string): string[] {
+  return [...selfSection(output).matchAll(/^\s+(BORN FALSE|WENT FALSE|UNDATED)\b/gm)].map((hit) => hit[1]);
+}
+
+/** The self-contradiction section of one run, sliced off the rest of the log. */
+function selfSection(output: string): string {
+  const start = output.indexOf('── Self-contradiction');
+  if (start === -1) return '';
+  const rest = output.slice(start);
+  const end = rest.indexOf('\n✅  No pending changeset');
+  return end === -1 ? rest : rest.slice(0, end);
+}
+
+/** A fixture whose `packages/beta` is a real workspace package too. */
+function twoPackageFixture(label: string): { fixture: Fixture; base: string } {
+  const fixture = fixtureRepo(label);
+  fixture.write('packages/beta/package.json', JSON.stringify({ name: '@fixture/beta', version: '1.0.0' }));
+  const base = fixture.commit('chore(beta): give the second package a manifest');
+  return { fixture, base };
+}
+
+/**
+ * The carded instance's geometry, in a throwaway repository.
+ *
+ * Round one writes the changeset declaring `@fixture/beta` only, with a sentence
+ * that `packages/alpha` is untouched — TRUE at that revision. Round two does the
+ * work in `packages/alpha` and adds the declaration that falsifies the sentence,
+ * in the same commit, exactly as `21896172a9` did.
+ */
+const INSTANCE_BODY =
+  '⛔ **No published face moves.** `packages/alpha` is untouched: the accept set is the one both ' +
+  'faces already shipped, and this is the implementation catching up to it.\n';
+
+describe('a changeset that declares a package its own body says is untouched', () => {
+  const { fixture, base } = twoPackageFixture('self-went-false');
+  fixture.write('.changeset/9841-instance.md', `---\n'@fixture/beta': patch\n---\n\n${INSTANCE_BODY}`);
+  fixture.commit('fix(beta): round one — the sentence is true here');
+  fixture.write('packages/alpha/src/index.ts', 'export const alpha = 2;\n');
+  fixture.write(
+    '.changeset/9841-instance.md',
+    `---\n'@fixture/alpha': patch\n'@fixture/beta': patch\n---\n\n${INSTANCE_BODY}`,
+  );
+  const head = fixture.commit('fix(alpha): round two — the declaration arrives with the work');
+  const run = runGate(fixture.root, ['--base', base, '--head', head]);
+
+  it('reports the declaration its own body negates', () => {
+    expect(run.output).toContain('.changeset/9841-instance.md  declares `@fixture/alpha`');
+    expect(run.output).toContain('`packages/alpha` is untouched');
+  });
+
+  it('reads the DIRECTORY spelling, which is the one the carded instance used', () => {
+    // A reading that knew only npm names would have been silent on the artefact
+    // it exists for: objectui#9796 wrote `packages/types`, never `@object-ui/types`.
+    expect(run.output).toContain('`packages/alpha` is untouched');
+  });
+
+  it('⭐ calls it WENT FALSE — it was TRUE at the revision that wrote it', () => {
+    // ⛔ The accusation this reading must never make about this sentence: the
+    // revision that wrote it declared `@fixture/beta` and nothing else, so the
+    // sentence was true. Asserted as the EXACT verdict set, so a reader that
+    // printed both would fail here rather than satisfy a substring search.
+    expect(verdicts(run.output)).toEqual(['WENT FALSE']);
+  });
+
+  it('does not block, and says in its own words that it is not a prose judgement', () => {
+    expect(run.status).toBe(0);
+    expect(run.output).toContain('NOT a prose judgement');
+    expect(run.output).toContain('NAME THE ASPECT, AND NAME WHAT DOES MOVE');
+  });
+
+  it('⛔ never prints the clean tick beside a finding', () => {
+    expect(selfSection(run.output)).not.toContain('is either not negated');
+  });
+});
+
+describe('a changeset that declares the package and negates it in the SAME revision', () => {
+  const { fixture, base } = twoPackageFixture('self-born-false');
+  fixture.write('packages/alpha/src/index.ts', 'export const alpha = 3;\n');
+  fixture.write('.changeset/9841-born.md', `---\n'@fixture/alpha': patch\n---\n\n${INSTANCE_BODY}`);
+  const head = fixture.commit('fix(alpha): both halves land together');
+  const run = runGate(fixture.root, ['--base', base, '--head', head]);
+
+  it('⭐ calls it BORN FALSE — and that is a DIFFERENT answer from the case above', () => {
+    // The pair is the point. A `dateClaim` that always returned one verdict
+    // passes one of these two describes and fails the other; a count of findings
+    // moves in neither. This is the assertion that reddens when the distinction
+    // is removed.
+    expect(verdicts(run.output)).toEqual(['BORN FALSE']);
+  });
+
+  it('still reports the finding itself', () => {
+    expect(run.output).toContain('.changeset/9841-born.md  declares `@fixture/alpha`');
+    expect(run.status).toBe(0);
+  });
+});
+
+describe('the firing control — the repair that landed on objectui#9796', () => {
+  const { fixture, base } = twoPackageFixture('self-repaired');
+  fixture.write('packages/alpha/src/index.ts', 'export const alpha = 4;\n');
+  fixture.write(
+    '.changeset/9841-repaired.md',
+    "---\n'@fixture/alpha': patch\n---\n\n" +
+      '⛔ No type, no accept set, no export and no runtime behaviour moves in `@fixture/alpha`: ' +
+      'every changed line in `packages/alpha/src/index.ts` is a docblock line.\n',
+  );
+  const head = fixture.commit('fix(alpha): the repaired wording');
+  const run = runGate(fixture.root, ['--base', base, '--head', head]);
+
+  it('⛔ stays silent — an ASPECT-scoped negation is correct English and correct practice', () => {
+    // The whole measured corpus behind this coordinate is this shape. Reporting
+    // it would teach authors to delete a correct sentence, which is worse than
+    // the defect.
+    expect(selfSection(run.output)).not.toContain('are negated by the body');
+  });
+
+  it('is green BECAUSE IT LOOKED, and says which corpus it read', () => {
+    expect(run.output).toContain('Corpus: 1 changeset(s) this change adds or modifies, 1 of them declaring');
+    expect(run.output).toContain('is either not negated');
+    expect(run.status).toBe(0);
+  });
+});
+
+describe('⛔ the two floors — silence and cleanliness never print the same thing', () => {
+  // objectui#9744: an assertion whose whole job is "I measured nothing" is the
+  // FIRST one to distrust. The two floors below are one level apart and must
+  // stay textually distinct from each other and from the clean tick.
+  const { fixture: emptyFixture, base: emptyBase } = twoPackageFixture('self-floor-none');
+  emptyFixture.write('packages/alpha/src/index.ts', 'export const alpha = 5;\n');
+  const emptyHead = emptyFixture.commit('fix(alpha): a change that carries no changeset at all');
+  const emptyRun = runGate(emptyFixture.root, ['--base', emptyBase, '--head', emptyHead]);
+
+  const { fixture: silentFixture, base: silentBase } = twoPackageFixture('self-floor-nodecl');
+  silentFixture.write('.changeset/9841-internal.md', `---\n---\n\n${INSTANCE_BODY}`);
+  const silentHead = silentFixture.commit('chore(alpha): an empty-frontmatter declaration');
+  const silentRun = runGate(silentFixture.root, ['--base', silentBase, '--head', silentHead]);
+
+  it('FLOOR ONE — no corpus at all is ⛔ not a clean verdict', () => {
+    const section = selfSection(emptyRun.output);
+    expect(section).toContain('adds and modifies NO changeset');
+    expect(section).toContain('measured nothing');
+    expect(section).not.toContain('is either not negated');
+    expect(section).not.toContain('Read, but nothing to judge');
+  });
+
+  it('FLOOR TWO — a corpus that declares nothing is ⛔ neither clean nor floor one', () => {
+    const section = selfSection(silentRun.output);
+    expect(section).toContain('Read, but nothing to judge');
+    expect(section).toContain('Not the same answer as a clean one');
+    expect(section).not.toContain('is either not negated');
+    expect(section).not.toContain('adds and modifies NO changeset');
+  });
+
+  it('⭐ the two floors are not the same sentence — a reader can tell which zero this is', () => {
+    expect(selfSection(emptyRun.output)).not.toBe(selfSection(silentRun.output));
+  });
+
+  it("a body that declares no bump is never a contradiction — it publishes nothing", () => {
+    // The body here is the carded sentence verbatim. It is reported by nothing,
+    // because an empty front matter reaches no CHANGELOG.
+    expect(silentRun.output).not.toContain('are negated by the body');
+  });
+});
+
+describe('⛔ hermeticity — the ambient repository cannot reach this reading', () => {
+  // objectui#9744, measured on the reading above this one: `GITHUB_EVENT_PATH`
+  // is exported to EVERY process on a runner, and an ungated read made that
+  // reading's corpus AMBIENT — a fixture run picked up the real pull request
+  // body of whatever build was live, and its empty-corpus floor slid a level in
+  // CI while passing locally. This reading takes no environment at all, and that
+  // is the property pinned here rather than a convention anyone has to keep.
+  const { fixture, base } = twoPackageFixture('self-hermetic');
+  fixture.write('packages/alpha/src/index.ts', 'export const alpha = 6;\n');
+  fixture.write(
+    '.changeset/9841-clean.md',
+    "---\n'@fixture/alpha': patch\n---\n\nThe alpha walker is rewritten; the published face is unchanged.\n",
+  );
+  const head = fixture.commit('fix(alpha): a clean declaration');
+
+  const payload = path.join(fixture.root, 'poison.json');
+  fs.writeFileSync(
+    payload,
+    JSON.stringify({
+      pull_request: {
+        number: 1,
+        head: { sha: head },
+        // The carded contradiction, verbatim, in an AMBIENT body. If a single
+        // byte of it reaches this reading, the two runs below differ.
+        body: `---\n'@fixture/alpha': patch\n---\n\n${INSTANCE_BODY}`,
+      },
+    }),
+  );
+
+  const hermetic = runGate(fixture.root, ['--base', base, '--head', head]);
+  const poisoned = runGate(fixture.root, ['--base', base, '--head', head], { GITHUB_EVENT_PATH: payload });
+
+  it('reads the same corpus with the variable set and unset', () => {
+    expect(selfSection(poisoned.output)).toBe(selfSection(hermetic.output));
+  });
+
+  it('⛔ never adopts the ambient body as a changeset of its own', () => {
+    expect(selfSection(poisoned.output)).toContain('Corpus: 1 changeset(s)');
+    expect(selfSection(poisoned.output)).not.toContain('are negated by the body');
+  });
+
+  it('the variable WAS live for that run — otherwise this control proves nothing', () => {
+    // The born-false reading above DOES read it, so its own report moves. A run
+    // where the payload was ignored outright would make the comparison vacuous.
+    expect(poisoned.output).toContain('carried by this tree');
+    expect(hermetic.output).not.toContain('carried by this tree');
+  });
+});
+
+describe('the self-contradiction controls', () => {
+  it('all fire, and the discrimination pair answers two different ways', () => {
+    const results = evaluateSelfContradictionControls();
+    expect(results.every((control) => control.ok)).toBe(true);
+    expect(results.map((control) => control.id)).toContain(
+      'a-bare-package-spelling-negated-in-its-own-declaring-body',
+    );
+    expect(results.map((control) => control.id)).toContain(
+      'the-repair-that-landed-on-that-pull-request-is-silent',
+    );
+  });
+
+  it('⭐ a reader that reports EVERYTHING fails them — a control suite that cannot fail is decoration', () => {
+    const shouting = (source: string): unknown[] =>
+      declaredPackages(source).map((name) => ({ package: name, spelling: name, claim: 'everything', sentence: '' }));
+    const results = evaluateSelfContradictionControls(shouting as never);
+    expect(results.some((control) => !control.ok)).toBe(true);
+  });
+
+  it('⭐ a reader that reports NOTHING fails them too', () => {
+    const mute = (): unknown[] => [];
+    const results = evaluateSelfContradictionControls(mute as never);
+    expect(results.filter((control) => !control.ok).map((control) => control.id)).toEqual([
+      'a-bare-package-spelling-negated-in-its-own-declaring-body',
+      'the-npm-name-spelling-fires-as-well-as-the-directory',
+    ]);
+  });
+});
+
+describe('selfContradictions — the coordinate itself', () => {
+  const dirOf = (name: string): string | null => (name === '@object-ui/types' ? 'packages/types' : null);
+  const declaring = (body: string): string => `---\n'@object-ui/types': patch\n---\n\n${body}\n`;
+
+  it('fires when nothing but a copula sits between the package and the negation', () => {
+    expect(selfContradictions(declaring('`packages/types` is untouched.'), dirOf)).toHaveLength(1);
+    expect(selfContradictions(declaring('`@object-ui/types` remains unchanged.'), dirOf)).toHaveLength(1);
+    expect(selfContradictions(declaring('Nothing in `packages/types` moves.'), dirOf)).toHaveLength(1);
+  });
+
+  it('⛔ is silent when an ASPECT sits between them — the whole measured corpus is this shape', () => {
+    expect(selfContradictions(declaring('`@object-ui/types` re-exports all four names unchanged.'), dirOf)).toEqual([]);
+    expect(selfContradictions(declaring("`packages/types`' type-checks are unchanged."), dirOf)).toEqual([]);
+    expect(selfContradictions(declaring('No published face moves in `@object-ui/types`.'), dirOf)).toEqual([]);
+  });
+
+  it('⛔ is silent about a package the front matter does not declare', () => {
+    // The finding is a contradiction WITH A DECLARATION. A body naming what it
+    // did not touch is how a changeset states its blast radius.
+    expect(selfContradictions(declaring('`packages/core` is untouched.'), dirOf)).toEqual([]);
+  });
+
+  it('⛔ never matches a longer path inside the package directory', () => {
+    const body = 'The corpus — `packages/types/examples/data-display.json` — is untouched.';
+    expect(selfContradictions(declaring(body), dirOf)).toEqual([]);
+  });
+
+  it('counts one contradiction, not two, when both spellings reach the same claim', () => {
+    const body = '`packages/types` is untouched.\n\n`packages/types` is untouched.';
+    expect(selfContradictions(declaring(body), dirOf)).toHaveLength(1);
+  });
+
+  it('reads nothing at all out of a body whose front matter declares no bump', () => {
+    expect(selfContradictions('---\n---\n\n`packages/types` is untouched.\n', dirOf)).toEqual([]);
+  });
+});
+
+describe('declaredPackages', () => {
+  it('keeps the NAMES the four structural gates only count', () => {
+    expect(declaredPackages("---\n'@object-ui/types': patch\n\"@object-ui/core\": minor\n---\n\nbody\n")).toEqual([
+      '@object-ui/types',
+      '@object-ui/core',
+    ]);
+  });
+
+  it('is empty for an unterminated front matter, exactly as describeDeclaration is', () => {
+    expect(declaredPackages("---\n'@object-ui/types': patch\n\nno close\n")).toEqual([]);
+  });
+
+  it('is empty for a no-release declaration', () => {
+    expect(declaredPackages('---\n---\n\nInternal only.\n')).toEqual([]);
+  });
+});
+
+describe('packageDirectories', () => {
+  it('maps this repository’s own packages to the directories that carry them', () => {
+    const map = packageDirectories(repoRoot, null);
+    expect(map.get('@object-ui/types')).toBe('packages/types');
+  });
+
+  it('⛔ never maps the workspace root, whose directory contains every path', () => {
+    const root = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { name?: string };
+    expect(packageDirectories(repoRoot, null).has(root.name ?? '')).toBe(false);
   });
 });

@@ -304,7 +304,7 @@ function getTemplateSchema(type: string): string {
     empty: {
       type: 'div',
       className: 'p-4',
-      body: {
+      children: {
         type: 'text',
         content: 'Hello Object UI!',
       },
@@ -312,13 +312,13 @@ function getTemplateSchema(type: string): string {
     form: {
       type: 'div',
       className: 'max-w-2xl mx-auto p-6',
-      body: {
+      children: {
         type: 'card',
         title: 'Contact Form',
-        body: {
+        children: {
           type: 'div',
           className: 'space-y-4',
-          body: [
+          children: [
             {
               type: 'input',
               label: 'Name',
@@ -350,11 +350,11 @@ function getTemplateSchema(type: string): string {
     dashboard: {
       type: 'div',
       className: 'min-h-screen p-6',
-      body: [
+      children: [
         {
           type: 'div',
           className: 'mb-6',
-          body: {
+          children: {
             type: 'text',
             content: 'Dashboard',
             className: 'text-3xl font-bold',
@@ -363,11 +363,11 @@ function getTemplateSchema(type: string): string {
         {
           type: 'div',
           className: 'grid gap-4 md:grid-cols-3',
-          body: [
+          children: [
             {
               type: 'card',
               title: 'Total Users',
-              body: {
+              children: {
                 type: 'text',
                 content: '1,234',
                 className: 'text-2xl font-bold',
@@ -376,7 +376,7 @@ function getTemplateSchema(type: string): string {
             {
               type: 'card',
               title: 'Revenue',
-              body: {
+              children: {
                 type: 'text',
                 content: '$56,789',
                 className: 'text-2xl font-bold',
@@ -385,7 +385,7 @@ function getTemplateSchema(type: string): string {
             {
               type: 'card',
               title: 'Orders',
-              body: {
+              children: {
                 type: 'text',
                 content: '432',
                 className: 'text-2xl font-bold',
@@ -398,11 +398,11 @@ function getTemplateSchema(type: string): string {
     card: {
       type: 'div',
       className: 'max-w-md mx-auto p-6',
-      body: {
+      children: {
         type: 'card',
         title: 'Card Title',
         description: 'This is a card description',
-        body: {
+        children: {
           type: 'text',
           content: 'Card content goes here',
         },
@@ -411,10 +411,10 @@ function getTemplateSchema(type: string): string {
     table: {
       type: 'div',
       className: 'p-6',
-      body: {
+      children: {
         type: 'card',
         title: 'Data Table',
-        body: {
+        children: {
           type: 'text',
           content: 'Table component coming soon...',
         },

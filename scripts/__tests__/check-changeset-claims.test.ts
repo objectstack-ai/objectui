@@ -1184,6 +1184,34 @@ describe('a changeset that declares the package and negates it in the SAME revis
   });
 });
 
+describe("a pending changeset this change falsifies by adding ONE front-matter line", () => {
+  // ⚠️ The oldest and most obvious WENT FALSE there is, and the one a branch
+  // walk alone gets WRONG. The changeset was already in the tree at the base,
+  // carrying a true sentence; this change adds the declaration that falsifies
+  // it. Walking only `base..head` finds the single commit that did that, sees
+  // the declaration it just added, and would report BORN FALSE — accusing the
+  // author of writing something untrue weeks before this branch existed.
+  const { fixture, base: preexisting } = twoPackageFixture('self-preexisting');
+  fixture.write('.changeset/9841-pending.md', `---\n'@fixture/beta': patch\n---\n\n${INSTANCE_BODY}`);
+  const base = fixture.commit('chore(beta): a pending declaration, true when written');
+  fixture.write('packages/alpha/src/index.ts', 'export const alpha = 7;\n');
+  fixture.write(
+    '.changeset/9841-pending.md',
+    `---\n'@fixture/alpha': patch\n'@fixture/beta': patch\n---\n\n${INSTANCE_BODY}`,
+  );
+  const head = fixture.commit('fix(alpha): the work reaches alpha, and the declaration with it');
+  const run = runGate(fixture.root, ['--base', base, '--head', head]);
+
+  it('⭐ is WENT FALSE, dated from the front matter the sentence was standing against', () => {
+    expect(verdicts(run.output)).toEqual(['WENT FALSE']);
+  });
+
+  it('reports it at all — a MODIFIED changeset is in this corpus, not only an added one', () => {
+    expect(run.output).toContain('.changeset/9841-pending.md  declares `@fixture/alpha`');
+    expect(preexisting).not.toBe(base);
+  });
+});
+
 describe('the firing control — the repair that landed on objectui#9796', () => {
   const { fixture, base } = twoPackageFixture('self-repaired');
   fixture.write('packages/alpha/src/index.ts', 'export const alpha = 4;\n');

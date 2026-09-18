@@ -1083,19 +1083,44 @@ export function selfContradictions(source, dirOf) {
  * with both halves present, and reads as born false. It was not. Only the
  * branch's own revisions of the file separate the two.
  *
- *   BORN FALSE  the earliest revision on this branch that carries the claim
- *               ALREADY declared the package. False the moment it was written.
+ *   BORN FALSE  the earliest revision that carries the claim ALREADY declared
+ *               the package. False the moment it was written.
  *   WENT FALSE  that revision did not declare it. The claim stood, and a later
- *               commit on this same branch — usually the one that did the work —
- *               falsified it by declaring the package.
- *   UNDATED     no revision in `base..head` carries the claim (a shallow clone,
- *               or a working-tree run whose text is in no commit). Reported as
+ *               commit — usually the one that did the work — falsified it by
+ *               declaring the package.
+ *   UNDATED     no revision in reach carries the claim (a shallow clone, or a
+ *               working-tree run whose text is in no commit). Reported as
  *               undated, never defaulted to either verdict: "was false when
  *               written" is an accusation this reading declines to guess at.
+ *
+ * ⚠️ THE BASE IS READ FIRST, and ⛔ the branch walk alone is not enough. A
+ * changeset can be PENDING for weeks carrying a true sentence, and this change
+ * can falsify it by adding one line to its front matter — the shape
+ * `check-changeset-overwrite.mjs` calls its case 2. Walking only `base..head`
+ * finds that one commit, sees the declaration it just added, and reports BORN
+ * FALSE: the exact misreading objectui#9841 forbids, on the case where the
+ * sentence is oldest and most obviously stood on its own. So if the claim is
+ * already at the base, the base's own front matter decides, and the branch walk
+ * is only reached for a claim this change itself brought.
  *
  * @returns {'born' | 'went' | 'undated'}
  */
 export function dateClaim(root, { base, head = null }, file, claim, pkg) {
+  const needle0 = claim.replace(/\s+/g, ' ').toLowerCase();
+  const carries = (source) =>
+    source !== null &&
+    source
+      .replace(/^---\r?\n[\s\S]*?\r?\n---/, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase()
+      .includes(needle0);
+
+  // The base first — see the note above. A claim that was already standing when
+  // this change started is dated by the front matter it was standing against,
+  // never by the commit that just moved it.
+  const atBase = git(root, ['show', `${base}:${file}`], { allowFailure: true });
+  if (carries(atBase)) return declaredPackages(atBase).includes(pkg) ? 'born' : 'went';
+
   const range = head ? `${base}..${head}` : base;
   const log = git(root, ['log', '--reverse', '--format=%H', range, '--', file], { allowFailure: true });
   const commits = (log ?? '').split('\n').filter((line) => line !== '');

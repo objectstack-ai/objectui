@@ -18,14 +18,12 @@ import {
   DrawerDescription,
   DrawerClose
 } from '../../ui';
-import { renderChildren, renderNodeSlot } from '../../lib/utils';
+import { asChildSlotProps, renderChildren, renderNodeSlot } from '../../lib/utils';
 
 ComponentRegistry.register('drawer', 
   ({ schema, className, ...props }: { schema: DrawerSchema; className?: string; [key: string]: any }) => (
     <Drawer shouldScaleBackground={schema.shouldScaleBackground} defaultOpen={schema.defaultOpen} {...props}>
-      <DrawerTrigger asChild>
-        {renderChildren(schema.trigger)}
-      </DrawerTrigger>
+      <DrawerTrigger {...asChildSlotProps(schema.trigger)} />
       <DrawerContent className={className}>
         <DrawerHeader>
           {schema.title && <DrawerTitle>{schema.title}</DrawerTitle>}

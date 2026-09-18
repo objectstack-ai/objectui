@@ -95,3 +95,54 @@ export function renderChildren(children: any): React.ReactNode {
   return <SchemaRenderer schema={children} />;
 }
 
+/**
+ * The props a Radix primitive's `*Trigger` needs in order to accept every value
+ * its authored node slot already admits (objectui#9710; the same defect was
+ * repaired one instance at a time on objectui#9701).
+ *
+ * `asChild` resolves a Radix primitive to its `Slot`, which merges its props
+ * onto its child by way of `React.Children.only` — a SINGLE React element, and
+ * nothing else. A node slot admits far more than that: the published
+ * `SchemaNode` union names `string`, `number`, `boolean`, `null` and
+ * `undefined` beside `BaseSchema`, and the trigger keys add an ARRAY of nodes
+ * on top. So an unconditional `asChild` over `renderChildren(schema.trigger)`
+ * asserts a precondition neither published face ever promised, and every value
+ * that misses it THREW: `trigger: 'Show more'` — the most natural thing to
+ * write for something called a trigger — validated on both faces and then
+ * landed the whole node in `SchemaRenderer`'s error boundary, with no
+ * diagnostic naming the key.
+ *
+ * The predicate asks RADIX's question — "is this one element?" — and ⛔ not
+ * `typeof === 'string'`. A multi-node trigger array and an empty slot's `null`
+ * are that same structural mismatch wearing different values, so they are
+ * answered on the same arm. Where `Slot` cannot serve, the primitive renders
+ * its OWN element around the returned content, so a bare string paints as the
+ * trigger's text and stays a real trigger; where it CAN serve, the merge is
+ * unchanged.
+ *
+ * ⛔ Widens no published face. `packages/types` states the accept set and is
+ * untouched by this; the implementation is catching up to a declaration that
+ * already said yes — the direction objectui#7105 ruled for node slots, which
+ * RELAX the renderer rather than narrow the declaration.
+ *
+ * Spread it onto the trigger, so the slot is rendered ONCE and the predicate
+ * reads the very node that is then handed over:
+ *
+ * ```tsx
+ * <DialogTrigger {...asChildSlotProps(schema.trigger)} />
+ * ```
+ *
+ * ⚠️ A helper is only reached by an author who calls it, so it is not what
+ * keeps the next overlay key out of this defect. That is
+ * `overlay-trigger-bare-string-9710.test.tsx`, which enumerates the REGISTRY
+ * for blocks declaring a `trigger` slot rather than naming files, and so covers
+ * a ninth key on the day it registers one, whatever spelling it reached for.
+ */
+export function asChildSlotProps(slot: unknown): {
+  asChild: boolean;
+  children: React.ReactNode;
+} {
+  const children = renderChildren(slot);
+  return { asChild: React.isValidElement(children), children };
+}
+

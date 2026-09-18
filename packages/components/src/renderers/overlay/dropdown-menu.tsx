@@ -25,7 +25,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent
 } from '../../ui';
-import { renderChildren } from '../../lib/utils';
+import { asChildSlotProps } from '../../lib/utils';
 // Same-package sibling import, the path `renderers/complex/data-table.tsx`
 // already uses. `icon` on a menu item is an authored lucide NAME, and it was
 // rendered as a raw text node here — the fixture named `with-icons.json` drew
@@ -93,9 +93,7 @@ ComponentRegistry.register('dropdown-menu',
     const locale = useDisplayLocale();
     return (
       <DropdownMenu modal={schema.modal} defaultOpen={schema.defaultOpen} {...props}>
-        <DropdownMenuTrigger asChild>
-           {renderChildren(schema.trigger)}
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger {...asChildSlotProps(schema.trigger)} />
         <DropdownMenuContent align={schema.align} side={schema.side} className={className}>
           {schema.label && (
             <DropdownMenuLabel>{resolveInlineI18nLabel(schema.label, locale)}</DropdownMenuLabel>

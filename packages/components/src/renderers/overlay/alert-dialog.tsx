@@ -20,14 +20,12 @@ import {
   AlertDialogCancel,
   buttonVariants
 } from '../../ui';
-import { renderChildren } from '../../lib/utils';
+import { asChildSlotProps, renderChildren } from '../../lib/utils';
 
 ComponentRegistry.register('alert-dialog', 
   ({ schema, className, ...props }: { schema: AlertDialogSchema; className?: string; [key: string]: any }) => (
     <AlertDialog defaultOpen={schema.defaultOpen} {...props}>
-      <AlertDialogTrigger asChild>
-        {renderChildren(schema.trigger)}
-      </AlertDialogTrigger>
+      <AlertDialogTrigger {...asChildSlotProps(schema.trigger)} />
       <AlertDialogContent className={className}>
         <AlertDialogHeader>
           {schema.title && <AlertDialogTitle>{schema.title}</AlertDialogTitle>}

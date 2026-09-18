@@ -557,22 +557,84 @@ describe('Registry', () => {
     });
 
     /**
-     * ⭐ Why the two doors give DIFFERENT advice, pinned as behaviour and not
-     * only as prose. `register` clears the bare stub unconditionally — outside
-     * the fallback branch — so telling that door's author to pass
-     * `skipFallback: true` would leave the bare key resolving to nothing at
-     * all. On the lazy door the same opt-out really does settle it.
+     * ⭐ This pin was INVERTED by objectui#9839, and the inversion is the fix.
+     *
+     * It used to assert that the eager door left the bare key claimed by
+     * NOBODY: `register` cleared the bare stub outside its
+     * `namespace && !skipFallback` branch, so a registration that declined the
+     * bare key deleted another declaration's stub anyway and then refused to
+     * replace it. The comment it carried said so in as many words, which is
+     * what made it a pin on a defect rather than a blessing of one.
+     *
+     * The clearing now sits inside that branch, under the same predicate that
+     * takes the key, so declining the key declines the delete with it.
      */
-    it('skipFallback on the EAGER door does not preserve the stub\'s bare claim', () => {
+    it('skipFallback on the EAGER door preserves the stub\'s bare claim', () => {
       registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
       expect(registry.hasLazy('dashboard')).toBe(true);
 
       registry.register('dashboard', () => 'view', { namespace: 'view', skipFallback: true });
 
-      // The bare key is now claimed by nobody: the stub was deleted anyway and
-      // the registration declined to take it.
-      expect(registry.hasLazy('dashboard')).toBe(false);
+      // The bare key is still the stub's: this registration declined to take
+      // it, so it also declined to clear it. `view:dashboard` is reachable by
+      // its full key only, which is the whole point of the opt-out.
+      expect(registry.hasLazy('dashboard')).toBe(true);
+      expect(registry.hasLazy('dashboard', 'plugin-dashboard')).toBe(true);
+      expect(registry.get('dashboard', 'view')).toBeDefined();
+      // ⛔ Not `toBeDefined()` on the bare read: the stub has not loaded, so
+      // bare `dashboard` resolves to nothing YET — but it is spoken for, and
+      // `hasLazy` above is what says by whom. Before the fix it was spoken for
+      // by nobody at all, and those two states read identically through `get`.
       expect(registry.get('dashboard')).toBeUndefined();
+    });
+
+    /**
+     * The opposite direction, which the repair must NOT disturb: a
+     * registration that DOES claim the bare key still clears the stub under it.
+     * Leaving that stub behind would be the converse defect — objectui#9533's
+     * shape, a stub that outlives the registration that satisfied it.
+     */
+    it('a registration that DOES claim the bare key still clears the stub', () => {
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      expect(registry.hasLazy('dashboard')).toBe(true);
+
+      registry.register('dashboard', () => 'view', { namespace: 'view' });
+
+      // The bare stub is gone because this registration took the bare key —
+      // bare `dashboard` resolves to `view:dashboard` now, and a stub left
+      // sitting under it would be unsatisfiable. (It warned on the way past;
+      // that contest is the block above's subject, not this one's.)
+      expect(registry.hasLazy('dashboard')).toBe(false);
+      expect(registry.get('dashboard')).toBeDefined();
+      // ⛔ `plugin-dashboard:dashboard` is a DIFFERENT key and this call never
+      // addressed it — only the bare key was contested.
+      expect(registry.hasLazy('dashboard', 'plugin-dashboard')).toBe(true);
+    });
+
+    it('the ordinary stub-then-real lifecycle still clears BOTH stub keys', () => {
+      // The 30-of-31 shape: the stub and the registration that satisfies it
+      // name one full type, so both the bare and the namespaced stub key are
+      // this registration's to clear.
+      registry.registerLazy('chart', loader, { namespace: 'plugin-charts' });
+      expect(registry.hasLazy('chart')).toBe(true);
+      expect(registry.hasLazy('chart', 'plugin-charts')).toBe(true);
+
+      registry.register('chart', () => 'chart', { namespace: 'plugin-charts' });
+
+      expect(registry.hasLazy('chart')).toBe(false);
+      expect(registry.hasLazy('chart', 'plugin-charts')).toBe(false);
+      expect(registry.get('chart')).toBeDefined();
+    });
+
+    it('a bare registration with no namespace still clears the bare stub', () => {
+      // `fullType === type` here, so the unconditional delete below the branch
+      // is the one that does it. A registration with no namespace claims the
+      // bare key by definition, so it clears the bare key's stub.
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      registry.register('dashboard', () => 'plain');
+
+      expect(registry.hasLazy('dashboard')).toBe(false);
+      expect(registry.get('dashboard')).toBeDefined();
     });
 
     it('each door prescribes the remedy that is true for it', () => {
@@ -585,9 +647,57 @@ describe('Registry', () => {
       consoleWarnSpy.mockClear();
       other.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
       other.register('dashboard', () => 'view', { namespace: 'view' });
-      // ⛔ Not a wording preference: the eager door must not prescribe an
-      // opt-out that the test above shows does not settle the contest.
-      expect(collisionWarnings()[0]).toMatch(/does not\s+settle this one/);
+      // ⛔ Not a wording preference, and the reason it now reads the same on
+      // both doors is that the BEHAVIOUR converged (objectui#9839): the eager
+      // door used to have to talk the author out of `skipFallback: true`,
+      // because back then the opt-out left the bare key resolving to nothing.
+      // The probe above is what says that is no longer so.
+      expect(collisionWarnings()[0]).toMatch(/skipFallback: true/);
+      expect(collisionWarnings()[0]).not.toMatch(/does not\s+settle/);
+    });
+
+    /**
+     * ⭐ `unregister`'s docblock promised «the bare-name fallback (when the
+     * fallback still points at this registration), plus any matching lazy
+     * stub». objectui#9839 ruled «matching» against the code's own behaviour:
+     * the components half of that same sentence is ownership-scoped, so the
+     * stub half is too. Without this, the repair above would just move the
+     * victim one function down — the same bare key, the same owner, taken by
+     * the same caller.
+     */
+    it('unregister leaves a bare stub that belongs to a DIFFERENT full type', () => {
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      registry.register('dashboard', () => 'view', { namespace: 'view', skipFallback: true });
+
+      expect(registry.unregister('dashboard', 'view')).toBe(true);
+
+      // `view:dashboard` is gone; the bare key is still the stub's.
+      expect(registry.get('dashboard', 'view')).toBeUndefined();
+      expect(registry.hasLazy('dashboard')).toBe(true);
+      expect(registry.hasLazy('dashboard', 'plugin-dashboard')).toBe(true);
+    });
+
+    it('unregister still clears a bare stub that DOES belong to it', () => {
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      registry.register('dashboard', () => 'dash', { namespace: 'plugin-dashboard' });
+
+      expect(registry.unregister('dashboard', 'plugin-dashboard')).toBe(true);
+      expect(registry.hasLazy('dashboard')).toBe(false);
+      expect(registry.hasLazy('dashboard', 'plugin-dashboard')).toBe(false);
+      expect(registry.get('dashboard')).toBeUndefined();
+    });
+
+    it('the BARE unregister form stays unconditional on both tables', () => {
+      // Teardown sites pair `unregister(type, ns)` with `unregister(type)` to
+      // force the bare key regardless of who holds it. That second call must
+      // keep working, on `lazyEntries` as well as on `components`.
+      registry.registerLazy('dashboard', loader, { namespace: 'plugin-dashboard' });
+      registry.unregister('dashboard');
+
+      expect(registry.hasLazy('dashboard')).toBe(false);
+      // ⛔ Only the bare key: the namespaced stub is a different key and this
+      // call never addressed it.
+      expect(registry.hasLazy('dashboard', 'plugin-dashboard')).toBe(true);
     });
   });
 });

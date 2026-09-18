@@ -33,16 +33,23 @@
  * ONE ruling, both faces: a width outside the renderable domain is CLAMPED
  * into it and REPORTED on the console. The reasoning — why a clamp and not a
  * refusal, and why the bounds are the formatters' own rather than this
- * package's — is on `renderablePercentScale` in `../widgets/PercentField`.
+ * package's — is on `../widgets/percent-scale`, which is also where the
+ * ruling's SUNSET condition is written down: the clamp rests on the spec's
+ * `scale` being unbounded, and is to be DELETED once the upstream bound lands.
  * ⛔ The declaration-side upper bound is NOT this card's: it lives in
  * `@objectstack/spec` and is filed as objectstack#18972.
  *
  * ── The in-range control is the point, not decoration ───────────────────
  * A change that moved ordinary percent fields would be a different card, so
  * the last block pins that an in-range declaration renders exactly as it did
- * and emits NOTHING on the console. `scale: 100` is in that block on purpose:
- * the ceiling is INCLUSIVE, and a clamp that fired there would be a silent
- * off-by-one nobody would see.
+ * and draws NO diagnostic of this ruling's. `scale: 100` is in that block on
+ * purpose: the ceiling is INCLUSIVE, and a clamp that fired there would be a
+ * silent off-by-one nobody would see.
+ *
+ * ⚠️ Those controls assert on the ruling's own MARKER and ⛔ never on a
+ * `console.warn` call count — see `MARKER` below for the measurement that
+ * forced the distinction. Each control must hold when it is the ONLY row that
+ * runs.
  *
  * ⚠️ The diagnostic is deduplicated by DECLARED VALUE (a percent column
  * re-renders per row), so every row below that expects a warning declares a
@@ -54,7 +61,10 @@ import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-import { PercentField, PERCENT_SCALE_CEILING } from '../widgets/PercentField';
+import { PercentField } from '../widgets/PercentField';
+// The ruling's own module — module-private by design, so the pin imports that
+// module path exactly as it imports the widget, and NOT the package barrel.
+import { PERCENT_SCALE_CEILING } from '../widgets/percent-scale';
 import { PercentCellRenderer } from '../index';
 
 let warn: ReturnType<typeof vi.spyOn>;
@@ -94,6 +104,20 @@ const fractionDigits = (text: string): number => {
 
 /** Every console line this render produced, joined. */
 const warnings = () => warn.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+
+/**
+ * What the ruling's own diagnostic is recognised BY.
+ *
+ * ⚠️ Every MUST-NOT-CHANGE control below asserts on THIS, and ⛔ never on
+ * `expect(warn).not.toHaveBeenCalled()`. `console.warn` is a SHARED channel:
+ * the first render in a module emits react-i18next's `useTranslation` warning
+ * through it, so a call-count control passes only while some earlier row in
+ * this file has already consumed that first warning — measured, each such
+ * control read `1 failed` when run alone with `-t`. A control that holds only
+ * in file order cannot tell "the clamp stayed silent" from "another warning
+ * got there first", which is ⛔ not a control at all.
+ */
+const MARKER = 'objectui#9808';
 
 describe('an out-of-range percent `scale` is clamped and reported, not thrown (objectui#9808)', () => {
   it('renders the readonly edit face instead of taking out the subtree', () => {
@@ -176,21 +200,21 @@ describe('an IN-RANGE percent `scale` is untouched by the ruling (objectui#9808 
     // The row objectui#9568 pinned, re-read here: the repair must be invisible
     // to it.
     expect(readonlyText()).toContain('25.00%');
-    expect(warn).not.toHaveBeenCalled();
+    expect(warnings()).not.toContain(MARKER);
   });
 
   it("leaves the editable face's step alone", () => {
     renderEditable(0.25, { scale: 2 });
 
     expect(inputStep()).toBe('0.01');
-    expect(warn).not.toHaveBeenCalled();
+    expect(warnings()).not.toContain(MARKER);
   });
 
   it('leaves the cell face alone', () => {
     renderCell(0.25, { scale: 2 });
 
     expect(screen.getByRole('progressbar').parentElement!.textContent).toContain('25.00');
-    expect(warn).not.toHaveBeenCalled();
+    expect(warnings()).not.toContain(MARKER);
   });
 
   it('does not fire AT the ceiling — the bound is inclusive', () => {
@@ -199,7 +223,7 @@ describe('an IN-RANGE percent `scale` is untouched by the ruling (objectui#9808 
     expect(() => renderReadonly(0.25, { scale: PERCENT_SCALE_CEILING })).not.toThrow();
 
     expect(fractionDigits(readonlyText())).toBe(PERCENT_SCALE_CEILING);
-    expect(warn).not.toHaveBeenCalled();
+    expect(warnings()).not.toContain(MARKER);
   });
 
   it('leaves a width the ENGINE already coerces exactly where it was', () => {
@@ -217,7 +241,7 @@ describe('an IN-RANGE percent `scale` is untouched by the ruling (objectui#9808 
     renderCell(0.25, { scale: 2.9 });
     expect(screen.getByRole('progressbar').parentElement!.textContent).toContain('25.00');
 
-    expect(warn).not.toHaveBeenCalled();
+    expect(warnings()).not.toContain(MARKER);
   });
 
   it('leaves a percent field declaring NO `scale` on its own face default', () => {
@@ -231,6 +255,6 @@ describe('an IN-RANGE percent `scale` is untouched by the ruling (objectui#9808 
     renderCell(0.25, {});
     expect(screen.getByRole('progressbar').parentElement!.textContent).toContain('25%');
 
-    expect(warn).not.toHaveBeenCalled();
+    expect(warnings()).not.toContain(MARKER);
   });
 });

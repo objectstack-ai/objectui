@@ -3,118 +3,10 @@ import { Input, Slider, EmptyValue, cn } from '@object-ui/components';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberBadInput.js';
-
-/**
- * The widest fraction the two percent faces can actually render.
- *
- * ⛔ NOT a number this renderer picked. It is the domain both formatting APIs
- * this package reaches for define for themselves, and they define the SAME
- * one — which is what makes a single ruling over both faces possible at all.
- * Re-measured on this container's node (v22.22.2), the two APIs and the two
- * ends:
- *
- * ```
- * (25).toFixed(100)                                        -> "25.000…"
- * (25).toFixed(101)                                        -> RangeError
- * (25).toFixed(-1)                                         -> RangeError
- * new Intl.NumberFormat('en', { maximumFractionDigits: 100 })  -> ok
- * new Intl.NumberFormat('en', { maximumFractionDigits: 101 })  -> RangeError
- * ```
- *
- * ⚠️ Re-measure rather than trust this comment if it ever matters again: the
- * bound is a RUNTIME property of the engine (ECMA-262 `Number.prototype.
- * toFixed` and ECMA-402 `SetNumberFormatDigitOptions` each state it), ⛔ not a
- * constant this repository owns.
- */
-export const PERCENT_SCALE_CEILING = 100;
-
-/** Declared widths already reported, so a 1,000-row grid warns once. */
-const warnedPercentScales = new Set<number>();
-
-/**
- * ONE ruling over BOTH percent faces (objectui#9808): a declared `scale`
- * outside the renderable domain is CLAMPED into it and REPORTED — ⛔ never
- * carried into a formatter that throws.
- *
- * ── The defect ──────────────────────────────────────────────────────────
- * `scale: 101` is a declaration `@objectstack/spec` accepts today (its
- * `FieldSchema` states "Decimal places (non-negative integer)" and carries no
- * upper bound), and it crashed BOTH percent faces with a `RangeError`:
- * `PercentField`'s readonly `toFixed` and its `step` attribute, and
- * `PercentCellRenderer` through `formatPercent`. ⚠️ On the cell face the throw
- * arrives from `toFixed` even though the path is `Intl`: `formatPercentBody`
- * CATCHES the `Intl` `RangeError` and its fallback is `toFixed(precision)`,
- * which refuses the same width. For a React render either one takes out the
- * subtree, and the author had no signal — the platform accepted the
- * declaration and failed at render time.
- *
- * ── Why CLAMP and not REFUSE ────────────────────────────────────────────
- * AGENTS.md #0.1 bans a renderer-side fallback that makes NON-COMPLIANT
- * metadata work. This declaration is compliant — measured at source on
- * `objectstack-ai/objectstack`, `packages/spec/src/data/field.zod.ts` declares
- * `scale` as `z.number().int().min(0).optional()` with no `.max(`. So a
- * refusal here would be this renderer inventing a contract STRICTER than the
- * spec, which is #0.1 in mirror image. The declaration-side upper bound is
- * owed, and it is filed where it lives — objectstack#18972 — ⛔ not reached
- * into from here.
- *
- * What is left for a renderer is the medium's own limit: the value is not in
- * doubt, only the width. Refusing to draw the number would blank a grid column
- * over a display width, so the faces render what the engine CAN render and say
- * that they did. ⇒ 0 and {@link PERCENT_SCALE_CEILING} are not policy numbers
- * this package chose; they are the formatters' own domain, reported as such.
- *
- * ── The reporting half ──────────────────────────────────────────────────
- * The clamp alone would be the silent guess the card refuses, so a moved width
- * always emits a `console.warn` naming the declared value, the width actually
- * rendered and this card. Deduplicated by declared value, because a percent
- * COLUMN re-renders per row and an undeduplicated warning would bury the one
- * line that matters.
- *
- * ── In-range declarations are untouched, and that is load-bearing ───────
- * The test is whether the ENGINE could have rendered the width, ⛔ not whether
- * this function changed its spelling. Every width both formatters already
- * accept comes back with the same rendered result and emits nothing — inside
- * the domain `Math.min`/`Math.max` return the argument itself, and the two
- * coercions the engines perform for themselves are preserved rather than
- * second-guessed (measured: `(25).toFixed('2')` and
- * `maximumFractionDigits: '2'` render two decimals, and so does `2.9`). A
- * change that moved ordinary percent fields would be a different card. A width
- * no engine can use — non-finite, or outside the domain — resolves into the
- * domain and is reported.
- *
- * ⛔ This says nothing about which MEMBER a face reads, nor about what an
- * ABSENT `scale` means — the two faces still spell that absence differently
- * (this widget 2, `PercentCellRenderer` 0) and objectui#9810 holds the
- * question of what `scale` means to the write path versus the display path.
- * Neither is touched here: this function only sees a width a face has already
- * resolved.
- */
-export function renderablePercentScale(declared: number): number {
-  // `Number(...)` rather than a `typeof` test, because the ENGINES coerce:
-  // `(25).toFixed('2')` and `maximumFractionDigits: '2'` both render two
-  // decimals today, and `2.9` renders two on both. This function moves only
-  // widths the engines would have REFUSED, so a declaration that already
-  // rendered keeps rendering identically — the parameter is typed `number`,
-  // but the value reaching it comes from untyped JSON metadata.
-  const asNumber = Number(declared);
-  const renderable = Number.isFinite(asNumber)
-    ? Math.min(PERCENT_SCALE_CEILING, Math.max(0, asNumber))
-    : 0;
-  // The predicate is "the engine could not have rendered this", ⛔ not
-  // "the value changed spelling": `renderable !== declared` would report the
-  // string `'2'` becoming the number `2`, which is a width nothing moved.
-  const refused = !Number.isFinite(asNumber) || asNumber < 0 || asNumber > PERCENT_SCALE_CEILING;
-  if (refused && !warnedPercentScales.has(declared)) {
-    warnedPercentScales.add(declared);
-    console.warn(
-      `[ObjectUI] percent field: a declared \`scale\` of ${declared} is outside the ` +
-        `0-${PERCENT_SCALE_CEILING} fraction width this platform can render; ` +
-        `rendering at ${renderable} instead (objectui#9808).`,
-    );
-  }
-  return renderable;
-}
+// The ONE out-of-range `scale` ruling both percent faces take (objectui#9808),
+// in its own module so the barrel can share the same spelling without
+// publishing it — see that module's header for the ruling and its sunset.
+import { renderablePercentScale } from './percent-scale.js';
 
 /**
  * PercentField - Percentage input whose decimal places follow the field's
@@ -165,9 +57,10 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
    */
   const declaredScale = percentField?.scale;
   // The width this face resolves, then the ONE out-of-range ruling both faces
-  // take (objectui#9808) — see `renderablePercentScale` above for why a width
-  // the engine cannot render is clamped and reported rather than refused, and
-  // for why this leaves an in-range declaration byte-identical.
+  // take (objectui#9808) — see `./percent-scale.js` for why a width the engine
+  // cannot render is clamped and reported rather than refused, why it leaves a
+  // width the engine already accepts byte-identical, and the SUNSET condition
+  // that retires the whole clamp.
   const scale = renderablePercentScale(typeof declaredScale === 'number' ? declaredScale : 2);
 
   // Before the readonly return below: hooks are unconditional (objectui#6780).

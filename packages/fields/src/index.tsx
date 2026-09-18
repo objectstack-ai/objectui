@@ -24,11 +24,13 @@ import { withFieldCarrier } from './withFieldCarrier.js';
 // so this does not pull the widget out of its lazy chunk (objectui#4037).
 import { formatAddress, type AddressValue } from './widgets/address-format.js';
 // The ONE out-of-range `scale` ruling both percent faces take (objectui#9808).
-// It is imported from the widget module rather than restated here because a
-// second spelling of the same domain is exactly the drift `address-format`
-// above exists to prevent; the module is already in this barrel's static graph
-// (`export * from './widgets/PercentField.js'` below), so no lazy chunk moves.
-import { renderablePercentScale } from './widgets/PercentField.js';
+// Shared with `PercentField` rather than restated here — a second spelling of
+// the same domain is exactly the drift `address-format` above exists to
+// prevent — and, like `address-format` and `file-affordance` below,
+// deliberately NOT re-exported from the `export *` block at the end of this
+// file, so this package's published surface is unchanged. Pure, no React, so
+// it pulls no widget out of its lazy chunk (objectui#4037).
+import { renderablePercentScale } from './widgets/percent-scale.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`.

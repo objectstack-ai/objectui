@@ -43,6 +43,7 @@ import {
   NOT_A_PRODUCER,
   KNOWN_LIMITS,
   EMISSION_CHANNELS,
+  CANDIDATE_FILE,
   DECLARATION_SEGMENTS,
   DATA_VALUE_KINDS,
   EXIT_UNREADABLE,
@@ -127,18 +128,14 @@ ComponentRegistry.register('tabs', TabsRenderer, {
     // recorded as a node because the key is present.
     const text = '{ type: SOME_CONST, body: [] }';
     const { comment, literal } = scanSource(text);
-    const both = new Uint8Array(comment.length);
-    for (let k = 0; k < both.length; k++) both[k] = comment[k] || literal[k] ? 1 : 0;
-    const { hits } = walkFrames(blank(text, both), blank(text, comment), literal);
+    const { hits } = walkFrames(blank(text, comment), literal);
     expect(hits).toHaveLength(1);
     expect(hits[0].hasType).toBe(true);
     expect(hits[0].nodeType).toBeNull();
     // Lit control — a string-literal `type` still resolves its value.
     const lit = '{ type: "badge", body: [] }';
     const f = scanSource(lit);
-    const b2 = new Uint8Array(f.comment.length);
-    for (let k = 0; k < b2.length; k++) b2[k] = f.comment[k] || f.literal[k] ? 1 : 0;
-    expect(walkFrames(blank(lit, b2), blank(lit, f.comment), f.literal).hits[0].nodeType).toBe('badge');
+    expect(walkFrames(blank(lit, f.comment), f.literal).hits[0].nodeType).toBe('badge');
   });
 });
 
@@ -443,6 +440,84 @@ describe('the criterion TRAVELS with the reading', () => {
   });
 });
 
+describe('⭐ the cheap pre-filter is a SUPERSET, so skipping cost never skips a hit', () => {
+  /**
+   * ⚠️ A pre-filter that is not a superset is a SILENT NARROWING — a scanner
+   * that quietly stops reading files is the defect this whole card exists to
+   * end. So the claim is pinned per hit SHAPE rather than asserted once, and
+   * the whole-tree hit-set equality is on objectui#9871's PR.
+   */
+  it('fires for every shape the expensive path can find', () => {
+    for (const [shape, source] of [
+      ['code-key, bare', "const x = { type: 'w', body: [] };"],
+      ['code-key, quoted (JSON)', '{ "type": "w", "body": [] }'],
+      ['code-key, spaced', 'const x = { body : [] };'],
+      ['literal-key-syntax', `item.insertText = new vscode.SnippetString('"body": {}');`],
+      ['key-name-datum', "const common = [{ name: 'body', desc: 'Child components' }];"],
+      ['key-name-datum, double-quoted', 'const common = [{ name: "body" }];'],
+    ] as const) {
+      expect(CANDIDATE_FILE.test(source), `pre-filter drops ${shape}`).toBe(true);
+    }
+  });
+
+  it('⚠️ BOTH alternatives are load-bearing — the datum has a COMMA, not a colon', () => {
+    // The first alternative alone would drop the sharpest producer in the tree:
+    // `{ name: 'body', desc: … }` has no colon after the quoted key.
+    const datum = "const common = [{ name: 'body', desc: 'Child components' }];";
+    expect(/body\s*["']?\s*:/.test(datum), 'the colon alternative alone matches').toBe(false);
+    expect(/["']body["']/.test(datum)).toBe(true);
+    expect(CANDIDATE_FILE.test(datum)).toBe(true);
+  });
+
+  it('does NOT fire on the `body` population that carries no key', () => {
+    for (const source of [
+      'const n = schema.bodyExtra;',
+      '// the response body is parsed downstream',
+      'function nobody() { return 1; }',
+      'const b = res.body;',
+    ]) {
+      expect(CANDIDATE_FILE.test(source), `pre-filter fires on ${source}`).toBe(false);
+    }
+  });
+
+  it('⭐ OVER-accepts by design — a superset may say yes too often, NEVER too rarely', () => {
+    // `const variant = 'body'` is a quoted `body` that is not a key, and the
+    // pre-filter admits it. That is CORRECT: the cheap side may only ever be
+    // wider than the expensive side. The expensive path then finds nothing
+    // there, which costs a little time and ⛔ never a hit.
+    expect(CANDIDATE_FILE.test("const variant = 'body';")).toBe(true);
+    const root = plant({ 'packages/noise/src/t.ts': "export const variant = 'body';\n" });
+    const run = scan(root);
+    expect(run.hits.filter((h: { file: string }) => h.file.includes('noise'))).toEqual([]);
+    // Lit control — the same run DOES resolve the planted reader file, so the
+    // zero above is about this file and not about a walk that read nothing.
+    expect(run.filesScanned).toBeGreaterThan(0);
+    expect(run.readers.reads.length).toBeGreaterThan(0);
+  });
+
+  it('DIFFERENTIAL — the same planted corpus yields the same hits with the filter in place', () => {
+    // Lit control on the cheap side: the corpus DOES produce a hit, so the
+    // equality below is between two non-empty readings and not two blanks.
+    const root = plant({
+      'packages/widget/src/w.tsx': `
+ComponentRegistry.register('w', W, { defaultProps: { type: 'w', body: [{ type: 'text' }] } });
+`,
+      'packages/noise/src/http.ts': `
+export const send = () => fetch(url, { method: 'POST' });
+// the response body is parsed downstream, and schema.bodyExtra is a different key
+`,
+    });
+    const run = scan(root);
+    expect(run.hits.length).toBeGreaterThan(0);
+    // Every hit came from a file the pre-filter admits — the property the
+    // superset argument rests on, checked against the real hits.
+    for (const hit of run.hits) {
+      const text = readFileSync(join(root, hit.file), 'utf8');
+      expect(CANDIDATE_FILE.test(text), `${hit.file} produced a hit the pre-filter would drop`).toBe(true);
+    }
+  });
+});
+
 describe('the emission verb is scoped to the enclosing FUNCTION, not to the file', () => {
   it('a verb in a different function does not vouch for this one', () => {
     const text = `
@@ -450,9 +525,7 @@ function writes() { editor.insertText('x'); }
 function declares() { return { name: 'body' }; }
 `;
     const { comment, literal } = scanSource(text);
-    const both = new Uint8Array(comment.length);
-    for (let k = 0; k < both.length; k++) both[k] = comment[k] || literal[k] ? 1 : 0;
-    const { frames } = walkFrames(blank(text, both), blank(text, comment), literal);
+    const { frames } = walkFrames(blank(text, comment), literal);
     const offset = text.indexOf("name: 'body'");
     const scope = enclosingScope(frames, offset);
     expect(scope.length).toBeGreaterThan(0);
@@ -491,5 +564,9 @@ describe('the LIVE tree, read through the criterion', () => {
       'the producer table is EMPTY — under this criterion nothing ships the dialect, which is ' +
         'the day objectui#6771 step 4 becomes landable. Re-point this block, do not delete it.',
     ).toBeGreaterThan(0);
-  });
+    // ⏱ Explicit — one tree-wide scan over 5,136 files, measured 4.0s here; the
+    // CI shard is at least 1.9x slower (objectui#9871's timeout reading), and
+    // the default 15s leaves too little room on a loaded shard. Same 60s and the
+    // same reason as the census block. ⛔ Not a global `testTimeout` bump.
+  }, 60_000);
 });

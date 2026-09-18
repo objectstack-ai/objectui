@@ -365,7 +365,14 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     for (const hit of producers.filter((h: { carrier: string }) => h.carrier === 'item')) {
       expect(hit.disposition).toBe('unruled:item-carrier');
     }
-  });
+    // ⏱ Explicit, because this block runs TWO tree-wide instruments (the census
+    // over 7,855 files and the producer scan over 5,136) and the default 15s is
+    // not enough on a loaded shard: measured 7.9s here after objectui#9871 made
+    // the scan single-pass, and the CI runner took the SAME block past 15s when
+    // it measured 10.1s locally — so that runner is at least 1.9x slower. 60s is
+    // ~3x the observed CI-scale cost: ordinary contention cannot flake it, and a
+    // scan that stops terminating still fails. ⛔ Not a global `testTimeout` bump.
+  }, 60_000);
 });
 
 /**

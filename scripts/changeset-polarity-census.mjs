@@ -214,6 +214,31 @@
  *   carrying any OTHER syntax is still dropped, by rule 1 and on purpose, and
  *   that is a false negative this instrument keeps.
  *
+ *   THE MEMBER INDEX'S OWN BOUNDARY, REPORTED ON ITS OWN LINE (objectui#9767).
+ *   The index is built over ONE tree (`--types`, `packages/types/src` by
+ *   default), so a sentence may name a schema that is perfectly alive and still
+ *   get no face here -- it is declared in a DECLARED DEPENDENCY this tree
+ *   re-exports from, or in this repo outside the indexed tree. That is the
+ *   instrument's own reach, ⛔ not a defect in the sentence. Until this card the
+ *   verdict reported it under one heading with the sentence naming a schema that
+ *   is GONE -- one of those two is a candidate and the other is not, and a
+ *   reader could not tell which row was which. ⇒ The bucket is now SPLIT and
+ *   each half is named: the symbol either RESOLVES outside the index (where it
+ *   resolved is reported with it) or it resolves NOWHERE this run can reach.
+ *   ⚠️ The split has its OWN controls, because its failure mode is the loud kind
+ *   wearing quiet clothes: a resolution root that cannot be read declares
+ *   nothing, every symbol it holds falls to the second line, and the report
+ *   claims a pile of live schemas are gone. So every root the owning
+ *   `package.json` declares must be readable AND yield declarations, or the run
+ *   exits 2 and its numbers are void. ⚠️ RESIDUE: resolution is by NAME. The
+ *   probe answers "a symbol spelled this way is declared out there", ⛔ never
+ *   "it is the schema the sentence means" -- that is the WINDOW PAIRING question
+ *   again. And a schema that is gone from the index but still declared in a
+ *   stale published dependency reads as resolved, which is the honest reading of
+ *   a tree whose dependency still ships it. ⛔ Per #9 no reading is written here:
+ *   the split's membership, and the ref it was taken at, are on this card's pull
+ *   request and are re-derivable by running the census.
+ *
  * ⛔ None of them is a reason to stop reporting a flag. They are the reason
  * a flag is a CANDIDATE: every one of them is resolved by a human reading the
  * sentence, and none is resolvable by reading the count.
@@ -223,7 +248,10 @@
  * A zero counts only against a LIT control on the same instrument. Two zeros on
  * one instrument means the instrument is broken, not that the tree is clean.
  * The lit and absent controls are asserted on every run and reported with the
- * count; if either fails the run exits 2 and its numbers are void.
+ * count; if either fails the run exits 2 and its numbers are void. The
+ * RESOLUTION pair (objectui#9767) is asserted the same way and for the same
+ * reason: it reads the roots the split is decided on, so an unreadable root
+ * voids the run instead of silently moving live schemas onto the gone line.
  *
  * ## It does not answer about itself
  *
@@ -937,6 +965,157 @@ export function matchesPopulation(text) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Resolution outside the member index (objectui#9767)
+ * ------------------------------------------------------------------ */
+
+/**
+ * A top-level declaration head, in source or in a `.d.ts` rollup. Deliberately
+ * NOT a membership read: this half of the instrument answers only "is a symbol
+ * spelled this way declared in this root at all", which is the whole of the
+ * question the split turns on. The verdict's question -- `(interface, name)` --
+ * is answered by the member index and by nothing else.
+ */
+export const DECLARATION_HEAD =
+  /(?:^|[\n;{])[\t ]*(?:export[\t ]+)?(?:declare[\t ]+)?(?:abstract[\t ]+)?(?:const|let|var|type|interface|class|function|enum)[\t ]+([A-Za-z_$][A-Za-z0-9_$]*)/g;
+
+const DEFAULT_SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '__tests__']);
+
+/**
+ * Every name declared at the top level of one root. Text, not a parse: the
+ * roots include a dependency's whole shipped `.d.ts` surface, and the answer
+ * needed from them is a name set, not a member set.
+ */
+export function scanDeclaredNames(dir, { extensions, skipDirs = DEFAULT_SKIP_DIRS } = {}) {
+  const names = new Map();
+  const walk = (current) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      return; // an unreadable root declares nothing, and the control says so
+    }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (skipDirs.has(entry.name) || entry.name.startsWith('.')) continue;
+        walk(full);
+        continue;
+      }
+      if (!extensions.some((ext) => entry.name.endsWith(ext))) continue;
+      let text;
+      try {
+        text = fs.readFileSync(full, 'utf8');
+      } catch {
+        continue;
+      }
+      DECLARATION_HEAD.lastIndex = 0;
+      let m;
+      while ((m = DECLARATION_HEAD.exec(text))) {
+        if (!names.has(m[1])) names.set(m[1], full);
+      }
+    }
+  };
+  walk(dir);
+  return names;
+}
+
+/**
+ * The roots a symbol may legitimately live in while the member index still has
+ * no face for it. Derived, ⛔ never hand-listed: the dependency roots are the
+ * runtime dependencies the package that OWNS the indexed tree declares, so a
+ * tree that changes what it depends on changes this list without anyone editing
+ * it. A declared dependency that is not installed is returned ANYWAY, marked
+ * missing -- dropping it is exactly how a root that cannot be read turns a live
+ * schema into a reported defect.
+ */
+export function resolutionRootsFor({ typesDir, repoRoot = REPO_ROOT }) {
+  const roots = [];
+  let ownerDir = path.resolve(typesDir);
+  let manifest = null;
+  while (ownerDir.startsWith(repoRoot) || ownerDir === repoRoot) {
+    const candidate = path.join(ownerDir, 'package.json');
+    if (fs.existsSync(candidate)) {
+      try {
+        manifest = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+      } catch {
+        manifest = null;
+      }
+      break;
+    }
+    const up = path.dirname(ownerDir);
+    if (up === ownerDir) break;
+    ownerDir = up;
+  }
+
+  for (const name of Object.keys(manifest?.dependencies ?? {})) {
+    const candidates = [
+      path.join(ownerDir, 'node_modules', name),
+      path.join(repoRoot, 'node_modules', name),
+    ];
+    const dir = candidates.find((c) => fs.existsSync(c)) ?? candidates[0];
+    roots.push({
+      label: `declared dependency ${name}`,
+      kind: 'dependency',
+      dir,
+      extensions: ['.d.ts', '.ts'],
+    });
+  }
+
+  roots.push({
+    label: 'this repo, outside the member index',
+    kind: 'repo',
+    dir: repoRoot,
+    extensions: ['.ts', '.tsx'],
+  });
+  return roots;
+}
+
+/**
+ * ⚠️ The shape is DECLARED, not left to a default value to imply (objectui#9767).
+ * `census` and `runControls` take this optional, and a bare `= null` default
+ * declares the parameter as `null` and nothing else -- so every caller that
+ * passes a real index is a type error and every read of the split buckets is
+ * "possibly null". The pin is the deliverable here, and a pin that compiles
+ * only because its assertions were silenced pins nothing, so the shape is
+ * written down instead.
+ *
+ * @typedef {{ label: string, kind: string, file: string }} ResolutionSite
+ * @typedef {{ label: string, kind: string, dir: string, declarations: number }} ResolutionRoot
+ * @typedef {{ names: Map<string, ResolutionSite>, roots: ResolutionRoot[] }} ResolutionIndex
+ */
+
+/**
+ * `name -> where it resolved`, over the roots the split is decided on, plus the
+ * per-root declaration counts the controls read.
+ *
+ * @param {{ label: string, kind?: string, dir: string, extensions?: string[], skipDirs?: Set<string> }[]} roots
+ * @returns {ResolutionIndex}
+ */
+export function buildResolutionIndex(roots) {
+  // Paths are reported repo-relative: an absolute path in a report is a fact
+  // about one machine, and this instrument's answers have to be re-derivable.
+  const rel = (p) => (p.startsWith(REPO_ROOT) ? path.relative(REPO_ROOT, p) || '.' : p);
+  const names = new Map();
+  const scanned = [];
+  for (const root of roots) {
+    const found = scanDeclaredNames(root.dir, {
+      extensions: root.extensions ?? ['.ts', '.d.ts'],
+      skipDirs: root.skipDirs,
+    });
+    for (const [name, file] of found) {
+      if (!names.has(name)) names.set(name, { label: root.label, kind: root.kind, file: rel(file) });
+    }
+    scanned.push({
+      label: root.label,
+      kind: root.kind,
+      dir: rel(root.dir),
+      declarations: found.size,
+    });
+  }
+  return { names, roots: scanned };
+}
+
+/* ------------------------------------------------------------------ *
  * The census
  * ------------------------------------------------------------------ */
 
@@ -948,7 +1127,10 @@ export function readCorpus(corpusDir) {
     .map((name) => ({ name, body: fs.readFileSync(path.join(corpusDir, name), 'utf8') }));
 }
 
-export function census({ corpusDir, memberIndex }) {
+/**
+ * @param {{ corpusDir: string, memberIndex: Map<string, any>, resolutionIndex?: ResolutionIndex | null }} options
+ */
+export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
   const entries = readCorpus(corpusDir);
   // Built once, from the SAME index the verdict resolves against, so the key
   // reader and the verdict never disagree about which tree is being read.
@@ -986,7 +1168,19 @@ export function census({ corpusDir, memberIndex }) {
     for (const schema of schemas) {
       const face = memberIndex.get(schema);
       if (!face) {
-        unresolvedSchemas.push({ entry: record.entry, schema, sentence: record.text });
+        // The index has no face. That is TWO different facts wearing one shape
+        // (objectui#9767): the symbol is declared somewhere this index does not
+        // reach, or it is declared nowhere at all. Only the second is a
+        // candidate, so the row carries WHICH one it is -- and carries `null`
+        // when no resolution index was supplied, so an unmeasured split is
+        // never reported as the gone half.
+        const resolution = resolutionIndex ? (resolutionIndex.names.get(schema) ?? null) : null;
+        unresolvedSchemas.push({
+          entry: record.entry,
+          schema,
+          sentence: record.text,
+          resolvedIn: resolution,
+        });
         continue;
       }
       for (const key of keys) {
@@ -1026,16 +1220,34 @@ export function census({ corpusDir, memberIndex }) {
     contradictions,
     contradictionEntries: new Set(contradictions.map((c) => c.entry)).size,
     unresolvedSchemas,
+    // The two halves of that bucket, named (objectui#9767). `null` on both is
+    // the honest reading when the split was not measured -- ⛔ not an empty
+    // gone-list, which would read as "nothing is gone".
+    schemasOutsideIndex: resolutionIndex
+      ? unresolvedSchemas.filter((u) => u.resolvedIn !== null)
+      : null,
+    schemasResolvingNowhere: resolutionIndex
+      ? unresolvedSchemas.filter((u) => u.resolvedIn === null)
+      : null,
+    resolutionRoots: resolutionIndex ? resolutionIndex.roots : null,
     quoted,
     matched,
   };
+}
+
+/** Distinct schema symbols in a slice of the unresolved bucket. */
+export function distinctSchemas(rows) {
+  return [...new Set((rows ?? []).map((r) => r.schema))].sort();
 }
 
 /**
  * Controls, on the SAME corpus and the SAME instrument as the census. A zero
  * without these is a dead-instrument zero and is not evidence of absence.
  */
-export function runControls({ corpusDir, memberIndex }) {
+/**
+ * @param {{ corpusDir: string, memberIndex: Map<string, any>, resolutionIndex?: ResolutionIndex | null }} options
+ */
+export function runControls({ corpusDir, memberIndex, resolutionIndex = null }) {
   const entries = readCorpus(corpusDir);
   let litSentences = 0;
   let absentSentences = 0;
@@ -1046,6 +1258,33 @@ export function runControls({ corpusDir, memberIndex }) {
     }
   }
   const base = memberIndex.get(MEMBER_CONTROL_SCHEMA);
+
+  // The split's own pair (objectui#9767). LIT is per ROOT and counts the roots
+  // that actually declared something: a declared dependency that is absent from
+  // the tree reads 0 there, and every symbol living in it would otherwise fall
+  // onto the gone line and be reported as a candidate. ABSENT is the same token
+  // the member half uses, looked up in the SAME map the split is decided on, so
+  // it is a real lookup and not a phantom check.
+  // ⚠️ The pair is ALWAYS reported, including when no index was supplied. A
+  // control row that appears and disappears is one whose absence nobody can
+  // read, and the unmeasured case is precisely the one that has to say so.
+  const UNMEASURED = 'NOT MEASURED (no resolution index)';
+  const resolutionLit = {
+    probe: 'resolution roots declaring at least one name',
+    reading: resolutionIndex ? resolutionIndex.roots.filter((r) => r.declarations > 0).length : 0,
+    expect: resolutionIndex ? String(resolutionIndex.roots.length) : UNMEASURED,
+  };
+  const resolutionAbsent = {
+    probe: `${ABSENT_CONTROL_KEY} in any resolution root`,
+    reading: resolutionIndex ? Number(resolutionIndex.names.has(ABSENT_CONTROL_KEY)) : 0,
+    expect: resolutionIndex ? '0' : UNMEASURED,
+  };
+  const resolutionOk = resolutionIndex
+    ? resolutionIndex.roots.length > 0 &&
+      resolutionIndex.roots.every((r) => r.declarations > 0) &&
+      !resolutionIndex.names.has(ABSENT_CONTROL_KEY)
+    : true;
+
   return {
     corpusLit: { probe: 'present-tense declaration verb', reading: litSentences, expect: '> 0' },
     corpusAbsent: { probe: ABSENT_CONTROL_KEY, reading: absentSentences, expect: '0' },
@@ -1059,12 +1298,15 @@ export function runControls({ corpusDir, memberIndex }) {
       reading: base ? Number(base.members.has(ABSENT_CONTROL_KEY)) : 0,
       expect: '0',
     },
+    resolutionLit,
+    resolutionAbsent,
     ok:
       litSentences > 0 &&
       absentSentences === 0 &&
       Boolean(base) &&
       base.members.has(MEMBER_CONTROL_KEY) &&
-      !base.members.has(ABSENT_CONTROL_KEY),
+      !base.members.has(ABSENT_CONTROL_KEY) &&
+      resolutionOk,
   };
 }
 
@@ -1111,10 +1353,58 @@ function report(result, controls) {
   L.push(
     `| candidate contradictions | ${result.contradictions.length} across ${result.contradictionEntries} entries |`,
   );
-  L.push(
-    `| claims naming a schema this tree does not declare | ${result.unresolvedSchemas.length} |`,
-  );
+  // objectui#9767 -- ONE heading used to carry both of these, and they are
+  // opposites: the first is this instrument's own reach, the second is the only
+  // half that can be a defect.
+  if (result.schemasOutsideIndex === null) {
+    L.push(
+      `| claims naming a schema the member index does not declare -- SPLIT NOT MEASURED,` +
+        ` no resolution index was supplied | ${result.unresolvedSchemas.length} |`,
+    );
+  } else {
+    const outside = result.schemasOutsideIndex;
+    const gone = result.schemasResolvingNowhere;
+    L.push(
+      `| claims naming a schema the index does not declare, whose symbol RESOLVES outside it` +
+        ` (this instrument's reach, NOT a defect) | ${outside.length} across` +
+        ` ${distinctSchemas(outside).length} symbols |`,
+    );
+    L.push(
+      `| claims naming a schema whose symbol resolves NOWHERE this run can reach` +
+        ` (CANDIDATE: the schema may be gone) | ${gone.length} across` +
+        ` ${distinctSchemas(gone).length} symbols |`,
+    );
+  }
   L.push('');
+  if (result.schemasOutsideIndex !== null) {
+    L.push('### Where the unresolved symbols resolve (objectui#9767)');
+    L.push('');
+    // ⚠️ A root line is a TABLE row, deliberately: pin 7 reads every line
+    // starting with `- ` as a pending changeset entry, and that pin is the
+    // corpus boundary itself. A root label is not an entry.
+    L.push('| resolution root | claims | symbols | names it declares |');
+    L.push('| --- | --- | --- | --- |');
+    for (const root of result.resolutionRoots) {
+      const here = result.schemasOutsideIndex.filter((u) => u.resolvedIn.label === root.label);
+      L.push(
+        `| ${root.label} | ${here.length} | ${distinctSchemas(here).length} |` +
+          ` ${root.declarations} |`,
+      );
+    }
+    L.push('');
+    L.push('Symbols resolving nowhere -- the only half of this bucket that is a candidate:');
+    if (result.schemasResolvingNowhere.length === 0) {
+      L.push('(none in this corpus)');
+    }
+    for (const row of result.schemasResolvingNowhere) {
+      L.push(`- ${row.entry} -- ${row.schema}`);
+    }
+    L.push('');
+    L.push('⛔ Resolution is BY NAME. It says a symbol spelled that way is declared out there,');
+    L.push('never that it is the schema the sentence means -- that is WINDOW PAIRING, and it is');
+    L.push('a human reading. A row on the second line is a candidate, not a verdict.');
+    L.push('');
+  }
   for (const c of result.contradictions) {
     L.push(
       `- ${c.entry} -- ${c.polarity} claim: ${c.schema}.${c.key} member=${c.memberPresent}` +
@@ -1148,8 +1438,9 @@ export function main(argv) {
   }
 
   const memberIndex = buildMemberIndex(typesDir);
-  const controls = runControls({ corpusDir, memberIndex });
-  const result = census({ corpusDir, memberIndex });
+  const resolutionIndex = buildResolutionIndex(resolutionRootsFor({ typesDir }));
+  const controls = runControls({ corpusDir, memberIndex, resolutionIndex });
+  const result = census({ corpusDir, memberIndex, resolutionIndex });
 
   if (args.includes('--json')) {
     const payload = { controls, result: { ...result, matched: undefined, quoted: undefined } };

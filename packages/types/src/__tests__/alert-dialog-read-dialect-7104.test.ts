@@ -87,11 +87,16 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error -- plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments as strip } from '../../../../scripts/js-comment-mask.mjs';
 import type { z } from 'zod';
 
 import type { SchemaNode } from '../base';
 import type { AlertDialogSchema } from '../overlay';
 import { AlertDialogSchema as AlertDialogZod } from '../zod/overlay.zod.js';
+
+/** Local annotation, since the import above is untyped -- the call site stays checked. */
+const stripComments: (source: string) => string = strip;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -215,8 +220,15 @@ function interfaceBody(source: string, opener: string): string {
   return source.slice(start + opener.length, end);
 }
 
+/**
+ * Member rows of an interface body, keyed by name.
+ *
+ * Comments go first, through `scripts/js-comment-mask.mjs`: the bodies carry
+ * doc comments whose prose holds member-shaped lines. `stripComments` because
+ * this reader reports member names -- neither a line nor an offset.
+ */
 function members(body: string): Map<string, Member> {
-  const bare = body.replace(/\/\*\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const bare = stripComments(body);
   const found = new Map<string, Member>();
   for (const match of bare.matchAll(/^ {2}(\w+)(\?)?:\s*([^;]+);/gm)) {
     found.set(match[1], { optional: match[2] === '?', typeText: match[3].trim() });

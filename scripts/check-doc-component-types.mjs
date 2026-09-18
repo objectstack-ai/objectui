@@ -591,6 +591,31 @@ export const INDIRECT_REGISTRATIONS = [
       'read it anyway. What re-checks this entry is the registration call itself: delete the tombstone ' +
       'loop and this entry reports `stale-indirect-registration`.',
   },
+  {
+    site: 'packages/plugin-dashboard/src/index.tsx',
+    collection: 'RETIRED_DASHBOARD_NODE_TYPES',
+    kind: 'object-keys',
+    namespace: 'view',
+    excluded:
+      'WITHHELD, the same disposition and the same open question as the RETIRED_FIELD_TYPES entry ' +
+      'above (objectui#9717): does a RETIRED TOMBSTONE SPELLING belong in a universe whose job is ' +
+      '"does this string name a component that exists"? Held the same way here so the two answers ' +
+      'cannot drift apart. ⭐ For this collection the exclusion also carries the point of the ' +
+      'retirement: objectui#8760 graded a key that passes every authoring check and fails only in ' +
+      "front of a user as the WRONG side of the line, so a spelling this package has retired must be " +
+      'named by `objectui check` rather than blessed by the generated whitelist. DROP this `excluded` ' +
+      'line and `view:dashboard` re-enters the universe, `KNOWN_SCHEMA_TYPES` regains it, and a ' +
+      'document teaching it turns GREEN again.',
+    reason:
+      '`packages/plugin-dashboard` registers every key of RETIRED_DASHBOARD_NODE_TYPES last, under the ' +
+      '`view` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +
+      'naming the migration to `plugin-dashboard:dashboard` (objectui#9533, director summon #24 / ' +
+      'batch #152 item 5, letter 1). ⚠️ Two things this entry is deliberately NOT: it does not name ' +
+      'the keys, and it does not read the collection literal — RETIRED_DASHBOARD_NODE_TYPES is ' +
+      'IMPORTED into the site file from `./retired-node-types`, so nothing here could read it anyway. ' +
+      'What re-checks this entry is the registration call itself: delete the tombstone loop and this ' +
+      'entry reports `stale-indirect-registration`.',
+  },
 ];
 
 /**

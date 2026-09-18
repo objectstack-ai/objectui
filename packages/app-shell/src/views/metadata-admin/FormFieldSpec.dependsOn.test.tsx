@@ -138,6 +138,9 @@ const FieldSelector = WIDGETS['field-selector'];
 const DynamicConfig = WIDGETS['dynamic-config'];
 
 const DYNAMIC_SCHEMAS: WidgetContext = {
+  // objectui#8167 — required member; `'flattened'` is the pre-existing default,
+  // so nothing this fixture asserts moves.
+  conditionScope: 'flattened',
   dynamicSchemas: {
     postgres: { properties: { host: { type: 'string', title: 'Host' } } },
     sqlite: { properties: { filename: { type: 'string', title: 'Filename' } } },

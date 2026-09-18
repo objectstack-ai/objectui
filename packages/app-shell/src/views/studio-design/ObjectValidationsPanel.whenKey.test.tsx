@@ -61,10 +61,15 @@ const baseDraft = {
 };
 
 /** Readable failure text: the spec's own issues, not a bare `false`. */
-function issuesOf(result: { success: boolean; error?: { issues: Array<Record<string, unknown>> } }): string {
+// Structurally typed, not `ZodSafeParseResult`: the two schemas parse to different
+// shapes, and this only ever reads an issue's diagnostic fields.
+function issuesOf(result: { success: boolean; error?: { issues: readonly unknown[] } }): string {
   if (result.success) return '(accepted)';
   return (result.error?.issues ?? [])
-    .map((i) => `${String(i.code)}@${JSON.stringify(i.path)}${i.keys ? ' keys=' + JSON.stringify(i.keys) : ''}: ${String(i.message)}`)
+    .map((raw) => {
+      const i = raw as { code?: unknown; path?: unknown; keys?: unknown; message?: unknown };
+      return `${String(i.code)}@${JSON.stringify(i.path)}${i.keys ? ' keys=' + JSON.stringify(i.keys) : ''}: ${String(i.message)}`;
+    })
     .join(' | ');
 }
 
@@ -153,6 +158,27 @@ describe('whenKeyPin — ObjectValidationsPanel emits spec-parseable metadata', 
     expect(written.when).toBe(next);
     expect(written).not.toHaveProperty('condition');
     expectSpecAccepts(written, 'edited conditional');
+  });
+
+  it('writes an edited SCRIPT guard back to `condition` — the symmetric half', () => {
+    // The same shared editor serves `script`. Pinning only the conditional side
+    // would leave a blanket rename to `when` looking like a valid repair.
+    // A guard the row builder cannot represent, so the raw CEL editor is the
+    // mounted mode — a row-shaped predicate renders the builder and no textarea.
+    const guard = 'has(record.amount) && record.amount < 0';
+    const next = 'has(record.amount) && record.amount < -1';
+    const onPatch = vi.fn();
+    const scriptDraft = {
+      ...baseDraft,
+      validations: [{ type: 'script', name: 'no_negative', message: 'no', condition: guard, severity: 'error' }],
+    };
+    render(<ObjectValidationsPanel draft={scriptDraft} onPatch={onPatch} />);
+    fireEvent.change(screen.getByDisplayValue(guard), { target: { value: next } });
+    const patch = onPatch.mock.calls[onPatch.mock.calls.length - 1][0];
+    const written = patch.validations[0];
+    expect(written.condition).toBe(next);
+    expect(written).not.toHaveProperty('when');
+    expectSpecAccepts(written, 'edited script');
   });
 
   it('carries the guard across a type switch in each side\'s own spelling', () => {

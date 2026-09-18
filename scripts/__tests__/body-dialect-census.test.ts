@@ -44,6 +44,7 @@ import {
   RULED_BUT_NOT_A_READER,
   BODY_ONLY_UNRULED,
 } from '../body-dialect-census.mjs';
+import { scan, producersOf } from '../body-dialect-producer-scan.mjs';
 
 const REPO_ROOT = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(REPO_ROOT, p), 'utf8');
@@ -313,35 +314,65 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // limits and TWO of them hide a producer: it scores a child list only on an
     // object that also carries a string-LITERAL `type` (a `tabs` ITEM carries
     // `label`/`value`/`body` and no `type`), and it never reads inside a string
-    // or a template literal (a VS Code completion snippet is a string). Both
-    // shapes are live in shipped source today, so the claim in this test's name
-    // is still TRUE — with a third subject, and step 4 is still not landable.
+    // or a template literal (a VS Code completion snippet is a string).
     //
-    // ⭐ When either assertion below reds, that is the HANDOFF, not a
-    // regression: re-point this block at whatever still ships the dialect — or,
-    // once nothing does, say so here in these terms, which is the day step 4
-    // becomes landable. ⛔ Do not delete the claim to make the block green.
+    // ⭐ objectui#9871 REPLACED the enumeration that used to stand here. Two
+    // named sites were an enumeration with the census's blind spots written
+    // into it by hand — the next producer in a third blind direction would have
+    // needed somebody to notice it and add a line. The subject is now DERIVED:
+    // `scripts/body-dialect-producer-scan.mjs` states a CRITERION (C1 emission
+    // · C2 resolution · C3 carrier) and this block reads its table.
+    //
+    // ⭐ When the table empties, THAT is the handoff, and the message on the
+    // assertion says so in these terms — it is the day step 4 becomes landable.
+    // ⛔ Do not delete the claim to make the block green.
+    const producerScan = scan(REPO_ROOT);
 
-    // Inserted into the user's own document the moment the completion is
-    // accepted, which is the most direct form a producer takes: the author does
-    // not even type the spelling.
-    const completion = readCode('packages/vscode-extension/src/providers/CompletionProvider.ts');
-    expect(completion, 'lit control — the snippet table is being read at all').toContain(
-      '"className": "$1"'
-    );
-    expect(completion).toContain('"body": {');
+    // Two lit controls, because an empty table is the assertion's own shape: a
+    // scan that walked nothing, or derived no reader, would satisfy a bare
+    // "non-empty" check by accident in neither direction — so both are checked
+    // before the table is read at all.
+    expect(producerScan.filesScanned, 'the producer scan walked nothing').toBeGreaterThan(0);
+    expect(
+      producerScan.readers.reads.length,
+      'the producer scan derived NO reader, so C2 would fail for every site'
+    ).toBeGreaterThan(0);
 
-    // A shipped `defaultProps` child list, the same construct as the three
-    // registrations objectui#7181 moved — spelled on a tab ITEM, where the
-    // renderer's canonical key is `content`. ⛔ Whether it belongs to
-    // objectui#6771's ruled family is NOT decided here; that it still ships the
-    // spelling is what is asserted.
-    const tabs = readCode('packages/components/src/renderers/layout/tabs.tsx');
-    expect(tabs, 'lit control — the defaultProps block is being read at all').toContain(
-      'defaultProps:'
-    );
-    expect(tabs).toMatch(/value:\s*'tab1',\s*body:\s*\[/);
-  });
+    const producers = producersOf(producerScan.hits, producerScan.readers);
+    expect(
+      producers.length,
+      'the producer table is EMPTY — under objectui#9871\'s criterion nothing in shipped source ' +
+        'emits the dialect any more, which is the day objectui#6771 step 4 becomes landable. ' +
+        'Re-point this block and say so in those terms; ⛔ do not delete the claim.'
+    ).toBeGreaterThan(0);
+
+    // ⭐ The two SHAPES the census structurally cannot reach, asserted as
+    // shapes rather than as paths: a producer arriving in a file nobody has
+    // named joins `producers` with no list to extend.
+    expect(
+      producers.filter((hit: { carrier: string }) => hit.carrier === 'item').length,
+      'no item-carried producer — the B1 shape (a `body` on an object with no `type`)'
+    ).toBeGreaterThan(0);
+    expect(
+      producers.filter((hit: { source: string }) => hit.source !== 'code-key').length,
+      'no string-carried producer — the B2 shape (the key spelled inside a literal)'
+    ).toBeGreaterThan(0);
+
+    // ⚠️ And the family question stays OPEN in the instrument rather than being
+    // settled by it: an item-carried `body` is filed `unruled` and is never
+    // folded into objectui#6771's ruled total. objectui#9871 handed that
+    // question back rather than extending a ruled family from a dev seat.
+    for (const hit of producers.filter((h: { carrier: string }) => h.carrier === 'item')) {
+      expect(hit.disposition).toBe('unruled:item-carrier');
+    }
+    // ⏱ Explicit, because this block runs TWO tree-wide instruments (the census
+    // over 7,855 files and the producer scan over 5,136) and the default 15s is
+    // not enough on a loaded shard: measured 7.9s here after objectui#9871 made
+    // the scan single-pass, and the CI runner took the SAME block past 15s when
+    // it measured 10.1s locally — so that runner is at least 1.9x slower. 60s is
+    // ~3x the observed CI-scale cost: ordinary contention cannot flake it, and a
+    // scan that stops terminating still fails. ⛔ Not a global `testTimeout` bump.
+  }, 60_000);
 });
 
 /**

@@ -35,12 +35,18 @@ survived, so the page looked correctly scoped.
   range and equality arms are untouched and still finish their own text: a comparand is the
   user's own data, which no catalogue can translate.
 
-The value is a FLAG, not a comparand. `filter[<field>][null]=false` is **not** a second
-operator: this dialect cannot write "is not null", so the read side drops that param the
-way it drops an unknown suffix rather than inventing an operator with no producer — and
-equality-to-empty-string remains no condition at all, since a param whose value is empty
-was already skipped. `{ $null: false }` is dropped on the write side for the same reason,
-degrading to a superset exactly as any other unspellable operator does.
+The value is a FLAG, not a comparand, and equality-to-empty-string remains no condition at
+all, since a param whose value is empty was already skipped. As this card ships it,
+`filter[<field>][null]=false` is **not** a second operator: the dialect cannot write "is
+not null", so the read side drops that param the way it drops an unknown suffix rather than
+inventing an operator with no producer, and `{ $null: false }` is dropped on the write side
+for the same reason, degrading to a superset exactly as any other unspellable operator
+does.
+
+⚠️ objectui#9508 supplies that missing producer and turns `=false` into the is-not-null
+operator on both halves — see its own entry. The RULE this paragraph states is what
+survives, and it is what made that card possible: a read-side operator is never added
+without a write side, so the two arrive together or not at all.
 
 The range maps are deliberately untouched: `is_null` is already a canonical
 `ViewFilterRule` word, and `ObjectDataPage` inverts `URL_FILTER_OPS` to bridge a triple's

@@ -1009,6 +1009,16 @@ describe('objectui#9754 pin 12 -- the window is the declaration clause, not the 
    * schema the sentence happens to also name. `11-window-pairing.md` carries the
    * shape and its three counter-shapes in one entry, so the repair and the three
    * ways it could have been bought with blindness are read off ONE run.
+   *
+   * ⭐ Which leg each row actually holds, MEASURED by ablating the three parts of
+   * the rule separately rather than assumed from the row's name -- one of these
+   * was predicted wrong before it was run:
+   *   the clause window   -> "stops pairing", "did NOT buy it", "two clauses"
+   *   the coordinated list -> "coordinated object list", "relative clause"
+   *   the relative opener  -> "relative clause"
+   * The last two rows are acceptance conditions and are GREEN under all three by
+   * design: they say what must NOT move, so an ablation of the repair leaves
+   * them alone and only a regression elsewhere reaches them.
    */
   const flags = flagsFor('11-window-pairing');
 
@@ -1044,7 +1054,9 @@ describe('objectui#9754 pin 12 -- the window is the declaration clause, not the 
     // "`ObjectKanbanSchema` declares `cardTitle` and `cardSubtitle`" puts the
     // second key past a clause boundary with no verb of its own. Narrowing the
     // window to the clause the key SITS in would have dropped it; the window is
-    // the clause it is DECLARED by.
+    // the clause it is DECLARED by. ⚠️ This row is green under the sentence-window
+    // ablation and that is correct, not weak: its sentence names ONE schema, so
+    // the two windows coincide there and only the coordination leg moves it.
     const flagged = flags.filter((f) => f.key === 'cardSubtitle');
     expect(flagged.map((f) => f.schema)).toEqual(['ObjectKanbanSchema']);
   });

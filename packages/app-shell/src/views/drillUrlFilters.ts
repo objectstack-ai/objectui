@@ -24,8 +24,43 @@
 /** Filter triple shape shared with view metadata: [field, operator, value]. */
 export type FilterTriple = [string, string, unknown];
 
-/** URL range/comparison operator suffix → ObjectQL operator (READ side). */
-export const URL_FILTER_OPS: Record<string, string> = { gte: '>=', lte: '<=', gt: '>', lt: '<' };
+/**
+ * URL range/comparison operator suffix → ObjectQL operator (READ side).
+ *
+ * ## No prototype, because the URL chooses the key (objectui#9507)
+ *
+ * `parseUrlFilterTriples` decides "is this suffix an operator" by looking the
+ * suffix up here and testing the result for truthiness — and the suffix comes
+ * from the address bar. While this was a plain object literal that question was
+ * also answered by `Object.prototype`: `filter[amount][constructor]` resolved to
+ * `Object.prototype.constructor`, passed the guard, and emitted a triple whose
+ * OPERATOR WAS A JS FUNCTION — neither ignored nor downgraded, the two outcomes
+ * `parseUrlFilterTriples` promises are the only ones. `__proto__` was the same
+ * defect in a second shape: its inherited accessor yielded `Object.prototype`
+ * itself, so that suffix produced an operator that was an OBJECT.
+ *
+ * ⛔ The repair is deliberately NOT a list of member names to refuse. A denylist
+ * is a spelling-level patch that the next member of `Object.prototype` walks
+ * straight past, and it would have to be kept in step with a prototype this
+ * module does not own. Removing the prototype removes the construction that
+ * permitted the answer at all, so an own entry is the only thing a lookup here
+ * can ever find. The sweep in `drillUrlFilters.test.ts` enumerates
+ * `Object.prototype` at run time rather than naming members, for the same
+ * reason.
+ *
+ * ⚠️ The exported face is unchanged and must stay unchanged: same name, same
+ * four entries, same `Record<string, string>` type, same behaviour under
+ * spread, `Object.entries` and `Object.keys` — `ObjectDataPage` inverts this
+ * map to bridge a triple's operator to the spec's alias spelling, and
+ * `drillEmptyBucketNavHost-9085.test.ts` pins its key list. ⛔ Do not "simplify"
+ * it back to an object literal.
+ */
+export const URL_FILTER_OPS: Record<string, string> = Object.assign(Object.create(null), {
+  gte: '>=',
+  lte: '<=',
+  gt: '>',
+  lt: '<',
+});
 
 /** ObjectQL range operator key → URL param suffix (WRITE side). Inverse of the
  *  relevant `URL_FILTER_OPS` entries. */

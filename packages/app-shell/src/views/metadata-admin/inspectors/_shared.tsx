@@ -255,8 +255,9 @@ type RosterVerdict = 'silent' | 'answered' | 'failed';
  */
 function rosterVerdict(roster: LoadState<unknown> | undefined): RosterVerdict {
   // No prop at all is the synchronous call site: a literal `options` array has
-  // always already answered. That is what the ~40 static pickers pass, and it
-  // is a real arm of the answer, not a default-by-omission.
+  // always already answered. That is what every call site handing this
+  // primitive a literal roster passes — the ones a `roster=` search does NOT
+  // return — and it is a real arm of the answer, not a default-by-omission.
   if (!roster) return 'answered';
   switch (roster.status) {
     case 'idle':

@@ -191,8 +191,9 @@ describe('InspectorSelectField — a roster whose fetch FAILED (objectui#9651)',
   });
 
   it('CONTROL — no `roster` prop at all is a synchronous roster, and it still flags', () => {
-    // ~40 call sites pass a literal `options` array and no state. Omission has
-    // to keep meaning "already answered", or this change breaks all of them.
+    // Most call sites pass a literal `options` array and no state — the ones a
+    // `roster=` search does not return. Omission has to keep meaning "already
+    // answered", or this change breaks every one of them.
     render(
       <InspectorSelectField
         label="Group"

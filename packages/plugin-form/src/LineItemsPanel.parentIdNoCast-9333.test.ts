@@ -38,9 +38,13 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { maskComments as mask } from '../../../scripts/js-comment-mask.mjs';
+// @ts-expect-error -- plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments as sharedMask } from '../../../scripts/js-comment-mask.mjs';
 import type { RecordContextValue } from '@object-ui/react';
 import type { buildMasterDetailEditBatch } from './masterDetailTx';
+
+/** Local annotation, since the import above is untyped -- the call site stays checked. */
+const mask: (source: string) => string = sharedMask;
 
 /* ------------------------------------------------------------------ *
  * Compile-time half.

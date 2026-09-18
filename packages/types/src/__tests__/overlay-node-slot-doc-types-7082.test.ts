@@ -100,7 +100,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stripComments } from '../../../../scripts/js-comment-mask.mjs';
+// @ts-expect-error -- plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments as strip } from '../../../../scripts/js-comment-mask.mjs';
 
 import type { SchemaNode } from '../base';
 import type {
@@ -110,6 +111,9 @@ import type {
   HoverCardSchema,
   SheetSchema,
 } from '../overlay';
+
+/** Local annotation, since the import above is untyped -- the call site stays checked. */
+const stripComments: (source: string) => string = strip;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');

@@ -10,6 +10,34 @@
  * objectui#7181 — the two extension-host readers honour `children`, the
  * spelling the rest of the platform declares.
  *
+ * ⚠️ INVERTED BY objectui#6771, AND THE INVERSION IS THE POINT — read this before
+ * reading a red in this file as a regression.
+ *
+ * objectui#7181 added the `children` arm and deliberately KEPT `body`, so this
+ * file is TWO-SIDED: every case below pins the live spelling AND the retired one.
+ * objectui#6771's ruling then ordered the second arm dropped — verbatim, "the
+ * wider `children || body` readers drop the `body` arm in the same change" — and
+ * the two sources this file pins deferred that drop TO THAT CARD BY NUMBER, in
+ * their own words: `SchemaValidator.ts` "The `body` arm is deliberately KEPT:
+ * dropping it is objectui#6771 step 2, not this change", and `PreviewProvider.ts`
+ * "The body arm stays; removing it is objectui#6771 step 2, not this change."
+ * ⇒ the `body` legs were recording a PRE-RETIREMENT state, not guarding a live
+ * contract, so they are inverted rather than deleted.
+ *
+ * ⭐ AND THE REFUSAL DOES NOT GO QUIET — the objection this inversion has to
+ * answer, answered by measurement rather than by assertion. The validator leg
+ * below used to say a child under `body` gets its missing `type` reported; it now
+ * says that recursion does not run. That is not a check failing open: the key
+ * itself is refused ONE LEVEL UP and louder than before. Measured on the BUILT
+ * CLI, same document both spellings — `body` exits 1 with `Unrecognized key(s) on
+ * this node: body. Did you mean body → children?` at `Path: body`, while
+ * `children` exits 0 with `Schema is valid!`. Before the retirement that document
+ * parsed GREEN and the validator merely walked into it.
+ *
+ * ⛔ Every inverted leg keeps its ABSOLUTE numbers and sits beside its live twin,
+ * so a reader that broke ENTIRELY satisfies neither half. That symmetry is what
+ * makes "draws nothing" a reading instead of a tautology.
+ *
  * ## The defect these pins were built for
  *
  * `children` is declared on four faces: the TypeScript declaration and the zod
@@ -149,11 +177,11 @@ function loadShippedPreviewRenderer(): RendererFn {
   )(document) as RendererFn;
 }
 
-describe('objectui#7181 — the VS Code preview renders `children`, not only `body`', () => {
+describe('the VS Code preview renders `children` — and, since objectui#6771, only `children`', () => {
   const render = loadShippedPreviewRenderer();
   const child = { type: 'text', content: 'Hello' };
 
-  it('renders a `card` node the same whichever child-list spelling it uses', () => {
+  it('renders a `card` node\'s `children`, and draws nothing for the retired `body`', () => {
     const viaBody = countDescendants(
       render({ type: 'card', title: 'T', body: [child] })
     );
@@ -161,20 +189,22 @@ describe('objectui#7181 — the VS Code preview renders `children`, not only `bo
       render({ type: 'card', title: 'T', children: [child] })
     );
 
-    // The title element plus the one rendered child. Asserted absolutely, so a
-    // renderer that dropped BOTH spellings could not satisfy this by symmetry.
-    expect(viaBody).toBe(2);
+    // Both halves ABSOLUTE, exactly as before the inversion: the title element
+    // plus the one rendered child under the live spelling, and the title ALONE
+    // under the retired one. A renderer that dropped both could satisfy neither,
+    // which is why the numbers are spelled out rather than compared.
     expect(viaChildren).toBe(2);
+    expect(viaBody).toBe(1);
   });
 
-  it('renders a generic container node the same whichever spelling it uses', () => {
+  it('renders a generic container node\'s `children`, and nothing for the retired `body`', () => {
     const viaBody = countDescendants(render({ type: 'div', body: [child] }));
     const viaChildren = countDescendants(
       render({ type: 'div', children: [child] })
     );
 
-    expect(viaBody).toBe(1);
     expect(viaChildren).toBe(1);
+    expect(viaBody).toBe(0);
   });
 
   it('renders nested `children` all the way down', () => {
@@ -186,9 +216,11 @@ describe('objectui#7181 — the VS Code preview renders `children`, not only `bo
     expect(countDescendants(render(tree))).toBe(3);
   });
 
-  it('still honours a single non-array child node under either spelling', () => {
-    expect(countDescendants(render({ type: 'div', body: child }))).toBe(1);
+  it('still honours a single non-array child node — under the one spelling left', () => {
+    // The bare-node ARITY is what this case is about and it is untouched by the
+    // retirement; only which key carries it moved.
     expect(countDescendants(render({ type: 'div', children: child }))).toBe(1);
+    expect(countDescendants(render({ type: 'div', body: child }))).toBe(0);
   });
 });
 
@@ -280,7 +312,7 @@ function validateWithShippedValidator(schema: unknown): CapturedDiagnostic[] {
   return published;
 }
 
-describe('objectui#7181 — the VS Code validator recurses into `children`, not only `body`', () => {
+describe('the VS Code validator recurses into `children` — and, since objectui#6771, only `children`', () => {
   // A child missing its required `type` is the observable: the validator warns
   // about it ONLY if the recursion actually reached that child.
   const untypedChild = { className: 'p-4' };
@@ -296,25 +328,31 @@ describe('objectui#7181 — the VS Code validator recurses into `children`, not 
     );
   });
 
-  it('still reaches a child spelled `body` and reports its missing `type`', () => {
+  it('no longer descends a child spelled `body` — the retired key is not a child list', () => {
+    // ⛔ INVERTED, NOT DELETED, and ⛔ not weakened into a non-assertion: this leg
+    // states positively that the recursion does not run on the retired spelling.
+    // Read it with its `children` twin directly above — that one says the
+    // recursion DOES run and DOES report — so a validator that simply stopped
+    // working fails the pair. And see the header: the key is refused by name at
+    // parse now, so this is the check moving up a level, not failing open.
     const diagnostics = validateWithShippedValidator({
       type: 'card',
       body: [untypedChild],
     });
 
-    expect(diagnostics.map((d) => d.message)).toContain(
+    expect(diagnostics.map((d) => d.message)).not.toContain(
       'Missing required property "type"'
     );
   });
 
-  it('reports nothing for a well-formed tree under either spelling', () => {
+  it('reports nothing for a well-formed tree under the live spelling', () => {
+    // The `body` half of this pair was never discriminating — a well-formed tree
+    // draws no diagnostic whether the recursion walks it or skips it — so it is
+    // dropped rather than inverted into an assertion that cannot fail.
     const typedChild = { type: 'text', content: 'Hello' };
 
     expect(
       validateWithShippedValidator({ type: 'card', children: [typedChild] })
-    ).toHaveLength(0);
-    expect(
-      validateWithShippedValidator({ type: 'card', body: [typedChild] })
     ).toHaveLength(0);
   });
 });

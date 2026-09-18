@@ -98,15 +98,34 @@ export class SchemaValidator {
       this.validateTypeSpecificProps(schema, diagnostics, document, path);
     }
 
-    // Recursively validate children
-    if (schema.body) {
-      const children = Array.isArray(schema.body) ? schema.body : [schema.body];
+    // Recursively validate children.
+    //
+    // `children` is read FIRST and `body` is kept as a second arm, matching
+    // `schema.children || schema.body` in `@object-ui/core`'s `validateSchema`
+    // and in the `div` / `card` renderers (objectui#7181).
+    //
+    // This guard used to name `schema.body` alone, which made the extension a
+    // `body`-ONLY reader while the TypeScript declaration, the zod mirror,
+    // core's validator and the manifest tier all declare `children`. An author
+    // who wrote the declared spelling therefore had every child silently
+    // skipped by this recursion — no diagnostic, no refusal, just an unvisited
+    // subtree — while the preview rendered the same document blank.
+    //
+    // The `body` arm is deliberately KEPT: dropping it is objectui#6771 step 2,
+    // not this change, and every `body`-spelled document must keep working.
+    const childList = schema.children || schema.body;
+    if (childList) {
+      // The diagnostic path has to name the key this document actually used,
+      // or a `children`-spelled node reports its problems at a `.body[...]`
+      // address that does not occur anywhere in the file being validated.
+      const childKey = schema.children ? 'children' : 'body';
+      const children = Array.isArray(childList) ? childList : [childList];
       children.forEach((child: any, index: number) => {
         this.validateSchema(
           child,
           diagnostics,
           document,
-          `${path}.body[${index}]`
+          `${path}.${childKey}[${index}]`
         );
       });
     }

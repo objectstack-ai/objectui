@@ -427,6 +427,8 @@ export interface CurrencyFieldMetadata extends BaseFieldMetadata {
 export interface PercentFieldMetadata extends BaseFieldMetadata {
   type: 'percent';
   precision?: number;
+  /** Number of decimal places to display (the `s` in a `decimal(p, s)` column). */
+  scale?: number;
   min?: number;
   max?: number;
 }

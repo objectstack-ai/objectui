@@ -89,17 +89,26 @@
  * touched entries' own containers still draw their children, and that the
  * blind-sweep shape is the empty demo it is.
  *
- * ## ⛔ What arm A does NOT do — the class stays open
+ * ## ⛔ What arm A did NOT do — and what closed it afterwards
  *
- * This restores four demos; it does not close the class. `children` is
+ * Arm A restored four demos and did not close the class: `children` was
  * declared on `BaseSchema`, accepted by every other container renderer,
  * refused by neither zod nor tsc (`BaseSchema` is `.passthrough()` with an
- * index signature), and consumed by the pipeline before it can leak to the
- * DOM — so the next author who writes `children` on a badge draws an empty
- * pill again, and the only instruments that see it are the exact ledger and
- * this file's corpus sweep. Arm B (teaching `badge.tsx` to read `children`)
- * widens a published renderer's read set, which AGENTS.md #0.1 governs; it is
- * objectui#6810's decision and deliberately untouched here.
+ * index signature), and consumed by the pipeline before it could leak to the
+ * DOM — so the next author who wrote `children` on a badge drew an empty pill
+ * again. Arm B (teaching `badge.tsx` to read `children`) widened a published
+ * renderer's read set, which AGENTS.md #0.1 governs, and was left to
+ * objectui#6810's decision.
+ *
+ * ⭐ **objectui#6771's retirement of the `body` dialect closed it from the other
+ * side, and this file's counter-probes moved with it.** The maintainer ruled
+ * one spelling for the child list; `badge` converged on `children`, so the key
+ * that draws an empty pill is now `body`. ⛔ Read this as the class being
+ * closed by a CONTRACT decision, not as arm B being taken — nothing widened,
+ * one spelling was retired and the other is what every renderer reads.
+ * ⚠️ objectui#6810 asked whether `badge` should read `children`; that question
+ * is answered by a different ruling than the one it was waiting for, which is
+ * reported on objectui#6771 rather than decided here.
  *
  * Module-scope import of `@object-ui/components`, not `beforeAll` (AGENTS.md
  * §测试纪律): registering the renderers is an unbounded module load and must
@@ -293,40 +302,50 @@ describe('the four entries objectui#6829 measured draw their badges', () => {
 // ---------------------------------------------------------------------------
 
 describe('counter-probes (objectui#6157 discipline)', () => {
-  it('the pre-arm-A array shape draws an EMPTY pill — and does not even leak', () => {
-    // Verbatim the shape `default-badge.json` carried before this change.
+  it('the RETIRED spelling draws an EMPTY pill — and does not even leak', () => {
+    // ⚠️ RE-POINTED at `body` by objectui#6771. This was verbatim the shape
+    // `default-badge.json` carried before arm A, spelled `children` — the key
+    // `badge` now reads, so it draws and can no longer prove the assertions
+    // above able to fail. The retired spelling is what is inert now, and the
+    // counter-probe's job is unchanged.
     const drawn = draw({
       type: 'badge',
       variant: 'default',
-      children: [{ type: 'text', content: 'Badge Style' }],
+      body: [{ type: 'text', content: 'Badge Style' }],
     });
     try {
       expect(drawn.text).toBe('');
-      // `children` is a pipeline key the renderer machinery consumes, so it
-      // never reaches the DOM: the objectui#5574 attribute sweep that finds
-      // the `content` spelling structurally cannot find this one.
+      // `body` is still stripped by `SchemaRenderer` before the props bag is
+      // spread, so it never reaches the DOM either: the objectui#5574 attribute
+      // sweep that finds the `content` spelling structurally cannot find it.
       expect(drawn.leaked).toBe(0);
     } finally {
       drawn.unmount();
     }
   });
 
-  it('the pre-arm-A string shape draws an EMPTY pill', () => {
-    // Verbatim the shape the two `nested-schema-example` badges carried.
-    expect(drawnText({ type: 'badge', children: 'Nested' })).toBe('');
+  it('the RETIRED spelling draws an EMPTY pill as a bare string too', () => {
+    // The string arity of the same shape, re-pointed for the same reason.
+    expect(drawnText({ type: 'badge', body: 'Nested' })).toBe('');
+    // LIVE CONTROL — without it, an empty draw is indistinguishable from a
+    // renderer that stopped drawing anything at all.
+    expect(drawnText({ type: 'badge', children: 'Nested' })).toBe('Nested');
   });
 
-  it('⭐ the gallery control cannot see this: the pre-fix `status-badges` demo is five elements of empty DOM', () => {
-    // Verbatim `status-badges.json` before this change. Five elements — this
-    // file's wrapper, the `flex`, three empty pills — with no text at all:
-    // `elements > 2 || text` reads it as "drew something", on the pills.
+  it('⭐ the gallery control cannot see this: a `status-badges` demo in the retired spelling is five elements of empty DOM', () => {
+    // `status-badges.json` before arm A, with the pills' key re-pointed at the
+    // retired spelling (the wrapper `flex` keeps `children`, which it reads —
+    // that asymmetry is the point: the container draws, the pills do not).
+    // Five elements — this file's wrapper, the `flex`, three empty pills — with
+    // no text at all: `elements > 2 || text` reads it as "drew something", on
+    // the pills.
     const drawn = draw({
       type: 'flex',
       gap: 2,
       children: [
-        { type: 'badge', variant: 'default', children: [{ type: 'text', content: '● Active' }] },
-        { type: 'badge', variant: 'secondary', children: [{ type: 'text', content: '● Pending' }] },
-        { type: 'badge', variant: 'destructive', children: [{ type: 'text', content: '● Inactive' }] },
+        { type: 'badge', variant: 'default', body: [{ type: 'text', content: '● Active' }] },
+        { type: 'badge', variant: 'secondary', body: [{ type: 'text', content: '● Pending' }] },
+        { type: 'badge', variant: 'destructive', body: [{ type: 'text', content: '● Inactive' }] },
       ],
     });
     try {

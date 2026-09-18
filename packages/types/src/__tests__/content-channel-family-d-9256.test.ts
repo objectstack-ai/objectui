@@ -601,15 +601,27 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
     expect(ok).toHaveLength(7);
   });
 
-  it('CONTROL — the chatbot family still TYPE-CHECKS with `body`, the held-out channel', () => {
+  it('the chatbot family no longer TYPE-CHECKS with `body` — the held-out channel was retired under it', () => {
     // RE-POINTED by objectui#8572, for the reason spelled out at the mirror
     // control above, and ⛔ deliberately not restating that card's verdict here.
-    // What survives unchanged is this card's own claim: it narrowed `children`
-    // on the chatbot faces and left their `body` channel alone. On a TWIN that
-    // is still visible on both faces — `body` arrives from `BaseSchema` as the
-    // content channel and `tsc` admits it — and `tsc`, not vitest, is the reader
-    // of this line.
-    const held = { type: 'chatbot-enhanced', messages: [], body: CONTENT } satisfies ChatbotEnhancedSchema;
-    expect(held.type).toBe('chatbot-enhanced');
+    //
+    // ⚠️ INVERTED, and not by a decision on this card. Its claim was: objectui#9256
+    // narrowed `children` on the chatbot faces and left their `body` channel
+    // alone, `body` arriving from `BaseSchema` as the content channel. objectui#6771
+    // retired `body` on `BaseSchema` itself, so there is no content channel left
+    // to inherit and each twin now declares the same NEITHER-channel tombstone
+    // its `children` sentence already asserted. ⇒ the hold-out ended by the base
+    // moving, not by this card re-deciding anything. `tsc`, not vitest, is the
+    // reader of both lines below.
+    // @ts-expect-error objectui#6771 — `body` is retired; this family authors `requestBody`
+    const retired = { type: 'chatbot-enhanced', messages: [], body: CONTENT } satisfies ChatbotEnhancedSchema;
+    // CONTROL — the key an author should write instead still compiles, so the
+    // line above is a reading about `body` and not about the whole declaration.
+    const live = {
+      type: 'chatbot-enhanced',
+      messages: [],
+      requestBody: { model: 'gpt-4' },
+    } satisfies ChatbotEnhancedSchema;
+    expect([retired.type, live.type]).toEqual(['chatbot-enhanced', 'chatbot-enhanced']);
   });
 });

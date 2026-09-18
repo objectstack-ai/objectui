@@ -231,11 +231,19 @@ describe('SchemaNode slots refuse numeric-falsy authored values (objectui#9162)'
       // and `children: 0` is clean because the guard says so. ⛔ The assertion
       // is on the SOURCE, not on the render: a render reading is green under
       // both spellings of the reader and would not see the chain come back.
-      // Resolved from the vitest ROOT, which AGENTS.md pins to the repository
-      // root for every supported invocation. ⛔ Not `import.meta.url`: in the
-      // `dom` project that is not a `file:` URL and `readFileSync` throws.
-      const CARD_SRC = 'packages/components/src/renderers/layout/card.tsx';
-      expect(existsSync(CARD_SRC), `run vitest from the repo root — ${CARD_SRC} not found`).toBe(true);
+      // Rooted at THIS FILE, the spelling `check-test-path-roots.mjs` teaches:
+      // the cwd is the package directory under one invocation and the repo root
+      // under the form CI runs, so a cwd-relative literal reaches two verdicts
+      // (objectui#7799). ⛔ And ⛔ not `readFileSync(new URL(…))` either — in the
+      // `dom` project `import.meta.url` is not a `file:` URL and that throws;
+      // reading its `pathname` is scheme-independent.
+      const SELF_DEPTH_BELOW_REPO_ROOT = 6; // packages/components/src/renderers/__tests__/<this file>
+      const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
+        .split('/')
+        .slice(0, -SELF_DEPTH_BELOW_REPO_ROOT)
+        .join('/');
+      const CARD_SRC = `${REPO_ROOT}/packages/components/src/renderers/layout/card.tsx`;
+      expect(existsSync(CARD_SRC), `depth is wrong — ${CARD_SRC} not found`).toBe(true);
       const src = readFileSync(CARD_SRC, 'utf8');
       expect(src).toContain('renderNodeSlot(schema.children,');
       expect(src).not.toContain('schema.children || schema.body');

@@ -130,9 +130,18 @@ describe('the scanner sees the shapes authored metadata actually uses', () => {
   it('CONTROL — a corpus-shaped input returns hits, so a zero elsewhere is readable', () => {
     // Without this, every "0" in the census is indistinguishable from a
     // scanner that resolved nothing at all.
+    //
+    // ⚠️ RE-POINTED at `children` by objectui#6771. This file was the densest
+    // `body` corpus in the tree — 14 nodes — and the retirement migrated it, so
+    // a `body` control here now measures the migration instead of the scanner.
+    // The control's job is unchanged: prove the scanner resolves NODES and
+    // their child key on a real corpus file, so a zero read somewhere else is a
+    // reading rather than a blind walk.
     const nodes = scanNodes(read('examples/schema-catalog/src/schemas/components-basic-sidebar/basic-sidebar.json'));
     expect(nodes.length).toBeGreaterThan(0);
-    expect(nodes.filter((n: { keys: Set<string> }) => n.keys.has('body')).length).toBeGreaterThan(0);
+    expect(nodes.filter((n: { keys: Set<string> }) => n.keys.has('children')).length).toBeGreaterThan(0);
+    // And the retired spelling is gone from it, which is the migration half.
+    expect(nodes.filter((n: { keys: Set<string> }) => n.keys.has('body')).length).toBe(0);
   });
 });
 
@@ -154,14 +163,21 @@ describe('the measured population is read off the renderers, not off the card bo
     expect(BODY_ONLY.filter((k) => k.startsWith('sidebar')).length).toBe(10);
   });
 
-  it('`badge` and `alert` read `body` and never `children`', () => {
+  it('`badge` and `alert` read `children` and never `body` — CONVERGED by objectui#6771', () => {
+    // ⚠️ INVERTED. This pin held the ground the whole census rested on: these
+    // two rendered `renderChildren(schema.body)` and never touched
+    // `schema.children`, which is what made `body` their ONLY door and made
+    // retiring it a reject-direction change on published contract. The ruling
+    // was executed; the door is `children` now, and the reading the census
+    // produced is what cleared it (`badge` and `alert` carried ZERO authored
+    // `body` in both populations, so the published cost measured zero).
     for (const [file, type] of [
       ['packages/components/src/renderers/data-display/badge.tsx', 'badge'],
       ['packages/components/src/renderers/data-display/alert.tsx', 'alert'],
     ] as const) {
       const src = read(file);
-      expect(src, `${type} stopped reading schema.body`).toContain('renderChildren(schema.body)');
-      expect(src, `${type} now reads schema.children — it is no longer body-only`).not.toContain('schema.children');
+      expect(src, `${type} does not read schema.children`).toContain('renderChildren(schema.children)');
+      expect(src, `${type} still reads the retired schema.body`).not.toContain('schema.body');
     }
   });
 
@@ -174,24 +190,32 @@ describe('the measured population is read off the renderers, not off the card bo
     // 11 `sidebar-*` registrations. The one without is `sidebar-trigger`, whose
     // renderer never receives `schema` at all.
     expect(src.match(/ComponentRegistry\.register\('sidebar/g)?.length).toBe(11);
-    expect(src.match(/renderChildren\(schema\.body\)/g)?.length).toBe(10);
+    // Spelled `children` since objectui#6771; the COUNT is the load-bearing
+    // half and it did not move — ten reads across eleven registrations.
+    expect(src.match(/renderChildren\(schema\.children\)/g)?.length).toBe(10);
+    expect(src.match(/renderChildren\(schema\.body\)/g)?.length ?? 0).toBe(0);
     const trigger = src.slice(src.indexOf("register('sidebar-trigger'"));
     expect(trigger).not.toContain('schema.body');
     expect(trigger).not.toContain('schema.children');
   });
 
-  it('⚠️ `tooltip` is a `body`-only reader that the ruled 13 does NOT include', () => {
-    // Measured, and it matters: `tooltip` renders `renderChildren(schema.body)`
-    // and never `schema.children`, so direction B removes its only rich-content
-    // key too — yet it is absent from the ruling's step 2 list. It is also the
-    // ONE registration in the tree that DECLARES `body` as an authorable input,
-    // which makes it the most discoverable spelling of `body` on the whole
-    // authoring surface.
+  it('⚠️ `tooltip` was the `body`-only reader the ruled 13 omitted — and it converged with the rest', () => {
+    // ⚠️ INVERTED, and this one was a SCOPE call before it was an edit. The
+    // census measured `tooltip` rendering `renderChildren(schema.body)` and
+    // never `schema.children` — a `body`-only reader absent from the ruling's
+    // step 2 list — and, decisively, the ONE registration in the tree that
+    // DECLARED `body` as an authorable input, which made it the most
+    // discoverable spelling of the dialect on the whole authoring surface.
+    // Seat 1 read the ruling rather than filing for it (2026-09-17) and triage
+    // recorded the answer as already given: step 2's two clauses leave no third
+    // class, so `tooltip` is IN. It is, and its declared input moved too — the
+    // half that would otherwise have left the dialect advertised.
     expect(BODY_ONLY_UNRULED).toEqual(['tooltip']);
     const src = read('packages/components/src/renderers/overlay/tooltip.tsx');
-    expect(src).toContain('renderChildren(schema.body)');
-    expect(src).not.toContain('schema.children');
-    expect(src).toMatch(/name:\s*'body'/);
+    expect(src).toContain('renderChildren(schema.children)');
+    expect(src).not.toContain('schema.body');
+    expect(src).toMatch(/name:\s*'children'/);
+    expect(src).not.toMatch(/name:\s*'body'/);
   });
 
   it('the two published keys are exactly `badge` and `alert`', () => {
@@ -222,7 +246,7 @@ describe('the census stays re-runnable', () => {
 });
 
 describe('the `body` consumers the ruling does not enumerate', () => {
-  it('three generic readers outside the renderer tree still resolve `body`', () => {
+  it('three generic readers outside the renderer tree read `children` ALONE — step 2 reached them', () => {
     // Recorded because ruling steps 2-5 name renderers, the published type and
     // the tier — and these three are none of those. They read `body` for ANY
     // node type, so they outlive the per-registration convergence and would
@@ -237,15 +261,26 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // objectui#7181 converged both onto the core spelling, adding the
     // `children` arm and KEEPING `body`. Nothing was retired; that is step 2.
     //
-    // ⇒ all three now read the same way, which is what these three assertions
-    // pin. The `body` arm surviving in each is the half that says step 2 is
-    // still outstanding.
+    // ⇒ all three then read the same way, and the `body` arm surviving in each
+    // was the half that said step 2 was still outstanding.
+    //
+    // ⚠️ INVERTED — step 2 landed (objectui#6771). These three are the reason
+    // the block exists: a per-registration convergence would have left them
+    // resolving `body` for ANY node type and the dialect alive underneath it,
+    // so the retirement is only real if all three dropped the arm. Both vscode
+    // readers even deferred it to that card BY NUMBER in their own comments.
+    // The lit control stays FIRST, because "does not contain `body`" holds just
+    // as well over a file that was renamed, emptied or moved.
     for (const reader of [
       'packages/core/src/validation/schema-validator.ts',
       'packages/vscode-extension/src/providers/SchemaValidator.ts',
       'packages/vscode-extension/src/providers/PreviewProvider.ts',
     ]) {
-      expect(readCode(reader), reader).toContain('schema.children || schema.body');
+      const text = readCode(reader);
+      expect(text, `${reader} — lit control: this reader still resolves a child list`)
+        .toMatch(/=\s*schema\.children;/);
+      expect(text, `${reader} still resolves the retired \`body\``)
+        .not.toContain('schema.children || schema.body');
     }
   });
 
@@ -322,14 +357,28 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // once nothing does, say so here in these terms, which is the day step 4
     // becomes landable. ⛔ Do not delete the claim to make the block green.
 
-    // Inserted into the user's own document the moment the completion is
-    // accepted, which is the most direct form a producer takes: the author does
-    // not even type the spelling.
+    // ⭐ THE HANDOFF THE BLOCK ABOVE ASKS FOR, taken rather than avoided.
+    // The third subject was the VS Code completion snippet — inserted into the
+    // user's own document the moment the completion is accepted, the most direct
+    // form a producer takes, because the author does not even type the spelling.
+    // objectui#6771's step 5 migrated it, so it no longer ships the dialect and
+    // the assertion is inverted rather than deleted. The lit control stays and
+    // stays first: "does not contain" is satisfied by an unreadable file.
     const completion = readCode('packages/vscode-extension/src/providers/CompletionProvider.ts');
     expect(completion, 'lit control — the snippet table is being read at all').toContain(
       '"className": "$1"'
     );
-    expect(completion).toContain('"body": {');
+    expect(completion).not.toContain('"body": {');
+    expect(completion).toContain('"children": {');
+
+    // ⇒ AND THE CLAIM IN THIS TEST'S NAME, restated in the terms the block asks
+    // for. What still ships the spelling is the `tabs` ITEM below, and that is
+    // a DIFFERENT KEY from the one step 4 refuses: the tier answers `body` on a
+    // NODE the manifest knows, walking `Object.entries(node)`, and a `tabs` item
+    // is a member of a declared `items` input rather than a node in that walk.
+    // ⇒ step 4 refuses nothing the platform still ships, which is exactly what
+    // step 5's ordering rule asks — and the item-level dialect is objectui#9590's
+    // card, ⛔ neither refused nor migrated here.
 
     // A shipped `defaultProps` child list, the same construct as the three
     // registrations objectui#7181 moved — spelled on a tab ITEM, where the

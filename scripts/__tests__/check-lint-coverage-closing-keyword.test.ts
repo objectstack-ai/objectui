@@ -287,10 +287,10 @@ describe('the stale-entry message may not carry a card-closing keyword', () => {
       foreignGateCitations(region),
       "the rule-2 banner names another gate's source file again. Whatever it says about that "
         + 'file is a reading taken once, by a person who is not looking at it, and re-derived '
-        + 'never — objectui#9906, where the sentence was false in one half the day it was '
-        + 'written. Say it at that gate, or in this pin, where the words sit beside the thing '
-        + 'they describe. ⛔ Not by adding a tree scan here: the ruling of 2026-09-18 closed '
-        + 'that door, and this assertion is deliberately the weaker one.',
+        + 'never — the sentence that stood there went stale without anyone touching this '
+        + 'file, which is objectui#9906. Say it at that gate, or in this pin, where the words '
+        + 'sit beside the thing they describe. ⛔ Not by adding a tree scan here: the ruling '
+        + 'of 2026-09-18 closed that door, and this assertion is deliberately the weaker one.',
     ).toEqual([]);
   });
 

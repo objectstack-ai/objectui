@@ -84,6 +84,22 @@
  * forward-compatible: nothing sends `400 FLOW_FAILED` on this route yet, so that
  * arm is simply dormant until it does.
  *
+ * ## A terminal run is not always a COMPLETED one (objectui#7707)
+ *
+ * `status: 'refused'` names the run that reached an `end` node declaring
+ * `outcome: 'refused'` — the maintainer ruling on objectstack#14945, whose
+ * contract half is on the installed `@objectstack/spec` surface. It is a
+ * successful evaluation that said no: `success` stays `true`, `successMessage`
+ * is NOT set, and the authored reason is rendered per-record into
+ * `refusalMessage`. Terminal exactly like `completed`, and distinct from
+ * `failed` on purpose — nothing threw.
+ *
+ * It therefore gets its OWN kind rather than folding into either neighbour.
+ * Folded into `failed` it would render as an error (destructive banner, error
+ * toast) for a flow that worked; left in `done` — which is where it landed
+ * before this arm existed — a runner toasts `Flow "…" completed` at a user who
+ * was just told the run was refused, which is the reported defect.
+ *
  * ⚠️ **The authorable `errorMessage` needs a slot on the wire.** A flow declares
  * `errorMessage` so the user sees its words instead of an engine string, and the
  * 200-path failure prefers it (`flowFailureMessage`). The error envelope has no
@@ -105,12 +121,17 @@ import { errorCodeIs } from '@object-ui/types';
  */
 export interface FlowRunResult {
     success?: boolean;
-    status?: 'completed' | 'paused' | 'failed' | string;
+    status?: 'completed' | 'paused' | 'failed' | 'refused' | string;
     runId?: string;
     screen?: unknown;
     error?: unknown;
     errorMessage?: unknown;
     successMessage?: unknown;
+    /**
+     * The rendered refusal — set by the engine when `status` is `'refused'`,
+     * absent on every other status (`AutomationResult.refusalMessage`).
+     */
+    refusalMessage?: unknown;
     [key: string]: unknown;
 }
 
@@ -119,6 +140,26 @@ export interface FlowRunResult {
  * layer). Generic rather than imported so this util stays a leaf.
  */
 export type FlowResponseOutcome<S = unknown> =
+    | {
+        kind: 'refused';
+        /**
+         * The engine-rendered refusal, i.e. the `end` node's `message`
+         * template interpolated against the run's variables — per-record text
+         * ("Refused: Acme Corp is a confirmed duplicate"), not a flow-level
+         * string. Read from the ONE member the contract declares for it
+         * (`AutomationResult.refusalMessage`); there is deliberately no alias
+         * chain hunting for it elsewhere (commandment #0.1).
+         *
+         * `''` when the producer sent none. `outcome: 'refused'` with no
+         * `message` is refused at the authoring door by the spec's `end`
+         * config, so an empty string here is an engine defect, not an
+         * authorable shape — and the disposition it selects (Close only, no
+         * completion toast) is a fact about the STATUS, so it must not depend
+         * on whether the sentence arrived.
+         */
+        message: string;
+        data: FlowRunResult;
+    }
     | {
         kind: 'failed';
         /** Always a string — safe to hand to `toast.error()`. */
@@ -235,6 +276,22 @@ export function interpretFlowResponse<S = unknown>(
 
     if (data.status === 'paused' && data.screen) {
         return { kind: 'paused', runId: data.runId, screen: data.screen as S, data };
+    }
+
+    // The run reached an `end` node declaring `outcome: 'refused'` (#14945):
+    // a successful evaluation that said NO. Terminal exactly like `completed`
+    // and deliberately distinct from `failed` — nothing threw, so classifying
+    // it as a failure would be the opposite error — which is why it is checked
+    // AFTER the two failure arms and answers with its own kind rather than
+    // folding into either neighbour. Without this arm it falls through to
+    // terminal success below, and a user who was just told "this is refused"
+    // is told the flow completed (objectui#7707).
+    if (data.status === 'refused') {
+        return {
+            kind: 'refused',
+            message: typeof data.refusalMessage === 'string' ? data.refusalMessage : '',
+            data,
+        };
     }
 
     // Terminal success. `data` is the raw `json?.data` — `undefined` when the

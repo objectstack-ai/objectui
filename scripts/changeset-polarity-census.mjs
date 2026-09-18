@@ -126,10 +126,43 @@
  * fully (objectui#9727, the readings are on that card's pull request, not copied
  * here per #9):
  *
- *   WINDOW PAIRING. A sentence may name schema S and key K and predicate K of
- *   something else entirely -- a registry-local type, another node, a spec
- *   schema. V pairs them because they share a sentence. This is the limit the
- *   card's own author stated first, and it is still the largest source.
+ *   WINDOW PAIRING, REPAIRED AND ITS RESIDUE NAMED (objectui#9754). A sentence
+ *   may name schema S and key K and predicate K of something else entirely -- a
+ *   registry-local type, another node, a spec schema, a zod method, a CLI
+ *   subcommand, a DOM tag. V paired them because they shared a SENTENCE, which
+ *   is a window nothing chose: it is the cartesian product of every schema the
+ *   sentence names with every key it names. This was the limit the card's own
+ *   author stated first and the largest source, and it is also where the KEY
+ *   EXTRACTION residue below was handed -- a lowerCamelCase word that is a
+ *   function name is told apart from a member key only by the POSITION it sits
+ *   in. The window is now the DECLARATION CLAUSE: a key pairs with the schemas
+ *   named in the clause whose verb governs it, one pair per OCCURRENCE, and the
+ *   whole rule (its four cases, and the fifth for a relative clause, which has
+ *   no subject of its own and takes its antecedent's) is on `readWindow`.
+ *   ⇒ A clause whose subject is not a schema symbol at all -- a registry node
+ *   name, "the interface", "the type" -- now pairs its keys with NOTHING, which
+ *   is the honest reading: this instrument resolves membership against a named
+ *   symbol, and there is no named symbol there to resolve against.
+ *   ⚠️ RESIDUE, named rather than hidden, and it is the same shape one level
+ *   down: the window got smaller, it did not become a parser. A clause that
+ *   BOTH declares AND names two schemas still pairs its keys with both; a schema
+ *   named in a clause only as the owner of some OTHER member (`S.className`) is
+ *   still that clause's schema; and a subject separated from its verb by
+ *   anything but a relative or parenthetical break -- an em-dash apposition,
+ *   "`k` is declared on both faces -- the interface `A` and the mirror `B`" --
+ *   is now out of reach, so that pairing is DROPPED rather than made wrongly.
+ *   ⛔ That last one is a false negative this repair introduces, and it is
+ *   written here rather than discovered later.
+ *
+ *   A TABLE OF SUPERSEDED READINGS (objectui#9754, ⛔ unrepaired). An entry may
+ *   carry a table whose first column is a reading it is RETIRING and whose
+ *   later columns are what falsified it and when. Every cell of one row is
+ *   joined into one sentence here (that join is deliberate -- a table row is not
+ *   a paragraph), so the retired claim reads as a present-tense assertion in
+ *   ASSERTION position and its correction sits beside it, unread. Quotation
+ *   position does not reach this: the retired reading is not quoted, it is
+ *   tabulated. ⇒ Such a row is a candidate whose adjudication is already written
+ *   next to it, which is cheap for a human and invisible to V.
  *
  *   POLARITY BY CLAUSE (was: POLARITY BY KEYWORD -- objectui#9754 narrowed it).
  *   Polarity is a property of the clause that carries the declaration verb, not
@@ -147,11 +180,14 @@
  *   case) has no clause of its own and takes the sentence's first declaration
  *   clause, which is the clause its verb is in.
  *
- *   ⛔ What this does NOT fix, and the residue is named rather than hidden: a
- *   sentence whose SAME key sits in two declaration clauses of opposite
- *   polarity resolves to the first one, because choosing between them is the
- *   WINDOW PAIRING question below and not a polarity question. `without` and
- *   `fails to` are still read as clause-wide negators.
+ *   ⭐ The residue this left was handed to WINDOW PAIRING above and is now
+ *   closed there (objectui#9754): a sentence whose SAME key sits in two
+ *   declaration clauses of opposite polarity used to resolve to the first one,
+ *   because the sentence held ONE reading per key. It holds one per OCCURRENCE
+ *   now, so the two claims stop overwriting each other and each is judged
+ *   against the schema ITS OWN clause names -- which is what "choosing between
+ *   them is the window question" meant. ⛔ Still unrepaired here: `without` and
+ *   `fails to` are read as clause-wide negators.
  *
  *   THE ANNOTATION READ AS PROSE -- A POLARITY INVERSION, REPAIRED
  *   (objectui#9832). objectui#9794 made a mention written the way a face
@@ -735,24 +771,39 @@ const MASK_TOKEN = new RegExp(`${MASK_OPEN}(\\d+)${MASK_CLOSE}`, 'g');
  * `text` is the clause as written, spans restored, and it is what a pin or a
  * report shows a human; `prose` is the clause with every backticked span still
  * masked, and it is the only text a WORD-LEVEL criterion may be read over. See
- * `readPolarity` for why that distinction is load bearing (objectui#9832).
+ * `readWindow` for why that distinction is load bearing (objectui#9832).
+ *
+ * `opener` is the break text this clause was cut off by, and it is what tells a
+ * relative or parenthetical clause -- one with no subject of its own -- from a
+ * clause that opens a new predication (objectui#9754).
  */
 export function segmentClauses(text) {
   const { masked, spans } = maskSpans(text);
   const restore = (s) => s.replace(new RegExp(MASK_TOKEN.source, 'g'), (_, n) => spans[Number(n)]);
   const cuts = [];
   let last = 0;
+  let opener = '';
   CLAUSE_BREAK.lastIndex = 0;
   for (const m of masked.matchAll(CLAUSE_BREAK)) {
-    cuts.push({ start: last, end: m.index });
+    cuts.push({ start: last, end: m.index, opener });
+    opener = m[0];
     last = m.index + m[0].length;
   }
-  cuts.push({ start: last, end: masked.length });
+  cuts.push({ start: last, end: masked.length, opener });
   const clauses = cuts
     .map((c) => ({ ...c, prose: masked.slice(c.start, c.end), text: restore(masked.slice(c.start, c.end)) }))
     .filter((c) => c.text.trim() !== '');
   return { clauses, masked, spans };
 }
+
+/**
+ * The breaks that open a clause with NO SUBJECT OF ITS OWN -- a relative clause
+ * or a parenthetical, which predicate of whatever they are attached to. `S`,
+ * whose face declares `k`; `S` (which declares `k`). They are the one case where
+ * the window may reach back past the cut for the schema, and the reach is ONE
+ * clause: the antecedent, never the sentence.
+ */
+const RELATIVE_OPENER = /^\(|^\s*(?:which|whose|where)\s*$/i;
 
 /** The clause texts, for a pin that wants to name the cut rather than the count. */
 export function clauseTexts(text) {
@@ -760,11 +811,54 @@ export function clauseTexts(text) {
 }
 
 /**
- * Read polarity in the scope that owns it.
+ * Read one sentence in the scope that owns each reading: the CLAUSE.
+ *
+ * Two different questions are answered here and they are answered off ONE
+ * clause walk, because answering them separately is how a key ends up taking
+ * its polarity from one clause and its schema from another:
+ *
+ *   `byKey`        -- the polarity of the clause each key is written in
+ *                     (objectui#9754 slice 1).
+ *   `schemasByKey` -- THE WINDOW A PAIRING MAY BE MADE ACROSS, below.
  *
  * `polarity` is the sentence-level reading (the first declaration clause), kept
- * because a key resolved across a sentence boundary has no clause here.
- * `byKey` is the per-key reading, and it is the one the verdict uses.
+ * because a key resolved across a sentence boundary has no clause here; the
+ * same fallback gives those keys their schemas, in `crossSentenceSchemas`.
+ *
+ * ## THE WINDOW (objectui#9754). The sentence is the wrong one.
+ *
+ * V used to pair every schema the SENTENCE names with every key the sentence
+ * names -- a cartesian product over a window nothing chose. The instrument
+ * named the cost on itself: a sentence may name schema S and key K and
+ * predicate K of something else entirely, and V pairs them because they share a
+ * sentence. The pairing a declaration actually makes is between the SUBJECT of
+ * the declaration verb and the keys THAT VERB governs, and both of those live
+ * in one clause -- the same scope slice 1 already established for polarity.
+ *
+ * So the window is the DECLARATION CLAUSE, and a key's governing clause is:
+ *
+ *   1. the clause the key is written in, when that clause declares;
+ *   2. else the clause IMMEDIATELY before it, when that one declares -- which is
+ *      the coordinated object list, "`S` declares `a` and no `b`";
+ *   3. else, when NO declaration clause precedes the key anywhere in the
+ *      sentence, the sentence's first declaration clause -- a key written ahead
+ *      of the verb has no earlier clause to inherit from, and this is the same
+ *      fallback the cross-sentence pronoun already takes;
+ *   4. else NONE. A declaration clause does precede the key, but another
+ *      predication was opened between them, and reaching back across it is
+ *      exactly the pairing this repair refuses.
+ *
+ * The key then pairs with the schemas named IN THAT CLAUSE, and with no others.
+ * ⇒ A clause whose subject is not a schema symbol at all -- a registry node
+ * name, "the interface", "the type" -- pairs its keys with NOTHING rather than
+ * with whatever schema the rest of the sentence happens to mention.
+ *
+ * ⚠️ What this is NOT, and the limit is the honest half: it does not read
+ * English. A clause that both declares and names two schemas still pairs its
+ * keys with both, and a schema named in a clause only as the owner of some
+ * OTHER member (`S.className`) is still that clause's schema. The window got
+ * smaller; it did not become a parser. Residues are named under "The limits
+ * that produce this instrument's false positives".
  *
  * ⭐ THE NEGATORS ARE READ OVER `prose`, NEVER OVER `text` (objectui#9832). A
  * backticked span is CODE, and a word inside it is not a word of the sentence:
@@ -786,9 +880,10 @@ export function clauseTexts(text) {
  *
  * @param {string} text
  * @param {Set<string> | null} [declared] the set `keyHead` reads; see its docblock
- * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative"> }}
+ * @typedef {{ schema: string, polarity: "positive" | "negative" }} WindowPair
+ * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative">, pairsByKey: Record<string, WindowPair[]>, schemasByKey: Record<string, string[]>, crossSentenceSchemas: string[] }}
  */
-export function readPolarity(text, declared = null) {
+export function readWindow(text, declared = null) {
   const { clauses, masked, spans } = segmentClauses(text);
   const isDeclaration = (c) => PRESENT_DECLARATION.test(c.text);
   const polarityOf = (c) => (NEGATIVE.test(c.prose) ? 'negative' : 'positive');
@@ -809,8 +904,48 @@ export function readPolarity(text, declared = null) {
     occurrences.get(head).push(m.index);
   }
 
-  const clauseAt = (pos) => clauses.find((c) => pos >= c.start && pos < c.end) ?? null;
+  const indexAt = (pos) => clauses.findIndex((c) => pos >= c.start && pos < c.end);
+  const clauseAt = (pos) => clauses[indexAt(pos)] ?? null;
+
+  /** The clause whose declaration governs a key written at `pos` -- rules 1-4. */
+  const governingClause = (pos) => {
+    const i = indexAt(pos);
+    if (i < 0) return null;
+    if (isDeclaration(clauses[i])) return clauses[i];
+    if (i > 0 && isDeclaration(clauses[i - 1])) return clauses[i - 1];
+    // Rule 3, and it is the FIRST clause only: a key written ahead of every
+    // clause of the sentence has none to inherit from, so it takes the verb's
+    // own clause -- the same fallback the cross-sentence pronoun takes. A key
+    // at any later position DOES have earlier clauses; that they do not declare
+    // is rule 4's case, not this one, and reaching past them to a declaration
+    // further on is the reach this repair refuses.
+    if (i === 0) return declarations[0] ?? null;
+    return null;
+  };
+
+  /**
+   * The schemas a clause predicates of -- its own, or, for a relative clause or
+   * a parenthetical, its antecedent's. Rule 5.
+   */
+  const schemasOf = (clause) => {
+    const own = namesSchema(clause.text);
+    if (own.length > 0) return own;
+    const i = clauses.indexOf(clause);
+    if (i > 0 && RELATIVE_OPENER.test(clause.opener)) return namesSchema(clauses[i - 1].text);
+    return [];
+  };
+
+  /** The polarity of ONE occurrence, in the clause that occurrence sits in. */
+  const polarityAt = (pos) => {
+    const own = clauseAt(pos);
+    if (own && isDeclaration(own)) return polarityOf(own);
+    if (own && LEADING_NEGATOR.test(own.prose)) return 'negative';
+    const gov = governingClause(pos);
+    return gov ? polarityOf(gov) : polarity;
+  };
+
   const byKey = {};
+  const pairsByKey = {};
   for (const [head, positions] of occurrences) {
     let reading = null;
     for (const pos of positions) {
@@ -831,7 +966,47 @@ export function readPolarity(text, declared = null) {
       }
     }
     byKey[head] = reading;
+    // ⭐ ONE PAIR PER OCCURRENCE (objectui#9754). The residue slice 1 named and
+    // handed here: a key written in two declaration clauses of OPPOSITE
+    // polarity used to resolve to the first one, because the sentence held one
+    // reading per key. Each occurrence now carries its own clause's schemas AND
+    // its own clause's polarity, so the two readings stop overwriting each
+    // other -- which is what "choosing between them is the window question"
+    // meant.
+    const pairs = [];
+    for (const pos of positions) {
+      const gov = governingClause(pos);
+      if (!gov) continue;
+      const occurrencePolarity = polarityAt(pos);
+      for (const schema of schemasOf(gov)) {
+        if (!pairs.some((p) => p.schema === schema && p.polarity === occurrencePolarity)) {
+          pairs.push({ schema, polarity: occurrencePolarity });
+        }
+      }
+    }
+    pairsByKey[head] = pairs;
   }
+  return {
+    polarity,
+    byKey,
+    pairsByKey,
+    schemasByKey: Object.fromEntries(
+      Object.entries(pairsByKey).map(([k, v]) => [k, [...new Set(v.map((p) => p.schema))]]),
+    ),
+    crossSentenceSchemas: declarations.length > 0 ? schemasOf(declarations[0]) : [],
+  };
+}
+
+/**
+ * The polarity half of `readWindow`, kept under its own name because it is the
+ * reading slice 1's pins name and the one a report shows.
+ *
+ * @param {string} text
+ * @param {Set<string> | null} [declared] the set `keyHead` reads; see its docblock
+ * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative"> }}
+ */
+export function readPolarity(text, declared = null) {
+  const { polarity, byKey } = readWindow(text, declared);
   return { polarity, byKey };
 }
 
@@ -948,7 +1123,19 @@ export function readClaim(sentence, precedingInParagraph, declared = null) {
       }
     }
   }
-  const { polarity, byKey } = readPolarity(sentence.text, declared);
+  const { polarity, byKey, pairsByKey, crossSentenceSchemas } = readWindow(
+    sentence.text,
+    declared,
+  );
+  // The window each key may be paired across (objectui#9754). A key resolved
+  // across a sentence boundary has no clause HERE, so it takes the clause its
+  // verb is in -- the same fallback that gives it its polarity.
+  const keyPairs = {};
+  for (const key of keys) {
+    keyPairs[key] = viaPronoun
+      ? crossSentenceSchemas.map((schema) => ({ schema, polarity: byKey[key] ?? polarity }))
+      : (pairsByKey[key] ?? []);
+  }
   return {
     schemas,
     keys,
@@ -956,6 +1143,7 @@ export function readClaim(sentence, precedingInParagraph, declared = null) {
     antecedent,
     polarity,
     keyPolarity: byKey,
+    keyPairs,
   };
 }
 
@@ -1165,6 +1353,9 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
   const unresolvedSchemas = [];
   for (const record of matched) {
     const { schemas, keys, polarity, viaPronoun } = record.claim;
+    // The unresolved bucket is a property of the SENTENCE naming a symbol with
+    // no face here (objectui#9767) and is deliberately read over every schema
+    // the sentence names -- narrowing the KEY pairing below must not narrow it.
     for (const schema of schemas) {
       const face = memberIndex.get(schema);
       if (!face) {
@@ -1181,13 +1372,26 @@ export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
           sentence: record.text,
           resolvedIn: resolution,
         });
-        continue;
       }
-      for (const key of keys) {
+    }
+    for (const key of keys) {
+      // ⭐ THE WINDOW (objectui#9754): the schemas the key's own DECLARATION
+      // CLAUSE names, never every schema the sentence happens to mention, and
+      // ONE PAIR PER OCCURRENCE. The reading is `readWindow`'s and the rule is
+      // stated there.
+      const fallback = schemas.map((schema) => ({
+        schema,
+        polarity: record.claim.keyPolarity?.[key] ?? polarity,
+      }));
+      for (const pair of record.claim.keyPairs?.[key] ?? fallback) {
+        const schema = pair.schema;
+        const face = memberIndex.get(schema);
+        // No face here is already recorded in the unresolved bucket above.
+        if (!face) continue;
         const present = face.members.has(key);
         // The clause the key is written in owns its polarity; the sentence's
         // reading is the fallback for a key resolved across a sentence boundary.
-        const keyPolarity = record.claim.keyPolarity?.[key] ?? polarity;
+        const keyPolarity = pair.polarity;
         const contradicted = keyPolarity === 'positive' ? !present : present;
         if (!contradicted) continue;
         contradictions.push({

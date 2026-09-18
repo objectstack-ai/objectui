@@ -2422,6 +2422,18 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'ONE nested position and no more: `schema.grouping?.fields?.[0]?.field` is the FALLBACK source of `swimlaneField`, and that is the entire member contract this board carries for the key. Three rows make it a reading rather than a claim — the swimlane layout appears keyed by `fields[0].field` where without the key there is none; an explicit `swimlaneField` WINS over it; and a second `fields` entry changes nothing, which is what pins the read at `[0]` rather than at "the fields list". The declared description says the rest is inert precisely so the declaration does not recommend a write the renderer cannot honour — this file is what keeps that sentence true. The spec row is `z.unknown()`, so the read site is the whole member contract (objectui#8313).',
   },
+  'object-master-detail-form.initialData': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailInitialMembers-8071.test.tsx',
+    pins: 'Members are PARENT FIELD NAMES and each member value is that control\'s opening value \u2014 pinned in ONE file with `initialValues`, because this block\'s own registration declares them a pair ("Alternate spelling of `initialValues` the renderer also reads", with new schemas told to prefer `initialValues`) and a pair pinned apart leaves the PRECEDENCE stated nowhere. The precedence is whole-object: `schema.initialData || schema.initialValues`, so with both authored every `initialValues` member is DROPPED including the ones `initialData` says nothing about, and an EMPTY `initialData` shadows a populated `initialValues` completely because `||` tests the object and `{}` is truthy \u2014 recorded as behaviour and handed back as a finding, since changing it is a renderer change and this card writes pins only. \u2b50 The two rows no sibling pin can make are the block\'s own: the seed reaches the PARENT LEG of the atomic batch and nothing else (a member naming a detail column seeds no child row and the posted batch still carries exactly one operation), and in `edit` mode with a `recordId` the fetched record REPLACES both keys wholesale, so a member the record omits opens empty rather than falling back to the seed. Neither key has a read site in this block at all: `MasterDetailForm`\'s `parentSchema` memo copies them key by key onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>` \u2014 no `SchemaRenderer`, no registry lookup \u2014 which is exactly why the pin is taken here, since that hand-written map can drop a key while every declaration still reads correct (the failure `object-form.sections` records twice, objectui#9779 / objectui#9834). A no-keys row renders the same controls empty as the non-vacuity control. Both keys are registered `type: \'object\'` and typed `Record<string, any>`, so every object parses on both declared sides and the read site is the whole member contract. New file (objectui#8071 slice 15).',
+  },
+  'object-master-detail-form.initialValues': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailInitialMembers-8071.test.tsx',
+    pins: 'The other half of this block\'s declared alternate-spelling pair, pinned in the same file and the same rows \u2014 see `object-master-detail-form.initialData` above. This is the spelling the registration tells authors to PREFER and the one that loses outright whenever the other is authored, which is the reason the pair is pinned together (objectui#8071 slice 15).',
+  },
+  'object-master-detail-form.sections': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailSectionMembers-8071.test.tsx',
+    pins: 'Members are section OBJECTS shaping the PARENT half only \u2014 a member\'s `fields` are parent field names read as a SET, so the OBJECT\'s field order wins over the authored member order, and the block\'s `details` collections keep their own columns through every row. A member that resolves to NO parent field is dropped WHOLE, heading included, measured with a DETAIL column name as the member because that is the mistake this composition invites: one node declares two field vocabularies and only one of them is this key\'s. \u2b50 The sharp row is a DIVERGENCE from the block\'s own registration: `fields` is declared "Ignored when `sections` is given \u2014 sections carry their own field lists", and it is not ignored. `ObjectForm` builds the parent pool from `schema.fields` FIRST and a section filters against that pool, so authoring both INTERSECTS them \u2014 a section member outside `fields` is dropped with no diagnostic and a section whose every member is outside it disappears heading and all. Pinned as behaviour and handed back as a finding, not fixed, because fixing it changes either the renderer or the declaration. The key has no read site in this block: `MasterDetailForm`\'s `parentSchema` memo copies it onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>`, the same hand-written carrier whose dropped keys `object-form.sections` records twice (objectui#9779 / objectui#9834) \u2014 which is why the pin is taken here rather than delegated. \u26d4 Deliberately NOT re-asserted, because they are owned next door by `objectFormSectionMembers-8071.test.tsx` and duplicating them buys nothing: `collapsed` vs `collapsible`, the `name`-alone heading, the untitled trailing bucket and the `description` blurb; the `simple` / `tabbed` presentation routing is owned by `masterDetailFormTypeVocabulary.test.tsx`. A no-sections row is the non-vacuity control. Both declared sides are unconstrained (bare `type: \'array\'` with no `of`; `sections?: any[]`), so the read site is the whole member contract. New file (objectui#8071 slice 15).',
+  },
   'object-metric.aggregate': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
     pins: 'A three-member options bag whose members are read TWICE — once into the adapter call, once back out of the response. `field`/`function`/`groupBy` become `ds.aggregate(object, { field, function, groupBy, filter })` with `groupBy` OPTIONAL and defaulting to `\'_all\'` (one bucket) and an authored value outranking it; the bag is asserted AS A WHOLE so a member added to or dropped from the call is red in either direction. The readback is the half that has no second chance: `function: \'count\'` sums `<field>_count` across EVERY returned row while any other function reads the FIRST row\'s `<field>_<function>`, and the two arms run on the SAME two-row response so only a readback reading both members can answer 120 on one and 7 on the other — a `field`/`function` that reached the query but not the readback paints 0 over a response that carried the right number. `<field>` unsuffixed is pinned as the chain\'s second limb. The key\'s ABSENCE is a member semantic in its own right and is the file\'s non-vacuity floor: with no `aggregate` the query VERB changes to `find()` and the value becomes the row count. Driven through the registered block, not the bare widget. New file (objectui#8071 slice 8).',
@@ -2681,13 +2693,14 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   'object-grid.grouping': AWAITING_A_PIN,
   'object-grid.sort': AWAITING_A_PIN,
 
-  // object-master-detail-form
+  // object-master-detail-form — objectui#8071 slice 15 pinned the two PARENT
+  // SEED keys (`initialData`, `initialValues`, an alternate-spelling pair the
+  // registration declares as one) and `sections`; the three below are what that
+  // first bite left, and they are the block's other half — where the parent
+  // record comes from and what the child collections are.
   'object-master-detail-form.dataSource': AWAITING_A_PIN,
   'object-master-detail-form.details': AWAITING_A_PIN,
   'object-master-detail-form.fields': AWAITING_A_PIN,
-  'object-master-detail-form.initialData': AWAITING_A_PIN,
-  'object-master-detail-form.initialValues': AWAITING_A_PIN,
-  'object-master-detail-form.sections': AWAITING_A_PIN,
 
   // object-metric — objectui#8071 slice 8 pinned the four QUERY members
   // (`dataSource`, `aggregate`, `filter`, `compareTo`) and slice 9 the two
@@ -3337,11 +3350,59 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
  * reading was not re-measured here either — slice 7's measurement still stands.
  *
+ * ## 13 -> 10, the first bite out of `object-master-detail-form`, and why the
+ * seed pair could not be split
+ *
+ * The fifteenth slice takes three `object-master-detail-form` keys —
+ * `initialData`, `initialValues` and `sections` — so the ceiling follows in the
+ * same commit. The block is not closed: `dataSource`, `details` and `fields`
+ * are left.
+ *
+ * ⭐ TWO of the three are one unit, and that is a reading rather than a
+ * preference. This block's own registration calls `initialData` the "Alternate
+ * spelling of `initialValues` the renderer also reads" and tells authors to
+ * prefer `initialValues`; both are declared, both are forwarded, and neither
+ * declaration says which one wins when both are authored. Pinning one without
+ * the other would leave the PRECEDENCE — the cell an author actually trips on —
+ * stated nowhere, so they share one file.
+ *
+ * ⭐ The finding this slice's shape surfaced is that none of the three keys has
+ * a read site in this block at all. `MasterDetailForm`'s `parentSchema` memo
+ * copies them KEY BY KEY onto an `object-form`-shaped object and renders it
+ * through a DIRECTLY imported `<ObjectForm>` — no `SchemaRenderer`, no registry
+ * lookup — so the member contract is the sibling block's, reached through a
+ * hand-written map that can drop a key while every declaration still reads
+ * correct. That is the same carrier whose omissions `object-form.sections`
+ * records twice (objectui#9779, objectui#9834), which is why these pins are
+ * taken at THIS block rather than delegated to the sibling's.
+ *
+ * Both files are NEW — the distinction slices 1, 10, 11, 12, 13 and 14 turned
+ * on. Nothing constrained these keys' members at this block:
+ * `MasterDetailForm.test.tsx` never authors either seed key,
+ * `masterDetailFormTypeVocabulary.test.tsx` names the block and authors
+ * `sections` — it would satisfy a string locator — but its subject is the
+ * `formType` vocabulary and its sections fixture is a constant, so it states
+ * nothing about what a member is.
+ *
+ * ⚠️ Two member facts handed back as findings rather than frozen into a pin,
+ * slice 9's choice for slice 9's reason. (a) An EMPTY `initialData` shadows a
+ * populated `initialValues` completely, because the resolution is `||` on the
+ * OBJECT. (b) `fields` is declared "Ignored when `sections` is given" and is
+ * not ignored: the parent field pool is built from `fields` first and a section
+ * resolves against that pool, so the two INTERSECT and a section member outside
+ * `fields` is dropped silently. Both are pinned as behaviour and stated as
+ * limits; an assertion that either can never change would have to be deleted
+ * before anyone could change it.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here either — slice 7's measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 13;
+const MEMBER_PIN_EXEMPTION_CEILING = 10;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

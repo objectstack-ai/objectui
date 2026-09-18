@@ -242,6 +242,46 @@ const REFERENCE_RE = new RegExp(
 export const RECORD_CONDITION_ROOTS = ['record', 'previous'];
 
 /**
+ * Context subjects for a mount whose condition is evaluated by a SERVER host
+ * that binds `record` and `previous` alone (objectui#9855).
+ *
+ * The dropdown's mirror of {@link RECORD_CONDITION_ROOTS} — same ruling, the
+ * other door. That list narrows what the raw editor's autocomplete OFFERS at
+ * such a mount; this one narrows what the row builder's subject dropdown
+ * offers, which is the control an author actually builds rows with.
+ *
+ * ## Why this is DECLARED by the mount, never defaulted
+ *
+ * ⛔ It is deliberately not the component's default, and ⛔ it is not derived
+ * from `scope === 'record'`. That test does not separate the hosts: the action
+ * `visible` / `disabled` mounts declare `scope="record"` and are evaluated in
+ * the BROWSER, where `buildExpressionScope` really does bind `user` — so
+ * defaulting to this list would take a working subject away from them.
+ * `scope` is a claim about how the CEL is LINTED; it is not a claim about what
+ * the host binds. `CONDITION_SCOPE_BY_METADATA_TYPE` (`conditionScope.ts`)
+ * makes the same distinction for the same reason.
+ *
+ * ## The two hosts this list is measured against
+ *
+ * Both were read at source in objectstack, and both bind exactly two names:
+ *
+ *  - a hook `condition` — `wrapDeclarativeHook` (`hook-wrappers.ts`) evaluates
+ *    it against `{ record, previous }`, and an unevaluable one throws
+ *    `HookConditionError` rather than resolving false.
+ *  - an object validation rule's guard — `checkPredicate` / `checkConditional`
+ *    (`validation/rule-validator.ts`) evaluate `condition` / `when` against
+ *    `{ record, previous }`, fail-CLOSED. `conditionScope.ts` carries the same
+ *    ruling in its `validation` row.
+ *
+ * `previous` is bound at both and is reachable through
+ * {@link ConditionSubjectVocabulary.includePrevious}, which is a separate knob
+ * a mount opts into — so it is deliberately not folded in here.
+ */
+export const RECORD_CONDITION_SUBJECTS: ReadonlyArray<{ value: string; label?: string }> = [
+  { value: 'record.id', label: 'record.id' },
+];
+
+/**
  * Quote a raw value for CEL unless it is a number / boolean / null — or a
  * reference (objectui#6293).
  *

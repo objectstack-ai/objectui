@@ -35,7 +35,7 @@
 import React from 'react';
 import { Plus, Trash2, ShieldAlert, ChevronDown } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
-import { ConditionBuilder } from '../metadata-admin/inspectors/ConditionBuilder.js';
+import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from '../metadata-admin/inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from '../metadata-admin/inspectors/expression-envelope.js';
 import { readFields } from '../metadata-admin/previews/object-fields-io.js';
 import { t, useMetadataLocale } from '../metadata-admin/i18n.js';
@@ -380,6 +380,15 @@ function RuleTypeFields({
         fields={fields}
         disabled={disabled}
         scope="record"
+        /* objectui#9855 — the SUBJECT dropdown's half of the narrowing the
+           `scope` above buys for the autocomplete. objectql's rule validator
+           evaluates this guard against `{ record, previous }` and nothing else
+           (`checkPredicate` for `condition`, `checkConditional` for `when`),
+           and an unevaluable predicate there is fail-CLOSED — so a `user.*`
+           subject builds a row that rejects every write to the object.
+           Declared at the mount, not defaulted: `scope="record"` does not
+           imply a server host — see `RECORD_CONDITION_SUBJECTS`. */
+        subjects={{ context: RECORD_CONDITION_SUBJECTS }}
         onBlockingIssuesChange={onBlockingIssuesChange}
       />
     </div>

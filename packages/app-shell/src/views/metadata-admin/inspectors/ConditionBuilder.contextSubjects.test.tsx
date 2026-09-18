@@ -53,7 +53,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Module-scope import of the CEL engine, per AGENTS.md's flaky-test rule: the
@@ -73,7 +73,9 @@ vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,
 }));
 
-import { ConditionBuilder } from './ConditionBuilder';
+import { ConditionBuilder, RECORD_CONDITION_ROOTS, RECORD_CONDITION_SUBJECTS } from './ConditionBuilder';
+import { HookDefaultInspector } from './HookDefaultInspector';
+import { ObjectValidationsPanel } from '../../studio-design/ObjectValidationsPanel';
 import { lintCelPredicate } from '../celAuthoring';
 
 afterEach(cleanup);
@@ -171,5 +173,115 @@ describe('a stored `org.id` predicate survives the withdrawal (objectui#9855)', 
     expect(container.querySelectorAll('[aria-label="Remove condition"]').length).toBe(1);
     await userEvent.click(container.querySelectorAll('[role="combobox"]')[0] as HTMLElement);
     expect((await screen.findAllByRole('option')).map((o) => o.textContent ?? '')).toContain('org.id');
+  });
+});
+
+/* ── The server-evaluated mounts DECLARE their narrower vocabulary ──────── */
+
+/**
+ * objectui#9855 option B: the two mounts whose condition is evaluated by a
+ * SERVER host binding `{ record, previous }` declare their own `context`,
+ * rather than the component defaulting one for everybody.
+ *
+ * ⚠️ Membership of this set is a MEASUREMENT, not a shape. It was read at
+ * source in objectstack — `wrapDeclarativeHook` (`hook-wrappers.ts`) for the
+ * hook `condition`, `checkPredicate` / `checkConditional`
+ * (`validation/rule-validator.ts`) for a validation rule's guard — and both
+ * bind exactly two names. ⛔ It is NOT `scope === 'record'`: the action
+ * `visible` / `disabled` mounts declare that scope and are evaluated in the
+ * browser, where `buildExpressionScope` binds `user`, so they keep `user.*`
+ * and a case in the block above holds it there.
+ */
+
+/** A `ConditionBuilder`'s own root, found by the toggle only it renders. */
+function builderRoot(): HTMLElement {
+  const toggle = screen.getAllByRole('button').find((b) => b.textContent?.includes('Expression'));
+  if (!toggle) throw new Error('no ConditionBuilder in row mode on screen — harness is dead');
+  return toggle.parentElement!.parentElement! as HTMLElement;
+}
+
+/** Open the subject dropdown of the first row and read what it offers. */
+async function rowSubjects(): Promise<string[]> {
+  const trigger = within(builderRoot()).getAllByRole('combobox')[0] as HTMLElement;
+  await userEvent.click(trigger);
+  return (await screen.findAllByRole('option')).map((o) => o.textContent ?? '');
+}
+
+function HookHarness() {
+  const [draft, setDraft] = React.useState<Record<string, unknown>>({
+    name: 'stamp',
+    label: 'Stamp',
+    object: 'invoice',
+    events: ['beforeInsert'],
+    condition: "record.status == 'open'",
+  });
+  return (
+    <HookDefaultInspector
+      type="hook"
+      name="stamp"
+      draft={draft}
+      onPatch={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+      readOnly={false}
+      locale={'en-US' as never}
+    />
+  );
+}
+
+function ValidationHarness() {
+  const [draft, setDraft] = React.useState<Record<string, unknown>>({
+    name: 'invoice',
+    fields: { status: { type: 'text' } },
+    validations: [
+      {
+        type: 'script',
+        name: 'rule_a',
+        label: 'rule_a',
+        message: 'nope',
+        severity: 'error',
+        active: true,
+        condition: "record.status == 'open'",
+      },
+    ],
+  });
+  return (
+    <ObjectValidationsPanel
+      draft={draft}
+      onPatch={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+      onBlockingIssuesChange={() => {}}
+    />
+  );
+}
+
+describe('server-evaluated mounts declare `context` (objectui#9855 option B)', () => {
+  for (const [what, Harness] of [
+    ['a hook `condition`', HookHarness],
+    ["an object validation rule's guard", ValidationHarness],
+  ] as const) {
+    it(`${what} offers no \`user.*\` subject — its host binds record and previous alone`, async () => {
+      render(<Harness />);
+      const offered = await rowSubjects();
+      // Both legs, so an empty or unopened dropdown cannot satisfy this.
+      expect(offered, 'the subject dropdown did not open — dead instrument').not.toHaveLength(0);
+      expect(offered, '`record.id` must survive the narrowing').toContain('record.id');
+      const unbound = offered.filter((s) => s.startsWith('user.') || s.startsWith('org.'));
+      expect(
+        unbound,
+        `this mount is evaluated by a host binding { record, previous } only, so ${unbound.join(', ')} compiles a row that can never match`,
+      ).toEqual([]);
+    });
+  }
+
+  it('declares no subject under a root the server hosts do not bind', () => {
+    // Derived from BOTH constants, so this states the rule rather than a
+    // snapshot of today's single entry: the dropdown's list and the
+    // autocomplete's list are the two doors of one ruling and may not drift.
+    expect(RECORD_CONDITION_SUBJECTS.length, 'an empty list would satisfy every case below').toBeGreaterThan(0);
+    for (const s of RECORD_CONDITION_SUBJECTS) {
+      const root = s.value.split('.')[0];
+      expect(
+        RECORD_CONDITION_ROOTS,
+        `declared subject "${s.value}" names root "${root}", which neither the hook wrapper nor the rule validator binds`,
+      ).toContain(root);
+    }
   });
 });

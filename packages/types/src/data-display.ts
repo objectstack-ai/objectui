@@ -1378,13 +1378,26 @@ export interface DataTableSchema extends BaseSchema {
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
-   * (`schema.onRowClick(row)`, gated on `!e.defaultPrevented`). THREE suppliers,
-   * measured: `ObjectGrid` passes `navigation.handleClick`, `ObjectDataTable`
-   * passes `schema.onRowClick ?? handleRowClick` (its own forwarding face,
-   * `ObjectDataTableSchema.onRowClick`, carries the same refusal arm), and
-   * `RelatedList` forwards its own React prop of this name.
+   * (`schema.onRowClick(row, e)`, gated on `!e.defaultPrevented`). THREE
+   * suppliers, measured: `ObjectGrid` passes `navigation.handleClick`,
+   * `ObjectDataTable` passes `schema.onRowClick ?? handleRowClick` (its own
+   * forwarding face, `ObjectDataTableSchema.onRowClick`, carries the same
+   * refusal arm), and `RelatedList` forwards its own React prop of this name.
+   *
+   * TWO parameters since objectui#9462, and the second is the reason that card
+   * exists: the renderer's two call sites — the row's own click handler and the
+   * hover "open record" button, `schema.onRowClick?.(row, e)` — each had the
+   * DOM event in hand and passed only the row. The suppliers above route this
+   * slot straight into `useNavigationOverlay`'s `handleClick`, which reads
+   * `metaKey` / `ctrlKey` / `button` off that second argument, so a host wiring
+   * Cmd/Ctrl/middle-click received `undefined` and "open in a new tab" silently
+   * became an ordinary navigation. Spelled `any` and not `HandleClickModifiers`
+   * for the reason objectui#9341 measured on `ObjectKanbanSchema.onCardClick`:
+   * that interface lives in `@object-ui/react`, which depends on THIS package,
+   * so naming it here is a phantom dependency and closes a cycle. `BaseSchema`'s
+   * own `onClick` / `onChange` / `onSubmit` already use this spelling.
    */
-  onRowClick?: (row: any) => void;
+  onRowClick?: (row: any, event?: any) => void;
   /**
    * Dynamic row class name
    * Function that returns a CSS class string for each row

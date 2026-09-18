@@ -62,7 +62,21 @@ import '@testing-library/jest-dom';
 import { render, screen, cleanup, type RenderResult } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
 import { RecordContextProvider } from '@object-ui/react';
-import * as specUi from '@objectstack/spec/ui';
+// Named imports, ⛔ never `import * as` — the repo's `no-restricted-imports` rule
+// bans a namespace import of this module because it would drag in the spec's
+// form-VIEW `FormField`/`FormFieldSchema`, whose type erases to `any`
+// (objectui#3090). Naming each schema also makes a removed export a build
+// failure rather than a census that quietly reports one block fewer.
+import {
+  AriaPropsSchema,
+  RecordDetailsProps,
+  RecordHighlightsProps,
+  RecordRelatedListProps,
+  RecordActivityProps,
+  RecordChatterProps,
+  RecordPathProps,
+  RecordQuickActionsProps,
+} from '@objectstack/spec/ui';
 import { RecordDetailsRenderer } from '../record-details';
 import { RecordHighlightsRenderer } from '../record-highlights';
 import { RecordActivityRenderer } from '../record-activity';
@@ -110,28 +124,31 @@ const rootOf = (r: RenderResult): HTMLElement => r.container.firstElementChild a
 // ---------------------------------------------------------------------------
 
 /** Protocol props schemas for the blocks this package renders a container for. */
-const SPEC_BLOCK_SCHEMAS = {
-  'record:details': 'RecordDetailsProps',
-  'record:highlights': 'RecordHighlightsProps',
-  'record:related_list': 'RecordRelatedListProps',
-  'record:activity': 'RecordActivityProps',
-  'record:chatter': 'RecordChatterProps',
-  'record:path': 'RecordPathProps',
-  'record:quick_actions': 'RecordQuickActionsProps',
-} as const;
+const SPEC_BLOCK_SCHEMAS: Record<string, any> = {
+  'record:details': RecordDetailsProps,
+  'record:highlights': RecordHighlightsProps,
+  'record:related_list': RecordRelatedListProps,
+  'record:activity': RecordActivityProps,
+  'record:chatter': RecordChatterProps,
+  'record:path': RecordPathProps,
+  'record:quick_actions': RecordQuickActionsProps,
+};
+
+/** The schema's own key set, read off the installed artifact. */
+function ownKeys(schema: any): string[] {
+  const shape = typeof schema?._def?.shape === 'function' ? schema._def.shape() : schema?.shape;
+  return Object.keys(shape ?? {});
+}
 
 /** Does the installed contract declare an `aria` member on this block? */
-function declaresAria(exportName: string): boolean {
-  const schema = (specUi as Record<string, any>)[exportName];
-  if (!schema) throw new Error(`@objectstack/spec/ui exports no ${exportName}`);
-  const shape = typeof schema._def?.shape === 'function' ? schema._def.shape() : schema.shape;
-  return Object.prototype.hasOwnProperty.call(shape ?? {}, 'aria');
+function declaresAria(schema: any): boolean {
+  return ownKeys(schema).includes('aria');
 }
 
 describe('census: which record blocks the CONTRACT declares `aria` on (objectui#9556)', () => {
   it('declares it on every block except `record:quick_actions`', () => {
     const declaring = Object.entries(SPEC_BLOCK_SCHEMAS)
-      .filter(([, exportName]) => declaresAria(exportName))
+      .filter(([, schema]) => declaresAria(schema))
       .map(([block]) => block);
 
     // Stated as the two SETS the routing decision turns on, derived above.
@@ -142,39 +159,33 @@ describe('census: which record blocks the CONTRACT declares `aria` on (objectui#
   it('the census instrument fires — a key every one of them declares is found', () => {
     // Non-vacuity: `declaresAria` reading a mis-shaped schema would answer
     // `false` everywhere and the case above would pass for the wrong reason.
-    const hasOwnKey = (exportName: string, key: string) => {
-      const schema = (specUi as Record<string, any>)[exportName];
-      const shape = typeof schema._def?.shape === 'function' ? schema._def.shape() : schema.shape;
-      return Object.prototype.hasOwnProperty.call(shape ?? {}, key);
-    };
-    expect(hasOwnKey('RecordPathProps', 'statusField')).toBe(true);
-    expect(hasOwnKey('RecordQuickActionsProps', 'actionNames')).toBe(true);
+    expect(ownKeys(RecordPathProps)).toContain('statusField');
+    expect(ownKeys(RecordQuickActionsProps)).toContain('actionNames');
     // …and an absent control, so "declared" is not simply always true.
-    expect(hasOwnKey('RecordPathProps', 'qqzz_absent_key_9556')).toBe(false);
+    expect(ownKeys(RecordPathProps)).not.toContain('qqzz_absent_key_9556');
   });
 
   it('`record:quick_actions` REFUSES the bag, so its read is unreachable by contract', () => {
-    const refused = (specUi as Record<string, any>).RecordQuickActionsProps.safeParse({
+    const refused = RecordQuickActionsProps.safeParse({
       actionNames: ['convert'],
       aria: { ariaLabel: 'Account actions' },
     });
     expect(refused.success).toBe(false);
-    expect(refused.error?.issues.map((i: { code: string }) => i.code)).toContain('unrecognized_keys');
+    expect(refused.error?.issues.map((i) => i.code)).toContain('unrecognized_keys');
+    // `keys` lives on the `unrecognized_keys` variant only, so it is read off the
+    // issue rather than annotated onto every arm of the union.
     expect(
-      refused.error?.issues.flatMap((i: { keys?: string[] }) => i.keys ?? []),
+      refused.error?.issues.flatMap((i) => (i as { keys?: string[] }).keys ?? []),
     ).toContain('aria');
 
     // The control that makes the refusal mean something: the same document
     // without the bag parses.
     expect(
-      (specUi as Record<string, any>).RecordQuickActionsProps.safeParse({
-        actionNames: ['convert'],
-      }).success,
+      RecordQuickActionsProps.safeParse({ actionNames: ['convert'] }).success,
     ).toBe(true);
   });
 
   it('the shared ARIA shape accepts `ariaLabel` (string OR inline map) and refuses `label`', () => {
-    const { AriaPropsSchema } = specUi as Record<string, any>;
     expect(AriaPropsSchema.safeParse({ ariaLabel: 'Deal stages' }).success).toBe(true);
     // The arm the declaration was narrower than until objectui#9556.
     expect(AriaPropsSchema.safeParse({ ariaLabel: { en: 'Deal stages', 'zh-CN': '阶段' } }).success)
@@ -182,7 +193,7 @@ describe('census: which record blocks the CONTRACT declares `aria` on (objectui#
 
     const alias = AriaPropsSchema.safeParse({ label: 'Deal stages' });
     expect(alias.success).toBe(false);
-    expect(alias.error?.issues.flatMap((i: { keys?: string[] }) => i.keys ?? [])).toContain('label');
+    expect(alias.error?.issues.flatMap((i) => (i as { keys?: string[] }).keys ?? [])).toContain('label');
   });
 });
 

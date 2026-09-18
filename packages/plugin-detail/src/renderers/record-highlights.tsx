@@ -15,6 +15,7 @@ import { useRecordContext, useRegisterHighlightFields } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import type { RecordHighlightsComponentProps } from '@object-ui/types';
 import { HeaderHighlight } from '../HeaderHighlight';
+import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -37,6 +38,18 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
 }) => {
   const ctx = useRecordContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
   const objectName = ctx?.objectName || '';
   const perms = usePermissions();
   const { readableFields } = useFieldPermissions(objectName);
@@ -124,7 +137,7 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
   }
 
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <HeaderHighlight
         fields={highlightFields as any}
         data={ctx?.data}

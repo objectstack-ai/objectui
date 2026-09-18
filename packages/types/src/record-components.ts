@@ -17,13 +17,77 @@
  * @packageDocumentation
  */
 
+import type { I18nLabel } from '@objectstack/spec/ui';
+
 /**
  * ARIA props shared across all record components.
- * Aligned with @objectstack/spec AriaPropsSchema.
+ * Aligned with @objectstack/spec `AriaPropsSchema`.
+ *
+ * Every `record:*` block below carries this bag under its own `aria` key,
+ * because the protocol's own props schema for that block does
+ * (`RecordDetailsProps`, `RecordHighlightsProps`, `RecordRelatedListProps`,
+ * `RecordActivityProps`, `RecordChatterProps`, `RecordPathProps` — each one
+ * declares `aria`). ⛔ Nothing here writes that list down: which blocks declare
+ * it, and which member spellings the shared shape accepts, are re-derived from
+ * the INSTALLED artifact on every run by the pin that consumes this bag —
+ * `@object-ui/plugin-detail`'s
+ * `src/renderers/__tests__/recordComponentAria-9556.test.tsx` — which reads them
+ * off `@objectstack/spec/ui` rather than restating them (AGENTS.md #9). The
+ * package is named because the instrument is NOT in this one: this docblock
+ * ships in this package's `dist/index.d.ts`, so a consumer following it needs
+ * to know where to look.
+ *
+ * ## `ariaLabel` is the INLINE locale vocabulary, not a plain string
+ *
+ * This member restated the contract's key as a bare `string` until
+ * objectui#9556. `AriaPropsSchema.ariaLabel` is
+ * `z.union([z.string(), InlineLocaleMapSchema])` — a plain string **or** an
+ * inline per-locale map like `{ en: 'Deal stages', 'zh-CN': '阶段' }` — so the
+ * restatement was a NARROWING: a map-valued name parsed green at publish and
+ * `tsc` refused it here. That is precisely Group A of objectui#7759, which
+ * objectui#9092 repaired at three sites (`AppComponentSchema.label`,
+ * `ObjectGridSchema.label`/`.description`, `PageNodeSchema.aria.ariaLabel`);
+ * this bag is the fourth site of the same group, missed there because it is
+ * reached through a shared interface rather than restated inline.
+ *
+ * ⚠️ Read it with the INLINE resolver — the spec's own
+ * `resolveI18nLabel(label, locale)`. The FLAT `BaseSchema.ariaLabel` one
+ * level up is objectui's OTHER vocabulary (the KEYED
+ * `{ key, defaultValue?, params? }` reference, resolved by
+ * `resolveKeyedI18nLabel` in `SchemaRenderer`), and neither resolver accepts
+ * the other's shape. objectui#9092's changeset records why a wrong slot costs
+ * a wrong ANSWER rather than a refusal, which is the harder failure to see.
+ *
+ * ## `label` is NOT a member of this bag, and must not be added
+ *
+ * `label` is the shared ARIA shape's ALIAS ENTRY — a rename prescription
+ * pointing at `ariaLabel`, which exists to produce a better rejection message
+ * and is never accepted. Declaring it here would declare a spelling the
+ * contract refuses on parse. Exactly two renderers READ it — `record:path` and
+ * `record:quick_actions`, the two that already did before objectui#9556 — as a
+ * back-compat fold for documents written before the shape closed, behind the
+ * canonical spelling and declared nowhere on this face. ⛔ It is OPT-IN there
+ * rather than shared: the other five `record:*` blocks do not read it, because
+ * no stored document was ever served by it on them. See
+ * `@object-ui/plugin-detail`'s `renderers/recordComponentAria.ts`, whose own
+ * pin asserts both directions — so this paragraph is checked rather than
+ * merely written.
  */
 export interface RecordComponentAriaProps {
-  ariaLabel?: string;
+  /**
+   * Accessible name for the block's own container. Plain string, or the spec's
+   * inline per-locale map — resolve with `resolveI18nLabel`, ⛔ never by
+   * assigning it into a string position (an unresolved map reaches the DOM as
+   * `[object Object]`, and an `aria-label` position is one of the sinks a
+   * compiler does flag — the untyped ones are not).
+   */
+  ariaLabel?: string | I18nLabel;
+  /** `id` of the element that describes this block, for `aria-describedby`. */
   ariaDescribedBy?: string;
+  /**
+   * ARIA role for the block's own container, overriding the role the block
+   * renders by default.
+   */
   role?: string;
 }
 

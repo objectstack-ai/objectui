@@ -25,6 +25,7 @@ import { humanizeLabel } from '@object-ui/fields';
 import { columnIdentity, elementDataSourceBlock } from '@object-ui/core';
 import type { RecordRelatedListComponentProps } from '@object-ui/types';
 import { RelatedList } from '../RelatedList';
+import { useRecordAriaProps } from './recordComponentAria';
 
 /**
  * Normalize a column entry (string | {field} | {name} | {key}) to its name.
@@ -88,6 +89,18 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
 }) => {
   const ctx = useRecordContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
   const i18n = useSafeFieldLabel();
   const { language } = useObjectTranslation();
 
@@ -234,7 +247,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   }
 
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <RelatedList
         title={title}
         type="table"

@@ -2312,7 +2312,24 @@ export const ObjectChartSchema = BaseSchema.extend({
 export const ObjectGallerySchema = BaseSchema.extend({
   type: z.literal('object-gallery'),
   objectName: z.string().optional().describe('ObjectQL object name'),
-  filter: z.unknown().optional().describe('Query filter, forwarded verbatim as $filter'),
+  // ⭐ NARROWED from `z.unknown()` (objectui#9309), in step with the twin
+  // declaration in `../objectql.ts`, which is now `QueryParams['$filter']` —
+  // the destination this key's own description names. `z.unknown()` left the
+  // runtime door wider than the type: `filter: 'stage=won'` and `filter: 42`
+  // parsed clean here while `tsc` refused them one file over, which is the
+  // two-dialects-of-one-key shape AGENTS.md #0.1 forbids.
+  // ⚠️ It also sat in `zod-mirror-parity`'s DOCUMENTED BLIND SPOT: that file's
+  // `Unconstrained< T >` excludes an `unknown` mirror slot from the
+  // `WiderThanDeclared` comparison by definition, so nothing would have
+  // reported the split. Measured, not assumed — see the ledger note there.
+  // Spelled as the two arms `QueryParams['$filter']` resolves to, in the
+  // ARRAY-FIRST order `ObjectChartSchema.filter` above already uses: a
+  // `z.record` arm placed first would have to be trusted to refuse an array,
+  // and the ordering is the cheaper guarantee.
+  filter: z.union([
+    z.array(z.any()),
+    z.record(z.string(), z.any()),
+  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   data: z.array(z.record(z.string(), z.unknown())).optional().describe('Inline records'),
   gallery: stripImportedDefaults(SpecGalleryConfigSchema).optional().describe('Gallery configuration (@objectstack/spec GalleryConfig)'),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Record navigation behaviour (drawer/dialog/page)'),

@@ -631,6 +631,9 @@ export function clauseTexts(text) {
  * `polarity` is the sentence-level reading (the first declaration clause), kept
  * because a key resolved across a sentence boundary has no clause here.
  * `byKey` is the per-key reading, and it is the one the verdict uses.
+ *
+ * @param {string} text
+ * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative"> }}
  */
 export function readPolarity(text) {
   const { clauses, masked, spans } = segmentClauses(text);

@@ -246,16 +246,22 @@ jobs:
               );
             }
 
-            // BOTH halves (objectui#9509). `findings` is the went-false half —
-            // somebody else's pending changeset — and `bornFalse` is this pull
-            // request's own prose. A born-false-only run must still create the
-            // comment, or the one half nothing later will ever turn red is
-            // delivered to the job log the ruling measured at zero answers out
-            // of four.
+            // ALL THREE readings (objectui#9509, objectui#9841). `findings` is the
+            // went-false half — somebody else's pending changeset — `bornFalse` is
+            // this pull request's own prose, and `selfContradiction` is one
+            // changeset read against its own front matter. A run whose ONLY
+            // finding is of one kind must still create the comment, or that kind
+            // is delivered to the job log the ruling measured at zero answers out
+            // of four. Every reading the gate gains needs a term here; landing one
+            // without it is objectui#9842's shape — a patrol that runs and reaches
+            // nobody — chosen knowingly.
             let findings = 0;
             try {
               const measured = JSON.parse(fs.readFileSync('claims.json', 'utf8'));
-              findings = measured.findings.length + (measured.bornFalse ?? []).length;
+              findings =
+                measured.findings.length +
+                (measured.bornFalse ?? []).length +
+                (measured.selfContradiction ?? []).length;
             } catch (error) {
               core.warning(`Could not read the finding count: ${error.message}`);
             }

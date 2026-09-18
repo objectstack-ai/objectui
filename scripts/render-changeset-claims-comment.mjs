@@ -158,9 +158,54 @@ function bornFalseSection(rows) {
   return lines;
 }
 
+/**
+ * The SELF-CONTRADICTION half (objectui#9841), rendered above both of the others.
+ *
+ * Above them because it is the cheapest of the three to answer: it needs no diff
+ * and no other file. One changeset declares a package and its own body says that
+ * package did not move, and the two halves publish together into that package's
+ * CHANGELOG.
+ *
+ * ⛔ The BORN FALSE / WENT FALSE split is rendered per row and ⛔ never collapsed.
+ * "True when written, falsified by a later commit on this branch" and "false the
+ * moment it was written" are different things to tell an author, and the carded
+ * instance is the first shape.
+ */
+function selfContradictionSection(rows) {
+  const lines = [
+    `## ⚠️ ${rows.length} declaration(s) are negated by the body that publishes with them`,
+    '',
+    'The front matter says the package is being released; a sentence attached to that same ' +
+      "package's own name says it did not move. Both halves publish **verbatim** into that " +
+      "package's CHANGELOG. ⛔ Nothing here blocks, and ⛔ nothing here is a prose judgement — " +
+      'this is name resolution between two halves of one file.',
+    '',
+  ];
+  for (const row of rows) {
+    const when =
+      row.when === 'went'
+        ? '**went false** — it stood at the revision that wrote it; a later commit on this branch added the declaration'
+        : row.when === 'born'
+          ? '**born false** — the revision that wrote this sentence already declared that package'
+          : '**undated** — no revision in this range carries the sentence, so ⛔ neither verdict is claimed';
+    lines.push(`- \`${row.changeset}\` declares \`${row.package}\` and says \`${row.claim}\` — ${when}`);
+    if (row.sentence) lines.push('', `  > ${spellOutTags(row.sentence)}`);
+    lines.push('');
+  }
+  lines.push(
+    '⭐ **Name the aspect, and name what does move.** That is how PR objectui#9796 repaired the ' +
+      'instance this reading was built from: «No published FACE moves — and one published FILE ' +
+      'does». An aspect-scoped negation about a package you *do* patch is correct English and ' +
+      'correct practice, and this gate is silent on it.',
+    '',
+  );
+  return lines;
+}
+
 export function renderClaimsComment(result = {}, { runUrl = '' } = {}) {
   const findings = Array.isArray(result.findings) ? result.findings : [];
   const born = Array.isArray(result.bornFalse) ? result.bornFalse : [];
+  const contradictions = Array.isArray(result.selfContradiction) ? result.selfContradiction : [];
   const grouped = byChangeset(findings);
   const trailer = runUrl ? `\n\n${measurement(result)} · [run](${runUrl})\n` : `\n\n${measurement(result)}\n`;
 
@@ -169,13 +214,14 @@ export function renderClaimsComment(result = {}, { runUrl = '' } = {}) {
   // It has to exist all the same: a pull request that fixed the thing, or whose
   // diff moved off the named file, would otherwise keep a stale request to
   // re-read at the top of its thread forever.
-  if (grouped.size === 0 && born.length === 0) {
+  if (grouped.size === 0 && born.length === 0 && contradictions.length === 0) {
     return (
       `${MARKER}\n\n` +
       '## ✅ Nothing to re-read\n\n' +
-      'No pending changeset names a file this change touches, and no address in this pull ' +
-      "request's own prose points at a line this change moves. An earlier revision did. That " +
-      'request to re-read does **not** apply to the current diff.\n\n' +
+      'No pending changeset names a file this change touches, no address in this pull ' +
+      "request's own prose points at a line this change moves, and no changeset here negates a " +
+      'package it declares. An earlier revision did. That request to re-read does **not** apply ' +
+      'to the current diff.\n\n' +
       'This comment is updated in place on every re-run rather than posted again, so the thread ' +
       'does not grow one per push.' +
       trailer
@@ -183,6 +229,7 @@ export function renderClaimsComment(result = {}, { runUrl = '' } = {}) {
   }
 
   const lines = [MARKER, ''];
+  if (contradictions.length > 0) lines.push(...selfContradictionSection(contradictions));
   if (born.length > 0) lines.push(...bornFalseSection(born));
   // ⛔ Never printed as an empty section: a heading over nothing reads as a
   // measurement that came back clean, and this half may simply not have run.

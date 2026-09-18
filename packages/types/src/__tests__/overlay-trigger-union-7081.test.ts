@@ -431,8 +431,17 @@ describe.each(FAMILY.map((member) => [member.name, member] as const))('%s.trigge
     expect(zod.safeParse({ type, ...rest, trigger: shipped }).success).toBe(true);
   });
 
-  it('the renderer hands `schema.trigger` to `renderChildren` -- the read site the docblock names', () => {
-    expect(read(`${RENDERERS}/${type}.tsx`)).toMatch(/renderChildren\(schema\.trigger/);
+  it('the renderer hands `schema.trigger` to the render path -- the read site the docblock names', () => {
+    // TWO spellings, one claim. objectui#9710 moved the eight `asChild` triggers
+    // onto a shared seam, so they now hand the slot to `renderTriggerSlot`,
+    // which renders it through `renderChildren` one hop down (pinned as a chain
+    // in `what did NOT move` below). `context-menu` still calls `renderChildren`
+    // directly -- its `asChild` child is a real element, so it was never part of
+    // that repair. What this asserts is unchanged: the renderer READS
+    // `schema.trigger`, which is what licenses the widened declaration.
+    expect(read(`${RENDERERS}/${type}.tsx`)).toMatch(
+      /renderChildren\(\s*schema\.trigger|renderTriggerSlot\([A-Za-z]+Trigger,\s*schema\.trigger\)/,
+    );
   });
 
   it('the docs page publishes the union', () => {
@@ -447,6 +456,16 @@ describe('what did NOT move (objectui#7081)', () => {
     const utils = read(RENDER_CHILDREN);
     expect(utils).toContain('export function renderChildren(');
     expect(utils).toMatch(/if \(Array\.isArray\(children\)\)/);
+    // The other hop of the chain the docblocks now describe: the shared seam
+    // objectui#9710 introduced reaches that same branch. Without this, the
+    // per-member assertion above proves only that the renderer calls the seam,
+    // and the array form's read site would be unpinned.
+    expect(utils).toContain('export function renderTriggerSlot(');
+    // ⚠️ Anchored at the DECLARATION, not at the name: `renderTriggerSlot` and
+    // `renderChildren` both appear in that function's docblock, so an unanchored
+    // match would be satisfied by the prose describing the chain rather than by
+    // the chain.
+    expect(utils).toMatch(/export function renderTriggerSlot\([\s\S]*?renderChildren\(/);
   });
 
   it('the mirror spells the union on all nine overlay `trigger` members -- a census, so a tenth or a ninth cannot slip in or out unnoticed', () => {
@@ -463,7 +482,14 @@ describe('what did NOT move (objectui#7081)', () => {
   it('every widened docblock names its read site and the array branch', () => {
     const source = read(DECLARATION);
     for (const { type } of WIDENED) {
-      expect(source, type).toContain(`packages/components/src/renderers/overlay/${type}.tsx:`);
+      // ⛔ No trailing colon. This used to require `…${type}.tsx:` -- a
+      // cross-file LINE ADDRESS, the form AGENTS.md #11 bans outright because
+      // nothing re-derives it and it rots the first time a line moves above the
+      // thing it cites. objectui#9710's edit moved those lines and made all
+      // seven addresses wrong, which is the rot that rule describes. The claim
+      // this test makes -- every widened docblock NAMES its read site -- is
+      // carried by the file path; the line number never carried any of it.
+      expect(source, type).toContain(`packages/components/src/renderers/overlay/${type}.tsx`);
     }
     expect(source.match(/`Array\.isArray` branch/g)).toHaveLength(WIDENED.length);
   });

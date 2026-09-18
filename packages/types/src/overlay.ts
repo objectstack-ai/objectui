@@ -47,9 +47,10 @@ export interface DialogSchema extends BaseSchema {
   /**
    * Dialog trigger (button or element that opens the dialog)
    *
-   * READ SITE: `packages/components/src/renderers/overlay/dialog.tsx:26` —
-   * `renderChildren(schema.trigger)` inside `DialogTrigger`, whose
-   * `Array.isArray` branch (`packages/components/src/lib/utils.tsx:23`)
+   * READ SITE: `packages/components/src/renderers/overlay/dialog.tsx` —
+   * `renderTriggerSlot(DialogTrigger, schema.trigger)` (objectui#9710), whose
+   * shared seam renders the slot through `renderChildren` and whose
+   * `Array.isArray` branch in `packages/components/src/lib/utils.tsx`
    * serves the array form; the same spelling {@link ContextMenuSchema.trigger}
    * declares (objectui#7081).
    */
@@ -154,9 +155,10 @@ export interface AlertDialogSchema extends BaseSchema {
   /**
    * Dialog trigger
    *
-   * READ SITE: `packages/components/src/renderers/overlay/alert-dialog.tsx:28` —
-   * `renderChildren(schema.trigger)` inside `AlertDialogTrigger`, whose
-   * `Array.isArray` branch (`packages/components/src/lib/utils.tsx:23`)
+   * READ SITE: `packages/components/src/renderers/overlay/alert-dialog.tsx` —
+   * `renderTriggerSlot(AlertDialogTrigger, schema.trigger)` (objectui#9710), whose
+   * shared seam renders the slot through `renderChildren` and whose
+   * `Array.isArray` branch in `packages/components/src/lib/utils.tsx`
    * serves the array form; the same spelling {@link ContextMenuSchema.trigger}
    * declares (objectui#7081).
    */
@@ -400,9 +402,10 @@ export interface SheetSchema extends BaseSchema {
   /**
    * Sheet trigger
    *
-   * READ SITE: `packages/components/src/renderers/overlay/sheet.tsx:26` —
-   * `renderChildren(schema.trigger)` inside `SheetTrigger`, whose
-   * `Array.isArray` branch (`packages/components/src/lib/utils.tsx:23`)
+   * READ SITE: `packages/components/src/renderers/overlay/sheet.tsx` —
+   * `renderTriggerSlot(SheetTrigger, schema.trigger)` (objectui#9710), whose
+   * shared seam renders the slot through `renderChildren` and whose
+   * `Array.isArray` branch in `packages/components/src/lib/utils.tsx`
    * serves the array form; the same spelling {@link ContextMenuSchema.trigger}
    * declares (objectui#7081).
    */
@@ -504,9 +507,10 @@ export interface DrawerSchema extends BaseSchema {
   /**
    * Drawer trigger
    *
-   * READ SITE: `packages/components/src/renderers/overlay/drawer.tsx:27` —
-   * `renderChildren(schema.trigger)` inside `DrawerTrigger`, whose
-   * `Array.isArray` branch (`packages/components/src/lib/utils.tsx:23`)
+   * READ SITE: `packages/components/src/renderers/overlay/drawer.tsx` —
+   * `renderTriggerSlot(DrawerTrigger, schema.trigger)` (objectui#9710), whose
+   * shared seam renders the slot through `renderChildren` and whose
+   * `Array.isArray` branch in `packages/components/src/lib/utils.tsx`
    * serves the array form; the same spelling {@link ContextMenuSchema.trigger}
    * declares (objectui#7081).
    */
@@ -596,9 +600,10 @@ export interface PopoverSchema extends BaseSchema {
   /**
    * Popover trigger
    *
-   * READ SITE: `packages/components/src/renderers/overlay/popover.tsx:22` —
-   * `renderChildren(schema.trigger)` inside `PopoverTrigger`, whose
-   * `Array.isArray` branch (`packages/components/src/lib/utils.tsx:23`)
+   * READ SITE: `packages/components/src/renderers/overlay/popover.tsx` —
+   * `renderTriggerSlot(PopoverTrigger, schema.trigger)` (objectui#9710), whose
+   * shared seam renders the slot through `renderChildren` and whose
+   * `Array.isArray` branch in `packages/components/src/lib/utils.tsx`
    * serves the array form; the same spelling {@link ContextMenuSchema.trigger}
    * declares (objectui#7081).
    */
@@ -685,7 +690,7 @@ export interface PopoverSchema extends BaseSchema {
  * ⚠️ This declaration used to REQUIRE `children` and declare neither `trigger`
  * nor `body` (objectui#6939). Nothing reads `children` here — the renderer
  * reads `schema.trigger` and `schema.content || renderChildren(schema.body)`
- * (`packages/components/src/renderers/overlay/tooltip.tsx:28,31`), and the
+ * (`packages/components/src/renderers/overlay/tooltip.tsx`), and the
  * registration's own `inputs` list `trigger` / `content` / `body` and never
  * `children`. `children` stays legal through {@link BaseSchema}, where it is
  * optional; it is no longer demanded, so nothing that type-checked before
@@ -701,8 +706,9 @@ export interface TooltipSchema extends BaseSchema {
   /**
    * Element the tooltip attaches to.
    *
-   * READ SITE: `packages/components/src/renderers/overlay/tooltip.tsx:28` —
-   * `renderChildren(schema.trigger)` inside `TooltipTrigger`. The same spelling
+   * READ SITE: `packages/components/src/renderers/overlay/tooltip.tsx` —
+   * `renderTriggerSlot(TooltipTrigger, schema.trigger)` (objectui#9710), whose
+   * shared seam renders the slot through `renderChildren`. The same spelling
    * {@link HoverCardSchema.trigger} declares, which is the settled in-repo
    * shape for this slot.
    */
@@ -710,14 +716,14 @@ export interface TooltipSchema extends BaseSchema {
   /**
    * Tooltip content/text — the FIRST half of the content read.
    *
-   * READ SITE: `packages/components/src/renderers/overlay/tooltip.tsx:31` —
+   * READ SITE: `packages/components/src/renderers/overlay/tooltip.tsx` —
    * `schema.content || renderChildren(schema.body)`. Optional because
    * {@link TooltipSchema.body} is the other half of that same read.
    */
   content?: string | SchemaNode;
   /**
    * Rich tooltip content — the FALLBACK half of the same read at
-   * `packages/components/src/renderers/overlay/tooltip.tsx:31`, listed by the
+   * `packages/components/src/renderers/overlay/tooltip.tsx`, listed by the
    * registration as the "Rich Content" slot.
    */
   body?: SchemaNode | SchemaNode[];
@@ -772,9 +778,10 @@ export interface HoverCardSchema extends BaseSchema {
   /**
    * Hover trigger element
    *
-   * READ SITE: `packages/components/src/renderers/overlay/hover-card.tsx:22` —
-   * `renderChildren(schema.trigger)` inside `HoverCardTrigger`, whose
-   * `Array.isArray` branch (`packages/components/src/lib/utils.tsx:23`)
+   * READ SITE: `packages/components/src/renderers/overlay/hover-card.tsx` —
+   * `renderTriggerSlot(HoverCardTrigger, schema.trigger)` (objectui#9710), whose
+   * shared seam renders the slot through `renderChildren` and whose
+   * `Array.isArray` branch in `packages/components/src/lib/utils.tsx`
    * serves the array form; the same spelling {@link ContextMenuSchema.trigger}
    * declares (objectui#7081).
    */
@@ -806,7 +813,7 @@ export interface HoverCardSchema extends BaseSchema {
   /**
    * Alignment of the card against its trigger.
    *
-   * READ SITE: `packages/components/src/renderers/overlay/hover-card.tsx:24` —
+   * READ SITE: `packages/components/src/renderers/overlay/hover-card.tsx` —
    * `align={schema.align}` on `HoverCardContent`, beside the already-declared
    * `side={schema.side}`.
    *
@@ -974,9 +981,10 @@ export interface DropdownMenuSchema extends BaseSchema {
   /**
    * Menu trigger
    *
-   * READ SITE: `packages/components/src/renderers/overlay/dropdown-menu.tsx:97` —
-   * `renderChildren(schema.trigger)` inside `DropdownMenuTrigger`, whose
-   * `Array.isArray` branch (`packages/components/src/lib/utils.tsx:23`)
+   * READ SITE: `packages/components/src/renderers/overlay/dropdown-menu.tsx` —
+   * `renderTriggerSlot(DropdownMenuTrigger, schema.trigger)` (objectui#9710), whose
+   * shared seam renders the slot through `renderChildren` and whose
+   * `Array.isArray` branch in `packages/components/src/lib/utils.tsx`
    * serves the array form; the same spelling {@link ContextMenuSchema.trigger}
    * declares (objectui#7081).
    */

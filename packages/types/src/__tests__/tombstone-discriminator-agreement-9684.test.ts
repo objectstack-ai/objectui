@@ -32,27 +32,38 @@
  * ## What it enforces, and what it cannot
  *
  * 1. Any comment block in this package that states the rule GENERICALLY must
- *    also carry the surviving-carrier precondition. That is the exact drift
- *    objectui#7678 created and objectui#9684 measured twice.
- * 2. `../mobile.ts` cites the rule and never restates it, so its four
- *    retirement notes are outside the amendment surface entirely.
+ *    carry the precondition IN RULE VOICE — `CARRIES_PRECONDITION` reads the
+ *    rule's own phrasings, ⛔ not the words "no carrier" wherever they fall in
+ *    the block. That distinction is not pedantry: it was measured at the second
+ *    in-seat review that an un-amended statement passed because its per-
+ *    retirement ARGUMENT said "there is no carrier", while the same defect
+ *    worded "no surviving object" was flagged.
+ * 2. `../mobile.ts` states the rule NOWHERE — no prong, no clause, nothing that
+ *    matches `STATES_THE_RULE`. ⛔ Not "does not write the prongs out", which
+ *    is what this asserted while claiming the wider thing: a note restating the
+ *    precondition with the prongs left unwritten passed, and put that file back
+ *    on the amendment surface for that clause.
  * 3. The citation target still exists and still states the rule.
- * 4. The four surviving statements carry exactly the clauses `CLAUSES` names,
- *    per the roster in `SURVIVING_STATEMENTS`. ⭐ 1 alone does NOT give this:
- *    measured at the in-seat review of objectui#9684, a third prong added to
- *    the `ChatbotSchema` statement and nowhere else passed this file 12/12,
- *    because 1 guards ONE clause. 4 is what makes an amendment that lands at
- *    one of the four go red at the other three — for a clause `CLAUSES` can
- *    name, and ⛔ for no other.
+ * 4. `../complex.ts` states the rule at EXACTLY the recorded sites, and each
+ *    carries exactly the clauses `CLAUSES` names, per the roster in
+ *    `SURVIVING_STATEMENTS`. ⭐ 1 alone does NOT give this: a third prong added
+ *    to the `ChatbotSchema` statement and nowhere else passed this file when 1
+ *    was all there was. ⭐ And the count is exact because `>= 4` let a FIFTH
+ *    fully amended statement pass, which made the "four sites" written here, in
+ *    the `../mobile.ts` preamble and in the changeset a figure nothing
+ *    re-derived (AGENTS.md #9).
  *
  * ⚠️ What re-derives what: the population below is derived at run time from
  * the source, so a site added later is covered without anyone remembering this
  * file. But it is derived by MARKERS, and a statement that paraphrases past all
  * of them is invisible here exactly as it was to the grep on the card. The
- * vacuity control is what keeps that honest in one direction: the population is
- * asserted to still contain the published statements, so markers that stop
- * matching fail loudly instead of passing on an empty set. ⛔ Nothing detects a
- * NEW paraphrase; if you add a site, add a marker.
+ * vacuity control is what keeps that honest in one direction: the population in
+ * `../complex.ts` is asserted to be exactly the roster, so markers that stop
+ * matching fail loudly instead of passing on a short set. ⛔ What remains
+ * silent, measured rather than guessed, on objectui#9684: a clause added at one
+ * site that numbers nothing and matches no `CLAUSES` pattern, and a whole
+ * statement worded past every `STATES_THE_RULE` marker. ⇒ when you amend the
+ * rule, add the clause here; when you add a site, add the marker.
  *
  * ⚠️ Markers are matched against the block with its comment punctuation and
  * line wrapping flattened. Matching raw lines is what makes a phrase probe miss
@@ -67,10 +78,14 @@
  *
  * `../complex.ts` states the rule in JSDoc on exported members, which
  * declaration emit carries into the published `.d.ts`; `../mobile.ts`'s notes
- * are `//` comments at module scope, which it does not. That is why the two
- * files are treated differently — a citation costs a consumer of the published
- * declarations nothing in one file and a jump in the other. The structural half
- * of that contrast (JSDoc vs `//`) is asserted below. ⛔ The reading of the
+ * are `//` comments, which it does not. ⛔ The dividing line is the comment
+ * FORM, not where the comment sits: a `//` comment placed directly above an
+ * exported declaration with no blank line also reaches the emitted `.d.ts`
+ * zero times, measured on objectui#9684 — so "at module scope", which this
+ * header and the changeset both said, named the wrong cause. That asymmetry is
+ * why the two files are treated differently — a citation costs a consumer of
+ * the published declarations nothing in one file and a jump in the other. The
+ * structural half of the contrast (JSDoc vs `//`) is asserted below. ⛔ The reading of the
  * emitted `.d.ts` itself is NOT re-derived by anything here or in CI: it was
  * taken once, on objectui#9684, and the PR body prints the command to re-take
  * it.
@@ -106,8 +121,24 @@ interface Block {
 const STATES_THE_RULE =
   /tombstone is available only on a|\beither prong\b|\bboth prongs\b|authors to a named live replacement|keeps? loud a key the docs taught as working|keep loud a key the docs taught as working|two-prong discriminator/i;
 
-/** The precondition objectui#7678 added — the clause that kept being missed. */
-const CARRIES_PRECONDITION = /surviving[- ]carrier|no carrier/i;
+/**
+ * The precondition objectui#7678 added — the clause that kept being missed —
+ * matched in RULE VOICE only.
+ *
+ * ⛔ Not `/surviving carrier|no carrier/` over the whole block, which is what
+ * this was and what the second in-seat review falsified: a block whose per-
+ * retirement ARGUMENT happens to say "there is no carrier" satisfied it while
+ * the statement above that argument had no precondition at all — the same
+ * defect passing or failing on the author's choice of words, since the base
+ * `MobileComponentConfig` note said "no surviving object" and was flagged.
+ *
+ * ⚠️ Failure direction, chosen on purpose: a statement that carries the
+ * precondition in a phrasing not listed here goes RED rather than green. A
+ * spurious red sends a human to read four blocks; a spurious green is the
+ * defect this file exists for. Add the phrasing here when you introduce one.
+ */
+const CARRIES_PRECONDITION =
+  /(available )?only on a surviving[- ]carrier|only where a carrier survives|only where the carrier survives/i;
 
 /** The two prongs written out verbatim, which `mobile.ts` must no longer do. */
 const WRITES_THE_PRONGS_OUT =
@@ -197,9 +228,12 @@ const label = (block: Block): string => `${block.file} (block opening on line ${
  * clause a future amendment could add": a clause worded past all six is
  * invisible, exactly as `MobileComponentConfig`'s paraphrase was to the probe
  * on objectui#9684. `a-prong-beyond-the-two` exists because the measured
- * escape was a THIRD prong added at one site and nowhere else — it catches
- * that in this file's own numbering, and nothing catches it in prose that
- * numbers nothing. Add a clause here when you add one to the rule.
+ * escape was a THIRD prong added at one site and nowhere else. It catches any
+ * `(3)` inside a statement block, plus `prong 3` and `third prong` — ⛔ it did
+ * NOT, and the comment here claimed it did: the pattern required `(3) it`, so
+ * a numbered prong continuing with any other word was silent (measured at the
+ * second in-seat review). A clause that numbers NOTHING is still silent, and
+ * nothing here changes that.
  */
 const CLAUSES: Readonly<Record<string, RegExp>> = {
   'available-only-on-a-surviving-carrier': /tombstone is available only on a surviving[- ]carrier/i,
@@ -207,7 +241,7 @@ const CLAUSES: Readonly<Record<string, RegExp>> = {
   'used-when-either-prong-holds': /when either prong/i,
   'prong-1-a-named-live-replacement': /authors to a named live replacement/i,
   'prong-2-keeps-loud-a-taught-key': /keeps? loud a key the docs taught as working/i,
-  'a-prong-beyond-the-two': /\bprong 3\b|\bthird prong\b|\(3\) it\b/i,
+  'a-prong-beyond-the-two': /\bprong 3\b|\bthird prong\b|\(3\)/i,
 };
 
 const clausesOf = (block: Block): string[] =>
@@ -315,20 +349,32 @@ describe('objectui#9684 — the detector can fail, and does not fire on everythi
 });
 
 describe('objectui#9684 — every statement of the rule carries its precondition', () => {
-  it('VACUITY CONTROL: the published statements in `complex.ts` are still found', () => {
-    // If a marker stops matching, this goes red instead of the agreement
-    // assertion passing on an empty set. The four are the `KanbanColumn.color`
-    // tombstone, the `ChatbotSchema` interface note, and the `displayMode` and
-    // `triggerIcon` tombstones; they are JSDoc on exported members, so they are
-    // what a `.d.ts` consumer reads.
+  it('VACUITY CONTROL: `complex.ts` states the rule at exactly the recorded sites', () => {
+    // Both directions, and EXACTLY — an inequality is what let a FIFTH fully
+    // amended statement pass at the second in-seat review, which is how "four
+    // sites", written in this header, in the `mobile.ts` preamble and in the
+    // changeset, came to be re-derived by nothing (AGENTS.md #9). One more
+    // statement of one rule is the duplication this card is about, so it reds
+    // and whoever adds it records it in the roster on purpose.
     const inComplex = statements.filter((block) => block.file === 'complex.ts');
     expect(
       inComplex.length,
-      `expected the four published statements in complex.ts, found ${inComplex.length}: ` +
-        `${inComplex.map(label).join(', ')}. Either a site was converted to a citation — ` +
-        'update this roster deliberately — or a marker in STATES_THE_RULE no longer matches.',
-    ).toBeGreaterThanOrEqual(4);
+      `complex.ts states the rule at ${inComplex.length} sites, the roster records ` +
+        `${SURVIVING_STATEMENTS.length}: ${inComplex.map(label).join(', ')}. A site added — ` +
+        'record it. A site converted to a citation — drop it. Neither — a marker in ' +
+        'STATES_THE_RULE no longer matches and this file is measuring less than it says.',
+    ).toBe(SURVIVING_STATEMENTS.length);
     expect(inComplex.every((block) => block.kind === 'jsdoc')).toBe(true);
+  });
+
+  it('every statement in `complex.ts` is one the roster names', () => {
+    const inComplex = statements.filter((block) => block.file === 'complex.ts');
+    const unrecorded = inComplex
+      .filter((block) => !SURVIVING_STATEMENTS.some(({ anchor }) => block.flat.includes(anchor)))
+      .map(label);
+    expect(unrecorded, 'these statements of the rule are in no roster entry, so nothing holds them to their peers').toEqual(
+      [],
+    );
   });
 
   it('no statement omits the surviving-carrier precondition (objectui#7678)', () => {
@@ -358,17 +404,33 @@ describe('objectui#9684 — `mobile.ts` cites the rule instead of restating it',
     expect(note!.flat).toMatch(/`ChatbotSchema` in `complex\.ts`/);
   });
 
-  it('none of the four writes the prongs out — they are off the amendment surface', () => {
-    const restating = mobileBlocks.filter((block) => WRITES_THE_PRONGS_OUT.test(block.flat));
+  it('no block in this file states the rule AT ALL — not a prong, not a clause', () => {
+    // ⛔ Not "writes the prongs out", which is what this asserted and what the
+    // second in-seat review walked through: a note restating the precondition
+    // and "either prong holds", with the prongs left unwritten, satisfied the
+    // prong check and put this file back on the amendment surface for that
+    // clause with nothing red. The claim was "never restates it"; the
+    // assertion is now the claim.
+    const restating = mobileBlocks.filter((block) => STATES_THE_RULE.test(block.flat));
     expect(
       restating.map(label),
-      'mobile.ts states the rule again: every amendment is now an N-site hand edit once more',
+      'mobile.ts states the rule again: it is back on the amendment surface and every ' +
+        'amendment is an N-site hand edit once more',
     ).toEqual([]);
   });
 
-  it('the notes are `//` comments at module scope, which declaration emit does not carry', () => {
-    // The structural half of the `.d.ts` asymmetry the header describes: this
-    // is why a citation is free here and is a jump in `complex.ts`.
+  it('nor does any of the four write the prongs out', () => {
+    // Kept beside the wider assertion for the message it prints: this is the
+    // shape the conversion removed, so a re-inlined prong says so by name.
+    const restating = mobileBlocks.filter((block) => WRITES_THE_PRONGS_OUT.test(block.flat));
+    expect(restating.map(label), 'a prong is written out again in mobile.ts').toEqual([]);
+  });
+
+  it('the notes are `//` comments, which declaration emit does not carry into the `.d.ts`', () => {
+    // The structural half of the `.d.ts` asymmetry: JSDoc on an exported member
+    // is carried, a `//` comment is not — measured on objectui#9684 including a
+    // `//` comment placed directly above an exported declaration, so the
+    // dividing line is the comment FORM and ⛔ not where the comment sits.
     for (const name of retirements) {
       expect(noteFor(name)!.kind).toBe('line');
     }

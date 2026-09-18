@@ -23,8 +23,10 @@ states the rule at four sites, `ChatbotSchema` among three peers, and whether
 those four become citations too is an open decision on objectui#9684. Nothing is
 deleted into a vacuum: every prong measurement, reopen condition and
 `@objectstack/spec` history note survives, the `Prong 1:` / `Prong 2:`
-measurement lines verbatim; the `MobileOverrides` and `MobileComponentConfig`
-arguments are reworded around the citation, with their substance preserved.
+measurement lines verbatim; the `MobileResponsiveConfig`, `MobileOverrides` and
+`MobileComponentConfig` arguments are reworded around the citation, with their
+substance preserved — the first of those also gains a sentence it did not carry
+before, naming the precondition that settles its route.
 
 **What a `.d.ts` consumer's reading changes to: nothing.** All 65 emitted
 declaration files are byte-for-byte identical to the ones this branch's base
@@ -33,24 +35,33 @@ emits — measured twice on full rebuilds (`pnpm --filter @object-ui/types clean
 incremental one. The instrument was shown able to fail in the same pass: a
 marker injected into a `//` note in `mobile.ts` reaches `dist/mobile.d.ts` zero
 times, while the same marker injected into JSDoc on `ChatbotSchema` reaches
-`dist/complex.d.ts` once. That asymmetry is the reason only `mobile.ts` was
-converted: its notes are `//` comments at module scope, which declaration emit
-does not carry, so a citation costs a consumer of the published declarations
-nothing there. `complex.ts` still states the rule in full, because converting it
+`dist/complex.d.ts` once. A third control in the same pass fixes the CAUSE: a
+`//` comment placed directly above an exported declaration, with no blank line,
+also reaches the emitted `.d.ts` zero times ⇒ the dividing line is the comment
+FORM, ⛔ not where the comment sits. That asymmetry is the reason only
+`mobile.ts` was converted: its notes are `//` comments and not JSDoc, so a
+citation costs a consumer of the published declarations nothing there. `complex.ts` still states the rule in full, because converting it
 would cost a declarations reader a jump out of the block they are in — a trade
 left to the maintainer rather than taken here.
 
 The agreement is now pinned rather than remembered:
 `packages/types/src/__tests__/tombstone-discriminator-agreement-9684.test.ts`
 derives the population of rule statements from the source at run time and fails
-when one of them omits the surviving-carrier precondition, when `mobile.ts`
-restates the prongs again, when the cited statement stops being where the
-citations say it is, or when one of the four surviving statements carries a
-clause its three peers do not. ⭐ That last one is not decoration: measured at
-the in-seat review, a third prong added to the `ChatbotSchema` statement alone
-passed the precondition assertion untouched, because that assertion guards one
-clause. ⚠️ Its reach is the clause list the test names, and ⛔ not every clause a
-future amendment could add — a clause worded past all of them is invisible,
-which the test header says in as many words. Its detector carries its own
-controls, including vacuity controls that red if the markers or the roster
-anchors stop matching instead of passing on an empty set.
+when one of them omits the precondition **in the rule's own phrasing**, when
+`mobile.ts` states the rule at all, when the cited statement stops being where
+the citations say it is, when `complex.ts` states the rule at any number of
+sites other than the recorded four, or when one of those four carries a clause
+its peers do not.
+
+⭐ Each of those is narrower or wider than it was, and each because a wording was
+measured through the earlier version rather than reasoned about. The precondition
+was matched anywhere in the block, so an un-amended statement passed when its
+argument happened to say "there is no carrier" while the same defect worded "no
+surviving object" was caught — the same defect deciding on the author's choice of
+words. `mobile.ts` was held only to "does not write the prongs out", so a note
+restating the precondition passed. The site count was `>= 4`, so a fifth
+statement passed and the "four sites" this changeset states was re-derived by
+nothing. ⚠️ What is still silent, measured and ⛔ not guessed: a clause added at
+one site that numbers nothing, and a statement worded past every marker. The test
+header names both; the failure direction of every widening above is a red that
+sends a human to read four blocks, never a green.

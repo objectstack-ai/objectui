@@ -58,12 +58,16 @@
 // the reading of the emitted `.d.ts` behind it is recorded on objectui#9684
 // and is ⛔ NOT re-derived by anything, so re-run it rather than trusting it.
 //
-// The agreement itself is pinned by that same test: a note in this package
-// that writes the rule out without its surviving-carrier precondition fails
-// it, so does a citation whose target has moved, and so does a clause that
-// appears at one of the four surviving statements and not at its peers — for
-// the clauses that test names, which is ⛔ not every clause a future amendment
-// could add.
+// The agreement itself is pinned by that same test. It fails when a note in
+// this package states the rule without carrying the precondition in the rule's
+// OWN phrasing (⛔ not merely having the words "no carrier" somewhere in the
+// block — that wording let an un-amended statement through, measured); when
+// any block in THIS file states the rule at all, prongs written out or not;
+// when a citation's target has moved; when `complex.ts` states the rule at any
+// number of sites other than the recorded four; and when a clause appears at
+// one of those four and not at its peers. ⚠️ For the clauses that test names —
+// a clause added at one site that numbers nothing is still silent, and it says
+// so rather than leaving the reach to be assumed.
 
 // ============================================================================
 // Responsive Configuration

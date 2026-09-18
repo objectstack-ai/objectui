@@ -290,6 +290,87 @@ function inferWidget(
 }
 
 /**
+ * Does this schema admit a STRING value — looking THROUGH nested unions?
+ *
+ * ## Why this is not `schema.anyOf.some(b => b.type === 'string')`
+ *
+ * Five NAME-CONVENTION detectors below share one gate: the name says which
+ * widget a property WANTS, and this shape test says whether the property can
+ * actually hold what that widget writes. Each of them used to spell the gate
+ * inline as a ONE-LEVEL scan of `anyOf`, and a one-level scan is blind to a
+ * union nested inside a union — which is exactly the shape the platform serves
+ * for a predicate that also accepts a boolean literal. Derived from the
+ * installed `@objectstack/spec` through the same `z.toJSONSchema` call
+ * `/meta/types` is served with, an `action`'s own `visible` reads:
+ *
+ * ```
+ * anyOf: [ { type: 'boolean' },
+ *          { anyOf: [ { type: 'string', minLength: 1 },
+ *                     { type: 'object', properties: { dialect, source, … } } ] } ]
+ * ```
+ *
+ * The string arm IS there, one `anyOf` deeper, and the one-level scan returned
+ * false for it — so `detectConditionWidget` declined a key it was written to
+ * claim and the author got a plain text box for a CEL predicate, on a runtime
+ * that fails CLOSE on an unevaluable one (objectui#9830). The same `action`
+ * type's `params[].visible` carries its string arm at the TOP level and was
+ * routed all along: one property, two nesting depths, two different faces.
+ *
+ * `oneOf` is walked with `anyOf` because {@link pickBranch} and the scalar
+ * chain already read `schema.oneOf ?? schema.anyOf` as one union — a detector
+ * that disagreed with the branch picker about what a union is would reopen this
+ * same split one combinator over. `allOf` is deliberately NOT walked: it is an
+ * intersection, so an arm typed string does not mean the value may be one.
+ *
+ * ## ⛔ What this deliberately does NOT read as a string arm
+ *
+ * An EMPTY schema (`{}`). JSON Schema says `{}` admits everything, strings
+ * included, and the platform's output-mode derivation emits exactly
+ * `anyOf: [ {}, { …envelope } ]` for `hook.condition`, `sharing_rule.condition`
+ * and `field.visibleWhen` / `readonlyWhen` / `requiredWhen` — the transform on
+ * those keys erases its own input type. Reading that husk as "string allowed"
+ * would mount the condition builder on any predicate-named key whose schema
+ * derived to nothing, including one that is genuinely boolean-only, because
+ * `{}` is what "we could not derive this" and "anything goes" BOTH look like on
+ * the wire. Distinguishing them needs a signal only the DECLARATION side can
+ * send, so that half is reported rather than guessed (objectui#9830 ②).
+ *
+ * ## The precedence this gate is one third of
+ *
+ * 1. an explicit `fieldSpec.widget` wins outright — {@link resolveFieldWidget}
+ *    runs no detector at all when the form spec pinned one;
+ * 2. then THIS shape test VETOES: a name convention never mounts a widget on a
+ *    schema that cannot hold what the widget writes;
+ * 3. then the name convention SELECTS among the widgets whose shape fits.
+ *
+ * So neither side "wins" globally: the declaration decides, the shape holds a
+ * veto, the name chooses. Written down here because it was readable only by
+ * reading five copies of one expression.
+ *
+ * Iterative with a visited set rather than plain recursion: the schemas reaching
+ * this engine include hand-written objects from registries and tests, not only
+ * parsed JSON, so a self-referential one must terminate rather than blow the
+ * stack.
+ */
+function admitsString(schema: JsonSchema | undefined): boolean {
+  const seen = new Set<object>();
+  const pending: unknown[] = [schema];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (!node || typeof node !== 'object') continue;
+    if (seen.has(node as object)) continue;
+    seen.add(node as object);
+    const branch = node as JsonSchema;
+    if (branch.type === 'string') return true;
+    for (const key of ['anyOf', 'oneOf'] as const) {
+      const arms = branch[key];
+      if (Array.isArray(arms)) pending.push(...(arms as unknown[]));
+    }
+  }
+  return false;
+}
+
+/**
  * Detect a field-reference widget by NAME CONVENTION, gated on having an
  * object field catalog in `widgetContext`. This is what makes every view
  * type's field-reference config (titleField, groupByField, startDateField,
@@ -325,11 +406,7 @@ function detectFieldRefWidget(
     return 'field-multi';
   }
 
-  const isString =
-    schema?.type === 'string' ||
-    (Array.isArray(schema?.anyOf) &&
-      (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (isString && (/.Field$/.test(name) || name === 'field')) {
+  if (admitsString(schema) && (/.Field$/.test(name) || name === 'field')) {
     return 'field-ref';
   }
   return undefined;
@@ -343,10 +420,7 @@ function detectFieldRefWidget(
  */
 function detectIconWidget(name: string, schema: JsonSchema | undefined): string | undefined {
   if (Array.isArray(schema?.enum)) return undefined;
-  const isString =
-    schema?.type === 'string' ||
-    (Array.isArray(schema?.anyOf) && (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (!isString) return undefined;
+  if (!admitsString(schema)) return undefined;
   if (name === 'icon' || /Icon$/.test(name)) return 'icon';
   return undefined;
 }
@@ -358,11 +432,7 @@ function detectIconWidget(name: string, schema: JsonSchema | undefined): string 
  * conventions so color fields are consistent across every metadata type.
  */
 function detectColorWidget(name: string, schema: JsonSchema | undefined): string | undefined {
-  const isString =
-    schema?.type === 'string' ||
-    Array.isArray(schema?.enum) ||
-    (Array.isArray(schema?.anyOf) && (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (!isString) return undefined;
+  if (!admitsString(schema) && !Array.isArray(schema?.enum)) return undefined;
   if (name === 'color' || name === 'colorVariant' || /Color$/.test(name)) return 'color-picker';
   return undefined;
 }
@@ -586,14 +656,14 @@ const CONDITION_FIELD_NAMES = new Set(['visible', 'hidden', 'disabled', 'visible
 /**
  * Detect a CEL predicate field by NAME CONVENTION (`visible` / `hidden` /
  * `disabled` / `visibleOn` / `condition` / `*When`) so it renders the no-code
- * condition builder instead of a raw expression text box. String-only, no enum.
+ * condition builder instead of a raw expression text box. No enum, and the
+ * schema must admit a string — {@link admitsString} holds that veto and
+ * documents why it looks through nested unions and why an empty schema is not
+ * one (objectui#9830).
  */
 function detectConditionWidget(name: string, schema: JsonSchema | undefined): string | undefined {
   if (Array.isArray(schema?.enum)) return undefined;
-  const isString =
-    schema?.type === 'string' ||
-    (Array.isArray(schema?.anyOf) && (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (!isString) return undefined;
+  if (!admitsString(schema)) return undefined;
   if (CONDITION_FIELD_NAMES.has(name) || /When$/.test(name)) return 'condition';
   return undefined;
 }
@@ -611,10 +681,7 @@ const SECRET_FIELD_NAME_RE = /(^|_)(secret|token|api[_-]?key|access[_-]?key|clie
 function detectSecretWidget(name: string, schema: JsonSchema | undefined): string | undefined {
   if (schema?.format === 'password' || (schema as { writeOnly?: boolean } | undefined)?.writeOnly === true) return 'secret';
   if (Array.isArray(schema?.enum)) return undefined;
-  const isString =
-    schema?.type === 'string' ||
-    (Array.isArray(schema?.anyOf) && (schema!.anyOf as JsonSchema[]).some((b) => b?.type === 'string'));
-  if (!isString) return undefined;
+  if (!admitsString(schema)) return undefined;
   if (SECRET_FIELD_NAME_RE.test(name)) return 'secret';
   return undefined;
 }

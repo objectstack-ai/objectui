@@ -50,6 +50,43 @@ const COMPARE_OPS: Array<{ value: Op; label: string }> = [
  * The context subjects a record-scoped mount site binds. This is the DEFAULT
  * vocabulary — a caller that binds something else declares it via
  * {@link ConditionSubjectVocabulary.context}.
+ *
+ * ## `org.id` is gone — the objectui#8155 case, one control over (objectui#9855)
+ *
+ * It was the exact mirror of `app` in `ROW_PREDICATE_ROOTS`
+ * (`ConditionalFormattingEditor`): a root this editor ADVERTISED and its own
+ * linter REFUSES. `@objectstack/formula`'s `SCOPE_ROOTS` carries no `org`, so
+ * at `scope: 'record'` the validator reads `org.id` as a bare field and errors
+ * with the nonsense remedy `record.org` — and no host binds one either:
+ * `buildExpressionScope` (`ExpressionProvider`) publishes the identity roots
+ * and no `org`. Offering it cost the author the write, which is worse than the
+ * autocomplete half objectui#9645 closed: that one at least linted clean.
+ * `ConditionBuilder.contextSubjects.test.tsx` re-derives the verdict from the
+ * engine instead of restating it, so an engine that starts accepting `org`
+ * reddens there rather than leaving this paragraph to rot.
+ *
+ * ⚠️ This does NOT touch {@link REFERENCE_ROOTS}, which still carries `org` —
+ * see the note there. Withdrawing an OFFER is not the same act as re-reading
+ * an author's own bytes.
+ *
+ * ## `user.*` STAYS, and that is a measurement rather than an omission
+ *
+ * The card proposed removing both. `user` is the `os` case of that same
+ * objectui#8155 ruling, not the `app` case: the engine ACCEPTS it, and
+ * `buildExpressionScope` really does bind it for every predicate evaluated in
+ * the browser — so at a client-evaluated mount it is a subject an author can
+ * legitimately pick and a row that really matches. Where it is genuinely
+ * unbound is the SERVER-evaluated `condition`, and {@link
+ * RECORD_CONDITION_ROOTS} states in its own words why this component cannot
+ * tell those two apart from anything a mount passes. ⛔ So it is not narrowed
+ * by a default here; such a mount declares its own list through {@link
+ * ConditionSubjectVocabulary.context}, the way the flow trigger already does.
+ *
+ * ⚠️ The asymmetry that licensed objectui#9645's narrowing does NOT transfer
+ * to this list, which is why the two doors are not one edit. `roots` feeds the
+ * raw editor's SUGGESTIONS, so a mount that loses one loses an offer and keeps
+ * the spelling; this list is the row builder's ONLY subject control, so
+ * dropping an entry drops the author's ability to build that row at all.
  */
 const CONTEXT_SUBJECTS = [
   { value: 'record.id', label: 'record.id' },
@@ -57,7 +94,6 @@ const CONTEXT_SUBJECTS = [
   { value: 'user.email', label: 'user.email' },
   { value: 'user.role', label: 'user.role' },
   { value: 'user.isAdmin', label: 'user.isAdmin' },
-  { value: 'org.id', label: 'org.id' },
 ];
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -107,10 +143,19 @@ export interface ConditionSubjectVocabulary {
  * Deliberately the roots this builder's own vocabulary already commits to —
  * not every root the CEL engine advertises:
  *
- *  - `record` / `user` / `org` — this component's own subject vocabulary
+ *  - `record` / `user` — this component's own subject vocabulary
  *    (`record.<field>` from the field catalog, plus {@link CONTEXT_SUBJECTS}).
  *    A value under one of these is the same identifier the subject dropdown
  *    emits one control to its left.
+ *  - `org` — no longer that case, and kept deliberately (objectui#9855).
+ *    {@link CONTEXT_SUBJECTS} no longer offers `org.id`, so the dropdown does
+ *    not emit it any more; this list stays wider because it answers a
+ *    different question. An author who types `org.id` into the VALUE box means
+ *    a reference, and quoting it would rebuild exactly the silently-false
+ *    predicate objectui#6293 fixed — a loud unknown-variable fault is the
+ *    better failure, and the only one a checker can see. That the two
+ *    populations must not be merged is already pinned by
+ *    `ConditionBuilder.mountRoots.test.tsx`.
  *  - `previous` — the prior persisted record, bound by `evalFieldPredicate`
  *    (`@object-ui/core`) and by the server-side hook / validation evaluators.
  *    This is the change-detection idiom the defect was measured on.

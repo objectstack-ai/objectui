@@ -181,8 +181,11 @@ describe('objectui#7396 — every scatter mark is drawn wholly inside the plot a
     // pin: on its own it passes on the defect too, so it would measure nothing.
     // Together they state the whole fix — the marks came inside AND the domain
     // did not move to bring them there. Moving the domain instead would invent
-    // unround tick endpoints and would write the very prop the scatter's
-    // missing spec-axis spread is about (objectui#9675).
+    // unround tick endpoints and would spend the very prop the scatter's
+    // spec-axis derivation needs (objectui#9675, since landed: it writes
+    // `domain` on both scatter axes, and the two props compose because this
+    // one is `padding`). These rows declare no spec axis, so the derivation
+    // contributes nothing here and the endpoints below are still the data's.
     const { container } = renderScatter(GALLERY);
     expect(worstOverhang(container), 'a mark is painted outside the plot area').toBeLessThan(0);
     const ticks = (orientation: string) =>

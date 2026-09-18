@@ -14,7 +14,7 @@ import {
   TooltipTrigger, 
   TooltipContent 
 } from '../../ui';
-import { renderChildren } from '../../lib/utils';
+import { renderChildren, renderTriggerSlot } from '../../lib/utils';
 
 // Helper to ensure provider exists if not already present at app root
 // For now assuming provider is at root or we just wrap it here.
@@ -24,9 +24,7 @@ ComponentRegistry.register('tooltip',
   ({ schema, className, ...props }: { schema: TooltipSchema; className?: string; [key: string]: any }) => (
     <TooltipProvider delayDuration={schema.delayDuration}>
       <Tooltip {...props}>
-        <TooltipTrigger asChild>
-          {renderChildren(schema.trigger)}
-        </TooltipTrigger>
+        {renderTriggerSlot(TooltipTrigger, schema.trigger)}
         <TooltipContent side={schema.side} align={schema.align} className={className}>
            {(schema.content || renderChildren(schema.body)) as any}
         </TooltipContent>

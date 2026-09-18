@@ -357,6 +357,19 @@ type LazyEntry = {
 };
 
 /**
+ * The full type a pending lazy stub DECLARES for a bare key.
+ *
+ * `registerLazy` computes `namespace:type` and stores the stub under both that
+ * key and the bare one; nothing on the entry itself records which bare key it
+ * claims, so the claim has to be recomputed from the entry's own meta. Spelled
+ * once here because both doors' collision guards need it and a second copy
+ * would be a second thing to keep in step with `registerLazy`'s own line.
+ */
+function lazyStubFullType(type: string, entry: LazyEntry): string {
+  return entry.meta?.namespace ? `${entry.meta.namespace}:${type}` : type;
+}
+
+/**
  * Emit the spec's `dataSource` input for a registration whose renderer wraps
  * `ElementDataSourceGate` (objectui#6678).
  *
@@ -502,6 +515,34 @@ export class Registry<T = any> {
           `If this is intentional keep going; otherwise register "${fullType}" with ` +
           `{ skipFallback: true } so it doesn't claim the bare "${type}" key.`,
         );
+      } else if (!existing) {
+        // The CROSS-TABLE half of the same guard (objectui#9821), and the half
+        // the contest objectui#9533 measured actually went through. The check
+        // above reads `components` only, so a bare key held by a pending STUB
+        // is invisible to it: the console declared bare `dashboard` for
+        // `plugin-dashboard:dashboard` at boot, this door took the same bare key
+        // for `view:dashboard` when the chunk landed, and because `components`
+        // still held nothing under `dashboard` at that moment, NOTHING warned.
+        // Measured, not reasoned: replaying that card's three real claimants
+        // against a real registry emitted zero warnings in BOTH orders.
+        //
+        // ⚠️ The guard has to fire HERE and not only in `registerLazy`, because
+        // a contest that is only reported in one registration order is reported
+        // in the order this repository does not boot in. The `report-` and
+        // `timeline-bare-key-ownership` pins replay both orders for exactly
+        // that reason.
+        const stub = this.lazyEntries.get(type);
+        const stubType = stub ? lazyStubFullType(type, stub) : undefined;
+        if (stubType && stubType !== fullType) {
+          console.warn(
+            `Component "${type}" bare-name fallback is being overwritten by "${fullType}", ` +
+            `which a pending lazy stub already claims for "${stubType}". Which one an ` +
+            `authored "${type}" node resolves to depends on whether that chunk has loaded. ` +
+            `Make the two declarations name ONE full type — { skipFallback: true } does not ` +
+            `settle this one, because registering "${fullType}" clears the bare "${type}" ` +
+            `stub either way.`,
+          );
+        }
       }
       this.components.set(type, {
         type: fullType, // Keep reference to namespaced type
@@ -558,6 +599,48 @@ export class Registry<T = any> {
     const entry: LazyEntry = { loader, meta };
     this.lazyEntries.set(fullType, entry);
     if (meta?.namespace && !meta?.skipFallback) {
+      // Collision guard (objectui#9821). This door took the same bare-name
+      // fallback branch as `register` with no check at all, so a stub could
+      // take the bare key off another declaration in total silence — and the
+      // silence is why the class stayed invisible: two of the three claimants
+      // in the contest objectui#9533 filed came in through here.
+      //
+      // ⭐ The predicate keys on the FULL TYPE and reads BOTH tables, and both
+      // halves of that were decided by the census rather than chosen:
+      //
+      //   - BOTH tables, because the contention is cross-table. Copying the
+      //     guard above verbatim would compare `lazyEntries` against itself,
+      //     and the one contested bare key on this tree is a stub in this table
+      //     against a loaded registration in the other one. A same-table check
+      //     would not have caught the card that produced this one.
+      //   - FULL TYPE and not loader identity, because the ordinary correct
+      //     shape here is a stub re-declared with a DIFFERENT loader closure
+      //     for the SAME full type: two console files drive the same plugin
+      //     set, and nine of this tree's bare keys are registered twice that
+      //     way. Keying on the loader would warn on all nine, every boot.
+      //
+      // Census taken on the declared population of this repository (the same
+      // one `check-registry-bare-name-collisions.mjs` reads): of 31 bare keys
+      // a stub claims, 30 name exactly one full type across both tables — the
+      // stub-then-real lifecycle this must stay silent about — and one is a
+      // genuine contest.
+      const loaded = this.components.get(type);
+      const priorStub = loaded ? undefined : this.lazyEntries.get(type);
+      const claimedBy = loaded
+        ? loaded.type
+        : priorStub
+          ? lazyStubFullType(type, priorStub)
+          : undefined;
+      if (claimedBy && claimedBy !== fullType) {
+        console.warn(
+          `Lazy component "${type}" bare-name fallback is being overwritten by "${fullType}", ` +
+          `which ${loaded ? 'a loaded registration' : 'another pending stub'} already claims ` +
+          `for "${claimedBy}". If this is intentional keep going; otherwise register ` +
+          `"${fullType}" with { skipFallback: true } so it doesn't claim the bare "${type}" ` +
+          `key — on this door that opt-out does settle it, because the stub then claims only ` +
+          `"${fullType}".`,
+        );
+      }
       this.lazyEntries.set(type, entry);
     }
     // Bump the version but do NOT notify: the set of KNOWN types grew, so

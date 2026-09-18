@@ -371,8 +371,12 @@ describe('the fact the declaration records: the renderer READS these keys and te
 
   it('control: the scan can find things — this IS the alert-dialog registration', () => {
     const renderer = read(RENDERER);
+    // ⛔ Deliberately NOT a string on the TRIGGER path — see the twin control in
+    // `overlay-node-slot-doc-types-7082.test.ts`. objectui#9710 moved the eight
+    // overlay triggers onto a shared seam and killed the previous spelling here;
+    // `content` is a sibling slot that work does not touch.
     expect(renderer).toContain("ComponentRegistry.register('alert-dialog'");
-    expect(renderer).toContain('renderChildren(schema.trigger)');
+    expect(renderer).toContain('renderChildren(schema.content)');
   });
 });
 

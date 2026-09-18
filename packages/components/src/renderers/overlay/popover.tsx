@@ -13,14 +13,12 @@ import {
   PopoverTrigger, 
   PopoverContent 
 } from '../../ui';
-import { renderChildren } from '../../lib/utils';
+import { renderChildren, renderTriggerSlot } from '../../lib/utils';
 
 ComponentRegistry.register('popover', 
   ({ schema, className, ...props }: { schema: PopoverSchema; className?: string; [key: string]: any }) => (
     <Popover modal={schema.modal} defaultOpen={schema.defaultOpen} {...props}>
-      <PopoverTrigger asChild>
-        {renderChildren(schema.trigger)}
-      </PopoverTrigger>
+      {renderTriggerSlot(PopoverTrigger, schema.trigger)}
       <PopoverContent align={schema.align} side={schema.side} className={className}>
         {renderChildren(schema.content)}
       </PopoverContent>

@@ -179,7 +179,13 @@ export type RegistryComponentMetaExtras = {
    * When true, prevents the component from being registered with a non-namespaced fallback.
    * Use this when a component should only be accessible via its full namespaced key.
    * This avoids conflicts with other components that share the same base name.
-   * 
+   *
+   * ⚠️ That promise covers BOTH registry tables since objectui#9839, and it did
+   * not before. Declining the bare key used to leave `register` deleting a bare
+   * lazy stub anyway, so a registration that opted out still took the bare key
+   * off its owner — and then refused to replace it, leaving it claimed by
+   * nobody. An opt-out now leaves the bare key exactly where it was.
+   *
    * @example
    * // Register as 'view:form' only, don't overwrite 'form'
    * registry.register('form', FormView, { namespace: 'view', skipFallback: true });
@@ -531,6 +537,16 @@ export class Registry<T = any> {
         // in the order this repository does not boot in. The `report-` and
         // `timeline-bare-key-ownership` pins replay both orders for exactly
         // that reason.
+        //
+        // ⭐ The remedy this warning names CHANGED with objectui#9839, and it
+        // changed because the behaviour behind it did. It used to send the
+        // author away from `skipFallback: true` — correctly at the time, since
+        // this door cleared the bare stub outside the fallback branch, so the
+        // opt-out left the bare key resolving to nothing at all. The delete is
+        // now inside the branch, so declining the bare key leaves it with its
+        // owner and the opt-out settles this contest exactly as it does on the
+        // lazy door. Both doors therefore prescribe the same thing now, which
+        // `each door prescribes the remedy that is true for it` pins.
         const stub = this.lazyEntries.get(type);
         const stubType = stub ? lazyStubFullType(type, stub) : undefined;
         if (stubType && stubType !== fullType) {
@@ -538,9 +554,10 @@ export class Registry<T = any> {
             `Component "${type}" bare-name fallback is being overwritten by "${fullType}", ` +
             `which a pending lazy stub already claims for "${stubType}". Which one an ` +
             `authored "${type}" node resolves to depends on whether that chunk has loaded. ` +
-            `Make the two declarations name ONE full type — { skipFallback: true } does not ` +
-            `settle this one, because registering "${fullType}" clears the bare "${type}" ` +
-            `stub either way.`,
+            `If this is intentional keep going; otherwise register "${fullType}" with ` +
+            `{ skipFallback: true } so it doesn't claim the bare "${type}" key — that ` +
+            `opt-out settles it, because the bare "${type}" key is then left with ` +
+            `"${stubType}".`,
           );
         }
       }
@@ -549,20 +566,52 @@ export class Registry<T = any> {
         component,
         ...resolvedMeta
       });
+      // The bare key now resolves to THIS registration, so the bare stub is
+      // ours to clear. It is cleared here — inside the branch, under the same
+      // predicate that took the key — and deliberately not below (objectui#9839).
+      this.lazyEntries.delete(type);
     }
 
-    // A real component is now available — clear any matching lazy stub so we
-    // don't keep holding the loader reference, and notify subscribers.
+    // A real component is now available — clear the stub for the key this
+    // registration actually claimed, so we don't keep holding the loader
+    // reference, and notify subscribers.
+    //
+    // ⭐ `fullType` only. With no namespace `fullType === type`, so a bare
+    // registration still clears the bare stub — it claimed the bare key. What
+    // this line must NOT do is clear a bare stub the registration DECLINED:
+    // `skipFallback: true` skips the branch above, so `components` is never
+    // written under the bare key, and deleting the stub here took the bare key
+    // away from its owner and gave it to nobody — the stub was gone and this
+    // registration had refused to replace it (objectui#9839). A registration
+    // that opts out of the bare key opts out of clearing it too.
     this.lazyEntries.delete(fullType);
-    this.lazyEntries.delete(type);
     this.notify();
   }
 
   /**
    * Remove a previously registered component. Mirrors {@link register} by
    * clearing both the namespaced key and the bare-name fallback (when the
-   * fallback still points at this registration), plus any matching lazy stub.
+   * fallback still points at this registration), plus any matching lazy stub —
+   * where "matching" means the same thing on both tables: a stub that still
+   * belongs to THIS registration (objectui#9839).
    * Notifies subscribers only when something was actually removed.
+   *
+   * ⭐ Why "matching" cannot mean "a stub under either key". This function
+   * already answers that question for the bare `components` key and answers it
+   * "ownership" — it will not drop bare `dashboard` when it resolves to
+   * `plugin-dashboard:dashboard`. Reading the next line as an unconditional
+   * delete makes the SAME call, on the SAME bare key, with the SAME owner,
+   * take the opposite decision purely because the owner happens to be sitting
+   * in the other table at that instant — and which table it is sitting in is
+   * exactly the "has the chunk loaded yet" race that objectui#9533 and
+   * objectui#9821 are about. A policy that flips on chunk-load timing is not a
+   * policy, so the stub gets the ownership test too.
+   *
+   * ⚠️ The BARE form (`unregister(type)` with no namespace) is unchanged and
+   * is still the unconditional one, on both tables: `fullType === type` there,
+   * so the deletes below address the bare key directly. That is the "force"
+   * form teardown sites pair with the namespaced call, and taking it away
+   * would break them.
    *
    * Mainly used by tests that install a stub renderer and need to restore the
    * prior registry state on teardown, since the registry is a process-level
@@ -577,7 +626,13 @@ export class Registry<T = any> {
       if (bare && bare.type === fullType) this.components.delete(type);
     }
     this.lazyEntries.delete(fullType);
-    this.lazyEntries.delete(type);
+    // The same ownership test, on the other table.
+    if (namespace) {
+      const bareStub = this.lazyEntries.get(type);
+      if (bareStub && lazyStubFullType(type, bareStub) === fullType) {
+        this.lazyEntries.delete(type);
+      }
+    }
     if (removed) this.notify();
     return removed;
   }
@@ -637,7 +692,7 @@ export class Registry<T = any> {
           `which ${loaded ? 'a loaded registration' : 'another pending stub'} already claims ` +
           `for "${claimedBy}". If this is intentional keep going; otherwise register ` +
           `"${fullType}" with { skipFallback: true } so it doesn't claim the bare "${type}" ` +
-          `key — on this door that opt-out does settle it, because the stub then claims only ` +
+          `key — that opt-out settles it, because the stub then claims only ` +
           `"${fullType}".`,
         );
       }

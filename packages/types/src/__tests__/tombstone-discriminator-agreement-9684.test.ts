@@ -50,6 +50,9 @@
  * a hit that happens to wrap — measured on this card: `a ?: never tombstone is
  * available only on a SURVIVING` / `CARRIER` wraps mid-phrase at two of the
  * four published sites, and `grep -inE` over that file reports them as misses.
+ * Which spans are comment at all is answered by `scripts/js-comment-mask.mjs`,
+ * the one scanner in this tree that knows a string literal from a comment, and
+ * ⛔ never by a private regex over the source.
  *
  * ## The `.d.ts` asymmetry this pin records structurally
  *
@@ -68,6 +71,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { scanSource } from '../../../../scripts/js-comment-mask.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(here, '..');
@@ -115,32 +119,50 @@ const sourceFiles = (dir: string, out: string[] = []): string[] => {
   return out;
 };
 
+/**
+ * Comment blocks, where "is this span a comment" is answered by the shared
+ * scanner and never by a private regex — a `/*` inside a string opens a phantom
+ * comment for a regex, and the reader then reports clean over source it never
+ * looked at (`scripts/js-comment-mask.mjs` states the class).
+ *
+ * A block is a maximal run of CONSECUTIVE lines that are entirely comment: one
+ * JSDoc, or one paragraph of `//` lines. A blank line ends a run on purpose —
+ * joining across one would let a drifted note inherit a compliant neighbour's
+ * precondition and pass.
+ */
 const blocksOf = (file: string, text: string): Block[] => {
-  const lineAt = (index: number): number => text.slice(0, index).split('\n').length;
+  const { comment } = scanSource(text);
   const out: Block[] = [];
-
-  for (const match of text.matchAll(/\/\*\*[\s\S]*?\*\//g)) {
-    out.push({ file, line: lineAt(match.index), kind: 'jsdoc', flat: flatten(match[0]) });
-  }
-
-  // Consecutive `//` lines are one block: these notes are paragraphs, and a
-  // per-line reading would split every sentence the rule spans.
-  let run: { start: number; text: string } | null = null;
+  let run: { line: number; text: string } | null = null;
   let offset = 0;
+  let lineNumber = 0;
+
   for (const line of text.split('\n')) {
-    if (/^\s*\/\//.test(line)) {
-      if (!run) run = { start: offset, text: '' };
+    lineNumber += 1;
+    let flagged = 0;
+    let bare = 0;
+    for (let i = 0; i < line.length; i += 1) {
+      if (/\s/.test(line[i])) continue;
+      if (comment[offset + i]) flagged += 1;
+      else bare += 1;
+    }
+    const commentOnly = flagged > 0 && bare === 0;
+
+    if (commentOnly) {
+      if (!run) run = { line: lineNumber, text: '' };
       run.text += `${line}\n`;
     } else if (run) {
-      out.push({ file, line: lineAt(run.start), kind: 'line', flat: flatten(run.text) });
+      out.push({ file, line: run.line, kind: kindOf(run.text), flat: flatten(run.text) });
       run = null;
     }
     offset += line.length + 1;
   }
-  if (run) out.push({ file, line: lineAt(run.start), kind: 'line', flat: flatten(run.text) });
+  if (run) out.push({ file, line: run.line, kind: kindOf(run.text), flat: flatten(run.text) });
 
   return out;
 };
+
+const kindOf = (blockText: string): Block['kind'] => (blockText.trimStart().startsWith('//') ? 'line' : 'jsdoc');
 
 const allBlocks: Block[] = sourceFiles(SRC).flatMap((file) =>
   blocksOf(file.slice(SRC.length + 1), readFileSync(file, 'utf8')),

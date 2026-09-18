@@ -15,10 +15,12 @@ import {
   PRESENT_DECLARATION,
   backtickedKeys,
   buildMemberIndex,
+  buildResolutionIndex,
   census,
   clauseTexts,
   cutSentences,
   declaredNames,
+  distinctSchemas,
   isQuotedInline,
   keyHead,
   matchesPopulation,
@@ -85,10 +87,37 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '../..');
 const FIXTURE_CORPUS = path.join(HERE, 'fixtures', 'changeset-polarity', 'corpus');
 const FIXTURE_TYPES = path.join(HERE, 'fixtures', 'changeset-polarity', 'types');
+const FIXTURE_DEPENDENCY = path.join(HERE, 'fixtures', 'changeset-polarity', 'dependency');
+const FIXTURE_WORKSPACE = path.join(HERE, 'fixtures', 'changeset-polarity', 'workspace');
 const SCRIPT = path.join(REPO_ROOT, 'scripts/changeset-polarity-census.mjs');
 
 const fixtureIndex = buildMemberIndex(FIXTURE_TYPES);
 const fixtureRun = census({ corpusDir: FIXTURE_CORPUS, memberIndex: fixtureIndex });
+
+/**
+ * The resolution roots pin 11 decides the split on, as fixtures: one stands in
+ * for a declared dependency (`.d.ts`, the shape a real one ships), one for this
+ * repo outside the indexed tree.
+ */
+const fixtureResolution = buildResolutionIndex([
+  {
+    label: 'declared dependency @fixture/dep',
+    kind: 'dependency',
+    dir: FIXTURE_DEPENDENCY,
+    extensions: ['.d.ts', '.ts'],
+  },
+  {
+    label: 'this repo, outside the member index',
+    kind: 'repo',
+    dir: FIXTURE_WORKSPACE,
+    extensions: ['.ts', '.tsx'],
+  },
+]);
+const fixtureSplitRun = census({
+  corpusDir: FIXTURE_CORPUS,
+  memberIndex: fixtureIndex,
+  resolutionIndex: fixtureResolution,
+});
 
 const flagsFor = (entryPrefix: string) =>
   fixtureRun.contradictions.filter((c) => c.entry.startsWith(entryPrefix));
@@ -758,5 +787,132 @@ describe('objectui#9832 pin 11 -- a type annotation is code, not prose, so it ca
     expect(claim, 'the motivating claim went missing from the fixture run').toBeTruthy();
     expect(/\bnever\b/i.test(claim!.text)).toBe(false);
     expect(/\bnone\b/i.test(claim!.text)).toBe(true);
+  });
+});
+
+describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is gone', () => {
+  /**
+   * The verdict used to report both of these under ONE heading -- "claims
+   * naming a schema this tree does not declare" -- and they are opposites. A
+   * symbol the member index has no face for is either alive somewhere this
+   * instrument does not reach (its own corpus boundary, ⛔ not a defect) or
+   * declared nowhere at all (the only half that can be a candidate). A reader
+   * of the merged line could not tell which row was which.
+   *
+   * ⭐ These pins assert the SUBSTANCE, not that two lines exist: a symbol
+   * declared in a resolution root must land on the resolved line WITH the root
+   * that carries it named, and a symbol declared in no root must land on the
+   * other one. A pin that counted lines would stay green under a split that
+   * classified every row the same way.
+   */
+
+  it('a symbol declared in a DECLARED DEPENDENCY lands on the resolved line', () => {
+    const row = fixtureSplitRun.schemasOutsideIndex.find(
+      (u) => u.schema === 'DepOnlySchema',
+    );
+    expect(row, 'the dependency fixture symbol left the bucket entirely').toBeTruthy();
+    expect(row.resolvedIn.kind).toBe('dependency');
+    expect(row.resolvedIn.label).toContain('@fixture/dep');
+    // The site is reported with it, repo-relative: an absolute path is a fact
+    // about one machine and this instrument's answers must be re-derivable.
+    expect(row.resolvedIn.file.endsWith('dependency/index.d.ts')).toBe(true);
+    expect(path.isAbsolute(row.resolvedIn.file)).toBe(false);
+    // And it is NOT on the other line. Both halves in one assertion, because
+    // the failure this card is about is exactly a row being readable as both.
+    expect(
+      fixtureSplitRun.schemasResolvingNowhere.some((u) => u.schema === 'DepOnlySchema'),
+    ).toBe(false);
+  });
+
+  it('a symbol declared in NO root lands on the other line, and only there', () => {
+    const gone = distinctSchemas(fixtureSplitRun.schemasResolvingNowhere);
+    expect(gone).toContain('VanishedSchema');
+    expect(distinctSchemas(fixtureSplitRun.schemasOutsideIndex)).not.toContain('VanishedSchema');
+  });
+
+  it('⭐ the split is NOT "resolves in a declared dependency" alone -- the repo root is a root', () => {
+    /**
+     * The predicate this card was written with named the dependency only. The
+     * bucket's measured membership refused it: a symbol declared in a SIBLING
+     * PACKAGE of this repo, outside the indexed tree, is at the same corpus
+     * boundary and the narrow predicate would have filed it as a schema that is
+     * gone -- reproducing this card's own defect at one row instead of most of
+     * them. The wider predicate is pinned here so it cannot be narrowed back
+     * without this going red.
+     */
+    const row = fixtureSplitRun.schemasOutsideIndex.find(
+      (u) => u.schema === 'RepoOnlySchema',
+    );
+    expect(row, 'the workspace fixture symbol is not on the resolved line').toBeTruthy();
+    expect(row.resolvedIn.kind).toBe('repo');
+    expect(
+      fixtureSplitRun.schemasResolvingNowhere.some((u) => u.schema === 'RepoOnlySchema'),
+    ).toBe(false);
+  });
+
+  it('the two lines PARTITION the bucket -- nothing is dropped and nothing is counted twice', () => {
+    const outside = fixtureSplitRun.schemasOutsideIndex;
+    const gone = fixtureSplitRun.schemasResolvingNowhere;
+    expect(outside.length + gone.length).toBe(fixtureSplitRun.unresolvedSchemas.length);
+    expect(outside.length, 'a vacuous partition proves nothing').toBeGreaterThan(0);
+    expect(gone.length, 'a vacuous partition proves nothing').toBeGreaterThan(0);
+    expect(outside.every((u) => u.resolvedIn !== null)).toBe(true);
+    expect(gone.every((u) => u.resolvedIn === null)).toBe(true);
+  });
+
+  it('⛔ an UNMEASURED split reads as unmeasured, not as "nothing is gone"', () => {
+    // No resolution index: both halves are null and the report says so. An
+    // empty gone-list here would be the instrument's own defect class -- a zero
+    // from a probe that never ran, reported as a measurement.
+    expect(fixtureRun.schemasOutsideIndex).toBe(null);
+    expect(fixtureRun.schemasResolvingNowhere).toBe(null);
+    expect(fixtureRun.unresolvedSchemas.length).toBeGreaterThan(0);
+    expect(fixtureRun.unresolvedSchemas.every((u) => u.resolvedIn === null)).toBe(true);
+  });
+
+  it('⛔ a resolution root that cannot be read VOIDS the run -- it does not empty a line', () => {
+    /**
+     * The split's own failure mode, and it is the loud kind wearing quiet
+     * clothes: an unreadable root declares nothing, every symbol living in it
+     * falls to the second line, and the report claims a pile of live schemas
+     * are gone. The control is per ROOT for that reason.
+     */
+    const broken = buildResolutionIndex([
+      { label: 'declared dependency @fixture/dep', kind: 'dependency', dir: FIXTURE_DEPENDENCY },
+      {
+        label: 'a declared dependency that is not installed',
+        kind: 'dependency',
+        dir: path.join(os.tmpdir(), 'no-such-dependency-9767'),
+      },
+    ]);
+    const controls = runControls({
+      corpusDir: FIXTURE_CORPUS,
+      memberIndex: fixtureIndex,
+      resolutionIndex: broken,
+    });
+    expect(controls.resolutionLit.reading).toBe(1);
+    expect(controls.resolutionLit.expect).toBe('2');
+    expect(controls.ok, 'an unreadable resolution root must void the run').toBe(false);
+
+    // The lit leg, on the SAME instrument: with both roots readable it passes.
+    const healthy = runControls({
+      corpusDir: FIXTURE_CORPUS,
+      memberIndex: fixtureIndex,
+      resolutionIndex: fixtureResolution,
+    });
+    expect(healthy.resolutionLit.reading).toBe(2);
+    expect(healthy.resolutionAbsent.reading).toBe(0);
+    expect(healthy.ok).toBe(true);
+  });
+
+  it('the REPORT prints the two named lines, and the merged heading is gone', () => {
+    const outcome = run([]);
+    expect(outcome.status, outcome.stderr).toBe(0);
+    expect(outcome.stdout).toContain('Controls PASS');
+    expect(outcome.stdout).toContain('whose symbol RESOLVES outside it');
+    expect(outcome.stdout).toContain('resolves NOWHERE this run can reach');
+    expect(outcome.stdout).not.toContain('SPLIT NOT MEASURED');
+    // ⛔ The one line this card removed: both facts under one heading.
+    expect(outcome.stdout).not.toContain('claims naming a schema this tree does not declare');
   });
 });

@@ -25,6 +25,7 @@ import {
   readClaim,
   readPolarity,
   runControls,
+  segmentClauses,
   segmentSentences,
 } from '../changeset-polarity-census.mjs';
 
@@ -649,5 +650,113 @@ describe('objectui#9794 pin 10 -- the optional marker is a decoration, not part 
       'titleField',
     ]);
     expect(flags.every((f) => f.viaPronoun)).toBe(true);
+  });
+});
+
+describe('objectui#9832 pin 11 -- a type annotation is code, not prose, so it cannot negate', () => {
+  /**
+   * The polarity criterion is a regex that runs on PROSE, and it accepts
+   * `never`. A DECLARING clause can carry a type annotation that is also
+   * `never` -- ADR-0049's by-name refusal tombstone, the spelling this lane
+   * settled on objectui#9764 -- and then the clause asserting that a face
+   * DECLARES the key read NEGATIVE and the verdict inverted: under the negative
+   * reading the schema "in contradiction" is the one that HAS the member,
+   * exactly backwards.
+   *
+   * ⭐ `never` as a TypeScript type and `never` as an English adverb are
+   * INDISTINGUISHABLE to a prose regex. That is a property of the instrument
+   * class -- a criterion read over prose -- and not a typo in one word list, so
+   * the repair is POSITIONAL: the negators are read over the clause with its
+   * backticked spans still masked. ⛔ `never` was NOT deleted from the word
+   * list; the leg below that must keep reading negative is why.
+   *
+   * objectui#9794 is the upstream this pin depends on: until a mention spelled
+   * `value?: never` was read as a key at all, the clause carrying it never
+   * reached the polarity criterion.
+   */
+  const universe = declaredNames(fixtureIndex);
+  const TOMBSTONE =
+    'The TypeScript interface `ObjectKanbanSchema` declares `allowCollapse?: never`.';
+
+  it('reads the tombstone clause as the POSITIVE assertion it is', () => {
+    expect(readPolarity(TOMBSTONE, universe).byKey).toEqual({ allowCollapse: 'positive' });
+    expect(readPolarity(TOMBSTONE, universe).polarity).toBe('positive');
+  });
+
+  it('⛔ DARK LEG -- prose `never` still negates, because it is a real English negator', () => {
+    // The constraint the triage comment states: a changeset sentence reading
+    // "the renderer never reads it" must keep reading negative. A repair that
+    // got this file green by deleting the word from the list would be a
+    // regression wearing a pass, and this leg is what refuses it.
+    const prose = '`ObjectKanbanSchema` never declares `cardTitle`.';
+    expect(readPolarity(prose, universe).byKey).toEqual({ cardTitle: 'negative' });
+    // And the same word, in the same sentence, in both positions at once: the
+    // annotation is silent and the adverb is not.
+    const both =
+      '`ObjectKanbanSchema` declares `allowCollapse?: never` but never declares `cardTitle`.';
+    expect(readPolarity(both, universe).byKey).toEqual({
+      allowCollapse: 'positive',
+      cardTitle: 'negative',
+    });
+  });
+
+  it('covers the CALL EXPRESSION, not just the annotation -- the cut is positional', () => {
+    // ⭐ The leg that discriminates this repair from "exclude `never` at the
+    // annotation position". The zod twin of a tombstone is written
+    // `z.never().optional()`, which is not an annotation and which no
+    // annotation-position rule reaches; a key in a following clause INHERITS
+    // that declaration clause, so the inversion travels.
+    const twin =
+      '`ObjectKanbanSchema` declares `z.never().optional()` for the retired key, and parsing a document that carries `titleField` fails on that path.';
+    expect(readPolarity(twin, universe).byKey).toEqual({ titleField: 'positive' });
+  });
+
+  it('names the mechanism: a clause carries BOTH readings and they differ here', () => {
+    // Pinning the cut rather than the count. `text` is the clause as written and
+    // is what a report shows a human; `prose` is the clause with its spans still
+    // masked and is the only text a word-level criterion may be read over.
+    const [clause] = segmentClauses(TOMBSTONE).clauses;
+    expect(clause.text).toContain('never');
+    expect(clause.prose).not.toContain('never');
+    // The span is masked, not deleted -- an offset has to survive, or a key can
+    // no longer be located in the clause it was written in. So `prose` keeps a
+    // placeholder where the span was; what it does not keep is the span's words.
+    expect(clause.prose).toContain('declares');
+    expect(clause.prose).not.toContain('`');
+    expect(clause.prose).not.toContain('ObjectKanbanSchema');
+    expect(clause.prose).not.toContain('allowCollapse');
+    expect(clause.prose.trim()).not.toBe('');
+  });
+
+  it('the corpus leg: the fixture entry flags its prose claim and NOT its tombstones', () => {
+    // Both tombstone spellings are true of this fixture face, so a correct
+    // reading contradicts neither; the prose claim is false of it, so a correct
+    // reading flags exactly that one.
+    const flags = flagsFor('09-annotation-in-span-polarity');
+    expect(flags.map((f) => f.key).sort()).toEqual(['cardTitle']);
+    expect(flags.every((f) => f.polarity === 'negative')).toBe(true);
+  });
+
+  it('⛔ did NOT buy it with blindness: the pinned blind spot still reads', () => {
+    // The acceptance condition every repair on this reader is judged against.
+    // ⚠️ MEASURED, not assumed: this fixture's four keys are negated by the
+    // prose `none` of "declares none of them" -- the word `never` does not occur
+    // anywhere in the fixture corpus, so the masking cannot reach them. The leg
+    // that makes the word list itself safe is the DARK LEG above.
+    const flags = flagsFor('01-pronoun-pre-repair');
+    expect(flags.map((f) => f.key).sort()).toEqual([
+      'allowCollapse',
+      'cardTitle',
+      'columns',
+      'titleField',
+    ]);
+    expect(flags.every((f) => f.polarity === 'negative')).toBe(true);
+    expect(flags.every((f) => f.viaPronoun)).toBe(true);
+    const claim = fixtureRun.matched.find(
+      (m) => m.entry.startsWith('01-pronoun-pre-repair') && /declares none of them/.test(m.text),
+    );
+    expect(claim, 'the motivating claim went missing from the fixture run').toBeTruthy();
+    expect(/\bnever\b/i.test(claim!.text)).toBe(false);
+    expect(/\bnone\b/i.test(claim!.text)).toBe(true);
   });
 });

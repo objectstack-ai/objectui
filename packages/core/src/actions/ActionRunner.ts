@@ -543,9 +543,29 @@ export type ParamCollectionHandler = (
 ) => Promise<Record<string, any> | null>;
 
 /**
+ * The contract's own result-dialog block, and one entry of its field list.
+ *
+ * ⭐ The two interfaces below DERIVE their label members from these instead of
+ * restating them, and that is the whole repair of objectui#9542: the three
+ * label members were hand-written `string` while the producer declares each as
+ * `I18nLabel` — a plain string **or** an inline per-locale map, both authorized
+ * and neither deprecated — so this mirror refused what the platform accepts
+ * while its own docblock claimed the alignment. A hand copy can drift again the
+ * moment the contract moves; a derived member makes `tsc` re-check the claim on
+ * every build instead of trusting a sentence written once.
+ *
+ * ⛔ Local, deliberately not exported: the two interfaces below stay the only
+ * names this module publishes for the block.
+ */
+type SpecResultDialog = NonNullable<SpecActionInput['resultDialog']>;
+type SpecResultDialogField = NonNullable<SpecResultDialog['fields']>[number];
+
+/**
  * Result dialog spec — declarative description of how to render a
  * one-shot reveal of an action's API response. Mirrors
- * `Action.resultDialog` in @objectstack/spec.
+ * `Action.resultDialog` in @objectstack/spec — derived from it member by
+ * member for the labels, so the claim in this sentence is enforced rather
+ * than asserted.
  *
  * When set on an action and the action succeeds, the runner suppresses
  * the success toast and awaits a ResultDialogHandler instead. Used for
@@ -554,13 +574,22 @@ export type ParamCollectionHandler = (
  */
 export interface ResultDialogFieldSpec {
   path: string;
-  label?: string;
+  /**
+   * Derived `I18nLabel` — a plain string, or an inline per-locale map. A
+   * renderer must RESOLVE it (`resolveI18nLabel` in `@objectstack/spec/ui`)
+   * before it reaches the DOM; passed through as-is, the map arm is an object
+   * and React refuses an object as a child.
+   */
+  label?: SpecResultDialogField['label'];
   format?: 'qrcode' | 'code-list' | 'secret' | 'text' | 'json';
 }
 export interface ResultDialogSpec {
-  title?: string;
-  description?: string;
-  acknowledge?: string;
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  title?: SpecResultDialog['title'];
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  description?: SpecResultDialog['description'];
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  acknowledge?: SpecResultDialog['acknowledge'];
   format?: 'qrcode' | 'code-list' | 'secret' | 'text' | 'json';
   fields?: ResultDialogFieldSpec[];
 }

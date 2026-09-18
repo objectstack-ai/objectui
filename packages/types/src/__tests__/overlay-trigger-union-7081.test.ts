@@ -246,6 +246,46 @@ export const singleCollapsible: CollapsibleSchema = { type: 'collapsible', trigg
 // it is a `SchemaNode`, which is why that half was redundant (objectui#7767).
 export const stringCollapsible: CollapsibleSchema = { type: 'collapsible', trigger: 'Toggle', content: [] };
 
+/* -- The forcing subject for the comment projection (objectui#9768) -- */
+
+/**
+ * The subject that makes this reader's comment projection LOAD BEARING.
+ *
+ * Every subject this file reads today produces the same member map with the
+ * projection and with no projection at all -- measured across all three
+ * `packages/types` readers that share `scripts/js-comment-mask.mjs`, over the
+ * whole population they project, and identical on every body (objectui#9768,
+ * out of the reverse ablation on objectui#9751). A guard nothing exercises
+ * cannot notice being deleted, weakened, or reverted to a hand-rolled regex.
+ *
+ * The body below carries a member-shaped row inside an ORDINARY block comment
+ * -- no `*` gutter, so the row sits on the two-space anchor `members()` matches
+ * -- and the pin over it reds the moment `stripComments` leaves `members()`.
+ *
+ * ⛔ A subject, not a synthetic string: the pin reads this file off disk and
+ * extracts this body exactly as it extracts a declaration (the distinction
+ * objectui#9748 drew). It is declared here rather than shared with its two
+ * sibling readers because each of them carries its OWN copy of `members()`, and
+ * a guard in one file cannot red for a projection dropped in another.
+ */
+export interface CommentProjectionForcingSubject {
+  /*
+  ⛔ Do not give this block a `*` gutter, and do not "tidy" the row below: a
+  gutter moves it off the two-space anchor and this subject silently stops
+  forcing anything.
+
+  phantom?: SchemaNode;
+
+  That row is prose. It is a MEMBER ROW to any reader that counts members
+  before it separates code from comments.
+  */
+  real?: SchemaNode;
+  label: string;
+}
+
+export type _ForcingSubjectReal = Expect<Equal<CommentProjectionForcingSubject['real'], SchemaNode>>;
+export type _ForcingSubjectLabel = Expect<Equal<CommentProjectionForcingSubject['label'], string>>;
+
 /* -- Readers (the objectui#7082 shape) -- */
 
 interface Member {
@@ -273,6 +313,11 @@ function interfaceBody(source: string, opener: string, path: string): string {
  * Comments go first, through `scripts/js-comment-mask.mjs`: the bodies carry
  * doc comments whose prose holds member-shaped lines. `stripComments` because
  * this reader reports member names -- neither a line nor an offset.
+ *
+ * What makes that a live claim rather than a classification argument:
+ * `CommentProjectionForcingSubject` above, whose body carries a member-shaped
+ * row inside an ordinary block comment. Drop the `stripComments` call here and
+ * the pin over that subject reds (objectui#9768).
  */
 function members(body: string): Map<string, Member> {
   const bare = stripComments(body);
@@ -449,5 +494,27 @@ describe('counter-probes: the readers above can still fail (objectui#7081)', () 
     for (const { name } of FAMILY) {
       expect(members(interfaceBody(read(DECLARATION), `export interface ${name} extends BaseSchema {`, DECLARATION)).size).toBeGreaterThan(1);
     }
+  });
+});
+
+describe('the comment projection has a subject that FORCES it (objectui#9768)', () => {
+  const OWN = fileURLToPath(import.meta.url);
+  const OPENER = 'export interface CommentProjectionForcingSubject {';
+  const subject = (): string => interfaceBody(readFileSync(OWN, 'utf8'), OPENER, OWN);
+
+  it('the subject really carries a member-shaped row inside a block comment -- read off the UNPROJECTED text', () => {
+    // A lookup, not a projection. Without this leg the pin below passes just as
+    // well against a subject that lost the row, and an empty guard reads
+    // exactly like a live one.
+    expect(subject()).toMatch(/\n {2}phantom\?: SchemaNode;\n/);
+  });
+
+  it('`members()` reads the two DECLARED rows and not the row in the comment', () => {
+    // ⭐ The leg that reds: drop `stripComments` from `members()` and `phantom`
+    // joins this map, so the member list -- and the count -- is wrong.
+    const rows = members(subject());
+    expect([...rows.keys()]).toEqual(['real', 'label']);
+    expect(rows.get('real')).toEqual({ optional: true, typeText: 'SchemaNode' });
+    expect(rows.get('label')).toEqual({ optional: false, typeText: 'string' });
   });
 });

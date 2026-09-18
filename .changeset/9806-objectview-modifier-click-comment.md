@@ -19,13 +19,18 @@ a published component, left to its own card rather than smuggled into a comment 
 The rewritten sentence arrives with an instrument rather than on its own, because a
 sentence repaired without one is the same defect deferred (AGENTS.md #9). A new pin in
 `@object-ui/plugin-view` drives a plain click and a modifier click at the same row
-through the real hook and asserts the two are indistinguishable, alongside a control — a
-bare `ObjectGrid` with no `onRowClick` in the way — whose two clicks DO diverge, so the
-subject's equivalence cannot be a probe that never delivered `metaKey`. The same file
-reads the claim out of the source with whole-line comments stripped, since the file
-documents the very construct being asserted on, and controls that strip in both
-directions; and it reads the comment's citation of the pin back out of the file, so the
-prose and the code cannot drift apart in either direction without something going red.
+through the real hook and asserts the two are indistinguishable, with two controls that
+do different jobs: a bare `ObjectGrid` with no `onRowClick` in the way, whose two clicks
+DO diverge, so the subject's equivalence cannot be a probe that never delivered
+`metaKey`; and the same `ObjectGrid` call with exactly one prop added — an unconditional
+`onRowClick` — which is what attributes the subject's equivalence to the hook's early
+return rather than to the composition.
+
+The same file reads the claim out of the source with whole-line comments stripped, since
+the file documents the very construct being asserted on, and controls that strip in both
+directions on the case that depends on it; and it reads the comment's citation of the pin
+back out of the file, so the prose and the code cannot drift apart in either direction
+without something going red.
 
 Nothing published moves: no behaviour, no declaration, no exported value. This is a
 comment and a test.

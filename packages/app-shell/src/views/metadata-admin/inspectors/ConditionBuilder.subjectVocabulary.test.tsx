@@ -12,13 +12,18 @@
  *     `includePrevious` (so `previous.FIELD` subjects, and the create-path
  *     idiom `previous == null`, are offerable).
  *
- *  2. DEFAULT-PATH INVARIANCE. Five consumer files mount this component
- *     (six mount sites — ActionDefaultInspector mounts it twice), all of them
- *     record-scoped, and all of them in production. They pass no vocabulary,
- *     so every one of them must keep behaving exactly as it did. The pins
- *     below assert the `record.` prefix POSITIVELY (the option list, and the
- *     CEL a fresh row compiles to) rather than snapshotting, so changing the
- *     default would go red rather than merely re-baseline.
+ *  2. DEFAULT-PATH INVARIANCE. Most consumer files mount this component
+ *     without declaring a vocabulary, so every one of them must keep behaving
+ *     exactly as it did. The pins below assert the `record.` prefix
+ *     POSITIVELY (the option list, and the CEL a fresh row compiles to)
+ *     rather than snapshotting, so changing the default would go red rather
+ *     than merely re-baseline.
+ *
+ *     ⚠️ This paragraph used to give the mount-site census as a figure and to
+ *     state that no consumer passes `subjects`. Both had expired by the time
+ *     objectui#9855 read them — the flow trigger declares a `context` today —
+ *     so they are replaced by a pointer rather than a fresh number (AGENTS.md
+ *     #9): `git grep '<ConditionBuilder'` enumerates the mount sites.
  *
  * ── The acceptance-criterion instrument ──────────────────────────────────
  *
@@ -231,11 +236,17 @@ function mountOneRow(vocab?: Record<string, unknown>) {
   return { container, onCommit };
 }
 
-describe('#6296 DEFAULT-PATH INVARIANCE — the five record-scoped consumers are untouched', () => {
-  // Five files mount this component (six mount sites; ActionDefaultInspector
-  // mounts it twice) and none of them passes `subjects`. These assert the
-  // record-scoped default POSITIVELY, so changing it goes red.
-  it('offers record.<field> for the catalog, plus the record/user/org context, and nothing else', async () => {
+describe('#6296 DEFAULT-PATH INVARIANCE — the record-scoped consumers are untouched', () => {
+  // These assert the record-scoped default POSITIVELY, so changing it goes red.
+  //
+  // ⚠️ This block's heading used to carry a census of the mount sites and the
+  // claim that none of them passes `subjects`. Both had already expired when
+  // objectui#9855 read them — the flow trigger declares a `context` today — so
+  // the numbers are gone rather than refreshed (AGENTS.md #9: point at the
+  // instrument, never write down its answer). `git grep '<ConditionBuilder'`
+  // enumerates the mount sites, and the mounts that declare a vocabulary are
+  // the ones that pass `subjects`.
+  it('offers record.<field> for the catalog, plus the record/user context, and nothing else', async () => {
     const { container } = mountOneRow();
     const opts = await subjectOptions(container);
     expect(opts).toEqual([
@@ -246,7 +257,10 @@ describe('#6296 DEFAULT-PATH INVARIANCE — the five record-scoped consumers are
       'user.email',
       'user.role',
       'user.isAdmin',
-      'org.id',
+      // ⛔ no `org.id`: objectui#9855 withdrew it — no host binds an `org` root
+      // and the engine refuses the spelling. The verdict behind that removal is
+      // re-derived from the engine in `ConditionBuilder.contextSubjects.test.tsx`;
+      // this case is the shape half, and reddens if the offer comes back.
       // the row's own out-of-vocabulary subject is appended so it is not lost
       'placeholder_subject',
     ]);

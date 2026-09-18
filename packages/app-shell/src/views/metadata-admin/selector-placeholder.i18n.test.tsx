@@ -36,7 +36,7 @@ describe('metadata-admin selector placeholders (objectui#4387 key collapse)', ()
         schema={{ type: 'string' }}
         value=""
         onChange={() => {}}
-        context={{ objectNames: loaded(['account', 'contact']) }}
+        context={{ conditionScope: 'flattened', objectNames: loaded(['account', 'contact']) }}
         fieldSpec={{ field: 'objectName', multiple: false }}
       />,
     );

@@ -35,6 +35,9 @@ describe('SchemaForm — action objectName renders as an object selector (#2325)
         createMode
         onChange={() => {}}
         widgetContext={{
+          // objectui#8167 — required member; `'flattened'` keeps this fixture's
+          // subject (the object picker) exactly where it was.
+          conditionScope: 'flattened',
           // objectui#5228: the object catalog carries its own load state, so
           // the separate `objectsLoading: false` this fixture used to set is
           // now expressed by the arm itself — a load that COMPLETED.

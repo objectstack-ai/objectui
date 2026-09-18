@@ -1,5 +1,2553 @@
 # @object-ui/react
 
+## 17.7.0
+
+### Minor Changes
+
+- 1b1d772: Expression-bindable text keys: `statistic.value`, `card.title`, `button.label`
+  and their siblings now evaluate `${...}` on the node (objectui#4795 Direction 1,
+  maintainer ruling 2026-08-25).
+  
+  **What changes for you.** Four text keys — `title`, `label`, `value`,
+  `description` — can now carry an expression written directly on the component
+  node, on the component types that declare them:
+  
+  | Component | Bindable node keys |
+  |---|---|
+  | `statistic` | `label`, `value`, `description` |
+  | `card` | `title`, `description` |
+  | `button` | `label` |
+  
+  ```json
+  { "type": "statistic", "label": "Active users", "value": "${data.metrics.active}" }
+  ```
+  
+  That node used to render the literal text `${data.metrics.active}`. A dashboard
+  `statistic` previously had no way at all to bind a dynamic number — the
+  documented workaround (moving the key under `props`) evaluated the value and
+  then discarded it, painting a blank card instead. Both shapes are fixed by the
+  same change: the value is evaluated once, at the single place that produces
+  evaluated schema, and lands where the renderers already read.
+  
+  **No component behaviour changed.** `statistic.tsx`, `card.tsx` and `button.tsx`
+  are untouched — they always read these keys off the node; nothing was writing an
+  evaluated value there.
+  
+  **Scope, and how it grows.** The list is closed and lives in
+  `@objectstack/spec` (`EXPRESSION_BINDABLE_TEXT_KEYS_BY_COMPONENT`); the renderer
+  reads that declaration rather than keeping a copy. On any other component type
+  these four keys are still read raw, so an expression reaches the screen as
+  literal text — notably `text`, whose `value` is read but has no declaration.
+  Adding a type or a key is a change to the spec, never something the renderer
+  infers.
+  
+  **Nothing is newly rejected.** This release only widens what evaluates; no
+  metadata that used to render now fails to. The build-time rejection of `${...}`
+  in undeclared keys — the second half of the same ruling — is not in this release
+  and is still open.
+  
+  Published authoring guidance updated to match: `skills/objectui/rules/protocol.md`
+  (new "Bindable Text Keys" rule), plus the `page-builder`, `schema-expressions`
+  and `data-integration` guides, which taught the now-retired "never evaluated"
+  statement and its host-pre-resolution workaround.
+- 30c73cd: A `disabled` / `disabledOn` predicate that cannot be evaluated is now reported on the console, in development **and** in production — and the message says what this gate's fail-soft default actually did.
+  
+  `SchemaRenderer` routes six visibility legs (`visibleWhen`, `visible`, `visibleOn`, `visibility`, `hidden`, `hiddenOn`) through one reporter, and called `evaluateCondition` **bare** on the two enablement legs — the only uninstrumented predicate pair in the file. A faulting `disabled` predicate had therefore never been reported in any build, in any dialect that does not report on its own.
+  
+  It is also the pair whose fail-soft answer **bites**. `evaluateCondition` answers an unevaluable predicate with `true`; on the negated visibility legs that means SHOWN, here it means GREYED OUT. So the user got a control they could see and could not use, and the author got nothing to grep for.
+  
+  - **Wiring only, one engine call.** Both legs pass `EvaluationOptions.onFault` (objectui#6038's seam), which hands back the fault the evaluator has already caught. No `throwOnError`, no second evaluation, no `__DEV__` split — dev and production print identical bytes.
+  - **No verdict moves.** The fail-soft `true` is preserved deliberately: a faulting `disabled` predicate still disables, exactly as before. Flipping that is a shipped-behaviour change and is not part of this.
+  - **Its own copy, not the visibility reporter's.** The shipped line says the safe default meant the gate "did NOT bite", which is written about a gate that shows the node. This gate's line says the opposite, because the opposite is true: `[ObjectUI] An enablement predicate could not be evaluated`, then the node, the key, the source, the engine's reason, and that the node renders disabled — on screen, greyed out — with nothing else on screen to say a predicate failed. One reporter, one dedupe, one severity; a second message.
+  - **Rate-limited exactly as the visibility gate is**, per `(node type, key, predicate source)`: two hundred rows of one broken predicate print one line, a second distinct source still prints, and the same source authored on `disabled` and on `visibleWhen` prints two — the gates cannot silence each other.
+- 830ed58: The record page's approval band offers its **Recall** button to the approval's submitter
+  only (objectui#6464).
+  
+  Field report on `@objectstack/*@17.2.0`: user A submits a record into a 4-level approval;
+  user B — not the submitter, read access, not an admin — opens the record and the band still
+  lights a clickable recall button. The click cannot succeed. The recall endpoint authorizes
+  on submitter identity and refuses everyone else, so the only outcome available to that
+  button was a failure toast. Record state was never at risk; this was purely a
+  writability-feedback mismatch, the same family as objectui#3794.
+  
+  The button's only gate was `dataSource.cancelPendingApproval` — "can this adapter recall at
+  all" — which is a question about the DataSource, not about the viewer. Identity now joins
+  it, threaded the way every other signal on that band already travels: the HOST resolves it
+  and passes it through `InlineEditProvider`, so the renderer stays DataSource-agnostic and
+  never re-derives who submitted what.
+  
+  - `@object-ui/react` — `InlineEditProvider` accepts `approvalIsSubmitter`, surfaced on
+    `InlineEditContextValue`. Additive and optional; no existing prop changes.
+  - `@object-ui/plugin-detail` — the band's recall button is withdrawn when that signal is a
+    resolved `false`.
+  - `@object-ui/app-shell` — `RecordDetailView` resolves the verdict from its existing
+    approvals read and threads it.
+  
+  **The signal is tri-state, and the third state is the load-bearing one.** `true` offers
+  recall, `false` withdraws it, and **`undefined` — a host that resolves no approval identity
+  — renders exactly as it did before this release.** Omission preserving prior behaviour
+  mirrors how `approvalPending` falls back to `locked`. Defaulting the unknown case to "hide"
+  would have traded a cosmetic defect for a functional loss: every host whose band runs off
+  the record's `approval_status` mirror alone would silently lose its submitter's only way to
+  unlock their own record.
+  
+  **Withdrawn rather than disabled-with-reason.** The card offered either. For a
+  non-submitter this control is never actionable on any pending record, so a permanently
+  disabled button is standing clutter rather than a lesson; and the two sibling submitter
+  levers already hide — the approvals panel's Remind button, and the declared
+  `approval_recall` action's `visible` predicate. The band, its quorum tally and the
+  approvals timeline still tell a non-submitter exactly what state the record is in. Only the
+  lever they can never pull is gone.
+  
+  **This changes no permission.** Nothing about what the server allows moves, `canEdit` and
+  the approval lock are untouched, and nothing downstream reads `approvalIsSubmitter` as an
+  authorization verdict — the recall endpoint remains the sole authority, and it refused
+  these callers before this change and refuses them after. There is deliberately **no admin
+  carve-out** (the reporter ruled that case out, cf. objectstack#9464).
+  
+  The derivation itself is now one function, `isSubmitterOf` — server-resolved
+  `viewer.is_submitter` first (framework#3310), an id comparison as the fallback for backends
+  that predate it, joined with `??` so a server that resolved `false` is believed rather than
+  re-litigated client-side. The approvals panel's Remind gate, which already carried that
+  expression inline and whose behaviour is unchanged, now reads the same answer: two copies
+  would have been two definitions of who submitted.
+  
+  The **untranslated refusal text** the reporter also saw ("No pending approval request found
+  for this record", concatenated after a localized prefix) is a separate defect and is not
+  addressed here; it is tracked on objectstack#11993.
+- c71e14d: **The unresolvable-visibility-predicate report now names the roots of the tier the
+  predicate was actually evaluated against** (objectui#6487). An app-shell author
+  whose nav, area or field `visible` faulted was told to check `record` and
+  `page.<var>` — two roots that tier does not bind at all.
+  
+  `formatUnresolvableVisibilityMessage` and `reportUnresolvableVisibilityPredicate`
+  (both exported from `@object-ui/react`) take a new **optional sixth argument**, a
+  `PredicateScopeTier` — also exported — selecting the closing advice paragraph.
+  Everything above that paragraph is unchanged on every surface, and so is every
+  verdict: this is diagnostics copy only.
+  
+  **The published signature grew; nothing existing breaks.** The argument defaults
+  to `'page-component'`, so a five-argument call keeps printing the bytes it
+  printed before. All three in-repo call sites pass their tier explicitly rather
+  than lean on that default.
+  
+  Each tier's root set was derived from the code that builds the bag, not from the
+  prose that described it:
+  
+  - **`'page-component'`** — `SchemaRenderer`'s node gate and `page:tabs` item
+    predicates. Both bind `record`, `current_user` and `page.<var>` (the roots
+    `@objectstack/spec`'s `ui/page.zod.ts` declares for the tier). Its paragraph is
+    byte-for-byte what it was.
+  - **`'app-shell'`** — the chrome gate `ExpressionProvider.evaluateVisibility`
+    runs, wired onto this reporter by objectui#6443. Its evaluator is built from
+    `{ current_user, user, ctx: { user }, os: { user }, data, features }`, so
+    the line now names `current_user` with its three ADR-0068 alias spellings and
+    `features` — the deployment-flag root that provider documents for exactly
+    this kind of predicate — and states outright that `record` and `page.<var>`
+    do not exist there. (That bag and that paragraph also carried an `app` root
+    when this entry was first written; objectui#8155 removed it from both before
+    either shipped, so the released message names five roots, not six.)
+  
+  **Why not generalise the copy instead.** Dropping the concrete root names would
+  have made one paragraph true everywhere at the cost of making it useful nowhere:
+  an author who mistyped a root needs to know which roots exist *at their tier*,
+  which is the whole reason the paragraph is read.
+  
+  `data` is bound at the app-shell tier but is deliberately not advertised there —
+  every mount of `ExpressionProvider` in this repo passes `data={{}}` or omits it,
+  so naming it would point an author at a root that answers nothing.
+- 748494b: The unresolvable-predicate diagnostic tells `hidden` / `hiddenOn` authors what actually
+  happened to their node (objectui#6503). Those two legs are the only ones in
+  `SchemaRenderer`'s visibility chain whose verdict is NOT negated: `evaluateCondition`
+  answers an unevaluable predicate with `true` on every path, the four negated legs turn that
+  into SHOWN, and these two return it as-is, so the same `true` sets `_hidden` and the
+  component returns `null`. Both were handed the consequence paragraph written for the negated
+  legs — "the gate did NOT bite - a predicate that cannot be evaluated reads on screen exactly
+  like one that said yes" — which is the opposite of what an author whose block VANISHED is
+  looking at. That line exists to name their predicate, and instead it sent them to hunt a
+  rendering bug that does not exist.
+  
+  The two legs now print their own paragraph: the safe default is the one that BITES here, the
+  node was REMOVED and is not on the page at all, an absent node is indistinguishable from
+  metadata that meant to hide it, and nothing is wrong with the renderer.
+  
+  Copy only — no verdict moved. The node still vanishes, which is the shipped fail-soft the
+  neighbouring family (objectui#3862 / #3955 / #6443 / #6487 / #6445) preserved deliberately,
+  and every case in the new suite pins the verdict beside the sentence.
+  
+  `PredicateGateKind` — re-exported from `@object-ui/react`'s entry — gains a third member,
+  `'concealment'`, joining `'visibility'` and `'enablement'`. The opening line is deliberately
+  UNCHANGED (`UNRESOLVABLE_VISIBILITY_PREFIX`): these are visibility predicates, and an app or
+  a test filtering the console by that constant must go on catching them. Consumers that
+  switch EXHAUSTIVELY over the union, or key a `Record` by it, gain a third case to answer;
+  no runtime signature moved and every value accepted before still is.
+- dc4365c: Retire the discovery-wire preview mode — the console no longer turns
+  authentication off because a server said `mode: 'preview'` (objectui#6654).
+  
+  `@objectstack/spec` retired the `RuntimeMode` value `'preview'` and the whole
+  `PreviewModeConfig` block (objectstack#11846). This console still read that
+  surface back off the runtime discovery payload, which is a different layer from
+  the retired compile-time type — so the consumption could not simply be assumed
+  dead, and its removal was ruled deliberately (2026-08-29).
+  
+  - `ConditionalAuthWrapper` (`@object-ui/app-shell`) drops the branch gated on
+    `discovery.mode === 'preview'`. That branch called `setAuthEnabled(false)` and
+    simulated an identity out of `discovery.previewMode`, every field behind a
+    default. Auth availability is now decided **only** by the ADR-0076 D12 service
+    reading (`isServiceUsable(discovery.services.auth)`), exactly as for any other
+    mode.
+  - `DiscoveryInfo` (`@object-ui/react`) drops the `previewMode` block and stops
+    documenting `'preview'` as a runtime mode; the package README's discovery
+    section is updated to match.
+  
+  **Accepted failure direction:** a deployment that still emits `mode: 'preview'`
+  or a `previewMode` block now falls back to the ordinary auth reading — it
+  requires login. That is loud, diagnosable and more secure than keeping a dormant
+  auth-off path keyed on a spelling the platform no longer produces.
+  
+  **Not affected:** `AuthProvider`'s `previewMode` prop, `useAuth().previewMode`
+  and `PreviewBanner` in `@object-ui/auth` are a separate published capability
+  with a different producer (a host passing the prop). Only the discovery-wire
+  producer of that prop is retired; hosts that pass it explicitly are unchanged.
+- e321d52: `useSchemaPersistence` refuses to save a schema carrying function-valued keys
+  (objectui#6658).
+  
+  The designer save door handed the schema straight to `JSON.stringify`, which
+  does not preserve a function value and says nothing about it: an object key is
+  **dropped**, an array element is **coerced to `null`**. No throw, no warning.
+  `save()`
+  resolved with the id, `error` stayed null and `lastSavedAt` advanced, so every
+  observable signal reported success while the stored schema had quietly lost the
+  handler. The failure ordering was the bad one: loss at save, symptom at render
+  or click, arbitrarily later, in a different component, with no link back.
+  
+  Per the 2026-08-29 maintainer ruling on objectui#6658, the door now refuses such
+  a save instead of performing a lossy one:
+  
+  - `save()` walks the schema for function-valued keys **anywhere** in it —
+    nested objects and array elements included — before serialization.
+  - On a hit it sets `error`, returns `null`, leaves `lastSavedAt` and `isDirty`
+    untouched, and never reaches the adapter. The message names the exact
+    offending key paths (`columns[2].cell`, `toolbar.actions.onExport`) and both
+    escapes: strip the callables before saving, or use the declarative form.
+  - The guard sits at the **hook layer**, not inside the default localStorage
+    adapter, so a host-injected or REST adapter is covered too — the documented
+    REST adapter has the identical `JSON.stringify` shape, so a host following
+    the docs inherited the behaviour rather than escaping it.
+  
+  True lowering (objectstack's server-side `lowerCallables`) is recorded as
+  unavailable at a browser door: functions cannot round-trip storage without a
+  code registry, so refusal is the honest shape.
+  
+  Behaviour change for hosts that previously saved callable-bearing schemas —
+  those saves were already losing the callables and now fail loudly instead.
+  Fully declarative schemas are unaffected and store byte-identically to before.
+  No published type or signature changed.
+- 3beef6d: The spec's `dataSource` element binding is now DECLARED by the blocks that read
+  it, so the html tier stops reporting the one working saved-view spelling as
+  `unknown-prop` (objectui#6678).
+  
+  `PageComponentSchema.dataSource` — `{ object, view, filter, sort, limit }` — is
+  the one spelling that resolves a saved view for an object-bound block. It works,
+  and it drew the identical `unknown-prop` warning as the two spellings that do
+  nothing (`viewName`, `view`), because `validateTree` looks a prop up in the
+  block's declared `inputs` and no registration declared this key. On the tier
+  built to accept AI-authored pages, where the diagnostic IS the contract, the
+  only signal pointed away from the key that works.
+  
+  Adopting the maintainer ruling of 2026-08-29 — option B **in the injection
+  form**:
+  
+  - `ELEMENT_DATA_SOURCE_INPUT` is the single declaration, in `@object-ui/core`
+    beside the binding's own semantics; `Registry.register` emits it for any
+    registration whose renderer passed through the new `elementDataSourceBlock()`
+    seam. One mechanism, one copy — not a hand-kept declaration per block, which is
+    the shape that drifts and that a new block forgets. The seam lives in
+    `@object-ui/core` and is re-exported by `@object-ui/react` beside
+    `ElementDataSourceGate` for discoverability; call sites take the core import,
+    because a registration runs at module scope and this repo's suites partially
+    mock `@object-ui/react`.
+  - Seventeen renderers, in thirteen files across twelve packages, reach the seam
+    and now publish the key to the save gate, the parser whitelist, the generated
+    JSX authoring types and the block list. The card named nine blocks; the tree
+    also has `plugin-grid`, `plugin-timeline`, two further `plugin-form` blocks and
+    `element:record_picker` — nothing was hand-listed, so the mechanism covered
+    them. `element:record_picker` consumes the gate's HOOK and status panels rather
+    than the wrapper tag (its object lives under `properties`), and was found by a
+    render probe rather than by reading sources.
+  - `dataSource` on a block that does NOT read it (`flex`, `card`) still reports
+    `unknown-prop`. Adding the key to `sdui-parser`'s `BASE_PROPS` was refused for
+    exactly this reason — that set mirrors `BaseSchema`, and silencing the key
+    everywhere would make the diagnostic lie in the other direction.
+  - New `check:element-data-source-declaration` fails any source that consumes the
+    gate without reaching the seam, so a block added tomorrow cannot forget.
+  
+  Behaviour of the binding itself is unchanged — this is a declaration, not a
+  resolution change. The saved view still resolves its columns, and an
+  unresolvable `view` still fails loudly rather than widening to the object's full
+  scope.
+  
+  The spec/registry parity gates (repo-wide and the `record:related_list` per-block
+  pin) now derive their accepted set from the WHOLE node contract rather than from
+  `ComponentPropsMap[type]` alone. `PageComponentSchema` accepts and keeps
+  `dataSource` on a page-component node — it is a node-level key, a sibling of
+  `type` and `className`, not a per-block prop — so the gates' previous complaint
+  was measurably wrong. Derived from the spec, not exempted, and both still
+  discriminate against an invented key.
+- 26896c6: `element:*` renderers stop re-reading a degenerate config bag as its own character indices — the third and last channel of the objectui#6752 / objectui#6760 hazard (objectui#6783).
+  
+  Five modules under `packages/components/src/renderers/basic/` — `elements.tsx`, `data-list.tsx`, `text-input.tsx`, `record-picker.tsx`, `metadata-viewer.tsx` — each carried a copy of the same reader, `{ ...(schema?.props ?? {}), ...(schema?.properties ?? {}) }`. `??` only replaces `null`/`undefined`, so a non-object bag went into the object spread and came back out as indexed keys: for `properties: 'not-a-bag'`, the config bag a renderer received was `{ '0': 'n', '1': 'o', … '8': 'g' }` — nine keys nobody authored. The five copies are now one `readProps` (`renderers/basic/readProps.ts`) that asks `isConfigBag`, and a degenerate bag on either side contributes no keys.
+  
+  `@object-ui/react` exports `isConfigBag` from its package entry. That is the API addition here, and it is the reason the fix is not a sixth spelling of the predicate: objectui#6761 converged six occurrences of "is this a real config bag?" behind one definition in `packages/react/src/utils/configBag.ts` and pinned it, but the pin scans `packages/react/src` only — a copy written one package over would be invisible to it. `@object-ui/components` already depends on `@object-ui/react` (all five modules import from it today), so the reachable answer was to publish the definition rather than retell it. Same reason the node-gate predicate reporter is exported at that entry (objectui#6038): one definition, read by every package that asks.
+  
+  **What this does not change, measured rather than predicted.** No rendered output moves on today's tree. All five renderers read named keys off this bag, and the single onward spread — `metadata-viewer`'s `<StateMachineView {...props} />` — hands it to components that destructure named fields, so the indexed keys were computed and then dropped. The census behind objectui#6708 found zero authored nodes carrying a degenerate config bag, so this was a latent shape, not a live failure. What the guard buys is what objectui#6752 measured its own guard buys, one channel further down: the authored value's shape is not reinterpreted. objectui#5123's precedence is untouched — `properties` still wins a contested key, and a degenerate bag declares no key for either side to win.
+- b87f15b: `useOffline` auto-syncs mutations queued while already online (objectui#6818).
+  
+  The auto-sync effect was keyed `[isOnline, enabled]` with
+  `react-hooks/exhaustive-deps` suppressed, so its `queue.length === 0` guard was
+  evaluated against the queue as it stood when `isOnline` or `enabled` last
+  changed. `queueMutation` has never been conditional on being offline — it
+  accepts entries whenever the hook is enabled — so anything queued while ALREADY
+  online found the effect asleep, and nothing re-ran it. Only an explicit `sync()`
+  drained those mutations; the hook whose job is auto-sync did nothing for them.
+  
+  The suppression's stated reason ("only trigger on `isOnline` changes, not on
+  every queue change") was about TIMER RESTARTS, and it is kept: the effect is
+  keyed on the **boolean** `queue.length > 0`, never on `queue` or `queue.length`,
+  so queueing a second mutation while the 100ms stabilization timer is already
+  armed still does not re-run the effect or restart the timer. What the
+  suppression never justified — the early return against a stale snapshot — is
+  what changed.
+  
+  `sync` also read `batchSize` through a ref (newest) while reading `queue` from
+  its own closure (a snapshot), so the two halves of one call disagreed about how
+  current they were, and the auto-sync effect retains such a closure by design.
+  The queue now reaches `sync` through the same commit-phase mirror the sync
+  config uses, so both halves are the newest committed values. That also takes
+  `queue` out of `sync`'s dependency list: `sync` is keyed `[enabled]` and is
+  stable across queued mutations, which is what lets the effect name every value
+  it reads and drop the `eslint-disable` entirely rather than reword it.
+  
+  **Behaviour change, graded `minor` deliberately.** `useOffline` is published and
+  its out-of-repo population is unmeasured; the single in-repo caller
+  (`AppHeader`) destructures `isOnline` only and is unaffected. A consumer that
+  called `queueMutation` while online and relied on nothing being sent until it
+  called `sync()` itself will now see that mutation flushed ~100ms later.
+  `sync`'s identity is also more stable than before — it no longer changes on
+  every queued mutation — which is safe for effects keyed on it but is a visible
+  difference.
+  
+  Not changed here: a `batchSize` smaller than the queue still drains one batch
+  and leaves the remainder for the next transition, because whether one auto-sync
+  should chain batches until the queue is empty is a separate question about what
+  `batchSize` means, not about this guard. Filed as objectui#6857.
+- 03380aa: Inline edit: a rejected save now says WHICH field the server refused, and why.
+  
+  Editing a record in place on a detail page and hitting Save used to surface the
+  backend's own string when the write was refused — `VALIDATION_FAILED:
+  Validation failed for crm_opportunity` — leaving the user to guess which of the
+  fields they had just edited was the problem. The refusal has always been
+  field-scoped (`@objectstack/objectql`'s validators throw `VALIDATION_FAILED`
+  with `fields[]`, and both the REST layer and the runtime dispatcher pass those
+  entries through intact); the inline surface was the last one still dropping
+  them. `<InlineEditSaveBar>` now renders one reason per rejected field, named by
+  that field's own label — the same treatment record forms have had since #3222.
+  
+  Attribution never guesses. It reads the envelope through
+  `@object-ui/react`'s `extractFieldErrors`, the single in-repo normaliser the
+  form surface already uses, and an entry with no usable `field` is dropped
+  rather than pinned on whichever input is nearby. In the drawer's callback mode,
+  where persistence loops `onFieldSave(field, value)` one key at a time, a
+  rejection is attributed to the key that was in flight — a fact about the write,
+  not an inference. Anything that is not field-scoped (a network failure, a
+  permission denial) keeps the cleaned single-line message it had before.
+  
+  `@object-ui/react` gains one additive public API member to carry this, and it
+  is the reason that package's entry is `minor` rather than `patch`:
+  `InlineEditContextValue` now has **`fieldErrors`** — a nullable map of field
+  machine name to the server's reason — alongside a **`setFieldErrors`** setter,
+  the exact companions of the `error` / `setError` pair that interface already
+  carried. Nothing is removed and nothing changes shape, so every existing host
+  and consumer compiles and behaves as before; a host that never reads the new
+  member sees no difference. It exists because the save bar and the field rows
+  are SIBLINGS under `InlineEditProvider` in both persistence modes, so before
+  this there was no channel between the component that receives a refusal and the
+  components that render the fields it is about.
+  
+  Also recorded in code, per the maintainer's ruling on objectui#6868: **the
+  server is the validation authority on the inline-edit surface.** That was
+  previously an absence — `InlineFieldInput` runs no rules and takes no `error`
+  prop — and it is now a decision, written into both modules' headers with a
+  pointer to the ruling. No client-side rule evaluator was added, and none should
+  be: the server is the only rule source, and this surface only presents it.
+- 7c3df8f: A non-grid view's fetch now carries a platform row ceiling, and crossing it is
+  never silent (objectui#7210, maintainer ruling a′, 2026-09-02).
+  
+  Before this, `ObjectGantt`, `ObjectCalendar`, `ObjectMap` and `ObjectTree` each
+  issued a `find` with **no `$top` at all**, so the request returned the entire
+  filtered result set. At the 186 rows the card was filed from that is invisible;
+  on an object with 100k scheduled rows it is the whole table into the browser,
+  and nothing an author could write — `pagination.pageSize` included — could
+  bound a request that never carried a cap to begin with.
+  
+  **What changed.** Those four fetches now ask for `NON_GRID_ROW_CEILING_TOP`
+  rows, draw at most `NON_GRID_ROW_CEILING` of them, and when the result set was
+  larger they render a footnote naming both numbers, verbatim as it renders:
+  *"Showing the first 2000 of 41234 records. Narrow the filter."* Below the
+  ceiling nothing changes: the full set draws and no footnote appears.
+  
+  The four view packages take a **minor**, not a patch: a result set above the
+  ceiling is no longer drawn in full, which is a behaviour break whatever the
+  fixed group does to the released version number.
+  
+  **The ceiling is a platform constant, not an authorable key** — `2000`, exported
+  from `@object-ui/react` as `NON_GRID_ROW_CEILING`. An authored `limit` or
+  `dataSource: { limit }` still does not reach these queries, by the same ruling;
+  three alternatives were rejected with it (a documentation note only — still the
+  whole table; truncating at `pageSize` — silent, and a complete schedule capped
+  at one page; an authorable `maxRows` — a new permanent key every author sets).
+  
+  **Why 2,000.** One constant for all four, so the binding view sets it. Measured
+  in this repo's jsdom lane: gantt, calendar and map hold their DOM flat as rows
+  grow (virtualised task list; four events per day cell; auto-clustering above
+  100 markers), while `ObjectTree` flattens every expanded node into the document
+  at a linear **5.2 DOM elements per record** with no virtualisation. 2,000 rows
+  is where the worst of the four lands at ~10,400 elements — an order of
+  magnitude above Lighthouse's "excessive DOM size" warning, and still ~10x the
+  real application result set this card came from.
+  
+  New exports on `@object-ui/react`: `NON_GRID_ROW_CEILING`,
+  `NON_GRID_ROW_CEILING_TOP`, `applyNonGridRowCeiling`, `NonGridRowCeilingNote`
+  and the type `NonGridCeilingResult`. Two new `common.*` i18n keys carry the
+  footnote copy in all ten packs.
+- b041b9c: `@object-ui/core` publishes `resolveRecordSourceObjectName`, the ONE reader for "which
+  object is this block bound to" (objectui#7627).
+  
+  Six view plugins each spelled that resolution locally — `ObjectCalendar` twice,
+  `ObjectGantt`, `ObjectTree` twice, `ObjectMap`, `ObjectGrid` — and had drifted: three
+  wrote `?? schema.objectName`, one `|| ''`, one `: undefined`, one an `'object' in
+  dataConfig` test. They now delegate to one function that states the published
+  objectui#6939 record-source ladder (`data`, then `staticData`, then `objectName`) once.
+  
+  **No behaviour changes.** Each site's pre-collapse expression is transcribed verbatim
+  into `record-source.behaviourNeutrality-7627.test.ts` and asserted equal to its
+  post-collapse spelling across the whole contract-valid input matrix — both bindings
+  present, data only, `objectName` only, empty `objectName`, empty `data.object`, the
+  `api` / `value` / `staticData` / array-shorthand providers, and nothing bound.
+  
+  **Two questions stay two questions.** `normalizeListViewSchema`'s gap-fill (#7477,
+  ruling B of PR #7628) is untouched and is NOT re-pointed at the new reader: it answers
+  how `objectName` gets POPULATED when absent, where an already-present `objectName` wins.
+  The new reader answers which object a block RESOLVES, where the `data` block wins — the
+  order declared on both published faces in `@object-ui/types` and pinned by
+  `objectql-record-source-refinement-6939.test.ts`. Merging them would silently override
+  one standing ruling or the other.
+  
+  **`ObjectGantt`'s `persistLayoutKey` is deliberately excluded** and keeps its inverted
+  order, with an in-place comment saying why: its receiver is a localStorage key
+  (`gantt-layout:KEY:filters`), not a record source, so re-pointing it would orphan every
+  saved layout and filter-chip set of a view carrying both bindings. Two more sites the
+  finding listed are not object-name readers at all and were struck: `ObjectGantt`'s
+  refresh-handler predicate (`object` OR `api`) and `plugin-dashboard`'s `isObjectProvider`
+  type-guard over a widget's `data`.
+  
+  `useSettledSchema`'s doc comment stops prescribing the hand-written ladder at all four
+  lines that taught it, so the copies cannot re-seed from the hook that replaced them.
+- edea22a: **BREAKING** — `SchemaRendererProvider`'s `dataSource` prop, and the context
+  type every `useSchemaContext()` consumer reads back, are the published
+  `DataSource` contract instead of `any`.
+  
+  **FROM** `dataSource={anything}` **TO** `dataSource={adapter}` — a `DataSource`
+  from `@object-ui/types`, or `null` / `undefined` when the host has no adapter
+  bound.
+  
+  ```ts
+  // before — compiled, and failed at runtime on the first find()
+  <SchemaRendererProvider dataSource={'not-an-adapter'}>
+  // before — compiled, and no reader can do anything with it
+  <SchemaRendererProvider dataSource={{}}>
+  // after
+  <SchemaRendererProvider dataSource={adapter}>       // a DataSource
+  <SchemaRendererProvider dataSource={undefined}>     // "I have no adapter"
+  ```
+  
+  Both sites are typed `DataSource | null | undefined` — the spelling
+  `useSettledSchema` in this same package already used. The two absences are part
+  of the contract, not a weakening of it: a Studio preview, a `kind:'react'` page
+  rendered before the host's adapter connects, and a widget probe driving
+  `apiFetch` alone all render with nothing bound, and every reader in the tree
+  already guards for it. What the union refuses is everything that is not an
+  adapter: a string, an empty object, a plain data bag, a partial adapter missing
+  a required member.
+  
+  The measured cost, both halves, because the two `any`s have different blast
+  radii (measured separately on `origin/main`, whole-repo type-check over the 33
+  packages that depend on `@object-ui/react`):
+  
+  - the **context type** — the `any` that reaches every `useSchemaContext()`
+    reader — reds **7 diagnostics at 7 sites in 4 packages**, all of them
+    production code or a mocked module factory.
+  - the **provider prop** — the injection points — reds **52 diagnostics at 27
+    sites in 11 packages**, all but one of them test doubles.
+  
+  That ordering is the reverse of the prediction on the card: the context `any`
+  was expected to be the expensive one because it infects the whole tree, and it
+  is the cheap one, because every reader in the tree already guarded and none of
+  them ever reached past `find` / `getObjectSchema`. The prop is the expensive
+  one, because the injection points are overwhelmingly test doubles that were
+  never complete adapters. The full accounting is on objectui#7912.
+  
+  Two runtime behaviours change, both in the "no adapter" direction and both
+  strictly closer to what the surrounding code already intended:
+  
+  - `@object-ui/components`' `kind:'react'` page passed an empty object as its
+    "no adapter yet" stand-in. An empty object is TRUTHY, so it walked past every
+    `if (!dataSource)` guard written to catch exactly that state and failed later,
+    at the call. It now passes the absent adapter itself, so the guard fires where
+    it was meant to. The module-constant identity that stand-in existed for is
+    preserved: `null` is a primitive, so the provider's memo is unaffected.
+  - `@object-ui/plugin-calendar`, `@object-ui/plugin-gantt` and
+    `@object-ui/plugin-kanban` collapse a `null` adapter from the context to
+    `undefined` before handing it to their widget, whose prop declares the single
+    spelling `dataSource?: DataSource`.
+  
+  Nothing else moves at runtime: no value flowing through this key changes, and
+  no data path is touched. A TypeScript consumer outside this repo that handed
+  this prop something other than an adapter now gets a compile error naming the
+  key (TS2322 / TS2739 / TS2740), which is why the FROM/TO is spelled out above.
+  
+  Five `as any` reads of this context in `@object-ui/fields` are gone — they were
+  redundant the moment the seam became honest — and `LookupField`'s local
+  re-declaration of the imported context as a `Context` of `any`, which laundered
+  its `dataSource` read while looking typed, is gone with them. Both directions of
+  the contract are pinned against the real compiler in
+  `SchemaRendererContext.dataSourceType.pin.test.ts`, and the card's planted
+  documentation probe (a bare string in `packages/react/README.md`'s provider
+  example) now fails `pnpm check:doc-snippets`, where it used to exit 0 with zero
+  diagnostics.
+  
+  objectui#7912.
+- 0ea7054: Remove 37 runtime dependencies that no file in the declaring package consumes, and gate
+  the direction so the next one cannot land (objectui#8198).
+  
+  `check:phantom-deps` judges imports that are not declared; nothing judged the reverse,
+  so a declaration could outlive its last consumer indefinitely. That is what happened to
+  `recharts` in `@object-ui/components` after objectui#7397 deleted its only importer — it
+  was removed by hand on objectui#7625, and nothing would have reported the next one. The
+  new `pnpm check:unused-deps` asks the reverse question over `dependencies` and
+  `optionalDependencies` of every released package.
+  
+  **Potentially breaking, for consumers relying on hoisting.** Nothing these packages ship
+  changes: their Vite `external` predicates are path-based and never read `dependencies`,
+  so no built artifact moves. What changes is the install graph — a project that imports
+  one of the removed packages while depending only on the ObjectUI package that used to
+  drag it in will no longer resolve it. Declare it directly; that is the correct
+  dependency edge in either case. The removals, by package:
+  
+  - `@object-ui/plugin-designer`: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `@object-ui/fields`
+  - `@object-ui/plugin-chatbot`: `react-markdown`, `react-syntax-highlighter`, `remark-gfm` (and the orphaned `@types/react-syntax-highlighter`)
+  - `@object-ui/plugin-report`: `@object-ui/plugin-grid`, `clsx`, `react-i18next`, `tailwind-merge`
+  - `@object-ui/plugin-map`: `@objectstack/spec`, `lucide-react`, `zod`
+  - `@object-ui/runner`: `class-variance-authority`, `clsx`, `tailwind-merge`
+  - `@object-ui/core`: `lodash`, `zod`
+  - `@object-ui/layout`: `clsx`, `tailwind-merge`, and `react-dom` — which it pinned at an exact version in `dependencies` while also declaring it as a peer range, i.e. a library hard-depending on the renderer it asks its host to supply
+  - `@object-ui/plugin-dashboard`: `clsx`, `tailwind-merge`, and the same `react-dom` defect
+  - `@object-ui/plugin-ai`: `@object-ui/react`, `clsx`, `tailwind-merge`
+  - `@object-ui/fields`: `clsx`, `tailwind-merge`
+  - `@object-ui/console`: `@object-ui/react-runtime`, `sucrase`
+  - `@object-ui/auth`: `@object-ui/types`
+  - `@object-ui/plugin-calendar`: `@object-ui/fields`
+  - `@object-ui/plugin-editor`, `@object-ui/plugin-markdown`: `@object-ui/react`
+  - `@object-ui/react`: `react-hook-form`
+  
+  Every one was verified by a whole-package grep before removal — the name appeared nowhere
+  under the package but its own manifest and CHANGELOG — and the whole workspace builds,
+  type-checks and tests green afterwards.
+- 4eaa835: `BaseSchema.testId` is now emitted as `data-testid` (objectui#8268, ADR-0049 enforce arm).
+  
+  The declaration promised "Rendered as data-testid attribute" and nothing rendered it. `testId`
+  was absent from `SchemaRenderer`'s metadata destructure, so it fell through into the spread and
+  reached the DOM under React's fallback spelling for an unrecognised prop — a non-standard
+  lowercase `testid` that `screen.getByTestId(...)` and `[data-testid=...]` both miss. The
+  validator accepted the key, so an author who followed the documented row got a failing test with
+  no diagnostic near the cause.
+  
+  Measured on `93127bd6f` through the real `ui:scroll-area` renderer, node
+  `{ id: 'my-scroll', testId: 'my-tid' }`:
+  
+  ```
+  before  id="my-scroll" testid="my-tid" data-obj-id="my-scroll"
+          [data-testid="my-tid"] false · [testid="my-tid"] true
+  after   id="my-scroll" data-testid="my-tid" data-obj-id="my-scroll"
+          [data-testid="my-tid"] true  · [testid="my-tid"] false
+  ```
+  
+  `id` reaching the DOM as `id` + `data-obj-id` is the contrast leg, green on both runs — the
+  strip list and the spread were working as designed; only this key had no mapping.
+  
+  The other direction — retiring the promise — was considered and declined. It is what
+  objectui#7088 did for `BaseSchema.hidden`, but that key had a working behaviour to describe and
+  zero named consumers, and the ruling's decline turned on exactly that. This promise already has
+  carriers outside the type declaration: `content/docs/api/schema-reference.md` states it as a
+  table row and authors `testId` in that page's own base-schema example, `@object-ui/cli`'s
+  `OBJECTUI_STRUCTURAL_KEYS` identifies a file as an ObjectUI schema node by this key,
+  `ObjectGridSlotKey` / `ObjectFormSlotKey` pin it, `SchemaBuilder.testId()` writes it, and
+  ADR-0054 C4 — shipped — reads "the renderer emits `data-testid` … derived from metadata".
+  
+  `minor`, not `patch`: nodes that author `testId` change what they emit in both directions, so a
+  selector written against the accidental `[testid=…]` stops matching.
+  
+  Nodes that author no `testId` are byte-identical to before. The attribute is spread
+  conditionally rather than passed as `'data-testid': undefined`, because the unconditional form
+  puts the key in every node's props bag and a component that sets its own `data-testid` before
+  spreading what it is handed loses its locator — measured, 9 tests red across 5 files, three of
+  them the byte-for-byte props-bag pins (objectui#6708 / #6752 / #6760).
+  
+  `testId` is stripped from the spread but kept in objectui#4795's unevaluated-expression scan
+  set: the strip list is that diagnostic's exclusion list because every other member holds raw
+  predicate source, and this key holds a literal.
+- 152f0a7: `toRenderableSchema` is behaviour-preserving for the falsy primitives too, so `empty`
+  stops printing a stray `"0"` (objectui#8908).
+  
+  `toRenderableSchema` is the repo's permanent bridge from `@object-ui/types`' `SchemaNode`
+  union onto `SchemaRendererProps['schema']`, which deliberately declares no `number` /
+  `boolean` (objectui#4548 ruling Q2). Its docblock promised — and its callers were entitled
+  to rely on — that "the value a caller forwards renders identically whether or not it
+  passes through here". That was false for exactly two of the six `SchemaNode` members.
+  
+  The bridge mapped every `number` / `boolean` onto `String(node)`. `String(0)` and
+  `String(false)` are the NON-EMPTY strings `'0'` and `'false'`, which are truthy, so they
+  sailed past `SchemaRenderer`'s own `!evaluatedSchema` leg and rendered as their own text —
+  while the same two values handed to `SchemaRenderer` directly render nothing, pinned since
+  objectui#4548. The mapping is now two-legged and mirrors the renderer's own narrowing
+  order: a truthy `number` / `boolean` still becomes its text form, and a falsy one
+  (`0`, `-0`, `NaN`, `false`) becomes nothing.
+  
+  **Behaviour change on a published surface, deliberately.** The reachable, shipped instance
+  is `empty`: its `action` slot gates on nullish rather than truthiness (objectui#7105, so a
+  bare string node renders instead of being dropped), so `0` and `false` went through the
+  bridge. `{ type: 'empty', title: 'T', action: 0 }` rendered `"T0"` and now renders `"T"`,
+  which is what the same node handed straight to `SchemaRenderer` has always rendered.
+  Every other slot routed through the bridge — page regions, header-bar actions, detail tabs
+  and footers, report sections, view configs — gets the same correction for the same two
+  values.
+  
+  **No type change, and that is not an accident.** The return type is unchanged:
+  `BaseSchema | string | null | undefined`. Letting `0` / `false` through UNCHANGED would
+  have widened it to admit `number` / `boolean`, which `SchemaRenderer`'s prop refuses by
+  ruling — so it would have been a TS2322 at every call site that forwards the result
+  straight into `<SchemaRenderer schema={…} />`, which is all nineteen of them. The falsy
+  leg returns nothing instead, which keeps the guarantee and the type both. The exact
+  equality of the two is pinned in
+  `packages/react/src/__tests__/SchemaRenderer.propsResolution.test.ts`.
+  
+  **Migration.** Nothing has to change, and nothing needs a code edit. A slot that authored
+  `0` or `false` was painting a literal `"0"` / `"false"` where the platform's answer for
+  those values is nothing; it now renders nothing. If some surface was relying on that stray
+  text — authoring `action: 0` to make the digit appear — author the string `'0'` instead,
+  which is a `SchemaNode` and renders as its own text on both paths.
+  
+  **Supersedes one sentence in the objectui#8331 entry.** That note said the `data-table`
+  `emptyAction` truthiness leg is kept "precisely so those two never reach the bridge, whose
+  `String` mapping would otherwise turn them into the text `"0"` and `"false"`". The bridge
+  no longer does that. The leg is kept anyway, and objectui#8908 kept it deliberately rather
+  than removing it as newly redundant: it is what makes that slot's answer independent of
+  the bridge, and it is why `emptyAction` was never affected by this defect in the first
+  place.
+- 689953a: Keep the `{ dialect: 'cel', source }` predicate envelope intact through a node's
+  config bag, so a CEL visibility gate authored the canonical way reaches the CEL
+  engine instead of the legacy JS one (objectui#9100).
+  
+  **The defect.** `SchemaRenderer`'s per-value `properties` / `props` evaluation loops
+  handed every bag value to `ExpressionEvaluator.evaluate`, whose first action is to
+  unwrap any `{ source: string }` object down to its bare `source` — the unwrap that
+  makes a `template` envelope interpolate. Applied to a `cel` predicate it was
+  destructive: the envelope is the only thing that routes `evaluateCondition` to the
+  canonical `@objectstack/formula` engine, and those loops run before the hoist, so
+  both consumers — `SchemaRenderer`'s own visibility chain and the renderer's
+  `toPredicateInput` → `useCondition` call one layer down — received a bare string and
+  took the legacy JS path, where a CEL stdlib call such as `has()` is not a function.
+  
+  Both polarities then failed silently, in opposite directions. On the four SHOW legs
+  (`visibleWhen` / `visible` / `visibleOn` / `visibility`) the fail-soft `true` is
+  negated, so **a gate authored to hide something rendered it on every row** — measured
+  in a real browser, where a duplicate-lead banner showed on 6 of 6 records whose field
+  was `null`. On the two HIDE legs (`hidden` / `hiddenOn`) the same `true` is returned
+  un-negated, so **the node vanished entirely**. Neither is distinguishable on screen
+  from a predicate that said so on purpose.
+  
+  **Behaviour change, deliberately.** A `cel`-envelope predicate on any of those six
+  keys, authored inside `properties` or `props`, now actually decides. Metadata that
+  was relying — knowingly or not — on such a gate never biting will start seeing nodes
+  hidden (SHOW legs) or shown (HIDE legs) as authored. Nothing else moves: a `template`
+  or dialect-less envelope keeps the legacy `${…}` behaviour byte-for-byte, a
+  non-predicate bag key keeps the flattening it has always had, and node-level
+  predicate keys were never affected (they do not pass through these loops, which is
+  why objectui#7530's pin stayed green throughout).
+  
+  **`record:alert` declaration.** Its `visible` input was registered as a bare
+  `'string'` while `@objectstack/spec` 17.4.0 declares
+  `boolean | string | { dialect, source }` for the same key and the renderer resolves
+  all three. It is now declared `['boolean', 'string', 'object']`, in the same change
+  that made the envelope arm actually reachable.
+- 8d3dbb2: fix(react): keep the CEL predicate envelope intact on the ENABLEMENT keys too
+  
+  `SchemaRenderer`'s two per-value config-bag loops (`properties` — the spec
+  spelling — and its legacy `props` alias) flattened a `{ dialect: 'cel', source }`
+  predicate envelope on `disabled` / `disabledOn` / `enabled` down to its bare
+  `source` string, exactly as objectui#9100 measured for the visibility chain. The
+  envelope is the only thing that routes `evaluateCondition` to the canonical
+  `@objectstack/formula` engine, so the flattened predicate took the legacy JS
+  path, where a CEL stdlib call such as `has()` is not a function.
+  
+  objectui#9104 repaired this for the six visibility legs only. The enablement
+  keys are not visibility legs — they route through the node's enablement gate and
+  through the action renderers' own predicate call — so they were left flattened,
+  and the resulting fail-soft `true` landed in OPPOSITE directions on the two
+  halves of the chain:
+  
+  - `disabled` / `disabledOn` are not negated, so a CEL-authored gate greyed its
+    control out on every row and no predicate the author could write re-enabled
+    it — measured through `action:button` and `action:icon`;
+  - the legacy `enabled` alias IS negated by those renderers, so the same `true`
+    arrived as "not disabled" and a control the author had disabled stayed
+    pressable.
+  
+  The guard now consults the union of the file's two closed predicate-chain
+  declarations instead of the visibility one alone. `template` and dialect-less
+  envelopes, non-predicate bag keys and predicates nested inside arrays keep their
+  behaviour byte for byte.
+- 345e24a: **BREAKING** — `RecordContextValue.dataSource` is the DataSource **adapter** it
+  has always held, not a datasource id string.
+  
+  **FROM** `dataSource: 'ds_primary'` **TO** `dataSource: myAdapter` (any
+  `DataSource` from `@object-ui/types`).
+  
+  ```ts
+  // before — compiled, but no producer ever did this and no reader could use it
+  const ctx: RecordContextValue = { objectName: 'account', recordId: 'r1', dataSource: 'ds_primary' };
+  // after
+  const ctx: RecordContextValue = { objectName: 'account', recordId: 'r1', dataSource: myAdapter };
+  ```
+  
+  The member was declared `dataSource?: string` — "an optional datasource id;
+  mirrors the page-level datasource override" — while the one production host
+  that writes it (`@object-ui/app-shell`'s `RecordDetailView`) forwards an adapter
+  OBJECT and every reader calls adapter methods on it. Measured on the base tree:
+  of the provider sites in this repository that write the member, exactly one is
+  non-test and it passes the adapter; the only in-repo writer of a string was a
+  test fixture, which existed because the declaration invited it. So the id was
+  never a contract anyone kept — it was a statement the code contradicted at every
+  site, and the override it described has zero producers. Contract-first
+  (Commandment #0.1): the declaration moves to what the code holds, and no second
+  `dataSourceId` member is minted for a requirement nobody implements.
+  
+  What it bought: each reader paid for the wrong declaration with a cast at the
+  point of use, and a cast deletes the compiler's answer to "does this adapter
+  have the method I am about to call". All 11 record-context read sites are now
+  cast-free, across `@object-ui/app-shell`, `@object-ui/components` and
+  `@object-ui/plugin-detail`. The worked instance is objectui#8883's reference
+  rail: it reaches `dataSource.getObjectSchema` — a REQUIRED member of
+  `DataSource` — and now gets that guarantee from the compiler instead of from
+  `(ctx as any)`.
+  
+  ⚠️ Nothing to migrate at runtime and no data change: every producer already
+  passed the adapter, so no value moving through this member changes. A
+  TypeScript consumer outside this repo that read the member as `string` is not
+  observable from here and gets a compile error (TS2322) naming the key — which
+  is why the FROM/TO is spelled out above. Re-widening to `string | DataSource`
+  would not be a kindness: a union member without `getObjectSchema` cannot be read
+  without narrowing, so it re-breaks every reader this change repaired. Both
+  directions are pinned against the real compiler in
+  `RecordContext.dataSourceType.pin.test.ts`.
+  
+  ⚠️ `SchemaRendererContextValue.dataSource` one context over is a **different**
+  declaration (`any`) and is **not** touched here. Five `as any` reads in
+  `@object-ui/fields` key off that context, not this one; they are unaffected by
+  this change and are reported separately.
+  
+  objectui#9197.
+- 8524372: Unbind the data-source adapter from the expression scope, and point `bind` at the scope
+  channel (objectui#9308, maintainer ruling 2026-09-13, option B).
+  
+  **Breaking, deliberately — and `minor` only because this repo's `fixed` group of 40
+  packages may not carry a `major` (AGENTS.md 版本号策略).** Read the migration note below
+  before upgrading if any of your metadata reads `data.*` at the page/component tier.
+  
+  **What changed.**
+  
+  1. `SchemaRenderer` no longer writes `data: dataSource` into the evaluator scope. `data`
+     is not a root this tier binds. The roots it supplies are `record` (the row, when a
+     record surface bound one), `page` (page-local variables) and `current_user` — plus
+     every name the host published through `PredicateScopeProvider`.
+  2. `useDataScope(path)` — what a node's `bind` resolves through — reads the ambient
+     predicate scope (`usePredicateScope()`) instead of walking the injected adapter.
+  
+  **Who this breaks, concretely.**
+  
+  * **A `${data.…}` expression on a page/component node.** It used to resolve against the
+    host's injected `DataSource` adapter. An adapter answers no `data.*` path, so for every
+    host that injected a real adapter the read was already `undefined` and the predicate was
+    a silent constant — but the constant MOVES: `data` used to be a present key holding an
+    object, so `data.status == 'draft'` evaluated cleanly to `false` and the node was hidden
+    on every row. `data` is now ABSENT, the expression cannot be evaluated at all, and this
+    surface is fail-soft, so the same gate now answers `true` and the node is SHOWN on every
+    row. It is no longer silent: the objectui#5454 reporter names it in the console, in
+    production as well as development. Re-root such a predicate on `record.*` — the row —
+    or publish a `data` of your own through `PredicateScopeProvider`.
+  * **A host that injected a plain data bag as `dataSource`.** That was meaning 2 of the
+    key, and it stops working entirely: `${data.…}` no longer reads it and `bind` no longer
+    walks it. It has been a compile error since objectui#7912 (`dataSource` is typed
+    `DataSource | null | undefined`). Publish those values through `PredicateScopeProvider`
+    instead — the provider, the hook and the app-shell wiring already exist, and this change
+    adds no new published key.
+  * **The nine `bind` readers** (`list`, `tree-view`, `ObjectChart`, `ObjectDataTable`,
+    `ObjectPivotTable`, `ObjectGrid`, `ObjectKanban`, `ObjectGallery`, `ObjectTimeline`) now
+    resolve `bind` against the scope. All nine already carry a fallback
+    (`boundData || schema.items`, `|| schema.nodes || []`, or a fall-through to their own
+    fetch chain), and against a conformant adapter `useDataScope` returned `undefined`
+    before this change — so the fallback is what was running, and a `bind` that resolved
+    nothing before still resolves nothing. What is new is that a `bind` CAN now resolve:
+    a host that publishes rows on its scope will see them used where the fetch used to run.
+  
+  **Why.** `@object-ui/app-shell`'s `ExpressionProvider` states the rule this applies: every
+  root bound at a tier must be one the engine accepts AND one that tier can actually answer.
+  objectui#8155 unbound `app` under it and objectui#8166 unbound `data`; ADR-0089 D3 puts
+  `data` at the metadata layer and `record` at the runtime layer, and the engine's
+  per-surface `FIELD_RULE_BOUND_ROOTS` is `['record','previous','parent']`. The renderer tier
+  was the last one still binding a root it could not answer.
+  
+  Two side effects worth naming. A host that legitimately published `data` through the
+  documented scope channel used to be silently overwritten by the adapter (the adapter was
+  spread last); it is not any more. And `reportAdapterOnlyDataPredicate` now resolves against
+  the `data` the evaluator actually bound rather than against the adapter — left pointing at
+  the adapter it would have gone silent for precisely the hosts this change breaks.
+  
+  The Data Context passages of `content/docs/guide/schema-rendering.md` and
+  `packages/react/README.md` teach the scope channel accordingly.
+- 72d6587: A record id is a `string` everywhere in the published types, as
+  `@objectstack/spec` has always declared it. Three published declarations that
+  admitted `number` no longer do.
+  
+  ⚠️ **BREAKING if your code hands a numeric primary key to any of these three:**
+  
+  - **`RecordContextValue.recordId`** (`@object-ui/react`) — the value
+    `useRecordContext()` gives you is now a `string`, never a `number`.
+  - **`DataSource.update`'s `id` parameter** (`@object-ui/types`) — a call that
+    passes a `string | number` is now a type error. Adapters that *implement*
+    `DataSource` are unaffected (see Migration).
+  - **`TransactionOperation.id`** (`@object-ui/core`) — the operation record you
+    hand to `TransactionManager.recordOperation()` must carry a `string` id. If
+    you build that object from a numeric key, convert it where you build it. This
+    type is exported from the package root, so this is a breaking change for
+    `@object-ui/core` consumers in its own right, not just a knock-on.
+  
+  Ships as `minor` per the launch-window convention: objectui's
+  `major` is a cross-repo pin to `@objectstack`'s so that "same major means
+  compatible" holds across the two repos
+  (`scripts/check-changeset-no-major.mjs`), and objectui's own breaking changes
+  ship as `minor` with the break named where it lands — this entry is the channel
+  that carries it.
+  
+  ## What changed
+  
+  - `RecordContextValue.recordId` (`@object-ui/react`) was
+    `string | number | null | undefined`; it is now `string | null | undefined`.
+  - `DataSource.update`'s `id` parameter (`@object-ui/types`) was
+    `string | number`; it is now `string`.
+  - `TransactionOperation.id` (`@object-ui/core`) was `string | number`; it is now
+    `string`. Its sibling `BatchTransactionOperation.id` was already a `string`,
+    so the two operation records finally agree.
+  - `LineItemsPanel` (`@object-ui/plugin-form`) drops the type assertion
+    objectui#9304 left on its parent id. That assertion was the only thing making
+    the context declaration and `buildMasterDetailEditBatch(parentId: string)`
+    meet; the declaration now does it, so the evidence is discharged.
+  
+  ## Why the protocol, and not a wider consumer type
+  
+  `@objectstack/spec` declares a record id as `z.string()` on every record door —
+  get, update, delete and the batch operation. A consumer type may not be wider
+  than the protocol: a declaration that admits `number` promises callers something
+  the wire never carries, and the promise is kept only by an assertion at the far
+  end, which is what this card was filed about.
+  
+  ## Internal consumers repaired at the same time (no public contract moves)
+  
+  Narrowing an interface **parameter** never reaches implementors — TypeScript
+  compares method parameters bivariantly, so an adapter that still declares
+  `id: string | number` keeps satisfying `DataSource`. It reaches **callers**. A
+  full local type-check of every workspace type-check program found exactly six,
+  in three packages, and each was red because a further declaration one layer in
+  was itself wider than the protocol. All three are narrowed here, types only, with
+  no runtime change and no coercion added at any call site:
+  
+  - `UserPreferenceRecord.id` and the `cachedRowId` it feeds
+    (`@object-ui/data-objectstack`) are `string`. Module-local, not published —
+    these rows are read back off the protocol, so the union was a claim the wire
+    never makes.
+  - `resolveRecordId`'s return type (`@object-ui/plugin-grid`) is
+    `string | undefined`. Module-local, not published — it annotates `any`-typed
+    row data, so the union was an assertion rather than a measurement.
+  
+  ## Migration — no `String(...)` at your call sites
+  
+  `RecordContextProvider` still **accepts** `string | number | null | undefined`
+  and narrows it once, itself. A host that mounts a record with a numeric primary
+  key therefore changes nothing: the conversion is paid at that injection
+  boundary, typed, in one place. Consumers of `useRecordContext()` read a
+  `string`.
+  
+  `DataSource` implementors are unaffected — TypeScript compares method parameters
+  bivariantly, so an adapter that still declares `id: string | number` continues
+  to satisfy the interface. What changes is the **caller** side: a call that passes
+  a `string | number` to `dataSource.update` is now a type error. A backend whose
+  primary keys are numeric maps them at its own adapter boundary rather than
+  pushing the union through every caller.
+  
+  For `TransactionOperation`, the same rule applies one level up: build the
+  operation record with a `string` id. If the id arrives from a numeric-keyed
+  backend, convert it in your adapter — the one place that knows the backend's key
+  type — rather than at each `recordOperation()` call. Nothing about this change
+  alters what is sent over the wire; only the declarations moved.
+- 0ce32d5: `UseNavigationOverlayOptions.onRowClick` now declares the modifier payload it
+  has always been called with (objectui#9357).
+  
+  `useNavigationOverlay`'s `handleClick` invokes the caller-supplied `onRowClick`
+  with two arguments — the record, and the optional `HandleClickModifiers`
+  payload (`metaKey` / `ctrlKey` / `button`) a host needs to implement
+  Cmd/Ctrl/middle-click. The option declared only the record, and `handleClick`
+  carried a type assertion that widened the value at the call site so the code
+  would compile. The second argument was therefore invisible on the one line a
+  host reads, and a host that wanted it had to discover it from the
+  implementation and then spell its own second parameter optional to stay
+  assignable.
+  
+  The declaration now names both parameters and the assertion is gone.
+  
+  **Source-compatible in both directions, with one measured exception.** A
+  one-parameter handler stays assignable to the widened signature (its extra
+  parameter is optional), and a handler written against the widened signature was
+  already assignable to the old one — measured on this change, both directions.
+  
+  **The exception, and the one class that has to change.** A handler passed
+  *directly* to `useNavigationOverlay` whose second parameter is annotated
+  *narrower* than `HandleClickModifiers` no longer type-checks. React's
+  `MouseEvent` is the shape this hits in practice, because until now the payload
+  was only discoverable from the implementation, so a host that wanted it wrote
+  the annotation it saw arrive:
+  
+  ```ts
+  useNavigationOverlay({
+    objectName: 'account',
+    // was accepted; now TS2322 — `HandleClickModifiers` is not assignable to
+    // `React.MouseEvent`
+    onRowClick: (record, ev?: React.MouseEvent) => { /* ... */ },
+  });
+  ```
+  
+  It compiled before only because the old declaration had no second parameter to
+  check the annotation against. The parameter is checked contravariantly, so the
+  annotation now has to *admit* `HandleClickModifiers`. **The fix is one line at
+  the call site:** annotate the parameter `HandleClickModifiers` (exported from
+  `@object-ui/react`), or drop the annotation and let it be inferred. Either way
+  the handler keeps receiving exactly what it received before — this is a
+  type-level change only, with no runtime behaviour attached.
+  
+  No caller *inside this repository* is in that class, and the repository's own
+  type-check re-derives that on every run rather than this sentence asserting it;
+  a host that reaches the hook through a view component's `onRowClick` prop is
+  unaffected either way, because the prop's own declared type is what gets
+  assigned to the option. The boundary is pinned as a `@ts-expect-error` row in
+  this package's `useNavigationOverlay.onRowClickArity-9357` test, so it cannot
+  move without a red check.
+  
+  What the widening buys everyone else: a caller who wants the modifier payload
+  can now see, from the published type, that it is there.
+  
+  Scope note: this repairs the hook's own option. The pass-through props on the
+  view components that feed it — `ObjectKanban`, `ObjectGallery`, the
+  `plugin-kanban` renderer's `onCardClick`, and the `onRowClick` prop on the other
+  view plugins — each still declare one parameter on their own published face;
+  which spelling that family converges on is objectui#9357's open question and is
+  not decided here.
+- bbba098: **BREAKING if your code hands a numeric primary key to one of these four** — a
+  record id at the `DataSource` boundary is a `string`, as `@objectstack/spec`
+  declares every record door (objectui#9511, director batch #136 item 5 letter B).
+  objectui#9333 narrowed `DataSource.update`; this entry closes three more doors,
+  and narrows one consumer declaration — `UseViewDataResult.fetchOne` — that feeds
+  `findOne`, the one door this entry leaves open.
+  
+  ## What changed
+  
+  - **`DataSource.delete`'s `id` parameter** (`@object-ui/types`) — was
+    `string | number`, now `string`.
+  - **`DataSource.bulkUpdate`'s `ids`** (`@object-ui/types`) — was
+    `ReadonlyArray<string | number>`, now `ReadonlyArray<string>`.
+  - **`DataSource.bulkDelete`'s `ids`** (`@object-ui/types`) — same narrowing.
+  - **`UseViewDataResult.fetchOne`** (`@object-ui/react`) — was
+    `(id: string | number) => Promise<T | null>`, now `(id: string) =>
+    Promise<T | null>`. This hook hands its argument straight to
+    `DataSource.findOne`, so the union it admitted was a claim the protocol never
+    made. Exported from the package root, so it is a break for
+    `@object-ui/react` consumers in its own right, not a knock-on.
+  
+  The `DataSource` docblock now states the rule once, for the whole interface,
+  so a reader who meets one method does not have to re-derive it from another.
+  
+  ## Migration
+  
+  Convert where you build the id, not at each call:
+  
+  ```ts
+  // before
+  await dataSource.delete('accounts', row.id);            // row.id: number
+  await dataSource.bulkDelete?.('accounts', selectedIds); // number[]
+  
+  // after
+  await dataSource.delete('accounts', String(row.id));
+  await dataSource.bulkDelete?.('accounts', selectedIds.map(String));
+  ```
+  
+  Adapters that **implement** `DataSource` are unaffected: TypeScript compares
+  method parameters bivariantly, so an adapter still declaring `string | number`
+  continues to satisfy the interface. The narrowing binds callers.
+  
+  ## Disposition
+  
+  **Disposition: no ADR-0087 conversion — nothing authored moves.** The change is
+  on the TypeScript call face only. No zod accept-set narrows, so every metadata
+  document that validates today still validates, and there is no old shape for a
+  conversion layer (ADR-0087 D2) to accept and rewrite, nor a metadata migration
+  step (D3) to replay. What moves is what a numeric-primary-key host sends on the
+  wire for these three methods: `'42'` where it sent `42`, consistently with
+  `update`. The conversion lives in one typed place — the host's own adapter
+  boundary — rather than in a union carried by every caller.
+  
+  Ships as `minor` per the launch-window convention: objectui's `major` is a
+  cross-repo pin to `@objectstack`'s so that "same major means compatible" holds
+  across the two repos (`scripts/check-changeset-no-major.mjs`), and objectui's
+  own breaking changes ship as `minor` with the break named where it lands.
+  
+  ## One door is deliberately still open
+  
+  `DataSource.findOne` keeps `string | number` in this release. Narrowing it is
+  ruled, but its remaining call sites split two ways. `ObjectForm` reads
+  `ObjectFormSchema.recordId` and `DetailView` reads `DetailViewSchema.resourceId`
+  — **authorable** metadata keys whose zod mirrors accept a number today, so
+  narrowing either refuses author JSON that validates now. `DrawerForm`,
+  `ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm` read a `recordId`
+  declared on their own exported schema face; those faces have no zod mirror and
+  no registered node type, so they are TypeScript-only, like
+  `UseViewDataResult.fetchOne` above — but they still cannot narrow first,
+  because `ObjectForm` builds all five of them from its own authorable
+  `ObjectFormSchema` and the refusal simply moves to those hand-off sites.
+  
+  So the choice is either an authoring-face narrowing or a reader-side
+  conversion; neither is named by the ruling, and it is carried on objectui#9511.
+  The reason is recorded in the `DataSource` docblock so it is not rediscovered.
+- f0f4d6c: `SchemaRenderer` no longer spreads an authored `data` key as a React prop for blocks
+  whose published `data` row is the `ViewData` OBJECT arm (objectui#9571, ruling
+  objectui#8348 Q2-C, decision batch #136 item 3, maintainer 「同意」).
+  
+  **Behavioural, deliberately.** 「8348 以协议为准」 (batch #83) retired the bare-array
+  `data` shorthand at the shared record-source ladder, but the key had a second carrier
+  that the ruling did not reach and that outranked the first: `SchemaRenderer` spreads
+  every non-metadata node key as a React prop, and `ObjectGrid` (`passedData`),
+  `ObjectMap` (`dataProp`) and `ObjectGantt` each lift a `data` PROP with an
+  unconditional `Array.isArray` ahead of the ladder. So an authored
+  `data: [ …rows… ]` on `object-grid` / `object-map` / `object-gantt` still drew,
+  end-to-end, after the ladder had refused it. AGENTS.md #0.1: one key, one honoured
+  spelling — the tolerated second carrier is the defect.
+  
+  An authored `data` now reaches such a block only as `schema.data`, judged by the
+  block's own row. In development the renderer says so, once per node: the ladder emits
+  no runtime signal of its own, so without that warning the retirement would land as a
+  page that quietly stopped drawing.
+  
+  **Unchanged, and refused on purpose.** The `data` PROP itself. Gating the prop on the
+  arm (option B) was refused because that prop is how a host — `plugin-list`'s
+  `ListView`, `ObjectView` — hands down rows it already fetched. A host rendering
+  `<ObjectGrid data={rows} …/>` directly, or passing `data` through `SchemaRenderer`'s
+  own props, still delivers those rows, and still outranks the authored key.
+  
+  Blocks on the ARRAY arm are untouched: `object-calendar`'s published row is
+  `z.array(...)`, so its authored bare array is on-contract and keeps the prop seat.
+  Every type the new reading does not list keeps today's behaviour verbatim.
+  
+  **Migration.** Author inline rows the declared way —
+  `data: { provider: 'value', items: [...] }` — or keep using the deprecated
+  `staticData: [...]` array, which is unchanged. Both were already the only spellings
+  `os validate` and the save gate accepted.
+  
+  `@object-ui/core` gains one export, `recordSourceDataArmForType(type)`: which `data`
+  arm a registered block type declares. It exists for the one consumer that cannot be
+  handed the arm as a parameter — `SchemaRenderer`, which is generic over every
+  registered type.
+- ae61ad4: The console form now renders a refusal message the producer explicitly marked
+  as user-facing, instead of always substituting a generic string
+  (objectui#5210).
+  
+  An application's hook guards could not talk to their users. When a hook refused
+  a write with 403, the form replaced the server's text with
+  `form.noPermissionToSave` unconditionally — the recorded objectstack#3821 fix,
+  which exists because a raw refusal body puts untranslated platform diagnostics
+  (`FORBIDDEN: insufficient privileges to update showcase_private_note
+  pi-TgoJ4_DM55Fqz`) in front of end users. The external report behind this change
+  had 11 guards whose deliberate, localized guidance — which role owns the action,
+  whom to ask — never reached anyone, and named the incentive that creates:
+  returning 400 instead of 403 for permission failures, degrading the status
+  semantics logs, monitoring and API consumers depend on.
+  
+  The maintainer ruling (2026-08-19) was a producer-side opt-in rather than a
+  chattier 403 branch, and the platform half shipped as objectstack#9934: a hook
+  marks its refusal text with `userMessage` at throw time. This is the consumer
+  half.
+  
+  - `@object-ui/react` gains `declaredUserMessage(err)` — the one "is this
+    marked?" read. It answers the marking verbatim, from the two places the
+    adapter boundary parks the envelope (the error itself, where
+    `@objectstack/client` lifts it, and `details`), and `null` for everything
+    else.
+  - The form prefers a marked message over both its generic strings, on ANY
+    status — the marking is status-agnostic; 403 is where this was reported, not
+    a fence the contract draws.
+  
+  **Unmarked refusals are unchanged**: a 403 with no marking still shows the
+  generic `form.noPermissionToSave`, and the raw text still goes to the browser
+  console only. objectstack#3821's protection is preserved by construction, not
+  by re-guessing which 403 bodies are presentable — the mark and the marked text
+  are one field, so no boundary that rewraps or substitutes `message` can promote
+  platform prose into the user-facing channel, and platform code never sets it.
+- ebce5a3: `object-grid` / `object-form` / `detail-view` resolve their data source the same way, and a block that resolves none says so
+  
+  The three object-bound blocks disagreed about how the data-source adapter reached
+  them. `object-grid` and `object-form` were registered through wrappers that read
+  it from `SchemaRendererProvider` context; `detail-view` was registered as the raw
+  component, which reads a React `dataSource` prop. `SchemaRenderer` itself reads
+  only context, so the two wirings were mutually exclusive: measured with correct
+  keys in every cell, provider wiring gave the grid `find` 1 and the detail view
+  `findOne` 0, and prop wiring gave exactly the reverse. Neither reported anything.
+  
+  All three now resolve the adapter through one rule — an explicit `dataSource`
+  prop first, the provider context second. This is additive: `detail-view` keeps
+  its prop form (and direct `<DetailView dataSource={…} />` callers are untouched),
+  `object-form` gains a prop form it did not have, and `object-grid` no longer
+  throws `useSchemaContext must be used within a SchemaRendererProvider` when a
+  page has no provider.
+  
+  And the silence is over. A block in this family that resolves no adapter renders
+  a **No data source resolved** panel naming the block, the object it was about to
+  read, and the ancestor that injects the adapter — instead of a header-only grid,
+  a field-less form card, or nothing at all. The check is opt-in per block, so a
+  placement with inline rows, inline `customFields`, an inline record or an `api`
+  endpoint is untouched.
+  
+  New from `@object-ui/react`: `useResolvedDataSource`, `NoDataSourcePanel`,
+  `noDataSourceMessage`, and a `requiresDataSource` prop on `ElementDataSourceGate`.
+- cac64b3: The spec-bridge's form-view input now accepts everything `@objectstack/spec`'s
+  FormViewSchema accepts — three key types had drifted narrower, and one of them
+  had inverted (objectui#5652).
+  
+  `bridges/form-view.ts` held a third hand-written description of the FormViewSchema
+  contract, after the leaf (objectui#5542) and the two containers (objectui#5596)
+  were converged elsewhere. A description nothing compares is one spec release from
+  being a fork, and this one had already drifted on the keys that decide whether a
+  legal document renders:
+  
+  - `FormSection.columns` refused the string spelling of a column count, which the
+    contract admits and folds to a number in its own pipe. It is now the contract's
+    type, and the bridge performs the fold — the `object-form` node's section
+    declares `columns` as a number and its container indexes a grid-class map by
+    it, so forwarding `'2'` handed every downstream renderer a value outside the
+    type it declares.
+  - `FormField.dependsOn` was declared `string[]`, which is the exact inverse of the
+    contract: it admitted only the array arm the contract rejects, and refused the
+    bare parent-field name that is the one configuration making `field-selector`
+    and `dynamic-config` work (objectui#5040).
+  - `visibleWhen`, on both fields and sections, was declared `string`, so the
+    ADR-0089 expression object — the arm `evalFieldPredicate` reads — could not be
+    described at all. Both arms now travel whole onto the node.
+  
+  A section's `fields` may also be a bare object-field name, the spec shorthand the
+  list bridge already honours. The form bridge ran it through the object mapper
+  instead, producing a field with no identity (`{ name: undefined }`) for the most
+  ordinary section a form can declare; it is now forwarded verbatim, which is what
+  the node's own `fields` slot admits.
+  
+  Each drift-prone key's type is now bound to the `@objectstack/spec` symbol that
+  owns it rather than restated, so it cannot drift again, and the compile-time pins
+  in `FormViewWidenedArms.test.ts` fail if a future edit restates any of them by
+  hand. The documented subset itself is unchanged: the keys this bridge does not
+  declare, including the retirement ledger it keeps, stay exactly as they were.
+- bf28341: refactor(spec-bridge): retire the spec-bridge — `SpecBridge`, `bridgeListView`, `bridgeFormView` (#6366)
+  
+  Removed under the 2026-08-27 maintainer ruling on #6366 (Option A — remove, and
+  for `SpecBridge` as a WHOLE, not just the form half), on the same criteria the
+  17.0.0 entry used to remove `bridgePage` / `bridgeDashboard`: no runtime
+  consumer, and a route that could not deliver a working result even in
+  principle. The stage-1 measurement (2026-08-26, PM-verified) the ruling rests
+  on:
+  
+  - **Zero consumers at every reachable endpoint** — no non-test caller in this
+    repo, none in the sibling `objectstack` repo (which does not depend on
+    `@object-ui/react` at all), and a GitHub-wide public code search returning
+    hits only inside this repository. External npm-private hosts are
+    unmeasurable from here; the ruling records fallback C (keep + document the
+    boundary) should evidence of one ever surface.
+  - **The bridged form route was structurally unable to work**: a bridged node
+    carries neither `objectName` nor `customFields`, so `ObjectForm` takes the
+    branch its own code labels "cannot proceed" and renders, in the registry
+    wrapper's words, "a field-less card in silence". The only working host
+    recipe (`{...node, objectName: '...'} as any`) existed solely inside the
+    list bridge's integration tests and was documented nowhere.
+  
+  This knowingly reverses the 17.0.0 changelog line "The `list` and `form`
+  bridges are unaffected and remain the live authoring path" — by maintainer
+  ruling, on the same measurement criteria that entry itself applied.
+  
+  #5898's restored-key work on the form-view bridge (the
+  `FormViewSpecConformance` suite and the spec keys it carried onto the bridged
+  node) is **superseded by this removal, not fixed** — the route it repaired is
+  gone. #6366's measured type-vocabulary asymmetry (a bridged field carrying
+  `text` where the normalizer produces `field:text`) is likewise mooted rather
+  than repaired.
+  
+  The suites pinning the removed route go with it — retirement of a route
+  nothing travels, not quarantine: the seven suites under
+  `react/src/spec-bridge/__tests__/`, and plugin-grid's
+  `specBridgeColumnSpelling` / `specBridgeExportFormats` render-integration
+  suites. `ObjectGrid`'s own column-spelling, export-gate and density behavior
+  keep their non-bridge pins (`columnDeclaredSpellingOnly`, `exportGate`,
+  `exportServer`, `rowHeightOffSpecBoundary`, and core's
+  `normalize-list-view` suite).
+  
+  BREAKING CHANGE: the public exports `SpecBridge`, `bridgeListView`,
+  `bridgeFormView` and the types `BridgeContext` / `BridgeFn` / `ObjectDefLite`
+  are removed from `@object-ui/react`. There is no replacement translation
+  layer — author `object-grid` / `object-form` nodes directly (the live path is
+  `app-shell`'s `ObjectView`, which builds them from the object's own metadata),
+  exactly as the 17.0.0 entry already directed for pages and dashboards.
+- 83fe6e7: row predicates on runtime record surfaces resolve `record.*` only; the bare-field and `data.*` spellings are no longer bound
+  
+  Phase 2 of the row-predicate canon (objectui#5330, ruled 2026-08-20, option B;
+  Phase 2 ruled 2026-09-02 and amended 2026-09-05 on objectui#5741). Until now a
+  row predicate — `visible` / `disabled` / `enabled` on an action renderer, a row
+  action, a `record:alert`, a `page:header` action, a conditional-formatting
+  `condition` — bound the row three ways: canonical `record.status`, bare
+  `status`, and `data.status`. The two non-canonical spellings are retired on
+  every runtime record surface, in both evaluation tiers (`evalRowPredicate` /
+  `partitionRowsByPredicate` in `@object-ui/core`; `usePredicateRecordContext` +
+  `useCondition` in `@object-ui/react`) and for both dialects: a legacy
+  `${data.x}` / `${x}` string on a row surface retires with the CEL spellings.
+  
+  **What a retired spelling does now: it faults, exactly as it already did on the
+  server** (`buildScope({ record })` mounts exactly `['record']`, so `status` and
+  `data` are unknown variables there), and each surface applies its EXISTING
+  fault policy — no runtime detector, no "treat as absent" special case, no
+  uniform override:
+  
+  - `evalRowPredicate` / `partitionRowsByPredicate` (row kebab, selection bar,
+    `page:header` actions, conditional formatting): the caller's `fallback` —
+    hidden / every row excluded / no style — reported once by the existing fault
+    warning, which names the unknown variable (`Unknown variable: status`) and,
+    on the fast route, carries the `record.` hint.
+  - `useCondition` legs that opt into `throwOnError` (`action:button` and
+    `action:menu` `visible`, `DeclaredActionsBar` `visible`): fail-closed —
+    hidden on every row, reported once as `was hidden/disabled: its predicate
+    threw — status is not defined`.
+  - the non-throwing `useCondition` legs (`action:icon` / `action:group`
+    `visible`, every `disabled` / `enabled`, `record:alert`): fail-soft — shown /
+    greyed / enabled on every row, with the evaluator's own console line.
+  - a host scope that carries its OWN `data` (app-shell's ambient `data: {}`) is
+    left standing: `data.*` on a record surface then reads the host's object — a
+    constant, silent `false` — which is what "no longer bound to the row" means.
+  
+  The Phase-1 deprecation warning is removed with the bindings:
+  `warnNonCanonicalRowSpelling` and `resetRowPredicateCanonWarnings` are no
+  longer exported from `@object-ui/core`. `detectNonCanonicalRowSpelling`,
+  `ROW_PREDICATE_CANONICAL_ROOT` and the `NonCanonicalRowSpelling` type stay
+  exported — the offline instrument for sweeping authored metadata.
+  
+  The layer rule is unchanged: `data` remains the canonical root on
+  metadata-editing surfaces (ADR-0089 D3, `CANONICAL_ROOT_BY_LAYER`), and
+  app-shell's metadata-admin `SchemaForm` / `predicate.ts` keep binding
+  `{ data: row }` through their own evaluator.
+  
+  No stored-metadata survey, export or migration rewrite was run (the maintainer
+  ruled the stored population out of scope, 「不考虑存量」); the Phase-1 warning
+  period was the notice.
+  
+  Release note: Phase 1 (PR #5737 — the canon statement plus the warning) shipped
+  in `@object-ui/core@17.6.0` (npm, 2026-08-24) although its changeset
+  `.changeset/row-predicate-record-canon-5330.md` is still pending on `main`, so
+  the next CHANGELOG section lists Phase 1 and this Phase 2 together: the warning
+  it describes was live from 17.6.0 and is gone from this release on.
+- d1ab06f: Row predicates declare a canon: `record.*`. The bare shorthand and `data.*` now
+  warn once, and are unchanged otherwise.
+  
+  A row predicate (`visible` / `disabled` / `enabled` on an action renderer, a row
+  scope, a `record:alert`) has bound the row three ways since objectui#4075 —
+  `record.status`, bare `status`, and `data.status` — without any of them being
+  declared the contract. The maintainer ruled that question on 2026-08-20
+  (objectui#5330, option B), mirroring the objectstack#7917 option-② precedent for
+  the identical renderer-tolerance shape: **the canon is `record.*`**, and the
+  other two enter a deprecation window.
+  
+  The canon states the **server's** accept set, which was this card's first
+  measurement and turns out to be strictly narrower than the renderer's. Measured
+  against `@objectstack/formula@17.1.0`, the engine the server evaluates with:
+  
+  | spelling | server runtime | server authoring oracle |
+  |---|---|---|
+  | `record.status` | `{ ok: true, value: true }` | accepted |
+  | bare `status` | `Unknown variable: status` | refused |
+  | `data.status` | `Unknown variable: data` | **silently accepted** |
+  
+  `buildScope({ record })` mounts exactly `['record']` — `data` is never bound and
+  the row's fields are never flattened to top level. The three-way binding is a
+  client tolerance with no server counterpart, which is why the warning belongs on
+  this side.
+  
+  `data.*` is the dangerous one, and the reason the warning exists. `data` is in
+  `@objectstack/formula`'s `SCOPE_ROOTS`, so the server's bare-identifier oracle
+  waves it through — that list is a deliberately generous "never faults" lint
+  baseline, not the runtime accept set. A `data.*` row predicate therefore passes
+  every authoring gate the platform has and then binds nothing at runtime: not an
+  error, a constant `false`. A `visible` that is constantly false is a button that
+  silently never appears — the objectui#4075 fail-closed signature.
+  
+  What ships:
+  
+  - `@object-ui/core` exports `detectNonCanonicalRowSpelling`,
+    `warnNonCanonicalRowSpelling`, `resetRowPredicateCanonWarnings` and
+    `ROW_PREDICATE_CANONICAL_ROOT` from a new `evaluator/rowPredicateCanon.ts`,
+    which carries the canon statement and the measurement.
+  - Both evaluation tiers report once, in dev: `evalRowPredicate` (core) and
+    `useCondition` (react, for bags bound by `usePredicateRecordContext`).
+  - Detection reuses the server's own oracles (`collectCelRootIdentifiers`,
+    `firstUndeclaredReference`) rather than a regex, so no second dialect
+    judgement is invented client-side.
+  
+  **No spelling is removed and no behaviour changes.** Every predicate that
+  resolved before resolves now — the ruling defers removal behind a stored-metadata
+  survey, and the warning is what makes that survey possible (ADR-0078: a
+  tolerance nothing ever reports can never be retired).
+  
+  The deprecation is scoped to the **runtime record layer**. `data` remains the
+  canonical root one layer over, in a metadata-editing form (ADR-0089 D3
+  `CANONICAL_ROOT_BY_LAYER`), and the detector stands down there.
+- dba7d84: New export: `useSettledSchema` — the settled-schema RESOLUTION half shared by
+  `ObjectKanban` / `ObjectView` / `ObjectCalendar`'s fetch-gate hand copies
+  (objectui#6482, maintainer ruling Option A). It tracks whether an object's
+  definition has finished resolving FOR THE KEY THE CURRENT RENDER IS ASKING
+  ABOUT, returning `{ ready, def }` from one piece of internal state so `ready`
+  and `def` can never be observed inconsistently and a stale key can never read
+  as ready — the structural fix for the `ObjectTree` defect (objectui#6481)
+  where a definition and a separate, one-way-latched "settled" boolean could
+  disagree for a render after the object changed.
+  
+  Gate PLACEMENT — which effect branch actually waits on `ready` — stays a
+  per-component decision and is not part of this hook; see the hook's own doc
+  comment. Existing hand copies are migrated on their own subsequent cards, not
+  by this change.
+- c86185e: Bind `record` into the node-level visibility evaluator, and stop a hoisted
+  `properties.visible` swallowing a declared `visibleWhen`.
+  
+  `@objectstack/spec` has declared since ADR-0089 that a page component's
+  `visibleWhen` binds the row — `ui/page.zod.ts`: *"Binds `record`,
+  `current_user`, `page.<var>`"*. `SchemaRenderer` bound no `record` at all. Its
+  evaluator was built from the ambient predicate scope, `data: dataSource` (the
+  connector **adapter**, not the row) and `page: pageVariables`; the row lives in
+  `RecordContext`, which that evaluator never read.
+  
+  Because the surface is fail-soft, a `record.*` predicate did not misfire — it
+  resolved to **shown**. Both polarities of the same predicate returned the same
+  verdict, so a visibility gate silently did not gate, on every block on every
+  record page. Measured on `record:alert`, `record:path`, `page:card` and
+  `element:text`.
+  
+  Three changes, all in `SchemaRenderer`'s evaluation memo:
+  
+  - **`record` is bound**, as the `record` root only — the three roots the
+    describe promises and nothing more. Not as bare fields, and never over
+    `data`, which is what `${data.*}` in a props bag resolves against. Bound
+    conditionally, so "no row" binds nothing rather than shadowing a `record` a
+    host supplied through the ambient scope.
+  - **`visibleWhen` is tested before `visible`.** The memo hoists `properties.*`
+    onto the node, so a node carrying `properties.visible` short-circuited the
+    declared node predicate — the one key the spec tells authors to write was the
+    one key that could be silently ignored. The two deprecated aliases
+    (`visibleOn` / `visibility`) deliberately keep their rank: they normalize into
+    `visibleWhen` at parse, so a spec-parsed page never reaches them.
+  - **An unresolvable predicate is loud** (dev builds). Fail-soft answered "this
+    predicate is broken" and "this predicate said yes" with the same word. The
+    verdict is unchanged on every path — `evaluateCondition` already returned
+    `true` for every unevaluable predicate, including the non-negated `hidden` /
+    `hiddenOn` legs where that `true` means HIDE — so only the silence moved.
+  
+  **Behaviour change, stated plainly:** a shipped page whose node-level
+  `record.*` predicate was previously inert now evaluates. A block that was
+  permanently visible may begin to hide — which is the point, but it is a verdict
+  change, not a no-op. `properties.visible` is unaffected in verdict: an
+  in-tree census found **zero** node-level `record.*` predicates on page
+  components, so nothing in this repository changes verdict.
+
+### Patch Changes
+
+- 546ddf7: A node-gate visibility predicate that FAULTS now says so in a production build, once per
+  distinct predicate source (objectui#6038, maintainer ruling 2026-08-25, option B: "the
+  silence is no longer an accepted property"). Observability only — no verdict moves.
+  
+  `SchemaRenderer`'s visibility chain is fail-open: a predicate that cannot be evaluated
+  resolves to the same answer as one that said yes, so a gate that stops biting looks
+  exactly like a gate the author got right. The diagnostic that names it (objectui#5454 /
+  objectui#5687) sat behind a `__DEV__` short-circuit, because the only fault-detection
+  channel available was `throwOnError`, and on the CEL branch `evaluateCelCondition`
+  implements that by evaluating **twice** — too expensive to ship for every predicate of
+  every node.
+  
+  **What production actually printed before, measured per dialect on the built evaluator**
+  — the card's premise held for one dialect of three, and the other two failed in opposite
+  directions:
+  
+  | dialect | production console, before |
+  |---|---|
+  | bare string | **nothing** |
+  | `{ dialect: 'cel' }` envelope | one generic line, deduped per source |
+  | `${…}` template | one generic line **per evaluation**, never deduped |
+  
+  So the dialect objectstack#11254 measured a live gate breaking on was the silent one,
+  while the template dialect was the console flood the ruling's rate-limit clause exists to
+  prevent.
+  
+  **The fix reports the fault the evaluator already detected, at the same number of engine
+  calls.** `EvaluationOptions.onFault` is a new passback on `@object-ui/core`'s
+  `ExpressionEvaluator`: every fault site is already inside a `catch`, or already holds the
+  canonical engine's failure reason, so nothing is evaluated twice. It mirrors, one layer
+  up, the seam `FieldPredicateDiagnostic` already documents (`warn: false` plus a reason
+  passback), and supplying it transfers reporting to the caller so one fault stays one
+  line. Pinned: the CEL branch performs the same number of record reads with the passback
+  as without it, and strictly fewer than the `throwOnError` probe.
+  
+  `SchemaRenderer` passes it in production and reports through the **same** reporter the dev
+  branch uses — same message, same severity, same dedupe `Set`, same key. Development and
+  production now print the identical line for the identical fault; the `__DEV__` gate no
+  longer decides *whether* a fault is reported, only *how* it is detected.
+  
+  `page:tabs` item-level `visibleWhen` (`@object-ui/components`) is covered by the same
+  reporter and the same rate limit. It swallowed the identical fault under a different
+  helper, and it was the worse of the two: the node gate at least reported in development,
+  while a faulting item predicate was silent in *both* builds on a gate whose false verdict
+  removes an entire tab, header and panel.
+  
+  **Rate limit:** deduped per (node type, gate key, predicate source) — never per render and
+  never per node instance. A two-hundred-row list of one broken predicate is one line; a
+  second distinct predicate source still gets its own line. Both halves are pinned, because
+  a test that asserts only "a warning was emitted" is equally green on an implementation
+  that emitted fifty, and one that asserts only "exactly one" is equally green on an
+  implementation that suppresses everything.
+  
+  **Not changed by this card, deliberately:** the fail-open semantics themselves; the
+  objectui#5687 adapter-only `data.*` report, which stays development-only under its own
+  2026-08-22 ruling (that path is not a fault — the predicate evaluated perfectly, against
+  the wrong object); and the `/forms/:name` scope wiring of objectui#6262, which lands in
+  its own PR.
+  
+  `reportUnresolvableVisibilityPredicate`, `formatUnresolvableVisibilityMessage`,
+  `UNRESOLVABLE_VISIBILITY_PREFIX` and `__resetVisibilityPredicateWarnings` are now exported
+  from `@object-ui/react` so every surface that evaluates a node `visibleWhen` shares one
+  reporter and one rate limit — a second copy would mean a second dedupe `Set`, and one
+  authored predicate would be entitled to one line per package instead of one line.
+- 22ba927: `SchemaRenderer` now hands a stable `schema` object identity to a node carrying
+  `responsiveStyles` (objectui#6270).
+  
+  ADR-0065 scoped styles make a styled node take a branch that rebuilds the schema
+  object to merge the generated scope class into `className`. That rebuild was not
+  memoised, so it allocated a new object on **every** `SchemaRenderer` render — even
+  when the `evaluatedSchema` memo directly above it held. Every downstream renderer
+  that memoises on `[schema]` therefore saw a fresh identity and re-ran: concretely
+  `ObjectMap`'s `dataConfig` and `mapConfig`, and the whole marker cascade below them
+  (`markers` → `filteredMarkers` → `clusteredData` / `markerBounds` → `initialViewState`).
+  Only nodes on that branch were affected — a plain node was already handed the
+  memoised `evaluatedSchema` itself.
+  
+  The trigger is narrower than "has `responsiveStyles`" reads: it needs one of the four
+  sized breakpoint keys (`large` / `medium` / `small` / `xsmall`). A `{ base: … }` shape
+  never took the branch and was never affected.
+  
+  The scoped-style computation now lives in a `useMemo` keyed on
+  `[evaluatedSchema, autoStyleId]`, hoisted above the renderer's early returns — its old
+  use site sits after them, so a memo written there would have been a conditional hook.
+  A genuinely changed `className`, interpolated value or breakpoint still produces a new
+  identity, so nothing goes stale.
+- 5967be0: Extends objectui#5687's adapter-only `data.*` constant-predicate diagnostic — a node-gate
+  predicate that evaluates perfectly, against the wrong object, because at the node tier
+  `data` is the data-source adapter, not the row — to the `disabled` / `disabledOn` gate
+  (objectui#6504, maintainer ruling 2026-08-27 option A).
+  
+  A node written `{ "type": "button", "disabled": "data.status == 'locked'" }` evaluates
+  cleanly (no fault, so objectui#6445's fault reporter correctly stays silent), and on the
+  constant's other polarity (`data.locked == null`, `!data.assignee`, or an adapter that
+  answers nothing) hands the gate a constant `true` that greys the control out on every row,
+  in every build, with nothing on the console. This leg now names it, in development only —
+  option C (always-on) was excluded, outside the #5687 precedent.
+  
+  The copy is new, not reused: the visibility leg's sentence ("a constant `false` hides the
+  node on every row") is written about the opposite polarity and would be false on this gate.
+  The enablement leg's own sentence names the constant-`true` direction — the control renders
+  DISABLED, greyed out, indistinguishable from a gate the author meant to close.
+  
+  Both legs carry the same dissolution pointer: this diagnostic — visibility AND enablement
+  together — dissolves when objectui#5330's `data.*` deprecation window closes.
+  
+  Dev-only, no verdict change, no interpolation change, no published type widened (the new
+  `AdapterOnlyPredicateGateKind` type and the new prefix constant are module-internal, not
+  re-exported from the package entry — matching objectui#5687's own symbols, which never were
+  either).
+- 12402a9: Drop the undeclared object-level `titleField` from the object page's five
+  remaining view-config seams, and from the record-search memo key
+  
+  `ObjectView` resolves a title field for seven view kinds. Two of them —
+  calendar and gantt — already read `viewDef.<kind>?.titleField || 'name'`. The
+  other five (timeline, kanban, map, gallery, tree) carried a three-rung chain
+  with `objectDef.titleField` in the middle, so one file answered the same
+  question two different ways. This converges the five on the shape the two
+  siblings already had; it is a convergence, not a removal.
+  
+  The middle rung could never fire for legal metadata. `@objectstack/spec`'s
+  object schema is a `strictObject`, so
+  `ObjectSchema.safeParse({ …, titleField: 'x' })` is rejected with
+  `unrecognized_keys` — the same issue code a nonsense key gets — while
+  `nameField`, `displayNameField` and `titleFormat` all parse (measured against
+  `@objectstack/spec@17.2.0`, the dist this repo installs). objectui#6531
+  established that measurement and dropped the twin read inside
+  `getRecordDisplayName`. Reading a key no producer can ship is the
+  consumer-side alias AGENTS.md Commandment #0.1 bans.
+  
+  Behaviour for every legal config is unchanged, and both directions are pinned:
+  a view that declares its own `titleField` still wins on every kind, a view that
+  declares none still floors at `'name'`, and an object carrying the
+  contract-rejected key is now honoured by no kind. Re-pointing the middle rung
+  at the declared `nameField` was considered and rejected: it would have added a
+  rung calendar and gantt do not have — increasing the divergence — and, unlike
+  this change, it would have altered behaviour for legal configs.
+  
+  `useRecordSearch`'s candidate signature — the memo key that decides when the
+  cross-object fanout re-runs — appended `o?.titleField ?? ''` to every entry.
+  Because no legal object definition can carry the key, that half was permanently
+  `''`: a constant suffix in a cache signature, and the last thing in the repo
+  that read as evidence some producer supplies it. The signature is now the object
+  name alone, which is the only field of an object definition the effect actually
+  consumes. Change detection is unaffected — a changed candidate name still
+  re-runs the fanout, and a new array with identical content still does not.
+- 46b9bc9: A `props` config bag on a component-renderer node is now named at render
+  instead of dropped in silence (objectui#6708).
+  
+  `SchemaRenderer` HOISTS every `properties.*` value onto the node, so a key
+  written under `properties` is a real value on `schema.<key>` by the time a
+  renderer destructures it. `props` — the annotated legacy alias of the same bag
+  — is NOT hoisted: it is evaluated and then spread as React props on the created
+  element. A renderer declared as `({ schema })`, which is the normal shape for
+  the component renderers, therefore never sees it. The `element:*` family is the
+  exception: its `readProps()` merges `{ ...schema.props, ...schema.properties }`,
+  so the same spelling is honoured there.
+  
+  Every gate accepts the `props` spelling — `BaseSchema` is `.passthrough()` with
+  `[key: string]: any` — and the docs call it a supported alias, so nothing
+  between the author and the screen said a word. Re-measured on `faac0d935`
+  through the real `SchemaRenderer` with a probe that records both channels:
+  
+  | node | React prop `data` | `schema.data` |
+  |---|---|---|
+  | `props: { data: "${data.customers}" }` | the evaluated array | absent |
+  | `properties: { data: "${data.customers}" }` | the evaluated array | the array |
+  
+  Same key, same value, one envelope apart. The expression is evaluated on both
+  legs, so this is a dropped value rather than an unevaluated one. Read through a
+  real `data-table` (objectui#6665's four-leg pin) the same pair renders
+  `No results found` against the two rows.
+  
+  The diagnostic's level and dedupe were chosen from a census, which the ruling
+  made a precondition. Every JSON document, every `json` fence in every
+  `.md`/`.mdx`, and every TypeScript object literal in the repo was walked for
+  nodes carrying both `type` and `props`: 39 such nodes, 22 of them on
+  component-renderer types, and 19 of those 22 are test fixtures exercising this
+  shape on purpose. The authored, non-test corpus holds 5 — three of which are
+  deliberate counter-examples in the skills guides. Nothing floods, so the level
+  is not softened for volume; the dedupe is keyed on the MESSAGE rather than on
+  the schema object, so a metadata generator emitting one wrong envelope across
+  many nodes still gets one line while two genuinely different nodes get two.
+  
+  `console.warn`, matching objectui#6575 and objectui#6665 — the two prior
+  instances of this exact "you declared something and the renderer dropped it"
+  shape — rather than the `console.error` its neighbour at this tier uses for a
+  raw `${...}` placed verbatim in front of a user. Nothing is placed here; a
+  value is dropped.
+  
+  No behaviour change, which is the entire reason this arm was chosen. Hoisting
+  `props` to parity with `properties` was refused at ruling: it would weld the
+  legacy alias in as a permanent second spelling, against this repo's
+  alias-retirement direction. Refusing the key at parse stays blocked on the
+  `.passthrough()` ceiling (objectui#5155 / objectui#6269). What every renderer
+  receives is pinned byte-for-byte against a reading captured on the tree before
+  the diagnostic existed. Nothing is added to the published surface either — the
+  predicate, message builder, prefix constant and test-only reset are
+  module-internal and are not re-exported from the package entry, matching
+  objectui#6575's own symbols. The trap stops being silent; it does not stop
+  being a trap.
+- d47de51: `useSchemaPersistence` no longer writes its adapter ref during render
+  (objectui#6745).
+  
+  The hook keeps the live adapter in a ref so `save`/`load`/`list`/`remove` can be
+  created once and still reach the newest adapter at call time. That ref was
+  written in the render body:
+  
+  ```
+  const defaultAdapter = useRef(createLocalStorageAdapter());
+  const adapterRef = useRef(adapter ?? defaultAdapter.current);
+  adapterRef.current = adapter ?? defaultAdapter.current;   // during render
+  ```
+  
+  which `react-hooks/refs` flags on three counts. A render React discards or
+  replays — StrictMode, a Suspense retry, a concurrent interruption — still
+  performed that write, so a save could be routed through an adapter belonging to
+  a render that never committed.
+  
+  The write now happens in `useInsertionEffect`, and the default adapter comes
+  from `useMemo` instead of a ref read during render.
+  
+  **Timing is preserved for every legal call site.** Insertion effects run in the
+  mutation phase — before every layout effect in the tree, before paint, and
+  before any event handler can fire — so a changed `adapter` prop is in place
+  before anything that may legally invoke these methods can observe it. This is
+  deliberately *not* `useEffect` (which lands after paint) or `useLayoutEffect`
+  (a child's layout effects run before its parent's); either would route a call
+  made earlier in the same commit to the previous adapter. The only window that
+  changed is a read during the render phase itself, which no legal consumer has:
+  `save`/`load`/`list`/`remove` are side effects and are never callable during
+  render.
+  
+  Also fixed in passing, on the same lines: `useRef(createLocalStorageAdapter())`
+  invoked the factory on **every** render and discarded all but the first result.
+  The `useMemo` runs it once. The adapter is a stateless facade over
+  `localStorage` and its identity is never exposed, so this is unobservable
+  beyond the saved work.
+  
+  No API, signature or observable behaviour change for any supported call site.
+- 3fe6463: `SchemaRenderer`: a non-object `props` bag is no longer object-spread into
+  indexed React props (objectui#6752).
+  
+  A node written `{ type: 'card', props: 'not-a-bag' }` reached `createElement`
+  carrying nine React props named `0` through `8`, one per character, because
+  `{ ...'not-a-bag' }` enumerates a string's character indices. Nothing threw and
+  nothing was logged, so the symptom — a component handed nine props it never
+  declared — sat a long way from the `props` value that caused it. Measured
+  through the real `SchemaRenderer`; the in-repo corpus has no such node today, so
+  this is a latent shape rather than a live failure.
+  
+  The canonical `properties` branch already carried the wider guard. Its comment
+  claimed the guard was hoist-specific, and that turned out not to survive
+  measurement: ablating it leaves the indexed keys the hoist puts on the node
+  completely unchanged, and moves only whether `schema.properties` still holds the
+  value the author wrote. The reason is channel-independent — a degenerate value
+  must not have its shape reinterpreted by an object spread — so `props` now
+  carries the same guard, both bags share one `isConfigBag` predicate, and the
+  `properties` comment states the measured reason instead of the old one.
+  
+  Both sites that spread the bag are covered: the evaluation memo (so
+  `schema.props` keeps the authored value) and `propsWithoutCanonicalKeys` (so the
+  `createElement` spread does not re-enumerate it). A degenerate bag now
+  contributes no keys, and the authored value is passed through unmangled on the
+  React prop named `props`.
+  
+  Unchanged: a normal object `props` (still evaluated, still spread per key),
+  objectui#5123's two-bag precedence, the `properties` hoist, and objectui#6708's
+  dropped-`props` diagnostic.
+- 31ab372: A degenerate `properties` bag no longer reaches the element as indexed React
+  props (objectui#6760).
+  
+  `properties` is the spec spelling of a node's config bag. The hoist that copies
+  `properties.*` onto the node's top level walked it with `Object.entries`
+  unconditionally, so a non-object value was enumerated rather than skipped:
+  measured on `c6732825d`, `{ type, properties: 'not-a-bag' }` reached the element
+  as nine React props named `0` … `8`, and `properties: ['x', 'y']` as `0`, `1`.
+  Nobody authored those keys — they are the walk's reading of a string's character
+  indices.
+  
+  The hoist now asks the same `isConfigBag` question the evaluation memo and the
+  `props` bag already ask (objectui#6752, objectui#6761). Of the two arms the card
+  left open, this is "guard the hoist" rather than "declare that the hoist may
+  enumerate anything", because objectui#5123 ruled that a key gets one answer
+  whichever channel reads it — and the alternative would have answered one
+  authored mistake two ways, with the reinterpreting half falling on the canonical
+  spelling while the quiet half fell on its legacy alias.
+  
+  Nothing else moves: a real object bag hoists exactly as before (including the
+  `type`/`id` keys the hoist has always refused to copy), the authored
+  `properties` value still reaches renderers on both channels unchanged, and
+  `properties: 42` / `properties: true` were already contributing no keys.
+- 67fc3b0: `useETagCache`, `useGlobalUndo` and `useOffline` stop writing their config refs
+  during render (objectui#6797).
+  
+  Each of the three kept a "latest value" ref that was assigned in the render
+  body, one `react-hooks/refs` warning apiece on this base
+  (`useETagCache.ts:204`, `useGlobalUndo.ts:57`, `useOffline.ts:262` — all three
+  `Cannot update ref during render`, all three the WRITE only; unlike
+  `useSchemaPersistence` none of them also READ a ref during render). A ref
+  written in the render body is also written by renders React discards or
+  replays — StrictMode's double render, a Suspense retry, a concurrent
+  interruption — so a tree that never committed could publish its config to
+  callbacks that outlive it.
+  
+  The write moved to `useInsertionEffect` in all three, but that shape was chosen
+  per hook rather than carried over, because what each ref protects differs:
+  
+  - **`useETagCache`** — five resolved config scalars read by five `useCallback`s
+    with `[]` deps whose identity is part of the published result. Re-keying them
+    on the config values would have changed `fetchWithETag`'s identity whenever a
+    caller's `ttl` moved, re-firing consumer effects keyed on it, so the ref
+    stays.
+  - **`useGlobalUndo`** — the whole options bag. Every caller passes a fresh
+    inline literal with inline `onUndo` / `onRedo` closures, and the keydown
+    effect is keyed on `undo` / `redo`, so the ref is the only thing keeping
+    those two stable while still reaching the newest callbacks.
+  - **`useOffline`** — `config.sync`, read by one caller (`sync`) that is
+    *already* unstable (deps `[enabled, queue]`). Here the ref protects RETAINED
+    closures rather than an identity: the auto-sync effect deliberately captures
+    a `sync` and fires it 100ms later, and that closure must still see the newest
+    `batchSize`. Dropping the ref for a `syncConfig?.batchSize` dep would have
+    changed what that retained closure reads, so it was rejected.
+  
+  `useInsertionEffect` runs in the mutation phase — ahead of every layout effect,
+  ref attachment and paint — so the only window any of the three defers is the
+  render phase itself, where none of the affected callbacks is legally callable.
+  `useEffectEvent` would be the idiomatic answer but is React 19.2+, and this
+  package's peer range starts at React 18.
+  
+  **No behavioural change is claimed for callers that exist today**: reverting any
+  of the three implementations leaves the whole suite green, and the new pins pass
+  against the old code and the new code alike. They guard the next edit — each
+  file's discriminating pin fails under both `useEffect` and `useLayoutEffect`.
+- 33a3b3c: `useETagCache` builds its config object once per hook instance instead of once
+  per render (objectui#6817).
+  
+  `useRef({ enabled, storage, storagePrefix, maxEntries, ttl })` evaluated that
+  literal on **every** render and kept only the first result, so every later
+  render allocated a five-key object that was discarded. It now comes from a
+  `useMemo` keyed on the five values, which is also what the ref's
+  `useInsertionEffect` write publishes.
+  
+  `patch`, not `minor`: nothing a published consumer can observe changes. The
+  public shape, the returned callbacks' identities and the values the stable
+  `[]`-deps callbacks read off the ref are all unchanged — the object's identity
+  is private to the hook, so the only difference is the allocation that no longer
+  happens. Same pattern PR objectui#6796 repaired in `useSchemaPersistence`; this
+  is the half of that class the `react-hooks/refs` rule structurally cannot see,
+  which is why it needed a test rather than a lint fix.
+- 2ce2612: A record-page URL now names the object the clicked rows actually came from, in
+  `ObjectTree` and `ObjectCalendar` (objectui#7638).
+  
+  `useNavigationOverlay` builds `/{objectName}/record/{id}` out of whatever it is handed,
+  and both components handed it the bare top-level `schema.objectName` while resolving
+  their own rows through the objectui#6939 record-source ladder (`data`, then
+  `staticData`, then `objectName`). objectui#6939 published `objectName` as that ladder's
+  THIRD RUNG and not as a parallel "page object" concept, so a block has exactly one
+  record source — and a row fetched through `data.object` whose click built
+  `/{schema.objectName}/record/{id}` named a record that the URL's own object does not
+  contain.
+  
+  Two shapes change, both toward the object the rows came from:
+  
+  - a block carrying **both** bindings navigated to the top-level key and now navigates to
+    `data.object`;
+  - a **data-only** block had no name to build a URL from at all, so the hook took its
+    `/{id}` leg — an unrouted path that paints a blank page — and now builds the routed
+    record URL.
+  
+  `ObjectCalendar` is where the divergence was plainest: on one click it resolved the
+  detail drawer through the ladder and the navigation URL through the top-level key. The
+  URL now reuses the very `schemaObjectName` that already keys the calendar's record query
+  and its `$expand` derivation, so query, drawer and URL agree by construction.
+  
+  **Nothing else moves.** Both converted sites keep a site-local `?? schema.objectName`
+  tail for the off-contract `data: { provider: 'object' }` that carries no `object`
+  (`ViewDataSchema` declares it required) — the same tail `ObjectTree`'s `headerObjectName`
+  already carries, and the same conservatism objectui#7627 applied when it published the
+  shared reader. `useNavigationOverlay`'s own signature is unchanged: it still takes an
+  `objectName`, and only what callers hand it has changed.
+  
+  The hook's `@example` stops prescribing `objectName: schema.objectName`. That prose is
+  why there were copies to convert at all — component authors copied the divergence out of
+  the documentation, correctly, as written — so it now points at
+  `resolveRecordSourceObjectName` and says explicitly that a caller with no data config
+  has nothing above rung three and should keep passing `schema.objectName`.
+  
+  `ObjectKanban` is deliberately **not** converted: it has no data config, no
+  `getDataConfig`, and its `data` is a raw row array rather than a `ViewData` binding, so
+  `schema.objectName` already IS its record source and its board, drawer and URL already
+  agree.
+- d1bebb0: The unevaluated-expression diagnostic now lists `properties` among the channels
+  that evaluate and read back, matching the sibling `props`-bag diagnostic that
+  tells authors to write their keys there.
+  
+  Both messages are dev-build diagnostics in `SchemaRenderer`, and one node can
+  trip both. They disagreed: `propsBagDiagnostic` said *"`props` is NOT hoisted
+  onto the node — only `properties.*` is … Write them under `properties`
+  instead"*, while `unevaluatedExpression` enumerated *"channels that do evaluate
+  and read back today"* as `content` or host-side resolution — omitting
+  `properties`. An author who hit both was told to use a channel the other message
+  said did not work.
+  
+  The enumeration was the wrong half, established by measurement rather than by
+  reading the `COMPAT` label on the hoist. `properties` has no retirement on
+  record: `@objectstack/spec@17.2.0` calls the vocabulary carried there *"ALIVE —
+  this is not dead surface to retire under ADR-0049"*, keeps
+  `PageComponentSchema.properties` as the open carrier on purpose, gates it at the
+  authoring door, and tombstones no part of it via `retiredKey()`. In this repo
+  `props`, not `properties`, is the spelling annotated as the legacy alias.
+  
+  Diagnostic text only — no evaluation, hoist or schema behaviour changed.
+- 7fb22a1: The published visibility diagnostic no longer tells an author that `app` is a bound
+  expression-scope root (objectui#8155 follow-up).
+  
+  `@object-ui/react`'s `SCOPE_TIER_ADVICE['app-shell']` — the paragraph
+  `reportUnresolvableVisibilityPredicate` prints in production when a predicate cannot be
+  evaluated — read "App-shell predicates bind `current_user` … plus `app` and `features`".
+  objectui#8155 removed `app` from `buildExpressionScope`, so that sentence was printed at
+  exactly the moment a saved `app.*` predicate faulted, and it answered "why did my
+  predicate not resolve?" by naming the root that is the reason. The line now names the
+  five roots the provider really binds: `current_user`, its `user` / `ctx.user` / `os.user`
+  aliases, and `features`.
+  
+  **Swept as a class, not as two coordinates.** Every other place in this tree that stated
+  `app` was a bound expression-scope root is corrected in the same change — the diagnostic
+  copy and its byte-pin, the ambient-scope docblocks in `@object-ui/react`
+  (`SchemaRenderer`, `useExpression`), `@object-ui/core` (`ActionRunner.ParamDef.visible`,
+  `RowPredicateOptions.scope`), `@object-ui/components` (`form.tsx`, `containers.tsx`),
+  `@object-ui/plugin-detail`, `@object-ui/plugin-form` (docblock and README),
+  `@object-ui/app-shell` and the console app, plus fourteen test fixtures that transcribed
+  the old bag with an `app` key. The fixtures in `@object-ui/app-shell` now call
+  `buildExpressionScope` instead of transcribing it, so that pair cannot drift again.
+  
+  Nothing that was true before objectui#8155 changed: the `app` prop on
+  `ExpressionProvider` and the `app` field on its React context value are untouched (they
+  were never CEL roots), and no root other than `app` was added to or removed from any
+  message, bag or fixture.
+  
+  Two release-bound corrections travel with it. The producer-side card objectstack#16420
+  was closed `not_planned` on 2026-09-07 by the same ruling that removed the root, not left
+  open; and the consequence of a stale `app.*` predicate is **not** uniformly "fails open" —
+  it is per surface, and the changeset that carries the removal now states the seven
+  measured directions instead of one.
+- ad66d79: Stop binding an ambient `data` root on record surfaces, so a `data.*` predicate faults
+  loudly instead of resolving against the host's bag (objectui#8166, ruled 2026-09-10).
+  
+  **User-visible behaviour change, at RUNTIME and at DEBUG time — not at authoring time.**
+  Nothing an author sees while writing a predicate moves: the authoring lint's accept set
+  lives in `@objectstack/formula`'s `SCOPE_ROOTS`, which still contains `data`, and
+  `data.status == 'x'` still lints clean at `scope: 'record'`. Splitting that list per
+  scope is the producer-side half and is not this repo's to make. What changes is what
+  the runtime does with such a predicate once it is saved.
+  
+  **What was wrong.** objectui#5741 (Phase 2 of the objectui#5330 canon) retired `data.*`
+  on runtime record surfaces — the row is bound as `record.*` and nothing else. But
+  `@object-ui/app-shell`'s `buildExpressionScope` kept binding an ambient `data`, so a
+  predicate the linter had waved through also *resolved* at runtime, against that bag
+  rather than against the row. Measured on `main` before this change, one authored
+  `visibleWhen: "data.status == 'x'"` meant three different things:
+  
+  - on every `ExpressionProvider` mount and on `RecordFormPage`'s own evaluator, the
+    ambient `data` was `{}`, so the engine answered `[runtime] No such key: status` — a
+    fault, warned once, and the field-rule fallback applied (fail-open for `visibleWhen`);
+  - on `AppContent`'s field-list evaluator for the global record-form modal in EDIT mode
+    the ambient `data` was **the record being edited**, so the predicate resolved, with no
+    diagnostic at all, off the wrong layer's object — an author testing there would have
+    seen it "work";
+  - in CREATE mode on that same modal it fell back to the first case.
+  
+  **What changes.** `buildExpressionScope` no longer accepts or binds `data`, and the two
+  imperative call sites (`AppContent`, `RecordFormPage`) stop passing one. A `data.*`
+  predicate on any app-shell surface now produces the engine's own verdict — `[type]
+  Unknown variable: data` — on both diagnostic channels (the one-time `console.warn` and
+  the `onFault` passback), which is the same verdict the server gives the same string and
+  the same shape `app` has produced since objectui#8155.
+  
+  **The fault is loud, not fatal.** The verdict a faulting predicate resolves to is
+  unchanged: `visibleWhen` still fails OPEN, `readonlyWhen` / `requiredWhen` still fail
+  permissive (`@object-ui/core`'s `fieldRules.ts`; the direction is objectui#8069's open
+  question, not this change's). So a record form renders exactly as before except that the
+  console now names the root. Nothing throws.
+  
+  **Migration.** Rewrite `data.foo` as `record.foo` on any runtime record surface — the
+  canonical spelling since objectui#5741, and the only one that reaches the row. The
+  metadata-admin designer is unaffected: its `data` is the DRAFT under edit (ADR-0089 D3,
+  `CANONICAL_ROOT_BY_LAYER` = `{ runtime: 'record', metadata: 'data' }`), bound by
+  `views/metadata-admin/predicate.ts` through its own builder, which takes only the
+  identity roots from this bag and assigns its own `data` last.
+  
+  `@object-ui/react` carries a docblock correction only: the `app-shell` tier paragraph in
+  `utils/visibilityDiagnostic.ts` described the bag this change edits. `@object-ui/components`
+  carries no runtime change at all — three form/predicate tests hand-transcribe the app-shell
+  bag (importing it would invert the package dependency) and each literal carried the removed
+  `data: {}`; the transcriptions are corrected so they cannot go on describing a scope that no
+  longer exists.
+- b9d47ec: Resolve filter placeholders on the drill "escape hatch", so one drill has one scope
+  whatever `drillDown.target` says (objectui#9022).
+  
+  Every widget composes its drill filter from the RAW authored filter, so
+  `{current_user_id}`, `{current_org_id}` and the relative-date macros were still
+  literals when they reached the host's `openRecordList`. The in-place drawer arm never
+  had the defect — the `object-data-table` it renders resolves the filter in its own
+  fetch — so only the navigate arm, and the "Open in list →" button in the drawer header,
+  wrote the placeholder into the URL. `filter[close_date][gte]={current_quarter_start}`
+  parses back on the read side as an ordinary string comparand, so the destination list
+  matched nothing, silently, and in disagreement with the chart bar the user had just
+  clicked (that chart scopes its own bars by the RESOLVED value).
+  
+  `useOpenRecordList` now expands both placeholder vocabularies against the session scope
+  it already sits inside, immediately before serialization. It is the single host handler
+  every escape hatch funnels through — the chart's navigate arm and its own header
+  button, `DrillDownDrawer`'s navigate arm, and `OpenInListButton` — so both widget
+  families are covered by one resolution rather than N widget seams. A drill carrying no
+  placeholder produces a byte-identical URL: both vocabularies substitute whole-string
+  `{token}` values only.
+  
+  The `DrillNavigationValue.openRecordList` contract now states that resolving is the
+  host implementation's job, since an out-of-repo host wiring the same context would
+  otherwise reproduce the split.
+- efc1c9c: **A node-gate predicate parked under `props` is now REFUSED BY NAME on the console, instead of gating nothing in silence (objectui#9108).**
+  
+  A node may spell its config bag `properties` (the spec spelling) or `props` (the annotated legacy alias). `SchemaRenderer` hoists `properties.*` onto the node; nothing copies `props.*`, and both node gates read the post-hoist node — so a predicate that arrived under the alias was never one of the keys either gate could see. Measured at node level, four rows: `props: { visible: false }` and `props: { hidden: true }` both RENDERED, while `properties: { visible: false }` and `properties: { hidden: true }` each hid correctly. Fail-**open** and silent by construction: a gate that never bit renders exactly like a gate that said yes, so no user and no screenshot can find it.
+  
+  **No verdict moves, and that is the ruled outcome rather than a limitation.** The alias is refused, ⛔ not honoured: nothing is hoisted, `schema.<KEY>` stays undefined for a renderer declared as `({ schema })`, and every element receives the byte-identical props bag it received before. What changes is that the eight node-gate predicate keys (`visibleWhen` / `visible` / `visibleOn` / `visibility` / `hidden` / `hiddenOn` / `disabled` / `disabledOn`) are named on the console when they are parked there, with the migration that fixes them. The maintainer ruling of 2026-09-13 closed the honour arm (PR objectui#9144) on the ground that honouring the alias would have made *"8 predicate keys work while the rest stayed silently dropped — and partly working is harder to learn from than not working"*.
+  
+  The line is `console.error`, in development **and in production** — the same posture objectui#6038 gave the unresolvable-predicate report, because a node gate that has stopped biting in production is exactly the defect that must not be able to sit live and undiscovered. It is rate-limited to one line per distinct authoring bug for the lifetime of the page. One measured carve-out: `disabled` on a bag-reading `element:*` node is honoured by that renderer itself (`disabled={props.disabled || running}`), so it is not refused there.
+- 98c3a74: Fix `createLazyPlugin`'s JSDoc example, which taught a call that does not compile.
+  
+  The `@example` block passed `() => import('@object-ui/plugin-grid')` as the
+  `importFn`. ObjectUI plugin packages export their components by name and have no
+  `default`, so that call supplies the module namespace object — rejected by the
+  compiler (`Property 'default' is missing`) and, at runtime, handed to
+  `React.lazy` as the component. The examples now unwrap the named export via the
+  `async` spelling, which is the form that actually type-checks. This ships in the
+  published `.d.ts`, so it is what editors show on hover.
+- 9850c6e: `SchemaRenderer`'s node visibility gate now emits a dev-only warning when a
+  predicate reads `data.*` and the data-source adapter cannot answer that read, so
+  an author who wrote `properties: { visible: "data.status == 'draft'" }` sees the
+  constant they authored instead of shipping it (objectui#5687).
+  
+  At the node tier `data` is the data-source **adapter** — the object `${data.total}`
+  in a props bag resolves against — and it has never been the row. A predicate
+  written with the deprecated `data.*` spelling therefore resolves `undefined ==
+  'draft'`, which is a perfectly good `false`: the block is hidden on every row, and
+  because it does not throw, the unresolvable-predicate reporter added for
+  objectui#5454 never fired. Measured on this base, the same predicate written as a
+  `{ dialect: 'cel' }` envelope *does* throw and *was* already reported — so whether
+  an author heard about the identical mistake depended on which dialect they happened
+  to write it in, which is the arbitrariness objectui#5454 existed to remove.
+  
+  **No verdict changes and no interpolation changes** (maintainer ruling,
+  2026-08-22, option A). The node tier keeps its documented `data` = adapter
+  semantics; objectui#5330's row binding does not extend here. The evaluator's answer
+  is returned exactly as computed and `${data.*}` interpolation is untouched — only
+  the silence moved.
+  
+  The report fires on a `data.*` read the bound adapter answers with `undefined`, not
+  on the spelling. A genuine adapter read stays silent (`data.total > 0` against an
+  adapter carrying `total`), a canonical `record.*` predicate stays silent, and a
+  correctly-hiding gate stays silent. Dev builds only, `console.warn`, deduped per
+  node type + key + predicate source — the same module, Set and lifecycle as the
+  objectui#5454 reporter.
+  
+  This loudness is temporary by design: it dissolves when objectui#5330's deprecation
+  window for the `data.*` row spelling closes.
+- b2ea297: `ObjectSchemaMetadata` is now derived from `@objectstack/spec`'s `ServiceObject`
+  instead of being a hand-written copy (objectui#5362; maintainer ruling
+  2026-08-20: the object document type belongs to the spec).
+  
+  What changes on the published type surface:
+  
+  - **Gained:** the full spec object-document surface, including the three keys
+    the runtime already reads but the old interface rejected as excess
+    properties: `icon`, `titleFormat`, `listViews` (plus `pluralLabel`,
+    `nameField`, `displayNameField`, `managedBy` as a spec key, and the rest of
+    the spec document).
+  - **Removed:** nine members the old interface declared that no objectui
+    runtime code reads and the spec document does not know: `extends`,
+    `triggers`, `primary_key`, `relationships`, `name_field` (the spec spelling
+    is `nameField`), `soft_delete`, `audit_trail`, `version`, `cache`.
+    `ObjectTrigger` and `ObjectRelationship` remain exported unchanged.
+  - **Kept:** `editMode` — the one measured client-side member the runtime reads
+    (`recordFormNavigation` / `AppContent`) — now declared on the new
+    `ObjectSchemaClientExtensions` interface, which the derivation intersects.
+    Note the spec's strict parse rejects `editMode` on published documents
+    (`unrecognized_keys`); it is a client-type member only.
+  
+  Spelling settlement: `listViews` (camelCase) is canonical — `list_views`
+  appears nowhere in `@objectstack/spec` 17.2.0. Runtime read sites in
+  `@object-ui/app-shell` and `@object-ui/react` keep a documented snake-spelling
+  READ fallback for stored pre-settlement documents (that stock has never been
+  censused — objectstack#7917); the CRUD guide and its pinned transcription now
+  author the canonical spelling.
+- 4f14ad7: `SchemaRenderer`'s node visibility gate now also catches the `${…}`-templated
+  spelling of the objectui#5454/#5687 diagnostics when it is written inside
+  `properties`, e.g. `properties: { visible: "${data.status == 'draft'}" }`
+  (objectui#5756).
+  
+  The `properties.*` evaluation loop runs, and interpolates every `${…}` template it
+  finds, **before** the visibility gate ever sees the value — so by the time the
+  existing diagnostics ran, a template-spelled predicate had already collapsed into a
+  plain boolean and there was no predicate text left to inspect. The bare-string
+  spelling of the exact same gate (`properties: { visible: "data.status == 'draft'"
+  }`) was unaffected — nothing interpolates a string with no `${` in it — and was
+  already reported; only the template spelling was structurally invisible.
+  
+  Reached by moving the diagnostic check to inside the `properties` evaluation loop,
+  on the predicate's raw (pre-interpolation) text, gated on the key being one of the
+  six visibility keys the render chain consults (`visibleWhen` / `visible` /
+  `visibleOn` / `visibility` / `hidden` / `hiddenOn`) — a `properties.content`
+  interpolation, or any other non-visibility key, is untouched and stays silent.
+  
+  Reports only the key that actually **decides** the node's visibility, mirroring
+  objectui#5454's own leg semantics (its reporter is likewise only ever invoked on
+  the leg the chain's early-return sequence actually reaches): a `properties.visible`
+  template that a co-declared `visibleWhen` outranks is not reported for deciding
+  nothing.
+  
+  **No verdict changes and no interpolation changes.** The diagnostic call's return
+  value is discarded; the real verdict is still computed afterward, off the
+  post-evaluation, post-hoist schema, by the same code path as before this change.
+  Same two reporters as objectui#5454/#5687 (unresolvable-predicate / adapter-only-data
+  predicate), same dedupe `Set`, same `console.warn` severity, same dev-only gate —
+  only the silence moved, one render-step earlier.
+- f90b8fb: `toRenderableSchema`'s header now says the bridge is permanent, instead of instructing
+  callers to remove it (objectui#4622).
+  
+  No executable line changes — but the artifact is **not** unchanged, and that is worth
+  stating plainly rather than rounding to "comment-only". This package builds with plain
+  `tsc`, and nothing in its config chain sets `"removeComments"`, so the default `false` holds and the JSDoc
+  is emitted into `dist/schema-input.js` as well as `dist/schema-input.d.ts` — it is both
+  what an editor shows on hover at every call site and bytes that ship.
+  
+  Measured by building the package the way the repo builds it, at both revisions:
+  `dist/schema-input.js` grows from 1,486 to 2,377 bytes (1.45 KB to 2.32 KB), and from 850
+  to 1,266 bytes gzipped (0.83 KB to 1.24 KB) — **+891 bytes raw, +416 gzipped**. All 19
+  differing lines in the emitted file are JSDoc continuations and the three executable lines
+  are byte-identical, so the growth is the paragraph and nothing else. The trade is
+  deliberate: roughly 0.4 KB gzipped, against the five-hour `Build Docs` outage the old
+  paragraph's instruction produced once already.
+  
+  The old closing paragraph said the two competing repo-wide `SchemaNode` spellings "have
+  not been reconciled" and that "when it lands, the call sites using this can go back to
+  forwarding directly". Both halves went false when PR #4608 merged, and the second half is
+  the harmful one: it is an instruction whose trigger condition has now fired, sitting
+  directly above the function a future author is about to call.
+  
+  The reconciliation (objectui#4580 / PR #4608) resolved the collision in favour of
+  `@object-ui/types`' union — `@object-ui/core` now re-exports it rather than hand-declaring
+  an interface — while `SchemaRenderer`'s prop stays deliberately narrow per objectui#4548
+  ruling Q2 (`schema: BaseSchema | string | null | undefined`, no `number` / `boolean`). So
+  a `SchemaNode` became *less* assignable to that prop, not more, and the bridge is a
+  permanent crossing between two intentionally different types rather than scaffolding
+  awaiting a merge.
+  
+  Following the old instruction has a measured cost: five `apps/site` call sites were
+  forwarding directly when PR #4608 landed, and `Build Docs` was red on `main` for roughly
+  five hours until PR #4621 routed all five through this function (objectui#4617).
+- f53a8d0: fix(react): stop the form-view bridge silently dropping 18 spec keys
+  
+  `spec-bridge/bridges/form-view.ts` promised (#2545) that "every serializable
+  spec key is either mapped onto the `object-form` node or listed here with an
+  explicit reason for being ignored". Measured against `@objectstack/spec` 17.2.0
+  the promise was false for 18 keys, because the conformance test enforcing it ran
+  its completeness loop over its own hand-written fixture rather than the
+  contract's key set.
+  
+  Seventeen of them now reach the node, at the destinations the receiving layer
+  already reads:
+  
+  - `FormViewSchema.buttons` / `.defaults` — `ObjectFormSchema` declares both and
+    `ObjectForm` folds them at render (action-button visibility/labels, and
+    create-mode initial values).
+  - `FormSection.pane` — explicit split-pane placement; without it a spec-authored
+    split form fell back to the positional rule, so reordering sections moved them
+    across the divider.
+  - `FormSection.visibleOn` — the deprecated spelling now folds onto `visibleWhen`,
+    matching the contract's own parse-time normalisation and the field path.
+  - Thirteen `FormFieldSchema` keys — `maxLength`, `minLength`, `min`, `max`,
+    `precision`, `scale`, `multiple`, `immutable`, `span`, `language`, `keyField`,
+    `disclosure`, `fields` — so authored constraints, composite config and field
+    width survive the bridge instead of ending there.
+  
+  `publicPicker` is deliberately not carried and now says so: it is a server-side
+  public-lookup authorization opt-in with no client destination.
+  
+  The conformance test's key set is now derived from the contract's own shape at
+  all three levels, so a spec key that is neither mapped nor explained fails the
+  suite by construction.
+- d91aed9: Name the case-only spelling when a component type misses the registry.
+  
+  Registry lookup is exactly case-sensitive, so a node typed `Page` misses a registered `page` and falls through to the OBJUI-001 "Unknown component type" panel. Because the mistake is usually uniform across a document, the symptom is not one broken widget — it is the whole page rendering as error panels, with nothing in the message pointing at the cause.
+  
+  Both surfaces that report the miss now name the spelling that would have resolved. `SchemaRenderer`'s panel reads `Unknown component type: Page — did you mean 'page'?`, and `objectui check` reports `Unknown schema type "Page" in <file> — did you mean "page"?`. When no known type differs by case alone, neither says anything extra — `zzz` gains no bogus suggestion, and this is case matching, not an edit distance, so `pge` suggests nothing either.
+  
+  **Lookup itself does not change.** `Page` still misses, still fails, and still renders the panel; only the message teaches. Normalising the lookup was considered and rejected (objectui#5247, maintainer ruling 2026-08-19): it would make two spellings valid everywhere, permanently, and legalise the typo class (`PAGE`, `pAge`) along with the PascalCase convention.
+  
+  Each surface reads its candidates from the set it can actually trust — the renderer from the live `ComponentRegistry` (including pending lazy stubs), the CLI from the registration-derived `KNOWN_SCHEMA_TYPES` snapshot — so neither can suggest a type nothing registers.
+- Updated dependencies [432882b]
+- Updated dependencies [64dae8e]
+- Updated dependencies [b06e374]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [9801765]
+- Updated dependencies [460575f]
+- Updated dependencies [594704f]
+- Updated dependencies [d3995fe]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [993f312]
+- Updated dependencies [636b236]
+- Updated dependencies [64d624d]
+- Updated dependencies [053fdc8]
+- Updated dependencies [41b7ce3]
+- Updated dependencies [ae476b8]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [94e2fa7]
+- Updated dependencies [490d9a9]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [95f8704]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [90665e0]
+- Updated dependencies [8d3a529]
+- Updated dependencies [5ac2e2c]
+- Updated dependencies [7e19d03]
+- Updated dependencies [b08b7eb]
+- Updated dependencies [546ddf7]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [44d075b]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [5fa06c4]
+- Updated dependencies [52a43de]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [a26b9e4]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [6f81384]
+- Updated dependencies [5d3a2d1]
+- Updated dependencies [8f1d995]
+- Updated dependencies [b362c1b]
+- Updated dependencies [5127378]
+- Updated dependencies [dddb942]
+- Updated dependencies [00c665e]
+- Updated dependencies [29754cf]
+- Updated dependencies [3c2b6f7]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [5961030]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [9602dc8]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [299102e]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [831be72]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [d0889e2]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [fff9645]
+- Updated dependencies [9c3b7ce]
+- Updated dependencies [2c1c967]
+- Updated dependencies [4d5f9b4]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [969ba84]
+- Updated dependencies [7977ff9]
+- Updated dependencies [3beef6d]
+- Updated dependencies [dbd5194]
+- Updated dependencies [b392674]
+- Updated dependencies [4f3a1e2]
+- Updated dependencies [f07b976]
+- Updated dependencies [045d20b]
+- Updated dependencies [a2d2515]
+- Updated dependencies [adb2a86]
+- Updated dependencies [503cd8b]
+- Updated dependencies [3619792]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [320374d]
+- Updated dependencies [b0d308d]
+- Updated dependencies [40f34b4]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [220c18d]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [639114c]
+- Updated dependencies [639114c]
+- Updated dependencies [1490691]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [d8ec8d6]
+- Updated dependencies [351eb31]
+- Updated dependencies [866cd1d]
+- Updated dependencies [20c04b2]
+- Updated dependencies [01c9023]
+- Updated dependencies [48c19bd]
+- Updated dependencies [a6d8b8d]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [8952395]
+- Updated dependencies [e8c553b]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [7c3df8f]
+- Updated dependencies [a4514e8]
+- Updated dependencies [e75f4c9]
+- Updated dependencies [19f1639]
+- Updated dependencies [47547d0]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [554f2b6]
+- Updated dependencies [669d71b]
+- Updated dependencies [6a99bb2]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [3399704]
+- Updated dependencies [81a2eb1]
+- Updated dependencies [20cb8db]
+- Updated dependencies [00d2fa6]
+- Updated dependencies [77b2a18]
+- Updated dependencies [c6198c2]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [efbd566]
+- Updated dependencies [2a5bf45]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [5d0876c]
+- Updated dependencies [b041b9c]
+- Updated dependencies [ce2aaef]
+- Updated dependencies [544ecba]
+- Updated dependencies [bc640ec]
+- Updated dependencies [da6e191]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [91f9276]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [a915064]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [52cac38]
+- Updated dependencies [53ded82]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [335abea]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [12b5992]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [e1c27e4]
+- Updated dependencies [8c8da45]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [1bd79c8]
+- Updated dependencies [ad852b6]
+- Updated dependencies [0758bd8]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [f57ca75]
+- Updated dependencies [0ea7054]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [fc32921]
+- Updated dependencies [4eaa835]
+- Updated dependencies [8f9d87a]
+- Updated dependencies [b1777ae]
+- Updated dependencies [24d1edd]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [6e9a3d4]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [dacb402]
+- Updated dependencies [91facae]
+- Updated dependencies [b38014e]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [a407bd6]
+- Updated dependencies [317dbce]
+- Updated dependencies [309728c]
+- Updated dependencies [aa08d7e]
+- Updated dependencies [3a43a15]
+- Updated dependencies [f76f436]
+- Updated dependencies [ce45a03]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [abc1b18]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [fb3a101]
+- Updated dependencies [d4733f2]
+- Updated dependencies [f391ede]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [8b532cb]
+- Updated dependencies [64c3cdd]
+- Updated dependencies [4d65991]
+- Updated dependencies [c42554e]
+- Updated dependencies [555b4ec]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [0a174f3]
+- Updated dependencies [676f677]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [d1865d2]
+- Updated dependencies [9662aca]
+- Updated dependencies [55ba3ff]
+- Updated dependencies [f1190b0]
+- Updated dependencies [561abef]
+- Updated dependencies [ef52001]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [abf710d]
+- Updated dependencies [093af32]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [c372b29]
+- Updated dependencies [8693b85]
+- Updated dependencies [84defab]
+- Updated dependencies [681d3f1]
+- Updated dependencies [f3bc481]
+- Updated dependencies [b79aac2]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [19a0b0e]
+- Updated dependencies [f8e3e9a]
+- Updated dependencies [3b6bc69]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [30443fb]
+- Updated dependencies [da45e6b]
+- Updated dependencies [835f0f3]
+- Updated dependencies [729e851]
+- Updated dependencies [96919a4]
+- Updated dependencies [20b507a]
+- Updated dependencies [2e471dc]
+- Updated dependencies [be50942]
+- Updated dependencies [53374dc]
+- Updated dependencies [2bf34f7]
+- Updated dependencies [15b33ae]
+- Updated dependencies [7cbc724]
+- Updated dependencies [8524372]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [ac716ff]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [f0f4d6c]
+- Updated dependencies [78a9c67]
+- Updated dependencies [dea17b4]
+- Updated dependencies [06611e4]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [81c0bc4]
+- Updated dependencies [b2e85a9]
+- Updated dependencies [60500cb]
+- Updated dependencies [d5c1f52]
+- Updated dependencies [c7cd2b6]
+- Updated dependencies [b2065e7]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [77f846a]
+- Updated dependencies [bc5870c]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [6791717]
+- Updated dependencies [8ea3bee]
+- Updated dependencies [100547e]
+- Updated dependencies [3a58149]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [bf3edfe]
+- Updated dependencies [6ce89da]
+- Updated dependencies [0e05aac]
+- Updated dependencies [5aed9e4]
+- Updated dependencies [83c77dc]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [e719ebd]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [b470e91]
+- Updated dependencies [8e74b27]
+- Updated dependencies [8ebd57f]
+- Updated dependencies [617707a]
+- Updated dependencies [c40f3b8]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [7138bc1]
+- Updated dependencies [cef27e2]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [06973aa]
+- Updated dependencies [50798f3]
+- Updated dependencies [6a576c9]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [fffa30d]
+- Updated dependencies [20e317c]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [42df928]
+- Updated dependencies [8e00bfd]
+- Updated dependencies [8d37efb]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [9118a31]
+- Updated dependencies [de570cc]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [19cbf10]
+- Updated dependencies [a691c0b]
+- Updated dependencies [1e66879]
+- Updated dependencies [c5200f0]
+- Updated dependencies [af3861f]
+- Updated dependencies [515f171]
+- Updated dependencies [1f4e029]
+- Updated dependencies [7b43319]
+- Updated dependencies [258d264]
+- Updated dependencies [8033ad1]
+- Updated dependencies [c00bf28]
+- Updated dependencies [93127bd]
+- Updated dependencies [f2158ec]
+- Updated dependencies [759606e]
+- Updated dependencies [fd8dace]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [6c6cee7]
+- Updated dependencies [83fe6e7]
+- Updated dependencies [d1ab06f]
+- Updated dependencies [38a9568]
+- Updated dependencies [91783c4]
+- Updated dependencies [ca39427]
+- Updated dependencies [2d36552]
+- Updated dependencies [b2437a7]
+- Updated dependencies [f157423]
+- Updated dependencies [7a90afd]
+- Updated dependencies [eddc1dd]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [968dc1e]
+- Updated dependencies [3c73d99]
+- Updated dependencies [ed71d9e]
+- Updated dependencies [7776fc2]
+- Updated dependencies [e76634c]
+- Updated dependencies [fb96ecb]
+- Updated dependencies [1170ed1]
+- Updated dependencies [f75810e]
+- Updated dependencies [92814db]
+- Updated dependencies [4d73b07]
+  - @object-ui/i18n@17.7.0
+  - @object-ui/core@17.7.0
+  - @object-ui/types@17.7.0
+  - @object-ui/data-objectstack@17.7.0
+
 ## 17.6.0
 
 ### Minor Changes

@@ -1,4 +1,0 @@
----
----
-
-`scripts/check-handler-key-read-sites.mjs` now keys a registration on the type keys it CLAIMS rather than on its raw type string. `register()` in `@object-ui/core`'s `Registry` sets `ns:type` and sets the bare `type` key only when a namespaced registration omits `skipFallback`, so a namespaced-only alias — `view:list`, `action:button`, `page:tabs` — was being judged against an arm minted for a different component: the five `list::ListSchema` rows attributed a data-bound list view's density and bulk-action handlers to the bullet/numbered list display primitive. Thirteen ledger rows leave `KNOWN_UNDECLARED_READS` for that reason and none by being declared, and the same re-keying removes a false green the ledger could not show (`'form' FormSchema.onCancel` passed only because the `ui:form` primitive's arm mints its own `onCancel`). Tooling only; no published behaviour changes.

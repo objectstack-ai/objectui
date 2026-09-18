@@ -1,5 +1,1749 @@
 # @object-ui/plugin-charts
 
+## 17.7.0
+
+### Minor Changes
+
+- 045d20b: Relationship-target readers resolve a lookup's target from `reference` alone,
+  dropping the `reference_to` fallback arm (objectui#6837, half 2).
+  
+  Maintainer ruling, 2026-08-31, 原文照录: 「objectui不是前端的项目吗?后端的元数据只要
+  对,前端按协议执行就行了呀」. Protocol normalization belongs on the SERVER; the front
+  end just executes the protocol. objectstack#13847 landed the server half — a
+  `field-reference-to-alias` conversion rewrites stored `reference_to` to
+  `reference` on the serve path and in `os migrate meta`.
+  
+  `reference` is the only target spelling `@objectstack/spec`'s `FieldSchema`
+  declares. Measured on the installed 17.2.0: it refuses `reference_to`,
+  `referenceTo` and `target` with `unrecognized_keys`, each carrying its own
+  "Did you mean -> `reference`?" rename, while a nonsense key gets the same
+  refusal with NO rename hint and `reference` parses clean.
+  
+  ## ⚠️ BREAKING for a hand-written schema that spells `reference_to` — read this
+  
+  **This is a behaviour change for BYO consumers, and it is being stated rather
+  than shipped silently.** ObjectUI is usable without an ObjectStack backend
+  (`examples/byo-backend-console`), and a hand-written TypeScript schema passes
+  through no zod door, so nothing rejects the legacy spelling at authoring time.
+  
+  **The break surface is narrower than "all BYO consumers", and this is the
+  measurement rather than a blanket claim.** Two ingestion choke points stamp both
+  snake_case keys from whichever spelling arrived — `MetadataProvider`'s type
+  cache for metadata type `object`, and `ObjectStackAdapter.getObjectSchema`. Any
+  def that passed either one already carries `reference` and is **completely
+  unaffected**. What is affected is exactly:
+  
+  - **A `DataSource` implementation other than `ObjectStackAdapter`.**
+    `getObjectSchema` is a required member of the published `DataSource`
+    interface, and the readers call it on the generic `dataSource` (through
+    `useSettledSchema` and directly), so a host adapter's object schema reaches
+    them raw. Every in-repo example of one is on this path:
+    `ApiDataSource`, `ValueDataSource`, `packages/types/examples/rest-data-source.ts`,
+    `examples/byo-backend-console/src/mockDataSource.ts`,
+    `packages/runner/src/lib/mockDataSource.ts`,
+    `apps/site/app/components/galleryDataSource.ts`,
+    `apps/console/src/sdui-workbench-preview.tsx`,
+    `packages/plugin-grid/demo/bulk-actions.tsx`.
+  
+  **Measured on this tree, none of those eight emits a relationship target at all** —
+  `reference_to` and `reference` are both zero in each, and
+  `examples/byo-backend-console` carries no lookup or master_detail field
+  anywhere (its only `reference` hits are a vite triple-slash directive and a
+  tsconfig `references` array). The single in-repo producer that WAS on this
+  surface, `packages/plugin-gantt/demo/main.tsx`, is fixed here at the producer.
+  
+  ⇒ **If you author object metadata by hand and spell a lookup's target
+  `reference_to`, rename that key to `reference`.** Symptom if you do not: the
+  target silently fails to resolve, and the affected surface degrades rather than
+  erroring — a related list is not derived, a gantt quick filter falls back to the
+  distinct values in the loaded rows instead of the referenced object's full
+  domain, a tree stops auto-detecting its parent pointer, a lookup cell shows a
+  raw id, a chart's group-by labels stay unresolved.
+  
+  The ingestion choke point now emits a **dev-mode warning** when a def arrives
+  carrying only `reference_to` or `referenceTo` and no `reference`. It names the
+  object, the field and the offending key, and points at this ruling. Stamping is
+  deliberately unchanged, so nothing that worked stops working. It is memoised
+  once per **(object name, field name, spelling, target value)** — every segment
+  of that key is pinned, in both directions, in
+  `reference-keys.legacyWarning-6837.test.ts`.
+  
+  ⛔ **This warning does NOT cover the break described above, and it is worth being
+  exact about that rather than letting it read as mitigation.** It lives in
+  `normalizeFieldReferenceKeys`, reachable only through
+  `normalizeSchemaReferenceKeys`, which has exactly two production call sites —
+  `MetadataProvider` (metadata type `object`) and
+  `ObjectStackAdapter.getObjectSchema`. Both of those also STAMP the def, so the
+  warning fires precisely where the def still resolves and nothing is broken. A
+  hand-written schema served through any OTHER `DataSource` — the break surface —
+  reaches a reader raw: it never passes through this code and produces **no
+  warning at all**. On that path the failure is exactly as silent as before.
+  A reader-side or shared-resolver diagnostic, which would cover it, remains open
+  on objectui#6837.
+  
+  ## What did NOT change
+  
+  **Every key these readers EMIT is byte-identical**, and that was verified
+  mechanically over the whole diff rather than asserted. Eleven of the sixteen
+  sites write a target onto a bag whose own contract spells it `reference_to` (or
+  camelCase `referenceTo`): the six whose read and write share a line —
+  `RecordDetailDrawer`, `RelatedList`, `buildDefaultPageSchema`, `ListView`,
+  `FilterConditionField`, `resolveActionParams` — plus five more that read on one
+  line and emit on another, and so are just as much emitters: `RecordDetailView`,
+  `RecordMetaFooter`, `ObjectGallery`, `fieldEnrichment` (all `reference_to`) and
+  `UserFilters` (`referenceTo`). Only the right-hand read narrowed anywhere; the
+  emitted key is what its target contract declares, and renaming it would be a
+  separate change.
+  
+  **Three readers were deliberately left alone.** `LookupCellRenderer`
+  (`fields/src/index.tsx`), `LookupField` and `UserField` read `FieldMetadata` —
+  ObjectUI's OWN contract, whose `LookupFieldMetadata` declares `reference_to` and
+  never declares `reference`. They are fed by the emitters above and by published
+  example schemas (`examples/schema-catalog/src/schemas/fields-lookup/*.json`), so
+  narrowing them would break in-repo producers, and `plugin-grid`'s
+  `relationalMetaCopySet.derivation.test.ts` re-derives its read set from exactly
+  those three sources — where `reference_to` is recorded with verdict
+  `adapter-stamped`. `DetailViewFieldSchema` is likewise untouched.
+- 0349555: A sankey with no positive flow says so, instead of rendering an empty div
+  (objectui#7140).
+  
+  `AdvancedChartImpl`'s sankey arm keeps only strictly positive measures, so a
+  chart handed **real rows** whose measure is all `0`, all `null`, all negative,
+  or unparseable built no links and returned a bare `<div>`. Measured in Chromium
+  against a populated control: the control drew 1 `<svg>` / 7 `<path>` /
+  26 descendants; each of those four tiles rendered `descendantCount: 1`,
+  `svgCount: 0`, `textContent: ''`, and their screenshots hashed identical to one
+  another. No marks, no text, no `role` — a tile indistinguishable from a widget
+  that had crashed, which is the one distinction the file's other refusals exist
+  to make.
+  
+  It now renders through the `ChartRefusal` shell those refusals already use —
+  same box, same `role="status"`, and a new `data-chart-error="no-positive-flow"`
+  — reading *"This chart has no flow to draw: no row's `<measure>` is above
+  zero."*
+  
+  Two boundaries are deliberate and pinned:
+  
+  - **No rows at all is untouched.** That is the empty-result question, answered
+    upstream in `ObjectChart` where the query outcome is known; a sentence about
+    what the rows contain would be false about a dataset with no rows in it.
+  - **One positive row among zeros still draws.** The refusal fires on an empty
+    link set, never on a thin one.
+  
+  One code and one sentence for three causes (a genuinely all-zero flow, values a
+  flow cannot represent because they are negative, and measures `Number(…) || 0`
+  folds to zero): naming any single cause would be false for the other two, so
+  the copy names the predicate the filter actually applies, which is true for all
+  three. No recovery is promised. Every other chart family is byte-identical —
+  eight of the twelve tiles in the browser sweep hashed unchanged.
+- 0dc2c93: `compareTo` on a `scatter` chart is no longer supported — scatter joins pie / donut /
+  funnel on the list of chart families that ignore it (objectui#7402, maintainer ruling
+  2026-09-03).
+  
+  **This removes a published capability, deliberately.** Until now a `chartType: 'scatter'`
+  chart (and the dashboard widget types `scatter` and `bubble`, which both render as one)
+  with `compareTo` set synthesised a muted "previous period" overlay series. It drew the
+  wrong picture: a scatter binds ONE measure, and the renderer reads y through the single
+  `YAxis dataKey={series[0].dataKey}`, so the overlay was plotted on the PRIMARY series' y
+  — "previous period" painted exactly on top of "current" (objectui#7194).
+  
+  Enforce-or-remove: rather than keep drawing that, the capability is removed until it can
+  be drawn honestly. Drawing a real second measure on a scatter needs the multi-measure
+  projection recorded as option A of objectui#7194, which is not built (zero authored
+  callers). **If and when that projection lands, `compareTo` on a scatter returns with
+  it** — it is the same missing mechanism, one payment.
+  
+  What changes for authors:
+  
+  - A `compareTo` on a scatter is now IGNORED rather than drawn. The primary series still
+    renders exactly as before — nothing refuses, nothing goes blank, and no comparison
+    query is issued on the inline chart path.
+  - No `<measure>__comparison` (inline chart) / `<measure>__compare` (dashboard) series is
+    appended for a scatter, so a compare-to scatter document also never reaches the
+    two-or-more-series scatter refusal being added under objectui#7194.
+  - Charts that keep the overlay: line, area, bar, horizontal-bar, combo. Charts that
+    ignore `compareTo`: pie, donut, funnel and — as of this change — scatter (and the
+    `bubble` widget type that renders as a scatter).
+  
+  Reachability at the time of the change: **0** authored scatter/bubble instances in-repo
+  across both spellings (control `"type": "bar"` fires at 5 example files); incidence in
+  deployed tenant metadata is not measurable from this repo.
+- 01c27c4: Fix: a chart series' `type` override (`ChartDataSeries.type`, objectui#6121) is now
+  honoured when the series array is written in the internal `dataKey` binding, not only
+  the `name` binding (objectui#7681) — the same sentence #2945 shipped for the other
+  dialect.
+  
+  `ChartRenderer`'s `isInternalShaped` fast path (introduced by #2945 to fix a different
+  bug — a `name`-shaped `series` shadowing the normalized `dataKey`-shaped one) took the
+  raw authored array untouched whenever every entry already carried `dataKey`, bypassing
+  `normalizeSeries` — the only place `type` is translated to the renderer-internal
+  `chartType`. So an author who wrote `series: [{ dataKey: 'revenue' }, { dataKey:
+  'margin', type: 'line' }]` — both keys independently valid on `ChartDataSeriesSchema` —
+  got neither the override nor a combo chart, silently.
+  
+  `ChartRenderer` now always takes the series array through the one normalization layer
+  (objectui#2880 S1) instead of special-casing the `dataKey` shape around it.
+  
+  **Breaking on unmodified documents, deliberately — this changes rendered output.** A
+  chart authored with a `dataKey`-shaped series carrying a `type` override used to render
+  one family for every series; it now renders the mix the author actually described (the
+  card's own regression case: two bars become one bar and one line).
+  
+  **Two more effects on the delivered key set for a `dataKey`-shaped series array**,
+  undisclosed until now — `normalizeSeries` is a no-op on a well-formed entry, but these
+  two cases were never well-formed under the old fast path either:
+  
+  - An i18n `label` written as a `{ en, zh-CN, … }` record on a `dataKey`-shaped entry was
+    previously forwarded as that raw object; it is now resolved to a plain string (the
+    first string-valued limb), matching what a `name`-shaped series already got from
+    `normalizeChartSchema`.
+  - A `dataKey`-shaped entry whose `dataKey` does not resolve to a non-empty string (and
+    has no `name` to fall back to) was previously forwarded as-is; it is now dropped from
+    the delivered series array, matching what a `name`-shaped series with no usable key
+    already got.
+  
+  No existing well-formed internal caller (`DashboardRenderer`, `ObjectView`, the dataset
+  path) changes behaviour — every series entry those callers construct already carries a
+  non-empty string `dataKey` and a string `label`.
+- 967e5d8: Chart `series[].opacity` and `series[].dashArray` are honoured on every series,
+  not only on a `variant: 'comparison'` one (objectui#7698).
+  
+  `@objectstack/spec` declares `ChartSeries.opacity` ("Override series opacity")
+  and `ChartSeries.dashArray` ("Override stroke dash pattern") as unconditional
+  per-series overrides, and `normalizeSeries` read both off every series. The
+  renderer then honoured them on a comparison overlay only, so an author who
+  wrote `{ name: 'cost', opacity: 0.6 }` or `{ name: 'cost', dashArray: '4 4' }`
+  on a primary series got a mark drawn exactly as if the key were absent. Fixed
+  in the renderer rather than by narrowing the published declaration to match:
+  the spec is the contract of record, and a renderer's partial implementation
+  does not get to dictate it (AGENTS.md #0.1).
+  
+  **Two gaps, not one.** The `variant` guard was the visible half — `comparisonStyle`
+  returned `null` for any other variant. The second half only showed on
+  `dashArray`: that helper already returned an AUTHORED dash for every family
+  (the `??` takes the left side whatever the kind), and the **Bar and Scatter
+  marks** then passed `fillOpacity` only, dropping `strokeDasharray` and
+  `strokeOpacity` on the floor — so an authored dash was lost on those two
+  families even on a comparison series. A fix aimed at the guard alone would have
+  left that untouched. `comparisonStyle` is now `seriesStyle`, and the Bar and
+  Scatter marks pass all three channels.
+  
+  **Comparison series are unaffected.** The authored branch already won over the
+  muted defaults, and those defaults stay gated on `variant: 'comparison'`: a
+  comparison series carrying neither key keeps its lower opacity and its `'4 4'`
+  line/area dash exactly as before. The two stroke defaults no mark ever consumed
+  (bar and scatter — neither is stroked by this renderer) are now spelled
+  `undefined`, so opening `strokeOpacity` on those marks does not hand them a
+  default they never had.
+  
+  Only a stroked mark can show a dash, so on a `bar` or `scatter` mark an
+  authored `dashArray` reaches the mark and paints nothing — the mark's geometry,
+  not a condition on the key. The `ChartDataSeries` mirror docs and the
+  plugin-charts reference, which stated the comparison-only condition as an
+  interim measure, are corrected in the same change.
+- edea22a: **BREAKING** — `SchemaRendererProvider`'s `dataSource` prop, and the context
+  type every `useSchemaContext()` consumer reads back, are the published
+  `DataSource` contract instead of `any`.
+  
+  **FROM** `dataSource={anything}` **TO** `dataSource={adapter}` — a `DataSource`
+  from `@object-ui/types`, or `null` / `undefined` when the host has no adapter
+  bound.
+  
+  ```ts
+  // before — compiled, and failed at runtime on the first find()
+  <SchemaRendererProvider dataSource={'not-an-adapter'}>
+  // before — compiled, and no reader can do anything with it
+  <SchemaRendererProvider dataSource={{}}>
+  // after
+  <SchemaRendererProvider dataSource={adapter}>       // a DataSource
+  <SchemaRendererProvider dataSource={undefined}>     // "I have no adapter"
+  ```
+  
+  Both sites are typed `DataSource | null | undefined` — the spelling
+  `useSettledSchema` in this same package already used. The two absences are part
+  of the contract, not a weakening of it: a Studio preview, a `kind:'react'` page
+  rendered before the host's adapter connects, and a widget probe driving
+  `apiFetch` alone all render with nothing bound, and every reader in the tree
+  already guards for it. What the union refuses is everything that is not an
+  adapter: a string, an empty object, a plain data bag, a partial adapter missing
+  a required member.
+  
+  The measured cost, both halves, because the two `any`s have different blast
+  radii (measured separately on `origin/main`, whole-repo type-check over the 33
+  packages that depend on `@object-ui/react`):
+  
+  - the **context type** — the `any` that reaches every `useSchemaContext()`
+    reader — reds **7 diagnostics at 7 sites in 4 packages**, all of them
+    production code or a mocked module factory.
+  - the **provider prop** — the injection points — reds **52 diagnostics at 27
+    sites in 11 packages**, all but one of them test doubles.
+  
+  That ordering is the reverse of the prediction on the card: the context `any`
+  was expected to be the expensive one because it infects the whole tree, and it
+  is the cheap one, because every reader in the tree already guarded and none of
+  them ever reached past `find` / `getObjectSchema`. The prop is the expensive
+  one, because the injection points are overwhelmingly test doubles that were
+  never complete adapters. The full accounting is on objectui#7912.
+  
+  Two runtime behaviours change, both in the "no adapter" direction and both
+  strictly closer to what the surrounding code already intended:
+  
+  - `@object-ui/components`' `kind:'react'` page passed an empty object as its
+    "no adapter yet" stand-in. An empty object is TRUTHY, so it walked past every
+    `if (!dataSource)` guard written to catch exactly that state and failed later,
+    at the call. It now passes the absent adapter itself, so the guard fires where
+    it was meant to. The module-constant identity that stand-in existed for is
+    preserved: `null` is a primitive, so the provider's memo is unaffected.
+  - `@object-ui/plugin-calendar`, `@object-ui/plugin-gantt` and
+    `@object-ui/plugin-kanban` collapse a `null` adapter from the context to
+    `undefined` before handing it to their widget, whose prop declares the single
+    spelling `dataSource?: DataSource`.
+  
+  Nothing else moves at runtime: no value flowing through this key changes, and
+  no data path is touched. A TypeScript consumer outside this repo that handed
+  this prop something other than an adapter now gets a compile error naming the
+  key (TS2322 / TS2739 / TS2740), which is why the FROM/TO is spelled out above.
+  
+  Five `as any` reads of this context in `@object-ui/fields` are gone — they were
+  redundant the moment the seam became honest — and `LookupField`'s local
+  re-declaration of the imported context as a `Context` of `any`, which laundered
+  its `dataSource` read while looking typed, is gone with them. Both directions of
+  the contract are pinned against the real compiler in
+  `SchemaRendererContext.dataSourceType.pin.test.ts`, and the card's planted
+  documentation probe (a bare string in `packages/react/README.md`'s provider
+  example) now fails `pnpm check:doc-snippets`, where it used to exit 0 with zero
+  diagnostics.
+  
+  objectui#7912.
+- 0758bd8: `ObjectChart` refuses an object-bound chart that declares no category axis (objectui#8168).
+  
+  An object-bound chart that named no field to group by used to be composed anyway.
+  `runAggregate` passed `schema.aggregate` to `ds.aggregate(objectName, { field,
+  function, groupBy, filter })` with no guard on `groupBy`, and the `ds.find` leg
+  handed the same bag to `aggregateRecords`, which buckets every record on
+  `record[groupBy] ?? 'Unknown'`. So one path asked a driver to group by `undefined`
+  and the other collapsed the whole object into a single `'Unknown'` bar — and which
+  of those a reader saw was decided by the data source, not by the renderer. The only
+  loud states this component had were a fetch `error` (`chart-error`) and a generic
+  "No data yet"; neither is a statement about an absent binding.
+  
+  `ObjectCalendar`, `ObjectGantt` and `ObjectTimeline` each already refuse a view that
+  declares no axis. This is the fourth, following `ObjectTimeline`'s shape
+  (objectui#7459): a `role="alert"` box, `data-testid="chart-missing-category-axis"`,
+  naming the bindings the author can declare — `aggregate.groupBy`, `xAxisKey`,
+  `xAxis.field` — rendered from the resolver's own vocabulary so the message cannot
+  drift from what the resolver reads.
+  
+  **Breaking, deliberately — and this repo ships breaking as `minor`.** A chart that
+  previously rendered an `'Unknown'`-bucketed bar (or whatever the driver did with
+  `groupBy: undefined`) now renders the refusal instead. That is the intent: the
+  picture it drew was not a picture of the data.
+  
+  It keys on the CATEGORY alone. A measure may legitimately be absent — `count` takes
+  no field — so refusing on an absent measure would refuse `count` grouped by a
+  declared category, a chart that renders correctly. Four shapes are deliberately
+  untouched: an ADR-0021 `dataset` chart (which may declare no dimension), a chart
+  carrying authored `data` or a `bind` scope (no field name is read to fetch those
+  rows), a spec-shape `xAxis: { field }` with no `xAxisKey` (resolved through
+  `normalizeChartSchema`, this package's one translation of the author-facing shape),
+  and every schema the five in-repo producers compose today — all five floor their own
+  category, so none of them can reach the refusal.
+  
+  This does **not** retire the six `'name'` / `'value'` floors at the three relay faces;
+  that is the remainder of objectui#7547 and is mechanical only once this screen exists.
+  
+  New key `chart.unconfigured.noCategoryAxis` in all ten locale packs.
+- 0a174f3: fix(plugin-dashboard,core,plugin-charts): route a structured `aggregate.groupBy` on `object-metric` to the spec-shape wire
+  
+  An authored `aggregate.groupBy` is a union — a bare field name, or the
+  structured date-bucketing node `{ field, dateGranularity?, alias? }` — and the
+  two need different queries. The spec-shape
+  `{ groupBy: GroupByNode[], aggregations, where }` reaches `engine.aggregate` and
+  runs the server-side date-bucket engine; the legacy
+  `{ field, function, groupBy, filter }` query reaches the cube/analytics wire,
+  whose `dimensions` the contract declares as an array of dimension NAMES and
+  which does not honour `dateGranularity` at all.
+  
+  `ObjectChart.runAggregate` has routed between the two since objectui#7946.
+  `ObjectMetricWidget.computeOne` had no such branch: it forwarded the authored
+  value straight through, so a metric widget carrying a structured node posted
+  `dimensions: [{ field: 'closed_at', dateGranularity: 'month' }]` — an object
+  where a name is declared. Nothing refused it and nothing reported it, so the
+  author asked for one question and the platform answered another (objectui#8613).
+  
+  - The routing test and the payload are now one function,
+    `objectAggregateSpecQuery` (with `isStructuredGroupBy`) in `@object-ui/core`.
+    `ObjectChart.runAggregate` and `ObjectMetricWidget.computeOne` both call it,
+    so the two renderers cannot post different wires for one authored shape. The
+    measure alias is `chartMeasureKey`'s answer, i.e. what the chart's own
+    `aggregateValueKey` already delegated to — the chart's posted payload is
+    unchanged.
+  - `ObjectMetricWidgetProps.aggregate.groupBy` said `string`. That was a claim
+    about the author which nothing upstream backed: the value crosses two `any`
+    seams on the way in, so the declaration refused the node at neither compile
+    time nor runtime. It is now the contract's union, taken by reference through
+    `ObjectChartSchema['aggregate']`.
+  
+  Unchanged, and pinned as controls: a plain string `groupBy` and an absent one
+  (floored at the single `'_all'` bucket) still take the legacy query byte for
+  byte, and an ARRAY `groupBy` still travels there too — it is not this union's
+  object arm, and it must keep reaching the producer-side refusal objectui#6864
+  landed in the adapter.
+- bb383e8: Retire the "Tremor/simple format" adapter in `ChartRenderer` — the `index`,
+  `category` and `value` reads (objectui#8650, triage ruling `5619609278` on
+  AGENTS.md #0.1: route to the producer, ⛔ not a declaration).
+  
+  **Breaking, deliberately, for three keys — and NOT for the fourth.** The card
+  filed four undeclared reads as one group. A cast-aware read census plus a
+  TypeScript-checker declaredness reading measured them apart, and they do not
+  share one verdict:
+  
+  - `index` / `category` (they aliased the category axis) and `value` (it became
+    a single series) are **retired**. They are declared on no published face —
+    not `ChartSchema`, not its zod mirror, not `ChartRendererProps.schema` — are
+    advertised by no registry `inputs`, and are taught by no doc, guide or skill.
+    A structural producer census over `packages/`, `apps/`, `examples/`,
+    `content/docs/` and the skills corpus (5695 files, 74 chart nodes) found
+    **zero** nodes writing `category` or `value` and **one** writing `index` —
+    this repo's own test for the adapter. The zero is read against controls that
+    fire in the same population (`xAxisKey` 41 nodes, `series` 44, `chartType`
+    40, `data` 52) and a nonsense key that returns 0.
+  - `categories` is **not retired and is unaffected**. It is a declared member of
+    the published `ChartSchema` and of its zod mirror, is documented in the
+    schema reference as an alternative series list, and was ruled live by
+    objectui#6896. `normalizeChartSchema` — the single translation point
+    (objectui#2880 S1) — already consumed it, so `ChartRenderer`'s own branch was
+    a second, un-normalized read that no well-formed chart could reach. Removing
+    it changes nothing for a well-formed chart and removes two wrong answers for
+    a malformed one: `categories: 'revenue'` reached `.map` on a string and threw
+    during render, and a `categories` whose entries the normalizer rejects
+    produced a `[{ dataKey: '' }]` series.
+  
+  **Migration.** Write the canonical spellings, which every producer in the
+  measured corpora already writes: `xAxisKey` (or the spec's `xAxis: { field }`)
+  for the category axis, and `series` (or `categories`) for the plotted columns.
+  A chart that still writes `index` / `category` binds no category axis, so
+  `AdvancedChartImpl` falls back to its default category key, `name`. What that
+  degrades to depends on the rows, and only one half of it is a refusal: rows
+  carrying no `name` column hit its existing on-screen `missing-category-key`
+  refusal, while rows that DO carry one plot silently against `name` instead of
+  the column the author named — a wrong picture rather than a refusal. One that
+  still writes `value` plots nothing.
+  
+  Also deletes six `(schema as any)` casts that the published declarations had
+  already made unnecessary — `colors`, `categoryColors` and `categoryOrder` on
+  `ChartRenderer`, and `colors`, `compareTo` and `series` on `ObjectChart` (the
+  objectui#8327 bucket-(b) class: declared, then read through a needless cast).
+  No behaviour changes with them; `ObjectChart.tsx` now has no `(schema as any)`
+  read left at all.
+- 3f983f4: A chart heading now follows the VIEWER's language instead of the author's key order
+  (objectui#8943).
+  
+  `@objectstack/spec` types `ChartConfigSchema.title` as `I18nLabel` — a plain string OR
+  an inline locale map — so `{ "title": { "zh-CN": "定价", "en": "Pricing" } }` is authored
+  surface, not an accident. `normalizeChartSchema`'s module-local `label()` resolved the
+  map arm with `Object.values(v).find(isString)`: **the first string in key order**. It
+  never read the active language, never preferred `default` or `en`, and had no diagnostic
+  — the chart rendered confidently in whichever language the author happened to type first.
+  Reordering the JSON, with no other change, showed the same viewer a different language.
+  
+  `label()` now delegates to `pickLocalized` (`@object-ui/i18n`), this repository's one
+  answer for that union: exact tag -> base language -> a region-qualified sibling ->
+  `default` -> `en` -> first value, pinned as the twin of the backend's `resolveI18nLabel`.
+  The drill-drawer heading in the same component already routed through it, so `ObjectChart`
+  had two answers for one union on one node; it now has one.
+  
+  Every `I18nLabel` slot this module resolves is covered, not only the heading: `title`,
+  `subtitle`, `description`, an axis `title` (`normalizeAxis`) and a series `label`
+  (`normalizeSeries`).
+  
+  - `normalizeChartSchema(schema, language?)` takes an OPTIONAL second argument — the
+    viewer's active language. Every existing call compiles and every non-label key is
+    byte-for-byte unchanged. `ChartRenderer` reads it from `useObjectTranslation()` and
+    passes it down, which is what closes the defect on the rendered path.
+  - Omitting it is not neutral: `pickLocalized` reads an absent language as `en`, so a
+    locale map resolves through `default` -> `en` -> first value. That is deterministic
+    rather than key-order-dependent, and it is the right answer only for a caller with no
+    viewer. A caller that reads a heading off the result should pass one.
+  - The admission test did not widen. Only a string or an inline locale map is accepted;
+    a number or boolean `title` is still refused rather than stringified, because
+    broadening what the renderer accepts belongs in the spec and not in a renderer-side
+    coercion (AGENTS.md #0.1).
+- 14582b8: feat(types,plugin-charts): anchor `ObjectChart`'s props to `ObjectChartSchema` and declare the four keys its producers write
+  
+  `ObjectChart` was published as `(props: any)`, so `ObjectChartSchema` anchored
+  nothing: every `schema={{ … }}` literal handed to the component was type-checked
+  against nothing at all. Four keys its producers write and its renderer reads —
+  `xAxisKey`, `series`, `aggregate`, `filter` — were declared on neither published
+  copy of the shape, and rode `BaseSchema`'s index signature / `.passthrough()`
+  unvalidated. That is the mechanism that let objectui#7891's undeclared `config`
+  rung survive from the day it was written.
+  
+  Maintainer ruling 2026-09-09 (option A), applying objectui#6576's gallery
+  treatment to the chart:
+  
+  - `ObjectChartProps.schema` is `ObjectChartSchema`; the published `.d.ts` no
+    longer says `props: any`. `ObjectChartProps` is exported.
+  - The four keys are declared on BOTH copies, with value types taken from their
+    READ sites (`ChartRendererProps` for `xAxisKey` / `series`, `ObjectChart.tsx`
+    for `filter`) rather than copied from any producer's literal — except where
+    `@objectstack/spec` already owns the shape, which is `aggregate`: that one is
+    declared BY REFERENCE as `ChartAggregate` / `ChartAggregateSchema`, so the
+    authoring door here and at the react-page publish gate are one shape and
+    cannot drift into two dialects.
+  - `colors` converges: the zod mirror has declared it since objectui#3913 and the
+    TS interface did not, a drift no ratchet could see because a mirror-only key
+    is in neither of the parity guard's two difference ledgers.
+  
+  Two of the four are AUTHORABLE (`aggregate`, `filter` — the spec names this
+  component's own props as their carrier and parses `aggregate` at the react-page
+  publish gate) and two are INTERNAL, relay-composed (`xAxisKey`, `series` — every
+  producer computes them and the spec's author-facing vocabulary refuses the
+  internal spellings by name). The internal pair is declared anyway, because it was
+  already passing through unvalidated: declaring buys the value check without
+  minting authorable vocabulary, and each description says which it is.
+  
+  `filter` keeps BOTH arms (a `FilterArray` or the ObjectQL `$filter` object), and
+  narrowing to one is a decision LOCAL TO THIS NODE rather than a fleet-wide one:
+  the six sibling `object-*` widgets that declare `filter` are already array-only,
+  so there is no cross-widget convention to renegotiate. What blocks the narrowing
+  is this component's own drill-down spread, which mis-composes the array arm into
+  index keys; that is named as the successor on the member's docblock.
+  
+  BEHAVIOUR, from what the anchor made visible: `ObjectChart` resolved the
+  group-by column twice and only one site normalised the structured
+  `groupBy: { field, dateGranularity }` node. The other used the raw union as a row
+  index, a field name and a drill-filter key, so a date-bucketed chart lost its
+  option-colour resolution, its label→raw reverse map and its drill filter to a
+  lookup on the node's stringification. Both sites now share one normalisation, and
+  the behaviour is pinned at runtime by
+  `plugin-charts/src/__tests__/ObjectChart.structuredGroupBy-7946.test.tsx` (drill
+  filter keyed by the projected column, alias and field arms, and the label→raw
+  recovery) — a compile-time pin cannot see a wrong runtime value flowing from a
+  correctly-typed read.
+  
+  The drill drawer's heading fallback now resolves `schema.title` through
+  `pickLocalized` (`@object-ui/i18n`) instead of using it as a bare string. The
+  spec types that slot as `I18nLabel` — a plain string or an inline locale map —
+  and the map arm used to reach the heading as an object.
+  
+  ## Migration — what a TS consumer of `<ObjectChart schema={…}>` must change
+  
+  The headline is that a wrong VALUE TYPE is now a compile error, but three
+  NARROWINGS bite first, and they are what the eight edited test files in this
+  change had to absorb:
+  
+  - **`type: 'object-chart'` is now required on the literal.** A minimal
+    `schema={{ objectName: 'account', chartType: 'bar' }}` no longer compiles.
+  - **`chartType` must be the declared union.** A literal written inline is fine;
+    one hoisted into a non-`const` object widens to `string` and is refused. Use
+    `as const` (or annotate the holder as `ObjectChartSchema`).
+  - **`series` entries must be `dataKey`-shaped.** The renderer's internal arm is
+    `{ dataKey, … }`; the spec's author-facing `{ name, … }` arm is a different
+    shape, translated by `normalizeChartSchema` one layer down.
+  
+  And, from the by-reference `aggregate`:
+  
+  - **`aggregate.function` and `aggregate.groupBy` are REQUIRED**, `aggregate.field`
+    stays optional (only `count` counts rows rather than a column), the structured
+    `groupBy` node must name its `field`, and unknown members are REFUSED by name
+    rather than dropped. `aggregate: {}` and `{ field: 'amount' }` used to compile
+    and no longer do. This is `ChartAggregateSchema`'s accept set, which the publish
+    gate has always enforced on authored `<ObjectChart aggregate={…}>` literals —
+    so a document that compiles today is one the platform already accepted.
+  
+  The RENDERER still accepts more than this and still draws its named refusal
+  screen for an aggregate that declares no category axis (objectui#8168): untyped
+  producers forward `aggregate` as `any`, so out-of-contract documents keep
+  arriving at runtime. Narrowing the declaration is about what an author may
+  WRITE, not about what the renderer will tolerate.
+  
+  ⚠️ Anchoring does not buy rejection of a MISSPELLED key on the node itself:
+  `BaseSchema` carries `[key: string]: any` (objectui#5155), the same ceiling
+  objectui#6576 accepted. `aggregate` is the exception, and only because the spec's
+  own object is strict.
+- 6f017e9: Dashboard chart widgets no longer render as a blank area when their height class
+  resolves to `auto`.
+  
+  `ChartContainer`'s min-size fallback was applied only to the wrapper `div`.
+  Recharts measures its own `width:100%;height:100%` size-detector element, and a
+  percentage height never resolves against an ancestor's `min-height`, so the
+  wrapper obediently grew to 280px while the measured element stayed at 0 — and
+  Recharts renders no children at all for a non-positive box. The result was a
+  widget card with its title over an empty chart area: no marks, no refusal, no
+  empty state, and permanent, because a box that never changes fires no resize.
+  The floor is now applied to the measured element as well, under the same
+  condition, so an author's explicit height still wins.
+
+### Patch Changes
+
+- 39f4309: Published typings from every `vite-plugin-dts` package now carry an explicit extension on
+  every relative specifier, and a type error in the declaration build now fails the build
+  instead of being printed and ignored (objectui#5439, objectui#5483).
+  
+  **Consumers on `moduleResolution: nodenext` or `node16` may see NEW type errors, and that
+  is the fix working.** These packages re-export mostly through NAMED re-exports —
+  `export { useObjectChat } from './useObjectChat'`. TypeScript could not follow the
+  extensionless hop, but it still DECLARED the name, so the symbol resolved to a silent
+  `any`. Nothing errored; consumers simply got no types. With the extension emitted, the
+  symbol carries its real type, and any call site that was relying on the `any` now type
+  checks for the first time. This is the mode that produced the 21 residual `TS7006` on
+  `@object-ui/app-shell` reported against objectui#5365 — a type hole that opened quietly,
+  unlike objectui#5365's own `export * from './ui'` packages where the same defect surfaced
+  immediately as `TS2305: has no exported member`.
+  
+  410 extensionless relative specifiers across 19 packages were emitted before this change;
+  the count is now 0 in all 22 packages that build typings through `vite-plugin-dts`.
+  `@object-ui/fields` was already clean — its sources write explicit `.js` specifiers — and
+  is wired so it stays that way.
+  
+  The second half changes no emitted output today: 22/22 packages built green unmodified, so
+  making the declaration step's exit code honest turns nothing red. It changes what a FUTURE
+  regression does — print and exit 0, versus fail the build.
+- 3beef6d: The spec's `dataSource` element binding is now DECLARED by the blocks that read
+  it, so the html tier stops reporting the one working saved-view spelling as
+  `unknown-prop` (objectui#6678).
+  
+  `PageComponentSchema.dataSource` — `{ object, view, filter, sort, limit }` — is
+  the one spelling that resolves a saved view for an object-bound block. It works,
+  and it drew the identical `unknown-prop` warning as the two spellings that do
+  nothing (`viewName`, `view`), because `validateTree` looks a prop up in the
+  block's declared `inputs` and no registration declared this key. On the tier
+  built to accept AI-authored pages, where the diagnostic IS the contract, the
+  only signal pointed away from the key that works.
+  
+  Adopting the maintainer ruling of 2026-08-29 — option B **in the injection
+  form**:
+  
+  - `ELEMENT_DATA_SOURCE_INPUT` is the single declaration, in `@object-ui/core`
+    beside the binding's own semantics; `Registry.register` emits it for any
+    registration whose renderer passed through the new `elementDataSourceBlock()`
+    seam. One mechanism, one copy — not a hand-kept declaration per block, which is
+    the shape that drifts and that a new block forgets. The seam lives in
+    `@object-ui/core` and is re-exported by `@object-ui/react` beside
+    `ElementDataSourceGate` for discoverability; call sites take the core import,
+    because a registration runs at module scope and this repo's suites partially
+    mock `@object-ui/react`.
+  - Seventeen renderers, in thirteen files across twelve packages, reach the seam
+    and now publish the key to the save gate, the parser whitelist, the generated
+    JSX authoring types and the block list. The card named nine blocks; the tree
+    also has `plugin-grid`, `plugin-timeline`, two further `plugin-form` blocks and
+    `element:record_picker` — nothing was hand-listed, so the mechanism covered
+    them. `element:record_picker` consumes the gate's HOOK and status panels rather
+    than the wrapper tag (its object lives under `properties`), and was found by a
+    render probe rather than by reading sources.
+  - `dataSource` on a block that does NOT read it (`flex`, `card`) still reports
+    `unknown-prop`. Adding the key to `sdui-parser`'s `BASE_PROPS` was refused for
+    exactly this reason — that set mirrors `BaseSchema`, and silencing the key
+    everywhere would make the diagnostic lie in the other direction.
+  - New `check:element-data-source-declaration` fails any source that consumes the
+    gate without reaching the seam, so a block added tomorrow cannot forget.
+  
+  Behaviour of the binding itself is unchanged — this is a declaration, not a
+  resolution change. The saved view still resolves its columns, and an
+  unresolvable `view` still fails loudly rather than widening to the object's full
+  scope.
+  
+  The spec/registry parity gates (repo-wide and the `record:related_list` per-block
+  pin) now derive their accepted set from the WHOLE node contract rather than from
+  `ComponentPropsMap[type]` alone. `PageComponentSchema` accepts and keeps
+  `dataSource` on a page-component node — it is a node-level key, a sibling of
+  `type` and `className`, not a per-block prop — so the gates' previous complaint
+  was measurably wrong. Derived from the spec, not exempted, and both still
+  discriminate against an invented key.
+- 40c4711: A sankey that drew only SOME of its rows now says how many (objectui#7148).
+  
+  The sankey arm keeps strictly positive measures
+  (`data.filter((r) => (Number(r?.[dataKey]) || 0) > 0)`), so a mixed dataset
+  drew a normal, healthy, confident chart of a fraction of itself and nothing
+  anywhere recorded that the other rows existed. Measured in Chromium across 27
+  tiles: `[{New business: 40}, {Refunds: -25}, {Chargebacks: -12}]` rendered
+  `svg: 1`, `path: 3`, 18 descendants, no `role`, no text, and — against a live
+  console control that did fire on the same instrument — zero console output.
+  Its screenshot hashed byte-identical to five other datasets, one of which
+  genuinely had a single row. Six datasets, one image: a reader had no bit of
+  information separating a complete flow from a third of one.
+  
+  The discard itself stands — a flow has no negative width, so it is the only
+  thing that arm can do with those rows. What is added is a footnote under the
+  plot naming the ratio and the predicate the filter applies:
+  
+  > Showing 1 of 3 rows — 2 rows have no `amount` above zero, which a flow
+  > cannot draw.
+  
+  It names the predicate rather than a cause because `Number(…) || 0` folds
+  negatives, zeros, `null`, unparseable strings and a missing key into one
+  discard, and all five were measured reaching this branch beside a survivor;
+  naming any one of them is a sentence that is false for the other four.
+  
+  A complete flow is byte-for-byte unchanged and gains no wrapper element, and a
+  drawable sankey is never replaced by prose: the `no-positive-flow` refusal
+  still owns the case where NOTHING survives the filter, and the "one positive
+  among zeros still draws" boundary still draws — that fixture is itself a
+  thinned dataset, so it now draws *and* says so.
+- e8c553b: A scatter handed more than one series now refuses instead of drawing a false picture.
+  
+  Scatter binds one measure: `series[0].dataKey` is the y axis, and every series was
+  handed the same rows through that one axis. A second series therefore added a
+  colour and a legend entry and nothing else — measured, two series over two rows
+  painted four symbols at two positions, each drawn twice, and the second measure's
+  values appeared nowhere on the plot. The data was valid and the picture was
+  confidently wrong, which no existing refusal could see.
+  
+  A `chartType: 'scatter'` with two or more `series` now renders the renderer's
+  refusal shell under `data-chart-error="scatter-multi-series"`, stating that a
+  scatter plots one measure, naming the fix (keep exactly one series) and listing
+  the series keys it was handed. A single-series scatter is unchanged.
+  
+  This refusal counts authored `series` only. `compareTo` on scatter is out of
+  its scope: objectui#7402 ruled (b) that scatter joins pie / donut / funnel in
+  excluding `compareTo` — `supportsCompareTo` and the dashboard widget path stop
+  synthesising a comparison series for it, so no `…__comparison` overlay is ever
+  built for a scatter and this guard is never reached by a compare-to document.
+  That exclusion ships as a separate change; until it lands, a `compareTo`
+  document still reaches the renderer as two series and refuses here today.
+  
+  No multi-measure projection is built (maintainer ruling, 2026-09-02): nothing
+  in-repo authors a two-series scatter, so that capability waits for a real caller.
+  The refusal copy is `chart.scatterOneMeasure` in all ten locale packs.
+- bb459ea: Name the scatter legend's series, so its swatch stops reading as a stray data point
+  (objectui#7248).
+  
+  The Chart Gallery scatter ("Estimate vs Progress") appeared to draw a seventh point
+  below the x-axis, outside the plot area. It was not a point. `ChartLegendContent`
+  resolves a label as `config[nameKey || item.dataKey || 'value']`, and a `<Scatter>`
+  carries **no `dataKey`** — scatter's keys live on the XAxis/YAxis, not on the mark — so
+  the key collapsed to the literal string `'value'`, missed a config keyed by measure
+  name, and the legend entry rendered its colour swatch with no text beside it. An 8x8
+  square in `--chart-1`, the same colour as the marks, sitting under the x-axis.
+  
+  Measured on the running showcase in real Chromium: the swatch sat at cy 341 against a
+  plot area ending at cy 295, on a y scale of 4.835 px per unit — y = -9.5, at x ≈ 45.
+  That is the "x≈40, y≈-10" the report described, to the pixel, and all six real marks
+  were inside the plot area at every viewport width swept from 1440 down to 480.
+  
+  **The y domain was not the defect and is unchanged.** Clamping it — the fix the report
+  asked for — would have created the bug it described: mixed-sign and all-negative
+  fixtures are pinned here drawing every mark, because recharts already extends the
+  domain to cover negative values.
+  
+  Two changes. The scatter now passes `nameKey` so its legend resolves the measure's
+  label, and `ChartLegendContent` falls back to the series `name` recharts itself put on
+  the legend item when the config lookup misses. The second closes the class rather than
+  this one instance: the swatch renders unconditionally, so a config miss must never
+  leave it anonymous. Charts whose config already resolves are unaffected — only a
+  currently-empty label changes.
+- 47547d0: Localize the server's built-in aggregate measure titles on dataset charts
+  (objectui#7258 — consumer half of the objectstack#14492 contract; maintainer
+  ruling B, 2026-09-02).
+  
+  A dataset-bound chart's aggregate axis / legend title read the analytics
+  service's hard-coded English `Count` on a zh console whose category labels were
+  already Chinese. The renderer was passing `fields[].label` through verbatim —
+  correctly, for an author-declared measure (objectui#4106) — and had no way to
+  tell the server's built-in default apart from an author's label.
+  
+  The wire now can: `AnalyticsResult.fields[]` gains an OPTIONAL structural
+  discriminator, `builtinAggregate?: 'count' | 'sum' | 'avg' | 'min' | 'max' |
+  'count_distinct'`, populated only on the server-side built-in defaults
+  (objectstack#14492). This change is the consumer side of that contract:
+  
+  - `@object-ui/core`: `buildChartSeries` now accepts `ChartMeasureField[]` —
+    `ChartResultField` plus the optional `builtinAggregate` carrier
+    (`BuiltinAggregateCarrier`), declared beside the renderer shape rather than
+    on it because the spec this release is built against does not carry the key
+    yet; new `BUILTIN_AGGREGATES` / `BuiltinAggregate` / `isBuiltinAggregate` /
+    `resolveMeasureLabel`; `ChartSeriesOptions.builtinAggregateLabels` carries
+    the locale strings in (core stays React-free and i18n-free — the same
+    division as `nullCategoryLabel`). A field carrying a recognised
+    discriminator resolves through that map; every other field keeps its wire
+    `label` verbatim — never by matching the label's text or the field's name
+    (the rejected option A).
+  - `@object-ui/i18n`: `builtinAggregateLabels(tt)` resolves the six strings
+    through the existing `report.aggregate.*` keys (zh already carried 计数 /
+    求和 / 平均 / …; all ten packs are pinned to cover the vocabulary).
+  - `plugin-charts` (`ObjectChart`), `plugin-dashboard` (`DatasetWidget`),
+    `plugin-report` (`DatasetReportRenderer`): pass the resolved map to
+    `buildChartSeries`.
+  
+  Before: 合作中 / 已流失 / 潜在 under an axis titled `Count`. After: the same
+  chart titled `计数`; an `en` session still reads `Count`; an author-labelled
+  measure (`Tasks`) and a measure literally named `count` without the
+  discriminator are byte-for-byte unchanged. Until the upstream field is
+  populated the wire carries no discriminator and every chart renders exactly as
+  before.
+- acb5797: Fix categorical (bar/line/area/combo) x-axis labels still being dropped above
+  5 buckets (objectui#7386, follow-up to objectui#7247).
+  
+  `xAxisCommonProps` charged every band axis above `X_AXIS_ALL_LABELS_MAX_BUCKETS`
+  a `minTickGap` of 48px (32px mobile) — a time-series budget that recharts adds
+  **on top of** its own measured-overlap check, not instead of it. A 7-status
+  pipeline at a 290px widget (≈33px/band) dropped 4 of its 7 names even though
+  nothing was actually wide enough to collide.
+  
+  `minTickGap` is now `0` for that branch: recharts' own measured-width overlap
+  avoidance (`interval: 'preserveStartEnd'`, unchanged) is the only thing
+  governing tick density above the bound, same as it already was for every tick
+  it kept. Verified in real Chromium — this repo's DOM test environment reports
+  zero text metrics, so it cannot exercise this change at all: at 7 and 8
+  buckets and realistic widget widths, every label now draws with zero measured
+  overlap (checked against each rotated label's true rotated rectangle, not an
+  axis-aligned box); a 180-point daily series at 800px still thinned sensibly
+  (11 ticks, zero overlap) — the "hundreds of points" case objectui#7247 guarded
+  against stays protected by the same measured-overlap check, just without the
+  removed extra margin.
+  
+  Not changed: `X_AXIS_ALL_LABELS_MAX_BUCKETS` / the ≤5-bucket "draw everything"
+  branch (objectui#7247, out of this issue's scope); the scatter chart's own
+  `minTickGap` (its x axis is `type="number"`, a genuinely continuous measure,
+  not a categorical band — a different axis with a different, still-correct,
+  constant); and recharts' angled-tick collision model, which stays on its more
+  conservative projected-bounding-box approximation rather than the true
+  parallel-line perpendicular-separation constraint — a deliberate,
+  documented-in-code choice, not an oversight, given this change's scale (a
+  handful of buckets, not a rewrite of recharts' geometry).
+- e859ad0: Reserve a margin at both ends of a scatter's numeric axes, so an extreme mark is drawn
+  wholly inside the plot area (objectui#7396).
+  
+  Both scatter axes are numeric and carry no explicit domain, so recharts fits the domain
+  to `[dataMin, dataMax]` and maps it across the whole plot box. A row at either extreme
+  is therefore **centred on the boundary**, and since a mark has a radius, about half of
+  each extreme symbol paints outside the plot area — the half-dots hugging both edges of
+  the Chart Gallery scatter.
+  
+  Measured on that scatter ("Estimate vs Progress") in real Chromium — viewport 1440,
+  widget svg 510x350, plot area x 53..505 / y 5..296:
+  
+  - before: marks at cx 53, 256.4, 301.6, 414.6, 459.8, 505 with the y-max row at cy 5,
+    radius 4.514px. The first and last sit exactly on the x boundary and the y-max one on
+    the top boundary, each overhanging its edge by a full radius.
+  - after: cx 65, 257.6, 300.4, 407.4, 450.2, 493 with the y-max row at cy 17. The worst
+    case now clears its nearest edge by 7.486px, on both axes.
+  
+  The card reported the x axis; the y axis clipped the same way and is fixed with it.
+  
+  **The domain is not touched.** The margin is reserved as recharts' axis `padding`, which
+  insets the pixel range the scale maps into and leaves the domain alone, so every tick
+  **value** is unchanged — the axes still read 0/25/50/75/100 and 0/15/30/45/60 — and only
+  the mapping moves. Padding the domain instead would invent unround tick endpoints, and it
+  would write the same recharts prop a spec-declared `min`/`max` needs (objectui#9675), where
+  whichever landed second would shadow the other.
+  
+  The margin is sized to the largest radius the scatter's declared symbol-area envelope
+  admits, not to the radius drawn today, so neither a change in recharts' own default mark
+  size nor a future variable-size mark can reopen it.
+  
+  Every scatter's marks shift inward by that margin; nothing else about the chart changes.
+- ed4a2f1: fix(plugin-charts): `pie-chart`, `donut-chart`, `radar-chart` and `scatter-chart` render as the family they name
+  
+  A schema written as `type: 'pie-chart'` (or `plugin-charts:pie-chart`, and likewise donut / radar / scatter) drew a **bar chart**. The four registrations declared their family as `defaultProps: { chartType: … }`, and nothing on the SDUI path has ever read a registration's `defaultProps` — so `ChartRenderer` resolved no family and `AdvancedChartImpl` fell to its `'bar'` default. Valid data, a confidently wrong picture, and no `data-chart-error` that could fire.
+  
+  `ChartRenderer` now derives the family from the schema's own `type`, through `normalizeChartSchema` — the package's single translation point, so the exported `normalizeChartSchema` answers what the runtime actually draws. An explicit `chartType` still wins, so `plugin-charts:chart` with `chartType: 'scatter'` is unchanged.
+  
+  The five inert `defaultProps: { chartType: … }` are removed with it rather than left beside a mechanism that works. Registration `defaultProps` remains unread on the SDUI path repo-wide; activating it generally is a separate, wider change and is not this one.
+  
+  ⚠️ `scatter-chart` now genuinely reaches the scatter arm, so a two-series `scatter-chart` now renders the `scatter-multi-series` refusal it was always supposed to.
+- ff79d38: Read the spec-declared lookup spellings in two readers that could not see them at all
+  (objectui#7435).
+  
+  `ObjectChart`'s group-by label chain and `resolveActionParams`' picker group both read the
+  object-schema field def in `snake_case` only. That def is what `getObjectSchema` /
+  `useMetadata()` serve, and it carries the spelling `@objectstack/spec`'s `FieldSchema`
+  declares — so `displayField`, `descriptionField` and `lookupFilters` were dropped on the
+  floor. The chart fell through to the generic `name` heuristic and drew a label the author
+  had explicitly overridden; an action param rendered its picker with defaults. Nothing
+  warned, because the readers were simply reading keys that were not there.
+  
+  Each of the three keys now has its declared spelling ranked FIRST, with the existing
+  `snake_case` legs kept behind it in their existing order — the shape objectui#7155
+  established. Measured on the pin this tree resolves, `@objectstack/spec@17.4.0`:
+  `FieldSchema.safeParse` over a minimal lookup def accepts all three camelCase keys and
+  refuses every snake twin with `unrecognized_keys`, with the minimal def accepted and a
+  nonsense key refused as controls in the same run.
+  
+  The legacy legs are kept rather than retired. A per-site producer sweep found no in-repo
+  producer of any of the three snake spellings and zero key-position occurrences in the
+  producer repo (control lit), but two producers lie outside what that sweep measures: a
+  document stored before the key was tightened, since the serve path runs no parse, and a
+  host `DataSource` that never passes through the adapter's key canonicalisation. Dropping a
+  leg would be a silent regression for already-authored data.
+  
+  Two keys deliberately gain nothing. `idField` has no `FieldSchema` spelling in either
+  casing, and `titleFormat` is an object-level key whose canonical target is deprecated in
+  favour of `nameField`; reading either camelCase spelling would fossilise a key no contract
+  declares, so both keep their existing snake-only reads and their absence is now pinned.
+- c6198c2: **Breaking for authored metadata:** `ComponentInput.label`, `ComponentInput.defaultValue` and
+  `ComponentInput.advanced` are RETIRED on both faces (objectui#7493 item ① and objectui#7781;
+  maintainer ruling A of 2026-09-06, immediate, no deprecation window; ADR-0049 enforce-or-remove).
+  They are the three keys the manifest serializer does not forward, and nothing read them on any
+  publication or consumption path.
+  
+  No manifest ever published them, so no consumer could ever have read them. `sdui-parser`'s
+  serializer (`packages/sdui-parser/src/index.ts`) forwards exactly six keys per input — `name`,
+  `type`, `required`, `enum`, `binding`, `description` — so a value authored under any of the three
+  never reached `sdui.manifest.json`, the generated JSX `.d.ts`, or a diagnostic; its boundary type
+  has no slot for them; the registry's data-source seam reads `name` only; and neither the designer
+  nor the app-shell inspectors consult registry `inputs` at all. A structural census over every
+  `inputs:` array in the repository (re-measured on this change's merge-base, `name` 951 and `type`
+  951 as the controls) counted the writes: `label` 908, `defaultValue` 245, `advanced` 9 — written on
+  nearly every registration, read by nothing.
+  
+  FROM → TO, per key — all three **TOMBSTONED, not removed**, because the route was measured on
+  the built face before it was chosen: `ComponentInputSchema` is a non-strict `z.object`, and an
+  undeclared key parses GREEN and is silently STRIPPED, so a deletion would have swallowed 1,162
+  authored values in silence. The tombstone is what makes the refusal loud and by name.
+  
+  - `label?: string` → `label?: never` on the interface, `retirementTombstone()` on the Zod mirror.
+    Migration: delete the key. An input is identified by its `name` on every path that reaches it;
+    nothing ever rendered a label for it.
+  - `defaultValue?: any` → `defaultValue?: never` / `retirementTombstone()`. Migration: delete the
+    key. The renderer's own fallback read IS the default; tell the author about it in `description`,
+    which IS published. (Tightening the type to `unknown` was ruled out: it closes no error class,
+    since nothing reads the value.)
+  - `advanced?: boolean` → `advanced?: never` / `retirementTombstone()`. Migration: delete the key.
+    No designer surface ever hid an "advanced" input; there is nothing to write instead.
+  
+  The retirement kit: `?: never` on `ComponentInput` (`packages/types/src/base.ts`), so authoring one
+  is a `tsc` error at the registration site; `retirementTombstone()` on `ComponentInputSchema`
+  (`packages/types/src/zod/base.zod.ts`), so an authored value is REFUSED at parse time with
+  `code: 'invalid_type'`, the key named in the issue `path`, and the migration note as the message
+  (one string, both channels). Pinned in
+  `packages/types/src/__tests__/component-input-retired-keys-7493.test.ts`, which also holds a
+  tree-scoped absence census over every `inputs:` array under `packages/**` and `apps/**`.
+  
+  Accept-set change, stated plainly for reviewers: a document that sets any of the three keys on a
+  `ComponentInput` used to parse GREEN (the value was then dropped by the serializer) and now parses
+  RED. Every in-repo authoring site — 1,199 keys across 110 registration files, the three standalone
+  `ComponentInput[]` arrays and the two named input arrays `tsc` found included — is deleted in the same change, as the ruling's split rule
+  requires; the `WidgetRegistry` seam no longer copies the widget-manifest values onto the synthesized
+  `ComponentInput` (they fed nothing), and the data-source declaration `ELEMENT_DATA_SOURCE_INPUT`
+  drops its `label`. The patch entries on the other packages record exactly that: their registrations
+  stop authoring inert keys, with no runtime or published-manifest change.
+  
+  The nine test files that read `defaultValue` off a registration were re-pinned against the
+  renderer's ACTUAL default (its own fallback read, or the `defaultProps` it ships) instead of the
+  declaration that went away; two assertions that only restated the shadow default were dropped with
+  the reason on the line.
+  
+  The in-repo zero is what was measured. Whether anything OUTSIDE this repository writes these keys
+  is not measurable from here (the objectui#5674 limit); converting such a write from a silent drop
+  into a named refusal is exactly what the tombstones buy. `WidgetInput`'s own `label` /
+  `defaultValue` / `advanced` (the widget-manifest face) stay declared and writable — nothing has
+  ruled on that face; that it now has no reader either is recorded as objectui#7911.
+- fc32921: Fix a dashboard chart widget with a FIELDLESS `count` aggregate plotting nothing
+  (objectui#8266).
+  
+  A widget bound to an object with `aggregate: { function: 'count', groupBy: 'status' }`
+  and no `field` — the normal way to author "how many records per status" — rendered an
+  empty chart. No error, no empty state: a plot frame with the category ticks drawn and
+  not one mark in it, which reads exactly like "this object has no rows yet".
+  
+  **Cause.** The two dashboard relays (`DashboardGridLayout`, `DashboardRenderer`) each
+  built the series binding as `aggregate?.field || (options.yField || 'value')`, which for
+  a fieldless count resolves to `'value'`. The rows an object-bound fieldless count
+  returns are keyed `'count'` — the alias the engine projects `COUNT(*)` under, pinned
+  since framework#3701. A `dataKey` naming a column no row carries plots nothing, and
+  neither of the renderer's two guards fires on it: the rows DO carry the category key,
+  and the series array is not empty.
+  
+  **Fix.** `chartMeasureKey` is a new `@object-ui/core` export delegating to
+  `chartAggregateValueKey` in `@objectstack/spec/ui` — the contract's own derivation of
+  "the value column an object-bound aggregate produces". Both relays now consult it, and
+  the row-projection side (`aggregateValueKey` in `@object-ui/plugin-charts`) is routed
+  through the same function, so the two halves of the question cannot drift again.
+  
+  **What moves on screen.** A chart that was blank now draws. Charts that already drew are
+  unaffected: a field-bearing aggregate resolves to its raw field under both the old and
+  the new reading, and a chart with no `aggregate` at all keeps the author's `yField`.
+  One authored key changes meaning: a `yField` written on an object-bound chart that
+  ALSO declares an aggregate no longer wins over the aggregate's own column — it named a
+  record column that a grouped aggregate never returns, so it plotted nothing before.
+  
+  **Not fixed here, and out of scope.** The same widget with no `options.xField` is
+  refused by the category-axis guard naming `name`, a key the author never wrote (they
+  wrote `aggregate.groupBy`). That is the category half of the same relay gap and is
+  filed separately.
+- 8f9d87a: Fix a dashboard chart widget that declares its category as `aggregate.groupBy` being
+  refused for lacking a `name` column (objectui#8269).
+  
+  A widget bound to an object with `aggregate: { function: 'count', groupBy: 'status' }`
+  and no `options.xField` rendered a refusal instead of a chart:
+  
+  > This chart cannot plot its category axis: no row has a `name` field.
+  
+  The author wrote `groupBy: 'status'`. Nothing on screen said `groupBy` was the key that
+  had been ignored, and `name` appeared nowhere in their metadata — so the diagnostic sent
+  them to debug the wrong layer.
+  
+  **Cause.** The two dashboard relays (`DashboardGridLayout`, `DashboardRenderer`) each
+  floored the category binding on a literal — `options.xField || 'name'` — and handed it to
+  the `object-chart` node without ever consulting the aggregate that decides it. An
+  object-bound aggregate returns one row per group keyed by the raw `groupBy` field, so no
+  row carried `name` and the category-axis guard (framework#4033) fired correctly on a
+  binding that was already wrong when it arrived.
+  
+  **Fix.** `chartCategoryKey` is a new `@object-ui/core` export delegating to
+  `chartAggregateCategoryKey` in `@objectstack/spec/ui` — the contract's own derivation of
+  "the category column an object-bound aggregate produces", and the published sibling of the
+  `chartAggregateValueKey` that objectui#8266 adopted for the measure axis. Both relays now
+  consult it for the object-provider branch.
+  
+  **What moves on screen.** A widget that rendered a refusal now draws. Measured through
+  `ChartRenderer` at 480x320 over the rows a fieldless count returns
+  (`[{status:'open',count:2},{status:'paid',count:5}]`): the composed binding went from
+  `xAxisKey: 'name'` — a `missing-category-key` refusal, 0 marks — to `xAxisKey: 'status'`,
+  1 series and 2 marks with the category ticks drawn.
+  
+  **Unaffected.** A chart with no `aggregate` at all keeps the author's `xField` (its rows
+  are raw records, so that key is the right one), an UNGROUPED aggregate keeps it too (it
+  returns a single row with no category column), and the authored-literal-rows branch — the
+  `chart` node composed after the object-provider check fails — keeps its floor unchanged.
+  One authored key changes meaning, exactly as objectui#8266's `yField` did: an `xField`
+  written on an object-bound chart that ALSO declares a `groupBy` no longer wins over the
+  aggregate's own column — it named a record column a grouped aggregate never returns, so it
+  produced the same refusal before.
+- 681d3f1: Compose an `ObjectChart` drill-down filter instead of spreading it, so the widget's own
+  filter survives into the drilled query for BOTH arms of `ObjectChartSchema.filter`
+  (objectui#8944).
+  
+  **The defect.** `ObjectChartSchema.filter` admits a spec `FilterArray`
+  (`[['region','=','emea']]`) and the ObjectQL `$filter` object (`{ region: 'emea' }`),
+  and both are read — both travel verbatim to `ds.aggregate` / `ds.find`. The drill seam
+  composed them by spreading the widget's filter into an object literal, which is correct
+  for the object arm and silent nonsense for the array arm: spreading an array yields
+  index keys, so an authored `FilterArray` drilled as
+  `{ '0': ['region','=','emea'], stage: 'won' }` — the widget's conditions replaced by a
+  key the query layer ignores. Nothing errored; the drawer opened and looked right.
+  
+  **Direction of the failure.** The widget's filter is what narrows. Dropping it made the
+  drilled list a **superset** — it showed records the chart itself was scoped to exclude.
+  Not a security boundary, but the worse direction for a silent bug.
+  
+  **The composition rule, named rather than picked.** `widget.filter ∧ drill.filter`. The
+  two are independent filter sources and a drill must satisfy both: the click context only
+  says which bucket of the widget's scope was asked for, so it may narrow that scope and
+  never widen it. This is not a new rule — it is the contract `mergeFilterNodes` already
+  states ("combine filter sources under a single `and`, each as its OWN child"), the sink
+  every other multi-source filter in this repo goes through. A new
+  `composeDrillFilter` helper in `@object-ui/core` applies it at the drill seam and
+  documents it, then lowers the result back to the `FilterCondition` object dialect with
+  `parseFilterAST` — the spec's single lowering sink — because that is the dialect both
+  drill sinks take.
+  
+  **Compatibility.** A lone surviving source lowers back to exactly the flat object the
+  spread produced, so a chart with no filter of its own drills byte-identically to before.
+  Only a genuinely composed pair gains the `$and`.
+  
+  `serializeDrillFilterParams` (the drill "Open in list" / `target: 'navigate'` URL writer)
+  learns to flatten that `$and` into the flat `filter[...]` params its own read side already
+  ANDs back together. Without that it took the `String(value)` path — `$and` holds an array —
+  and emitted `filter[$and]=[object Object],[object Object]` while both real conditions
+  vanished, which is the outcome that function's contract says it never produces.
+- 894d103: `ObjectChart`'s wrapper div now carries `h-full`, keeping the height chain intact from a dashboard grid cell's declared height down to the element Recharts measures. Previously the chain died at the plain auto-height wrapper: `height: 100%` on the chart container computed to `auto`, Recharts measured a permanent zero, and only the `CHART_MIN_HEIGHT` floor (#5503) kept dashboard charts visible — at a fixed floor height instead of filling the cell (#5451). Under auto-height parents `h-full` resolves to `auto`, so non-dashboard hosts are unchanged.
+- 5eddeeb: Pie, donut, funnel and treemap now say when rows carry no magnitude they can draw.
+  
+  These four families size a mark BY its measure, so a row whose value is zero,
+  negative, `null` or unparseable stays in the data and is given no area. Measured
+  in Chromium across 74 tiles: an all-zero pie put ZERO non-white pixels on the
+  page while its DOM carried 31 descendants and a real `svg`; a treemap handed
+  `40 / null`, `40 / 0` or `40 / -25 / -12` rendered one full-bleed leaf that was
+  byte-identical to a genuinely one-row treemap; and a funnel handed `40` beside a
+  `null` drew no segments at all and labelled the tile with the row that had no
+  value.
+  
+  When no row can be sized, these charts now render the file's refusal shell
+  (`no-positive-magnitude`) instead of a blank tile. When only some rows can be
+  sized, the chart still draws and carries a note counting the ones it could not.
+  All-positive charts, charts handed no rows at all, bar charts, and both sankey
+  answers are unchanged.
+- cef27e2: The value-fallback label prettifier `humanizeLabel` has one implementation instead of two byte-identical copies.
+  
+  `humanizeLabel` turns a stored value into a display string when nothing else
+  resolves it — an option with no declared label, an object name, a chart axis
+  member. It existed twice, byte for byte: once in `@object-ui/fields` (read by
+  `plugin-grid`, `plugin-gantt`, `plugin-detail` and by that package's own
+  renderers) and once as a deliberate local copy in `plugin-charts`'
+  `ObjectChart.tsx`, whose comment said it was there "to avoid a dependency on
+  `@object-ui/fields`".
+  
+  Two copies of one convention is a live hazard rather than tidiness: one
+  dashboard can hold a chart and a grid over the same stored value, so a change
+  landing on one copy alone would put that value on screen under two spellings at
+  once. The single implementation now lives in `@object-ui/core` — the shared
+  ancestor both packages already depend on, so the dependency the copy existed to
+  avoid is still avoided and no new edge is created, and core takes no React
+  (objectui#4389: core-canonical logic, plugins consume). Both former sites
+  re-export it, so `import { humanizeLabel } from '@object-ui/fields'` keeps
+  working unchanged.
+  
+  **Nothing rendered changes.** The surviving implementation is byte-identical to
+  both deleted copies, and each former call site is pinned by identity against the
+  core function — not by a copied output table that someone would have to remember
+  to edit in two places.
+  
+  The core module also writes down, for the first time, why this convention stays
+  distinct from `humanizeFieldKey` (the KEY fallback, in `@object-ui/plugin-dashboard`),
+  which additionally splits camelCase:
+  
+  ```
+  input                humanizeFieldKey     humanizeLabel
+  needs_analysis       Needs Analysis       Needs Analysis
+  NeedsAnalysis        Needs Analysis       NeedsAnalysis        <- differ
+  unitPrice            Unit Price           UnitPrice            <- differ
+  BestCase             Best Case            BestCase             <- differ
+  lost-to-competitor   Lost-To-Competitor   Lost To Competitor   <- differ
+  ```
+  
+  A field KEY is authored in the codebase and carries a machine spelling, so
+  splitting camelCase recovers words its author meant. A stored VALUE is arbitrary
+  tenant data, where a mid-token capital is not reliably a word boundary and
+  splitting it rewrites what the tenant wrote (`McDonald` to `Mc Donald`). The two
+  conventions also do not nest — on the last row each leaves alone the separator
+  the other rewrites. Whether they should ever converge is a separate decision
+  that would move rendered output in four packages at once; it is deliberately not
+  made here.
+- d6fe1e1: Draw every categorical x-axis label on short axes
+  
+  A vertical bar chart in a dashboard-width widget dropped most of its x-axis
+  labels — three bars drew one label, five bars drew two — leaving the bars
+  unnamed, with no legend to fall back on because a single-series bar chart has
+  none.
+  
+  The x axis applied one tick policy to time and category alike (`preserveStartEnd`
+  with a 48px `minTickGap`), which is right for hundreds of dates and wrong for a
+  band axis, where a dropped tick is an identity the reader cannot recover rather
+  than a sample they can interpolate. It was also keyed to the viewport rather
+  than the widget, so a 200px chart inside an 800px console was treated as a wide
+  one.
+  
+  Bar, column, line, area and combo charts now draw every label on a categorical
+  x axis of five buckets or fewer — rotating, and ellipsising an over-long name
+  rather than clipping it. Longer axes keep the existing measured thinning, and
+  horizontal bars are unchanged.
+- 6c5ee71: `ObjectChart` now depends on the `fieldOptionLabel` resolver directly instead of
+  holding it behind a ref, so a chart re-resolves its groupBy option labels when
+  the resolver genuinely changes (objectui#5587).
+  
+  The ref existed for a reason that no longer holds. `useSafeFieldLabel()` returned
+  a fresh object on every render outside an i18next provider, so a direct
+  dependency made `fetchData`'s `useCallback` identity fresh on every render, and
+  the effect that depends on `fetchData` refetched on every render — an unbounded
+  loop. `ObjectChart` worked around that locally with `fieldOptionLabelRef` plus a
+  `useEffect` keeping it current. `useObjectLabel`'s memo now holds with or without
+  an i18next instance bound (objectui#5564), so the resolver's identity is stable
+  on both paths and the indirection buys nothing.
+  
+  It did cost something, and that is the user-visible half: a ref-hidden dependency
+  meant `fetchData` did NOT re-run when the resolver changed. A chart mounted
+  before its `I18nProvider`, or rendered across a language switch, kept serving
+  groupBy labels resolved by the old resolver until some unrelated dependency
+  (object name, filter, aggregate) happened to move. It now refetches once on that
+  transition and shows labels in the active language.
+  
+  Pinned by `ObjectChart.fieldOptionLabelRefetch.test.tsx`, which counts fetches
+  across forced re-renders both outside and inside a provider. Reverting
+  `useObjectLabel.ts` to its pre-objectui#5564 state turns the no-provider case red
+  (2 fetches instead of 1, alongside React's "Maximum update depth exceeded"), so
+  the removal is pinned to the fix that unlocked it rather than to a comment.
+- 93bbc20: Scatter now says when it cannot place a row, instead of drawing an empty axis.
+  
+  Scatter is the only two-measure positional chart in the renderer: `xAxisKey` feeds
+  a numeric X axis and `series[0]` a numeric Y axis, so a point exists only when
+  both are numbers. Measured in real Chromium, rows it could not place produced a
+  tile byte-identical to a scatter handed no rows at all, and six different
+  authoring failures shared one image. A chart with one placeable row among three
+  was 99.75% pixel-identical to a genuinely one-row scatter.
+  
+  Handed rows it cannot place any of, a scatter now renders the file's refusal
+  shell under `data-chart-error="no-plottable-points"`, naming both keys. When some
+  rows place and some do not it draws as before with a `data-chart-note="unplotted-points"`
+  footnote carrying the count. Charts whose rows all place are byte-identical to
+  before, and no wrapper element is added to them.
+  
+  The predicate is positional, not magnitude-based: zero and negative coordinates
+  are ordinary scatter data and keep drawing.
+- dd35800: `ObjectChart` now renders a self-describing empty state when its query succeeds
+  and returns no rows, instead of falling through to a bare chart frame.
+  
+  The frame was measured in a browser rather than assumed: recharts derives its
+  ticks from the data, so with an empty result the bar and line families emit two
+  hairline axis rules and no `text` nodes at all, and pie/donut emit nothing —
+  there are no labelled axes to tell the reader what would have been plotted.
+  Beside the component's own red "Failed to load chart data" box, a blank tile
+  gives the reader nothing to distinguish a young chart from a broken one.
+  
+  The copy is the one `plugin-dashboard` already shows on the dataset-bound path
+  ("No data yet" / the load succeeded / the source name), so the same chart over
+  the same empty result no longer reads two different ways depending on which
+  widget drew it. Charts with inline authored data are unchanged — they ran no
+  query to report on.
+- Updated dependencies [432882b]
+- Updated dependencies [64dae8e]
+- Updated dependencies [b06e374]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [5ccc500]
+- Updated dependencies [9801765]
+- Updated dependencies [460575f]
+- Updated dependencies [d796c8d]
+- Updated dependencies [594704f]
+- Updated dependencies [d3995fe]
+- Updated dependencies [1b1d772]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [636b236]
+- Updated dependencies [4172589]
+- Updated dependencies [64d624d]
+- Updated dependencies [053fdc8]
+- Updated dependencies [41b7ce3]
+- Updated dependencies [ae476b8]
+- Updated dependencies [39f4309]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [7cd3987]
+- Updated dependencies [ee3b878]
+- Updated dependencies [e304a4e]
+- Updated dependencies [490d9a9]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [95f8704]
+- Updated dependencies [f8cdbf2]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [e176053]
+- Updated dependencies [e30ed15]
+- Updated dependencies [90665e0]
+- Updated dependencies [8d3a529]
+- Updated dependencies [5ac2e2c]
+- Updated dependencies [194fae1]
+- Updated dependencies [7e19d03]
+- Updated dependencies [b08b7eb]
+- Updated dependencies [546ddf7]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [44d075b]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [6fd2cf7]
+- Updated dependencies [5fa06c4]
+- Updated dependencies [52a43de]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [129bcc5]
+- Updated dependencies [a26b9e4]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [8ec11e1]
+- Updated dependencies [6f81384]
+- Updated dependencies [22ba927]
+- Updated dependencies [f8c70f4]
+- Updated dependencies [5d3a2d1]
+- Updated dependencies [8f1d995]
+- Updated dependencies [b362c1b]
+- Updated dependencies [f9c34df]
+- Updated dependencies [dddb942]
+- Updated dependencies [00c665e]
+- Updated dependencies [29754cf]
+- Updated dependencies [3c2b6f7]
+- Updated dependencies [6e88630]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [5961030]
+- Updated dependencies [f24de8b]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [9602dc8]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [299102e]
+- Updated dependencies [30c73cd]
+- Updated dependencies [830ed58]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [c71e14d]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [748494b]
+- Updated dependencies [5967be0]
+- Updated dependencies [831be72]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [d0889e2]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [12402a9]
+- Updated dependencies [aff3d7a]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [fff9645]
+- Updated dependencies [9c3b7ce]
+- Updated dependencies [2c1c967]
+- Updated dependencies [9486ac6]
+- Updated dependencies [9486ac6]
+- Updated dependencies [4d5f9b4]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [dc4365c]
+- Updated dependencies [e321d52]
+- Updated dependencies [969ba84]
+- Updated dependencies [4c68077]
+- Updated dependencies [7977ff9]
+- Updated dependencies [3beef6d]
+- Updated dependencies [06b8c42]
+- Updated dependencies [46b9bc9]
+- Updated dependencies [b97790a]
+- Updated dependencies [dbd5194]
+- Updated dependencies [7c9b044]
+- Updated dependencies [d47de51]
+- Updated dependencies [3fe6463]
+- Updated dependencies [b392674]
+- Updated dependencies [4f3a1e2]
+- Updated dependencies [31ab372]
+- Updated dependencies [846889b]
+- Updated dependencies [26896c6]
+- Updated dependencies [67fc3b0]
+- Updated dependencies [33a3b3c]
+- Updated dependencies [b87f15b]
+- Updated dependencies [045d20b]
+- Updated dependencies [a2d2515]
+- Updated dependencies [c18d099]
+- Updated dependencies [adb2a86]
+- Updated dependencies [03380aa]
+- Updated dependencies [4562ea5]
+- Updated dependencies [3619792]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [320374d]
+- Updated dependencies [b0d308d]
+- Updated dependencies [40f34b4]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [6a449fc]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [220c18d]
+- Updated dependencies [00d3f09]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [3cab570]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [639114c]
+- Updated dependencies [1490691]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [d1842ab]
+- Updated dependencies [78ca238]
+- Updated dependencies [d8ec8d6]
+- Updated dependencies [351eb31]
+- Updated dependencies [866cd1d]
+- Updated dependencies [20c04b2]
+- Updated dependencies [01c9023]
+- Updated dependencies [48c19bd]
+- Updated dependencies [a6d8b8d]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [adbda1b]
+- Updated dependencies [8952395]
+- Updated dependencies [e8c553b]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [7c3df8f]
+- Updated dependencies [a4514e8]
+- Updated dependencies [b9f5ff1]
+- Updated dependencies [e75f4c9]
+- Updated dependencies [19f1639]
+- Updated dependencies [4704aa4]
+- Updated dependencies [47547d0]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [554f2b6]
+- Updated dependencies [72f55c9]
+- Updated dependencies [26e06d7]
+- Updated dependencies [669d71b]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [3399704]
+- Updated dependencies [7bf244b]
+- Updated dependencies [f0bb9fa]
+- Updated dependencies [81a2eb1]
+- Updated dependencies [20cb8db]
+- Updated dependencies [00d2fa6]
+- Updated dependencies [77b2a18]
+- Updated dependencies [c6198c2]
+- Updated dependencies [2f61238]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [9ae871d]
+- Updated dependencies [efbd566]
+- Updated dependencies [2a5bf45]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [daf9d57]
+- Updated dependencies [c15d7ec]
+- Updated dependencies [5d0876c]
+- Updated dependencies [f7ace0a]
+- Updated dependencies [b041b9c]
+- Updated dependencies [ce2aaef]
+- Updated dependencies [544ecba]
+- Updated dependencies [2ce2612]
+- Updated dependencies [bc640ec]
+- Updated dependencies [da6e191]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [c14d3a0]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [91f9276]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [a915064]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [52cac38]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [d1bebb0]
+- Updated dependencies [335abea]
+- Updated dependencies [edea22a]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [12b5992]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [e1c27e4]
+- Updated dependencies [8c8da45]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [1bd79c8]
+- Updated dependencies [ad852b6]
+- Updated dependencies [7fb22a1]
+- Updated dependencies [ad66d79]
+- Updated dependencies [0758bd8]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [0ea7054]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [fc32921]
+- Updated dependencies [4eaa835]
+- Updated dependencies [8f9d87a]
+- Updated dependencies [b1777ae]
+- Updated dependencies [24d1edd]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [6e9a3d4]
+- Updated dependencies [4a292d2]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [dacb402]
+- Updated dependencies [91facae]
+- Updated dependencies [b38014e]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [a407bd6]
+- Updated dependencies [317dbce]
+- Updated dependencies [309728c]
+- Updated dependencies [aa08d7e]
+- Updated dependencies [3a43a15]
+- Updated dependencies [868e825]
+- Updated dependencies [f76f436]
+- Updated dependencies [ce45a03]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [abc1b18]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [c300267]
+- Updated dependencies [fb3a101]
+- Updated dependencies [d4733f2]
+- Updated dependencies [1570eac]
+- Updated dependencies [f391ede]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [8b532cb]
+- Updated dependencies [64c3cdd]
+- Updated dependencies [4d65991]
+- Updated dependencies [c42554e]
+- Updated dependencies [555b4ec]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [0a174f3]
+- Updated dependencies [676f677]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [d1865d2]
+- Updated dependencies [55ba3ff]
+- Updated dependencies [f1190b0]
+- Updated dependencies [561abef]
+- Updated dependencies [ef52001]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [abf710d]
+- Updated dependencies [093af32]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [c372b29]
+- Updated dependencies [152f0a7]
+- Updated dependencies [8693b85]
+- Updated dependencies [e82dad1]
+- Updated dependencies [84defab]
+- Updated dependencies [681d3f1]
+- Updated dependencies [f3bc481]
+- Updated dependencies [b79aac2]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [19a0b0e]
+- Updated dependencies [f8e3e9a]
+- Updated dependencies [b9d47ec]
+- Updated dependencies [3b6bc69]
+- Updated dependencies [6214db6]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [689953a]
+- Updated dependencies [30443fb]
+- Updated dependencies [8d3dbb2]
+- Updated dependencies [efc1c9c]
+- Updated dependencies [da45e6b]
+- Updated dependencies [7533465]
+- Updated dependencies [835f0f3]
+- Updated dependencies [a9d97be]
+- Updated dependencies [9ba7e9c]
+- Updated dependencies [729e851]
+- Updated dependencies [96919a4]
+- Updated dependencies [345e24a]
+- Updated dependencies [20b507a]
+- Updated dependencies [2e471dc]
+- Updated dependencies [6748587]
+- Updated dependencies [be50942]
+- Updated dependencies [53374dc]
+- Updated dependencies [2bf34f7]
+- Updated dependencies [15b33ae]
+- Updated dependencies [7cbc724]
+- Updated dependencies [7098eed]
+- Updated dependencies [3df7c5c]
+- Updated dependencies [8524372]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [0ce32d5]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [1ef89c0]
+- Updated dependencies [ac716ff]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [f7fcc2c]
+- Updated dependencies [f0f4d6c]
+- Updated dependencies [78a9c67]
+- Updated dependencies [dea17b4]
+- Updated dependencies [06611e4]
+- Updated dependencies [66abbde]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [81c0bc4]
+- Updated dependencies [3c76801]
+- Updated dependencies [60500cb]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [77f846a]
+- Updated dependencies [bc5870c]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [dd19463]
+- Updated dependencies [6791717]
+- Updated dependencies [8ea3bee]
+- Updated dependencies [100547e]
+- Updated dependencies [3a58149]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [bf3edfe]
+- Updated dependencies [2c8474c]
+- Updated dependencies [6ce89da]
+- Updated dependencies [0e05aac]
+- Updated dependencies [ae61ad4]
+- Updated dependencies [5aed9e4]
+- Updated dependencies [83c77dc]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [e719ebd]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [fe76ece]
+- Updated dependencies [8e74b27]
+- Updated dependencies [7102b20]
+- Updated dependencies [8ebd57f]
+- Updated dependencies [617707a]
+- Updated dependencies [c40f3b8]
+- Updated dependencies [58770f3]
+- Updated dependencies [aefe428]
+- Updated dependencies [485f096]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [b655a9d]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [7138bc1]
+- Updated dependencies [cef27e2]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [06973aa]
+- Updated dependencies [50798f3]
+- Updated dependencies [6a576c9]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [c70f865]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [d7bd274]
+- Updated dependencies [98c3a74]
+- Updated dependencies [fffa30d]
+- Updated dependencies [ebce5a3]
+- Updated dependencies [9d9040d]
+- Updated dependencies [20e317c]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [42df928]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [9850c6e]
+- Updated dependencies [de570cc]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [19cbf10]
+- Updated dependencies [ab92940]
+- Updated dependencies [a691c0b]
+- Updated dependencies [0b1326d]
+- Updated dependencies [1e66879]
+- Updated dependencies [c5200f0]
+- Updated dependencies [af3861f]
+- Updated dependencies [515f171]
+- Updated dependencies [1f4e029]
+- Updated dependencies [4f14ad7]
+- Updated dependencies [258d264]
+- Updated dependencies [cac64b3]
+- Updated dependencies [8033ad1]
+- Updated dependencies [fa140b8]
+- Updated dependencies [71cba28]
+- Updated dependencies [190fbd0]
+- Updated dependencies [c00bf28]
+- Updated dependencies [93127bd]
+- Updated dependencies [f2158ec]
+- Updated dependencies [759606e]
+- Updated dependencies [fd8dace]
+- Updated dependencies [72ffc34]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [bf28341]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [6c6cee7]
+- Updated dependencies [42887e0]
+- Updated dependencies [83fe6e7]
+- Updated dependencies [d1ab06f]
+- Updated dependencies [38a9568]
+- Updated dependencies [f90b8fb]
+- Updated dependencies [91783c4]
+- Updated dependencies [982885d]
+- Updated dependencies [dba7d84]
+- Updated dependencies [ca39427]
+- Updated dependencies [bd09957]
+- Updated dependencies [5a07e67]
+- Updated dependencies [2d36552]
+- Updated dependencies [45d8288]
+- Updated dependencies [b2437a7]
+- Updated dependencies [f157423]
+- Updated dependencies [7a90afd]
+- Updated dependencies [eddc1dd]
+- Updated dependencies [490f482]
+- Updated dependencies [27308c5]
+- Updated dependencies [8689166]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [9101be5]
+- Updated dependencies [f53a8d0]
+- Updated dependencies [968dc1e]
+- Updated dependencies [57f9b07]
+- Updated dependencies [3c73d99]
+- Updated dependencies [d91aed9]
+- Updated dependencies [ed71d9e]
+- Updated dependencies [7776fc2]
+- Updated dependencies [e76634c]
+- Updated dependencies [c86185e]
+- Updated dependencies [fb96ecb]
+- Updated dependencies [1170ed1]
+- Updated dependencies [92814db]
+- Updated dependencies [4d73b07]
+  - @object-ui/i18n@17.7.0
+  - @object-ui/core@17.7.0
+  - @object-ui/types@17.7.0
+  - @object-ui/components@17.7.0
+  - @object-ui/react@17.7.0
+
 ## 17.6.0
 
 ### Minor Changes

@@ -1071,8 +1071,25 @@ export function resolutionRootsFor({ typesDir, repoRoot = REPO_ROOT }) {
 }
 
 /**
+ * ⚠️ The shape is DECLARED, not left to a default value to imply (objectui#9767).
+ * `census` and `runControls` take this optional, and a bare `= null` default
+ * declares the parameter as `null` and nothing else -- so every caller that
+ * passes a real index is a type error and every read of the split buckets is
+ * "possibly null". The pin is the deliverable here, and a pin that compiles
+ * only because its assertions were silenced pins nothing, so the shape is
+ * written down instead.
+ *
+ * @typedef {{ label: string, kind: string, file: string }} ResolutionSite
+ * @typedef {{ label: string, kind: string, dir: string, declarations: number }} ResolutionRoot
+ * @typedef {{ names: Map<string, ResolutionSite>, roots: ResolutionRoot[] }} ResolutionIndex
+ */
+
+/**
  * `name -> where it resolved`, over the roots the split is decided on, plus the
  * per-root declaration counts the controls read.
+ *
+ * @param {{ label: string, kind?: string, dir: string, extensions?: string[], skipDirs?: Set<string> }[]} roots
+ * @returns {ResolutionIndex}
  */
 export function buildResolutionIndex(roots) {
   // Paths are reported repo-relative: an absolute path in a report is a fact
@@ -1110,6 +1127,9 @@ export function readCorpus(corpusDir) {
     .map((name) => ({ name, body: fs.readFileSync(path.join(corpusDir, name), 'utf8') }));
 }
 
+/**
+ * @param {{ corpusDir: string, memberIndex: Map<string, any>, resolutionIndex?: ResolutionIndex | null }} options
+ */
 export function census({ corpusDir, memberIndex, resolutionIndex = null }) {
   const entries = readCorpus(corpusDir);
   // Built once, from the SAME index the verdict resolves against, so the key
@@ -1224,6 +1244,9 @@ export function distinctSchemas(rows) {
  * Controls, on the SAME corpus and the SAME instrument as the census. A zero
  * without these is a dead-instrument zero and is not evidence of absence.
  */
+/**
+ * @param {{ corpusDir: string, memberIndex: Map<string, any>, resolutionIndex?: ResolutionIndex | null }} options
+ */
 export function runControls({ corpusDir, memberIndex, resolutionIndex = null }) {
   const entries = readCorpus(corpusDir);
   let litSentences = 0;
@@ -1242,20 +1265,20 @@ export function runControls({ corpusDir, memberIndex, resolutionIndex = null }) 
   // onto the gone line and be reported as a candidate. ABSENT is the same token
   // the member half uses, looked up in the SAME map the split is decided on, so
   // it is a real lookup and not a phantom check.
-  const resolution = resolutionIndex
-    ? {
-        resolutionLit: {
-          probe: 'resolution roots declaring at least one name',
-          reading: resolutionIndex.roots.filter((r) => r.declarations > 0).length,
-          expect: String(resolutionIndex.roots.length),
-        },
-        resolutionAbsent: {
-          probe: `${ABSENT_CONTROL_KEY} in any resolution root`,
-          reading: Number(resolutionIndex.names.has(ABSENT_CONTROL_KEY)),
-          expect: '0',
-        },
-      }
-    : {};
+  // ⚠️ The pair is ALWAYS reported, including when no index was supplied. A
+  // control row that appears and disappears is one whose absence nobody can
+  // read, and the unmeasured case is precisely the one that has to say so.
+  const UNMEASURED = 'NOT MEASURED (no resolution index)';
+  const resolutionLit = {
+    probe: 'resolution roots declaring at least one name',
+    reading: resolutionIndex ? resolutionIndex.roots.filter((r) => r.declarations > 0).length : 0,
+    expect: resolutionIndex ? String(resolutionIndex.roots.length) : UNMEASURED,
+  };
+  const resolutionAbsent = {
+    probe: `${ABSENT_CONTROL_KEY} in any resolution root`,
+    reading: resolutionIndex ? Number(resolutionIndex.names.has(ABSENT_CONTROL_KEY)) : 0,
+    expect: resolutionIndex ? '0' : UNMEASURED,
+  };
   const resolutionOk = resolutionIndex
     ? resolutionIndex.roots.length > 0 &&
       resolutionIndex.roots.every((r) => r.declarations > 0) &&
@@ -1275,7 +1298,8 @@ export function runControls({ corpusDir, memberIndex, resolutionIndex = null }) 
       reading: base ? Number(base.members.has(ABSENT_CONTROL_KEY)) : 0,
       expect: '0',
     },
-    ...resolution,
+    resolutionLit,
+    resolutionAbsent,
     ok:
       litSentences > 0 &&
       absentSentences === 0 &&

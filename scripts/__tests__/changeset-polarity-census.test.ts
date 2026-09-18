@@ -791,6 +791,49 @@ describe('objectui#9832 pin 11 -- a type annotation is code, not prose, so it ca
   });
 });
 
+/**
+ * ⛔ Neither of these is a silencer. `!` and `as any` would make this file
+ * compile while asserting nothing, and the pin IS the deliverable -- so a
+ * missing row or an unmeasured split FAILS here, loudly and by name, and the
+ * narrowing is a side effect of the check rather than its purpose.
+ */
+function mustFind<T>(rows: readonly T[], match: (row: T) => boolean, missing: string): T {
+  const found = rows.find(match);
+  if (found === undefined) throw new Error(missing);
+  return found;
+}
+
+/** One row of the schema-absent bucket, as `census` reports it (objectui#9767). */
+type BucketRow = {
+  entry: string;
+  schema: string;
+  resolvedIn: { label: string; kind: string; file: string } | null;
+};
+
+/**
+ * The site a row on the RESOLVED line carries. A row there without one would
+ * mean the two lines do not partition on the thing they claim to -- so this
+ * fails rather than narrowing with `!`, which would assert the invariant away.
+ */
+function resolvedSite(row: BucketRow) {
+  if (row.resolvedIn === null) {
+    throw new Error(`${row.schema} is on the resolved line carrying no site -- the split is broken`);
+  }
+  return row.resolvedIn;
+}
+
+/** The two halves of the split, or a failure saying the split was never measured. */
+function splitHalves(run: {
+  schemasOutsideIndex: BucketRow[] | null;
+  schemasResolvingNowhere: BucketRow[] | null;
+}) {
+  const { schemasOutsideIndex: outside, schemasResolvingNowhere: gone } = run;
+  if (outside === null || gone === null) {
+    throw new Error('this run carries no resolution index, so there is no split to assert on');
+  }
+  return { outside, gone };
+}
+
 describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is gone', () => {
   /**
    * The verdict used to report both of these under ONE heading -- "claims
@@ -808,27 +851,28 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
    */
 
   it('a symbol declared in a DECLARED DEPENDENCY lands on the resolved line', () => {
-    const row = fixtureSplitRun.schemasOutsideIndex.find(
+    const { outside, gone } = splitHalves(fixtureSplitRun);
+    const row = mustFind(
+      outside,
       (u) => u.schema === 'DepOnlySchema',
+      'the dependency fixture symbol left the bucket entirely',
     );
-    expect(row, 'the dependency fixture symbol left the bucket entirely').toBeTruthy();
-    expect(row.resolvedIn.kind).toBe('dependency');
-    expect(row.resolvedIn.label).toContain('@fixture/dep');
+    const site = resolvedSite(row);
+    expect(site.kind).toBe('dependency');
+    expect(site.label).toContain('@fixture/dep');
     // The site is reported with it, repo-relative: an absolute path is a fact
     // about one machine and this instrument's answers must be re-derivable.
-    expect(row.resolvedIn.file.endsWith('dependency/index.d.ts')).toBe(true);
-    expect(path.isAbsolute(row.resolvedIn.file)).toBe(false);
+    expect(site.file.endsWith('dependency/index.d.ts')).toBe(true);
+    expect(path.isAbsolute(site.file)).toBe(false);
     // And it is NOT on the other line. Both halves in one assertion, because
     // the failure this card is about is exactly a row being readable as both.
-    expect(
-      fixtureSplitRun.schemasResolvingNowhere.some((u) => u.schema === 'DepOnlySchema'),
-    ).toBe(false);
+    expect(gone.some((u) => u.schema === 'DepOnlySchema')).toBe(false);
   });
 
   it('a symbol declared in NO root lands on the other line, and only there', () => {
-    const gone = distinctSchemas(fixtureSplitRun.schemasResolvingNowhere);
-    expect(gone).toContain('VanishedSchema');
-    expect(distinctSchemas(fixtureSplitRun.schemasOutsideIndex)).not.toContain('VanishedSchema');
+    const { outside, gone } = splitHalves(fixtureSplitRun);
+    expect(distinctSchemas(gone)).toContain('VanishedSchema');
+    expect(distinctSchemas(outside)).not.toContain('VanishedSchema');
   });
 
   it('⭐ the split is NOT "resolves in a declared dependency" alone -- the repo root is a root', () => {
@@ -841,14 +885,14 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
      * them. The wider predicate is pinned here so it cannot be narrowed back
      * without this going red.
      */
-    const row = fixtureSplitRun.schemasOutsideIndex.find(
+    const { outside, gone } = splitHalves(fixtureSplitRun);
+    const row = mustFind(
+      outside,
       (u) => u.schema === 'RepoOnlySchema',
+      'the workspace fixture symbol is not on the resolved line',
     );
-    expect(row, 'the workspace fixture symbol is not on the resolved line').toBeTruthy();
-    expect(row.resolvedIn.kind).toBe('repo');
-    expect(
-      fixtureSplitRun.schemasResolvingNowhere.some((u) => u.schema === 'RepoOnlySchema'),
-    ).toBe(false);
+    expect(resolvedSite(row).kind).toBe('repo');
+    expect(gone.some((u) => u.schema === 'RepoOnlySchema')).toBe(false);
   });
 
   it('the repo root reads `.tsx` too -- the live symbol on that side is in one', () => {
@@ -860,8 +904,11 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
      * onto the gone line, which is this card's own defect returning.
      */
     const roots = resolutionRootsFor({ typesDir: path.join(REPO_ROOT, 'packages/types/src') });
-    const repoRoot = roots.find((r) => r.kind === 'repo');
-    expect(repoRoot, 'the repo is not a resolution root at all').toBeTruthy();
+    const repoRoot = mustFind(
+      roots,
+      (r) => r.kind === 'repo',
+      'the repo is not a resolution root at all',
+    );
     expect(repoRoot.extensions).toContain('.tsx');
     expect(repoRoot.extensions).toContain('.ts');
     // And a declared dependency is a root too, derived from the manifest that
@@ -870,8 +917,7 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
   });
 
   it('the two lines PARTITION the bucket -- nothing is dropped and nothing is counted twice', () => {
-    const outside = fixtureSplitRun.schemasOutsideIndex;
-    const gone = fixtureSplitRun.schemasResolvingNowhere;
+    const { outside, gone } = splitHalves(fixtureSplitRun);
     expect(outside.length + gone.length).toBe(fixtureSplitRun.unresolvedSchemas.length);
     expect(outside.length, 'a vacuous partition proves nothing').toBeGreaterThan(0);
     expect(gone.length, 'a vacuous partition proves nothing').toBeGreaterThan(0);
@@ -887,6 +933,14 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
     expect(fixtureRun.schemasResolvingNowhere).toBe(null);
     expect(fixtureRun.unresolvedSchemas.length).toBeGreaterThan(0);
     expect(fixtureRun.unresolvedSchemas.every((u) => u.resolvedIn === null)).toBe(true);
+    // And the control rows are STILL THERE, saying so. A control that vanishes
+    // with the thing it controls is one whose absence nobody can read.
+    const controls = runControls({ corpusDir: FIXTURE_CORPUS, memberIndex: fixtureIndex });
+    expect(controls.resolutionLit.expect).toContain('NOT MEASURED');
+    expect(controls.resolutionAbsent.expect).toContain('NOT MEASURED');
+    expect(controls.ok, 'an unmeasured split must not fail the run it was never part of').toBe(
+      true,
+    );
   });
 
   it('⛔ a resolution root that cannot be read VOIDS the run -- it does not empty a line', () => {

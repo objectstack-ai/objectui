@@ -88,7 +88,7 @@ const schema: CardSchema = {
   title: 'Team Directory',
   description: 'Rendered from JSON metadata',
   className: 'mx-auto max-w-3xl',
-  body: {
+  children: {
     type: 'data-table',
     caption: 'Users',
     columns: [

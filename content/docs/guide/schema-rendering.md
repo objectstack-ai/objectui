@@ -32,7 +32,7 @@ function App() {
   const schema: PageNodeSchema = {
     type: "page",
     title: "My Dashboard",
-    body: [{ type: "text", content: "Hello" }]
+    children: [{ type: "text", content: "Hello" }]
   }
   
   return <SchemaRenderer schema={schema} />
@@ -66,7 +66,7 @@ interface BaseSchema {
   "className": "p-6 shadow-lg",
   "title": "User Statistics",
   "visibleOn": "${user.role === 'admin'}",
-  "body": {
+  "children": {
     "type": "text",
     "content": "Total Users: ${stats.totalUsers}"
   }
@@ -167,14 +167,14 @@ Schemas can be nested to create complex UIs:
 {
   "type": "page",
   "title": "Dashboard",
-  "body": {
+  "children": {
     "type": "grid",
     "columns": 2,
     "children": [
       {
         "type": "card",
         "title": "Card 1",
-        "body": {
+        "children": {
           "type": "text",
           "content": "Nested content"
         }
@@ -182,7 +182,7 @@ Schemas can be nested to create complex UIs:
       {
         "type": "card",
         "title": "Card 2",
-        "body": {
+        "children": {
           "type": "chart",
           "chartType": "bar",
           "xAxisKey": "month",
@@ -275,7 +275,7 @@ it on `label`: `text` is not a `BadgeSchema` key.
   "type": "alert",
   "variant": "default",
   "title": "Welcome!",
-  "body": {
+  "children": {
     "type": "text",
     "content": "${
       user.isNew ? 'Start with the quick tour.' :
@@ -400,7 +400,7 @@ const form: FormSchema = {
 const schema: PageNodeSchema = {
   type: "page",
   title: "Typed Page",
-  body: [form]
+  children: [form]
 }
 ```
 
@@ -421,7 +421,7 @@ const footerSchema = { /* ... */ }
 
 const pageSchema = {
   type: "page",
-  body: [headerSchema, contentSchema, footerSchema]
+  children: [headerSchema, contentSchema, footerSchema]
 }
 ```
 
@@ -468,7 +468,7 @@ const schema = user.isAdmin ? adminSchema : userSchema
 // ✅ Good
 const schema = {
   type: "page",
-  body: [
+  children: [
     { 
       type: "admin-panel",
       visibleOn: "${user.isAdmin}"
@@ -521,7 +521,7 @@ Always type your schemas for better IDE support and fewer runtime errors.
   "variant": "destructive",
   "visibleOn": "${error}",
   "title": "Something went wrong",
-  "body": { "type": "text", "content": "${error.message}" }
+  "children": { "type": "text", "content": "${error.message}" }
 }
 ```
 

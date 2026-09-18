@@ -75,10 +75,10 @@ Create a file `app.objectui.json`:
 {
   "type": "div",
   "className": "p-6",
-  "body": {
+  "children": {
     "type": "card",
     "title": "Hello Object UI",
-    "body": {
+    "children": {
       "type": "text",
       "content": "This is a schema-driven UI!"
     }

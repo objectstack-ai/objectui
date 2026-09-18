@@ -270,7 +270,7 @@ import '@object-ui/plugin-myplugin'
 {
   "type": "page",
   "title": "Plugin test",
-  "body": [
+  "children": [
     { "type": "my-component", "message": "Testing my plugin" }
   ]
 }
@@ -315,7 +315,7 @@ pnpm dev --host
 ## Schemas to Start From
 
 These live here in the docs, not in the package — copy one, wrap it in a page document
-(`{ "type": "page", "body": [ … ] }`), and save it as `src/app-data/pages/index.json`, or
+(`{ "type": "page", "children": [ … ] }`), and save it as `src/app-data/pages/index.json`, or
 serve it from your own backend and load it with `?api=<base>`.
 
 ### Dashboard Example
@@ -498,7 +498,7 @@ served at `/my-page`.
 {
   "type": "page",
   "title": "My Page",
-  "body": [
+  "children": [
     {
       "type": "div",
       "className": "p-8",

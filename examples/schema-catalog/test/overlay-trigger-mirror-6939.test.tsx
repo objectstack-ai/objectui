@@ -193,7 +193,7 @@ describe('objectui#6939 — the keys the renderers read are DECLARED, not passth
     const shape = (TooltipSchema as unknown as { shape: Record<string, unknown> }).shape;
     expect(Object.keys(shape)).toEqual(expect.arrayContaining(['trigger', 'content', 'body']));
     expect(TooltipSchema.safeParse({ type: 'tooltip', content: 'text only' }).success).toBe(true);
-    expect(TooltipSchema.safeParse({ type: 'tooltip', body: { type: 'text', content: 'rich only' } }).success).toBe(true);
+    expect(TooltipSchema.safeParse({ type: 'tooltip', children: { type: 'text', content: 'rich only' } }).success).toBe(true);
   });
 
   it('context-menu declares triggerClassName / contentClassName / modal', () => {

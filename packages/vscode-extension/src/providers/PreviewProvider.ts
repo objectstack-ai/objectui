@@ -223,8 +223,9 @@ export class PreviewProvider {
             desc.textContent = schema.description;
             element.appendChild(desc);
           }
-          // children first, body kept -- see the container branch below.
-          const cardChildren = schema.children || schema.body;
+          // children is the one child-list spelling -- see the container
+          // branch below.
+          const cardChildren = schema.children;
           if (cardChildren) {
             const body = Array.isArray(cardChildren) ? cardChildren : [cardChildren];
             body.forEach(child => {
@@ -240,18 +241,18 @@ export class PreviewProvider {
         default:
           // Handle generic div/container.
           //
-          // children is read FIRST, body is kept as a second arm. This guard
-          // used to name schema.body alone, so a node spelling its child list
-          // children -- the spelling the TypeScript declaration, the zod
-          // mirror, core's validator and the manifest tier all bless --
-          // rendered as an EMPTY element: no error, no diagnostic, just a
-          // blank preview (objectui#7181). The body arm stays; removing it is
-          // objectui#6771 step 2, not this change.
+          // children is the one child-list spelling. This guard used to name
+          // schema.body alone, so a node spelling its child list children --
+          // the spelling the TypeScript declaration, the zod mirror, core's
+          // validator and the manifest tier all bless -- rendered as an EMPTY
+          // element: no error, no diagnostic, just a blank preview
+          // (objectui#7181). objectui#6771 retired body, so the second arm is
+          // gone and the preview shows what the runtime will show.
           //
           // NOTE: this comment carries no backticks on purpose. It lives
           // INSIDE the webview's template literal, where an unescaped backtick
           // ends the string and the file stops parsing.
-          const containerChildren = schema.children || schema.body;
+          const containerChildren = schema.children;
           if (containerChildren) {
             const body = Array.isArray(containerChildren) ? containerChildren : [containerChildren];
             body.forEach(child => {

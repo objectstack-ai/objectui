@@ -134,7 +134,7 @@ The `Page` component provides a consistent wrapper for individual pages with opt
   "type": "page",
   "title": "User Management",
   "description": "Manage users and permissions",
-  "body": {
+  "children": {
     "type": "container",
     "children": [
       { "type": "text", "content": "User list goes here" }
@@ -151,7 +151,7 @@ A `page` node has no action row of its own. Buttons are NODES, and they go in `b
 {
   "type": "page",
   "title": "Products",
-  "body": [
+  "children": [
     {
       "type": "flex",
       "justify": "end",
@@ -217,7 +217,7 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
   // NO `breadcrumbs` — refused by name (objectui#8871); put a `breadcrumb` node in `body`
 
   // Content
-  body: SchemaNode,            // Main page content
+  children: SchemaNode,            // Main page content
   
   // Layout options
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full',
@@ -239,7 +239,7 @@ Control page content width:
   "type": "page",
   "title": "Settings",
   "maxWidth": "lg",  // Centered content with max width
-  "body": {
+  "children": {
     "type": "form",
     "fields": [...]
   }
@@ -509,7 +509,7 @@ Omit `sidebar` and the content fills the width under the top bar.
   "type": "page",
   "title": "Settings",
   "maxWidth": "2xl",
-  "body": {
+  "children": {
     "type": "tabs",
     "tabs": [
       {
@@ -541,7 +541,7 @@ Same rule as above, and it governs the trail too: the breadcrumb and the buttons
 {
   "type": "page",
   "title": "Acme Corporation",
-  "body": [
+  "children": [
     {
       "type": "breadcrumb",
       "items": [
@@ -661,7 +661,7 @@ Control page content padding:
 {
   "type": "page",
   "padding": false,  // Remove default padding
-  "body": {
+  "children": {
     "type": "container",
     "className": "p-8",  // Custom padding
     "children": [...]
@@ -718,7 +718,7 @@ Place primary actions in the first `body` node, so they sit above the content:
 {
   "type": "page",
   "title": "Orders",
-  "body": [
+  "children": [
     {
       "type": "flex",
       "justify": "end",
@@ -744,7 +744,7 @@ Use constrained width for forms and reading content:
 {
   "type": "page",
   "maxWidth": "lg",  // Better for forms
-  "body": {
+  "children": {
     "type": "form",
     "fields": [...]
   }

@@ -60,7 +60,7 @@ All schema types extend `BaseSchema`. These shared properties are available on e
   "disabledOn": "${data.isLocked}",
   "testId": "wrapper-element",
   "ariaLabel": "Content wrapper",
-  "body": []
+  "children": []
 }
 ```
 
@@ -118,11 +118,11 @@ Top-level page container. Defines a full page with optional regions (header, sid
   "regions": [
     {
       "name": "header",
-      "body": [{ "type": "text", "content": "Welcome back" }]
+      "children": [{ "type": "text", "content": "Welcome back" }]
     }
   ],
-  "body": [
-    { "type": "card", "title": "Activity", "body": [] }
+  "children": [
+    { "type": "card", "title": "Activity", "children": [] }
   ]
 }
 ```
@@ -181,7 +181,7 @@ A styled container with optional header, body, and footer regions.
   "header": [
     { "type": "badge", "label": "Live", "variant": "secondary" }
   ],
-  "body": [
+  "children": [
     { "type": "statistic", "label": "Total Revenue", "value": "$12,400" }
   ],
   "footer": [
@@ -215,9 +215,9 @@ A responsive grid layout. Columns can be a fixed number or responsive breakpoint
   "columns": { "sm": 1, "md": 2, "lg": 3 },
   "gap": 6,
   "children": [
-    { "type": "card", "title": "Card 1", "body": [] },
-    { "type": "card", "title": "Card 2", "body": [] },
-    { "type": "card", "title": "Card 3", "body": [] }
+    { "type": "card", "title": "Card 1", "children": [] },
+    { "type": "card", "title": "Card 2", "children": [] },
+    { "type": "card", "title": "Card 3", "children": [] }
   ]
 }
 ```
@@ -246,7 +246,7 @@ A tabbed interface for organizing content into switchable panels.
       "value": "overview",
       "label": "Overview",
       "icon": "Info",
-      "content": { "type": "div", "body": [{ "type": "text", "content": "Overview content" }] }
+      "content": { "type": "div", "children": [{ "type": "text", "content": "Overview content" }] }
     },
     {
       "value": "settings",
@@ -1263,7 +1263,7 @@ Schemas are designed to compose. Nest any `SchemaNode` inside another to build c
 {
   "type": "page",
   "title": "CRM Dashboard",
-  "body": [
+  "children": [
     {
       "type": "grid",
       "columns": { "sm": 1, "lg": 2 },
@@ -1272,7 +1272,7 @@ Schemas are designed to compose. Nest any `SchemaNode` inside another to build c
         {
           "type": "card",
           "title": "Quick Stats",
-          "body": {
+          "children": {
             "type": "dashboard",
             "columns": 2,
             "widgets": [
@@ -1284,7 +1284,7 @@ Schemas are designed to compose. Nest any `SchemaNode` inside another to build c
         {
           "type": "card",
           "title": "Recent Activity",
-          "body": {
+          "children": {
             "type": "tabs",
             "items": [
               { "value": "deals", "label": "Deals", "content": { "type": "table", "columns": [], "data": [] } },

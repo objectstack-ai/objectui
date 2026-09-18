@@ -70,6 +70,11 @@
  *    trigger rather than wrapped by it. This is what makes the repair targeted
  *    rather than a blanket `asChild` removal: withheld only where Radix
  *    structurally cannot serve.
+ *  - `OVER_REACH_IS_VISIBLE` — the control above is observed CATCHING an
+ *    over-reach, on a block registered inside the test that withholds `asChild`
+ *    where Radix could have served. Without it, "the detector is strong" is a
+ *    claim about an assertion nobody has seen go red — and one version of that
+ *    detector silently saw only one of this card's eight renderers.
  *  - `REDDENS_FOR_A_NINTH` — a deliberately defective block is registered
  *    inside the test, and THE assertion above (the errored-out list is empty)
  *    is observed holding exactly that block's name. Without this, "the pin
@@ -223,8 +228,16 @@ function read(type: string, schema: Record<string, unknown>): Reading {
   const { container } = render(
     <SchemaRenderer schema={{ type, ...schema } as never} />,
   );
+  // ⛔ NOT the first button whose text matches. When a primitive WRAPS the
+  // authored button, the Radix-drawn wrapper has the same `textContent` and
+  // comes FIRST in document order — so a first-match finder hands back the
+  // wrapper, `closest` then searches ABOVE it, and the over-reach reads as
+  // clean. That is not hypothetical: it is how this control went from catching
+  // seven of this card's eight renderers to catching one. Take the INNERMOST
+  // match — the one that contains no button of its own.
   const authored = [...container.querySelectorAll('button')].find(
-    (node) => node.textContent === ELEMENT_LABEL,
+    (node) =>
+      node.textContent === ELEMENT_LABEL && node.querySelector('button') === null,
   );
   const owner = authored?.parentElement?.closest(RADIX_TRIGGER_WIRING) ?? null;
   return {
@@ -290,8 +303,42 @@ function registerDefectiveNinth(): void {
   );
 }
 
+const OVER_REACH_TYPE = 'over-reaching-key';
+const OVER_REACH_CANONICAL = `${NINTH_NAMESPACE}:${OVER_REACH_TYPE}`;
+
+/**
+ * A block that withholds `asChild` on a path Radix COULD have served, so the
+ * primitive draws its own button around the authored one. `Popover` is chosen
+ * because it draws a BUTTON — the shape seven of this card's eight renderers
+ * have, and the shape the previous version of `wrapped` was blind to.
+ *
+ * This exists so the over-reach detector's FAILURE is observed on every run
+ * rather than argued for. A control whose red has never been seen certifies
+ * nothing, which is exactly how a regression reached this file.
+ */
+function registerOverReaching(): void {
+  ComponentRegistry.register(
+    OVER_REACH_TYPE,
+    ({ schema }: { schema: { trigger?: unknown }; [key: string]: unknown }) => (
+      <Popover>
+        <PopoverTrigger asChild={false}>
+          {renderChildren(schema.trigger)}
+        </PopoverTrigger>
+        <PopoverContent />
+      </Popover>
+    ),
+    {
+      namespace: NINTH_NAMESPACE,
+      label: 'Over-reaching overlay key',
+      inputs: [{ name: 'trigger', type: 'slot' }],
+      skipFallback: true,
+    },
+  );
+}
+
 afterEach(() => {
   ComponentRegistry.unregister(NINTH_TYPE, NINTH_NAMESPACE);
+  ComponentRegistry.unregister(OVER_REACH_TYPE, NINTH_NAMESPACE);
   cleanup();
 });
 
@@ -379,6 +426,21 @@ describe('overlay triggers: every block declaring a `trigger` slot (objectui#971
     // Wrapping would mean `asChild` was dropped on a path Radix can serve —
     // the over-reach this control refuses.
     expect(named(rows, (row) => row.wrapped)).toEqual([]);
+  });
+
+  it('OVER_REACH_IS_VISIBLE control: the wrapped detector sees a primitive that drew its own button', () => {
+    registerOverReaching();
+
+    const rows = survey(() => ({
+      trigger: [{ type: 'button', label: ELEMENT_LABEL }],
+    }));
+
+    expect(rows.map((row) => row.type)).toContain(OVER_REACH_CANONICAL);
+    // The list ASCHILD_STILL_ON asserts empty now holds exactly the
+    // over-reaching block — so that control is observed CATCHING the thing it
+    // exists to catch, on a button-drawing primitive. With a first-match
+    // authored-element finder this reads `[]` and reddens here instead.
+    expect(named(rows, (row) => row.wrapped)).toEqual([OVER_REACH_CANONICAL]);
   });
 
   it('REDDENS_FOR_A_NINTH control: a newly registered defective block enters the population and breaks THE assertion', () => {

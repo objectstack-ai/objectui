@@ -636,12 +636,26 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     if (hasInlineFields) {
       setInitialData(schema.initialData || schema.initialValues || {});
-      setLoading(false);
+      // objectui#9778: inline members no longer short-circuit the metadata
+      // read — they MERGE over it — so the loading flag can only drop here
+      // when nothing is going to be fetched. Dropping it unconditionally put
+      // an empty `<form>` on screen for the duration of `getObjectSchema`.
+      // The metadata branch's own tail (`willFetchData`) clears it otherwise.
+      if (!(schema.objectName && dataSource)) {
+        setLoading(false);
+      }
     }
-  }, [hasInlineFields, schema.initialData, schema.initialValues]);
+  }, [hasInlineFields, schema.initialData, schema.initialValues, schema.objectName, dataSource]);
 
-  // Fetch object schema from ObjectQL/ObjectStack (skip if using inline fields)
+  // Fetch object schema from ObjectQL/ObjectStack (inline members merge OVER it)
   useEffect(() => {
+    // The field source when no object metadata is reachable: an object with no
+    // fields, over which the authored members are the whole set.
+    const inlineOnlySchema = {
+      name: schema.objectName,
+      fields: {} as Record<string, any>,
+    };
+
     const fetchObjectSchema = async () => {
       try {
         if (!dataSource) {
@@ -653,21 +667,34 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         }
         setObjectSchema(schemaData);
       } catch (err) {
+        // objectui#9778: for the inline path the metadata is an OVERLAY, not a
+        // prerequisite. A form that renders its authored members today must not
+        // become an error panel because the adapter cannot describe the object —
+        // fall back to the members-only source the registration promises for the
+        // no-data-source case.
+        if (hasInlineFields) {
+          setObjectSchema(inlineOnlySchema);
+          setLoading(false);
+          return;
+        }
         setError(err as Error);
         setLoading(false);
       }
     };
 
-    // Skip fetching if we have inline fields
-    if (hasInlineFields) {
-      // Use a minimal schema for inline fields
-      setObjectSchema({
-        name: schema.objectName,
-        fields: {} as Record<string, any>,
-      });
-    } else if (schema.objectName && dataSource) {
+    // objectui#9778: inline members are "merged over the set generated from
+    // object metadata" (the registered description of `customFields`), so the
+    // fetch is no longer skipped when they are present — without the generated
+    // set there is nothing to merge over and the merge lookup further down
+    // stays the dead code objectui#8071 measured. The members-only schema is
+    // what the registration's second sentence describes ("with inline
+    // definitions and no data source, this becomes the only field source"), so
+    // it is now the FALLBACK rather than the inline path's fixed answer.
+    if (schema.objectName && dataSource) {
       fetchObjectSchema();
-    } else if (!hasInlineFields) {
+    } else if (hasInlineFields) {
+      setObjectSchema(inlineOnlySchema);
+    } else {
       // No objectName or dataSource and no inline fields — cannot proceed
       setLoading(false);
     }
@@ -718,15 +745,26 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // matcher, which is not a CEL evaluator and was never called downstream.
   const normalizeVisibility = useCallback((f: any): any => f, []);
 
-  // Generate form fields from object schema or inline fields
+  // Generate form fields from object schema, with inline members merged over it
+  //
+  // objectui#9778 — `customFields` MERGES, it does not replace. The registered
+  // description of the member ("Field definitions merged over the set generated
+  // from object metadata. With inline definitions and no data source, this
+  // becomes the only field source.") is the contract, and the per-member merge
+  // below (`schema.customFields?.find(...)`) was written for it — but a
+  // non-empty `customFields` used to return from here with
+  // `setFormFields(schema.customFields.map(normalizeVisibility))` BEFORE the
+  // generated set existed, so that lookup only ever ran over an empty array.
+  // The three directions the merge now takes, one case each in
+  // `objectFormCustomFieldsMembers-8071.test.tsx`:
+  //   override — a member naming a declared field replaces that field's
+  //              generated definition, in the generated set's position;
+  //   keep     — a declared field no member names still renders;
+  //   append   — a member naming a field the metadata never declares is added
+  //              after the generated set, in authored order.
+  // With no data source the generated set is empty, so the members remain the
+  // only field source (the registration's second sentence) — unchanged.
   useEffect(() => {
-    // For inline fields, use them directly
-    if (hasInlineFields && schema.customFields) {
-      setFormFields(schema.customFields.map(normalizeVisibility));
-      setLoading(false);
-      return;
-    }
-
     if (!objectSchema) return;
 
     const generatedFields: FormField[] = [];
@@ -972,6 +1010,20 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         generatedFields.push(formField);
       }
     });
+
+    // objectui#9778 — the APPEND direction. A member naming a field the
+    // generated set does not carry (an object metadata never declared, or one
+    // the `fields` whitelist left out) is added after it, in authored order;
+    // members that already overrode a generated field above are not repeated.
+    if (hasInlineFields && schema.customFields) {
+      const alreadyDrawn = new Set(generatedFields.map((f) => f.name));
+      schema.customFields.forEach((customField: any) => {
+        const name = customField?.name;
+        if (!name || alreadyDrawn.has(name)) return;
+        alreadyDrawn.add(name);
+        generatedFields.push(normalizeVisibility(customField));
+      });
+    }
 
     setFormFields(generatedFields);
 

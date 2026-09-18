@@ -79,7 +79,7 @@ describe('Form Renderers - Display Issue Detection', () => {
     it('should render children when no label provided', () => {
       const { container } = renderComponent({
         type: 'button',
-        body: [{ type: 'text', content: 'Child Content' }],
+        children: [{ type: 'text', content: 'Child Content' }],
       });
 
       expect(container.textContent).toContain('Child Content');

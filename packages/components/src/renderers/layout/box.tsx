@@ -30,12 +30,13 @@ import { forwardRef } from 'react';
  *   2. the authored `className` passes through VERBATIM;
  *   3. zero injected classes — no `cn()` merge, no default class, nothing.
  *
- * Deliberately unlike `div`, this renderer reads `children` ONLY — never
- * `schema.body`. The `div` renderer's `children || body` fallback is exactly
- * what made a mechanical `div`→X swap unsafe (four catalog fixtures authored
- * `body` and would have lost their content silently, with an unchanged element
- * count); `box` keeps the one spelling so that hazard cannot re-grow. Content
- * on a migrated node moves into `children` — the #6771 B-ruling direction.
+ * This renderer reads `children` ONLY, and since objectui#6771 retired the
+ * `body` dialect every other renderer does too — `box` is no longer the
+ * exception it was written as. The hazard it was minted against was `div`'s
+ * `children || body` fallback, which made a mechanical `div`→X swap unsafe
+ * (four catalog fixtures authored `body` and would have lost their content
+ * silently, with an unchanged element count). That fallback is retired; the
+ * one spelling is now the protocol's, not just this renderer's.
  */
 // Index signature on the parameter annotation, not on the `forwardRef` type
 // argument — mechanism note on `action:bar` (objectui#4422), pinned by

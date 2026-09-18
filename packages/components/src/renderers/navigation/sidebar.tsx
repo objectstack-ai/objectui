@@ -40,7 +40,7 @@ import {
 
 ComponentRegistry.register('sidebar-provider',
   ({ schema, ...props }: { schema: BaseSchema; [key: string]: any }) => (
-    <SidebarProvider {...props}>{renderChildren(schema.body)}</SidebarProvider>
+    <SidebarProvider {...props}>{renderChildren(schema.children)}</SidebarProvider>
   ),
   {
     namespace: 'ui',
@@ -56,7 +56,7 @@ ComponentRegistry.register('sidebar-provider',
 
 ComponentRegistry.register('sidebar', 
   ({ schema, ...props }: { schema: SidebarSchema; [key: string]: any }) => (
-    <Sidebar {...props}>{renderChildren(schema.body)}</Sidebar>
+    <Sidebar {...props}>{renderChildren(schema.children)}</Sidebar>
   ),
   {
     namespace: 'ui',
@@ -76,7 +76,7 @@ ComponentRegistry.register('sidebar',
 
 ComponentRegistry.register('sidebar-header',
   ({ schema, ...props }: { schema: BaseSchema; [key: string]: any }) => (
-    <SidebarHeader {...props}>{renderChildren(schema.body)}</SidebarHeader>
+    <SidebarHeader {...props}>{renderChildren(schema.children)}</SidebarHeader>
   ),
   { 
     namespace: 'ui',
@@ -86,7 +86,7 @@ ComponentRegistry.register('sidebar-header',
 
 ComponentRegistry.register('sidebar-content',
   ({ schema, ...props }: { schema: BaseSchema; [key: string]: any }) => (
-    <SidebarContent {...props}>{renderChildren(schema.body)}</SidebarContent>
+    <SidebarContent {...props}>{renderChildren(schema.children)}</SidebarContent>
   ),
   { 
     namespace: 'ui',
@@ -109,7 +109,7 @@ ComponentRegistry.register('sidebar-group',
           <SidebarGroupLabel>{resolveInlineI18nLabel(schema.label, locale)}</SidebarGroupLabel>
         )}
         <SidebarGroupContent>
-          {renderChildren(schema.body)}
+          {renderChildren(schema.children)}
         </SidebarGroupContent>
       </SidebarGroup>
     );
@@ -128,7 +128,7 @@ ComponentRegistry.register('sidebar-group',
 
 ComponentRegistry.register('sidebar-menu',
   ({ schema, ...props }: { schema: BaseSchema; [key: string]: any }) => (
-    <SidebarMenu {...props}>{renderChildren(schema.body)}</SidebarMenu>
+    <SidebarMenu {...props}>{renderChildren(schema.children)}</SidebarMenu>
   ),
   { 
     namespace: 'ui',
@@ -138,7 +138,7 @@ ComponentRegistry.register('sidebar-menu',
 
 ComponentRegistry.register('sidebar-menu-item',
   ({ schema, ...props }: { schema: BaseSchema; [key: string]: any }) => (
-    <SidebarMenuItem {...props}>{renderChildren(schema.body)}</SidebarMenuItem>
+    <SidebarMenuItem {...props}>{renderChildren(schema.children)}</SidebarMenuItem>
   ),
   { 
     namespace: 'ui',
@@ -161,7 +161,7 @@ ComponentRegistry.register('sidebar-menu-button',
         {...toFormControlDomProps(buttonProps)}
         style={style}
       >
-        {renderChildren(schema.body)}
+        {renderChildren(schema.children)}
       </SidebarMenuButton>
     );
   },
@@ -181,7 +181,7 @@ ComponentRegistry.register('sidebar-menu-button',
 
 ComponentRegistry.register('sidebar-footer',
   ({ schema, ...props }: { schema: BaseSchema; [key: string]: any }) => (
-    <SidebarFooter {...props}>{renderChildren(schema.body)}</SidebarFooter>
+    <SidebarFooter {...props}>{renderChildren(schema.children)}</SidebarFooter>
   ),
   { 
     namespace: 'ui',
@@ -191,7 +191,7 @@ ComponentRegistry.register('sidebar-footer',
 
 ComponentRegistry.register('sidebar-inset',
   ({ schema, ...props }: { schema: BaseSchema; [key: string]: any }) => (
-    <SidebarInset {...props}>{renderChildren(schema.body)}</SidebarInset>
+    <SidebarInset {...props}>{renderChildren(schema.children)}</SidebarInset>
   ),
   { 
     namespace: 'ui',

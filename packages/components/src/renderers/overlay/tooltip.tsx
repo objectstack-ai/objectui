@@ -26,7 +26,7 @@ ComponentRegistry.register('tooltip',
       <Tooltip {...props}>
         {renderTriggerSlot(TooltipTrigger, schema.trigger)}
         <TooltipContent side={schema.side} align={schema.align} className={className}>
-           {(schema.content || renderChildren(schema.body)) as any}
+           {(schema.content || renderChildren(schema.children)) as any}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -46,9 +46,13 @@ ComponentRegistry.register('tooltip',
         name: 'content', 
         type: 'string', 
       },
-      { 
-        name: 'body', 
-        type: 'slot'      },
+      // The rich-content slot. This registration published `body` and was
+      // the one place on the whole authoring surface that ADVERTISED the
+      // dialect in its `inputs`; objectui#6771 retired it, so the slot is
+      // declared under the one spelling the protocol keeps. Same two-sided
+      // move as the `page:card` retirement pinned by
+      // `components/src/__tests__/page-container-authorable-keys.test.tsx`.
+      { name: 'children', type: 'slot' },
       { name: 'className', type: 'string' }
     ],
     defaultProps: {

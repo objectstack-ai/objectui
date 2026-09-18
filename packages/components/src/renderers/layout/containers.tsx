@@ -438,11 +438,13 @@ const collectRelatedLists = (nodes: any, acc: any[] = []): any[] => {
       acc.push(n);
       continue; // Don't descend into a related_list's own subtree.
     }
+    // `body` left this list with objectui#6771's retirement of the dialect;
+    // `items` stays — it is the `list` registration's own item channel and
+    // its own card (objectui#9590), not this spelling.
     const candidates = [
       n.children,
       n.properties?.children,
       n.properties?.items,
-      n.body,
       n.items,
     ];
     for (const c of candidates) {
@@ -479,7 +481,7 @@ const containsAttachmentsNode = (nodes: any): boolean => {
   for (const n of list) {
     if (!n || typeof n !== 'object') continue;
     if (n.type === 'record:attachments') return true;
-    const candidates = [n.children, n.properties?.children, n.properties?.items, n.body, n.items];
+    const candidates = [n.children, n.properties?.children, n.properties?.items, n.items];
     for (const c of candidates) {
       if (c && containsAttachmentsNode(c)) return true;
     }

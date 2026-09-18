@@ -464,7 +464,11 @@ function validateChildren(
 ): SchemaNodeValidationError[] {
   const errors: SchemaNodeValidationError[] = [];
 
-  const children = schema.children || schema.body;
+  // One spelling. This walker resolved `children || body` for ANY node type,
+  // so it outlived every per-registration read of the dialect — objectui#6771
+  // retired it, and a recursive validator that still descended `body` would
+  // keep validating a child list no renderer puts on the page.
+  const children = schema.children;
   if (children) {
     if (Array.isArray(children)) {
       children.forEach((child: unknown, index: number) => {

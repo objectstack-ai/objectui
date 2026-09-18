@@ -612,9 +612,18 @@ export const INDIRECT_REGISTRATIONS = [
       'cannot drift apart. ⭐ For this collection the exclusion also carries the point of the ' +
       'retirement: objectui#8760 graded a key that passes every authoring check and fails only in ' +
       "front of a user as the WRONG side of the line, so a spelling this package has retired must be " +
-      'named by `objectui check` rather than blessed by the generated whitelist. DROP this `excluded` ' +
-      'line and `view:dashboard` re-enters the universe, `KNOWN_SCHEMA_TYPES` regains it, and a ' +
-      'document teaching it turns GREEN again.',
+      'named by `objectui check` rather than blessed by the generated whitelist. ⚠️ DROPPING this ' +
+      '`excluded` line does NOT re-admit `view:dashboard` — measured on this tree it makes THIS entry ' +
+      'report `stale-indirect-registration`, and `check:doc-types` and ' +
+      '`regenerate-known-schema-types.mjs --check` both exit non-zero and write nothing. Without the ' +
+      'exclusion the derivation has to read the collection literal in the site file, and ' +
+      'RETIRED_DASHBOARD_NODE_TYPES is IMPORTED there from `./retired-node-types` (the `reason` below ' +
+      'says so for its own purposes), so it resolves to no literal keys at all: the universe does not ' +
+      'regain the spelling, `KNOWN_SCHEMA_TYPES` is not rewritten, and a document teaching ' +
+      '`view:dashboard` stays RED — it just stays red for a DIFFERENT reason, with the gate now ' +
+      'refusing the whole entry. ⇒ admitting the spelling is NOT a one-line change here; the keys ' +
+      'would first have to be readable from this file. Re-derive both halves by deleting the line and ' +
+      'running those two commands.',
     reason:
       '`packages/plugin-dashboard` registers every key of RETIRED_DASHBOARD_NODE_TYPES last, under the ' +
       '`view` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +

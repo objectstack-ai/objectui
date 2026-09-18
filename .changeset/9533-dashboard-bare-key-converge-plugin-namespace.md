@@ -48,6 +48,25 @@ in `scripts/check-doc-component-types.mjs`, the same disposition the
 blessing it; `packages/cli/src/utils/known-schema-types.ts` regenerates and loses
 that one entry.
 
+**Also published: four new symbols on the package entry.** `src/index.tsx`
+re-exports `RETIRED_DASHBOARD_NODE_TYPES`, `RetiredDashboardNodeTombstone`,
+`reportRetiredDashboardNodeType` and `resetRetiredDashboardNodeTypeReports` from
+`./retired-node-types`, and `exports["."]` is what publishes them — so these are
+**published** surface, not an internal one, and removing or renaming one later is
+a breaking change like any other export. They exist for the same reason
+`@object-ui/fields` publishes its tombstone: the pin has to import the refusal
+text it asserts rather than restate it.
+
+**Also visible in the DOM: the `data-obj-type` value on a dashboard grid.** That
+attribute carries the type the node was AUTHORED with, so the spelling that puts
+a dashboard grid on the page moves with the registration.
+`[data-obj-type="view:dashboard"]` no longer selects one — that node now renders
+the tombstone, which publishes `data-retired-node-type` and no `data-obj-type` at
+all — while `[data-obj-type="plugin-dashboard:dashboard"]` now does.
+`{ "type": "dashboard" }` is unchanged and still reads `dashboard`. A stylesheet,
+a selector or a DOM assertion keyed on the retired value stops matching, and
+stops matching silently, so it is declared here rather than left to be found.
+
 **Ruled, not chosen.** Director seat summon #24, batch #152 item 5 letter 1,
 maintainer 「其他同意」 2026-09-18. The two rejected routes are on the record:
 converging on `view` would leave the whitelist advertising a dead

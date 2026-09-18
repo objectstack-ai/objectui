@@ -122,10 +122,27 @@
  *   schema. V pairs them because they share a sentence. This is the limit the
  *   card's own author stated first, and it is still the largest source.
  *
- *   POLARITY BY KEYWORD. The claim's polarity is read from negation words in
- *   the sentence. A sentence that carries `no`, `not` or `none` for an
- *   unrelated clause -- "It has no mirror entry today, so ... `S` declares K" --
- *   is read as a negative claim and inverts the verdict.
+ *   POLARITY BY CLAUSE (was: POLARITY BY KEYWORD -- objectui#9754 narrowed it).
+ *   Polarity is a property of the clause that carries the declaration verb, not
+ *   of the sentence. Reading it sentence-wide made "It has no mirror entry
+ *   today, so ... `S` declares K" a NEGATIVE claim and inverted the verdict on
+ *   a key the sentence asserts. The sentence is now cut at clause boundaries
+ *   (`;` `:` parens, dashes, `⇒`, and the coordinators/subordinators `and`
+ *   `but` `so` `which` `while` `because` ...), the negators are read only
+ *   inside the clause that carries the verb, and each key takes the polarity of
+ *   the DECLARATION CLAUSE IT IS WRITTEN IN. A key written outside any
+ *   declaration clause inherits the nearest declaration clause before it --
+ *   except that a negator-led fragment (`... and no \`data\``) keeps its own
+ *   negation, which is how a coordinated "declares X and no Y" reads correctly
+ *   on both halves. A key resolved across a sentence boundary (the pronoun
+ *   case) has no clause of its own and takes the sentence's first declaration
+ *   clause, which is the clause its verb is in.
+ *
+ *   ⛔ What this does NOT fix, and the residue is named rather than hidden: a
+ *   sentence whose SAME key sits in two declaration clauses of opposite
+ *   polarity resolves to the first one, because choosing between them is the
+ *   WINDOW PAIRING question below and not a polarity question. `without` and
+ *   `fails to` are still read as clause-wide negators.
  *
  *   TOP-LEVEL MEMBERSHIP ONLY. A key declared on an INLINE nested object
  *   (`sort?: Array<{ field; direction }>`) is a member of that object, not of
@@ -553,6 +570,118 @@ const PRONOUN_OBJECT =
 const NEGATIVE =
   /\b(?:none|neither|no)\b|\bnot\b|n't\b|\bnever\b|\bwithout\b|\bfails? to\b|\bstops? declaring\b/i;
 
+/**
+ * Clause boundaries -- the scope a negator is allowed to reach (objectui#9754).
+ *
+ * English is still not parsed here and this is still a keyword reading; what
+ * changed is the SPAN the keywords are read over. The boundary set is the
+ * punctuation this corpus actually coordinates with plus the conjunctions that
+ * open a new predication. Splitting on `and` / `but` is what makes
+ * "`k` and `j` are declared on `S` and read by no renderer" read positive on
+ * the declaration and leave the "no renderer" half where it was written.
+ */
+const CLAUSE_BREAK =
+  /[;:()⇒]|=>|\s(?:--|—|–)\s|\s+(?:and|but|so|yet|because|although|though|unless|while|whereas|which|whose|where)\s+/gi;
+
+/** A fragment that OPENS with a negator carries its own negation. */
+const LEADING_NEGATOR = /^\s*(?:no|not|neither|nor|none)\b/i;
+
+/** Backticked spans masked out, so code punctuation never cuts a clause. */
+function maskSpans(text) {
+  const spans = [];
+  const masked = text.replace(/`[^`]*`/g, (m) => {
+    spans.push(m);
+    return `${MASK_OPEN}${spans.length - 1}${MASK_CLOSE}`;
+  });
+  return { masked, spans };
+}
+
+const MASK_TOKEN = new RegExp(`${MASK_OPEN}(\\d+)${MASK_CLOSE}`, 'g');
+
+/**
+ * Cut one sentence into clauses, keeping offsets so a key can be located in the
+ * clause it was written in. Returns masked text alongside, because key
+ * positions are mask-token positions.
+ */
+export function segmentClauses(text) {
+  const { masked, spans } = maskSpans(text);
+  const restore = (s) => s.replace(new RegExp(MASK_TOKEN.source, 'g'), (_, n) => spans[Number(n)]);
+  const cuts = [];
+  let last = 0;
+  CLAUSE_BREAK.lastIndex = 0;
+  for (const m of masked.matchAll(CLAUSE_BREAK)) {
+    cuts.push({ start: last, end: m.index });
+    last = m.index + m[0].length;
+  }
+  cuts.push({ start: last, end: masked.length });
+  const clauses = cuts
+    .map((c) => ({ ...c, text: restore(masked.slice(c.start, c.end)) }))
+    .filter((c) => c.text.trim() !== '');
+  return { clauses, masked, spans };
+}
+
+/** The clause texts, for a pin that wants to name the cut rather than the count. */
+export function clauseTexts(text) {
+  return segmentClauses(text).clauses.map((c) => c.text.trim());
+}
+
+/**
+ * Read polarity in the scope that owns it.
+ *
+ * `polarity` is the sentence-level reading (the first declaration clause), kept
+ * because a key resolved across a sentence boundary has no clause here.
+ * `byKey` is the per-key reading, and it is the one the verdict uses.
+ *
+ * @param {string} text
+ * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative"> }}
+ */
+export function readPolarity(text) {
+  const { clauses, masked, spans } = segmentClauses(text);
+  const isDeclaration = (c) => PRESENT_DECLARATION.test(c.text);
+  const polarityOf = (c) => (NEGATIVE.test(c.text) ? 'negative' : 'positive');
+  const declarations = clauses.filter(isDeclaration);
+  const polarity =
+    declarations.length > 0
+      ? polarityOf(declarations[0])
+      : NEGATIVE.test(text)
+        ? 'negative'
+        : 'positive';
+
+  const occurrences = new Map();
+  MASK_TOKEN.lastIndex = 0;
+  for (const m of masked.matchAll(MASK_TOKEN)) {
+    const head = keyHead(spans[Number(m[1])]);
+    if (!head) continue;
+    if (!occurrences.has(head)) occurrences.set(head, []);
+    occurrences.get(head).push(m.index);
+  }
+
+  const clauseAt = (pos) => clauses.find((c) => pos >= c.start && pos < c.end) ?? null;
+  const byKey = {};
+  for (const [head, positions] of occurrences) {
+    let reading = null;
+    for (const pos of positions) {
+      const clause = clauseAt(pos);
+      if (clause && isDeclaration(clause)) {
+        reading = polarityOf(clause);
+        break;
+      }
+    }
+    if (!reading) {
+      const first = positions[0];
+      const own = clauseAt(first);
+      if (own && LEADING_NEGATOR.test(own.text)) {
+        reading = 'negative';
+      } else {
+        const before = declarations.filter((c) => c.end <= first).pop();
+        reading = before ? polarityOf(before) : polarity;
+      }
+    }
+    byKey[head] = reading;
+  }
+  return { polarity, byKey };
+}
+
 export function namesSchema(text) {
   const found = [];
   for (const m of text.matchAll(SCHEMA_TOKEN)) {
@@ -561,18 +690,29 @@ export function namesSchema(text) {
   return found;
 }
 
+/**
+ * The key a backticked span names, or null. ONE spelling, because polarity now
+ * has to locate the same heads `backtickedKeys` returns: two readings of what
+ * counts as a key would silently disagree and the per-key polarity would land
+ * on a key the verdict never asks about.
+ */
+export function keyHead(backticked) {
+  const inner = backticked.replace(/^`/, '').replace(/`$/, '').trim();
+  // `columns: KanbanColumn[]` names the key `columns`.
+  const head = inner.split(/[:\s(<[]/)[0];
+  if (!IDENTIFIER.test(head)) return null;
+  // A member key in this protocol is lowerCamelCase. A backticked PascalCase
+  // token is a TYPE name (`ObjectGridComponentProps`, `GanttConfig`), and
+  // reading one as a key is the shape that inflated the transcribed count.
+  if (!/^[a-z_$]/.test(head)) return null;
+  return head;
+}
+
 export function backtickedKeys(text) {
   const keys = [];
-  for (const m of text.matchAll(/`([^`]+)`/g)) {
-    const inner = m[1].trim();
-    // `columns: KanbanColumn[]` names the key `columns`.
-    const head = inner.split(/[:\s(<[]/)[0];
-    if (!IDENTIFIER.test(head)) continue;
-    // A member key in this protocol is lowerCamelCase. A backticked PascalCase
-    // token is a TYPE name (`ObjectGridComponentProps`, `GanttConfig`), and
-    // reading one as a key is the shape that inflated the transcribed count.
-    if (!/^[a-z_$]/.test(head)) continue;
-    if (!keys.includes(head)) keys.push(head);
+  for (const m of text.matchAll(/`[^`]+`/g)) {
+    const head = keyHead(m[0]);
+    if (head && !keys.includes(head)) keys.push(head);
   }
   return keys;
 }
@@ -599,12 +739,14 @@ export function readClaim(sentence, precedingInParagraph) {
       }
     }
   }
+  const { polarity, byKey } = readPolarity(sentence.text);
   return {
     schemas,
     keys,
     viaPronoun,
     antecedent,
-    polarity: NEGATIVE.test(sentence.text) ? 'negative' : 'positive',
+    polarity,
+    keyPolarity: byKey,
   };
 }
 
@@ -665,13 +807,17 @@ export function census({ corpusDir, memberIndex }) {
       }
       for (const key of keys) {
         const present = face.members.has(key);
-        const contradicted = polarity === 'positive' ? !present : present;
+        // The clause the key is written in owns its polarity; the sentence's
+        // reading is the fallback for a key resolved across a sentence boundary.
+        const keyPolarity = record.claim.keyPolarity?.[key] ?? polarity;
+        const contradicted = keyPolarity === 'positive' ? !present : present;
         if (!contradicted) continue;
         contradictions.push({
           entry: record.entry,
           schema,
           key,
-          polarity,
+          polarity: keyPolarity,
+          sentencePolarity: polarity,
           viaPronoun,
           memberPresent: present,
           inheritsIndexSignature: face.indexSignature,

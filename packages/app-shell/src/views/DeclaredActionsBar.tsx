@@ -35,6 +35,7 @@ import { Button, Separator, cn, hasDeclaredVisibilityGate } from '@object-ui/com
 import {
   ActionProvider,
   useAction,
+  useCapabilityGate,
   useCondition,
   toPredicateInput,
   usePredicateRecordContext,
@@ -421,6 +422,96 @@ const DeclaredActionButton: React.FC<{
   );
 };
 
+/**
+ * The located set, capability-gated — and the toolbar it draws.
+ *
+ * ## Why this is a component at all, and why it lives HERE
+ *
+ * [ADR-0066 D4 / objectui#9572] `@objectstack/spec` declares
+ * `requiredPermissions` as "enforced with 403 on the platform action route …
+ * and mirrored as a UI hide". This bar filters its own action list instead of
+ * routing through `ActionEngine.getActionsForLocation`, so the engine's gate
+ * never reached it and the declared key was INERT on every action it draws —
+ * the one object-bound surface that did not mirror it, after `action:bar`, the
+ * grid row menu, the selection bar and (objectui#9623) the data-table row menu.
+ *
+ * ⛔ A UI MIRROR of a decision the SERVER still enforces, and nothing more.
+ * Unknown capabilities fail OPEN (see `useCapabilityGate`), an EMPTY held set
+ * means "holds nothing" and gates normally, and the request this bar sends is
+ * byte-identical either way. ⛔ No enforcement moves into the console.
+ *
+ * ⭐ PLACEMENT is load-bearing. `useCapabilityGate` reads the nearest
+ * `<ActionProvider>` ABOVE its caller, and this bar is self-contained: it
+ * mounts its OWN provider, seeded by `useConsoleActionRuntime` with the same
+ * `user.systemPermissions` the engine reads. Calling the gate in the bar's
+ * outer body would therefore read a DIFFERENT provider — the host's, if it has
+ * one at all — and in a standalone host would read none and fail open on every
+ * action forever: a gate that compiles, reviews as correct, and mirrors
+ * nothing. Evaluated here, under this bar's own provider, it mirrors exactly
+ * the capabilities the dispatch it is about to make will carry.
+ * `DeclaredActionsBar.capabilityGate-9572.test.tsx` supplies the held set
+ * through that provider ALONE, so the outer placement fails it.
+ *
+ * ## Why ONCE, over the list
+ *
+ * The objectui#3562 invariant: the chrome and the items must read one filtered
+ * source. Gating per button would leave a host holding a divider + section
+ * label with nothing under it whenever the whole declared set is denied —
+ * exactly the orphan divider `label` is documented never to produce.
+ *
+ * ## How it composes with the two gates already here
+ *
+ * `visible` (fail-CLOSED) and `disabled` are evaluated per button, downstream
+ * of this filter, and the three are ANDed. The composition is therefore
+ * MONOTONE: it can only ever hide more than before, never show something that
+ * was hidden — which is what makes a fail-OPEN gate safe to put in front of a
+ * fail-CLOSED one. The approvals `can_override` arm (objectui#5178) is
+ * untouched by construction: `can_override` is a per-RECORD viewer flag an
+ * action's own `visible` CEL reads, `requiredPermissions` is a per-CALLER
+ * capability list, and `isOverrideDecision` still runs unchanged on every
+ * action that survives. An override-only viewer gets no exemption from a
+ * declared capability, and gets no new exposure either.
+ */
+const DeclaredActionsToolbar: React.FC<{
+  actions: ActionDef[];
+  objectName: string;
+  record: any;
+  className?: string;
+  label?: string;
+}> = ({ actions, objectName, record, className, label }) => {
+  const { t } = useObjectTranslation();
+  const mayInvoke = useCapabilityGate();
+  const permitted = useMemo(
+    () => actions.filter((action) => mayInvoke(action.requiredPermissions)),
+    [actions, mayInvoke],
+  );
+
+  // Nothing this viewer may invoke renders nothing — no toolbar chrome, no
+  // orphan divider, same degrade as "nothing declared at this location".
+  if (permitted.length === 0) return null;
+
+  return (
+    <div className={cn('space-y-2', className)}>
+      {label && (
+        <>
+          <Separator />
+          <div className="text-xs font-medium text-muted-foreground">{label}</div>
+        </>
+      )}
+      <div role="toolbar" aria-label={label || t('common.actions')} className="flex flex-row flex-wrap items-center gap-2">
+        {permitted.map((action) => (
+          <DeclaredActionButton
+            key={action.name}
+            action={action}
+            objectName={objectName}
+            record={record}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export function DeclaredActionsBar({
   objectName,
   record,
@@ -432,7 +523,6 @@ export function DeclaredActionsBar({
   label,
 }: DeclaredActionsBarProps) {
   const dataSource = useAdapter();
-  const { t } = useObjectTranslation();
   // Fetch the object def (and its declared actions) unless the host passed
   // them in. `useMetadataItem` no-ops when `name` is undefined.
   const { item: objectDef } = useMetadataItem('object', actionsProp ? undefined : objectName);
@@ -468,29 +558,24 @@ export function DeclaredActionsBar({
   });
 
   // Degrade gracefully — nothing declared at this location renders nothing (no
-  // toolbar chrome, no provider churn).
+  // toolbar chrome, no provider churn). This early exit stays on the LOCATION
+  // filter alone, deliberately: the capability gate below needs this provider
+  // above it, so it cannot also decide whether to mount it. A set that is
+  // located but wholly denied therefore mounts an inert provider and its
+  // (closed) dialogs, and draws no chrome — see `DeclaredActionsToolbar`.
   if (located.length === 0) return null;
 
   return (
     <ActionProvider {...runtime.actionProviderProps}>
-      <div className={cn('space-y-2', className)}>
-        {label && (
-          <>
-            <Separator />
-            <div className="text-xs font-medium text-muted-foreground">{label}</div>
-          </>
-        )}
-        <div role="toolbar" aria-label={label || t('common.actions')} className="flex flex-row flex-wrap items-center gap-2">
-          {located.map((action) => (
-            <DeclaredActionButton
-              key={action.name}
-              action={action}
-              objectName={objectName}
-              record={record}
-            />
-          ))}
-        </div>
-      </div>
+      {/* The capability gate runs INSIDE this provider — see the toolbar's own
+          docblock for why the placement is the whole point. */}
+      <DeclaredActionsToolbar
+        actions={located}
+        objectName={objectName}
+        record={record}
+        className={className}
+        label={label}
+      />
       {runtime.dialogs}
     </ActionProvider>
   );

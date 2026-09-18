@@ -62,15 +62,32 @@
 // this package states the rule without carrying the precondition in the rule's
 // OWN phrasing (⛔ not merely having the words "no carrier" somewhere in the
 // block — that wording let an un-amended statement through, measured); when
-// any block in THIS file states the rule at all, prongs written out or not;
-// when a citation's target has moved; when `complex.ts` states the rule at any
-// number of sites other than the recorded four; and when a clause appears at
-// one of those four and not at its peers. ⚠️ For the clauses that test names,
-// in the spellings it names: a third prong is caught written `prong 3`,
-// `third prong`, `(3)`, or as `or` followed by `3`, `iii`, `third` or
-// `thirdly`, and is SILENT in any other numbering and when it numbers nothing.
+// ANY comment in this package outside `complex.ts` states the rule at all,
+// prongs written out or not — this file has no special standing there, and a
+// `//` riding on a code line is in the population too; when a citation's
+// target has moved; when `complex.ts` states the rule at any number of sites
+// other than the recorded four; and when a clause appears at one of those four
+// and not at its peers.
+//
+// ⚠️ Both of those widenings are the fourth in-seat review's: with the old
+// `mobile.ts`-only scope, a fully amended statement prepended to
+// `data-display.ts` passed — a fifth statement, off the roster, free to drift
+// at the next amendment with nothing red, which is the mechanism this card is
+// about reopened one file over. With the old comment-only-lines population, a
+// statement appended to an `export interface` line passed for the same reason.
+//
+// ⚠️ For the clauses that test names, in the spellings it names: a third prong
+// is caught written `prong 3`, `third prong`, `(3)`, or as `or` followed by
+// `3`, `iii`, `third` or `thirdly`. The `or` in that last item is an ANCHOR —
+// `3`, `iii`, `third` and `thirdly` are caught ONLY directly behind `or`, with
+// nothing but a comma, whitespace and an opening parenthesis allowed in
+// between, so `, and (iii) …`, `, or else (iii) …`, `; and, third, …` and
+// `, or: (iii) …` are each SILENT. The other three spellings carry no anchor:
+// `prong 3`, `third prong` and a parenthesised `(3)` are caught however the
+// clause is joined, `, and (3) …` included. Silent as well: a clause that
+// numbers nothing, and a whole statement worded past every marker.
 // ⛔ Read that list from the test, ⛔ never a summary of it — this sentence
-// twice described a boundary one step short of the real one, and each time a
+// three times described a boundary one step off the real one, and each time a
 // reader amending the rule in the uncaught style would have believed the other
 // three sites were held.
 

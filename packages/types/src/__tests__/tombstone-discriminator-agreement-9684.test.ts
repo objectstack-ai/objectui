@@ -44,11 +44,21 @@
  *    in-seat review that an un-amended statement passed because its per-
  *    retirement ARGUMENT said "there is no carrier", while the same defect
  *    worded "no surviving object" was flagged.
- * 2. `../mobile.ts` states the rule NOWHERE — no prong, no clause, nothing that
- *    matches `STATES_THE_RULE`. ⛔ Not "does not write the prongs out", which
- *    is what this asserted while claiming the wider thing: a note restating the
- *    precondition with the prongs left unwritten passed, and put that file back
- *    on the amendment surface for that clause.
+ * 2. NO file in this package outside `../complex.ts` states the rule — no
+ *    prong, no clause, nothing that matches `STATES_THE_RULE`, in a comment of
+ *    any form. ⛔ Not `../mobile.ts` alone, which is what this was: at the
+ *    fourth in-seat review a fully amended statement prepended to
+ *    `../data-display.ts` PASSED — off the roster, held to its precondition
+ *    alone, free to drift at the next amendment with nothing red. That is this
+ *    card's own mechanism, one file over. ⛔ And not "comment-only lines"
+ *    either: the same review appended a `//` statement to an `export
+ *    interface` line and that passed too, because the population was runs of
+ *    comment-only lines while this claim said "nothing that matches" — one
+ *    word wider than the code. The code moved, ⛔ not the word; `blocksOf`
+ *    admits a comment riding on a code line. ⛔ Nor is it "does not write the
+ *    prongs out", which it was before both: a note restating the precondition
+ *    with the prongs left unwritten passed, and put that file back on the
+ *    amendment surface for that clause.
  * 3. The citation target still exists and still states the rule.
  * 4. `../complex.ts` states the rule at EXACTLY the recorded sites, and each
  *    carries exactly the clauses `CLAUSES` names, per the roster in
@@ -60,25 +70,39 @@
  *    re-derived (AGENTS.md #9).
  *
  * ⚠️ What re-derives what: the population below is derived at run time from
- * the source, so a site added later is covered without anyone remembering this
- * file. But it is derived by MARKERS, and a statement that paraphrases past all
- * of them is invisible here exactly as it was to the grep on the card. The
- * vacuity control is what keeps that honest in one direction: the population in
- * `../complex.ts` is asserted to be exactly the roster, so markers that stop
- * matching fail loudly instead of passing on a short set.
+ * the source, so a site added later ANYWHERE in this package goes red without
+ * anyone remembering this file — outside `../complex.ts` by claim 2, which is
+ * now the whole package rather than one file, and inside it by claim 4's exact
+ * count and roster. But it is derived by MARKERS, and a statement that
+ * paraphrases past all of them is invisible here exactly as it was to the grep
+ * on the card. The vacuity control is what stops those two from being the zero
+ * a DEAD marker also prints: the population in `../complex.ts` is asserted to
+ * be exactly the roster, so a marker that stops matching fails loudly there
+ * instead of quietly emptying every other assertion.
  *
  * ⛔ What remains silent, stated as the PATTERNS and ⛔ no longer as a summary
  * of them. A third prong is caught when it is written `prong 3`, `third prong`,
- * `(3)`, or as `or` followed by `3`, `iii`, `third` or `thirdly` — and it is
- * SILENT in any other numbering, `or (c)` and `or (four)` among them, and
- * silent when it numbers nothing at all. A whole statement worded past every
- * `STATES_THE_RULE` marker is silent too. ⚠️ The summary this replaces said the
- * silent case was "a clause that numbers nothing": measured at the third
- * in-seat review, `(iii)`, `3.` and `thirdly` each number something and each
- * passed, so a reader amending the rule in that style believed the roster held
- * the other three sites. ⇒ when you amend the rule, add the clause here; when
- * you add a site, add the marker; and when you widen a pattern, rewrite this
- * paragraph rather than the sentence that summarises it.
+ * `(3)`, or as `or` followed by `3`, `iii`, `third` or `thirdly`.
+ * ⚠️ The `or` in that last item is an ANCHOR, which no earlier version of this
+ * paragraph said: `3`, `iii`, `third` and `thirdly` are caught ONLY directly
+ * behind `or`, with nothing but a comma, whitespace and an opening parenthesis
+ * allowed in between, so `, and (iii) …`, `, or else (iii) …`, `; and, third,
+ * …` and `, or: (iii) …` are each SILENT — each measured through this pin. The
+ * first three items carry no such anchor: `prong 3`, `third prong` and a
+ * parenthesised `(3)` are caught however the clause is joined, `, and (3) …`
+ * included — measured too, and the reason this paragraph does ⛔ NOT say "a
+ * listed numbering behind any word other than `or`", which is one step WIDE.
+ * Silent as well: a clause that numbers nothing at all, and a whole statement
+ * worded past every `STATES_THE_RULE` marker. ⚠️ Three earlier versions of
+ * this paragraph named a boundary one step off the real one — it required
+ * `(3) it`, so `(3) the` was silent; then it called the silent case "a clause
+ * that numbers nothing", so `(iii)`, `3.` and `thirdly` were silent; then it
+ * split the silent set into "any other numbering" and "numbers nothing", so a
+ * LISTED numbering joined by anything but `or` was in neither and a reader
+ * amending the rule in that style believed the roster held the other three
+ * sites. ⇒ when you amend the rule, add the clause here; when you add a site,
+ * add the marker; and when you widen a pattern, RE-DERIVE this paragraph from
+ * the pattern rather than editing the sentence that summarises it.
  *
  * ⚠️ Markers are matched against the block with its comment punctuation and
  * line wrapping flattened. Matching raw lines is what makes a phrase probe miss
@@ -123,7 +147,11 @@ interface Block {
   line: number;
   /** 1-based line the block's last line sits on. */
   endLine: number;
-  kind: 'jsdoc' | 'line';
+  /**
+   * `jsdoc` and `line` are runs of comment-only lines; `trailing` is a comment
+   * riding on a code line, which is its own one-line block.
+   */
+  kind: 'jsdoc' | 'line' | 'trailing';
   /** Comment punctuation and line wrapping flattened to single spaces. */
   flat: string;
 }
@@ -188,6 +216,17 @@ const sourceFiles = (dir: string, out: string[] = []): string[] => {
  * JSDoc, or one paragraph of `//` lines. A blank line ends a run on purpose —
  * joining across one would let a drifted note inherit a compliant neighbour's
  * precondition and pass.
+ *
+ * ⭐ A comment RIDING ON a code line is its own one-line block, kind
+ * `trailing`. It was outside every population this file enumerates until the
+ * fourth in-seat review appended a `//` statement of the rule to an `export
+ * interface` line and watched the whole pin pass: the code said "runs of
+ * comment-only lines" while the header claimed "nothing that matches". ⛔ The
+ * word was not narrowed to fit the code — the code was widened to fit the
+ * word, because a statement of the rule is a statement of the rule whatever
+ * punctuation it rides in on. Measured on this package while widening it: 9
+ * such comments exist and none states the rule, so the widening moves no
+ * count that anything else here asserts.
  */
 const blocksOf = (file: string, text: string): Block[] => {
   const { comment } = scanSource(text);
@@ -200,9 +239,12 @@ const blocksOf = (file: string, text: string): Block[] => {
     lineNumber += 1;
     let flagged = 0;
     let bare = 0;
+    let riding = '';
     for (let i = 0; i < line.length; i += 1) {
+      const inComment = comment[offset + i];
+      if (inComment) riding += line[i];
       if (/\s/.test(line[i])) continue;
-      if (comment[offset + i]) flagged += 1;
+      if (inComment) flagged += 1;
       else bare += 1;
     }
     const commentOnly = flagged > 0 && bare === 0;
@@ -210,9 +252,14 @@ const blocksOf = (file: string, text: string): Block[] => {
     if (commentOnly) {
       if (!run) run = { line: lineNumber, text: '' };
       run.text += `${line}\n`;
-    } else if (run) {
-      out.push(close(file, run, lineNumber - 1));
-      run = null;
+    } else {
+      if (run) {
+        out.push(close(file, run, lineNumber - 1));
+        run = null;
+      }
+      if (flagged > 0) {
+        out.push({ file, line: lineNumber, endLine: lineNumber, kind: 'trailing', flat: flatten(riding) });
+      }
     }
     offset += line.length + 1;
   }
@@ -248,12 +295,18 @@ const label = (block: Block): string => `${block.file} (block opening on line ${
  * `prong 3`, `third prong`, any `(3)`, and `or` followed by `3`, `iii`,
  * `third` or `thirdly`.
  *
- * ⛔ Read that list as the reach, ⛔ never a paraphrase of it. Twice now the
- * pattern was widened and the sentence beside it described a boundary one step
- * short of the real one: it required `(3) it`, so `(3) the` was silent; then it
- * covered `(3)` while the prose said the silent case "numbers nothing", so
- * `(iii)`, `3.` and `thirdly` were silent. Everything outside the list above is
- * still silent — a different numbering, and a clause that numbers nothing.
+ * ⛔ Read that list as the reach, ⛔ never a paraphrase of it. Stated exactly,
+ * because three summaries of it have now been falsified: `prong 3`, `third
+ * prong` and a parenthesised `(3)` are caught wherever they fall in the block,
+ * HOWEVER the clause is joined; `3`, `iii`, `third` and `thirdly` are caught
+ * ONLY directly behind `or`, with nothing but a comma, whitespace and an
+ * opening parenthesis allowed in between. Everything else is silent — every
+ * other numbering, every clause that numbers nothing, and those four
+ * numberings behind any other word. ⚠️ The three falsified summaries, in
+ * order: it required `(3) it`, so `(3) the` was silent; then it called the
+ * silent case "a clause that numbers nothing", so `(iii)`, `3.` and `thirdly`
+ * were silent; then it split the silent set into "a different numbering" and
+ * "a clause that numbers nothing", so `, and (iii) …` was in neither.
  */
 const CLAUSES: Readonly<Record<string, RegExp>> = {
   'available-only-on-a-surviving-carrier': /tombstone is available only on a surviving[- ]carrier/i,
@@ -395,6 +448,26 @@ describe('objectui#9684 — every statement of the rule carries its precondition
     expect(unrecorded, 'these statements of the rule are in no roster entry, so nothing holds them to their peers').toEqual(
       [],
     );
+  });
+
+  it('no file outside `complex.ts` states the rule AT ALL — not a prong, not a clause', () => {
+    // ⭐ The scope is the PACKAGE, and it is the fourth in-seat review that
+    // moved it there: a fully amended statement prepended to `data-display.ts`
+    // passed every assertion in this file. Held to its precondition alone, off
+    // the roster, invisible to `SHARED_BY_ALL` — which is checked over
+    // `complex.ts` survivors only — it was free to drift at the next
+    // amendment with nothing red. A fifth statement regrowing one file over is
+    // the mechanism objectui#9684 was filed about, so the zero is asserted
+    // rather than described. ⚠️ Non-vacuous by the exact-count control above,
+    // not by itself: a dead marker prints this same empty list.
+    const outside = statements.filter((block) => block.file !== 'complex.ts');
+    expect(
+      outside.map(label),
+      'these blocks state the retire-vs-remove rule outside `complex.ts`, where nothing holds ' +
+        'them to their peers — one more copy to amend, and silent when the next amendment ' +
+        'misses it. State it in `complex.ts` and record it in the roster, or cite ' +
+        '`ChatbotSchema` the way `mobile.ts` does.',
+    ).toEqual([]);
   });
 
   it('no statement omits the surviving-carrier precondition (objectui#7678)', () => {

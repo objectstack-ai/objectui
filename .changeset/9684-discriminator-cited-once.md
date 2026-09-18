@@ -12,8 +12,10 @@ Two sites still carried the un-amended rule on this branch's base: the
 `MobileResponsiveConfig` retirement note and the `MobileComponentConfig`
 retirement note, both in `mobile.ts`. Neither was named by the finding that
 asked for this change — its probe was a literal-phrase grep over two files, and
-one of the two paraphrases the rule past every phrase it searched for. Both now
-agree with the other six.
+one of the two paraphrases the rule past every phrase it searched for. Neither
+carries the rule any more: like the other two notes in that file they now cite
+it, so the population this amendment would have had to move through is the four
+that survive in `complex.ts`.
 
 `mobile.ts` now **cites** the rule instead of restating it: each of its four
 retirement notes points at the statement on `ChatbotSchema` in `complex.ts`
@@ -47,11 +49,12 @@ left to the maintainer rather than taken here.
 The agreement is now pinned rather than remembered:
 `packages/types/src/__tests__/tombstone-discriminator-agreement-9684.test.ts`
 derives the population of rule statements from the source at run time and fails
-when one of them omits the precondition **in the rule's own phrasing**, when
-`mobile.ts` states the rule at all, when the cited statement stops being where
-the citations say it is, when `complex.ts` states the rule at any number of
-sites other than the recorded four, or when one of those four carries a clause
-its peers do not.
+when one of them omits the precondition **in the rule's own phrasing**, when any
+file in the package outside `complex.ts` states the rule at all, when the cited
+statement stops being where the citations say it is, when `complex.ts` states the
+rule at any number of sites other than the recorded four, or when one of those
+four carries a clause its peers do not. Its population is every comment in the
+package, a `//` riding on a code line included.
 
 ⭐ Each of those is narrower or wider than it was, and each because a wording was
 measured through the earlier version rather than reasoned about. The precondition
@@ -61,15 +64,26 @@ surviving object" was caught — the same defect deciding on the author's choice
 words. `mobile.ts` was held only to "does not write the prongs out", so a note
 restating the precondition passed. The site count was `>= 4`, so a fifth
 statement passed and the "four sites" this changeset states was re-derived by
-nothing.
+nothing. The scope was `mobile.ts` alone and the population was runs of
+comment-only lines, so a fully amended statement prepended to `data-display.ts`
+passed and so did one appended to an `export interface` line — a fifth statement
+off the roster, held to its precondition alone and free to drift at the next
+amendment, which is this card's mechanism one file over.
 
 ⚠️ What is still silent, given as the patterns and ⛔ not as a summary of them: a
 third prong is caught when it is written `prong 3`, `third prong`, `(3)`, or as
-`or` followed by `3`, `iii`, `third` or `thirdly`; it is silent in any other
-numbering and when it numbers nothing, and a whole statement worded past every
-statement marker is silent too. ⛔ Two earlier versions of this paragraph
-summarised that boundary and were wrong both times — first "`(3) it`" excluded
-`(3) the`, then "numbers nothing" excluded `(iii)`, `3.` and `thirdly`, each
+`or` followed by `3`, `iii`, `third` or `thirdly`. The `or` in that last item is
+an **anchor** — `3`, `iii`, `third` and `thirdly` are caught only directly behind
+`or`, with nothing but a comma, whitespace and an opening parenthesis allowed in
+between, so `, and (iii) …`, `, or else (iii) …`, `; and, third, …` and
+`, or: (iii) …` are each silent. The other three spellings carry no anchor:
+`prong 3`, `third prong` and a parenthesised `(3)` are caught however the clause
+is joined, `, and (3) …` included. Silent as well: a clause that numbers nothing,
+and a whole statement worded past every statement marker. ⛔ Three earlier
+versions of this paragraph summarised that boundary and were wrong every time —
+first "`(3) it`" excluded `(3) the`; then "numbers nothing" excluded `(iii)`,
+`3.` and `thirdly`; then "any other numbering **and** when it numbers nothing"
+put a listed numbering joined by anything but `or` in neither category. Each was
 measured passing. The failure direction of every widening above is a red that
 sends a human to read four blocks, never a green.
 

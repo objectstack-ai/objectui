@@ -1,0 +1,245 @@
+name: Spec Main Shape Gate
+
+# Compile THIS repository against `@objectstack/spec` built from objectstack
+# `main`, and name the objectui file and the objectstack commit when it does not
+# compile (objectui#9860).
+#
+# ## The ruling this executes
+#
+# The maintainer chose option C on 2026-09-18: the ONLY shape gate for
+# `@objectstack/spec`'s public surface is a real consumer compiling against
+# objectstack's current `main`. objectui is the first consumer. It supersedes the
+# 2026-09-06 ruling that put a declaration-text snapshot in the platform
+# repository; that snapshot is being reverted there, and nothing replaces it
+# except this job. ⛔ The direction is not re-adjudicated here.
+#
+# ⭐ WHAT A RED MUST SAY is the acceptance criterion, not decoration: which
+# objectui file fails against which objectstack commit, so that the objectstack
+# pull request which moved the shape is the one that answers. A red saying only
+# "typecheck failed" does not satisfy the ruling. `scripts/spec-main-shape-gate.mjs`
+# owns that half — it attributes every diagnostic to a repo-relative objectui path
+# and pairs it with the objectstack sha, in GitHub annotations and in the run
+# summary, and it refuses (exit 2, loudly) to report an unattributable failure as
+# a shape break.
+#
+# ## Why NO path filter, and why that is the opposite of an oversight
+#
+# This gate's subject is not the pull request's diff. It is the drift between two
+# repositories, and that drift moves when NEITHER a file here nor this workflow
+# changes. A `paths:` filter would make the gate report on exactly the pull
+# requests whose author already knows about the spec, and skip the ones that find
+# out the hard way. Unfiltered also keeps it requirable: a check that does not
+# report on every pull request cannot be in a required set (objectui#3523 — a
+# required check that never reports does not fail the pull request, it leaves it
+# pending until the ruleset's 60-minute timeout).
+#
+# ## Why `merge_group` is subscribed although this context is NOT required yet
+#
+# Ordering, and objectui#3523 paid for it: subscribe the trigger FIRST (a pure
+# addition that changes nothing about pull requests), and only then may a
+# maintainer write the context into the ruleset's required set. Reversed — a
+# required context whose workflow does not subscribe the queue — every queued
+# pull request burns an hour and fails with nothing red to point at.
+#
+# ⚠️ This context is REQUIRABLE, and it is not REQUIRED: requiredness is
+# repository SETTINGS (GitHub ruleset 11776024), which no file in this tree can
+# set. `scripts/dependabot-merge-gate.mjs` classifies it, with the reason, in
+# `NOT_A_GATE` until a maintainer enrols it there; moving the name to
+# `REQUIRED_CONTEXTS` in that file is the in-tree half of the same action.
+# ⛔ Nothing here claims the check is required.
+#
+# ## The fetch shape: sparse, blobless, at a sha
+#
+# The pin discussion of 2026-09-18 excluded a full clone per run. Measured
+# against this repository's CI on 2026-09-18 (three shapes, one box, curl's and
+# git's own counters — the numbers are in objectui#9860's pull request, not
+# copied here, because a figure in a comment is derived once and never again):
+# the blobless + depth-1 + cone-sparse clone transfers the least by a wide
+# margin, because a packed codeload tarball has no server-side path filter and
+# still ships the whole repository. `packages/spec` and `scripts` are both in the
+# cone: the spec's own build script calls two scripts from the objectstack repo
+# root, so a cone holding only `packages/spec` fails in its build step.
+#
+# ## ⛔ The turbo cache is a FALSE GREEN here
+#
+# `turbo`'s hash covers this repository's sources, its lockfile and a declared env
+# list. It does NOT cover the content of `node_modules`, which is the only thing
+# this job changes — so a cached `type-check` can replay a verdict taken against
+# a DIFFERENT spec, including the published one. The typecheck below therefore
+# runs with `TURBO_FORCE=true` and no cache action, and
+# `scripts/__tests__/spec-main-shape-gate.test.ts` pins that it keeps doing so.
+
+on:
+  pull_request:
+    branches: [main, develop]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch: {}
+
+# Least privilege: the job reads this repository, reads a public one over HTTPS,
+# and writes nothing anywhere.
+permissions:
+  contents: read
+
+concurrency:
+  group: spec-main-shape-gate-${{ github.ref }}
+  # Superseded pull-request runs are cancelled; a QUEUE build never is. A
+  # cancelled check is not `success`, and on a queue build that is a dequeue
+  # rather than a saved runner minute.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  shape-gate:
+    name: Spec Main Shape Gate
+    runs-on: ubuntu-latest
+    # Sized against measurements, not taste: the spec's own build and this
+    # repository's forced (uncached) build + typecheck each cost minutes, and the
+    # runner is slower than the box they were measured on. A ceiling this job can
+    # reach turns a verdict into `cancelled`, which the merge queue cannot tell
+    # from `failure` and which reports nothing a reader can act on.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout objectui
+        uses: actions/checkout@v7
+        # No history is read by this gate: it compares two trees, not two commits
+        # of one. Nothing here diffs against a merge base.
+
+      # ── The objectstack commit under test ────────────────────────────────
+      # Resolved ONCE, into an output every later step and the report quote, so
+      # the sha in the annotation is provably the sha that was built. Resolving
+      # it twice would let a push between the two steps produce a report about a
+      # commit this job never compiled.
+      - name: Resolve objectstack main
+        id: upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          commit_json="$RUNNER_TEMP/objectstack-main.json"
+          curl -sS --fail-with-body \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/objectstack-ai/objectstack/commits/main \
+            -o "$commit_json"
+          sha=$(jq -r '.sha' "$commit_json")
+          # A gate that could not take its reading is a failure, never a pass.
+          if [ -z "$sha" ] || [ "$sha" = 'null' ]; then
+            echo "::error::could not resolve objectstack-ai/objectstack@main — no sha in the API response. This job has no subject; it is red rather than green."
+            exit 1
+          fi
+          subject=$(jq -r '.commit.message' "$commit_json" | head -n 1)
+          authored=$(jq -r '.commit.committer.date' "$commit_json")
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "commit=${sha:0:12} · $authored · $subject" >> "$GITHUB_OUTPUT"
+          echo "Compiling against objectstack-ai/objectstack@$sha ($authored)"
+
+      - name: Fetch packages/spec from that commit (sparse, blobless — never a full clone)
+        env:
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # `--filter=blob:none` fetches file contents lazily, `--depth=1` drops
+          # history, and the cone below decides which blobs are ever fetched at
+          # all. `scripts` is in the cone because the spec's build calls scripts
+          # from the objectstack repository root.
+          git clone --depth=1 --filter=blob:none --no-checkout --single-branch \
+            --branch main https://github.com/objectstack-ai/objectstack \
+            "$RUNNER_TEMP/objectstack"
+          cd "$RUNNER_TEMP/objectstack"
+          git sparse-checkout init --cone
+          git sparse-checkout set packages/spec scripts
+          # Check out the resolved SHA, not `main`: `main` may have moved between
+          # the step above and this one, and the report names the sha.
+          git fetch --depth=1 origin "$UPSTREAM_SHA"
+          git checkout --detach "$UPSTREAM_SHA"
+          echo "objectstack HEAD: $(git rev-parse HEAD)"
+
+      - name: Enable Corepack and download the pinned pnpm
+        run: bash scripts/ci-setup-pnpm.sh
+
+      - name: Verify pnpm version
+        run: pnpm --version
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      # ── Build the spec from source, and PACK it ──────────────────────────
+      # `--filter @objectstack/spec...` installs the spec and its dependencies
+      # only; the rest of that workspace is not even in the checkout.
+      - name: Build @objectstack/spec from objectstack main
+        working-directory: ${{ runner.temp }}/objectstack
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --filter @objectstack/spec...
+          pnpm --filter @objectstack/spec build
+
+      # What gets injected is what a RELEASE from that commit would ship — the
+      # `files` field's file set, not a working tree. `--ignore-scripts` because
+      # the build above already ran; a lifecycle script re-running here would
+      # pack something the build step never produced.
+      - name: Pack the built spec
+        id: pack
+        working-directory: ${{ runner.temp }}/objectstack/packages/spec
+        run: |
+          set -euo pipefail
+          tarball=$(npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" | tail -n 1)
+          echo "tarball=$RUNNER_TEMP/$tarball" >> "$GITHUB_OUTPUT"
+          ls -l "$RUNNER_TEMP/$tarball"
+
+      - name: Install objectui dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Replaces the installed spec in pnpm's virtual store — REMOVE-then-copy,
+      # because those files are hardlinks into the global pnpm store that
+      # `actions/setup-node` caches, and writing through one would poison that
+      # cache for every later job. The script proves the injection reached every
+      # workspace consumer before returning; nothing tracked by git is touched,
+      # so the pin and the lockfile are exactly as committed.
+      - name: Inject the source-built spec into the install
+        env:
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: node scripts/spec-main-shape-gate.mjs inject --tarball "$TARBALL" --sha "$UPSTREAM_SHA"
+
+      # ── The compile ──────────────────────────────────────────────────────
+      # `pnpm type-check` is `turbo run type-check`, whose task dependsOn
+      # `^build`, so this builds every workspace package against the injected
+      # spec and then type-checks against those declarations. Both halves are the
+      # consumer compile this gate exists to be.
+      #
+      # The exit code is captured with NO PIPE in between: `node … | tail` reports
+      # the PIPE's status and `tail` essentially never fails, so a red and a green
+      # would read identically — the exact class of silent pass this repository
+      # has been bitten by before.
+      - name: Type-check objectui against it
+        id: compile
+        run: |
+          set +e
+          TURBO_FORCE=true pnpm type-check > "$RUNNER_TEMP/typecheck.log" 2>&1
+          code=$?
+          set -e
+          echo "status=$code" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/typecheck.log"
+          exit 0
+
+      # ALWAYS: this step IS the delivery. It writes the summary, emits one
+      # annotation per diagnostic naming the objectstack commit, and carries the
+      # verdict — exit 1 for an attributed shape break, exit 2 for a failure it
+      # could not attribute to a file (which is not a pass and is not reported as
+      # a shape break either).
+      - name: Report which objectui file fails against which objectstack commit
+        if: always()
+        env:
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          UPSTREAM_COMMIT: ${{ steps.upstream.outputs.commit }}
+          COMPILE_STATUS: ${{ steps.compile.outputs.status }}
+        run: |
+          node scripts/spec-main-shape-gate.mjs report \
+            --log "$RUNNER_TEMP/typecheck.log" \
+            --sha "$UPSTREAM_SHA" \
+            --commit "$UPSTREAM_COMMIT" \
+            --status "${COMPILE_STATUS:-2}"

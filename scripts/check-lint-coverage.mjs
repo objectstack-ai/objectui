@@ -113,13 +113,18 @@ for (const pkg of packages) {
 // was being careful. GitHub's parser does no sentence parsing, so hedging the
 // sentence around it buys nothing. Keep the instruction, lose the keyword, and
 // spell the anchor `objectui#` rather than a bare `#` so the reference cannot
-// match the closing grammar at all. The landed precedent is the rule-2
-// stale-entry message in scripts/check-spec-symbol-derivation.mjs; the same
-// shape still stands in scripts/check-type-check-coverage.mjs and
-// scripts/check-action-forward-parity.mjs, which this change deliberately does
-// not reach. Pinned by
+// match the closing grammar at all. This gate was reworded onto that shape
+// alone; the siblings the same repair would reach were reported rather than
+// widened into (objectui#9595). The precedent this wording came from is
+// recorded in the pin named below, beside the code that reads it. ⛔ Do not
+// re-answer that here, and ⛔ do not name which other gates carry the shape
+// today: a sentence in this banner about another gate's source is a reading
+// taken once, by someone who is not looking at that file, and re-derived
+// never. The one that stood here was false in one half the day it was written
+// (objectui#9906). Pinned by
 // scripts/__tests__/check-lint-coverage-closing-keyword.test.ts, which reads
-// this module's text rather than trusting this comment.
+// this module's text rather than trusting this comment — this paragraph
+// included, for the naming of any other gate.
 for (const name of Object.keys(DEBT)) {
   const pkg = byName.get(name);
   if (!pkg) {

@@ -68,9 +68,14 @@ const FIXTURE_ANCHOR = 424242;
 const CLOSING_TRIGGER =
   /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:[A-Za-z0-9-]+\/[A-Za-z0-9-]+|objectui|objectstack)?#(?:\$\{|\d)/i;
 
-/** The rule-2 ratchet, from its banner comment to the report banner after it. */
-function staleEntryRatchet(): string {
-  const text = fs.readFileSync(gateSource, 'utf8');
+/**
+ * The rule-2 ratchet, from its banner comment to the report banner after it.
+ *
+ * `rewrite` lets a control leg put a PRE-repair wording back, so a scan over
+ * this region is proven able to go red on the same slice that reports green.
+ */
+function staleEntryRatchet(rewrite: (source: string) => string = (source) => source): string {
+  const text = rewrite(fs.readFileSync(gateSource, 'utf8'));
   const start = text.indexOf('// 2. Ratchet — a declared gap that has been closed');
   expect(start, "rule 2's ratchet banner is gone").toBeGreaterThan(-1);
   const end = text.indexOf('// ── Report', start);
@@ -116,6 +121,60 @@ function renderStaleEntry(rewrite: (source: string) => string = (source) => sour
   }
 }
 
+/**
+ * The `scripts/` files this banner is allowed to name: the gate the banner is
+ * written in, and the pin that reads it. Both travel WITH the sentence — a
+ * reader of either is looking at the other, and whoever moves one is the person
+ * the citation is in front of.
+ *
+ * Every other `scripts/` path is a different gate's source, and a sentence here
+ * about a different gate's source is a reading of a population that moves
+ * without this file and re-derives never. objectui#9906 is that shape landed:
+ * the banner said the closing-keyword spelling "still stands" in two named
+ * sibling gates, one half was already false when it was written, and the other
+ * went false two days later when the sibling was repaired. Nothing could have
+ * noticed, because nothing read the sentence.
+ *
+ * ⛔ This is NOT a check that any such claim is TRUE — no tree is scanned here
+ * and none may be (the 2026-09-18 ruling closed the door on a new gate for
+ * cross-file claims). It is the weaker, cheaper, unrottable rule: the banner
+ * does not make the claim at all. If a future reader needs to know which gates
+ * carry the shape today, the answer is those gates and their own pins, not a
+ * sentence in this one.
+ */
+const CITABLE_IN_THE_BANNER = new Set([
+  'check-lint-coverage.mjs',
+  'check-lint-coverage-closing-keyword.test.ts',
+  'lint:coverage',
+]);
+
+/**
+ * The three spellings a banner reaches for when it names a gate: the gate's
+ * source file, a pin's file, and the `package.json` script that runs the gate.
+ * Directory prefixes are optional on purpose — dropping `scripts/` is the
+ * cheapest way to reword around a scan that demands it, and a bare
+ * `check-type-check-coverage.mjs` cites exactly as hard.
+ *
+ * ⚠️ What this deliberately does NOT reach: a gate named in prose with no
+ * filename and no script key ("the type-check coverage gate"). Closing that
+ * would mean a list of every gate's English name — a second copy of the gate
+ * roster, maintained by hand, which is the defect this pin exists to stop
+ * wearing a pin's clothes. The guarantee here is bounded and stated rather
+ * than assumed: the banner carries no CITATION of another gate.
+ */
+const GATE_CITATION =
+  /(?:\bscripts\/(?:__tests__\/)?)?(?:[A-Za-z0-9._-]+\.test\.tsx?|check-[A-Za-z0-9._-]+\.mjs)\b|\b(?:check|lint):[a-z][a-z0-9-]*\b/g;
+
+/** The same citation with any directory prefix dropped, so the two spellings compare equal. */
+const basename = (citation: string) => citation.slice(citation.lastIndexOf('/') + 1);
+
+/** The gates the ratchet region names that are neither this gate nor its pin. */
+function foreignGateCitations(region: string): string[] {
+  return [...new Set(region.match(GATE_CITATION) ?? [])].filter(
+    (citation) => !CITABLE_IN_THE_BANNER.has(basename(citation)),
+  );
+}
+
 describe('the stale-entry message may not carry a card-closing keyword', () => {
   it('the harness and the regex can both fire — the control, on the wording this card replaced', () => {
     // ⛔ Without this leg every assertion below is unfalsifiable: a substitution
@@ -157,6 +216,63 @@ describe('the stale-entry message may not carry a card-closing keyword', () => {
     const rendered = renderStaleEntry();
     expect(rendered).toContain(`objectui#${FIXTURE_ANCHOR}`);
     expect(rendered).toContain('can be ended once that work is done');
+  });
+
+  it('the foreign-citation scan fires on the sentence this card removed — the control', () => {
+    // ⛔ Without this leg the assertion below is unfalsifiable: a regex that
+    // matches nothing and a banner that names nothing render identically.
+    //
+    // The pre-repair sentence is restored byte for byte, as objectui#9906
+    // measured it — including its two present-tense halves, which were false
+    // on the tree the day this control was written. Restoring it HERE plants no
+    // claim: it lives inside a string this file feeds to its own scan and never
+    // reaches the gate on disk.
+    const region = staleEntryRatchet((source) => {
+      const restored = source.replace(
+        "// alone; the siblings the same repair would reach were reported rather than\n"
+          + "// widened into (objectui#9595). The precedent this wording came from is\n"
+          + "// recorded in the pin named below, beside the code that reads it.",
+        "// The landed precedent is the rule-2\n"
+          + "// stale-entry message in scripts/check-spec-symbol-derivation.mjs; the same\n"
+          + "// shape still stands in scripts/check-type-check-coverage.mjs and\n"
+          + "// scripts/check-action-forward-parity.mjs, which this change deliberately does\n"
+          + "// not reach.",
+      );
+      expect(restored, 'the live wording this control rewrites is gone').not.toBe(source);
+      return restored;
+    });
+
+    expect(foreignGateCitations(region)).toEqual([
+      'scripts/check-spec-symbol-derivation.mjs',
+      'scripts/check-type-check-coverage.mjs',
+      'scripts/check-action-forward-parity.mjs',
+    ]);
+    // …and the pin that reads this banner is still not counted as foreign, so
+    // the scan below cannot be satisfied by the banner simply losing its pin.
+    expect(region).toContain('scripts/__tests__/check-lint-coverage-closing-keyword.test.ts');
+    expect(foreignGateCitations(staleEntryRatchet())).not.toContain(
+      'scripts/__tests__/check-lint-coverage-closing-keyword.test.ts',
+    );
+  });
+
+  it('…and the banner names no OTHER gate, so it cannot recite a tree that moves', () => {
+    const region = staleEntryRatchet();
+    // ⛔ The slice first: `staleEntryRatchet` only proves its two markers exist
+    // in order, so a region collapsed to a few bytes would satisfy the scan
+    // below by containing nothing at all. The banner's own last sentence is
+    // inside it, or this leg is not reading the paragraph it claims to read.
+    expect(region, 'the ratchet slice no longer reaches the banner it is scanning').toContain(
+      'scripts/__tests__/check-lint-coverage-closing-keyword.test.ts',
+    );
+    expect(
+      foreignGateCitations(region),
+      "the rule-2 banner names another gate's source file again. Whatever it says about that "
+        + 'file is a reading taken once, by a person who is not looking at it, and re-derived '
+        + 'never — objectui#9906, where the sentence was false in one half the day it was '
+        + 'written. Say it at that gate, or in this pin, where the words sit beside the thing '
+        + 'they describe. ⛔ Not by adding a tree scan here: the ruling of 2026-09-18 closed '
+        + 'that door, and this assertion is deliberately the weaker one.',
+    ).toEqual([]);
   });
 
   it('the ratchet SOURCE carries no trigger either, comment included', () => {

@@ -41,5 +41,8 @@ checks and a validator enforces. Two verdicts move, in opposite directions:
 Keys outside the five are untouched: an undeclared key of any type is still
 admitted unexamined on all five mirrors, pinned per mirror with a control key
 the renderer does not read. `InputSchema.wrapperClass`, declared on the TS face
-only, is a recorded row of the parity ledger (`UnmirroredDeclared`) and stays
-there; the new sweep pin carries it as a self-expiring exemption.
+only, was a recorded row of the parity ledger (`UnmirroredDeclared`) and this
+card left it there; the new sweep pin carried it as a self-expiring exemption.
+objectui#8072 has since mirrored that key, so the row and the exemption are both
+gone — the exemption expired exactly as designed, and the sweep now judges all
+nine readers alike.

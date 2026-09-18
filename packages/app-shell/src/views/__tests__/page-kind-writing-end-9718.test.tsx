@@ -219,6 +219,20 @@ describe('objectui#9718 — page kind ↔ node type channel, the WRITING end', (
     for (const kind of served) {
       const schema = writeFor({ type: kind });
 
+      // Firing control INSIDE the loop, because the comparison below is an
+      // equality and two absences are equal: if the kind's own key were
+      // unregistered, `undefined` would equal `undefined` and this case would
+      // score a miss as a reading. That the key IS registered is the READING
+      // end's fact, owned by `page-kind-node-type-channel-9642`; it is asserted
+      // here only so the comparison has a reference point.
+      expect(
+        ComponentRegistry.getMeta(kind),
+        `the registry key '${kind}' is unregistered, so the comparison below would compare two ` +
+          `absences and pass without measuring anything. That is the READING end breaking, not the ` +
+          `writing end: page-kind-node-type-channel-9642, in @object-ui/components, is the pin that ` +
+          `owns it.`,
+      ).toBeDefined();
+
       expect(
         ComponentRegistry.getMeta(schema?.type),
         `the node type PageView wrote for a stored '${kind}' page must select that kind's OWN ` +

@@ -267,7 +267,6 @@ describe('ObjectGrid — a non-positive authored page size is refused at every r
   const renderInline = (opts: Record<string, unknown>) =>
     render(
       <ActionProvider>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <ObjectGrid
           schema={{
             type: 'object-grid',

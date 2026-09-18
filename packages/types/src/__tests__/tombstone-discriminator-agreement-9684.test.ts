@@ -71,6 +71,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error -- plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { scanSource } from '../../../../scripts/js-comment-mask.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));

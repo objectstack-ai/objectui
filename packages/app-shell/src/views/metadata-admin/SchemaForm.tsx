@@ -620,6 +620,69 @@ function detectSecretWidget(name: string, schema: JsonSchema | undefined): strin
 }
 
 /**
+ * The widget a field renders with — ONE decision, reached by every layout
+ * (objectui#9859).
+ *
+ * The five NAME-CONVENTION detectors above used to be spelled out inline in
+ * `FieldRow`, which made the chain a property of THAT row component rather than
+ * of the form engine. `RepeaterField`'s grid/table layout deliberately does not
+ * go through `FieldRow` — a grid row has no `<label>`, so it names its cells
+ * from the column header by IDREF instead (objectui#5063) — and it therefore
+ * reached `FieldControl` with `inferWidget` alone. All five detectors were
+ * skipped for every grid cell, `detectSecretWidget` included: the same property
+ * in the same repeater rendered masked in the card layout and in the clear in
+ * the grid one, with no warning and nothing an author could see.
+ *
+ * Adding a `detectSecretWidget` call to the grid branch would have closed that
+ * one hole and left the next detector to be forgotten again, so the chain is
+ * lifted out whole instead and both layouts call THIS. Same shape, and for the
+ * same reason, as {@link resolveFieldFace}: one set of predicates, not two that
+ * have to be kept in step.
+ *
+ * `resolveRegisteredWidget` is part of the lift, not an extra: it is what turns
+ * a conditional widget name into the registration that actually renders
+ * (objectui#4871), and `inferWidget` alone already yields `color-picker` for a
+ * `type: 'color'` field — so a grid cell that skipped it landed on the swatch
+ * `radiogroup` even where the free-colour input was the right face.
+ */
+function resolveFieldWidget({
+  name,
+  schema,
+  fieldSpec,
+  widgetContext,
+}: {
+  name: string;
+  schema: JsonSchema | undefined;
+  fieldSpec: FormFieldSpec | undefined;
+  widgetContext?: WidgetContext;
+}): string | undefined {
+  let widget = inferWidget(fieldSpec, schema);
+  // Field-reference props become object-field pickers when a field catalog
+  // is available and the spec didn't pin an explicit widget.
+  if (!fieldSpec?.widget) {
+    const refWidget = detectFieldRefWidget(name, schema, widgetContext);
+    if (refWidget) widget = refWidget;
+    else {
+      const secretWidget = detectSecretWidget(name, schema);
+      if (secretWidget) widget = secretWidget;
+      else {
+        const iconWidget = detectIconWidget(name, schema);
+        if (iconWidget) widget = iconWidget;
+        else {
+          const colorWidget = detectColorWidget(name, schema);
+          if (colorWidget) widget = colorWidget;
+          else {
+            const condWidget = detectConditionWidget(name, schema);
+            if (condWidget) widget = condWidget;
+          }
+        }
+      }
+    }
+  }
+  return resolveRegisteredWidget(widget, schema, fieldSpec);
+}
+
+/**
  * Read a visibility predicate off a spec node — **canonical key first**.
  *
  * ADR-0089 renamed the FormView predicate `visibleOn` → `visibleWhen`, and the
@@ -1287,34 +1350,11 @@ function FieldRow({
   const path = joinIdPath(idPath, name);
   const id = fieldHostId(path);
 
-  // Auto-infer widget from fieldSpec.type or schema
-  let widget = inferWidget(fieldSpec, schema);
-  // Field-reference props become object-field pickers when a field catalog
-  // is available and the spec didn't pin an explicit widget.
-  if (!fieldSpec?.widget) {
-    const refWidget = detectFieldRefWidget(name, schema, widgetContext);
-    if (refWidget) widget = refWidget;
-    else {
-      const secretWidget = detectSecretWidget(name, schema);
-      if (secretWidget) widget = secretWidget;
-      else {
-        const iconWidget = detectIconWidget(name, schema);
-        if (iconWidget) widget = iconWidget;
-        else {
-          const colorWidget = detectColorWidget(name, schema);
-          if (colorWidget) widget = colorWidget;
-          else {
-            const condWidget = detectConditionWidget(name, schema);
-            if (condWidget) widget = condWidget;
-          }
-        }
-      }
-    }
-  }
-
-  // Which registration will actually render, decided BEFORE the label so the
-  // declaration below describes the surface the user gets (objectui#4871).
-  widget = resolveRegisteredWidget(widget, schema, fieldSpec);
+  // Which widget renders — the shared decision, so a card row and a grid cell
+  // holding the same property cannot resolve to different faces (objectui#9859).
+  // It ends in `resolveRegisteredWidget`, so the registration is settled BEFORE
+  // the label below declares how it will be named (objectui#4871).
+  const widget = resolveFieldWidget({ name, schema, fieldSpec, widgetContext });
 
   // Which face `FieldControl` will render — resolved HERE, before the label, from
   // the same inputs it renders from (objectui#5039). The six paths that never
@@ -2148,7 +2188,11 @@ function RepeaterField({
                           schema={sub}
                           value={row?.[s.field]}
                           readOnly={readOnly || s.readonly}
-                          widget={inferWidget(s, sub)}
+                          // The SAME widget decision the card layout's
+                          // `FieldRow` makes — detectors included, so a
+                          // credential column is masked here too
+                          // (objectui#9859).
+                          widget={resolveFieldWidget({ name: s.field, schema: sub, fieldSpec: s, widgetContext })}
                           fieldSpec={s}
                           widgetContext={widgetContext}
                           formData={row}

@@ -159,6 +159,8 @@ import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
 
+import { isEntrypoint } from './invoked-as.mjs';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(HERE, '..');
 
@@ -828,6 +830,17 @@ export function main(argv) {
   return controls.ok ? 0 : 2;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+/**
+ * The entry guard goes through the ONE predicate (`scripts/invoked-as.mjs`).
+ *
+ * ⭐ Recorded because the first draft of this file hand-typed it, and a
+ * hand-typed guard is THIS SCRIPT'S OWN DEFECT CLASS. Node resolves symlinks
+ * for the module graph but leaves `process.argv[1]` as the caller typed it, so
+ * a census reached through a symlink compares two different paths, answers
+ * false, does nothing, and exits 0 with no output -- a clean-looking zero from
+ * an instrument that never ran, inside an instrument whose entire purpose is to
+ * stop false zeros from being reported as measurements.
+ */
+if (isEntrypoint(import.meta.url)) {
   process.exitCode = main(process.argv);
 }

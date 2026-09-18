@@ -1004,10 +1004,20 @@ describe('objectui#7779 — `listViews` stays unmirrored on the ruling\'s fallba
     const filtered = SpecObjectListViewSchema.safeParse({ label: 'Under 100', type: 'grid', filter: [{ field: 'price', operator: 'less_than', value: 100 }] });
     expect(filtered.success).toBe(false);
     if (!filtered.success) expect(refusedAt(filtered.error.issues as readonly Issue[], 'columns')).toBe(true);
-    // schema-reference.md: an ObjectQL tuple filter and a `default: true` flag.
+    // schema-reference.md: an ObjectQL tuple filter. Only `tuple` still has a
+    // doc side, and that side is HELD — the "still what the docs teach" test
+    // below pins this exact filter string off disk.
     const tuple = SpecObjectListViewSchema.safeParse({ label: 'My Deals', columns: ['name'], filter: [['owner', '=', '${currentUser.id}']] });
     expect(tuple.success).toBe(false);
     if (!tuple.success) expect(refusedAt(tuple.error.issues as readonly Issue[], 'filter')).toBe(true);
+    // `flagged` has NO doc side, and its removal was deliberate: objectui#7923
+    // (PR objectui#7991) deleted the per-view `default: true` flag from that
+    // same `object-view` example, because `NamedListView` never declared the
+    // key and `ObjectView` never read it. What is left is a refusal pinned on
+    // its OWN merits — the spec closes `default` too, which is why that doc fix
+    // is not merely cosmetic — so this case is no longer a reading of any shape
+    // the docs teach. ⚠️ Nothing re-derives that absence: read the sentence
+    // above as history, not as a live reading of that file.
     const flagged = SpecObjectListViewSchema.safeParse({ label: 'My Deals', columns: ['name'], default: true });
     expect(flagged.success).toBe(false);
     // The control: the shape the schema catalog authors IS accepted, so the

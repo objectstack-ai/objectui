@@ -698,6 +698,32 @@ export function locateAnchors(citedLines, anchors) {
   return located;
 }
 
+/**
+ * The LINES of a file's text. `split('\n')` is not that, and the difference is
+ * exactly one line on nearly every tracked file: a file that ends in a newline
+ * splits into a trailing empty element that is the TERMINATOR of the last line,
+ * not a line of its own, so the array reads one longer than `wc -l` says the
+ * file is. Two things went wrong on that extra element -- the printed
+ * `file has N lines` was one too many, and a citation addressing the phantom
+ * index passed the range check and was then scored on the empty string, so a
+ * genuinely out-of-range address came back `non-substantive` instead.
+ *
+ * ⚠️ The repair is a single trailing-terminator pop and ⛔ never a blanket
+ * `length - 1`: a file that does NOT end in a newline has no such element, and
+ * its real last line is the one a blanket subtraction would delete. Whether
+ * this tree still holds such files is re-derived rather than asserted here --
+ * `git ls-files -z | xargs -0 -I{} sh -c '[ -s {} ] && [ -n "$(tail -c 1 {})" ] && echo {}'`
+ * prints them, and ⛔ nothing re-runs it, which is why no count is written down.
+ * Exactly one element is popped, which is also right for a file ending in a
+ * blank line: `"a\n\n"` has a genuinely empty last line plus the terminator,
+ * and only the terminator goes. (objectui#9890)
+ */
+export function fileLines(text) {
+  const lines = text.split('\n');
+  if (lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
 /** Decides one citation against the tree AS IT IS TODAY. Never asks what moved. */
 export function judge(hit, root, index, fileCache) {
   const resolution = resolveCited(hit.citedWritten, index);
@@ -708,7 +734,7 @@ export function judge(hit, root, index, fileCache) {
   let citedLines = fileCache.get(citedPath);
   if (citedLines === undefined) {
     try {
-      citedLines = readFileSync(join(root, citedPath), 'utf8').split('\n');
+      citedLines = fileLines(readFileSync(join(root, citedPath), 'utf8'));
     } catch {
       citedLines = null;
     }

@@ -30,11 +30,13 @@
  *    is what stops the controls from being an instance of the defect.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { describe, it, expect, afterAll } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 import {
+  fileLines,
   scanFile,
   resolveCited,
   anchorsFor,
@@ -250,6 +252,98 @@ describe('the verdict is decided against the tree as it is today, never against 
     expect(locateAnchors(lines, ['ActionDef'])).toEqual([{ anchor: 'ActionDef', lines: [3] }]);
     const flooded = Array.from({ length: MAX_ANCHOR_LINES + 2 }, () => 'string');
     expect(locateAnchors(flooded, ['string'])).toEqual([]);
+  });
+});
+
+describe("a cited file is as long as `wc -l` says, not one line longer (objectui#9890)", () => {
+  /**
+   * ⚠️ These cases go through REAL FILES ON DISK, and that is the point rather
+   * than an inconvenience. The phantom element is created by the read inside
+   * `judge`, so every case above — each of which hands `judge` a pre-seeded
+   * `fileCache` holding an array someone already split — walks straight past
+   * the boundary this repair moves and passes identically on the defect and on
+   * the fix. Only a read of a real file exercises it.
+   *
+   * ⛔ No fixture below writes down a line count as a literal: each one derives
+   * its expectation from its own text, the way `wc -l` derives it from bytes.
+   */
+  const CITED = 'packages/core/src/actions/ActionRunner.ts';
+  const index = new Map<string, string[]>([['ActionRunner.ts', [CITED]]]);
+  const root = mkdtempSync(join(tmpdir(), 'census-9890-'));
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  /** What `wc -l` counts: newline characters, which is not the same as lines. */
+  const lf = (text: string) => (text.match(/\n/g) ?? []).length;
+
+  const write = (text: string) => {
+    const abs = join(root, CITED);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, text);
+    return text;
+  };
+  const run = (citedLine: number, anchors: string[] = ['ActionDef']) =>
+    judge(
+      { file: 'scripts/demo.mjs', citedWritten: CITED, citedLine, anchors },
+      root,
+      index,
+      new Map<string, string[] | null>(),
+    ) as { verdict: string; citedLength?: number };
+
+  it('reports a trailing-newline file at its `wc -l` length, not one more', () => {
+    // RED before the repair: the printed `file has N lines` was `wc -l` + 1 on
+    // nearly every tracked file, because the terminator was counted as a line.
+    const text = write('const a = 1;\nexport interface ActionDef {\n  type: string;\n}\n');
+    const verdict = run(lf(text) + 40);
+    expect(verdict.verdict).toBe('out-of-range');
+    expect(verdict.citedLength).toBe(lf(text));
+  });
+
+  it('calls a citation AT the phantom line out of range, not non-substantive', () => {
+    // RED before the repair: line `wc -l` + 1 passed the range check, read the
+    // empty string the terminator left behind, and came back `non-substantive`
+    // — a false verdict for the wrong reason, on an address that is genuinely
+    // past the end of the file.
+    const text = write('const a = 1;\nexport interface ActionDef {\n  type: string;\n}\n');
+    expect(run(lf(text) + 1).verdict).toBe('out-of-range');
+  });
+
+  it('keeps the real last line of a file that does NOT end in a newline', () => {
+    // ⚠️ THE CONTROL ON THE REPAIR, and the reason it cannot be a blanket
+    // `length - 1`. Here `wc -l` UNDERCOUNTS: the last line carries no
+    // terminator, so it contributes no newline while still being a line. A
+    // subtraction that did not look at the last element would delete it. Green
+    // on both sides of the repair — that is what makes it a control.
+    const text = write('const a = 1;\nexport interface ActionDef {');
+    const last = lf(text) + 1;
+    expect(run(last).verdict).toBe('resolves');
+    const past = run(last + 1);
+    expect(past.verdict).toBe('out-of-range');
+    expect(past.citedLength).toBe(last);
+  });
+
+  it('drops the terminator of a file ending in a blank line, and nothing else', () => {
+    // A genuinely empty last line and a terminator look alike in the split
+    // array and are not alike: the blank line stays in range and is judged
+    // `non-substantive` on its content, while the index past it is out of range.
+    const text = write('export interface ActionDef {\n\n');
+    expect(run(lf(text)).verdict).toBe('non-substantive');
+    expect(run(lf(text) + 1).verdict).toBe('out-of-range');
+  });
+
+  it('gives an empty file zero lines, so every citation into it is out of range', () => {
+    // RED before the repair: `''.split('\n')` is `['']`, so an empty file read
+    // as one line long and a citation at line 1 was scored on that empty string.
+    write('');
+    const verdict = run(1);
+    expect(verdict.verdict).toBe('out-of-range');
+    expect(verdict.citedLength).toBe(0);
+  });
+
+  it('separates a line terminator from a line, in the helper itself', () => {
+    expect(fileLines('a\nb\n')).toEqual(['a', 'b']);
+    expect(fileLines('a\nb')).toEqual(['a', 'b']);
+    expect(fileLines('a\n\n')).toEqual(['a', '']);
+    expect(fileLines('')).toEqual([]);
   });
 });
 

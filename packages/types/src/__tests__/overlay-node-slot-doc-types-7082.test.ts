@@ -358,8 +358,14 @@ describe('the row a docs-only edit could not honestly resolve, resolved (objectu
     const renderer = read('packages/components/src/renderers/overlay/alert-dialog.tsx');
     expect(renderer).not.toMatch(/schema\.actions/);
     // Control: this IS the renderer, and the scan can find things in it.
+    // ⛔ Deliberately NOT a string on the TRIGGER path. This control used to
+    // read `renderChildren(schema.trigger)` and died when objectui#9710 moved
+    // the eight overlay triggers onto a shared seam — a dead control reds, which
+    // is the loud direction, but it reds for a reason that has nothing to do
+    // with what this test proves. `content` is a sibling slot the trigger work
+    // does not touch, so it survives the next trigger refactor too.
     expect(renderer).toContain("ComponentRegistry.register('alert-dialog'");
-    expect(renderer).toContain('renderChildren(schema.trigger)');
+    expect(renderer).toContain('renderChildren(schema.content)');
   });
 });
 

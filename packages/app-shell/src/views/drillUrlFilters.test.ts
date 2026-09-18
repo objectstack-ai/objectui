@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseUrlFilterTriples,
+  URL_FILTER_OPS,
   serializeDrillFilterParams,
   deleteFieldFilterParams,
   groupFilterChips,
@@ -39,6 +40,77 @@ describe('parseUrlFilterTriples', () => {
 
   it('skips empty values', () => {
     expect(parse('filter[status]=')).toEqual([]);
+  });
+});
+
+/**
+ * A URL operator suffix naming an inherited member is NOT an operator
+ * (objectui#9507).
+ *
+ * The map was a plain object literal indexed straight by the suffix, so the
+ * truthiness test that decides "is this an operator" was answered by the
+ * PROTOTYPE CHAIN: `filter[amount][constructor]=1` resolved to
+ * `Object.prototype.constructor`, passed the guard, and emitted a triple whose
+ * OPERATOR WAS A JS FUNCTION. Three consequences were driven before the repair,
+ * one per consumer of these triples, and none of them was a crash — which is
+ * why this is pinned at the parser rather than at any of them:
+ *
+ *   - the filter-chip row fell through `groupFilterChips`' range arms to the
+ *     `= <value>` default and drew `amount = 1` — the "silently downgraded to
+ *     equality" outcome this module's own contract says it never produces,
+ *     rendered as a confident chip;
+ *   - "Save as view" DROPPED the condition (a function is not a string, so it
+ *     survives `normalizeFilterOperator` unchanged and `ViewFilterRuleSchema`
+ *     refuses it) and persisted a view with no `filter` key — so the saved view
+ *     silently disagreed with the chip the user had just read;
+ *   - the list query passed the triples through `toFilterNode` untouched and
+ *     `JSON.stringify` turned the function into `null` on the wire, sending an
+ *     operator-less node the data layer refuses.
+ *
+ * The repair removes the construction rather than naming the members: the map
+ * has no prototype, so there is nothing to inherit and no denylist to keep in
+ * step with `Object.prototype`. The sweep below is written the same way — it
+ * ENUMERATES that prototype at run time instead of listing today's members, so
+ * a member added to the language is covered without anyone remembering to.
+ */
+describe('an inherited member is not an operator suffix (objectui#9507)', () => {
+  /** The card's own repro, kept literal as executable evidence of the defect. */
+  it.each(['constructor', 'toString', 'hasOwnProperty'])(
+    'emits nothing for `filter[amount][%s]=1`',
+    (suffix) => {
+      expect(parse(`filter[amount][${suffix}]=1`)).toEqual([]);
+    },
+  );
+
+  it('emits nothing for ANY member of Object.prototype, enumerated not listed', () => {
+    // `__proto__` is in here and is a second shape, not a fourth spelling: its
+    // inherited accessor yielded `Object.prototype` itself, so that suffix
+    // produced a triple whose operator was an OBJECT rather than a function.
+    const leaking = Object.getOwnPropertyNames(Object.prototype).filter(
+      (name) => parse(`filter[amount][${name}]=1`).length > 0,
+    );
+    expect(leaking).toEqual([]);
+  });
+
+  it('still resolves all four declared operators — the sweep above is not vacuous', () => {
+    // Without this, a parser that stopped emitting anything at all would pass
+    // every assertion above. The four are read from the exported map so the
+    // pair stays honest if the vocabulary grows.
+    expect(Object.keys(URL_FILTER_OPS).map((suffix) => parse(`filter[amount][${suffix}]=1`)))
+      .toEqual(Object.values(URL_FILTER_OPS).map((op) => [['amount', op, '1']]));
+  });
+
+  it('keeps the exported map a four-entry Record of suffix → ObjectQL symbol', () => {
+    // The repair may not move a published face: same name, same four entries,
+    // same spread/enumeration behaviour. Only the prototype is gone.
+    expect({ ...URL_FILTER_OPS }).toEqual({ gte: '>=', lte: '<=', gt: '>', lt: '<' });
+  });
+
+  it('leaves the unknown-suffix control answering exactly as before', () => {
+    // The documented behaviour, and the control the card measured the defect
+    // against: a suffix that names nothing produces nothing, and this repair
+    // must not have reached it.
+    expect(parse('filter[amount][nope]=1')).toEqual([]);
   });
 });
 

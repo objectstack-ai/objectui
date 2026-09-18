@@ -16,9 +16,10 @@ on the binding, which unwraps casts): `any` before, `string | undefined` after.
 renderer already applied the contract's `.default('id')` itself, and that
 fallback is untouched — and the published type surface is unchanged, because
 the declaration this repairs was already published. `as any` is erased by the
-compiler, so the emitted module is byte-identical; the ablation legs on the pull
-request show the same test file going red on the re-cast source and green on the
-runtime legs either way.
+compiler: `packages/plugin-detail/dist/index.js` built from the cast tree and
+from the un-cast tree hash the same, measured on this card and quoted on the
+pull request. The ablation legs there show the same test file going red on the
+re-cast source and green on its runtime legs either way.
 
 A co-located pin guards the read, over a population derived from the contract's
 own props schema rather than a written-down list, and ledgers the one cast this

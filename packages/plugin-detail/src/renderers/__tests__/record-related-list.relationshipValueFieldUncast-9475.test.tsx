@@ -20,7 +20,12 @@
  *     declaration looked like it had arrived.
  *   - `getTypeAtLocation` on the READ EXPRESSION is the only instrument that
  *     says what the read actually carries. Run on this site for the first time
- *     by this card: `any` before, the declared type after.
+ *     by this card: `any` before, `string | undefined` after.
+ *
+ * ⚠️ Neither instrument is reachable from a type alias, so the discriminating
+ * leg in THIS file is the source-text one below. The type-level legs are
+ * membership-shaped and stay green on the re-cast source — measured by this
+ * card's ablation, and labelled at each one rather than left to be assumed.
  *
  * ## ⚠️ What the repair does NOT buy, measured rather than assumed
  *
@@ -92,11 +97,18 @@ type _EqualRefusesAny = Expect<Equal<any, true>>;
 type Schema = NonNullable<RecordRelatedListRendererProps['schema']>;
 
 /**
- * ⭐ The card's claim, as a compile-time assertion: the read carries the
- * DECLARED type. RED before this card — the cast made it `any`, which `Equal`
- * refuses (see `_EqualRefusesAny` above, the same shape).
+ * The schema type carries the declared member, not `any`. This guards the
+ * ANNOTATION — the `{} as any` erasure objectui#8649 repaired, which made every
+ * read in this file `any` indistinguishably.
+ *
+ * ⚠️ It does NOT guard the read, and saying so is the whole lesson of this card:
+ * an indexed access on the TYPE is a MEMBERSHIP question, and membership is
+ * exactly what a cast leaves intact. MEASURED, not reasoned — the ablation on
+ * this card re-cast the read and ran both halves: `tsc -p tsconfig.test.json`
+ * stayed GREEN while the source-text legs below went red. A reader who takes
+ * this leg for the guard has repeated the defect one layer up.
  */
-export type _ReadCarriesTheDeclaredType = Expect<
+export type _SchemaTypeCarriesTheDeclaredMember = Expect<
   Equal<Schema['relationshipValueField'], string | undefined>
 >;
 

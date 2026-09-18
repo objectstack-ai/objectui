@@ -2498,8 +2498,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // `Contacts Detail` / `Record Detail`), including with no `I18nProvider`
   // mounted — `createSafeTranslation`'s fallback interpolates `{{label}}` from
   // `LIST_DEFAULT_TRANSLATIONS`.
-  const detailTitle = schema.label
-    ? t('detail.recordDetailWithLabel', { label: schema.label })
+  //
+  // `label` is an `I18nLabel`, so it is a string OR an inline locale map, and
+  // the map has to be resolved BEFORE it reaches the interpolation options
+  // (objectui#9373): `createSafeTranslation`'s options bag is a record of
+  // `unknown`, so a raw map is accepted without a diagnostic and both
+  // interpolators stringify it — the heading read `[object Object] Detail`.
+  // This is the same resolution the view label and the nested `aria` bag
+  // already do on this component's `displayLocale`.
+  //
+  // Resolve BEFORE the truthiness test, not inside the branch:
+  // `resolveInlineI18nLabel` answers `undefined` for a map with no usable
+  // entry and `''` for an empty entry, and both have to fall through to the
+  // `objectName` branch the way a missing label always did. Testing the raw
+  // `schema.label` cannot do that, because every object is truthy.
+  const resolvedDetailLabel = resolveInlineI18nLabel(schema.label, displayLocale);
+  const detailTitle = resolvedDetailLabel
+    ? t('detail.recordDetailWithLabel', { label: resolvedDetailLabel })
     : schema.objectName
       ? t('detail.recordDetailWithLabel', {
           label: schema.objectName.charAt(0).toUpperCase() + schema.objectName.slice(1),

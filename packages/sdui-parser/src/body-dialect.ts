@@ -28,9 +28,12 @@
  * asked AHEAD of the declaration lookup, because its claim is about the render
  * path and declaring the key must not disarm it. This one is asked INSIDE the
  * `!input` branch, because its claim is about a key nobody declares: a
- * component that publishes its own `body` input — `detail`'s section `body`
- * takes an inline translation map, and that is not this spelling — keeps its
- * declared type check untouched.
+ * component that publishes its own `body` input keeps its declared type check
+ * untouched. Re-derived against the registry rather than recalled: exactly one
+ * registration in the tree declares an input named `body`, and it is
+ * `record:alert` (`plugin-detail`, `register('alert', …, { namespace: 'record' })`),
+ * whose `body` takes an inline translation map and is not this spelling.
+ * Control on the same sweep: `name: 'children'` fires seven times.
  */
 
 import type { Diagnostic, SchemaNode } from './types.js';

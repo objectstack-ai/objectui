@@ -1583,8 +1583,10 @@ export interface PageSlotMap {
  * that rendered correctly in the browser was refused by `objectui check`.
  *
  * The renderer is one factory over all seven tags: it renders
- * `renderChildren(schema.children || schema.body)` inside the tag and declares
- * exactly one authoring input, `className` (a {@link BaseSchema} member). The
+ * `renderChildren(schema.children)` inside the tag and declares exactly one
+ * authoring input, `className` (a {@link BaseSchema} member). It read
+ * `schema.children || schema.body` until objectui#6771 retired the second
+ * spelling. The
  * mirror is `zod/layout.zod.ts#SemanticElementSchema`, and
  * `__tests__/node-slot-registered-arms-8499.test.ts` compares the tag list below
  * against `semantic.tsx`'s own `tags` array.

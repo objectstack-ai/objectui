@@ -111,10 +111,15 @@ describe('objectui#6771 — the tier answers the retired `body` with its replace
   });
 
   it('⛔ a component that DECLARES its own `body` input is untouched', () => {
-    // `detail`'s section `body` takes an inline translation map and is not this
-    // spelling. The rule is asked inside the `!input` branch precisely so a
-    // declared key keeps its own type check — the opposite scoping from
-    // `checkKanbanQuickAdd`, deliberately.
+    // ⚠️ The fixture below is SYNTHETIC — a manifest is an argument to
+    // `validateTree`, so this file can ask what the rule says about any shape.
+    // The real component this carve-out exists for is `record:alert`, the one
+    // registration in the tree that declares an input named `body` (its value is
+    // an inline translation map, not a child list); the extension's own gate
+    // names it, and `sdui-parser` needs no list because it asks inside the
+    // `!input` branch. That scoping is the opposite of `checkKanbanQuickAdd`'s,
+    // deliberately: there the claim is about the render path, so declaring the
+    // key must not disarm it; here the claim is about a key nobody declares.
     expect(diagnose({ type: 'detail', body: 'Updated the deal stage.' })).toHaveLength(0);
   });
 

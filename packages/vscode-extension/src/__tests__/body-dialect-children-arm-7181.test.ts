@@ -364,6 +364,41 @@ describe('the VS Code validator recurses into `children` — and, since objectui
     );
   });
 
+  it('does NOT warn on a node type that declares its own `body` input', () => {
+    // ⭐ THE PIN THE CARVE-OUT DID NOT HAVE. `TYPES_DECLARING_OWN_BODY` was added
+    // to close a false positive, published in the changeset as behaviour of a
+    // released package, and then nothing could fail on it: emptying the set to
+    // `new Set([])` left this file passing every leg. A behaviour a test cannot
+    // break is a behaviour nobody is holding.
+    //
+    // `record:alert` is the real subject — the one registration in the tree that
+    // declares an input named `body`, whose value is an inline translation map
+    // rather than a child list. Warning about it would be the false diagnostic
+    // objectui#6771 exists to remove, reintroduced one host over.
+    const carvedOut = validateWithShippedValidator({
+      type: 'record:alert',
+      body: 'Updated the deal stage to Negotiation.',
+    });
+    expect(
+      carvedOut.some((d) => d.message.includes('"body"')),
+      '`record:alert` drew a retirement warning for its own declared `body`'
+    ).toBe(false);
+
+    // THE TWIN, and it is what makes the line above a reading rather than a
+    // validator that stopped working: the same key on a type that does NOT
+    // declare it still draws the warning, naming the replacement.
+    const notCarvedOut = validateWithShippedValidator({
+      type: 'card',
+      body: 'Updated the deal stage to Negotiation.',
+    });
+    expect(
+      notCarvedOut.some(
+        (d) => d.message.includes('"body"') && d.message.includes('"children"')
+      ),
+      'the retirement warning stopped firing for types outside the carve-out'
+    ).toBe(true);
+  });
+
   it('reports nothing for a well-formed tree under the live spelling', () => {
     // The `body` half of this pair was never discriminating — a well-formed tree
     // draws no diagnostic whether the recursion walks it or skips it — so it is

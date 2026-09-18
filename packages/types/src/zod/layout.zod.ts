@@ -856,8 +856,9 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
  * ## Why one arm and not seven
  *
  * The factory in `semantic.tsx` builds ONE component over all seven tags: it
- * renders `renderChildren(schema.children || schema.body)` inside the tag and
- * declares exactly one authoring input, `className`. Seven arms would restate
+ * renders `renderChildren(schema.children)` inside the tag and declares exactly
+ * one authoring input, `className`. It read `schema.children || schema.body`
+ * until objectui#6771 retired the second spelling. Seven arms would restate
  * the same shape seven times with no key to tell them apart.
  *
  * ## What is NOT declared here, and why

@@ -51,7 +51,10 @@ Ruled 2026-09-01: one concept, one spelling, and the spelling is `children`.
   migration path at all. Nothing in this repository authors any of them: the committed
   census over those keys reads a firing control (`card` + `body`, 40 before this change
   and 2 after, both test fixtures) beside a lit zero for `page:section` (6 nodes
-  resolved, 0 `body`, 4 `children`). Retiring the four reads is objectui#9916.
+  resolved, 0 `body`, 4 `children`). Retiring the THREE THIN reads is objectui#9916,
+  which asks for the stored-corpus reading they turn on; `page:card`'s read is not
+  that card's — it rides objectstack#5775 / ADR-0087 D2 and ends when the stored rows
+  have been replayed through the conversion that already shipped for it.
 - **The published type.** `BaseSchema.body` is `never` on the TypeScript face and an
   alias refusal naming `children` on the Zod mirror, as are the four per-component
   redeclarations (`CardSchema`, `AspectRatioSchema`, `PageNodeSchema`, `TooltipSchema`).
@@ -96,8 +99,11 @@ authoring tier, exactly as everywhere else. What survives is the READ.
 spec's conversions registry carries `page-card-body-to-children` (`toMajor: 17`,
 surface `page.component.page:card.body`), which shipped with `retiredFromLoadPath: true`
 in spec 17.0.0. The other three have **no conversion at all**, so a stored row under
-their key has nowhere to be migrated to. Retiring these four reads is tracked as
-objectui#9916.
+their key has nowhere to be migrated to. ⇒ the two halves are tracked separately, and
+the pointer is not one card: retiring the three thin reads is objectui#9916, whose
+question is the stored corpus; retiring `page:card`'s read belongs to
+objectstack#5775 / ADR-0087 D2, whose conversion has already shipped and whose
+remaining condition is replayed rows.
 
 **Non-rendering readers keep their arm on the same rule**, and none of them renders
 anything: while a renderer still reaches stored `body` content, a reader that must see

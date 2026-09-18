@@ -21,6 +21,7 @@ import * as React from 'react';
 import { ArrowDown, ArrowUp, Trash2, X } from 'lucide-react';
 import { cn } from '@object-ui/components';
 import { Badge, Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
+import { type LoadState } from '../loadState.js';
 
 /* ─────────────── Layout shell ─────────────── */
 
@@ -226,6 +227,86 @@ export function InspectorNumberField({
 }
 
 /**
+ * What {@link InspectorSelectField} is entitled to say about a stored value,
+ * derived from the ONE state its roster is in.
+ *
+ * `silent` — no claim may be made: the question is unasked or still out.
+ * `answered` — the roster spoke, so "not offered" is a fact it can testify to.
+ * `failed` — the question was not answered at all, and that is its own fact.
+ */
+type RosterVerdict = 'silent' | 'answered' | 'failed';
+
+/**
+ * ⭐ The whole repair for objectui#9651 is that this reads ONE value.
+ *
+ * The defect it closes was a *combination* defect: `options: []` plus
+ * `loading: false` is what a failed fetch leaves behind AND what a successful
+ * fetch that found nothing leaves behind, so the primitive could not tell a
+ * fault from a measurement (`loadState.ts` documents the class, objectui#5170 /
+ * objectui#5169). ⛔ The obvious repair — a second boolean beside `loading` —
+ * re-creates it one size larger: three facts in two booleans is how this arrived,
+ * and four facts in three booleans leaves FIVE combinations nothing defines.
+ *
+ * Reading a discriminated union instead means there are no combinations to
+ * leave undefined, and the `default` leg makes that mechanical rather than
+ * remembered: a NEW arm on {@link LoadState} stops compiling here instead of
+ * silently falling into one of the answers below. That is the property the
+ * card asked for — no fourth arm waiting behind this one.
+ */
+function rosterVerdict(roster: LoadState<unknown> | undefined): RosterVerdict {
+  // No prop at all is the synchronous call site: a literal `options` array has
+  // always already answered. That is what the ~40 static pickers pass, and it
+  // is a real arm of the answer, not a default-by-omission.
+  if (!roster) return 'answered';
+  switch (roster.status) {
+    case 'idle':
+    case 'loading':
+      return 'silent';
+    case 'loaded':
+      return 'answered';
+    case 'error':
+      return 'failed';
+    default: {
+      const unhandled: never = roster;
+      return unhandled;
+    }
+  }
+}
+
+/**
+ * Adapt a picker hook that still reports `{ loading, error }` into the one
+ * state {@link InspectorSelectField} reads.
+ *
+ * Several metadata-admin loaders (`useObjectFields`, `useDatasetCatalog`,
+ * `useDatasetSemantics`) predate {@link LoadState} and publish the pair. The
+ * pair is not wrong at the source — it is wrong to re-derive its PRECEDENCE at
+ * every render site, which is the failure `loadState.ts` names: `error` has to
+ * be read before `loading`/loaded, by hand, everywhere, and a reordered branch
+ * breaks it silently. Written once here, no call site can get the order wrong.
+ */
+export function rosterFrom(source: {
+  loading: boolean;
+  error: string | null | undefined;
+}): LoadState<undefined> {
+  // `!= null`, not truthiness: a fault reported with an empty message is still
+  // a fault, and swallowing it here would put back the exact substitution this
+  // whole change exists to remove. The notice renders the label alone when
+  // there is no cause to show.
+  if (source.error != null) return { status: 'error', message: source.error };
+  if (source.loading) return { status: 'loading' };
+  return { status: 'loaded', data: undefined };
+}
+
+/**
+ * Default wording for the notice {@link InspectorSelectField} renders when its
+ * roster failed to load. Raw English, like {@link defaultUnknownValueLabel}:
+ * this module has no locale in scope (see the file header). Call sites pass
+ * their own — the repo already has this exact copy localized, as the shared
+ * picker-failure title objectui#5170 landed for the widget family.
+ */
+const defaultRosterFailureLabel = 'Options could not be loaded';
+
+/**
  * Default wording for the row {@link InspectorSelectField} synthesises when the
  * stored value is not in the roster. Raw English, like `placeholder`'s `'—'`
  * default: this module takes raw strings and has no locale in scope (see the
@@ -241,7 +322,8 @@ export function InspectorSelectField({
   onCommit,
   placeholder = '—',
   unknownValueLabel = defaultUnknownValueLabel,
-  loading,
+  roster,
+  rosterFailureLabel = defaultRosterFailureLabel,
   disabled,
 }: {
   label: string;
@@ -256,13 +338,30 @@ export function InspectorSelectField({
    */
   unknownValueLabel?: (value: string) => string;
   /**
-   * The `options` roster has not answered YET — an async picker is still
-   * fetching it. For as long as this is true the "not offered" flag is
-   * withheld: a roster that has not spoken cannot testify that a stored value
-   * is absent from it (objectui#8862). Spelled the way the sibling atom
-   * `InspectorComboField` spells the same signal.
+   * What the `options` roster DID — unasked, in flight, answered, or failed —
+   * as one value rather than a set of flags.
+   *
+   * The flag this primitive owns is an assertion about the author's own data,
+   * so it may only be made by a roster that actually answered. `idle` and
+   * `loading` withhold it because the roster has not spoken (objectui#8862);
+   * `error` withholds it because the roster never will, and additionally says
+   * so on screen (objectui#9651) — silence there would trade a wrong message
+   * for no message.
+   *
+   * ⚠️ This REPLACED a `loading?: boolean`. The sibling atom
+   * `InspectorComboField` still spells its own signal as a boolean, and that is
+   * not drift: its `loading` only picks the trigger's placeholder text, it
+   * decides no claim, so it has no fault arm to be blind to.
+   *
+   * Omit it entirely for a synchronous roster (a literal `options` array).
    */
-  loading?: boolean;
+  roster?: LoadState<unknown>;
+  /**
+   * Wording for the notice shown when `roster` reports a failure. The CAUSE is
+   * rendered from the state's own message; this is the sentence in front of it.
+   * Defaults to raw English, same contract as `unknownValueLabel`.
+   */
+  rosterFailureLabel?: string;
   disabled?: boolean;
 }) {
   // Radix `<Select.Item>` forbids an empty-string value (it reserves ""
@@ -341,29 +440,53 @@ export function InspectorSelectField({
   // author that a key they bound correctly does not exist on the object. The
   // plausible response is to "fix" a binding that was already right.
   //
-  // `loading` is the missing term, and it makes the answer a TRI-state:
+  // objectui#8862 gave that boundary a `loading` term and made the answer a
+  // TRI-state. objectui#9651 measured the arm it left open and made the answer
+  // read ONE state instead of a list plus flags — see {@link rosterVerdict}:
   //   • roster answered, value offered     → the option's own label
   //   • roster answered, value NOT offered → the value under `unknownValueLabel`
-  //   • roster has not answered            → the value, bare
+  //   • roster unasked or in flight        → the value, bare
+  //   • roster FAILED                      → the value, bare, plus a notice
   //
-  // The row is still SYNTHESISED in the pending arm. Withholding it would put
+  // The row is still SYNTHESISED in every silent arm. Withholding it would put
   // back the blank trigger objectui#8488 removed, and would blank it exactly
   // when the author has least other evidence of what is stored; only the CLAIM
   // is withheld. A value drawn plainly asserts nothing about a roster that has
   // not spoken, which is the only honest render while it is silent. ⚠️ That is
   // not the direction objectui#8488 refused: what it refused — "stored" and
   // "offered" drawn alike — is a claim about a roster that HAS answered and
-  // can tell them apart. This one cannot, yet.
+  // can tell them apart. This one cannot, and in the failure arm never will.
   //
-  // ⚠️ One arm of the same blindness stays open, deliberately. A roster whose
-  // fetch FAILED also resolves to `[]`, with `loading` back to false, so the
-  // flag still fires on a load error. objectui#5170 ruled that arm for the
-  // SchemaForm widget family and chose a dedicated failure surface over a
-  // silent empty roster; answering it here would be a decision about what a
-  // picker owes its host, not a spelling, so it is filed rather than guessed.
+  // objectui#9651 — the arm objectui#8862 left open, and the reason it needed
+  // its own decision rather than a wider `loading`. A fetch that FAILS also
+  // leaves `options` at `[]` with nothing in flight, so to a list-plus-flag
+  // reading it is byte-identical to "the roster answered and your value is not
+  // in it" — and unlike the pending arm it never resolves, so the false claim
+  // was PERMANENT. Measured on the unrepaired tree through the real
+  // `ViewColumnInspector`: a rejected `client.get` rendered
+  // `amount (not in object)` for a field the object really has, with nothing
+  // anywhere on screen saying the request failed.
+  //
+  // ⚠️ Suppressing the flag is only half. A silent suppression trades a wrong
+  // message for NO message, and the author is then looking at a picker whose
+  // list is empty for an unstated reason. So the failure arm also renders its
+  // own notice, carrying the cause — which is what this tree already decided a
+  // picker owes its host on a failed catalog: `PickerLoadFailure` in
+  // `widgets.tsx` (objectui#5170) states that the list could not be loaded,
+  // shows the cause, makes NO claim about whether options exist, and keeps the
+  // control editable so a failed catalog does not also block authoring. Same
+  // three properties here, in the shape a single inspector row can carry.
+  const verdict = rosterVerdict(roster);
+  const rosterFailure = roster?.status === 'error' ? roster.message : undefined;
   const isUnknownValue = current !== '' && !options.some((o) => o.value === current);
   const shownOptions = isUnknownValue
-    ? [{ value: current, label: loading ? current : unknownValueLabel(current) }, ...options]
+    ? [
+        {
+          value: current,
+          label: verdict === 'answered' ? unknownValueLabel(current) : current,
+        },
+        ...options,
+      ]
     : options;
   return (
     <div className="space-y-1">
@@ -391,6 +514,29 @@ export function InspectorSelectField({
           ))}
         </SelectContent>
       </Select>
+      {/* objectui#9651 — the failure arm says so. `role="status"` is what the
+          shared `PickerLoadFailure` block uses for the same fact, and the warn
+          tone matches the `Hint tone="warn"` this tree already renders for a
+          catalog that could not be read. */}
+      {rosterFailure !== undefined ? (
+        <p
+          role="status"
+          data-testid="inspector-select-roster-failure"
+          className="text-[11px] leading-snug text-amber-600 dark:text-amber-300"
+        >
+          {rosterFailureLabel}
+          {/* An explicit space: the cause is a separate element, so without it
+              the accessible name reads as one run-on word. */}
+          {rosterFailure ? (
+            <>
+              {' '}
+              <span className="break-words font-mono text-[10px] opacity-80">
+                {rosterFailure}
+              </span>
+            </>
+          ) : null}
+        </p>
+      ) : null}
     </div>
   );
 }

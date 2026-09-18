@@ -1,5 +1,130 @@
 # @object-ui/create-plugin
 
+## 17.7.0
+
+### Minor Changes
+
+- 6cc48c4: Ask for the plugin's licence and ship the text it claims (objectui#8041, director
+  decision batch #91, 2026-09-08).
+  
+  **The defect.** `buildPackageJson` wrote `license: 'MIT'` into every generated
+  manifest — unconditionally, and without ever asking — while `buildPluginFiles`
+  emitted nine files, none of them a LICENSE. The generated manifest declares no
+  `files` array, so `npm pack` takes npm's default set, which packs `LICENSE*`
+  whether or not anything lists it; the file simply was not on disk to pack. An
+  author who published a freshly scaffolded plugin therefore shipped a tarball that
+  **claimed a licence it did not carry**, on a choice made for them by this
+  generator.
+  
+  **What changes, for a scaffolded package.**
+  
+  - The scaffolder now asks `License:` as a chooser over `MIT`, `Apache-2.0`,
+    `BSD-3-Clause` and `ISC`, with **MIT preselected**. It is the fourth question,
+    after plugin name, description and author; the first three are unchanged.
+  - The emitted file set goes from **nine files to ten** — a `LICENSE` carrying the
+    full text of whatever was chosen, with the copyright line filled in from the
+    author and the current year. When the author prompt was left blank the holder
+    reads `the <package name> authors` rather than trailing off after the year.
+  - The manifest's `license`, the README's `## License` section and the licence
+    named in the four emitted source-file headers all follow the choice, instead of
+    four of them saying MIT while the fifth says something else.
+  - **A non-interactive run takes MIT and still writes the text.** A non-TTY stdin,
+    a cancelled prompt and any unrecognised value all resolve to MIT; there is no
+    input for which the generator emits a licence claim with no text beside it.
+  
+  Omitting `license` instead was refused on the record: an unlicensed manifest reads
+  as all-rights-reserved on npm, which is the worse default for the author this
+  change is written for. The four licence texts are copied verbatim from canonical
+  copies rather than retyped — a paraphrased licence is not a licence, and a
+  transcription typo in one is invisible to every gate this repository has.
+  
+  Nothing an already-generated plugin does changes; this moves what the next one is
+  born with.
+- 7e247e2: Make the documented non-interactive run real, and stop a cancelled prompt from
+  crashing the generator (objectui#8786).
+  
+  **The defect.** `prompts` hands back the answers given SO FAR when a question is
+  cancelled — the cancelled question and every question after it are simply absent
+  — and the generator read `answers.author` raw. Cancelling at `Plugin
+  description:` or `Author name:` therefore reached
+  `licenseCopyrightHolder(vars)`, dereferenced `undefined.trim()`, and died with a
+  `TypeError` and exit 1. It died *after* the target directory had been created,
+  so it left an empty `packages/plugin-NAME/` behind and the obvious retry failed
+  on "Directory already exists" instead. Cancelling at the fourth question
+  (`License:`) was unaffected, because nothing is left unanswered after it.
+  
+  **The false claim.** The README promised that "a non-interactive run (no TTY, or
+  a cancelled prompt) takes MIT and still writes the text". `prompts` never
+  settles on a stdin that is not a TTY: no `submit`, no `abort`, the process ran
+  out of work and exited 0 having written nothing at all, in silence.
+  
+  **One rule now covers both.** An answer that is not given takes the default its
+  prompt offered, and the complete ten-file set is still written — whether the run
+  was cancelled or never had a TTY to ask on. The plugin name keeps its own
+  behaviour, being the one answer with no default: a run that reaches the name
+  prompt with no TTY, or cancels it, now prints `Plugin name is required` and
+  exits 1 without creating anything (it used to exit 0 in silence). `--description`
+  and `--author` set the defaults such a run writes, so
+  `create-plugin my-plugin --author "Ada"` scaffolds correctly from a CI step.
+  
+  Nothing an interactive, fully answered run produces changes, and neither does
+  what a cancel at `License:` produces: MIT and the same ten files. Templating now
+  also happens before anything is created on disk, so no failure inside
+  `buildPluginFiles` can leave a half-created directory behind.
+
+### Patch Changes
+
+- 80eb9ed: create-plugin: stop writing an "ObjectStack Inc." copyright header onto the plugin author's own source files
+  
+  `buildIndexFile`, `buildImplFile`, `buildTypesFile` and `buildTestFile` — the
+  four builders that write source into the scaffolded package — each opened the
+  file they emit with `Copyright (c) <year>-present ObjectStack Inc.` under an
+  `ObjectUI` title line. Those four files are the author's own code: the package
+  entry, the component implementation, its schema types and its example test. The
+  notice named this project as the copyright holder of source the author had not
+  written yet, in a package they publish under their own name — a stronger claim
+  than the licence one objectui#8041 removed, which asserted a licence *choice*
+  rather than *ownership*.
+  
+  Both lines are gone and **nothing replaces them**. A scaffolded `src/*` file now
+  carries no copyright line, no holder, no year and no SPDX id — not even the
+  author's own name, which would be this generator making a legal assertion about
+  the author's code just as the old line did.
+  
+  What stays is the licence pointer, because it is true: `This source code is
+  licensed under the <id> license found in the LICENSE file in the root directory
+  of this source tree.` The id is the licence the author chose at the prompt
+  (objectui#8041), the LICENSE it points at really is emitted beside those files,
+  and `buildLicenseFile` refuses an id it has no text for (objectui#8892) — so it
+  cannot name a licence the package does not carry. It also remains one of the six
+  agreeing licence statements those two cards built, alongside the manifest and
+  the README.
+  
+  No prompt, no manifest field and no other emitted file changes.
+- 7a3ff77: create-plugin: refuse a licence id the generator has no text for, instead of scaffolding a plugin whose LICENSE contradicts its own manifest
+  
+  `buildLicenseFile` used to answer an unoffered licence id with MIT's text. The id
+  reaches a scaffolded plugin through six statements and that was the only one
+  that resolved it — `package.json`, the README's `## License` line and four
+  source-file headers take it verbatim — so the substitution did not remove the
+  "a manifest claiming a licence with no text beside it" state its docblock
+  promised to remove. It authored a worse one: a plugin naming one licence five
+  times and carrying a different licence's text, which the author then publishes.
+  
+  The unoffered id is refused now, with an error naming the offending id and the
+  ids that would be accepted. Nothing reachable changes: `resolveLicenseId` is
+  total onto the four offered ids and the CLI is the only caller, so no scaffold
+  that works today starts failing.
+- e7e45d8: Type the `test:` block in the scaffolded `vite.config.ts`.
+  
+  The emitted config passed a `test:` block to a `defineConfig` imported from
+  `vite`, whose `UserConfig` declares no `test` key — TS2769 in every editor a
+  freshly scaffolded plugin is opened in, on day one, for every plugin this
+  generator writes. The config now carries `/// <reference types="vitest/config" />`,
+  which pulls in vitest's `declare module "vite"` augmentation and supplies the
+  missing declaration at zero run-time cost. The `test:` block itself is unchanged
+  and stays: it is the only thing giving the scaffolded example test a DOM.
+
 ## 17.6.0
 
 ### Patch Changes

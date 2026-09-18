@@ -1,5 +1,828 @@
 # @object-ui/runner
 
+## 17.7.0
+
+### Minor Changes
+
+- 0ea7054: Remove 37 runtime dependencies that no file in the declaring package consumes, and gate
+  the direction so the next one cannot land (objectui#8198).
+  
+  `check:phantom-deps` judges imports that are not declared; nothing judged the reverse,
+  so a declaration could outlive its last consumer indefinitely. That is what happened to
+  `recharts` in `@object-ui/components` after objectui#7397 deleted its only importer — it
+  was removed by hand on objectui#7625, and nothing would have reported the next one. The
+  new `pnpm check:unused-deps` asks the reverse question over `dependencies` and
+  `optionalDependencies` of every released package.
+  
+  **Potentially breaking, for consumers relying on hoisting.** Nothing these packages ship
+  changes: their Vite `external` predicates are path-based and never read `dependencies`,
+  so no built artifact moves. What changes is the install graph — a project that imports
+  one of the removed packages while depending only on the ObjectUI package that used to
+  drag it in will no longer resolve it. Declare it directly; that is the correct
+  dependency edge in either case. The removals, by package:
+  
+  - `@object-ui/plugin-designer`: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `@object-ui/fields`
+  - `@object-ui/plugin-chatbot`: `react-markdown`, `react-syntax-highlighter`, `remark-gfm` (and the orphaned `@types/react-syntax-highlighter`)
+  - `@object-ui/plugin-report`: `@object-ui/plugin-grid`, `clsx`, `react-i18next`, `tailwind-merge`
+  - `@object-ui/plugin-map`: `@objectstack/spec`, `lucide-react`, `zod`
+  - `@object-ui/runner`: `class-variance-authority`, `clsx`, `tailwind-merge`
+  - `@object-ui/core`: `lodash`, `zod`
+  - `@object-ui/layout`: `clsx`, `tailwind-merge`, and `react-dom` — which it pinned at an exact version in `dependencies` while also declaring it as a peer range, i.e. a library hard-depending on the renderer it asks its host to supply
+  - `@object-ui/plugin-dashboard`: `clsx`, `tailwind-merge`, and the same `react-dom` defect
+  - `@object-ui/plugin-ai`: `@object-ui/react`, `clsx`, `tailwind-merge`
+  - `@object-ui/fields`: `clsx`, `tailwind-merge`
+  - `@object-ui/console`: `@object-ui/react-runtime`, `sucrase`
+  - `@object-ui/auth`: `@object-ui/types`
+  - `@object-ui/plugin-calendar`: `@object-ui/fields`
+  - `@object-ui/plugin-editor`, `@object-ui/plugin-markdown`: `@object-ui/react`
+  - `@object-ui/react`: `react-hook-form`
+  
+  Every one was verified by a whole-package grep before removal — the name appeared nowhere
+  under the package but its own manifest and CHANGELOG — and the whole workspace builds,
+  type-checks and tests green afterwards.
+
+### Patch Changes
+
+- adb2a86: The standalone runner renders `AppAction.items` from its declared type only, which
+  makes `AppActionSchema.onClick`'s retirement message true again (objectui#6854,
+  maintainer ruling of 2026-09-05, option B2).
+  
+  `AppAction.items` is `AppMenuItem[]`, and the zod mirror parses it with the legacy
+  `MenuItemSchema`, which declared neither `onClick` nor `shortcut` when this change was
+  made. (`shortcut` has since become a declared refusal there — objectui#7719 — while
+  `onClick` remains undeclared on that mirror and is still dropped in silence.)
+  `LayoutRenderer` reached both through `as any`, past the type it was handed, and
+  that left three mutually exclusive signals about the same key: the TypeScript face
+  said `?: never`, the validator's refusal said "no renderer reads this key, so
+  nothing could ever run it", and a renderer read it. An agent or a reader could
+  believe any one of the three and be contradicted by the other two.
+  
+  **No published accept set moves and no exported symbol changes.** `AppAction.items`
+  is NOT re-typed (the alternative was measured and refused: it would have carried a
+  breaking migration for `path` / `href` / `badge` / `type` and the divider spelling,
+  for a capability with no measured consumer). The refusal message itself is unchanged
+  — it is shared by 22 other retired handler keys, and deleting the cast is what makes
+  its sentence true rather than restating it.
+  
+  - `@object-ui/runner`: `LayoutRenderer` no longer reads `onClick` or `shortcut` on a
+    `type: 'user'` action's `items`. The `onClick` branch was an empty body and could
+    never run a JSON value; the `shortcut` read rendered a `DropdownMenuShortcut` from
+    a key the mirror stripped in silence at the time, so no validated document could
+    reach it. (objectui#7719 has since replaced that silent strip with a named refusal;
+    either way the read was unreachable, which is what made deleting it a cleanup.) A
+    census of every JSON and TypeScript app document in this repository found zero
+    authors of either key (positive controls recorded on the issue).
+  - `@object-ui/types`: the rationale comments on `AppAction.onClick` and
+    `AppActionSchema.onClick` said "nothing reads `AppComponentSchema.actions[]`".
+    That was false — the runner renders both the `'button'` and the `'user'` arm.
+    Corrected to what was measured: `actions[]` is read, `onClick` is not.
+  
+  Whether `shortcut` should become authorable on `AppAction.items` was a separate
+  contract question, filed as objectui#7719 and since answered: it does not become
+  authorable, and the mirror refuses it by name instead of stripping it.
+- 76573a1: Fix every `@source` path in the runner's Tailwind entry, and keep test files out
+  of its published stylesheet (objectui#8454).
+  
+  `packages/runner/src/index.css` is a published input: this package is
+  `private: false` with `files: ["dist"]`, so what it compiles to is bytes a
+  consumer downloads and serves. All five of its `@source` lines were wrong by one
+  path segment. Tailwind resolves a relative `@source` against the directory of the
+  entry CSS — `packages/runner/src/` — so `./src/**` meant
+  `packages/runner/src/src` and `../../packages/<pkg>/src` meant
+  `packages/packages/<pkg>/src`. A glob whose base directory does not exist scans
+  nothing and raises no error, so the file read as if it declared its inputs while
+  declaring none: deleting all five lines produced a byte-identical artifact.
+  
+  What kept the sheet non-empty was Tailwind's automatic source detection, whose
+  base defaults to the process CWD — `packages/runner`, where `pnpm build` runs.
+  That covers this package's own tree and nothing else, so every utility belonging
+  to `@object-ui/components`, `@object-ui/react`, `@object-ui/plugin-kanban` and
+  `@object-ui/plugin-charts` was missing from the shipped app. Measured from the
+  package directory, repairing the four sibling paths takes the compiled sheet from
+  228 to 1456 selectors (21 kB to 136 kB): `bg-popover`, `bg-accent`,
+  `bg-destructive`, `animate-out` and 1224 more had no source anywhere.
+  
+  The same automatic root also swept this package's own test files into the
+  published bytes. Two `@source not` lines — the spelling
+  `packages/plugin-kanban/src/index.css` already uses, anchored one level up
+  because this entry scans four sibling packages — remove nine test-sourced
+  classes, several of them ordinary English words lifted out of prose comments
+  (`paused`, `invert`, `flex-nowrap`).
+  
+  `patch`: this package exposes no importable surface at all (no `main`, `module`,
+  `types` or `exports` — it publishes a built application under `dist`), so nothing
+  a consumer imports changes shape. The nine removed classes are unreachable from
+  the app's own markup by construction, which is why the scan never had a shipped
+  source for them.
+- adf5812: Four node type keys retire, and the kanban and gantt families converge on their
+  `object-*` spellings: `kanban` (objectui#8802), `kanban-ui` and `kanban-enhanced`
+  (objectui#8257), and `gantt` (objectui#8008). All four were ruled by the
+  maintainer in one batch on 2026-09-09.
+  
+  **⛔ No stored document moves.** The strings `kanban` and `gantt` name two
+  different things at two different layers, and only one of them is retiring:
+  
+  | layer | value | who writes it | retired? |
+  | --- | --- | --- | --- |
+  | stored `NamedListView.type` | `"kanban"`, `"gantt"` | `CreateViewDialog`, persisted per tenant | **no — untouched** |
+  | node type key | `kanban`, `gantt` | hand-authored JSON | **yes** |
+  
+  `ObjectView`'s `switch (viewType)` maps a stored view type onto the node type it
+  renders, and it already emitted `object-kanban` and `object-gantt` — as it does
+  for all twelve stored view types. So every kanban and gantt view any user ever
+  created through the console already renders through the surviving spelling.
+  Nothing in a tenant database changes, and ⛔ nothing should be migrated there.
+  
+  **What each retirement was, measured.** Three of the four were
+  registration-only: no schema face in `@object-ui/types` ever declared
+  `kanban-ui`, `kanban-enhanced` or `gantt` as a component node type, so
+  unregistering is the whole retirement. The bare `kanban` key was the exception —
+  it had a declared arm on both faces (`KanbanSchema` in `complex.ts` and its Zod
+  mirror), and a plain deletion there would have been the objectui#7664 failure:
+  `BaseSchema` is `.passthrough()`, so a document naming a dropped key validates
+  green and renders nothing. It therefore retires as a **named refusal**: the Zod
+  union keeps an arm claiming the literal and answers a `{ "type": "kanban" }`
+  document with a message naming `object-kanban` as the remedy, while the
+  TypeScript half is the absence of the arm from `ComplexSchema` and of the key
+  from `SchemaRegistry`, so `tsc` refuses it at the authoring site.
+  
+  **⭐ This closes objectui#8818's `objectFields` hole — for that ENTRY, not for
+  the class.** `SchemaRenderer` strips a fixed enumerated metadata list and
+  spreads the rest as React props; `objectFields` is not on that list, and
+  `KanbanRenderer` — the component the `kanban-ui` key resolved to — declares
+  `objectFields` as a real prop, so an authored value reached the predicate layer
+  with no schema face judging it. With the registration gone, no authored node
+  reaches that component through the registry. ⚠️ The **class** is still open: the
+  hole returns the moment another registered renderer declares an `objectFields`
+  prop. objectui#8818's option (a) — stripping at the `SchemaRenderer` boundary —
+  is what would close the class.
+  
+  **⚠️ What the `kanban` arm took with it, stated because it is the cost of this
+  change.** That arm was the only schema face that ever declared `columns`,
+  `cardTitle`, `swimlaneField`, `grouping` and `navigation`, the only one that
+  refused `allowCollapse` / `cardTemplates` / `columnWidths` / `titleField` /
+  `draggable` / `onColumnAdd` / `onCardAdd` by name, and — through
+  `columns: KanbanColumn[]` — the only one that judged a lane's `cards`
+  (objectui#6939).
+  
+  ⭐ **The sentence that stood here — «The surviving `ObjectKanbanSchema` face
+  declares none of them» — is retired, and the two reasons it failed are DIFFERENT
+  defects (objectui#9713).** It is replaced by a dated reading rather than silently
+  overwritten, because half of it was true when written and erasing that would be a
+  false record of its own:
+  
+  | key named just above | on `ObjectKanbanSchema` when this entry was written (`adf581278`, 2026-09-10) | on `main`, 2026-09-17 | what moved |
+  | --- | --- | --- | --- |
+  | `columns` | not declared | **declared** | objectui#8913 (PR objectui#8989), six hours after this entry was written |
+  | `cardTitle` | not declared | **declared** | objectui#9606 (PR objectui#9709) |
+  | `titleField` | **declared** | **declared** | nothing — the sentence was never true of this key |
+  | `allowCollapse` | **declared**, a live `z.boolean().optional()` | **declared**, as a `retirementTombstone()` | objectui#8801 retired it; it was declared on this face throughout |
+  | `swimlaneField`, `grouping`, `navigation`, `cardTemplates`, `columnWidths`, `draggable`, `onColumnAdd`, `onCardAdd`, and a lane's `cards` | not declared | not declared | nothing |
+  
+  ⇒ For `columns` and `cardTitle` the claim **ROTTED**: it was true on 2026-09-10 and
+  was falsified afterwards by cards that had no reason to read this file. For
+  `titleField` and `allowCollapse` it was **BORN FALSE**: those two are named above as
+  keys the `kanban` arm refused BY NAME — which the surviving face indeed does not do
+  — but the surviving face declared both of them the whole time, and «declares none of
+  them» said otherwise. ⛔ Do not restate any of this in the present tense: a pending
+  entry publishes verbatim into the CHANGELOG, and an undated present-tense claim
+  about another file is the construction that failed here.
+  
+  ⛔ Nothing about an `object-kanban` document changes: it was never judged by the
+  `kanban` arm, so all of those keys have always ridden `BaseSchema`'s index
+  signature there. What is gone is the `kanban` document that had them. Declaring
+  them on `ObjectKanbanSchema` would WIDEN a published accept set, which is a
+  maintainer ruling and not part of this one; every one of these readings is
+  pinned where it can be seen rather than left to be rediscovered.
+  
+  **Migrating.** Replace `"type": "kanban"` with `"type": "object-kanban"` and
+  `"type": "gantt"` with `"type": "object-gantt"` in hand-authored documents. The
+  `object-kanban` face requires `groupBy` and one of `bind` / `data` /
+  `objectName`; a purely static board (lanes carrying their own cards, no record
+  source) adds `"groupBy"` and `"data": []`. `kanban-ui` and `kanban-enhanced`
+  have no authored documents anywhere in this repository to migrate.
+  
+  **⚠️ The namespaced spellings retire with the registrations — `view:kanban` and
+  `view:gantt` are the same two keys.** `ComponentRegistry.register(type, C,
+  { namespace })` stores BOTH `namespace:type` and a bare-`type` fallback, so
+  every one of these keys had a namespaced twin that goes with it:
+  
+  | retired spelling | namespaced twin | author instead |
+  | --- | --- | --- |
+  | `kanban` | `view:kanban` | `object-kanban` |
+  | `gantt` | `view:gantt` | `object-gantt` |
+  | `kanban-ui` | `plugin-kanban:kanban-ui` | `object-kanban` |
+  | `kanban-enhanced` | `plugin-kanban:kanban-enhanced` | `object-kanban` |
+  
+  Both spellings are pinned as gone, each against a firing control on the
+  surviving key, in `plugin-kanban/src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`
+  and `plugin-gantt/src/__tests__/bare-gantt-node-key-retired-8008.test.ts`.
+  
+  **What an unmigrated `view:kanban` / `view:gantt` node now renders depends on
+  the host.** In `apps/console` it renders the protocol **placeholder** panel, not
+  the OBJUI-001 "Unknown component type" error: the console calls the opt-in
+  `registerPlaceholders()` (`@object-ui/components`, `renderers/placeholders.tsx`)
+  *after* its plugin registrations, `view:kanban` and `view:gantt` are both in
+  that file's `PROTOCOL_COMPONENTS` list, and the placeholder only claims a key
+  nothing else has taken — which, until this change, `@object-ui/plugin-kanban`
+  and `@object-ui/plugin-gantt` had. In every other host, which does not call that
+  bootstrap, the same node renders OBJUI-001.
+  
+  **⚠️ `objectui check` will NOT flag either namespaced spelling.** The CLI's
+  `known-schema-types.ts` is generated from the repository's real registration
+  calls, and the placeholder registration is a real one — so `view:kanban` and
+  `view:gantt` are still on that list and still validate green, while the node
+  renders a placeholder rather than a board. The bare `kanban` / `gantt` entries
+  DID leave the generated list; only the namespaced pair survives, and only
+  because of the placeholder. Grep your documents for the namespaced spellings
+  directly; do not rely on `objectui check` to find them.
+  
+  `KanbanRenderer` is still exported from this package's entry point
+  (`@object-ui/plugin-kanban`); only its registry key is gone. ⚠️ `KanbanEnhanced`
+  is a different case, and the earlier draft of this note stated it wrongly: this
+  package's `exports` map has exactly two entries — `.` and `./style.css` — and
+  the barrel never re-exported the component, so
+  `@object-ui/plugin-kanban/KanbanEnhanced` has never been a resolvable specifier
+  for a consumer. With `kanban-enhanced` unregistered, `KanbanEnhanced.tsx` has
+  zero non-test importers. ⛔ The file is deliberately left in place: deleting
+  published-but-unreachable source is a further narrowing and needs its own
+  maintainer ruling, which this change does not have.
+  
+  **⚠️ `@object-ui/sdui-parser`: `QUICK_ADD_HOST_TYPES` loses `kanban` with the
+  registration.** The `inert-quick-add` diagnostic (objectui#8285) named the two
+  tags `ObjectKanbanRenderer` answered to; one of them retires here, so the set is
+  now `{ 'object-kanban' }`. ⛔ Nothing is silently dropped by that narrowing, and
+  this is measured rather than argued: `checkKanbanQuickAdd` has exactly one call
+  site — `validate.ts`'s per-prop walk — and that walk runs only in the branch
+  where the manifest RESOLVED the tag. A tag no registration produces is answered
+  one level up by `unknown-component`, an **error**, and its props are never
+  walked, so on a manifest built from the live registry a `<kanban quickAdd>` node
+  draws `error/unknown-component` and nothing else, against a firing control on
+  `<object-kanban quickAdd>` that still draws `warning/inert-quick-add`. Keeping
+  `kanban` in the set would have been reachable only through a hand-built manifest
+  declaring a component of that name — which, after this retirement, is somebody
+  else's component, and the message asserts things about `ObjectKanban` that would
+  be false of it. This supersedes the `kanban` half of the objectui#8285 entry.
+  
+  **The diagnostic's remedy text moves from a tag to a component.** It used to end
+  "render `<kanban-ui>` from a React host that passes `onQuickAdd`". That sentence
+  is falsified by this change: `kanban-ui` is no longer a node type key, so a page
+  written to the old advice draws `unknown-component`. It now names
+  `KanbanRenderer` from `@object-ui/plugin-kanban` — still exported, still
+  forwarding both halves by identity — which is the surviving way to get the pair.
+  `content/docs/plugins/plugin-kanban.mdx` says the same thing the same way.
+- Updated dependencies [64dae8e]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [5ccc500]
+- Updated dependencies [9801765]
+- Updated dependencies [460575f]
+- Updated dependencies [d796c8d]
+- Updated dependencies [1b1d772]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [062943f]
+- Updated dependencies [636b236]
+- Updated dependencies [4172589]
+- Updated dependencies [64d624d]
+- Updated dependencies [053fdc8]
+- Updated dependencies [ae476b8]
+- Updated dependencies [39f4309]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [7cd3987]
+- Updated dependencies [ee3b878]
+- Updated dependencies [e304a4e]
+- Updated dependencies [490d9a9]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [7c96c94]
+- Updated dependencies [3e853c9]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [f8cdbf2]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [e176053]
+- Updated dependencies [e30ed15]
+- Updated dependencies [90665e0]
+- Updated dependencies [194fae1]
+- Updated dependencies [7e19d03]
+- Updated dependencies [546ddf7]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [a76b18c]
+- Updated dependencies [44d075b]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [6fd2cf7]
+- Updated dependencies [52a43de]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [b3d562c]
+- Updated dependencies [129bcc5]
+- Updated dependencies [a26b9e4]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [8ec11e1]
+- Updated dependencies [6f81384]
+- Updated dependencies [22ba927]
+- Updated dependencies [7d2a689]
+- Updated dependencies [f8c70f4]
+- Updated dependencies [8f1d995]
+- Updated dependencies [f9c34df]
+- Updated dependencies [dddb942]
+- Updated dependencies [29754cf]
+- Updated dependencies [3c2b6f7]
+- Updated dependencies [6e88630]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [5961030]
+- Updated dependencies [f24de8b]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [299102e]
+- Updated dependencies [30c73cd]
+- Updated dependencies [830ed58]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [c71e14d]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [748494b]
+- Updated dependencies [5967be0]
+- Updated dependencies [831be72]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [d0889e2]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [12402a9]
+- Updated dependencies [aff3d7a]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [2c1c967]
+- Updated dependencies [9486ac6]
+- Updated dependencies [9486ac6]
+- Updated dependencies [4d5f9b4]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [dc4365c]
+- Updated dependencies [e321d52]
+- Updated dependencies [4c68077]
+- Updated dependencies [7977ff9]
+- Updated dependencies [3beef6d]
+- Updated dependencies [06b8c42]
+- Updated dependencies [46b9bc9]
+- Updated dependencies [b97790a]
+- Updated dependencies [7c9b044]
+- Updated dependencies [d47de51]
+- Updated dependencies [3fe6463]
+- Updated dependencies [31ab372]
+- Updated dependencies [846889b]
+- Updated dependencies [26896c6]
+- Updated dependencies [67fc3b0]
+- Updated dependencies [33a3b3c]
+- Updated dependencies [b87f15b]
+- Updated dependencies [045d20b]
+- Updated dependencies [a2d2515]
+- Updated dependencies [c18d099]
+- Updated dependencies [adb2a86]
+- Updated dependencies [03380aa]
+- Updated dependencies [4562ea5]
+- Updated dependencies [3619792]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [b0d308d]
+- Updated dependencies [40f34b4]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [6a449fc]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [f08bcd9]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [00d3f09]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [3cab570]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [d1842ab]
+- Updated dependencies [0349555]
+- Updated dependencies [78ca238]
+- Updated dependencies [40c4711]
+- Updated dependencies [351eb31]
+- Updated dependencies [20c04b2]
+- Updated dependencies [48c19bd]
+- Updated dependencies [a6d8b8d]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [adbda1b]
+- Updated dependencies [e8c553b]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [7c3df8f]
+- Updated dependencies [7c3df8f]
+- Updated dependencies [b9f5ff1]
+- Updated dependencies [e75f4c9]
+- Updated dependencies [19f1639]
+- Updated dependencies [bb459ea]
+- Updated dependencies [4704aa4]
+- Updated dependencies [47547d0]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [c4f775a]
+- Updated dependencies [554f2b6]
+- Updated dependencies [72f55c9]
+- Updated dependencies [26e06d7]
+- Updated dependencies [6ca6e12]
+- Updated dependencies [669d71b]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [acb5797]
+- Updated dependencies [e859ad0]
+- Updated dependencies [7bf244b]
+- Updated dependencies [ed4a2f1]
+- Updated dependencies [0dc2c93]
+- Updated dependencies [f0bb9fa]
+- Updated dependencies [d327b9c]
+- Updated dependencies [ff79d38]
+- Updated dependencies [81a2eb1]
+- Updated dependencies [00d2fa6]
+- Updated dependencies [c6198c2]
+- Updated dependencies [2f61238]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [9ae871d]
+- Updated dependencies [efbd566]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [daf9d57]
+- Updated dependencies [c15d7ec]
+- Updated dependencies [5d0876c]
+- Updated dependencies [f7ace0a]
+- Updated dependencies [b041b9c]
+- Updated dependencies [ce2aaef]
+- Updated dependencies [544ecba]
+- Updated dependencies [2ce2612]
+- Updated dependencies [bc640ec]
+- Updated dependencies [da6e191]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [01c27c4]
+- Updated dependencies [c14d3a0]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [0ead1f6]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [52cac38]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [d1bebb0]
+- Updated dependencies [335abea]
+- Updated dependencies [edea22a]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [12b5992]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [8c8da45]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [1bd79c8]
+- Updated dependencies [ad852b6]
+- Updated dependencies [7fb22a1]
+- Updated dependencies [ad66d79]
+- Updated dependencies [0758bd8]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [0ea7054]
+- Updated dependencies [2d80456]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [fc32921]
+- Updated dependencies [4eaa835]
+- Updated dependencies [8f9d87a]
+- Updated dependencies [b1777ae]
+- Updated dependencies [5591f03]
+- Updated dependencies [4fa0eb9]
+- Updated dependencies [24d1edd]
+- Updated dependencies [8a4a106]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [4a292d2]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [dacb402]
+- Updated dependencies [91facae]
+- Updated dependencies [b38014e]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [18b6a75]
+- Updated dependencies [a407bd6]
+- Updated dependencies [317dbce]
+- Updated dependencies [3a43a15]
+- Updated dependencies [868e825]
+- Updated dependencies [f76f436]
+- Updated dependencies [b6d07df]
+- Updated dependencies [f3ee584]
+- Updated dependencies [ce45a03]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [abc1b18]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [c300267]
+- Updated dependencies [154fe2a]
+- Updated dependencies [fb3a101]
+- Updated dependencies [d4733f2]
+- Updated dependencies [1570eac]
+- Updated dependencies [f391ede]
+- Updated dependencies [8600557]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [8b532cb]
+- Updated dependencies [64c3cdd]
+- Updated dependencies [4d65991]
+- Updated dependencies [c42554e]
+- Updated dependencies [555b4ec]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [0a174f3]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [bb383e8]
+- Updated dependencies [d1865d2]
+- Updated dependencies [f1190b0]
+- Updated dependencies [561abef]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [abf710d]
+- Updated dependencies [093af32]
+- Updated dependencies [326a6e5]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [de1a126]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [c372b29]
+- Updated dependencies [152f0a7]
+- Updated dependencies [8693b85]
+- Updated dependencies [e82dad1]
+- Updated dependencies [84defab]
+- Updated dependencies [681d3f1]
+- Updated dependencies [f3bc481]
+- Updated dependencies [b79aac2]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [19a0b0e]
+- Updated dependencies [f8e3e9a]
+- Updated dependencies [b9d47ec]
+- Updated dependencies [3b6bc69]
+- Updated dependencies [6214db6]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [1e0e46a]
+- Updated dependencies [3dd533f]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [689953a]
+- Updated dependencies [30443fb]
+- Updated dependencies [8d3dbb2]
+- Updated dependencies [efc1c9c]
+- Updated dependencies [da45e6b]
+- Updated dependencies [7533465]
+- Updated dependencies [835f0f3]
+- Updated dependencies [a9d97be]
+- Updated dependencies [3dd533f]
+- Updated dependencies [9ba7e9c]
+- Updated dependencies [729e851]
+- Updated dependencies [96919a4]
+- Updated dependencies [345e24a]
+- Updated dependencies [20b507a]
+- Updated dependencies [2e471dc]
+- Updated dependencies [6748587]
+- Updated dependencies [be50942]
+- Updated dependencies [53374dc]
+- Updated dependencies [7cbc724]
+- Updated dependencies [7098eed]
+- Updated dependencies [3df7c5c]
+- Updated dependencies [8524372]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [502eb58]
+- Updated dependencies [0ce32d5]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [1ef89c0]
+- Updated dependencies [ac716ff]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [f7fcc2c]
+- Updated dependencies [f0f4d6c]
+- Updated dependencies [78a9c67]
+- Updated dependencies [dea17b4]
+- Updated dependencies [06611e4]
+- Updated dependencies [66abbde]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [81c0bc4]
+- Updated dependencies [3c76801]
+- Updated dependencies [60500cb]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [dd19463]
+- Updated dependencies [6791717]
+- Updated dependencies [3f983f4]
+- Updated dependencies [894d103]
+- Updated dependencies [100547e]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [bf3edfe]
+- Updated dependencies [2c8474c]
+- Updated dependencies [0e05aac]
+- Updated dependencies [ae61ad4]
+- Updated dependencies [5aed9e4]
+- Updated dependencies [83c77dc]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [e719ebd]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [5eddeeb]
+- Updated dependencies [fe76ece]
+- Updated dependencies [8e74b27]
+- Updated dependencies [7102b20]
+- Updated dependencies [8ebd57f]
+- Updated dependencies [617707a]
+- Updated dependencies [58770f3]
+- Updated dependencies [aefe428]
+- Updated dependencies [485f096]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [b655a9d]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [7138bc1]
+- Updated dependencies [cef27e2]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [06973aa]
+- Updated dependencies [50798f3]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [f20a111]
+- Updated dependencies [c6ae7b2]
+- Updated dependencies [c70f865]
+- Updated dependencies [d6fe1e1]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [d7bd274]
+- Updated dependencies [98c3a74]
+- Updated dependencies [ebce5a3]
+- Updated dependencies [9d9040d]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [42df928]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [9850c6e]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [6c5ee71]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [6f017e9]
+- Updated dependencies [ab92940]
+- Updated dependencies [a691c0b]
+- Updated dependencies [0b1326d]
+- Updated dependencies [af3861f]
+- Updated dependencies [515f171]
+- Updated dependencies [1f4e029]
+- Updated dependencies [4f14ad7]
+- Updated dependencies [258d264]
+- Updated dependencies [cac64b3]
+- Updated dependencies [8033ad1]
+- Updated dependencies [fa140b8]
+- Updated dependencies [71cba28]
+- Updated dependencies [190fbd0]
+- Updated dependencies [c00bf28]
+- Updated dependencies [93127bd]
+- Updated dependencies [f2158ec]
+- Updated dependencies [759606e]
+- Updated dependencies [72ffc34]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [bf28341]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [6c6cee7]
+- Updated dependencies [42887e0]
+- Updated dependencies [83fe6e7]
+- Updated dependencies [d1ab06f]
+- Updated dependencies [93bbc20]
+- Updated dependencies [f90b8fb]
+- Updated dependencies [91783c4]
+- Updated dependencies [982885d]
+- Updated dependencies [dba7d84]
+- Updated dependencies [ca39427]
+- Updated dependencies [bd09957]
+- Updated dependencies [5a07e67]
+- Updated dependencies [2d36552]
+- Updated dependencies [45d8288]
+- Updated dependencies [490f482]
+- Updated dependencies [27308c5]
+- Updated dependencies [8689166]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [9101be5]
+- Updated dependencies [f53a8d0]
+- Updated dependencies [968dc1e]
+- Updated dependencies [57f9b07]
+- Updated dependencies [3c73d99]
+- Updated dependencies [d91aed9]
+- Updated dependencies [ed71d9e]
+- Updated dependencies [7776fc2]
+- Updated dependencies [e76634c]
+- Updated dependencies [c86185e]
+- Updated dependencies [1170ed1]
+- Updated dependencies [dd35800]
+- Updated dependencies [92814db]
+- Updated dependencies [4d73b07]
+  - @object-ui/core@17.7.0
+  - @object-ui/types@17.7.0
+  - @object-ui/components@17.7.0
+  - @object-ui/react@17.7.0
+  - @object-ui/plugin-kanban@17.7.0
+  - @object-ui/plugin-charts@17.7.0
+
 ## 17.6.0
 
 ### Patch Changes

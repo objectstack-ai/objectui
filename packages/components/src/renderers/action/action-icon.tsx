@@ -144,6 +144,12 @@ const ActionIconRenderer = forwardRef<
           bodyExtra: schema.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).
           bodyShape: schema.bodyShape,
+          // The declarative single-record field write — forwarded as a PAIR, for
+          // the reason spelled out at `action:button`'s forward: the runner
+          // dispatches on `operation` ahead of `type`, and `patch` carries the
+          // field values, so dropping either POSTs an empty write.
+          operation: schema.operation,
+          patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
           errorMessage: schema.errorMessage,

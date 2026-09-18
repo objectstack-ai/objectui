@@ -93,11 +93,19 @@ const CONTEXT = { target: 'contextWins', extraFromHost: 'present' };
  * hop). A whitelist key APPENDED moves nothing, which is exactly the reading
  * these two lists exist to give: the diff shows one added name and no
  * re-ordering of the keys the #4281 hoist was about.
+ *
+ * `operation` / `patch` (objectui#7551) are the first pair added in the MIDDLE
+ * rather than at the tail — they sit with `bodyExtra` / `bodyShape` because
+ * they shape the same request. The reading is unchanged and is why the position
+ * was acceptable: the list is compared whole, so the failure diff still shows
+ * exactly the added names against a sequence of pre-existing keys whose
+ * relative order did not move. An insertion that DID reorder the neighbours
+ * would show up here as several moved names, not two added ones.
  */
 const BUTTON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',
-  'bodyExtra', 'bodyShape', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
+  'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
   'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess',
 ];
 
@@ -105,7 +113,7 @@ const BUTTON_ORDER = [
 const ICON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',
-  'bodyExtra', 'bodyShape', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
+  'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
   'locations', 'toast', 'resultDialog', 'onSuccess',
 ];
 

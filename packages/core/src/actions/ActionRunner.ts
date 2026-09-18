@@ -543,27 +543,16 @@ export type ParamCollectionHandler = (
 ) => Promise<Record<string, any> | null>;
 
 /**
- * Result dialog spec — declarative description of how to render a
- * one-shot reveal of an action's API response. Mirrors
- * `Action.resultDialog` in @objectstack/spec.
+ * The contract's own result-dialog block, and one entry of its field list.
  *
- * When set on an action and the action succeeds, the runner suppresses
- * the success toast and awaits a ResultDialogHandler instead. Used for
- * values the user must copy NOW (2FA secret, OAuth client_secret, backup
- * codes).
- */
-/**
- * The contract's own `resultDialog` block, and one entry of its field list —
- * the source the two mirrors below DERIVE their label members from, so the
- * "Mirrors `Action.resultDialog`" claim above is re-checked by `tsc` on every
- * build instead of being asserted once in prose.
- *
- * ⭐ Deriving rather than restating is the whole repair of objectui#9542. The
- * three label members were hand-written `string` here while the contract
- * declares each as `I18nLabel` — a plain string **or** an inline per-locale
- * map, both authorized and neither deprecated — so this mirror REFUSED what
- * the platform accepts while its docblock claimed the alignment. A hand copy
- * can drift again the moment the contract moves; a derived member cannot.
+ * ⭐ The two interfaces below DERIVE their label members from these instead of
+ * restating them, and that is the whole repair of objectui#9542: the three
+ * label members were hand-written `string` while the producer declares each as
+ * `I18nLabel` — a plain string **or** an inline per-locale map, both authorized
+ * and neither deprecated — so this mirror refused what the platform accepts
+ * while its own docblock claimed the alignment. A hand copy can drift again the
+ * moment the contract moves; a derived member makes `tsc` re-check the claim on
+ * every build instead of trusting a sentence written once.
  *
  * ⛔ Local, deliberately not exported: the two interfaces below stay the only
  * names this module publishes for the block.
@@ -571,6 +560,18 @@ export type ParamCollectionHandler = (
 type SpecResultDialog = NonNullable<SpecActionInput['resultDialog']>;
 type SpecResultDialogField = NonNullable<SpecResultDialog['fields']>[number];
 
+/**
+ * Result dialog spec — declarative description of how to render a
+ * one-shot reveal of an action's API response. Mirrors
+ * `Action.resultDialog` in @objectstack/spec — derived from it member by
+ * member for the labels, so the claim in this sentence is enforced rather
+ * than asserted.
+ *
+ * When set on an action and the action succeeds, the runner suppresses
+ * the success toast and awaits a ResultDialogHandler instead. Used for
+ * values the user must copy NOW (2FA secret, OAuth client_secret, backup
+ * codes).
+ */
 export interface ResultDialogFieldSpec {
   path: string;
   /**

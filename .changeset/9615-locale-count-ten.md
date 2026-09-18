@@ -5,8 +5,8 @@
 `file-size-guard`'s docblock no longer restates a built-in locale count, and points at the
 test that re-derives it (objectui#9615).
 
-The shared `fields.file.exceedsMaxSize` docblock asserted that the key was "already
-translated in all 11 built-in locales". `@object-ui/i18n` ships ten —
+The shared `fields.file.exceedsMaxSize` docblock asserted that the key was already
+translated in all **11** built-in locales. `@object-ui/i18n` ships ten —
 `BUILT_IN_LANGUAGE_CODES` and the `@object-ui/i18n/locales` map agree on
 `en zh ja ko de fr es pt ru ar`, and `readme-locale-count-7989.test.ts` asserts that
 agreement. This is not an internal note: the docblock is emitted into

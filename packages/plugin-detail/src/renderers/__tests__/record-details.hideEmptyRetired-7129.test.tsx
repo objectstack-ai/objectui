@@ -137,12 +137,58 @@ beforeEach(() => {
   // ⛔ There is no list to join instead: the guard's `KNOWN_ESCAPES` burn-down
   // reached zero and was retired on objectui#7307, so serving the probe from a
   // double is the ONLY way a file that reaches a socket goes green.
-  vi.stubGlobal('fetch', vi.fn(async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({ allowed: true }),
-    text: async () => '{"allowed":true}',
-  })) as never);
+  //
+  // WHAT IT ANSWERS, and why it is shaped this way (objectui#7996). The body
+  // this double used to serve was `{ allowed: true }`, and NEITHER hook that
+  // reaches this endpoint reads an `allowed` key: `useRecordEditable` reads
+  // `decision?.record?.visible` and returns early when it is not a boolean,
+  // and `useRecordCrudVerdicts` reads `decision.records` and `continue`s when
+  // it is not an array. ⇒ Both fell to their fail-open branch, so the double
+  // took EXACTLY the path it takes on `ECONNREFUSED` — measured by replacing
+  // the body with `{}`, which left this file green. The response body was
+  // inert, and its cost was forward-looking: this is one of the few landed
+  // examples of answering this endpoint, so a reader copying it inherits a
+  // body the product ignores, and a future test meaning to pin a SPECIFIC
+  // verdict writes `allowed` and quietly measures the fail-open branch.
+  //
+  // The shapes below are the ones the hooks actually read, converged on the
+  // in-repo example objectui#7307 batch 1 landed: `{ record: { visible } }` for
+  // a single `recordId`, `{ records: [{ recordId, visible }] }` for a batched
+  // `recordIds`.
+  //
+  // ⚠ This does NOT move this file's verdict, and that is the point rather
+  // than a problem: `useRecordEditable` initialises `allowed` to `true` and its
+  // fail-open path leaves it there, and the only consumer of the batched lookup
+  // rules on `recordVerdict !== false` — so `true` and the absent verdict are
+  // the same value at every read site. Measured on this file: the only requests
+  // it makes are single-`recordId` (`update` and `delete` on
+  // `crm_opportunity`), so the batched branch answers the reader who copies
+  // this double into a grid suite, not this file's own render.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (_url: unknown, init?: { body?: unknown }) => {
+      let request: Record<string, unknown> = {};
+      try {
+        request = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+      } catch {
+        /* a non-JSON body is not a request this route can answer */
+      }
+      const recordIds = Array.isArray(request.recordIds)
+        ? (request.recordIds as string[])
+        : null;
+      // One payload feeds both readers, so `json()` and `text()` cannot drift
+      // into disagreeing about what this route answered.
+      const payload = recordIds
+        ? { records: recordIds.map((recordId) => ({ recordId, visible: true })) }
+        : { record: { visible: true } };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => payload,
+        text: async () => JSON.stringify(payload),
+      };
+    }) as never,
+  );
 });
 
 afterEach(() => {

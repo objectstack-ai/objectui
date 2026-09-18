@@ -26,9 +26,22 @@
  * ⛔ A declaration is NOT in scope merely because it is spelled with one
  * parameter and is named `onRowClick`. The census this card was handed counted
  * 24 one-parameter occurrences and that number is a POPULATION, not a defect
- * count. The `CONTROLS` block below pins five of them as deliberately OUT, each
- * for a different reason, and they are controls in the strict sense: they share
- * the file, the name and the shape with the IN sites and vary only the claim.
+ * count. The `CONTROLS` block below pins the ones that are deliberately OUT,
+ * each for a different reason, and they are controls in the strict sense: they
+ * share the file, the name and the shape with the IN sites and vary only the
+ * claim.
+ *
+ * ⭐ THE LEDGER MOVED ONCE, AND THAT IS THE HANDSHAKE THIS FILE WAS BUILT FOR
+ * (objectui#9462). Two of the original controls were OUT on a claim about
+ * BEHAVIOUR, not about spelling: the `data-table` renderer and `ObjectView`'s
+ * `handleRowClick` each received the payload and passed one argument on, so
+ * widening their declarations would have promised what those hops never
+ * delivered. objectui#9462 repaired the hops — the renderer's two call sites
+ * now read `schema.onRowClick(row, e)` and the view forwards
+ * `onRowClick(record, event)` — which made the same declarations understated
+ * instead of accurate, so they moved into `IN_SITES` below rather than being
+ * edited in place. The one control still spelled with one parameter in that
+ * family (`ObjectDataTableSchema.onRowClick`) states its own, different reason.
  *
  * ## Why the instrument is bytes and not assignability
  *
@@ -241,6 +254,22 @@ const IN_SITES: Array<{ rel: string; member: string; why: string; hop: RegExp; a
   { rel: 'packages/plugin-kanban/src/index.tsx', member: 'onCardClick',
     why: 'handed to KanbanImpl, whose SortableCard invokes it with the DOM event',
     hop: /onCardClick=\{schema\.onCardClick\}/ },
+  // ⭐ The three entries below arrived by objectui#9462, which repaired the
+  // hops rather than the spellings. Each was a CONTROL until that card: they
+  // were OUT because the hop that CALLS them passed one argument, so widening
+  // them would have declared a payload that never arrived. The hops now pass
+  // the payload, so the same declarations understate a real call and the
+  // criterion at the top of this file puts them IN. The `hop` of each is the
+  // forwarding call itself, quoted in the declaring file.
+  { rel: 'packages/types/src/data-display.ts', member: 'onRowClick',
+    why: "the slot `data-table`'s renderer calls; ObjectGrid, ObjectDataTable and RelatedList all supply it",
+    hop: /`schema\.onRowClick\(row, e\)`/ },
+  { rel: 'packages/plugin-view/src/ObjectView.tsx', member: 'onRowClick',
+    why: "the view's own host-facing prop; `handleRowClick` forwards both arguments to it",
+    hop: /onRowClick\(record, event\)/, after: 'export interface ObjectViewProps' },
+  { rel: 'packages/plugin-view/src/ObjectView.tsx', member: 'onRowClick',
+    why: "the same `handleRowClick`, handed verbatim to a host's custom list view through `renderListView`",
+    hop: /onRowClick: handleRowClick/, after: '  renderListView?: (props: {' },
 ];
 
 /**
@@ -254,17 +283,24 @@ const OUT_SITES: Array<{ rel: string; member: string; arity: number; param: RegE
     param: /^index: number$/, why: 'its second parameter is `index: number` — a DIFFERENT contract, not this one' },
   { rel: 'packages/plugin-view/src/ManageViewsDialog.tsx', member: 'onRowClick', arity: 1,
     param: /^id: string$/, why: 'invoked as `onRowClick?.(view.id)` — a view id, not a record callback at all' },
-  { rel: 'packages/types/src/data-display.ts', member: 'onRowClick', arity: 1,
-    param: /^row: any$/, why: '`data-table` invokes `schema.onRowClick(row)` with ONE argument; the declaration is accurate, and widening it would promise a payload that renderer never hands over' },
   { rel: 'packages/types/src/objectql.ts', member: 'onRowClick', arity: 1,
-    param: /^row: any$/, why: 'ObjectDataTable forwards it into the same `data-table` channel above',
+    param: /^row: any$/,
+    // ⚠️ RE-JUSTIFIED, not left standing, by objectui#9462. This entry used to
+    // read "ObjectDataTable forwards it into the same `data-table` channel
+    // above" — an appeal to the `data-display.ts` control, which that card
+    // moved into IN_SITES. The channel now hands over two arguments, so this
+    // declaration DOES understate a real call and is a live instance of
+    // objectui#9357's own class, one hop further out. It stays OUT only
+    // because objectui#9462 was scope-pinned to three hops and the widening
+    // here is a separate published-face change; it is reported on that card
+    // rather than smuggled in. ⇒ this is a KNOWN GAP under measurement, not a
+    // declaration anyone has argued is accurate.
+    why: 'ObjectDataTable forwards it into the `data-table` channel, which now delivers the payload — an understated declaration deliberately left to its own card, not an accurate one',
     // Anchored since objectui#7804: `ObjectGallerySchema.onRowClick` now stands
     // EARLIER in this same file with the opposite contract, so a file-scoped
     // read would answer about the IN site and score this control green for the
     // wrong declaration.
     after: 'export interface ObjectDataTableSchema' },
-  { rel: 'packages/plugin-view/src/ObjectView.tsx', member: 'onRowClick', arity: 1,
-    param: /^record: Record<string, unknown>$/, why: 'its own `handleRowClick` truncates to `onRowClick(record)`; that hop DROPS the payload, which is a separate defect from an understated declaration and is reported rather than fixed here' },
 ];
 
 describe('objectui#9357 — the arity counter, before it is pointed at the tree', () => {

@@ -394,8 +394,20 @@ export interface ObjectViewProps {
 
   /**
    * Callback when a row is clicked (for record detail navigation)
+   *
+   * TWO parameters since objectui#9462, and the second is not decoration. The
+   * view's own `handleRowClick` is what `ObjectGrid` hands to
+   * `useNavigationOverlay`, and that hook invokes it as
+   * `onRowClick(record, event)` — the modifier payload (`metaKey` / `ctrlKey` /
+   * `button`) a host needs to implement Cmd/Ctrl/middle-click for itself.
+   * `handleRowClick` used to forward one argument, so this prop delivered
+   * nothing on the second and a host's "open in a new tab" degraded to an
+   * ordinary navigation. Spelled `any` and not `HandleClickModifiers` for the
+   * reason objectui#9341 measured on `ObjectKanbanSchema.onCardClick`: a host
+   * that discovered the payload from the implementation annotated it
+   * `React.MouseEvent`, which a narrower declaration refuses contravariantly.
    */
-  onRowClick?: (record: Record<string, unknown>) => void;
+  onRowClick?: (record: Record<string, unknown>, event?: any) => void;
 
   /**
    * Callback when edit is triggered on a record
@@ -417,7 +429,13 @@ export interface ObjectViewProps {
     schema: any;
     dataSource: DataSource;
     onEdit?: (record: Record<string, unknown>) => void;
-    onRowClick?: (record: Record<string, unknown>) => void;
+    /**
+     * The view's own `handleRowClick`, verbatim — so TWO parameters since
+     * objectui#9462, for the same reason {@link ObjectViewProps.onRowClick}
+     * carries them: a custom list view that has a DOM click event in hand may
+     * pass it, and it reaches the host through the forward below.
+     */
+    onRowClick?: (record: Record<string, unknown>, event?: any) => void;
     className?: string;
     /** Current refresh counter — increment signals that a mutation occurred */
     refreshKey?: number;
@@ -1151,9 +1169,17 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   }, [layout, schema]);
 
   // Handle row click - respects NavigationConfig
-  const handleRowClick = useCallback((record: Record<string, unknown>) => {
+  //
+  // objectui#9462 — `event` is forwarded, not consumed. This callback is what
+  // `ObjectGrid` feeds to `useNavigationOverlay`, and `handleClick` invokes it
+  // with the modifier payload; truncating to `onRowClick(record)` here meant a
+  // host wired to this component's own prop never saw it. The branches below
+  // deliberately do NOT read it: what Cmd/Ctrl/middle-click should do when no
+  // host handler is present is the hook's own decision, taken before this
+  // callback runs.
+  const handleRowClick = useCallback((record: Record<string, unknown>, event?: any) => {
     if (onRowClick) {
-      onRowClick(record);
+      onRowClick(record, event);
       return;
     }
 

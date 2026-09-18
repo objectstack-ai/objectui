@@ -49,7 +49,7 @@ objectui validate <root chatbot with body: { model, temperature }>
   exit 1 · Path: body · Code: invalid_type · message names `requestBody`   <- SUBJECT
 objectui validate <the same document spelled requestBody>
   exit 0 · "Schema is valid!"                                              <- LIT CONTROL
-objectui validate <the same chatbot inside card.body[]>
+objectui validate <the same chatbot inside the card's child list>
   exit 1 · refused through the node union                                  <- DEPTH
 ```
 
@@ -62,7 +62,7 @@ keys and recursion and no per-component key at all. Measured on the same documen
 chatbot + body: { model: 'gpt-4' }   console.warn "schema.children.type: type is required"
 chatbot + requestBody                (no warning)                          <- LIT CONTROL
 chatbot, neither key                 (no warning)                          <- LIT CONTROL
-card + body: [{ label: 'x' }]        console.warn "schema.children[0].type: type is required"
+card + <child list> [{ label: 'x' }]  console.warn "schema.children[0].type: type is required"
                                                                            <- FIRING CONTROL
 ```
 

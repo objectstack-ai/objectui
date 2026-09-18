@@ -46,13 +46,15 @@ on a fragment inside a `json` fence the census does read, but that fragment neve
 template or customer document writes the key, so the refusal strands no authored document in
 this tree.
 
-**Migration** — the trail is a NODE, and it already ships:
+**Migration** — the trail is a NODE, and it already ships. ⚠️ The page's child list was
+spelled `body` when this change landed; objectui#6771 retired the spelling, so the
+recipe below uses `children` and parses as written:
 
 ```json
 {
   "type": "page",
   "title": "Acme Corporation",
-  "body": [
+  "children": [
     {
       "type": "breadcrumb",
       "items": [

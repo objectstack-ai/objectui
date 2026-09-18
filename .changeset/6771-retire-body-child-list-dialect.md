@@ -3,6 +3,7 @@
 '@object-ui/components': minor
 '@object-ui/core': minor
 '@object-ui/sdui-parser': minor
+'@object-ui/cli': minor
 'object-ui': minor
 ---
 

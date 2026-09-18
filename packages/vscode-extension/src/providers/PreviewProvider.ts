@@ -223,7 +223,7 @@ export class PreviewProvider {
             desc.textContent = schema.description;
             element.appendChild(desc);
           }
-          // `children` first, `body` kept — see the container branch below.
+          // children first, body kept -- see the container branch below.
           const cardChildren = schema.children || schema.body;
           if (cardChildren) {
             const body = Array.isArray(cardChildren) ? cardChildren : [cardChildren];
@@ -240,13 +240,17 @@ export class PreviewProvider {
         default:
           // Handle generic div/container.
           //
-          // `children` is read FIRST, `body` is kept as a second arm. This
-          // guard used to name \`schema.body\` alone, so a node spelling its
-          // child list \`children\` — the spelling the TypeScript declaration,
-          // the zod mirror, core's validator and the manifest tier all bless —
-          // rendered as an EMPTY element: no error, no diagnostic, just a blank
-          // preview (objectui#7181). The \`body\` arm stays; removing it is
+          // children is read FIRST, body is kept as a second arm. This guard
+          // used to name schema.body alone, so a node spelling its child list
+          // children -- the spelling the TypeScript declaration, the zod
+          // mirror, core's validator and the manifest tier all bless --
+          // rendered as an EMPTY element: no error, no diagnostic, just a
+          // blank preview (objectui#7181). The body arm stays; removing it is
           // objectui#6771 step 2, not this change.
+          //
+          // NOTE: this comment carries no backticks on purpose. It lives
+          // INSIDE the webview's template literal, where an unescaped backtick
+          // ends the string and the file stops parsing.
           const containerChildren = schema.children || schema.body;
           if (containerChildren) {
             const body = Array.isArray(containerChildren) ? containerChildren : [containerChildren];

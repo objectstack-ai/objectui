@@ -229,6 +229,13 @@ export const InputSchema = BaseSchema.extend({
   description: z.string().optional().describe('Help text'),
   error: z.string().optional().describe('Error message'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
+  // `renderers/form/input.tsx` reads it onto the wrapper element —
+  // `cn("grid w-full items-center gap-1.5", schema.wrapperClass)` — and the TS
+  // face has declared it all along; the mirror had not, so a wrong-typed value
+  // rode through `.passthrough()` unexamined while all eight sibling readers
+  // refused it at the key (objectui#8072).
+  wrapperClass: z.string().optional()
+    .describe('Classes on the wrapper div around the input and its label (objectui#8072)'),
   min: z.number().optional().describe('Minimum value (for number type)'),
   max: z.number().optional().describe('Maximum value (for number type)'),
   step: z.number().optional().describe('Step value (for number type)'),
@@ -988,15 +995,14 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
   // Declared and unwritable — the `.omit()` above removes the HONOURED enum
   // {@link InputSchema} carries, and this puts a named refusal in its place.
   inputType: retirementTombstone(SHORTHAND_INPUT_TYPE_REFUSAL),
-  // Declared here and not (yet) on {@link InputSchema}, which is the pair
-  // `__tests__/zod-mirror-parity.test.ts` records as unmirrored for this very key.
-  // The renderer both arms share reads it — `renderers/form/input.tsx:42`,
-  // `cn('grid w-full items-center gap-1.5', schema.wrapperClass)` — so declaring it
-  // is the read site talking. ⛔ Copying the gap into a NEW pair would have minted a
-  // second ledger row for a key that is demonstrably read; shrinking the existing
-  // row is `InputSchema`'s own repair (objectui#7722's family) and not this card's.
-  wrapperClass: z.string().optional()
-    .describe("Classes on the wrapper div around the input and its label"),
+  // ⭐ `wrapperClass` used to be RE-DECLARED here, because {@link InputSchema}
+  // did not carry it and copying the gap into a NEW pair would have minted a
+  // second parity-ledger row for a key that is demonstrably read. objectui#8072
+  // shrank that row instead: the key is on {@link InputSchema} now, so this arm
+  // inherits it through the `.omit()` above like every other key, and the
+  // restatement is gone rather than left standing as a duplicate of it.
+  // `__tests__/input-wrapper-class-mirrored-8072.test.ts` pins this arm's
+  // membership and its refusal, so the inheritance is measured, not assumed.
 });
 
 /**

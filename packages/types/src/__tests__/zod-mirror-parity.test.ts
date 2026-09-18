@@ -290,7 +290,12 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **14 entries** in `UnmirroredDeclared`, **86 keys** across them — 14 / 87 until
+ *   - **13 entries** in `UnmirroredDeclared`, **85 keys** across them — 14 / 86 until
+ *     objectui#8072 MIRRORED `InputSchema.wrapperClass`, the LAST `schema.wrapperClass`
+ *     reader whose value the mirror admitted unexamined; it was that entry's ONLY key,
+ *     so the entry emptied and BOTH figures moved together — read it against the next
+ *     clause, where one key off a fifteen-key entry moved only the key total: 14 / 87
+ *     until
  *     objectui#7762 MIRRORED `ObjectGridSchema.exportOptions` (the entry kept its other
  *     fourteen keys, so the entry count held); 14 / 96 until
  *     objectui#7779 closed nine of `ObjectViewSchema`'s ten keys (maintainer ruling
@@ -372,8 +377,8 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **3 of the 3** are a subset of the **14** pairs above, so
- *     the union of the two unmirrored ledgers is **14** pairs — `UnmirroredDeclared`
+ *     **3 of the 3** are a subset of the **13** pairs above, so
+ *     the union of the two unmirrored ledgers is **13** pairs — `UnmirroredDeclared`
  *     itself, exactly. ⭐ This sentence read `3 of the 4` / `15 pairs and not 14`
  *     until objectui#7804's `TreeViewSchema` slice, and the pair it named as the
  *     exception was the whole content of the difference: objectui#6150 had declared
@@ -2222,7 +2227,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **86 keys** is what this ledger records today.
+ * **85 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2384,7 +2389,12 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (11 entries, 69 keys)** — plain omissions from a hand-written mirror.
+ *   - **LOCAL (10 entries, 68 keys)** — plain omissions from a hand-written mirror.
+ *     It was 11 / 69 until objectui#8072 MIRRORED `InputSchema.wrapperClass`: the entry's
+ *     ONLY key, so the entry left this half with it and no entry crossed to the
+ *     SPEC-DERIVED half — `form.zod.ts#InputSchema` is not in `SPEC_DERIVED_PAIRS`, so
+ *     that half did not move at all. A plain LOCAL repair of the kind objectui#6152's
+ *     worklist is made of — ⛔ no reclassification, no retirement, no spec reference.
  *     It was 12 / 84 until objectui#7762 MIRRORED `ObjectGridSchema.exportOptions`: one key
  *     REPAIRED and the entry's other fourteen carried out of this half with it, because the
  *     spec reference that repair introduced re-derives the pair into the SPEC-DERIVED half
@@ -2423,10 +2433,13 @@ interface KnownDrift {
  * `ObjectGridSchema` with ONE key: mirroring `exportOptions` as the spec's object arm by
  * reference shrank the ledger 87 → 86 and re-derived the entry (fourteen keys) from the
  * LOCAL half into the SPEC-DERIVED one, so the entry count held while BOTH split figures
- * moved. The seeded pair is no longer
+ * moved. objectui#8072 then MIRRORED `InputSchema.wrapperClass` — the opposite shape on
+ * every axis: one key that was its entry's WHOLE key set, on a pair no spec reference
+ * touches, so the entry emptied, the LOCAL half lost an entry and a key, and the
+ * SPEC-DERIVED half did not move. The seeded pair is no longer
  * among them, and the ledger now totals — on ONE line, because the pin below reads
  * this sentence off disk —
- * **14 entries / 86 keys** — 3 / 17 spec-derived, 11 / 69 local.
+ * **13 entries / 85 keys** — 3 / 17 spec-derived, 10 / 68 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2524,11 +2537,12 @@ interface UnmirroredDeclared {
   'form.zod.ts#FormSchema':
     | 'defaultFieldTab' | 'fieldContainerClass' | 'fieldPanes' | 'fieldPanesOrientation'
     | 'fieldPanesResizable' | 'fieldTabs' | 'fieldTabsPosition' | 'mobileStickyActions';
-  /**
-   * LOCAL. Verified by hand against both sources while measuring: declared once in
-   * `../form.ts`, zero occurrences in the mirror.
-   */
-  'form.zod.ts#InputSchema': 'wrapperClass';
+  // `form.zod.ts#InputSchema` recorded `wrapperClass` here (LOCAL) — the entry's
+  // ONLY key, so objectui#8072 MIRRORING it took the whole entry with it. The pair
+  // keeps its `KnownDrift` entry above (`onChange`, a runtime slot the mirror
+  // refuses by name) and records nothing here. ⭐ That is why this move shrank the
+  // entry count and the key total together where objectui#7762's did not: one key
+  // off a one-key entry empties it, one key off a fifteen-key entry does not.
   /** LOCAL. */
   'form.zod.ts#LabelSchema': 'content';
   /** LOCAL. */
@@ -2647,7 +2661,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **86 keys** today.
+ * `UnmirroredDeclared` records **85 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was

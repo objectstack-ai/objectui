@@ -58,12 +58,26 @@
  * `ariaLabel: ''` shadows a stale `label` rather than letting it resurface, and
  * then resolves to no name at all, so the block's built-in default wins.
  *
- * ⚠️ `label` is read and DECLARED NOWHERE — not on
- * {@link RecordComponentAriaProps}, not in any registry `inputs` list. It is a
- * back-compat fold for documents written before the shape closed, and the
- * contract refuses it today, on this bag and on every other. ⛔ Do not present
- * it to authors as a spelling; whether it should be retired outright is
- * objectui#9556's open question, ⛔ not settled here.
+ * ## ⛔ The legacy alias is OPT-IN, and that is the point
+ *
+ * `label` is the shared ARIA shape's alias entry — refused on parse, declared
+ * on no authoring face, in no registry `inputs` list and not on
+ * {@link RecordComponentAriaProps}. It is read ONLY where a stored document
+ * could actually carry it, which is the two blocks whose renderers already read
+ * it before objectui#9556: `record:path` and `record:quick_actions`. Those two
+ * pass `legacyLabelFold: true`; ⛔ nothing else does, and ⛔ nothing else should.
+ *
+ * ⚠️ This is not tidiness. Making the fold unconditional would give a
+ * contract-refused spelling FIVE NEW READERS — details, highlights,
+ * related_list, activity and chatter — where no stored document was ever served
+ * by it, so the back-compat rationale does not reach them and AGENTS.md #0.1
+ * refuses a consumer-side alias with no such document behind it. A first draft
+ * of this module did exactly that while its own changeset said the alias was
+ * neither introduced nor retired. Pinned in both directions by
+ * `__tests__/recordComponentAria-9556.test.tsx`.
+ *
+ * Whether the fold should be retired on those two as well reverses
+ * objectui#4663's pinned decision and is the maintainer's, ⛔ not settled here.
  */
 
 import { useDisplayLocale } from '@object-ui/i18n';
@@ -80,6 +94,9 @@ export type AuthoredRecordAria = RecordComponentAriaProps & {
    * refused on parse. Present here only so the back-compat fold has something
    * to read without an `as any` cast at the call site (the cast is how
    * `record:path` came to read this spelling and no other).
+   *
+   * ⚠️ Declaring it on this type does NOT make it read. It is read only for a
+   * caller that passes `legacyLabelFold: true` — see this module's header.
    */
   label?: string;
 };
@@ -97,11 +114,20 @@ export interface RecordAriaDomProps {
  * Returns `undefined` when nothing is authored, and the EMPTY STRING when the
  * author declared an empty canonical name — the caller's `||` turns that into
  * its built-in default, while the alias stays shadowed.
+ *
+ * @param legacyLabelFold - read the contract-refused `aria.label` alias behind
+ *   the canonical spelling. ⛔ Default `false`. Only `record:path` and
+ *   `record:quick_actions` pass `true`, because only those two can be handed a
+ *   stored document carrying it; see this module's header for why widening it
+ *   is a defect rather than a simplification.
  */
-export function useRecordAriaName(aria: AuthoredRecordAria | undefined): string | undefined {
+export function useRecordAriaName(
+  aria: AuthoredRecordAria | undefined,
+  { legacyLabelFold = false }: { legacyLabelFold?: boolean } = {},
+): string | undefined {
   const locale = useDisplayLocale();
   // `??`, not `||`: see the operator note in this module's header.
-  const authored = aria?.ariaLabel ?? aria?.label;
+  const authored = legacyLabelFold ? aria?.ariaLabel ?? aria?.label : aria?.ariaLabel;
   return resolveInlineI18nLabel(authored, locale);
 }
 
@@ -115,12 +141,18 @@ export function useRecordAriaName(aria: AuthoredRecordAria | undefined): string 
  *   because an attribute on a `generic` element carries nothing.
  * @param defaultLabel - the block's built-in accessible name, used when the
  *   author declared none (or declared an empty one).
+ * @param legacyLabelFold - forwarded to {@link useRecordAriaName}. ⛔ Default
+ *   `false`; only the two blocks that already read the alias pass `true`.
  */
 export function useRecordAriaProps(
   aria: AuthoredRecordAria | undefined,
-  { defaultRole, defaultLabel }: { defaultRole?: string; defaultLabel?: string } = {},
+  {
+    defaultRole,
+    defaultLabel,
+    legacyLabelFold = false,
+  }: { defaultRole?: string; defaultLabel?: string; legacyLabelFold?: boolean } = {},
 ): RecordAriaDomProps {
-  const name = useRecordAriaName(aria);
+  const name = useRecordAriaName(aria, { legacyLabelFold });
   // `||`, not `??`: an authored empty name means "no name", not "this name".
   const label = name || defaultLabel;
   const describedBy = aria?.ariaDescribedBy || undefined;

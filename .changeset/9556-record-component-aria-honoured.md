@@ -82,11 +82,16 @@ plumbed into `RecordActivityTimeline` / `RecordChatterPanel`.
 
 ## What is deliberately NOT done
 
-- **The legacy `aria.label` alias is neither introduced nor retired.** It stays
-  a fold behind the canonical spelling, exactly where objectui#4663 and
-  `normalizeListViewSchema`'s `ARIA_KEY_ALIASES` already put it, and it remains
-  declared on no authoring face. The contract refuses it, so it cannot mask a
-  new authoring mistake; whether it should be removed outright is left open on
+- **The legacy `aria.label` alias gains no reader and loses none.** It is read
+  on `record:path` and `record:quick_actions` — the two blocks whose renderers
+  already read it — and ⛔ on no other block. The shared read point takes it as
+  an OPT-IN (`legacyLabelFold`), so the five container blocks do not read it:
+  no stored document was ever served by the alias on those five, so the
+  back-compat rationale does not reach them, and AGENTS.md #0.1 refuses a
+  consumer-side alias with no such document behind it. It remains declared on
+  no authoring face, and the contract refuses it, so it cannot mask a new
+  authoring mistake. Both directions are pinned. Whether to retire it on the
+  two as well reverses objectui#4663's pinned decision and is left open on
   objectui#9556 rather than settled in passing.
 - **No `aria` declaration is added for `record:quick_actions`.** The protocol
   declares none on `RecordQuickActionsProps` and refuses the bag there with a

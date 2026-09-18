@@ -133,6 +133,9 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
   const toolbarAria = useRecordAriaProps(schema.aria, {
     defaultRole: 'toolbar',
     defaultLabel: 'Quick actions',
+    // ⛔ The other of the two callers that opt in — objectui#4663 installed this
+    // fold here deliberately, for documents written before the shape closed.
+    legacyLabelFold: true,
   });
   const perms = usePermissions();
   // The ONE resolver for a declared action's authored strings (objectui#4265).

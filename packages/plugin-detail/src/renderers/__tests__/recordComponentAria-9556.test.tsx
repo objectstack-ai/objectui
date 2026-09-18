@@ -45,6 +45,14 @@
  *     names (AGENTS.md). These mount the real renderers and read the
  *     accessibility tree.
  *
+ * ## The alias fold is scoped, and that is asserted here
+ *
+ * The contract-refused `aria.label` spelling is read on `record:path` and
+ * `record:quick_actions` only — the two blocks that already read it, where a
+ * stored pre-contract document can carry it. ⛔ The other five do not, and the
+ * cases below assert that in both directions, each absence paired with the
+ * control that shows the same block honours the canonical spelling.
+ *
  * ## Why the assertions are accessible NAMES, not attributes
  *
  * `aria-label` on a bare `div` reaches nobody — a `div` is `generic`, and
@@ -269,6 +277,64 @@ describe('an authored `aria.ariaLabel` reaches the accessibility tree (objectui#
   it('an authored `ariaDescribedBy` reaches the same container', () => {
     mount(<RecordChatterRenderer schema={{ aria: { ariaLabel: NAME, ariaDescribedBy: 'desc-1' } } as never} />);
     expect(screen.getByRole('region', { name: NAME })).toHaveAttribute('aria-describedby', 'desc-1');
+  });
+});
+
+describe('the contract-refused `aria.label` alias is read on TWO blocks, not seven', () => {
+  /**
+   * The alias is `AriaPropsSchema`'s rename prescription — refused on parse,
+   * on every bag (the census above measures that). objectui#4663 installed a
+   * back-compat fold for it on `record:quick_actions`, and `record:path` read
+   * it and nothing else; those are the two blocks a stored pre-contract
+   * document can actually reach.
+   *
+   * ⚠️ The first draft of the shared read point folded it for EVERY caller,
+   * which handed a contract-refused spelling five new readers while the
+   * changeset said nothing had been introduced. These cases are why that
+   * cannot happen again quietly: the fold is opt-in, and both directions are
+   * asserted, each with the control that makes the absence mean something.
+   */
+  const ALIAS = 'Legacy name';
+
+  for (const [block, mk] of CONTAINER_BLOCKS) {
+    it(`${block} does NOT honour the refused alias`, () => {
+      mount(mk({ label: ALIAS }));
+      expect(screen.queryByRole('region', { name: ALIAS })).toBeNull();
+      // Nothing anywhere answers to it — not just "not on a region".
+      expect(screen.queryByText(ALIAS)).toBeNull();
+    });
+
+    it(`${block} control — the SAME block does honour the canonical spelling`, () => {
+      // Without this the absence above would pass for a block that renders
+      // nothing at all, which is the way this kind of assertion goes vacuous.
+      mount(mk({ ariaLabel: ALIAS }));
+      expect(screen.getByRole('region', { name: ALIAS })).toBeInTheDocument();
+    });
+  }
+
+  it('record:related_list does not honour it either', () => {
+    mount(
+      <RecordRelatedListRenderer
+        schema={{ objectName: 'crm_contact', relationshipField: 'account_id', aria: { label: ALIAS } } as never}
+      />,
+    );
+    expect(screen.queryByRole('region', { name: ALIAS })).toBeNull();
+  });
+
+  it('record:path and record:quick_actions DO, because a stored document can carry it there', () => {
+    // The positive half, restated here beside the five absences so the two
+    // populations are read together rather than a screen apart.
+    mount(
+      <RecordPathRenderer
+        schema={{ statusField: 'stage', stages: [{ value: 'won', label: 'Won' }], aria: { label: ALIAS } } as never}
+      />,
+    );
+    expect(screen.getAllByRole('list', { name: ALIAS })).toHaveLength(2);
+    cleanup();
+
+    const ACT = { name: 'act', label: 'Act', type: 'script', locations: ['record_header'] };
+    mount(<RecordQuickActionsRenderer schema={{ actions: [ACT], aria: { label: ALIAS } } as never} />);
+    expect(screen.getByRole('toolbar', { name: ALIAS })).toBeInTheDocument();
   });
 });
 

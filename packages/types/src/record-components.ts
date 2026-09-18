@@ -29,9 +29,13 @@ import type { I18nLabel } from '@objectstack/spec/ui';
  * `RecordActivityProps`, `RecordChatterProps`, `RecordPathProps` — each one
  * declares `aria`). ⛔ Nothing here writes that list down: which blocks declare
  * it, and which member spellings the shared shape accepts, are re-derived from
- * the INSTALLED artifact on every run by
- * `__tests__/record-component-aria-9556.test.ts`, which reads them off
- * `@objectstack/spec/ui` rather than restating them (AGENTS.md #9).
+ * the INSTALLED artifact on every run by the pin that consumes this bag —
+ * `@object-ui/plugin-detail`'s
+ * `src/renderers/__tests__/recordComponentAria-9556.test.tsx` — which reads them
+ * off `@objectstack/spec/ui` rather than restating them (AGENTS.md #9). The
+ * package is named because the instrument is NOT in this one: this docblock
+ * ships in this package's `dist/index.d.ts`, so a consumer following it needs
+ * to know where to look.
  *
  * ## `ariaLabel` is the INLINE locale vocabulary, not a plain string
  *
@@ -59,10 +63,15 @@ import type { I18nLabel } from '@objectstack/spec/ui';
  * `label` is the shared ARIA shape's ALIAS ENTRY — a rename prescription
  * pointing at `ariaLabel`, which exists to produce a better rejection message
  * and is never accepted. Declaring it here would declare a spelling the
- * contract refuses on parse. The two renderers that still READ it do so as a
+ * contract refuses on parse. Exactly two renderers READ it — `record:path` and
+ * `record:quick_actions`, the two that already did before objectui#9556 — as a
  * back-compat fold for documents written before the shape closed, behind the
- * canonical spelling and declared nowhere on this face — see
- * `@object-ui/plugin-detail`'s `renderers/recordComponentAria.ts`.
+ * canonical spelling and declared nowhere on this face. ⛔ It is OPT-IN there
+ * rather than shared: the other five `record:*` blocks do not read it, because
+ * no stored document was ever served by it on them. See
+ * `@object-ui/plugin-detail`'s `renderers/recordComponentAria.ts`, whose own
+ * pin asserts both directions — so this paragraph is checked rather than
+ * merely written.
  */
 export interface RecordComponentAriaProps {
   /**

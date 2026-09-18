@@ -102,6 +102,11 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
   const railAria = useRecordAriaProps(schema.aria, {
     defaultRole: 'list',
     defaultLabel: t('detail.pathLabel'),
+    // ⛔ One of only TWO callers that opt in: this block read `aria.label` and
+    // nothing else before objectui#9556, so a stored document can carry it
+    // here. The five container blocks do NOT pass this — giving a
+    // contract-refused spelling new readers is the defect, not the fix.
+    legacyLabelFold: true,
   });
 
   const rawStages: Array<{ value: any; label: string; terminal?: 'won' | 'lost' }> = Array.isArray(schema.stages)

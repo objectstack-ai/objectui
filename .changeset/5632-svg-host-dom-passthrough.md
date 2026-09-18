@@ -7,10 +7,15 @@
 
 Both renderers forwarded their whole prop bag to the SVG they render, so every
 authored SDUI key on the node became an attribute — 14 per target, and
-`icon="check"` on all 71 icon nodes in the schema catalog. `IconSchema` and
-`SpinnerSchema` declare only `icon` / `size` / `color`, and both renderers
-already consume all three by name, so the SDUI pass-through list withholds
-nothing they need.
+`icon="check"` on all 71 icon nodes in the schema catalog. The two nodes declare
+different keys, and each renderer consumes its own node's keys by name:
+`IconSchema` (`packages/types/src/layout.ts`) against the pass-through docblock
+in `renderers/basic/icon.tsx`, and `SpinnerSchema`
+(`packages/types/src/feedback.ts`) against the one in
+`renderers/feedback/spinner.tsx`. `icon` and `color` are `IconSchema`'s alone —
+`SpinnerSchema` declares neither. Read those two declarations for what they
+carry; this paragraph deliberately copies no member list. So the SDUI
+pass-through list withholds nothing they need.
 
 Two user-visible behaviours change, both of which were invisible to the DOM-leak
 gate because the judge counts `stroke` / `width` / `height` as legitimate on an

@@ -2300,6 +2300,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-calendar/src/__tests__/ObjectCalendar.recordSourceMembers-8314.test.tsx',
     pins: 'The members are read EXACTLY as `data`\'s are (same record keys, same per-member unscheduled treatment), plus the two POSITION claims its description makes and no other direction of this gate can see: it is rung 2 of the shared record-source ladder, so an authored `data` wins and this key contributes nothing, and it is read ABOVE `objectName`, so a calendar carrying both draws the inline rows and never queries the object. Both negatives are proven through the same wait a CONTROL row shows a real query completing in, so "no query" can never read as a race. The spec row is `z.array(z.unknown())` — unconstrained members, read site is the whole contract (objectui#8314).',
   },
+  'object-form.customFields': {
+    file: 'packages/plugin-form/src/__tests__/objectFormCustomFieldsMembers-8071.test.tsx',
+    pins: 'Members are WHOLE field definitions keyed by `name`, rendered in AUTHORED order, and they REPLACE the metadata-generated set rather than merging over it — the object\'s schema is never even fetched (`getObjectSchema` asserted at zero calls), an object field no member names is absent, and a member naming a declared field carries its OWN label, inheriting nothing. That contradicts the registration\'s own prose ("Field definitions merged over the set generated from object metadata"): the per-member merge does exist as code (`customFields?.find((f) => f.name === name)`) and is unreachable, because the branch holding it runs only when the key is absent or empty — handed back as a finding rather than repaired, since repairing it is a renderer or spec change. The row a plausible improvement breaks is the gate\'s `.length > 0`: an EMPTY array is UNAUTHORED and the metadata path runs, so simplifying the read to `!!schema.customFields` turns a designer\'s not-configured-yet `[]` into a form with no fields and no diagnostic. A fifth row pins the SECOND read site of the same member count one layer up — `requiresDataSource={!(schema?.customFields?.length > 0) …}` in `index.tsx` — driven through the REGISTERED block with the identical node minus the members reporting the no-adapter panel as its control. Both declared sides are unconstrained (`type: \'array\'` with no `of`; the spec row is `z.unknown()`), so the read site is the whole member contract. New file (objectui#8071 slice 11).',
+  },
+  'object-form.dataSource': {
+    file: 'packages/plugin-form/src/ObjectForm.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s own members on a block that edits ONE record: `object` is the only key mapped, and it is asserted at the fetch it causes (`getObjectSchema` on the bound name) rather than at a prop. The keys deliberately NOT mapped are pinned as behaviour with a resolving `view` authored beside a `limit` and a `sort` — no collection query is issued at all, so none of the three can have silently become one — while an unresolvable `view` REPORTS rather than rendering as if it resolved, and a binding-free form is the control that keeps the negatives from reading as a block that never wired anything. Pre-existing file, promoted after being read end to end and GROWN by the row it never stated: the binding\'s `object` OUTRANKS a flat `objectName` on the same node (`next[objectKey] = composed.object`, unconditional), so the `??=` spelling a contributor would write to "not clobber the author" would leave a rebound form editing the old object with the same fields, the same labels and no diagnostic. `dataSource` is absent from `ComponentPropsMap[\'object-form\']` entirely — it is the injected `ELEMENT_DATA_SOURCE_INPUT` — so nothing declared constrains the precedence (objectui#8071 slice 11).',
+  },
   'object-form.fields': {
     file: 'packages/plugin-form/src/__tests__/objectFormFieldsMembers-8071.test.tsx',
     pins: 'Members are BARE FIELD NAMES resolved against the object schema — authored order preserved (against a control with no `fields`, whose order differs), a name the object does not declare dropped rather than rendered as an untyped stub, and the `{ name }` object spelling recorded as the read site\'s tolerance rather than a second contract. The sharp row is the one no other file can make: `object-form` carries a SECOND surface spelled `fields` (`sections[].fields`), whose canonical member is the spec `FormFieldSchema` object keyed on `field` — and that exact entry as a member of the TOP-LEVEL key resolves to no name and is dropped from render (no throw) — SILENTLY until objectui#8738 route 1 added a named `console.warn` for exactly this case (also pinned in the same file), with the same entry inside a section rendering as the live control so the negative cannot come from an object that never renders that field. Asserted through the real `ObjectForm`, because the sink is its own `fieldsToShow` loop rather than the `normalizeSectionField` chokepoint the sibling key uses. The spec row is `z.array(z.unknown())` and the registration declares no `of`, so the read site is the whole member contract (objectui#8071).',
@@ -2311,6 +2319,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-form.initialValues': {
     file: 'packages/plugin-form/src/__tests__/objectFormInitialMembers-8071.test.tsx',
     pins: 'Members are FIELD NAMES and each member value is that control\'s OPENING value, and — the row a plausible improvement breaks — the two keys are chosen between as WHOLE OBJECTS (`schema.initialData || schema.initialValues`), never merged per member: with both authored, every `initialValues` member is DROPPED including the ones `initialData` says nothing about, so an author who prefills through `initialValues` and adds a one-member `initialData` loses the rest with no warning and no empty state. Nothing declared distinguishes that from the `{ ...initialValues, ...initialData }` spelling the prose ("alternate spelling … read FIRST") reads like. The sharp edge is pinned too: `||` tests the OBJECT\'s truthiness, so an EMPTY `initialData` shadows a populated `initialValues` completely — recorded as the renderer\'s behaviour and handed back as a finding rather than fixed, because fixing it is a renderer change and this card writes pins only. A no-keys row renders the SAME controls empty as the non-vacuity control. Both keys are registered `type: \'object\'` and typed `Record<string, any>`, so every object parses on both declared sides and the read site is the whole member contract (objectui#8071).',
+  },
+  'object-form.mobile': {
+    file: 'packages/plugin-form/src/__tests__/objectFormMobileMembers-8071.test.tsx',
+    pins: 'FIVE members are read and the registration\'s prose names three of them by example, so two — `stepperFieldsPerStep` and `stickyActions` — are read, change what renders, and are discoverable from nothing on either declared side (the spec row is `z.unknown()`). Pinned through the real renderer: `stickyActions` moves the action bar into the sticky footer while the wrapper\'s `data-mobile-form` marker reads the KEY\'S PRESENCE rather than any member (an empty `mobile: {}` still stamps it and moves nothing); `stepper: true` routes through `WizardForm` UNCONDITIONALLY, asserted on a DESKTOP viewport and under a raised minimum so it cannot be read as a keener `auto`; and `stepper: \'auto\'` is gated on BOTH halves at once — the phone viewport AND the field count reaching `stepperMinFields` (default 8) — as three cells that each control the other two. The row a plausible improvement breaks is `stepperFieldsPerStep`: it is in neither declared side, so collapsing `Math.max(1, … ?? 1)` to a bare `1` reads like deleting an undeclared key, leaves every other row green, and silently turns an authored two-per-step form into one step per field. The fifth member, `fullscreenLongText`, is deliberately left to `ObjectForm.mobileFullscreen.test.tsx`, which owns it end to end — splitting one member across two files would make a deletion in either read as coverage. New file (objectui#8071 slice 11).',
+  },
+  'object-form.sections': {
+    file: 'packages/plugin-form/src/__tests__/objectFormSectionMembers-8071.test.tsx',
+    pins: 'Members are section OBJECTS, pinned in the DEFAULT layout (the one a section-carrying form gets with no `formType`) on the six keys `SimpleObjectForm`\'s grouped branch reads. The row a plausible improvement breaks: `fields` is read as a SET, not an order — the resolution is `sourceFields.filter((f) => sectionFieldNames.includes(f.name))`, so the OBJECT\'s order wins and the authored member order is discarded, which is the OPPOSITE of the sibling key `object-form.fields` on the same block, pinned next door on authored order being PRESERVED. The silent row: a section whose members resolve to no field is dropped WHOLE, heading included, so one mistyped member name costs a heading with nothing visibly wrong. `name` alone titles the section and a member carrying neither `name` nor `label` draws no divider at all; `collapsed` takes the members out of the DOM while `collapsible` is the SEPARATE member that makes the heading a control, so a section declared `collapsed` and not `collapsible` renders permanently closed with no affordance — each arm carrying its own control in the same call. A no-sections row is the non-vacuity control. LIMIT, pinned as behaviour and handed back as a finding: this layout DROPS a member\'s `description`, which `SectionDivider` renders and the five rebuild arms copy, with the same section\'s `label` in the same call as the live control. `visibleWhen`, the `{ group }` reference form and the legacy `groups` spelling are owned by their own neighbouring files and deliberately not re-pinned here. Both declared sides are unconstrained (bare `type: \'array\'`; `z.array(z.unknown())`), so the read site is the whole member contract. New file (objectui#8071 slice 11).',
   },
   'object-form.submitBehavior': {
     file: 'packages/plugin-form/src/ObjectForm.submitBehavior.test.tsx',
@@ -2589,11 +2605,10 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // fully pinned and this header stays only as a note for the next reader who
   // greps for it.
 
-  // object-form
-  'object-form.customFields': AWAITING_A_PIN,
-  'object-form.dataSource': AWAITING_A_PIN,
-  'object-form.mobile': AWAITING_A_PIN,
-  'object-form.sections': AWAITING_A_PIN,
+  // object-form — objectui#8071 slice 11 pinned the block's four remaining
+  // keys (`customFields`, `dataSource`, `mobile`, `sections`); it is the FIRST
+  // block this card closes, and this header stays only as a landmark for the
+  // next reader who greps for it.
 
   // object-grid
   'object-grid.aggregations': AWAITING_A_PIN,
@@ -3085,11 +3100,48 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
  * reading was not re-measured here either — slice 7's measurement still stands.
  *
+ * ## 28 -> 24, and the FIRST BLOCK objectui#8071 closes
+ *
+ * The eleventh slice takes `object-form`'s four remaining keys —
+ * `customFields`, `dataSource`, `mobile` and `sections` — so the ceiling follows
+ * to 24 in the same commit and the block leaves `MEMBER_PIN_EXEMPTIONS`
+ * entirely. It is the first block this card closes; `object-metric` (slice 9)
+ * closed as a block too, but over two slices of a population this card had
+ * already halved, and `object-form` is the first taken to zero from the list as
+ * the card body enumerated it.
+ *
+ * ⚠️ The batch was selected from THIS CONSTANT, re-taken by the implementing
+ * seat before its first edit with a depth-aware scan of the direct property
+ * keys — not from the card's prose list, which is stale in both directions and
+ * has now mis-aimed two dispatches. The card body carries a dated block saying
+ * so; this is the third slice in a row to record it.
+ *
+ * Three of the four are NEW FILES, and one is a promotion, which is the same
+ * distinction slices 1 and 10 turned on. `sections`, `customFields` and `mobile`
+ * had no file constraining their members at all. `dataSource` had
+ * `ObjectForm.elementDataSource.test.tsx`, whose whole subject IS the key and
+ * which drives the real block — a genuine near miss — but it stated only WHICH
+ * members are mapped and never their precedence against the block's own flat
+ * keys, so it was GROWN by that row before being registered rather than
+ * credited on its strings.
+ *
+ * ⚠️ Two of the four pin a member fact that CONTRADICTS the surface that
+ * declares it, and both are handed back as findings rather than repaired here,
+ * because repairing either is a renderer change and this card writes pins only:
+ * `customFields` is documented as "merged over the set generated from object
+ * metadata" and REPLACES it (the per-member merge exists as code and is
+ * unreachable), and the default layout DROPS a section's `description` while
+ * the five rebuild arms copy it.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here either — slice 7's measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 28;
+const MEMBER_PIN_EXEMPTION_CEILING = 24;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

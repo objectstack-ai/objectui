@@ -134,8 +134,9 @@ const accountDetail = <DetailView
 
 ```tsx
 import { DetailView } from '@object-ui/plugin-detail';
+import type { FeedItem } from '@object-ui/types';
 
-declare const activityData: Record<string, unknown>[];
+declare const activityData: FeedItem[];
 declare const navigate: (url: string) => void;
 declare const deleteAccount: (id: string) => void;
 
@@ -166,9 +167,11 @@ const accountDetail = <DetailView
         key: 'activity',
         label: 'Activity',
         badge: '12',
+        // `record:activity` — the registered Activity Timeline block. Reachable
+        // under that exact key and no other; see the note below the block.
         content: {
-          type: 'activity-timeline',
-          data: activityData,
+          type: 'record:activity',
+          items: activityData,
         },
       },
     ],
@@ -180,6 +183,33 @@ const accountDetail = <DetailView
   onBack={() => navigate('/accounts')}
 />;
 ```
+
+A tab's `content` is an **SDUI node**, not a private vocabulary: `DetailTabs`
+renders it with `<SchemaRenderer schema={toRenderableSchema(tab.content)} />`,
+so `content.type` is resolved by the component registry and an unregistered
+name paints the `Unknown component type` panel (**OBJUI-001**) instead of a
+component. Author only types this repository registers.
+
+Two things about the Activity tab above are worth copying rather than guessing
+(objectui#8114 — it previously taught `type: 'activity-timeline'`, which
+nothing registers):
+
+- **The key is `record:activity`, with the namespace spelled out.** The
+  registration in `src/index.tsx` passes the bare name under
+  `{ namespace: 'record', skipFallback: true }`, and `skipFallback` is what
+  stops the bare name from also being claimed globally — so `record:activity`
+  resolves and `activity` resolves to nothing. `activity` is additionally a tab
+  **key** in the example above; the two are unrelated.
+- **The feed arrives as `items`, not `data`.** `record:activity` takes its feed
+  from three sources, in precedence order: `items` on the node, a mounted
+  discussion context, or a self-fetch from `sys_activity` scoped off
+  `useRecordContext`. The last two need a record host; a bare `<DetailView>`
+  like the one above mounts neither, so a caller that already owns the feed
+  passes it in as `items` (the convention `record:history` uses for `entries`).
+  `data` is not a key this block reads.
+
+See **The `record:activity` block** in the plugin-detail guide for its declared
+inputs (`types`, `limit`, `filterMode`, `showCompleted`, …).
 
 ## Schema
 

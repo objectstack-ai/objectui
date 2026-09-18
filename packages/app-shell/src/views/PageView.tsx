@@ -135,10 +135,20 @@ export function PageView() {
                 // defect", and objectui#9576). The channel is now declared at
                 // both reading ends — `@object-ui/types`' `SchemaRegistry` map
                 // at its `'page'` entry, and the `PageRenderer` registrations in
-                // `@object-ui/components` — and pinned by
-                // `page-kind-node-type-channel-9642` (objectui#9642). ⛔ Change
-                // this mapping and that pin goes red by design: it is the
+                // `@object-ui/components`. Each END is pinned by a DIFFERENT
+                // file, because no one package can import both.
+                //
+                // ⛔ Change this mapping and `page-kind-writing-end-9718`, in
+                // this package's `views/__tests__`, goes red by design and names
+                // the kind that stopped being written (objectui#9718): it is the
                 // declaration, not an incidental assertion.
+                //
+                // ⚠️ The reading end's pin — `page-kind-node-type-channel-9642`
+                // (objectui#9642) — does NOT answer for this line. It lives in
+                // `@object-ui/components`, which does not depend on this
+                // package, so its module graph cannot reach this file: gutting
+                // this mapping leaves it green, and deleting a registration
+                // turns it red. Both directions were measured on objectui#9718.
                 type: (page as any).type || 'page',
                 pageType: (page as any).type,
                 context: { ...(page as any).context, params, refreshKey },

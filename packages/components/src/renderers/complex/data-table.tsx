@@ -2283,7 +2283,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                            ) {
                              return;
                            }
-                           schema.onRowClick(row);
+                           // objectui#9462 — the DOM event goes with the row.
+                           // `ObjectGrid` and `ListView` put the navigation
+                           // hook's own `handleClick` on this slot, and that
+                           // hook reads `metaKey` / `ctrlKey` / `button` off a
+                           // second argument to decide "open in a new tab".
+                           // Calling with one argument dropped the payload
+                           // here, so Cmd/Ctrl/middle-click reached no host
+                           // handler and degraded to an ordinary navigation.
+                           schema.onRowClick(row, e);
                         }
                       }}
                     >
@@ -2316,7 +2324,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               data-testid="row-expand-button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                schema.onRowClick?.(row);
+                                // objectui#9462 — same forward as the row's own
+                                // handler above. `e` was already bound here for
+                                // `stopPropagation`, so the payload was in
+                                // scope on this line and still was not handed
+                                // on: the hover "open record" affordance
+                                // answered a Cmd/Ctrl-click exactly like a
+                                // plain one.
+                                schema.onRowClick?.(row, e);
                               }}
                               title="Open record"
                             >

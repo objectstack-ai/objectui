@@ -153,6 +153,29 @@
  *   WINDOW PAIRING question below and not a polarity question. `without` and
  *   `fails to` are still read as clause-wide negators.
  *
+ *   THE ANNOTATION READ AS PROSE -- A POLARITY INVERSION, REPAIRED
+ *   (objectui#9832). objectui#9794 made a mention written the way a face
+ *   declares it (`value?: never`) read as a key for the first time, and that is
+ *   what let the clause carrying it reach the polarity criterion. The criterion
+ *   was a regex over PROSE and it accepts `\bnever\b` -- but a DECLARING clause
+ *   can carry a TYPE ANNOTATION that is also `never`, so "the TypeScript
+ *   interface `S` declares `value?: never`", an assertion that S DOES declare
+ *   the key, read NEGATIVE and the verdict inverted: under the negative reading
+ *   the contradiction is the schema that HAS the member. ⭐ `never` as a
+ *   TypeScript type and `never` as an English adverb are INDISTINGUISHABLE to a
+ *   prose regex, which is a property of this whole instrument class and not a
+ *   typo in one word list. The repair is therefore POSITIONAL: the negators are
+ *   now read over the clause with its backticked spans still masked (`prose` on
+ *   `segmentClauses`), so a word inside a span is code and is no longer a word
+ *   of the sentence. ⛔ `never` was deliberately NOT removed from the word list
+ *   -- it is a real English negator and "the renderer never reads it" must keep
+ *   reading negative; deleting it would have widened the hole instead of
+ *   closing it. ⚠️ This spelling is ADR-0049's by-name refusal tombstone
+ *   (objectui#9764), so the misreading was growing with the corpus rather than
+ *   sitting still. ⚠️ RESIDUE: only the polarity read moved. The population
+ *   predicate still reads the restored clause, so a declaration verb written
+ *   inside a span still opens a declaration clause.
+ *
  *   TOP-LEVEL MEMBERSHIP ONLY. A key declared on an INLINE nested object
  *   (`sort?: Array<{ field; direction }>`) is a member of that object, not of
  *   the schema, and a sentence naming it reads as absent. Descending would
@@ -679,6 +702,12 @@ const MASK_TOKEN = new RegExp(`${MASK_OPEN}(\\d+)${MASK_CLOSE}`, 'g');
  * Cut one sentence into clauses, keeping offsets so a key can be located in the
  * clause it was written in. Returns masked text alongside, because key
  * positions are mask-token positions.
+ *
+ * Each clause carries BOTH readings of itself and they are not interchangeable:
+ * `text` is the clause as written, spans restored, and it is what a pin or a
+ * report shows a human; `prose` is the clause with every backticked span still
+ * masked, and it is the only text a WORD-LEVEL criterion may be read over. See
+ * `readPolarity` for why that distinction is load bearing (objectui#9832).
  */
 export function segmentClauses(text) {
   const { masked, spans } = maskSpans(text);
@@ -692,7 +721,7 @@ export function segmentClauses(text) {
   }
   cuts.push({ start: last, end: masked.length });
   const clauses = cuts
-    .map((c) => ({ ...c, text: restore(masked.slice(c.start, c.end)) }))
+    .map((c) => ({ ...c, prose: masked.slice(c.start, c.end), text: restore(masked.slice(c.start, c.end)) }))
     .filter((c) => c.text.trim() !== '');
   return { clauses, masked, spans };
 }
@@ -709,6 +738,24 @@ export function clauseTexts(text) {
  * because a key resolved across a sentence boundary has no clause here.
  * `byKey` is the per-key reading, and it is the one the verdict uses.
  *
+ * ⭐ THE NEGATORS ARE READ OVER `prose`, NEVER OVER `text` (objectui#9832). A
+ * backticked span is CODE, and a word inside it is not a word of the sentence:
+ * `never` is a TypeScript type as often as it is an English adverb, and on a
+ * prose regex the two are INDISTINGUISHABLE. Reading the restored clause made
+ * "the interface `S` declares `value?: never`" -- an assertion that S DOES
+ * declare the key -- a NEGATIVE claim, which inverts the verdict: under the
+ * negative reading the schema "in contradiction" is the one that HAS the
+ * member, exactly backwards. ⚠️ The repair is positional and NOT lexical:
+ * `never` stays in `NEGATIVE` because it is a real English negator and
+ * "the renderer never reads it" must keep reading negative. Deleting the word
+ * would have bought this fixture's green by widening the hole instead.
+ * ⚠️ RESIDUE, named rather than hidden: the same span-blindness argument
+ * applies to `PRESENT_DECLARATION` and to `LEADING_NEGATOR` at the head of a
+ * clause, and only the first of those is left reading `text` here -- a clause
+ * whose ONLY declaration verb sits inside a span still counts as a declaration
+ * clause. That is a population question, not a polarity one, and narrowing it
+ * belongs to whichever card measures it.
+ *
  * @param {string} text
  * @param {Set<string> | null} [declared] the set `keyHead` reads; see its docblock
  * @returns {{ polarity: "positive" | "negative", byKey: Record<string, "positive" | "negative"> }}
@@ -716,12 +763,12 @@ export function clauseTexts(text) {
 export function readPolarity(text, declared = null) {
   const { clauses, masked, spans } = segmentClauses(text);
   const isDeclaration = (c) => PRESENT_DECLARATION.test(c.text);
-  const polarityOf = (c) => (NEGATIVE.test(c.text) ? 'negative' : 'positive');
+  const polarityOf = (c) => (NEGATIVE.test(c.prose) ? 'negative' : 'positive');
   const declarations = clauses.filter(isDeclaration);
   const polarity =
     declarations.length > 0
       ? polarityOf(declarations[0])
-      : NEGATIVE.test(text)
+      : NEGATIVE.test(masked)
         ? 'negative'
         : 'positive';
 
@@ -748,7 +795,7 @@ export function readPolarity(text, declared = null) {
     if (!reading) {
       const first = positions[0];
       const own = clauseAt(first);
-      if (own && LEADING_NEGATOR.test(own.text)) {
+      if (own && LEADING_NEGATOR.test(own.prose)) {
         reading = 'negative';
       } else {
         const before = declarations.filter((c) => c.end <= first).pop();

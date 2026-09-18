@@ -470,6 +470,39 @@ const Y_AXIS_TITLE_LAYOUT = { angle: -90, position: 'insideLeft' } as const;
 const X_AXIS_TITLE_LAYOUT = { position: 'insideBottom', offset: -4 } as const;
 
 /**
+ * Recharts props derived from one spec axis that plots NUMBERS — the domain
+ * from `min`/`max`, the ticks from `stepSize`, the scale from `logarithmic`
+ * and the label from `title`.
+ *
+ * `values` is every number plotted on that axis: the population `stepSize`
+ * lays its ticks over. It is a parameter rather than derived here because the
+ * callers read different columns — a y-axis's numbers come from the series
+ * bound to its side, and the scatter x-axis's from `xAxisKey`, which is a
+ * measure on that one family (objectui#9675).
+ *
+ * At module scope, and a plain function: it closes over nothing, so there is
+ * no identity for a caller to depend on and nothing for a hook to recompute.
+ */
+function numericAxisSpecProps(
+  axis: NormalizedAxis | undefined,
+  values: number[],
+  labelLayout: typeof Y_AXIS_TITLE_LAYOUT | typeof X_AXIS_TITLE_LAYOUT,
+) {
+  if (!axis) return {};
+  const domain = domainFor(axis);
+  const ticks = ticksFor(axis, values);
+  return {
+    ...(ticks ? { ticks } : {}),
+    ...(domain ? { domain } : {}),
+    // `allowDataOverflow` is what makes an explicit domain actually clip
+    // rather than being silently widened to fit the data.
+    ...(domain ? { allowDataOverflow: true } : {}),
+    ...(axis.logarithmic ? { scale: 'log' as const, domain: domain ?? ([1, 'auto'] as any) } : {}),
+    ...(axis.title ? { label: { value: axis.title, ...labelLayout } } : {}),
+  };
+}
+
+/**
  * Treemap leaf cell — paints each leaf rect with its palette fill + label.
  * Hoisted to module scope so it is a stable component reference rather than one
  * re-created on every AdvancedChartImpl render (react-hooks/static-components).
@@ -1336,40 +1369,11 @@ function AdvancedChartImplInner({
     return out;
   }, [data, series, hasDualAxis]);
 
-  /**
-   * Recharts props derived from one spec axis that plots NUMBERS
-   * (domain / scale / ticks / label).
-   *
-   * `values` is every number plotted on that axis — the population `stepSize`
-   * lays its ticks over. It is a parameter rather than derived here because the
-   * two callers read different columns: a y-axis's numbers come from the series
-   * bound to its side, and the scatter x-axis's come from `xAxisKey`, which is
-   * a measure on that one family (objectui#9675).
-   */
-  const numericAxisSpecProps = React.useCallback((
-    axis: NormalizedAxis | undefined,
-    values: number[],
-    labelLayout: typeof Y_AXIS_TITLE_LAYOUT | typeof X_AXIS_TITLE_LAYOUT,
-  ) => {
-    if (!axis) return {};
-    const domain = domainFor(axis);
-    const ticks = ticksFor(axis, values);
-    return {
-      ...(ticks ? { ticks } : {}),
-      ...(domain ? { domain } : {}),
-      // `allowDataOverflow` is what makes an explicit domain actually clip
-      // rather than being silently widened to fit the data.
-      ...(domain ? { allowDataOverflow: true } : {}),
-      ...(axis.logarithmic ? { scale: 'log' as const, domain: domain ?? ([1, 'auto'] as any) } : {}),
-      ...(axis.title ? { label: { value: axis.title, ...labelLayout } } : {}),
-    };
-  }, []);
-
   /** Recharts props derived from one spec y-axis (domain / scale / ticks / label). */
   const yAxisSpecProps = React.useCallback(
     (axis: NormalizedAxis | undefined, side: 'left' | 'right' = 'left') =>
       numericAxisSpecProps(axis, axisValues(side), Y_AXIS_TITLE_LAYOUT),
-    [numericAxisSpecProps, axisValues],
+    [axisValues],
   );
 
   // `showGridLines` is per-axis in the spec; the renderer draws one grid, so
@@ -1938,10 +1942,9 @@ function AdvancedChartImplInner({
               family's numeric axis gets — `min`/`max` as the domain,
               `stepSize` as the ticks, `logarithmic` as the scale, `title` as
               the label and `format` as the tick text (objectui#9675). Scatter
-              is this file's only family
-              whose X is a MEASURE rather than a category band, which is why
-              the x axis takes the same derivation here and the categorical
-              `xAxisCommonProps` everywhere else.
+              is this file's only family whose X is a MEASURE rather than a
+              category band, which is why the x axis takes the same derivation
+              here and the categorical `xAxisCommonProps` everywhere else.
 
               This composes with the edge margin objectui#7396 reserved rather
               than shadowing it: that card deliberately spent `padding`, which

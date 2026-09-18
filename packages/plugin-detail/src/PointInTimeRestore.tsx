@@ -16,6 +16,7 @@ import {
   CardContent,
 } from '@object-ui/components';
 import { History, RotateCcw, Eye, ChevronRight } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 
 export interface RevisionEntry {
@@ -51,7 +52,7 @@ type RestoreTranslate = (key: string, options?: Record<string, unknown>) => stri
  * a revision list wants the time of day, a comment list does not. Keeping the
  * tails apart is deliberate; unifying them would silently restyle one surface.
  */
-function formatTimestamp(timestamp: string, t: RestoreTranslate): string {
+function formatTimestamp(timestamp: string, t: RestoreTranslate, locale: string): string {
   try {
     const date = new Date(timestamp);
     const now = new Date();
@@ -63,8 +64,9 @@ function formatTimestamp(timestamp: string, t: RestoreTranslate): string {
     const diffHours = Math.floor(diffMins / 60);
     if (diffHours < 24) return t('detail.hoursAgo', { count: diffHours });
     // Past a day this is a DATE-TIME, not a relative phrase: `toLocaleString`
-    // already localizes it, so there is no literal here to key.
-    return date.toLocaleString();
+    // already localizes it, so there is no literal here to key. The tag is
+    // DECLARED (objectui#9786) — a bare call reads the machine's locale.
+    return date.toLocaleString(locale);
   } catch {
     return timestamp;
   }
@@ -77,6 +79,8 @@ export const PointInTimeRestore: React.FC<PointInTimeRestoreProps> = ({
   className,
 }) => {
   const { t } = useDetailTranslation();
+  // The BCP-47 tag the absolute date-time tail formats with (objectui#9786).
+  const displayLocale = useDisplayLocale();
   const [selectedRevisionId, setSelectedRevisionId] = React.useState<string | null>(null);
   const [isConfirming, setIsConfirming] = React.useState(false);
   const [isRestoring, setIsRestoring] = React.useState(false);
@@ -167,7 +171,7 @@ export const PointInTimeRestore: React.FC<PointInTimeRestoreProps> = ({
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">{revision.user}</span>
                             <span className="text-xs text-muted-foreground">
-                              {formatTimestamp(revision.timestamp, t)}
+                              {formatTimestamp(revision.timestamp, t, displayLocale)}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
@@ -237,7 +241,7 @@ export const PointInTimeRestore: React.FC<PointInTimeRestoreProps> = ({
                       <>
                         <p className="text-xs text-amber-600 dark:text-amber-400">
                           {t('detail.restoreConfirm', {
-                            when: formatTimestamp(selectedRevision.timestamp, t),
+                            when: formatTimestamp(selectedRevision.timestamp, t, displayLocale),
                           })}
                         </p>
                         <div className="flex gap-2">

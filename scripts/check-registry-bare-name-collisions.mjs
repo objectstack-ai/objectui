@@ -164,6 +164,12 @@ export const OPEN_REGISTRATION_SITES = {
     '`registerField(fieldType)` and the retired-field tombstone registrar both take the key as a ' +
     'parameter. The live keys are read from fieldWidgetMap through INDIRECT_REGISTRATIONS; the ' +
     'tombstone registrar declares `skipFallback: true` at its call site, so it claims no bare key.',
+  'packages/plugin-dashboard/src/index.tsx':
+    'The retired-node-type tombstone registrar loops over RETIRED_DASHBOARD_NODE_TYPES, so its key ' +
+    'argument is a loop binding rather than a literal (objectui#9533). It declares ' +
+    '`skipFallback: true` at its call site, so it claims no bare key and decides no bare-name ' +
+    "ownership; the package's eight literal registrations, `plugin-dashboard:dashboard` included, " +
+    'are read normally.',
 };
 
 /**
@@ -385,20 +391,15 @@ export function groupBareKeys(claims) {
  * a card, not in this constant.
  */
 export const KNOWN_BARE_NAME_COLLISIONS = [
-  {
-    key: 'dashboard',
-    claimants: [
-      'apps/console/src/preview-gallery.tsx · plugin-dashboard:dashboard · registerLazy',
-      'apps/console/src/register-plugins.ts · plugin-dashboard:dashboard · registerLazy',
-      'packages/plugin-dashboard/src/index.tsx · view:dashboard · register',
-    ],
-    note:
-      'The objectui#6416 shape, still live. The console lazy stubs declare `plugin-dashboard:dashboard` ' +
-      'and the plugin itself registers `view:dashboard`, so bare `dashboard` declares one namespace ' +
-      'before the chunk loads and the other after. ⛔ Not resolvable here: picking a spelling decides ' +
-      'which declaration governs an authored `{ "type": "dashboard" }` node, and objectui#9256 holds ' +
-      'registrations for exactly that class of ruling.',
-  },
+  // EMPTY, and that is a reading rather than a default. The one entry this
+  // ledger was born with — bare `dashboard`, claimed as `plugin-dashboard:dashboard`
+  // by the two console `registerLazy` loops and as `view:dashboard` by the plugin
+  // itself — was RESOLVED by objectui#9533 (director summon #24 / batch #152
+  // item 5, letter 1, maintainer-approved): the package now registers
+  // `plugin-dashboard:dashboard`, so all three claimants name ONE full type and
+  // the key has one owner by construction. The row is gone rather than reworded,
+  // which is what "shrink-only" means here; a stale entry would fail anyway.
+  // ⛔ Nothing goes back in to make a red run green — see the header.
 ];
 
 /** Every finding the gate has, as human-readable records. */

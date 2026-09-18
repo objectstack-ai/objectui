@@ -243,7 +243,14 @@ describe('the two ruled-out keys stay unpublished — and checkably so (objectui
     ((ComponentRegistry.getConfig('dashboard', namespace) as { inputs?: Array<{ name: string }> })
       ?.inputs ?? []).map((i) => i.name);
 
-  it.each([undefined, 'view'] as const)(
+  // ⚠️ The namespaced spelling is `plugin-dashboard`, not `view`: objectui#9533
+  // converged the bare `dashboard` key onto the namespace the console stubs and
+  // the CLI whitelist declare. `view:dashboard` still resolves — to a retirement
+  // TOMBSTONE that publishes no `inputs` at all — so looking the authoring
+  // surface up there would read an empty list and pass the "publishes neither"
+  // half while measuring nothing. The `label` / `widgets` controls below are
+  // what catch that, and they are why this row moved rather than being dropped.
+  it.each([undefined, 'plugin-dashboard'] as const)(
     'the registration publishes neither, looked up %s',
     (namespace) => {
       const declared = inputNames(namespace);

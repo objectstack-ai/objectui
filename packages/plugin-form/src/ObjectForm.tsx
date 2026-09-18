@@ -42,7 +42,7 @@ import {
   filterSystemFields,
   inferColumns,
 } from './autoLayout';
-import { deriveFieldGroupSections } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
 import { sanitizeFormData } from './sanitize';
 import { resolveInitialRecord } from './initialRecord';
@@ -1515,93 +1515,54 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // present. A section that declares neither member is untouched.
       const isCollapsible = Boolean(section.collapsible) || Boolean(section.collapsed);
 
-      if (label) {
-        groupedFields.push({
-          name: `__section_${sectionKey}`,
-          label,
-          type: 'section-divider',
-          // The section's authored blurb (spec `FormSection.description`,
-          // objectui#9779). This map is a key-by-key rebuild, so a key it does
-          // not copy is dropped before any renderer can see it — and this key
-          // was dropped HERE, on the layout a section-carrying form gets when
-          // it declares no `formType`, while the `tabbed` / `wizard` / `split`
-          // / `modal` maps above copied it and `SectionDivider` (the very
-          // component this row renders as) has always drawn one. Its sibling
-          // `label` on the same member arrived, so the miss was invisible to
-          // the author: a titled section with a blurb rendered the title and
-          // silently ate the blurb.
-          //
-          // ⚠️ The `if (label)` gate above is NOT widened with it, deliberately.
-          // That gate decides whether this member gets a divider row at all,
-          // and the row carries two other contracts — the ADR-0089 predicate
-          // and the #6236 membership claim that gates the group — plus the
-          // collapse pair below, whose "an untitled bucket is never
-          // collapsible" rule the gate is what implements. A member carrying a
-          // `description` and NEITHER `name` nor `label` therefore never
-          // reaches THIS row; it takes the blurb-only branch below instead
-          // (objectui#9835, maintainer ruling 2026-09-18 letter B), which is
-          // why widening the gate was refused rather than adopted.
-          description: section.description,
-          // ADR-0089 `FormSection.visibleWhen` (#6111). The renderer evaluates
-          // a `visibleWhen` on this pseudo-field with the host predicate scope
-          // bound (#6010), so copying it here is what makes the authored
-          // section predicate reach an evaluator at all.
-          visibleWhen: (section as any).visibleWhen,
-          // The membership claim (#6236): the RESOLVED member names — the same
-          // strings the renderer's flat list carries — so the section
-          // predicate gates the whole group, not just this heading. Resolved
-          // rather than authored on purpose: the authored `section.fields`
-          // entries can be spec field-defs, and a perms-filtered field is not
-          // in the form at all.
-          fields: sectionFields.map(f => f.name),
-          colSpan: 4,
-          collapsible: isCollapsible,
-          collapsed: isCollapsed,
-          onToggle: isCollapsible
-            ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-            : undefined,
-          // `className`: deliberately not read — see the tabbed arm above
-          // (objectstack#13626, ruled 2026-09-01 "retire the reads").
-        } as FormField);
-      } else if (section.description) {
-        // The BLURB-ONLY path (objectui#9835, maintainer ruling 2026-09-18,
-        // letter B — 「同意」). A member that authors a `description` and
-        // NEITHER `name` nor `label` had nothing to carry its blurb on this
-        // layout, because the row above exists only for a member that yields a
-        // heading — while `split` / `modal` / `wizard` / `tabbed` all render
-        // that member's blurb. One arm disagreeing with four is what this
-        // branch closes.
-        //
-        // ⛔ It is NOT the gate above widened. Letter A (spelling that gate
-        // `label || section.description`, which is what the split and modal
-        // arms do) was REFUSED: the same condition also decides the ADR-0089
-        // `visibleWhen` predicate row and the objectui#6236 membership claim
-        // that gates the WHOLE group, plus the `collapsed` / `collapsible`
-        // pair whose "an untitled bucket is never collapsible" rule it
-        // implements. Widening it would have let an untitled section's
-        // predicate hide its group and let an untitled `collapsed: true` take
-        // the fields out of the DOM with no control to bring them back — a
-        // ruling about two other keys, made while fixing a blurb.
-        //
-        // ⇒ this row carries the blurb and NOTHING else: no `label` (so
-        // `SectionDivider` draws no heading), no `visibleWhen` (so the group
-        // is ungated, exactly as before this card), no `fields` membership
-        // claim (a divider without one keeps the pre-objectui#6236 contract),
-        // and no `collapsible` / `collapsed` / `onToggle` (so there is no
-        // disclosure control and the collapse branch below, still keyed on
-        // `label`, leaves this member's fields in the DOM). `colSpan` is
-        // omitted too: `renderFormField` returns the divider BEFORE it reaches
-        // the grid-span wrapper, and `SectionDivider` spans the row itself.
-        //
-        // The name is deliberately NOT the `__section_` spelling the heading
-        // row uses — these two rows are different things, and nothing should
-        // be able to mistake one for the other by name.
-        groupedFields.push({
-          name: `__section_blurb_${sectionKey}`,
-          type: 'section-divider',
-          description: section.description,
-        } as FormField);
-      }
+      // The ONE path from a section configuration to its divider row
+      // (objectui#9849, triage ruling 「让 section 配置到 divider 的投影只有一条
+      // 路径」). `projectSectionDivider` owns every key both rows carry — the
+      // blurb (objectui#9779), the ADR-0089 predicate (#6111), the
+      // objectui#6236 membership claim and the collapse pair — so no arm can
+      // copy a different set than its siblings, which is the failure mode that
+      // produced three consecutive one-key cards.
+      //
+      // ⚠️ This arm's gate is objectui#9835 letter B and is UNCHANGED: a
+      // member that yields a heading gets the full row, a headingless member
+      // that authored a `description` gets a BLURB-ONLY row carrying the blurb
+      // and nothing else — no `visibleWhen`, no membership claim, no collapse
+      // pair — and a member with neither draws nothing. Letter A (spelling the
+      // gate `label || section.description`, which the modal's stacked arm and
+      // the split arm do) was REFUSED there, because that one condition also
+      // decides the predicate row and the membership claim that gates the
+      // WHOLE group, plus the collapse pair whose "an untitled bucket is never
+      // collapsible" rule it implements. ⇒ the gate union in
+      // `SectionDividerGate` is the residual this card hands back, ⛔ not
+      // something decided here.
+      //
+      // The collapse pair is resolved ABOVE (objectui#9780: `collapsed`
+      // implies `collapsible`, read from the DECLARATION and never from the
+      // live `isCollapsed`) and handed over resolved — `DrawerForm` resolves
+      // the same two keys two other ways, and picking a winner is the fenced
+      // decision.
+      groupedFields.push(
+        ...projectSectionDivider(
+          {
+            key: sectionKey,
+            title: label,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            // RESOLVED rather than authored on purpose: the authored
+            // `section.fields` entries can be spec field-defs, and a
+            // perms-filtered field is not in the form at all.
+            members: sectionFields.map(f => f.name),
+            collapse: {
+              collapsible: isCollapsible,
+              collapsed: isCollapsed,
+              onToggle: isCollapsible
+                ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
+                : undefined,
+            },
+          },
+          'headingOrBlurb',
+        ),
+      );
 
       // #2578: lay THIS section's fields out at its declared column density
       // within the shared form grid (span-aware; wide fields still full-row).

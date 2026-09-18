@@ -48,7 +48,7 @@ import {
   inferModalSize,
   CONTAINER_GRID_COLS,
 } from './autoLayout';
-import { deriveFieldGroupSections } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
@@ -713,23 +713,26 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // grid to override here.)
       const allFields: FormField[] = [];
       groups.forEach((g) => {
-        if (g.title || g.description) {
-          allFields.push({
-            name: `__section_${g.key}`,
-            label: g.title,
-            description: g.description,
-            type: 'section-divider',
-            // ADR-0089 section predicate (#6111) — the renderer evaluates it on
-            // this pseudo-field with the host predicate scope bound (#6010).
-            visibleWhen: g.visibleWhen,
-            // The membership claim (#6236): resolved member names, so the
-            // predicate gates the whole group (same spelling as the
-            // `fieldTabs` claim above).
-            fields: g.fields.map((f) => f.name),
-            colSpan: 4,
-            className: g.className,
-          } as any);
-        }
+        // The ONE path from a section configuration to its divider row
+        // (objectui#9849) — `projectSectionDivider` owns every key this row
+        // carries, including the ADR-0089 predicate and the objectui#6236
+        // membership claim, so this arm can no longer copy a different set
+        // than its siblings. This arm's gate is the `title || description`
+        // one-row shape it has always had; ⛔ the gate union is the residual
+        // the helper's own docblock hands back, ⛔ not something decided here.
+        allFields.push(
+          ...projectSectionDivider(
+            {
+              key: g.key,
+              title: g.title,
+              description: g.description,
+              visibleWhen: g.visibleWhen,
+              members: g.fields.map((f) => f.name),
+              className: g.className,
+            },
+            'headingOrBlurbRow',
+          ),
+        );
         allFields.push(...g.fields);
       });
 
@@ -751,18 +754,25 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
-        if (title) {
-          allFields.push({
-            name: `__section_${section.name || index}`,
-            label: title,
-            type: 'section-divider',
-            // ADR-0089 section predicate (#6111).
-            visibleWhen: (section as any).visibleWhen,
-            // The membership claim (#6236): resolved (post-FLS) member names,
-            // so the predicate gates the whole group.
-            fields: body.map((f) => f.name),
-          } as any);
-        }
+        // The ONE path (objectui#9849). This push is the site the card was
+        // filed on: it rebuilt the row key by key WITHOUT `description`, while
+        // its stacked sibling twenty lines up carried it — so a modal form
+        // that declares no `sections` and leans on the object's own
+        // `fieldGroups` metadata drew a group's heading and silently ate the
+        // blurb its author wrote. Going through the shared projection is what
+        // fixes it, and ⛔ not a key added back here.
+        allFields.push(
+          ...projectSectionDivider(
+            {
+              key: section.name || index,
+              title,
+              description: section.description,
+              visibleWhen: (section as any).visibleWhen,
+              members: body.map((f) => f.name),
+            },
+            'heading',
+          ),
+        );
         allFields.push(...(columns > 1 ? applyAutoColSpan(body, columns) : body));
       });
       const groupedContainerClass = CONTAINER_GRID_COLS[columns];

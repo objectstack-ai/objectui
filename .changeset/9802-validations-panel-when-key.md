@@ -8,8 +8,8 @@ the spec accepts — it wrote `condition`, which that shape refuses by name
 
 **The defect.** `ObjectValidationsPanel` seeds every rule type with a skeleton,
 and its own docblock promises those skeletons are valid "so the immediate
-object-draft save never 422s". For the `conditional` type that was false from the
-start. Measured against the `@objectstack/spec` this repo resolves:
+object-draft save never 422s". For the `conditional` type it is false on `main`
+today. Measured against the `@objectstack/spec` this repo resolves:
 `ConditionalValidationSchema` spells the guard `when` and rejects `condition`
 with an `unrecognized_keys` issue whose message suggests exactly that rename, so
 adding a conditional rule from the no-code panel produced a draft the object gate
@@ -27,9 +27,9 @@ types.
 - The `conditional` skeleton seeds `when`. Its nested `then` branch is a `script`
   rule, so that branch's own guard stays `condition`.
 - The shared editor reads and writes the guard under the selected rule's key.
-  Reading through the wrong one also meant a conditional rule authored anywhere
-  else — the JSON source editor, a package import, AI authoring — opened in this
-  panel with a blank guard, because its `when` was not the key being read.
+  Reading through the wrong one also meant a spec-valid conditional rule — one
+  whose guard is where the spec puts it — opened in this panel with a blank
+  guard, because `when` was not the key being read.
 - Switching a rule's type carries the guard across the two spellings in both
   directions, instead of carrying `condition` onto a shape that refuses it.
 

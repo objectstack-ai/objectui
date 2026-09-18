@@ -775,6 +775,7 @@ export const BORN_FALSE_CONTROLS = [
   {
     id: 'unbound-address-into-a-line-this-diff-moves',
     why: "objectui#9496 §2: `:246` at the base is `:274` at the head, moved by the diff's own 28-line insertion",
+    // fixture-address: control input, the differ under test is what reads this address
     body: 'The shape recurs exactly twice in `imported-defaults.ts`: `:223` and `:246`.',
     want: (rows) => rows.length === 2 && rows.every((r) => BORN_FALSE_VERDICTS.has(r.verdict))
       && rows[0].movedTo === null && rows[1].movedTo === 274,
@@ -782,12 +783,14 @@ export const BORN_FALSE_CONTROLS = [
   {
     id: 'the-same-address-bound-to-a-sha-is-silent',
     why: 'the durable form both pull requests converged on is ⛔ never reported, or the gate teaches authors to unbind',
+    // fixture-address: control input, the differ under test is what reads this address
     body: 'At `b8a006883d` the shape recurs twice in `imported-defaults.ts`: `:223` and `:246`.',
     want: (rows) => rows.length === 0,
   },
   {
     id: 'an-address-this-diff-does-not-move-is-silent',
     why: 'a line above every hunk is untouched — without this the reading is an absolute count of citations, not a differential',
+    // fixture-address: control input, the differ under test is what reads this address
     body: 'See `imported-defaults.ts:100` for the walker entry point.',
     want: (rows) => rows.length === 0,
   },
@@ -800,6 +803,7 @@ export const BORN_FALSE_CONTROLS = [
     // findings, which on a report-only channel is how a channel gets muted.
     id: 'the-insertion-point-itself-does-not-move',
     why: 'a pure insertion moves the lines BELOW it; reporting its own anchor line would fake a finding on every stable citation',
+    // fixture-address: control input, the differ under test is what reads this address
     body: 'The walker entry is at `imported-defaults.ts:220`, just above the block.',
     want: (rows) => rows.length === 0,
   },

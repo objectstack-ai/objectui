@@ -1991,6 +1991,7 @@ describe('in-page and cross-document anchors are resolved — objectui#7644', ()
         ...SITE_FIXTURE,
         'content/docs/guide/a.md': [
           '[ok](https://github.com/objectstack-ai/objectui/blob/main/packages/core/README.md#install)',
+          // fixture-address: fixture document content handed to the link reader, ⛔ not a pointer into this tree
           '[line](https://github.com/objectstack-ai/objectui/blob/main/packages/core/README.md#L42)',
           '[gone](https://github.com/objectstack-ai/objectui/blob/main/packages/core/README.md#uninstall)',
         ].join('\n\n'),

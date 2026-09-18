@@ -583,6 +583,27 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
           name: `__section_${sectionKey}`,
           label: section.label || '',
           type: 'section-divider',
+          // The section's authored blurb (spec `FormSection.description`,
+          // objectui#9834). `ObjectForm`'s drawer map copies the key onto
+          // `DrawerFormSectionConfig`, which has always declared it — the key
+          // was dropped HERE instead, one layer later, because this push is a
+          // key-by-key rebuild and did not copy it. Its sibling `label` on the
+          // same member arrived in the same call, so the miss was invisible to
+          // the author: a titled section with a blurb rendered the title and
+          // silently ate the blurb. ⚠️ Sibling site, ⛔ not a shared path: the
+          // default layout's own push lost the same key separately and was
+          // repaired separately (objectui#9779).
+          //
+          // ⚠️ This push is UNCONDITIONAL — unlike the default layout's, which
+          // draws a divider row only for a member that yields a heading — and
+          // ⛔ it was deliberately NOT gated to match while copying the key.
+          // The row carries two further contracts (the ADR-0089 predicate
+          // below and the objectui#6236 membership claim) plus the collapse
+          // pair, so adding a condition here is a ruling about those keys, not
+          // about this one. ⇒ a drawer section carrying a `description` and no
+          // heading now renders the blurb alone; pinned as a reading in
+          // `drawerFormSectionDescription-9834`, ⛔ not decided here.
+          description: section.description,
           // ADR-0089 section predicate (#6111) — the renderer evaluates it on
           // this pseudo-field with the host predicate scope bound (#6010).
           visibleWhen: (section as any).visibleWhen,
@@ -649,6 +670,19 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
             name: `__section_${sectionKey}`,
             label: title,
             type: 'section-divider',
+            // The group's authored blurb (objectui#9834). The second site in
+            // this file that rebuilt a divider row key by key without it:
+            // `deriveFieldGroupSections` already carries a declared group's
+            // `description` onto the section, so this push was the only layer
+            // left that could drop it — and it did.
+            //
+            // ⚠️ The `if (title)` gate above is NOT widened with it,
+            // deliberately: it decides whether this group gets a divider row
+            // at all, and that row also carries the ADR-0089 predicate and the
+            // objectui#6236 membership claim that gates the whole group. So a
+            // derived group with no heading still draws no divider and still
+            // drops its blurb.
+            description: section.description,
             // ADR-0089 section predicate (#6111).
             visibleWhen: (section as any).visibleWhen,
             // The membership claim (#6236): resolved member names, so the

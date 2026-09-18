@@ -161,6 +161,13 @@ const CITABLE_IN_THE_BANNER = new Set([
  * roster, maintained by hand, which is the defect this pin exists to stop
  * wearing a pin's clothes. The guarantee here is bounded and stated rather
  * than assumed: the banner carries no CITATION of another gate.
+ *
+ * ⚠️ Nor does it reach outside the rule-2 region — the same boundary the
+ * `CLOSING_TRIGGER` source leg below already has. The gate's leading docblock
+ * names its sibling in the opening sentence, and that citation is a standing
+ * architectural relation rather than a reading of the sibling's contents, so it
+ * is left where it is; a rotting claim written THERE would be out of this
+ * scan's reach and is not covered by anything.
  */
 const GATE_CITATION =
   /(?:\bscripts\/(?:__tests__\/)?)?(?:[A-Za-z0-9._-]+\.test\.tsx?|check-[A-Za-z0-9._-]+\.mjs)\b|\b(?:check|lint):[a-z][a-z0-9-]*\b/g;

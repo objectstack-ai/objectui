@@ -204,27 +204,70 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // the tier — and these three are none of those. They read `body` for ANY
     // node type, so they outlive the per-registration convergence and would
     // keep the dialect alive after step 2 lands.
-    expect(read('packages/core/src/validation/schema-validator.ts')).toContain(
-      'schema.children || schema.body',
-    );
-    expect(read('packages/vscode-extension/src/providers/SchemaValidator.ts')).toContain('schema.body');
-    expect(read('packages/vscode-extension/src/providers/PreviewProvider.ts')).toContain('schema.body');
+    //
+    // ⚠️ The three were NOT alike, and the difference decided objectui#7181.
+    // Core has always been `children`-first, so it degrades gracefully. The two
+    // vscode readers guarded on `schema.body` ALONE — they did not resolve
+    // `children` at all — so they did not merely keep the old dialect alive,
+    // they BLOCKED the producers from moving: a `children`-spelled document
+    // rendered blank and had its children skipped by validation, silently.
+    // objectui#7181 converged both onto the core spelling, adding the
+    // `children` arm and KEEPING `body`. Nothing was retired; that is step 2.
+    //
+    // ⇒ all three now read the same way, which is what these three assertions
+    // pin. The `body` arm surviving in each is the half that says step 2 is
+    // still outstanding.
+    for (const reader of [
+      'packages/core/src/validation/schema-validator.ts',
+      'packages/vscode-extension/src/providers/SchemaValidator.ts',
+      'packages/vscode-extension/src/providers/PreviewProvider.ts',
+    ]) {
+      expect(read(reader), reader).toContain('schema.children || schema.body');
+    }
   });
 
   it('the platform SHIPS the dialect it is being asked to refuse', () => {
-    // The sharpest census finding. Ruling step 5's principle is that "the
-    // platform never refuses a spelling it still ships" — and today these
-    // PRODUCERS emit `body` into metadata a user then owns:
+    // The sharpest census finding, and the claim is UNCHANGED: ruling step 5's
+    // principle is that "the platform never refuses a spelling it still ships",
+    // so step 4 (tier teaches `children` only) cannot land while any PRODUCER
+    // still emits `body` into metadata a user then owns.
     //
-    //   - `objectui init` scaffolds every new project's app in `body`
-    //   - the VS Code extension's new-file templates do the same
-    //   - two registrations ship `body` inside their own `defaultProps`
+    // What moved is the subject, not the claim. objectui#7181 migrated the six
+    // producers its table named — `objectui init`, the VS Code extension's
+    // new-file templates, the three `defaultProps` registrations and the
+    // runner's fallback page. ⛔ It did NOT finish the population: the census
+    // that found those six also reaches a SEVENTH the table never listed, and
+    // `generatePage` in `packages/cli/src/commands/generate.ts` still writes a
+    // `pages/NAME.json` whose child list is spelled `body` (objectui#9847).
     //
-    // So step 4 (tier teaches `children` only) cannot land before these move,
-    // or every freshly scaffolded project fails validation on day one.
-    expect(read('packages/cli/src/commands/init.ts')).toMatch(/^\s*body:/m);
-    expect(read('packages/vscode-extension/src/extension.ts')).toMatch(/^\s*body:/m);
-    expect(read('packages/components/src/renderers/complex/carousel.tsx')).toContain("body: [{ type: 'text'");
+    // ⇒ the statement above is still TRUE today, for exactly one file. Both
+    // halves are asserted, so a regression in EITHER direction reds: a migrated
+    // producer drifting back to `body`, or objectui#9847 landing without this
+    // block being re-pointed at whatever still ships the dialect — or at
+    // nothing, once nothing does, which is the day step 4 becomes landable.
+    //
+    // ⛔ Deliberately NOT inverted into "the producers now carry `children`".
+    // That would assert objectui#7181's own diff back at itself and discard the
+    // ordering rationale this block exists to carry.
+    const migrated = [
+      'packages/cli/src/commands/init.ts',
+      'packages/vscode-extension/src/extension.ts',
+      'packages/components/src/renderers/complex/carousel.tsx',
+      'packages/components/src/renderers/complex/resizable.tsx',
+      'packages/components/src/renderers/complex/scroll-area.tsx',
+      'packages/runner/src/App.tsx',
+    ];
+
+    for (const producer of migrated) {
+      const text = read(producer);
+      // Lit control first: without a child list present at all, the absence
+      // assertion beside it would hold over an empty or unreadable file.
+      expect(text, producer).toContain('children:');
+      expect(text, producer).not.toContain('body:');
+    }
+
+    // The half that keeps the claim true — and keeps step 4 blocked.
+    expect(read('packages/cli/src/commands/generate.ts')).toMatch(/^\s*body:/m);
   });
 });
 

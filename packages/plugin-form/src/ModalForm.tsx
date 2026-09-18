@@ -51,6 +51,7 @@ import {
 import { deriveFieldGroupSections } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
+import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
@@ -347,13 +348,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         // supplied initial values still win. See `schemaDefaults` for why
         // runtime defaults (`NOW()`, `current_user`, CEL envelopes) are left
         // to the server and why option-level `default` is not read here.
-        setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId: perms.userId }));
+        setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId: perms.userId }));
         setLoading(false);
         return;
       }
 
       if (!dataSource) {
-        setFormData(schema.initialData || schema.initialValues || {});
+        setFormData(resolveInitialRecord(schema));
         setLoading(false);
         return;
       }

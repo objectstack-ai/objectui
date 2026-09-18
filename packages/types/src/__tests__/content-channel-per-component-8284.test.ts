@@ -31,10 +31,25 @@
  * `packages/components/src/renderers/**` (114 registrations) and the read side
  * is measured with the TypeScript TYPE CHECKER — each `body` / `children`
  * property access is filed under the TYPE of the object it is read from, so a
- * docblock mention cannot score (the control: the `BoxSchema` docblock in
- * `renderers/layout/box.tsx` says `schema.body` in prose and `grep -l` counts
- * it, the checker does not; the card's own `17 / 17` figure came from that
- * query).
+ * docblock mention cannot score.
+ *
+ * ⚠️ THE CONTROL MOVED, because objectui#6771 SPENT the one that stood here.
+ * It read: the `BoxSchema` docblock in `renderers/layout/box.tsx` SAYS
+ * `schema.body` in prose and `grep -l` counts it, the checker does not — and
+ * the card's own `17 / 17` figure came from that query. This card rewrote that
+ * docblock, so `box.tsx` now answers 0 to BOTH halves and a reader replaying it
+ * gets no divergence at all. ⛔ A control that cannot fire is worse than none:
+ * it reads as evidence and is not.
+ *
+ * ⭐ The live control is `renderers/basic/span.tsx`, whose JSX comment says
+ * "This read used to be `schema.body`" and carries no such property access.
+ * Measured with the repo's own masker (`scripts/js-comment-mask.mjs`, the
+ * instrument the producer scan projects): the raw text answers 1 — what
+ * `grep -l` counts — and the comment-stripped text answers 0 — what the checker
+ * can see. ⇒ the divergence is live and replayable. The masker is controlled on
+ * the same run rather than trusted: `schema.bodyExtra` in
+ * `renderers/action/action-icon.tsx` is a REAL property access and survives
+ * stripping at 1, so the 0 above is a reading and not a blanked file.
  *
  * The twelve rows below are the ones where the renderer reads EXACTLY ONE
  * channel, the component owns a dedicated declaration, and exactly one

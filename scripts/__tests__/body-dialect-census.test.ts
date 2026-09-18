@@ -44,6 +44,7 @@ import {
   RULED_BUT_NOT_A_READER,
   BODY_ONLY_UNRULED,
 } from '../body-dialect-census.mjs';
+import { scan, producersOf, unchannelledOf } from '../body-dialect-producer-scan.mjs';
 
 const REPO_ROOT = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(REPO_ROOT, p), 'utf8');
@@ -345,25 +346,117 @@ describe('the `body` consumers the ruling does not enumerate', () => {
 
     // ⛔ That zero is NOT the answer to "is step 4 landable", and reading it as
     // one is the trap this half exists to close. The census states its own
-    // limits and TWO of them hide a producer: it scores a child list only on an
-    // object that also carries a string-LITERAL `type` (a `tabs` ITEM carries
+    // limits and TWO of them CAN hide a producer: it scores a child list only on
+    // an object that also carries a string-LITERAL `type` (a `tabs` ITEM carries
     // `label`/`value`/`body` and no `type`), and it never reads inside a string
-    // or a template literal (a VS Code completion snippet is a string). Both
-    // shapes are live in shipped source today, so the claim in this test's name
-    // is still TRUE — with a third subject, and step 4 is still not landable.
+    // or a template literal (a VS Code completion snippet is a string).
     //
-    // ⭐ When either assertion below reds, that is the HANDOFF, not a
-    // regression: re-point this block at whatever still ships the dialect — or,
-    // once nothing does, say so here in these terms, which is the day step 4
-    // becomes landable. ⛔ Do not delete the claim to make the block green.
+    // ⚠️ PAST-TENSED where objectui#9871 wrote that both still DO. Only the
+    // first still hides a live producer. The second's only subjects were the
+    // `CompletionProvider` snippets, and objectui#6771 step 5 migrated them —
+    // which is the B2 inversion below, measured rather than assumed. The limit
+    // itself is unchanged and still structural; what emptied is its occupancy.
+    //
+    // ⭐ objectui#9871 REPLACED the enumeration that used to stand here. Two
+    // named sites were an enumeration with the census's blind spots written
+    // into it by hand — the next producer in a third blind direction would have
+    // needed somebody to notice it and add a line. The subject is now DERIVED:
+    // `scripts/body-dialect-producer-scan.mjs` states a CRITERION (C1 emission
+    // · C2 resolution · C3 carrier) and this block reads its table.
+    //
+    // ⭐ When the table empties, THAT is the handoff, and the message on the
+    // assertion says so in these terms. ⚠️ CORRECTED where objectui#9871 wrote
+    // "the day step 4 becomes landable": step 4 lands in objectui#6771 with this
+    // table NON-empty, and measurement is why. The tier refuses `body` inside
+    // `Object.entries(node)` on a node whose `type` resolves to a registration;
+    // every site left in the table is carried on a `tabs` ITEM, which is the
+    // value of a declared `items` input and never a node in that walk. Probed
+    // rather than reasoned, both legs, against the built parser: a `card` node
+    // carrying `body` draws `unknown-prop: <card> has no prop "body" — the
+    // child-list key is "children"`, and a `tabs` item carrying the same key
+    // draws ZERO diagnostics. ⇒ an empty table is objectui#9590's finish line,
+    // ⛔ not step 4's gate. ⛔ Do not delete the claim to make the block green.
+    const producerScan = scan(REPO_ROOT);
 
-    // ⭐ THE HANDOFF THE BLOCK ABOVE ASKS FOR, taken rather than avoided.
-    // The third subject was the VS Code completion snippet — inserted into the
-    // user's own document the moment the completion is accepted, the most direct
-    // form a producer takes, because the author does not even type the spelling.
-    // objectui#6771's step 5 migrated it, so it no longer ships the dialect and
-    // the assertion is inverted rather than deleted. The lit control stays and
-    // stays first: "does not contain" is satisfied by an unreadable file.
+    // Two lit controls, because an empty table is the assertion's own shape: a
+    // scan that walked nothing, or derived no reader, would satisfy a bare
+    // "non-empty" check by accident in neither direction — so both are checked
+    // before the table is read at all.
+    expect(producerScan.filesScanned, 'the producer scan walked nothing').toBeGreaterThan(0);
+    expect(
+      producerScan.readers.reads.length,
+      'the producer scan derived NO reader, so C2 would fail for every site'
+    ).toBeGreaterThan(0);
+
+    const producers = producersOf(producerScan.hits, producerScan.readers);
+    expect(
+      producers.length,
+      'the producer table is EMPTY — under objectui#9871\'s criterion nothing in shipped source ' +
+        'emits the dialect any more. ⚠️ That is objectui#9590\'s finish line, ⛔ NOT step 4\'s gate: ' +
+        'step 4 landed in objectui#6771 with this table non-empty, because everything left in it ' +
+        'is item-carried and outside the ruled family. ' +
+        'Re-point this block and say so in those terms; ⛔ do not delete the claim.'
+    ).toBeGreaterThan(0);
+
+    // ⭐ The two SHAPES the census structurally cannot reach, asserted as
+    // shapes rather than as paths: a producer arriving in a file nobody has
+    // named joins `producers` with no list to extend.
+    expect(
+      producers.filter((hit: { carrier: string }) => hit.carrier === 'item').length,
+      'no item-carried producer — the B1 shape (a `body` on an object with no `type`)'
+    ).toBeGreaterThan(0);
+    // ⚠️ B2 IS INVERTED BY THIS CARD, and the inversion is what the merge with
+    // `main` actually found rather than a tidy-up. objectui#9871 asserted a
+    // string-carried producer EXISTED, and its only subjects were the three VS
+    // Code completion snippets in `CompletionProvider.ts` — which objectui#6771
+    // step 5 migrated. The two changes were written without knowledge of each
+    // other and landed on DISJOINT files, so the text merged clean and this
+    // assertion is the one place they actually meet. ⛔ Not deleted, per
+    // objectui#9871's own instruction: re-pointed, with the reason named.
+    //
+    // ⭐ THE ZERO NEEDS A LIT CONTROL OR IT IS A BLIND WALK, and the control is
+    // in TWO parts, because `source !== 'code-key'` is a conjunction of two
+    // independent capabilities and a single control would leave one untested:
+    //   - B2 reads inside literals AT ALL — `scanSource`'s literal projection
+    //     still resolves the key in strings and templates somewhere in the tree;
+    //   - a literal-carried hit still PASSES C2 — some derived reader resolves
+    //     it into a child list, so the zero below is about C1 EMISSION alone.
+    // Without both, `toBe(0)` would hold just as well over a scan that had gone
+    // blind to literals — the exact failure objectui#9871 built B2 to end.
+    const literalCarried = producerScan.hits.filter(
+      (hit: { source: string }) => hit.source !== 'code-key'
+    );
+    expect(
+      literalCarried.length,
+      'lit control — the scan resolved NO literal-carried `body` anywhere, so B2 has gone blind ' +
+        'and the zero below would be measuring the instrument rather than the tree'
+    ).toBeGreaterThan(0);
+    expect(
+      unchannelledOf(producerScan.hits, producerScan.readers).filter(
+        (hit: { source: string }) => hit.source !== 'code-key'
+      ).length,
+      'lit control — no literal-carried hit passes C2 any more, so the zero below would be ' +
+        'measuring C2 rather than the emission channel it claims to measure'
+    ).toBeGreaterThan(0);
+
+    // ⇒ AND THE READING ITSELF, with both controls lit: no literal-carried site
+    // reaches an emission channel. The B2 shape is REACHABLE and UNOCCUPIED —
+    // which is a different sentence from the one objectui#9871 could write, and
+    // only this merge could have produced it.
+    expect(
+      producers.filter((hit: { source: string }) => hit.source !== 'code-key').length,
+      'a string-carried producer is BACK — objectui#6771 step 5 migrated the last of them ' +
+        '(the `CompletionProvider` snippets). A new one means a tool started writing the retired ' +
+        'spelling into an author document again; ⛔ do not relax this to a range.'
+    ).toBe(0);
+
+    // ⭐ THE SUBJECT THAT ZERO IS ABOUT, pinned BY NAME — because a shape
+    // assertion cannot say WHICH site left, and naming it is the handoff
+    // objectui#9871's prose asks for. A completion snippet is the most direct
+    // form a producer takes: it is inserted into the author's own document the
+    // moment the completion is accepted, so the author never types the spelling.
+    // The lit control stays and stays FIRST: "does not contain" is satisfied by
+    // a file that was renamed, emptied or moved.
     const completion = readCode('packages/vscode-extension/src/providers/CompletionProvider.ts');
     expect(completion, 'lit control — the snippet table is being read at all').toContain(
       '"className": "$1"'
@@ -371,29 +464,37 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     expect(completion).not.toContain('"body": {');
     expect(completion).toContain('"children": {');
 
-    // ⇒ AND THE CLAIM IN THIS TEST'S NAME, restated in the terms the block asks
-    // for. What still ships the spelling is the `tabs` ITEM below, and that is
-    // a DIFFERENT KEY from the one step 4 refuses: the tier answers `body` on a
-    // NODE the manifest knows, walking `Object.entries(node)`, and a `tabs` item
-    // is a member of a declared `items` input rather than a node in that walk.
+    // ⚠️ And the family question stays OPEN in the instrument rather than being
+    // settled by it: an item-carried `body` is filed `unruled` and is never
+    // folded into objectui#6771's ruled total. objectui#9871 handed that
+    // question back rather than extending a ruled family from a dev seat.
+    //
+    // ⭐ AND THE CLAIM IN THIS TEST'S NAME, restated in the terms BOTH
+    // instruments now agree on — which is the other half of what this merge
+    // found. What still ships the spelling is the `tabs` ITEM, and that is a
+    // DIFFERENT KEY from the one step 4 refuses (measured above the scan call,
+    // both legs). objectui#9871 reaches the same disposition from its own side
+    // and files those sites `unruled:item-carrier` — ⛔ not objectui#6771's ruled
+    // family. ⇒ the consumer-side retirement and the producer-side scan do not
+    // contradict each other on the substance; they disagreed on ONE liveness
+    // assertion, B2's, and that is re-pointed above rather than deleted.
     // ⇒ step 4 refuses nothing the platform still ships, which is exactly what
-    // step 5's ordering rule asks — and the item-level dialect is objectui#9590's
+    // step 5's ordering rule asks, and the item-level dialect is objectui#9590's
     // card, ⛔ neither refused nor migrated here. ⚠️ That card's BODY names only
     // `list`'s `items[].body`; `tabs` items and the `dashboard` widget key are
     // recorded on it by comment 5733850974, so this pointer resolves to a record
     // that actually carries the two shapes named here.
-
-    // A shipped `defaultProps` child list, the same construct as the three
-    // registrations objectui#7181 moved — spelled on a tab ITEM, where the
-    // renderer's canonical key is `content`. ⛔ Whether it belongs to
-    // objectui#6771's ruled family is NOT decided here; that it still ships the
-    // spelling is what is asserted.
-    const tabs = readCode('packages/components/src/renderers/layout/tabs.tsx');
-    expect(tabs, 'lit control — the defaultProps block is being read at all').toContain(
-      'defaultProps:'
-    );
-    expect(tabs).toMatch(/value:\s*'tab1',\s*body:\s*\[/);
-  });
+    for (const hit of producers.filter((h: { carrier: string }) => h.carrier === 'item')) {
+      expect(hit.disposition).toBe('unruled:item-carrier');
+    }
+    // ⏱ Explicit, because this block runs TWO tree-wide instruments (the census
+    // over 7,855 files and the producer scan over 5,136) and the default 15s is
+    // not enough on a loaded shard: measured 7.9s here after objectui#9871 made
+    // the scan single-pass, and the CI runner took the SAME block past 15s when
+    // it measured 10.1s locally — so that runner is at least 1.9x slower. 60s is
+    // ~3x the observed CI-scale cost: ordinary contention cannot flake it, and a
+    // scan that stops terminating still fails. ⛔ Not a global `testTimeout` bump.
+  }, 60_000);
 });
 
 /**

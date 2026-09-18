@@ -8,7 +8,8 @@
 
 /**
  * `object-form.customFields` — the MEMBER shape this renderer reads
- * (objectui#8071, criterion from objectui#8068).
+ * (objectui#8071, criterion from objectui#8068), now pinned on the MERGE
+ * behaviour ruled in objectui#9778.
  *
  * Declared on both sides without a member shape: the registration is
  * `{ type: 'array' }` with no `of`, and `@objectstack/spec`'s
@@ -22,37 +23,44 @@
  *      With inline definitions and no data source, this becomes the only field
  *      source."
  *
- * ⇒ "merged over" and "with … no data source" both describe a merge. THE
- * RENDERER NEVER MERGES. `ObjectForm.tsx` gates on
- * `hasInlineFields = schema.customFields && schema.customFields.length > 0` and,
- * when that holds, the field-generation effect does
- * `setFormFields(schema.customFields.map(normalizeVisibility))` and RETURNS —
- * above the metadata branch entirely, and whether or not an adapter was
- * injected. A non-empty `customFields` therefore REPLACES the generated set on
- * every path, and rows 1-3 pin that.
+ * ⇒ Both sentences describe a MERGE, and objectui#9778 ruled that the prose is
+ * the contract and the renderer was the defect: a non-empty `customFields` used
+ * to `setFormFields(schema.customFields.map(normalizeVisibility))` and return
+ * above the metadata branch entirely, so it REPLACED the generated set and the
+ * object's schema was never even fetched. Rows 1-4 pin the merge that replaced
+ * it, one row per direction:
  *
- * ⚠️ The per-member merge the prose describes does exist as CODE —
- * `schema.customFields?.find((f) => f.name === name)` inside the metadata
- * branch — and it is unreachable: that branch runs only when `hasInlineFields`
- * is false, i.e. when `customFields` is absent or EMPTY, so the `find` is
- * always over nothing. Handed back as a finding on objectui#8071 rather than
- * repaired here, because repairing it is a renderer (or a spec) change and this
- * card writes pins only.
+ *   OVERRIDE — a member naming a declared field supplies that field's whole
+ *              definition, in the generated set's position (row 2), and the
+ *              metadata IS fetched to have a position at all;
+ *   KEEP     — a declared field no member names still renders, with the label
+ *              the object gave it (row 3);
+ *   APPEND   — a member naming a field the metadata never declares is added
+ *              after the generated set, in authored order (row 4).
  *
- * ⛔ Row 4 is the one a plausible "improvement" breaks. The gate reads
+ * ⚠️ Row 2's `getObjectSchema` assertion is the one that inverted: it used to
+ * read `toBe(0)` — "the renderer returns before that set is generated at all" —
+ * and the ruling made the fetch the precondition of the merge. It is asserted
+ * here rather than left implicit because a renderer that skipped the fetch
+ * again would still pass every drawn-field row on the no-data-source path.
+ *
+ * ⛔ Row 5 is the one a plausible "improvement" breaks. The gate reads
  * `.length > 0`, not truthiness, so an EMPTY `customFields: []` is UNAUTHORED:
- * the metadata path runs and the object's own fields render. Simplifying that
- * read to `!!schema.customFields` — which is what "has inline fields" reads
- * like — turns a designer's not-configured-yet empty array into a form with no
- * fields at all and no diagnostic, and every other row here stays green.
+ * the metadata path runs alone and the object's own fields render. Simplifying
+ * that read to `!!schema.customFields` — which is what "has inline fields"
+ * reads like — makes a designer's not-configured-yet empty array take the
+ * inline path; under the merge that no longer empties the form, but it does
+ * suppress the no-adapter panel row 6 pins, so the row stays.
  *
- * Row 5 pins the SECOND read site of the same member count, one layer up:
+ * Row 6 pins the SECOND read site of the same member count, one layer up:
  * `index.tsx` spells `requiresDataSource={!(schema?.customFields?.length > 0) …}`,
  * so the members are what exempt this block from the gate's no-adapter panel.
  * `ElementDataSourceGate`'s own docblock states the contract in words ("an
  * `object-form` with inline `customFields` needs none"); this is that sentence
  * as behaviour, driven through the REGISTERED block with its control in the
- * same test.
+ * same test. It doubles as the control for the registration's second sentence:
+ * with no data source there is no generated set to merge over, so the members
+ * are the only field source — the shape hosts authored before the ruling.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -103,54 +111,75 @@ const labelOf = (c: HTMLElement, name: string): string | null =>
   c.querySelector(`[data-field="${name}"] label`)?.textContent ?? null;
 
 describe('`object-form` — the member shape of `customFields`', () => {
-  it('1. members are whole FIELD DEFINITIONS keyed by `name`, rendered in AUTHORED order', async () => {
+  it('1. members are whole FIELD DEFINITIONS keyed by `name`, MERGED over the generated set', async () => {
     const { container } = await mount({
       customFields: [
         { name: 'zz', label: 'Brand new', type: 'text' },
         { name: 'note', label: 'INLINE NOTE', type: 'text' },
       ],
     });
-    expect(drawnFields(container)).toEqual(['zz', 'note']);
+    expect(
+      drawnFields(container),
+      'the generated set keeps its own order and its unnamed members; the member naming a ' +
+        'declared field lands in that field\'s position, the one naming nothing declared is appended',
+    ).toEqual(['customer', 'note', 'amount', 'zz']);
     expect(labelOf(container, 'zz'), 'a member naming a field the object never declares still renders').toBe(
       'Brand new',
     );
+    expect(labelOf(container, 'note'), 'and a member naming a declared field is what renders for it').toBe(
+      'INLINE NOTE',
+    );
   });
 
-  it('2. a non-empty `customFields` REPLACES the generated set — the object’s metadata is never even fetched', async () => {
+  it('2. OVERRIDE — a member replaces the declared field IN PLACE, and the metadata IS fetched', async () => {
     const { container, adapter } = await mount({
       customFields: [{ name: 'note', label: 'INLINE NOTE', type: 'text' }],
     });
     expect(
       adapter.getObjectSchema.mock.calls.length,
-      'the registration promises a merge "over the set generated from object metadata"; the ' +
-        'renderer returns before that set is generated at all',
-    ).toBe(0);
+      'the registration promises a merge "over the set generated from object metadata"; there is ' +
+        'no set to merge over unless the renderer goes and generates it (objectui#9778)',
+    ).toBe(1);
+    expect(adapter.getObjectSchema).toHaveBeenCalledWith('invoice');
     expect(
       drawnFields(container),
-      'the object declares `customer` / `note` / `amount`; only the member survives',
-    ).toEqual(['note']);
-  });
-
-  it('3. a member naming a declared field inherits NOTHING from it — its own `label` is what renders', async () => {
-    const { container } = await mount({
-      customFields: [{ name: 'note', label: 'INLINE NOTE', type: 'text' }],
-    });
+      'one member, three declared fields: the member takes `note`\'s position, it does not become the set',
+    ).toEqual(['customer', 'note', 'amount']);
     expect(
       labelOf(container, 'note'),
-      'the object declares this field as "Note"; a merge would have to reach it',
+      'the object declares this field as "Note"; the member supplies the whole definition, inheriting nothing',
     ).toBe('INLINE NOTE');
   });
 
-  it('4. an EMPTY `customFields` is UNAUTHORED — the read is `.length > 0`, ⛔ not truthiness', async () => {
+  it('3. KEEP — a declared field no member names renders with the definition the OBJECT gave it', async () => {
+    const { container } = await mount({
+      customFields: [{ name: 'note', label: 'INLINE NOTE', type: 'text' }],
+    });
+    expect(labelOf(container, 'customer'), 'untouched by the members, so the object\'s own label').toBe('Customer');
+    expect(labelOf(container, 'amount'), 'same, for a field after the overridden one').toBe('Amount');
+  });
+
+  it('4. APPEND — members naming nothing declared come after the generated set, in AUTHORED order', async () => {
+    const { container } = await mount({
+      customFields: [
+        { name: 'zz', label: 'Brand new', type: 'text' },
+        { name: 'yy', label: 'Also new', type: 'text' },
+      ],
+    });
+    expect(drawnFields(container)).toEqual(['customer', 'note', 'amount', 'zz', 'yy']);
+    expect(labelOf(container, 'yy'), 'the appended member carries its own definition too').toBe('Also new');
+  });
+
+  it('5. an EMPTY `customFields` is UNAUTHORED — the read is `.length > 0`, ⛔ not truthiness', async () => {
     const { container, adapter } = await mount({ customFields: [] });
     expect(adapter.getObjectSchema).toHaveBeenCalledWith('invoice');
     expect(
       drawnFields(container),
-      'a truthiness read would make `[]` an inline source and render a form with no fields',
+      'nothing is merged over the generated set, so the object\'s own fields are all of it',
     ).toEqual(['customer', 'note', 'amount']);
   });
 
-  it('5. the same member count is what exempts the block from the no-adapter panel', async () => {
+  it('6. the same member count is what exempts the block from the no-adapter panel', async () => {
     const withMembers = render(
       <SchemaRendererProvider dataSource={null}>
         <SchemaRenderer
@@ -169,7 +198,11 @@ describe('`object-form` — the member shape of `customFields`', () => {
       if (!withMembers.container.querySelector('form')) throw new Error('form not ready');
     });
     expect(withMembers.container.querySelector('[data-testid="object-form-no-data-source"]')).toBeNull();
-    expect(drawnFields(withMembers.container as HTMLElement)).toEqual(['zz']);
+    expect(
+      drawnFields(withMembers.container as HTMLElement),
+      'the registration\'s second sentence: with no data source there is no generated set, so the ' +
+        'members are the only field source',
+    ).toEqual(['zz']);
 
     const withoutMembers = render(
       <SchemaRendererProvider dataSource={null}>

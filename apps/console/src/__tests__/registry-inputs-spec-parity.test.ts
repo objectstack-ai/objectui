@@ -2304,6 +2304,18 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-form/src/__tests__/objectFormFieldsMembers-8071.test.tsx',
     pins: 'Members are BARE FIELD NAMES resolved against the object schema — authored order preserved (against a control with no `fields`, whose order differs), a name the object does not declare dropped rather than rendered as an untyped stub, and the `{ name }` object spelling recorded as the read site\'s tolerance rather than a second contract. The sharp row is the one no other file can make: `object-form` carries a SECOND surface spelled `fields` (`sections[].fields`), whose canonical member is the spec `FormFieldSchema` object keyed on `field` — and that exact entry as a member of the TOP-LEVEL key resolves to no name and is dropped from render (no throw) — SILENTLY until objectui#8738 route 1 added a named `console.warn` for exactly this case (also pinned in the same file), with the same entry inside a section rendering as the live control so the negative cannot come from an object that never renders that field. Asserted through the real `ObjectForm`, because the sink is its own `fieldsToShow` loop rather than the `normalizeSectionField` chokepoint the sibling key uses. The spec row is `z.array(z.unknown())` and the registration declares no `of`, so the read site is the whole member contract (objectui#8071).',
   },
+  'object-form.initialData': {
+    file: 'packages/plugin-form/src/__tests__/objectFormInitialMembers-8071.test.tsx',
+    pins: 'Members are FIELD NAMES and each member value is that control\'s OPENING value, and — the row a plausible improvement breaks — the two keys are chosen between as WHOLE OBJECTS (`schema.initialData || schema.initialValues`), never merged per member: with both authored, every `initialValues` member is DROPPED including the ones `initialData` says nothing about, so an author who prefills through `initialValues` and adds a one-member `initialData` loses the rest with no warning and no empty state. Nothing declared distinguishes that from the `{ ...initialValues, ...initialData }` spelling the prose ("alternate spelling … read FIRST") reads like. The sharp edge is pinned too: `||` tests the OBJECT\'s truthiness, so an EMPTY `initialData` shadows a populated `initialValues` completely — recorded as the renderer\'s behaviour and handed back as a finding rather than fixed, because fixing it is a renderer change and this card writes pins only. A no-keys row renders the SAME controls empty as the non-vacuity control. Both keys are registered `type: \'object\'` and typed `Record<string, any>`, so every object parses on both declared sides and the read site is the whole member contract (objectui#8071).',
+  },
+  'object-form.initialValues': {
+    file: 'packages/plugin-form/src/__tests__/objectFormInitialMembers-8071.test.tsx',
+    pins: 'Members are FIELD NAMES and each member value is that control\'s OPENING value, and — the row a plausible improvement breaks — the two keys are chosen between as WHOLE OBJECTS (`schema.initialData || schema.initialValues`), never merged per member: with both authored, every `initialValues` member is DROPPED including the ones `initialData` says nothing about, so an author who prefills through `initialValues` and adds a one-member `initialData` loses the rest with no warning and no empty state. Nothing declared distinguishes that from the `{ ...initialValues, ...initialData }` spelling the prose ("alternate spelling … read FIRST") reads like. The sharp edge is pinned too: `||` tests the OBJECT\'s truthiness, so an EMPTY `initialData` shadows a populated `initialValues` completely — recorded as the renderer\'s behaviour and handed back as a finding rather than fixed, because fixing it is a renderer change and this card writes pins only. A no-keys row renders the SAME controls empty as the non-vacuity control. Both keys are registered `type: \'object\'` and typed `Record<string, any>`, so every object parses on both declared sides and the read site is the whole member contract (objectui#8071).',
+  },
+  'object-form.submitBehavior': {
+    file: 'packages/plugin-form/src/ObjectForm.submitBehavior.test.tsx',
+    pins: 'Which MEMBERS each declared `kind` arm reads, driven through the real `ObjectForm` submit path: `url` and `delayMs` on `redirect`, `title` and `message` on `thank-you` (both guarded on the discriminant, so no other arm reaches them), and NOTHING on `continue` or `next-record`. The two rows objectui#8071 added are the ones the key could silently lose: `delayMs` is pinned on the number the wait is armed with — the arm spells it `behavior.delayMs ?? 0`, and collapsing it to a bare `0` removes the readable pause while every destination assertion in this file and in `ObjectForm.submitRedirect.test.tsx` stays green — with the SAME declaration minus the member as the lit control, so an empty `armed` can never be a spy that sees nothing; and `next-record`, the fourth declared arm, is pinned reaching the confirmation panel (form unmounted, `successMessage` toasted) rather than its members, because it has none — an edit dropping it into `continue`\'s no-op would leave a spec-legal authored value doing something else with nothing red. The registration declares `type: \'object\'` with the arms in prose and `SubmitBehavior` types them as a discriminated union, so what PARSES is settled and what is READ off each arm was not (objectui#8071).',
+  },
   'object-grid.bulkActionDefs': {
     file: 'packages/plugin-grid/src/__tests__/bulkActionMembers-8071.test.tsx',
     pins: 'Members are FULL `BulkActionDef` OBJECTS, left as authored and never resolved against `objectDef.actions` — proven with a def naming an action the object does NOT declare, which still renders carrying its authored label. The negative is the pair\'s sharper half and is NOT silent: a bare-name member (the sibling key\'s vocabulary, which nothing on either declared side refuses) reaches `BulkActionBar` with no `name` and `formatActionLabel(undefined)` THROWS during render, taking the whole selection bar down — pinned as current behaviour, filed as objectui#8730, and it reds when that lands. The spec row is `z.array(z.unknown())`, so the read site is the whole member contract (objectui#8071).',
@@ -2580,11 +2592,8 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // object-form
   'object-form.customFields': AWAITING_A_PIN,
   'object-form.dataSource': AWAITING_A_PIN,
-  'object-form.initialData': AWAITING_A_PIN,
-  'object-form.initialValues': AWAITING_A_PIN,
   'object-form.mobile': AWAITING_A_PIN,
   'object-form.sections': AWAITING_A_PIN,
-  'object-form.submitBehavior': AWAITING_A_PIN,
 
   // object-grid
   'object-grid.aggregations': AWAITING_A_PIN,
@@ -3046,11 +3055,41 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * reading was not re-measured here either — slice 7's measurement still stands
  * as the last one taken.
  *
+ * ## 31 -> 28, and the first bite out of `object-form`
+ *
+ * objectui#8071's tenth slice takes three `object-form` keys — `initialValues`,
+ * `initialData` and `submitBehavior` — so the ceiling follows to 28 in the same
+ * commit. The block is NOT closed: `customFields`, `dataSource`, `mobile` and
+ * `sections` remain, which is the two-bite shape slice 9 said every remaining
+ * block now has.
+ *
+ * ⚠️ The dispatch that opened this slice named the three keys objectui#8068's
+ * card body flags as "near misses" (`object-form.fields`,
+ * `object-grid.exportOptions`, `object-grid.bulkActions`/`bulkActionDefs`).
+ * ALL FOUR have been pinned since slice 1 (PR objectui#8737). The card body's
+ * enumerated list has been stale since then and the comment at
+ * issuecomment-5599611864 already says so: the authoritative list is THIS
+ * constant's table, never the card's prose. Recorded here because the stale
+ * list has now mis-aimed a dispatch a second time.
+ *
+ * The two pins are new-file and grown-file respectively, and the distinction is
+ * worth the line because slice 1's finding was about exactly this. The
+ * `initialValues`/`initialData` pair had NO file constraining the choice between
+ * them, so it is a new one. `submitBehavior` already had
+ * `ObjectForm.submitBehavior.test.tsx`, whose whole subject is the key and which
+ * drives the real renderer — a genuine near miss, unlike slice 1's two — but it
+ * left two members of the read unasserted (`delayMs`, and the `next-record`
+ * arm), so it was GROWN before it was registered rather than credited as found.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here either — slice 7's measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 31;
+const MEMBER_PIN_EXEMPTION_CEILING = 28;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

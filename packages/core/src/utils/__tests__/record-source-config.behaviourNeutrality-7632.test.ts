@@ -19,12 +19,18 @@
  * third one is behavioural:
  *
  *  - `ObjectGantt`, `ObjectTree` — the bare ladder.
- *  - `ObjectCalendar` — `'data' in schema && schema.data` guards, because its
- *    parameter is `ObjectGridSchema | CalendarSchema` and `CalendarSchema`
- *    declares neither `data` nor `staticData`. Type-level only: an absent
- *    property reads `undefined`, which is falsy either way. `CALENDAR_IN_GUARD`
- *    below pins that equivalence directly, on a schema that really lacks both
- *    keys.
+ *  - `ObjectCalendar` — `'data' in schema && schema.data` guards, because at
+ *    that commit its props parameter was the union `ObjectGridSchema |
+ *    CalendarSchema` and the second member declared neither `data` nor
+ *    `staticData`. Type-level only: an absent property reads `undefined`, which
+ *    is falsy either way. `CALENDAR_IN_GUARD` below pins that equivalence
+ *    directly, on a schema that really lacks both keys.
+ *    ⛔ That union is RETIRED (objectui#8651) —
+ *    `ObjectCalendarComponentProps.schema` is the published
+ *    `ObjectCalendarSchema` today — so this clause is HISTORY, describing the
+ *    tree at 1ec291c0 that the transcriptions below come from. It is not a
+ *    reading anyone can re-derive from `main`, and it is kept only because it
+ *    is why the guard was there to transcribe.
  *  - `ObjectGrid`, `ObjectMap` — a bare-array `data` shorthand normalized to
  *    `{ provider: 'value', items }`, which the other three do NOT have. This is
  *    a REAL divergence on off-contract input: those three return the array
@@ -308,10 +314,17 @@ describe('the `{ provider, items }` object on an ARRAY-armed block (objectui#834
 });
 
 /**
- * `ObjectCalendar`'s `in` guards, on the schema shape that motivated them:
- * `CalendarSchema` declares neither `data` nor `staticData`, so the guard is a
- * TypeScript narrowing device with no runtime effect. Pinned directly rather
- * than argued, because "the guard is load-bearing" was the card's claim.
+ * `ObjectCalendar`'s `in` guards, on the schema shape that motivated them: a
+ * schema carrying neither `data` nor `staticData`, so the guard is a TypeScript
+ * narrowing device with no runtime effect. Pinned directly rather than argued,
+ * because "the guard is load-bearing" was the card's claim.
+ *
+ * ⛔ The shape used to be named here as `CalendarSchema`, the second member of
+ * the props union `ObjectCalendar` carried at 1ec291c0. objectui#8651 retired
+ * that union, so the name no longer resolves to anything a reader can open —
+ * and naming it was never what this block measures. What it measures is the
+ * KEYS, which the fixtures below carry (or do not) directly, and the `LIT
+ * control` row is what proves they really do.
  */
 describe('the `in`-guard divergence is type-level, not behavioural (objectui#7632)', () => {
   const CALENDAR_IN_GUARD: [string, Schema][] = [

@@ -23,7 +23,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import type { ObjectCalendarSchema, DataSource, CalendarConfig, ViewData } from '@object-ui/types';
+import type { ObjectCalendarSchema, DataSource, CalendarConfig } from '@object-ui/types';
 import { CalendarView, type CalendarViewEvent } from './CalendarView';
 import { usePullToRefresh } from '@object-ui/mobile';
 import {
@@ -421,26 +421,28 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // `data` PROP through `index.tsx`'s `resolveExternalData`, which is what
   // actually draws it.
   //
-  // ⚠️ NAMED SEAM, and the reason the three members are passed one by one
-  // instead of handing the whole node over (objectui#8651). The shared
-  // resolver's PARAMETER declares `data?: ViewData`, but its own `dataArm`
-  // contract — and its `authoredDataIsOnTheDeclaredArm` predicate, which takes
-  // `unknown` — admit an ARRAY on the `'array'` arm, which is exactly the arm
-  // this block declares (`ObjectCalendarSchema.data`, objectui#9239/#8348). So
-  // the signature contradicts the function's own documented contract, and the
-  // retired union hid it: `ObjectGridSchema.data` is `ViewData`, so the call
-  // type-checked while saying something this block does not mean.
+  // ⚠️ The three members are passed one by one instead of handing the whole
+  // node over (objectui#8651): they are exactly what the resolver documents
+  // itself as reading, so the call site cannot come to depend on a key the
+  // ladder does not read.
   //
-  // ⛔ That is an upstream defect in `@object-ui/core`, NOT a licence to widen
-  // anything here (AGENTS.md #0.1) — and `packages/core/` is outside this
-  // card's file surface. Reported rather than patched. This spelling passes
-  // only the three members the resolver documents itself as reading, with the
-  // `data` member named at the arm this block declares, so the RUNTIME value
-  // reaching the predicate is byte-for-byte the one `schema.data` held before.
+  // ⭐ THE CAST HERE IS GONE (objectui#9473), and its absence is the assertion.
+  // `data` used to be spelled `schema.data as ViewData | undefined` because the
+  // shared resolver's PARAMETER declared a flat `data?: ViewData` while its own
+  // `dataArm` contract — and its `authoredDataIsOnTheDeclaredArm` predicate,
+  // which takes `unknown` — admit an ARRAY on the `'array'` arm, the arm this
+  // block declares (`ObjectCalendarSchema.data`, objectui#9239/#8348). The
+  // signature contradicted the function's own documented contract, and the
+  // retired props union had hidden it: `ObjectGridSchema.data` is `ViewData`,
+  // so the call type-checked while saying something this block does not mean.
+  // That parameter is now arm-indexed (`AuthoredRecordSourceData<'array'>` is
+  // `unknown[]`), so the compiler reads the arm this site already passes and a
+  // cast is no longer load-bearing — ⛔ do not reintroduce one here, where it
+  // would silence the next such disagreement instead of reporting it.
   const dataConfig = useMemo(() => resolveRecordSourceConfig(
     {
       objectName: schema.objectName,
-      data: schema.data as ViewData | undefined,
+      data: schema.data,
       staticData: schema.staticData,
     },
     'array',

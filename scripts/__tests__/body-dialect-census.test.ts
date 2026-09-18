@@ -250,30 +250,26 @@ describe('the `body` consumers the ruling does not enumerate', () => {
   });
 
   it('the platform SHIPS the dialect it is being asked to refuse', () => {
-    // The sharpest census finding, and the claim is UNCHANGED: ruling step 5's
-    // principle is that "the platform never refuses a spelling it still ships",
-    // so step 4 (tier teaches `children` only) cannot land while any PRODUCER
-    // still emits `body` into metadata a user then owns.
+    // The sharpest census finding, and the claim is UNCHANGED for the second
+    // time: ruling step 5's principle is that "the platform never refuses a
+    // spelling it still ships", so step 4 (tier teaches `children` only) cannot
+    // land while any PRODUCER still emits `body` into metadata a user then owns.
     //
-    // What moved is the subject, not the claim. objectui#7181 migrated the six
-    // producers its table named — `objectui init`, the VS Code extension's
-    // new-file templates, the three `defaultProps` registrations and the
-    // runner's fallback page. ⛔ It did NOT finish the population: the census
-    // that found those six also reaches a SEVENTH the table never listed, and
-    // `generatePage` in `packages/cli/src/commands/generate.ts` still writes a
-    // `pages/NAME.json` whose child list is spelled `body` (objectui#9847).
-    //
-    // ⇒ the statement above is still TRUE today, for exactly one file. Both
-    // halves are asserted, so a regression in EITHER direction reds: a migrated
-    // producer drifting back to `body`, or objectui#9847 landing without this
-    // block being re-pointed at whatever still ships the dialect — or at
-    // nothing, once nothing does, which is the day step 4 becomes landable.
+    // What moves each round is the SUBJECT, never the claim. objectui#7181
+    // migrated the six producers its table named — `objectui init`, the VS Code
+    // extension's new-file templates, the three `defaultProps` registrations
+    // and the runner's fallback page. objectui#9847 migrated the SEVENTH that
+    // table never listed: `generatePage` in
+    // `packages/cli/src/commands/generate.ts`, which scaffolded a
+    // `pages/NAME.json` whose child list was spelled `body`.
     //
     // ⛔ Deliberately NOT inverted into "the producers now carry `children`".
-    // That would assert objectui#7181's own diff back at itself and discard the
-    // ordering rationale this block exists to carry.
+    // That would assert the migrating branch's own diff back at itself and
+    // discard the ordering rationale this block exists to carry — refused by
+    // objectui#7181's repair round, and refused again by objectui#9847's.
     const migrated = [
       'packages/cli/src/commands/init.ts',
+      'packages/cli/src/commands/generate.ts',
       'packages/vscode-extension/src/extension.ts',
       'packages/components/src/renderers/complex/carousel.tsx',
       'packages/components/src/renderers/complex/resizable.tsx',
@@ -289,8 +285,62 @@ describe('the `body` consumers the ruling does not enumerate', () => {
       expect(text, producer).not.toContain('body:');
     }
 
-    // The half that keeps the claim true — and keeps step 4 blocked.
-    expect(readCode('packages/cli/src/commands/generate.ts')).toMatch(/^\s*body:/m);
+    // ⭐ What objectui#9847 established, taken from the instrument rather than
+    // from its own diff: across the whole tree the census now reaches NO
+    // `body`-spelled child list in its `app-metadata` bucket — the bucket that
+    // holds shipped source. Asserted as a population, so a producer arriving in
+    // a file nobody listed reds this without anyone extending the list above.
+    const { filesScanned, hits } = census(REPO_ROOT);
+    const carryingBody = hits.filter((hit: { body: boolean }) => hit.body);
+
+    // Two lit controls, because a blind walk satisfies the zero below on its
+    // own — this file's first block exists for that exact failure.
+    expect(filesScanned, 'the census walked nothing').toBeGreaterThan(0);
+    expect(
+      carryingBody.length,
+      'the census reaches no `body` node ANYWHERE — it has gone blind, or the ' +
+        'teaching corpus and example apps that ruling step 5 migrates are gone'
+    ).toBeGreaterThan(0);
+
+    expect(
+      carryingBody
+        .filter((hit: { bucket: string }) => hit.bucket === 'app-metadata')
+        .map((hit: { file: string; line: number }) => `${hit.file.split('\\').join('/')}:${hit.line}`)
+    ).toEqual([]);
+
+    // ⛔ That zero is NOT the answer to "is step 4 landable", and reading it as
+    // one is the trap this half exists to close. The census states its own
+    // limits and TWO of them hide a producer: it scores a child list only on an
+    // object that also carries a string-LITERAL `type` (a `tabs` ITEM carries
+    // `label`/`value`/`body` and no `type`), and it never reads inside a string
+    // or a template literal (a VS Code completion snippet is a string). Both
+    // shapes are live in shipped source today, so the claim in this test's name
+    // is still TRUE — with a third subject, and step 4 is still not landable.
+    //
+    // ⭐ When either assertion below reds, that is the HANDOFF, not a
+    // regression: re-point this block at whatever still ships the dialect — or,
+    // once nothing does, say so here in these terms, which is the day step 4
+    // becomes landable. ⛔ Do not delete the claim to make the block green.
+
+    // Inserted into the user's own document the moment the completion is
+    // accepted, which is the most direct form a producer takes: the author does
+    // not even type the spelling.
+    const completion = readCode('packages/vscode-extension/src/providers/CompletionProvider.ts');
+    expect(completion, 'lit control — the snippet table is being read at all').toContain(
+      '"className": "$1"'
+    );
+    expect(completion).toContain('"body": {');
+
+    // A shipped `defaultProps` child list, the same construct as the three
+    // registrations objectui#7181 moved — spelled on a tab ITEM, where the
+    // renderer's canonical key is `content`. ⛔ Whether it belongs to
+    // objectui#6771's ruled family is NOT decided here; that it still ships the
+    // spelling is what is asserted.
+    const tabs = readCode('packages/components/src/renderers/layout/tabs.tsx');
+    expect(tabs, 'lit control — the defaultProps block is being read at all').toContain(
+      'defaultProps:'
+    );
+    expect(tabs).toMatch(/value:\s*'tab1',\s*body:\s*\[/);
   });
 });
 

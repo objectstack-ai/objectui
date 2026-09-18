@@ -80,6 +80,149 @@ export type { FormFieldSpec, FormSectionSpec, FormViewSpec, VisibilityPredicate 
 
 type JsonSchema = Record<string, any>;
 
+/* ----- `$ref` indirection (objectui#9912) --------------------------------- */
+
+/**
+ * JSON Schema keywords whose value is DATA, not a subschema — never walked by
+ * {@link inlineSchemaRefs}. Mirrors the producer's own position-aware walk
+ * (`@objectstack/metadata-protocol` `unauthorable-nodes.ts`), for the same
+ * reason: a metadata `default` or `const` is an author's VALUE, and a value
+ * that happens to carry a `$ref` key is not an indirection this renderer may
+ * follow.
+ */
+const REF_WALK_DATA_KEYS: ReadonlySet<string> = new Set([
+  'default', 'const', 'enum', 'examples', 'title', 'description',
+  '$schema', '$id', '$comment', 'required',
+]);
+
+/**
+ * Keywords whose value is a MAP of author-chosen NAME to subschema. The map is
+ * not a schema node; every VALUE in it is. Reading such a map as a node is how
+ * a property literally named `items` or `not` gets its own value treated as a
+ * keyword.
+ */
+const REF_WALK_MAP_KEYS: ReadonlySet<string> = new Set([
+  'properties', 'patternProperties', 'dependentSchemas',
+]);
+
+/**
+ * Inline a served schema's `$ref` nodes against its own `$defs`, so the widget
+ * decision sees the shape the document declares instead of an indirection it
+ * has no branch for (objectui#9912).
+ *
+ * ## What the platform actually serves, and which rows this moves
+ *
+ * `/meta/types` derives each type with `z.toJSONSchema()`, and Zod emits a
+ * `$defs` entry plus a `$ref` for any schema reached more than once or defined
+ * recursively. The resulting node carries no `type`, no `properties` and no
+ * `enum`, so it reaches {@link resolveFieldFace} with nothing to classify and
+ * falls to the last-resort JSON editor — while the shape it points at is right
+ * there in the same document.
+ *
+ * ⚠️ Measured on the installed `@objectstack/spec`, and the headline is a
+ * NEGATIVE: most of the served `$ref` rows are the recursive Query-DSL
+ * `FilterCondition` (`dataset.filter`, `field.relatedListFilter`,
+ * `report.runtimeFilter`, `dashboard.widgets[].filter`, …), whose target
+ * derives to `allOf: [ an open record, { $and / $or / $not } ]` — no top-level
+ * `type`, so the face after inlining is the SAME JSON editor. Those rows are
+ * NOT what this buys; `SchemaForm.refIndirection-9912.test.tsx` pins both
+ * directions so a later reader does not mistake one for the other, and the
+ * `widget: 'json'` the spec's own `report` form declares on `runtimeFilter`
+ * says the JSON editor is the intended control there.
+ *
+ * ## The cycle guard is not defensive, it is load-bearing
+ *
+ * That same `FilterCondition` target refers to ITSELF (`$and` is an array of
+ * it), so an eager resolver does not terminate. A pointer already on the
+ * resolution stack is left as the `$ref` node it is — which is exactly the
+ * behaviour this function replaces, applied one level in.
+ *
+ * ## Sibling keywords win
+ *
+ * JSON Schema 2020-12 allows keywords beside `$ref`, and the derivation uses
+ * that for the row's own `description` — its help text in the form. The inlined
+ * target is therefore the BASE and the node's own keys are laid over it, never
+ * the other way round.
+ *
+ * Pure and copy-on-write: a document with no resolvable `$ref` is returned by
+ * reference, so every type that carries none renders from the very same object
+ * it does today.
+ */
+function inlineSchemaRefs(doc: JsonSchema | undefined): JsonSchema | undefined {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return doc;
+
+  /** The target of a LOCAL pointer into this document's own definitions. */
+  const target = (ref: string): JsonSchema | undefined => {
+    const match = /^#\/(\$defs|definitions)\/(.+)$/.exec(ref);
+    if (!match) return undefined;
+    // RFC 6901 escapes, in the order the spec mandates (`~1` before `~0`).
+    const key = match[2].replace(/~1/g, '/').replace(/~0/g, '~');
+    const dictionary = doc[match[1]];
+    if (!dictionary || typeof dictionary !== 'object') return undefined;
+    const found = dictionary[key];
+    return found && typeof found === 'object' && !Array.isArray(found)
+      ? (found as JsonSchema)
+      : undefined;
+  };
+
+  function walkNode(node: unknown, stack: readonly string[]): unknown {
+    if (Array.isArray(node)) {
+      let changed = false;
+      const out = node.map((entry) => {
+        const next = walkNode(entry, stack);
+        if (next !== entry) changed = true;
+        return next;
+      });
+      return changed ? out : node;
+    }
+    if (!node || typeof node !== 'object') return node;
+    const source = node as JsonSchema;
+
+    const ref = typeof source.$ref === 'string' ? source.$ref : undefined;
+    if (ref) {
+      // A pointer already being resolved — the recursive arm. Leave it.
+      if (stack.includes(ref)) return node;
+      const found = target(ref);
+      if (!found) return node;
+      const inlined = walkNode(found, [...stack, ref]) as JsonSchema;
+      const siblings: Record<string, unknown> = { ...source };
+      delete siblings.$ref;
+      return Object.keys(siblings).length > 0 ? { ...inlined, ...siblings } : inlined;
+    }
+
+    let out: Record<string, unknown> | undefined;
+    for (const [key, entry] of Object.entries(source)) {
+      if (REF_WALK_DATA_KEYS.has(key)) continue;
+      // The definition dictionary stays byte-identical: pointers into it must
+      // keep resolving, and each target is walked when it is inlined.
+      if (key === '$defs' || key === 'definitions') continue;
+      const next = REF_WALK_MAP_KEYS.has(key)
+        ? walkMap(entry, stack)
+        : walkNode(entry, stack);
+      if (next !== entry) {
+        out ??= { ...source };
+        out[key] = next;
+      }
+    }
+    return out ?? node;
+  }
+
+  function walkMap(map: unknown, stack: readonly string[]): unknown {
+    if (!map || typeof map !== 'object' || Array.isArray(map)) return map;
+    let out: Record<string, unknown> | undefined;
+    for (const [key, entry] of Object.entries(map as Record<string, unknown>)) {
+      const next = walkNode(entry, stack);
+      if (next !== entry) {
+        out ??= { ...(map as Record<string, unknown>) };
+        out[key] = next;
+      }
+    }
+    return out ?? map;
+  }
+
+  return walkNode(doc, []) as JsonSchema;
+}
+
 /** Widgets that don't need a custom renderer — they overlay on the
  * existing default control (textarea/input/etc) and just act as a hint. */
 const KNOWN_PASSTHROUGH_WIDGETS = new Set<string>([
@@ -864,7 +1007,12 @@ function SchemaFormBody({
     return map;
   }, [issues, locale]);
 
-  let effectiveSchema: JsonSchema | undefined = schema;
+  // objectui#9912 — follow the ONE indirection the served derivation uses
+  // before any widget decision reads the node. Memoised for cost only: the
+  // result is consumed as a VALUE, never as an identity (AGENTS.md #10).
+  const derefSchema = React.useMemo(() => inlineSchemaRefs(schema), [schema]);
+
+  let effectiveSchema: JsonSchema | undefined = derefSchema;
   if (!effectiveSchema || typeof effectiveSchema !== 'object') {
     if (value && typeof value === 'object') {
       effectiveSchema = inferSchemaFromValue(value as Record<string, unknown>);

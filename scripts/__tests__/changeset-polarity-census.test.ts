@@ -26,6 +26,7 @@ import {
   matchesPopulation,
   readClaim,
   readPolarity,
+  resolutionRootsFor,
   runControls,
   segmentClauses,
   segmentSentences,
@@ -848,6 +849,24 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
     expect(
       fixtureSplitRun.schemasResolvingNowhere.some((u) => u.schema === 'RepoOnlySchema'),
     ).toBe(false);
+  });
+
+  it('the repo root reads `.tsx` too -- the live symbol on that side is in one', () => {
+    /**
+     * ⚠️ The workspace FIXTURE is a `.ts`, because `tsconfig.scripts.json`'s
+     * program does not reach `.tsx` under `scripts/` and an unchecked fixture is
+     * objectui#3494. So the extension that fixture cannot carry is pinned here:
+     * drop `.tsx` and the one repo-side symbol in the live bucket silently moves
+     * onto the gone line, which is this card's own defect returning.
+     */
+    const roots = resolutionRootsFor({ typesDir: path.join(REPO_ROOT, 'packages/types/src') });
+    const repoRoot = roots.find((r) => r.kind === 'repo');
+    expect(repoRoot, 'the repo is not a resolution root at all').toBeTruthy();
+    expect(repoRoot.extensions).toContain('.tsx');
+    expect(repoRoot.extensions).toContain('.ts');
+    // And a declared dependency is a root too, derived from the manifest that
+    // owns the indexed tree rather than hand-listed.
+    expect(roots.some((r) => r.kind === 'dependency')).toBe(true);
   });
 
   it('the two lines PARTITION the bucket -- nothing is dropped and nothing is counted twice', () => {

@@ -472,13 +472,12 @@ const DeclaredActionButton: React.FC<{
  * action that survives. An override-only viewer gets no exemption from a
  * declared capability, and gets no new exposure either.
  */
-const DeclaredActionsToolbar: React.FC<{
-  actions: ActionDef[];
-  objectName: string;
-  record: any;
-  className?: string;
-  label?: string;
-}> = ({ actions, objectName, record, className, label }) => {
+const DeclaredActionsToolbar: React.FC<
+  Pick<DeclaredActionsBarProps, 'objectName' | 'record' | 'className' | 'label'> & {
+    /** The located set, pre-filtered by `location` / `exclude`, ungated. */
+    actions: ActionDef[];
+  }
+> = ({ actions, objectName, record, className, label }) => {
   const { t } = useObjectTranslation();
   const mayInvoke = useCapabilityGate();
   const permitted = useMemo(

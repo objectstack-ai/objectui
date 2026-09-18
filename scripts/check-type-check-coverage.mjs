@@ -498,6 +498,30 @@ export function auditPackages(packages, tables = {}) {
   }
 
   // 2. Ratchet — a declared gap that has been closed must leave the list.
+  //
+  // ⛔ The stale-entry message below may not put a GitHub closing keyword
+  // (`close`/`fix`/`resolve`, any tense) immediately in front of the anchor it
+  // interpolates. This message exists to be QUOTED: the discipline around a DEBT
+  // entry is to take the INTERMEDIATE reading — the package type-checked, the
+  // entry not yet deleted — and paste the gate's own output into the pull
+  // request as proof the work landed. A keyword in front of the number makes
+  // every such quote a card-ending trigger in the merge path, from a body whose
+  // author was being careful. GitHub's parser does no sentence parsing, so
+  // hedging the sentence around it buys nothing. Keep the instruction, lose the
+  // keyword, and spell the anchor `objectui#` rather than a bare `#` so the
+  // reference cannot match the closing grammar at all.
+  //
+  // ⚠️ An empty ledger is not a defence, it is the reason this shape survived:
+  // a message no entry makes reachable is quoted by nobody and read by nobody,
+  // and the entry that reopens it is written by whoever will need to quote it.
+  // The TEST_DEBT ratchet further down carries the twin of this tail and is
+  // governed by the same rule. The landed precedents are the DEBT ratchet in
+  // scripts/check-lint-coverage.mjs and both stale-entry messages in
+  // scripts/check-action-forward-parity.mjs — cited by the names of the things,
+  // not by line address (root `AGENTS.md`, commandment #11). Pinned by
+  // scripts/__tests__/check-type-check-coverage-closing-keyword.test.ts, which
+  // RENDERS both messages through `auditPackages` with a seeded ledger rather
+  // than trusting this comment or reading the template.
   for (const name of Object.keys(debt)) {
     const pkg = byName.get(name);
     if (!pkg) {
@@ -505,7 +529,7 @@ export function auditPackages(packages, tables = {}) {
     } else if (pkg.hasScript) {
       errors.push(
         `${name} now has a "type-check" script — delete its DEBT entry so the gap cannot reopen` +
-          `${debt[name].issue ? ` (and close #${debt[name].issue} if it is done)` : ""}.`
+          `${debt[name].issue ? `, and objectui#${debt[name].issue} can be ended once that work is done` : ""}.`
       );
     }
   }
@@ -724,6 +748,12 @@ export function auditPackages(packages, tables = {}) {
   }
 
   // 6. Ratchet — a declared test gap that has been closed must leave the list.
+  //
+  // ⛔ Same rule as rule 2's ratchet above, for the same reason: the tail below
+  // is quoted into pull-request bodies by design, so a GitHub closing keyword in
+  // front of the anchor ends that card on merge. Keep the instruction, lose the
+  // keyword, spell the anchor `objectui#`. Both tails are pinned together by
+  // scripts/__tests__/check-type-check-coverage-closing-keyword.test.ts.
   for (const [name, spec] of Object.entries(testDebt)) {
     const pkg = byName.get(name);
     if (!pkg) {
@@ -748,7 +778,7 @@ export function auditPackages(packages, tables = {}) {
     if (testsCovered(pkg)) {
       errors.push(
         `${name} type-checks its tests now — delete its TEST_DEBT entry so the gap cannot reopen` +
-          `${spec.issue ? ` (and close #${spec.issue} if the list is empty)` : ""}.`
+          `${spec.issue ? `, and objectui#${spec.issue} can be ended once the list is empty` : ""}.`
       );
     }
   }

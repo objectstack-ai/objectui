@@ -131,9 +131,21 @@ function renderStaleEntry(rewrite: (source: string) => string = (source) => sour
  * about a different gate's source is a reading of a population that moves
  * without this file and re-derives never. objectui#9906 is that shape landed:
  * the banner said the closing-keyword spelling "still stands" in two named
- * sibling gates, one half was already false when it was written, and the other
- * went false two days later when the sibling was repaired. Nothing could have
- * noticed, because nothing read the sentence.
+ * sibling gates. Measured with the `CLOSING_TRIGGER` below, over each named
+ * file as of each merge commit rather than inferred from pull-request titles:
+ * both halves were TRUE the day the sentence was written, and it went stale in
+ * two steps — the first about 35 hours later, the second the same day after
+ * that — each step a different pull request and ⛔ neither of them the one that
+ * wrote the sentence. Nothing could have noticed, because nothing read it.
+ *
+ * ⚠️ That last reading is itself dated, and it lives HERE and on the card
+ * rather than in the banner, on purpose. This file is what a person opens when
+ * they are deciding how to word that banner, and the card carries the commits
+ * the reading was taken at. A first draft of the repair put a version of it in
+ * the banner instead — and got it backwards, claiming a half was already false
+ * on the day of writing. ⭐ A dated reading asserted where nothing re-reads it
+ * was wrong within one review round, which is the argument for this whole rule
+ * arriving by being committed rather than by being made.
  *
  * ⛔ This is NOT a check that any such claim is TRUE — no tree is scanned here
  * and none may be (the 2026-09-18 ruling closed the door on a new gate for

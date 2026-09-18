@@ -120,8 +120,8 @@ for (const pkg of packages) {
 // re-answer that here, and ⛔ do not name which other gates carry the shape
 // today: a sentence in this banner about another gate's source is a reading
 // taken once, by someone who is not looking at that file, and re-derived
-// never. The one that stood here was false in one half the day it was written
-// (objectui#9906). Pinned by
+// never. Such a sentence does not stay true; it only waits. The one that stood
+// here, and how it went stale, are on objectui#9906. Pinned by
 // scripts/__tests__/check-lint-coverage-closing-keyword.test.ts, which reads
 // this module's text rather than trusting this comment — this paragraph
 // included, for the naming of any other gate.

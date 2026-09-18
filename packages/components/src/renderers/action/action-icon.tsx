@@ -154,10 +154,11 @@ const ActionIconRenderer = forwardRef<
           // See action-button.tsx — the one-shot reveal spec (2FA setup, fresh
           // OAuth secret). Without it the runner falls back to the success
           // toast and the value the user was meant to copy is gone. The READ is
-          // uncast since objectui#8648; the write-side assertion is the same
-          // ledgered `ResultDialogSpec` drift `action-button.tsx` documents
-          // (filed as objectui#9542). ⛔ Never widen it back to `as any`.
-          resultDialog: schema.resultDialog as ActionDef['resultDialog'],
+          // uncast since objectui#8648; the write-side narrowing that stood
+          // here went with objectui#9542, which made `ResultDialogSpec` derive
+          // its label members from the contract. ⛔ Never widen either end back
+          // to `as any`.
+          resultDialog: schema.resultDialog,
           // See action-button.tsx — the declared post-success hop
           // (objectui#5493). The runner reads it off the forwarded def; dropped
           // here the action succeeds and the authored navigation never runs.

@@ -552,15 +552,43 @@ export type ParamCollectionHandler = (
  * values the user must copy NOW (2FA secret, OAuth client_secret, backup
  * codes).
  */
+/**
+ * The contract's own `resultDialog` block, and one entry of its field list —
+ * the source the two mirrors below DERIVE their label members from, so the
+ * "Mirrors `Action.resultDialog`" claim above is re-checked by `tsc` on every
+ * build instead of being asserted once in prose.
+ *
+ * ⭐ Deriving rather than restating is the whole repair of objectui#9542. The
+ * three label members were hand-written `string` here while the contract
+ * declares each as `I18nLabel` — a plain string **or** an inline per-locale
+ * map, both authorized and neither deprecated — so this mirror REFUSED what
+ * the platform accepts while its docblock claimed the alignment. A hand copy
+ * can drift again the moment the contract moves; a derived member cannot.
+ *
+ * ⛔ Local, deliberately not exported: the two interfaces below stay the only
+ * names this module publishes for the block.
+ */
+type SpecResultDialog = NonNullable<SpecActionInput['resultDialog']>;
+type SpecResultDialogField = NonNullable<SpecResultDialog['fields']>[number];
+
 export interface ResultDialogFieldSpec {
   path: string;
-  label?: string;
+  /**
+   * Derived `I18nLabel` — a plain string, or an inline per-locale map. A
+   * renderer must RESOLVE it (`resolveI18nLabel` in `@objectstack/spec/ui`)
+   * before it reaches the DOM; passed through as-is, the map arm is an object
+   * and React refuses an object as a child.
+   */
+  label?: SpecResultDialogField['label'];
   format?: 'qrcode' | 'code-list' | 'secret' | 'text' | 'json';
 }
 export interface ResultDialogSpec {
-  title?: string;
-  description?: string;
-  acknowledge?: string;
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  title?: SpecResultDialog['title'];
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  description?: SpecResultDialog['description'];
+  /** Derived `I18nLabel` — see `ResultDialogFieldSpec.label` on resolving it. */
+  acknowledge?: SpecResultDialog['acknowledge'];
   format?: 'qrcode' | 'code-list' | 'secret' | 'text' | 'json';
   fields?: ResultDialogFieldSpec[];
 }

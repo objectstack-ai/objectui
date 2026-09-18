@@ -100,6 +100,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '../../../../scripts/js-comment-mask.mjs';
 
 import type { SchemaNode } from '../base';
 import type {
@@ -185,12 +186,22 @@ function interfaceBody(source: string, opener: string, path: string): string {
 /**
  * Member rows of an interface body, keyed by name.
  *
- * JSDoc is stripped first: the declaration bodies carry multi-paragraph doc
- * comments, and a `@example` fence inside one holds lines that look exactly
- * like member rows.
+ * Comments go first, through `scripts/js-comment-mask.mjs` -- the one reader
+ * graded against a parser -- because the declaration bodies carry
+ * multi-paragraph doc comments and an `@example` fence inside one holds lines
+ * that look exactly like member rows. The question asked here is "is this span
+ * a comment", NOT "is this span a JSDoc block": the private projection this
+ * replaced saw only a docblock opener, so an ordinary block comment holding a
+ * member-shaped line was invisible to it, and its line rule fired only at the
+ * start of a line.
+ *
+ * `stripComments` rather than `maskComments` because this reader reports
+ * neither a line number nor an offset into the source it was handed -- it
+ * returns member names. That is the projection the module's own header names
+ * for that caller.
  */
 function members(body: string): Map<string, Member> {
-  const bare = body.replace(/\/\*\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const bare = stripComments(body);
   const found = new Map<string, Member>();
   for (const match of bare.matchAll(/^ {2}(\w+)(\?)?:\s*([^;]+);/gm)) {
     found.set(match[1], { optional: match[2] === '?', typeText: match[3].trim() });

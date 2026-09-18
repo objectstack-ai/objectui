@@ -38,6 +38,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { maskComments as mask } from '../../../scripts/js-comment-mask.mjs';
 import type { RecordContextValue } from '@object-ui/react';
 import type { buildMasterDetailEditBatch } from './masterDetailTx';
 
@@ -73,9 +74,23 @@ type _UnknownIsRefusedAsParentId = Expect<unknown extends ParentIdParam ? true :
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PANEL = path.join(here, 'LineItemsPanel.tsx');
 
-/** Strip `//` and block comments so prose about the old defect is not a hit. */
+/**
+ * Comments out so prose about the old defect is not a census hit, through
+ * `scripts/js-comment-mask.mjs` -- the one reader graded against a parser.
+ *
+ * `maskComments` rather than `stripComments`: blanking is the module's safer
+ * default, the only projection that can carry a byte offset, and the one whose
+ * name this function already carried. The cost that argues the other way --
+ * a lazy `[\s\S]*?` walking the whitespace runs a blank leaves behind -- does
+ * not apply, because the census pattern below has no lazy quantifier.
+ *
+ * ⚠️ The private projection this replaced was a HYBRID rather than a masker:
+ * it blanked block comments in place but DELETED line comments, so the offsets
+ * its shape implied were already gone. This is the first version of this reader
+ * for which "preserves byte offsets" is true.
+ */
 function maskComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/\/\/[^\n]*/g, '');
+  return mask(src);
 }
 
 /** A type assertion applied to any `...recordId` read. */

@@ -76,9 +76,15 @@ describe('PercentCellRenderer reads `scale`, not `precision` (objectui#9295)', (
     expect(cellText()).toContain('25.000%');
   });
 
-  it('applies the same member on the WHOLE-percent branch', () => {
-    // `progress` takes the other scaling arm (`formatPercentBody`), which was
-    // handed the same wrong member. A stored 25 is 25% here, not 2500%.
+  it('applies the same member to a value already in percentage points', () => {
+    // A stored 25 is 25% here, not 2500% — `percentDisplayValue` passes any
+    // magnitude at or above 1 through untouched, so this is the arm the value
+    // takes, and it reads `scale` like every other one.
+    //
+    // ⚠️ `progress` is kept as the field name deliberately. Until
+    // objectui#9452 this input reached a SECOND scaling arm chosen by that
+    // name, which was handed the same wrong member; the name is inert now and
+    // the row still has to answer `25.00%`.
     renderPercent(25, { name: 'progress', precision: 10, scale: 2 });
 
     expect(cellText()).toContain('25.00%');

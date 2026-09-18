@@ -230,6 +230,68 @@ describe('ObjectGrid — the search box is server-side under server pagination (
   });
 });
 
+/**
+ * The MEMBERS of `object-grid`'s `searchableFields`, pinned at what the
+ * RENDERER reads (objectui#8071).
+ *
+ * The rows above already carry ONE of them — a single-member `['name']`
+ * reaching `$searchFields`, with the absent control beside it. That is the
+ * forwarding half, and it is why this key is pinned in this file rather than in
+ * a new one. What it could not say, because a one-member array cannot say it:
+ *
+ *   - members arrive VERBATIM and IN ORDER, so the narrowing the view asked for
+ *     is the narrowing the server is handed;
+ *   - **an EMPTY array is not "narrow nothing", it is search OFF.** The read is
+ *     `schema.searchableFields !== undefined ? length > 0 : showSearch ?? true`,
+ *     so `searchableFields: []` removes the search box from the toolbar
+ *     altogether. An author who empties the list while re-picking fields loses
+ *     the control, not the narrowing — nothing is thrown and no diagnostic says
+ *     the key did it;
+ *   - **the canonical key overrules the deprecated boolean.** `showSearch:
+ *     false` beside a non-empty `searchableFields` is IGNORED, which is the
+ *     direction half-migrated metadata is least likely to expect.
+ */
+describe('ObjectGrid — `searchableFields` members decide the search surface (objectui#8071)', () => {
+  it('forwards its members VERBATIM and IN ORDER, not as a sorted set', async () => {
+    const ds = makeDataSource();
+    // Deliberately NOT alphabetical: a fold that normalised or sorted the list
+    // would pass a single-member fixture and fail here.
+    const { container } = renderGrid(ds, { searchableFields: ['status', 'name'] });
+    await waitFor(() => expect(screen.getByText('Row 0')).toBeInTheDocument());
+
+    fireEvent.change(searchBox(container), { target: { value: 'acme' } });
+
+    await waitFor(() => {
+      expect(lastFindParams(ds).$searchFields).toEqual(['status', 'name']);
+    });
+  });
+
+  it('an EMPTY `searchableFields` turns the search box OFF', async () => {
+    const ds = makeDataSource();
+    const { container } = renderGrid(ds, { searchableFields: [] });
+    await waitFor(() => expect(screen.getByText('Row 0')).toBeInTheDocument());
+    expect(
+      searchBox(container),
+      'an empty member list disables search rather than narrowing nothing',
+    ).toBeNull();
+  });
+
+  it('a non-empty `searchableFields` overrules a deprecated `showSearch: false`', async () => {
+    const ds = makeDataSource();
+    const { container } = renderGrid(ds, {
+      searchableFields: ['name'],
+      showSearch: false,
+    });
+    await waitFor(() => expect(screen.getByText('Row 0')).toBeInTheDocument());
+    // The row in the block above renders NO box for `showSearch: false` alone,
+    // which is this row's control: the only difference here is the member list.
+    expect(searchBox(container)).not.toBeNull();
+
+    fireEvent.change(searchBox(container), { target: { value: 'acme' } });
+    await waitFor(() => expect(lastFindParams(ds).$searchFields).toEqual(['name']));
+  });
+});
+
 describe('ObjectGrid — a client-paginated grid still searches client-side', () => {
   const inlineRows = [
     { id: 'a', name: 'Alpha', status: 'open' },

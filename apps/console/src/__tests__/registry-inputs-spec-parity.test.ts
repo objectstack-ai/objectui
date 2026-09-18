@@ -1057,9 +1057,13 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //   ⚠️ objectui#8313 then took the FOUR `object-kanban` array/object-armed
   //   keys by the same exit, and paid objectui#8212's second obligation in the
   //   same change: each has a `MEMBER_PINS` entry below, none has a member-pin
-  //   EXEMPTION, and `MEMBER_PIN_EXEMPTION_CEILING` stays 62 — a declaration
-  //   entering the member population must be answered with a pin, which is the
-  //   whole point of that ratchet. The four sinks were measured separately and
+  //   EXEMPTION, and `MEMBER_PIN_EXEMPTION_CEILING` DID NOT MOVE for them — a
+  //   declaration entering the member population must be answered with a pin
+  //   rather than with room, which is the whole point of that ratchet.
+  //   ⚠️ What the ceiling READ at that moment is deliberately not written here:
+  //   it ratchets down under every later slice, so the figure would be false by
+  //   the next one. The rule — "a new array key gets a pin, never room" — is
+  //   what survives; the number is the declaration's. The four sinks were measured separately and
   //   only one of the four questions is the pass-through the `filter` pins
   //   answer; the `pins` prose on each entry says which. `object-calendar`'s
   //   three (`data`, `staticData`, `loading`) are untouched by that card — they
@@ -2019,9 +2023,13 @@ const MULTI_KIND_MEMBER_CONTRACTS: Record<string, string> = {
 // 81 array/object-armed inputs across 24 blocks, 19 pinned, 62 not. The four
 // that moved are `object-calendar.calendar` / `.dataSource` and
 // `object-kanban.columns` / `.dataSource` — pre-existing declarations, named in
-// `NEWLY_JUDGED_UNPINNED_MEMBERS`, and the reason
-// `MEMBER_PIN_EXEMPTION_CEILING` reads 62. objectui#8071's work is unchanged in
-// kind and four keys longer in extent.
+// `NEWLY_JUDGED_UNPINNED_MEMBERS`, and the reason objectui#8176 RAISED
+// `MEMBER_PIN_EXEMPTION_CEILING` — the one raise this constant has had.
+// ⚠️ That is a DATED reading of the ceiling, not a live one, and it is written
+// that way on purpose: the constant ratchets DOWN under every later slice, so
+// a number copied into this paragraph would be true on the day it was written
+// and false at the next slice. Its live value is the declaration itself.
+// objectui#8071's work is unchanged in kind and four keys longer in extent.
 //
 // ⚠️ THE POPULATION THEN GREW BY TWO, and they were answered with PINS rather
 // than with room. objectui#8186 landed objectui#7712's declaration while this
@@ -2139,11 +2147,13 @@ const MULTI_KIND_MEMBER_CONTRACTS: Record<string, string> = {
 // pattern for it —
 // `OFF_SPEC_EXEMPTIONS` / `UNPUBLISHED_EXEMPTIONS` / `OFF_SPEC_ARM_EXEMPTIONS`
 // are explicit, reasoned, issue-backed, and go RED once stale. This is the same
-// mechanism, not a second one: `MEMBER_PIN_EXEMPTIONS` below lists all 50
-// remaining keys BY NAME, every entry cites an issue, and an
-// entry whose key acquires a pin is reported STALE and must be deleted in the
-// same change. The list has a CEILING as well as a stale check, because the
-// cheap way to green a new array key is to add a 51st entry rather than a pin.
+// mechanism, not a second one: `MEMBER_PIN_EXEMPTIONS` below lists EVERY
+// remaining key BY NAME — the list IS the census, so read it rather than any
+// count written about it — every entry cites an issue, and an entry whose key
+// acquires a pin is reported STALE and must be deleted in the same change. The
+// list has a CEILING as well as a stale check, because the cheap way to green a
+// new array key is to add ONE MORE entry rather than a pin; `the member-pin
+// exemption list only ratchets DOWN` is the assertion that refuses it.
 //
 // ## WHAT IS DELIBERATELY NOT IN THE POPULATION, stated rather than dropped
 //
@@ -2340,6 +2350,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-grid/src/__tests__/bulkActionMembers-8071.test.tsx',
     pins: 'Members are BARE ACTION NAMES resolved against `objectDef.actions` and PROMOTED — read off a button carrying the object action\'s own label, which is deliberately not the humanized form of the name, so a renderer treating the member as a display string could not pass. Two companions make it a reading rather than a claim: a name matching no declared action still reaches the bar BY NAME (the `registerHandler` path), and an object member — the `page:header.actions` hole (objectstack#11592) transposed onto this key — is skipped by `resolveBulkActions`\' `typeof name !== \'string\'` guard with no diagnostic at all. `selection` is declared explicitly on every row, because the grid derives multi-select from these very keys and a negative row would otherwise lose its selection UI for the reason under test. The spec row is `z.array(z.unknown())` (objectui#8071).',
   },
+  'object-grid.batchActions': {
+    file: 'packages/plugin-grid/src/__tests__/bulkActionsSpecKey.test.tsx',
+    pins: 'Members are the SAME bare action names `bulkActions` carries — this key is the legacy alias — so what is pinned here is the PRECEDENCE the members are read through, which is where the alias can hurt: the read site is `schema.batchActions ?? schema.bulkActions`, so a populated legacy array wins over a populated canonical one (the objectui#1763 rows) and an EMPTY legacy array wins too — ⚠️ NOT because the coalesce is nullish, a reading ablation refused: `[]` is both non-nullish and truthy, so `??` and `||` are indistinguishable here and only an explicit length test would drop it. A schema half-migrated to `bulkActions` that leaves `batchActions: []` behind therefore renders NO bulk action at all — pinned with `selection` authored, so the checkboxes and the count are real and only the buttons are missing, and nothing is thrown. The same rows pin that this key\'s members drive the selection auto-enable gate (`hasBulkActions`) exactly as the canonical key\'s do. What each member RESOLVES to is `object-grid.bulkActions`\'s pin and is not restated here. Pre-existing file, promoted after being read end to end and GROWN by the empty-array and auto-enable rows, which its two non-empty fixtures could not state (objectui#8071).',
+  },
   'object-grid.exportOptions': {
     file: 'packages/plugin-grid/src/__tests__/ObjectGrid.exportOptionsKeys.test.ts',
     pins: 'The member KEY SET the renderer reads off `schema.exportOptions` (and off the alias bound to it), scanned out of `ObjectGrid.tsx` with comments and string literals stripped, against the `object-grid` REGISTRATION\'s own member enumeration — which is this block\'s only statement of member shape, since the registration declares `type: \'object\'` with no `of` and the spec row is `z.unknown()`. Two directions: the registration may advertise NO member key the renderer ignores (the declaration-side form of the objectstack#11592 hole), and the reverse gap is asserted as an EXACT named set — `streaming`, read at two sites to choose server-streamed vs client-assembled export and absent from the enumeration, filed as objectui#8731 — so a second undocumented key cannot join it and landing the fix reds the row. Carries objectui#4535\'s read-subset-of-declared-type direction as before (objectui#8071).',
@@ -2363,6 +2377,18 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-grid.rowColor': {
     file: 'packages/plugin-grid/src/__tests__/gridRowDecorationMembers-8071.test.tsx',
     pins: 'The two CO-REQUIRED members, asserted on the class the grid paints onto the `<tr>`: `field` names a RECORD field and `colors` is the map keyed by ITS value, so two rows of one grid take two different classes and a value the author did not declare takes none. Either member alone colours NOTHING, with the complete pair over the same data as the control that keeps both absences from reading as a dead resolver. The map is keyed by the STRINGIFIED value — a number matches the string key, and an absent field and an explicit `null` collapse onto the SAME empty-string entry, which is the only way an author can colour "not set yet"; dropping the `?? \'\'` sends `null` to the key `"null"`, which no author writes. A map VALUE is read as a colour NAME or as an already-built `bg-*` class, and anything else (a hex, a CSS colour keyword) yields no class rather than reaching the DOM as a class attribute of its own. Absence is measured as the set of emitted `bg-<hue>-<step>` tokens, not as "contains bg-", because every row carries `bg-background` unconditionally and the weaker form would be vacuous. `useRowColor.prototypeGuard.test.tsx` is NOT this pin: it calls the hook directly and never names the block, so the repo\'s own locator would refuse it and it is green against a grid that never passes the resolver to the table (objectui#8071 slice 12).',
+  },
+  'object-grid.pagination': {
+    file: 'packages/plugin-grid/src/__tests__/gridPagerSelectionMembers-8071.test.tsx',
+    pins: 'The members read off the pager, and the OBJECT\'s own presence rule beside them: `pagination !== undefined` is what enables paging, so an authored object OVERRULES a deprecated `showPagination: false` (with the no-object control beside it, where the boolean IS honoured); `pageSize` sizes the page and WINS over the deprecated flat `pageSize` when the two disagree; and `pageSizeOptions` REPLACES the built-in rows-per-page list rather than extending it — asserted by opening the real selector and comparing the offered set against the built-in control, so an author adding one larger step silently loses 10 / 20 / 50 / 100. ⚠️ The GROUPED pager is deliberately not asserted: it hard-codes its own choices and reads neither member, which is handed back as a finding rather than frozen into this pin. The spec side fixes the member NAMES (`{ pageSize, pageSizeOptions? }`) and nothing about presence, precedence or replacement, so the read site is the whole member contract (objectui#8071).',
+  },
+  'object-grid.searchableFields': {
+    file: 'packages/plugin-grid/src/__tests__/serverSearch.test.tsx',
+    pins: 'Members are FIELD NAMES that reach the fetch as `$searchFields` verbatim and IN ORDER (a deliberately non-alphabetical pair, which a single-member fixture cannot state), with the absent control beside them — a view may narrow which fields the server matches, never widen it (ADR-0061). The sharp member fact is the ARITY: the read is `searchableFields !== undefined ? length > 0 : showSearch`, so an EMPTY array is not "narrow nothing" but search OFF and the toolbar box disappears, while a NON-EMPTY array overrules a deprecated `showSearch: false` — the opposite of what half-migrated metadata expects, and silent both ways. Pre-existing file, promoted after being read end to end and GROWN by the ordering, empty-array and precedence rows; its one pre-existing row pinned forwarding alone (objectui#8071).',
+  },
+  'object-grid.selection': {
+    file: 'packages/plugin-grid/src/__tests__/gridPagerSelectionMembers-8071.test.tsx',
+    pins: 'ONE member is read — `type` — and the pin is mostly about what that means for the object around it: the read is `schema.selection?.type`, so unlike its neighbour `pagination` the OBJECT\'s presence alone does nothing, and each of the three spec values is asserted at the checkbox column (`multiple` = rows + select-all header, `single` = rows and NO header, `none` = no column). `none` is pinned as an explicit OFF that beats BOTH fallback arms — the deprecated `selectable: true` AND the auto-enable that a declared `bulkActions` would otherwise trigger — each with its own control showing the fallback winning when the member is absent. The consequence an author suffers: a grid declaring bulk actions and `selection: { type: \'none\' }` renders a bar that no selection can ever populate, with nothing thrown and no diagnostic. The DataTable-level vocabulary parity is `data-table`\'s own pin and is not restated (objectui#8071).',
   },
   'object-kanban.cardFields': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
@@ -2513,9 +2539,11 @@ const MEMBER_PINS: Record<string, MemberPin> = {
 /**
  * The reason every entry in `MEMBER_PIN_EXEMPTIONS` carries today.
  *
- * One shared constant rather than 58 near-copies, because the reason really is
- * uniform and a copy is what drifts: none of these keys has a pin, and writing
- * 58 of them is not the dispatched scope of the card that built this direction.
+ * One shared constant rather than one near-copy per entry, because the reason
+ * really is uniform and a copy is what drifts: none of these keys has a pin, and
+ * writing one string per key is not the dispatched scope of the card that built
+ * this direction. (The measured population size lives in the string below, where
+ * it is attributed to the card that measured it and dated by it.)
  * objectui#8068 prescribes the transition itself for a population this size, and
  * objectui#8071 owns the work — key by key, deleting an entry here in the same
  * change that registers its pin.
@@ -2606,8 +2634,11 @@ const NO_READ_SITE_TO_PIN =
  * array/object-armed` fires when a key leaves the population.
  *
  * The ceiling below is the other half, and it is what makes this a transition
- * rather than an allowlist: a NEW array-typed key cannot be absorbed by adding a
- * 51st entry, because the count may only go down.
+ * rather than an allowlist: a NEW array-typed key cannot be absorbed by adding
+ * ONE MORE entry, because the count may only go down. ⛔ Neither that count nor
+ * the ceiling is written into this docblock: both move at every slice, and a
+ * figure here would be a claim nothing re-derives. The declaration below is the
+ * count; `MEMBER_PIN_EXEMPTION_CEILING` is the bound.
  */
 const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // element:button — objectui#8071 slice 7 pinned `action`, the block's one
@@ -2627,18 +2658,15 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // next reader who greps for it.
 
   // object-grid — objectui#8071 slice 12 pinned the four per-ROW keys
-  // (`conditionalFormatting`, `operations`, `rowActions`, `rowColor`); the
-  // eleven below are what the block's first bite left.
+  // (`conditionalFormatting`, `operations`, `rowActions`, `rowColor`) and slice
+  // 13 the four TOOLBAR keys (`batchActions`, `pagination`, `searchableFields`,
+  // `selection`); the seven below are what the block's first two bites left.
   'object-grid.aggregations': AWAITING_A_PIN,
-  'object-grid.batchActions': AWAITING_A_PIN,
   'object-grid.columns': AWAITING_A_PIN,
   'object-grid.dataSource': AWAITING_A_PIN,
   'object-grid.filter': AWAITING_A_PIN,
   'object-grid.grouping': AWAITING_A_PIN,
   'object-grid.navigation': AWAITING_A_PIN,
-  'object-grid.pagination': AWAITING_A_PIN,
-  'object-grid.searchableFields': AWAITING_A_PIN,
-  'object-grid.selection': AWAITING_A_PIN,
   'object-grid.sort': AWAITING_A_PIN,
 
   // object-master-detail-form
@@ -3196,11 +3224,65 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS = [
  * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
  * reading was not re-measured here either — slice 7's measurement still stands.
  *
+ * ## 20 -> 16, the second bite out of `object-grid`, and its TOOLBAR layer
+ *
+ * The thirteenth slice takes four more `object-grid` keys — `batchActions`,
+ * `pagination`, `searchableFields` and `selection` — so the ceiling follows in
+ * the same commit. The block is still not closed; slice 12 said it is the first
+ * that cannot fit one slice at all, and this is the second of the bites that
+ * statement predicted.
+ *
+ * ⚠️ The batch was re-taken from THIS CONSTANT by the implementing seat before
+ * its first edit, on `origin/main` `26ac50369`, and the dispatch declined to
+ * name one at all — it handed over slice 12's reading and asked for a batch
+ * chosen by where the READS cluster. They cluster on the fold that assembles
+ * `dataTableSchema`: `pagination`, `searchableFields` and `selection` are each
+ * the canonical half of a canonical-vs-deprecated pair resolved there
+ * (`showPagination` / flat `pageSize`, `showSearch`, `selectable`) and land on
+ * adjacent props of the same `data-table` node, and `batchActions` is the
+ * fourth such pair — `batchActions ?? bulkActions` — whose result feeds the
+ * very gate `selection`'s last fallback arm reads. Four keys, one read of one
+ * fold, three files.
+ *
+ * ⭐ The two keys that look alike read their own presence in OPPOSITE ways, and
+ * that is the finding this slice's shape exists to surface. `pagination` is read
+ * as `!== undefined`, so the object's presence alone enables paging and
+ * overrules `showPagination: false`; `selection` is read as `?.type`, so the
+ * object's presence alone does nothing. Two adjacent object-armed keys on one
+ * block, opposite rules, neither description saying so.
+ *
+ * One of the three files is NEW and two are PROMOTIONS AFTER GROWTH — the
+ * distinction slices 1, 10, 11 and 12 turned on. `pagination` and `selection`
+ * had no file constraining their members at the grid at all
+ * (`groupedPagination.test.tsx` names the block and the key and would satisfy a
+ * string locator, but its subject is GROUP paging and its one `pagination`
+ * fixture exists to suppress a pager; `data-table-selection-mode.test.tsx` pins
+ * the vocabulary one layer down and never names `object-grid`), so they share
+ * one new file. `searchableFields` had `serverSearch.test.tsx`, whose ADR-0061
+ * row really does pin the key's forwarding — a genuine near miss — but with a
+ * SINGLE-member array and no arity row, so it was grown by the ordering,
+ * empty-array and precedence rows before being registered. `batchActions` had
+ * `bulkActionsSpecKey.test.tsx`, whose whole subject IS the alias precedence,
+ * but both its fixtures are non-empty, so the nullish coalesce was unstated; it
+ * was grown by the empty-array row before being registered.
+ *
+ * ⚠️ A member with no read site, handed back as a finding rather than frozen
+ * into the pin — slice 9's choice, for slice 9's reason: the GROUPED pager
+ * hard-codes its own rows-per-page choices and reads neither `pagination.pageSize`
+ * nor `pagination.pageSizeOptions`, so an authored `pageSizeOptions` reaches the
+ * flat pager and is dropped the moment `grouping` is authored. The pin asserts
+ * the flat path and says so; an assertion that the grouped path ignores the
+ * member would have to be deleted before anyone could make it read one.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (no block it names
+ * was touched) and `record:related_list.actions`, whose `NO_READ_SITE_TO_PIN`
+ * reading was not re-measured here either — slice 7's measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 20;
+const MEMBER_PIN_EXEMPTION_CEILING = 16;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

@@ -34,7 +34,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, act, waitFor } from '@testing-library/react';
 
 /**
  * A metadata client whose `get` is settled by the test — resolved for the
@@ -115,14 +115,32 @@ const fieldKeyTrigger = () => screen.getByRole('combobox', { name: FIELD_KEY });
 /** The notice `InspectorSelectField` renders for a failed roster, if any. */
 const failureNotice = () => screen.queryByTestId('inspector-select-roster-failure');
 
+/**
+ * Reject the in-flight request and flush the hook's `catch` plus the re-render
+ * it schedules.
+ *
+ * ⭐ Deliberately NOT `waitFor(failureNotice())`. Measured: with the notice as
+ * the settle gate, ablating the notice turned the flag-suppression and
+ * editability rows red too — for want of a settle, not for their own reason —
+ * so the two halves of this repair were not separately pinned at this level.
+ * Flushing explicitly decouples them: those rows now fail only when the thing
+ * they assert breaks.
+ */
+async function failRequest(err: unknown): Promise<void> {
+  await act(async () => {
+    state.fail(err);
+    // Two turns: one for the rejection to reach the hook's `catch`, one for the
+    // `setState` it makes to land.
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe('ViewColumnInspector — the field roster FAILED to load (objectui#9651)', () => {
   it('does not call a real field "not in object" after the fetch failed', async () => {
     mount();
-    state.fail(new Error('503 Service Unavailable'));
+    await failRequest(new Error('503 Service Unavailable'));
 
-    await waitFor(() => {
-      expect(failureNotice(), 'the failure has reached the picker').not.toBeNull();
-    });
     expect(
       fieldKeyTrigger().textContent,
       'the bound field key is legible and carries no absence claim',
@@ -135,11 +153,9 @@ describe('ViewColumnInspector — the field roster FAILED to load (objectui#9651
 
   it('tells the author the roster failed, and names the cause', async () => {
     mount();
-    state.fail(new Error('503 Service Unavailable'));
+    await failRequest(new Error('503 Service Unavailable'));
 
-    await waitFor(() => {
-      expect(failureNotice()).not.toBeNull();
-    });
+    expect(failureNotice(), 'the failure reached the picker').not.toBeNull();
     // The localized copy this host passes is the shared picker-failure title
     // objectui#5170 landed for the widget family.
     expect(failureNotice()?.textContent).toContain('Options could not be loaded');
@@ -151,11 +167,8 @@ describe('ViewColumnInspector — the field roster FAILED to load (objectui#9651
 
   it('leaves the picker EDITABLE after the failure', async () => {
     mount();
-    state.fail(new Error('boom'));
+    await failRequest(new Error('boom'));
 
-    await waitFor(() => {
-      expect(failureNotice()).not.toBeNull();
-    });
     expect(
       (fieldKeyTrigger() as HTMLButtonElement).disabled,
       'a failed catalog must not also block authoring',
